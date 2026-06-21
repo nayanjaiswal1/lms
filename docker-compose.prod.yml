@@ -1,0 +1,100 @@
+version: "3.9"
+
+networks:
+  mindforge_prod:
+    driver: bridge
+
+volumes:
+  mindforge_pg_prod:
+  mindforge_caddy_data:
+  mindforge_caddy_config:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mindforge_postgres_prod
+    restart: always
+    env_file: .env.prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - mindforge_pg_prod:/var/lib/postgresql/data
+    networks:
+      - mindforge_prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: mindforge_redis_prod
+    restart: always
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--requirepass", "${REDIS_PASSWORD}"]
+    networks:
+      - mindforge_prod
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mindforge_backend_prod
+    restart: always
+    env_file: .env.prod
+    ports:
+      - "8080:8080"
+    networks:
+      - mindforge_prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mindforge_frontend_prod
+    restart: always
+    env_file: .env.prod
+    ports:
+      - "3000:3000"
+    networks:
+      - mindforge_prod
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: mindforge_caddy_prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - mindforge_caddy_data:/data
+      - mindforge_caddy_config:/config
+    networks:
+      - mindforge_prod
+    depends_on:
+      - backend
+      - frontend

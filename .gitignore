@@ -1,0 +1,49 @@
+# ─── Environment / secrets ────────────────────────────────────────────────────
+.env
+.env.prod
+*.env.local
+.env.*.local
+
+# ─── Go build artifacts ───────────────────────────────────────────────────────
+backend/bin/
+*.exe
+*.test
+*.out
+
+# ─── Frontend build artifacts ─────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+
+# ─── MaxMind GeoIP database ───────────────────────────────────────────────────
+*.mmdb
+
+# ─── Caddy data / config (bind-mounted volumes) ───────────────────────────────
+caddy_data/
+caddy_config/
+
+# ─── IDE / editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Desktop.ini
+$RECYCLE.BIN/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+*.err
+npm-debug.log*
+pnpm-debug.log*
+
+# ─── Test coverage ────────────────────────────────────────────────────────────
+coverage/
+*.cover

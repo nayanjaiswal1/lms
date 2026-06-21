@@ -1,0 +1,114 @@
+version: "3.9"
+
+networks:
+  mindforge_dev:
+    driver: bridge
+
+volumes:
+  mindforge_pg_dev:
+  mindforge_redis_dev:
+  mindforge_go_cache:
+  mindforge_minio_dev:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mindforge_postgres_dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - mindforge_pg_dev:/var/lib/postgresql/data
+    networks:
+      - mindforge_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: mindforge_redis_dev
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - mindforge_redis_dev:/data
+    networks:
+      - mindforge_dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  minio:
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    container_name: mindforge_minio_dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MINIO_ROOT_USER: mindforge
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address :9001
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - mindforge_minio_dev:/data
+    networks:
+      - mindforge_dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  backend:
+    image: golang:1.26-alpine
+    container_name: mindforge_backend_dev
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - mindforge_go_cache:/root/go
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8080:8080"
+    networks:
+      - mindforge_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: go run -mod=mod ./cmd/server
+
+  adminer:
+    image: adminer:latest
+    container_name: mindforge_adminer_dev
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    networks:
+      - mindforge_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres

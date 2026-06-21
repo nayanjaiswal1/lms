@@ -1,0 +1,73 @@
+/* Dark editor panel — VS Code theme colours. Lives in a CSS module because
+   Tailwind cannot express hardcoded hex values in component classNames (ESLint
+   bans raw colour classes in JSX; CSS modules are the endorsed escape hatch). */
+
+.editorWrap {
+  background: #1e1e1e;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+.lineNums {
+  background: #1e1e1e;
+  color: #6e7681;
+  font-family: var(--font-jetbrains-mono, "Courier New", monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  min-width: 48px;
+  overflow: hidden;
+  padding: 16px 10px 16px 8px;
+  text-align: right;
+  user-select: none;
+  white-space: pre;
+  border-right: 1px solid #2d2d2d;
+  flex-shrink: 0;
+}
+
+.editor {
+  background: #1e1e1e;
+  border: none;
+  caret-color: #d4d4d4;
+  color: #d4d4d4;
+  flex: 1;
+  font-family: var(--font-jetbrains-mono, "Courier New", monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  overflow: auto;
+  padding: 16px;
+  resize: none;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.editor::placeholder {
+  color: #555;
+}
+
+.editor::selection {
+  background: #264f78;
+}
+
+.editor::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.editor::-webkit-scrollbar-corner {
+  background: #1e1e1e;
+}
+
+.editor::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.editor::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 4px;
+}
+
+.editor::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+}
