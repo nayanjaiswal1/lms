@@ -12,16 +12,18 @@ import {
   GraduationCap,
 } from "lucide-react";
 
-import { BrandMark } from "@/components/shared/brand-mark";
 import { Button } from "@/components/ui/button";
+import { XPProgressBar } from "@/components/rewards/xp-progress-bar";
 import ROUTES from "@/lib/routes";
 import { getEnrollments, getCourseProgress } from "@/lib/server/courses";
 import { getMyAssessments } from "@/lib/server/assessments";
 import { fetchMyProfile } from "@/lib/server/profile";
+import { getMyRewardProfile } from "@/lib/server/rewards";
 import { getDueCards } from "@/lib/server/srs";
 import type { Enrollment, CourseProgressSummary } from "@/lib/server/courses";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 import type { Profile } from "@/lib/profile/types";
+import type { UserRewardProfile } from "@/lib/server/rewards";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -136,11 +138,12 @@ export default async function DashboardPage() {
 
   const firstName = user.name.split(" ")[0];
 
-  const [coursesWithProgress, upcomingAssessments, profile, dueCardsResult] = await Promise.all([
+  const [coursesWithProgress, upcomingAssessments, profile, dueCardsResult, rewardProfile] = await Promise.all([
     fetchEnrolledCoursesWithProgress(),
     fetchUpcomingAssessments(),
     fetchProfileData(),
     getDueCards().catch(() => ({ cards: [], total: 0 })),
+    getMyRewardProfile(),
   ]);
 
   const streak = profile?.stats?.current_streak_days ?? 0;
@@ -148,11 +151,6 @@ export default async function DashboardPage() {
 
   return (
     <main className="page-container py-10">
-      <div className="mb-10 flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
-        <BrandMark />
-        <p className="text-sm text-muted-foreground">{user.email}</p>
-      </div>
-
       <div className="mb-8 flex flex-col gap-2">
         <h1>Welcome back, {firstName}</h1>
         <p className="text-muted-foreground">Here&apos;s your learning overview.</p>
@@ -188,6 +186,42 @@ export default async function DashboardPage() {
           href={ROUTES.REVIEW}
         />
       </div>
+
+      {/* XP progress widget */}
+      {rewardProfile && (
+        <section className="mb-8">
+          <div className="card-base flex flex-col gap-4 p-5">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-sm font-semibold">Your Progress</h2>
+              <Link
+                href={ROUTES.LEADERBOARD}
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                Leaderboard <ArrowRight className="h-3 w-3" aria-hidden />
+              </Link>
+            </div>
+            <XPProgressBar totalXP={rewardProfile.total_xp} level={rewardProfile.level} />
+            {rewardProfile.achievements.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {rewardProfile.achievements.slice(0, 5).map((a) => (
+                  <span
+                    key={a.id}
+                    title={a.definition.description}
+                    className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
+                  >
+                    {a.definition.icon} {a.definition.name}
+                  </span>
+                ))}
+                {rewardProfile.achievements.length > 5 && (
+                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    +{rewardProfile.achievements.length - 5} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Enrolled courses */}
       <section className="mb-8">

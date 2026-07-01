@@ -1,0 +1,57 @@
+packages:
+  - path: "github.com/mindforge/backend/internal/assessment"
+    output_path: "../frontend/types/generated/assessment.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"
+      "pgtype.Text": "string | null"
+      "pgtype.Int4": "number | null"
+      "pgtype.Float8": "number | null"
+      "pgtype.Bool": "boolean | null"
+
+  - path: "github.com/mindforge/backend/internal/courses"
+    output_path: "../frontend/types/generated/courses.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"
+      "pgtype.Text": "string | null"
+      "pgtype.Int4": "number | null"
+      "pgtype.Float8": "number | null"
+      "pgtype.Bool": "boolean | null"
+
+  - path: "github.com/mindforge/backend/internal/practice"
+    output_path: "../frontend/types/generated/practice.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"
+      "pgtype.Text": "string | null"
+      "pgtype.Int4": "number | null"
+
+  - path: "github.com/mindforge/backend/internal/profile"
+    output_path: "../frontend/types/generated/profile.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"
+      "pgtype.Text": "string | null"
+
+  - path: "github.com/mindforge/backend/internal/srs"
+    output_path: "../frontend/types/generated/srs.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"
+      "pgtype.Text": "string | null"
+      "pgtype.Int4": "number | null"
+      "pgtype.Float8": "number | null"
+
+  - path: "github.com/mindforge/backend/internal/orgs"
+    output_path: "../frontend/types/generated/orgs.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"
+      "pgtype.Text": "string | null"
+
+  - path: "github.com/mindforge/backend/internal/authz"
+    output_path: "../frontend/types/generated/authz.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"

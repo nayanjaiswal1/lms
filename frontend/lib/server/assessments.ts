@@ -1,6 +1,7 @@
 import "server-only";
 
 import { apiGet, apiPost } from "@/lib/server/api";
+import type { PublicCandidate } from "@/lib/server/public";
 import type {
   AssignedAssessment,
   Assessment,
@@ -17,6 +18,13 @@ import type {
   SkillTrend,
   ReviewQueueItem,
 } from "@/lib/assessments/types";
+
+export interface ProctoringEvent {
+  event_type: string;
+  severity: "info" | "warning" | "critical";
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
 
 // ─── Student reads ───────────────────────────────────────────────────────────
 
@@ -80,6 +88,21 @@ export async function getAssessmentAnalytics(id: string): Promise<AssessmentAnal
 export async function getAssessmentAttempts(id: string): Promise<AttemptRow[]> {
   const data = await apiGet<{ attempts: AttemptRow[] }>(`/api/assessments/${id}/attempts`);
   return data.attempts;
+}
+
+export async function getAssessmentCandidates(id: string): Promise<PublicCandidate[]> {
+  try {
+    const data = await apiGet<{ candidates: PublicCandidate[] }>(`/api/assessments/${id}/candidates`);
+    return data.candidates ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getAttemptProctoringLog(
+  attemptId: string,
+): Promise<{ attempt: Attempt; events: ProctoringEvent[]; review: ReviewItem[] }> {
+  return apiGet(`/api/attempts/${attemptId}/proctoring`);
 }
 
 export async function getOrgAnalytics(): Promise<{

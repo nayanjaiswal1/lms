@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import {
+  AlertCircle,
   Camera,
   CheckCircle2,
-  AlertCircle,
   Clock,
   Loader2,
   Maximize,
@@ -14,7 +14,9 @@ import {
   ShieldCheck,
   Smartphone,
   Target,
+  Terminal,
 } from "lucide-react";
+import { useDevToolsDetector } from "@/lib/assessments/use-devtools-detector";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -91,7 +93,9 @@ export function ProctorPreflight({
   setup,
   onBegin,
 }: ProctorPreflightProps) {
-  const canBegin = !proctoring.require_camera || setup.canProceed || setup.camera === "denied";
+  const devToolsOpen = useDevToolsDetector(proctoring.block_devtools);
+  const cameraReady = !proctoring.require_camera || setup.canProceed || setup.camera === "denied";
+  const canBegin = cameraReady && !(proctoring.block_devtools && devToolsOpen);
   const beginLabel =
     proctoring.require_fullscreen ? "Enter Fullscreen & Begin" : "Begin Test";
 
@@ -342,6 +346,7 @@ export function ProctorPreflight({
         {/* ── Test rules (compact) ──────────────────────────────────────────── */}
         {(proctoring.require_fullscreen ||
           proctoring.block_copy_paste ||
+          proctoring.block_devtools ||
           proctoring.max_tab_switches > 0) && (
           <section
             aria-label="Test rules"
@@ -378,6 +383,26 @@ export function ProctorPreflight({
                     {proctoring.max_tab_switches !== 1 ? "es" : ""} allowed
                   </li>
                 )}
+                {proctoring.block_devtools && (
+                  <li className="flex items-start gap-2">
+                    {devToolsOpen ? (
+                      <AlertCircle
+                        aria-hidden
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive"
+                      />
+                    ) : (
+                      <Terminal
+                        aria-hidden
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                      />
+                    )}
+                    <span className={devToolsOpen ? "font-medium text-destructive" : ""}>
+                      {devToolsOpen
+                        ? "Close Developer Tools to begin the test"
+                        : "Developer tools must remain closed during the test"}
+                    </span>
+                  </li>
+                )}
               </ul>
             </div>
           </section>
@@ -412,6 +437,11 @@ export function ProctorPreflight({
           {setup.camera === "denied" && (
             <p className="text-center text-xs text-muted-foreground">
               Proceeding without camera — your attempt may receive additional flags.
+            </p>
+          )}
+          {proctoring.block_devtools && devToolsOpen && (
+            <p className="text-center text-xs text-destructive">
+              Developer tools are open — close them to begin your test.
             </p>
           )}
         </div>

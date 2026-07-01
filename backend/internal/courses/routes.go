@@ -6,14 +6,15 @@ import (
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/storage"
 )
 
 // New builds the fully-wired courses handler.
-func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, aiProvider ai.LLMProvider) *Handler {
+func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, aiProvider ai.LLMProvider, rewardsSvc *rewards.Service) *Handler {
 	repo := NewRepo(pool)
 	svc := NewService(repo, store, aiProvider, cfg)
-	return NewHandler(repo, svc)
+	return NewHandler(repo, svc, rewardsSvc)
 }
 
 // RegisterRoutes mounts the courses API onto the given router.
@@ -42,6 +43,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Patch("/api/modules/{moduleID}", h.UpdateModule)
 		r.Delete("/api/modules/{moduleID}", h.DeleteModule)
 
+		r.Post("/api/upload", h.UploadAsset)
 		r.Post("/api/upload/course-asset", h.GetUploadURL)
 		r.Post("/api/courses/generate-outline", h.GenerateOutline)
 	})

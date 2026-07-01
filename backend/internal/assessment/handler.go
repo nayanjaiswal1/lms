@@ -13,6 +13,7 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/rewards"
 )
 
 // Handler exposes the assessment domain over HTTP. It owns the service and repo.
@@ -21,11 +22,12 @@ type Handler struct {
 	service     *Service
 	pool        *pgxpool.Pool
 	jobRegistry *jobs.Registry
+	rewardsSvc  *rewards.Service
 }
 
 // NewHandler builds the assessment HTTP handler and its dependency graph.
-func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, jobRegistry *jobs.Registry) *Handler {
-	return &Handler{repo: repo, service: service, pool: pool, jobRegistry: jobRegistry}
+func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service) *Handler {
+	return &Handler{repo: repo, service: service, pool: pool, jobRegistry: jobRegistry, rewardsSvc: rewardsSvc}
 }
 
 // ─── shared helpers ──────────────────────────────────────────────────────────

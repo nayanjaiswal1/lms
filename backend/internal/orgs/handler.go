@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -12,6 +13,7 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/jobs"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
 
@@ -21,24 +23,26 @@ type pgxRows = pgx.Rows
 
 // Handler wires all org-related HTTP handlers.
 type Handler struct {
-	cfg     *config.Config
-	pool    *pgxpool.Pool
-	orgSvc  *OrgService
-	onboSvc *OrgOnboardingService
-	invSvc  *InviteService
-	memSvc  *MemberService
-	domSvc  *DomainService
+	cfg          *config.Config
+	pool         *pgxpool.Pool
+	orgSvc       *OrgService
+	onboSvc      *OrgOnboardingService
+	invSvc       *InviteService
+	memSvc       *MemberService
+	domSvc       *DomainService
+	jobsRegistry *jobs.Registry
 }
 
-func NewHandler(cfg *config.Config, pool *pgxpool.Pool) *Handler {
+func NewHandler(cfg *config.Config, pool *pgxpool.Pool, jobsRegistry *jobs.Registry) *Handler {
 	return &Handler{
-		cfg:     cfg,
-		pool:    pool,
-		orgSvc:  NewOrgService(pool, cfg),
-		onboSvc: NewOrgOnboardingService(pool),
-		invSvc:  NewInviteService(pool, cfg),
-		memSvc:  NewMemberService(pool),
-		domSvc:  NewDomainService(pool),
+		cfg:          cfg,
+		pool:         pool,
+		orgSvc:       NewOrgService(pool, cfg),
+		onboSvc:      NewOrgOnboardingService(pool),
+		invSvc:       NewInviteService(pool, cfg),
+		memSvc:       NewMemberService(pool),
+		domSvc:       NewDomainService(pool),
+		jobsRegistry: jobsRegistry,
 	}
 }
 
@@ -71,6 +75,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/domains/{domain_id}/auto-join", h.handleSetAutoJoin)
 		r.Delete("/domains/{domain_id}", h.handleRemoveDomain)
 
+		r.Post("/invites/batch", h.handleBatchCreateInvites)
+		r.Delete("/invites/batch", h.handleBatchRevokeInvites)
+		r.Post("/invites/batch/resend", h.handleBatchResendInvites)
 		r.Post("/invites", h.handleCreateInvite)
 		r.Get("/invites", h.handleListInvites)
 		r.Post("/invites/{invite_id}/resend", h.handleResendInvite)
@@ -608,13 +615,14 @@ func (h *Handler) handleListInvites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	status := r.URL.Query().Get("status")
 	cursor := r.URL.Query().Get("cursor")
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
 
-	page, err := h.invSvc.List(r.Context(), orgCtx.OrgID, cursor, limit)
+	page, err := h.invSvc.List(r.Context(), orgCtx.OrgID, status, cursor, limit)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to list invites.")
 		return
@@ -691,6 +699,239 @@ func (h *Handler) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) handleBatchCreateInvites(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetClaims(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return
+	}
+
+	var req struct {
+		Emails []string `json:"emails"`
+		Role   string   `json:"role"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+	if req.Role == "" {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "role is required.")
+		return
+	}
+	if len(req.Emails) == 0 {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "emails must not be empty.")
+		return
+	}
+
+	// Deduplicate and validate emails.
+	seen := make(map[string]struct{}, len(req.Emails))
+	var validEmails []string
+	var skipped []SkippedInvite
+
+	for _, raw := range req.Emails {
+		email := strings.ToLower(strings.TrimSpace(raw))
+		if _, dup := seen[email]; dup {
+			skipped = append(skipped, SkippedInvite{Email: raw, Reason: "duplicate"})
+			continue
+		}
+		seen[email] = struct{}{}
+
+		atIdx := strings.Index(email, "@")
+		if atIdx <= 0 || !strings.Contains(email[atIdx+1:], ".") {
+			skipped = append(skipped, SkippedInvite{Email: raw, Reason: "invalid_email"})
+			continue
+		}
+		validEmails = append(validEmails, email)
+	}
+
+	// Batch-check already-members.
+	if len(validEmails) > 0 {
+		memberRows, err := h.pool.Query(r.Context(),
+			`SELECT u.email FROM org_members m
+			 JOIN users u ON u.id = m.user_id
+			 WHERE m.org_id = $1 AND m.status = 'active' AND u.email = ANY($2)`,
+			orgCtx.OrgID, validEmails,
+		)
+		if err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Failed to check existing members.")
+			return
+		}
+		alreadyMembers := make(map[string]struct{})
+		for memberRows.Next() {
+			var email string
+			if scanErr := memberRows.Scan(&email); scanErr != nil {
+				memberRows.Close()
+				httputil.WriteError(w, http.StatusInternalServerError, "Failed to check existing members.")
+				return
+			}
+			alreadyMembers[email] = struct{}{}
+		}
+		memberRows.Close()
+		if err := memberRows.Err(); err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Failed to check existing members.")
+			return
+		}
+
+		filtered := validEmails[:0]
+		for _, email := range validEmails {
+			if _, isMember := alreadyMembers[email]; isMember {
+				skipped = append(skipped, SkippedInvite{Email: email, Reason: "already_member"})
+			} else {
+				filtered = append(filtered, email)
+			}
+		}
+		validEmails = filtered
+	}
+
+	// Chunk valid emails into groups of 50 and enqueue one job per chunk.
+	const chunkSize = 50
+	queued := 0
+	jobCount := 0
+	for i := 0; i < len(validEmails); i += chunkSize {
+		end := i + chunkSize
+		if end > len(validEmails) {
+			end = len(validEmails)
+		}
+		chunk := validEmails[i:end]
+
+		payload := struct {
+			OrgID     string   `json:"org_id"`
+			InviterID string   `json:"inviter_id"`
+			Emails    []string `json:"emails"`
+			Role      string   `json:"role"`
+		}{
+			OrgID:     orgCtx.OrgID,
+			InviterID: claims.UserID,
+			Emails:    chunk,
+			Role:      req.Role,
+		}
+
+		_, err := jobs.Enqueue(r.Context(), h.pool, h.jobsRegistry, jobs.EnqueueParams{
+			Handler:   "invite.bulk",
+			Priority:  jobs.PriorityLow,
+			Payload:   payload,
+			OrgID:     &orgCtx.OrgID,
+			CreatedBy: &claims.UserID,
+		})
+		if err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Failed to enqueue invite job.")
+			return
+		}
+		queued += len(chunk)
+		jobCount++
+	}
+
+	if skipped == nil {
+		skipped = []SkippedInvite{}
+	}
+	httputil.WriteJSON(w, http.StatusAccepted, BatchCreateResult{
+		Queued:   queued,
+		JobCount: jobCount,
+		Skipped:  skipped,
+	})
+}
+
+func (h *Handler) handleBatchRevokeInvites(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetClaims(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return
+	}
+
+	var req struct {
+		InviteIDs []string `json:"invite_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+	if len(req.InviteIDs) == 0 {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "invite_ids must not be empty.")
+		return
+	}
+	if len(req.InviteIDs) > 200 {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "invite_ids must not exceed 200 entries.")
+		return
+	}
+
+	count, err := h.invSvc.BatchRevoke(r.Context(), orgCtx.OrgID, claims.UserID, req.InviteIDs)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to revoke invites.")
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]int{"revoked": count})
+}
+
+func (h *Handler) handleBatchResendInvites(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetClaims(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return
+	}
+
+	var req struct {
+		InviteIDs []string `json:"invite_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+	if len(req.InviteIDs) == 0 {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "invite_ids must not be empty.")
+		return
+	}
+	if len(req.InviteIDs) > 50 {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "invite_ids must not exceed 50 entries.")
+		return
+	}
+
+	items, err := h.invSvc.BatchResend(r.Context(), orgCtx.OrgID, claims.UserID, orgCtx.CallerRole, req.InviteIDs)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to resend invites.")
+		return
+	}
+
+	type responseItem struct {
+		InviteID string `json:"invite_id"`
+		Email    string `json:"email"`
+	}
+	out := make([]responseItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, responseItem{InviteID: item.InviteID, Email: item.Email})
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{
+		"resent_count": len(out),
+		"invites":      out,
+	})
 }
 
 // ─── members ──────────────────────────────────────────────────────────────────

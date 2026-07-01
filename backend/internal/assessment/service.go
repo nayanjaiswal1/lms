@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/mindforge/backend/internal/config"
@@ -277,8 +278,17 @@ func (s *Service) Submit(ctx context.Context, orgID, userID, attemptID string, a
 			graded = append(graded, GradedAnswer{AnswerID: ans.ID, IsCorrect: correct, PointsAwarded: pts})
 
 		case QuestionTypeSubjective:
-			// Routed to the AI evaluator — not auto-graded here.
-			hasSubjective = true
+			// Only route to the AI evaluator when the student provided a non-blank
+			// transcript. A blank answer is scored 0 immediately — no job needed.
+			transcript := ""
+			if ans.Transcript != nil {
+				transcript = strings.TrimSpace(*ans.Transcript)
+			}
+			if transcript == "" {
+				graded = append(graded, GradedAnswer{AnswerID: ans.ID, IsCorrect: false, PointsAwarded: 0})
+			} else {
+				hasSubjective = true
+			}
 		}
 	}
 

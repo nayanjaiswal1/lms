@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"time"
@@ -60,6 +62,22 @@ func (s *Service) PresignedUploadURL(ctx context.Context, orgID, courseID, modul
 	url, err := s.store.PresignedPutURL(ctx, key, mimeType, 2*1024*1024*1024)
 	if err != nil {
 		return "", "", err
+	}
+	return url, key, nil
+}
+
+// UploadAsset stores an uploaded file and returns its public URL and storage key.
+func (s *Service) UploadAsset(ctx context.Context, orgID, filename, contentType string, size int64, r io.Reader) (string, string, error) {
+	ext := mimeExtension(contentType)
+	if ext == "" {
+		if i := strings.LastIndex(filename, "."); i >= 0 && i < len(filename)-1 {
+			ext = filename[i:]
+		}
+	}
+	key := "orgs/" + orgID + "/uploads/" + randomHex(16) + ext
+	url, err := s.store.Upload(ctx, key, contentType, r, size)
+	if err != nil {
+		return "", "", fmt.Errorf("upload asset: %w", err)
 	}
 	return url, key, nil
 }

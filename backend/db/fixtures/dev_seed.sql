@@ -308,11 +308,11 @@ VALUES (
   '00000000-0000-0000-0000-000000000015',
   'jaiswal2062@gmail.com',
   'Jaiswal Dev',
-  crypt('Admin123!', gen_salt('bf', 12)),
+  crypt('K4djM2GjA95s$2', gen_salt('bf', 12)),
   'user',
   true
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET password_hash = crypt('K4djM2GjA95s$2', gen_salt('bf', 12)), updated_at = now();
 
 INSERT INTO org_members (id, org_id, user_id, role)
 SELECT gen_random_uuid(), '00000000-0000-0000-0000-000000000001', id, 'learner'
@@ -745,3 +745,128 @@ VALUES
   ('00000000-0000-0000-0000-000000000200', '00000000-0000-0000-0000-000000000120',
    '00000000-0000-0000-0000-000000000182', '00000000-0000-0000-0000-000000000183', 19, 2)
 ON CONFLICT (id) DO NOTHING;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- Labs fixture — "JavaScript Fundamentals Lab" (code type, standalone)
+-- Student can navigate to /labs/00000000-0000-0000-0000-000000000300
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- ─── Lab definition (insert unpublished; update to published after version exists) ──
+INSERT INTO lab_definitions (id, org_id, scope, title, description, lab_type, environment,
+  max_duration, max_resets, hint_penalty_pct, is_required, is_published, created_by)
+VALUES (
+  '00000000-0000-0000-0000-000000000300',
+  '00000000-0000-0000-0000-000000000001',
+  'standalone',
+  'JavaScript Fundamentals Lab',
+  'A hands-on lab to practice core JavaScript concepts: array methods, closures, and async patterns.',
+  'code',
+  'node:18-alpine',
+  60,
+  3,
+  10,
+  false,
+  false,
+  '00000000-0000-0000-0000-000000000012'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- ─── Lab tasks ────────────────────────────────────────────────────────────────
+INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script,
+  hint_context, explanation_context, points, is_optional, is_stateful)
+VALUES
+  (
+    '00000000-0000-0000-0000-000000000310',
+    '00000000-0000-0000-0000-000000000300',
+    1,
+    'Filter Even Numbers',
+    'Write a function filterEvens(arr) that takes an array of integers and returns only the even numbers.',
+    'const result = filterEvens([1,2,3,4,5,6]); if (!Array.isArray(result) || result.join(",") !== "2,4,6") throw new Error("Expected [2,4,6]");',
+    'Use Array.prototype.filter with the modulo operator.',
+    'The filter() method creates a new array with all elements that pass a test. Use n % 2 === 0 to check evenness.',
+    20,
+    false,
+    false
+  ),
+  (
+    '00000000-0000-0000-0000-000000000311',
+    '00000000-0000-0000-0000-000000000300',
+    2,
+    'Write a Counter Closure',
+    'Implement makeCounter() that returns an object with increment(), decrement(), and value() methods, using a closure to store the count.',
+    'const c = makeCounter(); c.increment(); c.increment(); c.decrement(); if (c.value() !== 1) throw new Error("Expected 1");',
+    'Return an object literal from a function that closes over a private variable.',
+    'A closure lets inner functions access the outer function scope. Declare let count = 0 inside makeCounter, then return methods that read and modify it.',
+    30,
+    false,
+    false
+  ),
+  (
+    '00000000-0000-0000-0000-000000000312',
+    '00000000-0000-0000-0000-000000000300',
+    3,
+    'Async Fetch Wrapper',
+    'Write fetchJSON(url) that calls the Fetch API, parses the JSON response, and returns the parsed object. Return null on error.',
+    'fetchJSON("https://jsonplaceholder.typicode.com/todos/1").then(r => { if (!r || !r.id) throw new Error("Expected id field"); });',
+    'Use fetch(url).then(r => r.json()).',
+    'Chain .then(response => response.json()) to parse the body. Add .catch(() => null) for error handling.',
+    20,
+    true,
+    false
+  )
+ON CONFLICT (id) DO NOTHING;
+
+-- ─── Published task version (immutable JSONB snapshot) ───────────────────────
+INSERT INTO lab_task_versions (id, lab_id, version, tasks, published_by)
+VALUES (
+  '00000000-0000-0000-0000-000000000320',
+  '00000000-0000-0000-0000-000000000300',
+  1,
+  $tasks$[
+    {
+      "id": "00000000-0000-0000-0000-000000000310",
+      "position": 1,
+      "title": "Filter Even Numbers",
+      "description": "Write a function filterEvens(arr) that takes an array of integers and returns only the even numbers.",
+      "verification_script": "const result = filterEvens([1,2,3,4,5,6]); if (!Array.isArray(result) || result.join(',') !== '2,4,6') throw new Error('Expected [2,4,6]');",
+      "hint_context": "Use Array.prototype.filter with the modulo operator.",
+      "explanation_context": "The filter() method creates a new array with all elements that pass a test. Use n % 2 === 0 to check evenness.",
+      "points": 20,
+      "is_optional": false,
+      "is_stateful": false
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000311",
+      "position": 2,
+      "title": "Write a Counter Closure",
+      "description": "Implement makeCounter() that returns an object with increment(), decrement(), and value() methods, using a closure to store the count.",
+      "verification_script": "const c = makeCounter(); c.increment(); c.increment(); c.decrement(); if (c.value() !== 1) throw new Error('Expected 1');",
+      "hint_context": "Return an object literal from a function that closes over a private variable.",
+      "explanation_context": "A closure lets inner functions access the outer function scope. Declare let count = 0 inside makeCounter, then return methods that read and modify it.",
+      "points": 30,
+      "is_optional": false,
+      "is_stateful": false
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000312",
+      "position": 3,
+      "title": "Async Fetch Wrapper",
+      "description": "Write fetchJSON(url) that calls the Fetch API, parses the JSON response, and returns the parsed object. Return null on error.",
+      "verification_script": "fetchJSON('https://jsonplaceholder.typicode.com/todos/1').then(r => { if (!r || !r.id) throw new Error('Expected id field'); });",
+      "hint_context": "Use fetch(url).then(r => r.json()).",
+      "explanation_context": "Chain .then(response => response.json()) to parse the body. Add .catch(() => null) for error handling.",
+      "points": 20,
+      "is_optional": true,
+      "is_stateful": false
+    }
+  ]$tasks$::jsonb,
+  '00000000-0000-0000-0000-000000000012'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- ─── Publish the lab (idempotent: only sets version when not yet set) ─────────
+UPDATE lab_definitions
+SET is_published = true,
+    published_version_id = '00000000-0000-0000-0000-000000000320'
+WHERE id = '00000000-0000-0000-0000-000000000300'
+  AND published_version_id IS NULL;

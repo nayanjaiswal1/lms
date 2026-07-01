@@ -1,6 +1,7 @@
 "use client";
 
 import { updateProgressAction } from "@/lib/courses/actions";
+import { showRewardToasts } from "@/components/rewards/reward-toast";
 
 interface ModulePDFProps {
   moduleId: string;
@@ -22,7 +23,9 @@ export function ModulePDF({ moduleId, presignedUrl, title }: ModulePDFProps) {
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-primary hover:underline"
-          onClick={() => void updateProgressAction({ moduleID: moduleId, status: "completed" })}
+          onClick={() => updateProgressAction({ moduleID: moduleId, status: "completed" }).then((r) => {
+            if (r.ok && r.data?.rewards) showRewardToasts(r.data.rewards);
+          })}
         >
           Open in new tab
         </a>

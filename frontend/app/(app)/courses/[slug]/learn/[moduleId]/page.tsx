@@ -6,6 +6,7 @@ import { ModuleVideo } from "@/components/courses/module-video";
 import { ModulePDF } from "@/components/courses/module-pdf";
 import { ModuleNotes } from "@/components/courses/module-notes";
 import { ModuleAssessment } from "@/components/courses/module-assessment";
+import { ModuleLab } from "@/components/courses/module-lab";
 
 interface Props {
   params: Promise<{ slug: string; moduleId: string }>;
@@ -92,7 +93,10 @@ export default async function ModuleLearnPage({ params }: Props) {
               title={currentModule.title}
             />
           )}
-          {!content?.presigned_url && currentModule.type !== "notes" && currentModule.type !== "assessment" && (
+          {currentModule.type === "lab" && (
+            <ModuleLab moduleId={moduleId} title={currentModule.title} />
+          )}
+          {!content?.presigned_url && currentModule.type !== "notes" && currentModule.type !== "assessment" && currentModule.type !== "lab" && (
             <div className="empty-state py-16">
               <p className="text-sm text-muted-foreground">Content is not available yet.</p>
             </div>

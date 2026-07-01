@@ -4,6 +4,7 @@
 
 export interface ProctoringConfig {
   require_fullscreen: boolean;
+  fullscreen_exit_action: "pause" | "continue" | "auto_submit";
   block_copy_paste: boolean;
   block_right_click: boolean;
   block_devtools: boolean;
@@ -37,6 +38,7 @@ export interface Assessment {
   ends_at: string | null;
   proctoring: ProctoringConfig;
   question_count: number;
+  short_code?: string | null;
   created_at: string;
 }
 
@@ -128,6 +130,7 @@ export interface Attempt {
   id: string;
   assessment_id: string;
   user_id: string;
+  org_id: string;
   status: "created" | "in_progress" | "submitted" | "evaluating" | "evaluated" | "eval_failed" | "expired";
   attempt_number: number;
   started_at: string | null;
@@ -139,6 +142,7 @@ export interface Attempt {
   percentage: number | null;
   passed: boolean | null;
   auto_submitted: boolean;
+  reward_result?: import("@/lib/server/rewards").AwardResult;
 }
 
 export interface AttemptMeta {

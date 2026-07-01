@@ -20,7 +20,7 @@ export async function inviteMembersAction(
     `/api/batches/${batchId}/invite`,
     { emails },
   );
-  if (result.ok) revalidatePath(ROUTES.ADMIN_BATCHES);
+  if (result.ok) revalidatePath(ROUTES.BATCHES);
   return result;
 }
 
@@ -32,6 +32,6 @@ export async function acceptInvitationAction(
 
 export async function assignCourseAction(batchId: string, courseId: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/batches/${batchId}/courses`, { course_id: courseId });
-  if (result.ok) revalidatePath(ROUTES.MENTOR_BATCHES);
+  if (result.ok) revalidatePath(ROUTES.MENTORING_BATCHES);
   return result;
 }

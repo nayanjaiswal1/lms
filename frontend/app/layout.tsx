@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
+import { NuqsAdapter } from 'nuqs/adapters/next'
 import { FeatureFlagProvider } from '@/lib/feature-context'
 import { PermissionProvider } from '@/lib/auth/permissions'
 import { getFeatureConfig } from '@/lib/server/features'
@@ -110,15 +111,17 @@ export default async function RootLayout({
           attribute="class"
           defaultTheme="system"
         >
-          <FeatureFlagProvider
-            entitlements={entitlements}
-            lockedInfo={lockedInfo}
-            orgFeatures={orgFeatures}
-          >
-            <PermissionProvider permissions={permissions}>
-              {children}
-            </PermissionProvider>
-          </FeatureFlagProvider>
+          <NuqsAdapter>
+            <FeatureFlagProvider
+              entitlements={entitlements}
+              lockedInfo={lockedInfo}
+              orgFeatures={orgFeatures}
+            >
+              <PermissionProvider permissions={permissions}>
+                {children}
+              </PermissionProvider>
+            </FeatureFlagProvider>
+          </NuqsAdapter>
           <Toaster />
         </ThemeProvider>
       </body>

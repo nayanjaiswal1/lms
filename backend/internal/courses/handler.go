@@ -9,15 +9,19 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/rewards"
 )
 
+const maxUploadSize = 500 << 20 // 500 MB
+
 type Handler struct {
-	repo    *Repo
-	service *Service
+	repo       *Repo
+	service    *Service
+	rewardsSvc *rewards.Service
 }
 
-func NewHandler(repo *Repo, service *Service) *Handler {
-	return &Handler{repo: repo, service: service}
+func NewHandler(repo *Repo, service *Service, rewardsSvc *rewards.Service) *Handler {
+	return &Handler{repo: repo, service: service, rewardsSvc: rewardsSvc}
 }
 
 func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
@@ -72,9 +76,12 @@ func queryInt(r *http.Request, key string, def int) int {
 type courseCreateReq struct {
 	Title          string   `json:"title"`
 	Description    *string  `json:"description"`
+	CoverURL       *string  `json:"cover_url"`
 	Difficulty     string   `json:"difficulty"`
 	Tags           []string `json:"tags"`
 	EstimatedHours *float64 `json:"estimated_hours"`
+	IsFree         bool     `json:"is_free"`
+	Status         string   `json:"status"`
 }
 
 func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
@@ -105,16 +112,21 @@ func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 		req.Tags = []string{}
 	}
 
+	status := StatusDraft
+	if req.Status == StatusPublished {
+		status = StatusPublished
+	}
 	c := Course{
 		OrgID:          claims.OrgID,
 		CreatorID:      claims.UserID,
 		Title:          req.Title,
 		Slug:           Slugify(req.Title),
 		Description:    req.Description,
+		CoverURL:       req.CoverURL,
 		Difficulty:     diff,
 		Tags:           req.Tags,
-		Status:         StatusDraft,
-		IsFree:         true,
+		Status:         status,
+		IsFree:         req.IsFree,
 		EstimatedHours: req.EstimatedHours,
 	}
 	created, err := h.repo.CreateCourse(r.Context(), c)
@@ -470,4 +482,35 @@ func (h *Handler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"upload_url": uploadURL, "storage_key": key})
+}
+
+// UploadAsset accepts a multipart/form-data upload ("file" field), stores it, and
+// returns { url, storage_key }. Used by the course-creation wizard for direct uploads.
+func (h *Handler) UploadAsset(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		httputil.WriteError(w, http.StatusRequestEntityTooLarge, "File too large (max 500 MB).")
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Field 'file' is required.")
+		return
+	}
+	defer file.Close()
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	url, key, err := h.service.UploadAsset(r.Context(), claims.OrgID, header.Filename, contentType, header.Size, file)
+	if err != nil {
+		httputil.WriteError(w, http.StatusServiceUnavailable, "Storage unavailable.")
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]string{"url": url, "storage_key": key})
 }

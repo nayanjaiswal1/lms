@@ -36,6 +36,7 @@ func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgRole(apimiddleware.RoleAdmin, apimiddleware.RoleInstructor))
 
 		r.Get("/", h.handleOrgListJobs)
+		r.Get("/stats", h.handleOrgStats)
 		r.Get("/{jobID}", h.handleOrgGetJob)
 		r.Post("/{jobID}/cancel", h.handleOrgCancelJob)
 		r.Post("/{jobID}/retry", h.handleOrgRetryJob)
@@ -49,6 +50,8 @@ func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/", h.handleAdminListJobs)
 		r.Get("/workers", h.handleAdminListWorkers)
 		r.Get("/stats", h.handleAdminStats)
+		r.Get("/{jobID}", h.handleAdminGetJob)
+		r.Post("/{jobID}/cancel", h.handleAdminCancelJob)
 		r.Post("/{jobID}/force-retry", h.handleAdminForceRetry)
 	})
 
@@ -272,6 +275,29 @@ func (h *HTTPHandler) handleOrgPatchJob(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// GET /api/orgs/{orgID}/jobs/stats
+func (h *HTTPHandler) handleOrgStats(w http.ResponseWriter, r *http.Request) {
+	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+
+	urlOrgID := chi.URLParam(r, "orgID")
+	if urlOrgID != orgCtx.OrgID {
+		httputil.WriteError(w, http.StatusForbidden, "Organization mismatch.")
+		return
+	}
+
+	stats, err := OrgStats(r.Context(), h.pool, orgCtx.OrgID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, stats)
+}
+
 // ─── Super admin handlers ─────────────────────────────────────────────────────
 
 // GET /api/admin/jobs
@@ -402,6 +428,47 @@ func (h *HTTPHandler) handleAdminForceRetry(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		httputil.WriteError(w, http.StatusConflict, "job cannot be retried in its current state")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{
+		"job_id": jobID,
+	})
+}
+
+// GET /api/admin/jobs/{jobID}
+func (h *HTTPHandler) handleAdminGetJob(w http.ResponseWriter, r *http.Request) {
+	jobID := chi.URLParam(r, "jobID")
+
+	job, err := GetByID(r.Context(), h.pool, jobID, nil)
+	if err != nil {
+		code, msg := mapError(err)
+		httputil.WriteError(w, code, msg)
+		return
+	}
+
+	runs, err := GetRuns(r.Context(), h.pool, jobID, 20)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{
+		"job":  job,
+		"runs": runs,
+	})
+}
+
+// POST /api/admin/jobs/{jobID}/cancel
+func (h *HTTPHandler) handleAdminCancelJob(w http.ResponseWriter, r *http.Request) {
+	jobID := chi.URLParam(r, "jobID")
+
+	if err := Cancel(r.Context(), h.pool, jobID, nil); err != nil {
+		if errors.Is(err, ErrJobNotFound) {
+			httputil.WriteError(w, http.StatusNotFound, "job not found")
+			return
+		}
+		httputil.WriteError(w, http.StatusConflict, "job cannot be cancelled in its current state")
 		return
 	}
 

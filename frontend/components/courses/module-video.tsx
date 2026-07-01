@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { updateProgressAction } from "@/lib/courses/actions";
+import { showRewardToasts } from "@/components/rewards/reward-toast";
 
 interface ModuleVideoProps {
   moduleId: string;
@@ -21,7 +22,9 @@ export function ModuleVideo({ moduleId, presignedUrl, title, initialPositionSeco
     const pct = video.currentTime / video.duration;
     if (!reported && pct >= 0.9) {
       setReported(true);
-      void updateProgressAction({ moduleID: moduleId, status: "completed" });
+      updateProgressAction({ moduleID: moduleId, status: "completed" }).then((res) => {
+        if (res.ok && res.data?.rewards) showRewardToasts(res.data.rewards);
+      });
     }
   }
 

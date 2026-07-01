@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -165,31 +166,37 @@ func (s *InviteService) Resend(ctx context.Context, orgID, actorUserID, actorRol
 	return &inv, deliverableToken, nil
 }
 
-// List returns a cursor-paginated list of pending invites for an org.
-func (s *InviteService) List(ctx context.Context, orgID, cursor string, limit int) (*InvitePage, error) {
+// List returns a cursor-paginated list of invites for an org, optionally filtered by status.
+// status values: "pending" (default), "accepted", "revoked", "expired", "all".
+func (s *InviteService) List(ctx context.Context, orgID, status, cursor string, limit int) (*InvitePage, error) {
+	filter := inviteStatusFilter(status)
+
+	var total int
+	if err := s.pool.QueryRow(ctx,
+		"SELECT COUNT(*) FROM org_invites WHERE org_id = $1 "+filter,
+		orgID,
+	).Scan(&total); err != nil {
+		return nil, fmt.Errorf("orgs: list invites: count: %w", err)
+	}
+
 	cursorCreatedAt, cursorID, err := decodeCursor(cursor)
 	if err != nil {
-		cursor = "" // treat bad cursor as no cursor
+		cursor = ""
 	}
 
 	var rows pgx.Rows
 	if cursor == "" {
 		rows, err = s.pool.Query(ctx,
-			`SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at
-			 FROM org_invites
-			 WHERE org_id = $1 AND accepted_at IS NULL AND revoked_at IS NULL
-			 ORDER BY created_at ASC, id ASC
-			 LIMIT $2`,
+			"SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at "+
+				"FROM org_invites WHERE org_id = $1 "+filter+
+				" ORDER BY created_at ASC, id ASC LIMIT $2",
 			orgID, limit+1,
 		)
 	} else {
 		rows, err = s.pool.Query(ctx,
-			`SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at
-			 FROM org_invites
-			 WHERE org_id = $1 AND accepted_at IS NULL AND revoked_at IS NULL
-			   AND (created_at, id) > ($2, $3)
-			 ORDER BY created_at ASC, id ASC
-			 LIMIT $4`,
+			"SELECT id, org_id, email, role, invited_by_user_id, expires_at, accepted_at, revoked_at, created_at "+
+				"FROM org_invites WHERE org_id = $1 "+filter+
+				" AND (created_at, id) > ($2, $3) ORDER BY created_at ASC, id ASC LIMIT $4",
 			orgID, cursorCreatedAt, cursorID, limit+1,
 		)
 	}
@@ -213,7 +220,7 @@ func (s *InviteService) List(ctx context.Context, orgID, cursor string, limit in
 		return nil, fmt.Errorf("orgs: list invites: rows: %w", err)
 	}
 
-	page := &InvitePage{Invites: invites}
+	page := &InvitePage{Invites: invites, Total: total}
 	if len(invites) == 0 {
 		page.Invites = []Invite{}
 	}
@@ -223,6 +230,24 @@ func (s *InviteService) List(ctx context.Context, orgID, cursor string, limit in
 		page.NextCursor = encodeCursor(last.CreatedAt, last.ID)
 	}
 	return page, nil
+}
+
+// inviteStatusFilter returns the SQL WHERE fragment (starting with AND) for a given invite
+// status filter. The returned string is safe to concatenate directly into a query because
+// all possible outputs are statically defined — no user input is ever injected.
+func inviteStatusFilter(status string) string {
+	switch status {
+	case "accepted":
+		return "AND accepted_at IS NOT NULL"
+	case "revoked":
+		return "AND revoked_at IS NOT NULL"
+	case "expired":
+		return "AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at <= now()"
+	case "all":
+		return ""
+	default: // "pending" or empty
+		return "AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > now()"
+	}
 }
 
 // Revoke sets revoked_at=now() on a pending invite.
@@ -261,6 +286,55 @@ func (s *InviteService) Revoke(ctx context.Context, orgID, actorUserID, inviteID
 		TargetID:   &inviteID,
 	})
 	return nil
+}
+
+// BatchRevoke revokes multiple pending invites atomically (single UPDATE).
+// Returns the count of actually revoked rows; rows already accepted or revoked are silently skipped.
+func (s *InviteService) BatchRevoke(ctx context.Context, orgID, actorUserID string, inviteIDs []string) (int, error) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE org_invites
+		 SET revoked_at = now(), revoke_reason = 'manual', updated_at = now()
+		 WHERE id = ANY($1) AND org_id = $2 AND accepted_at IS NULL AND revoked_at IS NULL`,
+		inviteIDs, orgID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("orgs: batch revoke invites: %w", err)
+	}
+	count := int(tag.RowsAffected())
+	if count > 0 {
+		writeAuditLog(ctx, s.pool, auditEntry{
+			OrgID:       orgID,
+			ActorUserID: &actorUserID,
+			Action:      "invite.batch_revoked",
+			TargetType:  "invite",
+			AfterState:  map[string]any{"count": count},
+		})
+	}
+	return count, nil
+}
+
+// BatchResend regenerates tokens and resets expires_at for multiple pending invites.
+// Returns per-invite results for successfully resent invites only.
+// ErrNotFound and ErrInvalidStatus are non-fatal and logged with a warning.
+func (s *InviteService) BatchResend(ctx context.Context, orgID, actorUserID, actorRole string, inviteIDs []string) ([]BatchResendItem, error) {
+	results := make([]BatchResendItem, 0, len(inviteIDs))
+	for _, inviteID := range inviteIDs {
+		inv, token, err := s.Resend(ctx, orgID, actorUserID, actorRole, inviteID)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalidStatus) {
+				slog.WarnContext(ctx, "orgs: batch resend: skipping invite",
+					"invite_id", inviteID, "reason", err)
+				continue
+			}
+			return nil, fmt.Errorf("orgs: batch resend invites: %w", err)
+		}
+		results = append(results, BatchResendItem{
+			InviteID: inv.ID,
+			Email:    inv.Email,
+			Token:    token,
+		})
+	}
+	return results, nil
 }
 
 // Join accepts an invite token, validates it fully, and upserts the user as a member.

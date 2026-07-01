@@ -6,15 +6,16 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/rewards"
 )
 
 // New builds the fully-wired assessment handler from the shared pool, config, and jobs registry.
 // jobRegistry is used by SubmitAttempt to enqueue eval.subjective jobs via the Job Management System.
-func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry) *Handler {
+func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service) *Handler {
 	repo := NewRepo(pool)
 	exec := NewExecutor(cfg)
 	service := NewService(repo, exec, cfg)
-	return NewHandler(repo, service, pool, jobRegistry)
+	return NewHandler(repo, service, pool, jobRegistry, rewardsSvc)
 }
 
 // RegisterRoutes mounts the assessment API onto the given router. The caller is
@@ -85,6 +86,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		// Analytics + results review
 		r.Get("/api/assessments/{assessmentID}/analytics", h.AssessmentAnalytics)
 		r.Get("/api/assessments/{assessmentID}/attempts", h.ListAssessmentAttempts)
+		r.Get("/api/assessments/{assessmentID}/candidates", h.GetPublicCandidates)
 		r.Get("/api/attempts/{attemptID}/proctoring", h.AttemptProctoringLog)
 		r.Get("/api/analytics/overview", h.OrgAnalytics)
 
@@ -122,4 +124,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 // RegisterPublicRoutes mounts routes that do not require authentication.
 func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 	r.Get("/api/invitations/preview/{token}", h.PreviewInvitation)
+
+	// Hiring / public assessment routes — no auth, keyed by short_code.
+	r.Get("/api/p/{code}", h.GetPublicTest)
+	r.Post("/api/p/{code}/start", h.StartPublicAttempt)
+	r.Post("/api/p/{code}/submit/{token}", h.SubmitPublicAttempt)
+	r.Get("/api/p/{code}/result/{token}", h.GetPublicResult)
 }

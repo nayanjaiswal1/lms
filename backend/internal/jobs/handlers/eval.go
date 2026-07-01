@@ -12,6 +12,7 @@ import (
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/rewards"
 )
 
 // EvalPayload is the JSON payload stored in jobs.payload for eval.subjective jobs.
@@ -23,19 +24,21 @@ type EvalPayload struct {
 // It ports the full processJob logic from assessment.EvalWorkerPool into the
 // Job Management System, preserving every DB call, AI call, and state transition.
 type EvalHandler struct {
-	repo *assessment.Repo
-	ai   ai.LLMProvider
-	cfg  *config.Config
-	pool *pgxpool.Pool
+	repo       *assessment.Repo
+	ai         ai.LLMProvider
+	cfg        *config.Config
+	pool       *pgxpool.Pool
+	rewardsSvc *rewards.Service
 }
 
 // NewEvalHandler constructs an EvalHandler with all dependencies injected.
-func NewEvalHandler(repo *assessment.Repo, aiProvider ai.LLMProvider, cfg *config.Config, pool *pgxpool.Pool) *EvalHandler {
+func NewEvalHandler(repo *assessment.Repo, aiProvider ai.LLMProvider, cfg *config.Config, pool *pgxpool.Pool, rewardsSvc *rewards.Service) *EvalHandler {
 	return &EvalHandler{
-		repo: repo,
-		ai:   aiProvider,
-		cfg:  cfg,
-		pool: pool,
+		repo:       repo,
+		ai:         aiProvider,
+		cfg:        cfg,
+		pool:       pool,
+		rewardsSvc: rewardsSvc,
 	}
 }
 
@@ -147,6 +150,11 @@ func (h *EvalHandler) Handle(ctx context.Context, job jobs.Job) error {
 		return fmt.Errorf("handlers.eval: mark evaluated (attempt %s): %w", payload.AttemptID, err)
 	}
 
+	// Award XP based on the overall composite score (non-fatal).
+	if h.rewardsSvc != nil {
+		h.awardEvalXP(jobCtx, payload.AttemptID, attempt, overall.CompositeScore)
+	}
+
 	// Notify the student (non-fatal — eval is complete regardless of email delivery).
 	email, uname, title, infoErr := h.repo.GetEvalEmailInfo(jobCtx, payload.AttemptID)
 	if infoErr != nil {
@@ -160,6 +168,55 @@ func (h *EvalHandler) Handle(ctx context.Context, job jobs.Job) error {
 	slog.Info("eval complete", "attempt", payload.AttemptID, "overall", overall.CompositeScore,
 		"ms", time.Since(start).Milliseconds())
 	return nil
+}
+
+// awardEvalXP awards XP for a subjective/interview attempt based on the overall
+// composite score (0–100). A score ≥ 70 counts as a pass. All errors are logged
+// and swallowed — reward failures must not prevent eval completion.
+func (h *EvalHandler) awardEvalXP(ctx context.Context, attemptID string, att assessment.Attempt, compositeScore float64) {
+	const passThreshold = 70.0
+	if compositeScore < passThreshold {
+		return
+	}
+	xp := rewards.XPQuizPassedRepeat
+	if att.AttemptNumber == 1 {
+		xp = rewards.XPQuizPassedFirst
+	}
+	refType := "attempt"
+	result := h.rewardsSvc.AwardXP(ctx, rewards.AwardXPRequest{
+		UserID:  att.UserID,
+		OrgID:   att.OrgID,
+		Reason:  "quiz_passed",
+		RefID:   &att.ID,
+		RefType: &refType,
+		XP:      xp,
+	})
+	if compositeScore == 100 {
+		perfect := h.rewardsSvc.AwardXP(ctx, rewards.AwardXPRequest{
+			UserID:  att.UserID,
+			OrgID:   att.OrgID,
+			Reason:  "quiz_perfect",
+			RefID:   &att.ID,
+			RefType: &refType,
+			XP:      rewards.XPQuizPerfectBonus,
+		})
+		result.XPGained += perfect.XPGained
+		result.NewAchievements = append(result.NewAchievements, perfect.NewAchievements...)
+		if perfect.NewLevel != nil {
+			result.NewLevel = perfect.NewLevel
+		}
+	}
+	// Streak update — mirrors the sync MCQ path in awardAttemptXP.
+	streakResult := h.rewardsSvc.UpdateStreakAndCheckMilestones(ctx, att.UserID, att.OrgID)
+	result.XPGained += streakResult.XPGained
+	result.NewAchievements = append(result.NewAchievements, streakResult.NewAchievements...)
+	if streakResult.NewLevel != nil {
+		result.NewLevel = streakResult.NewLevel
+	}
+
+	if err := h.repo.SetAttemptRewardResult(ctx, attemptID, result); err != nil {
+		slog.Warn("handlers.eval: persist reward result", "attempt", attemptID, "err", err)
+	}
 }
 
 // enqueueEmailNotification inserts an email.send job directly into the jobs table

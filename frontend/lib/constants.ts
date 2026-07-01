@@ -156,6 +156,12 @@ export const USER_ROLE = {
 } as const;
 export type UserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE];
 
+export const ORG_ROLE_OPTIONS = [
+  { label: "Student",    value: USER_ROLE.STUDENT },
+  { label: "Instructor", value: USER_ROLE.INSTRUCTOR },
+  { label: "Mentor",     value: USER_ROLE.MENTOR },
+] as const;
+
 // ─────────────────────────────────────────────
 // Assessment & Evaluation domain (mirrors backend enums)
 // ─────────────────────────────────────────────
@@ -212,16 +218,18 @@ export const ASSESSMENT_PARENT_TYPE = {
   ROADMAP:    "roadmap",
   BATCH:      "batch",
   BOOTCAMP:   "bootcamp",
+  HIRING:     "hiring",
 } as const;
 export type AssessmentParentType = (typeof ASSESSMENT_PARENT_TYPE)[keyof typeof ASSESSMENT_PARENT_TYPE];
 
 export const ASSESSMENT_PARENT_TYPE_OPTIONS = [
-  { label: "Standalone", value: ASSESSMENT_PARENT_TYPE.STANDALONE },
-  { label: "Course",     value: ASSESSMENT_PARENT_TYPE.COURSE },
-  { label: "Module",     value: ASSESSMENT_PARENT_TYPE.MODULE },
-  { label: "Roadmap",    value: ASSESSMENT_PARENT_TYPE.ROADMAP },
-  { label: "Batch",      value: ASSESSMENT_PARENT_TYPE.BATCH },
-  { label: "Bootcamp",   value: ASSESSMENT_PARENT_TYPE.BOOTCAMP },
+  { label: "Standalone",          value: ASSESSMENT_PARENT_TYPE.STANDALONE },
+  { label: "Course",              value: ASSESSMENT_PARENT_TYPE.COURSE },
+  { label: "Module",              value: ASSESSMENT_PARENT_TYPE.MODULE },
+  { label: "Roadmap",             value: ASSESSMENT_PARENT_TYPE.ROADMAP },
+  { label: "Batch",               value: ASSESSMENT_PARENT_TYPE.BATCH },
+  { label: "Bootcamp",            value: ASSESSMENT_PARENT_TYPE.BOOTCAMP },
+  { label: "Hiring / Recruitment", value: ASSESSMENT_PARENT_TYPE.HIRING },
 ] as const;
 
 export const ASSIGNEE_TYPE = {

@@ -110,6 +110,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/rbac.md](docs/rbac.md) | RBAC — permission codes, roles, DB schema, Go engine, API, frontend hooks, admin UI, recipes |
 | [docs/courses.md](docs/courses.md) | Course structure, lifecycle, fork, enrollment, progress, API, DB schema |
 | [docs/learning.md](docs/learning.md) | Coding challenges, in-browser compiler, quiz, SM-2 cards, revision, certificates, API, DB schema |
+| [docs/labs.md](docs/labs.md) | Lab feature — terminal/code/guided sandboxed environments, AI hints, DB schema, edge cases, build phases |
 | [docs/orgs.md](docs/orgs.md) | Organizations, members, roles, API, DB schema |
 | [docs/wiki.md](docs/wiki.md) | Wiki spaces, pages, TipTap editor, versioning, comments, templates, search, API, DB schema |
 | [docs/design.md](docs/design.md) | System design canvas, palette, interactions, versioning, embed, API, DB schema |
@@ -122,6 +123,34 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 
 ## Frontend Rules
 See [frontend/CLAUDE.md](frontend/CLAUDE.md) — enforced on every frontend file.
+
+---
+
+## Frontend API Helpers — `lib/server/api.ts`
+
+All server-side fetch calls go through helpers in `lib/server/api.ts`. Never write raw `fetch()` calls with manual auth headers in actions or server components.
+
+| Helper | Use case |
+|---|---|
+| `apiGet<T>(path)` | Server component reads — throws on error, propagates to `error.tsx` |
+| `apiPost<T>(path, payload)` | Server component one-shot POSTs — throws on error |
+| `apiAction<T>(method, path, payload?)` | Server actions — returns `ActionResult<T>`, never throws |
+| `apiUpload<T>(path, formData)` | Multipart file uploads — returns `ActionResult<T>`, omits `Content-Type` so the browser sets the correct multipart boundary |
+
+**Rule:** `export type { ActionResult }` must never appear in a `"use server"` file. Next.js registers every export in a server action module as a server reference at runtime. TypeScript erases type-only exports, leaving a missing reference that crashes the page. Import `ActionResult` directly from `@/lib/server/api` wherever the type is needed.
+
+**File upload pattern:**
+```ts
+// In a "use server" actions file:
+export async function uploadAssetAction(formData: FormData): Promise<ActionResult<{ url: string; storage_key: string }>> {
+  return apiUpload<{ url: string; storage_key: string }>("/api/upload", formData);
+}
+
+// In a client component:
+const fd = new FormData();
+fd.append("file", file);
+const res = await uploadAssetAction(fd);
+```
 
 ---
 

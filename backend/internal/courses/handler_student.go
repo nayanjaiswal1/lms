@@ -1,10 +1,13 @@
 package courses
 
 import (
+	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/rewards"
 )
 
 // GetModuleContent serves module content to enrolled students (or free-preview viewers).
@@ -62,6 +65,8 @@ func (h *Handler) MyEnrollments(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProgress updates module progress for the authenticated student.
+// When a module is marked completed, XP is awarded and streak is updated.
+// When that completion finishes the entire course, course-completion XP fires too.
 func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {
@@ -101,7 +106,61 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, updated)
+
+	// Award XP on module completion (non-fatal).
+	var rewardResult *rewards.AwardResult
+	if req.Status == ProgressCompleted && h.rewardsSvc != nil {
+		courseID := m.CourseID
+		refType := "module"
+		moduleResult := h.rewardsSvc.AwardXP(r.Context(), rewards.AwardXPRequest{
+			UserID:   claims.UserID,
+			OrgID:    claims.OrgID,
+			CourseID: &courseID,
+			Reason:   "module_completed",
+			RefID:    &moduleID,
+			RefType:  &refType,
+			XP:       rewards.XPModuleCompleted,
+		})
+		rewardResult = &moduleResult
+
+		// Streak update after any learning activity.
+		streakResult := h.rewardsSvc.UpdateStreakAndCheckMilestones(r.Context(), claims.UserID, claims.OrgID)
+		rewardResult.XPGained += streakResult.XPGained
+		rewardResult.NewAchievements = append(rewardResult.NewAchievements, streakResult.NewAchievements...)
+		if streakResult.NewLevel != nil {
+			rewardResult.NewLevel = streakResult.NewLevel
+		}
+
+		// Course completion check: if every module is now done, award course XP.
+		cp, cpErr := h.repo.GetCourseProgress(r.Context(), claims.UserID, courseID)
+		if cpErr != nil {
+			slog.Error("courses: check completion for rewards", "course", courseID, "err", cpErr)
+		} else if cp.Total > 0 && cp.Completed == cp.Total {
+			refTypeCourse := "course"
+			courseResult := h.rewardsSvc.AwardXP(r.Context(), rewards.AwardXPRequest{
+				UserID:   claims.UserID,
+				OrgID:    claims.OrgID,
+				CourseID: &courseID,
+				Reason:   "course_completed",
+				RefID:    &courseID,
+				RefType:  &refTypeCourse,
+				XP:       rewards.XPCourseCompleted,
+			})
+			rewardResult.XPGained += courseResult.XPGained
+			rewardResult.NewAchievements = append(rewardResult.NewAchievements, courseResult.NewAchievements...)
+			if courseResult.NewLevel != nil {
+				rewardResult.NewLevel = courseResult.NewLevel
+			}
+		}
+	}
+
+	resp := map[string]any{"progress": updated}
+	if rewardResult != nil {
+		if raw, err := json.Marshal(rewardResult); err == nil {
+			resp["rewards"] = json.RawMessage(raw)
+		}
+	}
+	httputil.WriteJSON(w, http.StatusOK, resp)
 }
 
 // GetMyProgress returns the authenticated student's progress in a course.

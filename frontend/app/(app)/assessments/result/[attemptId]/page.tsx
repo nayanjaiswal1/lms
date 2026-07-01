@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EvaluationCard } from "@/components/assessments/evaluation-card";
 import { EvalPoller } from "@/components/assessments/eval-poller";
+import { RewardResultNotifier } from "@/components/rewards/reward-result-notifier";
 import { getAttemptResult, getEvaluation } from "@/lib/server/assessments";
 import ROUTES from "@/lib/routes";
 import type { ReviewItem } from "@/lib/assessments/types";
@@ -40,6 +41,7 @@ export default async function ResultPage({ params }: PageProps) {
   return (
     <main className="page-container-sm py-10">
       <EvalPoller status={attempt.status} />
+      <RewardResultNotifier result={attempt.reward_result ?? null} />
       <div className="card-raised flex flex-col items-center gap-4 p-8 text-center">
         {evaluating ? (
           <Loader2 aria-hidden className="h-12 w-12 animate-spin text-muted-foreground" />

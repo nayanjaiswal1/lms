@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import type { ProctoringConfig } from "@/lib/assessments/types";
+import { useDevToolsDetector } from "@/lib/assessments/use-devtools-detector";
 
 export type ProctorSeverity = "info" | "warning" | "critical";
 
@@ -17,6 +18,7 @@ interface ProctorOptions {
   durationSeconds: number;
   onEvent: (event: ProctorEvent) => void;
   onTimeUp: () => void;
+  onAutoSubmit?: () => void;
 }
 
 export interface ProctorState {
@@ -25,6 +27,10 @@ export interface ProctorState {
   tabSwitches: number;
   focusLosses: number;
   isFullscreen: boolean;
+  /** True whenever the student is outside fullscreen while require_fullscreen is on.
+   *  Drives the blocking overlay regardless of which exit action is configured. */
+  isFullscreenViolation: boolean;
+  devToolsOpen: boolean;
   requestFullscreen: () => void;
 }
 
@@ -46,11 +52,17 @@ function isDevtoolsCombo(e: KeyboardEvent): boolean {
 // window/document listeners and running interval timers has no server-component
 // or hook-library equivalent.
 export function useProctor(options: ProctorOptions): ProctorState {
-  const { config, enabled, durationSeconds, onEvent, onTimeUp } = options;
+  const { config, enabled, durationSeconds, onEvent, onTimeUp, onAutoSubmit } = options;
 
   const [secondsLeft, setSecondsLeft] = React.useState(durationSeconds);
   const [counts, setCounts] = React.useState({ violations: 0, tabSwitches: 0, focusLosses: 0 });
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [isFullscreenViolation, setIsFullscreenViolation] = React.useState(false);
+  // pausedRef lets the setInterval callback read the latest pause state without
+  // causing the effect to re-subscribe every time the pause state changes.
+  const pausedRef = React.useRef(false);
+  const onAutoSubmitRef = React.useRef(onAutoSubmit ?? (() => undefined));
+  onAutoSubmitRef.current = onAutoSubmit ?? (() => undefined);
 
   // Stable refs so the effect can read latest callbacks without re-subscribing.
   const onEventRef = React.useRef(onEvent);
@@ -100,8 +112,21 @@ export function useProctor(options: ProctorOptions): ProctorState {
     const onFullscreen = () => {
       const fs = Boolean(document.fullscreenElement);
       setIsFullscreen(fs);
-      if (!fs && config.require_fullscreen) emit("fullscreen_exit", "critical", {});
-      else if (fs) emit("fullscreen_enter", "info", {});
+      if (!fs && config.require_fullscreen) {
+        const action = config.fullscreen_exit_action || "pause";
+        setIsFullscreenViolation(true);
+        emit("fullscreen_exit", "critical", { action });
+        if (action === "auto_submit") {
+          onAutoSubmitRef.current();
+        } else if (action === "pause") {
+          pausedRef.current = true;
+        }
+        // "continue": isFullscreenViolation=true blocks the overlay; timer keeps running
+      } else if (fs) {
+        setIsFullscreenViolation(false);
+        pausedRef.current = false;
+        emit("fullscreen_enter", "info", {});
+      }
     };
     const onCopy = (e: ClipboardEvent) => {
       if (!config.block_copy_paste) return;
@@ -145,6 +170,7 @@ export function useProctor(options: ProctorOptions): ProctorState {
     const heartbeatMs = Math.max(5, config.heartbeat_seconds || 15) * 1000;
     const heartbeat = window.setInterval(() => emit("heartbeat", "info", {}), heartbeatMs);
     const ticker = window.setInterval(() => {
+      if (pausedRef.current) return;
       setSecondsLeft((s) => {
         if (s <= 1) {
           window.clearInterval(ticker);
@@ -168,8 +194,20 @@ export function useProctor(options: ProctorOptions): ProctorState {
       window.removeEventListener("offline", onOffline);
       window.clearInterval(heartbeat);
       window.clearInterval(ticker);
+      pausedRef.current = false;
+      setIsFullscreenViolation(false);
     };
   }, [enabled, config, emit]);
+
+  // Size-based DevTools detection — complements keyboard shortcut blocking above.
+  // Fires an event on the first detection (false → true transition) so the server
+  // can record it; does not re-fire while DevTools stays open.
+  const devToolsOpen = useDevToolsDetector(enabled && config.block_devtools);
+  React.useEffect(() => {
+    if (devToolsOpen && enabled && config.block_devtools) {
+      emit("devtools_open", "warning", { method: "size_detection" });
+    }
+  }, [devToolsOpen, enabled, config.block_devtools, emit]);
 
   return {
     secondsLeft,
@@ -177,6 +215,8 @@ export function useProctor(options: ProctorOptions): ProctorState {
     tabSwitches: counts.tabSwitches,
     focusLosses: counts.focusLosses,
     isFullscreen,
+    isFullscreenViolation,
+    devToolsOpen,
     requestFullscreen,
   };
 }

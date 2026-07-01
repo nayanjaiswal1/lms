@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccessGate } from "@/components/shared/access-gate";
+import { BrandMark } from "@/components/shared/brand-mark";
 import { usePermissions } from "@/lib/auth/permissions";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,9 @@ export function Sidebar({ user }: Props) {
 
   return (
     <aside aria-label="Main navigation" className="app-sidebar">
+      <div className="px-5 py-5 border-b border-sidebar-border">
+        <BrandMark />
+      </div>
       <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto px-3 py-6">
         {visibleGroups.map((group, i) => (
           <div className="flex flex-col gap-1" key={group.label ?? `group-${i}`}>

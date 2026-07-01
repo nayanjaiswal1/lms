@@ -10,6 +10,7 @@ import (
 
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/rewards"
 )
 
 // ─── Student: assigned list ──────────────────────────────────────────────────
@@ -147,7 +148,61 @@ func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteJSON(w, http.StatusAccepted, att)
 		return
 	}
+	// Sync graded path (MCQ/coding): award XP and persist the reward result.
+	if h.rewardsSvc != nil && att.Passed != nil && *att.Passed {
+		att = h.awardAttemptXP(r.Context(), att)
+	}
 	httputil.WriteJSON(w, http.StatusOK, att)
+}
+
+// awardAttemptXP awards XP for a synchronously graded passed attempt, stores the
+// reward result in the DB, and returns the attempt with RewardResult populated.
+// All errors are logged and swallowed — reward failures must not break the response.
+func (h *Handler) awardAttemptXP(ctx context.Context, att Attempt) Attempt {
+	xp := rewards.XPQuizPassedRepeat
+	if att.AttemptNumber == 1 {
+		xp = rewards.XPQuizPassedFirst
+	}
+	refType := "attempt"
+	result := h.rewardsSvc.AwardXP(ctx, rewards.AwardXPRequest{
+		UserID:  att.UserID,
+		OrgID:   att.OrgID,
+		Reason:  "quiz_passed",
+		RefID:   &att.ID,
+		RefType: &refType,
+		XP:      xp,
+	})
+	// Perfect score bonus: additional XP + badge check.
+	if att.Percentage != nil && *att.Percentage == 100 {
+		perfect := h.rewardsSvc.AwardXP(ctx, rewards.AwardXPRequest{
+			UserID:  att.UserID,
+			OrgID:   att.OrgID,
+			Reason:  "quiz_perfect",
+			RefID:   &att.ID,
+			RefType: &refType,
+			XP:      rewards.XPQuizPerfectBonus,
+		})
+		result.XPGained += perfect.XPGained
+		result.NewAchievements = append(result.NewAchievements, perfect.NewAchievements...)
+		if perfect.NewLevel != nil {
+			result.NewLevel = perfect.NewLevel
+		}
+	}
+	// Streak update — every passed quiz counts as a learning activity.
+	streakResult := h.rewardsSvc.UpdateStreakAndCheckMilestones(ctx, att.UserID, att.OrgID)
+	result.XPGained += streakResult.XPGained
+	result.NewAchievements = append(result.NewAchievements, streakResult.NewAchievements...)
+	if streakResult.NewLevel != nil {
+		result.NewLevel = streakResult.NewLevel
+	}
+
+	if err := h.repo.SetAttemptRewardResult(ctx, att.ID, result); err != nil {
+		slog.Error("assessment: persist reward result", "attempt", att.ID, "err", err)
+		return att
+	}
+	raw, _ := json.Marshal(result)
+	att.RewardResult = raw
+	return att
 }
 
 // enqueueEval enqueues an eval.subjective job via the Job Management System.

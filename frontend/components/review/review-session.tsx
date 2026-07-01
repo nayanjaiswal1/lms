@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Brain, RotateCcw, ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { submitReviewAction } from "@/app/review/actions";
+import { submitReviewAction } from "@/app/(app)/review/actions";
 import type { SRSCard } from "@/lib/server/srs";
 import ROUTES from "@/lib/routes";
 

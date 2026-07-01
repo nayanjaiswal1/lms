@@ -1,20 +1,25 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, ActionResult } from "@/lib/server/api";
+import { apiAction, apiUpload, ActionResult } from "@/lib/server/api";
+import type { AwardResult } from "@/lib/server/rewards";
 import ROUTES from "@/lib/routes";
 
-export type { ActionResult };
+interface ProgressResult {
+  progress: unknown;
+  rewards?: AwardResult;
+}
 
 export async function createCourseAction(input: {
-  title: string;
+  title:       string;
   description?: string;
+  cover_url?:  string;
   difficulty?: string;
-  tags?: string[];
-  is_free?: boolean;
+  tags?:       string[];
+  is_free?:    boolean;
 }): Promise<ActionResult<{ id: string; slug: string }>> {
   const result = await apiAction<{ id: string; slug: string }>("POST", "/api/courses", input);
-  if (result.ok) revalidatePath(ROUTES.INSTRUCTOR_COURSES);
+  if (result.ok) revalidatePath(ROUTES.MANAGE_COURSES);
   return result;
 }
 
@@ -28,8 +33,8 @@ export async function updateProgressAction(input: {
   moduleID: string;
   status: "not_started" | "in_progress" | "completed";
   last_position_seconds?: number;
-}): Promise<ActionResult> {
-  return apiAction("PATCH", `/api/modules/${input.moduleID}/progress`, {
+}): Promise<ActionResult<ProgressResult>> {
+  return apiAction<ProgressResult>("PATCH", `/api/modules/${input.moduleID}/progress`, {
     status: input.status,
     last_position_seconds: input.last_position_seconds ?? 0,
   });
@@ -43,7 +48,12 @@ export async function createModuleAction(input: {
   content_body?: string;
   estimated_minutes?: number;
 }): Promise<ActionResult> {
-  return apiAction("POST", "/api/modules", input);
+  return apiAction("POST", `/api/sections/${input.section_id}/modules`, {
+    title:             input.title,
+    type:              input.type,
+    content_body:      input.content_body,
+    estimated_minutes: input.estimated_minutes,
+  });
 }
 
 export async function updateCourseAction(
@@ -69,8 +79,8 @@ export async function updateCourseAction(
 
   const result = await apiAction("PATCH", `/api/courses/${courseId}`, body);
   if (result.ok) {
-    revalidatePath(ROUTES.instructorCourse(courseId));
-    revalidatePath(ROUTES.INSTRUCTOR_COURSES);
+    revalidatePath(ROUTES.manageCourse(courseId));
+    revalidatePath(ROUTES.MANAGE_COURSES);
   }
   return result;
 }
@@ -81,4 +91,21 @@ export async function generateOutlineAction(input: {
   module_count: number;
 }): Promise<ActionResult<unknown>> {
   return apiAction<unknown>("POST", "/api/courses/generate-outline", input);
+}
+
+export async function createSectionAction(input: {
+  course_id: string;
+  title:     string;
+  position?: number;
+}): Promise<ActionResult<{ id: string }>> {
+  return apiAction<{ id: string }>("POST", `/api/courses/${input.course_id}/sections`, {
+    title: input.title,
+    position: input.position,
+  });
+}
+
+export async function uploadAssetAction(
+  formData: FormData,
+): Promise<ActionResult<{ url: string; storage_key: string }>> {
+  return apiUpload<{ url: string; storage_key: string }>("/api/upload", formData);
 }

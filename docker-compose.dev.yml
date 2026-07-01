@@ -9,6 +9,7 @@ volumes:
   mindforge_redis_dev:
   mindforge_go_cache:
   mindforge_minio_dev:
+  mindforge_piston_dev:
 
 services:
   postgres:
@@ -82,6 +83,7 @@ services:
     volumes:
       - ./backend:/app
       - mindforge_go_cache:/root/go
+      - /var/run/docker.sock:/var/run/docker.sock
     env_file: ./backend/.env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -97,14 +99,67 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    command: go run -mod=mod ./cmd/server
+      piston:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    command: sh -c "apk add --no-cache docker-cli && go mod download && go run ./cmd/server"
+
+  piston:
+    image: ghcr.io/engineer-man/piston
+    container_name: mindforge_piston_dev
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - mindforge_piston_dev:/piston
+    ports:
+      - "2000:2000"
+    networks:
+      - mindforge_dev
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2000/api/v2/runtimes || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  labproxy:
+    image: golang:1.26-alpine
+    container_name: mindforge_labproxy_dev
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - mindforge_go_cache:/root/go
+    environment:
+      LABPROXY_PORT: "8081"
+      LABPROXY_DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      LABPROXY_REDIS_URL: redis://redis:6379/0
+      LABPROXY_JWT_SECRET: ${JWT_SECRET}
+      LABPROXY_JWT_ISSUER: mindforge-labproxy
+    ports:
+      - "8081:8081"
+    networks:
+      - mindforge_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    command: go run ./cmd/labproxy
 
   adminer:
     image: adminer:latest
     container_name: mindforge_adminer_dev
     restart: unless-stopped
     ports:
-      - "8081:8080"
+      - "8082:8080"
     networks:
       - mindforge_dev
     depends_on:

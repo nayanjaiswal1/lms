@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Send, TriangleAlert, X } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Clock, Maximize, Pause, Send, ShieldAlert, TriangleAlert, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,21 @@ import { isMCQQuestion, isSubjectiveQuestion } from "@/lib/assessments/types";
 import { cn } from "@/lib/utils";
 import type { AttemptPayload } from "@/lib/assessments/types";
 
+function formatSecondsLeft(total: number): string {
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function isAnswered(a: AnswerValue | undefined): boolean {
+  if (!a) return false;
+  if ("selected" in a) return a.selected.length > 0;
+  if ("transcript" in a) return a.transcript.trim().length > 0;
+  return (a as CodingAnswer).code.trim().length > 0;
+}
+
 interface TestRunnerProps {
   payload: AttemptPayload;
 }
@@ -43,7 +58,7 @@ type Confirming = "none" | "submit" | "exit";
 export function TestRunner({ payload }: TestRunnerProps) {
   const { attempt, questions, proctoring, meta } = payload;
   const router = useRouter();
-  const { state, dispatch, answeredCount } = useAnswers(questions);
+  const { state, dispatch, answeredCount, markedCount } = useAnswers(questions);
   const cameraSetup = useCameraSetup(proctoring.require_camera);
 
   const [stage, setStage] = React.useState<Stage>("camera");
@@ -100,6 +115,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
         void submit("Your test was submitted automatically due to a policy violation.");
     },
     onTimeUp: () => void submit("Time is up — your test was submitted."),
+    onAutoSubmit: () => void submit("Your test was submitted because you exited fullscreen."),
   });
 
   const flush = React.useCallback(
@@ -116,6 +132,9 @@ export function TestRunner({ payload }: TestRunnerProps) {
 
   const current = questions[state.index];
   const currentAnswer = current ? state.answers[current.assessment_question_id] : undefined;
+  const isCurrentMarked = current
+    ? (state.markedForReview[current.assessment_question_id] ?? false)
+    : false;
 
   const clearCurrentAnswer = React.useCallback(() => {
     if (!current) return;
@@ -142,6 +161,8 @@ export function TestRunner({ payload }: TestRunnerProps) {
     );
   }
 
+  const progressPct = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+
   return (
     <div className="fixed inset-0 z-modal bg-background">
 
@@ -162,7 +183,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
 
       {/* ── Active test stage — three-zone layout ────────────────────────── */}
       {stage === "active" && (
-        <div className="flex h-full flex-col">
+        <div className="relative flex h-full flex-col">
 
           {/* Zone 1: ProctorBanner — shrink-0 at top */}
           <ProctorBanner
@@ -173,10 +194,10 @@ export function TestRunner({ payload }: TestRunnerProps) {
             onExit={() => setConfirming("exit")}
           />
 
-          {/* Zone 2: Scrollable question content */}
-          <div className="relative flex-1 overflow-y-auto">
+          {/* Zone 2: Question content + right question palette */}
+          <div className="relative flex flex-1 overflow-hidden">
 
-            {/* Exit confirmation overlay */}
+            {/* Exit confirmation overlay — covers question area + palette */}
             {confirming === "exit" && (
               <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
                 <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-raised">
@@ -217,7 +238,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
               </div>
             )}
 
-            {/* Submit confirmation overlay */}
+            {/* Submit confirmation overlay — covers question area + palette */}
             {confirming === "submit" && (
               <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
                 <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-raised">
@@ -263,98 +284,191 @@ export function TestRunner({ payload }: TestRunnerProps) {
               </div>
             )}
 
-            <div className="page-container py-6">
-              {/* Question meta */}
-              <div className="mb-5 flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-bold tabular-nums">
-                      Q{state.index + 1}
-                    </span>
-                    <span className="text-base text-muted-foreground">
-                      of {questions.length}
-                    </span>
+            {/* Scrollable question content */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="page-container py-6">
+                {/* Question meta — select-none prevents students from copy-pasting
+                    the question title and type labels out of the test. */}
+                <div className="mb-5 flex select-none flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl font-bold tabular-nums">
+                        Q{state.index + 1}
+                      </span>
+                      <span className="text-base text-muted-foreground">
+                        of {questions.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="secondary" className="capitalize">
+                        {current.type.replace("_", " ")}
+                      </Badge>
+                      <Badge variant="secondary" className="capitalize">
+                        {current.difficulty}
+                      </Badge>
+                      <Badge variant="outline" className="tabular-nums">
+                        {current.points} pt{current.points !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className="capitalize">
-                      {current.type.replace("_", " ")}
-                    </Badge>
-                    <Badge variant="secondary" className="capitalize">
-                      {current.difficulty}
-                    </Badge>
-                    <Badge variant="outline" className="tabular-nums">
-                      {current.points} pt{current.points !== 1 ? "s" : ""}
-                    </Badge>
-                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">{current.title}</p>
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">{current.title}</p>
+
+                {/* Question content */}
+                {isMCQQuestion(current) || isSubjectiveQuestion(current) ? (
+                  <div className="card-base select-none p-6">
+                    {isMCQQuestion(current) ? (
+                      <MCQQuestion
+                        content={current.content}
+                        selected={(currentAnswer as MCQAnswer | undefined)?.selected ?? []}
+                        onToggle={(optionId, multiple) =>
+                          dispatch({
+                            kind: "toggleOption",
+                            qid: current.assessment_question_id,
+                            optionId,
+                            multiple,
+                          })
+                        }
+                      />
+                    ) : (
+                      <TranscriptInput
+                        prompt={current.content.prompt}
+                        value={(currentAnswer as TranscriptAnswer | undefined)?.transcript ?? ""}
+                        onChange={(text) =>
+                          dispatch({
+                            kind: "setTranscript",
+                            qid: current.assessment_question_id,
+                            transcript: text,
+                          })
+                        }
+                        onSave={(text) =>
+                          void saveAnswerAction(
+                            attempt.id,
+                            current.assessment_question_id,
+                            null,
+                            0,
+                            text,
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <CodingQuestion
+                    content={current.content}
+                    value={currentAnswer as CodingAnswer | undefined}
+                    onCode={(code, language) =>
+                      dispatch({
+                        kind: "setCode",
+                        qid: current.assessment_question_id,
+                        code,
+                        language,
+                      })
+                    }
+                    onLanguage={(language, starter) =>
+                      dispatch({
+                        kind: "setLanguage",
+                        qid: current.assessment_question_id,
+                        language,
+                        starter,
+                      })
+                    }
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Right panel — question palette (desktop only) */}
+            <aside className="hidden lg:flex w-52 shrink-0 flex-col gap-4 overflow-y-auto border-l border-border bg-card/50 p-4">
+
+              {/* Progress summary */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Progress</span>
+                  <span className="text-xs font-semibold tabular-nums">
+                    {answeredCount}/{questions.length}
+                  </span>
+                </div>
+                <div className="progress-track">
+                  {/* eslint-disable-next-line no-restricted-syntax -- dynamic CSS variable for progress bar width */}
+                  <div
+                    className="progress-fill"
+                    style={{ "--progress": `${progressPct}%` } as React.CSSProperties}
+                  />
+                </div>
+                {markedCount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {markedCount} marked for review
+                  </p>
+                )}
               </div>
 
-              {/* Question content */}
-              {isMCQQuestion(current) || isSubjectiveQuestion(current) ? (
-                <div className="card-base p-6">
-                  {isMCQQuestion(current) ? (
-                    <MCQQuestion
-                      content={current.content}
-                      selected={(currentAnswer as MCQAnswer | undefined)?.selected ?? []}
-                      onToggle={(optionId, multiple) =>
-                        dispatch({
-                          kind: "toggleOption",
-                          qid: current.assessment_question_id,
-                          optionId,
-                          multiple,
-                        })
-                      }
-                    />
-                  ) : (
-                    <TranscriptInput
-                      prompt={current.content.prompt}
-                      value={(currentAnswer as TranscriptAnswer | undefined)?.transcript ?? ""}
-                      onChange={(text) =>
-                        dispatch({
-                          kind: "setTranscript",
-                          qid: current.assessment_question_id,
-                          transcript: text,
-                        })
-                      }
-                      onSave={(text) =>
-                        void saveAnswerAction(
-                          attempt.id,
-                          current.assessment_question_id,
-                          null,
-                          0,
-                          text,
-                        )
-                      }
-                    />
-                  )}
+              {/* Question number grid */}
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Questions</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {questions.map((q, i) => {
+                    const a = state.answers[q.assessment_question_id];
+                    const answered = isAnswered(a);
+                    const isCurrent = i === state.index;
+                    const isMarked = state.markedForReview[q.assessment_question_id] ?? false;
+                    return (
+                      <button
+                        key={q.assessment_question_id}
+                        onClick={() => meta.allow_backtrack ? goto(i) : undefined}
+                        disabled={!meta.allow_backtrack && i !== state.index}
+                        aria-label={`Question ${i + 1}${answered ? ", answered" : ""}${isMarked ? ", marked for review" : ""}`}
+                        aria-current={isCurrent ? "step" : undefined}
+                        className={cn(
+                          "flex h-9 w-full items-center justify-center rounded-md text-xs font-semibold tabular-nums transition-all duration-fast",
+                          isCurrent
+                            ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
+                            : isMarked && answered
+                              ? "bg-ai text-ai-foreground ring-2 ring-primary"
+                              : isMarked
+                                ? "bg-primary/15 text-primary ring-2 ring-primary/60"
+                                : answered
+                                  ? "bg-ai/15 text-ai"
+                                  : "bg-muted text-muted-foreground",
+                          meta.allow_backtrack && i !== state.index
+                            ? "cursor-pointer hover:opacity-75"
+                            : "cursor-default",
+                        )}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : (
-                <CodingQuestion
-                  content={current.content}
-                  value={currentAnswer as CodingAnswer | undefined}
-                  onCode={(code, language) =>
-                    dispatch({
-                      kind: "setCode",
-                      qid: current.assessment_question_id,
-                      code,
-                      language,
-                    })
-                  }
-                  onLanguage={(language, starter) =>
-                    dispatch({
-                      kind: "setLanguage",
-                      qid: current.assessment_question_id,
-                      language,
-                      starter,
-                    })
-                  }
-                />
-              )}
-            </div>
+              </div>
+
+              {/* Legend */}
+              <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-sm bg-primary" />
+                  <span className="text-xs text-muted-foreground">Current</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-sm bg-ai/15" />
+                  <span className="text-xs text-muted-foreground">Answered</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-sm bg-primary/15 ring-2 ring-primary/60" />
+                  <span className="text-xs text-muted-foreground">Marked for review</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-sm bg-ai ring-2 ring-primary" />
+                  <span className="text-xs text-muted-foreground">Answered + marked</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-sm bg-muted" />
+                  <span className="text-xs text-muted-foreground">Not answered</span>
+                </div>
+              </div>
+            </aside>
           </div>
 
-          {/* Zone 3: Bottom navigation bar — shrink-0 at bottom */}
+          {/* Zone 3: Bottom navigation bar — dots replaced with Q X/Y counter */}
           <div className="shrink-0 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6">
             <div className="flex items-center gap-3">
               {/* Previous */}
@@ -369,50 +483,11 @@ export function TestRunner({ payload }: TestRunnerProps) {
                 <span className="hidden sm:inline">Previous</span>
               </Button>
 
-              {/* Question dots */}
-              <div
-                className="flex flex-1 items-center justify-center gap-0.5 overflow-x-auto"
-                role="list"
-                aria-label="Question progress"
-              >
-                {questions.map((q, i) => {
-                  const a = state.answers[q.assessment_question_id];
-                  const answered = a
-                    ? "selected" in a
-                      ? a.selected.length > 0
-                      : "transcript" in a
-                        ? a.transcript.trim().length > 0
-                        : (a as CodingAnswer).code.trim().length > 0
-                    : false;
-                  const isCurrent = i === state.index;
-                  return (
-                    <button
-                      key={q.assessment_question_id}
-                      role="listitem"
-                      onClick={() => meta.allow_backtrack ? goto(i) : undefined}
-                      disabled={!meta.allow_backtrack && i !== state.index}
-                      aria-label={`Question ${i + 1}${answered ? ", answered" : ""}`}
-                      aria-current={isCurrent ? "step" : undefined}
-                      className={cn(
-                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-all duration-fast",
-                        meta.allow_backtrack && i !== state.index
-                          ? "cursor-pointer hover:bg-muted"
-                          : "cursor-default",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "block rounded-full transition-all duration-fast",
-                          isCurrent
-                            ? "h-2.5 w-2.5 bg-primary ring-2 ring-primary/30"
-                            : answered
-                              ? "h-2 w-2 bg-ai"
-                              : "h-2 w-2 bg-border",
-                        )}
-                      />
-                    </button>
-                  );
-                })}
+              {/* Question position counter — replaces dots */}
+              <div className="flex flex-1 items-center justify-center">
+                <span className="text-sm tabular-nums text-muted-foreground">
+                  {state.index + 1} / {questions.length}
+                </span>
               </div>
 
               {/* Clear */}
@@ -426,6 +501,28 @@ export function TestRunner({ payload }: TestRunnerProps) {
               >
                 <X aria-hidden />
                 <span className="hidden sm:inline">Clear</span>
+              </Button>
+
+              {/* Mark for Review */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  dispatch({ kind: "toggleMark", qid: current.assessment_question_id })
+                }
+                aria-label={isCurrentMarked ? "Remove review mark" : "Mark for review"}
+                className={cn(
+                  "shrink-0",
+                  isCurrentMarked ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                <Bookmark
+                  aria-hidden
+                  className={cn("transition-colors duration-fast", isCurrentMarked && "fill-primary")}
+                />
+                <span className="hidden sm:inline">
+                  {isCurrentMarked ? "Marked" : "Mark"}
+                </span>
               </Button>
 
               {/* Next / Submit */}
@@ -451,6 +548,69 @@ export function TestRunner({ payload }: TestRunnerProps) {
               )}
             </div>
           </div>
+
+          {/* Fullscreen-exit overlay — fully opaque so questions are never visible
+              while the student is outside fullscreen. Content and timer behaviour
+              vary by the assessment's configured fullscreen_exit_action. */}
+          {proctoring.require_fullscreen && proctor.isFullscreenViolation && (
+            <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background p-4">
+              <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-raised">
+                <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                  <Pause aria-hidden className="h-6 w-6 text-primary" />
+                </span>
+                {proctoring.fullscreen_exit_action === "continue" ? (
+                  <>
+                    <h2 className="text-lg font-semibold">Questions Hidden</h2>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      You exited fullscreen. Questions are hidden but the timer is
+                      still running.
+                    </p>
+                    <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-2xl font-bold tabular-nums text-destructive">
+                      <Clock aria-hidden className="h-5 w-5" />
+                      {formatSecondsLeft(proctor.secondsLeft)}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-lg font-semibold">Test Paused</h2>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      You exited fullscreen. The timer is frozen — return to
+                      fullscreen to continue.
+                    </p>
+                    <div className="mt-4 flex items-center justify-center gap-1.5 font-mono text-2xl font-bold tabular-nums text-primary">
+                      <Clock aria-hidden className="h-5 w-5" />
+                      {formatSecondsLeft(proctor.secondsLeft)}
+                    </div>
+                  </>
+                )}
+                <Button className="mt-5 w-full gap-2" onClick={proctor.requestFullscreen}>
+                  <Maximize aria-hidden />
+                  Return to Fullscreen
+                </Button>
+                <p className="mt-3 text-xs text-destructive">
+                  Exiting fullscreen has been recorded as a violation.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* DevTools blocking overlay — fully opaque so question content cannot
+              be read in the Elements panel. Appears on top of the pause overlay
+              (later in DOM) so both violations are handled simultaneously. */}
+          {proctoring.block_devtools && proctor.devToolsOpen && (
+            <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background p-4">
+              <div className="w-full max-w-sm rounded-2xl border border-destructive/30 bg-card p-6 text-center shadow-raised">
+                <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                  <ShieldAlert aria-hidden className="h-6 w-6 text-destructive" />
+                </span>
+                <h2 className="text-lg font-semibold">Developer Tools Detected</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Close the developer tools panel to resume your test. This event
+                  has been recorded and flagged.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Minor displays — floating camera PiPs */}
           <CameraPip

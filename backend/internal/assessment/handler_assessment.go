@@ -1,6 +1,7 @@
 package assessment
 
 import (
+	"crypto/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -38,7 +39,7 @@ func (req *assessmentRequest) normalise() map[string]string {
 	} else if !contains(ValidParentTypes, req.ParentType) {
 		fields["parent_type"] = "Invalid parent type."
 	}
-	if req.ParentType == ParentStandalone {
+	if req.ParentType == ParentStandalone || req.ParentType == ParentHiring {
 		req.ParentID = nil
 	}
 	if req.DurationMinutes <= 0 {
@@ -64,7 +65,29 @@ func (req *assessmentRequest) proctoringConfig() ProctoringConfig {
 	if req.Proctoring == nil {
 		return DefaultProctoring()
 	}
-	return *req.Proctoring
+	p := *req.Proctoring
+	validExitActions := []string{FullscreenExitPause, FullscreenExitContinue, FullscreenExitAutoSubmit}
+	if p.FullscreenExitAction == "" || !contains(validExitActions, p.FullscreenExitAction) {
+		p.FullscreenExitAction = FullscreenExitPause
+	}
+	if p.HeartbeatSeconds <= 0 {
+		p.HeartbeatSeconds = 15
+	}
+	return p
+}
+
+// generateShortCode returns a 10-char URL-safe alphanumeric code.
+func generateShortCode() (string, error) {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	buf := make([]byte, 10)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	out := make([]byte, 10)
+	for i, b := range buf {
+		out[i] = alphabet[int(b)%len(alphabet)]
+	}
+	return string(out), nil
 }
 
 func (h *Handler) CreateAssessment(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +124,14 @@ func (h *Handler) CreateAssessment(w http.ResponseWriter, r *http.Request) {
 		EndsAt:           req.EndsAt,
 		Proctoring:       req.proctoringConfig(),
 		CreatedBy:        claims.UserID,
+	}
+	if req.ParentType == ParentHiring {
+		code, err := generateShortCode()
+		if err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Could not generate public link.")
+			return
+		}
+		a.ShortCode = &code
 	}
 	created, err := h.repo.CreateAssessment(r.Context(), a)
 	if err != nil {

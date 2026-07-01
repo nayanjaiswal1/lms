@@ -60,6 +60,8 @@ Everything about the student learning experience: coding challenges, in-browser 
 - Syntax highlighting, auto-complete, bracket matching, line numbers
 - Font size control; follows system dark/light theme
 - `Ctrl+Enter` = Run · `Ctrl+Shift+Enter` = Submit
+- **Component:** `components/shared/code-editor.tsx` — lazy-loaded via `next/dynamic` (ssr: false) with `<Skeleton>` fallback; uses `var(--font-jetbrains-mono)` from the design system
+- Props: `language`, `value`, `onChange`, `readOnly`, `height`, `className`
 
 ### Run vs Submit
 
@@ -93,10 +95,17 @@ Strategy: run in browser via WebAssembly wherever possible. Server only for heav
 ### Server-side flow (Go/Java/C++)
 
 1. Code submitted to `POST /api/code/run`
-2. Server spawns isolated Docker container with 10s timeout
-3. Runs test cases, captures stdout/stderr
-4. Returns result — container destroyed immediately
+2. Server forwards to **Piston** (`PISTON_URL`) or Judge0 (`JUDGE0_URL`) — Piston takes priority when both are set
+3. Executor runs all test cases, captures stdout/stderr per case
+4. Returns `RunResult` with per-case pass/fail and aggregate status
 5. Rate limit: 20 submissions per user per hour
+
+**Executor selection** (`internal/assessment/executor.go`):
+- `PISTON_URL` set → `pistonExecutor` (self-hosted, free, supports 15+ languages)
+- `JUDGE0_URL` set → `judge0Executor` (fallback)
+- Neither set → `unavailableExecutor` — coding grading deferred to instructor manual review; MCQ unaffected
+
+Self-host Piston: `docker run -p 2000:2000 ghcr.io/engineer-man/piston`
 
 ### Problem data format
 
@@ -181,7 +190,38 @@ GET  /api/certificates/:uuid          public verification (no auth)
 POST /api/messages                   body: {recipient_id, course_id, content}
 GET  /api/messages/:user_id          conversation thread with a mentor
 GET  /api/mentor/students            (mentor) list assigned students
+
+POST /api/highlights                 body: {source_type, source_id, selected_text, position_start?, position_end?, save_for_revision} → Highlight
+POST /api/highlights/explain         body: {source_type, source_id, selected_text} → {highlight_id, explanation}
+GET  /api/highlights/me              ?saved_only=true → [Highlight]
+PATCH /api/highlights/:id/revision   body: {save_for_revision} → Highlight
+GET  /api/admin/highlights/analytics ?limit=50 → [AnalyticsEntry]  (super_admin only)
 ```
+
+---
+
+## Highlight Flow
+
+Students can highlight text in any wiki page, lesson, or coding problem description.
+
+### DB Tables
+- `highlights` — per-user text selection anchors (source_type, source_id, selected_text, text_hash, saved_for_revision)
+- `highlight_explanations` — shared AI explanation cache keyed by `hash(text + source_type)`. `serve_count` tracks how many times each explanation was served (token-savings analytics).
+
+### Cache key
+`SHA-256(normalize(selected_text) + "|" + source_type)` — same text in the same surface type (e.g., all wiki pages) shares one cached explanation. Same text in a lesson vs a wiki page gets separate context-aware explanations.
+
+### Assessment restriction
+The `HighlightProvider` component must **not** be mounted on assessment attempt pages. `source_type` does not accept `"assessment"` (DB CHECK constraint enforces this). AI assist during a live exam is cheating.
+
+### Frontend
+- `<HighlightProvider sourceType="lesson" sourceId={id}>` wraps any reading surface
+- On text selection: `HighlightPopup` appears with "Save for revision" and "Explain now"
+- "Explain now" → cached or fresh AI explanation in `ExplanationPanel` (bottom-right slide-up)
+- Saved highlights visible at `/highlights` (My Saved Highlights page)
+
+### Analytics
+`GET /api/admin/highlights/analytics` returns top N most-served explanations, ranked by `serve_count` — shows which concepts students find most confusing.
 
 ---
 

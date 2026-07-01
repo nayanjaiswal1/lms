@@ -455,6 +455,18 @@ You never write `text-4xl font-bold tracking-tight` on an `<h1>` in a component 
 
 ---
 
+## Shared Components (`components/shared/`)
+
+| Component | File | Notes |
+|---|---|---|
+| `<CodeEditor>` | `components/shared/code-editor.tsx` | Lazy-loaded Monaco Editor (`next/dynamic`, ssr: false). Props: `language`, `value`, `onChange`, `readOnly`, `height`, `className`. Uses `var(--font-jetbrains-mono)`. Skeleton shown while loading. |
+| `<AccessGate>` | `components/shared/access-gate.tsx` | Permission/feature gate wrapper |
+| `<BrandMark>` | `components/shared/brand-mark.tsx` | Logo mark |
+| `<ThemeToggle>` | `components/shared/theme-toggle.tsx` | Light/dark toggle |
+| `<WithFeature>` | `components/shared/with-feature.tsx` | Feature-flag HOC |
+
+---
+
 ## Design System
 - UI primitives from `components/ui/` (shadcn) only — no raw `<input>`, `<button>`, `<select>`, `<textarea>`
 - Compose larger patterns from `components/shared/` — never duplicate a layout pattern

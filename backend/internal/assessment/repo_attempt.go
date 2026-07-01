@@ -154,12 +154,12 @@ func (r *Repo) GetAttempt(ctx context.Context, attemptID string) (Attempt, error
 		`SELECT id, assessment_id, user_id, org_id, attempt_number, status,
 		        started_at, submitted_at, evaluated_at, expires_at, duration_seconds,
 		        score, max_score, percentage, passed, auto_submitted,
-		        snapshot, proctoring_summary, created_at
+		        snapshot, proctoring_summary, reward_result, created_at
 		 FROM assessment_attempts WHERE id = $1`, attemptID,
 	).Scan(&a.ID, &a.AssessmentID, &a.UserID, &a.OrgID, &a.AttemptNumber, &a.Status,
 		&a.StartedAt, &a.SubmittedAt, &a.EvaluatedAt, &a.ExpiresAt, &a.DurationSeconds,
 		&a.Score, &a.MaxScore, &a.Percentage, &a.Passed, &a.AutoSubmitted,
-		&a.Snapshot, &a.ProctoringSummary, &a.CreatedAt)
+		&a.Snapshot, &a.ProctoringSummary, &a.RewardResult, &a.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Attempt{}, ErrNotFound
@@ -167,6 +167,22 @@ func (r *Repo) GetAttempt(ctx context.Context, attemptID string) (Attempt, error
 		return Attempt{}, fmt.Errorf("assessment: get attempt: %w", err)
 	}
 	return a, nil
+}
+
+// SetAttemptRewardResult persists the reward outcome (XP, badges, level-up) for a
+// completed attempt. Non-fatal callers should log errors but not propagate them.
+func (r *Repo) SetAttemptRewardResult(ctx context.Context, attemptID string, result any) error {
+	data, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("assessment: marshal reward result: %w", err)
+	}
+	_, err = r.pool.Exec(ctx,
+		`UPDATE assessment_attempts SET reward_result = $2 WHERE id = $1`,
+		attemptID, data)
+	if err != nil {
+		return fmt.Errorf("assessment: set reward result: %w", err)
+	}
+	return nil
 }
 
 // SaveAnswer upserts a student's answer for one question during an attempt.

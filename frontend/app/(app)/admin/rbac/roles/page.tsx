@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
+import ROUTES from "@/lib/routes"
 
 interface Role {
   id: string
@@ -57,7 +58,7 @@ export default async function RolesPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/admin/rbac/roles/new">New Role</Link>
+          <Link href={ROUTES.ADMIN_RBAC_ROLES_NEW}>New Role</Link>
         </Button>
       </div>
 
@@ -74,7 +75,7 @@ export default async function RolesPage() {
             <div className="empty-state">
               <p className="text-muted-foreground">No custom roles yet.</p>
               <Button asChild className="mt-4">
-                <Link href="/admin/rbac/roles/new">Create your first role</Link>
+                <Link href={ROUTES.ADMIN_RBAC_ROLES_NEW}>Create your first role</Link>
               </Button>
             </div>
           ) : (

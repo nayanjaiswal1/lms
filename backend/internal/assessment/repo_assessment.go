@@ -20,13 +20,13 @@ func (r *Repo) CreateAssessment(ctx context.Context, a Assessment) (Assessment, 
 		   (org_id, title, slug, description, type, parent_type, parent_id,
 		    duration_minutes, pass_percentage, max_attempts, shuffle_questions,
 		    shuffle_options, allow_backtrack, show_results, starts_at, ends_at,
-		    proctoring, created_by, mock_mode)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+		    proctoring, created_by, mock_mode, short_code)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
 		 RETURNING id, status, total_points, created_at, updated_at`,
 		a.OrgID, a.Title, a.Slug, a.Description, a.Type, a.ParentType, a.ParentID,
 		a.DurationMinutes, a.PassPercentage, a.MaxAttempts, a.ShuffleQuestions,
 		a.ShuffleOptions, a.AllowBacktrack, a.ShowResults, a.StartsAt, a.EndsAt,
-		proctoring, a.CreatedBy, a.MockMode,
+		proctoring, a.CreatedBy, a.MockMode, a.ShortCode,
 	).Scan(&a.ID, &a.Status, &a.TotalPoints, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return Assessment{}, fmt.Errorf("assessment: create assessment: %w", err)
@@ -66,7 +66,8 @@ func (r *Repo) GetAssessment(ctx context.Context, orgID, id string) (Assessment,
 		        a.max_attempts, a.total_points, a.mock_mode, a.shuffle_questions, a.shuffle_options,
 		        a.allow_backtrack, a.show_results, a.starts_at, a.ends_at, a.proctoring,
 		        a.created_by, a.published_at, a.created_at, a.updated_at,
-		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id)
+		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id),
+		        a.short_code
 		 FROM assessments a WHERE a.id = $1 AND a.org_id = $2`, id, orgID)
 	return scanAssessment(row)
 }
@@ -117,7 +118,8 @@ func (r *Repo) ListAssessments(ctx context.Context, orgID string, f AssessmentFi
 		        a.max_attempts, a.total_points, a.mock_mode, a.shuffle_questions, a.shuffle_options,
 		        a.allow_backtrack, a.show_results, a.starts_at, a.ends_at, a.proctoring,
 		        a.created_by, a.published_at, a.created_at, a.updated_at,
-		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id)
+		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id),
+		        a.short_code
 		 FROM assessments a WHERE %s
 		 ORDER BY a.updated_at DESC
 		 LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args))
@@ -405,8 +407,10 @@ func (r *Repo) DeleteAssignment(ctx context.Context, orgID, assessmentID, assign
 	return nil
 }
 
-// IsUserAssigned reports whether the user is targeted by an assignment, directly
-// or through batch membership.
+// IsUserAssigned reports whether the user may take the assessment.
+// Access is granted if any of these conditions hold:
+//  1. The user has a direct or batch assignment in assessment_assignments.
+//  2. The assessment is linked to a course module and the user is enrolled in that course.
 func (r *Repo) IsUserAssigned(ctx context.Context, assessmentID, userID string) (bool, error) {
 	var ok bool
 	err := r.pool.QueryRow(ctx,
@@ -418,6 +422,12 @@ func (r *Repo) IsUserAssigned(ctx context.Context, assessmentID, userID string) 
 		       OR (aa.assignee_type = 'batch' AND aa.assignee_id IN (
 		             SELECT batch_id FROM batch_members WHERE user_id = $2))
 		     )
+		 )
+		 OR EXISTS(
+		   SELECT 1 FROM course_modules cm
+		   JOIN enrollments e ON e.course_id = cm.course_id
+		   WHERE cm.assessment_id = $1
+		     AND e.user_id = $2
 		 )`, assessmentID, userID).Scan(&ok)
 	if err != nil {
 		return false, fmt.Errorf("assessment: check assignment: %w", err)
@@ -434,7 +444,7 @@ func scanAssessment(row pgx.Row) (Assessment, error) {
 		&a.ParentType, &a.ParentID, &a.DurationMinutes, &a.PassPercentage,
 		&a.MaxAttempts, &a.TotalPoints, &a.MockMode, &a.ShuffleQuestions, &a.ShuffleOptions,
 		&a.AllowBacktrack, &a.ShowResults, &a.StartsAt, &a.EndsAt, &proctoring,
-		&a.CreatedBy, &a.PublishedAt, &a.CreatedAt, &a.UpdatedAt, &a.QuestionCount)
+		&a.CreatedBy, &a.PublishedAt, &a.CreatedAt, &a.UpdatedAt, &a.QuestionCount, &a.ShortCode)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Assessment{}, ErrNotFound

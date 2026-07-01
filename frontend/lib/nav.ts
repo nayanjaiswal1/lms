@@ -17,6 +17,7 @@ import {
   Shield,
   Briefcase,
   Cpu,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -106,6 +107,11 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  "assessments.take",
     mode:                "badge",
   },
+  leaderboard: {
+    label: "Leaderboard",
+    href:  ROUTES.LEADERBOARD,
+    icon:  Trophy,
+  },
   flashcards: {
     label:               "Review Cards",
     href:                ROUTES.REVIEW,
@@ -124,7 +130,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   },
   mentor_chat: {
     label:               "Mentor Chat",
-    href:                ROUTES.MENTOR,
+    href:                ROUTES.MENTORING,
     icon:                MessageSquare,
     feature:             FEATURES.MENTORS,
     requiredPermission:  "mentoring.chat",
@@ -171,21 +177,20 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     mode:                "badge",
   },
   instructor_dashboard: {
-    label:               "Dashboard",
-    href:                ROUTES.INSTRUCTOR_DASHBOARD,
-    icon:                LayoutDashboard,
+    label:               "Courses",
+    href:                ROUTES.MANAGE_COURSES,
+    icon:                BookOpen,
     requiredPermission:  "courses.create",
-    exact:               true,
   },
   instructor_courses: {
     label:               "My Courses",
-    href:                ROUTES.INSTRUCTOR_COURSES,
+    href:                ROUTES.MANAGE_COURSES,
     icon:                BookOpen,
     requiredPermission:  "courses.create",
   },
   instructor_assessments: {
     label:               "Assessments",
-    href:                ROUTES.ADMIN_ASSESSMENTS,
+    href:                ROUTES.MANAGE_ASSESSMENTS,
     icon:                ClipboardCheck,
     feature:             FEATURES.ASSESSMENTS,
     requiredPermission:  "assessments.create",
@@ -193,7 +198,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   },
   question_bank: {
     label:               "Question Bank",
-    href:                ROUTES.ADMIN_QUESTION_BANK,
+    href:                ROUTES.QUESTION_BANK,
     icon:                FileQuestion,
     feature:             FEATURES.ASSESSMENTS,
     requiredPermission:  "assessments.manage_questions",
@@ -201,28 +206,28 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   },
   batches: {
     label:               "Batches",
-    href:                ROUTES.ADMIN_BATCHES,
+    href:                ROUTES.BATCHES,
     icon:                Users,
     feature:             FEATURES.ASSESSMENTS,
     requiredPermission:  "assessments.manage_batches",
     mode:                "badge",
   },
   mentor_dashboard: {
-    label:               "Dashboard",
-    href:                ROUTES.MENTOR,
+    label:               "Overview",
+    href:                ROUTES.MENTORING,
     icon:                LayoutDashboard,
     requiredPermission:  "mentoring.manage_batches",
     exact:               true,
   },
   mentor_messages: {
     label:               "Messages",
-    href:                ROUTES.MENTOR_MESSAGES,
+    href:                ROUTES.MENTORING_MESSAGES,
     icon:                MessageSquare,
     requiredPermission:  "mentoring.manage_batches",
   },
   mentor_batches: {
     label:               "My Batches",
-    href:                ROUTES.MENTOR_BATCHES,
+    href:                ROUTES.MENTORING_BATCHES,
     icon:                Users,
     feature:             FEATURES.BATCH_CHAT,
     requiredPermission:  "mentoring.manage_batches",
@@ -266,6 +271,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.courses,
       ALL_NAV_ITEMS.practice,
       ALL_NAV_ITEMS.assessments,
+      ALL_NAV_ITEMS.leaderboard,
       ALL_NAV_ITEMS.flashcards,
       ALL_NAV_ITEMS.sheet_tracker,
       ALL_NAV_ITEMS.mentor_chat,
@@ -277,9 +283,8 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Teach",
+    label: "Teaching",
     items: [
-      ALL_NAV_ITEMS.instructor_dashboard,
       ALL_NAV_ITEMS.instructor_courses,
       ALL_NAV_ITEMS.instructor_assessments,
       ALL_NAV_ITEMS.question_bank,
@@ -287,7 +292,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Mentor",
+    label: "Mentoring",
     items: [
       ALL_NAV_ITEMS.mentor_dashboard,
       ALL_NAV_ITEMS.mentor_messages,
@@ -295,7 +300,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Admin",
+    label: "Administration",
     items: [
       ALL_NAV_ITEMS.admin_rbac,
       ALL_NAV_ITEMS.admin_jobs,

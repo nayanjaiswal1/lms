@@ -35,36 +35,47 @@ const (
 	AssigneeBatch   = "batch"
 
 	ParentStandalone = "standalone"
+	ParentHiring     = "hiring"
 )
 
 // ValidDifficulties / ValidParentTypes back validation without scattering literals.
 var (
 	ValidDifficulties = []string{"beginner", "intermediate", "advanced", "expert"}
-	ValidParentTypes  = []string{"standalone", "course", "module", "roadmap", "batch", "bootcamp"}
+	ValidParentTypes  = []string{"standalone", "course", "module", "roadmap", "batch", "bootcamp", "hiring"}
 )
 
 // ─── Proctoring configuration ────────────────────────────────────────────────
+
+// Fullscreen exit action values — what happens when the student exits fullscreen
+// while RequireFullscreen is true.
+const (
+	FullscreenExitPause      = "pause"       // freeze timer; student must re-enter to resume
+	FullscreenExitContinue   = "continue"    // hide questions but timer keeps running
+	FullscreenExitAutoSubmit = "auto_submit" // immediately submit the attempt
+)
 
 // ProctoringConfig is the anti-cheat policy stored on each assessment.
 // Zero value is not the intended default; always build via DefaultProctoring then
 // overlay caller-supplied fields so an omitted field keeps its safe default.
 type ProctoringConfig struct {
-	RequireFullscreen     bool `json:"require_fullscreen"`
-	BlockCopyPaste        bool `json:"block_copy_paste"`
-	BlockRightClick       bool `json:"block_right_click"`
-	BlockDevtools         bool `json:"block_devtools"`
-	MaxTabSwitches        int  `json:"max_tab_switches"`         // 0 = unlimited
-	MaxFocusLoss          int  `json:"max_focus_loss"`           // 0 = unlimited
-	AutoSubmitOnViolation bool `json:"auto_submit_on_violation"` // hard-submit when a hard cap is hit
-	HeartbeatSeconds      int  `json:"heartbeat_seconds"`
-	RequireCamera         bool `json:"require_camera"`          // show camera & mic preflight step
-	AllowSecondaryCamera  bool `json:"allow_secondary_camera"`  // show secondary phone camera step
+	RequireFullscreen     bool   `json:"require_fullscreen"`
+	FullscreenExitAction  string `json:"fullscreen_exit_action"`  // pause | continue | auto_submit
+	BlockCopyPaste        bool   `json:"block_copy_paste"`
+	BlockRightClick       bool   `json:"block_right_click"`
+	BlockDevtools         bool   `json:"block_devtools"`
+	MaxTabSwitches        int    `json:"max_tab_switches"`         // 0 = unlimited
+	MaxFocusLoss          int    `json:"max_focus_loss"`           // 0 = unlimited
+	AutoSubmitOnViolation bool   `json:"auto_submit_on_violation"` // hard-submit when a hard cap is hit
+	HeartbeatSeconds      int    `json:"heartbeat_seconds"`
+	RequireCamera         bool   `json:"require_camera"`           // show camera & mic preflight step
+	AllowSecondaryCamera  bool   `json:"allow_secondary_camera"`   // show secondary phone camera step
 }
 
 // DefaultProctoring returns the platform's safe default proctoring policy.
 func DefaultProctoring() ProctoringConfig {
 	return ProctoringConfig{
 		RequireFullscreen:     true,
+		FullscreenExitAction:  FullscreenExitPause,
 		BlockCopyPaste:        true,
 		BlockRightClick:       true,
 		BlockDevtools:         true,
@@ -178,6 +189,7 @@ type Assessment struct {
 	MaxAttempts      int              `json:"max_attempts"`
 	TotalPoints      float64          `json:"total_points"`
 	MockMode         bool             `json:"mock_mode"`
+	ShortCode        *string          `json:"short_code,omitempty"`
 	ShuffleQuestions bool             `json:"shuffle_questions"`
 	ShuffleOptions   bool             `json:"shuffle_options"`
 	AllowBacktrack   bool             `json:"allow_backtrack"`
@@ -211,5 +223,6 @@ type Attempt struct {
 	AutoSubmitted     bool            `json:"auto_submitted"`
 	Snapshot          json.RawMessage `json:"snapshot,omitempty"`
 	ProctoringSummary json.RawMessage `json:"proctoring_summary,omitempty"`
+	RewardResult      json.RawMessage `json:"reward_result,omitempty"`
 	CreatedAt         time.Time       `json:"created_at"`
 }

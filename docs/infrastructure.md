@@ -172,10 +172,13 @@ LLM_MODEL_SMART=gpt-4o             # revision plans, course outlines
 LLM_MODEL_CHEAP=gpt-4o-mini        # quizzes, flashcards, error hints
 LLM_RATE_LIMIT_PER_HOUR=10         # per user
 
-# Code Execution
-EXECUTOR_TIMEOUT_SECONDS=10
-EXECUTOR_MEMORY_LIMIT_MB=256
-EXECUTOR_RATE_LIMIT_PER_HOUR=20
+# Code Execution — Piston takes priority when both are set
+# Self-host Piston: https://github.com/engineer-man/piston
+PISTON_URL=http://localhost:2000     # Optional — Piston self-hosted instance (preferred)
+PISTON_TIMEOUT=30s                   # Optional — default 30s
+JUDGE0_URL=                          # Optional — Judge0 CE endpoint (fallback)
+JUDGE0_TOKEN=                        # Optional — X-Auth-Token for Judge0 cloud
+JUDGE0_TIMEOUT=30s                   # Optional — default 30s
 
 # Payments (optional)
 PAYMENT_PROVIDER=stripe             # stripe | razorpay
@@ -208,6 +211,53 @@ NEXT_PUBLIC_ENABLE_PAYMENTS=false
 Provider swap without code changes: change `LLM_PROVIDER` + keys. The `llm.go` interface abstracts both OpenAI-compat and Anthropic.
 
 Spaced repetition (SM-2): pure math — no AI.
+
+---
+
+## Rate Limiting
+
+**Implementation:** `internal/middleware/ratelimit.go`
+
+**Strategy:** Sliding window per client IP per URL path.
+
+| Layer | When active | Accounting |
+|---|---|---|
+| Redis sorted set (primary) | Redis reachable | Global across all replicas |
+| In-process sliding window (fallback) | Redis unreachable | Per-replica — still limits, doesn't bypass |
+
+**Why sliding window over fixed window:**
+- Fixed window allows 2× burst at the window boundary (attack sends `max` requests at end of window, then `max` more at the start of the next)
+- Sliding window counts requests in the trailing `window` duration — no boundary exploitation
+
+**Why Lua script:**
+- `INCR` + `EXPIRE` are two separate commands — if `EXPIRE` fails, the key has no TTL and becomes a permanent counter
+- The Lua script runs `ZREMRANGEBYSCORE` + `ZCARD` + `ZADD` + `PEXPIRE` atomically
+
+**Response headers on 429:**
+- `Retry-After: <seconds>` — tells clients when they can retry
+
+**Current limits** (configured via env):
+- `AUTH_RATE_LIMIT_MAX` — max requests per window on `/api/auth/*` (default 10)
+- `AUTH_RATE_LIMIT_WINDOW` — window duration (default 1m)
+
+---
+
+## Type Sync (Go → TypeScript)
+
+Keep frontend types in sync with backend Go structs. Prevents drift without manual duplication.
+
+**Tool:** `tygo` — reads Go source, outputs TypeScript interfaces.
+
+**Config:** `backend/tygo.yaml` — covers 7 packages: assessment, courses, practice, profile, srs, orgs, authz.
+
+**Output:** `frontend/types/generated/*.ts` — each file has a `// Code generated` header.
+
+**Run:**
+```bash
+./scripts/gen-types.sh     # installs tygo if missing, generates all types
+```
+
+Re-run whenever you add or change a Go model that the frontend needs. Generated files are committed to the repo.
 
 ---
 

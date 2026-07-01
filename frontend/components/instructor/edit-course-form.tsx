@@ -49,7 +49,7 @@ export function EditCourseForm({ course }: Props) {
       });
 
       if (!result.ok) return { error: result.error ?? "Failed to save changes." };
-      router.push(ROUTES.instructorCourse(course.id));
+      router.push(ROUTES.manageCourse(course.id));
       return null;
     },
     null,
@@ -133,7 +133,7 @@ export function EditCourseForm({ course }: Props) {
           disabled={pending}
           type="button"
           variant="outline"
-          onClick={() => router.push(ROUTES.instructorCourse(course.id))}
+          onClick={() => router.push(ROUTES.manageCourse(course.id))}
         >
           Cancel
         </Button>

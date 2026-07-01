@@ -474,13 +474,16 @@ func (r *Repo) IsEnrolled(ctx context.Context, userID, courseID string) (bool, e
 	return ok, err
 }
 
-// GetMyEnrollments returns all courses a student is enrolled in within an org.
+// GetMyEnrollments returns all courses a student is enrolled in within an org, with course data joined.
 func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]Enrollment, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT e.id, e.user_id, e.course_id, e.batch_id, e.enrolled_by, e.enrolled_at, e.completed_at
+		`SELECT e.id, e.user_id, e.course_id, e.batch_id, e.enrolled_by, e.enrolled_at, e.completed_at,
+		        c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
+		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
+		        c.estimated_hours, c.created_at, c.updated_at
 		 FROM enrollments e
-		 JOIN courses c ON c.id=e.course_id
-		 WHERE e.user_id=$1 AND c.org_id=$2
+		 JOIN courses c ON c.id = e.course_id
+		 WHERE e.user_id = $1 AND c.org_id = $2
 		 ORDER BY e.enrolled_at DESC`, userID, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("courses: my enrollments: %w", err)
@@ -489,7 +492,13 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 	out := []Enrollment{}
 	for rows.Next() {
 		var e Enrollment
-		if err := rows.Scan(&e.ID, &e.UserID, &e.CourseID, &e.BatchID, &e.EnrolledBy, &e.EnrolledAt, &e.CompletedAt); err != nil {
+		if err := rows.Scan(
+			&e.ID, &e.UserID, &e.CourseID, &e.BatchID, &e.EnrolledBy, &e.EnrolledAt, &e.CompletedAt,
+			&e.Course.ID, &e.Course.OrgID, &e.Course.CreatorID, &e.Course.Title, &e.Course.Slug,
+			&e.Course.Description, &e.Course.CoverURL, &e.Course.Difficulty, &e.Course.Tags,
+			&e.Course.Status, &e.Course.ForkedFromID, &e.Course.PriceCents, &e.Course.IsFree,
+			&e.Course.EstimatedHours, &e.Course.CreatedAt, &e.Course.UpdatedAt,
+		); err != nil {
 			return nil, fmt.Errorf("courses: scan enrollment: %w", err)
 		}
 		out = append(out, e)

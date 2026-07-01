@@ -10,6 +10,7 @@ export type AnswerValue = MCQAnswer | CodingAnswer | TranscriptAnswer;
 
 interface AnswersState {
   answers: Record<string, AnswerValue>;
+  markedForReview: Record<string, boolean>;
   index: number;
   submitting: boolean;
 }
@@ -20,6 +21,7 @@ type Action =
   | { kind: "setLanguage"; qid: string; language: string; starter: string }
   | { kind: "setTranscript"; qid: string; transcript: string }
   | { kind: "clearAnswer"; qid: string }
+  | { kind: "toggleMark"; qid: string }
   | { kind: "goto"; index: number }
   | { kind: "submitting"; value: boolean };
 
@@ -67,6 +69,14 @@ function reducer(state: AnswersState, action: Action): AnswersState {
       delete rest[action.qid];
       return { ...state, answers: rest };
     }
+    case "toggleMark":
+      return {
+        ...state,
+        markedForReview: {
+          ...state.markedForReview,
+          [action.qid]: !state.markedForReview[action.qid],
+        },
+      };
     case "goto":
       return { ...state, index: action.index };
     case "submitting":
@@ -77,7 +87,12 @@ function reducer(state: AnswersState, action: Action): AnswersState {
 // useAnswers holds all in-attempt answer state and navigation in a reducer, so
 // the runner component stays within the project's 2-useState limit.
 export function useAnswers(questions: StudentQuestion[]) {
-  const [state, dispatch] = React.useReducer(reducer, { answers: {}, index: 0, submitting: false });
+  const [state, dispatch] = React.useReducer(reducer, {
+    answers: {},
+    markedForReview: {},
+    index: 0,
+    submitting: false,
+  });
 
   const answeredCount = React.useMemo(
     () =>
@@ -91,5 +106,10 @@ export function useAnswers(questions: StudentQuestion[]) {
     [questions, state.answers],
   );
 
-  return { state, dispatch, answeredCount };
+  const markedCount = React.useMemo(
+    () => Object.values(state.markedForReview).filter(Boolean).length,
+    [state.markedForReview],
+  );
+
+  return { state, dispatch, answeredCount, markedCount };
 }

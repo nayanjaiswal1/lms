@@ -18,7 +18,7 @@ export function ModuleAssessment({ assessmentId, title }: ModuleAssessmentProps)
         <p className="text-sm text-muted-foreground">Complete this assessment to mark the module finished.</p>
       </div>
       <Button asChild>
-        <Link href={`${ROUTES.ASSESSMENTS}/${assessmentId}`}>Start Assessment</Link>
+        <Link href={ROUTES.assessmentTake(assessmentId)}>Start Assessment</Link>
       </Button>
     </div>
   );

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { apiGet, apiAction } from "@/lib/server/api";
-import type { Job, OrgJobStats, WorkerInfo } from "@/lib/jobs/types";
+import type { Job, JobRun, OrgJobStats, WorkerInfo } from "@/lib/jobs/types";
 
 export interface AdminJobsFilter {
   org_id?: string;
@@ -14,6 +14,11 @@ export interface AdminJobsFilter {
 export interface AdminJobListPage {
   jobs: Job[];
   next_cursor: string;
+}
+
+export interface AdminJobDetail {
+  job: Job;
+  runs: JobRun[];
 }
 
 export interface WorkerHealthResponse {
@@ -48,6 +53,10 @@ export async function fetchAdminJobs(
   return apiGet<AdminJobListPage>(`/api/admin/jobs${qs ? `?${qs}` : ""}`);
 }
 
+export async function fetchAdminJobDetail(jobID: string): Promise<AdminJobDetail> {
+  return apiGet<AdminJobDetail>(`/api/admin/jobs/${jobID}`);
+}
+
 export async function fetchWorkerHealth(): Promise<WorkerHealthResponse> {
   return apiGet<WorkerHealthResponse>("/api/admin/jobs/workers");
 }
@@ -62,7 +71,7 @@ export async function updateOrgQuota(
 ): Promise<void> {
   const result = await apiAction(
     "PATCH",
-    `/api/admin/orgs/${orgID}/jobs/quota`,
+    `/api/admin/orgs/${orgID}/job-quotas`,
     quota,
   );
   if (!result.ok) throw new Error(result.error ?? "Failed to update quota.");
@@ -73,7 +82,7 @@ export async function pauseAllOrgJobs(
 ): Promise<PauseOrgResult> {
   const result = await apiAction<PauseOrgResult>(
     "POST",
-    `/api/admin/orgs/${orgID}/jobs/pause`,
+    `/api/admin/orgs/${orgID}/jobs/pause-all`,
   );
   if (!result.ok) throw new Error(result.error ?? "Failed to pause org jobs.");
   return result.data ?? { cancelled: 0 };
@@ -82,7 +91,12 @@ export async function pauseAllOrgJobs(
 export async function forceRetryJob(jobID: string): Promise<void> {
   const result = await apiAction(
     "POST",
-    `/api/admin/jobs/${jobID}/retry`,
+    `/api/admin/jobs/${jobID}/force-retry`,
   );
   if (!result.ok) throw new Error(result.error ?? "Failed to retry job.");
+}
+
+export async function cancelAdminJob(jobID: string): Promise<void> {
+  const result = await apiAction("POST", `/api/admin/jobs/${jobID}/cancel`);
+  if (!result.ok) throw new Error(result.error ?? "Failed to cancel job.");
 }

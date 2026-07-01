@@ -33,7 +33,7 @@ export function CourseBuilder() {
 
       const result = await createCourseAction({ title, description, difficulty, tags, is_free });
       if (!result.ok || !result.data) return { error: result.error ?? "Course ID missing from response." };
-      router.push(ROUTES.instructorCourse(result.data.id));
+      router.push(ROUTES.manageCourse(result.data.id));
       return null;
     },
     null,

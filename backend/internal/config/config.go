@@ -56,8 +56,11 @@ type Config struct {
 	AuthRateLimitWindow time.Duration
 
 	// Code execution (coding-question auto-grading).
-	// When Judge0URL is empty the executor is unconfigured and coding answers stay
+	// Piston takes priority when both are set; Judge0 is the fallback.
+	// When neither URL is set the executor is unconfigured and coding answers stay
 	// pending until an instructor grades them manually — MCQ grading is unaffected.
+	PistonURL     string
+	PistonTimeout time.Duration
 	Judge0URL     string
 	Judge0Token   string
 	Judge0Timeout time.Duration
@@ -140,6 +143,8 @@ func Load() *Config {
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
 
 	// Code execution (optional — coding grading degrades gracefully when unset)
+	cfg.PistonURL = strings.TrimRight(os.Getenv("PISTON_URL"), "/")
+	cfg.PistonTimeout = parseDuration("PISTON_TIMEOUT", "30s")
 	cfg.Judge0URL = strings.TrimRight(os.Getenv("JUDGE0_URL"), "/")
 	cfg.Judge0Token = os.Getenv("JUDGE0_TOKEN")
 	cfg.Judge0Timeout = parseDuration("JUDGE0_TIMEOUT", "30s")

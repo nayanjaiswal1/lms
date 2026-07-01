@@ -18,6 +18,7 @@ import (
 	idb "github.com/mindforge/backend/internal/db"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/jobs/handlers"
+	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/mindforge/backend/internal/storage"
 	"github.com/redis/go-redis/v9"
@@ -99,21 +100,29 @@ func main() {
 		}
 	}
 
+	// ─── Rewards ──────────────────────────────────────────────────────────────
+	rewardsSvc := rewards.NewServiceFromPool(pool, rdb)
+	go rewardsSvc.WarmLeaderboards(ctx)
+
 	// ─── Job Management System ────────────────────────────────────────────────
 	assessmentRepo := assessment.NewRepo(pool)
 
 	jobsRegistry := jobs.NewRegistry()
-	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool))
+	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc))
 	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg))
 	jobsRegistry.Register(handlers.HandlerBulkInvite, handlers.NewInviteHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
 	jobsRegistry.Register(handlers.HandlerSRSReminder, handlers.NewSRSHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
+	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool))
+	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool))
 
 	cronDefs := []jobs.CronJobDef{
 		{Handler: handlers.HandlerSRSReminder, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 2 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
+		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 	}
 
 	workerCtx, workerCancel := context.WithCancel(ctx)
@@ -126,7 +135,7 @@ func main() {
 	go scheduler.Start(workerCtx)
 
 	// ─── Router ──────────────────────────────────────────────────────────────
-	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry)
+	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

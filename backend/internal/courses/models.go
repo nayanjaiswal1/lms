@@ -87,6 +87,7 @@ type Enrollment struct {
 	EnrolledBy  *string    `json:"enrolled_by"`
 	EnrolledAt  time.Time  `json:"enrolled_at"`
 	CompletedAt *time.Time `json:"completed_at"`
+	Course      Course     `json:"course"`
 }
 
 type ModuleProgress struct {

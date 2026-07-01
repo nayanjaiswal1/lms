@@ -123,6 +123,25 @@ type Invite struct {
 type InvitePage struct {
 	Invites    []Invite `json:"invites"`
 	NextCursor string   `json:"next_cursor,omitempty"`
+	Total      int      `json:"total"`
+}
+
+// BatchCreateResult is returned by POST /api/orgs/{id}/invites/batch.
+type BatchCreateResult struct {
+	Queued   int             `json:"queued"`
+	JobCount int             `json:"job_count"`
+	Skipped  []SkippedInvite `json:"skipped"`
+}
+
+type SkippedInvite struct {
+	Email  string `json:"email"`
+	Reason string `json:"reason"` // "invalid_email" | "duplicate" | "already_member"
+}
+
+type BatchResendItem struct {
+	InviteID string `json:"invite_id"`
+	Email    string `json:"email"`
+	Token    string `json:"token"`
 }
 
 type Domain struct {

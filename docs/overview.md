@@ -65,7 +65,7 @@ Platform role (`users.platform_role`): `super_admin` · `user`
 |---|---|---|
 | 1 | Foundation | Docker, go.mod, config, DB pool, full SQL migration |
 | 2 | Auth + Roles | register, email verification, login, refresh tokens, jti blocklist, session_version, logout, password reset, social OAuth, magic-link, per-org auth config, org invites, switch-org, impossible-travel detection, role + tenant middleware |
-| 3 | LLM Abstraction | Provider interface, OpenAI-compat, Anthropic |
+| 3 | LLM Abstraction | Provider interface, OpenAI-compat, Anthropic; async job queue (Go worker pool + Redis) for AI calls; per-IP Redis sliding-window rate limiting on all AI endpoints |
 | 4 | Orgs + Members | org CRUD, invite, role assignment |
 | 5 | Courses + Sections + Modules | CRUD, fork, publish workflow |
 | 6 | Enrollment + Progress | enroll (free/paid), module progress tracking |
@@ -82,3 +82,27 @@ Platform role (`users.platform_role`): `super_admin` · `user`
 | 17 | Wiki / Docs | wiki_spaces, nested page tree, TipTap editor, autosave, version history, comments, templates, full-text search |
 | 18 | System Design Canvas | React Flow canvas, component palette, custom nodes, undo/redo, version history, PNG export, wiki embed |
 | 19 | Interview Board + Load Test | live coding + system design (Yjs WebSocket), question bank, scorecards; real HTTP load test runner (Go goroutines, p50/p95/p99) |
+| 20 | AI Personalized Roadmaps | User states a goal → AI generates a roadmap (phases → milestones → modules); GENERATED vs DEFINED mode; status tracking (active, completed, archived); progress on AI-generated paths; roadmap regeneration / refinement |
+| 21 | Semantic Search + RAG | pgvector embeddings on courses, wiki pages, modules; "find content by meaning" across all of MindForge; RAG context injection for AI tutor (Phase 10) and revision plan (Phase 10); embedding refresh on content update |
+
+---
+
+## Features Backlog (Sourced from Competitive Research)
+
+### High Value — Not yet in MindForge
+
+| Feature | What it does | MindForge fit |
+|---|---|---|
+| AI-generated learning roadmaps | User describes a goal → GPT-4o generates a Phase → Milestone → Module learning path | Strong. MindForge has courses but no personalized AI-generated paths → planned as Phase 20 |
+| pgvector + RAG | Embeds course/wiki content into vectors for semantic search | Would supercharge course/wiki search — find "explain closures" across all content → planned as Phase 21 |
+| Async job queue | Background queue for AI calls, email, code execution | MindForge AI calls are sync — prevents request timeouts on heavy AI work → added to Phase 3 |
+| Per-IP rate limiting on AI endpoints | In-memory (dev) → Redis sliding window (prod) per IP | MindForge has no rate limiting on AI endpoints — needed before launch → added to Phase 3 |
+
+### Useful Patterns / Practices
+
+| Pattern | Status | Notes |
+|---|---|---|
+| Security headers middleware | ✅ Done | `next.config.ts` — CSP, HSTS, X-Frame-Options, Permissions-Policy already wired |
+| Monaco Editor lazy loading | ✅ Done | `components/shared/code-editor.tsx` — `dynamic()` + Suspense skeleton, JetBrains Mono font |
+| Piston code execution | ✅ Done | `internal/assessment/executor.go` — `pistonExecutor` implementing `CodeExecutor` interface; priority over Judge0 when `PISTON_URL` set |
+| Type sync script | ✅ Done | `scripts/gen-types.sh` + `backend/tygo.yaml` — generates `frontend/types/generated/*.ts` from Go structs |

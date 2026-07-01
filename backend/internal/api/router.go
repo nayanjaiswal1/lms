@@ -13,6 +13,8 @@ import (
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/highlights"
+	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
@@ -21,6 +23,7 @@ import (
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/practice"
 	"github.com/mindforge/backend/internal/profile"
+	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/storage"
@@ -28,7 +31,7 @@ import (
 )
 
 // NewRouter builds and returns the chi Router with all middleware and routes wired.
-func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry) http.Handler {
+func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, rewardsSvc *rewards.Service) http.Handler {
 	r := chi.NewRouter()
 
 	// ─── Global middleware ────────────────────────────────────────────────────
@@ -46,14 +49,16 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// ─── Handlers ─────────────────────────────────────────────────────────────
 	authHandler := auth.NewHandler(cfg, pool, cache)
 	onboardingHandler := onboarding.NewHandler(pool)
-	assessmentHandler := assessment.New(pool, cfg, jobsRegistry)
+	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc)
 	profileHandler := profile.New(pool, cfg, store)
-	coursesRouter := courses.New(pool, cfg, store, aiProvider)
+	coursesRouter := courses.New(pool, cfg, store, aiProvider, rewardsSvc)
+	rewardsHandler := rewards.New(pool, rdb)
 	messagingRouter := messaging.New(pool)
 	practiceRouter := practice.New(pool, aiProvider)
-	orgsHandler := orgs.NewHandler(cfg, pool)
+	orgsHandler := orgs.NewHandler(cfg, pool, jobsRegistry)
 	srsRouter := srs.New(pool)
 	authzHandler := authz.New(pool, rdb)
+	highlightsRouter := highlights.New(pool, aiProvider)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.
@@ -128,6 +133,16 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Job Management System — org job list/cancel/retry, admin stats, worker view.
 		jobsHandler := jobs.NewHTTPHandler(pool, rdb, cfg, jobsRegistry)
 		jobsHandler.RegisterRoutes(r)
+
+		// Rewards — XP, badges, leaderboard.
+		rewardsHandler.RegisterRoutes(r)
+
+		// Highlights — in-content text selection, AI explain, revision saves, analytics.
+		highlightsRouter.RegisterRoutes(r)
+
+		// Labs — interactive sandboxed lab environments (terminal, code, guided, playground).
+		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout)
+		labsHandler.RegisterRoutes(r)
 	})
 
 	return r

@@ -53,17 +53,24 @@ type CodeExecutor interface {
 }
 
 // NewExecutor selects the executor implementation from configuration.
-// With JUDGE0_URL set it returns a live Judge0 client; otherwise an unavailable
-// executor that defers coding grading to manual review.
+// Piston takes priority when PISTON_URL is set; Judge0 is used when only
+// JUDGE0_URL is set. When neither is configured, coding grading is deferred
+// to manual instructor review — MCQ grading is unaffected.
 func NewExecutor(cfg *config.Config) CodeExecutor {
-	if cfg.Judge0URL == "" {
-		return unavailableExecutor{}
+	if cfg.PistonURL != "" {
+		return &pistonExecutor{
+			baseURL: cfg.PistonURL,
+			client:  &http.Client{Timeout: cfg.PistonTimeout},
+		}
 	}
-	return &judge0Executor{
-		baseURL: cfg.Judge0URL,
-		token:   cfg.Judge0Token,
-		client:  &http.Client{Timeout: cfg.Judge0Timeout},
+	if cfg.Judge0URL != "" {
+		return &judge0Executor{
+			baseURL: cfg.Judge0URL,
+			token:   cfg.Judge0Token,
+			client:  &http.Client{Timeout: cfg.Judge0Timeout},
+		}
 	}
+	return unavailableExecutor{}
 }
 
 // ─── Unavailable executor ────────────────────────────────────────────────────
@@ -275,4 +282,154 @@ func runDeadline(parent context.Context, d time.Duration) (context.Context, cont
 		d = 30 * time.Second
 	}
 	return context.WithTimeout(parent, d)
+}
+
+// ─── Piston executor ─────────────────────────────────────────────────────────
+
+// pistonLanguages maps MindForge language keys to Piston runtime names.
+// Piston uses language name + version "*" to select the latest installed runtime.
+var pistonLanguages = map[string]string{
+	"python":     "python",
+	"python3":    "python",
+	"javascript": "javascript",
+	"node":       "javascript",
+	"typescript": "typescript",
+	"go":         "go",
+	"java":       "java",
+	"c":          "c",
+	"cpp":        "c++",
+	"c++":        "c++",
+	"csharp":     "csharp",
+	"ruby":       "ruby",
+	"rust":       "rust",
+	"kotlin":     "kotlin",
+	"php":        "php",
+}
+
+type pistonExecutor struct {
+	baseURL string
+	client  *http.Client
+}
+
+func (e *pistonExecutor) Available() bool { return true }
+
+type pistonFile struct {
+	Content string `json:"content"`
+}
+
+type pistonRequest struct {
+	Language string       `json:"language"`
+	Version  string       `json:"version"`
+	Files    []pistonFile `json:"files"`
+	Stdin    string       `json:"stdin,omitempty"`
+}
+
+type pistonRunOutput struct {
+	Stdout string `json:"stdout"`
+	Stderr string `json:"stderr"`
+	Output string `json:"output"`
+	Code   int    `json:"code"`
+	Signal string `json:"signal"`
+}
+
+type pistonResponse struct {
+	Language string          `json:"language"`
+	Version  string          `json:"version"`
+	Run      pistonRunOutput `json:"run"`
+	Compile  *pistonRunOutput `json:"compile,omitempty"`
+}
+
+func (e *pistonExecutor) Run(ctx context.Context, lang, source string, content CodingContent) (RunResult, error) {
+	pistonLang, ok := pistonLanguages[strings.ToLower(strings.TrimSpace(lang))]
+	if !ok {
+		return RunResult{Status: "error"}, fmt.Errorf("assessment: unsupported language %q", lang)
+	}
+
+	res := RunResult{Status: "passed", TestsTotal: len(content.TestCases)}
+	if len(content.TestCases) == 0 {
+		res.Status = "error"
+		return res, fmt.Errorf("assessment: coding question has no test cases")
+	}
+
+	for _, tc := range content.TestCases {
+		out, err := e.execute(ctx, pistonRequest{
+			Language: pistonLang,
+			Version:  "*",
+			Files:    []pistonFile{{Content: source}},
+			Stdin:    tc.Stdin,
+		})
+		if err != nil {
+			return RunResult{Status: "error"}, err
+		}
+
+		// A non-zero compile exit code means compile error.
+		if out.Compile != nil && out.Compile.Code != 0 {
+			res.Status = "error"
+			res.CompileOutput = strings.TrimSpace(out.Compile.Stderr + out.Compile.Output)
+			res.Cases = nil
+			return res, nil
+		}
+
+		stdout := truncate(strings.TrimRight(out.Run.Stdout, "\n"), maxStdoutBytes)
+		expected := strings.TrimRight(tc.Expected, "\n")
+		passed := out.Run.Code == 0 && stdout == expected
+
+		if passed {
+			res.TestsPassed++
+		} else {
+			res.Status = "failed"
+		}
+
+		status := "accepted"
+		switch {
+		case out.Run.Signal != "" && out.Run.Signal != "null":
+			status = "runtime_error"
+		case out.Run.Code != 0:
+			status = "runtime_error"
+		case !passed:
+			status = "wrong_answer"
+		}
+
+		res.Cases = append(res.Cases, CaseResult{
+			CaseID:    tc.ID,
+			Passed:    passed,
+			Hidden:    tc.Hidden,
+			Weight:    tc.Weight,
+			Stdout:    stdout,
+			Stderr:    truncate(out.Run.Stderr, maxStderrBytes),
+			Status:    status,
+			RuntimeMs: 0, // Piston does not expose per-run timing
+		})
+	}
+
+	return res, nil
+}
+
+func (e *pistonExecutor) execute(ctx context.Context, body pistonRequest) (pistonResponse, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return pistonResponse{}, fmt.Errorf("assessment: marshal piston request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.baseURL+"/api/v2/execute", bytes.NewReader(payload))
+	if err != nil {
+		return pistonResponse{}, fmt.Errorf("assessment: build piston request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := e.client.Do(req)
+	if err != nil {
+		return pistonResponse{}, fmt.Errorf("assessment: call piston: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return pistonResponse{}, fmt.Errorf("assessment: piston returned status %d", resp.StatusCode)
+	}
+
+	var out pistonResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return pistonResponse{}, fmt.Errorf("assessment: decode piston response: %w", err)
+	}
+	return out, nil
 }
