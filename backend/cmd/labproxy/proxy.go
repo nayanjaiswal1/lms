@@ -129,7 +129,11 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	containerConn, _, dialErr := websocket.DefaultDialer.DialContext(
+	// ttyd only accepts connections that negotiate the "tty" WebSocket
+	// subprotocol; without it, it silently accepts the upgrade but never
+	// spawns the shell.
+	ttydDialer := &websocket.Dialer{Subprotocols: []string{"tty"}}
+	containerConn, _, dialErr := ttydDialer.DialContext(
 		r.Context(),
 		"ws://"+*sess.ContainerHost+"/ws",
 		nil,

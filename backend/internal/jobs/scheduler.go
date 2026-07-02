@@ -326,13 +326,19 @@ func (s *Scheduler) runOrphanReaper(ctx context.Context) {
 func (s *Scheduler) reapOrphans(ctx context.Context) {
 	threshold := fmt.Sprintf("%d seconds", int(s.cfg.OrphanThreshold.Seconds()))
 
+	// COALESCE to started_at: a run that dies before its first heartbeat tick
+	// (e.g. the whole server process restarts moments after claiming the job)
+	// leaves heartbeat_at NULL forever. `NULL < NOW() - interval` is never
+	// true in SQL, so without the fallback that run is invisible to this
+	// reaper permanently — the job stays "running" and the cron dispatcher
+	// refuses to ever schedule that handler again.
 	rows, err := s.pool.Query(ctx,
 		`SELECT j.id, jr.id AS run_id
 		 FROM jobs j
 		 JOIN job_runs jr ON jr.job_id = j.id
 		 WHERE j.status = 'running'
 		   AND jr.status = 'running'
-		   AND jr.heartbeat_at < NOW() - $1::interval
+		   AND COALESCE(jr.heartbeat_at, jr.started_at) < NOW() - $1::interval
 		   AND j.deleted_at IS NULL`,
 		threshold,
 	)
@@ -344,7 +350,7 @@ func (s *Scheduler) reapOrphans(ctx context.Context) {
 
 	type orphan struct {
 		jobID string
-		runID string
+		runID int64
 	}
 	var orphans []orphan
 	for rows.Next() {
@@ -361,7 +367,7 @@ func (s *Scheduler) reapOrphans(ctx context.Context) {
 	}
 
 	for _, o := range orphans {
-		if err := Fail(ctx, s.pool, o.jobID, o.runID, errors.New("orphan: worker heartbeat lost"), 0); err != nil {
+		if err := Fail(ctx, s.pool, s.registry, o.jobID, o.runID, errors.New("orphan: worker heartbeat lost"), 0); err != nil {
 			slog.Error("scheduler: orphan reaper fail job",
 				"job_id", o.jobID,
 				"run_id", o.runID,
@@ -420,7 +426,8 @@ func (s *Scheduler) recoverMissedCrons(ctx context.Context) {
 
 // nextCronTime returns the next time after `after` that matches the given
 // standard 5-field cron expression (minute hour dom month dow).
-// Each field is either "*" (any value) or a single integer literal.
+// Each field is "*" (any value), a step expression ("*/N"), or a single
+// integer literal.
 // The search is capped at 1 year (525,600 minutes) to prevent infinite loops
 // on unsatisfiable expressions.
 func nextCronTime(schedule string, after time.Time) (time.Time, error) {
@@ -434,6 +441,17 @@ func nextCronTime(schedule string, after time.Time) (time.Time, error) {
 			vals := make([]int, max-min+1)
 			for i := range vals {
 				vals[i] = min + i
+			}
+			return vals, nil
+		}
+		if step, ok := strings.CutPrefix(s, "*/"); ok {
+			n, err := strconv.Atoi(step)
+			if err != nil || n <= 0 {
+				return nil, fmt.Errorf("scheduler: invalid cron step %q", s)
+			}
+			var vals []int
+			for v := min; v <= max; v += n {
+				vals = append(vals, v)
 			}
 			return vals, nil
 		}

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { MonitorOff, RotateCcw, LogOut, Trophy, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +23,7 @@ import { LabTimer } from "@/components/labs/lab-timer"
 import { LabTaskPanel } from "@/components/labs/lab-task-panel"
 import { endLabSessionAction, resetLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
 import { useLabVerify } from "@/hooks/use-lab-verify"
+import { useLabNavigationGuard } from "@/hooks/use-lab-navigation-guard"
 import ROUTES from "@/lib/routes"
 import type { Lab, LabSession, TaskCompletion } from "@/lib/labs"
 
@@ -38,7 +40,6 @@ const LabCodePanel = dynamic(
 interface LabEnvironmentProps {
   session: LabSession
   lab: Lab
-  wsToken: string
   initialCompletions: TaskCompletion[]
 }
 
@@ -191,7 +192,14 @@ function isAuthError(msg: string): boolean {
   )
 }
 
-export function LabEnvironment({ session, lab, wsToken, initialCompletions }: LabEnvironmentProps) {
+// The backend returns this when the session already reached a terminal state
+// (e.g. an auto-expiry job won the race against the client's end request).
+// The session is already ended either way, so this is still success for the UI.
+function isAlreadyEnded(msg: string): boolean {
+  return msg.toLowerCase().includes("already ended")
+}
+
+export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironmentProps) {
   const {
     completions,
     score,
@@ -215,18 +223,26 @@ export function LabEnvironment({ session, lab, wsToken, initialCompletions }: La
   const maxScore = lab.tasks.reduce((s, t) => s + t.points, 0)
   const isCodeLab = lab.lab_type === "code"
 
+  const endAndGoToResult = async () => {
+    const res = await endLabSessionAction(session.id)
+    if (!res.ok && !isAlreadyEnded(res.error ?? "")) {
+      const msg = res.error ?? "Failed to end lab. Please try again."
+      if (isAuthError(msg)) {
+        router.push(ROUTES.LOGIN)
+        return
+      }
+      toast.error(msg)
+      return
+    }
+    router.push(ROUTES.labSessionResult(session.id))
+  }
+
   const handleEnd = () => {
-    startTransition(async () => {
-      await endLabSessionAction(session.id)
-      router.push(ROUTES.labSessionResult(session.id))
-    })
+    startTransition(endAndGoToResult)
   }
 
   const handleExpired = () => {
-    startTransition(async () => {
-      await endLabSessionAction(session.id)
-      router.push(ROUTES.labSessionResult(session.id))
-    })
+    startTransition(endAndGoToResult)
   }
 
   const handleReset = () => {
@@ -249,8 +265,34 @@ export function LabEnvironment({ session, lab, wsToken, initialCompletions }: La
     router.push(ROUTES.LOGIN)
   }
 
+  const { showLeaveConfirm, confirmLeave, cancelLeave } = useLabNavigationGuard({
+    enabled: !isAuthExpired,
+    onConfirmLeave: handleEnd,
+  })
+
   return (
     <div className="fixed inset-0 bg-background z-modal flex flex-col safe-inset">
+      <AlertDialog open={showLeaveConfirm} onOpenChange={(open) => !open && cancelLeave()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this lab session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Going back will end your lab session now. Your progress so far is saved, but the
+              environment will be torn down. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelLeave}>Stay in lab</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLeave}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              End & Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <LabEnvironmentTopBar
         labTitle={lab.title}
         labType={lab.lab_type}
@@ -309,7 +351,7 @@ export function LabEnvironment({ session, lab, wsToken, initialCompletions }: La
               onLanguageChange={changeLanguage}
             />
           ) : (
-            <LabTerminal sessionId={session.id} wsToken={wsToken} />
+            <LabTerminal sessionId={session.id} />
           )}
         </div>
       </div>

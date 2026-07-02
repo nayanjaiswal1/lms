@@ -277,13 +277,12 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO batch_members (id, batch_id, user_id)
+INSERT INTO batch_members (batch_id, user_id)
 VALUES (
-  '00000000-0000-0000-0000-000000000131',
   '00000000-0000-0000-0000-000000000130',
   '00000000-0000-0000-0000-000000000014'
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (batch_id, user_id) DO NOTHING;
 
 -- ─── Assignment (batch → assessment) ────────────────────────────────────────
 INSERT INTO assessment_assignments (id, assessment_id, assignee_type, assignee_id, assigned_by)
@@ -319,8 +318,8 @@ SELECT gen_random_uuid(), '00000000-0000-0000-0000-000000000001', id, 'learner'
 FROM users WHERE email = 'jaiswal2062@gmail.com'
 ON CONFLICT (org_id, user_id) DO NOTHING;
 
-INSERT INTO batch_members (id, batch_id, user_id)
-SELECT gen_random_uuid(), '00000000-0000-0000-0000-000000000130', id
+INSERT INTO batch_members (batch_id, user_id)
+SELECT '00000000-0000-0000-0000-000000000130', id
 FROM users WHERE email = 'jaiswal2062@gmail.com'
 ON CONFLICT (batch_id, user_id) DO NOTHING;
 
