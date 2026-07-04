@@ -60,6 +60,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteJSON(w, http.StatusOK, map[string]any{})
 	case errors.Is(err, ErrCapacityReached):
 		httputil.WriteError(w, http.StatusTooManyRequests, "Lab capacity reached, try again shortly.")
+	case errors.Is(err, ErrUserHasActiveSession):
+		httputil.WriteError(w, http.StatusConflict, "You already have a lab running. End it before starting another.")
 	case errors.Is(err, ErrSessionNotRunning):
 		httputil.WriteError(w, http.StatusConflict, "Session is not running.")
 	case errors.Is(err, ErrSessionTerminal):
@@ -79,6 +81,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusTooManyRequests, "Verify too soon — wait a moment.")
 	case errors.Is(err, ErrExecutorUnavailable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "Code executor is not configured on this server.")
+	case errors.Is(err, ErrInvalidPath):
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid file path.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { updateProgressAction } from "@/lib/courses/actions";
-import { showRewardToasts } from "@/components/rewards/reward-toast";
+import { showRewardToasts } from "@/components/shared/reward-toast";
 
 interface ModuleVideoProps {
   moduleId: string;

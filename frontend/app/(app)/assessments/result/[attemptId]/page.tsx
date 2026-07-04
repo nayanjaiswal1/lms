@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { EvaluationCard } from "@/components/assessments/evaluation-card";
 import { EvalPoller } from "@/components/assessments/eval-poller";
 import { RewardResultNotifier } from "@/components/rewards/reward-result-notifier";
-import { getAttemptResult, getEvaluation } from "@/lib/server/assessments";
+import { getAttemptResult, getEvaluation } from "@/lib/assessments/server";
+import { getMyFeedback } from "@/lib/server/feedback";
+import { getMyExperienceReport } from "@/lib/server/experience";
 import ROUTES from "@/lib/routes";
+import { PostAttemptPrompts } from "./_components/post-attempt-prompts";
 import type { ReviewItem } from "@/lib/assessments/types";
 
 export const metadata: Metadata = {
@@ -38,10 +41,26 @@ export default async function ResultPage({ params }: PageProps) {
   }
   const hasSubjectiveEval = evaluation !== null && evaluation.per_question.length > 0;
 
+  const showPostAttemptPrompts = !pending && !evalFailed && !evaluating;
+  const [myFeedback, myExperienceReport] = showPostAttemptPrompts
+    ? await Promise.all([
+        getMyFeedback("assessment", attempt.assessment_id).catch(() => null),
+        getMyExperienceReport("assessment", attemptId).catch(() => null),
+      ])
+    : [null, null];
+
   return (
     <main className="page-container-sm py-10">
       <EvalPoller status={attempt.status} />
       <RewardResultNotifier result={attempt.reward_result ?? null} />
+      {showPostAttemptPrompts && (
+        <PostAttemptPrompts
+          alreadyRatedFeedback={myFeedback !== null}
+          alreadyReportedExperience={myExperienceReport !== null}
+          assessmentId={attempt.assessment_id}
+          attemptId={attemptId}
+        />
+      )}
       <div className="card-raised flex flex-col items-center gap-4 p-8 text-center">
         {evaluating ? (
           <Loader2 aria-hidden className="h-12 w-12 animate-spin text-muted-foreground" />
@@ -56,7 +75,7 @@ export default async function ResultPage({ params }: PageProps) {
         )}
 
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tabular-nums">
+          <h1 className="page-title tabular-nums">
             {evaluating
               ? "Evaluating…"
               : pending

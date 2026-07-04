@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mindforge
+  namespace: mindforge
+spec:
+  tls:
+    - hosts:
+        - app.yourdomain.com
+      secretName: mindforge-tls
+  rules:
+    - host: app.yourdomain.com
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mindforge-lab-ws
+  namespace: mindforge
+spec:
+  rules:
+    - host: app.yourdomain.com

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import {
   type CourseDraft, type DraftSection, type DraftModule, type ContentBlock,
-  EMPTY_DRAFT, makeSection, makeModule, makeBlock,
+  EMPTY_DRAFT, makeSection, makeModule, makeBlock, courseTreeToDraft,
 } from "@/lib/courses/draft-types";
 
 export type WizardTab = "info" | "structure" | "content" | "settings";
@@ -16,18 +16,22 @@ interface WizardState {
   error:           string | null;
 }
 
-export function useCourseDraft() {
-  const [state, setState] = useState<WizardState>({
-    draft:          EMPTY_DRAFT,
+export function useCourseDraft(initialCourse?: Parameters<typeof courseTreeToDraft>[0]) {
+  const [state, setState] = useState<WizardState>(() => ({
+    draft:          initialCourse ? courseTreeToDraft(initialCourse) : EMPTY_DRAFT,
     activeTab:      "info",
     activeModuleId: null,
     submitting:     false,
     error:          null,
-  });
+  }));
 
   // File references — not in React state (File objects are not serializable)
   const pendingFiles = useRef<Map<string, File>>(new Map());
   const coverFile    = useRef<File | null>(null);
+
+  // Real backend IDs removed from the draft since load — diffed against on save.
+  const removedSectionIds = useRef<Set<string>>(new Set());
+  const removedModuleIds  = useRef<Set<string>>(new Set());
 
   const patch = useCallback((partial: Partial<WizardState>) =>
     setState((s) => ({ ...s, ...partial })), []);
@@ -60,11 +64,15 @@ export function useCourseDraft() {
     })), []);
 
   const removeSection = useCallback((localId: string) =>
-    setState((s) => ({
-      ...s,
-      draft: { ...s.draft, sections: s.draft.sections.filter((sec) => sec.localId !== localId) },
-      activeModuleId: null,
-    })), []);
+    setState((s) => {
+      const section = s.draft.sections.find((sec) => sec.localId === localId);
+      if (section?.id) removedSectionIds.current.add(section.id);
+      return {
+        ...s,
+        draft: { ...s.draft, sections: s.draft.sections.filter((sec) => sec.localId !== localId) },
+        activeModuleId: null,
+      };
+    }), []);
 
   const moveSectionUp = useCallback((index: number) =>
     setState((s) => {
@@ -110,16 +118,21 @@ export function useCourseDraft() {
     })), []);
 
   const removeModule = useCallback((sectionLocalId: string, moduleLocalId: string) =>
-    setState((s) => ({
-      ...s,
-      activeModuleId: s.activeModuleId === moduleLocalId ? null : s.activeModuleId,
-      draft: {
-        ...s.draft,
-        sections: s.draft.sections.map((sec) =>
-          sec.localId !== sectionLocalId ? sec : { ...sec, modules: sec.modules.filter((m) => m.localId !== moduleLocalId) },
-        ),
-      },
-    })), []);
+    setState((s) => {
+      const section = s.draft.sections.find((sec) => sec.localId === sectionLocalId);
+      const module_ = section?.modules.find((m) => m.localId === moduleLocalId);
+      if (module_?.id) removedModuleIds.current.add(module_.id);
+      return {
+        ...s,
+        activeModuleId: s.activeModuleId === moduleLocalId ? null : s.activeModuleId,
+        draft: {
+          ...s.draft,
+          sections: s.draft.sections.map((sec) =>
+            sec.localId !== sectionLocalId ? sec : { ...sec, modules: sec.modules.filter((m) => m.localId !== moduleLocalId) },
+          ),
+        },
+      };
+    }), []);
 
   // ── Blocks ────────────────────────────────────────────────────────────────
 
@@ -176,6 +189,8 @@ export function useCourseDraft() {
     error:         state.error,
     pendingFiles,
     coverFile,
+    removedSectionIds,
+    removedModuleIds,
     // info
     setInfo,
     setCoverFile,

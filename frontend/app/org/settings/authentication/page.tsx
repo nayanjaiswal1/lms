@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Shield } from "lucide-react";
-import { getOrgAuthConfig } from "@/lib/server/orgs";
+import { getOrgAuthConfig } from "@/lib/orgs/server";
 import { AuthConfigForm } from "@/app/org/settings/authentication/auth-config-form";
 import ROUTES from "@/lib/routes";
 

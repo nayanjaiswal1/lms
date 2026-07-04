@@ -65,6 +65,13 @@ type Config struct {
 	Judge0Token   string
 	Judge0Timeout time.Duration
 
+	// Lab sandbox runtime: "docker" (shells out to the Docker CLI against a
+	// mounted host socket — VPS/Compose deploys) or "kubernetes" (creates one
+	// Pod per lab session via the in-cluster API — K8s deploys). Any other
+	// value falls back to "docker".
+	LabsRuntime      string
+	LabsK8sNamespace string
+
 	// Object storage (MinIO / S3-compatible).
 	// When MinioAccessKey is empty, avatar upload returns 503; other features unaffected.
 	MinioEndpoint  string
@@ -72,6 +79,12 @@ type Config struct {
 	MinioSecretKey string
 	MinioBucket    string
 	MinioUseSSL    bool
+	// MinioPublicEndpoint/MinioPublicUseSSL build the URLs handed back to the
+	// browser. They default to the internal values but must be overridden
+	// whenever MinioEndpoint is a Docker-network-only hostname (e.g. "minio:9000")
+	// that isn't resolvable outside the compose network.
+	MinioPublicEndpoint string
+	MinioPublicUseSSL   bool
 
 	// LLM provider (AI course generation and interview prep).
 	// LLMProvider: "anthropic" | "gemini" | "disabled"
@@ -149,11 +162,20 @@ func Load() *Config {
 	cfg.Judge0Token = os.Getenv("JUDGE0_TOKEN")
 	cfg.Judge0Timeout = parseDuration("JUDGE0_TIMEOUT", "30s")
 
+	cfg.LabsRuntime = getEnvDefault("LABS_RUNTIME", "docker")
+	cfg.LabsK8sNamespace = getEnvDefault("LABS_K8S_NAMESPACE", "mindforge-labs")
+
 	cfg.MinioEndpoint = getEnvDefault("MINIO_ENDPOINT", "localhost:9000")
 	cfg.MinioAccessKey = os.Getenv("MINIO_ACCESS_KEY")
 	cfg.MinioSecretKey = os.Getenv("MINIO_SECRET_KEY")
 	cfg.MinioBucket = getEnvDefault("MINIO_BUCKET", "mindforge")
 	cfg.MinioUseSSL = os.Getenv("MINIO_USE_SSL") == "true"
+	cfg.MinioPublicEndpoint = getEnvDefault("MINIO_PUBLIC_ENDPOINT", cfg.MinioEndpoint)
+	if v := os.Getenv("MINIO_PUBLIC_USE_SSL"); v != "" {
+		cfg.MinioPublicUseSSL = v == "true"
+	} else {
+		cfg.MinioPublicUseSSL = cfg.MinioUseSSL
+	}
 
 	cfg.LLMProvider = getEnvDefault("LLM_PROVIDER", "disabled")
 	cfg.LLMAPIKey = os.Getenv("LLM_API_KEY")

@@ -25,6 +25,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient) *P
 // Must be called inside a group that already has RequireAuth + RequireCSRF applied.
 func (ph *ProfileHandler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/profile/me", ph.handler.HandleGetMyProfile)
+	r.Get("/api/profile/me/overview", ph.handler.HandleGetMyOverview)
 	r.Patch("/api/profile/me", ph.handler.HandleUpdateProfile)
 	r.Post("/api/profile/me/avatar", ph.handler.HandleUploadAvatar)
 	r.Delete("/api/profile/me/avatar", ph.handler.HandleDeleteAvatar)

@@ -1,6 +1,6 @@
 "use server";
 
-import { updateOrgQuota } from "@/lib/server/admin-jobs";
+import { updateOrgQuota } from "@/lib/jobs/admin-server";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";

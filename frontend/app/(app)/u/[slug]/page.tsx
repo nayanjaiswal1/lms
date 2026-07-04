@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { fetchPublicProfile } from '@/lib/server/profile'
+import { fetchPublicProfile } from '@/lib/profile/server'
 import { PublicProfileCard } from '@/components/profile/public-profile-card'
 
 interface PageProps {

@@ -1,18 +1,31 @@
 package jobs
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
 )
 
+// DeadLetterHook is invoked (best-effort, asynchronously) whenever a job for
+// its registered handler key permanently exhausts its retries. Lets a domain
+// react to a permanent job failure — e.g. flip the status of the resource
+// that job was working on, so a user isn't left staring at an infinite
+// "processing" state — without every domain writing its own polling
+// reconciliation job to detect the same thing after the fact.
+type DeadLetterHook func(ctx context.Context, job Job)
+
 type Registry struct {
-	mu       sync.RWMutex
-	handlers map[string]Handler
+	mu        sync.RWMutex
+	handlers  map[string]Handler
+	deadHooks map[string]DeadLetterHook
 }
 
 func NewRegistry() *Registry {
-	return &Registry{handlers: make(map[string]Handler)}
+	return &Registry{
+		handlers:  make(map[string]Handler),
+		deadHooks: make(map[string]DeadLetterHook),
+	}
 }
 
 // Register panics if the key is already registered.
@@ -30,6 +43,25 @@ func (r *Registry) Get(key string) (Handler, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	h, ok := r.handlers[key]
+	return h, ok
+}
+
+// OnDead registers a DeadLetterHook for the given handler key. Panics if a
+// hook is already registered for this key (mirrors Register's behavior).
+func (r *Registry) OnDead(key string, hook DeadLetterHook) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.deadHooks[key]; exists {
+		panic(fmt.Sprintf("jobs: dead hook already registered for key %q", key))
+	}
+	r.deadHooks[key] = hook
+}
+
+// getDeadHook returns the registered DeadLetterHook and true, or nil and false.
+func (r *Registry) getDeadHook(key string) (DeadLetterHook, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	h, ok := r.deadHooks[key]
 	return h, ok
 }
 

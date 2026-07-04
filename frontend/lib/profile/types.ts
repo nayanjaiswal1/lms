@@ -55,6 +55,37 @@ export interface Stats {
   roadmaps_completed: number
 }
 
+export interface DifficultyCount {
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert'
+  solved: number
+  total: number
+}
+
+export interface CalendarDay {
+  date: string
+  count: number
+}
+
+export interface RecentActivityItem {
+  attempt_id: string
+  assessment_title: string
+  status: string
+  passed: boolean | null
+  percentage: number | null
+  occurred_at: string
+}
+
+export interface ProfileOverview {
+  difficulty: DifficultyCount[]
+  solved_total: number
+  attempting: number
+  calendar: CalendarDay[]
+  total_submissions: number
+  active_days: number
+  max_streak: number
+  recent_activity: RecentActivityItem[]
+}
+
 export interface ResumeExtract {
   name?: string
   bio?: string

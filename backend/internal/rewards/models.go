@@ -78,7 +78,7 @@ type UserLevel struct {
 }
 
 type XPEvent struct {
-	ID            string    `json:"id"`
+	ID            int64     `json:"id"`
 	XPAmount      int       `json:"xp_amount"`
 	Reason        string    `json:"reason"`
 	ReferenceID   *string   `json:"reference_id,omitempty"`

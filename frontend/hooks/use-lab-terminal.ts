@@ -26,6 +26,7 @@ const RECONNECT_DELAYS = [1000, 2000, 4000, 8000] as const
 const TTYD_INPUT = "0"
 const TTYD_RESIZE = "1"
 const TTYD_OUTPUT = "0"
+const TTYD_OUTPUT_BYTE = TTYD_OUTPUT.charCodeAt(0)
 
 export function useLabTerminal({
   containerRef,
@@ -122,7 +123,7 @@ export function useLabTerminal({
         lastReceived.value = Date.now()
         if (e.data instanceof ArrayBuffer) {
           const bytes = new Uint8Array(e.data)
-          if (bytes.length > 0 && bytes[0] === TTYD_OUTPUT.charCodeAt(0)) {
+          if (bytes.length > 0 && bytes[0] === TTYD_OUTPUT_BYTE) {
             term?.write(bytes.subarray(1))
           }
           return
@@ -177,8 +178,8 @@ export function useLabTerminal({
         screenReaderMode: true,
         fontFamily: "var(--font-jetbrains-mono)",
         fontSize: 14,
-        lineHeight: 1.7,
-        letterSpacing: 0.6,
+        lineHeight: 2.1,
+        letterSpacing: 0.7,
         cursorBlink: true,
         cursorStyle: "bar",
         scrollback: 5000,

@@ -13,6 +13,14 @@ var ErrNotFound = errors.New("courses: not found")
 var ErrForbidden = errors.New("courses: forbidden")
 var ErrConflict = errors.New("courses: conflict")
 
+// courseRatingJoin aggregates course_reviews per course; joined wherever a
+// query needs avg_rating/review_count alongside the courses row (aliased c).
+const courseRatingJoin = `
+			 LEFT JOIN (
+			   SELECT course_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+			   FROM course_reviews GROUP BY course_id
+			 ) cr ON cr.course_id = c.id`
+
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -68,12 +76,15 @@ func (r *Repo) CreateCourse(ctx context.Context, c Course) (Course, error) {
 func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) {
 	var c Course
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags,
-		        status, forked_from_id, price_cents, is_free, estimated_hours, created_at, updated_at
-		 FROM courses WHERE id = $1 AND org_id = $2`, id, orgID,
+		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
+		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.estimated_hours,
+		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.created_at, c.updated_at
+		 FROM courses c
+		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
+		 WHERE c.id = $1 AND c.org_id = $2`, id, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree,
-		&c.EstimatedHours, &c.CreatedAt, &c.UpdatedAt)
+		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -132,8 +143,11 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 	rows, err := r.pool.Query(ctx,
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
 		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
-		        c.estimated_hours, c.created_at, c.updated_at
-		 FROM courses c `+where+fmt.Sprintf(` ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d`, n, n+1),
+		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
+		        c.created_at, c.updated_at
+		 FROM courses c
+		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
+		 `+where+fmt.Sprintf(` ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d`, n, n+1),
 		args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("courses: list: %w", err)
@@ -145,7 +159,8 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 		var c Course
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description,
 			&c.CoverURL, &c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents,
-			&c.IsFree, &c.EstimatedHours, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			&c.IsFree, &c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount,
+			&c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("courses: scan: %w", err)
 		}
 		out = append(out, c)
@@ -391,14 +406,38 @@ func (r *Repo) GetModule(ctx context.Context, orgID, moduleID string) (CourseMod
 	return m, nil
 }
 
+// GetModuleByAssessmentID returns the course module that embeds the given
+// assessment, if any. Standalone assessments not attached to a course module
+// return ErrNotFound — callers treat that as "nothing to auto-complete".
+func (r *Repo) GetModuleByAssessmentID(ctx context.Context, orgID, assessmentID string) (CourseModule, error) {
+	var m CourseModule
+	err := r.pool.QueryRow(ctx,
+		`SELECT cm.id, cm.course_id, cm.section_id, cm.title, cm.type, cm.position,
+		        cm.is_free_preview, cm.storage_key, cm.duration_seconds, cm.content_body,
+		        cm.assessment_id, cm.estimated_minutes, cm.created_at, cm.updated_at
+		 FROM course_modules cm
+		 JOIN courses c ON c.id = cm.course_id
+		 WHERE cm.assessment_id=$1 AND c.org_id=$2 AND cm.deleted_at IS NULL`, assessmentID, orgID,
+	).Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
+		&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
+		&m.AssessmentID, &m.EstimatedMinutes, &m.CreatedAt, &m.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseModule{}, ErrNotFound
+		}
+		return CourseModule{}, fmt.Errorf("courses: get module by assessment: %w", err)
+	}
+	return m, nil
+}
+
 // UpdateModule updates mutable module fields.
 func (r *Repo) UpdateModule(ctx context.Context, orgID string, m CourseModule) (CourseModule, error) {
 	err := r.pool.QueryRow(ctx,
-		`UPDATE course_modules cm SET title=$3, is_free_preview=$4, storage_key=$5,
-		        duration_seconds=$6, content_body=$7, assessment_id=$8, estimated_minutes=$9, updated_at=now()
+		`UPDATE course_modules cm SET title=$3, type=$4, is_free_preview=$5, storage_key=$6,
+		        duration_seconds=$7, content_body=$8, assessment_id=$9, estimated_minutes=$10, updated_at=now()
 		 FROM courses c WHERE cm.id=$1 AND cm.course_id=c.id AND c.org_id=$2 AND cm.deleted_at IS NULL
 		 RETURNING cm.updated_at`,
-		m.ID, orgID, m.Title, m.IsFreePreview, m.StorageKey, m.DurationSeconds,
+		m.ID, orgID, m.Title, m.Type, m.IsFreePreview, m.StorageKey, m.DurationSeconds,
 		m.ContentBody, m.AssessmentID, m.EstimatedMinutes,
 	).Scan(&m.UpdatedAt)
 	if err != nil {
@@ -465,6 +504,24 @@ func (r *Repo) CreateEnrollment(ctx context.Context, e Enrollment) (Enrollment, 
 	return e, nil
 }
 
+// CreateEnrollmentTx is the tx-aware counterpart of CreateEnrollment, used by
+// mentoring.Service.PurchaseCourse so the paid-course enrollment insert
+// stays identical to the free-course one (same ON CONFLICT DO NOTHING logic)
+// instead of being duplicated in another package.
+func (r *Repo) CreateEnrollmentTx(ctx context.Context, tx pgx.Tx, e Enrollment) (Enrollment, error) {
+	err := tx.QueryRow(ctx,
+		`INSERT INTO enrollments (user_id, course_id, batch_id, enrolled_by)
+		 VALUES ($1,$2,$3,$4)
+		 ON CONFLICT (user_id, course_id) DO NOTHING
+		 RETURNING id, enrolled_at`,
+		e.UserID, e.CourseID, e.BatchID, e.EnrolledBy,
+	).Scan(&e.ID, &e.EnrolledAt)
+	if err != nil {
+		return Enrollment{}, fmt.Errorf("courses: create enrollment (tx): %w", err)
+	}
+	return e, nil
+}
+
 // IsEnrolled checks if a user is enrolled in a course.
 func (r *Repo) IsEnrolled(ctx context.Context, userID, courseID string) (bool, error) {
 	var ok bool
@@ -474,15 +531,49 @@ func (r *Repo) IsEnrolled(ctx context.Context, userID, courseID string) (bool, e
 	return ok, err
 }
 
+// UpsertReview creates or updates the student's star rating for a course.
+func (r *Repo) UpsertReview(ctx context.Context, rev CourseReview) (CourseReview, error) {
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO course_reviews (course_id, user_id, rating)
+		 VALUES ($1,$2,$3)
+		 ON CONFLICT (course_id, user_id) DO UPDATE
+		   SET rating = EXCLUDED.rating, updated_at = now()
+		 RETURNING id, created_at, updated_at`,
+		rev.CourseID, rev.UserID, rev.Rating,
+	).Scan(&rev.ID, &rev.CreatedAt, &rev.UpdatedAt)
+	if err != nil {
+		return CourseReview{}, fmt.Errorf("courses: upsert review: %w", err)
+	}
+	return rev, nil
+}
+
+// GetMyReview returns the authenticated user's existing rating for a course, if any.
+func (r *Repo) GetMyReview(ctx context.Context, userID, courseID string) (CourseReview, error) {
+	var rev CourseReview
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, course_id, user_id, rating, created_at, updated_at
+		 FROM course_reviews WHERE user_id = $1 AND course_id = $2`, userID, courseID,
+	).Scan(&rev.ID, &rev.CourseID, &rev.UserID, &rev.Rating, &rev.CreatedAt, &rev.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseReview{}, ErrNotFound
+		}
+		return CourseReview{}, fmt.Errorf("courses: get my review: %w", err)
+	}
+	return rev, nil
+}
+
 // GetMyEnrollments returns all courses a student is enrolled in within an org, with course data joined.
 func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]Enrollment, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT e.id, e.user_id, e.course_id, e.batch_id, e.enrolled_by, e.enrolled_at, e.completed_at,
 		        c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
 		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
-		        c.estimated_hours, c.created_at, c.updated_at
+		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
+		        c.created_at, c.updated_at
 		 FROM enrollments e
 		 JOIN courses c ON c.id = e.course_id
+		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE e.user_id = $1 AND c.org_id = $2
 		 ORDER BY e.enrolled_at DESC`, userID, orgID)
 	if err != nil {
@@ -497,7 +588,8 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 			&e.Course.ID, &e.Course.OrgID, &e.Course.CreatorID, &e.Course.Title, &e.Course.Slug,
 			&e.Course.Description, &e.Course.CoverURL, &e.Course.Difficulty, &e.Course.Tags,
 			&e.Course.Status, &e.Course.ForkedFromID, &e.Course.PriceCents, &e.Course.IsFree,
-			&e.Course.EstimatedHours, &e.Course.CreatedAt, &e.Course.UpdatedAt,
+			&e.Course.EstimatedHours, &e.Course.InstructorName, &e.Course.AvgRating, &e.Course.ReviewCount,
+			&e.Course.CreatedAt, &e.Course.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("courses: scan enrollment: %w", err)
 		}
@@ -540,6 +632,34 @@ func (r *Repo) GetCourseProgress(ctx context.Context, userID, courseID string) (
 		return CourseProgress{}, fmt.Errorf("courses: get progress: %w", err)
 	}
 	return cp, nil
+}
+
+// GetModuleProgressForCourse returns the per-module progress rows for a user
+// in a course, so callers can look up completion status by module_id.
+func (r *Repo) GetModuleProgressForCourse(ctx context.Context, userID, courseID string) ([]ModuleProgress, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT mp.id, mp.user_id, mp.module_id, mp.course_id, mp.status,
+		        mp.last_position_seconds, mp.completed_at, mp.updated_at
+		 FROM module_progress mp
+		 JOIN course_modules cm ON cm.id = mp.module_id
+		 WHERE mp.user_id=$1 AND mp.course_id=$2 AND cm.deleted_at IS NULL`,
+		userID, courseID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("courses: get module progress: %w", err)
+	}
+	defer rows.Close()
+
+	out := []ModuleProgress{}
+	for rows.Next() {
+		var p ModuleProgress
+		if err := rows.Scan(&p.ID, &p.UserID, &p.ModuleID, &p.CourseID, &p.Status,
+			&p.LastPositionSeconds, &p.CompletedAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("courses: scan module progress: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 // GetAllStudentProgress returns progress rows for all enrolled students (instructor view).

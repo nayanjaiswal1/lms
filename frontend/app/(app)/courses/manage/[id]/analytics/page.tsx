@@ -37,14 +37,14 @@ export default async function CourseAnalyticsPage({ params }: Props) {
             <Users aria-hidden className="h-4 w-4" />
             Total students
           </div>
-          <p className="text-3xl font-bold">{totalStudents}</p>
+          <p className="text-2xl font-bold">{totalStudents}</p>
         </div>
         <div className="card-base flex flex-col gap-1 p-5">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <TrendingUp aria-hidden className="h-4 w-4" />
             Completion rate
           </div>
-          <p className="text-3xl font-bold text-primary">{completionPct}%</p>
+          <p className="text-2xl font-bold text-primary">{completionPct}%</p>
         </div>
       </div>
 

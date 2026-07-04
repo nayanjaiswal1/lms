@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { TrendingUp, TrendingDown, Minus, Target } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { getStudentProgress } from "@/lib/server/assessments";
+import { getStudentProgress } from "@/lib/assessments/server";
 import type { SkillTrend } from "@/lib/assessments/types";
 
 export const metadata: Metadata = { title: "Interview Readiness" };

@@ -78,7 +78,7 @@ export interface Domain {
 }
 
 export interface AuditLog {
-  id: string;
+  id: number;
   org_id: string;
   actor_user_id: string | null;
   action: string;

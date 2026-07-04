@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCourseTree } from "@/lib/server/courses";
-import { ModuleEditor } from "@/components/instructor/module-editor";
+import { ModuleEditor } from "@/components/courses/module-editor";
 import ROUTES from "@/lib/routes";
 
 interface Props {

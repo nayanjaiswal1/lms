@@ -1,4 +1,3 @@
-import { ProfileAvatar } from '@/components/profile/profile-avatar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -8,31 +7,14 @@ import type { Profile } from '@/lib/profile/types'
 interface Props {
   profile: Profile
   updateAction: (formData: FormData) => Promise<void>
-  uploadAction: (formData: FormData) => Promise<void>
 }
 
-export function BasicInfoForm({ profile, updateAction, uploadAction }: Props) {
+export function BasicInfoForm({ profile, updateAction }: Props) {
   return (
     <section aria-labelledby="basic-info-heading" className="card-base p-6 space-y-6">
-      <h2 className="text-lg font-semibold text-foreground" id="basic-info-heading">
+      <h2 className="subsection-title text-foreground" id="basic-info-heading">
         Basic Information
       </h2>
-
-      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-        <ProfileAvatar
-          avatarUrl={profile.avatar_url}
-          editable={true}
-          name={profile.name}
-          size="lg"
-          uploadAction={uploadAction}
-        />
-        <div>
-          <p className="text-sm font-medium text-foreground">Profile photo</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            JPG, PNG or GIF. Max 5 MB.
-          </p>
-        </div>
-      </div>
 
       <form action={updateAction} className="form-stack">
         <div className="grid gap-4 sm:grid-cols-2">

@@ -20,6 +20,11 @@ func main() {
 	redisURL := getEnv("LABPROXY_REDIS_URL", "redis://localhost:6379/0")
 	jwtSecret := os.Getenv("LABPROXY_JWT_SECRET")
 	jwtIssuer := getEnv("LABPROXY_JWT_ISSUER", "mindforge-labproxy")
+	// Must mirror the backend's LABS_RUNTIME (config.LabsRuntime) — under
+	// "kubernetes" this process has no docker binary and no container-runtime
+	// access at all, so the docker-unpause path in proxy.go is skipped
+	// entirely rather than failing on every paused reconnect.
+	labsRuntime := getEnv("LABS_RUNTIME", "docker")
 
 	if dbURL == "" {
 		slog.Error("labproxy: LABPROXY_DB_URL is required")
@@ -54,7 +59,7 @@ func main() {
 	rdb := redis.NewClient(redisOpts)
 	defer rdb.Close()
 
-	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer)
+	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer, labsRuntime)
 
 	mux := http.NewServeMux()
 	mux.Handle("/ws", handler)

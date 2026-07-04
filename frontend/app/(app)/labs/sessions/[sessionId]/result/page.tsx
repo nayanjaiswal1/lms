@@ -4,8 +4,10 @@ import { redirect } from "next/navigation"
 import { CheckCircle2, XCircle, Clock, Trophy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { ClearActiveLabSession } from "@/components/labs/clear-active-lab-session"
+import { FeedbackPrompt } from "@/components/feedback/feedback-prompt"
 import { apiGet } from "@/lib/server/api"
+import { getMyFeedback } from "@/lib/server/feedback"
 import ROUTES from "@/lib/routes"
 import type { Lab, GetSessionResponse, TaskStatus } from "@/lib/labs"
 
@@ -27,6 +29,11 @@ function formatDuration(startedAt: string, completedAt: string): string {
   if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
   if (minutes > 0) return `${minutes}m ${seconds}s`
   return `${seconds}s`
+}
+
+const END_REASON_MESSAGES: Record<string, string> = {
+  time_limit: "This lab was automatically closed because it reached its time limit.",
+  idle_timeout: "This lab was automatically closed after 15 minutes of inactivity.",
 }
 
 const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -71,8 +78,16 @@ export default async function LabResultPage({ params }: PageProps) {
   const requiredTotal = lab.tasks.filter((t) => !t.is_optional).length
   const didPass = requiredPassed === requiredTotal && requiredTotal > 0
 
+  const myFeedback = await getMyFeedback("lab", session.lab_id).catch(() => null)
+
   return (
     <main className="page-container-sm py-10 flex flex-col gap-6">
+      <ClearActiveLabSession sessionId={sessionId} />
+      <FeedbackPrompt
+        alreadyResponded={myFeedback !== null}
+        subjectId={session.lab_id}
+        subjectType="lab"
+      />
       <div className="card-raised flex flex-col items-center gap-4 p-8 text-center">
         {didPass ? (
           <Trophy aria-hidden className="h-12 w-12 text-primary" />
@@ -91,6 +106,11 @@ export default async function LabResultPage({ params }: PageProps) {
                 ? "Lab session ended."
                 : `${requiredPassed} of ${requiredTotal} required tasks passed.`}
           </p>
+          {session.end_reason && (
+            <p className="text-sm text-muted-foreground">
+              {END_REASON_MESSAGES[session.end_reason]}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
@@ -128,8 +148,8 @@ export default async function LabResultPage({ params }: PageProps) {
             const status: TaskStatus = completion?.status ?? "pending"
             return (
               <div
-                key={task.task_id}
                 className="flex items-center justify-between gap-3 px-4 py-3"
+                key={task.task_id}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   {status === "passed" ? (
@@ -147,7 +167,7 @@ export default async function LabResultPage({ params }: PageProps) {
                     {task.position}. {task.title}
                   </span>
                   {task.is_optional && (
-                    <Badge variant="outline" className="text-xs shrink-0">
+                    <Badge className="text-xs shrink-0" variant="outline">
                       optional
                     </Badge>
                   )}

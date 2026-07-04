@@ -16,7 +16,7 @@ import {
   assignAssessmentAction,
 } from "@/app/(app)/assessments/manage/actions";
 import type { Assessment, Question, Batch } from "@/lib/assessments/types";
-import type { AssessmentQuestionFull } from "@/lib/server/assessments";
+import type { AssessmentQuestionFull } from "@/lib/assessments/server";
 
 interface AssessmentBuilderProps {
   assessment: Assessment;

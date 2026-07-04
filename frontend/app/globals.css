@@ -38,6 +38,13 @@
   --color-sidebar-foreground:     hsl(var(--sidebar-foreground));
   --color-sidebar-border:         hsl(var(--sidebar-border));
 
+  /* Terminal chrome — always dark, independent of app theme (like an IDE terminal) */
+  --color-terminal:                  hsl(var(--terminal-bg));
+  --color-terminal-chrome:           hsl(var(--terminal-chrome));
+  --color-terminal-border:           hsl(var(--terminal-border));
+  --color-terminal-foreground:       hsl(var(--terminal-foreground));
+  --color-terminal-muted-foreground: hsl(var(--terminal-muted-foreground));
+
   /* ── Radius ──────────────────────────────────────────────────────── */
   --radius-sm:   4px;     /* badge, tag, chip */
   --radius-md:   8px;     /* input, tooltip, select */
@@ -71,6 +78,9 @@
   --z-overlay:  300;
   --z-modal:    400;
   --z-toast:    500;
+
+  /* ── Layout metrics — reuse instead of re-deriving in components ─── */
+  --header-height: 3.5rem;
 
   /* ── Typography ──────────────────────────────────────────────────── */
   --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
@@ -133,6 +143,13 @@
   --sidebar-foreground:    25 15% 10%;
   --sidebar-border:        30 10% 86%;
 
+  /* Terminal — deliberately theme-independent, like a code editor's terminal panel */
+  --terminal-bg:                 0 0% 4%;
+  --terminal-chrome:             0 0% 9%;
+  --terminal-border:             0 0% 18%;
+  --terminal-foreground:         220 13% 91%;
+  --terminal-muted-foreground:   220 9% 60%;
+
   /* Shared */
   --radius: 0.625rem;  /* 10px card base */
 }
@@ -191,6 +208,13 @@
   --sidebar:               20 10% 4%;
   --sidebar-foreground:    30 8% 97%;
   --sidebar-border:        20 8% 16%;
+
+  /* Terminal — same values as light theme; the terminal surface never flips */
+  --terminal-bg:                 0 0% 4%;
+  --terminal-chrome:             0 0% 9%;
+  --terminal-border:             0 0% 18%;
+  --terminal-foreground:         220 13% 91%;
+  --terminal-muted-foreground:   220 9% 60%;
 }
 
 /* ─────────────────────────────────────────────
@@ -235,7 +259,7 @@
 
   p  { @apply leading-7 text-foreground; }
 
-  a  { @apply text-primary underline-offset-4 hover:underline; }
+  a  { @apply text-primary underline-offset-4; }
 
   strong { @apply font-semibold; }
   em     { @apply italic; }
@@ -249,10 +273,6 @@
   pre code { @apply bg-transparent p-0 rounded-none; }
 
   hr { @apply border-border my-8; }
-
-  ul { @apply list-disc   list-inside space-y-1; }
-  ol { @apply list-decimal list-inside space-y-1; }
-  li { @apply leading-7; }
 
   blockquote {
     @apply border-l-4 border-primary/40 pl-5 italic text-muted-foreground;
@@ -365,6 +385,7 @@
   .difficulty-beginner     { @apply bg-success/10     text-success       border-success/20; }
   .difficulty-intermediate { @apply bg-warning/10     text-warning-foreground border-warning/20; }
   .difficulty-advanced     { @apply bg-destructive/10 text-destructive   border-destructive/20; }
+  .difficulty-expert       { @apply bg-primary/10     text-primary       border-primary/20; }
 
   /* ── Progress bar ───────────────────────────────────────────────── */
   .progress-track {
@@ -372,6 +393,7 @@
   }
   .progress-fill {
     @apply h-full bg-primary rounded-pill;
+    width: var(--progress, 100%);
     transition: width var(--duration-slow) var(--ease-smooth);
   }
   .progress-fill-success { @apply bg-success; }
@@ -400,13 +422,50 @@
   .prose-content {
     @apply leading-7 text-foreground
            [&>*+*]:mt-4
-           [&>h2]:mt-8 [&>h2]:mb-3
-           [&>h3]:mt-6 [&>h3]:mb-2
+           [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-xl [&>h2]:font-semibold [&>h2]:leading-snug
+           [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-lg [&>h3]:font-semibold [&>h3]:leading-snug
            [&>pre]:my-5
            [&>blockquote]:my-5
            [&>ul]:my-3 [&>ol]:my-3
-           [&>table]:my-6;
+           [&_ul]:list-disc [&_ul]:list-outside [&_ul]:pl-5 [&_ul]:space-y-1
+           [&_ol]:list-decimal [&_ol]:list-outside [&_ol]:pl-5 [&_ol]:space-y-1
+           [&_li]:leading-7
+           [&>table]:my-6
+           [&_a]:underline-offset-4 [&_a:hover]:underline
+           [&>*:first-child]:mt-0;
   }
+
+  /* ── Prose — block-based lesson content (images, callouts, embeds) ── */
+  .prose-content figure { @apply my-5; }
+  .prose-content figure img {
+    @apply w-full rounded-lg border border-border object-contain bg-muted;
+  }
+  .prose-content figcaption {
+    @apply mt-2 text-center text-xs text-muted-foreground;
+  }
+
+  .prose-content .media-embed {
+    @apply relative my-5 aspect-video w-full overflow-hidden rounded-lg border border-border bg-muted;
+  }
+  .prose-content .media-embed iframe,
+  .prose-content .media-embed video {
+    @apply absolute inset-0 h-full w-full;
+  }
+  .prose-content .media-caption {
+    @apply -mt-3 text-center text-xs text-muted-foreground;
+  }
+
+  .prose-content .file-card {
+    @apply flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm font-medium no-underline hover:bg-muted;
+  }
+
+  .prose-content .callout {
+    @apply rounded-lg border p-4 text-sm [&>*+*]:mt-2;
+  }
+  .prose-content .callout-info    { @apply border-border bg-muted text-foreground; }
+  .prose-content .callout-warning { @apply border-warning/40 bg-warning/10 text-foreground; }
+  .prose-content .callout-tip     { @apply border-success/40 bg-success/10 text-foreground; }
+  .prose-content .callout-danger  { @apply border-destructive/40 bg-destructive/10 text-foreground; }
 
   /* ── Empty state ────────────────────────────────────────────────── */
   .empty-state      { @apply flex flex-col items-center justify-center py-16 text-center gap-4 text-muted-foreground; }
@@ -469,11 +528,21 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     /* Height adapts to notch — base 56px + whatever the notch adds */
-    min-height: calc(3.5rem + env(safe-area-inset-top));
+    min-height: calc(var(--header-height) + env(safe-area-inset-top));
     padding-top: env(safe-area-inset-top);
     /* Landscape: keep clear of notch on left/right */
     padding-left:  max(1rem, env(safe-area-inset-left));
     padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  /* ── Secondary sticky toolbar (mobile) — stacks below .app-header ─── */
+  /* Any in-page sticky bar (e.g. course contents toolbar) must offset by
+     the header height, otherwise it overlaps and hides the app-header's
+     menu button once the page scrolls past it. */
+  .app-subheader {
+    @apply sticky;
+    z-index: var(--z-sticky);
+    top: calc(var(--header-height) + env(safe-area-inset-top));
   }
 
   /* ── Page content area ──────────────────────────────────────────── */
@@ -534,6 +603,18 @@
   }
   .bottom-nav-item[aria-current="page"] { @apply text-primary; }
   .bottom-nav-item-label { @apply text-[10px] font-medium leading-none; }
+
+  /* ── Fixed floating elements above the bottom-nav — mobile only ─── */
+  /* Any fixed-position element (FAB, floating status bar) that must clear
+     the bottom-nav + home indicator on mobile, with a small gap above it.
+     bottom-nav's real height is 4rem + safe-area-inset-bottom, so a static
+     offset undercounts on notched phones and the element sinks behind it. */
+  .above-bottom-nav {
+    bottom: calc(4rem + env(safe-area-inset-bottom) + 1rem);
+  }
+  @media (min-width: 1024px) {
+    .above-bottom-nav { bottom: 1rem; }   /* lg: no bottom-nav */
+  }
 
   /* ── Safe area insets — notch, camera cutout, home indicator ────── */
   /*

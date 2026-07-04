@@ -157,7 +157,7 @@ type Domain struct {
 }
 
 type AuditLog struct {
-	ID          string     `json:"id"`
+	ID          int64      `json:"id"`
 	OrgID       string     `json:"org_id"`
 	ActorUserID *string    `json:"actor_user_id"`
 	Action      string     `json:"action"`

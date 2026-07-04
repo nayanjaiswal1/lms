@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Users, Trophy, Clock, ShieldAlert, TrendingUp, TrendingDown } from "lucide-react";
 
 import { AttemptsTable } from "@/components/assessments/attempts-table";
-import { getAssessment, getAssessmentAnalytics, getAssessmentAttempts, getAssessmentCandidates } from "@/lib/server/assessments";
+import { getAssessment, getAssessmentAnalytics, getAssessmentAttempts, getAssessmentCandidates } from "@/lib/assessments/server";
 import type { PublicCandidate } from "@/lib/server/public";
 
 export const metadata: Metadata = {

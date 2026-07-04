@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getOrgDomains } from "@/lib/server/orgs";
+import { getOrgDomains } from "@/lib/orgs/server";
 import { DomainList } from "@/app/org/settings/domains/domain-list";
 import { AddDomainForm } from "@/app/org/settings/domains/add-domain-form";
 import ROUTES from "@/lib/routes";
@@ -36,7 +36,7 @@ export default async function DomainsPage() {
     <div className="space-y-8">
       {/* Add domain */}
       <div className="card-base p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-1">Add a Domain</h2>
+        <h2 className="subsection-title text-foreground mb-1">Add a Domain</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Verified domains allow members to join automatically with a matching email address.
         </p>

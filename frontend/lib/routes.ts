@@ -29,6 +29,10 @@ const ROUTES = {
   MENTORING:           "/mentoring",
   MENTORING_MESSAGES:  "/mentoring/messages",
   MENTORING_BATCHES:   "/mentoring/batches",
+  MENTORING_TICKETS:   "/mentoring/tickets",
+
+  // Mentor directory
+  MENTORS:             "/mentors",
 
   // Course management (author/instructor)
   MANAGE_COURSES:          "/courses/manage",
@@ -105,12 +109,17 @@ const ROUTES = {
   manageAssessment:         (id: string)                        => `/assessments/manage/${id}`,
   manageAssessmentResults:  (id: string)                        => `/assessments/manage/${id}/results`,
   manageAssessmentReview:   (id: string)                        => `/assessments/manage/${id}/review`,
+  mentoringTicketChat:      (id: string)                        => `/mentoring/tickets/${id}/chat`,
   mentoringBatch:           (id: string)                        => `/mentoring/batches/${id}`,
   mentoringBatchChat:       (id: string)                        => `/mentoring/batches/${id}/chat`,
+  mentoringBatchMembers:    (id: string)                        => `/mentoring/batches/${id}/members`,
+  mentoringBatchCourses:    (id: string)                        => `/mentoring/batches/${id}/courses`,
+  mentoringBatchInvitations: (id: string)                       => `/mentoring/batches/${id}/invitations`,
+  mentoringBatchProgress:   (id: string)                        => `/mentoring/batches/${id}/progress`,
+  mentor:                   (id: string)                        => `/mentors/${id}`,
   practiceSession:          (id: string)                        => `/practice/${id}`,
   certificate:              (uuid: string)                      => `/certificates/${uuid}`,
   sheet:                    (slug: string)                      => `/sheets/${slug}`,
-  assessment:               (id: string)                        => `/assessments/${id}`,
   assessmentTake:           (id: string)                        => `/assessments/${id}/take`,
   assessmentResult:         (attemptId: string)                 => `/assessments/result/${attemptId}`,
   attemptProctoring:        (attemptId: string)                 => `/assessments/manage/attempts/${attemptId}/proctoring`,
@@ -132,5 +141,22 @@ const ROUTES = {
   // Hiring / public assessment (no login required)
   hireLanding:              (code: string)                      => `/hire/${code}`,
 } as const;
+
+const COURSE_LEARN_ROUTE = /^\/courses\/[^/]+\/learn\/[^/]+/;
+
+/** True for the course module reader (`/courses/:slug/learn/:moduleId`) — the
+ * one page that hides the product sidebar for a distraction-free read. */
+export function isCourseLearnRoute(pathname: string): boolean {
+  return COURSE_LEARN_ROUTE.test(pathname);
+}
+
+const PROCTORED_ASSESSMENT_ROUTE = /^\/assessments\/[^/]+\/take(\/|$)/;
+
+/** True for the proctored assessment-taking flow (`/assessments/:id/take`) —
+ * camera/mic capture and monitoring rules, so no floating global UI (e.g. the
+ * active-lab resume bar) should render on top of it. */
+export function isProctoredAssessmentRoute(pathname: string): boolean {
+  return PROCTORED_ASSESSMENT_ROUTE.test(pathname);
+}
 
 export default ROUTES;

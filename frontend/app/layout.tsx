@@ -4,9 +4,13 @@ import { ThemeProvider } from 'next-themes'
 import { NuqsAdapter } from 'nuqs/adapters/next'
 import { FeatureFlagProvider } from '@/lib/feature-context'
 import { PermissionProvider } from '@/lib/auth/permissions'
+import { LabProvisioningProvider } from '@/lib/labs/provisioning-context'
 import { getFeatureConfig } from '@/lib/server/features'
 import { getMyPermissions } from '@/lib/server/permissions'
+import { getActiveLabSession } from '@/lib/server/labs'
 import { Toaster } from '@/components/ui/sonner'
+import { LabProvisioningWatcher } from '@/components/labs/lab-provisioning-watcher'
+import { ActiveLabsBar } from '@/components/labs/active-labs-bar'
 import './globals.css'
 
 // ── Fonts ──────────────────────────────────────────────────────────────────
@@ -93,9 +97,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [{ orgFeatures, entitlements, lockedInfo }, permissions] = await Promise.all([
+  const [{ orgFeatures, entitlements, lockedInfo }, permissions, activeLabSession] = await Promise.all([
     getFeatureConfig(),
     getMyPermissions(),
+    getActiveLabSession(),
   ])
 
   return (
@@ -118,7 +123,11 @@ export default async function RootLayout({
               orgFeatures={orgFeatures}
             >
               <PermissionProvider permissions={permissions}>
-                {children}
+                <LabProvisioningProvider initialSession={activeLabSession}>
+                  {children}
+                  <LabProvisioningWatcher />
+                  <ActiveLabsBar />
+                </LabProvisioningProvider>
               </PermissionProvider>
             </FeatureFlagProvider>
           </NuqsAdapter>

@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/storage"
@@ -165,8 +166,10 @@ func (s *Service) UploadAvatar(ctx context.Context, userID string, r io.Reader, 
 			return "", fmt.Errorf("profile: decode avatar image: %w", err)
 		}
 
-		// Resize to avatarOutputSize x avatarOutputSize using nearest-neighbor scaling.
-		resized := resizeNearest(img, avatarOutputSize, avatarOutputSize)
+		// Center-crop to a square first so non-square photos aren't stretched,
+		// then resize to avatarOutputSize x avatarOutputSize.
+		squared := cropToSquare(img)
+		resized := resizeNearest(squared, avatarOutputSize, avatarOutputSize)
 
 		// Encode as JPEG at quality 85.
 		var buf bytes.Buffer
@@ -262,6 +265,75 @@ func (s *Service) RemoveSkill(ctx context.Context, userID, skillID string) error
 		return fmt.Errorf("profile: remove skill: %w", err)
 	}
 	return nil
+}
+
+// ─── GetMyOverview ────────────────────────────────────────────────────────────
+
+// GetMyOverview assembles the LeetCode-style profile overview payload:
+// solved-by-difficulty breakdown, a trailing-365-day submission activity
+// calendar, and recent activity. ActiveDays, MaxStreak, and TotalSubmissions
+// are derived in Go from the calendar rather than in SQL.
+func (s *Service) GetMyOverview(ctx context.Context, orgID, userID string) (*ProfileOverview, error) {
+	breakdown, attempting, err := s.repo.GetDifficultyBreakdown(ctx, orgID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("profile: get overview difficulty: %w", err)
+	}
+
+	calendar, err := s.repo.GetSubmissionCalendar(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("profile: get overview calendar: %w", err)
+	}
+
+	recent, err := s.repo.GetRecentActivity(ctx, userID, 15)
+	if err != nil {
+		return nil, fmt.Errorf("profile: get overview recent activity: %w", err)
+	}
+
+	var solvedTotal int
+	for _, d := range breakdown {
+		solvedTotal += d.Solved
+	}
+
+	activeDays, maxStreak, totalSubmissions := calendarStreak(calendar)
+
+	return &ProfileOverview{
+		Difficulty:       breakdown,
+		SolvedTotal:      solvedTotal,
+		Attempting:       attempting,
+		Calendar:         calendar,
+		TotalSubmissions: totalSubmissions,
+		ActiveDays:       activeDays,
+		MaxStreak:        maxStreak,
+		RecentActivity:   recent,
+	}, nil
+}
+
+// calendarStreak computes active-day count, longest consecutive-day streak,
+// and total submission count from an ascending-by-date calendar slice.
+func calendarStreak(calendar []CalendarDay) (activeDays, maxStreak, totalSubmissions int) {
+	activeDays = len(calendar)
+
+	var prevDate time.Time
+	var currentStreak int
+	for i, day := range calendar {
+		totalSubmissions += day.Count
+
+		d, err := time.Parse("2006-01-02", day.Date)
+		if err != nil {
+			continue
+		}
+		if i > 0 && !prevDate.IsZero() && d.Sub(prevDate) == 24*time.Hour {
+			currentStreak++
+		} else {
+			currentStreak = 1
+		}
+		if currentStreak > maxStreak {
+			maxStreak = currentStreak
+		}
+		prevDate = d
+	}
+
+	return activeDays, maxStreak, totalSubmissions
 }
 
 // ─── Public profile ───────────────────────────────────────────────────────────
@@ -431,6 +503,31 @@ func extractMinioKey(rawURL string) string {
 		return ""
 	}
 	return parts[1]
+}
+
+// ─── cropToSquare ────────────────────────────────────────────────────────────
+
+// cropToSquare returns the largest centered square crop of src. Cropping
+// (instead of stretching) preserves the subject's proportions when the
+// source image isn't already square.
+func cropToSquare(src image.Image) image.Image {
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	side := w
+	if h < side {
+		side = h
+	}
+	if w == h {
+		return src
+	}
+
+	offsetX := b.Min.X + (w-side)/2
+	offsetY := b.Min.Y + (h-side)/2
+	cropRect := image.Rect(offsetX, offsetY, offsetX+side, offsetY+side)
+
+	dst := image.NewRGBA(image.Rect(0, 0, side, side))
+	draw.Draw(dst, dst.Bounds(), src, cropRect.Min, draw.Src)
+	return dst
 }
 
 // ─── resizeNearest ───────────────────────────────────────────────────────────

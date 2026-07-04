@@ -21,7 +21,10 @@ export function LabReadinessWait({
   onFailedRef.current = onFailed
 
   useEffect(() => {
-    const es = new EventSource(`/api/labs/sessions/${sessionId}/events`)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
+    const es = new EventSource(`${apiUrl}/api/labs/sessions/${sessionId}/events`, {
+      withCredentials: true,
+    })
 
     es.onmessage = (e: MessageEvent) => {
       const data = JSON.parse(e.data as string) as { type: string }

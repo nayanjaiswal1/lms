@@ -752,7 +752,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ─── Lab definition (insert unpublished; update to published after version exists) ──
 INSERT INTO lab_definitions (id, org_id, scope, title, description, lab_type, environment,
-  max_duration, max_resets, hint_penalty_pct, is_required, is_published, created_by)
+  language, max_duration, max_resets, hint_penalty_pct, is_required, is_published, created_by)
 VALUES (
   '00000000-0000-0000-0000-000000000300',
   '00000000-0000-0000-0000-000000000001',
@@ -761,6 +761,7 @@ VALUES (
   'A hands-on lab to practice core JavaScript concepts: array methods, closures, and async patterns.',
   'code',
   'node:18-alpine',
+  'javascript',
   60,
   3,
   10,

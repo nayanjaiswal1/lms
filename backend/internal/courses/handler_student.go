@@ -1,14 +1,23 @@
 package courses
 
 import (
-	"encoding/json"
-	"log/slog"
+	"errors"
 	"net/http"
-	"time"
 
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/rewards"
 )
+
+// clientCompletableModuleTypes are module types whose "completed" status may
+// be set directly by the student's client. Lab and assessment modules are
+// deliberately excluded — those only complete via server-verified events
+// (lab.Service.VerifyTask, assessment.Service.Submit) that call
+// Service.CompleteModule themselves, so a client can never PATCH its way to
+// finishing a lab or assessment without actually doing it.
+var clientCompletableModuleTypes = map[string]bool{
+	ModuleTypeVideo: true,
+	ModuleTypePDF:   true,
+	ModuleTypeNotes: true,
+}
 
 // GetModuleContent serves module content to enrolled students (or free-preview viewers).
 func (h *Handler) GetModuleContent(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +59,40 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, created)
 }
 
+// Purchase charges the authenticated student for a paid course via the
+// mentoring package's charge -> purchase -> enrollment -> mentor-ticket flow,
+// then returns the resulting purchase (and mentor ticket, if one was opened).
+// Free courses must go through Enroll instead — that endpoint stays
+// 402-blocked for paid courses, and this one is 400-blocked for free
+// courses, so each course only ever has one valid path to access.
+func (h *Handler) Purchase(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := urlParam(r, "courseID")
+	course, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if course.IsFree || course.PriceCents <= 0 {
+		httputil.WriteError(w, http.StatusBadRequest, "This course is free — use /enroll instead.")
+		return
+	}
+	purchase, enrollment, ticket, err := h.mentorTickets.PurchaseCourse(r.Context(), claims.OrgID, claims.UserID, courseID, course.PriceCents)
+	if err != nil {
+		var ce conflictError
+		if errors.As(err, &ce) && ce.IsConflict() {
+			httputil.WriteError(w, http.StatusConflict, "You have already purchased this course.")
+			return
+		}
+		httputil.WriteError(w, http.StatusInternalServerError, "Purchase failed.")
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, map[string]any{"purchase": purchase, "enrollment": enrollment, "ticket": ticket})
+}
+
 // MyEnrollments returns all courses the authenticated student is enrolled in.
 func (h *Handler) MyEnrollments(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
@@ -65,8 +108,11 @@ func (h *Handler) MyEnrollments(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateProgress updates module progress for the authenticated student.
-// When a module is marked completed, XP is awarded and streak is updated.
-// When that completion finishes the entire course, course-completion XP fires too.
+// When a video/pdf/notes module is marked completed, XP is awarded and streak
+// is updated; if that finishes the entire course, course-completion XP fires
+// too. Lab and assessment modules reject a client-submitted "completed" status
+// — those only complete through server-verified events (see
+// clientCompletableModuleTypes).
 func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {
@@ -90,91 +136,61 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	p := ModuleProgress{
+
+	if req.Status == ProgressCompleted {
+		if !clientCompletableModuleTypes[m.Type] {
+			httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+				"status": "This module completes automatically once you finish it.",
+			})
+			return
+		}
+		updated, rewardResult, err := h.service.CompleteModule(r.Context(), claims.UserID, claims.OrgID, moduleID, m.CourseID)
+		if err != nil {
+			writeDomainError(w, err)
+			return
+		}
+		httputil.WriteJSON(w, http.StatusOK, map[string]any{"progress": updated, "rewards": rewardResult})
+		return
+	}
+
+	updated, err := h.repo.UpsertProgress(r.Context(), ModuleProgress{
 		UserID:              claims.UserID,
 		ModuleID:            moduleID,
 		CourseID:            m.CourseID,
 		Status:              req.Status,
 		LastPositionSeconds: req.LastPositionSeconds,
-	}
-	if req.Status == ProgressCompleted {
-		now := time.Now()
-		p.CompletedAt = &now
-	}
-	updated, err := h.repo.UpsertProgress(r.Context(), p)
+	})
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-
-	// Award XP on module completion (non-fatal).
-	var rewardResult *rewards.AwardResult
-	if req.Status == ProgressCompleted && h.rewardsSvc != nil {
-		courseID := m.CourseID
-		refType := "module"
-		moduleResult := h.rewardsSvc.AwardXP(r.Context(), rewards.AwardXPRequest{
-			UserID:   claims.UserID,
-			OrgID:    claims.OrgID,
-			CourseID: &courseID,
-			Reason:   "module_completed",
-			RefID:    &moduleID,
-			RefType:  &refType,
-			XP:       rewards.XPModuleCompleted,
-		})
-		rewardResult = &moduleResult
-
-		// Streak update after any learning activity.
-		streakResult := h.rewardsSvc.UpdateStreakAndCheckMilestones(r.Context(), claims.UserID, claims.OrgID)
-		rewardResult.XPGained += streakResult.XPGained
-		rewardResult.NewAchievements = append(rewardResult.NewAchievements, streakResult.NewAchievements...)
-		if streakResult.NewLevel != nil {
-			rewardResult.NewLevel = streakResult.NewLevel
-		}
-
-		// Course completion check: if every module is now done, award course XP.
-		cp, cpErr := h.repo.GetCourseProgress(r.Context(), claims.UserID, courseID)
-		if cpErr != nil {
-			slog.Error("courses: check completion for rewards", "course", courseID, "err", cpErr)
-		} else if cp.Total > 0 && cp.Completed == cp.Total {
-			refTypeCourse := "course"
-			courseResult := h.rewardsSvc.AwardXP(r.Context(), rewards.AwardXPRequest{
-				UserID:   claims.UserID,
-				OrgID:    claims.OrgID,
-				CourseID: &courseID,
-				Reason:   "course_completed",
-				RefID:    &courseID,
-				RefType:  &refTypeCourse,
-				XP:       rewards.XPCourseCompleted,
-			})
-			rewardResult.XPGained += courseResult.XPGained
-			rewardResult.NewAchievements = append(rewardResult.NewAchievements, courseResult.NewAchievements...)
-			if courseResult.NewLevel != nil {
-				rewardResult.NewLevel = courseResult.NewLevel
-			}
-		}
-	}
-
-	resp := map[string]any{"progress": updated}
-	if rewardResult != nil {
-		if raw, err := json.Marshal(rewardResult); err == nil {
-			resp["rewards"] = json.RawMessage(raw)
-		}
-	}
-	httputil.WriteJSON(w, http.StatusOK, resp)
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"progress": updated})
 }
 
-// GetMyProgress returns the authenticated student's progress in a course.
+// GetMyProgress returns the authenticated student's aggregate and per-module
+// progress in a course.
 func (h *Handler) GetMyProgress(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {
 		return
 	}
-	cp, err := h.repo.GetCourseProgress(r.Context(), claims.UserID, urlParam(r, "courseID"))
+	courseID := urlParam(r, "courseID")
+	cp, err := h.repo.GetCourseProgress(r.Context(), claims.UserID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, cp)
+	modules, err := h.repo.GetModuleProgressForCourse(r.Context(), claims.UserID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, CourseProgressSummary{
+		Completed: cp.Completed,
+		Total:     cp.Total,
+		Pct:       cp.Pct,
+		Modules:   modules,
+	})
 }
 
 // GetAllProgress returns all student progress for a course (instructor/mentor view).

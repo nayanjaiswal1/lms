@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getAuditLogs } from "@/lib/server/orgs";
+import { getAuditLogs } from "@/lib/orgs/server";
 import type { AuditLog } from "@/lib/orgs/types";
 import ROUTES from "@/lib/routes";
 

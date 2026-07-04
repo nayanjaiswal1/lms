@@ -414,6 +414,50 @@ export const PRACTICE_TECHNOLOGY_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// Mentoring — tickets, reports, ratings
+// ─────────────────────────────────────────────
+
+export const MENTOR_TICKET_STATUS = {
+  OPEN:     "open",
+  ASSIGNED: "assigned",
+  CLOSED:   "closed",
+} as const;
+export type MentorTicketStatus = (typeof MENTOR_TICKET_STATUS)[keyof typeof MENTOR_TICKET_STATUS];
+
+export const MENTOR_REPORT_REASON = {
+  UNRESPONSIVE:            "unresponsive",
+  INAPPROPRIATE_BEHAVIOR:  "inappropriate_behavior",
+  UNQUALIFIED:             "unqualified",
+  OTHER:                   "other",
+} as const;
+export type MentorReportReason = (typeof MENTOR_REPORT_REASON)[keyof typeof MENTOR_REPORT_REASON];
+
+export const MENTOR_REPORT_REASON_OPTIONS = [
+  { label: "Unresponsive",           value: MENTOR_REPORT_REASON.UNRESPONSIVE },
+  { label: "Inappropriate behavior", value: MENTOR_REPORT_REASON.INAPPROPRIATE_BEHAVIOR },
+  { label: "Unqualified",            value: MENTOR_REPORT_REASON.UNQUALIFIED },
+  { label: "Other",                  value: MENTOR_REPORT_REASON.OTHER },
+] as const;
+
+export const MENTOR_REPORT_STATUS = {
+  OPEN:      "open",
+  REVIEWING: "reviewing",
+  RESOLVED:  "resolved",
+  DISMISSED: "dismissed",
+} as const;
+export type MentorReportStatus = (typeof MENTOR_REPORT_STATUS)[keyof typeof MENTOR_REPORT_STATUS];
+
+export const MENTOR_CHANGE_REQUEST_STATUS = {
+  PENDING:  "pending",
+  APPROVED: "approved",
+  DENIED:   "denied",
+} as const;
+export type MentorChangeRequestStatus =
+  (typeof MENTOR_CHANGE_REQUEST_STATUS)[keyof typeof MENTOR_CHANGE_REQUEST_STATUS];
+
+// ─────────────────────────────────────────────
+
 export const SUGGESTED_SKILLS = [
   "Python", "JavaScript", "TypeScript", "Go", "Java", "Rust", "C++",
   "React", "Next.js", "Vue", "Angular", "Node.js",

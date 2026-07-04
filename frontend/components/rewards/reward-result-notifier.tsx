@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { showRewardToasts } from "@/components/rewards/reward-toast";
+import { showRewardToasts } from "@/components/shared/reward-toast";
 import type { AwardResult } from "@/lib/server/rewards";
 
 interface RewardResultNotifierProps {

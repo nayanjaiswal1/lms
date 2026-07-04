@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { fetchOrgJobs, fetchOrgJobStats } from "@/lib/server/jobs";
+import { fetchOrgJobs, fetchOrgJobStats } from "@/lib/jobs/server";
 import type { Job, JobStatus, JobPriority } from "@/lib/jobs/types";
 import { cancelJobAction, retryJobAction } from "@/app/org/settings/jobs/[id]/actions";
 import ROUTES from "@/lib/routes";

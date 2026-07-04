@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCourseTree } from "@/lib/server/courses";
-import { EditCourseForm } from "@/components/instructor/edit-course-form";
+import { CourseWizard } from "@/components/courses/course-wizard";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -28,7 +28,7 @@ export default async function EditCoursePage({ params }: Props) {
 
   return (
     <main className="page-container py-8">
-      <div className="page-header">
+      <div className="page-header mb-6">
         <div className="flex flex-col gap-1">
           <h1 className="page-title">Edit course</h1>
           <p className="text-sm text-muted-foreground">
@@ -38,12 +38,7 @@ export default async function EditCoursePage({ params }: Props) {
           </p>
         </div>
       </div>
-
-      <div className="mx-auto max-w-2xl">
-        <div className="card-base p-6">
-          <EditCourseForm course={tree} />
-        </div>
-      </div>
+      <CourseWizard course={tree} />
     </main>
   );
 }

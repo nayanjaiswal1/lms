@@ -17,11 +17,13 @@ import {
   Shield,
   Briefcase,
   Cpu,
-  Trophy,
+  UserCheck,
+  Ticket,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
 import { FEATURES, type Feature } from "@/lib/features";
+import { usePermissions } from "@/lib/auth/permissions";
 
 // ─────────────────────────────────────────────
 // Nav item shape
@@ -107,10 +109,10 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  "assessments.take",
     mode:                "badge",
   },
-  leaderboard: {
-    label: "Leaderboard",
-    href:  ROUTES.LEADERBOARD,
-    icon:  Trophy,
+  mentors: {
+    label: "Mentors",
+    href:  ROUTES.MENTORS,
+    icon:  UserCheck,
   },
   flashcards: {
     label:               "Review Cards",
@@ -233,6 +235,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  "mentoring.manage_batches",
     mode:                "badge",
   },
+  mentor_tickets: {
+    label:               "Ticket Queue",
+    href:                ROUTES.MENTORING_TICKETS,
+    icon:                Ticket,
+    requiredPermission:  "mentoring.manage_batches",
+  },
 
   admin_rbac: {
     label:               "Roles & Permissions",
@@ -264,6 +272,24 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
 // Groups and items are defined once here; no role names appear anywhere.
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// VISIBLE NAV GROUPS — shared filtering logic.
+//
+// Used by both the desktop sidebar and the mobile drawer/bottom-nav so
+// permission filtering lives in exactly one place.
+// ─────────────────────────────────────────────
+
+export function useVisibleNavGroups(): NavGroup[] {
+  const perms = usePermissions();
+
+  return MAIN_NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => !item.requiredPermission || perms.has(item.requiredPermission),
+    ),
+  })).filter((group) => group.items.length > 0);
+}
+
 export const MAIN_NAV_GROUPS: NavGroup[] = [
   {
     items: [
@@ -271,7 +297,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.courses,
       ALL_NAV_ITEMS.practice,
       ALL_NAV_ITEMS.assessments,
-      ALL_NAV_ITEMS.leaderboard,
+      ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.flashcards,
       ALL_NAV_ITEMS.sheet_tracker,
       ALL_NAV_ITEMS.mentor_chat,
@@ -297,6 +323,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.mentor_dashboard,
       ALL_NAV_ITEMS.mentor_messages,
       ALL_NAV_ITEMS.mentor_batches,
+      ALL_NAV_ITEMS.mentor_tickets,
     ],
   },
   {

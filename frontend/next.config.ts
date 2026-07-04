@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
+import type { RemotePattern } from "next/dist/shared/lib/image-config";
 
 function buildSecurityHeaders() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL;
   return [
     // Prevent DNS prefetching leaking visited URLs
     { key: "X-DNS-Prefetch-Control", value: "on" },
@@ -23,14 +25,15 @@ function buildSecurityHeaders() {
         `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
         // unsafe-inline required by Tailwind CSS-in-JS + shadcn
         "style-src 'self' 'unsafe-inline'",
-        // Allow avatars from OAuth providers + data URIs + blob URLs (canvas export)
-        "img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://graph.microsoft.com",
+        // Allow avatars from OAuth providers + data URIs + blob URLs (canvas export) + user-uploaded media (MinIO/S3) + CNCF brand assets for seeded dev course covers + GitHub-hosted lesson screenshots (markdown-authored course content)
+        ["img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://graph.microsoft.com https://raw.githubusercontent.com https://user-images.githubusercontent.com", mediaUrl].filter(Boolean).join(" "),
         "font-src 'self'",
         // ws/wss for Yjs WebSocket (interview real-time sync)
         ["connect-src 'self'", apiUrl, "ws: wss:"].filter(Boolean).join(" "),
         // Worker required by Monaco Editor
         "worker-src 'self' blob:",
-        "frame-src 'none'",
+        // YouTube block embeds (course content + wizard preview) — youtube-nocookie only
+        "frame-src https://www.youtube-nocookie.com",
         "object-src 'none'",
         "base-uri 'self'",
       ].join("; "),
@@ -38,7 +41,23 @@ function buildSecurityHeaders() {
   ];
 }
 
+function buildMediaRemotePattern(): RemotePattern[] {
+  const mediaUrl = process.env.NEXT_PUBLIC_MEDIA_URL;
+  if (!mediaUrl) return [];
+  const url = new URL(mediaUrl);
+  return [{
+    protocol: url.protocol.replace(":", "") as "http" | "https",
+    hostname: url.hostname,
+    port: url.port || undefined,
+    pathname: "/**",
+  }];
+}
+
 const nextConfig: NextConfig = {
+  // Bundles a minimal `.next/standalone` server — required by frontend/Dockerfile's
+  // production runtime stage. No effect on `next dev`.
+  output: "standalone",
+
   async headers() {
     return [{ source: "/(.*)", headers: buildSecurityHeaders() }];
   },
@@ -48,6 +67,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "graph.microsoft.com" },
+      { protocol: "https", hostname: "raw.githubusercontent.com" },
+      ...buildMediaRemotePattern(),
     ],
   },
 

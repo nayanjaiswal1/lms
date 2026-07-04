@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { fetchAdminJobs, fetchPlatformStats } from "@/lib/server/admin-jobs";
+import { fetchAdminJobs, fetchPlatformStats } from "@/lib/jobs/admin-server";
 import { OrgStatsTable } from "@/app/(app)/admin/jobs/org-stats-table";
 import { JobsTable } from "@/app/(app)/admin/jobs/jobs-table";
 import ROUTES from "@/lib/routes";

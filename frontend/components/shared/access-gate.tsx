@@ -135,7 +135,7 @@ function UnlockBadge({ lockedInfo }: { lockedInfo: ReturnType<typeof useLockedIn
   const label = lockedInfo?.unlock_via === "addon" ? "Add-on" : "Upgrade";
   return (
     <Badge
-      className="badge-info text-[10px] px-1.5 py-0 h-4 uppercase tracking-wide"
+      className="badge-info text-xs px-1.5 py-0 h-4 uppercase tracking-wide"
       variant="outline"
     >
       {label}

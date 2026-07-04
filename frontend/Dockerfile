@@ -1,29 +1,37 @@
 # ─── Stage 1: Install dependencies ──────────────────────────────────────────
 FROM node:20-alpine AS deps
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
 WORKDIR /app
 
-# Copy lockfiles first for layer caching
-COPY package.json pnpm-lock.yaml ./
+# Copy lockfile first for layer caching
+COPY package.json package-lock.json ./
 
-RUN pnpm install --frozen-lockfile
+RUN npm ci
 
 # ─── Stage 2: Build ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
-
-RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time — they
+# must be passed as build args (see docker-compose.prod.yml `build.args`),
+# not just as container-runtime env vars.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_MEDIA_URL
+ARG NEXT_PUBLIC_LAB_PROXY_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
+    NEXT_PUBLIC_MEDIA_URL=$NEXT_PUBLIC_MEDIA_URL \
+    NEXT_PUBLIC_LAB_PROXY_URL=$NEXT_PUBLIC_LAB_PROXY_URL
+
 # Next.js standalone output bundles only the files needed to run the server.
 # Set in next.config.ts: output: 'standalone'
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm build
+RUN npm run build
 
 # ─── Stage 3: Production runtime ─────────────────────────────────────────────
 FROM node:20-alpine AS runner

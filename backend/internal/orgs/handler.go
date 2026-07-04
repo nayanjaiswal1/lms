@@ -1056,6 +1056,15 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		cursor = ""
 	}
 
+	var cursorIDInt int64
+	if cursor != "" {
+		var perr error
+		cursorIDInt, perr = strconv.ParseInt(cursorID, 10, 64)
+		if perr != nil {
+			cursor = ""
+		}
+	}
+
 	var qErr error
 	var logRows pgxRows
 	if cursor == "" {
@@ -1077,7 +1086,7 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 			   AND (created_at, id) < ($2, $3)
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT $4`,
-			orgCtx.OrgID, cursorCreatedAt, cursorID, limit+1,
+			orgCtx.OrgID, cursorCreatedAt, cursorIDInt, limit+1,
 		)
 	}
 	if qErr != nil {
@@ -1110,7 +1119,7 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	if len(logs) > limit {
 		page.Logs = logs[:limit]
 		last := page.Logs[limit-1]
-		page.NextCursor = encodeCursor(last.CreatedAt, last.ID)
+		page.NextCursor = encodeCursor(last.CreatedAt, strconv.FormatInt(last.ID, 10))
 	}
 	httputil.WriteJSON(w, http.StatusOK, page)
 }

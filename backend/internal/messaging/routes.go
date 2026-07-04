@@ -38,6 +38,7 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 
 	// FAQs — any authenticated user can list
 	r.Get("/api/courses/{courseID}/faqs", rt.handler.ListFAQs)
+	r.Get("/api/courses/{courseID}/faqs/similar", rt.handler.GetSimilarFAQs)
 
 	// FAQ management — admin/instructor only
 	r.Group(func(r chi.Router) {

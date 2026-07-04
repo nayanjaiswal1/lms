@@ -101,6 +101,15 @@ JWT — only the scoped `session_token`.
   packages / start services); the interactive shell and all verification scripts run as the
   unprivileged `labuser`. The two user contexts are deliberate — setup provisions, verify cannot tamper.
 - ttyd runs as the non-root `labuser` inside the container
+- **`/home/labuser` permission gotcha**: `--cap-drop ALL` strips `CAP_DAC_OVERRIDE` even from the
+  root user, so a root-run `setup_script` cannot traverse `labuser`'s home directory at its default
+  `0750` mode to reach a workdir underneath it — root isn't the owner, isn't in the group, and has
+  no override capability to bypass the missing "other" permission bit. Every lab image's entrypoint
+  must `chmod 755 /home/labuser` and pre-create a world-writable workdir (e.g. `/home/labuser/work`,
+  `chmod 777`) before any root-run script tries to write starter files there — see
+  `lab-images/lab-k8s/entrypoint.sh` for the reference fix. Skipping this silently breaks every
+  multi-file lab (the setup script's file-write commands fail with "Permission denied" but the
+  container still starts, so the failure only surfaces once a student's workdir is empty).
 
 ### Task Verification
 
@@ -122,6 +131,15 @@ exit ≠0 → attempts++; stderr returned as hint context; failure diagnosis tri
 ```
 
 Verification scripts are bash. They check real container state (file presence, service status, command output). Never trust client claims.
+
+**Implementation status.** `backend/internal/labs/service.go`'s `VerifyTask` is a public dispatcher
+that loads the session/lab once, then branches on `lab.LabType`: `verifyCodeTask` (Piston, `code`
+labs — unchanged from the original implementation) or `verifyContainerTask` (`docker exec` via
+`ContainerService.Exec`, `terminal`/`guided`/`playground` labs — the path described in this
+section). Both funnel into a shared `finalizeTaskPass` for the score/completion transaction
+described under Atomicity below. The paused-container resume described next lives in a shared
+`ensureContainerResumed` helper, reused by both verification and the file-management endpoints
+(see API Endpoints → Student).
 
 **Atomicity.** Every verify mutates `lab_task_completions` (attempts/status) and possibly
 `lab_sessions` (score, status) — these run in a single DB transaction. `attempts` and `hints_used`
@@ -362,6 +380,25 @@ CREATE UNIQUE INDEX ON lab_ai_interactions (cache_key) WHERE cache_key IS NOT NU
 | `POST` | `/api/labs/sessions/:sessionId/tasks/:taskId/skip` | Skip optional task |
 | `POST` | `/api/labs/sessions/:sessionId/reset` | Reset container (staged: new container healthy before old is killed; costs 1 reset_count) |
 | `POST` | `/api/labs/sessions/:sessionId/end` | End session early. Kills the container AND sets a terminal status in one transaction: `completed` if all non-optional tasks passed, else `expired` (partial score kept). Never leaves the session `running` — otherwise the one-active index and expiry job would leak it. |
+
+#### File management (implemented)
+
+All operate on a fixed workdir (`/home/labuser/work`) inside the session's container via
+`ContainerService.Exec` — no new container capabilities. Every path is validated by
+`resolveWorkdirPath` (`backend/internal/labs/service_files.go`) to reject absolute paths and any
+`..` traversal before it ever reaches a shell command. File content is written via a quoted
+heredoc (`<<'MF_LABFILE_EOF'`), which disables shell expansion so student content is never
+interpreted (`$VAR`, `` `cmd` ``, `$()` are written byte-for-byte).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/labs/sessions/:sessionId/files` | List every file/dir under the workdir: `[{path, type}]` |
+| `GET` | `/api/labs/sessions/:sessionId/files/read?path=` | Read one file: `{content}` |
+| `PUT` | `/api/labs/sessions/:sessionId/files` | Create/overwrite a file. Body: `{path, content}` |
+| `POST` | `/api/labs/sessions/:sessionId/files/rename` | Move/rename. Body: `{from, to}` |
+| `DELETE` | `/api/labs/sessions/:sessionId/files?path=` | Delete a file |
+| `POST` | `/api/labs/sessions/:sessionId/files/validate` | `kubectl apply --dry-run=server -f <path>` against the real apiserver — no separate YAML linter. Body: `{path}`. Response: `{valid, stdout, stderr}` (stdout/stderr always returned, even on failure, so the student sees kubectl's real error) |
+| `GET` | `/api/labs/sessions/:sessionId/resources` | `kubectl get all,ns,pv,pvc,cm,secret -A -o json`, refresh-on-demand only (no watch/stream) |
 
 ### Instructor
 

@@ -23,6 +23,7 @@ export type ContentBlock =
 
 export interface DraftModule {
   localId:           string;
+  id?:               string; // present when editing an existing module
   title:             string;
   type:              string;
   estimated_minutes: number;
@@ -32,6 +33,7 @@ export interface DraftModule {
 
 export interface DraftSection {
   localId: string;
+  id?:     string; // present when editing an existing section
   title:   string;
   modules: DraftModule[];
 }
@@ -84,3 +86,68 @@ export const EMPTY_DRAFT: CourseDraft = {
   sections: [],
   status: "draft",
 };
+
+// ─── Load an existing course into a draft (edit mode) ─────────────────────────
+
+// Modules created via the block-based wizard store `content_body` as a JSON
+// array of blocks. Modules created via the plain-text ModuleEditor store raw
+// text instead — fall back to a single paragraph block so that content is
+// never silently dropped when opened in the wizard.
+export function parseBlocks(contentBody: string | null): ContentBlock[] {
+  if (!contentBody) return [];
+  try {
+    const parsed: unknown = JSON.parse(contentBody);
+    if (Array.isArray(parsed)) return parsed as ContentBlock[];
+  } catch {
+    // not JSON — fall through to plain-text handling
+  }
+  return [{ id: uid(), type: "paragraph", text: contentBody }];
+}
+
+export function courseTreeToDraft(tree: {
+  title: string;
+  description: string | null;
+  cover_url: string | null;
+  difficulty: string;
+  tags: string[];
+  is_free: boolean;
+  status: string;
+  sections: {
+    id: string;
+    title: string;
+    modules: {
+      id: string;
+      title: string;
+      type: string;
+      estimated_minutes: number | null;
+      is_free_preview: boolean;
+      content_body: string | null;
+    }[];
+  }[];
+}): CourseDraft {
+  return {
+    info: {
+      title:       tree.title,
+      description: tree.description ?? "",
+      cover_url:   tree.cover_url ?? "",
+      difficulty:  tree.difficulty,
+      tags:        tree.tags ?? [],
+      is_free:     tree.is_free,
+    },
+    sections: tree.sections.map((section) => ({
+      localId: uid(),
+      id:      section.id,
+      title:   section.title,
+      modules: section.modules.map((mod) => ({
+        localId:           uid(),
+        id:                mod.id,
+        title:             mod.title,
+        type:              mod.type,
+        estimated_minutes: mod.estimated_minutes ?? 5,
+        is_free_preview:   mod.is_free_preview,
+        blocks:            parseBlocks(mod.content_body),
+      })),
+    })),
+    status: tree.status === "published" ? "published" : "draft",
+  };
+}

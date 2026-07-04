@@ -5,7 +5,7 @@ import { ExternalLink, Globe, Link2, Copy, Check } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ProfileAvatar } from "@/components/profile/profile-avatar"
+import { ProfileAvatar } from "@/components/shared/profile-avatar"
 import { cn } from "@/lib/utils"
 import type { PublicProfile, Skill } from "@/lib/profile/types"
 

@@ -37,6 +37,14 @@ func New(pool *pgxpool.Pool, rdb *redis.Client) *Handler {
 	}
 }
 
+// Service exposes the underlying permission-resolution Service so other
+// packages (e.g. mentoring, for its mentoring.assign_tickets /
+// mentoring.manage_reports guards) can wire authz.RequirePermission without
+// this package constructing their routers itself.
+func (h *Handler) Service() *Service {
+	return h.svc
+}
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 func (h *Handler) getClaims(r *http.Request) (*auth.Claims, bool) {

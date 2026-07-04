@@ -276,7 +276,7 @@ function ResultView({
           )}
           <div>
             <p className="text-muted-foreground">Well done, {name}!</p>
-            <h1 className="mt-1 text-3xl font-bold tabular-nums">
+            <h1 className="page-title mt-1 tabular-nums">
               {percentage.toFixed(0)}%
             </h1>
             <p className={`mt-1 font-semibold ${passed ? "text-primary" : "text-destructive"}`}>
@@ -338,7 +338,7 @@ export function HireTestFlow({ code, testInfo }: Props) {
       <div className="w-full max-w-md">
         <div className="card-base p-8">
           <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold tracking-tight">{testInfo.title}</h1>
+            <h1 className="page-title">{testInfo.title}</h1>
             {testInfo.description && (
               <p className="mt-2 text-muted-foreground">{testInfo.description}</p>
             )}

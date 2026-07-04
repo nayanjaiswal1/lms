@@ -1,0 +1,269 @@
+package labs
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
+	utilexec "k8s.io/client-go/util/exec"
+)
+
+// podPollInterval bounds how often Start polls for a lab Pod to reach Running
+// with an assigned IP. The overall wait is bounded by the caller's ctx
+// (labs.ProvisionTimeoutSeconds).
+const podPollInterval = 500 * time.Millisecond
+
+// KubernetesContainerService implements ContainerRuntime by running each lab
+// sandbox as its own Pod in a dedicated namespace, via the in-cluster
+// Kubernetes API. See DockerContainerService (container.go) for the
+// VPS/Compose equivalent.
+//
+// Kubernetes Pod exec has no equivalent of `docker exec --user root`: exec
+// always runs as the container's own configured user (whatever the image's
+// Dockerfile USER sets), never an override. So under this runtime, a lab's
+// setup_script runs as the image's default user, not root. lab-images/lab-k8s
+// already self-provisions everything internally as labuser at container boot
+// and is unaffected; any future lab image whose setup_script assumes root
+// needs that logic moved into the image's own entrypoint instead.
+type KubernetesContainerService struct {
+	clientset  *kubernetes.Clientset
+	restConfig *rest.Config
+	namespace  string
+}
+
+// NewKubernetesContainerService returns a KubernetesContainerService using
+// the Pod's own in-cluster service account credentials. namespace is where
+// lab sandbox Pods are created — must match the Role/RoleBinding granting
+// this service account pods (create/get/list/watch/delete) and pods/exec
+// (create) in that namespace.
+func NewKubernetesContainerService(namespace string) (*KubernetesContainerService, error) {
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("labs.NewKubernetesContainerService: in-cluster config: %w", err)
+	}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("labs.NewKubernetesContainerService: build clientset: %w", err)
+	}
+	return &KubernetesContainerService{clientset: clientset, restConfig: restConfig, namespace: namespace}, nil
+}
+
+// Start creates a Pod for the given lab session and runs the optional setup
+// script inside it as the image's default user. On setup failure the Pod is
+// force-deleted before the error is returned.
+func (k *KubernetesContainerService) Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error) {
+	name := fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount)
+
+	cpuQty, err := resource.ParseQuantity(ContainerCPU)
+	if err != nil {
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse ContainerCPU: %w", err)
+	}
+	memQty, err := resource.ParseQuantity(fmt.Sprintf("%dMi", ContainerMemoryMB))
+	if err != nil {
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse ContainerMemoryMB: %w", err)
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: k.namespace,
+			Labels: map[string]string{
+				"app":        "mindforge-lab",
+				"session-id": sessionID,
+			},
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy:                corev1.RestartPolicyNever,
+			AutomountServiceAccountToken: boolPtr(false),
+			Containers: []corev1.Container{{
+				Name:  "sandbox",
+				Image: image,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    cpuQty,
+						corev1.ResourceMemory: memQty,
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    cpuQty,
+						corev1.ResourceMemory: memQty,
+					},
+				},
+				SecurityContext: &corev1.SecurityContext{
+					Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+					AllowPrivilegeEscalation: boolPtr(false),
+					SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+				},
+			}},
+		},
+	}
+
+	created, err := k.clientset.CoreV1().Pods(k.namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: create pod: %w", err)
+	}
+	containerID = created.Name
+
+	podIP, err := k.waitForRunning(ctx, containerID)
+	if err != nil {
+		_ = k.Kill(context.Background(), containerID)
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: wait for running: %w", err)
+	}
+
+	if setupScript != "" {
+		escaped := strings.ReplaceAll(setupScript, "'", "'\\''")
+		cmd := fmt.Sprintf("timeout 120 bash -c '%s'", escaped)
+
+		var setupErr error
+	retryLoop:
+		for attempt := 1; attempt <= setupScriptRetryAttempts; attempt++ {
+			_, _, _, setupErr = k.execPod(ctx, containerID, []string{"bash", "-c", cmd})
+			if setupErr == nil {
+				break
+			}
+			if attempt < setupScriptRetryAttempts {
+				select {
+				case <-time.After(setupScriptRetryDelay):
+				case <-ctx.Done():
+					setupErr = ctx.Err()
+					break retryLoop
+				}
+			}
+		}
+		if setupErr != nil {
+			_ = k.Kill(context.Background(), containerID)
+			return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: setup script (after %d attempts): %w", setupScriptRetryAttempts, setupErr)
+		}
+	}
+
+	containerHost = fmt.Sprintf("%s:7681", podIP)
+	return containerID, containerHost, nil
+}
+
+// waitForRunning polls until the Pod reaches phase Running with an assigned
+// IP, or ctx is done.
+func (k *KubernetesContainerService) waitForRunning(ctx context.Context, podName string) (podIP string, err error) {
+	ticker := time.NewTicker(podPollInterval)
+	defer ticker.Stop()
+	for {
+		pod, getErr := k.clientset.CoreV1().Pods(k.namespace).Get(ctx, podName, metav1.GetOptions{})
+		if getErr == nil && pod.Status.Phase == corev1.PodRunning && pod.Status.PodIP != "" {
+			return pod.Status.PodIP, nil
+		}
+		if getErr == nil && pod.Status.Phase == corev1.PodFailed {
+			return "", fmt.Errorf("pod %s failed to schedule: %s", podName, pod.Status.Reason)
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+// Kill force-deletes a Pod by name.
+func (k *KubernetesContainerService) Kill(ctx context.Context, containerID string) error {
+	gracePeriod := int64(0)
+	err := k.clientset.CoreV1().Pods(k.namespace).Delete(ctx, containerID, metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+	})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("labs.KubernetesContainerService.Kill: %w", err)
+	}
+	return nil
+}
+
+// Unpause is a no-op: Kubernetes Pods have no pause/suspend primitive, and no
+// code path currently transitions a lab session to "paused" — see
+// ContainerRuntime.Unpause.
+func (k *KubernetesContainerService) Unpause(ctx context.Context, containerID string) error {
+	return nil
+}
+
+// Exec runs a script inside the Pod as its default (non-root) user. exitCode
+// is 0 on success; a remote command exit error yields the real exit code
+// without propagating an error value.
+func (k *KubernetesContainerService) Exec(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	escaped := strings.ReplaceAll(script, "'", "'\\''")
+	cmd := fmt.Sprintf("timeout %d bash -c '%s'", timeoutSec, escaped)
+	return k.execPod(ctx, containerID, []string{"bash", "-c", cmd})
+}
+
+// execPod runs command inside the named Pod's sole container via the
+// Kubernetes exec subresource.
+func (k *KubernetesContainerService) execPod(ctx context.Context, podName string, command []string) (stdout, stderr string, exitCode int, err error) {
+	req := k.clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(k.namespace).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: "sandbox",
+			Command:   command,
+			Stdout:    true,
+			Stderr:    true,
+		}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(k.restConfig, "POST", req.URL())
+	if err != nil {
+		return "", "", -1, fmt.Errorf("labs.KubernetesContainerService.execPod: build executor: %w", err)
+	}
+
+	var outBuf, errBuf bytes.Buffer
+	streamErr := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: &outBuf,
+		Stderr: &errBuf,
+	})
+	stdout = outBuf.String()
+	stderr = errBuf.String()
+	if streamErr != nil {
+		var codeErr utilexec.ExitError
+		if errors.As(streamErr, &codeErr) {
+			return stdout, stderr, codeErr.ExitStatus(), nil
+		}
+		return stdout, stderr, -1, fmt.Errorf("labs.KubernetesContainerService.execPod: %w", streamErr)
+	}
+	return stdout, stderr, 0, nil
+}
+
+// IsRunning reports whether the Pod is currently in phase Running.
+func (k *KubernetesContainerService) IsRunning(ctx context.Context, containerID string) bool {
+	pod, err := k.clientset.CoreV1().Pods(k.namespace).Get(ctx, containerID, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	return pod.Status.Phase == corev1.PodRunning
+}
+
+// List returns every Pod whose name starts with namePrefix, for
+// LabCleanupHandler's orphan scan.
+func (k *KubernetesContainerService) List(ctx context.Context, namePrefix string) ([]ContainerInfo, error) {
+	pods, err := k.clientset.CoreV1().Pods(k.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("labs.KubernetesContainerService.List: %w", err)
+	}
+	var infos []ContainerInfo
+	for _, pod := range pods.Items {
+		if !strings.HasPrefix(pod.Name, namePrefix) {
+			continue
+		}
+		infos = append(infos, ContainerInfo{
+			ID:        pod.Name,
+			Name:      pod.Name,
+			CreatedAt: pod.CreationTimestamp.Time,
+		})
+	}
+	return infos, nil
+}
+
+func boolPtr(b bool) *bool { return &b }

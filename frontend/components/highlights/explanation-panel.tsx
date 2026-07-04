@@ -58,7 +58,7 @@ export function ExplanationPanel({
 
         {/* Selected text */}
         <div className="px-4 pt-3">
-          <p className="text-xs text-muted-foreground font-mono leading-relaxed line-clamp-2">
+          <p className="text-sm text-muted-foreground font-mono leading-relaxed line-clamp-2">
             &ldquo;{explanation.selected_text}&rdquo;
           </p>
         </div>

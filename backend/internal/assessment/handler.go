@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/rewards"
@@ -23,11 +24,14 @@ type Handler struct {
 	pool        *pgxpool.Pool
 	jobRegistry *jobs.Registry
 	rewardsSvc  *rewards.Service
+	coursesSvc  *courses.Service
 }
 
 // NewHandler builds the assessment HTTP handler and its dependency graph.
-func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service) *Handler {
-	return &Handler{repo: repo, service: service, pool: pool, jobRegistry: jobRegistry, rewardsSvc: rewardsSvc}
+// coursesSvc completes the course module wrapping a passed assessment (if any) —
+// see courses.Service.CompleteModuleForAssessment.
+func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service) *Handler {
+	return &Handler{repo: repo, service: service, pool: pool, jobRegistry: jobRegistry, rewardsSvc: rewardsSvc, coursesSvc: coursesSvc}
 }
 
 // ─── shared helpers ──────────────────────────────────────────────────────────
@@ -65,6 +69,12 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusConflict, "Your time for this attempt has expired.")
 	case errors.Is(err, ErrNoQuestions):
 		httputil.WriteError(w, http.StatusUnprocessableEntity, "Add at least one question first.")
+	case errors.Is(err, ErrNotCodingQuestion):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "This question does not support running code.")
+	case errors.Is(err, ErrExecutorUnavailable):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "Code execution is not available right now.")
+	case errors.Is(err, ErrSessionSuperseded):
+		httputil.WriteError(w, http.StatusConflict, "Your session moved to another device or tab. This window is no longer active.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

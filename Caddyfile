@@ -1,7 +1,19 @@
 {$DOMAIN} {
-    # Route all /api/* requests to the Go backend
-    reverse_proxy /api/* backend:8080
+	# Route all /api/* requests to the Go backend
+	reverse_proxy /api/* backend:8080
 
-    # All other requests go to the Next.js frontend
-    reverse_proxy frontend:3000
+	# Terminal WebSocket relay (frontend connects to {$NEXT_PUBLIC_LAB_PROXY_URL}/ws).
+	# labproxy only serves "/ws" and "/health", so the "/lab-ws" prefix is
+	# stripped before proxying.
+	handle_path /lab-ws/* {
+		reverse_proxy labproxy:8081
+	}
+
+	# MinIO S3 API — presigned PUT/GET URLs and public-read object fetches are
+	# signed against {$MINIO_PUBLIC_ENDPOINT}, so the bucket path must be
+	# proxied through unmodified (no prefix stripping) for signatures to verify.
+	reverse_proxy /{$MINIO_BUCKET}/* minio:9000
+
+	# All other requests go to the Next.js frontend
+	reverse_proxy frontend:3000
 }

@@ -5,7 +5,7 @@ import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 
 interface AuditEntry {
-  id: string
+  id: number
   actor_id: string | null
   action: string
   entity_type: string

@@ -416,3 +416,30 @@ func (r *Repo) ReorderFAQs(ctx context.Context, orgID, courseID string, faqIDs [
 		return nil
 	})
 }
+
+func (r *Repo) SimilarFAQs(ctx context.Context, orgID, courseID, question string, threshold float64, limit int) ([]SimilarFAQ, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, question, answer, similarity(question, $3) AS sim
+		 FROM course_faqs
+		 WHERE org_id = $1 AND course_id = $2 AND similarity(question, $3) > $4
+		 ORDER BY sim DESC
+		 LIMIT $5`,
+		orgID, courseID, question, threshold, limit)
+	if err != nil {
+		return nil, fmt.Errorf("messaging: similar faqs: %w", err)
+	}
+	defer rows.Close()
+
+	out := []SimilarFAQ{}
+	for rows.Next() {
+		var f SimilarFAQ
+		if err := rows.Scan(&f.ID, &f.Question, &f.Answer, &f.Similarity); err != nil {
+			return nil, fmt.Errorf("messaging: similar faqs: %w", err)
+		}
+		out = append(out, f)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("messaging: similar faqs: %w", rows.Err())
+	}
+	return out, nil
+}

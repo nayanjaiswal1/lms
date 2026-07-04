@@ -17,6 +17,9 @@ export interface Course {
   price_cents: number;
   is_free: boolean;
   estimated_hours: number | null;
+  instructor_name: string;
+  avg_rating: number | null;
+  review_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +90,11 @@ export async function getEnrollments(): Promise<Enrollment[]> {
 
 export async function getCourseProgress(courseID: string): Promise<CourseProgressSummary> {
   return apiGet<CourseProgressSummary>(`/api/courses/${courseID}/progress/me`);
+}
+
+export async function getMyReview(courseID: string): Promise<number | null> {
+  const data = await apiGet<{ rating: number | null }>(`/api/courses/${courseID}/reviews/me`);
+  return data.rating;
 }
 
 export interface StudentProgressRow {

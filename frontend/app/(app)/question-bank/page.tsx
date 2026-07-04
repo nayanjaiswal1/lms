@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { FileQuestion } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { getQuestions } from "@/lib/server/assessments";
+import { getQuestions } from "@/lib/assessments/server";
 import { QuestionBankPanel } from "@/app/(app)/question-bank/question-bank-panel";
 
 export const metadata: Metadata = {

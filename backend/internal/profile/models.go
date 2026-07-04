@@ -22,6 +22,11 @@ const (
 	StyleMixed   = "mixed"
 )
 
+// QuestionDifficultyLevels is the canonical ordering of question.difficulty
+// values (mirrors the questions table CHECK constraint). Used to zero-fill
+// the profile overview's difficulty breakdown so every level always appears.
+var QuestionDifficultyLevels = []string{"beginner", "intermediate", "advanced", "expert"}
+
 var (
 	ValidExperienceLevels = []string{ExperienceBeginner, ExperienceIntermediate, ExperienceAdvanced}
 	ValidSkillLevels      = []string{SkillBeginner, SkillIntermediate, SkillAdvanced}
@@ -114,6 +119,45 @@ type Stats struct {
 	CurrentStreakDays  int     `json:"current_streak_days"`
 	LearningHours      float64 `json:"learning_hours"`
 	RoadmapsCompleted  int     `json:"roadmaps_completed"`
+}
+
+// DifficultyCount is the solved/total count for one question difficulty level.
+type DifficultyCount struct {
+	Difficulty string `json:"difficulty"`
+	Solved     int    `json:"solved"`
+	Total      int    `json:"total"`
+}
+
+// CalendarDay is one active day in a user's submission activity calendar.
+type CalendarDay struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}
+
+// RecentActivityItem is one recent assessment attempt for a user.
+type RecentActivityItem struct {
+	AttemptID       string    `json:"attempt_id"`
+	AssessmentTitle string    `json:"assessment_title"`
+	Status          string    `json:"status"`
+	Passed          *bool     `json:"passed"`
+	Percentage      *float64  `json:"percentage"`
+	OccurredAt      time.Time `json:"occurred_at"`
+}
+
+// ProfileOverview is the aggregate payload powering the LeetCode-style
+// profile overview: difficulty breakdown, submission activity calendar, and
+// recent activity. All fields are derived from real attempt/question data —
+// there is no followers/discuss/language-breakdown data source, so those
+// sections are intentionally absent from this payload.
+type ProfileOverview struct {
+	Difficulty       []DifficultyCount    `json:"difficulty"`
+	SolvedTotal      int                  `json:"solved_total"`
+	Attempting       int                  `json:"attempting"`
+	Calendar         []CalendarDay        `json:"calendar"`
+	TotalSubmissions int                  `json:"total_submissions"`
+	ActiveDays       int                  `json:"active_days"`
+	MaxStreak        int                  `json:"max_streak"`
+	RecentActivity   []RecentActivityItem `json:"recent_activity"`
 }
 
 // PublicProfile is the limited view of a profile visible to anonymous visitors

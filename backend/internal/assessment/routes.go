@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/rewards"
@@ -11,11 +12,12 @@ import (
 
 // New builds the fully-wired assessment handler from the shared pool, config, and jobs registry.
 // jobRegistry is used by SubmitAttempt to enqueue eval.subjective jobs via the Job Management System.
-func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service) *Handler {
+// coursesSvc lets a passed assessment complete the course module that embeds it.
+func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service) *Handler {
 	repo := NewRepo(pool)
 	exec := NewExecutor(cfg)
 	service := NewService(repo, exec, cfg)
-	return NewHandler(repo, service, pool, jobRegistry, rewardsSvc)
+	return NewHandler(repo, service, pool, jobRegistry, rewardsSvc, coursesSvc)
 }
 
 // RegisterRoutes mounts the assessment API onto the given router. The caller is
@@ -108,6 +110,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/assessments/{assessmentID}/attempts", h.StartAttempt)
 		r.Get("/api/attempts/{attemptID}", h.ResumeAttempt)
 		r.Put("/api/attempts/{attemptID}/answers", h.SaveAnswer)
+		r.Post("/api/attempts/{attemptID}/questions/{assessmentQuestionID}/run", h.RunCode)
 		r.Post("/api/attempts/{attemptID}/events", h.RecordEvent)
 		r.Post("/api/attempts/{attemptID}/submit", h.SubmitAttempt)
 		r.Get("/api/attempts/{attemptID}/result", h.GetAttemptResult)

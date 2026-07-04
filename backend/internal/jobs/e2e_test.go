@@ -176,7 +176,7 @@ func TestE2E_RetryOnFailure(t *testing.T) {
 	require.NotNil(t, claimed)
 	require.Equal(t, j.ID, claimed.Job.ID)
 
-	err = jobs.Fail(ctx, pool, claimed.Job.ID, claimed.RunID, errors.New("first failure"), 10)
+	err = jobs.Fail(ctx, pool, nil, claimed.Job.ID, claimed.RunID, errors.New("first failure"), 10)
 	require.NoError(t, err)
 
 	status, retryCount := jobStatus(t, pool, j.ID)
@@ -192,7 +192,7 @@ func TestE2E_RetryOnFailure(t *testing.T) {
 	require.NotNil(t, claimed)
 	require.Equal(t, j.ID, claimed.Job.ID)
 
-	err = jobs.Fail(ctx, pool, claimed.Job.ID, claimed.RunID, errors.New("second failure"), 10)
+	err = jobs.Fail(ctx, pool, nil, claimed.Job.ID, claimed.RunID, errors.New("second failure"), 10)
 	require.NoError(t, err)
 
 	status, _ = jobStatus(t, pool, j.ID)
@@ -390,7 +390,7 @@ func TestE2E_OrphanRecovery(t *testing.T) {
 	})
 
 	// Insert a job_run with a stale heartbeat (5 minutes ago).
-	var runID string
+	var runID int64
 	err = pool.QueryRow(ctx,
 		`INSERT INTO job_runs (job_id, status, attempt, worker_id, started_at, heartbeat_at)
 		 VALUES ($1, 'running', 1, $2, NOW() - interval '5 minutes', NOW() - interval '5 minutes')
@@ -414,7 +414,10 @@ func TestE2E_OrphanRecovery(t *testing.T) {
 	require.NoError(t, err)
 	defer rows.Close()
 
-	type orphan struct{ jobID, runID string }
+	type orphan struct {
+		jobID string
+		runID int64
+	}
 	var orphans []orphan
 	for rows.Next() {
 		var o orphan
@@ -437,7 +440,7 @@ func TestE2E_OrphanRecovery(t *testing.T) {
 		if o.jobID != jobID {
 			continue
 		}
-		err = jobs.Fail(ctx, pool, o.jobID, o.runID, errors.New("orphan: worker heartbeat lost"), 0)
+		err = jobs.Fail(ctx, pool, nil, o.jobID, o.runID, errors.New("orphan: worker heartbeat lost"), 0)
 		require.NoError(t, err)
 	}
 
@@ -519,7 +522,7 @@ func TestE2E_ForceRetry(t *testing.T) {
 	require.NotNil(t, claimed)
 	require.Equal(t, j.ID, claimed.Job.ID)
 
-	err = jobs.Fail(ctx, pool, claimed.Job.ID, claimed.RunID, errors.New("fatal error"), 5)
+	err = jobs.Fail(ctx, pool, nil, claimed.Job.ID, claimed.RunID, errors.New("fatal error"), 5)
 	require.NoError(t, err)
 
 	status, _ := jobStatus(t, pool, j.ID)

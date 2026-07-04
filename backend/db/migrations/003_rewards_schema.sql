@@ -39,7 +39,7 @@ CREATE UNIQUE INDEX ua_user_def_org_uniq ON user_achievements
 -- ─── XP audit log (source of truth for scoped leaderboards) ─────────────────
 
 CREATE TABLE xp_events (
-  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   org_id         UUID        REFERENCES organizations(id) ON DELETE SET NULL,
   batch_id       UUID        REFERENCES batches(id) ON DELETE SET NULL,

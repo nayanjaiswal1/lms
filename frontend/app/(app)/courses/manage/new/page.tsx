@@ -1,4 +1,4 @@
-import { CreateCourseWizard } from "@/components/instructor/create-course-wizard";
+import { CourseWizard } from "@/components/courses/course-wizard";
 
 export const metadata = { title: "New Course — MindForge" };
 
@@ -11,7 +11,7 @@ export default function NewCoursePage() {
           Build your course structure, add content blocks, then publish when ready.
         </p>
       </div>
-      <CreateCourseWizard />
+      <CourseWizard />
     </main>
   );
 }

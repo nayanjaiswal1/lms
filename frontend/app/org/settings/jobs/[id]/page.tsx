@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { fetchJob } from "@/lib/server/jobs";
+import { fetchJob } from "@/lib/jobs/server";
 import type { JobStatus, JobPriority } from "@/lib/jobs/types";
 import { cancelJobAction, retryJobAction, pauseJobAction } from "@/app/org/settings/jobs/[id]/actions";
 import ROUTES from "@/lib/routes";

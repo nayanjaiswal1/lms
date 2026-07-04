@@ -28,11 +28,33 @@ type labStudentResponse struct {
 	Title          string            `json:"title"`
 	LabType        string            `json:"lab_type"`
 	Description    *string           `json:"description,omitempty"`
+	// Language is the authoritative language for "code" type labs; nil for
+	// other lab types. The frontend locks its editor/dropdown to this value
+	// instead of letting the student pick a language independent of what the
+	// task's verification script actually expects.
+	Language       *string           `json:"language"`
 	MaxDuration    int               `json:"max_duration"`
 	MaxResets      int               `json:"max_resets"`
 	HintPenaltyPct int               `json:"hint_penalty_pct"`
 	IsRequired     bool              `json:"is_required"`
 	Tasks          []studentTaskView `json:"tasks"`
+}
+
+// newLabStudentResponse builds the student-safe lab view shared by
+// HandleGetLab and HandleGetLabByModule.
+func newLabStudentResponse(lab *LabDefinition) labStudentResponse {
+	return labStudentResponse{
+		ID:             lab.ID,
+		Title:          lab.Title,
+		LabType:        lab.LabType,
+		Description:    lab.Description,
+		Language:       lab.Language,
+		MaxDuration:    lab.MaxDuration,
+		MaxResets:      lab.MaxResets,
+		HintPenaltyPct: lab.HintPenaltyPct,
+		IsRequired:     lab.IsRequired,
+		Tasks:          []studentTaskView{},
+	}
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -53,17 +75,7 @@ func (h *Handler) HandleGetLab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := labStudentResponse{
-		ID:             lab.ID,
-		Title:          lab.Title,
-		LabType:        lab.LabType,
-		Description:    lab.Description,
-		MaxDuration:    lab.MaxDuration,
-		MaxResets:      lab.MaxResets,
-		HintPenaltyPct: lab.HintPenaltyPct,
-		IsRequired:     lab.IsRequired,
-		Tasks:          []studentTaskView{},
-	}
+	resp := newLabStudentResponse(lab)
 
 	if lab.IsPublished && lab.PublishedVersionID != nil {
 		tasks, err := h.repo.GetPublishedVersion(r.Context(), *lab.PublishedVersionID)
@@ -104,17 +116,7 @@ func (h *Handler) HandleGetLabByModule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := labStudentResponse{
-		ID:             lab.ID,
-		Title:          lab.Title,
-		LabType:        lab.LabType,
-		Description:    lab.Description,
-		MaxDuration:    lab.MaxDuration,
-		MaxResets:      lab.MaxResets,
-		HintPenaltyPct: lab.HintPenaltyPct,
-		IsRequired:     lab.IsRequired,
-		Tasks:          []studentTaskView{},
-	}
+	resp := newLabStudentResponse(lab)
 
 	if lab.IsPublished && lab.PublishedVersionID != nil {
 		tasks, err := h.repo.GetPublishedVersion(r.Context(), *lab.PublishedVersionID)
@@ -161,6 +163,25 @@ func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.WriteJSON(w, http.StatusAccepted, session)
+}
+
+// HandleListActiveSessions returns the authenticated user's currently active
+// lab sessions (provisioning/running/paused) across all labs.
+//
+//	GET /api/labs/sessions/active
+func (h *Handler) HandleListActiveSessions(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+
+	sessions, err := h.service.ListActiveSessions(r.Context(), claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, sessions)
 }
 
 // HandleGetSession returns a session and its task completion records.
@@ -223,8 +244,13 @@ func (h *Handler) HandleMintWSToken(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"session_token": token})
 }
 
-// HandleVerifyTask runs the student's submitted code against the task's
-// verification harness via Piston and records the result.
+// HandleVerifyTask runs the task's verification harness and records the
+// result. Code-type labs run the student's submitted code through Piston,
+// executed under the lab's own `language` column — never a client-supplied
+// value, since that previously let a stale/mismatched frontend language
+// setting run a task's verification script under the wrong interpreter.
+// Terminal/guided/playground labs run the verification script inside the
+// session's Docker container and ignore the request body entirely.
 //
 //	POST /api/labs/sessions/{sessionId}/tasks/{taskId}/verify
 func (h *Handler) HandleVerifyTask(w http.ResponseWriter, r *http.Request) {
@@ -236,18 +262,31 @@ func (h *Handler) HandleVerifyTask(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "taskId")
 
 	var body struct {
-		Code     string `json:"code"`
-		Language string `json:"language"`
+		Code string `json:"code"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if body.Code == "" || body.Language == "" {
-		httputil.WriteError(w, http.StatusBadRequest, "code and language are required.")
+
+	// code is only required for code-type labs — look up the lab type via the
+	// session before enforcing that. IDOR is enforced by GetSession itself
+	// (user_id must match the caller).
+	session, err := h.repo.GetSession(r.Context(), sessionID, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	lab, err := h.repo.GetLab(r.Context(), session.LabID, claims.OrgID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if lab.LabType == LabTypeCode && body.Code == "" {
+		httputil.WriteError(w, http.StatusBadRequest, "code is required.")
 		return
 	}
 
-	result, err := h.service.VerifyTask(r.Context(), sessionID, taskID, claims.UserID, body.Code, body.Language)
+	result, err := h.service.VerifyTask(r.Context(), sessionID, taskID, claims.UserID, body.Code)
 	if err != nil {
 		writeDomainError(w, err)
 		return

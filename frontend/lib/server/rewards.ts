@@ -31,7 +31,7 @@ export interface UserAchievement {
 }
 
 export interface XPEvent {
-  id: string;
+  id: number;
   xp_amount: number;
   reason: string;
   reference_id?: string;

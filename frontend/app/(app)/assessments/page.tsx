@@ -5,7 +5,7 @@ import { ClipboardCheck, Clock, Loader2, Target, Trophy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMyAssessments, getMyAnalytics } from "@/lib/server/assessments";
+import { getMyAssessments, getMyAnalytics } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 

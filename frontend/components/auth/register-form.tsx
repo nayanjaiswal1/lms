@@ -89,7 +89,7 @@ export function RegisterForm() {
           serverError={state.fieldErrors?.confirmPassword}
         />
 
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           By creating an account, you agree to our{" "}
           <Link href={ROUTES.HOME} className="font-medium">
             Terms

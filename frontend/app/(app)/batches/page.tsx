@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Users } from "lucide-react";
 
-import { getBatches } from "@/lib/server/assessments";
+import { getBatches } from "@/lib/assessments/server";
 import { BatchesPanel } from "@/app/(app)/batches/batches-panel";
 import ROUTES from "@/lib/routes";
 

@@ -7,6 +7,19 @@ LOG_DIR=/var/log/mindforge-lab
 
 log() { echo "[entrypoint] $*"; }
 
+# setup_script runs as root (see container.go's Start) so it can provision
+# privileged things, but --cap-drop ALL strips CAP_DAC_OVERRIDE even from
+# root — meaning root cannot traverse labuser's home directory at its
+# default 0750 mode to reach a workdir, regardless of that workdir's own
+# permissions. Loosen the home directory to 0755 (traversable) and
+# pre-create a world-writable workdir so a root-run setup_script (e.g. the
+# fixture generator's starter-file heredocs) can actually write into it; the
+# interactive shell and verification scripts still run as labuser and see
+# the same files.
+chmod 755 /home/labuser
+mkdir -p /home/labuser/work
+chmod 777 /home/labuser/work
+
 # Retries `kubectl apply` against a path until it succeeds or attempts run
 # out. Needed because a freshly-created CRD (e.g. kwok's Stage type) takes a
 # moment before the apiserver routes requests for it, so a Stage instance

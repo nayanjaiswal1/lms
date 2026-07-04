@@ -7,4 +7,5 @@ const (
 	HandlerLLM            = "llm.task"
 	HandlerSRSReminder    = "srs.review_reminder"
 	HandlerAnalytics      = "analytics.task"
+	HandlerMentorEscalate = "mentoring.escalate_tickets"
 )

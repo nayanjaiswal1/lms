@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { fetchAdminJobDetail } from "@/lib/server/admin-jobs";
+import { fetchAdminJobDetail } from "@/lib/jobs/admin-server";
 import {
   forceRetryJobAction,
   cancelJobAction,
@@ -71,7 +71,7 @@ export default async function AdminJobDetailPage({ params }: PageProps) {
       <div className="page-header">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="page-title font-mono text-xl">{job.handler}</h1>
+            <h1 className="page-title font-mono truncate">{job.handler}</h1>
             <Badge variant={STATUS_VARIANT[job.status]}>{job.status}</Badge>
             {job.job_type === "cron" && (
               <Badge variant="outline">cron</Badge>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getOrgMembers, getOrgInvites } from "@/lib/server/orgs";
+import { getOrgMembers, getOrgInvites } from "@/lib/orgs/server";
 import { MemberTable } from "@/app/org/settings/members/member-table";
 import { InviteForm } from "@/app/org/settings/members/invite-form";
 import { InviteList } from "@/app/org/settings/members/invite-list";
@@ -45,7 +45,7 @@ export default async function MembersPage() {
     <div className="space-y-8">
       {/* Invite form */}
       <div className="card-base p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Invite a Member</h2>
+        <h2 className="subsection-title text-foreground mb-4">Invite a Member</h2>
         <InviteForm orgId={orgId} />
       </div>
 
@@ -54,7 +54,7 @@ export default async function MembersPage() {
         {/* Members table */}
         <section className="flex-1 min-w-0 card-base p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Members</h2>
+            <h2 className="subsection-title text-foreground">Members</h2>
             <Badge variant="secondary">{memberPage.members.length}</Badge>
           </div>
           <MemberTable members={memberPage.members} orgId={orgId} />
@@ -63,7 +63,7 @@ export default async function MembersPage() {
         {/* Pending invites */}
         <section className="flex-1 min-w-0 card-base p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Pending Invites</h2>
+            <h2 className="subsection-title text-foreground">Pending Invites</h2>
             {pendingCount > 0 && (
               <Badge variant="secondary">{pendingCount}</Badge>
             )}

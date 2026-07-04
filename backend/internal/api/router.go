@@ -13,14 +13,18 @@ import (
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/experience"
+	"github.com/mindforge/backend/internal/feedback"
 	"github.com/mindforge/backend/internal/highlights"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/messaging"
 	"github.com/mindforge/backend/internal/onboarding"
 	"github.com/mindforge/backend/internal/orgs"
+	"github.com/mindforge/backend/internal/payments"
 	"github.com/mindforge/backend/internal/practice"
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/rewards"
@@ -31,7 +35,7 @@ import (
 )
 
 // NewRouter builds and returns the chi Router with all middleware and routes wired.
-func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, rewardsSvc *rewards.Service) http.Handler {
+func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, rewardsSvc *rewards.Service, labsRuntime labs.ContainerRuntime) http.Handler {
 	r := chi.NewRouter()
 
 	// ─── Global middleware ────────────────────────────────────────────────────
@@ -49,15 +53,36 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// ─── Handlers ─────────────────────────────────────────────────────────────
 	authHandler := auth.NewHandler(cfg, pool, cache)
 	onboardingHandler := onboarding.NewHandler(pool)
-	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc)
 	profileHandler := profile.New(pool, cfg, store)
-	coursesRouter := courses.New(pool, cfg, store, aiProvider, rewardsSvc)
+
+	// Courses service is built explicitly (rather than via courses.New) so its
+	// *courses.Service can be shared with the assessment and labs handlers below —
+	// they call it to complete a course module when a lab/assessment finishes,
+	// which is the only path allowed to mark those module types "completed".
+	coursesRepo := courses.NewRepo(pool)
+	coursesSvc := courses.NewService(coursesRepo, store, aiProvider, cfg, rewardsSvc)
+
+	// authz is built before mentoring so its *authz.Service can back the
+	// mentoring.assign_tickets / mentoring.manage_reports permission guards.
+	authzHandler := authz.New(pool, rdb)
+
+	// mentoring is built before the courses handler so mentoringRouter.Service
+	// (satisfying courses.MentorTicketOpener) can be injected into it. mentoring
+	// only needs *courses.Repo (for CreateEnrollmentTx), not the courses
+	// handler, so there is no import cycle: mentoring -> courses, courses ->
+	// (local interface only, no mentoring import).
+	mentoringRouter := mentoring.New(pool, payments.NewStubProvider(), coursesRepo, authzHandler.Service())
+
+	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service)
+
+	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc)
 	rewardsHandler := rewards.New(pool, rdb)
 	messagingRouter := messaging.New(pool)
+	feedbackRouter := feedback.New(pool, mentoringRouter.Service)
+	experienceRouter := experience.New(pool)
 	practiceRouter := practice.New(pool, aiProvider)
 	orgsHandler := orgs.NewHandler(cfg, pool, jobsRegistry)
 	srsRouter := srs.New(pool)
-	authzHandler := authz.New(pool, rdb)
 	highlightsRouter := highlights.New(pool, aiProvider)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
@@ -118,6 +143,15 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Messaging — batch messages, reactions, FAQ management.
 		messagingRouter.RegisterRoutes(r)
 
+		// Feedback — post-completion ratings/comments for courses, assessments, labs, mentors.
+		feedbackRouter.RegisterRoutes(r)
+
+		// Experience reports — post-assessment "did anything go wrong" issue/complaint capture.
+		experienceRouter.RegisterRoutes(r)
+
+		// Mentoring — mentor tickets (claim/assign/close), mentor directory, mentor reports.
+		mentoringRouter.RegisterRoutes(r)
+
 		// Practice — AI interview prep sessions and answer review.
 		practiceRouter.RegisterRoutes(r)
 
@@ -141,7 +175,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		highlightsRouter.RegisterRoutes(r)
 
 		// Labs — interactive sandboxed lab environments (terminal, code, guided, playground).
-		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout)
+		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime)
 		labsHandler.RegisterRoutes(r)
 	})
 

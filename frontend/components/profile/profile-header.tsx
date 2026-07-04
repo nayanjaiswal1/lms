@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Copy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { ProfileAvatar } from "@/components/profile/profile-avatar"
+import { ProfileAvatar } from "@/components/shared/profile-avatar"
 import type { Profile } from "@/lib/profile/types"
 
 interface Props {
@@ -15,9 +15,10 @@ interface Props {
     | "profile_slug"
     | "completion_score"
   >
+  uploadAction?: (formData: FormData) => Promise<void>
 }
 
-export function ProfileHeader({ profile }: Props) {
+export function ProfileHeader({ profile, uploadAction }: Props) {
   const {
     name,
     avatar_url,
@@ -32,7 +33,13 @@ export function ProfileHeader({ profile }: Props) {
 
   return (
     <div className="card-base p-6 flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-6">
-      <ProfileAvatar avatarUrl={avatar_url} editable={false} name={name} size="lg" />
+      <ProfileAvatar
+        avatarUrl={avatar_url}
+        editable={Boolean(uploadAction)}
+        name={name}
+        size="lg"
+        uploadAction={uploadAction}
+      />
 
       <div className="flex flex-col items-center sm:items-start gap-1 min-w-0 flex-1">
         <h1 className="text-xl font-bold truncate max-w-full">{name}</h1>

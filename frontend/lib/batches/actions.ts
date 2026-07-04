@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, ActionResult } from "@/lib/server/api";
+import { apiAction, type ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
-
-export type { ActionResult };
 
 export interface InvitationToken {
   email: string;

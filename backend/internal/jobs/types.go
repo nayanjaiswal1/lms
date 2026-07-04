@@ -70,7 +70,7 @@ type Job struct {
 }
 
 type JobRun struct {
-	ID          string     `json:"id"`
+	ID          int64      `json:"id"`
 	JobID       string     `json:"job_id"`
 	Status      string     `json:"status"`
 	Attempt     int        `json:"attempt"`
@@ -133,5 +133,5 @@ type WorkerInfo struct {
 // and the job_runs row ID needed for heartbeat/complete/fail calls.
 type ClaimedJob struct {
 	Job   Job
-	RunID string
+	RunID int64
 }

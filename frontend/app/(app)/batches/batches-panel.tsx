@@ -21,7 +21,7 @@ export function BatchesPanel() {
   return (
     <div className="card-raised flex w-full max-w-md flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">New batch</h2>
+        <h2 className="subsection-title">New batch</h2>
         <Button aria-label="Close" size="icon" variant="ghost" onClick={() => setOpen(false)}>
           <X />
         </Button>

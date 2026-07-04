@@ -25,13 +25,13 @@ func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition,
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment,
-		       setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
+		       language, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
 		       published_version_id, created_by, created_at, updated_at
 		FROM lab_definitions WHERE id=$1 AND org_id=$2`,
 		labID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
-		&l.LabType, &l.Environment, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
+		&l.LabType, &l.Environment, &l.Language, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID,
 		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
 	)
@@ -49,14 +49,14 @@ func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*L
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment,
-		       setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
+		       language, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
 		       published_version_id, created_by, created_at, updated_at
 		FROM lab_definitions WHERE module_id=$1 AND org_id=$2 AND is_published=true
 		LIMIT 1`,
 		moduleID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
-		&l.LabType, &l.Environment, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
+		&l.LabType, &l.Environment, &l.Language, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID,
 		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
 	)
@@ -134,14 +134,14 @@ func (r *Repo) CreateSession(ctx context.Context, tx pgx.Tx, params CreateSessio
 		VALUES ($1,$2,$3,$4,$5,$6)
 		RETURNING id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		          status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
-		          completed_at, last_active_at`,
+		          completed_at, last_active_at, end_reason`,
 		params.LabID, params.TaskVersionID, params.UserID, params.OrgID,
 		params.ExpiresAt, params.IsTest,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
-		&s.CompletedAt, &s.LastActiveAt,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -159,14 +159,14 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (*LabSe
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
-		       completed_at, last_active_at
+		       completed_at, last_active_at, end_reason
 		FROM lab_sessions WHERE id=$1 AND user_id=$2`,
 		sessionID, userID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
-		&s.CompletedAt, &s.LastActiveAt,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -184,13 +184,13 @@ func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSessio
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
-		       completed_at, last_active_at
+		       completed_at, last_active_at, end_reason
 		FROM lab_sessions WHERE id=$1`, sessionID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
-		&s.CompletedAt, &s.LastActiveAt,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -201,6 +201,42 @@ func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSessio
 	return &s, nil
 }
 
+// ListActiveSessions returns every non-test session the user currently has in
+// an active state (provisioning/running/paused), across all labs, joined with
+// the lab title/type for display. Used to let a user resume or end a lab after
+// a page refresh or a fresh login, since that state otherwise only lives in
+// the browser tab that launched it.
+func (r *Repo) ListActiveSessions(ctx context.Context, userID string) ([]ActiveLabSession, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT s.id, s.lab_id, l.title, l.lab_type, s.status, s.started_at, s.expires_at, s.last_active_at
+		FROM lab_sessions s
+		JOIN lab_definitions l ON l.id = s.lab_id
+		WHERE s.user_id=$1 AND s.is_test=false AND s.status IN ('provisioning','running','paused')
+		ORDER BY s.last_active_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListActiveSessions: %w", err)
+	}
+	defer rows.Close()
+
+	sessions := []ActiveLabSession{}
+	for rows.Next() {
+		var s ActiveLabSession
+		if err := rows.Scan(
+			&s.SessionID, &s.LabID, &s.LabTitle, &s.LabType,
+			&s.Status, &s.StartedAt, &s.ExpiresAt, &s.LastActiveAt,
+		); err != nil {
+			return nil, fmt.Errorf("labs.Repo.ListActiveSessions: scan: %w", err)
+		}
+		sessions = append(sessions, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListActiveSessions: rows: %w", err)
+	}
+	return sessions, nil
+}
+
 // GetActiveSessionForLab returns the active (provisioning/running/paused) session
 // a user has for a specific lab, if one exists.
 func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string) (*LabSession, error) {
@@ -208,7 +244,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
-		       completed_at, last_active_at
+		       completed_at, last_active_at, end_reason
 		FROM lab_sessions
 		WHERE user_id=$1 AND lab_id=$2 AND status IN ('provisioning','running','paused')
 		LIMIT 1`,
@@ -217,7 +253,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
-		&s.CompletedAt, &s.LastActiveAt,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -441,14 +477,26 @@ func (r *Repo) IncrementHintsUsed(ctx context.Context, sessionID, taskID string)
 	return hintsUsed, nil
 }
 
+// rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx, so
+// CountPassedNonOptionalTasks can run either as a standalone read (EndSession)
+// or against an in-flight transaction (finalizeTaskPass's completion check,
+// which must see that same transaction's just-written MarkTaskPassed row —
+// querying via the pool instead would hit a different connection and see
+// pre-commit, stale state).
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 // CountPassedNonOptionalTasks counts how many of the given task IDs have a
-// passed completion record for the session.
-func (r *Repo) CountPassedNonOptionalTasks(ctx context.Context, sessionID string, nonOptionalTaskIDs []string) (int, error) {
+// passed completion record for the session, via q (either r.pool for a
+// standalone read or an open tx to see uncommitted writes in the same
+// transaction).
+func (r *Repo) CountPassedNonOptionalTasks(ctx context.Context, q rowQuerier, sessionID string, nonOptionalTaskIDs []string) (int, error) {
 	if len(nonOptionalTaskIDs) == 0 {
 		return 0, nil
 	}
 	var count int
-	if err := r.pool.QueryRow(ctx,
+	if err := q.QueryRow(ctx,
 		"SELECT COUNT(*) FROM lab_task_completions WHERE session_id=$1 AND task_id = ANY($2) AND status='passed'",
 		sessionID, nonOptionalTaskIDs,
 	).Scan(&count); err != nil {

@@ -14,6 +14,11 @@ const (
 	ModuleTypePDF        = "pdf"
 	ModuleTypeNotes      = "notes"
 	ModuleTypeAssessment = "assessment"
+	// ModuleTypeLab modules are provisioned through the labs domain (see
+	// db/fixtures + internal/labs), never created via the generic
+	// CreateModule endpoint — only UpdateModule needs to recognize it so
+	// existing lab modules stay editable.
+	ModuleTypeLab = "lab"
 
 	ProgressNotStarted = "not_started"
 	ProgressInProgress = "in_progress"
@@ -39,8 +44,23 @@ type Course struct {
 	PriceCents     int       `json:"price_cents"`
 	IsFree         bool      `json:"is_free"`
 	EstimatedHours *float64  `json:"estimated_hours"`
+	InstructorName string    `json:"instructor_name"`
+	AvgRating      *float64  `json:"avg_rating"`
+	ReviewCount    int       `json:"review_count"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// CourseReview is one student's star rating (1-5) for a course. A user may
+// have at most one review per course (see UNIQUE constraint) — resubmitting
+// updates the existing row rather than creating a new one.
+type CourseReview struct {
+	ID        string    `json:"id"`
+	CourseID  string    `json:"course_id"`
+	UserID    string    `json:"user_id"`
+	Rating    int       `json:"rating"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CourseSection struct {
@@ -105,6 +125,16 @@ type CourseProgress struct {
 	Completed int     `json:"completed"`
 	Total     int     `json:"total"`
 	Pct       float64 `json:"pct"`
+}
+
+// CourseProgressSummary is the response shape for GET /api/courses/{id}/progress/me —
+// aggregate completion plus the per-module rows the frontend needs to render
+// completion badges and resume-at-the-right-module navigation.
+type CourseProgressSummary struct {
+	Completed int              `json:"completed"`
+	Total     int              `json:"total"`
+	Pct       float64          `json:"pct"`
+	Modules   []ModuleProgress `json:"modules"`
 }
 
 type ModuleContent struct {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { getAssessment, getQuestions, getBatches } from "@/lib/server/assessments";
+import { getAssessment, getQuestions, getBatches } from "@/lib/assessments/server";
 import { AssessmentBuilder } from "@/app/(app)/assessments/manage/[id]/assessment-builder";
 
 export const metadata: Metadata = {

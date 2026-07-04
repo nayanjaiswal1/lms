@@ -1,0 +1,89 @@
+# Mirrors Caddyfile's routing for the VPS deploy. Assumes ingress-nginx and
+# cert-manager (with a ClusterIssuer named "letsencrypt-prod") are already
+# installed on the cluster — same relationship the VPS deploy has to Docker
+# itself: these app manifests don't install cluster-wide addons.
+#
+# Split into two Ingress resources because nginx-ingress annotations
+# (rewrite-target, use-regex) apply to the WHOLE Ingress object, not per-path
+# — putting the /lab-ws regex-rewrite rule in the same Ingress as the plain
+# prefix rules (/api, /mindforge, /) would rewrite every one of those paths
+# too. TLS/cert-manager is declared on the main Ingress only: nginx-ingress
+# shares one TLS vhost per host across all Ingress objects, so the second
+# Ingress below is still served over HTTPS without requesting its own
+# certificate (which would otherwise race the first one for the same secret).
+#
+# The /mindforge path must match configmap.yaml's MINIO_BUCKET — a static
+# Ingress path can't reference a ConfigMap value, so if you change the bucket
+# name, update this path to match.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mindforge
+  namespace: mindforge
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Course asset uploads stream through the backend for some paths — match
+    # the 2GB cap already enforced server-side (courses.Service.PresignedUploadURL).
+    nginx.ingress.kubernetes.io/proxy-body-size: "2g"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.yourdomain.com # overridden by the overlay
+      secretName: mindforge-tls
+  rules:
+    - host: app.yourdomain.com # overridden by the overlay
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+
+          - path: /mindforge
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mindforge-lab-ws
+  namespace: mindforge
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # $2 is this rule's second capture group, e.g. "/lab-ws/ws?..." -> "/ws?..."
+    # — matches NEXT_PUBLIC_LAB_PROXY_URL=wss://<domain>/lab-ws and labproxy's
+    # own mux, which only serves "/ws" and "/health".
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Long-lived terminal WebSocket connections need generous timeouts —
+    # nginx-ingress's defaults (60s) would drop idle-but-connected terminals.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.yourdomain.com # overridden by the overlay
+      http:
+        paths:
+          - path: /lab-ws(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: labproxy
+                port:
+                  number: 8081

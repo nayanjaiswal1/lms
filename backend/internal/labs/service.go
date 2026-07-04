@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/courses"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -26,16 +27,18 @@ type VerifyResult struct {
 
 // Service holds the business logic for the labs domain.
 type Service struct {
-	repo      *Repo
-	container *ContainerService
-	rdb       *redis.Client
-	pool      *pgxpool.Pool
-	piston    *labPiston
+	repo       *Repo
+	container  ContainerRuntime
+	rdb        *redis.Client
+	pool       *pgxpool.Pool
+	piston     *labPiston
+	coursesSvc *courses.Service
 }
 
-// NewService wires up the labs service.
-func NewService(repo *Repo, container *ContainerService, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston}
+// NewService wires up the labs service. coursesSvc completes the course module
+// wrapping a lab (if any) once its session finishes — see VerifyTask.
+func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service) *Service {
+	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc}
 }
 
 // wsTokenClaims is the JWT payload issued by MintWSToken.
@@ -105,15 +108,21 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 			return nil, ErrCapacityReached
 		}
 
-		var userCount int
+		// A user may only have one lab active at a time. Starting the same lab
+		// again is still allowed below (it resumes the existing session) —
+		// this only blocks starting a *different* lab while one is active.
+		var hasOtherActiveSession bool
 		if err := tx.QueryRow(ctx,
-			"SELECT COUNT(*) FROM lab_sessions WHERE user_id=$1 AND status IN ('provisioning','running','paused')",
-			userID,
-		).Scan(&userCount); err != nil {
-			return nil, fmt.Errorf("labs.Service.StartSession: count user sessions: %w", err)
+			`SELECT EXISTS (
+				SELECT 1 FROM lab_sessions
+				WHERE user_id=$1 AND lab_id<>$2 AND status IN ('provisioning','running','paused')
+			)`,
+			userID, labID,
+		).Scan(&hasOtherActiveSession); err != nil {
+			return nil, fmt.Errorf("labs.Service.StartSession: check other active session: %w", err)
 		}
-		if userCount >= 2 {
-			return nil, ErrCapacityReached
+		if hasOtherActiveSession {
+			return nil, ErrUserHasActiveSession
 		}
 	}
 
@@ -229,6 +238,19 @@ func (s *Service) GetSession(ctx context.Context, sessionID, userID string) (*La
 	return session, completions, nil
 }
 
+// ─── ListActiveSessions ────────────────────────────────────────────────────────
+
+// ListActiveSessions returns the user's currently active lab sessions across
+// all labs, so the frontend can show a persistent resume/end surface that
+// survives a page refresh or a fresh login.
+func (s *Service) ListActiveSessions(ctx context.Context, userID string) ([]ActiveLabSession, error) {
+	sessions, err := s.repo.ListActiveSessions(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Service.ListActiveSessions: %w", err)
+	}
+	return sessions, nil
+}
+
 // ─── MintWSToken ──────────────────────────────────────────────────────────────
 
 // MintWSToken issues a short-lived JWT for authenticating the WebSocket
@@ -295,7 +317,7 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 		}
 	}
 
-	passedCount, err := s.repo.CountPassedNonOptionalTasks(ctx, sessionID, nonOptionalIDs)
+	passedCount, err := s.repo.CountPassedNonOptionalTasks(ctx, s.pool, sessionID, nonOptionalIDs)
 	if err != nil {
 		return fmt.Errorf("labs.Service.EndSession: count passed: %w", err)
 	}
@@ -386,17 +408,23 @@ func (s *Service) ResetSession(ctx context.Context, sessionID, userID string) (*
 
 // ─── VerifyTask ───────────────────────────────────────────────────────────────
 
-// VerifyTask verifies a single code-lab task by running the student's code
-// through Piston. Attempts are incremented atomically, the task is marked
-// passed and the session score updated on success, and a full-completion
-// check is performed inside a single DB transaction.
-func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, code, language string) (*VerifyResult, error) {
-	// 1. IDOR + running check.
+// VerifyTask is the public entrypoint for both lab families. It performs the
+// checks and bookkeeping shared by every lab type (IDOR/status check, rate
+// limit, pinned-snapshot lookup, completion-row upsert, atomic attempt
+// increment, lab lookup), then dispatches on lab.LabType to the code-runner
+// path (Piston) or the container-exec path (docker exec inside the session's
+// already-running container).
+func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, code string) (*VerifyResult, error) {
+	// 1. IDOR + status check. Paused is allowed here (not just running): a
+	//    container-lab session may be paused when the student comes back to
+	//    verify — verifyContainerTask resumes the container before exec'ing
+	//    into it. Code labs never reach a paused status today, so this is a
+	//    no-op widening for that path.
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
 		return nil, err
 	}
-	if session.Status != SessionStatusRunning {
+	if session.Status != SessionStatusRunning && session.Status != SessionStatusPaused {
 		return nil, ErrSessionNotRunning
 	}
 
@@ -436,7 +464,28 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 		return nil, fmt.Errorf("labs.Service.VerifyTask: increment attempts: %w", err)
 	}
 
-	// 6. Execute: concatenate student code + verification harness into one file.
+	// Load the lab once so both branches can dispatch on lab_type and, on
+	// pass, resolve hint penalty / module-completion wiring without a second
+	// fetch inside the branch itself.
+	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Service.VerifyTask: get lab: %w", err)
+	}
+
+	if lab.LabType == LabTypeCode {
+		if lab.Language == nil {
+			return nil, fmt.Errorf("labs.Service.VerifyTask: code lab %s has no language configured", lab.ID)
+		}
+		return s.verifyCodeTask(ctx, session, lab, tasks, task, code, *lab.Language, attempts)
+	}
+	return s.verifyContainerTask(ctx, session, lab, tasks, task, attempts)
+}
+
+// verifyCodeTask verifies a code-lab task by running the student's code
+// through Piston, executed under the lab's own authoritative language
+// (never a client-supplied value — see HandleVerifyTask).
+func (s *Service) verifyCodeTask(ctx context.Context, session *LabSession, lab *LabDefinition, tasks []TaskSnapshot, task *TaskSnapshot, code, language string, attempts int) (*VerifyResult, error) {
+	// Execute: concatenate student code + verification harness into one file.
 	combined := code + "\n\n" + task.VerificationScript
 	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -445,7 +494,7 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 		if errors.Is(execErr, ErrExecutorUnavailable) {
 			return nil, ErrExecutorUnavailable
 		}
-		slog.Error("labs.Service.VerifyTask: execute", "error", execErr)
+		slog.Error("labs.Service.verifyCodeTask: execute", "error", execErr)
 		return &VerifyResult{Passed: false, Attempts: attempts, Stderr: execErr.Error()}, nil
 	}
 
@@ -453,15 +502,68 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 		return &VerifyResult{Passed: false, Attempts: attempts, Stdout: stdout, Stderr: stderr}, nil
 	}
 
-	// 7. On pass: mark passed + update score in one transaction; check full completion.
-	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
-	if err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: get lab: %w", err)
+	return s.finalizeTaskPass(ctx, session, lab, tasks, task.ID, task.Points, attempts, stdout, stderr)
+}
+
+// verifyContainerTask verifies a terminal/guided/playground-lab task by
+// running task.VerificationScript inside the session's already-running Docker
+// container via `docker exec`. A playground lab has no tasks to verify per
+// docs/labs.md, so in practice this path only fires for terminal and guided
+// labs; the ContainerID nil-guard below is defense-in-depth for an otherwise
+// unreachable state (a running/paused non-code session with no container).
+func (s *Service) verifyContainerTask(ctx context.Context, session *LabSession, lab *LabDefinition, tasks []TaskSnapshot, task *TaskSnapshot, attempts int) (*VerifyResult, error) {
+	if err := s.ensureContainerResumed(ctx, session); err != nil {
+		return nil, fmt.Errorf("labs.Service.verifyContainerTask: %w", err)
 	}
 
-	completionRows, err := s.repo.GetTaskCompletions(ctx, sessionID)
+	stdout, stderr, exitCode, err := s.container.Exec(ctx, *session.ContainerID, task.VerificationScript, 10)
 	if err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: get completions: %w", err)
+		slog.Error("labs.Service.verifyContainerTask: exec", "session", session.ID, "task", task.ID, "error", err)
+		return &VerifyResult{Passed: false, Attempts: attempts, Stderr: err.Error()}, nil
+	}
+	if exitCode != 0 {
+		return &VerifyResult{Passed: false, Attempts: attempts, Stdout: stdout, Stderr: stderr}, nil
+	}
+
+	return s.finalizeTaskPass(ctx, session, lab, tasks, task.ID, task.Points, attempts, stdout, stderr)
+}
+
+// ensureContainerResumed guards every container-touching session operation
+// (verify, file read/write/rename/delete, validate, resources) against a
+// nil container and a paused container. A paused container can't be exec'd
+// into — docker exec would hang against a suspended process tree — so this
+// resumes it first, mirroring the same unpause + status-flip the lab proxy
+// performs on WS reconnect (docs/labs.md, "Verify on a paused container").
+// Mutates session.Status in place on resume so callers see the live value
+// without a second fetch.
+func (s *Service) ensureContainerResumed(ctx context.Context, session *LabSession) error {
+	if session.ContainerID == nil {
+		return fmt.Errorf("session %s has no container", session.ID)
+	}
+	if session.Status == SessionStatusPaused {
+		if err := s.container.Unpause(ctx, *session.ContainerID); err != nil {
+			return fmt.Errorf("unpause: %w", err)
+		}
+		if err := s.repo.UpdateSessionStatus(ctx, session.ID, SessionStatusRunning); err != nil {
+			return fmt.Errorf("update status: %w", err)
+		}
+		session.Status = SessionStatusRunning
+	}
+	return nil
+}
+
+// finalizeTaskPass is the shared success tail for both verification paths,
+// extracted verbatim from the pre-dispatcher VerifyTask body: mark the task
+// passed and update the session score inside one transaction, then — guarded
+// by a row lock so two concurrent verifies can't both flip the session — check
+// whether every non-optional task in the pinned snapshot is now passed and, if
+// so, mark the session completed. The embedding course module is completed
+// non-fatally outside the transaction (the lab session itself is already
+// committed by that point).
+func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab *LabDefinition, tasks []TaskSnapshot, taskID string, points, attempts int, stdout, stderr string) (*VerifyResult, error) {
+	completionRows, err := s.repo.GetTaskCompletions(ctx, session.ID)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: get completions: %w", err)
 	}
 	var hintsUsed int
 	for _, c := range completionRows {
@@ -473,23 +575,23 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: begin tx: %w", err)
+		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	scoreAdded, err := s.repo.MarkTaskPassed(ctx, tx, sessionID, taskID, task.Points, hintsUsed, lab.HintPenaltyPct)
+	scoreAdded, err := s.repo.MarkTaskPassed(ctx, tx, session.ID, taskID, points, hintsUsed, lab.HintPenaltyPct)
 	if err != nil {
 		if errors.Is(err, ErrTaskAlreadyPassed) {
 			return &VerifyResult{Passed: true, Attempts: attempts, Stdout: stdout, Stderr: stderr}, nil
 		}
-		return nil, fmt.Errorf("labs.Service.VerifyTask: mark passed: %w", err)
+		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: mark passed: %w", err)
 	}
 
 	// Full-completion check: SELECT FOR UPDATE guards against two concurrent verifies
 	// both flipping the session to completed.
 	var lockedID string
-	if err := tx.QueryRow(ctx, "SELECT id FROM lab_sessions WHERE id=$1 FOR UPDATE", sessionID).Scan(&lockedID); err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: lock session: %w", err)
+	if err := tx.QueryRow(ctx, "SELECT id FROM lab_sessions WHERE id=$1 FOR UPDATE", session.ID).Scan(&lockedID); err != nil {
+		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: lock session: %w", err)
 	}
 
 	nonOptionalIDs := make([]string, 0, len(tasks))
@@ -498,21 +600,33 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 			nonOptionalIDs = append(nonOptionalIDs, t.ID)
 		}
 	}
-	passedCount, err := s.repo.CountPassedNonOptionalTasks(ctx, sessionID, nonOptionalIDs)
+	// Query via tx, not s.pool: this must see the MarkTaskPassed row just
+	// written above in this same uncommitted transaction, which a separate
+	// pool connection would not observe yet.
+	passedCount, err := s.repo.CountPassedNonOptionalTasks(ctx, tx, session.ID, nonOptionalIDs)
 	if err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: count passed: %w", err)
+		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: count passed: %w", err)
 	}
 
 	sessionCompleted := len(nonOptionalIDs) > 0 && passedCount >= len(nonOptionalIDs)
 	if sessionCompleted {
 		newScore := session.Score + scoreAdded
-		if err := s.repo.UpdateSessionCompleted(ctx, tx, sessionID, newScore); err != nil {
-			return nil, fmt.Errorf("labs.Service.VerifyTask: complete session: %w", err)
+		if err := s.repo.UpdateSessionCompleted(ctx, tx, session.ID, newScore); err != nil {
+			return nil, fmt.Errorf("labs.Service.finalizeTaskPass: complete session: %w", err)
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: commit: %w", err)
+		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: commit: %w", err)
+	}
+
+	// Complete the embedding course module (non-fatal: the lab session itself
+	// is already committed above). Standalone/course-scoped labs with no
+	// module_id are skipped — there is no module to mark complete.
+	if sessionCompleted && s.coursesSvc != nil && lab.ModuleID != nil && lab.CourseID != nil {
+		if _, _, err := s.coursesSvc.CompleteModule(ctx, session.UserID, session.OrgID, *lab.ModuleID, *lab.CourseID); err != nil {
+			slog.Error("labs.Service.finalizeTaskPass: complete embedding module", "session", session.ID, "module", *lab.ModuleID, "err", err)
+		}
 	}
 
 	return &VerifyResult{

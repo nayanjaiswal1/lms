@@ -38,7 +38,7 @@ export interface Job {
 }
 
 export interface JobRun {
-  id: string;
+  id: number;
   job_id: string;
   status: string;
   attempt: number;

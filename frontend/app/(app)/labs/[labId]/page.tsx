@@ -34,7 +34,7 @@ export default async function LabPage({ params }: PageProps) {
             <Badge variant="secondary">{totalPoints} pts</Badge>
           )}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight">{lab.title}</h1>
+        <h1 className="page-title">{lab.title}</h1>
         {lab.description && (
           <p className="text-muted-foreground leading-relaxed">{lab.description}</p>
         )}

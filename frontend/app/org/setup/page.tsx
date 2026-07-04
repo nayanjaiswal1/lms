@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 
-import { getMyOrgs, getOnboardingState } from "@/lib/server/orgs";
+import { getMyOrgs, getOnboardingState } from "@/lib/orgs/server";
 import { Step1Identity } from "@/app/org/setup/step-1-identity";
 import { Step2Auth } from "@/app/org/setup/step-2-auth";
 import { Step3Plan } from "@/app/org/setup/step-3-plan";

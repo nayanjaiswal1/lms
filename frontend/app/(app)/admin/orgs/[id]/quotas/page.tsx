@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { fetchPlatformStats } from "@/lib/server/admin-jobs";
+import { fetchPlatformStats } from "@/lib/jobs/admin-server";
 import { QuotaForm } from "@/app/(app)/admin/orgs/[id]/quotas/quota-form";
 import ROUTES from "@/lib/routes";
 import type { OrgJobStats } from "@/lib/jobs/types";
@@ -71,7 +71,7 @@ function StatCard({
   return (
     <div className="card-base p-6">
       <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`text-3xl font-bold mt-1 ${highlight ? "text-destructive" : "text-foreground"}`}>
+      <p className={`text-2xl font-bold mt-1 ${highlight ? "text-destructive" : "text-foreground"}`}>
         {value}
       </p>
     </div>

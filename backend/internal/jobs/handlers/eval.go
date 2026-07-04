@@ -11,6 +11,7 @@ import (
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/rewards"
 )
@@ -29,16 +30,49 @@ type EvalHandler struct {
 	cfg        *config.Config
 	pool       *pgxpool.Pool
 	rewardsSvc *rewards.Service
+	coursesSvc *courses.Service
 }
 
 // NewEvalHandler constructs an EvalHandler with all dependencies injected.
-func NewEvalHandler(repo *assessment.Repo, aiProvider ai.LLMProvider, cfg *config.Config, pool *pgxpool.Pool, rewardsSvc *rewards.Service) *EvalHandler {
+// coursesSvc completes the course module wrapping a passed subjective assessment (if any).
+func NewEvalHandler(repo *assessment.Repo, aiProvider ai.LLMProvider, cfg *config.Config, pool *pgxpool.Pool, rewardsSvc *rewards.Service, coursesSvc *courses.Service) *EvalHandler {
 	return &EvalHandler{
 		repo:       repo,
 		ai:         aiProvider,
 		cfg:        cfg,
 		pool:       pool,
 		rewardsSvc: rewardsSvc,
+		coursesSvc: coursesSvc,
+	}
+}
+
+// NewEvalDeadHook builds the jobs.DeadLetterHook for eval.subjective, registered
+// via Registry.OnDead. When an eval job permanently exhausts its retries (e.g.
+// the LLM provider is unavailable or misconfigured), this flips the owning
+// attempt straight to "eval_failed" instead of leaving it stuck at "evaluating"
+// (or "submitted", if the job died before ever reaching that transition) —
+// the result page already renders eval_failed with its own message, so the
+// student sees a clear error instead of polling an infinite spinner. Fires
+// once, exactly when the job dies, instead of a periodic reconciliation job
+// polling for the same condition after the fact.
+func NewEvalDeadHook(pool *pgxpool.Pool) jobs.DeadLetterHook {
+	return func(ctx context.Context, job jobs.Job) {
+		var payload EvalPayload
+		if err := json.Unmarshal(job.Payload, &payload); err != nil {
+			slog.Error("eval.subjective dead hook: unmarshal payload", "job_id", job.ID, "error", err)
+			return
+		}
+		tag, err := pool.Exec(ctx,
+			`UPDATE assessment_attempts SET status='eval_failed', updated_at=now()
+			 WHERE id=$1 AND status IN ('submitted','evaluating')`,
+			payload.AttemptID)
+		if err != nil {
+			slog.Error("eval.subjective dead hook: flip eval_failed", "attempt", payload.AttemptID, "error", err)
+			return
+		}
+		if tag.RowsAffected() > 0 {
+			slog.Info("eval.subjective dead hook: flagged attempt eval_failed", "attempt", payload.AttemptID)
+		}
 	}
 }
 
@@ -155,6 +189,14 @@ func (h *EvalHandler) Handle(ctx context.Context, job jobs.Job) error {
 		h.awardEvalXP(jobCtx, payload.AttemptID, attempt, overall.CompositeScore)
 	}
 
+	// Complete the embedding course module on pass — independent of XP wiring,
+	// so module completion never silently no-ops if rewards is unavailable.
+	if overall.CompositeScore >= evalPassThreshold && h.coursesSvc != nil {
+		if _, err := h.coursesSvc.CompleteModuleForAssessment(jobCtx, attempt.OrgID, attempt.UserID, attempt.AssessmentID); err != nil {
+			slog.Warn("handlers.eval: complete embedding module", "attempt", payload.AttemptID, "assessment", attempt.AssessmentID, "err", err)
+		}
+	}
+
 	// Notify the student (non-fatal — eval is complete regardless of email delivery).
 	email, uname, title, infoErr := h.repo.GetEvalEmailInfo(jobCtx, payload.AttemptID)
 	if infoErr != nil {
@@ -170,12 +212,15 @@ func (h *EvalHandler) Handle(ctx context.Context, job jobs.Job) error {
 	return nil
 }
 
-// awardEvalXP awards XP for a subjective/interview attempt based on the overall
-// composite score (0–100). A score ≥ 70 counts as a pass. All errors are logged
-// and swallowed — reward failures must not prevent eval completion.
+// evalPassThreshold is the minimum composite score (0-100) that counts a
+// subjective/interview attempt as passed for both XP and module completion.
+const evalPassThreshold = 70.0
+
+// awardEvalXP awards XP for a subjective/interview attempt that passed the
+// composite-score threshold. All errors are logged and swallowed — reward
+// failures must not prevent eval completion.
 func (h *EvalHandler) awardEvalXP(ctx context.Context, attemptID string, att assessment.Attempt, compositeScore float64) {
-	const passThreshold = 70.0
-	if compositeScore < passThreshold {
+	if compositeScore < evalPassThreshold {
 		return
 	}
 	xp := rewards.XPQuizPassedRepeat

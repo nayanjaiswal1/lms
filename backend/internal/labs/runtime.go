@@ -1,0 +1,49 @@
+package labs
+
+import (
+	"context"
+	"time"
+)
+
+// ContainerInfo describes one live lab sandbox for orphan-scan purposes —
+// returned by List so the cleanup job can reconcile against lab_sessions
+// without needing runtime-specific knowledge (container IDs vs Pod names).
+type ContainerInfo struct {
+	ID        string
+	Name      string
+	CreatedAt time.Time
+}
+
+// ContainerRuntime provisions and controls lab sandboxes. DockerContainerService
+// (container.go) implements it via the Docker CLI for VPS/Compose deploys;
+// KubernetesContainerService (runtime_kubernetes.go) implements it via the
+// Kubernetes API for cluster deploys. Selected once at startup based on
+// config.LabsRuntime — see internal/api/router.go.
+type ContainerRuntime interface {
+	// Start provisions a new sandbox for the given session and, if setupScript
+	// is non-empty, runs it before returning. containerHost is "<host>:7681",
+	// dialed directly by labproxy for the in-browser terminal.
+	Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error)
+
+	// Kill force-removes a sandbox by ID.
+	Kill(ctx context.Context, containerID string) error
+
+	// Exec runs a script inside the sandbox as its default non-root user.
+	// exitCode is 0 on success; a process exit error yields the real exit
+	// code without propagating an error value.
+	Exec(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error)
+
+	// IsRunning reports whether the sandbox is currently up.
+	IsRunning(ctx context.Context, containerID string) bool
+
+	// Unpause resumes a paused sandbox. No code path currently transitions a
+	// session to "paused" (see docs/labs.md history) — Kubernetes implements
+	// this as a no-op since Pods have no pause primitive; Docker's real
+	// docker-pause/unpause behavior is preserved for when that path is used.
+	Unpause(ctx context.Context, containerID string) error
+
+	// List returns every live sandbox whose name starts with namePrefix (e.g.
+	// "mindforge-lab-" or "mindforge-validate-") — used by LabCleanupHandler
+	// to find and remove sandboxes with no corresponding active session row.
+	List(ctx context.Context, namePrefix string) ([]ContainerInfo, error)
+}

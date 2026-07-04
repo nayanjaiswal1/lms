@@ -287,11 +287,10 @@ CREATE INDEX IF NOT EXISTS idx_batches_org    ON batches (org_id, status);
 CREATE INDEX IF NOT EXISTS idx_batches_mentor ON batches (mentor_id);
 
 CREATE TABLE batch_members (
-  id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id UUID NOT NULL REFERENCES batches(id) ON DELETE CASCADE,
   user_id  UUID NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
   added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (batch_id, user_id)
+  PRIMARY KEY (batch_id, user_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_batch_members_user ON batch_members (user_id);
@@ -486,7 +485,7 @@ CREATE INDEX IF NOT EXISTS idx_coding_submissions_answer ON coding_submissions (
 CREATE INDEX IF NOT EXISTS idx_coding_submissions_status ON coding_submissions (status);
 
 CREATE TABLE attempt_events (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   attempt_id UUID        NOT NULL REFERENCES assessment_attempts(id) ON DELETE CASCADE,
   user_id    UUID        NOT NULL REFERENCES users(id)               ON DELETE CASCADE,
   event_type TEXT        NOT NULL CHECK (event_type IN (
@@ -639,24 +638,22 @@ CREATE TRIGGER trg_completion_stats
 -- ════════════════════════════════════════════════════════════════════════════
 
 CREATE TABLE batch_mentors (
-  id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id UUID        NOT NULL REFERENCES batches(id) ON DELETE CASCADE,
   user_id  UUID        NOT NULL REFERENCES users(id)   ON DELETE RESTRICT,
   added_by UUID        NOT NULL REFERENCES users(id)   ON DELETE RESTRICT,
   added_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (batch_id, user_id)
+  PRIMARY KEY (batch_id, user_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_batch_mentors_batch ON batch_mentors (batch_id);
 CREATE INDEX IF NOT EXISTS idx_batch_mentors_user  ON batch_mentors (user_id);
 
 CREATE TABLE batch_courses (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   batch_id    UUID        NOT NULL REFERENCES batches(id)  ON DELETE CASCADE,
   course_id   UUID        NOT NULL REFERENCES courses(id)  ON DELETE CASCADE,
   assigned_by UUID        NOT NULL REFERENCES users(id)    ON DELETE RESTRICT,
   assigned_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (batch_id, course_id)
+  PRIMARY KEY (batch_id, course_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_batch_courses_batch  ON batch_courses (batch_id);
@@ -848,7 +845,7 @@ CREATE INDEX IF NOT EXISTS idx_org_invites_token_hash  ON org_invites (token_has
 CREATE INDEX IF NOT EXISTS idx_org_invites_org_created ON org_invites (org_id, created_at DESC);
 
 CREATE TABLE audit_logs (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   org_id        UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   actor_user_id UUID        REFERENCES users(id),
   action        TEXT        NOT NULL,
@@ -1090,7 +1087,7 @@ CREATE TABLE jobs (
 );
 
 CREATE TABLE job_runs (
-  id           UUID      PRIMARY KEY DEFAULT gen_random_uuid(),
+  id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   job_id       UUID      NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
   status       TEXT      NOT NULL
                CHECK (status IN ('running','success','failed','timeout','cancelled')),
@@ -1198,7 +1195,7 @@ CREATE OR REPLACE TRIGGER trg_user_role_tenant_scope
 
 -- RBAC audit log (separate from org audit_logs)
 CREATE TABLE audit_log (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_id   UUID        REFERENCES organizations(id) ON DELETE SET NULL,
   actor_id    UUID        REFERENCES users(id)         ON DELETE SET NULL,
   action      TEXT        NOT NULL,

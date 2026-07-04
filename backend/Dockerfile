@@ -17,8 +17,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # ─── Stage 2: Minimal runtime ────────────────────────────────────────────────
 FROM alpine:3.19
 
-# CA certs for outbound HTTPS (OAuth, SMTP, MaxMind) and timezone data
-RUN apk add --no-cache ca-certificates tzdata
+# CA certs for outbound HTTPS (OAuth, SMTP, MaxMind), timezone data, and the
+# docker CLI — the server shells out to `docker` (internal/labs/container.go)
+# to spawn/exec/stop lab sandbox containers via the mounted host socket.
+RUN apk add --no-cache ca-certificates tzdata docker-cli
 
 WORKDIR /app
 

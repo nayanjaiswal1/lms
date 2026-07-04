@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { TestRunner } from "@/components/assessments/test-runner";
-import { startAttempt } from "@/lib/server/assessments";
+import { startAttempt } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {

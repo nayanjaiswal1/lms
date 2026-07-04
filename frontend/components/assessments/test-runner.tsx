@@ -28,7 +28,7 @@ import {
   recordEventAction,
 } from "@/app/(app)/assessments/[id]/take/actions";
 import ROUTES from "@/lib/routes";
-import { isMCQQuestion, isSubjectiveQuestion } from "@/lib/assessments/types";
+import { isMCQQuestion, isSubjectiveQuestion, SESSION_SUPERSEDED_MESSAGE } from "@/lib/assessments/types";
 import { cn } from "@/lib/utils";
 import type { AttemptPayload } from "@/lib/assessments/types";
 
@@ -52,11 +52,11 @@ interface TestRunnerProps {
 }
 
 type Stage = "camera" | "active";
-type Confirming = "none" | "submit" | "exit";
+type Confirming = "none" | "submit" | "exit" | "superseded";
 
 // All UI state lives in two useState calls; answer/nav/timing state in hooks.
 export function TestRunner({ payload }: TestRunnerProps) {
-  const { attempt, questions, proctoring, meta } = payload;
+  const { attempt, questions, proctoring, meta, session_token: sessionToken } = payload;
   const router = useRouter();
   const { state, dispatch, answeredCount, markedCount } = useAnswers(questions);
   const cameraSetup = useCameraSetup(proctoring.require_camera);
@@ -66,6 +66,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
 
   const resultHref = ROUTES.assessmentResult(attempt.id);
   const submittedRef = React.useRef(false);
+  const supersededRef = React.useRef(false);
   const { stopStream } = cameraSetup;
 
   const finishTo = React.useCallback(
@@ -76,23 +77,60 @@ export function TestRunner({ payload }: TestRunnerProps) {
     [router, resultHref],
   );
 
+  // Every mutating action can come back superseded (another device/tab opened
+  // this same attempt). Once that happens, lock the UI — nothing further
+  // should be written from this window — and never let it be dismissed.
+  const markSupersededIfNeeded = React.useCallback((error: string | undefined) => {
+    if (error !== SESSION_SUPERSEDED_MESSAGE || supersededRef.current) return false;
+    supersededRef.current = true;
+    setConfirming("superseded");
+    return true;
+  }, []);
+
+  // Returns the in-flight save so callers that must guarantee persistence
+  // before proceeding (submit) can await it; goto() fires-and-forgets it.
+  const flush = React.useCallback(
+    async (qid: string, value: AnswerValue | undefined) => {
+      if (!value) return;
+      const res =
+        "transcript" in value
+          ? await saveAnswerAction(attempt.id, sessionToken, qid, null, 0, value.transcript)
+          : await saveAnswerAction(attempt.id, sessionToken, qid, value, 0);
+      markSupersededIfNeeded(res.error);
+    },
+    [attempt.id, markSupersededIfNeeded, sessionToken],
+  );
+
+  const current = questions[state.index];
+  const currentAnswer = current ? state.answers[current.assessment_question_id] : undefined;
+  const isCurrentMarked = current
+    ? (state.markedForReview[current.assessment_question_id] ?? false)
+    : false;
+
   const submit = React.useCallback(
     async (reason: string) => {
-      if (submittedRef.current) return;
+      if (submittedRef.current || supersededRef.current) return;
       submittedRef.current = true;
+      // Flush the currently-displayed answer first — without this, an answer
+      // entered on the last question and submitted without navigating away
+      // was never persisted to the server before grading.
+      if (current) {
+        await flush(current.assessment_question_id, state.answers[current.assessment_question_id]);
+      }
+      if (supersededRef.current) return;
       dispatch({ kind: "submitting", value: true });
-      const res = await submitAttemptAction(attempt.id);
+      const res = await submitAttemptAction(attempt.id, sessionToken);
       if (!res.ok) {
         submittedRef.current = false;
         dispatch({ kind: "submitting", value: false });
-        toast.error(res.error ?? "Could not submit.");
+        if (!markSupersededIfNeeded(res.error)) toast.error(res.error ?? "Could not submit.");
         return;
       }
       stopStream();
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
       finishTo(reason);
     },
-    [attempt.id, dispatch, finishTo, stopStream],
+    [attempt.id, current, dispatch, finishTo, flush, markSupersededIfNeeded, sessionToken, state.answers, stopStream],
   );
 
   const proctor = useProctor({
@@ -107,10 +145,12 @@ export function TestRunner({ payload }: TestRunnerProps) {
     onEvent: async (event) => {
       const res = await recordEventAction(
         attempt.id,
+        sessionToken,
         event.type,
         event.severity,
         event.metadata,
       );
+      if (markSupersededIfNeeded(res.error)) return;
       if (res.autoSubmitted)
         void submit("Your test was submitted automatically due to a policy violation.");
     },
@@ -118,38 +158,24 @@ export function TestRunner({ payload }: TestRunnerProps) {
     onAutoSubmit: () => void submit("Your test was submitted because you exited fullscreen."),
   });
 
-  const flush = React.useCallback(
-    (qid: string, value: AnswerValue | undefined) => {
-      if (!value) return;
-      if ("transcript" in value) {
-        void saveAnswerAction(attempt.id, qid, null, 0, value.transcript);
-      } else {
-        void saveAnswerAction(attempt.id, qid, value, 0);
-      }
-    },
-    [attempt.id],
-  );
-
-  const current = questions[state.index];
-  const currentAnswer = current ? state.answers[current.assessment_question_id] : undefined;
-  const isCurrentMarked = current
-    ? (state.markedForReview[current.assessment_question_id] ?? false)
-    : false;
-
   const clearCurrentAnswer = React.useCallback(() => {
     if (!current) return;
     const qid = current.assessment_question_id;
     dispatch({ kind: "clearAnswer", qid });
     if (isMCQQuestion(current)) {
-      void saveAnswerAction(attempt.id, qid, { selected: [] }, 0);
+      void saveAnswerAction(attempt.id, sessionToken, qid, { selected: [] }, 0).then((res) =>
+        markSupersededIfNeeded(res.error),
+      );
     } else if (isSubjectiveQuestion(current)) {
-      void saveAnswerAction(attempt.id, qid, null, 0, "");
+      void saveAnswerAction(attempt.id, sessionToken, qid, null, 0, "").then((res) =>
+        markSupersededIfNeeded(res.error),
+      );
     }
-  }, [attempt.id, current, dispatch]);
+  }, [attempt.id, current, dispatch, markSupersededIfNeeded, sessionToken]);
 
   const goto = (index: number) => {
     if (current)
-      flush(current.assessment_question_id, state.answers[current.assessment_question_id]);
+      void flush(current.assessment_question_id, state.answers[current.assessment_question_id]);
     dispatch({ kind: "goto", index });
   };
 
@@ -165,6 +191,25 @@ export function TestRunner({ payload }: TestRunnerProps) {
 
   return (
     <div className="fixed inset-0 z-modal bg-background">
+
+      {/* Superseded-session lock — another device/tab opened this attempt.
+          Covers everything, including the exit/submit dialogs, and is never
+          dismissible: this window can no longer write to the attempt. */}
+      {confirming === "superseded" && (
+        <div className="fixed inset-0 z-toast flex items-center justify-center bg-background p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-raised">
+            <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+              <ShieldAlert aria-hidden className="h-6 w-6 text-destructive" />
+            </span>
+            <h2 className="text-lg font-semibold">Session moved to another device</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This attempt was reopened on another device or browser tab, which is now the
+              active session. This window can no longer answer or submit — your progress up to
+              the switch has been saved.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Camera pre-flight stage ──────────────────────────────────────── */}
       {stage === "camera" && (
@@ -290,7 +335,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
                 {/* Question meta — select-none prevents students from copy-pasting
                     the question title and type labels out of the test. */}
                 <div className="mb-5 flex select-none flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-2xl font-bold tabular-nums">
                         Q{state.index + 1}
@@ -299,16 +344,49 @@ export function TestRunner({ payload }: TestRunnerProps) {
                         of {questions.length}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Badge variant="secondary" className="capitalize">
-                        {current.type.replace("_", " ")}
-                      </Badge>
-                      <Badge variant="secondary" className="capitalize">
-                        {current.difficulty}
-                      </Badge>
-                      <Badge variant="outline" className="tabular-nums">
-                        {current.points} pt{current.points !== 1 ? "s" : ""}
-                      </Badge>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant="secondary" className="capitalize">
+                          {current.type.replace("_", " ")}
+                        </Badge>
+                        <Badge variant="secondary" className="capitalize">
+                          {current.difficulty}
+                        </Badge>
+                        <Badge variant="outline" className="tabular-nums">
+                          {current.points} pt{current.points !== 1 ? "s" : ""}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            dispatch({ kind: "toggleMark", qid: current.assessment_question_id })
+                          }
+                          aria-label={isCurrentMarked ? "Remove review mark" : "Mark this question for review"}
+                          className={cn(
+                            "gap-2",
+                            isCurrentMarked ? "border-primary text-primary" : "text-muted-foreground",
+                          )}
+                        >
+                          <Bookmark
+                            aria-hidden
+                            className={cn("h-3.5 w-3.5", isCurrentMarked && "fill-primary")}
+                          />
+                          {isCurrentMarked ? "Marked for review" : "Mark for review"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!currentAnswer}
+                          onClick={clearCurrentAnswer}
+                          aria-label="Clear current answer"
+                          className="gap-2 text-muted-foreground"
+                        >
+                          <X aria-hidden className="h-3.5 w-3.5" />
+                          Clear answer
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   <p className="text-sm font-medium text-muted-foreground">{current.title}</p>
@@ -344,11 +422,12 @@ export function TestRunner({ payload }: TestRunnerProps) {
                         onSave={(text) =>
                           void saveAnswerAction(
                             attempt.id,
+                            sessionToken,
                             current.assessment_question_id,
                             null,
                             0,
                             text,
-                          )
+                          ).then((res) => markSupersededIfNeeded(res.error))
                         }
                       />
                     )}
@@ -357,6 +436,9 @@ export function TestRunner({ payload }: TestRunnerProps) {
                   <CodingQuestion
                     content={current.content}
                     value={currentAnswer as CodingAnswer | undefined}
+                    attemptId={attempt.id}
+                    sessionToken={sessionToken}
+                    assessmentQuestionId={current.assessment_question_id}
                     onCode={(code, language) =>
                       dispatch({
                         kind: "setCode",
@@ -373,6 +455,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
                         starter,
                       })
                     }
+                    onSuperseded={() => markSupersededIfNeeded(SESSION_SUPERSEDED_MESSAGE)}
                   />
                 )}
               </div>
@@ -442,8 +525,19 @@ export function TestRunner({ payload }: TestRunnerProps) {
                 </div>
               </div>
 
+              {/* Cameras — inline in the sidebar so it never overlaps the
+                  question content or the Next/Submit controls below */}
+              {(proctoring.require_camera || proctoring.allow_secondary_camera) && (
+                <div className="border-t border-border pt-3">
+                  <CameraPip
+                    stream={cameraSetup.stream}
+                    phoneConnected={cameraSetup.phoneConnected}
+                  />
+                </div>
+              )}
+
               {/* Legend */}
-              <div className="mt-auto flex flex-col gap-1.5 border-t border-border pt-3">
+              <div className="flex flex-col gap-1.5 border-t border-border pt-3">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 shrink-0 rounded-sm bg-primary" />
                   <span className="text-xs text-muted-foreground">Current</span>
@@ -489,41 +583,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
                   {state.index + 1} / {questions.length}
                 </span>
               </div>
-
-              {/* Clear */}
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={!currentAnswer}
-                onClick={clearCurrentAnswer}
-                aria-label="Clear current answer"
-                className="shrink-0 text-muted-foreground"
-              >
-                <X aria-hidden />
-                <span className="hidden sm:inline">Clear</span>
-              </Button>
-
-              {/* Mark for Review */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  dispatch({ kind: "toggleMark", qid: current.assessment_question_id })
-                }
-                aria-label={isCurrentMarked ? "Remove review mark" : "Mark for review"}
-                className={cn(
-                  "shrink-0",
-                  isCurrentMarked ? "text-primary" : "text-muted-foreground",
-                )}
-              >
-                <Bookmark
-                  aria-hidden
-                  className={cn("transition-colors duration-fast", isCurrentMarked && "fill-primary")}
-                />
-                <span className="hidden sm:inline">
-                  {isCurrentMarked ? "Marked" : "Mark"}
-                </span>
-              </Button>
 
               {/* Next / Submit */}
               {state.index < questions.length - 1 ? (
@@ -611,12 +670,6 @@ export function TestRunner({ payload }: TestRunnerProps) {
               </div>
             </div>
           )}
-
-          {/* Minor displays — floating camera PiPs */}
-          <CameraPip
-            stream={cameraSetup.stream}
-            phoneConnected={cameraSetup.phoneConnected}
-          />
         </div>
       )}
     </div>

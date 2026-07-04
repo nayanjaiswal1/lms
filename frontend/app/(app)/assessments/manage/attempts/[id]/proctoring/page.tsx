@@ -4,8 +4,8 @@ import { ArrowLeft, ShieldAlert, ShieldCheck, Info, AlertTriangle } from "lucide
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
-import { getAttemptProctoringLog } from "@/lib/server/assessments";
-import type { ProctoringEvent } from "@/lib/server/assessments";
+import { getAttemptProctoringLog } from "@/lib/assessments/server";
+import type { ProctoringEvent } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {

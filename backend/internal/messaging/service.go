@@ -52,6 +52,20 @@ func (s *Service) Pin(ctx context.Context, orgID, msgID string) error {
 	return s.repo.TogglePinMessage(ctx, orgID, msgID)
 }
 
+func (s *Service) SimilarFAQs(ctx context.Context, orgID, courseID, question string, threshold float64, limit int) ([]SimilarFAQ, error) {
+	question = htmlTag.ReplaceAllString(question, "")
+	if question == "" {
+		return []SimilarFAQ{}, nil
+	}
+	if threshold <= 0 || threshold > 1 {
+		threshold = 0.3
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 5
+	}
+	return s.repo.SimilarFAQs(ctx, orgID, courseID, question, threshold, limit)
+}
+
 func (s *Service) PromoteToFAQ(ctx context.Context, orgID, courseID, msgID, createdBy, question, answer string) (CourseFAQ, error) {
 	question = htmlTag.ReplaceAllString(question, "")
 	answer = htmlTag.ReplaceAllString(answer, "")

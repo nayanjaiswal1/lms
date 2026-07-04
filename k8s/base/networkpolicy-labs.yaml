@@ -1,0 +1,41 @@
+# Locks down inbound traffic to everything in mindforge-labs (Piston + every
+# lab session Pod) to only the two legitimate cross-namespace callers:
+# labproxy dialing a lab Pod's ttyd port, and the backend reaching Piston.
+# This mirrors network segmentation the Docker deploy already gets for free
+# (lab containers sit on the separate `mindforge-labs` bridge network, with
+# no route to the `mindforge_prod`/`mindforge_dev` network postgres/redis/
+# backend run on) — so this is parity, not a new restriction.
+#
+# Deliberately NOT included: a default-deny egress policy for lab Pods. Doing
+# that safely requires excluding this cluster's actual Pod/Service CIDR from
+# an ipBlock rule (varies by cloud/CNI — GKE, EKS, and a self-managed cluster
+# all differ), which this base manifest has no way to know. Guessing it wrong
+# either does nothing or breaks lab content that expects outbound internet
+# access (e.g. a lab that does `apt-get install`). If you want that
+# additional hardening, add a cluster-specific egress NetworkPolicy using
+# your CNI's actual Pod/Service CIDR once deployed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: labs-default-deny-ingress
+  namespace: mindforge-labs
+spec:
+  podSelector: {} # every pod in this namespace
+  policyTypes:
+    - Ingress
+  ingress: [] # deny all by default; explicit allow below
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: labs-allow-ingress-from-mindforge
+  namespace: mindforge-labs
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: mindforge

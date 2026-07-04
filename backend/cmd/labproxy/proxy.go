@@ -38,18 +38,24 @@ type ProxyHandler struct {
 	rdb       *redis.Client // reserved for heartbeat pub/sub in a future phase
 	jwtSecret string
 	jwtIssuer string
-	upgrader  websocket.Upgrader
-	wg        sync.WaitGroup
-	draining  atomic.Bool
+	// labsRuntime mirrors the backend's LABS_RUNTIME. Only "docker" shells out
+	// to `docker unpause` below — under "kubernetes" that path is a no-op
+	// (Pods have no pause primitive; see labs.ContainerRuntime.Unpause), and
+	// this process is never given docker or K8s API access to begin with.
+	labsRuntime string
+	upgrader    websocket.Upgrader
+	wg          sync.WaitGroup
+	draining    atomic.Bool
 }
 
 // NewProxyHandler constructs a ProxyHandler with all dependencies injected.
-func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer string) *ProxyHandler {
+func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, labsRuntime string) *ProxyHandler {
 	return &ProxyHandler{
-		pool:      pool,
-		rdb:       rdb,
-		jwtSecret: jwtSecret,
-		jwtIssuer: jwtIssuer,
+		pool:        pool,
+		rdb:         rdb,
+		jwtSecret:   jwtSecret,
+		jwtIssuer:   jwtIssuer,
+		labsRuntime: labsRuntime,
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: 10 * time.Second,
 			CheckOrigin:      func(r *http.Request) bool { return true },
@@ -96,7 +102,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if sess.Status == "paused" {
-		if sess.ContainerID != nil && *sess.ContainerID != "" {
+		if h.labsRuntime != "kubernetes" && sess.ContainerID != nil && *sess.ContainerID != "" {
 			if unpauseErr := exec.CommandContext(r.Context(),
 				"docker", "unpause", *sess.ContainerID).Run(); unpauseErr != nil {
 				slog.Warn("labproxy: docker unpause failed",

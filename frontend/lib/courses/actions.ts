@@ -29,6 +29,12 @@ export async function enrollAction(courseID: string): Promise<ActionResult> {
   return result;
 }
 
+export async function submitReviewAction(courseID: string, rating: number): Promise<ActionResult> {
+  const result = await apiAction("POST", `/api/courses/${courseID}/reviews`, { rating });
+  if (result.ok) revalidatePath(ROUTES.COURSES);
+  return result;
+}
+
 export async function updateProgressAction(input: {
   moduleID: string;
   status: "not_started" | "in_progress" | "completed";
@@ -47,8 +53,8 @@ export async function createModuleAction(input: {
   type: string;
   content_body?: string;
   estimated_minutes?: number;
-}): Promise<ActionResult> {
-  return apiAction("POST", `/api/sections/${input.section_id}/modules`, {
+}): Promise<ActionResult<{ id: string }>> {
+  return apiAction<{ id: string }>("POST", `/api/sections/${input.section_id}/modules`, {
     title:             input.title,
     type:              input.type,
     content_body:      input.content_body,
@@ -58,6 +64,7 @@ export async function createModuleAction(input: {
 
 export async function updateCourseAction(
   courseId: string,
+  slug: string,
   input: {
     title: string;
     description?: string;
@@ -81,6 +88,9 @@ export async function updateCourseAction(
   if (result.ok) {
     revalidatePath(ROUTES.manageCourse(courseId));
     revalidatePath(ROUTES.MANAGE_COURSES);
+    revalidatePath(ROUTES.COURSES);
+    revalidatePath(ROUTES.course(slug));
+    revalidatePath(ROUTES.DASHBOARD);
   }
   return result;
 }
@@ -102,6 +112,63 @@ export async function createSectionAction(input: {
     title: input.title,
     position: input.position,
   });
+}
+
+export async function updateSectionAction(
+  sectionId: string,
+  input: { title: string },
+): Promise<ActionResult> {
+  return apiAction("PATCH", `/api/sections/${sectionId}`, { title: input.title });
+}
+
+export async function deleteSectionAction(sectionId: string): Promise<ActionResult> {
+  return apiAction("DELETE", `/api/sections/${sectionId}`);
+}
+
+export async function reorderSectionsAction(
+  courseId: string,
+  sectionIds: string[],
+): Promise<ActionResult> {
+  return apiAction("PUT", `/api/courses/${courseId}/sections/order`, { section_ids: sectionIds });
+}
+
+export async function updateModuleAction(
+  moduleId: string,
+  input: {
+    title: string;
+    type: string;
+    content_body?: string;
+    estimated_minutes?: number;
+    is_free_preview?: boolean;
+  },
+): Promise<ActionResult> {
+  return apiAction("PATCH", `/api/modules/${moduleId}`, {
+    title:              input.title,
+    type:               input.type,
+    content_body:       input.content_body,
+    estimated_minutes:  input.estimated_minutes,
+    is_free_preview:    input.is_free_preview ?? false,
+  });
+}
+
+export async function deleteModuleAction(moduleId: string): Promise<ActionResult> {
+  return apiAction("DELETE", `/api/modules/${moduleId}`);
+}
+
+export async function reorderModulesAction(
+  sectionId: string,
+  moduleIds: string[],
+): Promise<ActionResult> {
+  return apiAction("PUT", `/api/sections/${sectionId}/modules/order`, { module_ids: moduleIds });
+}
+
+export async function publishCourseAction(courseId: string): Promise<ActionResult> {
+  const result = await apiAction("POST", `/api/courses/${courseId}/publish`);
+  if (result.ok) {
+    revalidatePath(ROUTES.manageCourse(courseId));
+    revalidatePath(ROUTES.MANAGE_COURSES);
+  }
+  return result;
 }
 
 export async function uploadAssetAction(

@@ -15,9 +15,11 @@ import (
 	"github.com/mindforge/backend/internal/api"
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/courses"
 	idb "github.com/mindforge/backend/internal/db"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/jobs/handlers"
+	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/mindforge/backend/internal/storage"
@@ -89,6 +91,24 @@ func main() {
 	aiProvider := ai.NewProvider(cfg.LLMProvider, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMBaseURL)
 	slog.Info("ai provider configured", "provider", cfg.LLMProvider, "available", aiProvider.Available())
 
+	// ─── Lab Sandbox Runtime ───────────────────────────────────────────────────
+	// Built once and shared by the labs HTTP handler (api.NewRouter) and the
+	// reaper job handlers below, so a Kubernetes deploy constructs exactly one
+	// in-cluster client rather than one per consumer.
+	var labsRuntime labs.ContainerRuntime
+	switch cfg.LabsRuntime {
+	case "kubernetes":
+		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace)
+		if err != nil {
+			slog.Error("labs: kubernetes runtime init failed", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace)
+	default:
+		labsRuntime = labs.NewDockerContainerService()
+		slog.Info("labs: docker runtime ready")
+	}
+
 	// ─── Instance ID ─────────────────────────────────────────────────────────
 	instanceID := os.Getenv("INSTANCE_ID")
 	if instanceID == "" {
@@ -106,16 +126,32 @@ func main() {
 
 	// ─── Job Management System ────────────────────────────────────────────────
 	assessmentRepo := assessment.NewRepo(pool)
+	// A standalone courses.Service instance for the eval worker — it holds no
+	// in-process state beyond shared pointers (pool, store, ai, rewards), so
+	// constructing it separately from api.NewRouter's own instance is safe.
+	coursesSvcForJobs := courses.NewService(courses.NewRepo(pool), storageClient, aiProvider, cfg, rewardsSvc)
 
 	jobsRegistry := jobs.NewRegistry()
-	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc))
+
+	// A standalone assessment.Handler for the expire-attempts reaper — like
+	// coursesSvcForJobs above, constructed separately from api.NewRouter's own
+	// instance since it holds no in-process state beyond shared pointers.
+	assessmentHandlerForJobs := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvcForJobs)
+
+	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc, coursesSvcForJobs))
+	// Fires once, exactly when an eval.subjective job permanently dies, instead
+	// of a separate cron job polling for the same condition after the fact —
+	// see Registry.OnDead / DeadLetterHook.
+	jobsRegistry.OnDead(handlers.HandlerEvalSubjective, handlers.NewEvalDeadHook(pool))
 	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg))
 	jobsRegistry.Register(handlers.HandlerBulkInvite, handlers.NewInviteHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
 	jobsRegistry.Register(handlers.HandlerSRSReminder, handlers.NewSRSHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
-	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool))
-	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool))
+	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime))
+	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
+	jobsRegistry.Register(handlers.HandlerAssessmentExpire, handlers.NewAssessmentExpireHandler(assessmentHandlerForJobs))
+	jobsRegistry.Register(handlers.HandlerMentorEscalate, handlers.NewMentorEscalationHandler(pool, cfg))
 
 	cronDefs := []jobs.CronJobDef{
 		{Handler: handlers.HandlerSRSReminder, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
@@ -123,6 +159,8 @@ func main() {
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
 		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		{Handler: handlers.HandlerAssessmentExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
+		{Handler: handlers.HandlerMentorEscalate, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 	}
 
 	workerCtx, workerCancel := context.WithCancel(ctx)
@@ -135,7 +173,7 @@ func main() {
 	go scheduler.Start(workerCtx)
 
 	// ─── Router ──────────────────────────────────────────────────────────────
-	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc)
+	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc, labsRuntime)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

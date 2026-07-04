@@ -30,7 +30,7 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
   return (
     <section aria-labelledby="resume-heading" className="card-base p-6 space-y-5">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-foreground" id="resume-heading">
+        <h2 className="subsection-title text-foreground" id="resume-heading">
           Resume Import
         </h2>
         <span className="ai-badge">AI</span>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import type { WorkerHealthResponse } from "@/lib/server/admin-jobs";
+import type { WorkerHealthResponse } from "@/lib/jobs/admin-server";
 
 interface Props {
   initialData: WorkerHealthResponse;

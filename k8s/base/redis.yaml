@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: mindforge
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: mindforge
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single replica, no persistence — matches docker-compose.prod.yml
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server"]
+          # Container.args (unlike probe exec.command) does support $(VAR)
+          # substitution from the container's own env.
+          args: ["--save", "", "--appendonly", "no", "--requirepass", "$(REDIS_PASSWORD)"]
+          ports:
+            - containerPort: 6379
+          envFrom:
+            - secretRef:
+                name: mindforge-secrets
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }

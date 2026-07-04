@@ -120,6 +120,10 @@ type LabDefinition struct {
 	Description        *string    `json:"description"`
 	LabType            string     `json:"lab_type"`
 	Environment        string     `json:"environment"`
+	// Language is the authoritative language for a "code" type lab (required
+	// by the DB CHECK constraint whenever lab_type = 'code'; nil for
+	// terminal/guided/playground labs, which have no student code editor).
+	Language           *string    `json:"language"`
 	SetupScript        *string    `json:"setup_script"`
 	MaxDuration        int        `json:"max_duration"`
 	MaxResets          int        `json:"max_resets"`
@@ -173,6 +177,24 @@ type LabSession struct {
 	PausedSeconds  int        `json:"paused_seconds"`
 	CompletedAt    *time.Time `json:"completed_at"`
 	LastActiveAt   time.Time  `json:"last_active_at"`
+	// EndReason distinguishes an automatic reaper termination ("time_limit" or
+	// "idle_timeout") from a normal user-driven end/completion, which leaves
+	// this nil. Set only by the lab.expire_sessions background job.
+	EndReason      *string    `json:"end_reason"`
+}
+
+// ActiveLabSession is a lab_sessions row enriched with the lab's title and
+// type, for showing a "resume or close" surface across page loads and logins
+// without the client having to hold any in-memory launch state.
+type ActiveLabSession struct {
+	SessionID    string    `json:"session_id"`
+	LabID        string    `json:"lab_id"`
+	LabTitle     string    `json:"lab_title"`
+	LabType      string    `json:"lab_type"`
+	Status       string    `json:"status"`
+	StartedAt    time.Time `json:"started_at"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	LastActiveAt time.Time `json:"last_active_at"`
 }
 
 type LabTaskCompletion struct {
@@ -209,7 +231,7 @@ type LabEgressRule struct {
 }
 
 type LabUsageEvent struct {
-	ID         string    `json:"id"`
+	ID         int64     `json:"id"`
 	OrgID      string    `json:"org_id"`
 	SessionID  *string   `json:"session_id"`
 	EventType  string    `json:"event_type"`

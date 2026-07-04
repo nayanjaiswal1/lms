@@ -67,11 +67,10 @@ export async function verifyLabTaskAction(
   sessionId: string,
   taskId: string,
   code: string,
-  language: string,
 ): Promise<ActionResult<VerifyTaskResult>> {
   return apiAction<VerifyTaskResult>(
     "POST",
     `/api/labs/sessions/${sessionId}/tasks/${taskId}/verify`,
-    { code, language },
+    { code },
   )
 }

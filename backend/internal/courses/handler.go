@@ -1,6 +1,7 @@
 package courses
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,19 +10,36 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/rewards"
 )
 
 const maxUploadSize = 500 << 20 // 500 MB
 
-type Handler struct {
-	repo       *Repo
-	service    *Service
-	rewardsSvc *rewards.Service
+// MentorTicketOpener is the narrow capability the courses package needs from
+// mentoring.Service to fulfill a paid-course purchase. It is defined here
+// (rather than importing the concrete mentoring package) to avoid an import
+// cycle: mentoring imports courses for the Enrollment type and
+// CreateEnrollmentTx. Purchase/enrollment/ticket results are returned as
+// `any` for the same reason — the handler only needs to marshal them as
+// JSON, never inspect their fields.
+type MentorTicketOpener interface {
+	PurchaseCourse(ctx context.Context, orgID, userID, courseID string, amountCents int) (purchase any, enrollment any, ticket any, err error)
 }
 
-func NewHandler(repo *Repo, service *Service, rewardsSvc *rewards.Service) *Handler {
-	return &Handler{repo: repo, service: service, rewardsSvc: rewardsSvc}
+// conflictError is satisfied by mentoring's ErrAlreadyPurchased (and any
+// future sentinel error that represents "this is a conflict, not a server
+// fault") without courses needing to import mentoring's concrete error type.
+type conflictError interface {
+	IsConflict() bool
+}
+
+type Handler struct {
+	repo          *Repo
+	service       *Service
+	mentorTickets MentorTicketOpener
+}
+
+func NewHandler(repo *Repo, service *Service, mentorTickets MentorTicketOpener) *Handler {
+	return &Handler{repo: repo, service: service, mentorTickets: mentorTickets}
 }
 
 func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
@@ -409,9 +427,27 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	fields := map[string]string{}
+	if req.Title == "" {
+		fields["title"] = "Title is required."
+	}
+	// Lab modules are provisioned outside this endpoint (see ModuleTypeLab)
+	// but must remain editable once they exist on a course.
+	validTypes := map[string]bool{
+		ModuleTypeVideo: true, ModuleTypePDF: true, ModuleTypeNotes: true,
+		ModuleTypeAssessment: true, ModuleTypeLab: true,
+	}
+	if !validTypes[req.Type] {
+		fields["type"] = "Type must be video, pdf, notes, assessment, or lab."
+	}
+	if len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
+		return
+	}
 	m := CourseModule{
 		ID:               urlParam(r, "moduleID"),
 		Title:            req.Title,
+		Type:             req.Type,
 		IsFreePreview:    req.IsFreePreview,
 		StorageKey:       req.StorageKey,
 		DurationSeconds:  req.DurationSeconds,

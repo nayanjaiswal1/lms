@@ -11,37 +11,32 @@ interface CameraPipProps {
   phoneConnected: boolean;
 }
 
+// Rendered inline as a section of the question palette sidebar (not fixed/
+// floating) so it never overlaps the Next/Submit controls or question content.
 export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
   const [collapsed, setCollapsed] = React.useState(false);
 
   return (
-    <div className="fixed bottom-4 right-4 z-raised flex flex-col items-end gap-1">
-      {/* Toggle button */}
+    <div className="flex flex-col gap-2">
       <button
         onClick={() => setCollapsed((v) => !v)}
+        aria-expanded={!collapsed}
         aria-label={collapsed ? "Show cameras" : "Hide cameras"}
-        className="flex h-7 items-center gap-1.5 rounded-full border border-border bg-background/90 px-2.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm transition-colors duration-fast hover:text-foreground"
+        className="flex items-center justify-between text-xs font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
       >
+        <span>Cameras</span>
         {collapsed ? (
-          <>
-            <Camera aria-hidden className="h-3 w-3" />
-            <span>Cameras</span>
-            <ChevronUp aria-hidden className="h-3 w-3" />
-          </>
+          <ChevronDown aria-hidden className="h-3.5 w-3.5" />
         ) : (
-          <>
-            <ChevronDown aria-hidden className="h-3 w-3" />
-            <span>Hide</span>
-          </>
+          <ChevronUp aria-hidden className="h-3.5 w-3.5" />
         )}
       </button>
 
-      {/* Camera panels */}
       {!collapsed && (
-        <div className="flex gap-1.5">
+        <div className="flex flex-col gap-2">
           {/* Primary — you */}
           <div className="flex flex-col gap-1">
-            <div className="relative h-[72px] w-24 overflow-hidden rounded-lg border border-border bg-muted shadow sm:h-20 sm:w-28">
+            <div className="relative h-20 w-full overflow-hidden rounded-lg border border-border bg-muted">
               {stream ? (
                 <>
                   <CameraVideo
@@ -62,14 +57,14 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
                 </div>
               )}
             </div>
-            <p className="text-center text-xs text-muted-foreground">Primary</p>
+            <p className="text-xs text-muted-foreground">Primary</p>
           </div>
 
           {/* Secondary — phone */}
           <div className="flex flex-col gap-1">
             <div
               className={cn(
-                "relative flex h-[72px] w-24 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-muted shadow transition-colors duration-normal sm:h-20 sm:w-28",
+                "relative flex h-20 w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-muted transition-colors duration-normal",
                 phoneConnected ? "border-ai/60" : "border-border",
               )}
             >
@@ -94,7 +89,7 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
                 </span>
               )}
             </div>
-            <p className="text-center text-xs text-muted-foreground">Secondary</p>
+            <p className="text-xs text-muted-foreground">Secondary</p>
           </div>
         </div>
       )}

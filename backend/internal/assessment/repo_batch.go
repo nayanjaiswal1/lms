@@ -159,7 +159,6 @@ var (
 )
 
 type BatchMentor struct {
-	ID      string    `json:"id"`
 	UserID  string    `json:"user_id"`
 	Name    string    `json:"name"`
 	Email   string    `json:"email"`
@@ -167,7 +166,6 @@ type BatchMentor struct {
 }
 
 type BatchCourse struct {
-	ID         string    `json:"id"`
 	CourseID   string    `json:"course_id"`
 	Title      string    `json:"title"`
 	Slug       string    `json:"slug"`
@@ -252,7 +250,7 @@ func (r *Repo) RemoveBatchMentor(ctx context.Context, orgID, batchID, userID str
 
 func (r *Repo) ListBatchMentors(ctx context.Context, orgID, batchID string) ([]BatchMentor, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT bm.id, bm.user_id, u.name, u.email, bm.added_at
+		`SELECT bm.user_id, u.name, u.email, bm.added_at
 		 FROM batch_mentors bm
 		 JOIN users u ON u.id = bm.user_id
 		 WHERE bm.batch_id = $1
@@ -265,7 +263,7 @@ func (r *Repo) ListBatchMentors(ctx context.Context, orgID, batchID string) ([]B
 	out := []BatchMentor{}
 	for rows.Next() {
 		var m BatchMentor
-		if err := rows.Scan(&m.ID, &m.UserID, &m.Name, &m.Email, &m.AddedAt); err != nil {
+		if err := rows.Scan(&m.UserID, &m.Name, &m.Email, &m.AddedAt); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch mentor: %w", err)
 		}
 		out = append(out, m)
@@ -304,7 +302,7 @@ func (r *Repo) UnassignBatchCourse(ctx context.Context, orgID, batchID, courseID
 
 func (r *Repo) ListBatchCourses(ctx context.Context, orgID, batchID string) ([]BatchCourse, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT bc.id, bc.course_id, c.title, c.slug, bc.assigned_at
+		`SELECT bc.course_id, c.title, c.slug, bc.assigned_at
 		 FROM batch_courses bc
 		 JOIN courses c ON c.id = bc.course_id
 		 WHERE bc.batch_id = $1
@@ -317,7 +315,7 @@ func (r *Repo) ListBatchCourses(ctx context.Context, orgID, batchID string) ([]B
 	out := []BatchCourse{}
 	for rows.Next() {
 		var c BatchCourse
-		if err := rows.Scan(&c.ID, &c.CourseID, &c.Title, &c.Slug, &c.AssignedAt); err != nil {
+		if err := rows.Scan(&c.CourseID, &c.Title, &c.Slug, &c.AssignedAt); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch course: %w", err)
 		}
 		out = append(out, c)

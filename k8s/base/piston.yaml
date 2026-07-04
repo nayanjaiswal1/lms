@@ -1,0 +1,81 @@
+# Privileged — sandboxes untrusted user code, matches docker-compose.prod.yml's
+# `privileged: true`. Requires the mindforge-labs namespace's permissive Pod
+# Security Admission label (namespace.yaml). Some managed clusters (GKE
+# Autopilot, hardened EKS/AKS node groups) forbid privileged Pods outright
+# regardless of namespace labels — if this Deployment can't schedule, point
+# PISTON_URL (in configmap.yaml) at an external Piston instance instead and
+# remove this file from kustomization.yaml. No backend code change needed
+# either way.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: piston-data
+  namespace: mindforge-labs
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: piston
+  namespace: mindforge-labs
+spec:
+  selector:
+    app: piston
+  ports:
+    - port: 2000
+      targetPort: 2000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: piston
+  namespace: mindforge-labs
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: piston
+  template:
+    metadata:
+      labels:
+        app: piston
+    spec:
+      containers:
+        - name: piston
+          image: ghcr.io/engineer-man/piston
+          securityContext:
+            privileged: true
+          ports:
+            - containerPort: 2000
+          volumeMounts:
+            - name: data
+              mountPath: /piston
+          readinessProbe:
+            httpGet:
+              path: /api/v2/runtimes
+              port: 2000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/v2/runtimes
+              port: 2000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: piston-data

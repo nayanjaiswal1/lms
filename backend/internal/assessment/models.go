@@ -225,4 +225,8 @@ type Attempt struct {
 	ProctoringSummary json.RawMessage `json:"proctoring_summary,omitempty"`
 	RewardResult      json.RawMessage `json:"reward_result,omitempty"`
 	CreatedAt         time.Time       `json:"created_at"`
+	// ActiveSessionToken locks the attempt to whichever device most recently
+	// opened it (see RotateSessionToken). Never serialized — it is only ever
+	// returned once, inline in the attempt-start/resume payload.
+	ActiveSessionToken *string `json:"-"`
 }

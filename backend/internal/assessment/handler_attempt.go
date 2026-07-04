@@ -31,11 +31,16 @@ func (h *Handler) ListMyAssessments(w http.ResponseWriter, r *http.Request) {
 }
 
 // attemptPayload is the response shape for starting or resuming an attempt.
+// SessionToken is returned once here and must be echoed back on every
+// mutating call (save answer, run code, record event, submit) — it proves
+// this device is the attempt's current active session. Opening the attempt
+// again (another tab, another device) rotates it and supersedes this one.
 type attemptPayload struct {
-	Attempt    Attempt           `json:"attempt"`
-	Questions  []StudentQuestion `json:"questions"`
-	Proctoring ProctoringConfig  `json:"proctoring"`
-	Meta       attemptMeta       `json:"meta"`
+	Attempt      Attempt           `json:"attempt"`
+	Questions    []StudentQuestion `json:"questions"`
+	Proctoring   ProctoringConfig  `json:"proctoring"`
+	Meta         attemptMeta       `json:"meta"`
+	SessionToken string            `json:"session_token"`
 }
 
 type attemptMeta struct {
@@ -59,6 +64,10 @@ func (h *Handler) StartAttempt(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
+	sessionToken := ""
+	if att.ActiveSessionToken != nil {
+		sessionToken = *att.ActiveSessionToken
+	}
 	httputil.WriteJSON(w, http.StatusOK, attemptPayload{
 		Attempt:    att,
 		Questions:  questions,
@@ -71,6 +80,7 @@ func (h *Handler) StartAttempt(w http.ResponseWriter, r *http.Request) {
 			TotalPoints:     a.TotalPoints,
 			PassPercentage:  a.PassPercentage,
 		},
+		SessionToken: sessionToken,
 	})
 }
 
@@ -85,6 +95,10 @@ func (h *Handler) ResumeAttempt(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
+	sessionToken := ""
+	if att.ActiveSessionToken != nil {
+		sessionToken = *att.ActiveSessionToken
+	}
 	httputil.WriteJSON(w, http.StatusOK, attemptPayload{
 		Attempt:    att,
 		Questions:  questions,
@@ -97,6 +111,7 @@ func (h *Handler) ResumeAttempt(w http.ResponseWriter, r *http.Request) {
 			TotalPoints:     a.TotalPoints,
 			PassPercentage:  a.PassPercentage,
 		},
+		SessionToken: sessionToken,
 	})
 }
 
@@ -105,6 +120,7 @@ type saveAnswerRequest struct {
 	Answer               json.RawMessage `json:"answer"`
 	Transcript           *string         `json:"transcript,omitempty"`
 	TimeSpentSeconds     int             `json:"time_spent_seconds"`
+	SessionToken         string          `json:"session_token"`
 }
 
 // SaveAnswer stores a draft answer mid-attempt. For subjective questions the
@@ -122,13 +138,17 @@ func (h *Handler) SaveAnswer(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"assessment_question_id": "Question is required."})
 		return
 	}
-	err := h.service.SaveAnswer(r.Context(), claims.UserID, chiURLParam(r, "attemptID"),
+	err := h.service.SaveAnswer(r.Context(), claims.UserID, chiURLParam(r, "attemptID"), req.SessionToken,
 		req.AssessmentQuestionID, req.Answer, req.Transcript, req.TimeSpentSeconds)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Saved."})
+}
+
+type submitAttemptRequest struct {
+	SessionToken string `json:"session_token"`
 }
 
 // SubmitAttempt grades and finalizes the attempt. Returns 202 when the attempt
@@ -138,7 +158,11 @@ func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	att, needsEval, err := h.service.Submit(r.Context(), claims.OrgID, claims.UserID, chiURLParam(r, "attemptID"), false)
+	var req submitAttemptRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	att, needsEval, err := h.service.Submit(r.Context(), claims.OrgID, claims.UserID, chiURLParam(r, "attemptID"), req.SessionToken)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -148,9 +172,12 @@ func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteJSON(w, http.StatusAccepted, att)
 		return
 	}
-	// Sync graded path (MCQ/coding): award XP and persist the reward result.
-	if h.rewardsSvc != nil && att.Passed != nil && *att.Passed {
-		att = h.awardAttemptXP(r.Context(), att)
+	// Sync graded path (MCQ/coding): award XP, complete the embedding module.
+	if att.Passed != nil && *att.Passed {
+		if h.rewardsSvc != nil {
+			att = h.awardAttemptXP(r.Context(), att)
+		}
+		h.completeEmbeddingModule(r.Context(), att)
 	}
 	httputil.WriteJSON(w, http.StatusOK, att)
 }
@@ -200,9 +227,22 @@ func (h *Handler) awardAttemptXP(ctx context.Context, att Attempt) Attempt {
 		slog.Error("assessment: persist reward result", "attempt", att.ID, "err", err)
 		return att
 	}
+
 	raw, _ := json.Marshal(result)
 	att.RewardResult = raw
 	return att
+}
+
+// completeEmbeddingModule marks the course module wrapping this assessment
+// (if any) completed once the attempt has passed. Non-fatal: a course-module
+// linkage failure must not break the attempt response the student is waiting on.
+func (h *Handler) completeEmbeddingModule(ctx context.Context, att Attempt) {
+	if h.coursesSvc == nil {
+		return
+	}
+	if _, err := h.coursesSvc.CompleteModuleForAssessment(ctx, att.OrgID, att.UserID, att.AssessmentID); err != nil {
+		slog.Error("assessment: complete embedding module", "attempt", att.ID, "assessment", att.AssessmentID, "err", err)
+	}
 }
 
 // enqueueEval enqueues an eval.subjective job via the Job Management System.
@@ -230,11 +270,45 @@ func (h *Handler) enqueueEval(ctx context.Context, attemptID string) {
 	}
 }
 
+type runCodeRequest struct {
+	Language     string `json:"language"`
+	Code         string `json:"code"`
+	SessionToken string `json:"session_token"`
+}
+
+// RunCode executes the student's current code against the coding question's
+// sample (non-hidden) test cases for pre-submit feedback. It never touches
+// grading — final scoring only happens in SubmitAttempt.
+func (h *Handler) RunCode(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req runCodeRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Language == "" || req.Code == "" {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"code": "Write some code before running.",
+		})
+		return
+	}
+	result, err := h.service.RunSample(r.Context(), claims.UserID,
+		chiURLParam(r, "attemptID"), req.SessionToken, chiURLParam(r, "assessmentQuestionID"), req.Language, req.Code)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, result)
+}
+
 type eventRequest struct {
-	EventType string          `json:"event_type"`
-	Severity  string          `json:"severity"`
-	Metadata  json.RawMessage `json:"metadata"`
-	ClientTS  *time.Time      `json:"client_ts"`
+	EventType    string          `json:"event_type"`
+	Severity     string          `json:"severity"`
+	Metadata     json.RawMessage `json:"metadata"`
+	ClientTS     *time.Time      `json:"client_ts"`
+	SessionToken string          `json:"session_token"`
 }
 
 var validEventTypes = map[string]bool{
@@ -263,7 +337,7 @@ func (h *Handler) RecordEvent(w http.ResponseWriter, r *http.Request) {
 		req.Severity = "info"
 	}
 	forced, err := h.service.RecordEvent(r.Context(), claims.OrgID, claims.UserID,
-		chiURLParam(r, "attemptID"), req.EventType, req.Severity, req.Metadata, req.ClientTS)
+		chiURLParam(r, "attemptID"), req.SessionToken, req.EventType, req.Severity, req.Metadata, req.ClientTS)
 	if err != nil {
 		writeDomainError(w, err)
 		return

@@ -91,7 +91,7 @@ function AddMembersForm({ batchId, orgMembers, currentMemberIds, onClose }: AddM
   return (
     <div className="card-raised flex w-full flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Add members</h2>
+        <h2 className="subsection-title">Add members</h2>
         <Button aria-label="Close add members panel" size="icon" variant="ghost" onClick={handleClose}>
           <X aria-hidden className="h-4 w-4" />
         </Button>

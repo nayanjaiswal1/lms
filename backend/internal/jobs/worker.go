@@ -182,7 +182,7 @@ func (p *WorkerPool) executeJob(ctx context.Context, workerID int, claimed *Clai
 	default:
 		// Handler returned an error (including DeadlineExceeded from the job-level
 		// timeout context). Call Fail to handle retry or dead transition.
-		if err := Fail(ctx, p.pool, job.ID, runID, handlerErr, durationMS); err != nil {
+		if err := Fail(ctx, p.pool, p.registry, job.ID, runID, handlerErr, durationMS); err != nil {
 			slog.Error("worker: fail update failed", "job_id", job.ID, "error", err, "worker", workerID)
 		}
 		p.logJobDone(job, StatusFailed, durationMS)
@@ -191,7 +191,7 @@ func (p *WorkerPool) executeJob(ctx context.Context, workerID int, claimed *Clai
 
 // runHeartbeat ticks every cfg.WorkerHeartbeatInterval and refreshes the
 // job_run heartbeat timestamp. It exits when done is closed or jobCtx expires.
-func (p *WorkerPool) runHeartbeat(jobCtx context.Context, done <-chan struct{}, runID string, workerID int) {
+func (p *WorkerPool) runHeartbeat(jobCtx context.Context, done <-chan struct{}, runID int64, workerID int) {
 	ticker := time.NewTicker(p.cfg.WorkerHeartbeatInterval)
 	defer ticker.Stop()
 	for {
@@ -243,7 +243,7 @@ func (p *WorkerPool) runHealthLog(ctx context.Context) {
 // markDeadUnknownHandler immediately transitions a job to dead status when its
 // handler key is not registered in the registry. No retry is attempted because
 // the handler is structurally absent — retrying would produce the same outcome.
-func (p *WorkerPool) markDeadUnknownHandler(ctx context.Context, jobID, runID, handlerKey string) {
+func (p *WorkerPool) markDeadUnknownHandler(ctx context.Context, jobID string, runID int64, handlerKey string) {
 	errMsg := fmt.Sprintf("unknown handler: %s", handlerKey)
 
 	_, dbErr := p.pool.Exec(ctx,

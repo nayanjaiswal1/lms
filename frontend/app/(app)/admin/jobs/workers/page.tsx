@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { fetchWorkerHealth } from "@/lib/server/admin-jobs";
+import { fetchWorkerHealth } from "@/lib/jobs/admin-server";
 import { WorkersClient } from "@/app/(app)/admin/jobs/workers/workers-client";
 import ROUTES from "@/lib/routes";
 

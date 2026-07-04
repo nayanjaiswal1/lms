@@ -28,6 +28,13 @@ export interface CourseFAQ {
   created_at: string;
 }
 
+export interface SimilarFAQ {
+  id: string;
+  question: string;
+  answer: string;
+  similarity: number;
+}
+
 export interface GetBatchMessagesOptions {
   before?: string;
   limit?: number;
@@ -50,5 +57,12 @@ export async function getBatchMessages(batchID: string, opts: GetBatchMessagesOp
 
 export async function getCourseFAQs(courseID: string): Promise<CourseFAQ[]> {
   const data = await apiGet<{ faqs: CourseFAQ[] }>(`/api/courses/${courseID}/faqs`);
+  return data.faqs ?? [];
+}
+
+export async function getSimilarFAQs(courseID: string, q: string): Promise<SimilarFAQ[]> {
+  const data = await apiGet<{ faqs: SimilarFAQ[] }>(
+    `/api/courses/${courseID}/faqs/similar?q=${encodeURIComponent(q)}`,
+  );
   return data.faqs ?? [];
 }

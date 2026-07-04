@@ -53,6 +53,13 @@ type CourseFAQ struct {
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
+type SimilarFAQ struct {
+	ID         string  `json:"id"`
+	Question   string  `json:"question"`
+	Answer     string  `json:"answer"`
+	Similarity float64 `json:"similarity"`
+}
+
 type ListMessagesFilter struct {
 	Before     string
 	Limit      int

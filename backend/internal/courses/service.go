@@ -4,26 +4,110 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/storage"
 )
 
 type Service struct {
-	repo  *Repo
-	store storage.StorageClient
-	ai    ai.LLMProvider
-	cfg   *config.Config
+	repo       *Repo
+	store      storage.StorageClient
+	ai         ai.LLMProvider
+	cfg        *config.Config
+	rewardsSvc *rewards.Service
 }
 
-func NewService(repo *Repo, store storage.StorageClient, aiProvider ai.LLMProvider, cfg *config.Config) *Service {
-	return &Service{repo: repo, store: store, ai: aiProvider, cfg: cfg}
+func NewService(repo *Repo, store storage.StorageClient, aiProvider ai.LLMProvider, cfg *config.Config, rewardsSvc *rewards.Service) *Service {
+	return &Service{repo: repo, store: store, ai: aiProvider, cfg: cfg, rewardsSvc: rewardsSvc}
+}
+
+// CompleteModule marks a module completed for a user and awards the module
+// (and, if this finishes the course, course-completion) XP. This is the single
+// path that writes a "completed" module_progress row — used both by the
+// client-facing progress endpoint (self-paced content: notes, video, pdf) and
+// by server-verified completion events (lab session finished, assessment
+// passed), so a client can never fabricate completion of verified work.
+func (s *Service) CompleteModule(ctx context.Context, userID, orgID, moduleID, courseID string) (ModuleProgress, *rewards.AwardResult, error) {
+	now := time.Now()
+	updated, err := s.repo.UpsertProgress(ctx, ModuleProgress{
+		UserID:      userID,
+		ModuleID:    moduleID,
+		CourseID:    courseID,
+		Status:      ProgressCompleted,
+		CompletedAt: &now,
+	})
+	if err != nil {
+		return ModuleProgress{}, nil, err
+	}
+
+	if s.rewardsSvc == nil {
+		return updated, nil, nil
+	}
+
+	refType := "module"
+	result := s.rewardsSvc.AwardXP(ctx, rewards.AwardXPRequest{
+		UserID:   userID,
+		OrgID:    orgID,
+		CourseID: &courseID,
+		Reason:   "module_completed",
+		RefID:    &moduleID,
+		RefType:  &refType,
+		XP:       rewards.XPModuleCompleted,
+	})
+
+	streakResult := s.rewardsSvc.UpdateStreakAndCheckMilestones(ctx, userID, orgID)
+	result.XPGained += streakResult.XPGained
+	result.NewAchievements = append(result.NewAchievements, streakResult.NewAchievements...)
+	if streakResult.NewLevel != nil {
+		result.NewLevel = streakResult.NewLevel
+	}
+
+	cp, cpErr := s.repo.GetCourseProgress(ctx, userID, courseID)
+	if cpErr != nil {
+		slog.Error("courses: check completion for rewards", "course", courseID, "err", cpErr)
+	} else if cp.Total > 0 && cp.Completed == cp.Total {
+		refTypeCourse := "course"
+		courseResult := s.rewardsSvc.AwardXP(ctx, rewards.AwardXPRequest{
+			UserID:   userID,
+			OrgID:    orgID,
+			CourseID: &courseID,
+			Reason:   "course_completed",
+			RefID:    &courseID,
+			RefType:  &refTypeCourse,
+			XP:       rewards.XPCourseCompleted,
+		})
+		result.XPGained += courseResult.XPGained
+		result.NewAchievements = append(result.NewAchievements, courseResult.NewAchievements...)
+		if courseResult.NewLevel != nil {
+			result.NewLevel = courseResult.NewLevel
+		}
+	}
+
+	return updated, &result, nil
+}
+
+// CompleteModuleForAssessment completes the course module wrapping the given
+// assessment, if one exists. Standalone assessments (not embedded in a course)
+// are a no-op — there is no module to mark complete.
+func (s *Service) CompleteModuleForAssessment(ctx context.Context, orgID, userID, assessmentID string) (*rewards.AwardResult, error) {
+	module, err := s.repo.GetModuleByAssessmentID(ctx, orgID, assessmentID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	_, result, err := s.CompleteModule(ctx, userID, orgID, module.ID, module.CourseID)
+	return result, err
 }
 
 // GetModuleContent verifies access and returns module content + presigned URL when needed.

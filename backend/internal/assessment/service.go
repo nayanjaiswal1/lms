@@ -29,14 +29,26 @@ func NewService(repo *Repo, exec CodeExecutor, cfg *config.Config) *Service {
 
 // Business-rule errors distinct from data errors, mapped to 4xx by handlers.
 var (
-	ErrNotAssigned     = errors.New("assessment: not assigned to you")
-	ErrNotOpen         = errors.New("assessment: not open for attempts")
-	ErrNoAttemptsLeft  = errors.New("assessment: no attempts remaining")
-	ErrAttemptClosed   = errors.New("assessment: attempt already submitted")
-	ErrAttemptExpired  = errors.New("assessment: attempt time has expired")
-	ErrNotAttemptOwner = errors.New("assessment: attempt belongs to another user")
-	ErrNoQuestions     = errors.New("assessment: assessment has no questions")
+	ErrNotAssigned         = errors.New("assessment: not assigned to you")
+	ErrNotOpen             = errors.New("assessment: not open for attempts")
+	ErrNoAttemptsLeft      = errors.New("assessment: no attempts remaining")
+	ErrAttemptClosed       = errors.New("assessment: attempt already submitted")
+	ErrAttemptExpired      = errors.New("assessment: attempt time has expired")
+	ErrNotAttemptOwner     = errors.New("assessment: attempt belongs to another user")
+	ErrNoQuestions         = errors.New("assessment: assessment has no questions")
+	ErrNotCodingQuestion   = errors.New("assessment: question is not a coding question")
+	ErrExecutorUnavailable = errors.New("assessment: code execution is not available right now")
+	ErrSessionSuperseded   = errors.New("assessment: this session has been superseded by another device")
 )
+
+// checkSession verifies the caller's session token is still the attempt's
+// active one. It does not check ownership — callers must do that separately.
+func checkSession(att Attempt, sessionToken string) error {
+	if att.ActiveSessionToken == nil || *att.ActiveSessionToken != sessionToken {
+		return ErrSessionSuperseded
+	}
+	return nil
+}
 
 // ─── Lifecycle (staff) ───────────────────────────────────────────────────────
 
@@ -83,7 +95,9 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 		return Attempt{}, nil, Assessment{}, err
 	}
 
-	// Resume a live attempt if one exists.
+	// Resume a live attempt if one exists. Opening it here — from this device —
+	// rotates the session token, superseding whatever device previously held
+	// it (see RotateSessionToken).
 	if activeID, ok, err := s.repo.FindActiveAttempt(ctx, assessmentID, userID); err != nil {
 		return Attempt{}, nil, Assessment{}, err
 	} else if ok {
@@ -95,6 +109,11 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 		if err != nil {
 			return Attempt{}, nil, Assessment{}, err
 		}
+		token, err := s.repo.RotateSessionToken(ctx, activeAtt.ID)
+		if err != nil {
+			return Attempt{}, nil, Assessment{}, err
+		}
+		activeAtt.ActiveSessionToken = &token
 		return activeAtt, qs, a, nil
 	}
 
@@ -142,6 +161,11 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 	if err != nil {
 		return Attempt{}, nil, Assessment{}, err
 	}
+	token, err := s.repo.RotateSessionToken(ctx, att.ID)
+	if err != nil {
+		return Attempt{}, nil, Assessment{}, err
+	}
+	att.ActiveSessionToken = &token
 
 	views, err := buildStudentViews(questions, order, a.ShuffleOptions)
 	if err != nil {
@@ -169,6 +193,11 @@ func (s *Service) ResumeAttempt(ctx context.Context, orgID, userID, attemptID st
 	if err != nil {
 		return Attempt{}, nil, Assessment{}, err
 	}
+	token, err := s.repo.RotateSessionToken(ctx, att.ID)
+	if err != nil {
+		return Attempt{}, nil, Assessment{}, err
+	}
+	att.ActiveSessionToken = &token
 	return att, views, a, nil
 }
 
@@ -198,15 +227,19 @@ func (s *Service) attemptState(ctx context.Context, att Attempt, a Assessment) (
 	return buildStudentViews(questions, order, a.ShuffleOptions)
 }
 
-// SaveAnswer stores a draft answer for an in-flight, owned, non-expired attempt.
-// For subjective questions the caller passes transcript; for MCQ/coding, answer.
-func (s *Service) SaveAnswer(ctx context.Context, userID, attemptID, assessmentQuestionID string, answer json.RawMessage, transcript *string, timeSpent int) error {
+// SaveAnswer stores a draft answer for an in-flight, owned, non-expired attempt
+// opened by the device holding sessionToken. For subjective questions the
+// caller passes transcript; for MCQ/coding, answer.
+func (s *Service) SaveAnswer(ctx context.Context, userID, attemptID, sessionToken, assessmentQuestionID string, answer json.RawMessage, transcript *string, timeSpent int) error {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
 		return err
 	}
 	if att.UserID != userID {
 		return ErrNotAttemptOwner
+	}
+	if err := checkSession(att, sessionToken); err != nil {
+		return err
 	}
 	if att.Status != AttemptInProgress {
 		return ErrAttemptClosed
@@ -217,10 +250,85 @@ func (s *Service) SaveAnswer(ctx context.Context, userID, attemptID, assessmentQ
 	return s.repo.SaveAnswer(ctx, attemptID, assessmentQuestionID, answer, transcript, timeSpent)
 }
 
-// Submit grades every answer and finalizes the attempt. autoSubmitted marks a
-// proctoring-forced submission. Returns needsEval=true when the attempt contains
-// subjective answers — the caller must enqueue an eval job and return 202.
-func (s *Service) Submit(ctx context.Context, orgID, userID, attemptID string, autoSubmitted bool) (Attempt, bool, error) {
+// RunSample executes a student's in-progress code against only the non-hidden
+// (sample) test cases of a coding question, for pre-submit feedback. It never
+// runs hidden cases and never affects grading — final scoring still happens
+// exclusively in Submit via gradeCoding.
+func (s *Service) RunSample(ctx context.Context, userID, attemptID, sessionToken, assessmentQuestionID, language, code string) (RunResult, error) {
+	att, err := s.repo.GetAttempt(ctx, attemptID)
+	if err != nil {
+		return RunResult{}, err
+	}
+	if att.UserID != userID {
+		return RunResult{}, ErrNotAttemptOwner
+	}
+	if err := checkSession(att, sessionToken); err != nil {
+		return RunResult{}, err
+	}
+	if att.Status != AttemptInProgress {
+		return RunResult{}, ErrAttemptClosed
+	}
+	if att.ExpiresAt != nil && time.Now().After(*att.ExpiresAt) {
+		return RunResult{}, ErrAttemptExpired
+	}
+
+	aqc, err := s.repo.GetAttemptQuestionContent(ctx, attemptID, assessmentQuestionID)
+	if err != nil {
+		return RunResult{}, err
+	}
+	if aqc.Type != QuestionTypeCoding {
+		return RunResult{}, ErrNotCodingQuestion
+	}
+	if !s.exec.Available() {
+		return RunResult{}, ErrExecutorUnavailable
+	}
+
+	var c CodingContent
+	if err := json.Unmarshal(aqc.Content, &c); err != nil {
+		return RunResult{}, fmt.Errorf("assessment: decode coding content: %w", err)
+	}
+
+	// Only non-hidden cases are ever run here — hidden cases stay server-side
+	// and are only exercised during final grading in Submit.
+	sampleOnly := c
+	sampleOnly.TestCases = make([]TestCase, 0, len(c.TestCases))
+	for _, tc := range c.TestCases {
+		if !tc.Hidden {
+			sampleOnly.TestCases = append(sampleOnly.TestCases, tc)
+		}
+	}
+	if len(sampleOnly.TestCases) == 0 {
+		return RunResult{}, fmt.Errorf("assessment: question has no sample test cases to run against")
+	}
+
+	runCtx, cancel := runDeadline(ctx, s.cfg.Judge0Timeout)
+	defer cancel()
+	return s.exec.Run(runCtx, language, code, sampleOnly)
+}
+
+// Submit is the student-facing entry point: it verifies the caller still
+// holds the attempt's active device session before grading. System-triggered
+// submissions (expiry reaper, proctoring auto-submit) have no device session
+// to check and call finalizeSubmit directly instead.
+func (s *Service) Submit(ctx context.Context, orgID, userID, attemptID, sessionToken string) (Attempt, bool, error) {
+	att, err := s.repo.GetAttempt(ctx, attemptID)
+	if err != nil {
+		return Attempt{}, false, err
+	}
+	if att.UserID != userID {
+		return Attempt{}, false, ErrNotAttemptOwner
+	}
+	if err := checkSession(att, sessionToken); err != nil {
+		return Attempt{}, false, err
+	}
+	return s.finalizeSubmit(ctx, orgID, userID, attemptID, false)
+}
+
+// finalizeSubmit grades every answer and finalizes the attempt. autoSubmitted
+// marks a proctoring-forced or expiry-forced submission. Returns
+// needsEval=true when the attempt contains subjective answers — the caller
+// must enqueue an eval job and return 202.
+func (s *Service) finalizeSubmit(ctx context.Context, orgID, userID, attemptID string, autoSubmitted bool) (Attempt, bool, error) {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
 		return Attempt{}, false, err
@@ -414,13 +522,16 @@ func srsBack(ans AnswerRow) string {
 // RecordEvent appends a proctoring signal and, when a hard cap is breached and
 // auto-submit is enabled, force-submits the attempt. Returns whether the attempt
 // was force-submitted so the client can react.
-func (s *Service) RecordEvent(ctx context.Context, orgID, userID, attemptID, eventType, severity string, metadata json.RawMessage, clientTS *time.Time) (bool, error) {
+func (s *Service) RecordEvent(ctx context.Context, orgID, userID, attemptID, sessionToken, eventType, severity string, metadata json.RawMessage, clientTS *time.Time) (bool, error) {
 	att, err := s.repo.GetAttempt(ctx, attemptID)
 	if err != nil {
 		return false, err
 	}
 	if att.UserID != userID {
 		return false, ErrNotAttemptOwner
+	}
+	if err := checkSession(att, sessionToken); err != nil {
+		return false, err
 	}
 	if att.Status != AttemptInProgress {
 		return false, nil // ignore late events on a closed attempt
@@ -442,7 +553,9 @@ func (s *Service) RecordEvent(ctx context.Context, orgID, userID, attemptID, eve
 		return false, err
 	}
 	if breachedHardCap(a.Proctoring, tally) {
-		if _, _, err := s.Submit(ctx, orgID, userID, attemptID, true); err != nil {
+		// This device already proved it holds the active session above —
+		// finalizeSubmit skips the (now redundant) session check.
+		if _, _, err := s.finalizeSubmit(ctx, orgID, userID, attemptID, true); err != nil {
 			return false, err
 		}
 		return true, nil

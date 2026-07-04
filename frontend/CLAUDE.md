@@ -344,6 +344,7 @@ Run `pnpm lint:strict` for zero-warning enforcement. CI must run this, not `next
 | Missing aria-label on icon buttons | `jsx-a11y` | **error** |
 | `any` type | `typescript-eslint` strict | **error** |
 | Non-null assertion `!` | `typescript-eslint` strict | **error** |
+| Cross-feature import outside `components/shared/`, `lib/server/`, or an explicit allow-listed edge | `eslint-plugin-boundaries` | **error** |
 
 **When you must disable a rule**, use an inline comment with a reason:
 ```tsx
@@ -455,6 +456,14 @@ You never write `text-4xl font-bold tracking-tight` on an `<h1>` in a component 
 
 ---
 
+## Feature-Based Organization
+
+Components, routes, and data logic are organized by feature, not by type — `components/<feature>/`, `app/(app)/<feature>/`, `lib/<feature>/` (e.g. `courses/`, `labs/`, `rewards/`, `assessments/`). Only promote a component to `components/shared/` when an *unrelated* feature reuses it (see below) — never place new components in a type-based folder like `components/cards/` or `components/modals/`.
+
+**This is enforced automatically** by `eslint-plugin-boundaries` in `eslint.config.mjs` — a feature may only import `components/ui/`, `components/shared/`, cross-cutting `lib/` files, or its own feature folder. A genuinely deliberate cross-feature integration (e.g. courses embedding a labs widget) must be added as an explicit allow-listed edge in the `boundaries/dependencies` rule config, with a comment explaining why — it is not something to work around by importing directly.
+
+---
+
 ## Shared Components (`components/shared/`)
 
 | Component | File | Notes |
@@ -520,6 +529,7 @@ You never write `text-4xl font-bold tracking-tight` on an `<h1>` in a component 
 - Fetch in **Server Components** by default — pass data down as props
 - Loading and error states use `<Suspense>` + `error.tsx` boundaries — no `isLoading` booleans
 - Use shadcn `<Skeleton>` for loading placeholders — no spinners
+- Hand-author skeleton shapes per route in `loading.tsx` — do not add Boneyard or similar auto-generated-skeleton tooling; the manual `<Skeleton>` + `loading.tsx` pattern already covers all routes with no extra build-step dependency
 - Mutations use **server actions** — no manual `fetch` calls in components
 - Server action naming: `<verb><Noun>Action` — e.g. `createCourseAction`, `deleteCardAction`
 - Action errors are returned as state — never thrown to the client

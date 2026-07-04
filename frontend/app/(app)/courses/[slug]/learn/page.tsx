@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getCourses, getCourseTree } from "@/lib/server/courses";
+import { getCourses, getCourseProgress, getCourseTree } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -13,12 +13,17 @@ export default async function CourseLearnIndexPage({ params }: Props) {
   const course = courses.find((c) => c.slug === slug);
   if (!course) notFound();
 
-  const tree = await getCourseTree(course.id).catch(() => null);
-  const firstModule = tree?.sections?.[0]?.modules?.[0];
+  const [tree, progress] = await Promise.all([
+    getCourseTree(course.id).catch(() => null),
+    getCourseProgress(course.id).catch(() => null),
+  ]);
+  const allModules = tree?.sections?.flatMap((s) => s.modules) ?? [];
+  if (allModules.length === 0) notFound();
 
-  if (firstModule) {
-    redirect(ROUTES.courseLearnModule(slug, firstModule.id));
-  }
+  const completedIDs = new Set(
+    (progress?.modules ?? []).filter((p) => p.status === "completed").map((p) => p.module_id),
+  );
+  const resumeModule = allModules.find((m) => !completedIDs.has(m.id)) ?? allModules[allModules.length - 1];
 
-  notFound();
+  redirect(ROUTES.courseLearnModule(slug, resumeModule.id));
 }

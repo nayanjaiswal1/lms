@@ -26,6 +26,8 @@ export const PERMISSIONS = {
     CHAT:            "mentoring.chat",
     MANAGE_BATCHES:  "mentoring.manage_batches",
     VIEW_STUDENTS:   "mentoring.view_students",
+    ASSIGN_TICKETS:  "mentoring.assign_tickets",
+    MANAGE_REPORTS:  "mentoring.manage_reports",
   },
   CONTENT: {
     WIKI:            "content.wiki",

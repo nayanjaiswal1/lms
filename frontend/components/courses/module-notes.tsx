@@ -1,23 +1,24 @@
-import { marked } from "marked";
-import { updateProgressAction } from "@/lib/courses/actions";
-import { RewardResultNotifier } from "@/components/rewards/reward-result-notifier";
+import { ModuleCompleteButton } from "@/components/courses/module-complete-button";
 
 interface ModuleNotesProps {
   moduleId: string;
   title: string;
-  body: string;
+  html: string;
+  initialCompleted: boolean;
 }
 
-export async function ModuleNotes({ moduleId, title, body }: ModuleNotesProps) {
-  const result = await updateProgressAction({ moduleID: moduleId, status: "completed" });
-  const rewards = result.ok ? (result.data?.rewards ?? null) : null;
-
-  const html = await marked.parse(body, { async: false, gfm: true });
-
+export function ModuleNotes({ moduleId, title, html, initialCompleted }: ModuleNotesProps) {
   return (
     <article className="flex flex-col gap-4">
-      <RewardResultNotifier result={rewards} />
-      <h2 className="text-xl font-semibold">{title}</h2>
+      {/* Visually hidden: the module title is already shown in the course
+          sidebar rail (desktop) and the mobile drawer subheader, so showing
+          it a third time here was pure duplication. Kept for screen readers
+          and document outline. */}
+      <h2 className="sr-only">{title}</h2>
+      <div className="flex justify-end">
+        {/* At xl+ this button moves into the ModuleProgressRail instead. */}
+        <ModuleCompleteButton className="xl:hidden" initialCompleted={initialCompleted} moduleId={moduleId} />
+      </div>
       <div className="card-base p-6">
         <div
           className="prose-content"

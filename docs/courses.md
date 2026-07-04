@@ -1,0 +1,177 @@
+# Courses
+
+Course structure, lifecycle, and student progress tracking. A course is a tree: **course → sections → modules**. A module is the atomic unit of content — one of five types, each with different content storage.
+
+---
+
+## Module Types
+
+| Type | Content storage | Notes |
+|---|---|---|
+| `video` | `storage_key` (MinIO object) + `duration_seconds` | Streamed via a signed URL |
+| `pdf` | `storage_key` (MinIO object) | Rendered client-side |
+| `notes` | `content_body` (markdown, inline in the row) | Rendered via `frontend/lib/courses/markdown.ts` (`marked`, GFM, heading-derived TOC) |
+| `assessment` | `assessment_id` → `assessments` table | Quiz/test content lives in the assessment domain, not on the module row |
+| `lab` | none of the above — no `content_body`, no `storage_key` | Content comes from the linked `lab_definitions` row, fetched separately via `GET /api/modules/{moduleID}/lab` (see `docs/labs.md`) |
+
+A `lab` module is **never created through `POST /api/sections/{sectionID}/modules`** — `CreateModule` only accepts `video`/`pdf`/`notes`/`assessment`. Lab modules are inserted directly (by the labs domain's fixture generator or, in the live product, its own instructor-authoring flow) with `type='lab'` and no `content_body`/`storage_key`; `UpdateModule` still recognizes `lab` so an existing lab module's title/position stays editable through the generic course editor. See `backend/internal/courses/models.go`'s `ModuleTypeLab` constant for the exact wiring note.
+
+---
+
+## Database Schema
+
+```sql
+CREATE TABLE courses (
+  id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  creator_id      UUID         NOT NULL REFERENCES users(id)         ON DELETE RESTRICT,
+  title           TEXT         NOT NULL CHECK (length(title) BETWEEN 3 AND 200),
+  slug            TEXT         NOT NULL,
+  description     TEXT         CHECK (length(description) <= 2000),
+  cover_url       TEXT,
+  difficulty      TEXT         NOT NULL DEFAULT 'beginner'
+                               CHECK (difficulty IN ('beginner', 'intermediate', 'advanced', 'expert')), -- 'expert' added in 009
+  tags            TEXT[]       NOT NULL DEFAULT '{}',
+  status          TEXT         NOT NULL DEFAULT 'draft'
+                               CHECK (status IN ('draft', 'review', 'published', 'archived')),
+  forked_from_id  UUID         REFERENCES courses(id) ON DELETE SET NULL,
+  price_cents     INT          NOT NULL DEFAULT 0 CHECK (price_cents >= 0),
+  is_free         BOOLEAN      NOT NULL DEFAULT true,
+  estimated_hours NUMERIC(5,1) CHECK (estimated_hours > 0),
+  created_at      TIMESTAMPTZ  DEFAULT now(),
+  updated_at      TIMESTAMPTZ  DEFAULT now(),
+  UNIQUE (org_id, slug)
+);
+
+CREATE TABLE course_sections (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id  UUID        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  title      TEXT        NOT NULL CHECK (length(title) BETWEEN 1 AND 200),
+  position   INT         NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (course_id, position) DEFERRABLE INITIALLY DEFERRED -- lets a full reorder batch-insert without a temporary collision
+);
+
+CREATE TABLE course_modules (
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id         UUID        NOT NULL REFERENCES courses(id)         ON DELETE CASCADE,
+  section_id        UUID        NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
+  title             TEXT        NOT NULL CHECK (length(title) BETWEEN 1 AND 200),
+  type              TEXT        NOT NULL
+                                CHECK (type IN ('video', 'pdf', 'notes', 'assessment', 'lab')), -- 'lab' added in 009
+  position          INT         NOT NULL DEFAULT 0,
+  is_free_preview   BOOLEAN     NOT NULL DEFAULT false,
+  storage_key       TEXT,
+  duration_seconds  INT         CHECK (duration_seconds > 0),
+  content_body      TEXT,
+  assessment_id     UUID        REFERENCES assessments(id) ON DELETE SET NULL,
+  estimated_minutes INT         CHECK (estimated_minutes > 0),
+  created_at        TIMESTAMPTZ DEFAULT now(),
+  updated_at        TIMESTAMPTZ DEFAULT now(),
+  deleted_at        TIMESTAMPTZ, -- soft delete
+  UNIQUE (section_id, position) DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE TABLE enrollments (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID        NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
+  course_id    UUID        NOT NULL REFERENCES courses(id)  ON DELETE CASCADE,
+  batch_id     UUID        REFERENCES batches(id)           ON DELETE SET NULL,
+  enrolled_by  UUID        REFERENCES users(id)             ON DELETE SET NULL,
+  enrolled_at  TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ,
+  UNIQUE (user_id, course_id)
+);
+
+CREATE TABLE module_progress (
+  id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               UUID        NOT NULL REFERENCES users(id)          ON DELETE CASCADE,
+  module_id             UUID        NOT NULL REFERENCES course_modules(id) ON DELETE CASCADE,
+  course_id             UUID        NOT NULL REFERENCES courses(id)        ON DELETE CASCADE,
+  status                TEXT        NOT NULL DEFAULT 'not_started'
+                                    CHECK (status IN ('not_started', 'in_progress', 'completed')),
+  last_position_seconds INT         DEFAULT 0, -- video/PDF scroll resume position
+  completed_at          TIMESTAMPTZ,
+  updated_at            TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (user_id, module_id)
+);
+
+CREATE TABLE course_reviews (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id  UUID        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  rating     INT         NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (course_id, user_id) -- one review per user per course; resubmitting updates it
+);
+```
+
+---
+
+## Lifecycle
+
+```
+draft → review → published → archived
+```
+
+An instructor authors a course as `draft`, builds out sections/modules, then `POST /api/courses/{courseID}/publish` moves it to `published` (the exact `review` transition, if used, is org-workflow-specific — not enforced by a DB constraint beyond the allowed status set). Students can only enroll in `published` courses. `ForkCourse` clones a published course (`forked_from_id` traces lineage) so an instructor can adapt someone else's course without touching the original.
+
+---
+
+## Fork
+
+`POST /api/courses/{courseID}/fork` deep-copies a course's sections and modules into a new course owned by the caller, with `forked_from_id` set to the source course's id. Lab modules fork as references to the same `lab_definitions` row (labs are not deep-copied) — forking a course with labs does not duplicate lab content.
+
+---
+
+## API
+
+### Instructor (requires `admin` or `instructor` org role)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/courses` | Create a course (`draft` status) |
+| `PATCH` | `/api/courses/{courseID}` | Update course metadata |
+| `POST` | `/api/courses/{courseID}/publish` | Publish |
+| `DELETE` | `/api/courses/{courseID}` | Delete |
+| `POST` | `/api/courses/{courseID}/fork` | Fork a course |
+| `POST` | `/api/courses/{courseID}/sections` | Add a section |
+| `PUT` | `/api/courses/{courseID}/sections/order` | Reorder sections |
+| `PATCH` | `/api/sections/{sectionID}` | Update a section |
+| `DELETE` | `/api/sections/{sectionID}` | Delete a section |
+| `POST` | `/api/sections/{sectionID}/modules` | Add a module — `video`/`pdf`/`notes`/`assessment` only, never `lab` |
+| `PUT` | `/api/sections/{sectionID}/modules/order` | Reorder modules within a section |
+| `PATCH` | `/api/modules/{moduleID}` | Update a module (works for `lab` modules too — title/position only, not content) |
+| `DELETE` | `/api/modules/{moduleID}` | Delete a module |
+| `POST` | `/api/upload` | Upload a course asset (video/PDF) |
+| `POST` | `/api/upload/course-asset` | Get a signed upload URL |
+| `POST` | `/api/courses/generate-outline` | AI-generated course outline draft |
+
+### Staff + Mentor
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/courses/{courseID}/progress` | All-students progress overview |
+
+### All authenticated users
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/courses` | List/browse courses |
+| `GET` | `/api/courses/{courseID}` | Course detail (tree of sections + modules) |
+| `POST` | `/api/courses/{courseID}/enroll` | Enroll |
+| `GET` | `/api/enrollments/me` | My enrollments |
+| `POST` | `/api/courses/{courseID}/reviews` | Submit/update my star rating |
+| `GET` | `/api/courses/{courseID}/reviews/me` | My review for this course |
+| `GET` | `/api/modules/{moduleID}` | Module content (for `lab` modules, use `GET /api/modules/{moduleID}/lab` instead — see `docs/labs.md`) |
+| `PATCH` | `/api/modules/{moduleID}/progress` | Update my progress on a module (video position, mark complete) |
+| `GET` | `/api/courses/{courseID}/progress/me` | My aggregate + per-module progress |
+
+---
+
+## Module Completion
+
+`module_progress` tracks per-user, per-module status (`not_started`/`in_progress`/`completed`). For `video`/`pdf`/`notes` modules the student (or the frontend, on scroll/watch-complete) calls `PATCH /api/modules/{moduleID}/progress` directly. For `assessment` and `lab` modules, completion is driven by the owning domain instead — an assessment attempt passing, or a lab session reaching `status='completed'` (see `docs/labs.md`'s "Task Verification" section, `finalizeTaskPass` → `coursesSvc.CompleteModule`) calls into the courses domain to mark the module complete, rather than the student calling the progress endpoint themselves.
+
+`CourseProgressSummary` (`GET /api/courses/{courseID}/progress/me`) aggregates `completed`/`total`/`pct` across every module in the course plus the raw per-module rows, so the frontend can render completion badges and resume-at-the-right-module navigation without a second query.

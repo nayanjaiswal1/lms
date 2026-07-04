@@ -1,7 +1,7 @@
 "use client";
 
 import { updateProgressAction } from "@/lib/courses/actions";
-import { showRewardToasts } from "@/components/rewards/reward-toast";
+import { showRewardToasts } from "@/components/shared/reward-toast";
 
 interface ModulePDFProps {
   moduleId: string;

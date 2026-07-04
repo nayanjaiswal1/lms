@@ -13,17 +13,19 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/shared/stat-card";
 import { XPProgressBar } from "@/components/rewards/xp-progress-bar";
+import { LeaderboardTable } from "@/components/rewards/leaderboard-table";
+import { CourseCard } from "@/components/courses/course-card";
 import ROUTES from "@/lib/routes";
 import { getEnrollments, getCourseProgress } from "@/lib/server/courses";
-import { getMyAssessments } from "@/lib/server/assessments";
-import { fetchMyProfile } from "@/lib/server/profile";
-import { getMyRewardProfile } from "@/lib/server/rewards";
+import { getMyAssessments } from "@/lib/assessments/server";
+import { fetchMyProfile } from "@/lib/profile/server";
+import { getMyRewardProfile, getLeaderboard, getMyRank } from "@/lib/server/rewards";
 import { getDueCards } from "@/lib/server/srs";
 import type { Enrollment, CourseProgressSummary } from "@/lib/server/courses";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 import type { Profile } from "@/lib/profile/types";
-import type { UserRewardProfile } from "@/lib/server/rewards";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -117,6 +119,20 @@ async function fetchProfileData(): Promise<Profile | null> {
   }
 }
 
+const DASHBOARD_LEADERBOARD_SIZE = 5;
+
+async function fetchLeaderboardPreview() {
+  const [leaderboard, myRank] = await Promise.all([
+    getLeaderboard("global", undefined, undefined, DASHBOARD_LEADERBOARD_SIZE, 0),
+    getMyRank("global"),
+  ]);
+
+  return {
+    entries: leaderboard?.entries ?? [],
+    myRank: myRank && myRank.rank > 0 ? myRank.rank : undefined,
+  };
+}
+
 function formatDueDate(endsAt: string | null): string {
   if (!endsAt) return "No due date";
   const date = new Date(endsAt);
@@ -138,12 +154,13 @@ export default async function DashboardPage() {
 
   const firstName = user.name.split(" ")[0];
 
-  const [coursesWithProgress, upcomingAssessments, profile, dueCardsResult, rewardProfile] = await Promise.all([
+  const [coursesWithProgress, upcomingAssessments, profile, dueCardsResult, rewardProfile, leaderboardPreview] = await Promise.all([
     fetchEnrolledCoursesWithProgress(),
     fetchUpcomingAssessments(),
     fetchProfileData(),
     getDueCards().catch(() => ({ cards: [], total: 0 })),
     getMyRewardProfile(),
+    fetchLeaderboardPreview(),
   ]);
 
   const streak = profile?.stats?.current_streak_days ?? 0;
@@ -187,214 +204,147 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* XP progress widget */}
-      {rewardProfile && (
-        <section className="mb-8">
-          <div className="card-base flex flex-col gap-4 p-5">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-sm font-semibold">Your Progress</h2>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Main column */}
+        <div className="lg:col-span-2">
+          {/* Enrolled courses */}
+          <section className="mb-8">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="section-title">Your courses</h2>
               <Link
-                href={ROUTES.LEADERBOARD}
-                className="flex items-center gap-1 text-xs text-primary hover:underline"
+                href={ROUTES.COURSES}
+                className="flex items-center gap-1 text-sm text-primary hover:underline"
               >
-                Leaderboard <ArrowRight className="h-3 w-3" aria-hidden />
+                View all <ArrowRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
             </div>
-            <XPProgressBar totalXP={rewardProfile.total_xp} level={rewardProfile.level} />
-            {rewardProfile.achievements.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {rewardProfile.achievements.slice(0, 5).map((a) => (
-                  <span
-                    key={a.id}
-                    title={a.definition.description}
-                    className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
-                  >
-                    {a.definition.icon} {a.definition.name}
-                  </span>
+
+            {coursesWithProgress.length === 0 ? (
+              <div className="empty-state">
+                <BookOpen aria-hidden className="h-10 w-10 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  You haven&apos;t enrolled in any courses yet.
+                </p>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={ROUTES.COURSES}>Browse courses</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {coursesWithProgress.map(({ enrollment, progress }) => (
+                  <CourseCard
+                    key={enrollment.id}
+                    course={enrollment.course}
+                    enrolled
+                    progressPct={Math.round(progress?.pct ?? 0)}
+                    href={ROUTES.courseLearn(enrollment.course.slug)}
+                  />
                 ))}
-                {rewardProfile.achievements.length > 5 && (
-                  <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    +{rewardProfile.achievements.length - 5} more
-                  </span>
-                )}
               </div>
             )}
-          </div>
-        </section>
-      )}
+          </section>
 
-      {/* Enrolled courses */}
-      <section className="mb-8">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="section-title">Your courses</h2>
-          <Link
-            href={ROUTES.COURSES}
-            className="flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            View all <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
+          {/* Upcoming assessments */}
+          <section>
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 className="section-title">Upcoming assessments</h2>
+              <Link
+                href={ROUTES.ASSESSMENTS}
+                className="flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                View all <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            </div>
+
+            {upcomingAssessments.length === 0 ? (
+              <div className="empty-state">
+                <Calendar aria-hidden className="h-10 w-10 text-muted-foreground" />
+                <p className="text-muted-foreground">No upcoming assessments right now.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {upcomingAssessments.map((assessment) => (
+                  <AssessmentRow key={assessment.id} assessment={assessment} />
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
-        {coursesWithProgress.length === 0 ? (
-          <div className="empty-state">
-            <BookOpen aria-hidden className="h-10 w-10 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              You haven&apos;t enrolled in any courses yet.
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link href={ROUTES.COURSES}>Browse courses</Link>
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {coursesWithProgress.map(({ enrollment, progress }) => (
-              <CourseCard
-                key={enrollment.id}
-                enrollment={enrollment}
-                progress={progress}
+        {/* Right rail */}
+        <aside className="flex flex-col gap-8 lg:col-span-1">
+          {/* XP progress widget */}
+          {rewardProfile && (
+            <section className="card-base flex flex-col gap-4 p-5">
+              <h2 className="text-sm font-semibold">Your Progress</h2>
+              <XPProgressBar totalXP={rewardProfile.total_xp} level={rewardProfile.level} />
+              {rewardProfile.achievements.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {rewardProfile.achievements.slice(0, 5).map((a) => (
+                    <span
+                      key={a.id}
+                      title={a.definition.description}
+                      className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
+                    >
+                      {a.definition.icon} {a.definition.name}
+                    </span>
+                  ))}
+                  {rewardProfile.achievements.length > 5 && (
+                    <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      +{rewardProfile.achievements.length - 5} more
+                    </span>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Leaderboard */}
+          {leaderboardPreview.entries.length > 0 && (
+            <section>
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <h2 className="text-sm font-semibold">Leaderboard</h2>
+                <Link
+                  href={ROUTES.LEADERBOARD}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  View all <ArrowRight className="h-3 w-3" aria-hidden />
+                </Link>
+              </div>
+              <LeaderboardTable
+                entries={leaderboardPreview.entries}
+                myUserID={user.id}
+                myRank={leaderboardPreview.myRank}
               />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Upcoming assessments */}
-      <section className="mb-8">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="section-title">Upcoming assessments</h2>
-          <Link
-            href={ROUTES.ASSESSMENTS}
-            className="flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            View all <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        </div>
-
-        {upcomingAssessments.length === 0 ? (
-          <div className="empty-state">
-            <Calendar aria-hidden className="h-10 w-10 text-muted-foreground" />
-            <p className="text-muted-foreground">No upcoming assessments right now.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {upcomingAssessments.map((assessment) => (
-              <AssessmentRow key={assessment.id} assessment={assessment} />
-            ))}
-          </div>
-        )}
-      </section>
+            </section>
+          )}
+        </aside>
+      </div>
     </main>
   );
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-interface StatCardProps {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  unit: string;
-  highlighted?: boolean;
-  muted?: boolean;
-  href?: string;
-}
-
-function StatCard({ icon: Icon, label, value, unit, highlighted = false, muted = false, href }: StatCardProps) {
-  const inner = (
-    <>
-      <span
-        className={`flex h-9 w-9 items-center justify-center rounded-md ${
-          highlighted ? "bg-primary/10" : "bg-muted"
-        }`}
-      >
-        <Icon
-          aria-hidden
-          className={`h-5 w-5 ${highlighted ? "text-primary" : "text-muted-foreground"}`}
-        />
-      </span>
-      <div className="flex flex-col gap-0.5">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`text-2xl font-bold tabular-nums ${muted ? "text-muted-foreground" : ""}`}>
-          {value}
-        </p>
-        <p className="text-xs text-muted-foreground">{unit}</p>
-      </div>
-    </>
-  );
-
-  if (href) {
-    return (
-      <Link href={href} className="card-interactive flex flex-col gap-3 p-5">
-        {inner}
-      </Link>
-    );
-  }
-
-  return (
-    <div className="card-base flex flex-col gap-3 p-5">
-      {inner}
-    </div>
-  );
-}
-
-interface CourseCardProps {
-  enrollment: Enrollment;
-  progress: CourseProgressSummary | null;
-}
-
-function CourseCard({ enrollment, progress }: CourseCardProps) {
-  const pct = progress?.pct ?? 0;
-  const completed = progress?.completed ?? 0;
-  const total = progress?.total ?? 0;
-
-  return (
-    <Link
-      href={ROUTES.courseLearn(enrollment.course.slug)}
-      className="card-interactive flex flex-col gap-4 p-5"
-    >
-      <div className="flex flex-col gap-1">
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
-          {enrollment.course.title}
-        </h3>
-        {enrollment.course.difficulty && (
-          <span className={`difficulty-${enrollment.course.difficulty} self-start text-xs`}>
-            {enrollment.course.difficulty}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-auto flex flex-col gap-1.5">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{completed} / {total} modules</span>
-          <span className="font-medium tabular-nums">{Math.round(pct)}%</span>
-        </div>
-        <div className="progress-track h-1.5">
-          {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width requires inline style */}
-          <div
-            className="progress-fill h-full bg-primary"
-            style={{ width: `${pct}%` }}
-            aria-hidden
-          />
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 interface AssessmentRowProps {
   assessment: AssignedAssessment;
+}
+
+function assessmentHref(assessment: AssignedAssessment): string | null {
+  if (assessment.active_attempt_id) return ROUTES.assessmentTake(assessment.id);
+  if (assessment.evaluating_attempt_id) return ROUTES.assessmentResult(assessment.evaluating_attempt_id);
+  if (assessment.attempts_used < assessment.max_attempts) return ROUTES.assessmentTake(assessment.id);
+  return null;
 }
 
 function AssessmentRow({ assessment }: AssessmentRowProps) {
   const dueDateLabel = formatDueDate(assessment.ends_at);
   const isOverdue = assessment.ends_at && new Date(assessment.ends_at) < new Date();
   const attemptsLeft = assessment.max_attempts - assessment.attempts_used;
+  const href = assessmentHref(assessment);
 
-  return (
-    <Link
-      href={ROUTES.assessment(assessment.id)}
-      className="card-interactive flex items-center gap-4 p-4"
-    >
+  const content = (
+    <>
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
         <ClipboardCheck aria-hidden className="h-5 w-5 text-primary" />
       </span>
@@ -416,6 +366,20 @@ function AssessmentRow({ assessment }: AssessmentRowProps) {
           <ArrowRight className="h-4 w-4" />
         </span>
       </Button>
+    </>
+  );
+
+  if (!href) {
+    return (
+      <div className="card-base flex items-center gap-4 p-4 opacity-60">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link href={href} className="card-interactive flex items-center gap-4 p-4">
+      {content}
     </Link>
   );
 }

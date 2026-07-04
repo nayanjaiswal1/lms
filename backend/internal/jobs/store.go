@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -232,8 +233,8 @@ func ClaimOne(ctx context.Context, pool *pgxpool.Pool, workerID string) (*Claime
 
 // InsertJobRun records a new job_runs row for the current attempt.
 // Returns the generated run ID.
-func InsertJobRun(ctx context.Context, pool *pgxpool.Pool, jobID, workerID string, attempt int) (string, error) {
-	var runID string
+func InsertJobRun(ctx context.Context, pool *pgxpool.Pool, jobID, workerID string, attempt int) (int64, error) {
+	var runID int64
 	err := pool.QueryRow(ctx,
 		`INSERT INTO job_runs (job_id, status, attempt, worker_id, started_at)
 		 VALUES ($1, 'running', $2, $3, NOW())
@@ -241,13 +242,13 @@ func InsertJobRun(ctx context.Context, pool *pgxpool.Pool, jobID, workerID strin
 		jobID, attempt, workerID,
 	).Scan(&runID)
 	if err != nil {
-		return "", fmt.Errorf("jobs.InsertJobRun: %w", err)
+		return 0, fmt.Errorf("jobs.InsertJobRun: %w", err)
 	}
 	return runID, nil
 }
 
 // Heartbeat refreshes the heartbeat timestamp for a running job_run.
-func Heartbeat(ctx context.Context, pool *pgxpool.Pool, runID string) error {
+func Heartbeat(ctx context.Context, pool *pgxpool.Pool, runID int64) error {
 	_, err := pool.Exec(ctx,
 		`UPDATE job_runs SET heartbeat_at = NOW() WHERE id = $1 AND status = 'running'`,
 		runID,
@@ -259,7 +260,7 @@ func Heartbeat(ctx context.Context, pool *pgxpool.Pool, runID string) error {
 }
 
 // Complete marks a job and its run row as successfully finished.
-func Complete(ctx context.Context, pool *pgxpool.Pool, jobID, runID string, durationMS int) error {
+func Complete(ctx context.Context, pool *pgxpool.Pool, jobID string, runID int64, durationMS int) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("jobs.Complete: begin tx: %w", err)
@@ -294,8 +295,12 @@ func Complete(ctx context.Context, pool *pgxpool.Pool, jobID, runID string, dura
 }
 
 // Fail handles a job execution failure. If retries remain the job is re-queued
-// with exponential backoff; otherwise it is moved to dead status.
-func Fail(ctx context.Context, pool *pgxpool.Pool, jobID, runID string, jobErr error, durationMS int) error {
+// with exponential backoff; otherwise it is moved to dead status and, if a
+// DeadLetterHook is registered for this job's handler, the hook fires
+// asynchronously so the owning domain can react (see Registry.OnDead).
+// registry may be nil (e.g. in tests that don't exercise hooks) — dead-letter
+// notification is then simply skipped.
+func Fail(ctx context.Context, pool *pgxpool.Pool, registry *Registry, jobID string, runID int64, jobErr error, durationMS int) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("jobs.Fail: begin tx: %w", err)
@@ -303,16 +308,20 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, jobID, runID string, jobErr e
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	var retryCount, maxRetries int
+	var handler string
+	var payload json.RawMessage
+	var orgID *string
 	if err := tx.QueryRow(ctx,
-		`SELECT retry_count, max_retries FROM jobs WHERE id = $1`,
+		`SELECT retry_count, max_retries, handler, payload, org_id FROM jobs WHERE id = $1`,
 		jobID,
-	).Scan(&retryCount, &maxRetries); err != nil {
+	).Scan(&retryCount, &maxRetries, &handler, &payload, &orgID); err != nil {
 		return fmt.Errorf("jobs.Fail: fetch counts: %w", err)
 	}
 
 	errMsg := jobErr.Error()
+	wentDead := retryCount+1 >= maxRetries
 
-	if retryCount+1 < maxRetries {
+	if !wentDead {
 		// Exponential backoff: 2^retryCount * 2s, capped at 5 minutes.
 		backoffSeconds := 1 << retryCount * 2
 		const maxBackoffSeconds = 5 * 60
@@ -355,7 +364,28 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, jobID, runID string, jobErr e
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("jobs.Fail: commit: %w", err)
 	}
+
+	if wentDead && registry != nil {
+		if hook, ok := registry.getDeadHook(handler); ok {
+			job := Job{ID: jobID, Handler: handler, Payload: payload, OrgID: orgID}
+			go runDeadHook(hook, job)
+		}
+	}
 	return nil
+}
+
+// runDeadHook executes a DeadLetterHook on its own goroutine and timeout,
+// isolated from the job/worker lifecycle that triggered it — a hook that
+// panics or hangs must not affect the worker that called Fail.
+func runDeadHook(hook DeadLetterHook, job Job) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("jobs: dead hook panicked", "handler", job.Handler, "job_id", job.ID, "panic", r)
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	hook(ctx, job)
 }
 
 // Cancel transitions a pending or queued job to cancelled status.

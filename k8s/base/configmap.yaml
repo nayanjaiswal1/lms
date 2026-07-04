@@ -1,0 +1,64 @@
+# Non-secret configuration, shared across backend/labproxy/frontend via envFrom.
+# Real values for the prod overlay's domain/media/etc. are patched in
+# k8s/overlays/prod/kustomization.yaml — see that file's configMapGenerator
+# merge or a patch, whichever the overlay uses.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mindforge-config
+  namespace: mindforge
+data:
+  PORT: "8080"
+  ENV: "production"
+
+  ACCESS_TOKEN_TTL: "15m"
+  REFRESH_TOKEN_TTL: "720h"
+  PASSWORD_RESET_TTL: "30m"
+  EMAIL_VERIFICATION_TTL: "24h"
+
+  DEFAULT_ORG_ID: "00000000-0000-0000-0000-000000000001"
+
+  # Overridden per-cluster in the overlay — placeholders here so `kustomize
+  # build` on the base alone still renders valid YAML.
+  DOMAIN: "app.yourdomain.com"
+  FRONTEND_URL: "https://app.yourdomain.com"
+  BACKEND_URL: "http://backend:8080"
+  NEXT_PUBLIC_API_URL: "https://app.yourdomain.com"
+  NEXT_PUBLIC_APP_URL: "https://app.yourdomain.com"
+  NEXT_PUBLIC_MEDIA_URL: "https://app.yourdomain.com"
+  NEXT_PUBLIC_LAB_PROXY_URL: "wss://app.yourdomain.com/lab-ws"
+
+  # Object storage (MinIO) — internal endpoint is the in-cluster Service name;
+  # public endpoint must match DOMAIN so presigned URL signatures verify once
+  # proxied through the Ingress (see ingress.yaml's bucket-path rule).
+  MINIO_ENDPOINT: "minio:9000"
+  MINIO_PUBLIC_ENDPOINT: "app.yourdomain.com"
+  MINIO_BUCKET: "mindforge"
+  MINIO_USE_SSL: "false"
+  MINIO_PUBLIC_USE_SSL: "true"
+
+  # Code execution — in-cluster Piston by default (piston.yaml runs in the
+  # mindforge-labs namespace, hence the cross-namespace Service DNS name).
+  # Point at an external instance instead (no code change needed) if this
+  # cluster's Pod Security Admission forbids privileged Pods and piston.yaml
+  # can't run here.
+  PISTON_URL: "http://piston.mindforge-labs.svc.cluster.local:2000"
+  PISTON_TIMEOUT: "30s"
+
+  # Lab sandboxes run as Pods in mindforge-labs via the Kubernetes API
+  # (internal/labs/runtime_kubernetes.go) instead of the Docker CLI.
+  LABS_RUNTIME: "kubernetes"
+  LABS_K8S_NAMESPACE: "mindforge-labs"
+  LABPROXY_PORT: "8081"
+  LABPROXY_JWT_ISSUER: "mindforge-labproxy"
+
+  # AI provider — disabled by default; set LLM_PROVIDER + LLM_API_KEY (in the
+  # Secret) to enable course generation / revision plans / hints.
+  LLM_PROVIDER: "disabled"
+  LLM_MODEL: "claude-sonnet-4-6"
+  LLM_BASE_URL: ""
+  LLM_TIMEOUT: "30s"
+
+  SMTP_HOST: "smtp.postmarkapp.com"
+  SMTP_PORT: "587"
+  EMAIL_FROM: "noreply@yourdomain.com"

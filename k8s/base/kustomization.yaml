@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres.yaml
+  - redis.yaml
+  - minio.yaml
+  - piston.yaml
+  - backend.yaml
+  - labproxy.yaml
+  - frontend.yaml
+  - networkpolicy-labs.yaml
+  - ingress.yaml
+
+# secret.example.yaml is documentation only — deliberately not listed here.
+# The real "mindforge-secrets" Secret comes from the overlay's
+# secretGenerator (k8s/overlays/prod) or your own secret manager.

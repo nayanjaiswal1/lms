@@ -3,10 +3,12 @@
 .env.prod
 *.env.local
 .env.*.local
+k8s/overlays/*/secrets.env
 
 # ─── Go build artifacts ───────────────────────────────────────────────────────
 backend/bin/
 backend/server
+backend/coursegen
 *.exe
 *.test
 *.out

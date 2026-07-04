@@ -18,6 +18,12 @@ var (
 	// has been reached and no new session can be provisioned.
 	ErrCapacityReached = errors.New("labs: org concurrent session capacity reached")
 
+	// ErrUserHasActiveSession is returned when a user tries to start a session
+	// for a lab while a session for a *different* lab is still active. A user
+	// may only have one lab running at a time; starting the same lab again
+	// resumes the existing session instead of hitting this error.
+	ErrUserHasActiveSession = errors.New("labs: user already has a different lab session active")
+
 	// ErrSessionNotRunning is returned when an action (verify, hint, etc.)
 	// requires the session to be in the running state.
 	ErrSessionNotRunning = errors.New("labs: session is not running")
@@ -54,4 +60,8 @@ var (
 	// configured (PISTON_URL not set in env). Verify degrades gracefully — the
 	// endpoint returns 503 so the frontend can show a clear message.
 	ErrExecutorUnavailable = errors.New("labs: code executor not configured")
+
+	// ErrInvalidPath is returned when a file-ops request path is empty,
+	// absolute, or attempts to traverse outside the lab container's workdir.
+	ErrInvalidPath = errors.New("labs: invalid file path")
 )

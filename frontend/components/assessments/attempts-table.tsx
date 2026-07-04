@@ -65,7 +65,7 @@ export function AttemptsTable({ attempts }: Props) {
     <div className="flex flex-col gap-4">
       <div className="card-base flex flex-wrap items-end gap-4 p-4">
         <div className="flex flex-col gap-1.5">
-          <Label className="text-xs text-muted-foreground">Result</Label>
+          <Label className="text-muted-foreground">Result</Label>
           <Select value={result} onValueChange={(v) => setResult(v as ResultFilter)}>
             <SelectTrigger className="w-36">
               <SelectValue />
@@ -79,7 +79,7 @@ export function AttemptsTable({ attempts }: Props) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-xs text-muted-foreground">Status</Label>
+          <Label className="text-muted-foreground">Status</Label>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -95,7 +95,7 @@ export function AttemptsTable({ attempts }: Props) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-xs text-muted-foreground">Score min %</Label>
+          <Label className="text-muted-foreground">Score min %</Label>
           <Input
             className="w-24"
             max={100}
@@ -110,7 +110,7 @@ export function AttemptsTable({ attempts }: Props) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-xs text-muted-foreground">Score max %</Label>
+          <Label className="text-muted-foreground">Score max %</Label>
           <Input
             className="w-24"
             max={100}

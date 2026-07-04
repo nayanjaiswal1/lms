@@ -11,16 +11,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ProfileAvatar } from "@/components/profile/profile-avatar";
+import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { logoutAction } from "@/app/actions/logout-action";
 import type { AuthUser } from "@/lib/server/auth";
 import ROUTES from "@/lib/routes";
 
 interface Props {
   user: AuthUser;
+  /** Called after "Profile settings" is clicked — used to close the mobile drawer. */
+  onNavigate?: () => void;
 }
 
-export function SidebarUserMenu({ user }: Props) {
+export function SidebarUserMenu({ user, onNavigate }: Props) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -52,7 +54,7 @@ export function SidebarUserMenu({ user }: Props) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link className="flex items-center gap-2" href={ROUTES.SETTINGS_PROFILE}>
+            <Link className="flex items-center gap-2" href={ROUTES.SETTINGS_PROFILE} onClick={onNavigate}>
               <Settings aria-hidden className="h-4 w-4" />
               Profile settings
             </Link>

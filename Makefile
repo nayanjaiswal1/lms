@@ -1,5 +1,6 @@
-.PHONY: dev dev-up dev-down dev-reset migrate migrate-create seed backend frontend \
-        test-backend lint-frontend build-backend build-frontend docker-build logs psql redis-cli
+.PHONY: dev dev-up dev-down dev-reset migrate migrate-create seed seed-courses backend frontend \
+        test-backend lint-frontend build-backend build-frontend docker-build logs psql redis-cli \
+        prod-deploy prod-down prod-logs
 
 # ─── Dev containers ──────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ dev-reset: dev-down
 	@until docker exec mindforge_postgres_dev pg_isready -U $$(grep '^POSTGRES_USER=' .env | cut -d= -f2) > /dev/null 2>&1; do sleep 1; done
 	@bash scripts/db-migrate.sh
 	@bash scripts/db-seed.sh
+	@bash scripts/db-seed-courses.sh
 
 # ─── Database ────────────────────────────────────────────────────────────────
 
@@ -72,3 +74,14 @@ psql:
 
 redis-cli:
 	@docker exec -it mindforge_redis_dev redis-cli
+
+# ─── Production ──────────────────────────────────────────────────────────────
+
+prod-deploy:
+	@bash scripts/deploy-prod.sh
+
+prod-down:
+	@docker compose --env-file .env.prod -f docker-compose.prod.yml down
+
+prod-logs:
+	@docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f

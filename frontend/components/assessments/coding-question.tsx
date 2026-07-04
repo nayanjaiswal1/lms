@@ -1,16 +1,32 @@
 "use client";
 
 import * as React from "react";
+import { Loader2, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import styles from "./coding-question.module.css";
-import type { StudentCodingContent } from "@/lib/assessments/types";
+import { PromptRenderer } from "@/components/assessments/prompt-renderer";
+import { CodingConsole } from "@/components/assessments/coding-console";
+import { runCodeAction } from "@/app/(app)/assessments/[id]/take/actions";
+import { SESSION_SUPERSEDED_MESSAGE } from "@/lib/assessments/types";
+import type { RunResult, StudentCodingContent } from "@/lib/assessments/types";
 import type { CodingAnswer } from "@/lib/assessments/use-answers";
 
 interface CodingQuestionProps {
   content: StudentCodingContent;
   value: CodingAnswer | undefined;
+  attemptId: string;
+  sessionToken: string;
+  assessmentQuestionId: string;
   onLanguage: (language: string, starter: string) => void;
   onCode: (code: string, language: string) => void;
+  onSuperseded: () => void;
+}
+
+interface RunState {
+  tab: "testcase" | "result";
+  running: boolean;
+  result: RunResult | null;
+  error: string | null;
 }
 
 const LANG_LABEL: Record<string, string> = {
@@ -26,12 +42,31 @@ const LANG_LABEL: Record<string, string> = {
 
 // CodingQuestion uses a LeetCode-style split panel: the left panel shows the
 // problem description, constraints, and sample cases; the right panel is a dark
-// monospace editor with line numbers, Tab-key indent, and language tab selection.
+// monospace editor with line numbers, Tab-key indent, language tab selection,
+// a Run button, and a console (Testcase/Result tabs) below the editor. Run only
+// ever executes against non-hidden sample cases via runCodeAction — it never
+// affects grading, which happens exclusively at final Submit.
 // The editor uses a CSS module for the dark theme because Tailwind cannot express
 // hardcoded hex values in JSX class names (ESLint rule).
-export function CodingQuestion({ content, value, onLanguage, onCode }: CodingQuestionProps) {
+export function CodingQuestion({
+  content,
+  value,
+  attemptId,
+  sessionToken,
+  assessmentQuestionId,
+  onLanguage,
+  onCode,
+  onSuperseded,
+}: CodingQuestionProps) {
   const language = value?.language ?? content.languages[0] ?? "python";
   const code = value?.code ?? content.starter_code?.[language] ?? "";
+
+  const [run, setRun] = React.useState<RunState>({
+    tab: "testcase",
+    running: false,
+    result: null,
+    error: null,
+  });
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const lineNumRef = React.useRef<HTMLDivElement>(null);
@@ -66,6 +101,20 @@ export function CodingQuestion({ content, value, onLanguage, onCode }: CodingQue
     }
   }, [code]);
 
+  const handleRun = async () => {
+    setRun((prev) => ({ ...prev, tab: "result", running: true, error: null }));
+    const res = await runCodeAction(attemptId, sessionToken, assessmentQuestionId, language, code);
+    if (res.error === SESSION_SUPERSEDED_MESSAGE) {
+      onSuperseded();
+      return;
+    }
+    if (!res.ok || !res.data) {
+      setRun((prev) => ({ ...prev, running: false, result: null, error: res.error ?? "Could not run your code." }));
+      return;
+    }
+    setRun((prev) => ({ ...prev, running: false, result: res.data ?? null, error: null }));
+  };
+
   const lineCount = Math.max(code.split("\n").length, 20);
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
 
@@ -76,9 +125,7 @@ export function CodingQuestion({ content, value, onLanguage, onCode }: CodingQue
       <div className="flex flex-col gap-5 overflow-y-auto border-b border-border p-5 lg:w-[42%] lg:border-b-0 lg:border-r">
 
         {/* Problem statement */}
-        <div>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">{content.prompt}</p>
-        </div>
+        <PromptRenderer text={content.prompt} textClassName="text-sm leading-relaxed" />
 
         {/* Sample cases */}
         {content.sample_cases.length > 0 && (
@@ -128,10 +175,10 @@ export function CodingQuestion({ content, value, onLanguage, onCode }: CodingQue
         </div>
       </div>
 
-      {/* ── Right panel: editor ──────────────────────────────────────────── */}
+      {/* ── Right panel: editor + run console ──────────────────────────────── */}
       <div className="flex min-h-[300px] flex-1 flex-col lg:min-h-0">
 
-        {/* Editor toolbar: language tabs + line count */}
+        {/* Editor toolbar: language tabs + Run button + line count */}
         <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
           <div className="flex gap-0.5">
             {content.languages.map((lang) => (
@@ -150,9 +197,25 @@ export function CodingQuestion({ content, value, onLanguage, onCode }: CodingQue
               </button>
             ))}
           </div>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {code.split("\n").length} lines
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {code.split("\n").length} lines
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleRun()}
+              disabled={run.running || !code.trim() || content.sample_cases.length === 0}
+              aria-label="Run code against sample tests"
+              className="flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-ai transition-colors hover:bg-ai/10 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"
+            >
+              {run.running ? (
+                <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Play aria-hidden className="h-3.5 w-3.5" />
+              )}
+              Run
+            </button>
+          </div>
         </div>
 
         {/* Dark code editor with gutter */}
@@ -172,6 +235,16 @@ export function CodingQuestion({ content, value, onLanguage, onCode }: CodingQue
             onScroll={handleScroll}
           />
         </div>
+
+        {/* Run console — Testcase / Result tabs */}
+        <CodingConsole
+          sampleCases={content.sample_cases}
+          tab={run.tab}
+          running={run.running}
+          result={run.result}
+          error={run.error}
+          onTabChange={(tab) => setRun((prev) => ({ ...prev, tab }))}
+        />
       </div>
     </div>
   );

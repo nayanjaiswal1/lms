@@ -3,6 +3,7 @@ package profile
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -53,6 +54,24 @@ func (h *Handler) HandleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, prof)
+}
+
+// ─── HandleGetMyOverview ──────────────────────────────────────────────────────
+
+// HandleGetMyOverview handles GET /api/profile/me/overview.
+func (h *Handler) HandleGetMyOverview(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+
+	overview, err := h.service.GetMyOverview(r.Context(), claims.OrgID, claims.UserID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to load profile overview.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, overview)
 }
 
 // ─── HandleUpdateProfile ──────────────────────────────────────────────────────
@@ -114,6 +133,7 @@ func (h *Handler) HandleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 		case containsStr(msg, "only JPEG, PNG, and WebP"):
 			httputil.WriteError(w, http.StatusUnsupportedMediaType, "Only JPEG, PNG, and WebP avatars are supported.")
 		default:
+			slog.Error("profile: upload avatar", "error", err, "user_id", claims.UserID)
 			httputil.WriteError(w, http.StatusInternalServerError, "Failed to upload avatar.")
 		}
 		return

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { forceRetryJob, pauseAllOrgJobs, cancelAdminJob } from "@/lib/server/admin-jobs";
+import { forceRetryJob, pauseAllOrgJobs, cancelAdminJob } from "@/lib/jobs/admin-server";
 import ROUTES from "@/lib/routes";
 
 export async function forceRetryJobAction(jobID: string): Promise<void> {

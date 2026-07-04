@@ -32,7 +32,7 @@ type Role struct {
 
 // AuditEntry is a single row from the audit_log table.
 type AuditEntry struct {
-	ID         string          `json:"id"`
+	ID         int64           `json:"id"`
 	TenantID   *string         `json:"tenant_id"`
 	ActorID    *string         `json:"actor_id"`
 	Action     string          `json:"action"`

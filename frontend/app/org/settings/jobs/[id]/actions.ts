@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cancelJob, retryJob, pauseJob } from "@/lib/server/jobs";
+import { cancelJob, retryJob, pauseJob } from "@/lib/jobs/server";
 
 export async function cancelJobAction(
   orgID: string,

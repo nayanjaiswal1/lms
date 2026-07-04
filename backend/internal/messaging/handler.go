@@ -11,6 +11,11 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
+const (
+	defaultSimilarFAQThreshold = 0.3
+	defaultSimilarFAQLimit     = 5
+)
+
 type Handler struct {
 	service *Service
 	repo    *Repo
@@ -64,6 +69,18 @@ func queryInt(r *http.Request, key string, def int) int {
 		return def
 	}
 	return n
+}
+
+func queryFloat(r *http.Request, key string, def float64) float64 {
+	s := r.URL.Query().Get(key)
+	if s == "" {
+		return def
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil || f <= 0 {
+		return def
+	}
+	return f
 }
 
 func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
@@ -221,6 +238,23 @@ func (h *Handler) ListFAQs(w http.ResponseWriter, r *http.Request) {
 	}
 	courseID := chi.URLParam(r, "courseID")
 	faqs, err := h.repo.ListFAQs(r.Context(), claims.OrgID, courseID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"faqs": faqs})
+}
+
+func (h *Handler) GetSimilarFAQs(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	question := queryStr(r, "q")
+	threshold := queryFloat(r, "threshold", defaultSimilarFAQThreshold)
+	limit := queryInt(r, "limit", defaultSimilarFAQLimit)
+	faqs, err := h.service.SimilarFAQs(r.Context(), claims.OrgID, courseID, question, threshold, limit)
 	if err != nil {
 		writeError(w, err)
 		return

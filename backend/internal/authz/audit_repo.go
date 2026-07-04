@@ -32,8 +32,8 @@ func (r *AuditRepo) Write(ctx context.Context, tenantID, actorID, action, entity
 	}
 
 	const q = `
-		INSERT INTO audit_log (id, tenant_id, actor_id, action, entity_type, entity_id, diff, created_at)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, now())`
+		INSERT INTO audit_log (tenant_id, actor_id, action, entity_type, entity_id, diff, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, now())`
 
 	var tenantParam, actorParam interface{}
 	if tenantID != "" {

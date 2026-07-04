@@ -4,7 +4,7 @@ import { AlertTriangle, ExternalLink } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getReviewQueue } from "@/lib/server/assessments";
+import { getReviewQueue } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 import type { ReviewQueueItem } from "@/lib/assessments/types";
 

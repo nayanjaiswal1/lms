@@ -4,7 +4,7 @@ import { ClipboardCheck, Plus, BarChart3 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getAssessments, getOrgAnalytics } from "@/lib/server/assessments";
+import { getAssessments, getOrgAnalytics } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {

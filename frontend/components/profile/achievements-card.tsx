@@ -1,36 +1,62 @@
-import { Award, Lock, Trophy } from "lucide-react"
+import { Award, Trophy } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { Stats } from "@/lib/profile/types"
+import type { UserAchievement } from "@/lib/server/rewards"
 
 interface Props {
   stats: Stats | null
+  achievements: UserAchievement[] | null
 }
 
-function ComingSoonSection({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 p-4 rounded-lg bg-muted opacity-50">
-      <Lock aria-hidden="true" className="text-muted-foreground shrink-0" size={16} />
-      <div>
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground">Unlocks when feature launches</p>
-      </div>
-    </div>
-  )
+const TIER_RING: Record<UserAchievement["definition"]["badge_tier"], string> = {
+  bronze:   "border-warning/40 bg-warning/10",
+  silver:   "border-muted-foreground/40 bg-muted",
+  gold:     "border-primary/40 bg-primary/10",
+  platinum: "border-ai/40 bg-ai/10",
 }
 
-export function AchievementsCard({ stats }: Props) {
+export function AchievementsCard({ stats, achievements }: Props) {
   const certCount = stats?.certificates_earned ?? 0
+  const earned = achievements ?? []
 
   return (
     <section aria-label="Achievements" className="card-base p-6">
       <h2 className="section-title text-lg mb-4">Achievements</h2>
 
       <div className="space-y-4">
-        {/* Top Skills — coming soon */}
+        {/* Badges — real earned achievements from the rewards domain */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Top Skills
+            Badges
           </h3>
-          <ComingSoonSection label="Skill rankings" />
+          {earned.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {earned.map((achievement) => (
+                <div
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 p-3 rounded-lg border text-center",
+                    TIER_RING[achievement.definition.badge_tier]
+                  )}
+                  key={achievement.id}
+                  title={achievement.definition.description}
+                >
+                  <span aria-hidden="true" className="text-2xl">
+                    {achievement.definition.icon}
+                  </span>
+                  <p className="text-xs font-semibold text-foreground leading-tight">
+                    {achievement.definition.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <Trophy aria-hidden="true" className="text-muted-foreground" size={32} />
+              <p className="text-sm text-muted-foreground max-w-56">
+                Solve problems, pass tests, and complete courses to earn badges.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Certificates */}
@@ -59,22 +85,6 @@ export function AchievementsCard({ stats }: Props) {
               </p>
             </div>
           )}
-        </div>
-
-        {/* Leaderboard — coming soon */}
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Leaderboard
-          </h3>
-          <ComingSoonSection label="Leaderboard ranking" />
-        </div>
-
-        {/* Trophy placeholder for future */}
-        <div className="flex items-center gap-2 pt-2 opacity-40">
-          <Trophy aria-hidden="true" className="text-muted-foreground" size={14} />
-          <p className="text-xs text-muted-foreground">
-            More achievements coming soon
-          </p>
         </div>
       </div>
     </section>

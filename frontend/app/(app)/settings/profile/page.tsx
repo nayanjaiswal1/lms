@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { fetchMyProfile } from '@/lib/server/profile'
+import { fetchMyProfile } from '@/lib/profile/server'
 import type { Profile } from '@/lib/profile/types'
 import ROUTES from '@/lib/routes'
 import { ProfileHeader } from '@/components/profile/profile-header'
@@ -66,7 +66,7 @@ export default async function SettingsProfilePage({
 
   return (
     <div className="space-y-6">
-      <ProfileHeader profile={profile} />
+      <ProfileHeader profile={profile} uploadAction={uploadAvatarAction} />
 
       {/* Tab bar */}
       <div
@@ -104,7 +104,6 @@ export default async function SettingsProfilePage({
               <BasicInfoForm
                 profile={profile}
                 updateAction={updateBasicInfoAction}
-                uploadAction={uploadAvatarAction}
               />
               <SocialLinksForm
                 socialLinks={profile.social_links}

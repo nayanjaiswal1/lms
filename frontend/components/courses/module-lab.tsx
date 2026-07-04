@@ -1,9 +1,7 @@
-import Link from "next/link";
-import { Terminal, Clock, RotateCcw, CheckSquare } from "lucide-react";
+import { Terminal, Clock, CheckSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { LabStartButton } from "@/components/labs/lab-start-button";
 import { apiGet } from "@/lib/server/api";
-import ROUTES from "@/lib/routes";
 import type { Lab } from "@/lib/labs";
 
 interface ModuleLabProps {
@@ -78,12 +76,7 @@ export async function ModuleLab({ moduleId, title }: ModuleLabProps) {
           up to {lab.max_resets} reset{lab.max_resets !== 1 ? "s" : ""} ·{" "}
           {lab.max_duration} min time limit
         </p>
-        <Button asChild size="lg">
-          <Link href={ROUTES.lab(lab.id)}>
-            <Terminal aria-hidden className="h-4 w-4 mr-2" />
-            Launch Lab
-          </Link>
-        </Button>
+        <LabStartButton lab={lab} />
       </div>
     </div>
   );

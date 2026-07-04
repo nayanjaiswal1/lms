@@ -83,6 +83,29 @@ export interface StudentSubjectiveContent {
   prompt: string;
 }
 
+// ─── Code execution (Run against sample cases) ────────────────────────────────
+
+export interface CaseResult {
+  case_id: string;
+  passed: boolean;
+  hidden: boolean;
+  weight: number;
+  stdout?: string;
+  stderr?: string;
+  status: "accepted" | "wrong_answer" | "runtime_error" | "compile_error" | "tle";
+  runtime_ms: number;
+}
+
+export interface RunResult {
+  status: "passed" | "failed" | "error";
+  compile_output?: string;
+  tests_total: number;
+  tests_passed: number;
+  runtime_ms: number;
+  memory_kb: number;
+  cases: CaseResult[];
+}
+
 export interface StudentMCQQuestion {
   assessment_question_id: string;
   question_id: string;
@@ -159,7 +182,17 @@ export interface AttemptPayload {
   questions: StudentQuestion[];
   proctoring: ProctoringConfig;
   meta: AttemptMeta;
+  session_token: string;
 }
+
+// Exact text the backend sends when a device's session_token no longer
+// matches the attempt's active one (see backend ErrSessionSuperseded). Every
+// mutating action can return this — callers should show a blocking "moved to
+// another device" state instead of a normal error toast. Lives here (not in
+// the "use server" actions file) because Next.js only allows async function
+// exports from server-action modules.
+export const SESSION_SUPERSEDED_MESSAGE =
+  "Your session moved to another device or tab. This window is no longer active.";
 
 // ─── Evaluation types ─────────────────────────────────────────────────────────
 

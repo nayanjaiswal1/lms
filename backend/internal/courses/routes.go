@@ -2,20 +2,8 @@ package courses
 
 import (
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mindforge/backend/internal/ai"
-	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/middleware"
-	"github.com/mindforge/backend/internal/rewards"
-	"github.com/mindforge/backend/internal/storage"
 )
-
-// New builds the fully-wired courses handler.
-func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, aiProvider ai.LLMProvider, rewardsSvc *rewards.Service) *Handler {
-	repo := NewRepo(pool)
-	svc := NewService(repo, store, aiProvider, cfg)
-	return NewHandler(repo, svc, rewardsSvc)
-}
 
 // RegisterRoutes mounts the courses API onto the given router.
 // Caller has already applied RequireAuth + RequireCSRF middleware.
@@ -58,7 +46,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/courses", h.ListCourses)
 	r.Get("/api/courses/{courseID}", h.GetCourse)
 	r.Post("/api/courses/{courseID}/enroll", h.Enroll)
+	r.Post("/api/courses/{courseID}/purchase", h.Purchase)
 	r.Get("/api/enrollments/me", h.MyEnrollments)
+	r.Post("/api/courses/{courseID}/reviews", h.SubmitReview)
+	r.Get("/api/courses/{courseID}/reviews/me", h.GetMyReview)
 	r.Get("/api/modules/{moduleID}", h.GetModuleContent)
 	r.Patch("/api/modules/{moduleID}/progress", h.UpdateProgress)
 	r.Get("/api/courses/{courseID}/progress/me", h.GetMyProgress)

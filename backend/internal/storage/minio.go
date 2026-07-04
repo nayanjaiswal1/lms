@@ -13,25 +13,46 @@ import (
 )
 
 type MinioClient struct {
-	client   *minio.Client
-	bucket   string
-	endpoint string
-	useSSL   bool
+	client         *minio.Client
+	publicClient   *minio.Client
+	bucket         string
+	endpoint       string
+	useSSL         bool
+	publicEndpoint string
+	publicUseSSL   bool
 }
 
 func NewMinioClient(cfg *config.Config) (*MinioClient, error) {
+	creds := credentials.NewStaticV4(cfg.MinioAccessKey, cfg.MinioSecretKey, "")
+
 	client, err := minio.New(cfg.MinioEndpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
+		Creds:  creds,
 		Secure: cfg.MinioUseSSL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("storage: minio init: %w", err)
 	}
+
+	// A presigned URL's signature is bound to the host it was signed against.
+	// `client` talks to MinioEndpoint (the internal Docker-network hostname,
+	// e.g. "minio:9000"), which browsers can't resolve. Presigned URLs handed
+	// to the browser must instead be signed against MinioPublicEndpoint.
+	publicClient, err := minio.New(cfg.MinioPublicEndpoint, &minio.Options{
+		Creds:  creds,
+		Secure: cfg.MinioPublicUseSSL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("storage: minio public client init: %w", err)
+	}
+
 	return &MinioClient{
-		client:   client,
-		bucket:   cfg.MinioBucket,
-		endpoint: cfg.MinioEndpoint,
-		useSSL:   cfg.MinioUseSSL,
+		client:         client,
+		publicClient:   publicClient,
+		bucket:         cfg.MinioBucket,
+		endpoint:       cfg.MinioEndpoint,
+		useSSL:         cfg.MinioUseSSL,
+		publicEndpoint: cfg.MinioPublicEndpoint,
+		publicUseSSL:   cfg.MinioPublicUseSSL,
 	}, nil
 }
 
@@ -61,10 +82,10 @@ func (m *MinioClient) Upload(ctx context.Context, key, contentType string, r io.
 		return "", fmt.Errorf("storage: upload %q: %w", key, err)
 	}
 	scheme := "http"
-	if m.useSSL {
+	if m.publicUseSSL {
 		scheme = "https"
 	}
-	return fmt.Sprintf("%s://%s/%s/%s", scheme, m.endpoint, m.bucket, key), nil
+	return fmt.Sprintf("%s://%s/%s/%s", scheme, m.publicEndpoint, m.bucket, key), nil
 }
 
 func (m *MinioClient) Delete(ctx context.Context, key string) error {
@@ -78,7 +99,7 @@ func (m *MinioClient) Delete(ctx context.Context, key string) error {
 func (m *MinioClient) PresignedPutURL(ctx context.Context, key, mimeType string, maxBytes int64) (string, error) {
 	params := url.Values{}
 	params.Set("Content-Type", mimeType)
-	u, err := m.client.PresignedPutObject(ctx, m.bucket, key, 30*time.Minute)
+	u, err := m.publicClient.PresignedPutObject(ctx, m.bucket, key, 30*time.Minute)
 	if err != nil {
 		return "", fmt.Errorf("storage: presigned put %q: %w", key, err)
 	}
@@ -86,7 +107,7 @@ func (m *MinioClient) PresignedPutURL(ctx context.Context, key, mimeType string,
 }
 
 func (m *MinioClient) PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	u, err := m.client.PresignedGetObject(ctx, m.bucket, key, ttl, nil)
+	u, err := m.publicClient.PresignedGetObject(ctx, m.bucket, key, ttl, nil)
 	if err != nil {
 		return "", fmt.Errorf("storage: presigned get %q: %w", key, err)
 	}

@@ -7,6 +7,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import nextPlugin from '@next/eslint-plugin-next'
+import boundaries from 'eslint-plugin-boundaries'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -316,7 +317,82 @@ export default tseslint.config(
     },
   },
 
-  // ── 9. Relax rules for config / tooling files ────────────────────────────
+  // ── 9. Feature-Based Architecture Boundaries ────────────────────────────
+  // Enforces frontend/CLAUDE.md → "Feature-Based Organization": a feature's
+  // components/lib may only reach across into another feature through
+  // components/shared/ or a cross-cutting lib file — never directly into
+  // another feature's folder. This is the automated version of the manual
+  // audit that caught components/instructor/ (grouped by role, not feature)
+  // and profile-avatar.tsx (used by unrelated features, belonged in shared/).
+  {
+    files: ['components/**/*.{ts,tsx}', 'lib/**/*.{ts,tsx}'],
+    plugins: { boundaries },
+    settings: {
+      'import/resolver': { typescript: { project: './tsconfig.json' } },
+      'boundaries/elements': [
+        { type: 'ui', pattern: 'components/ui/**' },
+        { type: 'shared-components', pattern: 'components/shared/**' },
+        { type: 'feature-components', pattern: 'components/*/**', capture: ['family'] },
+        {
+          type: 'shared-lib',
+          pattern: ['lib/*.ts', 'lib/*.tsx', 'lib/server/**', 'lib/validation/**'],
+        },
+        { type: 'feature-lib', pattern: 'lib/*/**', capture: ['family'] },
+      ],
+    },
+    rules: {
+      'boundaries/dependencies': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            { from: { type: 'ui' }, allow: ['ui', 'shared-lib'] },
+            {
+              from: { type: 'shared-components' },
+              allow: ['ui', 'shared-components', 'shared-lib'],
+            },
+            {
+              from: { type: 'feature-components' },
+              allow: [
+                'ui',
+                'shared-components',
+                'shared-lib',
+                ['feature-components', { family: '{{from.family}}' }],
+                ['feature-lib', { family: '{{from.family}}' }],
+              ],
+            },
+            // ── Explicit cross-feature integrations ──────────────────────────
+            // These are deliberate product integrations, not organizational
+            // mistakes — do not add new entries here without confirming the
+            // dependency is intentional (see docs/labs.md, docs/anonymous.md).
+            {
+              from: { type: 'feature-components', captured: { family: 'courses' } },
+              allow: [['feature-components', { family: 'labs' }]],
+            },
+            {
+              from: { type: 'feature-components', captured: { family: 'assessments' } },
+              allow: [['feature-lib', { family: 'public' }]],
+            },
+            // Course-completion feedback wraps the existing course review
+            // form (course_reviews rating) inside the generic feedback
+            // prompt flow instead of duplicating star-rating UI — see
+            // components/feedback/course-completion-prompt.tsx.
+            {
+              from: { type: 'feature-components', captured: { family: 'feedback' } },
+              allow: [['feature-components', { family: 'courses' }]],
+            },
+            { from: { type: 'shared-lib' }, allow: ['shared-lib'] },
+            {
+              from: { type: 'feature-lib' },
+              allow: ['shared-lib', ['feature-lib', { family: '{{from.family}}' }]],
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // ── 10. Relax rules for config / tooling files ───────────────────────────
   {
     files: ['*.config.*', 'eslint.config.*', 'postcss.config.*', 'next.config.*'],
     rules: {

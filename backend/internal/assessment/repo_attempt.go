@@ -2,6 +2,8 @@ package assessment
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -154,12 +156,12 @@ func (r *Repo) GetAttempt(ctx context.Context, attemptID string) (Attempt, error
 		`SELECT id, assessment_id, user_id, org_id, attempt_number, status,
 		        started_at, submitted_at, evaluated_at, expires_at, duration_seconds,
 		        score, max_score, percentage, passed, auto_submitted,
-		        snapshot, proctoring_summary, reward_result, created_at
+		        snapshot, proctoring_summary, reward_result, created_at, active_session_token
 		 FROM assessment_attempts WHERE id = $1`, attemptID,
 	).Scan(&a.ID, &a.AssessmentID, &a.UserID, &a.OrgID, &a.AttemptNumber, &a.Status,
 		&a.StartedAt, &a.SubmittedAt, &a.EvaluatedAt, &a.ExpiresAt, &a.DurationSeconds,
 		&a.Score, &a.MaxScore, &a.Percentage, &a.Passed, &a.AutoSubmitted,
-		&a.Snapshot, &a.ProctoringSummary, &a.RewardResult, &a.CreatedAt)
+		&a.Snapshot, &a.ProctoringSummary, &a.RewardResult, &a.CreatedAt, &a.ActiveSessionToken)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Attempt{}, ErrNotFound
@@ -167,6 +169,66 @@ func (r *Repo) GetAttempt(ctx context.Context, attemptID string) (Attempt, error
 		return Attempt{}, fmt.Errorf("assessment: get attempt: %w", err)
 	}
 	return a, nil
+}
+
+// RotateSessionToken generates a fresh opaque token and stores it as the
+// attempt's sole active session, superseding whatever device held the
+// previous token — that device's next write is rejected until it reopens the
+// attempt. Called every time StartAttempt/ResumeAttempt hands the attempt to
+// a device, which is the only place a session begins.
+func (r *Repo) RotateSessionToken(ctx context.Context, attemptID string) (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("assessment: generate session token: %w", err)
+	}
+	token := hex.EncodeToString(buf)
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE assessment_attempts SET active_session_token = $2 WHERE id = $1`,
+		attemptID, token)
+	if err != nil {
+		return "", fmt.Errorf("assessment: rotate session token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return "", ErrNotFound
+	}
+	return token, nil
+}
+
+// ExpiredAttemptRef is the minimal identity needed to force-submit an
+// abandoned attempt — Service.Submit re-fetches the full row internally.
+type ExpiredAttemptRef struct {
+	ID     string
+	OrgID  string
+	UserID string
+}
+
+// ListExpiredInProgressAttempts returns up to limit in-progress attempts whose
+// time limit has passed. Backs the assessment.expire_attempts background job —
+// without it, an abandoned attempt (student closes the tab and never submits)
+// stays "in_progress" forever: never graded, never counted toward
+// attempts_used, invisible to instructor reporting.
+func (r *Repo) ListExpiredInProgressAttempts(ctx context.Context, limit int) ([]ExpiredAttemptRef, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, org_id, user_id FROM assessment_attempts
+		 WHERE status = 'in_progress' AND expires_at IS NOT NULL AND expires_at < now()
+		 LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("assessment: list expired in-progress attempts: %w", err)
+	}
+	defer rows.Close()
+
+	refs := []ExpiredAttemptRef{}
+	for rows.Next() {
+		var ref ExpiredAttemptRef
+		if err := rows.Scan(&ref.ID, &ref.OrgID, &ref.UserID); err != nil {
+			return nil, fmt.Errorf("assessment: scan expired attempt: %w", err)
+		}
+		refs = append(refs, ref)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("assessment: iterate expired attempts: %w", err)
+	}
+	return refs, nil
 }
 
 // SetAttemptRewardResult persists the reward outcome (XP, badges, level-up) for a
@@ -249,6 +311,38 @@ func (r *Repo) ListAnswersForGrading(ctx context.Context, attemptID string) ([]A
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// AttemptQuestionContent is the pinned question type + content for one question
+// within a specific attempt, scoped by the attempt_answers join so a caller
+// cannot fetch content for a question that does not belong to their attempt.
+type AttemptQuestionContent struct {
+	Type    string
+	Content json.RawMessage
+}
+
+// GetAttemptQuestionContent loads the pinned type + content for one question of
+// an attempt. Returns ErrNotFound if the (attemptID, assessmentQuestionID) pair
+// does not exist — the same scoping guarantee SaveAnswer relies on.
+func (r *Repo) GetAttemptQuestionContent(ctx context.Context, attemptID, assessmentQuestionID string) (AttemptQuestionContent, error) {
+	var out AttemptQuestionContent
+	var content []byte
+	err := r.pool.QueryRow(ctx,
+		`SELECT q.type, qv.content
+		 FROM attempt_answers ans
+		 JOIN assessment_questions aq ON aq.id = ans.assessment_question_id
+		 JOIN questions q ON q.id = ans.question_id
+		 JOIN question_versions qv ON qv.id = aq.version_id
+		 WHERE ans.attempt_id = $1 AND ans.assessment_question_id = $2`,
+		attemptID, assessmentQuestionID).Scan(&out.Type, &content)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AttemptQuestionContent{}, ErrNotFound
+		}
+		return AttemptQuestionContent{}, fmt.Errorf("assessment: get attempt question content: %w", err)
+	}
+	out.Content = content
+	return out, nil
 }
 
 // GradedAnswer is the evaluation result for one answer.

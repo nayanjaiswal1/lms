@@ -146,7 +146,7 @@ CREATE TABLE lab_egress_rules (
 
 -- 10. Append-only usage events for billing / quota tracking
 CREATE TABLE lab_usage_events (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   org_id        UUID        NOT NULL REFERENCES organizations(id),
   session_id    UUID        REFERENCES lab_sessions(id) ON DELETE SET NULL,
   event_type    TEXT        NOT NULL CHECK (event_type IN ('container_seconds','ai_tokens','validation_seconds')),
