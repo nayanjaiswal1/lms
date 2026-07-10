@@ -52,7 +52,7 @@ function SocialField({
 export function SocialLinksForm({ socialLinks, updateAction }: Props) {
   return (
     <section aria-label="Social links" className="card-base p-6">
-      <h2 className="section-title text-lg mb-6">Social Links</h2>
+      <h2 className="section-title mb-6">Social Links</h2>
 
       <form action={updateAction} className="form-stack">
         <SocialField

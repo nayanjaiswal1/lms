@@ -367,11 +367,21 @@ export default tseslint.config(
             // dependency is intentional (see docs/labs.md, docs/anonymous.md).
             {
               from: { type: 'feature-components', captured: { family: 'courses' } },
-              allow: [['feature-components', { family: 'labs' }]],
+              allow: [
+                ['feature-components', { family: 'labs' }],
+                ['feature-lib', { family: 'labs' }],
+              ],
             },
             {
               from: { type: 'feature-components', captured: { family: 'assessments' } },
               allow: [['feature-lib', { family: 'public' }]],
+            },
+            // Profile overview reuses the existing XP/level progress bar and
+            // badge-tier types from the rewards domain instead of duplicating
+            // that UI — see components/profile/profile-sidebar.tsx.
+            {
+              from: { type: 'feature-components', captured: { family: 'profile' } },
+              allow: [['feature-components', { family: 'rewards' }]],
             },
             // Course-completion feedback wraps the existing course review
             // form (course_reviews rating) inside the generic feedback

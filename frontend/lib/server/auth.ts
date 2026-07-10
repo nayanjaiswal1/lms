@@ -6,6 +6,7 @@ export interface AuthUser {
   name: string;
   email: string;
   avatar_url: string;
+  platform_role: "super_admin" | "user";
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

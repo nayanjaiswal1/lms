@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, type ActionResult } from "@/lib/server/api";
+import { apiAction, authHeaders, baseURL, type ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 export interface InvitationToken {
@@ -30,6 +30,83 @@ export async function acceptInvitationAction(
 
 export async function assignCourseAction(batchId: string, courseId: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/batches/${batchId}/courses`, { course_id: courseId });
-  if (result.ok) revalidatePath(ROUTES.MENTORING_BATCHES);
+  if (result.ok) revalidatePath(ROUTES.mentoringBatchCourses(batchId));
+  return result;
+}
+
+export async function unassignCourseAction(batchId: string, courseId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/batches/${batchId}/courses/${courseId}`);
+  if (result.ok) revalidatePath(ROUTES.mentoringBatchCourses(batchId));
+  return result;
+}
+
+export async function addBatchMentorAction(batchId: string, userId: string): Promise<ActionResult> {
+  const result = await apiAction("POST", `/api/batches/${batchId}/mentors`, { user_id: userId });
+  if (result.ok) revalidatePath(ROUTES.mentoringBatchMentors(batchId));
+  return result;
+}
+
+export async function removeBatchMentorAction(batchId: string, userId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/batches/${batchId}/mentors/${userId}`);
+  if (result.ok) revalidatePath(ROUTES.mentoringBatchMentors(batchId));
+  return result;
+}
+
+export async function resendInvitationAction(
+  batchId: string,
+  invitationId: string,
+): Promise<ActionResult<InvitationToken>> {
+  const result = await apiAction<InvitationToken>(
+    "POST",
+    `/api/batches/${batchId}/invitations/${invitationId}/resend`,
+  );
+  if (result.ok) revalidatePath(ROUTES.mentoringBatchInvitations(batchId));
+  return result;
+}
+
+export async function revokeInvitationAction(batchId: string, invitationId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/batches/${batchId}/invitations/${invitationId}`);
+  if (result.ok) revalidatePath(ROUTES.mentoringBatchInvitations(batchId));
+  return result;
+}
+
+export async function uploadBatchImageAction(
+  batchId: string,
+  formData: FormData,
+): Promise<ActionResult<{ image_url: string }>> {
+  const file = formData.get("avatar") as File | null;
+  if (!file) return { error: "No image selected." };
+
+  const headers = await authHeaders();
+  const { "Content-Type": _ct, ...headersWithoutContentType } = headers;
+
+  const body = new FormData();
+  body.append("image", file);
+
+  try {
+    const res = await fetch(`${baseURL()}/api/batches/${batchId}/image`, {
+      method: "POST",
+      headers: headersWithoutContentType,
+      body,
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => ({})) as { data?: { image_url: string }; error?: string };
+    if (!res.ok) return { error: json.error ?? "Failed to upload image." };
+    revalidatePath(ROUTES.BATCHES);
+    revalidatePath(ROUTES.batch(batchId));
+    revalidatePath(ROUTES.MENTORING_BATCHES);
+    return { ok: true, data: json.data };
+  } catch {
+    return { error: "Network error. Please try again." };
+  }
+}
+
+export async function deleteBatchImageAction(batchId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/batches/${batchId}/image`);
+  if (result.ok) {
+    revalidatePath(ROUTES.BATCHES);
+    revalidatePath(ROUTES.batch(batchId));
+    revalidatePath(ROUTES.MENTORING_BATCHES);
+  }
   return result;
 }

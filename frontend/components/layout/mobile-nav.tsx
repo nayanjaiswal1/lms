@@ -51,9 +51,11 @@ export function MobileNav({ user }: Props) {
       </header>
 
       {open && (
-        <div
+        <button
+          type="button"
           className="sidebar-drawer-backdrop"
           onClick={() => setOpen(false)}
+          aria-label="Close navigation"
         />
       )}
 
@@ -76,8 +78,8 @@ export function MobileNav({ user }: Props) {
             <X aria-hidden className="h-5 w-5" />
           </button>
         </div>
-        <SidebarNavContent onNavigate={() => setOpen(false)} />
-        {user && <SidebarUserMenu onNavigate={() => setOpen(false)} user={user} />}
+        <SidebarNavContent user={user} onNavigate={() => setOpen(false)} />
+        {user && <SidebarUserMenu user={user} onNavigate={() => setOpen(false)} />}
       </aside>
 
       <nav aria-label="Primary" className="bottom-nav">

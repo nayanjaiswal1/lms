@@ -145,9 +145,9 @@ func (h *Handler) HandleOAuthCallback(provider string) http.HandlerFunc {
 		}
 
 		if _, err := h.pool.Exec(r.Context(),
-			`INSERT INTO oauth_exchanges (token, user_id, onboarding_completed, expires_at)
+			`INSERT INTO oauth_exchanges (token_hash, user_id, onboarding_completed, expires_at)
 			 VALUES ($1, $2, $3, $4)`,
-			exchangeToken, userID, onboardingCompleted,
+			HashToken(exchangeToken), userID, onboardingCompleted,
 			time.Now().Add(2*time.Minute),
 		); err != nil {
 			slog.Error("auth: oauth callback insert exchange", "error", err)
@@ -178,8 +178,8 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 	err := h.pool.QueryRow(r.Context(),
 		`SELECT id, user_id, onboarding_completed
 		 FROM oauth_exchanges
-		 WHERE token = $1 AND used_at IS NULL AND expires_at > now()`,
-		req.Token,
+		 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+		HashToken(req.Token),
 	).Scan(&exID, &userID, &onboardingCompleted)
 	if err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired exchange token.")
@@ -222,7 +222,7 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
 		h.cfg.DefaultOrgID, userID,
 	).Scan(&orgRole); err != nil {
-		orgRole = "student"
+		orgRole = "learner"
 	}
 
 	accessToken, err := CreateAccessToken(h.cfg, Claims{
@@ -483,7 +483,7 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 	}
 
 	if _, err = tx.Exec(ctx,
-		`INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, 'student')`,
+		`INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, 'learner')`,
 		h.cfg.DefaultOrgID, userID,
 	); err != nil {
 		return "", false, fmt.Errorf("insert org_member: %w", err)

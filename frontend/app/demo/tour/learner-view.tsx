@@ -46,7 +46,7 @@ export function LearnerView() {
           <h3 className="mb-3 text-xl font-semibold">{path.title}</h3>
           <div className="progress-track mb-2">
             {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
-            <div className="progress-fill" style={{ width: `${path.progressPct}%` }} />
+            <div className="progress-fill" style={{ '--progress': `${path.progressPct}%` } as React.CSSProperties} />
           </div>
           <p className="mb-5 text-sm text-muted-foreground">
             {path.completedModules} of {path.totalModules} modules complete · ~{path.estimatedWeeks} weeks remaining
@@ -60,9 +60,10 @@ export function LearnerView() {
             <p className="text-sm font-medium text-foreground">
               {currentModule.course} · Module {currentModule.moduleNumber}: {currentModule.title}
             </p>
+            {/* eslint-disable-next-line no-restricted-syntax -- fixed progress-track container height */}
             <div className="progress-track my-2" style={{ height: "6px" }}>
               {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
-              <div className="progress-fill" style={{ width: `${currentModule.progressPct}%` }} />
+              <div className="progress-fill" style={{ '--progress': `${currentModule.progressPct}%` } as React.CSSProperties} />
             </div>
             <p className="mb-3 text-xs text-muted-foreground">~{currentModule.minutesLeft} min remaining</p>
             <Button className="w-full" variant="outline">Continue learning →</Button>

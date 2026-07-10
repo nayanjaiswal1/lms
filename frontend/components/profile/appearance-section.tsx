@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
@@ -12,16 +13,21 @@ const THEME_OPTIONS = [
 
 export function AppearanceSection() {
   const { theme, setTheme } = useTheme()
+  // theme is undefined on the server and on the client's first render, so
+  // deriving `active` from it before mount causes a hydration mismatch that
+  // makes React discard this subtree (and its click handlers) on mount.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   return (
     <section aria-label="Appearance" className="card-base p-6 space-y-4">
-      <h2 className="section-title text-lg">Appearance</h2>
+      <h2 className="section-title">Appearance</h2>
 
       <div className="space-y-1.5">
         <p className="text-sm font-medium text-foreground">Theme</p>
         <div className="flex gap-2">
           {THEME_OPTIONS.map(({ value, label, Icon }) => {
-            const active = theme === value
+            const active = mounted && theme === value
             return (
               <button
                 key={value}

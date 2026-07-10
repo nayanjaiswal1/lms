@@ -16,7 +16,6 @@ export default async function MentorBatchMembersPage({ params }: Props) {
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 font-medium">Name</th>
               <th className="pb-2 font-medium">Email</th>
-              <th className="pb-2 font-medium">Role</th>
               <th className="pb-2 font-medium">Joined</th>
             </tr>
           </thead>
@@ -25,9 +24,8 @@ export default async function MentorBatchMembersPage({ params }: Props) {
               <tr key={m.user_id}>
                 <td className="py-2.5 pr-4 font-medium">{m.name}</td>
                 <td className="py-2.5 pr-4 text-muted-foreground">{m.email}</td>
-                <td className="py-2.5 pr-4 capitalize text-muted-foreground">{m.role ?? "—"}</td>
                 <td className="py-2.5 text-muted-foreground">
-                  {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "—"}
+                  {new Date(m.added_at).toLocaleDateString()}
                 </td>
               </tr>
             ))}

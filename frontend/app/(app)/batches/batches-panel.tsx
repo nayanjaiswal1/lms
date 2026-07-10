@@ -1,32 +1,29 @@
 "use client";
 
 import * as React from "react";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CreateBatchForm } from "@/app/(app)/batches/create-batch-form";
 
-// BatchesPanel is the client island hosting the create-batch form toggle.
+// BatchesPanel is the client island hosting the create-batch dialog toggle.
 export function BatchesPanel() {
   const [open, setOpen] = React.useState(false);
 
-  if (!open) {
-    return (
-      <Button onClick={() => setOpen(true)}>
-        <Plus /> New batch
-      </Button>
-    );
-  }
-
   return (
-    <div className="card-raised flex w-full max-w-md flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="subsection-title">New batch</h2>
-        <Button aria-label="Close" size="icon" variant="ghost" onClick={() => setOpen(false)}>
-          <X />
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus /> New batch
         </Button>
-      </div>
-      <CreateBatchForm onCreated={() => setOpen(false)} />
-    </div>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New batch</DialogTitle>
+        </DialogHeader>
+        <CreateBatchForm onCreated={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
   );
 }

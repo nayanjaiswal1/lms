@@ -5,7 +5,6 @@ import { Loader2, Building2, ChevronRight } from "lucide-react";
 
 import { selectOrgAction, type SelectOrgState } from "@/app/org-select/actions";
 import { AuthFormError } from "@/components/auth/auth-form-error";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Org {
@@ -28,7 +27,7 @@ export function OrgSelectList({ orgs }: OrgSelectListProps) {
     <div className="flex flex-col gap-4">
       <AuthFormError message={state.error} />
 
-      <ul className="flex flex-col gap-2" role="list">
+      <ul className="flex flex-col gap-2">
         {orgs.map((org) => (
           <li key={org.id}>
             <form action={formAction}>

@@ -30,15 +30,7 @@ Always pick the lowest tier that does the job correctly. Switch with `/model <al
 | Security audit or threat model for any phase | `opus` |
 | Architecture decision: new service, new pattern, phase design | `opus` |
 
-**Subagents:** set `model: "haiku"` for read-only research agents, `model: "sonnet"` for implementation agents, `model: "opus"` for architecture/security agents. Never let subagents inherit the default implicitly.
-
-**Advisor Strategy for Opus tasks:** Opus plans and reviews — Sonnet executes. Never use Opus to write bulk code. Ask Opus for the approach and risks first, then switch to Sonnet to implement, then optionally return to Opus for final review of critical paths (auth, payments, data integrity).
-
-**Context protection via subagents:** Spin a Haiku subagent (not inline tools) when a task would flood the main conversation — searching 3+ files, grepping large output, auditing a spec. Ask for a concise summary back, not raw output. This keeps the main context lean for the actual implementation work.
-
-**Parallel agents for phase builds:** When building a full phase, spawn independent work in parallel — one Sonnet agent for Go handlers, one for sqlc queries, one for frontend components. They share no state during writing, so all three run simultaneously. Wall-clock time drops 60–80%. Only run sequentially when Agent B needs Agent A's output.
-
-**Gemini CLI (escape hatch only):** Use `!gemini review mindforge/backend/internal/<module>/` inside the chat when you need a second opinion on a critical path or need to dump a large module into Gemini's 2M-token context. Gemini does not know your CLAUDE.md rules — use it for spot-checks, then ask Claude to apply the valid suggestions.
+Subagent, advisor-strategy, context-protection, and parallel-agent rules are already covered in the global `~/.claude/CLAUDE.md` and the `dev-env-setup` skill — not repeated here. The table above is the MindForge-specific addition.
 
 ---
 
@@ -66,33 +58,9 @@ python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "form validation" --dom
 
 ---
 
-## MCP Servers for MindForge
-
-| Server | Why you need it |
-|---|---|
-| `@modelcontextprotocol/server-postgres` | Query the local Docker PostgreSQL directly — inspect schema, validate migrations, debug data issues without leaving Claude |
-| `@upstash/context7-mcp` | Pulls real-time Next.js 16 / React 19 / Go docs from source — prevents Claude from suggesting deprecated APIs |
-| `@modelcontextprotocol/server-github` | Create PRs, review diffs, manage issues from inside Claude Code sessions |
+MCP server list and hooks.json template: see the `dev-env-setup` skill. The post-edit hook is already wired in `.claude/settings.local.json` — `post-edit.sh` runs `go vet ./...` after `.go` edits and `pnpm tsc --noEmit` after `.ts/.tsx` edits, so Claude self-corrects before moving to the next file.
 
 ---
-
-## Hooks for MindForge
-
-Add to `dream/.claude/settings.json` (project-level, not global):
-
-```json
-"hooks": {
-  "PostToolUse": [{
-    "matcher": "Write|Edit",
-    "hooks": [{ "type": "command", "command": "bash mindforge/.claude/hooks/post-edit.sh" }]
-  }],
-  "SessionStart": [{
-    "hooks": [{ "type": "command", "command": "echo 'MindForge: go vet runs after .go edits | pnpm tsc runs after .ts edits'" }]
-  }]
-}
-```
-
-`post-edit.sh` logic: read stdin → get `file_path` → if `.go` run `go vet ./...` in backend → if `.ts/.tsx` run `pnpm tsc --noEmit` in frontend. Claude sees the output immediately and self-corrects before moving to the next file.
 
 **MindForge** — multi-tenant learning platform. LeetCode + KodeKloud + Udemy + Notion, self-hosted, no vendor lock.
 Stack: Go 1.26.4 + Chi v5 + pgx/v5 · Next.js 16.2.9 + React 19 + Tailwind v4 + shadcn/ui · PostgreSQL · Docker Compose.
@@ -117,6 +85,8 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/interview.md](docs/interview.md) | Interview board, load test simulator, Yjs sync, API, DB schema |
 | [docs/sheets.md](docs/sheets.md) | Sheet tracker, overlap view, subscribe/fork, API, DB schema |
 | [docs/anonymous.md](docs/anonymous.md) | Public tests, anonymous attempts, API, DB schema |
+| [docs/calendar-sync.md](docs/calendar-sync.md) | Opt-in Google Calendar account sync — OAuth flow, push/pull, DB schema, API, edge cases |
+| [docs/entity-schedules-and-calendar-sync.md](docs/entity-schedules-and-calendar-sync.md) | starts_at/ends_at on batches/courses/lessons, auto-synced read-only into the in-app calendar |
 | [docs/infrastructure.md](docs/infrastructure.md) | Project file structure, all env vars, AI rules, payments, SSRF denylist |
 
 ---
@@ -157,15 +127,15 @@ const res = await uploadAssetAction(fd);
 ## Coding Rules (Non-Negotiable)
 
 1. **DRY** — shared logic (response helpers, role checks, AI calls) lives in one place only
-2. **No stubs** — every file written is complete and production-ready, no `// TODO`
-3. **No hardcoded values** — all config from env vars, all strings from constants
-4. **Complete error handling** — `fmt.Errorf("context: %w", err)` everywhere
-5. **Validate inputs at boundary** — before DB or AI calls
-6. **AI called once** — always check DB first, return cached result if exists
-7. **Role middleware** — every protected route uses `RequireRole(...)` middleware
-8. **Transactions** — multi-table writes always in a DB transaction
-9. **No streaming** unless explicitly needed (predictable cost)
-10. Use `TaskCreate/TaskUpdate` to track all phases
+2. **Complete error handling** — `fmt.Errorf("context: %w", err)` everywhere
+3. **Validate inputs at boundary** — before DB or AI calls
+4. **AI called once** — always check DB first, return cached result if exists
+5. **Role middleware** — every protected route uses `RequireRole(...)` middleware
+6. **Transactions** — multi-table writes always in a DB transaction
+7. **No streaming** unless explicitly needed (predictable cost)
+8. Use `TaskCreate/TaskUpdate` to track all phases
+
+No-stubs and no-hardcoded-values are covered by the banned-patterns table below.
 
 ---
 

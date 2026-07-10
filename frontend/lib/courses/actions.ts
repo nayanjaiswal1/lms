@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, apiUpload, ActionResult } from "@/lib/server/api";
+import { apiAction, apiUpload } from "@/lib/server/api";
+import type { ActionResult } from "@/lib/server/api";
 import type { AwardResult } from "@/lib/server/rewards";
 import ROUTES from "@/lib/routes";
 

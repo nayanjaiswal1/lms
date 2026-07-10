@@ -70,7 +70,7 @@ export function AdminView() {
                   </div>
                   <div className="progress-track mb-1">
                     {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
-                    <div className="progress-fill" style={{ width: `${pct}%` }} />
+                    <div className="progress-fill" style={{ '--progress': `${pct}%` } as React.CSSProperties} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {item.completedCount} of {item.totalCount} completed ({pct}%)
@@ -114,9 +114,9 @@ export function AdminView() {
                   <td>
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
-                        {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
                         <div
                           className="h-full rounded-full bg-primary"
+                          // eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style
                           style={{ width: `${member.progressPct}%` }}
                         />
                       </div>

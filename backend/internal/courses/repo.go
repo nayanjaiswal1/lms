@@ -49,11 +49,11 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 func (r *Repo) CreateCourse(ctx context.Context, c Course) (Course, error) {
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx,
-			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours, starts_at, ends_at)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 			 RETURNING id, created_at, updated_at`,
 			c.OrgID, c.CreatorID, c.Title, c.Slug, c.Description, c.CoverURL, c.Difficulty,
-			c.Tags, c.Status, c.PriceCents, c.IsFree, c.EstimatedHours,
+			c.Tags, c.Status, c.PriceCents, c.IsFree, c.EstimatedHours, c.StartsAt, c.EndsAt,
 		).Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
 			return fmt.Errorf("courses: create: %w", err)
@@ -78,13 +78,14 @@ func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) 
 	err := r.pool.QueryRow(ctx,
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.estimated_hours,
-		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.created_at, c.updated_at
+		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.id = $1 AND c.org_id = $2`, id, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree,
-		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.CreatedAt, &c.UpdatedAt)
+		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
+		&c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -144,7 +145,7 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
 		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
 		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
-		        c.created_at, c.updated_at
+		        c.starts_at, c.ends_at, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 `+where+fmt.Sprintf(` ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d`, n, n+1),
@@ -160,7 +161,7 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description,
 			&c.CoverURL, &c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents,
 			&c.IsFree, &c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount,
-			&c.CreatedAt, &c.UpdatedAt); err != nil {
+			&c.StartsAt, &c.EndsAt, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("courses: scan: %w", err)
 		}
 		out = append(out, c)
@@ -172,11 +173,11 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 func (r *Repo) UpdateCourse(ctx context.Context, orgID string, c Course) (Course, error) {
 	err := r.pool.QueryRow(ctx,
 		`UPDATE courses SET title=$3, description=$4, cover_url=$5, difficulty=$6, tags=$7,
-		        estimated_hours=$8, price_cents=$9, is_free=$10, updated_at=now()
+		        estimated_hours=$8, price_cents=$9, is_free=$10, starts_at=$11, ends_at=$12, updated_at=now()
 		 WHERE id=$1 AND org_id=$2
 		 RETURNING updated_at`,
 		c.ID, orgID, c.Title, c.Description, c.CoverURL, c.Difficulty, c.Tags,
-		c.EstimatedHours, c.PriceCents, c.IsFree,
+		c.EstimatedHours, c.PriceCents, c.IsFree, c.StartsAt, c.EndsAt,
 	).Scan(&c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -244,7 +245,7 @@ func (r *Repo) GetCourseTree(ctx context.Context, orgID, courseID string) (Cours
 	modRows, err := r.pool.Query(ctx,
 		`SELECT id, course_id, section_id, title, type, position, is_free_preview,
 		        storage_key, duration_seconds, content_body, assessment_id, estimated_minutes,
-		        created_at, updated_at
+		        starts_at, ends_at, created_at, updated_at
 		 FROM course_modules WHERE course_id = $1 AND deleted_at IS NULL ORDER BY section_id, position`, courseID)
 	if err != nil {
 		return CourseTree{}, fmt.Errorf("courses: get modules: %w", err)
@@ -256,7 +257,7 @@ func (r *Repo) GetCourseTree(ctx context.Context, orgID, courseID string) (Cours
 		var m CourseModule
 		if err := modRows.Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
 			&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
-			&m.AssessmentID, &m.EstimatedMinutes, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			&m.AssessmentID, &m.EstimatedMinutes, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return CourseTree{}, fmt.Errorf("courses: scan module: %w", err)
 		}
 		modsBySectionID[m.SectionID] = append(modsBySectionID[m.SectionID], m)
@@ -370,13 +371,14 @@ func (r *Repo) ReorderSections(ctx context.Context, orgID, courseID string, sect
 func (r *Repo) CreateModule(ctx context.Context, m CourseModule) (CourseModule, error) {
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO course_modules (course_id, section_id, title, type, position, is_free_preview,
-		  storage_key, duration_seconds, content_body, assessment_id, estimated_minutes)
+		  storage_key, duration_seconds, content_body, assessment_id, estimated_minutes, starts_at, ends_at)
 		 VALUES ($1,$2,$3,$4,
 		   COALESCE((SELECT MAX(position)+1 FROM course_modules WHERE section_id=$2 AND deleted_at IS NULL),0),
-		   $5,$6,$7,$8,$9,$10)
+		   $5,$6,$7,$8,$9,$10,$11,$12)
 		 RETURNING id, position, created_at, updated_at`,
 		m.CourseID, m.SectionID, m.Title, m.Type, m.IsFreePreview,
 		m.StorageKey, m.DurationSeconds, m.ContentBody, m.AssessmentID, m.EstimatedMinutes,
+		m.StartsAt, m.EndsAt,
 	).Scan(&m.ID, &m.Position, &m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		return CourseModule{}, fmt.Errorf("courses: create module: %w", err)
@@ -390,13 +392,13 @@ func (r *Repo) GetModule(ctx context.Context, orgID, moduleID string) (CourseMod
 	err := r.pool.QueryRow(ctx,
 		`SELECT cm.id, cm.course_id, cm.section_id, cm.title, cm.type, cm.position,
 		        cm.is_free_preview, cm.storage_key, cm.duration_seconds, cm.content_body,
-		        cm.assessment_id, cm.estimated_minutes, cm.created_at, cm.updated_at
+		        cm.assessment_id, cm.estimated_minutes, cm.starts_at, cm.ends_at, cm.created_at, cm.updated_at
 		 FROM course_modules cm
 		 JOIN courses c ON c.id = cm.course_id
 		 WHERE cm.id=$1 AND c.org_id=$2 AND cm.deleted_at IS NULL`, moduleID, orgID,
 	).Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
 		&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
-		&m.AssessmentID, &m.EstimatedMinutes, &m.CreatedAt, &m.UpdatedAt)
+		&m.AssessmentID, &m.EstimatedMinutes, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseModule{}, ErrNotFound
@@ -414,13 +416,13 @@ func (r *Repo) GetModuleByAssessmentID(ctx context.Context, orgID, assessmentID 
 	err := r.pool.QueryRow(ctx,
 		`SELECT cm.id, cm.course_id, cm.section_id, cm.title, cm.type, cm.position,
 		        cm.is_free_preview, cm.storage_key, cm.duration_seconds, cm.content_body,
-		        cm.assessment_id, cm.estimated_minutes, cm.created_at, cm.updated_at
+		        cm.assessment_id, cm.estimated_minutes, cm.starts_at, cm.ends_at, cm.created_at, cm.updated_at
 		 FROM course_modules cm
 		 JOIN courses c ON c.id = cm.course_id
 		 WHERE cm.assessment_id=$1 AND c.org_id=$2 AND cm.deleted_at IS NULL`, assessmentID, orgID,
 	).Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
 		&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
-		&m.AssessmentID, &m.EstimatedMinutes, &m.CreatedAt, &m.UpdatedAt)
+		&m.AssessmentID, &m.EstimatedMinutes, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseModule{}, ErrNotFound
@@ -434,11 +436,12 @@ func (r *Repo) GetModuleByAssessmentID(ctx context.Context, orgID, assessmentID 
 func (r *Repo) UpdateModule(ctx context.Context, orgID string, m CourseModule) (CourseModule, error) {
 	err := r.pool.QueryRow(ctx,
 		`UPDATE course_modules cm SET title=$3, type=$4, is_free_preview=$5, storage_key=$6,
-		        duration_seconds=$7, content_body=$8, assessment_id=$9, estimated_minutes=$10, updated_at=now()
+		        duration_seconds=$7, content_body=$8, assessment_id=$9, estimated_minutes=$10,
+		        starts_at=$11, ends_at=$12, updated_at=now()
 		 FROM courses c WHERE cm.id=$1 AND cm.course_id=c.id AND c.org_id=$2 AND cm.deleted_at IS NULL
 		 RETURNING cm.updated_at`,
 		m.ID, orgID, m.Title, m.Type, m.IsFreePreview, m.StorageKey, m.DurationSeconds,
-		m.ContentBody, m.AssessmentID, m.EstimatedMinutes,
+		m.ContentBody, m.AssessmentID, m.EstimatedMinutes, m.StartsAt, m.EndsAt,
 	).Scan(&m.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -11,17 +11,19 @@ import (
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/authz"
+	"github.com/mindforge/backend/internal/calendar"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/experience"
+	"github.com/mindforge/backend/internal/features"
 	"github.com/mindforge/backend/internal/feedback"
 	"github.com/mindforge/backend/internal/highlights"
-	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
-	apimiddleware "github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/messaging"
+	apimiddleware "github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/onboarding"
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
@@ -29,8 +31,10 @@ import (
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/session"
+	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/storage"
+	"github.com/mindforge/backend/internal/whatnow"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -75,7 +79,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service)
 
-	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc)
+	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc, store)
 	rewardsHandler := rewards.New(pool, rdb)
 	messagingRouter := messaging.New(pool)
 	feedbackRouter := feedback.New(pool, mentoringRouter.Service)
@@ -83,7 +87,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	practiceRouter := practice.New(pool, aiProvider)
 	orgsHandler := orgs.NewHandler(cfg, pool, jobsRegistry)
 	srsRouter := srs.New(pool)
+	sheetsRouter := sheets.New(pool)
 	highlightsRouter := highlights.New(pool, aiProvider)
+	calendarRouter := calendar.New(pool, authzHandler.Service(), cfg)
+	whatnowRouter := whatnow.New(pool)
+	featuresRouter := features.New(pool)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.
@@ -115,6 +123,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	// Public profile routes — no auth required (public profile pages).
 	profileHandler.RegisterPublicRoutes(r)
+
+	// Public calendar routes — invite-accept link and personal ICS feed are
+	// both authorized by their own token, not a session cookie.
+	calendarRouter.RegisterPublicRoutes(r)
 
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache)
@@ -161,6 +173,18 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// SRS — spaced-repetition cards, daily review queue, SM-2 scheduling.
 		srsRouter.RegisterRoutes(r)
 
+		// Sheets — curated problem-list tracker: create/start a sheet, track
+		// per-problem progress (todo/done/revisit).
+		sheetsRouter.RegisterRoutes(r)
+
+		// What Now? — deterministic task-triage: capture, pick-now scoring,
+		// plan-today, breakdown, stuck resolution, weekly recap.
+		whatnowRouter.RegisterRoutes(r)
+
+		// Feature flags — resolves org-enabled features + per-user entitlements
+		// for the current session (frontend's <AccessGate>/<FeatureFlagProvider>).
+		featuresRouter.RegisterRoutes(r)
+
 		// RBAC — permission catalogue, role CRUD, user-role assignment, audit log.
 		authzHandler.RegisterRoutes(r)
 
@@ -177,6 +201,9 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Labs — interactive sandboxed lab environments (terminal, code, guided, playground).
 		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime)
 		labsHandler.RegisterRoutes(r)
+
+		// Calendar — events, RSVPs, recurring series, external invites, personal ICS feed.
+		calendarRouter.RegisterRoutes(r)
 	})
 
 	return r

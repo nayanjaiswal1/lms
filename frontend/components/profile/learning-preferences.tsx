@@ -32,7 +32,7 @@ interface Props {
 export function LearningPreferences({ profile, updateAction }: Props) {
   return (
     <section aria-label="Learning preferences" className="card-base p-6">
-      <h2 className="section-title text-lg mb-6">Learning Preferences</h2>
+      <h2 className="section-title mb-6">Learning Preferences</h2>
 
       <form action={updateAction} className="form-stack">
         {/* Experience Level */}

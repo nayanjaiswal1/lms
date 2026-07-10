@@ -2,6 +2,8 @@
 // These mirror the Go backend response shapes. They are the single source of
 // truth for assessment data on the frontend.
 
+import type { AwardResult } from "@/lib/server/rewards";
+
 export interface ProctoringConfig {
   require_fullscreen: boolean;
   fullscreen_exit_action: "pause" | "continue" | "auto_submit";
@@ -165,7 +167,7 @@ export interface Attempt {
   percentage: number | null;
   passed: boolean | null;
   auto_submitted: boolean;
-  reward_result?: import("@/lib/server/rewards").AwardResult;
+  reward_result?: AwardResult;
 }
 
 export interface AttemptMeta {
@@ -321,4 +323,5 @@ export interface Batch {
   mentor_id: string | null;
   status: string;
   member_count: number;
+  image_url: string | null;
 }

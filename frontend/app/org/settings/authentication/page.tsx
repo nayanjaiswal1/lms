@@ -40,7 +40,7 @@ export default async function AuthenticationPage() {
             <Shield aria-hidden className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Authentication</h2>
+            <h2 className="subsection-title text-foreground">Authentication</h2>
             <p className="text-sm text-muted-foreground">
               Configure how your organisation members sign in.
             </p>

@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, ActionResult } from "@/lib/server/api";
+import { apiAction } from "@/lib/server/api";
+import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type { ProctoringConfig } from "@/lib/assessments/types";
-
-export type { ActionResult };
 
 export interface CreateAssessmentInput {
   title: string;

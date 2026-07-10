@@ -30,25 +30,27 @@ const (
 )
 
 type Course struct {
-	ID             string    `json:"id"`
-	OrgID          string    `json:"org_id"`
-	CreatorID      string    `json:"creator_id"`
-	Title          string    `json:"title"`
-	Slug           string    `json:"slug"`
-	Description    *string   `json:"description"`
-	CoverURL       *string   `json:"cover_url"`
-	Difficulty     string    `json:"difficulty"`
-	Tags           []string  `json:"tags"`
-	Status         string    `json:"status"`
-	ForkedFromID   *string   `json:"forked_from_id"`
-	PriceCents     int       `json:"price_cents"`
-	IsFree         bool      `json:"is_free"`
-	EstimatedHours *float64  `json:"estimated_hours"`
-	InstructorName string    `json:"instructor_name"`
-	AvgRating      *float64  `json:"avg_rating"`
-	ReviewCount    int       `json:"review_count"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             string     `json:"id"`
+	OrgID          string     `json:"org_id"`
+	CreatorID      string     `json:"creator_id"`
+	Title          string     `json:"title"`
+	Slug           string     `json:"slug"`
+	Description    *string    `json:"description"`
+	CoverURL       *string    `json:"cover_url"`
+	Difficulty     string     `json:"difficulty"`
+	Tags           []string   `json:"tags"`
+	Status         string     `json:"status"`
+	ForkedFromID   *string    `json:"forked_from_id"`
+	PriceCents     int        `json:"price_cents"`
+	IsFree         bool       `json:"is_free"`
+	EstimatedHours *float64   `json:"estimated_hours"`
+	InstructorName string     `json:"instructor_name"`
+	AvgRating      *float64   `json:"avg_rating"`
+	ReviewCount    int        `json:"review_count"`
+	StartsAt       *time.Time `json:"starts_at"`
+	EndsAt         *time.Time `json:"ends_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // CourseReview is one student's star rating (1-5) for a course. A user may
@@ -73,20 +75,22 @@ type CourseSection struct {
 }
 
 type CourseModule struct {
-	ID               string    `json:"id"`
-	CourseID         string    `json:"course_id"`
-	SectionID        string    `json:"section_id"`
-	Title            string    `json:"title"`
-	Type             string    `json:"type"`
-	Position         int       `json:"position"`
-	IsFreePreview    bool      `json:"is_free_preview"`
-	StorageKey       *string   `json:"storage_key,omitempty"`
-	DurationSeconds  *int      `json:"duration_seconds,omitempty"`
-	ContentBody      *string   `json:"content_body,omitempty"`
-	AssessmentID     *string   `json:"assessment_id,omitempty"`
-	EstimatedMinutes *int      `json:"estimated_minutes,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               string     `json:"id"`
+	CourseID         string     `json:"course_id"`
+	SectionID        string     `json:"section_id"`
+	Title            string     `json:"title"`
+	Type             string     `json:"type"`
+	Position         int        `json:"position"`
+	IsFreePreview    bool       `json:"is_free_preview"`
+	StorageKey       *string    `json:"storage_key,omitempty"`
+	DurationSeconds  *int       `json:"duration_seconds,omitempty"`
+	ContentBody      *string    `json:"content_body,omitempty"`
+	AssessmentID     *string    `json:"assessment_id,omitempty"`
+	EstimatedMinutes *int       `json:"estimated_minutes,omitempty"`
+	StartsAt         *time.Time `json:"starts_at"`
+	EndsAt           *time.Time `json:"ends_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 type CourseTree struct {

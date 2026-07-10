@@ -367,9 +367,19 @@ func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
 // ─── Batches ─────────────────────────────────────────────────────────────────
 
 type batchRequest struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	MentorID    *string `json:"mentor_id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description"`
+	MentorID    *string    `json:"mentor_id"`
+	StartsAt    *time.Time `json:"starts_at"`
+	EndsAt      *time.Time `json:"ends_at"`
+}
+
+// validateBatchSchedule checks the shared starts_at/ends_at ordering rule used
+// by both create and update.
+func validateBatchSchedule(req batchRequest, fields map[string]string) {
+	if req.EndsAt != nil && req.StartsAt != nil && !req.EndsAt.After(*req.StartsAt) {
+		fields["ends_at"] = "End date must be after the start date."
+	}
 }
 
 func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
@@ -381,8 +391,13 @@ func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	fields := map[string]string{}
 	if strings.TrimSpace(req.Name) == "" {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"name": "Name is required."})
+		fields["name"] = "Name is required."
+	}
+	validateBatchSchedule(req, fields)
+	if len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	b := Batch{
@@ -392,6 +407,8 @@ func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 		Description: req.Description,
 		MentorID:    req.MentorID,
 		CreatedBy:   claims.UserID,
+		StartsAt:    req.StartsAt,
+		EndsAt:      req.EndsAt,
 	}
 	created, err := h.repo.CreateBatch(r.Context(), b)
 	if err != nil {
@@ -399,6 +416,40 @@ func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusCreated, created)
+}
+
+func (h *Handler) UpdateBatch(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req batchRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	fields := map[string]string{}
+	if strings.TrimSpace(req.Name) == "" {
+		fields["name"] = "Name is required."
+	}
+	validateBatchSchedule(req, fields)
+	if len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
+		return
+	}
+	b := Batch{
+		ID:          chiURLParam(r, "batchID"),
+		Name:        req.Name,
+		Description: req.Description,
+		MentorID:    req.MentorID,
+		StartsAt:    req.StartsAt,
+		EndsAt:      req.EndsAt,
+	}
+	updated, err := h.repo.UpdateBatch(r.Context(), claims.OrgID, b)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, updated)
 }
 
 func (h *Handler) ListBatches(w http.ResponseWriter, r *http.Request) {

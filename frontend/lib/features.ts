@@ -37,6 +37,9 @@ export const FEATURES = {
   COURSES:           'courses',
   PRACTICE_AI:       'practice_ai',
   BATCH_CHAT:        'batch_chat',
+
+  // Personal — no org/plan concept, gated by direct per-user grant
+  WHAT_NOW:          'what_now',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -103,4 +106,5 @@ export const FEATURE_META: Record<Feature, { label: string; description: string 
   courses:          { label: 'Courses',             description: 'Video, PDF, and notes-based course content with progress tracking' },
   practice_ai:      { label: 'AI Interview Prep',  description: 'AI-generated interview questions with personalised feedback' },
   batch_chat:       { label: 'Batch Chat',          description: 'Mentor–student messaging within cohort batches' },
+  what_now:         { label: 'What Now?',           description: 'A single-question room for deciding what to work on next' },
 };

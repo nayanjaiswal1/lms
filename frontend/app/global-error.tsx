@@ -15,7 +15,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
       <body className="bg-background text-foreground font-sans antialiased">
         <main className="flex-center min-h-dvh flex-col gap-4 p-6 text-center">
           <div>
-            <h1 className="text-xl font-semibold">Something went wrong</h1>
+            <h1 className="text-2xl font-semibold">Something went wrong</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {error.digest ? `Error ID: ${error.digest}` : "An unexpected error occurred."}
             </p>

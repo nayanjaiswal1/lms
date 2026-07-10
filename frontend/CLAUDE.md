@@ -324,27 +324,11 @@ Never use `<img>` — `next/image` handles lazy loading, sizing, and format opti
 
 ---
 
-## Linter — What ESLint Enforces (`eslint.config.mjs`)
+## Linter — Rules Not Stated Elsewhere in This File
 
-Run `pnpm lint:strict` for zero-warning enforcement. CI must run this, not `next lint`.
+Run `pnpm lint:strict` for zero-warning enforcement (CI must run this, not `next lint`). Everything else ESLint enforces here is already covered by name above (banned class patterns, banned responsive patterns), in Accessibility (aria-label), TypeScript (`any`, `!`), and Feature-Based Organization (import boundaries) — not repeated twice.
 
-| Rule | Plugin | Severity |
-|---|---|---|
-| `dark:` prefix in className | `no-restricted-syntax` | **error** |
-| Raw colour class (amber-500, gray-900…) | `no-restricted-syntax` | **error** |
-| Hardcoded hex/rgb/hsl in className | `no-restricted-syntax` | **error** |
-| Inline `style` prop | `no-restricted-syntax` | **error** |
-| `fetch()` inside `useEffect` | `no-restricted-syntax` | **error** |
-| `w-screen` in className | `no-restricted-syntax` | **error** |
-| `h-screen` in className | `no-restricted-syntax` | **error** |
-| `overflow-x-hidden` on html/body | `no-restricted-syntax` | **error** |
-| Fixed `w-[Npx]` without responsive variant | `no-restricted-syntax` | **error** |
-| Class name conflicts | `@poupe/eslint-plugin-tailwindcss` strict | **error** |
-| Prefer theme tokens over arbitrary values | `@poupe/eslint-plugin-tailwindcss` strict | **error** |
-| Missing aria-label on icon buttons | `jsx-a11y` | **error** |
-| `any` type | `typescript-eslint` strict | **error** |
-| Non-null assertion `!` | `typescript-eslint` strict | **error** |
-| Cross-feature import outside `components/shared/`, `lib/server/`, or an explicit allow-listed edge | `eslint-plugin-boundaries` | **error** |
+Two `no-restricted-syntax` / `@poupe/eslint-plugin-tailwindcss` rules with no other section: `fetch()` inside `useEffect` is banned, and arbitrary Tailwind values are flagged in favor of theme tokens.
 
 **When you must disable a rule**, use an inline comment with a reason:
 ```tsx

@@ -58,7 +58,7 @@ export function SkillsManager({ skills, addAction, removeAction, readonly = fals
 
   return (
     <section aria-label="Skills manager" className="card-base p-6">
-      <h2 className="section-title text-lg mb-4">Skills</h2>
+      <h2 className="section-title mb-4">Skills</h2>
 
       {!readonly && (
         <form action={handleAdd} className="mb-6">

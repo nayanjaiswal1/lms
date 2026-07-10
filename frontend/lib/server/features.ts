@@ -59,7 +59,8 @@ export const getFeatureConfig = cache(async (): Promise<FeatureConfig> => {
 
     if (!res.ok) return EMPTY_CONFIG;
 
-    return (await res.json()) as FeatureConfig;
+    const body: { data: FeatureConfig } = await res.json();
+    return body.data;
   } catch {
     return EMPTY_CONFIG;
   }

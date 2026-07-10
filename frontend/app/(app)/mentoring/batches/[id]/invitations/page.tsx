@@ -20,7 +20,7 @@ export default async function MentorBatchInvitationsPage({ params }: Props) {
       </div>
       <div>
         <h2 className="section-title mb-4">Sent invitations</h2>
-        <InvitationList invitations={invitations} />
+        <InvitationList batchId={id} invitations={invitations} />
       </div>
     </div>
   );

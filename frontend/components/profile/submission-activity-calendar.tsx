@@ -53,9 +53,14 @@ function buildWeeks(calendar: CalendarDay[]): (Cell | null)[][] {
 }
 
 function monthLabelForWeek(weeks: (Cell | null)[][], index: number, lastMonth: { value: number }): string | null {
-  const firstCell = weeks[index].find((c): c is Cell => c !== null)
-  if (!firstCell) return null
-  const month = new Date(firstCell.date).getMonth()
+  const cellsInWeek = weeks[index].filter((c): c is Cell => c !== null)
+  if (cellsInWeek.length === 0) return null
+  // Use the week's last day (not first) to decide its month: the grid's
+  // leading week is padded backward to the previous Sunday, so it can span
+  // a month boundary — labeling by the first day would emit two labels one
+  // column apart (e.g. "Jun" then "Jul"), which visually overlap and merge.
+  const lastCell = cellsInWeek[cellsInWeek.length - 1]
+  const month = new Date(lastCell.date).getMonth()
   if (month === lastMonth.value) return null
   lastMonth.value = month
   return MONTH_LABELS[month]

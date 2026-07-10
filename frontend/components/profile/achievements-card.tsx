@@ -21,7 +21,7 @@ export function AchievementsCard({ stats, achievements }: Props) {
 
   return (
     <section aria-label="Achievements" className="card-base p-6">
-      <h2 className="section-title text-lg mb-4">Achievements</h2>
+      <h2 className="section-title mb-4">Achievements</h2>
 
       <div className="space-y-4">
         {/* Badges — real earned achievements from the rewards domain */}

@@ -207,7 +207,7 @@ export default async function JobsPage({
         {/* Header */}
         <div className="page-header mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Background Jobs</h2>
+            <h2 className="subsection-title text-foreground">Background Jobs</h2>
             <p className="text-sm text-muted-foreground">
               Monitor and manage scheduled and one-time background tasks for your organisation.
             </p>

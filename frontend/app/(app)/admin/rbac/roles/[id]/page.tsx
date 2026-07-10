@@ -162,11 +162,14 @@ export default function RoleDetailPage() {
                 return (
                   <label
                     key={p.id}
+                    htmlFor={`perm-${p.id}`}
+                    aria-label={`${p.name} (${p.code})`}
                     className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
                       isReadOnly ? "cursor-default" : "cursor-pointer hover:bg-muted/50"
                     } ${checked ? "border-primary bg-primary/5" : "border-border"}`}
                   >
                     <input
+                      id={`perm-${p.id}`}
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggle(p.id)}

@@ -2,7 +2,6 @@ package labs
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -26,13 +25,13 @@ func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition,
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment,
 		       language, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
-		       published_version_id, created_by, created_at, updated_at
+		       published_version_id, workspace_layout, created_by, created_at, updated_at
 		FROM lab_definitions WHERE id=$1 AND org_id=$2`,
 		labID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
 		&l.LabType, &l.Environment, &l.Language, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
-		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID,
+		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
 		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
 	)
 	if err != nil {
@@ -50,14 +49,14 @@ func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*L
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment,
 		       language, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
-		       published_version_id, created_by, created_at, updated_at
+		       published_version_id, workspace_layout, created_by, created_at, updated_at
 		FROM lab_definitions WHERE module_id=$1 AND org_id=$2 AND is_published=true
 		LIMIT 1`,
 		moduleID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
 		&l.LabType, &l.Environment, &l.Language, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
-		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID,
+		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
 		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
 	)
 	if err != nil {
@@ -69,21 +68,36 @@ func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*L
 	return &l, nil
 }
 
-// GetPublishedVersion loads the task snapshot array from a task version row.
+// GetPublishedVersion loads the task snapshot rows for a task version,
+// ordered by position. TaskSnapshot.ID is the lab_task_version_items
+// surrogate id (not the mutable lab_tasks id) — it's what completions are
+// keyed against, scoped to this one version.
 func (r *Repo) GetPublishedVersion(ctx context.Context, versionID string) ([]TaskSnapshot, error) {
-	var raw json.RawMessage
-	err := r.pool.QueryRow(ctx,
-		"SELECT tasks FROM lab_task_versions WHERE id=$1", versionID,
-	).Scan(&raw)
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, position, title, description, verification_script,
+		        COALESCE(hint_context, ''), COALESCE(explanation_context, ''),
+		        points, is_optional, is_stateful
+		 FROM lab_task_version_items WHERE task_version_id=$1 ORDER BY position`,
+		versionID,
+	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
 		return nil, fmt.Errorf("labs.Repo.GetPublishedVersion: %w", err)
 	}
-	var tasks []TaskSnapshot
-	if err := json.Unmarshal(raw, &tasks); err != nil {
-		return nil, fmt.Errorf("labs.Repo.GetPublishedVersion: unmarshal: %w", err)
+	defer rows.Close()
+	tasks := make([]TaskSnapshot, 0)
+	for rows.Next() {
+		var t TaskSnapshot
+		if err := rows.Scan(&t.ID, &t.Position, &t.Title, &t.Description, &t.VerificationScript,
+			&t.HintContext, &t.ExplanationContext, &t.Points, &t.IsOptional, &t.IsStateful); err != nil {
+			return nil, fmt.Errorf("labs.Repo.GetPublishedVersion: scan: %w", err)
+		}
+		tasks = append(tasks, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("labs.Repo.GetPublishedVersion: rows: %w", err)
+	}
+	if len(tasks) == 0 {
+		return nil, ErrNotFound
 	}
 	return tasks, nil
 }
@@ -381,7 +395,7 @@ func (r *Repo) CountActiveSessionsForUser(ctx context.Context, userID string) (i
 // by task_id.
 func (r *Repo) GetTaskCompletions(ctx context.Context, sessionID string) ([]LabTaskCompletion, error) {
 	rows, err := r.pool.Query(ctx,
-		"SELECT id, session_id, task_id, status, attempts, hints_used, completed_at FROM lab_task_completions WHERE session_id=$1 ORDER BY task_id",
+		"SELECT id, session_id, task_version_item_id, status, attempts, hints_used, completed_at FROM lab_task_completions WHERE session_id=$1 ORDER BY task_version_item_id",
 		sessionID,
 	)
 	if err != nil {
@@ -406,7 +420,7 @@ func (r *Repo) GetTaskCompletions(ctx context.Context, sessionID string) ([]LabT
 // using ON CONFLICT DO NOTHING for idempotency.
 func (r *Repo) EnsureTaskCompletion(ctx context.Context, sessionID, taskID string) error {
 	if _, err := r.pool.Exec(ctx,
-		"INSERT INTO lab_task_completions (session_id, task_id) VALUES ($1,$2) ON CONFLICT (session_id, task_id) DO NOTHING",
+		"INSERT INTO lab_task_completions (session_id, task_version_item_id) VALUES ($1,$2) ON CONFLICT (session_id, task_version_item_id) DO NOTHING",
 		sessionID, taskID,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.EnsureTaskCompletion: %w", err)
@@ -419,7 +433,7 @@ func (r *Repo) EnsureTaskCompletion(ctx context.Context, sessionID, taskID strin
 func (r *Repo) IncrementTaskAttempts(ctx context.Context, sessionID, taskID string) (int, error) {
 	var attempts int
 	if err := r.pool.QueryRow(ctx,
-		"UPDATE lab_task_completions SET attempts = attempts + 1 WHERE session_id=$1 AND task_id=$2 RETURNING attempts",
+		"UPDATE lab_task_completions SET attempts = attempts + 1 WHERE session_id=$1 AND task_version_item_id=$2 RETURNING attempts",
 		sessionID, taskID,
 	).Scan(&attempts); err != nil {
 		return 0, fmt.Errorf("labs.Repo.IncrementTaskAttempts: %w", err)
@@ -434,7 +448,7 @@ func (r *Repo) MarkTaskPassed(ctx context.Context, tx pgx.Tx, sessionID, taskID 
 	scoreAdded = max(0, points-(hintsUsed*points*hintPenaltyPct/100))
 
 	tag, err := tx.Exec(ctx,
-		"UPDATE lab_task_completions SET status='passed', completed_at=now() WHERE session_id=$1 AND task_id=$2 AND status='pending'",
+		"UPDATE lab_task_completions SET status='passed', completed_at=now() WHERE session_id=$1 AND task_version_item_id=$2 AND status='pending'",
 		sessionID, taskID,
 	)
 	if err != nil {
@@ -457,7 +471,7 @@ func (r *Repo) MarkTaskPassed(ctx context.Context, tx pgx.Tx, sessionID, taskID 
 // MarkTaskSkipped sets a pending task completion to skipped.
 func (r *Repo) MarkTaskSkipped(ctx context.Context, sessionID, taskID string) error {
 	if _, err := r.pool.Exec(ctx,
-		"UPDATE lab_task_completions SET status='skipped' WHERE session_id=$1 AND task_id=$2 AND status='pending'",
+		"UPDATE lab_task_completions SET status='skipped' WHERE session_id=$1 AND task_version_item_id=$2 AND status='pending'",
 		sessionID, taskID,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.MarkTaskSkipped: %w", err)
@@ -469,7 +483,7 @@ func (r *Repo) MarkTaskSkipped(ctx context.Context, sessionID, taskID string) er
 func (r *Repo) IncrementHintsUsed(ctx context.Context, sessionID, taskID string) (int, error) {
 	var hintsUsed int
 	if err := r.pool.QueryRow(ctx,
-		"UPDATE lab_task_completions SET hints_used = hints_used + 1 WHERE session_id=$1 AND task_id=$2 RETURNING hints_used",
+		"UPDATE lab_task_completions SET hints_used = hints_used + 1 WHERE session_id=$1 AND task_version_item_id=$2 RETURNING hints_used",
 		sessionID, taskID,
 	).Scan(&hintsUsed); err != nil {
 		return 0, fmt.Errorf("labs.Repo.IncrementHintsUsed: %w", err)
@@ -497,7 +511,7 @@ func (r *Repo) CountPassedNonOptionalTasks(ctx context.Context, q rowQuerier, se
 	}
 	var count int
 	if err := q.QueryRow(ctx,
-		"SELECT COUNT(*) FROM lab_task_completions WHERE session_id=$1 AND task_id = ANY($2) AND status='passed'",
+		"SELECT COUNT(*) FROM lab_task_completions WHERE session_id=$1 AND task_version_item_id = ANY($2) AND status='passed'",
 		sessionID, nonOptionalTaskIDs,
 	).Scan(&count); err != nil {
 		return 0, fmt.Errorf("labs.Repo.CountPassedNonOptionalTasks: %w", err)

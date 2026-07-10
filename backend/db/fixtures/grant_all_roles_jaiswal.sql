@@ -9,6 +9,9 @@
 -- Notes on user_roles (RBAC):
 --   Requires migrations 016 + 017. The block below is guarded by a table
 --   existence check so this file stays safe to run before those migrations.
+--
+-- Notes on feature_grants:
+--   Requires migration 039. Guarded the same way as the RBAC block above.
 
 -- 1. Platform-level: elevate to super_admin
 UPDATE users
@@ -50,5 +53,19 @@ BEGIN
     WHERE  u.email = 'jaiswal2062@gmail.com'
       AND  r.is_system = true
     ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
+
+-- 5. Feature grants: personal features with no org/plan concept
+--    (only if migration 039 applied)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'feature_grants'
+  ) THEN
+    INSERT INTO feature_grants (user_id, feature_key)
+    SELECT id, 'what_now' FROM users WHERE email = 'jaiswal2062@gmail.com'
+    ON CONFLICT (user_id, feature_key) DO NOTHING;
   END IF;
 END $$;

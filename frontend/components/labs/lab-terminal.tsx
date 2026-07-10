@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import "@xterm/xterm/css/xterm.css"
 
 interface LabTerminalProps {
-  containerRef: React.RefObject<HTMLDivElement | null>
+  containerRef: (node: HTMLDivElement | null) => void
   isConnected: boolean
   reconnectManually: () => void
 }

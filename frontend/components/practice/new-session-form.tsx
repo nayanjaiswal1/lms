@@ -25,8 +25,8 @@ export function NewSessionForm() {
         difficulty: fd.get("difficulty") as string,
         question_count: Number(fd.get("question_count")),
       });
-      if (!result.ok) return { error: result.error };
-      router.push(`${ROUTES.practiceSession(result.data!.id)}?q=0`);
+      if (!result.ok || !result.data) return { error: result.error };
+      router.push(`${ROUTES.practiceSession(result.data.id)}?q=0`);
       return null;
     },
     null,

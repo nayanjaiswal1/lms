@@ -1,0 +1,7080 @@
+-- ══════════════════════════════════════════════════════════════════════════
+-- 001_baseline.sql — Consolidated baseline schema
+--
+-- Squashes the former migrations 001-041 into a single baseline. Generated
+-- by replaying every prior migration against a scratch database and
+-- pg_dump'ing the resulting schema + reference data (pg_dump --inserts,
+-- so it runs as plain SQL through a single Exec, no COPY/psql metacommands).
+--
+-- Two migrations were intentionally excluded from the replay before dumping:
+--   013_fix_id_column_drift — repaired one specific already-drifted dev DB
+--     from before 001/003/008 were hand-edited in place; current 001/003/008
+--     already reflect the corrected schema, so replaying 013 is a no-op at
+--     best and errors at worst (drops constraints that no longer exist).
+--   035_pod_fundamentals_lab — cloned a lab from course-fixture data
+--     (backend/db/fixtures/k8s_fastkube.generated.sql) that is not part of
+--     migrations and is loaded after migrations run, so it never worked on
+--     a fresh install. Re-attach that lab manually after fixtures load, if
+--     still wanted.
+-- ══════════════════════════════════════════════════════════════════════════
+
+--
+-- PostgreSQL database dump
+--
+
+
+-- Dumped from database version 16.14
+-- Dumped by pg_dump version 16.14
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: citext; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;
+
+
+--
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+
+
+--
+-- Name: enforce_last_owner(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_last_owner() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF (OLD.role = 'owner' AND (NEW.status <> 'active' OR NEW.role <> 'owner')) THEN
+      IF (SELECT COUNT(*) FROM org_members
+          WHERE org_id = OLD.org_id AND role = 'owner' AND status = 'active' AND id <> OLD.id) = 0 THEN
+        RAISE EXCEPTION 'cannot remove the last active owner of an organization';
+      END IF;
+    END IF;
+  ELSIF TG_OP = 'DELETE' THEN
+    IF OLD.role = 'owner' AND OLD.status = 'active' THEN
+      IF (SELECT COUNT(*) FROM org_members
+          WHERE org_id = OLD.org_id AND role = 'owner' AND status = 'active' AND id <> OLD.id) = 0 THEN
+        RAISE EXCEPTION 'cannot remove the last active owner of an organization';
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enforce_slug_immutable(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_slug_immutable() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF OLD.status = 'active' AND NEW.slug <> OLD.slug THEN
+    RAISE EXCEPTION 'org slug cannot be changed after activation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enroll_batch_members_in_course(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enroll_batch_members_in_course() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  INSERT INTO enrollments (user_id, course_id, batch_id, enrolled_by)
+  SELECT bm.user_id, NEW.course_id, NEW.batch_id, NEW.assigned_by
+  FROM batch_members bm
+  WHERE bm.batch_id = NEW.batch_id
+  ON CONFLICT (user_id, course_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enroll_new_member_in_batch_courses(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enroll_new_member_in_batch_courses() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  INSERT INTO enrollments (user_id, course_id, batch_id, enrolled_by)
+  SELECT NEW.user_id, bc.course_id, NEW.batch_id, NEW.user_id
+  FROM batch_courses bc
+  WHERE bc.batch_id = NEW.batch_id
+  ON CONFLICT (user_id, course_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: fn_check_user_role_tenant_scope(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.fn_check_user_role_tenant_scope() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  role_tenant_id UUID;
+BEGIN
+  SELECT tenant_id INTO role_tenant_id FROM roles WHERE id = NEW.role_id;
+  IF role_tenant_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF role_tenant_id IS DISTINCT FROM NEW.tenant_id THEN
+    RAISE EXCEPTION
+      'Tenant-scope violation: role % belongs to tenant % but assignment targets tenant %.',
+      NEW.role_id, role_tenant_id, NEW.tenant_id
+      USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: set_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_active_member_count(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_active_member_count() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  affected_org_id UUID;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    affected_org_id := OLD.org_id;
+  ELSE
+    affected_org_id := NEW.org_id;
+  END IF;
+  UPDATE organizations SET active_member_count = (
+    SELECT COUNT(*) FROM org_members WHERE org_id = affected_org_id AND status = 'active'
+  ) WHERE id = affected_org_id;
+  RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: update_user_stats_completion(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_user_stats_completion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.completed_at IS NOT NULL AND OLD.completed_at IS NULL THEN
+    INSERT INTO user_stats (user_id, courses_completed, updated_at)
+      VALUES (NEW.user_id, 1, now())
+    ON CONFLICT (user_id) DO UPDATE
+      SET courses_completed = user_stats.courses_completed + 1,
+          updated_at = now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_user_stats_enrollment(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_user_stats_enrollment() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  INSERT INTO user_stats (user_id, courses_enrolled, updated_at)
+    VALUES (NEW.user_id, 1, now())
+  ON CONFLICT (user_id) DO UPDATE
+    SET courses_enrolled = user_stats.courses_enrolled + 1,
+        updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+
+SET default_table_access_method = heap;
+
+--
+-- Name: assessment_assignments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_assignments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    assessment_id uuid NOT NULL,
+    assignee_type text NOT NULL,
+    assignee_id uuid NOT NULL,
+    due_at timestamp with time zone,
+    assigned_by uuid NOT NULL,
+    assigned_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT assessment_assignments_assignee_type_check CHECK ((assignee_type = ANY (ARRAY['student'::text, 'batch'::text])))
+);
+
+
+--
+-- Name: assessment_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_attempts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    assessment_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    attempt_number integer DEFAULT 1 NOT NULL,
+    status text DEFAULT 'created'::text NOT NULL,
+    started_at timestamp with time zone,
+    submitted_at timestamp with time zone,
+    evaluated_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    duration_seconds integer DEFAULT 0 NOT NULL,
+    score numeric(9,2),
+    max_score numeric(9,2),
+    percentage numeric(5,2),
+    passed boolean,
+    auto_submitted boolean DEFAULT false NOT NULL,
+    snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
+    proctoring_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    reward_result jsonb,
+    active_session_token text,
+    CONSTRAINT assessment_attempts_status_check CHECK ((status = ANY (ARRAY['created'::text, 'in_progress'::text, 'submitted'::text, 'evaluating'::text, 'evaluated'::text, 'eval_failed'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: assessment_questions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_questions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    assessment_id uuid NOT NULL,
+    question_id uuid NOT NULL,
+    version_id uuid NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    points numeric(7,2) DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT assessment_questions_points_check CHECK ((points >= (0)::numeric))
+);
+
+
+--
+-- Name: assessments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    title text NOT NULL,
+    slug text NOT NULL,
+    description text,
+    type text DEFAULT 'mcq'::text NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    parent_type text DEFAULT 'standalone'::text NOT NULL,
+    parent_id uuid,
+    duration_minutes integer DEFAULT 30 NOT NULL,
+    pass_percentage numeric(5,2) DEFAULT 40 NOT NULL,
+    max_attempts integer DEFAULT 1 NOT NULL,
+    total_points numeric(9,2) DEFAULT 0 NOT NULL,
+    shuffle_questions boolean DEFAULT false NOT NULL,
+    shuffle_options boolean DEFAULT false NOT NULL,
+    allow_backtrack boolean DEFAULT true NOT NULL,
+    show_results boolean DEFAULT true NOT NULL,
+    mock_mode boolean DEFAULT false NOT NULL,
+    starts_at timestamp with time zone,
+    ends_at timestamp with time zone,
+    proctoring jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_by uuid NOT NULL,
+    published_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    short_code text,
+    CONSTRAINT assessments_check CHECK (((ends_at IS NULL) OR (starts_at IS NULL) OR (ends_at > starts_at))),
+    CONSTRAINT assessments_duration_minutes_check CHECK (((duration_minutes >= 1) AND (duration_minutes <= 1440))),
+    CONSTRAINT assessments_max_attempts_check CHECK (((max_attempts >= 1) AND (max_attempts <= 100))),
+    CONSTRAINT assessments_parent_type_check CHECK ((parent_type = ANY (ARRAY['standalone'::text, 'course'::text, 'module'::text, 'roadmap'::text, 'batch'::text, 'bootcamp'::text]))),
+    CONSTRAINT assessments_pass_percentage_check CHECK (((pass_percentage >= (0)::numeric) AND (pass_percentage <= (100)::numeric))),
+    CONSTRAINT assessments_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text, 'scheduled'::text, 'active'::text, 'completed'::text, 'archived'::text]))),
+    CONSTRAINT assessments_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'mixed'::text])))
+);
+
+
+--
+-- Name: attempt_answers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.attempt_answers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    attempt_id uuid NOT NULL,
+    assessment_question_id uuid NOT NULL,
+    question_id uuid NOT NULL,
+    answer jsonb DEFAULT '{}'::jsonb NOT NULL,
+    ai_feedback jsonb,
+    transcript text,
+    is_correct boolean,
+    points_awarded numeric(7,2) DEFAULT 0 NOT NULL,
+    max_points numeric(7,2) DEFAULT 0 NOT NULL,
+    time_spent_seconds integer DEFAULT 0 NOT NULL,
+    evaluated_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT attempt_answers_transcript_check CHECK (((transcript IS NULL) OR (length(transcript) <= 50000)))
+);
+
+
+--
+-- Name: attempt_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.attempt_events (
+    id bigint NOT NULL,
+    attempt_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    event_type text NOT NULL,
+    severity text DEFAULT 'info'::text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    client_ts timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT attempt_events_event_type_check CHECK ((event_type = ANY (ARRAY['tab_switch'::text, 'focus_loss'::text, 'focus_gain'::text, 'fullscreen_exit'::text, 'fullscreen_enter'::text, 'copy'::text, 'paste'::text, 'cut'::text, 'right_click'::text, 'devtools_open'::text, 'visibility_hidden'::text, 'visibility_visible'::text, 'window_resize'::text, 'network_offline'::text, 'heartbeat'::text]))),
+    CONSTRAINT attempt_events_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'critical'::text])))
+);
+
+
+--
+-- Name: attempt_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.attempt_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.attempt_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: audit_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audit_log (
+    id bigint NOT NULL,
+    tenant_id uuid,
+    actor_id uuid,
+    action text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id text NOT NULL,
+    diff jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: audit_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.audit_log ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.audit_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: audit_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audit_logs (
+    id bigint NOT NULL,
+    org_id uuid NOT NULL,
+    actor_user_id uuid,
+    action text NOT NULL,
+    target_type text NOT NULL,
+    target_id uuid,
+    before_state jsonb,
+    after_state jsonb,
+    ip_address inet,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: audit_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.audit_logs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.audit_logs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: batch_courses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batch_courses (
+    batch_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    assigned_by uuid NOT NULL,
+    assigned_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: batch_invitations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batch_invitations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    batch_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    email text NOT NULL,
+    invited_by uuid NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    invited_at timestamp with time zone DEFAULT now(),
+    accepted_at timestamp with time zone,
+    declined_at timestamp with time zone,
+    resent_at timestamp with time zone
+);
+
+
+--
+-- Name: batch_member_details; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batch_member_details (
+    batch_id uuid NOT NULL,
+    email text NOT NULL,
+    user_id uuid,
+    full_name text NOT NULL,
+    roll_number text,
+    phone_number text,
+    department text,
+    other_fields jsonb DEFAULT '{}'::jsonb NOT NULL,
+    locked_fields text[] DEFAULT '{}'::text[] NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT batch_member_details_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'invited'::text, 'resent'::text, 'enrolled_existing'::text, 'failed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: batch_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batch_members (
+    batch_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    added_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: batch_mentors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batch_mentors (
+    batch_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    added_by uuid NOT NULL,
+    added_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: batch_message_reactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batch_message_reactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    message_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    reaction text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT batch_message_reactions_reaction_check CHECK ((reaction = ANY (ARRAY['upvote'::text, 'helpful'::text])))
+);
+
+
+--
+-- Name: batch_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batch_messages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    batch_id uuid NOT NULL,
+    sender_id uuid NOT NULL,
+    parent_id uuid,
+    body text NOT NULL,
+    type text DEFAULT 'question'::text NOT NULL,
+    is_pinned boolean DEFAULT false NOT NULL,
+    is_resolved boolean DEFAULT false NOT NULL,
+    edited_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    deleted_at timestamp with time zone,
+    CONSTRAINT batch_messages_body_check CHECK (((length(body) >= 1) AND (length(body) <= 5000))),
+    CONSTRAINT batch_messages_type_check CHECK ((type = ANY (ARRAY['question'::text, 'answer'::text, 'announcement'::text, 'resource'::text])))
+);
+
+
+--
+-- Name: batches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.batches (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    name text NOT NULL,
+    slug text NOT NULL,
+    description text,
+    mentor_id uuid,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    starts_at timestamp with time zone,
+    ends_at timestamp with time zone,
+    image_url text,
+    CONSTRAINT batches_schedule_chk CHECK (((starts_at IS NULL) OR (ends_at IS NULL) OR (ends_at > starts_at))),
+    CONSTRAINT batches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text])))
+);
+
+
+--
+-- Name: calendar_event_attendees; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.calendar_event_attendees (
+    event_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    role text DEFAULT 'viewer'::text NOT NULL,
+    rsvp_status text DEFAULT 'pending'::text NOT NULL,
+    CONSTRAINT calendar_event_attendees_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'editor'::text, 'viewer'::text]))),
+    CONSTRAINT calendar_event_attendees_rsvp_status_check CHECK ((rsvp_status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text])))
+);
+
+
+--
+-- Name: calendar_event_invites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.calendar_event_invites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    email text NOT NULL,
+    role text DEFAULT 'viewer'::text NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    accepted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT calendar_event_invites_role_check CHECK ((role = ANY (ARRAY['editor'::text, 'viewer'::text])))
+);
+
+
+--
+-- Name: calendar_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.calendar_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    created_by uuid NOT NULL,
+    event_type text NOT NULL,
+    title text NOT NULL,
+    notes text,
+    meeting_url text,
+    starts_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone,
+    all_day boolean DEFAULT false NOT NULL,
+    visibility text DEFAULT 'private'::text NOT NULL,
+    batch_id uuid,
+    course_id uuid,
+    entity_type text,
+    entity_id uuid,
+    recurrence_rule text,
+    recurrence_parent_id uuid,
+    excluded_occurrences timestamp with time zone[] DEFAULT '{}'::timestamp with time zone[] NOT NULL,
+    status text DEFAULT 'scheduled'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT calendar_events_check CHECK (((ends_at IS NULL) OR (ends_at > starts_at))),
+    CONSTRAINT calendar_events_event_type_check CHECK ((event_type = ANY (ARRAY['mentor_session'::text, 'live_class'::text, 'deadline'::text, 'custom'::text, 'task'::text]))),
+    CONSTRAINT calendar_events_notes_check CHECK (((notes IS NULL) OR (length(notes) <= 20000))),
+    CONSTRAINT calendar_events_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'cancelled'::text]))),
+    CONSTRAINT calendar_events_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200))),
+    CONSTRAINT calendar_events_visibility_check CHECK ((visibility = ANY (ARRAY['private'::text, 'shared'::text, 'public'::text])))
+);
+
+
+--
+-- Name: calendar_feed_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.calendar_feed_tokens (
+    user_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: coding_submissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.coding_submissions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    attempt_answer_id uuid NOT NULL,
+    language text NOT NULL,
+    source_code text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    tests_total integer DEFAULT 0 NOT NULL,
+    tests_passed integer DEFAULT 0 NOT NULL,
+    runtime_ms integer,
+    memory_kb integer,
+    compile_output text,
+    result jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    evaluated_at timestamp with time zone,
+    CONSTRAINT coding_submissions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'passed'::text, 'failed'::text, 'error'::text])))
+);
+
+
+--
+-- Name: course_faqs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.course_faqs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    course_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    question text NOT NULL,
+    answer text NOT NULL,
+    ai_generated boolean DEFAULT false NOT NULL,
+    source_message_id uuid,
+    created_by uuid,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT course_faqs_answer_check CHECK (((length(answer) >= 10) AND (length(answer) <= 5000))),
+    CONSTRAINT course_faqs_question_check CHECK (((length(question) >= 10) AND (length(question) <= 500)))
+);
+
+
+--
+-- Name: course_modules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.course_modules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    course_id uuid NOT NULL,
+    section_id uuid NOT NULL,
+    title text NOT NULL,
+    type text NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    is_free_preview boolean DEFAULT false NOT NULL,
+    storage_key text,
+    duration_seconds integer,
+    content_body text,
+    assessment_id uuid,
+    estimated_minutes integer,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    deleted_at timestamp with time zone,
+    starts_at timestamp with time zone,
+    ends_at timestamp with time zone,
+    CONSTRAINT course_modules_duration_seconds_check CHECK ((duration_seconds > 0)),
+    CONSTRAINT course_modules_estimated_minutes_check CHECK ((estimated_minutes > 0)),
+    CONSTRAINT course_modules_schedule_chk CHECK (((starts_at IS NULL) OR (ends_at IS NULL) OR (ends_at > starts_at))),
+    CONSTRAINT course_modules_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200))),
+    CONSTRAINT course_modules_type_check CHECK ((type = ANY (ARRAY['video'::text, 'pdf'::text, 'notes'::text, 'assessment'::text, 'lab'::text])))
+);
+
+
+--
+-- Name: course_purchases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.course_purchases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    amount_cents integer NOT NULL,
+    currency text DEFAULT 'USD'::text NOT NULL,
+    provider text DEFAULT 'stub'::text NOT NULL,
+    provider_ref text NOT NULL,
+    status text DEFAULT 'completed'::text NOT NULL,
+    purchased_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT course_purchases_amount_cents_check CHECK ((amount_cents >= 0)),
+    CONSTRAINT course_purchases_provider_check CHECK ((provider = ANY (ARRAY['stub'::text, 'stripe'::text, 'razorpay'::text]))),
+    CONSTRAINT course_purchases_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'refunded'::text])))
+);
+
+
+--
+-- Name: course_reviews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.course_reviews (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    course_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    rating integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT course_reviews_rating_check CHECK (((rating >= 1) AND (rating <= 5)))
+);
+
+
+--
+-- Name: course_sections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.course_sections (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    course_id uuid NOT NULL,
+    title text NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT course_sections_title_check CHECK (((length(title) >= 1) AND (length(title) <= 200)))
+);
+
+
+--
+-- Name: courses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.courses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    creator_id uuid NOT NULL,
+    title text NOT NULL,
+    slug text NOT NULL,
+    description text,
+    cover_url text,
+    difficulty text DEFAULT 'beginner'::text NOT NULL,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    forked_from_id uuid,
+    price_cents integer DEFAULT 0 NOT NULL,
+    is_free boolean DEFAULT true NOT NULL,
+    estimated_hours numeric(5,1),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    starts_at timestamp with time zone,
+    ends_at timestamp with time zone,
+    CONSTRAINT courses_description_check CHECK ((length(description) <= 2000)),
+    CONSTRAINT courses_difficulty_check CHECK ((difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))),
+    CONSTRAINT courses_estimated_hours_check CHECK ((estimated_hours > (0)::numeric)),
+    CONSTRAINT courses_price_cents_check CHECK ((price_cents >= 0)),
+    CONSTRAINT courses_schedule_chk CHECK (((starts_at IS NULL) OR (ends_at IS NULL) OR (ends_at > starts_at))),
+    CONSTRAINT courses_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'review'::text, 'published'::text, 'archived'::text]))),
+    CONSTRAINT courses_title_check CHECK (((length(title) >= 3) AND (length(title) <= 200)))
+);
+
+
+--
+-- Name: email_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.email_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    verified_at timestamp with time zone
+);
+
+
+--
+-- Name: enrollments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.enrollments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    batch_id uuid,
+    enrolled_by uuid,
+    enrolled_at timestamp with time zone DEFAULT now(),
+    completed_at timestamp with time zone
+);
+
+
+--
+-- Name: experience_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.experience_reports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    subject_type text NOT NULL,
+    subject_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    experience text,
+    description text,
+    skipped_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT experience_reports_experience_check CHECK ((experience = ANY (ARRAY['smooth'::text, 'issue'::text, 'complaint'::text]))),
+    CONSTRAINT experience_reports_reported_or_skipped CHECK (((experience IS NOT NULL) OR (skipped_at IS NOT NULL))),
+    CONSTRAINT experience_reports_subject_type_check CHECK ((subject_type = 'assessment'::text))
+);
+
+
+--
+-- Name: feature_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feature_grants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    feature_key text NOT NULL,
+    granted_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: feedback; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feedback (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    subject_type text NOT NULL,
+    subject_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    rating integer,
+    comment text,
+    skipped_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT feedback_rated_or_skipped CHECK (((rating IS NOT NULL) OR (skipped_at IS NOT NULL))),
+    CONSTRAINT feedback_rating_check CHECK (((rating >= 1) AND (rating <= 5))),
+    CONSTRAINT feedback_subject_type_check CHECK ((subject_type = ANY (ARRAY['course'::text, 'assessment'::text, 'lab'::text, 'mentor'::text])))
+);
+
+
+--
+-- Name: highlight_explanations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.highlight_explanations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    text_hash text NOT NULL,
+    selected_text text NOT NULL,
+    source_type text NOT NULL,
+    explanation text NOT NULL,
+    model_used text NOT NULL,
+    serve_count integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: highlights; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.highlights (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    source_type text NOT NULL,
+    source_id uuid NOT NULL,
+    selected_text text NOT NULL,
+    text_hash text NOT NULL,
+    position_start integer,
+    position_end integer,
+    saved_for_revision boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    context_snippet text,
+    source_url text,
+    source_orphaned boolean DEFAULT false NOT NULL,
+    CONSTRAINT highlights_source_type_check CHECK ((source_type = ANY (ARRAY['wiki_page'::text, 'lesson'::text, 'problem'::text])))
+);
+
+
+--
+-- Name: idempotency_keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.idempotency_keys (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    idem_key text NOT NULL,
+    endpoint text NOT NULL,
+    user_id uuid,
+    request_hash text NOT NULL,
+    status_code integer NOT NULL,
+    response_body text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: interview_evaluations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.interview_evaluations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    attempt_id uuid NOT NULL,
+    question_id uuid,
+    scope text NOT NULL,
+    score_technical_accuracy numeric(5,2),
+    score_completeness numeric(5,2),
+    score_communication numeric(5,2),
+    score_clarity numeric(5,2),
+    score_structure numeric(5,2),
+    score_confidence numeric(5,2),
+    score_seniority_alignment numeric(5,2),
+    composite_score numeric(5,2),
+    readiness_score numeric(5,2),
+    strengths text[] DEFAULT '{}'::text[] NOT NULL,
+    weaknesses text[] DEFAULT '{}'::text[] NOT NULL,
+    missing_concepts text[] DEFAULT '{}'::text[] NOT NULL,
+    incorrect_concepts text[] DEFAULT '{}'::text[] NOT NULL,
+    improvements text[] DEFAULT '{}'::text[] NOT NULL,
+    better_answer text,
+    reference_comparison text,
+    injection_detected boolean DEFAULT false NOT NULL,
+    injection_score integer DEFAULT 0 NOT NULL,
+    review_required boolean DEFAULT false NOT NULL,
+    ai_model text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT interview_evaluations_scope_check CHECK ((scope = ANY (ARRAY['question'::text, 'overall'::text])))
+);
+
+
+--
+-- Name: interview_skill_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.interview_skill_scores (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    attempt_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    skill text NOT NULL,
+    composite_score numeric(5,2) NOT NULL,
+    question_count integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT interview_skill_scores_skill_check CHECK (((length(skill) >= 1) AND (length(skill) <= 100)))
+);
+
+
+--
+-- Name: job_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.job_runs (
+    id bigint NOT NULL,
+    job_id uuid NOT NULL,
+    status text NOT NULL,
+    attempt smallint DEFAULT 1 NOT NULL,
+    worker_id text NOT NULL,
+    started_at timestamp with time zone,
+    finished_at timestamp with time zone,
+    duration_ms integer,
+    error text,
+    heartbeat_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT job_runs_status_check CHECK ((status = ANY (ARRAY['running'::text, 'success'::text, 'failed'::text, 'timeout'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: job_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.job_runs ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.job_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.jobs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    handler text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    priority smallint DEFAULT 3 NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    job_type text DEFAULT 'one_time'::text NOT NULL,
+    schedule text,
+    run_at timestamp with time zone DEFAULT now() NOT NULL,
+    next_run_at timestamp with time zone,
+    last_run_at timestamp with time zone,
+    last_duration_ms integer,
+    last_error text,
+    max_retries smallint DEFAULT 3 NOT NULL,
+    retry_count smallint DEFAULT 0 NOT NULL,
+    timeout_ms integer DEFAULT 30000 NOT NULL,
+    idempotency_key text,
+    org_id uuid,
+    created_by uuid,
+    worker_id text,
+    claimed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    CONSTRAINT jobs_job_type_check CHECK ((job_type = ANY (ARRAY['one_time'::text, 'cron'::text]))),
+    CONSTRAINT jobs_priority_check CHECK (((priority >= 1) AND (priority <= 5))),
+    CONSTRAINT jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'queued'::text, 'running'::text, 'success'::text, 'failed'::text, 'dead'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: jti_blocklist; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.jti_blocklist (
+    jti text NOT NULL,
+    user_id uuid NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    reason text
+);
+
+
+--
+-- Name: lab_ai_interactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_ai_interactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    session_id uuid NOT NULL,
+    task_id uuid,
+    interaction_type text NOT NULL,
+    hint_level integer,
+    cache_key text,
+    prompt text NOT NULL,
+    response text NOT NULL,
+    tokens_used integer,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lab_ai_interactions_interaction_type_check CHECK ((interaction_type = ANY (ARRAY['hint'::text, 'explain'::text, 'diagnose'::text, 'generate'::text])))
+);
+
+
+--
+-- Name: lab_analytics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_analytics (
+    lab_id uuid NOT NULL,
+    day date NOT NULL,
+    sessions_started integer DEFAULT 0 NOT NULL,
+    sessions_completed integer DEFAULT 0 NOT NULL,
+    avg_duration_sec integer DEFAULT 0 NOT NULL,
+    avg_score numeric(6,2) DEFAULT 0 NOT NULL,
+    total_hints_used integer DEFAULT 0 NOT NULL,
+    per_task_pass_rate jsonb DEFAULT '{}'::jsonb NOT NULL,
+    computed_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: lab_definitions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_definitions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    course_id uuid,
+    module_id uuid,
+    scope text DEFAULT 'module'::text NOT NULL,
+    title text NOT NULL,
+    description text,
+    lab_type text NOT NULL,
+    environment text NOT NULL,
+    setup_script text,
+    max_duration integer DEFAULT 60 NOT NULL,
+    max_resets integer DEFAULT 3 NOT NULL,
+    hint_penalty_pct integer DEFAULT 0 NOT NULL,
+    is_required boolean DEFAULT false NOT NULL,
+    is_published boolean DEFAULT false NOT NULL,
+    published_version_id uuid,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    language text,
+    workspace_layout text DEFAULT 'split'::text NOT NULL,
+    CONSTRAINT lab_definitions_code_requires_language CHECK (((lab_type <> 'code'::text) OR (language IS NOT NULL))),
+    CONSTRAINT lab_definitions_hint_penalty_pct_check CHECK (((hint_penalty_pct >= 0) AND (hint_penalty_pct <= 100))),
+    CONSTRAINT lab_definitions_lab_type_check CHECK ((lab_type = ANY (ARRAY['terminal'::text, 'code'::text, 'playground'::text, 'guided'::text]))),
+    CONSTRAINT lab_definitions_language_check CHECK ((language = ANY (ARRAY['javascript'::text, 'typescript'::text, 'python'::text, 'go'::text]))),
+    CONSTRAINT lab_definitions_scope_check CHECK ((scope = ANY (ARRAY['module'::text, 'course'::text, 'standalone'::text]))),
+    CONSTRAINT lab_definitions_workspace_layout_check CHECK ((workspace_layout = ANY (ARRAY['split'::text, 'console'::text]))),
+    CONSTRAINT required_lab_has_module CHECK (((NOT is_required) OR (module_id IS NOT NULL))),
+    CONSTRAINT scope_module_consistency CHECK ((((scope = 'standalone'::text) AND (module_id IS NULL)) OR ((scope = 'course'::text) AND (course_id IS NOT NULL)) OR ((scope = 'module'::text) AND (module_id IS NOT NULL))))
+);
+
+
+--
+-- Name: lab_egress_rules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_egress_rules (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    lab_id uuid NOT NULL,
+    host text NOT NULL,
+    port integer,
+    protocol text DEFAULT 'https'::text NOT NULL,
+    reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lab_egress_rules_protocol_check CHECK ((protocol = ANY (ARRAY['http'::text, 'https'::text, 'tcp'::text])))
+);
+
+
+--
+-- Name: lab_org_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_org_config (
+    org_id uuid NOT NULL,
+    max_concurrent_sessions integer DEFAULT 20 NOT NULL,
+    max_session_duration integer DEFAULT 120 NOT NULL,
+    allowed_images text[],
+    egress_proxy_enabled boolean DEFAULT false NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: lab_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_sessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    lab_id uuid NOT NULL,
+    task_version_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    org_id uuid NOT NULL,
+    container_id text,
+    container_host text,
+    status text DEFAULT 'provisioning'::text NOT NULL,
+    reset_count integer DEFAULT 0 NOT NULL,
+    score integer DEFAULT 0 NOT NULL,
+    is_test boolean DEFAULT false NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    paused_seconds integer DEFAULT 0 NOT NULL,
+    completed_at timestamp with time zone,
+    last_active_at timestamp with time zone DEFAULT now() NOT NULL,
+    end_reason text,
+    CONSTRAINT lab_sessions_end_reason_check CHECK ((end_reason = ANY (ARRAY['time_limit'::text, 'idle_timeout'::text]))),
+    CONSTRAINT lab_sessions_status_check CHECK ((status = ANY (ARRAY['provisioning'::text, 'running'::text, 'paused'::text, 'completed'::text, 'expired'::text, 'failed'::text, 'terminated_abuse'::text])))
+);
+
+
+--
+-- Name: lab_task_completions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_task_completions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    session_id uuid NOT NULL,
+    task_id uuid NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    hints_used integer DEFAULT 0 NOT NULL,
+    completed_at timestamp with time zone,
+    CONSTRAINT lab_task_completions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'passed'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: lab_task_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_task_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    lab_id uuid NOT NULL,
+    version integer NOT NULL,
+    tasks jsonb NOT NULL,
+    published_by uuid NOT NULL,
+    published_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: lab_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    lab_id uuid NOT NULL,
+    "position" integer NOT NULL,
+    title text NOT NULL,
+    description text NOT NULL,
+    verification_script text NOT NULL,
+    hint_context text,
+    explanation_context text,
+    points integer DEFAULT 10 NOT NULL,
+    is_optional boolean DEFAULT false NOT NULL,
+    is_stateful boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: lab_usage_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lab_usage_events (
+    id bigint NOT NULL,
+    org_id uuid NOT NULL,
+    session_id uuid,
+    event_type text NOT NULL,
+    quantity bigint NOT NULL,
+    image text,
+    recorded_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lab_usage_events_event_type_check CHECK ((event_type = ANY (ARRAY['container_seconds'::text, 'ai_tokens'::text, 'validation_seconds'::text])))
+);
+
+
+--
+-- Name: lab_usage_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.lab_usage_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.lab_usage_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: mentor_change_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mentor_change_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    ticket_id uuid NOT NULL,
+    student_id uuid NOT NULL,
+    reason text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    reviewed_by uuid,
+    review_note text,
+    reviewed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT mentor_change_requests_reason_check CHECK (((length(reason) >= 10) AND (length(reason) <= 1000))),
+    CONSTRAINT mentor_change_requests_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'denied'::text])))
+);
+
+
+--
+-- Name: mentor_chat_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mentor_chat_messages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    ticket_id uuid NOT NULL,
+    sender_id uuid NOT NULL,
+    body text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT mentor_chat_messages_body_check CHECK (((length(body) >= 1) AND (length(body) <= 4000)))
+);
+
+
+--
+-- Name: mentor_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mentor_reports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    mentor_id uuid NOT NULL,
+    reporter_id uuid NOT NULL,
+    ticket_id uuid,
+    reason text NOT NULL,
+    description text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    resolved_by uuid,
+    resolution_note text,
+    resolved_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT mentor_reports_description_check CHECK (((length(description) >= 10) AND (length(description) <= 2000))),
+    CONSTRAINT mentor_reports_reason_check CHECK ((reason = ANY (ARRAY['unresponsive'::text, 'inappropriate_behavior'::text, 'unqualified'::text, 'other'::text]))),
+    CONSTRAINT mentor_reports_status_check CHECK ((status = ANY (ARRAY['open'::text, 'reviewing'::text, 'resolved'::text, 'dismissed'::text])))
+);
+
+
+--
+-- Name: mentor_ticket_assignments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mentor_ticket_assignments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    ticket_id uuid NOT NULL,
+    mentor_id uuid NOT NULL,
+    student_id uuid NOT NULL,
+    assigned_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: mentor_tickets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mentor_tickets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    student_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    purchase_id uuid,
+    status text DEFAULT 'open'::text NOT NULL,
+    assigned_mentor_id uuid,
+    assigned_by uuid,
+    assigned_at timestamp with time zone,
+    closed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    escalation_level smallint DEFAULT 0 NOT NULL,
+    CONSTRAINT mentor_tickets_escalation_level_check CHECK (((escalation_level >= 0) AND (escalation_level <= 3))),
+    CONSTRAINT mentor_tickets_status_check CHECK ((status = ANY (ARRAY['open'::text, 'assigned'::text, 'closed'::text])))
+);
+
+
+--
+-- Name: module_progress; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.module_progress (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    module_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    status text DEFAULT 'not_started'::text NOT NULL,
+    last_position_seconds integer DEFAULT 0,
+    completed_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT module_progress_status_check CHECK ((status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'completed'::text])))
+);
+
+
+--
+-- Name: nav_permissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.nav_permissions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    role text NOT NULL,
+    section_label text,
+    section_order integer DEFAULT 0 NOT NULL,
+    item_key text NOT NULL,
+    item_order integer DEFAULT 0 NOT NULL,
+    in_bottom_nav boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT nav_permissions_role_check CHECK ((role = ANY (ARRAY['student'::text, 'instructor'::text, 'mentor'::text, 'admin'::text])))
+);
+
+
+--
+-- Name: oauth_exchanges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oauth_exchanges (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token text NOT NULL,
+    user_id uuid NOT NULL,
+    onboarding_completed boolean DEFAULT false NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone
+);
+
+
+--
+-- Name: org_auth_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_auth_config (
+    org_id uuid NOT NULL,
+    allow_password boolean DEFAULT true,
+    allow_google boolean DEFAULT false,
+    allow_github boolean DEFAULT false,
+    allow_microsoft boolean DEFAULT false,
+    allow_magic_link boolean DEFAULT false,
+    require_sso boolean DEFAULT false,
+    oidc_issuer_url text,
+    oidc_client_id text,
+    oidc_client_secret text,
+    saml_metadata_xml text,
+    sso_enabled boolean DEFAULT false NOT NULL,
+    sso_provider text,
+    password_policy jsonb DEFAULT '{}'::jsonb NOT NULL,
+    allowed_domains text[] DEFAULT '{}'::text[] NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT org_auth_sso_provider_check CHECK ((sso_provider = ANY (ARRAY['google'::text, 'azure_ad'::text, 'okta'::text, 'saml'::text, 'oidc'::text])))
+);
+
+
+--
+-- Name: org_domains; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_domains (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    domain text NOT NULL,
+    verified boolean DEFAULT false NOT NULL,
+    verification_method text,
+    verification_token text NOT NULL,
+    verified_at timestamp with time zone,
+    auto_join_enabled boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT org_domains_verification_method_check CHECK ((verification_method = ANY (ARRAY['dns_txt'::text, 'email'::text])))
+);
+
+
+--
+-- Name: org_invites; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_invites (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    email text NOT NULL,
+    role text NOT NULL,
+    invited_by_user_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    accepted_at timestamp with time zone,
+    accepted_by_user_id uuid,
+    revoked_at timestamp with time zone,
+    revoke_reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT org_invites_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'mentor'::text, 'instructor'::text, 'learner'::text])))
+);
+
+
+--
+-- Name: org_job_quotas; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_job_quotas (
+    org_id uuid NOT NULL,
+    max_concurrent integer DEFAULT 5 NOT NULL,
+    max_queued integer DEFAULT 200 NOT NULL,
+    priority_floor smallint DEFAULT 5 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: org_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.org_members (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    role text DEFAULT 'learner'::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    joined_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT org_members_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'instructor'::text, 'mentor'::text, 'learner'::text]))),
+    CONSTRAINT org_members_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'removed'::text])))
+);
+
+
+--
+-- Name: organizations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    slug text NOT NULL,
+    name text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    logo_url text,
+    description text,
+    seat_limit integer,
+    active_member_count integer DEFAULT 0 NOT NULL,
+    onboarding_step integer DEFAULT 4 NOT NULL,
+    onboarding_completed_at timestamp with time zone,
+    activated_at timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT orgs_slug_format CHECK ((slug ~ '^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$'::text)),
+    CONSTRAINT orgs_status_check CHECK ((status = ANY (ARRAY['pending_verification'::text, 'onboarding'::text, 'active'::text, 'suspended'::text, 'archived'::text])))
+);
+
+
+--
+-- Name: password_reset_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.password_reset_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone
+);
+
+
+--
+-- Name: permissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.permissions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    code text NOT NULL,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    module text NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: practice_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.practice_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    session_id uuid NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    question_text text NOT NULL,
+    user_answer text,
+    ai_feedback jsonb,
+    answered_at timestamp with time zone,
+    feedback_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: practice_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.practice_sessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    org_id uuid,
+    technology text NOT NULL,
+    difficulty text DEFAULT 'intermediate'::text NOT NULL,
+    question_count integer DEFAULT 5 NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    ai_model text,
+    created_at timestamp with time zone DEFAULT now(),
+    completed_at timestamp with time zone,
+    CONSTRAINT practice_sessions_difficulty_check CHECK ((difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))),
+    CONSTRAINT practice_sessions_question_count_check CHECK (((question_count >= 1) AND (question_count <= 20))),
+    CONSTRAINT practice_sessions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'abandoned'::text]))),
+    CONSTRAINT practice_sessions_technology_check CHECK (((length(technology) >= 1) AND (length(technology) <= 100)))
+);
+
+
+--
+-- Name: public_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.public_attempts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    assessment_id uuid NOT NULL,
+    name text NOT NULL,
+    email text NOT NULL,
+    phone text,
+    session_token text DEFAULT encode(public.gen_random_bytes(32), 'hex'::text) NOT NULL,
+    answers jsonb DEFAULT '{}'::jsonb NOT NULL,
+    score numeric,
+    max_score numeric,
+    percentage numeric,
+    passed boolean,
+    flags integer DEFAULT 0 NOT NULL,
+    status text DEFAULT 'in_progress'::text NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    submitted_at timestamp with time zone,
+    duration_sec integer,
+    CONSTRAINT public_attempts_status_check CHECK ((status = ANY (ARRAY['in_progress'::text, 'submitted'::text])))
+);
+
+
+--
+-- Name: question_categories; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.question_categories (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    parent_id uuid,
+    name text NOT NULL,
+    slug text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: question_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.question_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    question_id uuid NOT NULL,
+    version integer NOT NULL,
+    content jsonb NOT NULL,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: questions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.questions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    org_id uuid NOT NULL,
+    category_id uuid,
+    type text NOT NULL,
+    title text NOT NULL,
+    difficulty text DEFAULT 'intermediate'::text NOT NULL,
+    default_points numeric(7,2) DEFAULT 1 NOT NULL,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    current_version integer DEFAULT 1 NOT NULL,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT questions_default_points_check CHECK ((default_points >= (0)::numeric)),
+    CONSTRAINT questions_difficulty_check CHECK ((difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text, 'expert'::text]))),
+    CONSTRAINT questions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'archived'::text]))),
+    CONSTRAINT questions_type_check CHECK ((type = ANY (ARRAY['mcq'::text, 'coding'::text, 'interview_prep'::text, 'subjective'::text])))
+);
+
+
+--
+-- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.refresh_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    device_hint text,
+    ip text,
+    expires_at timestamp with time zone NOT NULL,
+    revoked_at timestamp with time zone,
+    rotated_at timestamp with time zone,
+    family_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: reward_definitions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.reward_definitions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    slug text NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    icon text NOT NULL,
+    badge_tier text NOT NULL,
+    xp_value integer DEFAULT 0 NOT NULL,
+    trigger_event text NOT NULL,
+    trigger_threshold integer DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT reward_definitions_badge_tier_check CHECK ((badge_tier = ANY (ARRAY['bronze'::text, 'silver'::text, 'gold'::text, 'platinum'::text])))
+);
+
+
+--
+-- Name: role_permissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.role_permissions (
+    role_id uuid NOT NULL,
+    permission_id uuid NOT NULL
+);
+
+
+--
+-- Name: roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.roles (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid,
+    name text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    is_system boolean DEFAULT false NOT NULL,
+    is_editable boolean DEFAULT true NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT roles_system_tenant_biconditional CHECK ((((is_system = true) AND (tenant_id IS NULL)) OR ((is_system = false) AND (tenant_id IS NOT NULL))))
+);
+
+
+--
+-- Name: sheet_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sheet_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    sheet_id uuid NOT NULL,
+    title text NOT NULL,
+    topic_tag text NOT NULL,
+    category text,
+    difficulty text,
+    external_url text,
+    order_index integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT sheet_items_difficulty_check CHECK ((difficulty = ANY (ARRAY['easy'::text, 'medium'::text, 'hard'::text])))
+);
+
+
+--
+-- Name: sheets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sheets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    slug text NOT NULL,
+    description text,
+    category text,
+    is_system boolean DEFAULT false NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    source_sheet_ids text[]
+);
+
+
+--
+-- Name: social_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.social_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    provider text NOT NULL,
+    provider_uid text NOT NULL,
+    email text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT social_accounts_provider_check CHECK ((provider = ANY (ARRAY['google'::text, 'github'::text, 'microsoft'::text])))
+);
+
+
+--
+-- Name: srs_cards; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.srs_cards (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    question_id uuid,
+    front text NOT NULL,
+    back text NOT NULL,
+    source_type text DEFAULT 'assessment'::text NOT NULL,
+    interval_days integer DEFAULT 1 NOT NULL,
+    repetitions integer DEFAULT 0 NOT NULL,
+    ease_factor double precision DEFAULT 2.5 NOT NULL,
+    due_date date DEFAULT CURRENT_DATE NOT NULL,
+    last_reviewed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: user_achievements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_achievements (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    reward_definition_id uuid NOT NULL,
+    org_id uuid,
+    earned_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: user_problem_progress; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_problem_progress (
+    user_id uuid NOT NULL,
+    topic_tag text NOT NULL,
+    status text DEFAULT 'todo'::text NOT NULL,
+    solved_at timestamp with time zone,
+    revision_at timestamp with time zone,
+    CONSTRAINT user_problem_progress_status_check CHECK ((status = ANY (ARRAY['todo'::text, 'done'::text, 'revisit'::text])))
+);
+
+
+--
+-- Name: user_profiles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_profiles (
+    user_id uuid NOT NULL,
+    timeline text,
+    experience_level text,
+    role_intent text,
+    completed_at timestamp with time zone,
+    learning_goal text,
+    job_title text,
+    topics_interest text[],
+    weekly_time_commitment text,
+    skill_level text,
+    industry text,
+    career_goal text,
+    ui_theme text DEFAULT 'system'::text,
+    language text DEFAULT 'en'::text,
+    timezone text,
+    weekly_goal_hrs smallint,
+    notifications jsonb DEFAULT '{}'::jsonb,
+    meta jsonb DEFAULT '{}'::jsonb,
+    display_name text,
+    bio text,
+    profile_slug text,
+    public_enabled boolean DEFAULT false NOT NULL,
+    show_skills boolean DEFAULT true NOT NULL,
+    show_achievements boolean DEFAULT true NOT NULL,
+    show_certificates boolean DEFAULT true NOT NULL,
+    show_activity boolean DEFAULT true NOT NULL,
+    "current_role" text,
+    years_of_experience smallint,
+    preferred_learning_style text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT user_profiles_bio_check CHECK ((char_length(bio) <= 500)),
+    CONSTRAINT user_profiles_preferred_learning_style_check CHECK ((preferred_learning_style = ANY (ARRAY['video'::text, 'reading'::text, 'hands_on'::text, 'mixed'::text]))),
+    CONSTRAINT user_profiles_ui_theme_check CHECK ((ui_theme = ANY (ARRAY['light'::text, 'dark'::text, 'system'::text]))),
+    CONSTRAINT user_profiles_years_of_experience_check CHECK (((years_of_experience >= 0) AND (years_of_experience <= 50)))
+);
+
+
+--
+-- Name: user_roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_roles (
+    user_id uuid NOT NULL,
+    role_id uuid NOT NULL,
+    tenant_id uuid NOT NULL
+);
+
+
+--
+-- Name: user_sheets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_sheets (
+    user_id uuid NOT NULL,
+    sheet_id uuid NOT NULL,
+    role text DEFAULT 'subscriber'::text NOT NULL,
+    added_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT user_sheets_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'subscriber'::text])))
+);
+
+
+--
+-- Name: user_skills; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_skills (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    skill_name text NOT NULL,
+    skill_level text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT user_skills_skill_level_check CHECK ((skill_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text])))
+);
+
+
+--
+-- Name: user_social_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_social_links (
+    user_id uuid NOT NULL,
+    linkedin text,
+    github text,
+    portfolio text,
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: user_stats; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_stats (
+    user_id uuid NOT NULL,
+    courses_enrolled integer DEFAULT 0 NOT NULL,
+    courses_completed integer DEFAULT 0 NOT NULL,
+    tests_attempted integer DEFAULT 0 NOT NULL,
+    problems_solved integer DEFAULT 0 NOT NULL,
+    certificates_earned integer DEFAULT 0 NOT NULL,
+    current_streak_days integer DEFAULT 0 NOT NULL,
+    learning_hours numeric(10,2) DEFAULT 0 NOT NULL,
+    roadmaps_completed integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    total_xp integer DEFAULT 0 NOT NULL,
+    xp_level integer DEFAULT 1 NOT NULL,
+    xp_level_name text DEFAULT 'Apprentice'::text NOT NULL,
+    tests_passed integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.users (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    email public.citext NOT NULL,
+    name text NOT NULL,
+    password_hash text,
+    avatar_url text,
+    platform_role text DEFAULT 'user'::text NOT NULL,
+    email_verified boolean DEFAULT false NOT NULL,
+    session_version integer DEFAULT 1 NOT NULL,
+    max_sessions integer DEFAULT 2 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT users_platform_role_check CHECK ((platform_role = ANY (ARRAY['super_admin'::text, 'user'::text])))
+);
+
+
+--
+-- Name: whatnow_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.whatnow_tasks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    title text NOT NULL,
+    status text DEFAULT 'inbox'::text NOT NULL,
+    duration_min integer,
+    deadline date,
+    category text,
+    vague boolean DEFAULT false NOT NULL,
+    chips jsonb DEFAULT '[]'::jsonb NOT NULL,
+    task_trigger text,
+    resume_note text,
+    depends_on uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    plan_position integer,
+    pinned_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    touched_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    revived_at timestamp with time zone,
+    decayed_at timestamp with time zone,
+    scheduled_start timestamp with time zone,
+    CONSTRAINT whatnow_tasks_status_check CHECK ((status = ANY (ARRAY['inbox'::text, 'planned'::text, 'active'::text, 'paused'::text, 'done'::text, 'decayed'::text])))
+);
+
+
+--
+-- Name: whatnow_user_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.whatnow_user_state (
+    user_id uuid NOT NULL,
+    energy text DEFAULT 'sharp'::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT whatnow_user_state_energy_check CHECK ((energy = ANY (ARRAY['sharp'::text, 'tired'::text])))
+);
+
+
+--
+-- Name: xp_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xp_events (
+    id bigint NOT NULL,
+    user_id uuid NOT NULL,
+    org_id uuid,
+    batch_id uuid,
+    course_id uuid,
+    xp_amount integer NOT NULL,
+    reason text NOT NULL,
+    reference_id uuid,
+    reference_type text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: xp_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.xp_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.xp_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Data for Name: assessment_assignments; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: assessment_attempts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: assessment_questions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: attempt_answers; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: attempt_events; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: audit_log; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: audit_logs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batch_courses; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batch_invitations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batch_member_details; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batch_members; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batch_mentors; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batch_message_reactions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batch_messages; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: batches; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: calendar_event_attendees; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: calendar_event_invites; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: calendar_events; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: calendar_feed_tokens; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: coding_submissions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: course_faqs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: course_modules; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: course_purchases; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: course_reviews; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: course_sections; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: courses; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: email_verifications; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: enrollments; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: experience_reports; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: feature_grants; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: feedback; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: highlight_explanations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: highlights; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: idempotency_keys; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: interview_evaluations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: interview_skill_scores; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: job_runs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: jobs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: jti_blocklist; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_ai_interactions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_analytics; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_definitions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_egress_rules; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_org_config; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_sessions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_task_completions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_task_versions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_tasks; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: lab_usage_events; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: mentor_change_requests; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: mentor_chat_messages; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: mentor_reports; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: mentor_ticket_assignments; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: mentor_tickets; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: module_progress; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: nav_permissions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.nav_permissions VALUES ('b82cb130-cc33-4bc9-b95c-fd5b94aac168', 'student', NULL, 0, 'dashboard', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('3fad3402-c06e-4ddb-94b7-ca3ed4df2875', 'student', NULL, 0, 'courses', 1, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('cfc4dfa8-d64c-4f6c-a837-e13f2e44bbd1', 'student', NULL, 0, 'practice', 2, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('9372535a-3168-474a-8bad-f56aaef428e3', 'student', 'Learning', 1, 'assessments', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('57736a27-7b26-475d-b490-f696ef06e29a', 'student', 'Learning', 1, 'flashcards', 1, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('1862b08c-434a-4f0b-8722-8c4ef05c878a', 'student', 'Learning', 1, 'sheet_tracker', 2, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('fbf1ba88-874e-4b90-9a3d-4cc48f742db6', 'student', 'Learning', 1, 'mentor_chat', 3, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('48531b7f-d824-46fb-b12a-f68a938150a3', 'student', 'Learning', 1, 'certificates', 4, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('299ae715-d30d-4a26-9ecc-5404cff7e29f', 'student', 'Tools', 2, 'wiki', 0, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('642ec418-b43f-4509-ae90-4a625a8125e4', 'student', 'Tools', 2, 'system_design', 1, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('756c652b-0d16-49f9-8c86-c7f575d3ee3d', 'student', 'Tools', 2, 'interview_board', 2, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('de515545-6c96-434b-90a1-708c6a8292d1', 'student', 'Tools', 2, 'load_test', 3, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('b53fb704-9515-4f95-a241-441ef8e18a60', 'instructor', NULL, 0, 'instructor_dashboard', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('cfadd55d-3f47-4948-ab5c-a188f9a6c604', 'instructor', NULL, 0, 'instructor_courses', 1, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('bb78b9a1-3163-435f-9032-d802025405d5', 'instructor', 'Assessments', 1, 'instructor_assessments', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('7ed28aa2-5de9-45ae-a146-431c7d2b9749', 'instructor', 'Assessments', 1, 'question_bank', 1, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('fe1c8f97-5ea8-4c6a-a5f1-6e7c37927500', 'instructor', 'Assessments', 1, 'batches', 2, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('72c8219f-8665-406c-a550-48bb801fb029', 'instructor', 'Tools', 2, 'wiki', 0, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('af056096-eea6-4ff4-82de-55d2cf300780', 'instructor', 'Tools', 2, 'system_design', 1, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('1041d259-aec5-4478-8744-763ecc7a3a4d', 'instructor', 'Tools', 2, 'interview_board', 2, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('df72aa23-5d64-43bf-9d6b-d75058bc1383', 'mentor', NULL, 0, 'mentor_dashboard', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('fb9bafe5-7f8d-462f-a7ed-cc09db5a6672', 'mentor', NULL, 0, 'mentor_messages', 1, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('8dbb3b1a-6b30-4009-b599-832a548b1e0b', 'mentor', 'Batches', 1, 'mentor_batches', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('c10c6ac3-4176-4a31-bd4c-2209d451f86c', 'admin', NULL, 0, 'instructor_dashboard', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('332ff2a6-e6a1-4286-9876-72ceb28a72b6', 'admin', NULL, 0, 'instructor_courses', 1, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('5c049fc9-8dbc-48fe-b531-78b900adbcdd', 'admin', 'Assessments', 1, 'instructor_assessments', 0, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('2ed9cc97-aa28-469c-ab97-49936d3efd07', 'admin', 'Assessments', 1, 'question_bank', 1, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('a181c30f-c3e3-491a-af86-5078065d00af', 'admin', 'Assessments', 1, 'batches', 2, true, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('7bd6d9be-cf05-47c5-af12-f4eb4bd00681', 'admin', 'Tools', 2, 'wiki', 0, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('c403da97-ec89-4464-8f0a-90bd777f63f6', 'admin', 'Tools', 2, 'system_design', 1, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('f378caf0-a3e3-4867-a8ea-373df26388e2', 'admin', 'Tools', 2, 'interview_board', 2, false, '2026-07-10 02:05:36.926639+00');
+INSERT INTO public.nav_permissions VALUES ('42369e8d-735a-4e88-9a43-0afb56db5f02', 'admin', 'Tools', 2, 'load_test', 3, false, '2026-07-10 02:05:36.926639+00');
+
+
+--
+-- Data for Name: oauth_exchanges; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: org_auth_config; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.org_auth_config VALUES ('00000000-0000-0000-0000-000000000001', true, true, true, false, false, false, NULL, NULL, NULL, NULL, false, NULL, '{}', '{}', '2026-07-10 02:05:35.851242+00');
+
+
+--
+-- Data for Name: org_domains; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: org_invites; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: org_job_quotas; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: org_members; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: organizations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.organizations VALUES ('00000000-0000-0000-0000-000000000001', 'default', 'MindForge', 'active', NULL, NULL, NULL, 0, 4, NULL, '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00', '2026-07-10 02:05:35.847741+00');
+
+
+--
+-- Data for Name: password_reset_tokens; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: permissions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.permissions VALUES ('6f649ce6-a417-45e2-9bc7-f3d9638bcd41', 'courses.view', 'View Courses', 'Browse and read published course content', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('1ed1ac19-b663-4f5f-88ba-f412f1174b4f', 'courses.enroll', 'Enroll in Courses', 'Enroll in available courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46', 'courses.create', 'Create Courses', 'Create new draft courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('90fbd19a-fe62-467b-8599-f029374167c6', 'courses.edit', 'Edit Courses', 'Edit course content and settings', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('165a09bc-39d3-4238-830f-ad8bdccefabf', 'courses.publish', 'Publish Courses', 'Publish or unpublish courses to learners', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('2513bd10-4338-46eb-b94c-46f257575759', 'courses.delete', 'Delete Courses', 'Archive or permanently delete courses', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('3f070164-7bcb-4f3f-acb2-7ca6ce269c50', 'courses.view_analytics', 'Course Analytics', 'View engagement and completion analytics', 'courses', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('1f73d8a4-428b-4933-b872-7ac1d2df398d', 'assessments.take', 'Take Assessments', 'Attempt assigned assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('4900f2d4-376c-43dd-bd59-79c0054fc25a', 'assessments.view_assigned', 'View Assigned Tests', 'See which assessments are assigned to the user', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('cb0354e5-2ba7-4b40-8c97-715bc9c11509', 'assessments.create', 'Create Assessments', 'Create new assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('4c84291a-f13b-4484-ab39-84959639452f', 'assessments.edit', 'Edit Assessments', 'Edit assessment questions and settings', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('6324637c-94cb-423a-9b1c-76a54b1cf0a9', 'assessments.publish', 'Publish Assessments', 'Publish or unpublish assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6', 'assessments.delete', 'Delete Assessments', 'Archive or delete assessments', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('b772eb01-88e7-4cc6-a0bf-5bc47369288f', 'assessments.view_results', 'View Results', 'See learner scores and attempt analytics', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('e2b247f1-cc49-4b9e-96f9-5a8da4588879', 'assessments.manage_questions', 'Manage Question Bank', 'Add, edit, and tag questions in the bank', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('580ebb98-1c7c-43c3-b9e1-98be0630e515', 'assessments.manage_batches', 'Manage Batches', 'Create and assign learner batches', 'assessments', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('2f948a72-57ad-4262-9716-96a92101a630', 'practice.use', 'Use AI Practice', 'Access AI-powered coding practice and hints', 'practice', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8', 'mentoring.chat', 'Mentor Chat', 'Send and receive messages with a mentor', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('369b2409-0dcc-4f64-8dd7-92a67d6441b3', 'mentoring.manage_batches', 'Manage Mentor Batches', 'Create and supervise mentoring batches', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('6a8cff4a-426b-4802-b58f-6af1fb84b490', 'mentoring.view_students', 'View Student Progress', 'View students'' progress in mentor batches', 'mentoring', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('a2bc6bd0-7ade-4776-a19c-e29915259075', 'content.wiki', 'Wiki', 'Access org wiki spaces and pages', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('1867bde5-0e63-4845-8b67-119f0a715a50', 'content.system_design', 'System Design', 'Use the system design canvas tool', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('c16a4adc-88c5-4d54-8226-05858d99950c', 'content.interview_board', 'Interview Board', 'Use the interview simulation board', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('88c387ea-ee04-451a-b2e6-eacefc510386', 'content.load_test', 'Load Test', 'Run load test simulations', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('a9483194-34af-4db5-86b0-ef24defc12ea', 'content.sheets', 'Sheet Tracker', 'Access DSA sheet trackers', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('87c8bb5f-75b8-48d1-8a34-18e7e3611c28', 'content.srs', 'Review Cards', 'Use spaced-repetition flashcard system', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('feafdb7c-4afa-4017-b0c5-2e05babfff8e', 'content.certificates', 'Certificates', 'View and download earned certificates', 'content', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('cf158a23-057e-4025-99e7-e973250028f3', 'admin.view_members', 'View Members', 'List org members and their roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('4001f3f1-1a57-4654-a730-001edb294c94', 'admin.manage_members', 'Manage Members', 'Invite, remove, and update org members', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('167da66d-436c-48b1-b819-274ac10ad126', 'admin.manage_roles', 'Manage Roles', 'Create and edit tenant-owned roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('ff117d7a-08a5-4aa1-b5af-720e5889e9e8', 'admin.manage_permissions', 'Manage Permissions', 'Assign permissions to roles', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('8166a09f-7fe2-4731-a1af-aa71d6c8200f', 'admin.view_audit_log', 'View Audit Log', 'Read the RBAC audit trail', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('667590df-e8cd-4d73-b2e0-f959f912fca3', 'admin.manage_org', 'Manage Organisation', 'Update org settings, seat limits, and status', 'admin', true, '2026-07-10 02:05:37.104946+00', '2026-07-10 02:05:37.104946+00');
+INSERT INTO public.permissions VALUES ('89757c35-a068-41d4-a19b-9454b1ed16af', 'mentoring.assign_tickets', 'Assign Mentor Tickets', 'Hand-assign a specific mentor to a student ticket', 'mentoring', true, '2026-07-10 02:05:37.709301+00', '2026-07-10 02:05:37.709301+00');
+INSERT INTO public.permissions VALUES ('57f2f5ab-91ae-459d-923e-8ebe6cec2f01', 'mentoring.manage_reports', 'Manage Mentor Reports', 'Review and resolve mentor complaint reports', 'mentoring', true, '2026-07-10 02:05:37.709301+00', '2026-07-10 02:05:37.709301+00');
+INSERT INTO public.permissions VALUES ('7c38cbff-81b7-46b6-96dd-f350a362eef8', 'calendar.events.manage', 'Manage Calendar Events', 'Mutate any calendar event in the organization', 'calendar', true, '2026-07-10 02:05:38.015352+00', '2026-07-10 02:05:38.015352+00');
+
+
+--
+-- Data for Name: practice_items; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: practice_sessions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: public_attempts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: question_categories; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: question_versions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: questions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: refresh_tokens; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: reward_definitions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.reward_definitions VALUES ('0a1071a3-1997-4328-8ae9-b7f2677e1e76', 'first_problem', 'First Blood', 'Solved your first problem.', '🩸', 'bronze', 100, 'problem_solved', 1, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('bb4d39ff-2b2e-40ce-9e37-0cfb1368516a', 'problem_10', 'Problem Solver', 'Solved 10 problems.', '⚡', 'bronze', 200, 'problem_solved', 10, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('9447bd2b-154b-4ddb-9d4f-9e4c2a1891d6', 'problem_100', 'Century', 'Solved 100 problems.', '💯', 'silver', 1000, 'problem_solved', 100, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('a98bdc93-f40d-4b1b-a8d2-b48a334862b1', 'streak_7', 'Week Warrior', 'Maintained a 7-day learning streak.', '🔥', 'bronze', 0, 'streak_milestone', 7, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('c8847c56-c29b-48af-9a32-742411ecbf18', 'streak_30', 'Month Master', 'Maintained a 30-day learning streak.', '🌟', 'silver', 0, 'streak_milestone', 30, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('cf816350-bf76-45d7-99db-59a538f9cacd', 'streak_100', 'Centurion', 'Maintained a 100-day learning streak.', '🏆', 'gold', 0, 'streak_milestone', 100, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('0f82c110-4b86-477f-b52a-c00ec6917deb', 'first_course', 'Course Starter', 'Completed your first course.', '📚', 'bronze', 0, 'course_completed', 1, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('dbd14050-037b-4fcf-8687-b423c78fada9', 'course_5', 'Curriculum Champion', 'Completed 5 courses.', '🎓', 'silver', 0, 'course_completed', 5, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('ac25dbaf-6211-4c09-9a06-ca1da597e20e', 'first_cert', 'Certified', 'Earned your first certificate.', '📜', 'silver', 0, 'certificate_earned', 1, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('4753f34c-23fd-4d95-9e7b-56d9f4544f6d', 'cert_5', 'Credential Collector', 'Earned 5 certificates.', '🏅', 'gold', 0, 'certificate_earned', 5, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('98166ecc-2100-4b4c-b1c7-fd84d61e423f', 'level_5', 'Halfway There', 'Reached level 5 (Proficient).', '⚔️', 'silver', 0, 'level_reached', 5, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('9b87d539-e4ba-4ccf-b926-dda7f16b72ef', 'level_10', 'Legend Status', 'Reached the maximum level.', '👑', 'platinum', 0, 'level_reached', 10, '2026-07-10 02:05:37.255488+00');
+INSERT INTO public.reward_definitions VALUES ('2970852d-780b-4038-b45d-250f0cd735b2', 'perfect_quiz', 'Perfect Score', 'Achieved a perfect score on an assessment.', '✨', 'bronze', 150, 'quiz_perfect', 1, '2026-07-10 02:05:37.255488+00');
+
+
+--
+-- Data for Name: role_permissions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000001', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '2f948a72-57ad-4262-9716-96a92101a630');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '1867bde5-0e63-4845-8b67-119f0a715a50');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'c16a4adc-88c5-4d54-8226-05858d99950c');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '88c387ea-ee04-451a-b2e6-eacefc510386');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'a9483194-34af-4db5-86b0-ef24defc12ea');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000002', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '90fbd19a-fe62-467b-8599-f029374167c6');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '165a09bc-39d3-4238-830f-ad8bdccefabf');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '2513bd10-4338-46eb-b94c-46f257575759');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '3f070164-7bcb-4f3f-acb2-7ca6ce269c50');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'cb0354e5-2ba7-4b40-8c97-715bc9c11509');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '4c84291a-f13b-4484-ab39-84959639452f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '6324637c-94cb-423a-9b1c-76a54b1cf0a9');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'e2b247f1-cc49-4b9e-96f9-5a8da4588879');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '580ebb98-1c7c-43c3-b9e1-98be0630e515');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '2f948a72-57ad-4262-9716-96a92101a630');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '1867bde5-0e63-4845-8b67-119f0a715a50');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'c16a4adc-88c5-4d54-8226-05858d99950c');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '88c387ea-ee04-451a-b2e6-eacefc510386');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'a9483194-34af-4db5-86b0-ef24defc12ea');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', 'cf158a23-057e-4025-99e7-e973250028f3');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '2f948a72-57ad-4262-9716-96a92101a630');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '369b2409-0dcc-4f64-8dd7-92a67d6441b3');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '6a8cff4a-426b-4802-b58f-6af1fb84b490');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '1867bde5-0e63-4845-8b67-119f0a715a50');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'c16a4adc-88c5-4d54-8226-05858d99950c');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '88c387ea-ee04-451a-b2e6-eacefc510386');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'a9483194-34af-4db5-86b0-ef24defc12ea');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000004', 'cf158a23-057e-4025-99e7-e973250028f3');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '6f649ce6-a417-45e2-9bc7-f3d9638bcd41');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '1ed1ac19-b663-4f5f-88ba-f412f1174b4f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '8e9dd6c3-5fb8-4603-8c2e-cce45ebd2a46');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '90fbd19a-fe62-467b-8599-f029374167c6');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '165a09bc-39d3-4238-830f-ad8bdccefabf');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '2513bd10-4338-46eb-b94c-46f257575759');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '3f070164-7bcb-4f3f-acb2-7ca6ce269c50');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '1f73d8a4-428b-4933-b872-7ac1d2df398d');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '4900f2d4-376c-43dd-bd59-79c0054fc25a');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'cb0354e5-2ba7-4b40-8c97-715bc9c11509');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '4c84291a-f13b-4484-ab39-84959639452f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '6324637c-94cb-423a-9b1c-76a54b1cf0a9');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '3f2ca5c4-27e6-4426-a424-8c10ca5f0cb6');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'b772eb01-88e7-4cc6-a0bf-5bc47369288f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'e2b247f1-cc49-4b9e-96f9-5a8da4588879');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '580ebb98-1c7c-43c3-b9e1-98be0630e515');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '2f948a72-57ad-4262-9716-96a92101a630');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'f0869ea2-5f6f-4d08-9e16-dfbb0acdfbd8');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '369b2409-0dcc-4f64-8dd7-92a67d6441b3');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '6a8cff4a-426b-4802-b58f-6af1fb84b490');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'a2bc6bd0-7ade-4776-a19c-e29915259075');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '1867bde5-0e63-4845-8b67-119f0a715a50');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'c16a4adc-88c5-4d54-8226-05858d99950c');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '88c387ea-ee04-451a-b2e6-eacefc510386');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'a9483194-34af-4db5-86b0-ef24defc12ea');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '87c8bb5f-75b8-48d1-8a34-18e7e3611c28');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'feafdb7c-4afa-4017-b0c5-2e05babfff8e');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'cf158a23-057e-4025-99e7-e973250028f3');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '4001f3f1-1a57-4654-a730-001edb294c94');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '167da66d-436c-48b1-b819-274ac10ad126');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', 'ff117d7a-08a5-4aa1-b5af-720e5889e9e8');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '8166a09f-7fe2-4731-a1af-aa71d6c8200f');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '667590df-e8cd-4d73-b2e0-f959f912fca3');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000003', '89757c35-a068-41d4-a19b-9454b1ed16af');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '89757c35-a068-41d4-a19b-9454b1ed16af');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '57f2f5ab-91ae-459d-923e-8ebe6cec2f01');
+INSERT INTO public.role_permissions VALUES ('11111111-1111-1111-1111-000000000005', '7c38cbff-81b7-46b6-96dd-f350a362eef8');
+
+
+--
+-- Data for Name: roles; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000001', NULL, 'viewer', 'Read-only access to published content', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
+INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000002', NULL, 'member', 'Standard learner — courses, practice, tools', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
+INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000003', NULL, 'instructor', 'Course and assessment author', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
+INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000004', NULL, 'mentor', 'Mentoring and batch supervision', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
+INSERT INTO public.roles VALUES ('11111111-1111-1111-1111-000000000005', NULL, 'tenant_admin', 'Full organisation administration', true, false, true, '2026-07-10 02:05:37.109031+00', '2026-07-10 02:05:37.109031+00');
+
+
+--
+-- Data for Name: sheet_items; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.sheet_items VALUES ('a8104228-0c41-4f67-8f90-ac82d1f6a29b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Contains Duplicate', 'contains-duplicate', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 1, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('986bf8e0-802f-45aa-9614-d1a616e3d593', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Anagram', 'valid-anagram', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/valid-anagram/', 2, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('0ccae9e8-2669-4ed1-896c-02fb5fd4bdd1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Two Sum', 'two-sum', 'Arrays & Hashing', 'easy', 'https://leetcode.com/problems/two-sum/', 3, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('ba78feee-65bc-4e2a-9c79-3b4b5e0255e3', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Group Anagrams', 'group-anagrams', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/group-anagrams/', 4, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('537cb085-527e-4f00-930d-44429637ec09', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 5, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('b897642b-0246-456a-ad7e-ead320479359', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Product of Array Except Self', 'product-of-array-except-self', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 6, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('480e14c7-c556-4e5b-9f5f-24be29773c4c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Sudoku', 'valid-sudoku', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/valid-sudoku/', 7, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('ac760520-8b20-406b-be1a-dfedde375696', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Arrays & Hashing', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 8, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('6ce72c08-80fd-4dff-b8e9-dd0b807235ac', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Palindrome', 'valid-palindrome', 'Two Pointers', 'easy', 'https://leetcode.com/problems/valid-palindrome/', 9, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9a022dec-0911-49cd-9461-0958408b23c4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Two Sum II - Input Array Is Sorted', 'two-sum-ii-input-array-is-sorted', 'Two Pointers', 'medium', 'https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/', 10, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('94814afb-4021-467c-94df-61433f3f3b0d', '20b37334-c88c-45c6-b898-ec5d23e37474', '3Sum', '3sum', 'Two Pointers', 'medium', 'https://leetcode.com/problems/3sum/', 11, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('694e327b-f057-47a2-8fcd-c3a5aa159e89', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Container With Most Water', 'container-with-most-water', 'Two Pointers', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 12, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('7f0a0a4f-d344-4052-a06d-7b25d8631e74', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Trapping Rain Water', 'trapping-rain-water', 'Two Pointers', 'hard', 'https://leetcode.com/problems/trapping-rain-water/', 13, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('cd95cc0e-ab49-4d1b-9175-9aea4d29c688', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Sliding Window', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 14, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('991572da-4b46-4854-9476-b7903334a4c1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 15, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('14aa5d24-1dd2-44d7-91be-03421aeab0d7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 16, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('5648c9a6-6d3e-463e-80e6-a0cf2c742501', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Permutation in String', 'permutation-in-string', 'Sliding Window', 'medium', 'https://leetcode.com/problems/permutation-in-string/', 17, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('1dc4e929-542e-4f5f-955f-05592a02afb4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Minimum Window Substring', 'minimum-window-substring', 'Sliding Window', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 18, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('01aa3321-3cdb-48c9-a857-89b43ddfc93c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 19, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('172ab3eb-d23c-41a9-9c7d-3f5b30384fc9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Parentheses', 'valid-parentheses', 'Stack', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 20, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('b97920b6-994b-4201-9257-76528da41090', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Stack', 'min-stack', 'Stack', 'medium', 'https://leetcode.com/problems/min-stack/', 21, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('34464efb-558e-4ee0-89b6-906a78c77b48', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Evaluate Reverse Polish Notation', 'evaluate-reverse-polish-notation', 'Stack', 'medium', 'https://leetcode.com/problems/evaluate-reverse-polish-notation/', 22, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('f82b022a-40b4-4cd1-b231-cb86f658fc3c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Generate Parentheses', 'generate-parentheses', 'Stack', 'medium', 'https://leetcode.com/problems/generate-parentheses/', 23, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('4eafe992-6a7d-473c-9a55-d80cde3ff4e6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Daily Temperatures', 'daily-temperatures', 'Stack', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 24, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d45cbeda-8fae-4b89-a5ee-f08609831129', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Car Fleet', 'car-fleet', 'Stack', 'medium', 'https://leetcode.com/problems/car-fleet/', 25, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('64bf87ad-d7b1-4257-b05d-1019558faf80', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Largest Rectangle in Histogram', 'largest-rectangle-in-histogram', 'Stack', 'hard', 'https://leetcode.com/problems/largest-rectangle-in-histogram/', 26, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('868f8d0b-fc48-49f0-8ea3-2a18f065221f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 27, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9e7bf7b8-fdf8-4b2f-b116-be176733a873', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Search a 2D Matrix', 'search-a-2d-matrix', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-a-2d-matrix/', 28, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('0e34bf33-6c44-40c9-859f-a2457b727f79', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 29, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9725214d-9cba-48cb-9d14-01a36921128e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 30, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('c1b6e40f-3d9c-42cb-adfa-2b12ad52063f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 31, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('f8700c51-b638-415e-becc-fd946908cd64', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Time Based Key-Value Store', 'time-based-key-value-store', 'Binary Search', 'medium', 'https://leetcode.com/problems/time-based-key-value-store/', 32, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('70d54744-ff88-42ff-a731-b90da5f471e0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Median of Two Sorted Arrays', 'median-of-two-sorted-arrays', 'Binary Search', 'hard', 'https://leetcode.com/problems/median-of-two-sorted-arrays/', 33, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('de776f7c-5fb4-4796-ad93-db5343d4a966', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 34, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d17b3a91-8d37-4837-9b27-a14be8e18bb5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 35, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('bd97b32a-c95b-451f-8e85-62d252ca63da', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 36, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('62e24ffe-9710-4b4e-852c-a27a97ce613a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 37, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('785a2498-fad3-4678-b54e-275d7480e5a8', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Copy List with Random Pointer', 'copy-list-with-random-pointer', 'Linked List', 'medium', 'https://leetcode.com/problems/copy-list-with-random-pointer/', 38, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d73f63a4-6e16-4f49-87c2-d5609ec0196f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Add Two Numbers', 'add-two-numbers', 'Linked List', 'medium', 'https://leetcode.com/problems/add-two-numbers/', 39, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('7f7d3dfb-8ab8-411b-afd6-8a52a0d1c088', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 40, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('851cde43-93c9-41fe-a304-41825c64b01c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find the Duplicate Number', 'find-the-duplicate-number', 'Linked List', 'medium', 'https://leetcode.com/problems/find-the-duplicate-number/', 41, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('ec297789-88e8-4cf3-84fb-4d242f069dd4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'LRU Cache', 'lru-cache', 'Linked List', 'medium', 'https://leetcode.com/problems/lru-cache/', 42, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('8b297c37-d394-42c6-aeed-8c19efa654be', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 43, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('220da75e-c840-4833-a98b-cb91d2743a37', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Nodes in k-Group', 'reverse-nodes-in-k-group', 'Linked List', 'hard', 'https://leetcode.com/problems/reverse-nodes-in-k-group/', 44, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('24ff5f07-fddf-4dbf-af52-882d9600b89b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Invert Binary Tree', 'invert-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 45, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('93378118-22c8-405a-a727-79b9dad79567', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 46, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('b2ad1af9-2b3e-4365-9e29-98ea2897b434', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Diameter of Binary Tree', 'diameter-of-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/diameter-of-binary-tree/', 47, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('586b039b-bf48-4d79-a3c5-567af02f0dff', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Balanced Binary Tree', 'balanced-binary-tree', 'Trees', 'easy', 'https://leetcode.com/problems/balanced-binary-tree/', 48, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('8e6862de-9efb-431f-b42a-5ee2d8452e85', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Same Tree', 'same-tree', 'Trees', 'easy', 'https://leetcode.com/problems/same-tree/', 49, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('1b18311f-2c03-4317-bfb3-c4e816d954be', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subtree of Another Tree', 'subtree-of-another-tree', 'Trees', 'easy', 'https://leetcode.com/problems/subtree-of-another-tree/', 50, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d778af1e-71c0-497b-86b6-5619df103891', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Trees', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 51, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('cdea8223-c7df-4099-bf14-2561e41e67fa', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Trees', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 52, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9a6d84c9-b5c6-4b60-b312-9b8cc19ee8e7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Right Side View', 'binary-tree-right-side-view', 'Trees', 'medium', 'https://leetcode.com/problems/binary-tree-right-side-view/', 53, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('c9d3cf92-37c2-4a53-a4ad-6f14c72c3484', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Count Good Nodes in Binary Tree', 'count-good-nodes-in-binary-tree', 'Trees', 'medium', 'https://leetcode.com/problems/count-good-nodes-in-binary-tree/', 54, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('33ffa840-2b1f-4027-8504-815c5eb964e1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Trees', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 55, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('5ccef775-5cb5-4db5-ba8d-385ee1f27e19', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Trees', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 56, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('7ae5294c-3fcc-4b02-8c14-e0ec25a8679e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Trees', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 57, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('110e4f1c-e152-4274-9026-956795d5d611', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Trees', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 58, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('a86a35c3-dc97-4e01-995a-f7aa9bc3335b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Trees', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 59, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('ec9f16fc-e4f9-46d7-86a1-2a9fef7fbfa9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tries', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 60, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('7747ea45-3134-4d00-8e21-159e82e7dffd', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Design Add and Search Words Data Structure', 'design-add-and-search-words-data-structure', 'Tries', 'medium', 'https://leetcode.com/problems/design-add-and-search-words-data-structure/', 61, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('376f412b-0966-4fb1-b0ad-acc490334f34', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Search II', 'word-search-ii', 'Tries', 'hard', 'https://leetcode.com/problems/word-search-ii/', 62, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9d601985-c786-4ff8-b74a-c1148af4594e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Largest Element in a Stream', 'kth-largest-element-in-a-stream', 'Heap / Priority Queue', 'easy', 'https://leetcode.com/problems/kth-largest-element-in-a-stream/', 63, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('1256c626-7fb3-4a56-ae54-278e2287dbef', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Last Stone Weight', 'last-stone-weight', 'Heap / Priority Queue', 'easy', 'https://leetcode.com/problems/last-stone-weight/', 64, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('2b7f28d6-91ee-4dbc-ae64-9dd3344641bb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'K Closest Points to Origin', 'k-closest-points-to-origin', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/k-closest-points-to-origin/', 65, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('b0613080-d6e9-4132-b303-f8b1159322f2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 66, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('babdf4fc-9d6b-49d0-ab34-11ad92e3fd86', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Task Scheduler', 'task-scheduler', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/task-scheduler/', 67, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('e764c055-1524-4a02-9d6b-cdedf705ea0c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Design Twitter', 'design-twitter', 'Heap / Priority Queue', 'medium', 'https://leetcode.com/problems/design-twitter/', 68, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('4065311b-a678-473e-be30-2e0d2c88890c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap / Priority Queue', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 69, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('3f879d3a-f599-49c1-9bd3-8465b00efdd5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subsets', 'subsets', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets/', 70, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('b8a4456f-6fdd-478d-801b-e25358874f25', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Combination Sum', 'combination-sum', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum/', 71, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('570a78db-507e-4683-bdbb-31092e82e550', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Permutations', 'permutations', 'Backtracking', 'medium', 'https://leetcode.com/problems/permutations/', 72, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('8c8fad00-2fb6-4f75-bc20-b4d80d5b2e29', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Subsets II', 'subsets-ii', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets-ii/', 73, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('f7df80fd-a7aa-43ca-ba93-6efe6d78d655', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Combination Sum II', 'combination-sum-ii', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum-ii/', 74, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('89876b06-f641-4904-935f-a0ae34b13641', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Search', 'word-search', 'Backtracking', 'medium', 'https://leetcode.com/problems/word-search/', 75, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('341501cf-0e36-49f2-a9f1-76c4db4bc913', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Palindrome Partitioning', 'palindrome-partitioning', 'Backtracking', 'medium', 'https://leetcode.com/problems/palindrome-partitioning/', 76, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9d0a4cba-0322-4281-bdb5-1d414fc943f7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Letter Combinations of a Phone Number', 'letter-combinations-of-a-phone-number', 'Backtracking', 'medium', 'https://leetcode.com/problems/letter-combinations-of-a-phone-number/', 77, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('8c7946c6-01e6-49aa-94e0-7bdafb458103', '20b37334-c88c-45c6-b898-ec5d23e37474', 'N-Queens', 'n-queens', 'Backtracking', 'hard', 'https://leetcode.com/problems/n-queens/', 78, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('c5e95eee-1b87-4753-969d-2fd1de883ffc', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of Islands', 'number-of-islands', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-islands/', 79, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('25903ebd-c0a6-4883-be26-7a54c73424e4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Clone Graph', 'clone-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/clone-graph/', 80, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('19292ea7-36b4-49c1-aec4-967db90b6a0f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Max Area of Island', 'max-area-of-island', 'Graphs', 'medium', 'https://leetcode.com/problems/max-area-of-island/', 81, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('7564f0af-e1dd-4b77-bcac-4008bde0081c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graphs', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 82, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('eb6ef0bd-344c-4935-87af-c6a823288203', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Surrounded Regions', 'surrounded-regions', 'Graphs', 'medium', 'https://leetcode.com/problems/surrounded-regions/', 83, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('7d9e4651-c5d0-40a2-b9a2-206644a83334', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Course Schedule', 'course-schedule', 'Graph', 'medium', 'https://leetcode.com/problems/course-schedule/', 28, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('45a0ab79-d050-49a5-8ac8-49cc852c3bc6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Rotting Oranges', 'rotting-oranges', 'Graphs', 'medium', 'https://leetcode.com/problems/rotting-oranges/', 84, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('4bbeb4e6-d829-45a7-bf02-9785da095ab6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Course Schedule', 'course-schedule', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule/', 85, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('66f5a7f5-c060-43f2-9e3e-c6e7a7a5976a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Course Schedule II', 'course-schedule-ii', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule-ii/', 86, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9410c859-9312-43ec-a77e-e9bcfc3a3ef2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Redundant Connection', 'redundant-connection', 'Graphs', 'medium', 'https://leetcode.com/problems/redundant-connection/', 87, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('821fd67a-f2a7-4129-8144-d53608d1c816', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 88, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('2d73a6cf-0c69-4027-ac44-09613f6f9f31', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Graph Valid Tree', 'graph-valid-tree', 'Graphs', 'medium', 'https://leetcode.com/problems/graph-valid-tree/', 89, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('c4d765ac-901d-422e-9632-d9d1aa04847a', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Ladder', 'word-ladder', 'Graphs', 'hard', 'https://leetcode.com/problems/word-ladder/', 90, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('8afb472e-bcb0-4d97-a1e6-6a6d1af6682e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reconstruct Itinerary', 'reconstruct-itinerary', 'Advanced Graphs', 'hard', 'https://leetcode.com/problems/reconstruct-itinerary/', 91, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('6a1c85a3-288d-4f44-9a6d-d393f18d06c5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Cost to Connect All Points', 'min-cost-to-connect-all-points', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/min-cost-to-connect-all-points/', 92, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('bb82fc7f-0482-494a-8dcc-9140acfa64f3', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Network Delay Time', 'network-delay-time', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/network-delay-time/', 93, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('c31a96f5-ac03-4cfb-929c-5e2b3daa1b0e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Swim in Rising Water', 'swim-in-rising-water', 'Advanced Graphs', 'hard', 'https://leetcode.com/problems/swim-in-rising-water/', 94, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('c8b2d2cb-f8e9-4d3a-8431-f6e9eb0e239b', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Cheapest Flights Within K Stops', 'cheapest-flights-within-k-stops', 'Advanced Graphs', 'medium', 'https://leetcode.com/problems/cheapest-flights-within-k-stops/', 95, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9f241185-992a-4c79-9d6e-29db489ad440', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Climbing Stairs', 'climbing-stairs', '1-D DP', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 96, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('f86e15dd-2d55-4f57-a685-3a4d5948923e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Min Cost Climbing Stairs', 'min-cost-climbing-stairs', '1-D DP', 'easy', 'https://leetcode.com/problems/min-cost-climbing-stairs/', 97, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('0bd5276c-79ac-4927-a136-257e3384bffc', '20b37334-c88c-45c6-b898-ec5d23e37474', 'House Robber', 'house-robber', '1-D DP', 'medium', 'https://leetcode.com/problems/house-robber/', 98, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('1a6ecc7d-6ff6-42db-8968-6368a8f354cd', '20b37334-c88c-45c6-b898-ec5d23e37474', 'House Robber II', 'house-robber-ii', '1-D DP', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 99, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('5e1ef2e6-35d5-4a2a-ab51-5799781d5777', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Palindromic Substring', 'longest-palindromic-substring', '1-D DP', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 100, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('bb9d734d-be4a-4d4e-ab63-1a8686b7aadb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Palindromic Substrings', 'palindromic-substrings', '1-D DP', 'medium', 'https://leetcode.com/problems/palindromic-substrings/', 101, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('368eadd2-d705-437b-ae3e-ad911ccb1535', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Decode Ways', 'decode-ways', '1-D DP', 'medium', 'https://leetcode.com/problems/decode-ways/', 102, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('fb92e6dc-a188-4e3e-8141-861e456cfa6e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Coin Change', 'coin-change', '1-D DP', 'medium', 'https://leetcode.com/problems/coin-change/', 103, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('015e6b24-afe2-4ecf-8cc7-4d028d4f3403', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Product Subarray', 'maximum-product-subarray', '1-D DP', 'medium', 'https://leetcode.com/problems/maximum-product-subarray/', 104, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('6d573d77-0c84-44dc-b3b5-f62a82637feb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Word Break', 'word-break', '1-D DP', 'medium', 'https://leetcode.com/problems/word-break/', 105, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('4a805054-f2f7-4900-b44c-ee6af64f76f0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', '1-D DP', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 106, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('f95ee300-2a23-4d1d-b9d5-16371c09bed6', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Partition Equal Subset Sum', 'partition-equal-subset-sum', '1-D DP', 'medium', 'https://leetcode.com/problems/partition-equal-subset-sum/', 107, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('88e365f0-6e79-46e9-91ec-02c592239df8', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Unique Paths', 'unique-paths', '2-D DP', 'medium', 'https://leetcode.com/problems/unique-paths/', 108, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('232663de-a202-4bbc-ba56-965a85b9caab', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Common Subsequence', 'longest-common-subsequence', '2-D DP', 'medium', 'https://leetcode.com/problems/longest-common-subsequence/', 109, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d084ac4b-e532-4577-ba54-b2172b4653a9', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Best Time to Buy and Sell Stock with Cooldown', 'best-time-to-buy-and-sell-stock-with-cooldown', '2-D DP', 'medium', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/', 110, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('90b7a101-1e39-4d29-8efc-a03d8e9c6efb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Coin Change II', 'coin-change-ii', '2-D DP', 'medium', 'https://leetcode.com/problems/coin-change-ii/', 111, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('5a341387-6c51-48df-86bd-fbbaacd37656', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Target Sum', 'target-sum', '2-D DP', 'medium', 'https://leetcode.com/problems/target-sum/', 112, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9537d60c-0f25-49ff-866c-6490cd51eb9f', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Interleaving String', 'interleaving-string', '2-D DP', 'medium', 'https://leetcode.com/problems/interleaving-string/', 113, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('1f7b6bd3-15c7-4af9-8b01-87fea69a10d0', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Longest Increasing Path in a Matrix', 'longest-increasing-path-in-a-matrix', '2-D DP', 'hard', 'https://leetcode.com/problems/longest-increasing-path-in-a-matrix/', 114, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('a68c232c-221c-49ee-948a-43b647bbe547', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Distinct Subsequences', 'distinct-subsequences', '2-D DP', 'hard', 'https://leetcode.com/problems/distinct-subsequences/', 115, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('bf69419f-3ff4-4c85-bb78-9ed355ced814', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Edit Distance', 'edit-distance', '2-D DP', 'medium', 'https://leetcode.com/problems/edit-distance/', 116, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('c7affe81-8d85-4ee7-b266-2a1be700004d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Burst Balloons', 'burst-balloons', '2-D DP', 'hard', 'https://leetcode.com/problems/burst-balloons/', 117, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('92ca1545-b723-4dd9-95de-da944a69eb46', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Regular Expression Matching', 'regular-expression-matching', '2-D DP', 'hard', 'https://leetcode.com/problems/regular-expression-matching/', 118, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('139cfded-46fa-4a71-8af1-53d1f98e56d2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Maximum Subarray', 'maximum-subarray', 'Greedy', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 119, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('143e2d49-93f4-4777-8aad-a45f67bbdb33', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 120, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('e9dc7e55-9347-49bd-aef0-0fcd4591386e', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Jump Game II', 'jump-game-ii', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game-ii/', 121, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('6f3c9636-678a-47dd-bc0e-a4acb2b7c20d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Gas Station', 'gas-station', 'Greedy', 'medium', 'https://leetcode.com/problems/gas-station/', 122, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('ffbe8adf-5084-4b5c-84c2-8ad1096c9339', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Hand of Straights', 'hand-of-straights', 'Greedy', 'medium', 'https://leetcode.com/problems/hand-of-straights/', 123, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('131ff1c5-b09b-4888-a2ff-75d35a21e18d', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Triplets to Form Target Triplet', 'merge-triplets-to-form-target-triplet', 'Greedy', 'medium', 'https://leetcode.com/problems/merge-triplets-to-form-target-triplet/', 124, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('dbc9aca7-81c1-46d1-b3f3-e9de2bac30b4', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Partition Labels', 'partition-labels', 'Greedy', 'medium', 'https://leetcode.com/problems/partition-labels/', 125, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('9e21d5c0-3a89-4b07-ab65-b02fb067bea1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Valid Parenthesis String', 'valid-parenthesis-string', 'Greedy', 'medium', 'https://leetcode.com/problems/valid-parenthesis-string/', 126, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('375e501b-5a8b-4223-98c0-24fdd9df4172', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Insert Interval', 'insert-interval', 'Intervals', 'medium', 'https://leetcode.com/problems/insert-interval/', 127, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d78f2189-7dfd-4b74-993f-5c36ed36d8d2', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Merge Intervals', 'merge-intervals', 'Intervals', 'medium', 'https://leetcode.com/problems/merge-intervals/', 128, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('6eda5785-8dbe-403f-bbda-9092bf3ab784', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Non-overlapping Intervals', 'non-overlapping-intervals', 'Intervals', 'medium', 'https://leetcode.com/problems/non-overlapping-intervals/', 129, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('ffc51bba-7d08-4d4b-8f41-eb10a1cad0eb', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Minimum Interval to Include Each Query', 'minimum-interval-to-include-each-query', 'Intervals', 'hard', 'https://leetcode.com/problems/minimum-interval-to-include-each-query/', 130, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('1c5d61c5-79ca-4046-ba2f-f2c1acb5a9a5', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Rotate Image', 'rotate-image', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/rotate-image/', 131, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('0fe991a9-da38-4c51-ac9d-ba4e9bef3891', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Spiral Matrix', 'spiral-matrix', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 132, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('6dbd8719-4dfe-483f-ab84-5501476d99ed', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 133, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('b781df09-bafe-4471-a176-72d31fc01958', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Happy Number', 'happy-number', 'Math & Geometry', 'easy', 'https://leetcode.com/problems/happy-number/', 134, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('a0358583-0d19-4997-9ec9-a4603bc86c98', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Plus One', 'plus-one', 'Math & Geometry', 'easy', 'https://leetcode.com/problems/plus-one/', 135, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('cd4ee3e6-ddf2-47ff-aa22-729f12afa26c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Pow(x, n)', 'powx-n', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/powx-n/', 136, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('43302d6a-2bb1-4cff-8aed-dde6fe325333', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Multiply Strings', 'multiply-strings', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/multiply-strings/', 137, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('dde5278d-0b4b-4ffd-b5b6-283d74691cb1', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Detect Squares', 'detect-squares', 'Math & Geometry', 'medium', 'https://leetcode.com/problems/detect-squares/', 138, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('641c0a8d-a3af-4f45-92fd-2449cdec362c', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Single Number', 'single-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/single-number/', 139, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('b5aae654-e99c-48f3-9349-d94b37158bf7', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Number of 1 Bits', 'number-of-1-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 140, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('24c424b6-8aa4-4b19-8d17-94e453646cee', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 141, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('6dd15929-e8e2-470b-8ca2-465f8ee57420', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Bits', 'reverse-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/reverse-bits/', 142, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d267f740-5baa-4192-96e8-b48e43a301ba', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Missing Number', 'missing-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/missing-number/', 143, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('46c61ae8-5b0a-43b5-b02f-c2673ed97630', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 144, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('d80a058f-3b12-4093-826a-e611e24cf272', '20b37334-c88c-45c6-b898-ec5d23e37474', 'Reverse Integer', 'reverse-integer', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/reverse-integer/', 145, '2026-07-10 02:05:37.890501+00');
+INSERT INTO public.sheet_items VALUES ('63f30362-5cd0-4c82-9364-96f6e1381e9e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Two Sum', 'two-sum', 'Array', 'easy', 'https://leetcode.com/problems/two-sum/', 1, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('8ccfb6d5-2ecd-436e-8b3f-414322e873ea', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Array', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 2, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('908682b4-9a2e-4ea5-b15a-d530f329ccd8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Contains Duplicate', 'contains-duplicate', 'Array', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 3, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('4ff78959-5449-4c67-9d64-66cb7383c945', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Product of Array Except Self', 'product-of-array-except-self', 'Array', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 4, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f8c11609-b6b8-4a85-afa0-7ec672a0eae4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Subarray', 'maximum-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 5, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('63bacb57-8120-43a3-b2fe-304ccad1f2d5', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Product Subarray', 'maximum-product-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-product-subarray/', 6, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('3ff89989-f1e8-484e-8f93-4f99e79b4642', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Array', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 7, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('ac6a80e7-cf9f-478b-9274-14078d664504', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Array', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 8, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('ed663548-75df-40e3-860b-c6bf5edb4366', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', '3Sum', '3sum', 'Array', 'medium', 'https://leetcode.com/problems/3sum/', 9, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('3a44210b-e424-4020-ad63-3f9738e25164', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Container With Most Water', 'container-with-most-water', 'Array', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 10, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('0749f6c3-da53-41ad-85f9-bb9e65c90d80', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Sum of Two Integers', 'sum-of-two-integers', 'Binary', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 11, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('3115c8a4-4997-43f9-82dc-65099ffbbcc6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of 1 Bits', 'number-of-1-bits', 'Binary', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 12, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('42d0c500-6170-459f-a034-d117b556b0ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Counting Bits', 'counting-bits', 'Binary', 'easy', 'https://leetcode.com/problems/counting-bits/', 13, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('09889555-a4ec-4350-9500-21d005727b9a', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Missing Number', 'missing-number', 'Binary', 'easy', 'https://leetcode.com/problems/missing-number/', 14, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('59cf0758-bcee-4b84-aeb8-d693cfd48c9e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reverse Bits', 'reverse-bits', 'Binary', 'easy', 'https://leetcode.com/problems/reverse-bits/', 15, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('4a3bbee6-b21e-4e3a-a02a-036befd4458c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 16, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('d9a6ed89-282f-4780-8d6d-3763357875fc', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 17, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f640d8f9-4c8c-43d2-91e9-ce2d87c51261', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 18, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('8fd7075c-0db3-488c-af5e-a6d2e67554d2', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Common Subsequence', 'longest-common-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-common-subsequence/', 19, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('0fe03b60-4c60-4d40-ba35-6d7a7c332b1c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Break', 'word-break', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/word-break/', 20, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('c166ee97-5d56-49a4-a93d-dd36573acaf3', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Combination Sum', 'combination-sum', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/combination-sum/', 21, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f34e87a7-4d01-4e26-ae34-c2984ef2df64', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 22, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('d571b383-de69-48b5-9264-f135e058f8c4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'House Robber II', 'house-robber-ii', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 23, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('a6db85b6-7685-4c2f-9eef-28bda24d2bf6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Decode Ways', 'decode-ways', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/decode-ways/', 24, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('92cc57b3-d0c5-4b53-8211-f0b7c69522d7', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 25, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('0cd06ee0-dfca-4c6c-995a-032c7490f473', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Jump Game', 'jump-game', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/jump-game/', 26, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('82056808-84ca-433e-bc1f-0bedece231e0', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Clone Graph', 'clone-graph', 'Graph', 'medium', 'https://leetcode.com/problems/clone-graph/', 27, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('e1d3abc5-ef9a-4b54-b048-666fe6be9028', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graph', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 29, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('e8a4e28b-6015-4763-80d1-c00d617d0d18', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of Islands', 'number-of-islands', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-islands/', 30, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('7fd997a0-e215-4914-b657-dabeb9c1218e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Graph', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 31, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('8d145b27-f6f4-4e29-bda0-673b732a5516', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Graph Valid Tree', 'graph-valid-tree', 'Graph', 'medium', 'https://leetcode.com/problems/graph-valid-tree/', 32, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('62fc829c-891d-4101-bca0-c5779304575b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 33, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('83e3ded0-bd6f-45fd-a254-9d0b4fc00a9b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Insert Interval', 'insert-interval', 'Interval', 'medium', 'https://leetcode.com/problems/insert-interval/', 34, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('707a2394-82c6-44c8-a4cc-50d200dd2902', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge Intervals', 'merge-intervals', 'Interval', 'medium', 'https://leetcode.com/problems/merge-intervals/', 35, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('d593fd09-40a1-4926-92ac-6d2025e1a4b6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Non-overlapping Intervals', 'non-overlapping-intervals', 'Interval', 'medium', 'https://leetcode.com/problems/non-overlapping-intervals/', 36, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('fceca665-372e-4649-9e72-beb52268c4b4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 37, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('245adac3-0707-4a92-b5fc-99b19876ca27', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 38, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('fe3903fb-507c-412e-96dc-657287fe18ef', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 39, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('921ce067-0d84-41f1-99b0-472af365b343', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 40, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('e339f271-ad32-4375-96f5-bddc8c051ade', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 41, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('202d9d3e-e556-47e4-9130-bb414d67bac6', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 42, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('b40e9fef-845d-41bc-b71a-322e4aa95396', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Matrix', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 43, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('65e2fa33-2c69-4b64-903e-ff68c85b2714', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Spiral Matrix', 'spiral-matrix', 'Matrix', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 44, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('1d29bb04-683d-4c9f-be6b-245765df978b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Rotate Image', 'rotate-image', 'Matrix', 'medium', 'https://leetcode.com/problems/rotate-image/', 45, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('09abd55c-b92c-461e-bdf0-5d8983290fa7', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Search', 'word-search', 'Matrix', 'medium', 'https://leetcode.com/problems/word-search/', 46, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('0ccba271-1717-4a0e-9b52-fbc10937779c', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 47, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('78be5fe7-294f-4278-bbdc-5de15e8041e0', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Same Tree', 'same-tree', 'Tree', 'easy', 'https://leetcode.com/problems/same-tree/', 48, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('0d0284d9-da85-4227-9ef4-499e946526ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Invert Binary Tree', 'invert-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 49, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f80a3a95-f1b3-4e22-bb12-0a5201855137', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Tree', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 50, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('d0c91e64-57b9-4008-8b10-dd6acc0162ea', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 51, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('593df722-608b-4d6a-8057-7180c7c1eba8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Tree', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 52, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f80d4f72-15f4-4cbd-85a5-fac52ee4aded', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Subtree of Another Tree', 'subtree-of-another-tree', 'Tree', 'easy', 'https://leetcode.com/problems/subtree-of-another-tree/', 53, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('008941a0-af20-4aed-beb4-350929662376', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 54, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('39ee00c4-f56e-492f-88db-9e3f1a63c06a', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 55, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('72664f33-d668-4367-bdaf-6a6bde091ffe', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Tree', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 56, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('944b3b02-42f1-4eb7-982d-bdaa60f298ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 57, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('22c12eee-62be-403c-9c1c-fc7d9e1a228f', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tree', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 58, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('00db395d-d0ef-40a4-8503-d5c55d5c8c6b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Design Add and Search Words Data Structure', 'design-add-and-search-words-data-structure', 'Tree', 'medium', 'https://leetcode.com/problems/design-add-and-search-words-data-structure/', 59, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f5f5e844-5933-4573-98ca-b8e42bed01db', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Word Search II', 'word-search-ii', 'Tree', 'hard', 'https://leetcode.com/problems/word-search-ii/', 60, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('6e10ac01-231d-4979-97f5-0c6d96e74c2e', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heap', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 61, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('0d6650cd-765f-4ab7-8eb6-48b40683d0ed', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 62, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('a371b830-e0cd-4e4b-a5f6-a9f4c20a57c8', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Anagram', 'valid-anagram', 'String', 'easy', 'https://leetcode.com/problems/valid-anagram/', 63, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('1def6f02-f042-4355-aad0-a22b782cacb3', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Group Anagrams', 'group-anagrams', 'String', 'medium', 'https://leetcode.com/problems/group-anagrams/', 64, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('c3eab4d1-ea70-4c83-b3de-bfc9b55f179b', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'String', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 65, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('af47d054-0286-4347-8a2c-c73fe7258e59', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'String', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 66, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('3af4be8e-bc98-42ec-9654-8aebd3acef16', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Minimum Window Substring', 'minimum-window-substring', 'String', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 67, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f14bd6f6-de54-4d21-abf3-f86820fe9536', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Parentheses', 'valid-parentheses', 'String', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 68, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('68918b45-3eb5-4fc4-8136-137fc28590d4', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Valid Palindrome', 'valid-palindrome', 'String', 'easy', 'https://leetcode.com/problems/valid-palindrome/', 69, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('81837e11-bbd8-4d0e-aa70-f04b2e47d143', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Longest Palindromic Substring', 'longest-palindromic-substring', 'String', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 70, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('a6c1e975-d953-43ef-931e-0623a187e502', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Palindromic Substrings', 'palindromic-substrings', 'String', 'medium', 'https://leetcode.com/problems/palindromic-substrings/', 71, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('843e5075-39b2-4788-ae8c-e0b83a2acd7d', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Encode and Decode Strings', 'encode-and-decode-strings', 'String', 'medium', 'https://leetcode.com/problems/encode-and-decode-strings/', 72, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('0b382d44-cc7e-4c9f-9043-babc5f0e2db1', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Meeting Rooms', 'meeting-rooms', 'Interval', 'easy', 'https://leetcode.com/problems/meeting-rooms/', 73, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('f5edfd04-1985-498d-837b-eec52fb1c350', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Meeting Rooms II', 'meeting-rooms-ii', 'Interval', 'medium', 'https://leetcode.com/problems/meeting-rooms-ii/', 74, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('85a9374c-e0ed-4f5d-907c-631cae07b39d', '5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Alien Dictionary', 'alien-dictionary', 'Graph', 'hard', 'https://leetcode.com/problems/alien-dictionary/', 75, '2026-07-10 02:05:37.899193+00');
+INSERT INTO public.sheet_items VALUES ('280c2a4e-190e-401c-ac3a-949e4b9f4a3d', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find the Largest Element in an Array', 'find-the-largest-element-in-an-array-a2z', 'Learn the Basics', 'easy', NULL, 1, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('d72aab59-aebd-4698-b385-3b6c12b7bab6', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Second Largest Element in an Array', 'second-largest-element-in-an-array-a2z', 'Learn the Basics', 'easy', NULL, 2, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('36318119-9c71-41c2-b216-ce0751bcc6e8', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Check if the Array Is Sorted', 'check-if-array-is-sorted-and-rotated', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/check-if-array-is-sorted-and-rotated/', 3, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('21d8f8fe-285a-4416-ae7b-a417ba46b256', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Remove Duplicates from Sorted Array', 'remove-duplicates-from-sorted-array', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/remove-duplicates-from-sorted-array/', 4, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('0b927b42-7f94-4823-b0d9-7f9473a59600', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotate Array', 'rotate-array', 'Learn the Basics', 'medium', 'https://leetcode.com/problems/rotate-array/', 5, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('555ca531-ffec-47ed-9bc1-8f1575758186', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Move Zeroes', 'move-zeroes', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/move-zeroes/', 6, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('f436c31d-a6f5-4559-88df-0e9076d43f5c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Union of Two Sorted Arrays', 'union-of-two-sorted-arrays-a2z', 'Learn the Basics', 'easy', NULL, 7, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('1a382816-7455-4a52-a795-86ec8034f9ba', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Missing Number', 'missing-number', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/missing-number/', 8, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('53f975cd-21c1-46e7-bb16-c0109228e5b9', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Consecutive Ones', 'max-consecutive-ones', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/max-consecutive-ones/', 9, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('0385f926-1c30-4d4a-9508-34dc9b1ced42', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Single Number', 'single-number', 'Learn the Basics', 'easy', 'https://leetcode.com/problems/single-number/', 10, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('2e0c8d66-3a9f-4e9a-a6c2-a679773a65a2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Selection Sort', 'selection-sort-a2z', 'Sorting Techniques', 'easy', NULL, 11, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('fb0eb7a2-4cb1-433e-89d1-7383de9817db', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Bubble Sort', 'bubble-sort-a2z', 'Sorting Techniques', 'easy', NULL, 12, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('f2939685-40ff-4500-b24b-7430abcdf9cb', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Insertion Sort', 'insertion-sort-a2z', 'Sorting Techniques', 'easy', NULL, 13, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('a6c66e27-6c27-46f5-98e8-d841162c1b9a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Merge Sort', 'sort-an-array', 'Sorting Techniques', 'medium', 'https://leetcode.com/problems/sort-an-array/', 14, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('61e8edf4-6aaf-49c2-bc28-e941b5dfb212', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Quick Sort', 'quick-sort-a2z', 'Sorting Techniques', 'medium', NULL, 15, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('a4e1c85e-ebd8-46bb-9ba9-76a79e3747db', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sort Colors', 'sort-colors', 'Arrays', 'medium', 'https://leetcode.com/problems/sort-colors/', 16, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('6c31793e-5aae-4c98-a41b-be25e7b74fb1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Majority Element', 'majority-element', 'Arrays', 'easy', 'https://leetcode.com/problems/majority-element/', 17, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('d6cb2e99-6f72-46ac-b263-9783f9f4ab06', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Subarray', 'maximum-subarray', 'Arrays', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 18, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('92490d5d-5bbb-4edc-a129-c6bf7900e3f3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Arrays', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 19, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('98e20b64-5bfc-4d81-aba9-5419a65e6ea1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rearrange Array Elements by Sign', 'rearrange-array-elements-by-sign', 'Arrays', 'medium', 'https://leetcode.com/problems/rearrange-array-elements-by-sign/', 20, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('44737d80-3b5d-47b0-8b90-1b4ceda150ec', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Next Permutation', 'next-permutation', 'Arrays', 'medium', 'https://leetcode.com/problems/next-permutation/', 21, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('f281f327-31cd-44b2-93db-fe4e2d99dd2b', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Consecutive Sequence', 'longest-consecutive-sequence', 'Arrays', 'medium', 'https://leetcode.com/problems/longest-consecutive-sequence/', 22, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('7d118b7a-ca84-4bf2-9cf0-fe80017a0afd', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Arrays', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 23, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('238d4608-6040-466c-a158-5421fe655b69', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotate Image', 'rotate-image', 'Arrays', 'medium', 'https://leetcode.com/problems/rotate-image/', 24, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('6b44d4b8-1b3e-4a4b-80cb-20d9619bb6ea', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Spiral Matrix', 'spiral-matrix', 'Arrays', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 25, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('cfdfe8cc-8287-4bad-9df1-52053b6d0faf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', '3Sum', '3sum', 'Arrays', 'medium', 'https://leetcode.com/problems/3sum/', 26, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('bcf488cc-9283-4164-b7c5-9b948939411c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', '4Sum', '4sum', 'Arrays', 'medium', 'https://leetcode.com/problems/4sum/', 27, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('14ad4dda-c161-4dd5-86c9-09c9b55db92a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Trapping Rain Water', 'trapping-rain-water', 'Arrays', 'hard', 'https://leetcode.com/problems/trapping-rain-water/', 28, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('59b5bf06-e87d-4aa2-8db0-8d8650a3dded', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 29, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('14fb3218-9d40-40af-987d-cffb6d8a9d22', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Lower Bound / Upper Bound', 'find-first-and-last-position-of-element-in-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/', 30, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('6ad712ce-c33f-4862-a469-1fc436e9aba2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search Insert Position', 'search-insert-position', 'Binary Search', 'easy', 'https://leetcode.com/problems/search-insert-position/', 31, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('7512911a-ca84-4536-88ce-3895dde1bfe6', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 32, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('4d1528f8-da92-4aa7-a190-4db6812b3360', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 33, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('3acb4785-0999-4f81-9a8d-30e48fdde0f4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 34, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('edbd1e5f-53f6-4367-a174-d4ceb06425ee', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Median of Two Sorted Arrays', 'median-of-two-sorted-arrays', 'Binary Search', 'hard', 'https://leetcode.com/problems/median-of-two-sorted-arrays/', 35, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('49f4936b-345e-4710-91f5-55e2ceefa9f5', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Search a 2D Matrix', 'search-a-2d-matrix', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-a-2d-matrix/', 36, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('f87db9a8-b304-46a8-877f-85dd06a4c377', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Words in a String', 'reverse-words-in-a-string', 'Strings', 'medium', 'https://leetcode.com/problems/reverse-words-in-a-string/', 37, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b446783f-3726-433a-a061-634f56f354ed', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Common Prefix', 'longest-common-prefix', 'Strings', 'easy', 'https://leetcode.com/problems/longest-common-prefix/', 38, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('afa38844-dc55-476f-8246-bf44c5eb217a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Roman to Integer', 'roman-to-integer', 'Strings', 'easy', 'https://leetcode.com/problems/roman-to-integer/', 39, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('697513f3-bc4c-4c27-871d-919f5b52f0bb', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Valid Anagram', 'valid-anagram', 'Strings', 'easy', 'https://leetcode.com/problems/valid-anagram/', 40, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('10cd2aec-c003-48c4-a45d-d1d2e20c7922', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Valid Parentheses', 'valid-parentheses', 'Strings', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 41, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('12aa53e8-11b4-49b9-941e-a6fbef3a0f74', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 42, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('c6124ca6-376e-486e-bd1b-d4f4aaa760ee', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Middle of the Linked List', 'middle-of-the-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/middle-of-the-linked-list/', 43, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('dc51cf0f-56d6-4771-8e36-061f892d0971', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 44, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('6913eb58-6e9f-40c5-a2d8-b83b0905e68b', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 45, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('042a0115-31d9-483d-9f7a-9ac4078cd551', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 46, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('9758a683-44e5-40d8-ae08-cf3acf0da251', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Add Two Numbers', 'add-two-numbers', 'Linked List', 'medium', 'https://leetcode.com/problems/add-two-numbers/', 47, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('a48f5fa1-e382-442a-9052-ba6cfea615bf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse Nodes in k-Group', 'reverse-nodes-in-k-group', 'Linked List', 'hard', 'https://leetcode.com/problems/reverse-nodes-in-k-group/', 48, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b05829c8-c093-493c-814e-0fd3889d9460', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Copy List with Random Pointer', 'copy-list-with-random-pointer', 'Linked List', 'medium', 'https://leetcode.com/problems/copy-list-with-random-pointer/', 49, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('c932b122-d7d4-478e-9d53-556ce589ff69', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Reverse a Linked List (Recursive)', 'reverse-a-linked-list-recursive-a2z', 'Recursion', 'medium', NULL, 50, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('c2e0b7ee-e9c2-44b0-90e6-033c67047465', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Subsets', 'subsets', 'Recursion', 'medium', 'https://leetcode.com/problems/subsets/', 51, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b6d13edd-7abd-4c8d-85ef-8031909397df', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Combination Sum', 'combination-sum', 'Recursion', 'medium', 'https://leetcode.com/problems/combination-sum/', 52, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('7ec921d2-44b7-4a95-8ba0-ebd3b44a368a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Permutations', 'permutations', 'Recursion', 'medium', 'https://leetcode.com/problems/permutations/', 53, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('52187496-8733-468c-af72-5028c107f42c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'N-Queens', 'n-queens', 'Recursion', 'hard', 'https://leetcode.com/problems/n-queens/', 54, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('26764b6f-3637-4fb6-a6c5-301dc5700577', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sudoku Solver', 'sudoku-solver', 'Recursion', 'hard', 'https://leetcode.com/problems/sudoku-solver/', 55, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('507952d4-0236-4dce-bc39-ccb21a5179f4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Single Number', 'single-number', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/single-number/', 56, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('2ea91cbb-6237-48cf-b7ba-1a51fad53ad7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Power Set', 'subsets', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/subsets/', 57, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('7ea85630-4f2c-43b0-8c87-a8e087c95970', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 58, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('c352eefa-647c-4c2d-a6c8-81b7ada77961', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 59, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('65314df4-176b-4236-b556-05404336d84d', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Next Greater Element I', 'next-greater-element-i', 'Stack and Queue', 'easy', 'https://leetcode.com/problems/next-greater-element-i/', 60, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('50dbf013-b16d-47ec-9131-c7b37a9e0391', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Daily Temperatures', 'daily-temperatures', 'Stack and Queue', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 61, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('151ab9db-2cf5-44e7-a8d4-fa68de41ae6c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Min Stack', 'min-stack', 'Stack and Queue', 'medium', 'https://leetcode.com/problems/min-stack/', 62, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('d6721288-b05d-4e83-9864-a6c7b41f79fa', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Largest Rectangle in Histogram', 'largest-rectangle-in-histogram', 'Stack and Queue', 'hard', 'https://leetcode.com/problems/largest-rectangle-in-histogram/', 63, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('bdc57079-0298-4ac6-b130-1ae5b7988db7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window & Two Pointer', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 64, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b51b69ce-a180-4ad6-8936-6a1a614c1ebf', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Minimum Window Substring', 'minimum-window-substring', 'Sliding Window & Two Pointer', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 65, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('5f2a963f-25bf-45a7-9fbe-0da17729c1c9', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window & Two Pointer', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 66, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('3debfb18-a36c-4d14-9054-042f4baf42c5', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heaps', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 67, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('4b05c3a9-4092-4290-8ba6-593b0936be8a', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heaps', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 68, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('48e1a20c-c229-4802-be89-95ca24d761df', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heaps', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 69, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('9a2fc03d-7ae3-4409-857e-e867e7d4a9d3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Task Scheduler', 'task-scheduler', 'Greedy', 'medium', 'https://leetcode.com/problems/task-scheduler/', 70, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('aeaa7a93-2a3d-43cf-845c-8a63768c783e', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'N Meeting in One Room', 'meeting-rooms', 'Greedy', 'easy', 'https://leetcode.com/problems/meeting-rooms/', 71, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('92508ca8-445c-4ede-a2d2-a61fdeed3581', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 72, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b79368c8-efaf-4f20-a7af-06032ad80d59', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Insert Interval', 'insert-interval', 'Greedy', 'medium', 'https://leetcode.com/problems/insert-interval/', 73, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b272a33b-bf55-47ed-919e-c0034c830347', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 74, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('78b1bc66-3e1f-4734-93d0-2cf3f1827ac2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Binary Trees', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 75, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('481a008f-41fe-4875-a667-4a22088df708', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Diameter of Binary Tree', 'diameter-of-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/diameter-of-binary-tree/', 76, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('23d75511-b7bb-4913-9911-448ca010289e', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Balanced Binary Tree', 'balanced-binary-tree', 'Binary Trees', 'easy', 'https://leetcode.com/problems/balanced-binary-tree/', 77, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('7459890c-868e-4e9a-92c8-943813a05bd7', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Binary Trees', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 78, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('9ae7547c-64b8-4baf-a42b-948e63236271', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Construct Binary Tree from Preorder and Inorder', 'construct-binary-tree-from-preorder-and-inorder-traversal', 'Binary Trees', 'medium', 'https://leetcode.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/', 79, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('04977a13-6e37-42c0-8c2b-356f823e2560', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Binary Trees', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 80, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('e9c20939-64fd-4d67-a4f0-f234fb17318f', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 81, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('40c59eff-abb7-4a8b-b48d-acda5e9db67f', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Kth Smallest Element in a BST', 'kth-smallest-element-in-a-bst', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/', 82, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('1709159e-8a09-4925-ae89-8c636d3bdcf2', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Lowest Common Ancestor of a BST', 'lowest-common-ancestor-of-a-binary-search-tree', 'Binary Search Trees', 'medium', 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/', 83, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('3f54b463-96bd-43e1-a642-381a7037bc99', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Number of Islands', 'number-of-islands', 'Graphs', 'medium', 'https://leetcode.com/problems/number-of-islands/', 84, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('adb14715-8ed3-4b58-a6fd-5fc18d6b3b1c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Rotting Oranges', 'rotting-oranges', 'Graphs', 'medium', 'https://leetcode.com/problems/rotting-oranges/', 85, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('e8d059c3-98b1-4168-99a0-48563b114924', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Course Schedule', 'course-schedule', 'Graphs', 'medium', 'https://leetcode.com/problems/course-schedule/', 86, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('f84483b1-dbd9-4475-b20b-8b8365203555', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Clone Graph', 'clone-graph', 'Graphs', 'medium', 'https://leetcode.com/problems/clone-graph/', 87, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('ce6c680a-871e-456e-9a83-e60691e13b6c', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Word Ladder', 'word-ladder', 'Graphs', 'hard', 'https://leetcode.com/problems/word-ladder/', 88, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('c9fd8e68-b781-4e6c-b425-07f4fa28da32', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 89, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b91d2e57-16e1-459b-a5f8-a9e2b22369f3', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 90, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('5956353c-c649-4bca-a991-79067dd1ddb1', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 91, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('458d1c79-d7da-4f81-8ca9-5ecf0d02f6b8', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 92, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('5baa6462-7e96-48b1-981f-82ac869d52ff', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Edit Distance', 'edit-distance', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/edit-distance/', 93, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('b107b2e4-98c4-4624-81c8-9f240ee64e93', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 94, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('96031b28-cc53-45a6-a616-dcf2ba04b4a4', 'ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Implement Trie (Prefix Tree)', 'implement-trie-prefix-tree', 'Tries', 'medium', 'https://leetcode.com/problems/implement-trie-prefix-tree/', 95, '2026-07-10 02:05:37.903692+00');
+INSERT INTO public.sheet_items VALUES ('e5aab74c-778b-415b-a0a8-7f03fd976cfc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Two Sum', 'two-sum', 'Array', 'easy', 'https://leetcode.com/problems/two-sum/', 1, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('3ce40299-58b5-43d7-8e4b-d5aa62773fb3', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Best Time to Buy and Sell Stock', 'best-time-to-buy-and-sell-stock', 'Array', 'easy', 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/', 2, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('fe2c4f41-e248-4d29-bd34-e27a509e5527', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Contains Duplicate', 'contains-duplicate', 'Array', 'easy', 'https://leetcode.com/problems/contains-duplicate/', 3, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('538353d6-42b1-4512-96ab-de2122b31087', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Product of Array Except Self', 'product-of-array-except-self', 'Array', 'medium', 'https://leetcode.com/problems/product-of-array-except-self/', 4, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('d57657f5-0741-40fc-b275-f24ac4c08693', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Maximum Subarray', 'maximum-subarray', 'Array', 'medium', 'https://leetcode.com/problems/maximum-subarray/', 5, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('bdf74110-aea7-4972-bceb-2adc12fcd3e8', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge Intervals', 'merge-intervals', 'Array', 'medium', 'https://leetcode.com/problems/merge-intervals/', 6, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('d92119e7-bdda-4aa2-9761-9f4c8d845751', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Insert Interval', 'insert-interval', 'Array', 'medium', 'https://leetcode.com/problems/insert-interval/', 7, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('032babd0-2c01-45b1-b354-1f79b90e930e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', '3Sum', '3sum', 'Array', 'medium', 'https://leetcode.com/problems/3sum/', 8, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('bacb0d38-6fa2-47fe-a340-29fca921a4e3', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Container With Most Water', 'container-with-most-water', 'Array', 'medium', 'https://leetcode.com/problems/container-with-most-water/', 9, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('1ccbc3f0-47bd-4fc2-8f05-b5923fb2ee79', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Next Permutation', 'next-permutation', 'Array', 'medium', 'https://leetcode.com/problems/next-permutation/', 10, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('bad0386a-a486-4e61-a7d4-c38bc9b82a6b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Substring Without Repeating Characters', 'longest-substring-without-repeating-characters', 'String', 'medium', 'https://leetcode.com/problems/longest-substring-without-repeating-characters/', 11, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('1e2f9e0b-2831-42a1-bcec-4e2c99bec5a6', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Palindromic Substring', 'longest-palindromic-substring', 'String', 'medium', 'https://leetcode.com/problems/longest-palindromic-substring/', 12, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('6564d2a9-c790-4b1b-9aca-1f38c7137426', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Anagram', 'valid-anagram', 'String', 'easy', 'https://leetcode.com/problems/valid-anagram/', 13, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('5507521c-acc8-4c25-af59-24905874eff1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Group Anagrams', 'group-anagrams', 'String', 'medium', 'https://leetcode.com/problems/group-anagrams/', 14, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('d1104e49-6db1-42d8-99c9-45c160ad8218', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Parentheses', 'valid-parentheses', 'String', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 15, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('2c9a3843-f8a4-47dc-93de-1bfedcf8e5de', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Minimum Window Substring', 'minimum-window-substring', 'String', 'hard', 'https://leetcode.com/problems/minimum-window-substring/', 16, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('4a1f4f51-6da5-4307-a63d-bb6dbe170000', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Reverse Linked List', 'reverse-linked-list', 'Linked List', 'easy', 'https://leetcode.com/problems/reverse-linked-list/', 17, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('115d5702-da46-453c-b3e3-7606932b637c', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'Linked List', 'easy', 'https://leetcode.com/problems/merge-two-sorted-lists/', 18, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('63348025-c356-41e4-9b51-4804a7b36d13', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Linked List Cycle', 'linked-list-cycle', 'Linked List', 'easy', 'https://leetcode.com/problems/linked-list-cycle/', 19, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('67d9939a-08e9-4613-b561-b3ef30ffc257', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Remove Nth Node From End of List', 'remove-nth-node-from-end-of-list', 'Linked List', 'medium', 'https://leetcode.com/problems/remove-nth-node-from-end-of-list/', 20, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('44131c09-95e9-4ce1-8418-7d8fe1f41a2e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Reorder List', 'reorder-list', 'Linked List', 'medium', 'https://leetcode.com/problems/reorder-list/', 21, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('d014542c-92e4-41c3-9e76-acb5fe03fa2e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'LRU Cache', 'lru-cache', 'Linked List', 'medium', 'https://leetcode.com/problems/lru-cache/', 22, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('afbc6ae2-85d7-46e5-864a-d0ff36751531', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Merge k Sorted Lists', 'merge-k-sorted-lists', 'Linked List', 'hard', 'https://leetcode.com/problems/merge-k-sorted-lists/', 23, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('e39078fc-21e5-4bd4-9abb-d288f3924d76', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Valid Parentheses', 'valid-parentheses', 'Stack', 'easy', 'https://leetcode.com/problems/valid-parentheses/', 24, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('0d5d5cd7-36ae-45f8-a432-53e358a783c1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Min Stack', 'min-stack', 'Stack', 'medium', 'https://leetcode.com/problems/min-stack/', 25, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('e5c24938-c6bc-45a1-a42e-a71a6f1df7de', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Evaluate Reverse Polish Notation', 'evaluate-reverse-polish-notation', 'Stack', 'medium', 'https://leetcode.com/problems/evaluate-reverse-polish-notation/', 26, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('e9eaec6b-4fb4-4e62-9047-db5bd7219a5b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Daily Temperatures', 'daily-temperatures', 'Stack', 'medium', 'https://leetcode.com/problems/daily-temperatures/', 27, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('dfbd43de-c549-4afe-907d-a9feba4a13cd', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Maximum Depth of Binary Tree', 'maximum-depth-of-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/maximum-depth-of-binary-tree/', 28, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('a1c1cf73-1634-43d9-b0e0-96e7acdba306', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Same Tree', 'same-tree', 'Tree', 'easy', 'https://leetcode.com/problems/same-tree/', 29, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('b27b9295-0593-4604-97c3-373f5e6d35fb', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Invert Binary Tree', 'invert-binary-tree', 'Tree', 'easy', 'https://leetcode.com/problems/invert-binary-tree/', 30, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('ae34da15-56c9-45ac-a9b1-58bc51bc4327', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Tree Level Order Traversal', 'binary-tree-level-order-traversal', 'Tree', 'medium', 'https://leetcode.com/problems/binary-tree-level-order-traversal/', 31, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('c23c84c8-1d95-45ec-8229-ccf029610014', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Validate Binary Search Tree', 'validate-binary-search-tree', 'Tree', 'medium', 'https://leetcode.com/problems/validate-binary-search-tree/', 32, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('2bf5657c-7a2c-4d14-93dd-5e8a09f78dde', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Tree Maximum Path Sum', 'binary-tree-maximum-path-sum', 'Tree', 'hard', 'https://leetcode.com/problems/binary-tree-maximum-path-sum/', 33, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('edd09dcc-9ba0-4555-8ce5-89ba3ddafa1f', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Serialize and Deserialize Binary Tree', 'serialize-and-deserialize-binary-tree', 'Tree', 'hard', 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', 34, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('0982feb7-0639-4ce4-ab69-48b23d22e849', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of Islands', 'number-of-islands', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-islands/', 35, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('94272db6-a707-4995-b70d-516dc582f908', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Clone Graph', 'clone-graph', 'Graph', 'medium', 'https://leetcode.com/problems/clone-graph/', 36, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('0c58e7b3-0b44-4e43-83e0-d7a18fa4db6f', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Course Schedule', 'course-schedule', 'Graph', 'medium', 'https://leetcode.com/problems/course-schedule/', 37, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('3028509d-5e08-4e98-95f8-c31616e3bb18', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Pacific Atlantic Water Flow', 'pacific-atlantic-water-flow', 'Graph', 'medium', 'https://leetcode.com/problems/pacific-atlantic-water-flow/', 38, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('7925b4dc-7971-4af8-9c20-7a49df29abd6', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of Connected Components in an Undirected Graph', 'number-of-connected-components-in-an-undirected-graph', 'Graph', 'medium', 'https://leetcode.com/problems/number-of-connected-components-in-an-undirected-graph/', 39, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('238d79d3-790a-493f-a428-a96af1f3e1fc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Kth Largest Element in an Array', 'kth-largest-element-in-an-array', 'Heap', 'medium', 'https://leetcode.com/problems/kth-largest-element-in-an-array/', 40, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('a5c810b2-498c-493a-b503-e323d28dcd80', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Top K Frequent Elements', 'top-k-frequent-elements', 'Heap', 'medium', 'https://leetcode.com/problems/top-k-frequent-elements/', 41, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('1b66f718-d2ac-4cde-839d-5974d76a264d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Find Median from Data Stream', 'find-median-from-data-stream', 'Heap', 'hard', 'https://leetcode.com/problems/find-median-from-data-stream/', 42, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('107c32b0-8bbe-4d7e-86b5-4906a7bf4a00', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Task Scheduler', 'task-scheduler', 'Heap', 'medium', 'https://leetcode.com/problems/task-scheduler/', 43, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('d052cb21-2227-4e81-a007-ae54df78383b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Subsets', 'subsets', 'Backtracking', 'medium', 'https://leetcode.com/problems/subsets/', 44, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('4d433d70-684a-4867-b5d2-a2e67bbfe34e', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Word Search', 'word-search', 'Backtracking', 'medium', 'https://leetcode.com/problems/word-search/', 45, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('6bf89631-07b8-458f-b50b-d5add2d1c8e7', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Combination Sum', 'combination-sum', 'Backtracking', 'medium', 'https://leetcode.com/problems/combination-sum/', 46, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('9f5137c6-b90a-4df2-bfdc-738589a94405', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Permutations', 'permutations', 'Backtracking', 'medium', 'https://leetcode.com/problems/permutations/', 47, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('a7f6f35e-a2af-4396-aeb9-2891a33eb500', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'N-Queens', 'n-queens', 'Backtracking', 'hard', 'https://leetcode.com/problems/n-queens/', 48, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('23a2afcc-3b27-40f0-908f-b901193fc692', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Climbing Stairs', 'climbing-stairs', 'Dynamic Programming', 'easy', 'https://leetcode.com/problems/climbing-stairs/', 49, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('6281a447-422e-4b5b-bd7c-f797cbb5d560', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Coin Change', 'coin-change', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/coin-change/', 50, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('7c5dfff7-4450-4539-a861-7e8e515cc507', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'House Robber', 'house-robber', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber/', 51, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('de950984-1f8b-44e1-b9a0-7992f35e80c0', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'House Robber II', 'house-robber-ii', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/house-robber-ii/', 52, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('5fe2b48c-3971-42c8-af42-149f574e08a1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/longest-increasing-subsequence/', 53, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('c354a301-77f4-407e-b20e-0d6452443e7a', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Word Break', 'word-break', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/word-break/', 54, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('6847ed00-8664-4620-b06e-1d4fc7526c78', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Unique Paths', 'unique-paths', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/unique-paths/', 55, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('c30c0c5d-3c46-4b59-82ef-bc6b6835e2fd', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Edit Distance', 'edit-distance', 'Dynamic Programming', 'medium', 'https://leetcode.com/problems/edit-distance/', 56, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('1610d1dd-fdc9-47a7-8072-18d7c1283b4d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Binary Search', 'binary-search', 'Binary Search', 'easy', 'https://leetcode.com/problems/binary-search/', 57, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('3515c626-da43-4d6d-910a-171e90bf3ebc', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Search in Rotated Sorted Array', 'search-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/search-in-rotated-sorted-array/', 58, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('94baa70a-ae61-4608-83b7-1b5a6d4f852c', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Find Minimum in Rotated Sorted Array', 'find-minimum-in-rotated-sorted-array', 'Binary Search', 'medium', 'https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/', 59, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('4d275183-303a-4b80-9918-2d6e5caa440d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Koko Eating Bananas', 'koko-eating-bananas', 'Binary Search', 'medium', 'https://leetcode.com/problems/koko-eating-bananas/', 60, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('8b694d0f-1cb2-419d-97c8-3f6dc3ea3c6b', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Longest Repeating Character Replacement', 'longest-repeating-character-replacement', 'Sliding Window', 'medium', 'https://leetcode.com/problems/longest-repeating-character-replacement/', 61, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('5805e6cf-662a-4a9b-861b-43ef374a15f5', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Sliding Window Maximum', 'sliding-window-maximum', 'Sliding Window', 'hard', 'https://leetcode.com/problems/sliding-window-maximum/', 62, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('38a83cc1-bbf3-49ae-be1b-24cbee81f479', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Jump Game', 'jump-game', 'Greedy', 'medium', 'https://leetcode.com/problems/jump-game/', 63, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('49fb1948-444c-420e-b4f5-f5cb10b9db53', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Gas Station', 'gas-station', 'Greedy', 'medium', 'https://leetcode.com/problems/gas-station/', 64, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('dbc12696-1ca4-4b4e-886e-ba5aa23b8aa7', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Rotate Image', 'rotate-image', 'Math', 'medium', 'https://leetcode.com/problems/rotate-image/', 65, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('28bb2272-8290-437c-bc3d-36d13e2772c1', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Spiral Matrix', 'spiral-matrix', 'Math', 'medium', 'https://leetcode.com/problems/spiral-matrix/', 66, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('868ac513-1dc0-45cf-849c-a1ca852a8cf5', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Set Matrix Zeroes', 'set-matrix-zeroes', 'Math', 'medium', 'https://leetcode.com/problems/set-matrix-zeroes/', 67, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('5d908bc0-1844-44c7-baa2-0ee8ae3d6f7d', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Number of 1 Bits', 'number-of-1-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/number-of-1-bits/', 68, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('10c2cea5-2843-4fa0-952d-0b3cd7344f74', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Counting Bits', 'counting-bits', 'Bit Manipulation', 'easy', 'https://leetcode.com/problems/counting-bits/', 69, '2026-07-10 02:05:37.909128+00');
+INSERT INTO public.sheet_items VALUES ('62d88ffd-edbe-4650-a749-b5dde3cbb3af', '5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Sum of Two Integers', 'sum-of-two-integers', 'Bit Manipulation', 'medium', 'https://leetcode.com/problems/sum-of-two-integers/', 70, '2026-07-10 02:05:37.909128+00');
+
+
+--
+-- Data for Name: sheets; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.sheets VALUES ('ca8eff2b-c1f5-4548-8799-c10d0e80e638', 'Striver''s A2Z DSA', 'striver-a2z', 'Step-by-step DSA course from basics to advanced, by Striver (takeuforward).', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
+INSERT INTO public.sheets VALUES ('20b37334-c88c-45c6-b898-ec5d23e37474', 'NeetCode 150', 'neetcode-150', 'The 150 most important problems curated by NeetCode.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
+INSERT INTO public.sheets VALUES ('5ff3c7a5-0a47-4a3b-970c-5477c7d25bae', 'Blind 75', 'blind-75', 'The original 75-problem interview prep list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
+INSERT INTO public.sheets VALUES ('5a15074f-2a50-477e-82d0-c6a6af75a5ee', 'Grind 169', 'grind-169', 'TechInterviewHandbook''s Grind 169 problem list.', 'DSA', true, NULL, '2026-07-10 02:05:37.88717+00', '2026-07-10 02:05:37.88717+00', NULL);
+
+
+--
+-- Data for Name: social_accounts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: srs_cards; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_achievements; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_problem_progress; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_profiles; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_roles; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_sheets; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_skills; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_social_links; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: user_stats; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: whatnow_tasks; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: whatnow_user_state; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Data for Name: xp_events; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+
+
+--
+-- Name: attempt_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.attempt_events_id_seq', 1, false);
+
+
+--
+-- Name: audit_log_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.audit_log_id_seq', 1, false);
+
+
+--
+-- Name: audit_logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.audit_logs_id_seq', 1, false);
+
+
+--
+-- Name: job_runs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.job_runs_id_seq', 1, false);
+
+
+--
+-- Name: lab_usage_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.lab_usage_events_id_seq', 1, false);
+
+
+--
+-- Name: xp_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.xp_events_id_seq', 1, false);
+
+
+--
+-- Name: assessment_assignments assessment_assignments_assessment_id_assignee_type_assignee_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_assignments
+    ADD CONSTRAINT assessment_assignments_assessment_id_assignee_type_assignee_key UNIQUE (assessment_id, assignee_type, assignee_id);
+
+
+--
+-- Name: assessment_assignments assessment_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_assignments
+    ADD CONSTRAINT assessment_assignments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessment_attempts assessment_attempts_assessment_id_user_id_attempt_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_attempts
+    ADD CONSTRAINT assessment_attempts_assessment_id_user_id_attempt_number_key UNIQUE (assessment_id, user_id, attempt_number);
+
+
+--
+-- Name: assessment_attempts assessment_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_attempts
+    ADD CONSTRAINT assessment_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessment_questions assessment_questions_assessment_id_question_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_questions
+    ADD CONSTRAINT assessment_questions_assessment_id_question_id_key UNIQUE (assessment_id, question_id);
+
+
+--
+-- Name: assessment_questions assessment_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_questions
+    ADD CONSTRAINT assessment_questions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessments assessments_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_org_id_slug_key UNIQUE (org_id, slug);
+
+
+--
+-- Name: assessments assessments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessments assessments_short_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_short_code_key UNIQUE (short_code);
+
+
+--
+-- Name: attempt_answers attempt_answers_attempt_id_assessment_question_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_answers
+    ADD CONSTRAINT attempt_answers_attempt_id_assessment_question_id_key UNIQUE (attempt_id, assessment_question_id);
+
+
+--
+-- Name: attempt_answers attempt_answers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_answers
+    ADD CONSTRAINT attempt_answers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: attempt_events attempt_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_events
+    ADD CONSTRAINT attempt_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audit_log audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_log
+    ADD CONSTRAINT audit_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: audit_logs audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_logs
+    ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: batch_courses batch_courses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_courses
+    ADD CONSTRAINT batch_courses_pkey PRIMARY KEY (batch_id, course_id);
+
+
+--
+-- Name: batch_invitations batch_invitations_batch_id_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_invitations
+    ADD CONSTRAINT batch_invitations_batch_id_email_key UNIQUE (batch_id, email);
+
+
+--
+-- Name: batch_invitations batch_invitations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_invitations
+    ADD CONSTRAINT batch_invitations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: batch_invitations batch_invitations_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_invitations
+    ADD CONSTRAINT batch_invitations_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: batch_member_details batch_member_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_member_details
+    ADD CONSTRAINT batch_member_details_pkey PRIMARY KEY (batch_id, email);
+
+
+--
+-- Name: batch_members batch_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_members
+    ADD CONSTRAINT batch_members_pkey PRIMARY KEY (batch_id, user_id);
+
+
+--
+-- Name: batch_mentors batch_mentors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_mentors
+    ADD CONSTRAINT batch_mentors_pkey PRIMARY KEY (batch_id, user_id);
+
+
+--
+-- Name: batch_message_reactions batch_message_reactions_message_id_user_id_reaction_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_message_reactions
+    ADD CONSTRAINT batch_message_reactions_message_id_user_id_reaction_key UNIQUE (message_id, user_id, reaction);
+
+
+--
+-- Name: batch_message_reactions batch_message_reactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_message_reactions
+    ADD CONSTRAINT batch_message_reactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: batch_messages batch_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_messages
+    ADD CONSTRAINT batch_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: batches batches_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batches
+    ADD CONSTRAINT batches_org_id_slug_key UNIQUE (org_id, slug);
+
+
+--
+-- Name: batches batches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batches
+    ADD CONSTRAINT batches_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: calendar_event_attendees calendar_event_attendees_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_event_attendees
+    ADD CONSTRAINT calendar_event_attendees_pkey PRIMARY KEY (event_id, user_id);
+
+
+--
+-- Name: calendar_event_invites calendar_event_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_event_invites
+    ADD CONSTRAINT calendar_event_invites_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: calendar_event_invites calendar_event_invites_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_event_invites
+    ADD CONSTRAINT calendar_event_invites_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: calendar_events calendar_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: calendar_feed_tokens calendar_feed_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_feed_tokens
+    ADD CONSTRAINT calendar_feed_tokens_pkey PRIMARY KEY (user_id, org_id);
+
+
+--
+-- Name: calendar_feed_tokens calendar_feed_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_feed_tokens
+    ADD CONSTRAINT calendar_feed_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: coding_submissions coding_submissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coding_submissions
+    ADD CONSTRAINT coding_submissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: course_faqs course_faqs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_faqs
+    ADD CONSTRAINT course_faqs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: course_modules course_modules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_modules
+    ADD CONSTRAINT course_modules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: course_modules course_modules_section_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_modules
+    ADD CONSTRAINT course_modules_section_id_position_key UNIQUE (section_id, "position") DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: course_purchases course_purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_purchases
+    ADD CONSTRAINT course_purchases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: course_purchases course_purchases_user_id_course_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_purchases
+    ADD CONSTRAINT course_purchases_user_id_course_id_key UNIQUE (user_id, course_id);
+
+
+--
+-- Name: course_reviews course_reviews_course_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_reviews
+    ADD CONSTRAINT course_reviews_course_id_user_id_key UNIQUE (course_id, user_id);
+
+
+--
+-- Name: course_reviews course_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_reviews
+    ADD CONSTRAINT course_reviews_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: course_sections course_sections_course_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_sections
+    ADD CONSTRAINT course_sections_course_id_position_key UNIQUE (course_id, "position") DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: course_sections course_sections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_sections
+    ADD CONSTRAINT course_sections_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: courses courses_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_org_id_slug_key UNIQUE (org_id, slug);
+
+
+--
+-- Name: courses courses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: email_verifications email_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verifications
+    ADD CONSTRAINT email_verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: email_verifications email_verifications_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verifications
+    ADD CONSTRAINT email_verifications_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: enrollments enrollments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enrollments
+    ADD CONSTRAINT enrollments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: enrollments enrollments_user_id_course_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enrollments
+    ADD CONSTRAINT enrollments_user_id_course_id_key UNIQUE (user_id, course_id);
+
+
+--
+-- Name: experience_reports experience_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.experience_reports
+    ADD CONSTRAINT experience_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: experience_reports experience_reports_subject_type_subject_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.experience_reports
+    ADD CONSTRAINT experience_reports_subject_type_subject_id_user_id_key UNIQUE (subject_type, subject_id, user_id);
+
+
+--
+-- Name: feature_grants feature_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feature_grants
+    ADD CONSTRAINT feature_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feature_grants feature_grants_user_id_feature_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feature_grants
+    ADD CONSTRAINT feature_grants_user_id_feature_key_key UNIQUE (user_id, feature_key);
+
+
+--
+-- Name: feedback feedback_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback
+    ADD CONSTRAINT feedback_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feedback feedback_subject_type_subject_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback
+    ADD CONSTRAINT feedback_subject_type_subject_id_user_id_key UNIQUE (subject_type, subject_id, user_id);
+
+
+--
+-- Name: highlight_explanations highlight_explanations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.highlight_explanations
+    ADD CONSTRAINT highlight_explanations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: highlight_explanations highlight_explanations_text_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.highlight_explanations
+    ADD CONSTRAINT highlight_explanations_text_hash_key UNIQUE (text_hash);
+
+
+--
+-- Name: highlights highlights_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.highlights
+    ADD CONSTRAINT highlights_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idempotency_keys idempotency_keys_idem_key_endpoint_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.idempotency_keys
+    ADD CONSTRAINT idempotency_keys_idem_key_endpoint_user_id_key UNIQUE (idem_key, endpoint, user_id);
+
+
+--
+-- Name: idempotency_keys idempotency_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.idempotency_keys
+    ADD CONSTRAINT idempotency_keys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: interview_evaluations interview_evaluations_attempt_id_question_id_scope_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_evaluations
+    ADD CONSTRAINT interview_evaluations_attempt_id_question_id_scope_key UNIQUE (attempt_id, question_id, scope);
+
+
+--
+-- Name: interview_evaluations interview_evaluations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_evaluations
+    ADD CONSTRAINT interview_evaluations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: interview_skill_scores interview_skill_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_skill_scores
+    ADD CONSTRAINT interview_skill_scores_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: job_runs job_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.job_runs
+    ADD CONSTRAINT job_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: jobs jobs_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jobs
+    ADD CONSTRAINT jobs_idempotency_key_key UNIQUE (idempotency_key);
+
+
+--
+-- Name: jobs jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jobs
+    ADD CONSTRAINT jobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: jti_blocklist jti_blocklist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jti_blocklist
+    ADD CONSTRAINT jti_blocklist_pkey PRIMARY KEY (jti);
+
+
+--
+-- Name: lab_ai_interactions lab_ai_interactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_ai_interactions
+    ADD CONSTRAINT lab_ai_interactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lab_analytics lab_analytics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_analytics
+    ADD CONSTRAINT lab_analytics_pkey PRIMARY KEY (lab_id, day);
+
+
+--
+-- Name: lab_definitions lab_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_definitions
+    ADD CONSTRAINT lab_definitions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lab_egress_rules lab_egress_rules_lab_id_host_port_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_egress_rules
+    ADD CONSTRAINT lab_egress_rules_lab_id_host_port_key UNIQUE (lab_id, host, port);
+
+
+--
+-- Name: lab_egress_rules lab_egress_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_egress_rules
+    ADD CONSTRAINT lab_egress_rules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lab_org_config lab_org_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_org_config
+    ADD CONSTRAINT lab_org_config_pkey PRIMARY KEY (org_id);
+
+
+--
+-- Name: lab_sessions lab_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_sessions
+    ADD CONSTRAINT lab_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lab_task_completions lab_task_completions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_task_completions
+    ADD CONSTRAINT lab_task_completions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lab_task_completions lab_task_completions_session_id_task_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_task_completions
+    ADD CONSTRAINT lab_task_completions_session_id_task_id_key UNIQUE (session_id, task_id);
+
+
+--
+-- Name: lab_task_versions lab_task_versions_lab_id_version_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_task_versions
+    ADD CONSTRAINT lab_task_versions_lab_id_version_key UNIQUE (lab_id, version);
+
+
+--
+-- Name: lab_task_versions lab_task_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_task_versions
+    ADD CONSTRAINT lab_task_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lab_tasks lab_tasks_lab_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_tasks
+    ADD CONSTRAINT lab_tasks_lab_id_position_key UNIQUE (lab_id, "position");
+
+
+--
+-- Name: lab_tasks lab_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_tasks
+    ADD CONSTRAINT lab_tasks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lab_usage_events lab_usage_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_usage_events
+    ADD CONSTRAINT lab_usage_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mentor_change_requests mentor_change_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_change_requests
+    ADD CONSTRAINT mentor_change_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mentor_chat_messages mentor_chat_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_chat_messages
+    ADD CONSTRAINT mentor_chat_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mentor_reports mentor_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_reports
+    ADD CONSTRAINT mentor_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mentor_ticket_assignments mentor_ticket_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_ticket_assignments
+    ADD CONSTRAINT mentor_ticket_assignments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mentor_tickets mentor_tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_tickets
+    ADD CONSTRAINT mentor_tickets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: module_progress module_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.module_progress
+    ADD CONSTRAINT module_progress_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: module_progress module_progress_user_id_module_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.module_progress
+    ADD CONSTRAINT module_progress_user_id_module_id_key UNIQUE (user_id, module_id);
+
+
+--
+-- Name: nav_permissions nav_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_permissions
+    ADD CONSTRAINT nav_permissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: nav_permissions nav_permissions_role_item_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.nav_permissions
+    ADD CONSTRAINT nav_permissions_role_item_key_key UNIQUE (role, item_key);
+
+
+--
+-- Name: oauth_exchanges oauth_exchanges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_exchanges
+    ADD CONSTRAINT oauth_exchanges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oauth_exchanges oauth_exchanges_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_exchanges
+    ADD CONSTRAINT oauth_exchanges_token_key UNIQUE (token);
+
+
+--
+-- Name: org_auth_config org_auth_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_auth_config
+    ADD CONSTRAINT org_auth_config_pkey PRIMARY KEY (org_id);
+
+
+--
+-- Name: org_domains org_domains_org_id_domain_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_domains
+    ADD CONSTRAINT org_domains_org_id_domain_key UNIQUE (org_id, domain);
+
+
+--
+-- Name: org_domains org_domains_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_domains
+    ADD CONSTRAINT org_domains_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: org_invites org_invites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_invites
+    ADD CONSTRAINT org_invites_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: org_invites org_invites_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_invites
+    ADD CONSTRAINT org_invites_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: org_job_quotas org_job_quotas_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_job_quotas
+    ADD CONSTRAINT org_job_quotas_pkey PRIMARY KEY (org_id);
+
+
+--
+-- Name: org_members org_members_org_id_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_members
+    ADD CONSTRAINT org_members_org_id_user_id_key UNIQUE (org_id, user_id);
+
+
+--
+-- Name: org_members org_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_members
+    ADD CONSTRAINT org_members_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizations organizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizations
+    ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizations organizations_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizations
+    ADD CONSTRAINT organizations_slug_key UNIQUE (slug);
+
+
+--
+-- Name: password_reset_tokens password_reset_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: password_reset_tokens password_reset_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: permissions permissions_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.permissions
+    ADD CONSTRAINT permissions_code_key UNIQUE (code);
+
+
+--
+-- Name: permissions permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.permissions
+    ADD CONSTRAINT permissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: practice_items practice_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_items
+    ADD CONSTRAINT practice_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: practice_items practice_items_session_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_items
+    ADD CONSTRAINT practice_items_session_id_position_key UNIQUE (session_id, "position");
+
+
+--
+-- Name: practice_sessions practice_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_sessions
+    ADD CONSTRAINT practice_sessions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: public_attempts public_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.public_attempts
+    ADD CONSTRAINT public_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: public_attempts public_attempts_session_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.public_attempts
+    ADD CONSTRAINT public_attempts_session_token_key UNIQUE (session_token);
+
+
+--
+-- Name: question_categories question_categories_org_id_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_categories
+    ADD CONSTRAINT question_categories_org_id_slug_key UNIQUE (org_id, slug);
+
+
+--
+-- Name: question_categories question_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_categories
+    ADD CONSTRAINT question_categories_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: question_versions question_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_versions
+    ADD CONSTRAINT question_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: question_versions question_versions_question_id_version_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_versions
+    ADD CONSTRAINT question_versions_question_id_version_key UNIQUE (question_id, version);
+
+
+--
+-- Name: questions questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.questions
+    ADD CONSTRAINT questions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: refresh_tokens refresh_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: reward_definitions reward_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reward_definitions
+    ADD CONSTRAINT reward_definitions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: reward_definitions reward_definitions_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reward_definitions
+    ADD CONSTRAINT reward_definitions_slug_key UNIQUE (slug);
+
+
+--
+-- Name: role_permissions role_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_permissions
+    ADD CONSTRAINT role_permissions_pkey PRIMARY KEY (role_id, permission_id);
+
+
+--
+-- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: roles roles_tenant_id_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_tenant_id_name_key UNIQUE NULLS NOT DISTINCT (tenant_id, name);
+
+
+--
+-- Name: sheet_items sheet_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sheet_items
+    ADD CONSTRAINT sheet_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sheets sheets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sheets
+    ADD CONSTRAINT sheets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sheets sheets_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sheets
+    ADD CONSTRAINT sheets_slug_key UNIQUE (slug);
+
+
+--
+-- Name: social_accounts social_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_accounts
+    ADD CONSTRAINT social_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: social_accounts social_accounts_provider_provider_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_accounts
+    ADD CONSTRAINT social_accounts_provider_provider_uid_key UNIQUE (provider, provider_uid);
+
+
+--
+-- Name: srs_cards srs_cards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srs_cards
+    ADD CONSTRAINT srs_cards_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_achievements user_achievements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT user_achievements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_problem_progress user_problem_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_problem_progress
+    ADD CONSTRAINT user_problem_progress_pkey PRIMARY KEY (user_id, topic_tag);
+
+
+--
+-- Name: user_profiles user_profiles_display_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_display_name_key UNIQUE (display_name);
+
+
+--
+-- Name: user_profiles user_profiles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: user_profiles user_profiles_profile_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_profile_slug_key UNIQUE (profile_slug);
+
+
+--
+-- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id, tenant_id);
+
+
+--
+-- Name: user_sheets user_sheets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_sheets
+    ADD CONSTRAINT user_sheets_pkey PRIMARY KEY (user_id, sheet_id);
+
+
+--
+-- Name: user_skills user_skills_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_skills
+    ADD CONSTRAINT user_skills_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_skills user_skills_user_id_skill_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_skills
+    ADD CONSTRAINT user_skills_user_id_skill_name_key UNIQUE (user_id, skill_name);
+
+
+--
+-- Name: user_social_links user_social_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_social_links
+    ADD CONSTRAINT user_social_links_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: user_stats user_stats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_stats
+    ADD CONSTRAINT user_stats_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_email_key UNIQUE (email);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: whatnow_tasks whatnow_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatnow_tasks
+    ADD CONSTRAINT whatnow_tasks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: whatnow_user_state whatnow_user_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatnow_user_state
+    ADD CONSTRAINT whatnow_user_state_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: xp_events xp_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xp_events
+    ADD CONSTRAINT xp_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_assessment_questions_order; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessment_questions_order ON public.assessment_questions USING btree (assessment_id, "position");
+
+
+--
+-- Name: idx_assessments_org_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_org_status ON public.assessments USING btree (org_id, status);
+
+
+--
+-- Name: idx_assessments_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_parent ON public.assessments USING btree (parent_type, parent_id);
+
+
+--
+-- Name: idx_assessments_short_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_short_code ON public.assessments USING btree (short_code) WHERE (short_code IS NOT NULL);
+
+
+--
+-- Name: idx_assignments_assessment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assignments_assessment ON public.assessment_assignments USING btree (assessment_id);
+
+
+--
+-- Name: idx_assignments_assignee; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assignments_assignee ON public.assessment_assignments USING btree (assignee_type, assignee_id);
+
+
+--
+-- Name: idx_attempt_answers_aq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempt_answers_aq ON public.attempt_answers USING btree (assessment_question_id);
+
+
+--
+-- Name: idx_attempt_answers_attempt; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempt_answers_attempt ON public.attempt_answers USING btree (attempt_id);
+
+
+--
+-- Name: idx_attempt_events_attempt; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempt_events_attempt ON public.attempt_events USING btree (attempt_id, created_at);
+
+
+--
+-- Name: idx_attempt_events_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempt_events_type ON public.attempt_events USING btree (attempt_id, event_type);
+
+
+--
+-- Name: idx_attempt_events_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempt_events_user ON public.attempt_events USING btree (user_id);
+
+
+--
+-- Name: idx_attempts_assessment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempts_assessment ON public.assessment_attempts USING btree (assessment_id, status);
+
+
+--
+-- Name: idx_attempts_assessment_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempts_assessment_created ON public.assessment_attempts USING btree (assessment_id, created_at DESC);
+
+
+--
+-- Name: idx_attempts_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempts_org ON public.assessment_attempts USING btree (org_id);
+
+
+--
+-- Name: idx_attempts_org_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempts_org_user ON public.assessment_attempts USING btree (org_id, user_id);
+
+
+--
+-- Name: idx_attempts_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_attempts_user ON public.assessment_attempts USING btree (user_id, status);
+
+
+--
+-- Name: idx_audit_log_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_log_entity ON public.audit_log USING btree (entity_type, entity_id);
+
+
+--
+-- Name: idx_audit_log_tenant_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_log_tenant_created ON public.audit_log USING btree (tenant_id, created_at DESC);
+
+
+--
+-- Name: idx_audit_logs_org_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_logs_org_time ON public.audit_logs USING btree (org_id, created_at DESC);
+
+
+--
+-- Name: idx_batch_courses_batch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_courses_batch ON public.batch_courses USING btree (batch_id);
+
+
+--
+-- Name: idx_batch_courses_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_courses_course ON public.batch_courses USING btree (course_id);
+
+
+--
+-- Name: idx_batch_invitations_batch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_invitations_batch ON public.batch_invitations USING btree (batch_id, accepted_at, declined_at);
+
+
+--
+-- Name: idx_batch_invitations_email; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_invitations_email ON public.batch_invitations USING btree (email, accepted_at);
+
+
+--
+-- Name: idx_batch_invitations_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_invitations_expires ON public.batch_invitations USING btree (expires_at) WHERE ((accepted_at IS NULL) AND (declined_at IS NULL));
+
+
+--
+-- Name: idx_batch_invitations_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_invitations_org ON public.batch_invitations USING btree (org_id);
+
+
+--
+-- Name: idx_batch_members_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_members_user ON public.batch_members USING btree (user_id);
+
+
+--
+-- Name: idx_batch_mentors_batch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_mentors_batch ON public.batch_mentors USING btree (batch_id);
+
+
+--
+-- Name: idx_batch_mentors_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_mentors_user ON public.batch_mentors USING btree (user_id);
+
+
+--
+-- Name: idx_batch_message_reactions_msg; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_message_reactions_msg ON public.batch_message_reactions USING btree (message_id);
+
+
+--
+-- Name: idx_batch_message_reactions_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_message_reactions_user ON public.batch_message_reactions USING btree (user_id);
+
+
+--
+-- Name: idx_batch_messages_batch_ts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_messages_batch_ts ON public.batch_messages USING btree (batch_id, created_at DESC, id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_batch_messages_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_messages_parent ON public.batch_messages USING btree (parent_id) WHERE (parent_id IS NOT NULL);
+
+
+--
+-- Name: idx_batch_messages_pinned; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_messages_pinned ON public.batch_messages USING btree (batch_id, is_pinned) WHERE ((is_pinned = true) AND (deleted_at IS NULL));
+
+
+--
+-- Name: idx_batch_messages_sender; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_messages_sender ON public.batch_messages USING btree (sender_id);
+
+
+--
+-- Name: idx_batch_messages_unresolved; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batch_messages_unresolved ON public.batch_messages USING btree (batch_id, is_resolved) WHERE ((is_resolved = false) AND (deleted_at IS NULL));
+
+
+--
+-- Name: idx_batches_mentor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batches_mentor ON public.batches USING btree (mentor_id);
+
+
+--
+-- Name: idx_batches_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batches_org ON public.batches USING btree (org_id, status);
+
+
+--
+-- Name: idx_batches_schedule; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_batches_schedule ON public.batches USING btree (starts_at, ends_at) WHERE (starts_at IS NOT NULL);
+
+
+--
+-- Name: idx_bmd_roll; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_bmd_roll ON public.batch_member_details USING btree (batch_id, roll_number) WHERE (roll_number IS NOT NULL);
+
+
+--
+-- Name: idx_bmd_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bmd_user ON public.batch_member_details USING btree (user_id) WHERE (user_id IS NOT NULL);
+
+
+--
+-- Name: idx_calendar_event_attendees_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_calendar_event_attendees_user ON public.calendar_event_attendees USING btree (user_id);
+
+
+--
+-- Name: idx_calendar_event_invites_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_calendar_event_invites_event ON public.calendar_event_invites USING btree (event_id);
+
+
+--
+-- Name: idx_calendar_events_batch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_calendar_events_batch ON public.calendar_events USING btree (batch_id) WHERE (batch_id IS NOT NULL);
+
+
+--
+-- Name: idx_calendar_events_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_calendar_events_course ON public.calendar_events USING btree (course_id) WHERE (course_id IS NOT NULL);
+
+
+--
+-- Name: idx_calendar_events_org_starts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_calendar_events_org_starts ON public.calendar_events USING btree (org_id, starts_at);
+
+
+--
+-- Name: idx_calendar_events_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_calendar_events_parent ON public.calendar_events USING btree (recurrence_parent_id) WHERE (recurrence_parent_id IS NOT NULL);
+
+
+--
+-- Name: idx_calendar_feed_tokens_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_calendar_feed_tokens_hash ON public.calendar_feed_tokens USING btree (token_hash);
+
+
+--
+-- Name: idx_coding_submissions_answer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_coding_submissions_answer ON public.coding_submissions USING btree (attempt_answer_id);
+
+
+--
+-- Name: idx_coding_submissions_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_coding_submissions_status ON public.coding_submissions USING btree (status);
+
+
+--
+-- Name: idx_course_faqs_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_faqs_course ON public.course_faqs USING btree (course_id, "position");
+
+
+--
+-- Name: idx_course_faqs_course_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_faqs_course_org ON public.course_faqs USING btree (course_id, org_id);
+
+
+--
+-- Name: idx_course_faqs_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_faqs_org ON public.course_faqs USING btree (org_id);
+
+
+--
+-- Name: idx_course_faqs_question_trgm; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_faqs_question_trgm ON public.course_faqs USING gin (question public.gin_trgm_ops);
+
+
+--
+-- Name: idx_course_modules_assessment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_modules_assessment ON public.course_modules USING btree (assessment_id) WHERE (assessment_id IS NOT NULL);
+
+
+--
+-- Name: idx_course_modules_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_modules_course ON public.course_modules USING btree (course_id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_course_modules_schedule; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_modules_schedule ON public.course_modules USING btree (starts_at, ends_at) WHERE ((starts_at IS NOT NULL) AND (deleted_at IS NULL));
+
+
+--
+-- Name: idx_course_modules_section; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_modules_section ON public.course_modules USING btree (section_id, "position") WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_course_purchases_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_purchases_org ON public.course_purchases USING btree (org_id, purchased_at DESC);
+
+
+--
+-- Name: idx_course_reviews_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_reviews_course ON public.course_reviews USING btree (course_id);
+
+
+--
+-- Name: idx_course_sections_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_course_sections_course ON public.course_sections USING btree (course_id, "position");
+
+
+--
+-- Name: idx_courses_creator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_courses_creator ON public.courses USING btree (creator_id);
+
+
+--
+-- Name: idx_courses_org_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_courses_org_status ON public.courses USING btree (org_id, status);
+
+
+--
+-- Name: idx_courses_schedule; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_courses_schedule ON public.courses USING btree (starts_at, ends_at) WHERE (starts_at IS NOT NULL);
+
+
+--
+-- Name: idx_courses_tags; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_courses_tags ON public.courses USING gin (tags);
+
+
+--
+-- Name: idx_email_verifications_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_email_verifications_user ON public.email_verifications USING btree (user_id);
+
+
+--
+-- Name: idx_enrollments_batch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_enrollments_batch ON public.enrollments USING btree (batch_id) WHERE (batch_id IS NOT NULL);
+
+
+--
+-- Name: idx_enrollments_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_enrollments_course ON public.enrollments USING btree (course_id);
+
+
+--
+-- Name: idx_enrollments_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_enrollments_user ON public.enrollments USING btree (user_id);
+
+
+--
+-- Name: idx_experience_reports_flagged; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_experience_reports_flagged ON public.experience_reports USING btree (subject_type, created_at DESC) WHERE (experience = ANY (ARRAY['issue'::text, 'complaint'::text]));
+
+
+--
+-- Name: idx_experience_reports_subject; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_experience_reports_subject ON public.experience_reports USING btree (subject_type, subject_id);
+
+
+--
+-- Name: idx_feature_grants_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_feature_grants_user ON public.feature_grants USING btree (user_id);
+
+
+--
+-- Name: idx_feedback_subject; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_feedback_subject ON public.feedback USING btree (subject_type, subject_id);
+
+
+--
+-- Name: idx_he_serve_count; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_he_serve_count ON public.highlight_explanations USING btree (serve_count DESC);
+
+
+--
+-- Name: idx_highlights_revision; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_highlights_revision ON public.highlights USING btree (user_id) WHERE (saved_for_revision = true);
+
+
+--
+-- Name: idx_highlights_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_highlights_source ON public.highlights USING btree (source_type, source_id);
+
+
+--
+-- Name: idx_highlights_source_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_highlights_source_active ON public.highlights USING btree (source_type, source_id) WHERE (source_orphaned = false);
+
+
+--
+-- Name: idx_highlights_text_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_highlights_text_hash ON public.highlights USING btree (text_hash);
+
+
+--
+-- Name: idx_highlights_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_highlights_user_id ON public.highlights USING btree (user_id);
+
+
+--
+-- Name: idx_idempotency_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_idempotency_created ON public.idempotency_keys USING btree (created_at);
+
+
+--
+-- Name: idx_interview_evals_attempt; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_interview_evals_attempt ON public.interview_evaluations USING btree (attempt_id, scope);
+
+
+--
+-- Name: idx_interview_evals_review; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_interview_evals_review ON public.interview_evaluations USING btree (review_required) WHERE (review_required = true);
+
+
+--
+-- Name: idx_interview_skill_scores_user_skill; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_interview_skill_scores_user_skill ON public.interview_skill_scores USING btree (user_id, org_id, skill, created_at DESC);
+
+
+--
+-- Name: idx_interview_skill_scores_user_ts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_interview_skill_scores_user_ts ON public.interview_skill_scores USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: idx_jobs_claim; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_jobs_claim ON public.jobs USING btree (priority, run_at) WHERE ((status = 'queued'::text) AND (deleted_at IS NULL));
+
+
+--
+-- Name: idx_jobs_cron; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_jobs_cron ON public.jobs USING btree (next_run_at) WHERE ((job_type = 'cron'::text) AND (deleted_at IS NULL) AND (status <> 'cancelled'::text));
+
+
+--
+-- Name: idx_jobs_org_list; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_jobs_org_list ON public.jobs USING btree (org_id, created_at DESC) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_jobs_orphan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_jobs_orphan ON public.jobs USING btree (claimed_at) WHERE (status = 'running'::text);
+
+
+--
+-- Name: idx_jti_blocklist_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_jti_blocklist_expires ON public.jti_blocklist USING btree (expires_at);
+
+
+--
+-- Name: idx_jti_blocklist_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_jti_blocklist_user ON public.jti_blocklist USING btree (user_id);
+
+
+--
+-- Name: idx_mentor_change_requests_org_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_change_requests_org_status ON public.mentor_change_requests USING btree (org_id, status);
+
+
+--
+-- Name: idx_mentor_change_requests_ticket; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_change_requests_ticket ON public.mentor_change_requests USING btree (ticket_id);
+
+
+--
+-- Name: idx_mentor_chat_messages_ticket; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_chat_messages_ticket ON public.mentor_chat_messages USING btree (ticket_id, created_at);
+
+
+--
+-- Name: idx_mentor_reports_mentor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_reports_mentor ON public.mentor_reports USING btree (mentor_id);
+
+
+--
+-- Name: idx_mentor_reports_org_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_reports_org_status ON public.mentor_reports USING btree (org_id, status);
+
+
+--
+-- Name: idx_mentor_ticket_assignments_student_mentor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_ticket_assignments_student_mentor ON public.mentor_ticket_assignments USING btree (student_id, mentor_id);
+
+
+--
+-- Name: idx_mentor_ticket_assignments_ticket; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_ticket_assignments_ticket ON public.mentor_ticket_assignments USING btree (ticket_id);
+
+
+--
+-- Name: idx_mentor_tickets_escalation_scan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_tickets_escalation_scan ON public.mentor_tickets USING btree (escalation_level, created_at) WHERE (status = 'open'::text);
+
+
+--
+-- Name: idx_mentor_tickets_mentor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_tickets_mentor ON public.mentor_tickets USING btree (assigned_mentor_id, status);
+
+
+--
+-- Name: idx_mentor_tickets_org_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_tickets_org_status ON public.mentor_tickets USING btree (org_id, status);
+
+
+--
+-- Name: idx_mentor_tickets_student; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mentor_tickets_student ON public.mentor_tickets USING btree (student_id);
+
+
+--
+-- Name: idx_module_progress_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_module_progress_module ON public.module_progress USING btree (module_id);
+
+
+--
+-- Name: idx_module_progress_user_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_module_progress_user_course ON public.module_progress USING btree (user_id, course_id);
+
+
+--
+-- Name: idx_module_progress_user_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_module_progress_user_status ON public.module_progress USING btree (user_id, status);
+
+
+--
+-- Name: idx_nav_permissions_role; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_nav_permissions_role ON public.nav_permissions USING btree (role, section_order, item_order);
+
+
+--
+-- Name: idx_oauth_exchanges_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_exchanges_expires ON public.oauth_exchanges USING btree (expires_at);
+
+
+--
+-- Name: idx_oauth_exchanges_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oauth_exchanges_user ON public.oauth_exchanges USING btree (user_id);
+
+
+--
+-- Name: idx_org_domains_org_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_domains_org_id ON public.org_domains USING btree (org_id);
+
+
+--
+-- Name: idx_org_invites_org_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_invites_org_created ON public.org_invites USING btree (org_id, created_at DESC);
+
+
+--
+-- Name: idx_org_invites_token_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_invites_token_hash ON public.org_invites USING btree (token_hash);
+
+
+--
+-- Name: idx_org_members_org_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_members_org_status ON public.org_members USING btree (org_id, status);
+
+
+--
+-- Name: idx_org_members_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_members_user ON public.org_members USING btree (user_id);
+
+
+--
+-- Name: idx_org_members_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_org_members_user_id ON public.org_members USING btree (user_id);
+
+
+--
+-- Name: idx_organizations_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_organizations_status ON public.organizations USING btree (status);
+
+
+--
+-- Name: idx_password_reset_tokens_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_password_reset_tokens_user ON public.password_reset_tokens USING btree (user_id);
+
+
+--
+-- Name: idx_permissions_module; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_permissions_module ON public.permissions USING btree (module, is_active);
+
+
+--
+-- Name: idx_practice_items_session; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_practice_items_session ON public.practice_items USING btree (session_id, "position");
+
+
+--
+-- Name: idx_practice_sessions_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_practice_sessions_org ON public.practice_sessions USING btree (org_id) WHERE (org_id IS NOT NULL);
+
+
+--
+-- Name: idx_practice_sessions_user_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_practice_sessions_user_status ON public.practice_sessions USING btree (user_id, status);
+
+
+--
+-- Name: idx_practice_sessions_user_ts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_practice_sessions_user_ts ON public.practice_sessions USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: idx_public_attempts_assessment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_public_attempts_assessment ON public.public_attempts USING btree (assessment_id);
+
+
+--
+-- Name: idx_public_attempts_email; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_public_attempts_email ON public.public_attempts USING btree (assessment_id, email);
+
+
+--
+-- Name: idx_public_attempts_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_public_attempts_token ON public.public_attempts USING btree (session_token);
+
+
+--
+-- Name: idx_question_categories_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_question_categories_org ON public.question_categories USING btree (org_id);
+
+
+--
+-- Name: idx_question_categories_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_question_categories_parent ON public.question_categories USING btree (parent_id);
+
+
+--
+-- Name: idx_question_versions_question; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_question_versions_question ON public.question_versions USING btree (question_id, version DESC);
+
+
+--
+-- Name: idx_questions_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_questions_category ON public.questions USING btree (category_id);
+
+
+--
+-- Name: idx_questions_org_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_questions_org_type ON public.questions USING btree (org_id, type, status);
+
+
+--
+-- Name: idx_questions_tags; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_questions_tags ON public.questions USING gin (tags);
+
+
+--
+-- Name: idx_refresh_tokens_family; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_refresh_tokens_family ON public.refresh_tokens USING btree (family_id);
+
+
+--
+-- Name: idx_refresh_tokens_user_revoked; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_refresh_tokens_user_revoked ON public.refresh_tokens USING btree (user_id, revoked_at);
+
+
+--
+-- Name: idx_role_permissions_perm; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_role_permissions_perm ON public.role_permissions USING btree (permission_id);
+
+
+--
+-- Name: idx_roles_tenant_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_roles_tenant_active ON public.roles USING btree (tenant_id, is_active);
+
+
+--
+-- Name: idx_runs_heartbeat; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_runs_heartbeat ON public.job_runs USING btree (heartbeat_at) WHERE (status = 'running'::text);
+
+
+--
+-- Name: idx_runs_job; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_runs_job ON public.job_runs USING btree (job_id, created_at DESC);
+
+
+--
+-- Name: idx_sheet_items_sheet_order; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sheet_items_sheet_order ON public.sheet_items USING btree (sheet_id, order_index);
+
+
+--
+-- Name: idx_social_accounts_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_social_accounts_user ON public.social_accounts USING btree (user_id);
+
+
+--
+-- Name: idx_srs_cards_user_due; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_srs_cards_user_due ON public.srs_cards USING btree (user_id, due_date);
+
+
+--
+-- Name: idx_user_achievements_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_achievements_org ON public.user_achievements USING btree (org_id) WHERE (org_id IS NOT NULL);
+
+
+--
+-- Name: idx_user_achievements_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_achievements_user ON public.user_achievements USING btree (user_id);
+
+
+--
+-- Name: idx_user_profiles_slug; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_profiles_slug ON public.user_profiles USING btree (profile_slug) WHERE (profile_slug IS NOT NULL);
+
+
+--
+-- Name: idx_user_roles_role; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_roles_role ON public.user_roles USING btree (role_id);
+
+
+--
+-- Name: idx_user_roles_user_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_roles_user_tenant ON public.user_roles USING btree (user_id, tenant_id);
+
+
+--
+-- Name: idx_user_sheets_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_sheets_user ON public.user_sheets USING btree (user_id);
+
+
+--
+-- Name: idx_user_skills_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_skills_user ON public.user_skills USING btree (user_id);
+
+
+--
+-- Name: idx_whatnow_tasks_scheduled_start; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_whatnow_tasks_scheduled_start ON public.whatnow_tasks USING btree (user_id, scheduled_start) WHERE (scheduled_start IS NOT NULL);
+
+
+--
+-- Name: idx_whatnow_tasks_user_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_whatnow_tasks_user_status ON public.whatnow_tasks USING btree (user_id, status);
+
+
+--
+-- Name: idx_xp_events_batch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xp_events_batch ON public.xp_events USING btree (batch_id, user_id) WHERE (batch_id IS NOT NULL);
+
+
+--
+-- Name: idx_xp_events_course; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xp_events_course ON public.xp_events USING btree (course_id, user_id) WHERE (course_id IS NOT NULL);
+
+
+--
+-- Name: idx_xp_events_org; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xp_events_org ON public.xp_events USING btree (org_id, user_id) WHERE (org_id IS NOT NULL);
+
+
+--
+-- Name: idx_xp_events_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xp_events_user ON public.xp_events USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: lab_ai_interactions_cache_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX lab_ai_interactions_cache_key_idx ON public.lab_ai_interactions USING btree (cache_key) WHERE (cache_key IS NOT NULL);
+
+
+--
+-- Name: lab_definitions_course_id_module_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lab_definitions_course_id_module_id_idx ON public.lab_definitions USING btree (course_id, module_id) WHERE is_published;
+
+
+--
+-- Name: lab_egress_rules_lab_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lab_egress_rules_lab_id_idx ON public.lab_egress_rules USING btree (lab_id);
+
+
+--
+-- Name: lab_sessions_one_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX lab_sessions_one_active ON public.lab_sessions USING btree (user_id, lab_id) WHERE (status = ANY (ARRAY['provisioning'::text, 'running'::text, 'paused'::text]));
+
+
+--
+-- Name: lab_sessions_org_id_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lab_sessions_org_id_status_idx ON public.lab_sessions USING btree (org_id, status);
+
+
+--
+-- Name: lab_sessions_status_expires_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lab_sessions_status_expires_at_idx ON public.lab_sessions USING btree (status, expires_at);
+
+
+--
+-- Name: lab_sessions_user_id_lab_id_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lab_sessions_user_id_lab_id_status_idx ON public.lab_sessions USING btree (user_id, lab_id, status);
+
+
+--
+-- Name: lab_task_completions_session_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lab_task_completions_session_id_idx ON public.lab_task_completions USING btree (session_id);
+
+
+--
+-- Name: lab_usage_events_org_id_recorded_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lab_usage_events_org_id_recorded_at_idx ON public.lab_usage_events USING btree (org_id, recorded_at);
+
+
+--
+-- Name: ua_user_def_org_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ua_user_def_org_uniq ON public.user_achievements USING btree (user_id, reward_definition_id, COALESCE(org_id, '00000000-0000-0000-0000-000000000000'::uuid));
+
+
+--
+-- Name: uq_mentor_change_requests_pending_ticket; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_mentor_change_requests_pending_ticket ON public.mentor_change_requests USING btree (ticket_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: uq_org_invite_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uq_org_invite_pending ON public.org_invites USING btree (org_id, email) WHERE ((accepted_at IS NULL) AND (revoked_at IS NULL));
+
+
+--
+-- Name: lab_definitions set_lab_definitions_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_lab_definitions_updated_at BEFORE UPDATE ON public.lab_definitions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: lab_org_config set_lab_org_config_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_lab_org_config_updated_at BEFORE UPDATE ON public.lab_org_config FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: batch_courses trg_batch_course_enroll; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_batch_course_enroll AFTER INSERT ON public.batch_courses FOR EACH ROW EXECUTE FUNCTION public.enroll_batch_members_in_course();
+
+
+--
+-- Name: enrollments trg_completion_stats; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_completion_stats AFTER UPDATE OF completed_at ON public.enrollments FOR EACH ROW EXECUTE FUNCTION public.update_user_stats_completion();
+
+
+--
+-- Name: enrollments trg_enrollment_stats; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_enrollment_stats AFTER INSERT ON public.enrollments FOR EACH ROW EXECUTE FUNCTION public.update_user_stats_enrollment();
+
+
+--
+-- Name: batch_members trg_member_join_enroll; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_member_join_enroll AFTER INSERT ON public.batch_members FOR EACH ROW EXECUTE FUNCTION public.enroll_new_member_in_batch_courses();
+
+
+--
+-- Name: org_members trg_org_last_owner; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_org_last_owner BEFORE DELETE OR UPDATE ON public.org_members FOR EACH ROW EXECUTE FUNCTION public.enforce_last_owner();
+
+
+--
+-- Name: org_members trg_org_member_count; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_org_member_count AFTER INSERT OR DELETE OR UPDATE ON public.org_members FOR EACH ROW EXECUTE FUNCTION public.update_active_member_count();
+
+
+--
+-- Name: organizations trg_org_slug_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_org_slug_immutable BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION public.enforce_slug_immutable();
+
+
+--
+-- Name: user_profiles trg_user_profiles_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_user_profiles_updated_at BEFORE UPDATE ON public.user_profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
+-- Name: user_roles trg_user_role_tenant_scope; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_user_role_tenant_scope BEFORE INSERT OR UPDATE ON public.user_roles FOR EACH ROW EXECUTE FUNCTION public.fn_check_user_role_tenant_scope();
+
+
+--
+-- Name: assessment_assignments assessment_assignments_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_assignments
+    ADD CONSTRAINT assessment_assignments_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_assignments assessment_assignments_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_assignments
+    ADD CONSTRAINT assessment_assignments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessment_attempts assessment_attempts_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_attempts
+    ADD CONSTRAINT assessment_attempts_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_attempts assessment_attempts_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_attempts
+    ADD CONSTRAINT assessment_attempts_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_attempts assessment_attempts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_attempts
+    ADD CONSTRAINT assessment_attempts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_questions assessment_questions_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_questions
+    ADD CONSTRAINT assessment_questions_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_questions assessment_questions_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_questions
+    ADD CONSTRAINT assessment_questions_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessment_questions assessment_questions_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_questions
+    ADD CONSTRAINT assessment_questions_version_id_fkey FOREIGN KEY (version_id) REFERENCES public.question_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessments assessments_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: assessments assessments_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: attempt_answers attempt_answers_assessment_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_answers
+    ADD CONSTRAINT attempt_answers_assessment_question_id_fkey FOREIGN KEY (assessment_question_id) REFERENCES public.assessment_questions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: attempt_answers attempt_answers_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_answers
+    ADD CONSTRAINT attempt_answers_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: attempt_answers attempt_answers_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_answers
+    ADD CONSTRAINT attempt_answers_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: attempt_events attempt_events_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_events
+    ADD CONSTRAINT attempt_events_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: attempt_events attempt_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.attempt_events
+    ADD CONSTRAINT attempt_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: audit_log audit_log_actor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_log
+    ADD CONSTRAINT audit_log_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: audit_log audit_log_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_log
+    ADD CONSTRAINT audit_log_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.organizations(id) ON DELETE SET NULL;
+
+
+--
+-- Name: audit_logs audit_logs_actor_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_logs
+    ADD CONSTRAINT audit_logs_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: audit_logs audit_logs_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_logs
+    ADD CONSTRAINT audit_logs_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_courses batch_courses_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_courses
+    ADD CONSTRAINT batch_courses_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: batch_courses batch_courses_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_courses
+    ADD CONSTRAINT batch_courses_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_courses batch_courses_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_courses
+    ADD CONSTRAINT batch_courses_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_invitations batch_invitations_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_invitations
+    ADD CONSTRAINT batch_invitations_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_invitations batch_invitations_invited_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_invitations
+    ADD CONSTRAINT batch_invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: batch_invitations batch_invitations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_invitations
+    ADD CONSTRAINT batch_invitations_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_member_details batch_member_details_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_member_details
+    ADD CONSTRAINT batch_member_details_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_member_details batch_member_details_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_member_details
+    ADD CONSTRAINT batch_member_details_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: batch_members batch_members_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_members
+    ADD CONSTRAINT batch_members_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_members batch_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_members
+    ADD CONSTRAINT batch_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_mentors batch_mentors_added_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_mentors
+    ADD CONSTRAINT batch_mentors_added_by_fkey FOREIGN KEY (added_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: batch_mentors batch_mentors_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_mentors
+    ADD CONSTRAINT batch_mentors_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_mentors batch_mentors_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_mentors
+    ADD CONSTRAINT batch_mentors_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: batch_message_reactions batch_message_reactions_message_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_message_reactions
+    ADD CONSTRAINT batch_message_reactions_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.batch_messages(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_message_reactions batch_message_reactions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_message_reactions
+    ADD CONSTRAINT batch_message_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_messages batch_messages_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_messages
+    ADD CONSTRAINT batch_messages_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_messages batch_messages_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_messages
+    ADD CONSTRAINT batch_messages_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.batch_messages(id) ON DELETE CASCADE;
+
+
+--
+-- Name: batch_messages batch_messages_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batch_messages
+    ADD CONSTRAINT batch_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: batches batches_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batches
+    ADD CONSTRAINT batches_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: batches batches_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batches
+    ADD CONSTRAINT batches_mentor_id_fkey FOREIGN KEY (mentor_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: batches batches_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.batches
+    ADD CONSTRAINT batches_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_event_attendees calendar_event_attendees_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_event_attendees
+    ADD CONSTRAINT calendar_event_attendees_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.calendar_events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_event_attendees calendar_event_attendees_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_event_attendees
+    ADD CONSTRAINT calendar_event_attendees_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_event_invites calendar_event_invites_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_event_invites
+    ADD CONSTRAINT calendar_event_invites_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.calendar_events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_events calendar_events_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_events calendar_events_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_events calendar_events_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: calendar_events calendar_events_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_events calendar_events_recurrence_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_events
+    ADD CONSTRAINT calendar_events_recurrence_parent_id_fkey FOREIGN KEY (recurrence_parent_id) REFERENCES public.calendar_events(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_feed_tokens calendar_feed_tokens_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_feed_tokens
+    ADD CONSTRAINT calendar_feed_tokens_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: calendar_feed_tokens calendar_feed_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.calendar_feed_tokens
+    ADD CONSTRAINT calendar_feed_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: coding_submissions coding_submissions_attempt_answer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.coding_submissions
+    ADD CONSTRAINT coding_submissions_attempt_answer_id_fkey FOREIGN KEY (attempt_answer_id) REFERENCES public.attempt_answers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_faqs course_faqs_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_faqs
+    ADD CONSTRAINT course_faqs_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_faqs course_faqs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_faqs
+    ADD CONSTRAINT course_faqs_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: course_faqs course_faqs_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_faqs
+    ADD CONSTRAINT course_faqs_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_faqs course_faqs_source_message_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_faqs
+    ADD CONSTRAINT course_faqs_source_message_id_fkey FOREIGN KEY (source_message_id) REFERENCES public.batch_messages(id) ON DELETE SET NULL;
+
+
+--
+-- Name: course_modules course_modules_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_modules
+    ADD CONSTRAINT course_modules_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE SET NULL;
+
+
+--
+-- Name: course_modules course_modules_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_modules
+    ADD CONSTRAINT course_modules_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_modules course_modules_section_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_modules
+    ADD CONSTRAINT course_modules_section_id_fkey FOREIGN KEY (section_id) REFERENCES public.course_sections(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_purchases course_purchases_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_purchases
+    ADD CONSTRAINT course_purchases_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_purchases course_purchases_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_purchases
+    ADD CONSTRAINT course_purchases_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_purchases course_purchases_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_purchases
+    ADD CONSTRAINT course_purchases_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_reviews course_reviews_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_reviews
+    ADD CONSTRAINT course_reviews_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_reviews course_reviews_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_reviews
+    ADD CONSTRAINT course_reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: course_sections course_sections_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.course_sections
+    ADD CONSTRAINT course_sections_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: courses courses_creator_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: courses courses_forked_from_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_forked_from_id_fkey FOREIGN KEY (forked_from_id) REFERENCES public.courses(id) ON DELETE SET NULL;
+
+
+--
+-- Name: courses courses_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: email_verifications email_verifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_verifications
+    ADD CONSTRAINT email_verifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: enrollments enrollments_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enrollments
+    ADD CONSTRAINT enrollments_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE SET NULL;
+
+
+--
+-- Name: enrollments enrollments_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enrollments
+    ADD CONSTRAINT enrollments_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: enrollments enrollments_enrolled_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enrollments
+    ADD CONSTRAINT enrollments_enrolled_by_fkey FOREIGN KEY (enrolled_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: enrollments enrollments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enrollments
+    ADD CONSTRAINT enrollments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: experience_reports experience_reports_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.experience_reports
+    ADD CONSTRAINT experience_reports_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: experience_reports experience_reports_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.experience_reports
+    ADD CONSTRAINT experience_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: feature_grants feature_grants_granted_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feature_grants
+    ADD CONSTRAINT feature_grants_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: feature_grants feature_grants_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feature_grants
+    ADD CONSTRAINT feature_grants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: feedback feedback_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback
+    ADD CONSTRAINT feedback_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: feedback feedback_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feedback
+    ADD CONSTRAINT feedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: highlights highlights_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.highlights
+    ADD CONSTRAINT highlights_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: idempotency_keys idempotency_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.idempotency_keys
+    ADD CONSTRAINT idempotency_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: interview_evaluations interview_evaluations_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_evaluations
+    ADD CONSTRAINT interview_evaluations_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: interview_evaluations interview_evaluations_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_evaluations
+    ADD CONSTRAINT interview_evaluations_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.question_versions(id);
+
+
+--
+-- Name: interview_skill_scores interview_skill_scores_attempt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_skill_scores
+    ADD CONSTRAINT interview_skill_scores_attempt_id_fkey FOREIGN KEY (attempt_id) REFERENCES public.assessment_attempts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: interview_skill_scores interview_skill_scores_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_skill_scores
+    ADD CONSTRAINT interview_skill_scores_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: interview_skill_scores interview_skill_scores_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.interview_skill_scores
+    ADD CONSTRAINT interview_skill_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: job_runs job_runs_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.job_runs
+    ADD CONSTRAINT job_runs_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: jobs jobs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jobs
+    ADD CONSTRAINT jobs_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: jobs jobs_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jobs
+    ADD CONSTRAINT jobs_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: jti_blocklist jti_blocklist_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jti_blocklist
+    ADD CONSTRAINT jti_blocklist_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lab_ai_interactions lab_ai_interactions_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_ai_interactions
+    ADD CONSTRAINT lab_ai_interactions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.lab_sessions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lab_analytics lab_analytics_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_analytics
+    ADD CONSTRAINT lab_analytics_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lab_definitions lab_definitions_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_definitions
+    ADD CONSTRAINT lab_definitions_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id);
+
+
+--
+-- Name: lab_definitions lab_definitions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_definitions
+    ADD CONSTRAINT lab_definitions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: lab_definitions lab_definitions_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_definitions
+    ADD CONSTRAINT lab_definitions_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id);
+
+
+--
+-- Name: lab_definitions lab_definitions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_definitions
+    ADD CONSTRAINT lab_definitions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: lab_definitions lab_definitions_published_version_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_definitions
+    ADD CONSTRAINT lab_definitions_published_version_fk FOREIGN KEY (published_version_id) REFERENCES public.lab_task_versions(id);
+
+
+--
+-- Name: lab_egress_rules lab_egress_rules_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_egress_rules
+    ADD CONSTRAINT lab_egress_rules_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lab_org_config lab_org_config_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_org_config
+    ADD CONSTRAINT lab_org_config_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: lab_sessions lab_sessions_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_sessions
+    ADD CONSTRAINT lab_sessions_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id);
+
+
+--
+-- Name: lab_sessions lab_sessions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_sessions
+    ADD CONSTRAINT lab_sessions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: lab_sessions lab_sessions_task_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_sessions
+    ADD CONSTRAINT lab_sessions_task_version_id_fkey FOREIGN KEY (task_version_id) REFERENCES public.lab_task_versions(id);
+
+
+--
+-- Name: lab_sessions lab_sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_sessions
+    ADD CONSTRAINT lab_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: lab_task_completions lab_task_completions_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_task_completions
+    ADD CONSTRAINT lab_task_completions_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.lab_sessions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lab_task_versions lab_task_versions_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_task_versions
+    ADD CONSTRAINT lab_task_versions_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lab_task_versions lab_task_versions_published_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_task_versions
+    ADD CONSTRAINT lab_task_versions_published_by_fkey FOREIGN KEY (published_by) REFERENCES public.users(id);
+
+
+--
+-- Name: lab_tasks lab_tasks_lab_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_tasks
+    ADD CONSTRAINT lab_tasks_lab_id_fkey FOREIGN KEY (lab_id) REFERENCES public.lab_definitions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: lab_usage_events lab_usage_events_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_usage_events
+    ADD CONSTRAINT lab_usage_events_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: lab_usage_events lab_usage_events_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lab_usage_events
+    ADD CONSTRAINT lab_usage_events_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.lab_sessions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mentor_change_requests mentor_change_requests_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_change_requests
+    ADD CONSTRAINT mentor_change_requests_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_change_requests mentor_change_requests_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_change_requests
+    ADD CONSTRAINT mentor_change_requests_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mentor_change_requests mentor_change_requests_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_change_requests
+    ADD CONSTRAINT mentor_change_requests_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_change_requests mentor_change_requests_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_change_requests
+    ADD CONSTRAINT mentor_change_requests_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.mentor_tickets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_chat_messages mentor_chat_messages_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_chat_messages
+    ADD CONSTRAINT mentor_chat_messages_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_chat_messages mentor_chat_messages_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_chat_messages
+    ADD CONSTRAINT mentor_chat_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_chat_messages mentor_chat_messages_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_chat_messages
+    ADD CONSTRAINT mentor_chat_messages_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.mentor_tickets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_reports mentor_reports_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_reports
+    ADD CONSTRAINT mentor_reports_mentor_id_fkey FOREIGN KEY (mentor_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_reports mentor_reports_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_reports
+    ADD CONSTRAINT mentor_reports_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_reports mentor_reports_reporter_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_reports
+    ADD CONSTRAINT mentor_reports_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_reports mentor_reports_resolved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_reports
+    ADD CONSTRAINT mentor_reports_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mentor_reports mentor_reports_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_reports
+    ADD CONSTRAINT mentor_reports_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.mentor_tickets(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mentor_ticket_assignments mentor_ticket_assignments_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_ticket_assignments
+    ADD CONSTRAINT mentor_ticket_assignments_mentor_id_fkey FOREIGN KEY (mentor_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_ticket_assignments mentor_ticket_assignments_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_ticket_assignments
+    ADD CONSTRAINT mentor_ticket_assignments_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_ticket_assignments mentor_ticket_assignments_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_ticket_assignments
+    ADD CONSTRAINT mentor_ticket_assignments_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_ticket_assignments mentor_ticket_assignments_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_ticket_assignments
+    ADD CONSTRAINT mentor_ticket_assignments_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.mentor_tickets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_tickets mentor_tickets_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_tickets
+    ADD CONSTRAINT mentor_tickets_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mentor_tickets mentor_tickets_assigned_mentor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_tickets
+    ADD CONSTRAINT mentor_tickets_assigned_mentor_id_fkey FOREIGN KEY (assigned_mentor_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mentor_tickets mentor_tickets_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_tickets
+    ADD CONSTRAINT mentor_tickets_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_tickets mentor_tickets_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_tickets
+    ADD CONSTRAINT mentor_tickets_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mentor_tickets mentor_tickets_purchase_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_tickets
+    ADD CONSTRAINT mentor_tickets_purchase_id_fkey FOREIGN KEY (purchase_id) REFERENCES public.course_purchases(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mentor_tickets mentor_tickets_student_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mentor_tickets
+    ADD CONSTRAINT mentor_tickets_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: module_progress module_progress_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.module_progress
+    ADD CONSTRAINT module_progress_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: module_progress module_progress_module_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.module_progress
+    ADD CONSTRAINT module_progress_module_id_fkey FOREIGN KEY (module_id) REFERENCES public.course_modules(id) ON DELETE CASCADE;
+
+
+--
+-- Name: module_progress module_progress_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.module_progress
+    ADD CONSTRAINT module_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: oauth_exchanges oauth_exchanges_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oauth_exchanges
+    ADD CONSTRAINT oauth_exchanges_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_auth_config org_auth_config_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_auth_config
+    ADD CONSTRAINT org_auth_config_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_domains org_domains_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_domains
+    ADD CONSTRAINT org_domains_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_invites org_invites_accepted_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_invites
+    ADD CONSTRAINT org_invites_accepted_by_user_id_fkey FOREIGN KEY (accepted_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: org_invites org_invites_invited_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_invites
+    ADD CONSTRAINT org_invites_invited_by_user_id_fkey FOREIGN KEY (invited_by_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: org_invites org_invites_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_invites
+    ADD CONSTRAINT org_invites_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_job_quotas org_job_quotas_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_job_quotas
+    ADD CONSTRAINT org_job_quotas_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_members org_members_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_members
+    ADD CONSTRAINT org_members_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: org_members org_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.org_members
+    ADD CONSTRAINT org_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: password_reset_tokens password_reset_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: practice_items practice_items_session_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_items
+    ADD CONSTRAINT practice_items_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.practice_sessions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: practice_sessions practice_sessions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_sessions
+    ADD CONSTRAINT practice_sessions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: practice_sessions practice_sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.practice_sessions
+    ADD CONSTRAINT practice_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: public_attempts public_attempts_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.public_attempts
+    ADD CONSTRAINT public_attempts_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: question_categories question_categories_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_categories
+    ADD CONSTRAINT question_categories_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: question_categories question_categories_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_categories
+    ADD CONSTRAINT question_categories_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.question_categories(id) ON DELETE SET NULL;
+
+
+--
+-- Name: question_versions question_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_versions
+    ADD CONSTRAINT question_versions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: question_versions question_versions_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.question_versions
+    ADD CONSTRAINT question_versions_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: questions questions_category_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.questions
+    ADD CONSTRAINT questions_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.question_categories(id) ON DELETE SET NULL;
+
+
+--
+-- Name: questions questions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.questions
+    ADD CONSTRAINT questions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: questions questions_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.questions
+    ADD CONSTRAINT questions_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: refresh_tokens refresh_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: role_permissions role_permissions_permission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_permissions
+    ADD CONSTRAINT role_permissions_permission_id_fkey FOREIGN KEY (permission_id) REFERENCES public.permissions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: role_permissions role_permissions_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.role_permissions
+    ADD CONSTRAINT role_permissions_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: roles roles_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.roles
+    ADD CONSTRAINT roles_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sheet_items sheet_items_sheet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sheet_items
+    ADD CONSTRAINT sheet_items_sheet_id_fkey FOREIGN KEY (sheet_id) REFERENCES public.sheets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: sheets sheets_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sheets
+    ADD CONSTRAINT sheets_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: social_accounts social_accounts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.social_accounts
+    ADD CONSTRAINT social_accounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: srs_cards srs_cards_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srs_cards
+    ADD CONSTRAINT srs_cards_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.questions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: srs_cards srs_cards_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.srs_cards
+    ADD CONSTRAINT srs_cards_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_achievements user_achievements_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT user_achievements_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_achievements user_achievements_reward_definition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT user_achievements_reward_definition_id_fkey FOREIGN KEY (reward_definition_id) REFERENCES public.reward_definitions(id);
+
+
+--
+-- Name: user_achievements user_achievements_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_achievements
+    ADD CONSTRAINT user_achievements_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_problem_progress user_problem_progress_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_problem_progress
+    ADD CONSTRAINT user_problem_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_profiles user_profiles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_profiles
+    ADD CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: user_roles user_roles_tenant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_roles user_roles_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_roles
+    ADD CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_sheets user_sheets_sheet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_sheets
+    ADD CONSTRAINT user_sheets_sheet_id_fkey FOREIGN KEY (sheet_id) REFERENCES public.sheets(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_sheets user_sheets_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_sheets
+    ADD CONSTRAINT user_sheets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_skills user_skills_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_skills
+    ADD CONSTRAINT user_skills_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_social_links user_social_links_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_social_links
+    ADD CONSTRAINT user_social_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_stats user_stats_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_stats
+    ADD CONSTRAINT user_stats_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: whatnow_tasks whatnow_tasks_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatnow_tasks
+    ADD CONSTRAINT whatnow_tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: whatnow_user_state whatnow_user_state_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whatnow_user_state
+    ADD CONSTRAINT whatnow_user_state_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xp_events xp_events_batch_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xp_events
+    ADD CONSTRAINT xp_events_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE SET NULL;
+
+
+--
+-- Name: xp_events xp_events_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xp_events
+    ADD CONSTRAINT xp_events_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE SET NULL;
+
+
+--
+-- Name: xp_events xp_events_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xp_events
+    ADD CONSTRAINT xp_events_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations(id) ON DELETE SET NULL;
+
+
+--
+-- Name: xp_events xp_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xp_events
+    ADD CONSTRAINT xp_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+

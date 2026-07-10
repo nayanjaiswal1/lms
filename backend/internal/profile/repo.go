@@ -38,6 +38,28 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 	return nil
 }
 
+// GetLockedFields returns the union of locked_fields set by bulk-import
+// admins across every batch_member_details row for userID. A student who
+// belongs to multiple batches gets the most restrictive combination.
+func (r *Repo) GetLockedFields(ctx context.Context, userID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT unnest(locked_fields) FROM batch_member_details WHERE user_id = $1`,
+		userID)
+	if err != nil {
+		return nil, fmt.Errorf("profile: get locked fields: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var field string
+		if err := rows.Scan(&field); err != nil {
+			return nil, fmt.Errorf("profile: scan locked field: %w", err)
+		}
+		out = append(out, field)
+	}
+	return out, rows.Err()
+}
+
 // isUniqueViolation returns true when err is a PostgreSQL unique-constraint error.
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError

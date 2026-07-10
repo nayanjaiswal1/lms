@@ -19,10 +19,14 @@ const ROUTES = {
 
   // Student
   DASHBOARD:           "/dashboard",
+  NOW:                 "/now",
+  PLAN:                "/plan",
+  CALENDAR:            "/calendar",
   LEADERBOARD:         "/leaderboard",
   REVIEW:              "/review",
   CERTIFICATES:        "/certificates",
   SHEETS:              "/sheets",
+  SHEETS_NEW:          "/sheets/new",
   SHEETS_COMPARE:      "/sheets/compare",
 
   // Mentoring
@@ -69,6 +73,9 @@ const ROUTES = {
   // Platform
   BILLING:             "/billing",
 
+  // Highlights (AI-assisted text selection + saved revision)
+  HIGHLIGHTS:          "/highlights",
+
   // Settings
   SETTINGS_PROFILE:    "/settings/profile",
 
@@ -78,11 +85,14 @@ const ROUTES = {
   ADMIN_RBAC_PERMISSIONS:  "/admin/rbac/permissions",
   ADMIN_RBAC_AUDIT:        "/admin/rbac/audit",
 
-  // Admin — Jobs
-  ADMIN_JOBS:              "/admin/jobs",
-  ADMIN_JOBS_WORKERS:      "/admin/jobs/workers",
-  adminJob:                (id: string) => `/admin/jobs/${id}`,
-  adminOrgQuotas:          (orgID: string) => `/admin/orgs/${orgID}/quotas`,
+  // Platform Admin (super_admin console — cross-tenant)
+  PLATFORM_JOBS:           "/platform/jobs",
+  PLATFORM_JOBS_WORKERS:   "/platform/jobs/workers",
+  PLATFORM_HIGHLIGHTS:            "/platform/highlights",
+  PLATFORM_HIGHLIGHTS_BY_SOURCE:  "/platform/highlights/by-source",
+  PLATFORM_HIGHLIGHTS_BY_MODEL:   "/platform/highlights/by-model",
+  platformJob:             (id: string) => `/platform/jobs/${id}`,
+  platformOrgQuotas:       (orgID: string) => `/platform/orgs/${orgID}/quotas`,
 
   // Org management
   ORG_CREATE:              "/org/create",
@@ -106,6 +116,7 @@ const ROUTES = {
   manageCourseEdit:         (id: string)                        => `/courses/manage/${id}/edit`,
   manageCourseAnalytics:    (id: string)                        => `/courses/manage/${id}/analytics`,
   batch:                    (id: string)                        => `/batches/${id}`,
+  batchImport:              (id: string)                        => `/batches/${id}/import`,
   manageAssessment:         (id: string)                        => `/assessments/manage/${id}`,
   manageAssessmentResults:  (id: string)                        => `/assessments/manage/${id}/results`,
   manageAssessmentReview:   (id: string)                        => `/assessments/manage/${id}/review`,
@@ -113,6 +124,7 @@ const ROUTES = {
   mentoringBatch:           (id: string)                        => `/mentoring/batches/${id}`,
   mentoringBatchChat:       (id: string)                        => `/mentoring/batches/${id}/chat`,
   mentoringBatchMembers:    (id: string)                        => `/mentoring/batches/${id}/members`,
+  mentoringBatchMentors:    (id: string)                        => `/mentoring/batches/${id}/mentors`,
   mentoringBatchCourses:    (id: string)                        => `/mentoring/batches/${id}/courses`,
   mentoringBatchInvitations: (id: string)                       => `/mentoring/batches/${id}/invitations`,
   mentoringBatchProgress:   (id: string)                        => `/mentoring/batches/${id}/progress`,
@@ -140,6 +152,9 @@ const ROUTES = {
 
   // Hiring / public assessment (no login required)
   hireLanding:              (code: string)                      => `/hire/${code}`,
+
+  // Calendar invite acceptance (no login required)
+  calendarInviteAccept:     (token: string)                     => `/calendar/invite/${token}`,
 } as const;
 
 const COURSE_LEARN_ROUTE = /^\/courses\/[^/]+\/learn\/[^/]+/;

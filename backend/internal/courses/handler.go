@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
@@ -92,14 +93,24 @@ func queryInt(r *http.Request, key string, def int) int {
 // ─── Course CRUD ──────────────────────────────────────────────────────────────
 
 type courseCreateReq struct {
-	Title          string   `json:"title"`
-	Description    *string  `json:"description"`
-	CoverURL       *string  `json:"cover_url"`
-	Difficulty     string   `json:"difficulty"`
-	Tags           []string `json:"tags"`
-	EstimatedHours *float64 `json:"estimated_hours"`
-	IsFree         bool     `json:"is_free"`
-	Status         string   `json:"status"`
+	Title          string     `json:"title"`
+	Description    *string    `json:"description"`
+	CoverURL       *string    `json:"cover_url"`
+	Difficulty     string     `json:"difficulty"`
+	Tags           []string   `json:"tags"`
+	EstimatedHours *float64   `json:"estimated_hours"`
+	IsFree         bool       `json:"is_free"`
+	Status         string     `json:"status"`
+	StartsAt       *time.Time `json:"starts_at"`
+	EndsAt         *time.Time `json:"ends_at"`
+}
+
+// validateSchedule checks the shared starts_at/ends_at ordering rule used by
+// courses and modules (mirrors assessment.validateBatchSchedule).
+func validateSchedule(startsAt, endsAt *time.Time, fields map[string]string) {
+	if endsAt != nil && startsAt != nil && !endsAt.After(*startsAt) {
+		fields["ends_at"] = "End date must be after the start date."
+	}
 }
 
 func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
@@ -122,6 +133,7 @@ func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	if diff != DifficultyBeginner && diff != DifficultyIntermediate && diff != DifficultyAdvanced {
 		fields["difficulty"] = "Invalid difficulty."
 	}
+	validateSchedule(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
@@ -146,6 +158,8 @@ func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 		Status:         status,
 		IsFree:         req.IsFree,
 		EstimatedHours: req.EstimatedHours,
+		StartsAt:       req.StartsAt,
+		EndsAt:         req.EndsAt,
 	}
 	created, err := h.repo.CreateCourse(r.Context(), c)
 	if err != nil {
@@ -189,14 +203,16 @@ func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 type courseUpdateReq struct {
-	Title          string   `json:"title"`
-	Description    *string  `json:"description"`
-	CoverURL       *string  `json:"cover_url"`
-	Difficulty     string   `json:"difficulty"`
-	Tags           []string `json:"tags"`
-	EstimatedHours *float64 `json:"estimated_hours"`
-	PriceCents     int      `json:"price_cents"`
-	IsFree         bool     `json:"is_free"`
+	Title          string     `json:"title"`
+	Description    *string    `json:"description"`
+	CoverURL       *string    `json:"cover_url"`
+	Difficulty     string     `json:"difficulty"`
+	Tags           []string   `json:"tags"`
+	EstimatedHours *float64   `json:"estimated_hours"`
+	PriceCents     int        `json:"price_cents"`
+	IsFree         bool       `json:"is_free"`
+	StartsAt       *time.Time `json:"starts_at"`
+	EndsAt         *time.Time `json:"ends_at"`
 }
 
 func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
@@ -206,6 +222,12 @@ func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 	}
 	var req courseUpdateReq
 	if !decodeJSON(w, r, &req) {
+		return
+	}
+	fields := map[string]string{}
+	validateSchedule(req.StartsAt, req.EndsAt, fields)
+	if len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	c := Course{
@@ -218,6 +240,8 @@ func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 		EstimatedHours: req.EstimatedHours,
 		PriceCents:     req.PriceCents,
 		IsFree:         req.IsFree,
+		StartsAt:       req.StartsAt,
+		EndsAt:         req.EndsAt,
 	}
 	if c.Tags == nil {
 		c.Tags = []string{}
@@ -360,15 +384,17 @@ func (h *Handler) ReorderSections(w http.ResponseWriter, r *http.Request) {
 // ─── Modules ──────────────────────────────────────────────────────────────────
 
 type moduleCreateReq struct {
-	CourseID         string  `json:"course_id"`
-	Title            string  `json:"title"`
-	Type             string  `json:"type"`
-	IsFreePreview    bool    `json:"is_free_preview"`
-	StorageKey       *string `json:"storage_key"`
-	DurationSeconds  *int    `json:"duration_seconds"`
-	ContentBody      *string `json:"content_body"`
-	AssessmentID     *string `json:"assessment_id"`
-	EstimatedMinutes *int    `json:"estimated_minutes"`
+	CourseID         string     `json:"course_id"`
+	Title            string     `json:"title"`
+	Type             string     `json:"type"`
+	IsFreePreview    bool       `json:"is_free_preview"`
+	StorageKey       *string    `json:"storage_key"`
+	DurationSeconds  *int       `json:"duration_seconds"`
+	ContentBody      *string    `json:"content_body"`
+	AssessmentID     *string    `json:"assessment_id"`
+	EstimatedMinutes *int       `json:"estimated_minutes"`
+	StartsAt         *time.Time `json:"starts_at"`
+	EndsAt           *time.Time `json:"ends_at"`
 }
 
 func (h *Handler) CreateModule(w http.ResponseWriter, r *http.Request) {
@@ -388,6 +414,7 @@ func (h *Handler) CreateModule(w http.ResponseWriter, r *http.Request) {
 	if !validTypes[req.Type] {
 		fields["type"] = "Type must be video, pdf, notes, or assessment."
 	}
+	validateSchedule(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
@@ -409,6 +436,8 @@ func (h *Handler) CreateModule(w http.ResponseWriter, r *http.Request) {
 		ContentBody:      req.ContentBody,
 		AssessmentID:     req.AssessmentID,
 		EstimatedMinutes: req.EstimatedMinutes,
+		StartsAt:         req.StartsAt,
+		EndsAt:           req.EndsAt,
 	}
 	created, err := h.repo.CreateModule(r.Context(), m)
 	if err != nil {
@@ -440,6 +469,7 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 	if !validTypes[req.Type] {
 		fields["type"] = "Type must be video, pdf, notes, assessment, or lab."
 	}
+	validateSchedule(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
@@ -454,6 +484,8 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 		ContentBody:      req.ContentBody,
 		AssessmentID:     req.AssessmentID,
 		EstimatedMinutes: req.EstimatedMinutes,
+		StartsAt:         req.StartsAt,
+		EndsAt:           req.EndsAt,
 	}
 	updated, err := h.repo.UpdateModule(r.Context(), claims.OrgID, m)
 	if err != nil {

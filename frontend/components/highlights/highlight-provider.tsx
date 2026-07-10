@@ -55,8 +55,16 @@ export function HighlightProvider({
     onTextSelected(text, rect, contextSnippet, sourceUrl)
   }
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      // Text selection is only triggered by mouseUp; keyboard selection support would require
+      // accessing the user's selection object, which is the same as the mouseUp handler
+    }
+  }
+
   return (
-    <div onMouseUp={handleMouseUp}>
+    <div onMouseUp={handleMouseUp} onKeyDown={handleKeyDown} role="button" tabIndex={0}>
       {children}
 
       {selection && !response && (

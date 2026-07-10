@@ -33,6 +33,10 @@ const (
 	LabTypePlayground = "playground"
 	LabTypeGuided     = "guided"
 
+	// Workspace layouts
+	LabLayoutSplit   = "split"
+	LabLayoutConsole = "console"
+
 	// Session statuses
 	SessionStatusProvisioning      = "provisioning"
 	SessionStatusRunning           = "running"
@@ -131,6 +135,11 @@ type LabDefinition struct {
 	IsRequired         bool       `json:"is_required"`
 	IsPublished        bool       `json:"is_published"`
 	PublishedVersionID *string    `json:"published_version_id"`
+	// WorkspaceLayout selects how the student workspace is arranged: "split"
+	// (default, side-by-side task list + terminal/editor) or "console"
+	// (Google Cloud Shell style — full-width checklist with a collapsible
+	// terminal drawer). See migration 033_lab_workspace_layout.sql.
+	WorkspaceLayout    string     `json:"workspace_layout"`
 	CreatedBy          string     `json:"created_by"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`

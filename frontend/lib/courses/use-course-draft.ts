@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import {
-  type CourseDraft, type DraftSection, type DraftModule, type ContentBlock,
+  type CourseDraft, type DraftModule, type ContentBlock,
   EMPTY_DRAFT, makeSection, makeModule, makeBlock, courseTreeToDraft,
 } from "@/lib/courses/draft-types";
 

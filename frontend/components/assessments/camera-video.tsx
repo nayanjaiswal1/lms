@@ -16,5 +16,10 @@ export function CameraVideo({ stream, ...props }: CameraVideoProps) {
     if (el) el.srcObject = stream;
   }, [stream]);
 
-  return <video ref={ref} {...props} />;
+  return (
+    <>
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption -- live camera preview, no audio track to caption */}
+      <video ref={ref} {...props} />
+    </>
+  );
 }

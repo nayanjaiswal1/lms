@@ -75,6 +75,11 @@ export interface RecentActivityItem {
   occurred_at: string
 }
 
+export interface LanguageCount {
+  language: string
+  solved: number
+}
+
 export interface ProfileOverview {
   difficulty: DifficultyCount[]
   solved_total: number
@@ -84,6 +89,7 @@ export interface ProfileOverview {
   active_days: number
   max_streak: number
   recent_activity: RecentActivityItem[]
+  language_stats: LanguageCount[]
 }
 
 export interface ResumeExtract {

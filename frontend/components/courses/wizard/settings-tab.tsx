@@ -19,7 +19,7 @@ export function SettingsTab({ status, onChange, disableDraft }: SettingsTabProps
       <div className="flex flex-col gap-3">
         <Label className="text-base font-semibold">Publication status</Label>
         <RadioGroup value={status} onValueChange={(v) => onChange(v as CourseDraft["status"])} className="flex flex-col gap-3">
-          <label className={cn(
+          <label htmlFor="status-draft" className={cn(
             "flex items-start gap-3 rounded-lg border border-border p-4 transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5",
             disableDraft ? "cursor-not-allowed opacity-50" : "cursor-pointer",
           )}>
@@ -37,7 +37,7 @@ export function SettingsTab({ status, onChange, disableDraft }: SettingsTabProps
             </div>
           </label>
 
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+          <label htmlFor="status-published" className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
             <RadioGroupItem value="published" id="status-published" className="mt-0.5" />
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2">

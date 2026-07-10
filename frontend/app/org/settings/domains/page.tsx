@@ -45,7 +45,7 @@ export default async function DomainsPage() {
 
       {/* Domain list */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">
+        <h2 className="subsection-title text-foreground mb-4">
           Configured Domains
         </h2>
         <DomainList domains={domains} orgId={orgId} />

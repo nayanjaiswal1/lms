@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { BlockEditor } from "@/components/courses/block-editor";
-import type { DraftSection, ContentBlock } from "@/lib/courses/draft-types";
+import type { DraftSection, DraftModule, ContentBlock } from "@/lib/courses/draft-types";
 
 interface ContentTabProps {
   sections:        DraftSection[];
@@ -15,13 +15,15 @@ interface ContentTabProps {
 export function ContentTab({
   sections, activeModuleId, onSelectModule, onBlocksChange, onFile,
 }: ContentTabProps) {
-  let activeSection: DraftSection | null = null;
+  let activeSectionLocalId: string | null = null;
+  let activeModule: DraftModule | null = null;
   let activeBlocks: ContentBlock[] = [];
 
   for (const section of sections) {
     const mod = section.modules.find((m) => m.localId === activeModuleId);
     if (mod) {
-      activeSection = section;
+      activeSectionLocalId = section.localId;
+      activeModule = mod;
       activeBlocks = mod.blocks;
       break;
     }
@@ -71,7 +73,7 @@ export function ContentTab({
 
       {/* Right: block editor */}
       <div className="flex-1 min-w-0">
-        {!activeModuleId || !activeSection ? (
+        {!activeModuleId || !activeSectionLocalId || !activeModule ? (
           <div className="flex h-full items-center justify-center text-center">
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">Select a lesson to edit its content</p>
@@ -84,26 +86,19 @@ export function ContentTab({
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {(() => {
-              const mod = activeSection.modules.find((m) => m.localId === activeModuleId)!;
-              return (
-                <>
-                  <div className="flex items-center justify-between border-b border-border pb-3">
-                    <div>
-                      <p className="font-medium">{mod.title || "Untitled lesson"}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {mod.type} · {mod.estimated_minutes} min
-                      </p>
-                    </div>
-                  </div>
-                  <BlockEditor
-                    blocks={activeBlocks}
-                    onChange={(blocks) => onBlocksChange(activeSection!.localId, activeModuleId, blocks)}
-                    onFile={onFile}
-                  />
-                </>
-              );
-            })()}
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <p className="font-medium">{activeModule.title || "Untitled lesson"}</p>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {activeModule.type} · {activeModule.estimated_minutes} min
+                </p>
+              </div>
+            </div>
+            <BlockEditor
+              blocks={activeBlocks}
+              onChange={(blocks) => onBlocksChange(activeSectionLocalId, activeModuleId, blocks)}
+              onFile={onFile}
+            />
           </div>
         )}
       </div>

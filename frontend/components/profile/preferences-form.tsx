@@ -15,7 +15,7 @@ interface Props {
 export function PreferencesForm({ profile, updateAction }: Props) {
   return (
     <section aria-label="Preferences" className="card-base p-6">
-      <h2 className="section-title text-lg mb-6">Preferences</h2>
+      <h2 className="section-title mb-6">Preferences</h2>
 
       <form action={updateAction} className="form-stack">
         {/* Timezone */}

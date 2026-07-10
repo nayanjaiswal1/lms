@@ -87,7 +87,7 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
               <Brain aria-hidden className="h-7 w-7 text-primary" />
             </span>
             <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold tracking-tight">Session complete</h1>
+              <h1 className="page-title">Session complete</h1>
               <p className="text-muted-foreground">
                 You reviewed {reviewed} card{reviewed !== 1 ? "s" : ""}.
               </p>
@@ -133,10 +133,10 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
             </p>
           </div>
           <div className="progress-track h-1.5">
-            {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width requires inline style */}
+            {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
             <div
               className="progress-fill h-full bg-primary"
-              style={{ width: `${progressPct}%` }}
+              style={{ '--progress': `${progressPct}%` } as React.CSSProperties}
               aria-hidden
             />
           </div>

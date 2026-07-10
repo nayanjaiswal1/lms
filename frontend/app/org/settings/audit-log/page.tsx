@@ -115,7 +115,7 @@ export default async function AuditLogPage({
       <div className="card-base p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Audit Log</h2>
+            <h2 className="subsection-title text-foreground">Audit Log</h2>
             <p className="text-sm text-muted-foreground">
               A record of all actions taken within your organisation.
             </p>

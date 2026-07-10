@@ -92,6 +92,7 @@ services:
     working_dir: /app
     volumes:
       - ./backend:/app
+      - ./content:/content
       - mindforge_go_cache:/root/go
       - /var/run/docker.sock:/var/run/docker.sock
     env_file: ./backend/.env

@@ -4,6 +4,7 @@ import { Users } from "lucide-react";
 
 import { getBatches } from "@/lib/assessments/server";
 import { BatchesPanel } from "@/app/(app)/batches/batches-panel";
+import { BatchAvatar } from "@/components/batches/batch-avatar";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -34,11 +35,14 @@ export default async function BatchesPage() {
         <section className="card-grid mt-8">
           {batches.map((b) => (
             <Link
-              key={b.id}
               className="card-interactive flex flex-col gap-2 p-6"
               href={ROUTES.batch(b.id)}
+              key={b.id}
             >
-              <h3 className="text-base font-semibold">{b.name}</h3>
+              <div className="flex items-center gap-3">
+                <BatchAvatar batchId={b.id} imageUrl={b.image_url} name={b.name} />
+                <h3 className="text-base font-semibold">{b.name}</h3>
+              </div>
               {b.description && <p className="line-clamp-2 text-sm text-muted-foreground">{b.description}</p>}
               <p className="mt-auto text-sm text-muted-foreground">{b.member_count} members</p>
             </Link>

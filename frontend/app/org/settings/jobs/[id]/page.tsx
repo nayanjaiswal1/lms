@@ -75,7 +75,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       <div className="card-base p-6 space-y-5">
         <div className="page-header mb-0">
           <div>
-            <h2 className="text-lg font-semibold text-foreground font-mono break-all">{job.handler}</h2>
+            <h2 className="subsection-title text-foreground font-mono break-all">{job.handler}</h2>
             <p className="text-xs text-muted-foreground mt-1">ID: <span className="font-mono">{job.id}</span></p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">

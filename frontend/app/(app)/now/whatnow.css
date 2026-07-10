@@ -1,0 +1,637 @@
+/* What Now? — scene tokens + component styles.
+   Everything is prefixed .wn- and scoped so nothing leaks into the shell.
+   Scenes: dawn / day / evening follow the clock; focus is its own overlay. */
+
+.wn-root {
+  --wn-serif: var(--font-wn-serif), Georgia, serif;
+  --wn-sans: var(--font-wn-sans), system-ui, sans-serif;
+  --wn-mono: var(--font-wn-mono), ui-monospace, monospace;
+}
+
+/* ── Scenes ─────────────────────────────────────────────────────────── */
+/* All scenes pull from the app's own design tokens (globals.css) so the
+   room always matches MindForge's amber/parchment identity and follows
+   light/dark automatically — only the greeting copy varies by time of day,
+   not the palette. */
+
+.wn-scope {
+  position: relative;
+  border-radius: 20px;
+  min-height: calc(100dvh - 130px);
+  padding: clamp(24px, 4vw, 56px) clamp(16px, 3vw, 40px);
+  font-family: var(--wn-sans);
+  color: var(--wn-ink);
+  background: var(--wn-bg);
+  transition: background 1.2s ease, color 1.2s ease;
+  overflow: hidden;
+
+  --wn-bg: hsl(var(--background));
+  --wn-card: hsl(var(--card));
+  --wn-ink: hsl(var(--foreground));
+  --wn-dim: hsl(var(--muted-foreground));
+  --wn-hairline: hsl(var(--border));
+  --wn-accent: hsl(var(--primary));
+  --wn-accent-ink: hsl(var(--primary-foreground));
+  --wn-shadow: var(--shadow-card);
+}
+
+.wn-scope[data-wn-scene="focus"] {
+  /* Focus is a deliberate always-dark spotlight (like the app's terminal
+     panel), not a theme — it dims the room regardless of light/dark. */
+  --wn-bg: hsl(var(--terminal-bg));
+  --wn-card: hsl(var(--terminal-chrome));
+  --wn-ink: hsl(var(--terminal-foreground));
+  --wn-dim: hsl(var(--terminal-muted-foreground));
+  --wn-hairline: hsl(var(--terminal-border));
+  --wn-accent: hsl(var(--primary));
+  --wn-accent-ink: hsl(var(--primary-foreground));
+  --wn-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.7);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+
+.wn-column {
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(24px, 4vh, 44px);
+  min-height: 100%;
+}
+
+.wn-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wn-title {
+  font-family: var(--wn-serif);
+  font-size: clamp(26px, 3.4vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.wn-greeting {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--wn-dim);
+}
+
+.wn-head-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Energy dial + shelf button ─────────────────────────────────────── */
+
+.wn-energy {
+  display: inline-flex;
+  border: 1px solid var(--wn-hairline);
+  border-radius: 999px;
+  padding: 3px;
+  background: color-mix(in oklab, var(--wn-card) 60%, transparent);
+}
+
+.wn-energy-opt {
+  border: 0;
+  background: transparent;
+  color: var(--wn-dim);
+  font: 500 12px var(--wn-sans);
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.wn-energy-on {
+  background: var(--wn-accent);
+  color: var(--wn-accent-ink);
+}
+
+.wn-shelf-btn {
+  border: 1px solid var(--wn-hairline);
+  background: transparent;
+  color: var(--wn-dim);
+  font: 500 12px var(--wn-sans);
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.wn-shelf-btn:hover {
+  color: var(--wn-ink);
+  border-color: var(--wn-dim);
+}
+
+/* ── The stage ──────────────────────────────────────────────────────── */
+
+.wn-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+}
+
+.wn-stage-empty {
+  text-align: center;
+  color: var(--wn-dim);
+  padding: 48px 0;
+}
+
+.wn-empty-line {
+  font-family: var(--wn-serif);
+  font-size: 22px;
+  margin: 0 0 6px;
+  color: var(--wn-ink);
+}
+
+.wn-empty-sub {
+  margin: 0;
+  font-size: 14px;
+}
+
+.wn-primary {
+  background: var(--wn-card);
+  border: 1px solid var(--wn-hairline);
+  border-radius: 18px;
+  padding: clamp(24px, 4vw, 36px);
+  box-shadow: var(--wn-shadow);
+}
+
+.wn-resume-note {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--wn-dim);
+  margin: 0 0 12px;
+}
+
+.wn-resume-mark {
+  color: var(--wn-accent);
+  font-style: normal;
+}
+
+.wn-primary-title {
+  font-family: var(--wn-serif);
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 14px;
+}
+
+.wn-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.wn-chip {
+  font-family: var(--wn-mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--wn-hairline);
+  color: var(--wn-dim);
+}
+
+.wn-chip-deadline { color: var(--wn-accent); border-color: color-mix(in oklab, var(--wn-accent) 45%, transparent); }
+.wn-chip-vague    { border-style: dashed; }
+
+.wn-rationale {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--wn-dim);
+  margin: 0 0 18px;
+}
+
+.wn-trigger {
+  font-size: 13px;
+  color: var(--wn-ink);
+  margin: -8px 0 18px;
+}
+
+.wn-start {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: var(--wn-accent);
+  color: var(--wn-accent-ink);
+  font: 600 16px var(--wn-sans);
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.wn-start:hover { filter: brightness(1.06); }
+.wn-start:active { transform: scale(0.985); }
+.wn-start-min { font-weight: 400; opacity: 0.8; }
+
+.wn-alts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wn-alt {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--wn-hairline);
+  padding: 12px 8px;
+  color: var(--wn-dim);
+  font: 400 14px var(--wn-sans);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.wn-alt:hover { color: var(--wn-ink); }
+.wn-alt-or { font-style: italic; font-size: 12px; flex-shrink: 0; }
+.wn-alt-title { flex: 1; }
+.wn-alt-min { font-family: var(--wn-mono); font-size: 11px; }
+
+/* ── Capture ────────────────────────────────────────────────────────── */
+
+.wn-capture {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wn-capture-input {
+  flex: 1;
+  min-width: 220px;
+  background: color-mix(in oklab, var(--wn-card) 70%, transparent);
+  border: 1px solid var(--wn-hairline);
+  border-radius: 12px;
+  padding: 13px 16px;
+  font: 400 14px var(--wn-sans);
+  color: var(--wn-ink);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.wn-capture-input::placeholder { color: var(--wn-dim); opacity: 0.7; }
+.wn-capture-input:focus { border-color: var(--wn-accent); }
+
+.wn-capture-go {
+  border: 1px solid var(--wn-hairline);
+  background: transparent;
+  color: var(--wn-ink);
+  font: 500 14px var(--wn-sans);
+  padding: 0 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wn-capture-go:not(:disabled):hover {
+  background: var(--wn-accent);
+  border-color: var(--wn-accent);
+  color: var(--wn-accent-ink);
+}
+
+.wn-capture-go:disabled { opacity: 0.4; cursor: default; }
+
+.wn-capture-error {
+  width: 100%;
+  margin: 2px 4px 0;
+  font-size: 12px;
+  color: hsl(var(--destructive));
+}
+
+.wn-capture-retry {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── Focus overlay — the world extinguishes ─────────────────────────── */
+
+.wn-focus {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: hsl(var(--terminal-bg));
+  color: hsl(var(--terminal-foreground));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: wn-fade-in 0.6s ease;
+}
+
+@keyframes wn-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.wn-focus-halo {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 55% at 50% 42%, color-mix(in oklab, hsl(var(--primary)) 20%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.wn-focus-inner {
+  position: relative;
+  max-width: 560px;
+  width: 100%;
+  padding: 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  align-items: center;
+}
+
+.wn-focus-timer {
+  font-family: var(--wn-mono, ui-monospace, monospace);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  color: var(--wn-dim);
+  margin: 0;
+}
+
+.wn-focus-title {
+  font-family: var(--wn-serif, Georgia, serif);
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.wn-focus-trigger {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--wn-dim);
+  margin: -8px 0 0;
+}
+
+.wn-focus-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.wn-btn {
+  border: 1px solid var(--wn-hairline);
+  background: transparent;
+  color: var(--wn-ink);
+  font: 500 14px var(--wn-sans, system-ui, sans-serif);
+  padding: 11px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wn-btn:not(:disabled):hover { border-color: var(--wn-accent); color: var(--wn-accent); }
+.wn-btn:disabled { opacity: 0.4; cursor: default; }
+
+.wn-btn-done {
+  background: var(--wn-accent);
+  border-color: var(--wn-accent);
+  color: var(--wn-accent-ink);
+}
+
+.wn-btn-done:not(:disabled):hover { color: var(--wn-accent-ink); filter: brightness(1.08); }
+.wn-btn-quiet { border-color: transparent; color: var(--wn-dim); }
+
+.wn-focus-panel {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.wn-panel-label {
+  font-size: 13px;
+  color: var(--wn-dim);
+  margin: 0;
+}
+
+.wn-panel-textarea {
+  width: 100%;
+  background: color-mix(in oklab, var(--wn-ink) 6%, transparent);
+  border: 1px solid var(--wn-hairline);
+  border-radius: 12px;
+  color: var(--wn-ink);
+  font: 400 14px var(--wn-sans, system-ui, sans-serif);
+  padding: 12px 14px;
+  resize: vertical;
+  outline: none;
+}
+
+.wn-panel-textarea:focus { border-color: var(--wn-accent); }
+
+.wn-stuck-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.wn-steps {
+  width: 100%;
+  margin: 0;
+  padding: 0 0 0 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wn-step {
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wn-step-min {
+  font-family: var(--wn-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--wn-dim);
+  flex-shrink: 0;
+}
+
+.wn-resolution {
+  font-family: var(--wn-serif, Georgia, serif);
+  font-size: 19px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Shelf ──────────────────────────────────────────────────────────── */
+
+.wn-shelf-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: rgba(10, 9, 7, 0.45);
+  animation: wn-fade-in 0.25s ease;
+}
+
+.wn-shelf {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 92vw);
+  background: var(--wn-card);
+  color: var(--wn-ink);
+  padding: 24px;
+  overflow-y: auto;
+  box-shadow: -20px 0 60px -30px rgba(0, 0, 0, 0.5);
+  animation: wn-slide-in 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@keyframes wn-slide-in {
+  from { transform: translateX(40px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.wn-shelf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wn-shelf-title {
+  font-family: var(--wn-serif);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.wn-shelf-close {
+  border: 0;
+  background: transparent;
+  color: var(--wn-dim);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.wn-recap {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--wn-dim);
+  border-left: 2px solid var(--wn-accent);
+  padding-left: 10px;
+  margin: 0;
+}
+
+.wn-shelf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wn-shelf-label {
+  font-family: var(--wn-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--wn-dim);
+  margin: 0;
+}
+
+.wn-shelf-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--wn-sans);
+  font-style: italic;
+}
+
+.wn-shelf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wn-shelf-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--wn-hairline);
+  font-size: 14px;
+}
+
+.wn-shelf-item-decayed .wn-shelf-item-title { color: var(--wn-dim); text-decoration: line-through; }
+.wn-shelf-paused { color: var(--wn-dim); font-style: italic; font-size: 12px; }
+
+.wn-shelf-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.wn-shelf-action {
+  border: 0;
+  background: transparent;
+  color: var(--wn-accent);
+  font: 500 12px var(--wn-sans);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.wn-shelf-action:disabled { opacity: 0.35; cursor: default; }
+.wn-shelf-empty { font-size: 13px; color: var(--wn-dim); font-style: italic; margin: 0; }
+
+/* ── Toast ──────────────────────────────────────────────────────────── */
+
+.wn-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 95;
+  background: hsl(var(--terminal-chrome));
+  color: hsl(var(--terminal-foreground));
+  border: 1px solid hsl(var(--terminal-border));
+  border-radius: 999px;
+  padding: 10px 20px;
+  font: 400 13px var(--wn-sans, system-ui, sans-serif);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.55);
+  animation: wn-toast-in 0.3s ease;
+  max-width: min(90vw, 480px);
+}
+
+@keyframes wn-toast-in {
+  from { transform: translate(-50%, 12px); opacity: 0; }
+  to   { transform: translate(-50%, 0); opacity: 1; }
+}
+
+/* ── Motion preferences ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .wn-scope, .wn-focus, .wn-shelf, .wn-toast,
+  .wn-energy-opt, .wn-start, .wn-btn {
+    transition: none;
+    animation: none;
+  }
+}

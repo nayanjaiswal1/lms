@@ -175,6 +175,7 @@ export function VideoBlockEditor({ block, onChange, onFile }: VideoProps) {
         }}
       />
       {displayUrl && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption -- no caption track available in the data model
         <video
           className="max-h-60 w-full rounded-md bg-muted"
           controls

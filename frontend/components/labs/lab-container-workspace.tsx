@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import dynamic from "next/dynamic"
 import { TerminalSquare, FolderTree, Boxes, Loader2, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -51,8 +51,7 @@ export function LabContainerWorkspace({
   const [activePanel, setActivePanel] = useState<Panel>("terminal")
   const filesState = useLabFiles(sessionId)
   const resourcesState = useLabResources(sessionId)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const { isConnected, reconnectManually } = useLabTerminal({ containerRef, sessionId })
+  const { containerRef, isConnected, reconnectManually } = useLabTerminal({ sessionId })
 
   function selectPanel(panel: Panel) {
     setActivePanel(panel)

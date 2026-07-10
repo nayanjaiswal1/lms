@@ -1,16 +1,8 @@
 import { Users } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { MemberProgress } from "@/lib/server/batches";
 
 interface BatchProgressTableProps {
   progress: MemberProgress[];
-}
-
-function scoreBadgeClass(avg: number | null | undefined): string {
-  if (avg === null || avg === undefined) return "text-muted-foreground";
-  if (avg >= 80) return "text-primary font-semibold";
-  if (avg >= 60) return "text-foreground";
-  return "text-destructive";
 }
 
 export function BatchProgressTable({ progress }: BatchProgressTableProps) {
@@ -30,9 +22,7 @@ export function BatchProgressTable({ progress }: BatchProgressTableProps) {
           <tr className="border-b border-border text-left text-xs text-muted-foreground">
             <th className="pb-2 font-medium">Student</th>
             <th className="pb-2 font-medium">Courses</th>
-            <th className="pb-2 font-medium">Assessments</th>
-            <th className="pb-2 font-medium">Avg score</th>
-            <th className="pb-2 font-medium">Last active</th>
+            <th className="pb-2 font-medium">Tests passed</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -45,15 +35,9 @@ export function BatchProgressTable({ progress }: BatchProgressTableProps) {
                 </div>
               </td>
               <td className="py-2.5 pr-4">
-                {s.completed_courses}/{s.enrolled_courses}
+                {s.courses_completed}/{s.courses_enrolled}
               </td>
-              <td className="py-2.5 pr-4">{s.assessments_taken}</td>
-              <td className={cn("py-2.5 pr-4", scoreBadgeClass(s.avg_score))}>
-                {s.avg_score !== null ? `${Math.round(s.avg_score)}%` : "—"}
-              </td>
-              <td className="py-2.5 text-muted-foreground">
-                {s.last_active ? new Date(s.last_active).toLocaleDateString() : "—"}
-              </td>
+              <td className="py-2.5 pr-4">{s.tests_passed}</td>
             </tr>
           ))}
         </tbody>

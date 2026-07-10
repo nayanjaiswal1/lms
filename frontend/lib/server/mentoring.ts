@@ -84,6 +84,14 @@ export async function getMyMentorTickets(): Promise<MentorTicket[]> {
   return body.tickets ?? [];
 }
 
+// No single-ticket GET exists on the mentor-tickets API — the ticket queue is
+// always listed in bulk, so this reuses that list rather than adding a new
+// backend endpoint just for one lookup.
+export async function getMentorTicketById(ticketId: string): Promise<MentorTicket | null> {
+  const tickets = await getMentorTickets();
+  return tickets.find((t) => t.id === ticketId) ?? null;
+}
+
 export async function getMentorChangeRequests(status?: MentorChangeRequestStatus): Promise<MentorChangeRequest[]> {
   const query = status ? `?status=${status}` : "";
   const body = await apiGet<{ requests: MentorChangeRequest[] }>(`/api/mentor-change-requests${query}`);

@@ -6,11 +6,11 @@ import type { FitAddon as XFitAddon } from "@xterm/addon-fit"
 import { mintWSTokenAction } from "@/app/(app)/labs/[labId]/actions"
 
 interface UseLabTerminalOptions {
-  containerRef: React.RefObject<HTMLDivElement | null>
   sessionId: string
 }
 
 interface UseLabTerminalReturn {
+  containerRef: (node: HTMLDivElement | null) => void
   isConnected: boolean
   reconnectManually: () => void
 }
@@ -29,10 +29,18 @@ const TTYD_OUTPUT = "0"
 const TTYD_OUTPUT_BYTE = TTYD_OUTPUT.charCodeAt(0)
 
 export function useLabTerminal({
-  containerRef,
   sessionId,
 }: UseLabTerminalOptions): UseLabTerminalReturn {
   const [isConnected, setIsConnected] = useState(false)
+  // `LabTerminal` is loaded via next/dynamic({ ssr: false }), so its ref-bearing
+  // div doesn't exist on this hook's first render — a plain useRef would capture
+  // `current === null` once and never re-run since the ref object's identity
+  // never changes. Storing the node in state instead makes it a real effect
+  // dependency, so the effect re-runs the moment the lazy-loaded div mounts.
+  const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(null)
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainerNode(node)
+  }, [])
   const reconnectFnRef = useRef<(() => void) | null>(null)
   const reconnectCountRef = useRef(0)
   const wsRef = useRef<WebSocket | null>(null)
@@ -44,7 +52,7 @@ export function useLabTerminal({
   }, [])
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerNode) return
 
     let disposed = false
     let heartbeatInterval: ReturnType<typeof setInterval> | null = null
@@ -163,13 +171,13 @@ export function useLabTerminal({
     }
 
     const init = async () => {
-      if (!containerRef.current || disposed) return
+      if (!containerNode || disposed) return
 
       const { Terminal } = await import("@xterm/xterm")
       const { FitAddon } = await import("@xterm/addon-fit")
       const { WebLinksAddon } = await import("@xterm/addon-web-links")
 
-      if (disposed || !containerRef.current) return
+      if (disposed || !containerNode) return
 
       // eslint-disable-next-line no-restricted-syntax -- terminal canvas theme requires literal hex; xterm.js does not accept CSS variables in theme config.
       // Values are kept in sync with the --terminal-* tokens in globals.css (bg/chrome/foreground)
@@ -212,7 +220,7 @@ export function useLabTerminal({
       fit = new FitAddon()
       term.loadAddon(fit)
       term.loadAddon(new WebLinksAddon())
-      term.open(containerRef.current)
+      term.open(containerNode)
       fit.fit()
 
       term.onData((data) => {
@@ -234,9 +242,7 @@ export function useLabTerminal({
         }, 150)
       })
 
-      if (containerRef.current) {
-        resizeObserver.observe(containerRef.current)
-      }
+      resizeObserver.observe(containerNode)
 
       connectWS()
     }
@@ -256,7 +262,7 @@ export function useLabTerminal({
       termRef.current = null
       setIsConnected(false)
     }
-  }, [sessionId, containerRef])
+  }, [sessionId, containerNode])
 
-  return { isConnected, reconnectManually }
+  return { containerRef, isConnected, reconnectManually }
 }

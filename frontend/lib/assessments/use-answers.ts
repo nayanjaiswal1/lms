@@ -65,8 +65,7 @@ function reducer(state: AnswersState, action: Action): AnswersState {
         answers: { ...state.answers, [action.qid]: { transcript: action.transcript } },
       };
     case "clearAnswer": {
-      const rest = { ...state.answers };
-      delete rest[action.qid];
+      const { [action.qid]: _removed, ...rest } = state.answers;
       return { ...state, answers: rest };
     }
     case "toggleMark":

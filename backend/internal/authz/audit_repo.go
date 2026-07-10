@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// AuditRepo handles all audit_log persistence against PostgreSQL.
+// AuditRepo handles all audit_logs persistence against PostgreSQL.
 type AuditRepo struct {
 	pool *pgxpool.Pool
 }
@@ -19,38 +20,53 @@ func NewAuditRepo(pool *pgxpool.Pool) *AuditRepo {
 	return &AuditRepo{pool: pool}
 }
 
-// Write inserts a single row into audit_log. diff is marshalled to JSON when
-// non-nil; a nil diff stores NULL in the diff column.
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// Write inserts a single row into audit_logs. entityID is stored as target_id
+// when it is a valid UUID; otherwise target_id is left NULL and the original
+// value is preserved under "original_entity_id" in after_state (mirrors
+// 002_merge_audit_logs.sql's handling of compound IDs like "userID/roleID").
 func (r *AuditRepo) Write(ctx context.Context, tenantID, actorID, action, entityType, entityID string, diff *AuditDiff) error {
-	var diffJSON []byte
-	if diff != nil {
-		var err error
-		diffJSON, err = json.Marshal(diff)
-		if err != nil {
-			return fmt.Errorf("audit: write: marshal diff: %w", err)
+	var before, after json.RawMessage
+	var targetID *string
+
+	if uuidPattern.MatchString(entityID) {
+		targetID = &entityID
+		if diff != nil {
+			before, _ = json.Marshal(diff.Before)
+			after, _ = json.Marshal(diff.After)
 		}
+	} else if diff != nil {
+		before, _ = json.Marshal(diff.Before)
+		afterMap := map[string]any{"original_entity_id": entityID}
+		if diff.After != nil {
+			if b, err := json.Marshal(diff.After); err == nil {
+				_ = json.Unmarshal(b, &afterMap)
+				afterMap["original_entity_id"] = entityID
+			}
+		}
+		after, _ = json.Marshal(afterMap)
+	} else {
+		after, _ = json.Marshal(map[string]any{"original_entity_id": entityID})
 	}
 
 	const q = `
-		INSERT INTO audit_log (tenant_id, actor_id, action, entity_type, entity_id, diff, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, now())`
+		INSERT INTO audit_logs (org_id, actor_user_id, action, target_type, target_id, before_state, after_state, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, now())`
 
-	var tenantParam, actorParam interface{}
-	if tenantID != "" {
-		tenantParam = tenantID
-	}
+	var actorParam interface{}
 	if actorID != "" {
 		actorParam = actorID
 	}
 
-	_, err := r.pool.Exec(ctx, q, tenantParam, actorParam, action, entityType, entityID, diffJSON)
+	_, err := r.pool.Exec(ctx, q, tenantID, actorParam, action, entityType, targetID, before, after)
 	if err != nil {
 		return fmt.Errorf("audit: write: %w", err)
 	}
 	return nil
 }
 
-// List returns a page of audit_log rows matching params plus the total count of
+// List returns a page of audit_logs rows matching params plus the total count of
 // matching rows. Limit is clamped to [1, 100]; default is 20 when zero.
 func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEntry, int, error) {
 	limit := params.Limit
@@ -62,20 +78,21 @@ func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEn
 	}
 
 	// Build WHERE clause dynamically.
-	// tenant_id filter is always applied (even if empty string the caller scopes it).
+	// org_id filter is always applied (even if empty string the caller scopes it).
 	args := []interface{}{params.TenantID} // $1
-	where := "WHERE tenant_id = $1"
+	where := "WHERE org_id = $1"
 
 	if params.EntityType != "" {
 		args = append(args, params.EntityType)
-		where += fmt.Sprintf(" AND entity_type = $%d", len(args))
+		where += fmt.Sprintf(" AND target_type = $%d", len(args))
 	}
 	if params.EntityID != "" {
 		args = append(args, params.EntityID)
-		where += fmt.Sprintf(" AND entity_id = $%d", len(args))
+		// Cast to text so non-UUID (compound) entity IDs still compare cleanly.
+		where += fmt.Sprintf(" AND target_id::text = $%d", len(args))
 	}
 
-	countQ := "SELECT COUNT(*) FROM audit_log " + where
+	countQ := "SELECT COUNT(*) FROM audit_logs " + where
 	var total int
 	if err := r.pool.QueryRow(ctx, countQ, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("audit: list: count: %w", err)
@@ -83,8 +100,8 @@ func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEn
 
 	args = append(args, limit, params.Offset)
 	listQ := fmt.Sprintf(`
-		SELECT id, tenant_id, actor_id, action, entity_type, entity_id, diff, created_at
-		FROM audit_log
+		SELECT id, org_id, actor_user_id, action, target_type, target_id, before_state, after_state, created_at
+		FROM audit_logs
 		%s
 		ORDER BY created_at DESC
 		LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args))
@@ -98,33 +115,46 @@ func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEn
 	var entries []AuditEntry
 	for rows.Next() {
 		var e AuditEntry
-		var tenantID pgtype.UUID
+		var orgID pgtype.UUID
 		var actorID pgtype.UUID
-		var diffRaw []byte
+		var targetID pgtype.UUID
+		var before, after []byte
 
 		if err := rows.Scan(
 			&e.ID,
-			&tenantID,
+			&orgID,
 			&actorID,
 			&e.Action,
 			&e.EntityType,
-			&e.EntityID,
-			&diffRaw,
+			&targetID,
+			&before,
+			&after,
 			&e.CreatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("audit: list: scan: %w", err)
 		}
 
-		if tenantID.Valid {
-			s := uuidToString(tenantID)
+		if orgID.Valid {
+			s := uuidToString(orgID)
 			e.TenantID = &s
 		}
 		if actorID.Valid {
 			s := uuidToString(actorID)
 			e.ActorID = &s
 		}
-		if diffRaw != nil {
-			e.Diff = json.RawMessage(diffRaw)
+		if targetID.Valid {
+			e.EntityID = uuidToString(targetID)
+		}
+
+		diff := AuditDiff{}
+		if before != nil {
+			_ = json.Unmarshal(before, &diff.Before)
+		}
+		if after != nil {
+			_ = json.Unmarshal(after, &diff.After)
+		}
+		if diffJSON, err := json.Marshal(diff); err == nil {
+			e.Diff = diffJSON
 		}
 
 		entries = append(entries, e)

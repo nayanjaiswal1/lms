@@ -30,7 +30,7 @@ type Role struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// AuditEntry is a single row from the audit_log table.
+// AuditEntry is a single row from the audit_logs table.
 type AuditEntry struct {
 	ID         int64           `json:"id"`
 	TenantID   *string         `json:"tenant_id"`
@@ -48,7 +48,7 @@ type UserRoleAssignment struct {
 	TenantID string `json:"tenant_id"`
 }
 
-// AuditDiff captures the before/after state for an audit_log diff column.
+// AuditDiff captures the before/after state, stored as audit_logs.before_state/after_state.
 type AuditDiff struct {
 	Before any `json:"before,omitempty"`
 	After  any `json:"after,omitempty"`
@@ -94,7 +94,7 @@ type ListRolesParams struct {
 	Offset        int
 }
 
-// ListAuditParams filters the audit_log list.
+// ListAuditParams filters the audit_logs list.
 type ListAuditParams struct {
 	TenantID   string
 	EntityType string

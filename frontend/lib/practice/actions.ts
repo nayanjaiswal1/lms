@@ -1,10 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, ActionResult } from "@/lib/server/api";
+import { apiAction } from "@/lib/server/api";
+import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
-
-export type { ActionResult };
 
 export async function createSessionAction(input: {
   technology: string;

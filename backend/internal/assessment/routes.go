@@ -8,16 +8,18 @@ import (
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/rewards"
+	"github.com/mindforge/backend/internal/storage"
 )
 
 // New builds the fully-wired assessment handler from the shared pool, config, and jobs registry.
 // jobRegistry is used by SubmitAttempt to enqueue eval.subjective jobs via the Job Management System.
 // coursesSvc lets a passed assessment complete the course module that embeds it.
-func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service) *Handler {
+// store backs batch cover-image uploads.
+func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service, store storage.StorageClient) *Handler {
 	repo := NewRepo(pool)
 	exec := NewExecutor(cfg)
 	service := NewService(repo, exec, cfg)
-	return NewHandler(repo, service, pool, jobRegistry, rewardsSvc, coursesSvc)
+	return NewHandler(repo, service, pool, jobRegistry, rewardsSvc, coursesSvc, store)
 }
 
 // RegisterRoutes mounts the assessment API onto the given router. The caller is
@@ -48,8 +50,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/batches", h.CreateBatch)
 		r.Get("/api/batches", h.ListBatches)
 		r.Get("/api/batches/{batchID}", h.GetBatch)
+		r.Patch("/api/batches/{batchID}", h.UpdateBatch)
 		r.Post("/api/batches/{batchID}/members", h.AddBatchMembers)
 		r.Delete("/api/batches/{batchID}/members/{userID}", h.RemoveBatchMember)
+		r.Post("/api/batches/{batchID}/image", h.UploadBatchImage)
+		r.Delete("/api/batches/{batchID}/image", h.DeleteBatchImage)
 
 		// Batch mentors
 		r.Post("/api/batches/{batchID}/mentors", h.AddBatchMentor)
@@ -66,6 +71,12 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/api/batches/{batchID}/invitations", h.ListInvitations)
 		r.Delete("/api/batches/{batchID}/invitations/{invID}", h.RevokeInvitation)
 		r.Post("/api/batches/{batchID}/invitations/{invID}/resend", h.ResendInvitation)
+
+		// Bulk student import via Excel
+		r.Post("/api/batches/{batchID}/import/parse", h.HandleImportParse)
+		r.Post("/api/batches/{batchID}/import/validate", h.HandleImportValidate)
+		r.Post("/api/batches/{batchID}/import/confirm", h.HandleImportConfirm)
+		r.Get("/api/batches/{batchID}/import/report", h.HandleImportReport)
 
 		// Batch progress
 		r.Get("/api/batches/{batchID}/progress", h.GetBatchProgress)
@@ -101,6 +112,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Get("/api/my/assessments", h.ListMyAssessments)
 		r.Get("/api/my/analytics", h.MyAnalytics)
+		r.Get("/api/my/batches", h.ListMyBatches)
 
 		// Invitation accept/decline — any authenticated user (students accepting
 		// batch invitations must reach this endpoint before they are org members).

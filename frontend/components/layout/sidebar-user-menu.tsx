@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { logoutAction } from "@/app/actions/logout-action";
+import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/server/auth";
 import ROUTES from "@/lib/routes";
 
@@ -20,9 +21,11 @@ interface Props {
   user: AuthUser;
   /** Called after "Profile settings" is clicked — used to close the mobile drawer. */
   onNavigate?: () => void;
+  /** Icon-only rail mode — hides name/email, centers the avatar. */
+  collapsed?: boolean;
 }
 
-export function SidebarUserMenu({ user, onNavigate }: Props) {
+export function SidebarUserMenu({ user, onNavigate, collapsed = false }: Props) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -31,18 +34,25 @@ export function SidebarUserMenu({ user, onNavigate }: Props) {
         <DropdownMenuTrigger asChild>
           <button
             aria-label="User menu"
-            className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent/60 transition-colors duration-fast touch-target"
+            className={cn(
+              "flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent/60 transition-colors duration-fast touch-target",
+              collapsed && "justify-center px-0",
+            )}
           >
             <ProfileAvatar avatarUrl={user.avatar_url} name={user.name} size="sm" />
-            <div className="flex min-w-0 flex-1 flex-col items-start">
-              <span className="w-full truncate text-sm font-medium text-foreground">
-                {user.name}
-              </span>
-              <span className="w-full truncate text-xs text-muted-foreground">
-                {user.email}
-              </span>
-            </div>
-            <ChevronsUpDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {!collapsed && (
+              <>
+                <div className="flex min-w-0 flex-1 flex-col items-start">
+                  <span className="w-full truncate text-sm font-medium text-foreground">
+                    {user.name}
+                  </span>
+                  <span className="w-full truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </span>
+                </div>
+                <ChevronsUpDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </>
+            )}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56" side="top" sideOffset={8}>

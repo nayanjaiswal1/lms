@@ -1,23 +1,11 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import {
-  MonitorOff,
-  RotateCcw,
-  LogOut,
-  Trophy,
-  LogIn,
-  Columns2,
-  Rows2,
-  AlertCircle,
-  X,
-} from "lucide-react"
+import { RotateCcw, LogOut, Trophy, Columns2, Rows2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -29,24 +17,15 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable"
 import { LabTimer } from "@/components/labs/lab-timer"
-import { LabTaskPanel } from "@/components/labs/lab-task-panel"
-import { LabContainerWorkspace } from "@/components/labs/lab-container-workspace"
+import {
+  LabWorkspaceContent,
+  isLabAuthError,
+} from "@/components/labs/lab-workspace-content"
 import { endLabSessionAction, resetLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
-import { useLabVerify } from "@/hooks/use-lab-verify"
 import { useLabNavigationGuard } from "@/hooks/use-lab-navigation-guard"
 import ROUTES from "@/lib/routes"
 import { isLabSessionAlreadyEnded, type Lab, type LabSession, type TaskCompletion } from "@/lib/labs"
-
-const LabCodePanel = dynamic(
-  () => import("@/components/labs/lab-code-panel").then((m) => m.LabCodePanel),
-  { ssr: false, loading: () => <Skeleton className="h-full w-full rounded-none" /> },
-)
 
 interface LabEnvironmentProps {
   session: LabSession
@@ -189,70 +168,11 @@ function LabEnvironmentTopBar({
   )
 }
 
-function SessionExpiredOverlay({ onLogin }: { onLogin: () => void }) {
-  return (
-    <div
-      aria-live="assertive"
-      className="absolute inset-0 z-modal flex flex-col items-center justify-center gap-4 bg-background/95 backdrop-blur-sm px-6"
-      role="alert"
-    >
-      <div className="flex flex-col items-center gap-3 text-center max-w-xs">
-        <div className="rounded-full bg-muted p-4">
-          <LogIn aria-hidden className="h-6 w-6 text-muted-foreground" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <p className="font-semibold text-foreground">Session expired</p>
-          <p className="text-sm text-muted-foreground">
-            Your login session has expired. Please log in again to continue — your progress is
-            saved.
-          </p>
-        </div>
-        <Button className="w-full" onClick={onLogin}>
-          Log in again
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function isAuthError(msg: string): boolean {
-  const lower = msg.toLowerCase()
-  return (
-    lower.includes("invalid or expired") ||
-    lower.includes("unauthorized") ||
-    lower.includes("not authenticated") ||
-    lower.includes("session expired")
-  )
-}
-
 export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironmentProps) {
-  const defaultTaskId =
-    lab.tasks.find((t) => {
-      const c = initialCompletions.find((c) => c.task_id === t.task_id)
-      return !c || c.status === "pending"
-    })?.task_id ?? lab.tasks[0]?.task_id ?? null
-
-  const {
-    completions,
-    score,
-    code,
-    setCode,
-    language,
-    changeLanguage,
-    isLanguageLocked,
-    selectTask,
-    selectedTaskId,
-    setSelectedTaskId,
-    isVerifying,
-    verify,
-    verifyError,
-    dismissVerifyError,
-    lastRun,
-    isAuthExpired,
-    resetState,
-  } = useLabVerify(session.id, initialCompletions, session.score, lab.language, defaultTaskId)
-
+  const [score, setScore] = useState(session.score)
+  const [isAuthExpired, setIsAuthExpired] = useState(false)
   const [resetCount, setResetCount] = useState(session.reset_count)
+  const [resetNonce, setResetNonce] = useState(0)
   const [layoutOrientation, setLayoutOrientation] = useState<"horizontal" | "vertical">(
     "horizontal",
   )
@@ -261,10 +181,6 @@ export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironm
   const router = useRouter()
 
   const maxScore = lab.tasks.reduce((s, t) => s + t.points, 0)
-  const isCodeLab = lab.lab_type === "code"
-  const handleTaskSelect = isCodeLab ? selectTask : setSelectedTaskId
-  const isTaskPassed =
-    completions.find((c) => c.task_id === selectedTaskId)?.status === "passed"
 
   // Clearing LabProvisioningContext happens on the result page itself
   // (ClearActiveLabSession), not here — that page is the one guaranteed
@@ -274,7 +190,7 @@ export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironm
     const res = await endLabSessionAction(session.id)
     if (!res.ok && !isLabSessionAlreadyEnded(res.error ?? "")) {
       const msg = res.error ?? "Failed to end lab. Please try again."
-      if (isAuthError(msg)) {
+      if (isLabAuthError(msg)) {
         router.push(ROUTES.LOGIN)
         return
       }
@@ -297,14 +213,14 @@ export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironm
       const res = await resetLabSessionAction(session.id)
       if (!res.ok || !res.data) {
         const msg = res.error ?? "Failed to reset lab. Please try again."
-        if (isAuthError(msg)) {
+        if (isLabAuthError(msg)) {
           router.push(ROUTES.LOGIN)
           return
         }
         return
       }
       setResetCount(res.data.session.reset_count)
-      resetState(0)
+      setResetNonce((n) => n + 1)
     })
   }
 
@@ -359,96 +275,16 @@ export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironm
         }
       />
 
-      {verifyError && (
-        <div
-          className="flex items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-2 shrink-0"
-          role="alert"
-        >
-          <AlertCircle aria-hidden className="h-4 w-4 text-destructive shrink-0" />
-          <p className="text-sm text-destructive flex-1 min-w-0">{verifyError}</p>
-          <button
-            aria-label="Dismiss error"
-            className="text-destructive hover:text-destructive/80 shrink-0 touch-target"
-            type="button"
-            onClick={dismissVerifyError}
-          >
-            <X aria-hidden className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Mobile layout */}
-      <div className="relative flex flex-col flex-1 md:hidden overflow-auto">
-        {isAuthExpired && <SessionExpiredOverlay onLogin={handleLogin} />}
-        <div className="flex items-center gap-2 px-4 py-3 bg-muted/50 border-b border-border">
-          <MonitorOff aria-hidden className="h-4 w-4 text-muted-foreground shrink-0" />
-          <p className="text-sm text-muted-foreground">
-            {isCodeLab
-              ? "The code editor requires a larger screen. Viewing tasks only."
-              : "The terminal requires a larger screen. Viewing tasks only."}
-          </p>
-        </div>
-        <LabTaskPanel
-          completions={completions}
-          maxScore={maxScore}
-          score={score}
-          selectedTaskId={selectedTaskId}
-          tasks={lab.tasks}
-          onTaskSelect={handleTaskSelect}
-        />
-      </div>
-
-      {/* Desktop layout */}
-      <div className="relative hidden md:flex flex-1 overflow-hidden">
-        {isAuthExpired && <SessionExpiredOverlay onLogin={handleLogin} />}
-        <ResizablePanelGroup orientation={layoutOrientation}>
-          <ResizablePanel
-            className={
-              layoutOrientation === "horizontal"
-                ? "border-r border-border"
-                : "border-b border-border"
-            }
-            defaultSize="24%"
-            id="lab-tasks"
-            maxSize="45%"
-            minSize="18%"
-          >
-            <LabTaskPanel
-              completions={completions}
-              maxScore={maxScore}
-              score={score}
-              selectedTaskId={selectedTaskId}
-              tasks={lab.tasks}
-              onTaskSelect={handleTaskSelect}
-            />
-          </ResizablePanel>
-          <ResizableHandle withHandle orientation={layoutOrientation} />
-          <ResizablePanel defaultSize="76%" id="lab-workspace" minSize="40%">
-            {isCodeLab ? (
-              <LabCodePanel
-                code={code}
-                isLanguageLocked={isLanguageLocked}
-                isTaskPassed={isTaskPassed}
-                isVerifying={isVerifying}
-                language={language}
-                lastRun={lastRun}
-                taskId={selectedTaskId ?? undefined}
-                onCheck={verify}
-                onCodeChange={setCode}
-                onLanguageChange={changeLanguage}
-              />
-            ) : (
-              <LabContainerWorkspace
-                isTaskPassed={isTaskPassed}
-                isVerifying={isVerifying}
-                sessionId={session.id}
-                taskId={selectedTaskId ?? undefined}
-                onCheck={verify}
-              />
-            )}
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
+      <LabWorkspaceContent
+        initialCompletions={initialCompletions}
+        lab={lab}
+        orientation={layoutOrientation}
+        resetNonce={resetNonce}
+        session={session}
+        onAuthExpiredChange={setIsAuthExpired}
+        onLogin={handleLogin}
+        onScoreChange={setScore}
+      />
     </div>
   )
 }

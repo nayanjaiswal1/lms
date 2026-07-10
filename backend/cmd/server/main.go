@@ -136,7 +136,7 @@ func main() {
 	// A standalone assessment.Handler for the expire-attempts reaper — like
 	// coursesSvcForJobs above, constructed separately from api.NewRouter's own
 	// instance since it holds no in-process state beyond shared pointers.
-	assessmentHandlerForJobs := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvcForJobs)
+	assessmentHandlerForJobs := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvcForJobs, storageClient)
 
 	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc, coursesSvcForJobs))
 	// Fires once, exactly when an eval.subjective job permanently dies, instead
@@ -152,6 +152,8 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
 	jobsRegistry.Register(handlers.HandlerAssessmentExpire, handlers.NewAssessmentExpireHandler(assessmentHandlerForJobs))
 	jobsRegistry.Register(handlers.HandlerMentorEscalate, handlers.NewMentorEscalationHandler(pool, cfg))
+	jobsRegistry.Register(handlers.HandlerCalendarReminder, handlers.NewCalendarReminderHandler(pool, cfg))
+	jobsRegistry.Register(handlers.HandlerBatchImport, handlers.NewBatchImportHandler(pool, cfg))
 
 	cronDefs := []jobs.CronJobDef{
 		{Handler: handlers.HandlerSRSReminder, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
@@ -161,6 +163,7 @@ func main() {
 		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerAssessmentExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
 		{Handler: handlers.HandlerMentorEscalate, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		{Handler: handlers.HandlerCalendarReminder, Schedule: "*/5 * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
 	}
 
 	workerCtx, workerCancel := context.WithCancel(ctx)

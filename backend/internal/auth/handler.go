@@ -70,10 +70,11 @@ type resetPasswordRequest struct {
 }
 
 type userResponse struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Email     string  `json:"email"`
-	AvatarURL *string `json:"avatar_url"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Email        string  `json:"email"`
+	AvatarURL    *string `json:"avatar_url"`
+	PlatformRole string  `json:"platform_role"`
 }
 
 type orgResponse struct {
@@ -172,7 +173,7 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := tx.Exec(r.Context(),
 		`INSERT INTO org_members (org_id, user_id, role)
-		 VALUES ($1, $2, 'student')`,
+		 VALUES ($1, $2, 'learner')`,
 		h.cfg.DefaultOrgID, userID,
 	); err != nil {
 		slog.Error("auth: register insert org_member", "error", err)
@@ -274,7 +275,7 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
 		h.cfg.DefaultOrgID, u.ID,
 	).Scan(&orgRole); err != nil {
-		orgRole = "student"
+		orgRole = "learner"
 	}
 
 	accessToken, err := CreateAccessToken(h.cfg, Claims{
@@ -426,7 +427,7 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
 		h.cfg.DefaultOrgID, u.ID,
 	).Scan(&orgRole); err != nil {
-		orgRole = "student"
+		orgRole = "learner"
 	}
 
 	newAccessToken, err := CreateAccessToken(h.cfg, Claims{
@@ -840,16 +841,17 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type userRow struct {
-		ID        string
-		Name      string
-		Email     string
-		AvatarURL *string
+		ID           string
+		Name         string
+		Email        string
+		AvatarURL    *string
+		PlatformRole string
 	}
 	var u userRow
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT id, name, email, avatar_url FROM users WHERE id = $1`,
+		`SELECT id, name, email, avatar_url, platform_role FROM users WHERE id = $1`,
 		claims.UserID,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL); err != nil {
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PlatformRole); err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "User not found.")
 		return
 	}
@@ -870,10 +872,11 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{
 		"user": userResponse{
-			ID:        u.ID,
-			Name:      u.Name,
-			Email:     u.Email,
-			AvatarURL: u.AvatarURL,
+			ID:           u.ID,
+			Name:         u.Name,
+			Email:        u.Email,
+			AvatarURL:    u.AvatarURL,
+			PlatformRole: u.PlatformRole,
 		},
 		"orgs":                 orgs,
 		"onboarding_completed": onboardingCompleted,

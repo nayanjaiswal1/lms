@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Clock, CheckCircle2, ArrowRight } from "lucide-react";
 import { authHeaders } from "@/lib/server/api";
+import { cn } from "@/lib/utils";
 import { getCourses, getCourseTree, getCourseProgress, getEnrollments } from "@/lib/server/courses";
 import { getMyFeedback } from "@/lib/server/feedback";
+import { getModuleLab } from "@/lib/server/labs";
 import { renderModuleMarkdown } from "@/lib/courses/markdown";
 import { MODULE_TYPE_LABEL } from "@/lib/courses/module-types";
 import { computeCompletion } from "@/lib/courses/progress";
@@ -83,6 +85,9 @@ export default async function ModuleLearnPage({ params }: Props) {
     ? renderModuleMarkdown(currentModule.content_body)
     : null;
 
+  const moduleLab = currentModule.type === "notes" ? await getModuleLab(moduleId) : null;
+  const isWideLayout = currentModule.type === "lab";
+
   const moduleMeta = (
     <>
       <Badge className="capitalize" variant="outline">
@@ -117,7 +122,7 @@ export default async function ModuleLearnPage({ params }: Props) {
         />
 
         <div className="page-container flex items-start gap-6 py-6 lg:py-8 xl:gap-10">
-          <article className="min-w-0 max-w-3xl flex-1">
+          <article className={cn("min-w-0 flex-1", !isWideLayout && "max-w-3xl")}>
             <div className="mb-6 flex flex-wrap items-center gap-2 xl:hidden">
               {moduleMeta}
             </div>
@@ -139,9 +144,11 @@ export default async function ModuleLearnPage({ params }: Props) {
             )}
             {currentModule.type === "notes" && notes && (
               <ModuleNotes
-                html={notes.html}
                 initialCompleted={moduleProgress?.status === "completed"}
+                initialSession={moduleLab?.initialSession ?? null}
+                lab={moduleLab?.lab ?? null}
                 moduleId={moduleId}
+                segments={notes.segments}
                 title={currentModule.title}
               />
             )}
@@ -164,36 +171,38 @@ export default async function ModuleLearnPage({ params }: Props) {
             <ModuleNavFooter courseSlug={slug} nextModule={nextModule} prevModule={prevModule} />
           </article>
 
-          <ModuleProgressRail>
-            <CourseProgressBar completed={completedCount} total={totalCount} />
-            <div className="flex flex-wrap items-center gap-2">{moduleMeta}</div>
-            {currentModule.type === "notes" && notes && (
-              <ModuleCompleteButton
-                initialCompleted={moduleProgress?.status === "completed"}
-                moduleId={moduleId}
-              />
-            )}
-            {notes && (
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <ModuleToc entries={notes.toc} />
-              </div>
-            )}
-            {/* Only shown when there's no TOC to fill the rail — on notes
-                pages the TOC already claims the remaining space (and pushing
-                this below it would just clip it off, invisible). */}
-            {!notes && nextModule && (
-              <Link
-                className="mt-auto flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors duration-fast hover:bg-muted"
-                href={ROUTES.courseLearnModule(slug, nextModule.id)}
-              >
-                <span className="flex min-w-0 flex-col">
-                  <span className="text-xs text-muted-foreground">Next</span>
-                  <span className="line-clamp-1 font-medium text-foreground">{nextModule.title}</span>
-                </span>
-                <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
-            )}
-          </ModuleProgressRail>
+          {!isWideLayout && (
+            <ModuleProgressRail>
+              <CourseProgressBar completed={completedCount} total={totalCount} />
+              <div className="flex flex-wrap items-center gap-2">{moduleMeta}</div>
+              {currentModule.type === "notes" && notes && (
+                <ModuleCompleteButton
+                  initialCompleted={moduleProgress?.status === "completed"}
+                  moduleId={moduleId}
+                />
+              )}
+              {notes && (
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <ModuleToc entries={notes.toc} />
+                </div>
+              )}
+              {/* Only shown when there's no TOC to fill the rail — on notes
+                  pages the TOC already claims the remaining space (and pushing
+                  this below it would just clip it off, invisible). */}
+              {!notes && nextModule && (
+                <Link
+                  className="mt-auto flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors duration-fast hover:bg-muted"
+                  href={ROUTES.courseLearnModule(slug, nextModule.id)}
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-xs text-muted-foreground">Next</span>
+                    <span className="line-clamp-1 font-medium text-foreground">{nextModule.title}</span>
+                  </span>
+                  <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              )}
+            </ModuleProgressRail>
+          )}
         </div>
       </main>
     </div>

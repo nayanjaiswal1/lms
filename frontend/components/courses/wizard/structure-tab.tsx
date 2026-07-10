@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   ChevronUp, ChevronDown, Trash2, Plus, ChevronRight, GripVertical,
 } from "lucide-react";
@@ -54,8 +53,9 @@ function ModuleRow({ module, isActive, onUpdate, onRemove, onSelect }: ModuleRow
         </div>
 
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <label className="flex items-center gap-1.5 cursor-pointer">
+          <label htmlFor={`free-preview-${module.localId}`} className="flex items-center gap-1.5 cursor-pointer">
             <Checkbox
+              id={`free-preview-${module.localId}`}
               checked={module.is_free_preview}
               onCheckedChange={(v) => onUpdate({ is_free_preview: Boolean(v) })}
             />
@@ -153,7 +153,7 @@ function SectionCard({
       {open && (
         <div className="flex flex-col gap-1 p-2">
           {section.modules.length === 0 && (
-            <p className="px-2 py-3 text-xs text-muted-foreground text-center">No lessons yet. Add one below.</p>
+            <p className="px-2 py-3 text-sm text-muted-foreground text-center">No lessons yet. Add one below.</p>
           )}
           {section.modules.map((mod) => (
             <ModuleRow

@@ -71,6 +71,7 @@ export function CodeEditor({
         "h-full w-full resize-none font-mono text-sm",
         className,
       )}
+      // eslint-disable-next-line no-restricted-syntax -- dynamic editor fallback height
       style={{ height }}
       value={value}
       readOnly={readOnly}
@@ -82,7 +83,11 @@ export function CodeEditor({
 
   return (
     <EditorErrorBoundary fallback={fallback}>
-      <div className={className} style={{ height }}>
+      {/* eslint-disable-next-line no-restricted-syntax -- dynamic editor container height */}
+      <div
+        className={className}
+        // eslint-disable-next-line no-restricted-syntax -- dynamic editor container height
+        style={{ height }}>
         <MonacoEditor
           height="100%"
           language={language}

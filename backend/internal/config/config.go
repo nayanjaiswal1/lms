@@ -26,10 +26,10 @@ type Config struct {
 	EncryptionKey string
 
 	// Token TTLs
-	AccessTokenTTL        time.Duration
-	RefreshTokenTTL       time.Duration
-	EmailVerificationTTL  time.Duration
-	PasswordResetTTL      time.Duration
+	AccessTokenTTL       time.Duration
+	RefreshTokenTTL      time.Duration
+	EmailVerificationTTL time.Duration
+	PasswordResetTTL     time.Duration
 
 	// Tenancy
 	DefaultOrgID string
@@ -109,31 +109,35 @@ type Config struct {
 	OrphanThreshold         time.Duration
 	SchedulerLeaderTTL      time.Duration
 	SchedulerLeaderRenew    time.Duration
+
+	// Calendar reminder job — how far ahead of an event's starts_at the
+	// reminder email fires. No per-event/per-user override yet.
+	CalendarReminderLeadMinutes int
 }
 
 // Load reads all env vars, validates required/secure fields, and returns Config.
 // Calls log.Fatal (via slog + os.Exit(1)) if any required constraint is violated.
 func Load() *Config {
 	cfg := &Config{
-		Port:                  getEnvDefault("PORT", "8080"),
-		Env:                   getEnvDefault("ENV", "development"),
-		DatabaseURL:           os.Getenv("DATABASE_URL"),
-		RedisURL:              os.Getenv("REDIS_URL"),
-		JWTSecret:             os.Getenv("JWT_SECRET"),
-		CookieSecret:          os.Getenv("COOKIE_SECRET"),
-		EncryptionKey:         os.Getenv("ENCRYPTION_KEY"),
-		DefaultOrgID:          os.Getenv("DEFAULT_ORG_ID"),
-		FrontendURL:           getEnvDefault("FRONTEND_URL", "http://localhost:3000"),
-		BackendURL:            getEnvDefault("BACKEND_URL", "http://localhost:8080"),
-		GoogleClientID:        os.Getenv("GOOGLE_CLIENT_ID"),
-		GoogleClientSecret:    os.Getenv("GOOGLE_CLIENT_SECRET"),
-		GitHubClientID:        os.Getenv("GITHUB_CLIENT_ID"),
-		GitHubClientSecret:    os.Getenv("GITHUB_CLIENT_SECRET"),
-		SMTPHost:              getEnvDefault("SMTP_HOST", "localhost"),
-		SMTPPort:              getEnvDefault("SMTP_PORT", "1025"),
-		SMTPUser:              os.Getenv("SMTP_USER"),
-		SMTPPass:              os.Getenv("SMTP_PASS"),
-		EmailFrom:             getEnvDefault("EMAIL_FROM", "noreply@mindforge.dev"),
+		Port:               getEnvDefault("PORT", "8080"),
+		Env:                getEnvDefault("ENV", "development"),
+		DatabaseURL:        os.Getenv("DATABASE_URL"),
+		RedisURL:           os.Getenv("REDIS_URL"),
+		JWTSecret:          os.Getenv("JWT_SECRET"),
+		CookieSecret:       os.Getenv("COOKIE_SECRET"),
+		EncryptionKey:      os.Getenv("ENCRYPTION_KEY"),
+		DefaultOrgID:       os.Getenv("DEFAULT_ORG_ID"),
+		FrontendURL:        getEnvDefault("FRONTEND_URL", "http://localhost:3000"),
+		BackendURL:         getEnvDefault("BACKEND_URL", "http://localhost:8080"),
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GitHubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		GitHubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		SMTPHost:           getEnvDefault("SMTP_HOST", "localhost"),
+		SMTPPort:           getEnvDefault("SMTP_PORT", "1025"),
+		SMTPUser:           os.Getenv("SMTP_USER"),
+		SMTPPass:           os.Getenv("SMTP_PASS"),
+		EmailFrom:          getEnvDefault("EMAIL_FROM", "noreply@mindforge.dev"),
 	}
 
 	// Required non-empty string fields
@@ -200,6 +204,8 @@ func Load() *Config {
 	cfg.OrphanThreshold = parseDuration("ORPHAN_THRESHOLD", "60s")
 	cfg.SchedulerLeaderTTL = parseDuration("SCHEDULER_LEADER_TTL", "30s")
 	cfg.SchedulerLeaderRenew = parseDuration("SCHEDULER_LEADER_RENEW", "10s")
+
+	cfg.CalendarReminderLeadMinutes = getEnvInt("CALENDAR_REMINDER_LEAD_MINUTES", 30)
 
 	return cfg
 }

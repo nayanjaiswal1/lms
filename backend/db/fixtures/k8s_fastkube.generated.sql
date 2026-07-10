@@ -2,7 +2,7 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-07-03T11:42:15Z
+-- Generated at: 2026-07-08T11:55:27Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Fast Kubernetes ─────────────────────────────────────────────
@@ -116,10 +116,14 @@ spec:
  - Apply/run the file to create pod in declerative way ("kubectl apply -f pod1.yaml"):
    
    ![image](https://user-images.githubusercontent.com/10358317/153198471-55d92940-1141-4e04-a701-6356daaf0181.png)
-  
+
+[[lab-task:1]]
+
 - Describe firstpod ("kubectl describe pods firstpod"):
 
   ![image](https://user-images.githubusercontent.com/10358317/153199893-95bfbef0-61b4-4c41-bd89-481d976c272c.png)
+
+[[lab-task:2]]
 
 - Delete pod and get all pods in the default namepace  ("kubectl delete -f pod1.yaml"):
 
@@ -182,6 +186,8 @@ spec:
 
 ![image](https://user-images.githubusercontent.com/10358317/153407239-c74aa02d-dc51-4ce3-a680-ec777db8477b.png)
 
+[[lab-task:3]]
+
 - Connect (/bin/sh of the webcontainer) and install net-tools to show ethernet interface (IP: 172.17.0.3) 
 
 ![image](https://user-images.githubusercontent.com/10358317/153408261-bdd4b6b5-c44f-4a12-9959-85cb9c582178.png)
@@ -216,6 +222,8 @@ spec:
 - After updating the content of the index.html, new html page will be downloaded by the sidecarcontainer:
 
 ![image](https://user-images.githubusercontent.com/10358317/153414407-3caf71b0-1286-42e8-87e4-d7d1ba47c356.png)
+
+[[lab-task:4]]
 
 - Exit from the container shell and delete multicontainer in a one pod:
 

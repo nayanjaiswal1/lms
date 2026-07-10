@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { toast } from "sonner"
 import { useLabProvisioning } from "@/lib/labs/provisioning-context"
 import ROUTES from "@/lib/routes"
@@ -18,6 +18,12 @@ type ReadinessEvent = { type: "ready" | "failed" }
 export function LabProvisioningWatcher() {
   const { session, updateStatus, clear } = useLabProvisioning()
   const router = useRouter()
+  const pathname = usePathname()
+  // Course learn pages host their own inline LabReadinessWait + router.refresh()
+  // flow (see ModuleLabClient) — this watcher must still sync context status
+  // via SSE there, but must never toast/redirect on top of it, or "ready"
+  // yanks the user off the course page into the standalone session route.
+  const isInlineHosted = pathname.startsWith("/courses/") && pathname.includes("/learn/")
 
   // Keyed on session_id alone — NOT on session.status. This effect's own
   // updateStatus() call (provisioning -> running) below would otherwise
@@ -95,19 +101,21 @@ export function LabProvisioningWatcher() {
       }, 1000)
     }
 
-    toast.loading("Provisioning your lab environment…", {
-      id: toastId,
-      description: "This usually takes 10–30 seconds. Feel free to keep browsing.",
-      duration: Infinity,
-      action: {
-        label: "View",
-        onClick: () => {
-          stopTimers()
-          toast.dismiss(toastId)
-          router.push(ROUTES.labSession(sessionId))
+    if (!isInlineHosted) {
+      toast.loading("Provisioning your lab environment…", {
+        id: toastId,
+        description: "This usually takes 10–30 seconds. Feel free to keep browsing.",
+        duration: Infinity,
+        action: {
+          label: "View",
+          onClick: () => {
+            stopTimers()
+            toast.dismiss(toastId)
+            router.push(ROUTES.labSession(sessionId))
+          },
         },
-      },
-    })
+      })
+    }
 
     const es = new EventSource(`${apiUrl}/api/labs/sessions/${sessionId}/events`, {
       withCredentials: true,
@@ -117,8 +125,13 @@ export function LabProvisioningWatcher() {
       const data = JSON.parse(e.data as string) as ReadinessEvent
       if (data.type === "ready") {
         es.close()
+        stopTimers()
         updateStatus(sessionId, "running")
-        startCountdown()
+        if (isInlineHosted) {
+          toast.dismiss(toastId)
+        } else {
+          startCountdown()
+        }
       } else if (data.type === "failed") {
         es.close()
         reportFailed()
@@ -139,7 +152,7 @@ export function LabProvisioningWatcher() {
     // alone (see comment above `sessionId`'s declaration) — reacting to
     // session.status changes here is exactly the bug this is avoiding.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, router, updateStatus, clear])
+  }, [sessionId, router, updateStatus, clear, isInlineHosted])
 
   return null
 }

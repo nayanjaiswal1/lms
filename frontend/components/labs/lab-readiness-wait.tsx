@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { Loader2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -15,8 +15,8 @@ export function LabReadinessWait({
   onReady,
   onFailed,
 }: LabReadinessWaitProps) {
-  const onReadyRef = { current: onReady }
-  const onFailedRef = { current: onFailed }
+  const onReadyRef = useRef(onReady)
+  const onFailedRef = useRef(onFailed)
   onReadyRef.current = onReady
   onFailedRef.current = onFailed
 

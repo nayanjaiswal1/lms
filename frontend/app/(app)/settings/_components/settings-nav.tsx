@@ -5,9 +5,15 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { SETTINGS_NAV } from '@/lib/nav'
 
+const TOTAL_NAV_ITEMS = SETTINGS_NAV.flatMap((group) => group.items).length
+
 /** Mobile: horizontal scrolling pill row — hidden on lg+ */
 export function SettingsMobileNav() {
   const pathname = usePathname()
+
+  // A nav with a single destination is pure chrome — hide it. Reappears
+  // automatically once a second settings page (e.g. Security) is added.
+  if (TOTAL_NAV_ITEMS <= 1) return null
 
   return (
     <div
@@ -44,6 +50,8 @@ export function SettingsMobileNav() {
 /** Desktop: left sidebar — hidden below lg */
 export function SettingsDesktopNav() {
   const pathname = usePathname()
+
+  if (TOTAL_NAV_ITEMS <= 1) return null
 
   return (
     <aside className="hidden lg:block w-full lg:w-[220px] flex-shrink-0">

@@ -1,9 +1,13 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { fetchMyProfile } from '@/lib/profile/server'
+import { ArrowLeft } from 'lucide-react'
+import { fetchMyOverview, fetchMyProfile } from '@/lib/profile/server'
+import { getMyRank, getMyRewardProfile } from '@/lib/server/rewards'
+import { getMyBatches } from '@/lib/server/batches'
 import type { Profile } from '@/lib/profile/types'
 import ROUTES from '@/lib/routes'
 import { ProfileHeader } from '@/components/profile/profile-header'
+import { ProfileOverview } from '@/components/profile/profile-overview'
 import { ProfileCompletion } from '@/components/profile/profile-completion'
 import { ProfileStats } from '@/components/profile/profile-stats'
 import { SkillsManager } from '@/components/profile/skills-manager'
@@ -29,13 +33,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const TABS = [
+const EDIT_TABS = [
   { key: 'profile',      label: 'Profile' },
   { key: 'skills',       label: 'Skills' },
   { key: 'learning',     label: 'Learning' },
   { key: 'achievements', label: 'Achievements' },
   { key: 'preferences',  label: 'Preferences' },
 ] as const
+
+const TABS = [{ key: 'overview', label: 'Overview' }, ...EDIT_TABS] as const
 
 type TabKey = typeof TABS[number]['key']
 
@@ -49,14 +55,20 @@ export default async function SettingsProfilePage({
 
   const { tab: rawTab } = await searchParams
   const activeTab: TabKey =
-    TABS.find((t) => t.key === rawTab)?.key ?? 'profile'
+    TABS.find((t) => t.key === rawTab)?.key ?? 'overview'
+
+  const rewardProfile = await getMyRewardProfile()
+
+  const [overview, rank, batches] = activeTab === 'overview'
+    ? await Promise.all([fetchMyOverview(), getMyRank('global'), getMyBatches()])
+    : [null, null, []]
 
   const breakdown = {
     avatar: profile.avatar_url !== null,
     bio: Boolean(profile.bio),
     skills: profile.skills.length >= 3,
     learningGoal: profile.learning_goal !== null,
-    domains: profile.topics_interest.length >= 1,
+    domains: (profile.topics_interest?.length ?? 0) >= 1,
     socialLinks: Boolean(
       profile.social_links?.linkedin ||
       profile.social_links?.github ||
@@ -64,8 +76,28 @@ export default async function SettingsProfilePage({
     ),
   }
 
+  if (activeTab === 'overview') {
+    return (
+      <ProfileOverview
+        batches={batches}
+        overview={overview}
+        profile={profile}
+        rank={rank}
+        rewardProfile={rewardProfile}
+      />
+    )
+  }
+
   return (
     <div className="space-y-6">
+      <Link
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-fast"
+        href={ROUTES.SETTINGS_PROFILE}
+      >
+        <ArrowLeft aria-hidden="true" size={14} />
+        Back to profile
+      </Link>
+
       <ProfileHeader profile={profile} uploadAction={uploadAvatarAction} />
 
       {/* Tab bar */}
@@ -74,7 +106,7 @@ export default async function SettingsProfilePage({
         className="flex overflow-x-auto gap-0 border-b border-border -mb-px"
         role="tablist"
       >
-        {TABS.map((tab) => {
+        {EDIT_TABS.map((tab) => {
           const isActive = tab.key === activeTab
           return (
             <Link
@@ -110,8 +142,8 @@ export default async function SettingsProfilePage({
                 updateAction={updateSocialLinksAction}
               />
               <ResumeUpload
-                parseAction={parseResumeAction}
                 applyAction={applyResumeAction}
+                parseAction={parseResumeAction}
               />
             </>
           )}
@@ -136,7 +168,7 @@ export default async function SettingsProfilePage({
 
           {activeTab === 'achievements' && (
             <>
-              <AchievementsCard stats={profile.stats} />
+              <AchievementsCard achievements={rewardProfile?.achievements ?? null} stats={profile.stats} />
               <ProfileStats stats={profile.stats} />
             </>
           )}

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server"
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
+  "/now",
   "/courses",
   "/assessments",
   "/question-bank",
@@ -11,6 +12,8 @@ const PROTECTED_PREFIXES = [
   "/practice",
   "/settings",
   "/admin",
+  "/sheets",
+  "/platform",
 ]
 
 // Decode JWT expiry from the payload without verifying the signature.

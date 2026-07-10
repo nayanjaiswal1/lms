@@ -35,7 +35,7 @@ export function ModuleVideo({ moduleId, presignedUrl, title, initialPositionSeco
   return (
     <div className="flex flex-col gap-3">
       <h2 className="text-xl font-semibold">{title}</h2>
-      <div className="overflow-hidden rounded-lg bg-black">
+      <div className="overflow-hidden rounded-lg bg-card">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
           ref={videoRef}

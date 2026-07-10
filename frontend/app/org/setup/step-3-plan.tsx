@@ -48,7 +48,7 @@ export function Step3Plan({ orgId, org }: Step3PlanProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      seat_limit: org?.seat_limit != null ? String(org.seat_limit) : "",
+      seat_limit: org && org.seat_limit !== null ? String(org.seat_limit) : "",
     },
     mode: "onTouched",
   });

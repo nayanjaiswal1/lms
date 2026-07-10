@@ -23,13 +23,13 @@ const (
 	StatusCompleted = "completed"
 	StatusArchived  = "archived"
 
-	AttemptCreated     = "created"
-	AttemptInProgress  = "in_progress"
-	AttemptSubmitted   = "submitted"
-	AttemptEvaluating  = "evaluating"
-	AttemptEvaluated   = "evaluated"
-	AttemptEvalFailed  = "eval_failed"
-	AttemptExpired     = "expired"
+	AttemptCreated    = "created"
+	AttemptInProgress = "in_progress"
+	AttemptSubmitted  = "submitted"
+	AttemptEvaluating = "evaluating"
+	AttemptEvaluated  = "evaluated"
+	AttemptEvalFailed = "eval_failed"
+	AttemptExpired    = "expired"
 
 	AssigneeStudent = "student"
 	AssigneeBatch   = "batch"
@@ -59,7 +59,7 @@ const (
 // overlay caller-supplied fields so an omitted field keeps its safe default.
 type ProctoringConfig struct {
 	RequireFullscreen     bool   `json:"require_fullscreen"`
-	FullscreenExitAction  string `json:"fullscreen_exit_action"`  // pause | continue | auto_submit
+	FullscreenExitAction  string `json:"fullscreen_exit_action"` // pause | continue | auto_submit
 	BlockCopyPaste        bool   `json:"block_copy_paste"`
 	BlockRightClick       bool   `json:"block_right_click"`
 	BlockDevtools         bool   `json:"block_devtools"`
@@ -67,8 +67,8 @@ type ProctoringConfig struct {
 	MaxFocusLoss          int    `json:"max_focus_loss"`           // 0 = unlimited
 	AutoSubmitOnViolation bool   `json:"auto_submit_on_violation"` // hard-submit when a hard cap is hit
 	HeartbeatSeconds      int    `json:"heartbeat_seconds"`
-	RequireCamera         bool   `json:"require_camera"`           // show camera & mic preflight step
-	AllowSecondaryCamera  bool   `json:"allow_secondary_camera"`   // show secondary phone camera step
+	RequireCamera         bool   `json:"require_camera"`         // show camera & mic preflight step
+	AllowSecondaryCamera  bool   `json:"allow_secondary_camera"` // show secondary phone camera step
 }
 
 // DefaultProctoring returns the platform's safe default proctoring policy.
@@ -162,16 +162,20 @@ type Question struct {
 }
 
 type Batch struct {
-	ID          string    `json:"id"`
-	OrgID       string    `json:"org_id"`
-	Name        string    `json:"name"`
-	Slug        string    `json:"slug"`
-	Description *string   `json:"description"`
-	MentorID    *string   `json:"mentor_id"`
-	Status      string    `json:"status"`
-	MemberCount int       `json:"member_count"`
-	CreatedBy   string    `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string     `json:"id"`
+	OrgID       string     `json:"org_id"`
+	Name        string     `json:"name"`
+	Slug        string     `json:"slug"`
+	Description *string    `json:"description"`
+	MentorID    *string    `json:"mentor_id"`
+	Status      string     `json:"status"`
+	MemberCount int        `json:"member_count"`
+	CreatedBy   string     `json:"created_by"`
+	StartsAt    *time.Time `json:"starts_at"`
+	EndsAt      *time.Time `json:"ends_at"`
+	ImageURL    *string    `json:"image_url"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 type Assessment struct {

@@ -100,7 +100,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
       </div>
 
       {myRankData && myRankData.rank > 0 && (
-        <div className="mb-6 flex items-center gap-4 rounded-xl border border-border bg-primary/5 px-5 py-4 dark:bg-primary/10">
+        <div className="mb-6 flex items-center gap-4 rounded-xl border border-border bg-primary/10 px-5 py-4">
           <div className="flex flex-col">
             <p className="text-xs text-muted-foreground">Your rank</p>
             <p className="text-2xl font-bold tabular-nums text-primary">#{myRankData.rank}</p>

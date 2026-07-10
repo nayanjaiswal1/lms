@@ -96,7 +96,7 @@ export default async function LabResultPage({ params }: PageProps) {
         )}
 
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold tabular-nums">
+          <h1 className="page-title tabular-nums">
             {maxScore > 0 ? `${session.score} / ${maxScore}` : "Done"}
           </h1>
           <p className="text-muted-foreground">

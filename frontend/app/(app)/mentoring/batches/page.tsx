@@ -4,6 +4,7 @@ import { Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getBatches } from "@/lib/server/batches";
+import { BatchAvatar } from "@/components/batches/batch-avatar";
 import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "My Batches — MindForge" };
@@ -25,6 +26,7 @@ async function BatchList() {
       {batches.map((batch) => (
         <li key={batch.id}>
           <Link href={ROUTES.mentoringBatch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
+            <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} />
             <div className="flex flex-1 flex-col gap-1">
               <div className="flex items-center gap-2">
                 <span className="font-medium">{batch.name}</span>
@@ -35,10 +37,10 @@ async function BatchList() {
               {batch.description && (
                 <p className="line-clamp-1 text-sm text-muted-foreground">{batch.description}</p>
               )}
-              {batch.start_date && (
+              {batch.starts_at && (
                 <p className="text-xs text-muted-foreground">
-                  {new Date(batch.start_date).toLocaleDateString()}
-                  {batch.end_date && ` – ${new Date(batch.end_date).toLocaleDateString()}`}
+                  {new Date(batch.starts_at).toLocaleDateString()}
+                  {batch.ends_at && ` – ${new Date(batch.ends_at).toLocaleDateString()}`}
                 </p>
               )}
             </div>

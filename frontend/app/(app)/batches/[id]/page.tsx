@@ -8,8 +8,10 @@ import {
   getOrgId,
   getOrgMembersAll,
 } from "@/lib/server/batches";
-import { AddMembersPanel } from "@/app/(app)/batches/[id]/add-members-panel";
+import { AddStudentsPanel } from "@/app/(app)/batches/[id]/add-students-panel";
 import { RemoveMemberButton } from "@/app/(app)/batches/[id]/remove-member-button";
+import { EditBatchPanel } from "@/app/(app)/batches/[id]/edit-batch-panel";
+import { BatchAvatar } from "@/components/batches/batch-avatar";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -42,22 +44,32 @@ export default async function InstructorBatchDetailPage({ params }: Props) {
     <main className="page-container py-8">
       <div className="page-header">
         <div className="flex items-center gap-3 flex-wrap">
-          <Link
-            className="text-sm text-muted-foreground hover:text-foreground"
-            href={ROUTES.BATCHES}
-          >
-            Batches
-          </Link>
-          <span aria-hidden className="text-muted-foreground">/</span>
-          <h1 className="page-title">{batch.name}</h1>
-          <Badge variant={batch.status === "active" ? "default" : "secondary"}>
-            {batch.status}
-          </Badge>
+          <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} size="md" />
+          <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              className="text-sm text-muted-foreground hover:text-foreground"
+              href={ROUTES.BATCHES}
+            >
+              Batches
+            </Link>
+            <span aria-hidden className="text-muted-foreground">/</span>
+            <h1 className="page-title">{batch.name}</h1>
+            <Badge variant={batch.status === "active" ? "default" : "secondary"}>
+              {batch.status}
+            </Badge>
+          </div>
         </div>
+        <EditBatchPanel batch={batch} orgMembers={orgMembers} />
       </div>
 
       {batch.description && (
         <p className="mb-8 text-muted-foreground">{batch.description}</p>
+      )}
+      {(batch.starts_at || batch.ends_at) && (
+        <p className="mb-8 text-sm text-muted-foreground">
+          {batch.starts_at && new Date(batch.starts_at).toLocaleDateString()}
+          {batch.ends_at && ` – ${new Date(batch.ends_at).toLocaleDateString()}`}
+        </p>
       )}
 
       <section className="flex flex-col gap-6">
@@ -67,11 +79,7 @@ export default async function InstructorBatchDetailPage({ params }: Props) {
             <h2 className="section-title">Members</h2>
             <Badge variant="secondary">{members.length}</Badge>
           </div>
-          <AddMembersPanel
-            batchId={id}
-            currentMemberIds={currentMemberIds}
-            orgMembers={orgMembers}
-          />
+          <AddStudentsPanel batchId={id} currentMemberIds={currentMemberIds} orgMembers={orgMembers} />
         </div>
 
         {members.length === 0 ? (
@@ -79,7 +87,7 @@ export default async function InstructorBatchDetailPage({ params }: Props) {
             <Users aria-hidden className="h-10 w-10 text-muted-foreground" />
             <p className="mt-3 font-medium">No members yet</p>
             <p className="text-sm text-muted-foreground">
-              Use the &ldquo;Add members&rdquo; button to add org members to this batch.
+              Use the &ldquo;Add students&rdquo; button to add existing members, invite by email, or bulk import.
             </p>
           </div>
         ) : (

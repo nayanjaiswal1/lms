@@ -15,10 +15,11 @@ import {
   User,
   GraduationCap,
   Shield,
-  Briefcase,
-  Cpu,
   UserCheck,
   Ticket,
+  BookmarkCheck,
+  Calendar,
+  Compass,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -85,6 +86,14 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:  LayoutDashboard,
     exact: true,
   },
+  what_now: {
+    label:   "What Now?",
+    href:    ROUTES.NOW,
+    icon:    Compass,
+    feature: FEATURES.WHAT_NOW,
+    mode:    "hide",
+    exact:   true,
+  },
   courses: {
     label:               "My Courses",
     href:                ROUTES.COURSES,
@@ -113,6 +122,16 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label: "Mentors",
     href:  ROUTES.MENTORS,
     icon:  UserCheck,
+  },
+  calendar: {
+    label: "Calendar",
+    href:  ROUTES.CALENDAR,
+    icon:  Calendar,
+  },
+  highlights: {
+    label: "Saved Highlights",
+    href:  ROUTES.HIGHLIGHTS,
+    icon:  BookmarkCheck,
   },
   flashcards: {
     label:               "Review Cards",
@@ -249,19 +268,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  "admin.manage_roles",
   },
 
-  admin_jobs: {
-    label:               "Jobs",
-    href:                ROUTES.ADMIN_JOBS,
-    icon:                Briefcase,
-    requiredPermission:  "admin.view_jobs",
-  },
-
-  admin_jobs_workers: {
-    label:               "Worker Health",
-    href:                ROUTES.ADMIN_JOBS_WORKERS,
-    icon:                Cpu,
-    requiredPermission:  "admin.view_jobs",
-  },
 };
 
 // ─────────────────────────────────────────────
@@ -294,10 +300,13 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
   {
     items: [
       ALL_NAV_ITEMS.dashboard,
+      ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.courses,
       ALL_NAV_ITEMS.practice,
       ALL_NAV_ITEMS.assessments,
       ALL_NAV_ITEMS.mentors,
+      ALL_NAV_ITEMS.calendar,
+      ALL_NAV_ITEMS.highlights,
       ALL_NAV_ITEMS.flashcards,
       ALL_NAV_ITEMS.sheet_tracker,
       ALL_NAV_ITEMS.mentor_chat,
@@ -330,8 +339,6 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     label: "Administration",
     items: [
       ALL_NAV_ITEMS.admin_rbac,
-      ALL_NAV_ITEMS.admin_jobs,
-      ALL_NAV_ITEMS.admin_jobs_workers,
     ],
   },
 ];

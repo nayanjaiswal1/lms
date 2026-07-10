@@ -36,6 +36,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/labs/sessions/{sessionId}/reset", h.HandleResetSession)
 	r.Post("/api/labs/sessions/{sessionId}/end", h.HandleEndSession)
 	r.Post("/api/labs/sessions/{sessionId}/tasks/{taskId}/verify", h.HandleVerifyTask)
+	r.Post("/api/labs/run", h.HandleRunSnippet)
 
 	r.Get("/api/labs/sessions/{sessionId}/files", h.HandleListFiles)
 	r.Get("/api/labs/sessions/{sessionId}/files/read", h.HandleReadFile)

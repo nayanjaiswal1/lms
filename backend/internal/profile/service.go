@@ -88,6 +88,18 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, input Update
 		return nil, err
 	}
 
+	if input.Name != nil {
+		locked, err := s.repo.GetLockedFields(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("profile: check locked fields: %w", err)
+		}
+		for _, f := range locked {
+			if f == "full_name" || f == "name" {
+				return nil, ErrFieldLocked
+			}
+		}
+	}
+
 	hasSocialLinks := input.LinkedIn != nil || input.GitHub != nil || input.Portfolio != nil
 
 	// When display_name is being set, derive and persist the slug first.
@@ -289,6 +301,11 @@ func (s *Service) GetMyOverview(ctx context.Context, orgID, userID string) (*Pro
 		return nil, fmt.Errorf("profile: get overview recent activity: %w", err)
 	}
 
+	languageStats, err := s.repo.GetLanguageBreakdown(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("profile: get overview language breakdown: %w", err)
+	}
+
 	var solvedTotal int
 	for _, d := range breakdown {
 		solvedTotal += d.Solved
@@ -305,6 +322,7 @@ func (s *Service) GetMyOverview(ctx context.Context, orgID, userID string) (*Pro
 		ActiveDays:       activeDays,
 		MaxStreak:        maxStreak,
 		RecentActivity:   recent,
+		LanguageStats:    languageStats,
 	}, nil
 }
 

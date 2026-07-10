@@ -76,7 +76,7 @@ export function LeaderboardTable({ entries, myUserID, myRank }: LeaderboardTable
             className={cn(
               "flex items-center gap-3 px-4 py-3 transition-colors",
               isMe
-                ? "bg-primary/5 dark:bg-primary/10"
+                ? "bg-primary/10"
                 : "bg-card hover:bg-muted/50",
             )}
           >
@@ -103,7 +103,7 @@ export function LeaderboardTable({ entries, myUserID, myRank }: LeaderboardTable
       })}
 
       {myRank !== undefined && myUserID && !entries.some((e) => e.user_id === myUserID) && (
-        <div className="flex items-center gap-3 border-t-2 border-primary/30 bg-primary/5 px-4 py-3 dark:bg-primary/10">
+        <div className="flex items-center gap-3 border-t-2 border-primary/30 bg-primary/10 px-4 py-3">
           <div className="flex w-8 shrink-0 items-center justify-center">
             <span className="w-7 text-center text-sm font-semibold tabular-nums text-muted-foreground">
               {myRank}

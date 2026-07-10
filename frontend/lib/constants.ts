@@ -4,6 +4,10 @@
 // Import the *_OPTIONS arrays as `options` props.
 // ─────────────────────────────────────────────
 
+// "What Now?" is a personal, single-user room — not org/plan gated, so it
+// doesn't go through FEATURES/<AccessGate>. Restricted to one email instead.
+export const NOW_FEATURE_ALLOWED_EMAIL = "jaiswal2062@gmail.com";
+
 export const DIFFICULTY = {
   EASY:   "easy",
   MEDIUM: "medium",

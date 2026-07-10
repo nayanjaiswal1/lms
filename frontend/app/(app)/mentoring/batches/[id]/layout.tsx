@@ -4,6 +4,7 @@ import { MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BatchTabNav } from "@/components/batches/batch-tab-nav";
+import { BatchAvatar } from "@/components/batches/batch-avatar";
 import { getBatch } from "@/lib/server/batches";
 import ROUTES from "@/lib/routes";
 
@@ -28,6 +29,7 @@ export default async function MentorBatchLayout({ params, children }: Props) {
     <main className="page-container py-8">
       <div className="page-header">
         <div className="flex items-center gap-3">
+          <BatchAvatar editable batchId={batch.id} imageUrl={batch.image_url} name={batch.name} size="md" />
           <h1 className="page-title">{batch.name}</h1>
           <Badge variant={batch.status === "active" ? "default" : "secondary"}>
             {batch.status}

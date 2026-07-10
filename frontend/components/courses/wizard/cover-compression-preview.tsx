@@ -25,7 +25,7 @@ export function CoverCompressionPreview({
         <div className="flex flex-col gap-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            alt="Original cover image"
+            alt="Original cover"
             className="h-28 w-full rounded-md object-cover bg-muted"
             src={originalPreviewUrl}
           />
@@ -34,7 +34,7 @@ export function CoverCompressionPreview({
         <div className="flex flex-col gap-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            alt="Compressed cover image"
+            alt="Compressed cover"
             className="h-28 w-full rounded-md object-cover bg-muted"
             src={compressedPreviewUrl}
           />

@@ -15,6 +15,7 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/rewards"
+	"github.com/mindforge/backend/internal/storage"
 )
 
 // Handler exposes the assessment domain over HTTP. It owns the service and repo.
@@ -25,13 +26,15 @@ type Handler struct {
 	jobRegistry *jobs.Registry
 	rewardsSvc  *rewards.Service
 	coursesSvc  *courses.Service
+	store       storage.StorageClient
 }
 
 // NewHandler builds the assessment HTTP handler and its dependency graph.
 // coursesSvc completes the course module wrapping a passed assessment (if any) —
-// see courses.Service.CompleteModuleForAssessment.
-func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service) *Handler {
-	return &Handler{repo: repo, service: service, pool: pool, jobRegistry: jobRegistry, rewardsSvc: rewardsSvc, coursesSvc: coursesSvc}
+// see courses.Service.CompleteModuleForAssessment. store backs batch cover-image
+// uploads (see image_batch.go).
+func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service, store storage.StorageClient) *Handler {
+	return &Handler{repo: repo, service: service, pool: pool, jobRegistry: jobRegistry, rewardsSvc: rewardsSvc, coursesSvc: coursesSvc, store: store}
 }
 
 // ─── shared helpers ──────────────────────────────────────────────────────────

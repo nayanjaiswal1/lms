@@ -1,5 +1,7 @@
 export type LabType = 'terminal' | 'code' | 'playground' | 'guided'
 
+export type LabWorkspaceLayout = 'split' | 'console'
+
 export type LabCodeLanguage = 'javascript' | 'python' | 'typescript'
 
 export interface VerifyTaskResult {
@@ -48,6 +50,7 @@ export interface Lab {
   max_resets: number
   hint_penalty_pct: number
   description: string | null
+  layout: LabWorkspaceLayout
   tasks: LabTask[]
 }
 

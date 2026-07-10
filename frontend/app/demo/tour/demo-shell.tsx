@@ -27,6 +27,7 @@ export function DemoShell({ activeView }: DemoShellProps) {
       {/* Demo bar — sticky top */}
       <header
         className="sticky top-0 z-sticky h-14 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        // eslint-disable-next-line no-restricted-syntax -- zIndex CSS var fallback for dynamic stacking context
         style={{ zIndex: "var(--z-sticky)" }}
       >
         <div className="page-container flex h-full items-center justify-between">
@@ -80,6 +81,7 @@ export function DemoShell({ activeView }: DemoShellProps) {
       </main>
 
       {/* Conversion bar — fixed bottom */}
+      {/* eslint-disable-next-line no-restricted-syntax -- zIndex CSS var fallback for dynamic stacking context */}
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-bottom" style={{ zIndex: "var(--z-sticky)" }}>
         <div className="page-container flex h-16 flex-col items-center justify-center gap-2 sm:flex-row sm:justify-between">
           <p className="hidden text-sm text-muted-foreground sm:block">

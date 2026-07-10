@@ -31,7 +31,7 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
 
   const coverPreview = coverFile ? URL.createObjectURL(coverFile) : info.cover_url || null;
 
-  function useCompressedCover(blob: Blob, fileName: string) {
+  function applyCompressedCover(blob: Blob, fileName: string) {
     onCoverFile(new File([blob], fileName, { type: blob.type }));
     onChange({ cover_url: "" });
     compression.clear();
@@ -55,7 +55,7 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         originalSize={originalFile.size}
         width={width}
         onKeepOriginal={() => keepOriginalCover(originalFile)}
-        onUseCompressed={() => useCompressedCover(compressedBlob, originalFile.name)}
+        onUseCompressed={() => applyCompressedCover(compressedBlob, originalFile.name)}
       />
     );
   }
@@ -238,7 +238,7 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
             </span>
           ))}
           <input
-            className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             id="tags"
             placeholder={info.tags.length ? "" : "Type a tag and press Enter…"}
             value={tagInput}

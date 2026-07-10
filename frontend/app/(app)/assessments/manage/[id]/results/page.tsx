@@ -92,10 +92,10 @@ export default async function ResultsPage({ params }: PageProps) {
                     <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
                   )}
                   <div className="progress-track w-40">
-                    {/* eslint-disable-next-line no-restricted-syntax -- dynamic correctness width must be an inline CSS var */}
+                    {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
                     <div
                       className="progress-fill"
-                      style={{ width: `${Math.round(q.correct_rate)}%` }}
+                      style={{ '--progress': `${Math.round(q.correct_rate)}%` } as React.CSSProperties}
                     />
                   </div>
                   <span className="w-12 text-right text-sm tabular-nums">
@@ -181,10 +181,12 @@ function ScoreDistribution({
           return (
             <div className="flex flex-1 flex-col items-center gap-1" key={key}>
               <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
+              {/* eslint-disable-next-line no-restricted-syntax -- fixed container height for score distribution chart */}
               <div className="flex w-full items-end" style={{ height: "80px" }}>
                 {/* eslint-disable-next-line no-restricted-syntax -- dynamic bar height requires inline style */}
                 <div
                   className={`w-full rounded-t-sm ${key === "81-100" ? "bg-primary" : "bg-muted-foreground/40"}`}
+                  // eslint-disable-next-line no-restricted-syntax -- dynamic bar height requires inline style
                   style={{ height: `${barPct}%` }}
                 />
               </div>
@@ -230,10 +232,10 @@ function CandidatesTable({ candidates }: { candidates: PublicCandidate[] }) {
               <td className="py-3 pr-4 text-muted-foreground">{c.email}</td>
               <td className="py-3 pr-4 capitalize text-muted-foreground">{c.status}</td>
               <td className="py-3 pr-4 tabular-nums">
-                {c.percentage != null ? `${Math.round(c.percentage)}%` : "—"}
+                {c.percentage !== undefined ? `${Math.round(c.percentage)}%` : "—"}
               </td>
               <td className="py-3 pr-4">
-                {c.passed == null ? (
+                {c.passed === undefined ? (
                   <span className="text-muted-foreground">—</span>
                 ) : c.passed ? (
                   <span className="font-medium text-primary">Passed</span>

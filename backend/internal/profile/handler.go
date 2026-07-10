@@ -67,6 +67,7 @@ func (h *Handler) HandleGetMyOverview(w http.ResponseWriter, r *http.Request) {
 
 	overview, err := h.service.GetMyOverview(r.Context(), claims.OrgID, claims.UserID)
 	if err != nil {
+		slog.Error("profile: get overview", "error", err, "user_id", claims.UserID)
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to load profile overview.")
 		return
 	}
@@ -93,6 +94,10 @@ func (h *Handler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrConflict) {
 			httputil.WriteError(w, http.StatusConflict, "Display name is already taken.")
+			return
+		}
+		if errors.Is(err, ErrFieldLocked) {
+			httputil.WriteError(w, http.StatusForbidden, "Your name is locked by your batch administrator.")
 			return
 		}
 		httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())

@@ -30,6 +30,21 @@ func (h *Handler) ListMyAssessments(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"assessments": items})
 }
 
+// ListMyBatches returns the batches (cohorts/bootcamps) the authenticated
+// student is a member of.
+func (h *Handler) ListMyBatches(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.repo.ListBatchesForUser(r.Context(), claims.OrgID, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"batches": items})
+}
+
 // attemptPayload is the response shape for starting or resuming an attempt.
 // SessionToken is returned once here and must be echoed back on every
 // mutating call (save answer, run code, record event, submit) — it proves

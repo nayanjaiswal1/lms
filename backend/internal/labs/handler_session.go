@@ -37,6 +37,9 @@ type labStudentResponse struct {
 	MaxResets      int               `json:"max_resets"`
 	HintPenaltyPct int               `json:"hint_penalty_pct"`
 	IsRequired     bool              `json:"is_required"`
+	// Layout selects the student workspace arrangement: "split" or "console".
+	// See LabDefinition.WorkspaceLayout.
+	Layout         string            `json:"layout"`
 	Tasks          []studentTaskView `json:"tasks"`
 }
 
@@ -53,6 +56,7 @@ func newLabStudentResponse(lab *LabDefinition) labStudentResponse {
 		MaxResets:      lab.MaxResets,
 		HintPenaltyPct: lab.HintPenaltyPct,
 		IsRequired:     lab.IsRequired,
+		Layout:         lab.WorkspaceLayout,
 		Tasks:          []studentTaskView{},
 	}
 }

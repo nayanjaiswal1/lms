@@ -28,9 +28,9 @@ export function DifficultySolvedChart({ difficulty, solvedTotal, attempting }: P
   let offset = 0
 
   return (
-    <section aria-label="Problems solved by difficulty" className="card-base p-6">
-      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-8">
-        <div className="relative w-full max-w-[160px] shrink-0">
+    <section aria-label="Problems solved by difficulty" className="card-base p-6 flex-1">
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+        <div className="relative w-full max-w-24 shrink-0">
           <svg className="w-full h-auto -rotate-90" viewBox="0 0 100 100">
             <circle
               className="text-muted"
@@ -45,7 +45,7 @@ export function DifficultySolvedChart({ difficulty, solvedTotal, attempting }: P
               difficulty.map((d) => {
                 if (d.solved === 0) return null
                 const fraction = d.solved / solvedTotal
-                const dash = fraction * CIRCUMFERENCE
+                const dash = Math.max(fraction * CIRCUMFERENCE - 3, 0)
                 const segment = (
                   <circle
                     className={RING_COLOR[d.difficulty]}
@@ -57,40 +57,38 @@ export function DifficultySolvedChart({ difficulty, solvedTotal, attempting }: P
                     stroke="currentColor"
                     strokeDasharray={`${dash} ${CIRCUMFERENCE - dash}`}
                     strokeDashoffset={-offset}
-                    strokeLinecap="butt"
+                    strokeLinecap="round"
                     strokeWidth="10"
-                  />
+                  >
+                    <title>{`${LABEL[d.difficulty]}: ${d.solved}/${d.total} solved`}</title>
+                  </circle>
                 )
-                offset += dash
+                offset += fraction * CIRCUMFERENCE
                 return segment
               })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold text-foreground tabular-nums">{solvedTotal}</span>
-            <span className="text-xs text-muted-foreground">Solved</span>
+            <span className="text-lg font-bold text-foreground tabular-nums">{solvedTotal}</span>
+            <span className="text-[10px] text-muted-foreground">/{totalAvailable}</span>
           </div>
         </div>
 
-        <div className="w-full space-y-2">
+        {/* eslint-disable-next-line no-restricted-syntax -- max-w constraint is responsive on sm+ via sm:max-w-[260px] */}
+        <div className="w-full max-w-none sm:max-w-[260px] divide-y divide-border">
           {difficulty.map((d) => (
-            <div className="flex items-center justify-between gap-3 text-sm" key={d.difficulty}>
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <span aria-hidden="true" className={`h-2 w-2 rounded-full bg-current ${RING_COLOR[d.difficulty]}`} />
+            <div className="flex items-center justify-between gap-3 py-1.5" key={d.difficulty}>
+              <span className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full shrink-0 ${RING_COLOR[d.difficulty]} bg-current`} />
                 {LABEL[d.difficulty]}
               </span>
-              <span className="tabular-nums text-foreground">
-                {d.solved}
-                <span className="text-muted-foreground">/{d.total}</span>
-              </span>
+              <span className="text-xs font-semibold tabular-nums text-muted-foreground">{d.solved}/{d.total}</span>
             </div>
           ))}
-          <div className="flex items-center justify-between gap-3 pt-2 mt-2 border-t border-border text-sm">
-            <span className="text-muted-foreground">Attempting</span>
-            <span className="tabular-nums text-foreground">{attempting}</span>
-          </div>
-          {totalAvailable === 0 && (
-            <p className="text-xs text-muted-foreground pt-1">No coding questions available yet.</p>
-          )}
+
+          <p className="flex items-center gap-2 pt-1.5 text-xs text-muted-foreground">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full shrink-0 bg-ai" />
+            {attempting} Attempting
+          </p>
         </div>
       </div>
     </section>

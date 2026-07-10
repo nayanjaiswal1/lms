@@ -102,7 +102,7 @@ func (r *Repo) GetDifficultyBreakdown(ctx context.Context, orgID, userID string)
 // finalized that day.
 func (r *Repo) GetSubmissionCalendar(ctx context.Context, userID string) ([]CalendarDay, error) {
 	const q = `
-		SELECT COALESCE(submitted_at, created_at)::date AS d, COUNT(*)
+		SELECT COALESCE(submitted_at, created_at)::date::text AS d, COUNT(*)
 		FROM assessment_attempts
 		WHERE user_id = $1
 			AND COALESCE(submitted_at, created_at) >= now() - interval '365 days'
@@ -131,6 +131,43 @@ func (r *Repo) GetSubmissionCalendar(ctx context.Context, userID string) ([]Cale
 		days = []CalendarDay{}
 	}
 	return days, nil
+}
+
+// ─── GetLanguageBreakdown ───────────────────────────────────────────────────────
+
+// GetLanguageBreakdown returns the count of distinct questions the user has
+// solved with an accepted (status = 'passed') coding submission, grouped by
+// submission language and ordered by solved count descending. A question
+// solved in more than one language is counted once per language, matching
+// the accepted-submission-per-language convention used by coding platforms.
+func (r *Repo) GetLanguageBreakdown(ctx context.Context, userID string) ([]LanguageCount, error) {
+	const q = `
+		SELECT cs.language, COUNT(DISTINCT aa.question_id)
+		FROM coding_submissions cs
+		JOIN attempt_answers aa ON aa.id = cs.attempt_answer_id
+		JOIN assessment_attempts at ON at.id = aa.attempt_id
+		WHERE at.user_id = $1 AND aa.is_correct = true AND cs.status = 'passed'
+		GROUP BY cs.language
+		ORDER BY COUNT(DISTINCT aa.question_id) DESC, cs.language ASC`
+
+	rows, err := r.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, fmt.Errorf("profile: get language breakdown: %w", err)
+	}
+	defer rows.Close()
+
+	stats := []LanguageCount{}
+	for rows.Next() {
+		var lc LanguageCount
+		if err := rows.Scan(&lc.Language, &lc.Solved); err != nil {
+			return nil, fmt.Errorf("profile: scan language breakdown: %w", err)
+		}
+		stats = append(stats, lc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("profile: iterate language breakdown: %w", err)
+	}
+	return stats, nil
 }
 
 // ─── GetRecentActivity ──────────────────────────────────────────────────────────

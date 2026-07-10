@@ -55,3 +55,9 @@ packages:
     type_mappings:
       "uuid.UUID": "string"
       "time.Time": "string"
+
+  - path: "github.com/mindforge/backend/internal/sheets"
+    output_path: "../frontend/types/generated/sheets.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"

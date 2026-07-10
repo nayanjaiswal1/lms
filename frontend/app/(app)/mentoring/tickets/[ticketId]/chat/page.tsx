@@ -3,7 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MentorChatComposer } from "@/components/mentoring/mentor-chat-composer";
-import { getMentorChatMessages } from "@/lib/server/mentoring";
+import { ScheduleSessionButton } from "@/app/(app)/mentoring/tickets/[ticketId]/chat/schedule-session-button";
+import { getMentorChatMessages, getMentorTicketById } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
 import ROUTES from "@/lib/routes";
 
@@ -16,20 +17,24 @@ interface Props {
 export default async function MentorTicketChatPage({ params }: Props) {
   const { ticketId } = await params;
 
-  const [messages, currentUser] = await Promise.all([
+  const [messages, currentUser, ticket] = await Promise.all([
     getMentorChatMessages(ticketId).catch(() => null),
     getCurrentUser(),
+    getMentorTicketById(ticketId),
   ]);
 
   if (messages === null) notFound();
 
   return (
     <main className="page-container-sm py-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Link className="text-muted-foreground hover:text-foreground" href={ROUTES.MENTORING_TICKETS}>
-          <ArrowLeft aria-label="Back to tickets" className="h-5 w-5" />
-        </Link>
-        <h1 className="page-title">Mentor chat</h1>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link className="text-muted-foreground hover:text-foreground" href={ROUTES.MENTORING_TICKETS}>
+            <ArrowLeft aria-label="Back to tickets" className="h-5 w-5" />
+          </Link>
+          <h1 className="page-title">Mentor chat</h1>
+        </div>
+        {ticket && <ScheduleSessionButton studentId={ticket.student_id} />}
       </div>
 
       {messages.length === 0 ? (

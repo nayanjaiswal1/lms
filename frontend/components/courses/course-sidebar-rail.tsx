@@ -69,7 +69,6 @@ export function CourseSidebarRail({ course, currentModuleId, isEnrolled, progres
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         role="separator"
-        tabIndex={0}
       />
     </aside>
   );

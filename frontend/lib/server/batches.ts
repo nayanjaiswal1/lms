@@ -7,10 +7,14 @@ export interface Batch {
   id: string;
   org_id: string;
   name: string;
+  slug: string;
   description: string | null;
+  mentor_id: string | null;
   status: string;
-  start_date: string | null;
-  end_date: string | null;
+  member_count: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  image_url: string | null;
   created_at: string;
 }
 
@@ -18,17 +22,24 @@ export interface BatchMember {
   user_id: string;
   name: string;
   email: string;
-  role: string;
-  joined_at: string;
+  added_at: string;
+}
+
+export interface BatchMentor {
+  user_id: string;
+  name: string;
+  email: string;
+  added_at: string;
 }
 
 export interface BatchInvitation {
   id: string;
   email: string;
+  invited_at: string;
+  expires_at: string;
   accepted_at: string | null;
   declined_at: string | null;
-  expires_at: string;
-  created_at: string;
+  resent_at: string | null;
 }
 
 export interface BatchCourse {
@@ -43,16 +54,72 @@ export interface MemberProgress {
   user_id: string;
   name: string;
   email: string;
-  enrolled_courses: number;
-  completed_courses: number;
-  assessments_taken: number;
-  avg_score: number | null;
-  last_active: string | null;
+  courses_enrolled: number;
+  courses_completed: number;
+  tests_passed: number;
+}
+
+export type ImportRowStatus =
+  | "new"
+  | "existing_active"
+  | "pending_invite"
+  | "duplicate_in_file"
+  | "invalid";
+
+export interface ImportMemberRow {
+  full_name: string;
+  email: string;
+  roll_number?: string;
+  phone_number?: string;
+  department?: string;
+  other_fields?: Record<string, string>;
+  status: ImportRowStatus;
+  errors?: string[];
+}
+
+export interface FailedImportRow {
+  email: string;
+  full_name: string;
+  error_message: string;
+}
+
+export interface ImportReport {
+  counts: Record<string, number>;
+  failed_rows: FailedImportRow[];
+}
+
+export async function getBatchImportReport(batchId: string): Promise<ImportReport> {
+  return apiGet<ImportReport>(`/api/batches/${batchId}/import/report`);
 }
 
 export async function getBatches(): Promise<Batch[]> {
   const data = await apiGet<{ batches: Batch[] }>("/api/batches");
   return data.batches ?? [];
+}
+
+export interface MyBatch {
+  id: string;
+  org_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  mentor_id: string | null;
+  status: string;
+  member_count: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  image_url: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export async function getMyBatches(): Promise<MyBatch[]> {
+  try {
+    const data = await apiGet<{ batches: MyBatch[] }>("/api/my/batches");
+    return data.batches ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getBatch(batchId: string): Promise<Batch> {
@@ -63,6 +130,11 @@ export async function getBatch(batchId: string): Promise<Batch> {
 export async function getBatchMembers(batchId: string): Promise<BatchMember[]> {
   const data = await apiGet<{ batch: Batch; members: BatchMember[] }>(`/api/batches/${batchId}`);
   return data.members ?? [];
+}
+
+export async function getBatchMentors(batchId: string): Promise<BatchMentor[]> {
+  const data = await apiGet<{ mentors: BatchMentor[] }>(`/api/batches/${batchId}/mentors`);
+  return data.mentors ?? [];
 }
 
 export async function getBatchInvitations(batchId: string): Promise<BatchInvitation[]> {

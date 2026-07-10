@@ -91,7 +91,7 @@ export function Step1Identity({ orgId, org }: Step1IdentityProps) {
         <div className="mb-2">
           <h2 className="section-title">Identity</h2>
           <p className="text-sm text-muted-foreground">
-            Set your organization's name and URL slug.
+            Set your organization&apos;s name and URL slug.
           </p>
         </div>
 

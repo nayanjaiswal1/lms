@@ -50,3 +50,9 @@ pnpm-debug.log*
 # ─── Test coverage ────────────────────────────────────────────────────────────
 coverage/
 *.cover
+
+# Claude Code local settings (personal permissions, may contain session artifacts)
+.claude/settings.local.json
+
+# tokensave local code-graph DB
+.tokensave/

@@ -137,7 +137,7 @@ export function ProfileStats({ stats }: Props) {
   if (!stats) {
     return (
       <section aria-label="Learning stats" className="card-base p-6">
-        <h2 className="section-title text-lg mb-4">Stats</h2>
+        <h2 className="section-title mb-4">Stats</h2>
         <p className="text-sm text-muted-foreground">No stats available yet.</p>
       </section>
     )

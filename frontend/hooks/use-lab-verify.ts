@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useRef } from "react"
+import { useState, useTransition, useRef, useCallback } from "react"
 import { toast } from "sonner"
 import { verifyLabTaskAction } from "@/app/(app)/labs/[labId]/actions"
 import type { TaskCompletion, LabCodeLanguage } from "@/lib/labs"
@@ -63,18 +63,24 @@ export function useLabVerify(
     savedCodes.current = {}
   }
 
-  function selectTask(taskId: string) {
-    if (currentTaskIdRef.current !== null) {
-      savedCodes.current[currentTaskIdRef.current] = code
-    }
-    currentTaskIdRef.current = taskId
-    setSelectedTaskId(taskId)
-    setCode(savedCodes.current[taskId] ?? STARTER_CODE[languageRef.current])
-    setVerifyError(null)
-    setLastRun(null)
-  }
+  // Memoized: passed into effect dependency arrays by consumers (e.g. the
+  // course-notes lab bridge) — a fresh identity every render would fire
+  // those effects on every render regardless of real state changes.
+  const selectTask = useCallback(
+    (taskId: string) => {
+      if (currentTaskIdRef.current !== null) {
+        savedCodes.current[currentTaskIdRef.current] = code
+      }
+      currentTaskIdRef.current = taskId
+      setSelectedTaskId(taskId)
+      setCode(savedCodes.current[taskId] ?? STARTER_CODE[languageRef.current])
+      setVerifyError(null)
+      setLastRun(null)
+    },
+    [code],
+  )
 
-  function verify(taskId: string) {
+  const verify = useCallback((taskId: string) => {
     setVerifyError(null)
     startVerify(async () => {
       const res = await verifyLabTaskAction(sessionId, taskId, code)
@@ -119,7 +125,7 @@ export function useLabVerify(
         })
       }
     })
-  }
+  }, [sessionId, code])
 
   function resetState(newScore: number) {
     setCompletions([])

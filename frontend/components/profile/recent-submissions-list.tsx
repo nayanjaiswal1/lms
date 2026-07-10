@@ -1,6 +1,7 @@
 'use client'
 
 import { parseAsStringLiteral, useQueryState } from 'nuqs'
+import { History, ListChecks } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { RecentActivityItem } from '@/lib/profile/types'
@@ -10,6 +11,14 @@ interface Props {
 }
 
 const ACTIVITY_TABS = ['recent', 'all'] as const
+const TAB_ICON: Record<(typeof ACTIVITY_TABS)[number], typeof History> = {
+  recent: History,
+  all:    ListChecks,
+}
+const TAB_LABEL: Record<(typeof ACTIVITY_TABS)[number], string> = {
+  recent: 'Recent AC',
+  all:    'All',
+}
 
 const RECENT_STATUSES = new Set(['submitted', 'evaluated'])
 
@@ -47,11 +56,12 @@ export function RecentSubmissionsList({ items }: Props) {
       >
         {ACTIVITY_TABS.map((tab) => {
           const isActive = tab === activity
+          const Icon = TAB_ICON[tab]
           return (
             <button
               aria-selected={isActive}
               className={cn(
-                'px-3 py-2 text-sm font-medium border-b-2 transition-colors duration-fast capitalize',
+                'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors duration-fast',
                 isActive
                   ? 'text-primary border-primary'
                   : 'text-muted-foreground border-transparent hover:text-foreground hover:border-border',
@@ -61,7 +71,8 @@ export function RecentSubmissionsList({ items }: Props) {
               type="button"
               onClick={() => void setActivity(tab)}
             >
-              {tab}
+              <Icon aria-hidden="true" size={14} />
+              {TAB_LABEL[tab]}
             </button>
           )
         })}
@@ -72,9 +83,15 @@ export function RecentSubmissionsList({ items }: Props) {
           No activity yet. Attempt a question to see it show up here.
         </p>
       ) : (
-        <ul className="divide-y divide-border">
-          {filtered.map((item) => (
-            <li className="flex items-center justify-between gap-3 py-3" key={item.attempt_id}>
+        <ul>
+          {filtered.map((item, index) => (
+            <li
+              className={cn(
+                'flex items-center justify-between gap-3 px-3 py-3 rounded-md',
+                index % 2 === 1 && 'bg-muted/40',
+              )}
+              key={item.attempt_id}
+            >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{item.assessment_title}</p>
                 <p className="text-xs text-muted-foreground">{relativeTime(item.occurred_at)}</p>

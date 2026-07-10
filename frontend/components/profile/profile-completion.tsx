@@ -33,7 +33,7 @@ export function ProfileCompletion({ score, breakdown }: Props) {
   return (
     <section aria-label="Profile completion" className="card-base p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="section-title text-lg">Profile Completion</h2>
+        <h2 className="section-title">Profile Completion</h2>
         <span className="text-2xl font-bold text-primary">{pct}%</span>
       </div>
 

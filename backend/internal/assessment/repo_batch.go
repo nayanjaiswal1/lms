@@ -10,17 +10,38 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (r *Repo) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO batches (org_id, name, slug, description, mentor_id, created_by)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING id, status, created_at`,
-		b.OrgID, b.Name, b.Slug, b.Description, b.MentorID, b.CreatedBy,
-	).Scan(&b.ID, &b.Status, &b.CreatedAt)
+		`INSERT INTO batches (org_id, name, slug, description, mentor_id, created_by, starts_at, ends_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		 RETURNING id, status, created_at, updated_at`,
+		b.OrgID, b.Name, b.Slug, b.Description, b.MentorID, b.CreatedBy, b.StartsAt, b.EndsAt,
+	).Scan(&b.ID, &b.Status, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
 		return Batch{}, fmt.Errorf("assessment: create batch: %w", err)
+	}
+	return b, nil
+}
+
+// UpdateBatch updates a batch's editable fields (name, description, mentor,
+// schedule window). Scoped to orgID; returns ErrNotFound if no row matches.
+func (r *Repo) UpdateBatch(ctx context.Context, orgID string, b Batch) (Batch, error) {
+	err := r.pool.QueryRow(ctx,
+		`UPDATE batches SET name=$3, description=$4, mentor_id=$5, starts_at=$6, ends_at=$7, updated_at=now()
+		 WHERE id=$1 AND org_id=$2
+		 RETURNING id, org_id, name, slug, description, mentor_id, status, created_by,
+		           starts_at, ends_at, image_url, created_at, updated_at`,
+		b.ID, orgID, b.Name, b.Description, b.MentorID, b.StartsAt, b.EndsAt,
+	).Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID, &b.Status, &b.CreatedBy,
+		&b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CreatedAt, &b.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Batch{}, ErrNotFound
+		}
+		return Batch{}, fmt.Errorf("assessment: update batch: %w", err)
 	}
 	return b, nil
 }
@@ -28,7 +49,7 @@ func (r *Repo) CreateBatch(ctx context.Context, b Batch) (Batch, error) {
 func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
-		        b.created_by, b.created_at,
+		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.created_at, b.updated_at,
 		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id) AS member_count
 		 FROM batches b
 		 WHERE b.org_id = $1 AND b.status = 'active'
@@ -42,8 +63,38 @@ func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 	for rows.Next() {
 		var b Batch
 		if err := rows.Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID,
-			&b.Status, &b.CreatedBy, &b.CreatedAt, &b.MemberCount); err != nil {
+			&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CreatedAt, &b.UpdatedAt,
+			&b.MemberCount); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch: %w", err)
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// ListBatchesForUser returns the active batches a student is a member of
+// within the given org, newest first.
+func (r *Repo) ListBatchesForUser(ctx context.Context, orgID, userID string) ([]Batch, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
+		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.created_at, b.updated_at,
+		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id) AS member_count
+		 FROM batches b
+		 JOIN batch_members bm ON bm.batch_id = b.id
+		 WHERE bm.user_id = $1 AND b.org_id = $2 AND b.status = 'active'
+		 ORDER BY b.created_at DESC`, userID, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment: list batches for user: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Batch{}
+	for rows.Next() {
+		var b Batch
+		if err := rows.Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID,
+			&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CreatedAt, &b.UpdatedAt,
+			&b.MemberCount); err != nil {
+			return nil, fmt.Errorf("assessment: scan batch for user: %w", err)
 		}
 		out = append(out, b)
 	}
@@ -54,11 +105,11 @@ func (r *Repo) GetBatch(ctx context.Context, orgID, id string) (Batch, error) {
 	var b Batch
 	err := r.pool.QueryRow(ctx,
 		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
-		        b.created_by, b.created_at,
+		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.created_at, b.updated_at,
 		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id)
 		 FROM batches b WHERE b.id = $1 AND b.org_id = $2`, id, orgID,
 	).Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID,
-		&b.Status, &b.CreatedBy, &b.CreatedAt, &b.MemberCount)
+		&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CreatedAt, &b.UpdatedAt, &b.MemberCount)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Batch{}, ErrNotFound
@@ -102,6 +153,30 @@ func (r *Repo) AddBatchMembers(ctx context.Context, orgID, batchID string, userI
 	})
 }
 
+// execer is satisfied by both *pgxpool.Pool and pgx.Tx, letting
+// enrollInBatchCourses run either standalone or inside a caller's transaction.
+type execer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+// enrollInBatchCourses enrolls each userID into every course currently
+// assigned to batchID, skipping courses they're already enrolled in.
+func enrollInBatchCourses(ctx context.Context, ex execer, batchID string, userIDs []string) error {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	if _, err := ex.Exec(ctx,
+		`INSERT INTO enrollments (user_id, course_id, batch_id, enrolled_by)
+		 SELECT u.user_id, bc.course_id, $1, bc.assigned_by
+		 FROM unnest($2::uuid[]) AS u(user_id)
+		 JOIN batch_courses bc ON bc.batch_id = $1
+		 ON CONFLICT (user_id, course_id) DO NOTHING`,
+		batchID, userIDs); err != nil {
+		return fmt.Errorf("assessment: enroll in batch courses: %w", err)
+	}
+	return nil
+}
+
 func (r *Repo) RemoveBatchMember(ctx context.Context, orgID, batchID, userID string) error {
 	tag, err := r.pool.Exec(ctx,
 		`DELETE FROM batch_members
@@ -119,14 +194,15 @@ func (r *Repo) RemoveBatchMember(ctx context.Context, orgID, batchID, userID str
 
 // BatchMember is a lightweight view of a batch participant.
 type BatchMember struct {
-	UserID string `json:"user_id"`
-	Name   string `json:"name"`
-	Email  string `json:"email"`
+	UserID  string    `json:"user_id"`
+	Name    string    `json:"name"`
+	Email   string    `json:"email"`
+	AddedAt time.Time `json:"added_at"`
 }
 
 func (r *Repo) ListBatchMembers(ctx context.Context, orgID, batchID string) ([]BatchMember, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT u.id, u.name, u.email
+		`SELECT u.id, u.name, u.email, m.added_at
 		 FROM batch_members m
 		 JOIN users u ON u.id = m.user_id
 		 JOIN batches b ON b.id = m.batch_id
@@ -140,7 +216,7 @@ func (r *Repo) ListBatchMembers(ctx context.Context, orgID, batchID string) ([]B
 	out := []BatchMember{}
 	for rows.Next() {
 		var m BatchMember
-		if err := rows.Scan(&m.UserID, &m.Name, &m.Email); err != nil {
+		if err := rows.Scan(&m.UserID, &m.Name, &m.Email, &m.AddedAt); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch member: %w", err)
 		}
 		out = append(out, m)
@@ -169,6 +245,7 @@ type BatchCourse struct {
 	CourseID   string    `json:"course_id"`
 	Title      string    `json:"title"`
 	Slug       string    `json:"slug"`
+	Difficulty string    `json:"difficulty"`
 	AssignedAt time.Time `json:"assigned_at"`
 }
 
@@ -302,7 +379,7 @@ func (r *Repo) UnassignBatchCourse(ctx context.Context, orgID, batchID, courseID
 
 func (r *Repo) ListBatchCourses(ctx context.Context, orgID, batchID string) ([]BatchCourse, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT bc.course_id, c.title, c.slug, bc.assigned_at
+		`SELECT bc.course_id, c.title, c.slug, c.difficulty, bc.assigned_at
 		 FROM batch_courses bc
 		 JOIN courses c ON c.id = bc.course_id
 		 WHERE bc.batch_id = $1
@@ -315,7 +392,7 @@ func (r *Repo) ListBatchCourses(ctx context.Context, orgID, batchID string) ([]B
 	out := []BatchCourse{}
 	for rows.Next() {
 		var c BatchCourse
-		if err := rows.Scan(&c.CourseID, &c.Title, &c.Slug, &c.AssignedAt); err != nil {
+		if err := rows.Scan(&c.CourseID, &c.Title, &c.Slug, &c.Difficulty, &c.AssignedAt); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch course: %w", err)
 		}
 		out = append(out, c)
@@ -493,7 +570,7 @@ func (r *Repo) AcceptInvitation(ctx context.Context, rawToken, userID, userEmail
 			return ErrInvitationExpired
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, 'student')
+			`INSERT INTO org_members (org_id, user_id, role) VALUES ($1, $2, 'learner')
 			 ON CONFLICT (org_id, user_id) DO NOTHING`, orgID, userID); err != nil {
 			return fmt.Errorf("assessment: add org member: %w", err)
 		}
@@ -501,6 +578,13 @@ func (r *Repo) AcceptInvitation(ctx context.Context, rawToken, userID, userEmail
 			`INSERT INTO batch_members (batch_id, user_id) VALUES ($1, $2)
 			 ON CONFLICT (batch_id, user_id) DO NOTHING`, batchID, userID); err != nil {
 			return fmt.Errorf("assessment: add batch member: %w", err)
+		}
+		// Auto-enroll the new member into courses already assigned to the batch.
+		// trg_batch_course_enroll only fires on batch_courses INSERT, not on
+		// batch_members INSERT, so without this a student who accepts after the
+		// courses were assigned would never get enrolled.
+		if err := enrollInBatchCourses(ctx, tx, batchID, []string{userID}); err != nil {
+			return err
 		}
 		if _, err := tx.Exec(ctx,
 			`UPDATE batch_invitations SET accepted_at = now() WHERE id = $1`, invID); err != nil {
@@ -564,4 +648,34 @@ func (r *Repo) GetBatchProgress(ctx context.Context, orgID, batchID string) ([]M
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// GetBatchImageURL returns the batch's current image_url (nil if unset),
+// scoped to orgID. Used to clean up the old object before/after a replace.
+func (r *Repo) GetBatchImageURL(ctx context.Context, orgID, batchID string) (*string, error) {
+	var url *string
+	err := r.pool.QueryRow(ctx,
+		`SELECT image_url FROM batches WHERE id = $1 AND org_id = $2`, batchID, orgID,
+	).Scan(&url)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("assessment: get batch image url: %w", err)
+	}
+	return url, nil
+}
+
+// UpdateBatchImage sets (or clears, when imageURL is nil) the batch's image_url.
+func (r *Repo) UpdateBatchImage(ctx context.Context, orgID, batchID string, imageURL *string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE batches SET image_url = $1, updated_at = now() WHERE id = $2 AND org_id = $3`,
+		imageURL, batchID, orgID)
+	if err != nil {
+		return fmt.Errorf("assessment: update batch image: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

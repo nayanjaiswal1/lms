@@ -44,9 +44,10 @@ var (
 // ─── Domain errors ─────────────────────────────────────────────────────────────
 
 var (
-	ErrNotFound  = errors.New("profile: not found")
-	ErrConflict  = errors.New("profile: display name or slug already taken")
-	ErrForbidden = errors.New("profile: access denied")
+	ErrNotFound    = errors.New("profile: not found")
+	ErrConflict    = errors.New("profile: display name or slug already taken")
+	ErrForbidden   = errors.New("profile: access denied")
+	ErrFieldLocked = errors.New("profile: field is locked by your batch administrator")
 )
 
 // ─── Domain types ──────────────────────────────────────────────────────────────
@@ -144,11 +145,19 @@ type RecentActivityItem struct {
 	OccurredAt      time.Time `json:"occurred_at"`
 }
 
+// LanguageCount is the count of distinct questions a user has solved with an
+// accepted coding submission in a given language.
+type LanguageCount struct {
+	Language string `json:"language"`
+	Solved   int    `json:"solved"`
+}
+
 // ProfileOverview is the aggregate payload powering the LeetCode-style
-// profile overview: difficulty breakdown, submission activity calendar, and
-// recent activity. All fields are derived from real attempt/question data —
-// there is no followers/discuss/language-breakdown data source, so those
-// sections are intentionally absent from this payload.
+// profile overview: difficulty breakdown, submission activity calendar,
+// recent activity, and language breakdown. All fields are derived from real
+// attempt/question/submission data — there is no followers/discuss/
+// reputation data source, so those sections are intentionally absent from
+// this payload.
 type ProfileOverview struct {
 	Difficulty       []DifficultyCount    `json:"difficulty"`
 	SolvedTotal      int                  `json:"solved_total"`
@@ -158,6 +167,7 @@ type ProfileOverview struct {
 	ActiveDays       int                  `json:"active_days"`
 	MaxStreak        int                  `json:"max_streak"`
 	RecentActivity   []RecentActivityItem `json:"recent_activity"`
+	LanguageStats    []LanguageCount      `json:"language_stats"`
 }
 
 // PublicProfile is the limited view of a profile visible to anonymous visitors

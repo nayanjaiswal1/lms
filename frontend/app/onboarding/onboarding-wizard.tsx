@@ -104,7 +104,7 @@ export function OnboardingWizard() {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
               <h1>What do you want to achieve?</h1>
-              <p className="text-muted-foreground">We'll build your personalized path around this goal</p>
+              <p className="text-muted-foreground">We&apos;ll build your personalized path around this goal</p>
             </div>
             <div className="flex flex-col gap-3">
               {LEARNING_GOAL_OPTIONS.map((opt) => (
@@ -140,7 +140,7 @@ export function OnboardingWizard() {
         {step === 1 && (
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <h1>What's your current role or background?</h1>
+              <h1>What&apos;s your current role or background?</h1>
               <p className="text-muted-foreground">Helps us skip content you already know</p>
             </div>
             <div className="flex flex-col gap-3">
@@ -182,7 +182,7 @@ export function OnboardingWizard() {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
               <h1>What do you want to learn?</h1>
-              <p className="text-muted-foreground">Select all that apply — we'll build around your choices</p>
+              <p className="text-muted-foreground">Select all that apply — we&apos;ll build around your choices</p>
             </div>
             <TopicGrid selected={watchedTopics ?? []} onToggle={toggleTopic} />
             {form.formState.errors.topics_interest && (
@@ -204,7 +204,7 @@ export function OnboardingWizard() {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
               <h1>How much time can you commit each week?</h1>
-              <p className="text-muted-foreground">We'll pace your learning path to match your schedule</p>
+              <p className="text-muted-foreground">We&apos;ll pace your learning path to match your schedule</p>
             </div>
             <div className="flex flex-col gap-3">
               {TIME_OPTIONS.map((opt) => (
@@ -235,7 +235,7 @@ export function OnboardingWizard() {
         {step === 4 && (
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <h1>What's your current level?</h1>
+              <h1>What&apos;s your current level?</h1>
               <p className="text-muted-foreground">{skillSubtitle}</p>
             </div>
             <div className="flex flex-col gap-3">
