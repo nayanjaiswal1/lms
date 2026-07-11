@@ -37,7 +37,12 @@ func Generate(canonicalDir, outputSQLPath string) error {
 		return fmt.Errorf("generator.Generate: %w", err)
 	}
 
-	sql, err := Render(docs)
+	meta, err := canonical.LoadCourseMeta(canonicalDir)
+	if err != nil {
+		return fmt.Errorf("generator.Generate: %w", err)
+	}
+
+	sql, err := Render(docs, meta)
 	if err != nil {
 		return fmt.Errorf("generator.Generate: %w", err)
 	}

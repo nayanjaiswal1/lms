@@ -8,9 +8,11 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PlanBlock } from "@/components/whatnow/plan-block";
 import { TASK_DRAG_MIME, TASK_SOURCE_MIME } from "@/components/whatnow/plan-backlog";
 import {
+  MINUTES_PER_SLOT,
   PX_PER_HOUR,
   dateAtMinutes,
   formatTimeLabel,
@@ -32,6 +34,7 @@ interface PlanTimelineProps {
   tasks: PlanTask[];
   resizePreview: ResizePreview | null;
   onNavigate: (direction: 1 | -1) => void;
+  onCreateAt: (title: string, minutes: number) => void;
   onSchedule: (taskId: string, patch: SchedulePatch) => void;
   onResizeStart: (taskId: string) => void;
   onResizeMove: (deltaMinutes: number) => void;
@@ -43,6 +46,7 @@ export function PlanTimeline({
   tasks,
   resizePreview,
   onNavigate,
+  onCreateAt,
   onSchedule,
   onResizeStart,
   onResizeMove,
@@ -50,10 +54,32 @@ export function PlanTimeline({
 }: PlanTimelineProps) {
   const dayStart = startOfDay(new Date(`${date}T00:00:00`));
   const resizeOrigin = React.useRef<{ clientY: number; originDurationMin: number } | null>(null);
+  const [draftMinutes, setDraftMinutes] = React.useState<number | null>(null);
+  const [draftTitle, setDraftTitle] = React.useState("");
+  const draftInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (draftMinutes !== null) draftInputRef.current?.focus();
+  }, [draftMinutes]);
 
   function minutesFromPointer(container: HTMLElement, clientY: number): number {
     const rect = container.getBoundingClientRect();
-    return snapMinutes(((clientY - rect.top) / PX_PER_HOUR) * 60);
+    const raw = snapMinutes(((clientY - rect.top) / PX_PER_HOUR) * 60);
+    // Clamp inside the day so a drop/click at the very bottom edge can't produce
+    // a next-day start (which would silently vanish from this day's view).
+    return Math.min(24 * 60 - MINUTES_PER_SLOT, raw);
+  }
+
+  function closeDraft() {
+    setDraftMinutes(null);
+    setDraftTitle("");
+  }
+
+  function submitDraft() {
+    if (draftMinutes === null) return;
+    const title = draftTitle.trim();
+    if (title) onCreateAt(title, draftMinutes);
+    closeDraft();
   }
 
   function makeResizeHandlers(task: PlanTask) {
@@ -71,6 +97,13 @@ export function PlanTimeline({
         const deltaMinutes = snapMinutes(((e.clientY - resizeOrigin.current.clientY) / PX_PER_HOUR) * 60);
         const durationMin = Math.max(15, resizeOrigin.current.originDurationMin + deltaMinutes);
         onSchedule(task.id, { durationMin });
+        resizeOrigin.current = null;
+        onResizeEnd();
+      },
+      onPointerCancel: () => {
+        // Touch was interrupted (scroll takeover, palm rejection) — abandon
+        // without committing, otherwise the preview sticks forever.
+        if (!resizeOrigin.current) return;
         resizeOrigin.current = null;
         onResizeEnd();
       },
@@ -120,6 +153,19 @@ export function PlanTimeline({
               });
             }}
           >
+            {/* Full-height native button behind the blocks: click an empty slot
+                to quick-create there. Blocks/form render later (and z-raised),
+                so their clicks never reach it. */}
+            <button
+              aria-label="Add a task at a chosen time"
+              className="absolute inset-0 cursor-copy"
+              type="button"
+              onClick={(e) => {
+                setDraftTitle("");
+                // detail === 0 → keyboard activation carries no pointer position; default to 9:00 AM.
+                setDraftMinutes(e.detail === 0 ? 9 * 60 : minutesFromPointer(e.currentTarget, e.clientY));
+              }}
+            />
             {tasks.map((task) => {
               const start = task.scheduledStart ? new Date(task.scheduledStart) : dayStart;
               const startMinutes = minutesSinceMidnight(start);
@@ -147,6 +193,45 @@ export function PlanTimeline({
                 />
               );
             })}
+
+            {draftMinutes !== null && (
+              <form
+                className="absolute inset-x-1 z-raised flex flex-col gap-2 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-raised"
+                // Clamp so a late-evening click doesn't push the card past the
+                // bottom of the 24h grid (card is ~130px tall).
+                // eslint-disable-next-line no-restricted-syntax -- computed pixel position is inherently dynamic, no token can express it
+                style={{ top: `${Math.min((draftMinutes / 60) * PX_PER_HOUR, 24 * PX_PER_HOUR - 140)}px` }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitDraft();
+                }}
+              >
+                <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                  New time block · {formatTimeLabel(dateAtMinutes(dayStart, draftMinutes))}
+                </span>
+                <Input
+                  aria-label={`New task at ${formatTimeLabel(dateAtMinutes(dayStart, draftMinutes))}`}
+                  // Base Input is h-11/py-2.5 for touch targets; keep this draft
+                  // card compact so it covers as little of the day as possible.
+                  className="h-9 px-2.5 text-sm shadow-none"
+                  placeholder="What are you blocking time for?"
+                  ref={draftInputRef}
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") closeDraft();
+                  }}
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <Button size="sm" type="button" variant="ghost" onClick={closeDraft}>
+                    Cancel
+                  </Button>
+                  <Button disabled={!draftTitle.trim()} size="sm" type="submit">
+                    Add
+                  </Button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </div>

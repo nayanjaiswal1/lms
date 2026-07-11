@@ -43,6 +43,7 @@ type Course struct {
 	ForkedFromID   *string    `json:"forked_from_id"`
 	PriceCents     int        `json:"price_cents"`
 	IsFree         bool       `json:"is_free"`
+	IsPublic       bool       `json:"is_public"`
 	EstimatedHours *float64   `json:"estimated_hours"`
 	InstructorName string     `json:"instructor_name"`
 	AvgRating      *float64   `json:"avg_rating"`

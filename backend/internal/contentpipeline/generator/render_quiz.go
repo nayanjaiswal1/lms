@@ -15,7 +15,7 @@ const questionIDLetters = "abcdefghijklmnopqrstuvwxyz"
 // dependency direction from lab's module-before-definition ordering) — so
 // this function emits assessments + questions + assessment_questions first,
 // then the linking module row.
-func renderQuiz(out *strings.Builder, courseID, sectionID string, quiz *canonical.Quiz) error {
+func renderQuiz(out *strings.Builder, courseID, sectionID string, quiz *canonical.Quiz, courseTags []string) error {
 	assessmentID := canonical.ID(quiz.IDKey, "assessment")
 	moduleID := canonical.ID(quiz.IDKey, "module")
 
@@ -54,7 +54,7 @@ func renderQuiz(out *strings.Builder, courseID, sectionID string, quiz *canonica
 			"INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)\nVALUES (%s, %s, %s, %s, %s, %s, %s, 1, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();\n\n",
 			sqlString(questionID), sqlString(seededOrgID), sqlString(q.Type),
 			sqlString(questionTitle(quiz, q)), sqlString(nonEmpty(q.Difficulty, "intermediate")),
-			sqlInt(q.Points), sqlStringArray([]string{"kubernetes", "k8s"}), sqlString(seededInstructorID),
+			sqlInt(q.Points), sqlStringArray(courseTags), sqlString(seededInstructorID),
 		)
 
 		content, err := renderQuestionContent(q)

@@ -2,7 +2,7 @@
 
 import { getMonthGridDays, isSameDay } from "@/app/(app)/calendar/calendar-math";
 import { EventBlock, primaryLayerFor } from "@/app/(app)/calendar/event-block";
-import { QuickCreateSlot } from "@/app/(app)/calendar/quick-create-slot";
+import { QuickCreateAdapter } from "@/app/(app)/calendar/quick-create-adapter";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { CalendarEvent } from "@/lib/calendar/types";
 
@@ -98,12 +98,13 @@ export function MonthView({
               </div>
             </PopoverAnchor>
             {isCreatingHere && (
-              <PopoverContent align="start" className="w-80" onClick={(e) => e.stopPropagation()}>
-                <QuickCreateSlot
+              <PopoverContent align="start" className="w-96" onClick={(e) => e.stopPropagation()}>
+                <QuickCreateAdapter
                   defaultEnd={new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 30)}
                   defaultStart={new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0)}
                   onCancel={onCreateCancel}
                   onCreate={onCreateSubmit}
+                  useEnhanced={true}
                 />
               </PopoverContent>
             )}

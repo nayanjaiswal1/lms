@@ -16,6 +16,7 @@ export interface Course {
   forked_from_id: string | null;
   price_cents: number;
   is_free: boolean;
+  is_public: boolean;
   estimated_hours: number | null;
   instructor_name: string;
   avg_rating: number | null;
@@ -72,6 +73,27 @@ export interface CourseProgressSummary {
   total: number;
   pct: number;
   modules: ModuleProgress[];
+}
+
+// Anonymous marketplace catalog for the public landing page. Never throws —
+// the landing page must still render when the backend is unreachable.
+export async function getPublicCourses(
+  limit = 12,
+): Promise<{ courses: Course[]; total: number }> {
+  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
+  if (!url) return { courses: [], total: 0 };
+  try {
+    const res = await fetch(`${url}/api/public/courses?limit=${limit}`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return { courses: [], total: 0 };
+    const body = (await res.json()) as {
+      data?: { courses?: Course[] | null; total?: number };
+    };
+    return { courses: body.data?.courses ?? [], total: body.data?.total ?? 0 };
+  } catch {
+    return { courses: [], total: 0 };
+  }
 }
 
 export async function getCourses(query = ""): Promise<Course[]> {

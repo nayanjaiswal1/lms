@@ -166,7 +166,7 @@ helm rollback j1
 
 
 
-## Helm Cheatsheet
+## HelmCheatsheet
 
 ## Helm Commands Cheatsheet
 

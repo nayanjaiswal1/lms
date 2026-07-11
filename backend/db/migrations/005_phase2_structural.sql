@@ -95,8 +95,8 @@ SET task_version_item_id = ltvi.id
 FROM public.lab_sessions ls
 JOIN public.lab_task_version_items ltvi
     ON ltvi.task_version_id = ls.task_version_id
-   AND ltvi.source_task_id = ltc.task_id
-WHERE ltc.session_id = ls.id;
+WHERE ltc.session_id = ls.id
+  AND ltvi.source_task_id = ltc.task_id;
 
 ALTER TABLE public.lab_task_completions
     DROP CONSTRAINT lab_task_completions_session_id_task_id_key;

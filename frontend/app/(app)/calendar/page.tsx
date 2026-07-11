@@ -8,7 +8,7 @@ import type { CalendarView } from "@/lib/calendar/types";
 
 export const metadata: Metadata = {
   title: "Calendar",
-  description: "Mentor sessions, live classes, deadlines, and your own events in one place.",
+  description: "Time-blocking calendar for scheduling tasks, events, mentor sessions, and more.",
 };
 
 interface CalendarPageProps {
@@ -32,7 +32,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     <main className="page-container py-8">
       <div className="mb-6 flex flex-col gap-1">
         <h1 className="page-title">Calendar</h1>
-        <p className="text-muted-foreground">Mentor sessions, live classes, deadlines, and your own events.</p>
+        <p className="text-muted-foreground">Time-block your tasks, schedule events, and manage your time effectively.</p>
       </div>
       <CalendarGrid
         currentUserId={currentUser?.id ?? ""}

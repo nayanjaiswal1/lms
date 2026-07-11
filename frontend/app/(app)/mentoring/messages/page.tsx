@@ -59,7 +59,7 @@ async function MessageThreads() {
       {threads.map((t) => (
         <li key={t.batchId}>
           <Link
-            href={ROUTES.mentoringBatchChat(t.batchId)}
+            href={`${ROUTES.batch(t.batchId)}/chat`}
             className="card-interactive flex items-start gap-4 p-5"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">

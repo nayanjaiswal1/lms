@@ -391,6 +391,14 @@ export default tseslint.config(
               from: { type: 'feature-components', captured: { family: 'feedback' } },
               allow: [['feature-components', { family: 'courses' }]],
             },
+            // The public landing page renders the marketplace catalog with
+            // the same CourseCard used by the in-app catalog so anonymous
+            // visitors see courses exactly as students do — see
+            // components/landing/landing-page.tsx.
+            {
+              from: { type: 'feature-components', captured: { family: 'landing' } },
+              allow: [['feature-components', { family: 'courses' }]],
+            },
             { from: { type: 'shared-lib' }, allow: ['shared-lib'] },
             {
               from: { type: 'feature-lib' },

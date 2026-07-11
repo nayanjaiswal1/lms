@@ -18,11 +18,17 @@ import type { DayPlan, PlanTask, SchedulePatch } from "@/lib/server/whatnow";
 import { CaptureSheet } from "@/components/whatnow/capture-sheet";
 import { PlanBacklog } from "@/components/whatnow/plan-backlog";
 import { PlanTimeline } from "@/components/whatnow/plan-timeline";
-import { addDays, isoDateParam } from "@/lib/whatnow/day-math";
+import { whatnowApi } from "@/lib/whatnow/client";
+import { addDays, dateAtMinutes, isoDateParam, startOfDay } from "@/lib/whatnow/day-math";
 
 interface ResizePreview {
   taskId: string;
   deltaMinutes: number;
+}
+
+/** Client's UTC offset in minutes east of UTC, evaluated *at that date* so DST is respected. */
+function tzOffsetMin(date: string): number {
+  return -new Date(`${date}T00:00:00`).getTimezoneOffset();
 }
 
 interface PlanState {
@@ -34,7 +40,7 @@ interface PlanState {
 type PlanAction =
   | { type: "setPlan"; plan: DayPlan }
   | { type: "setInbox"; inbox: PlanTask[] }
-  | { type: "applySchedule"; task: PlanTask }
+  | { type: "applySchedule"; task: PlanTask; viewDate: string }
   | { type: "reorderUnscheduled"; tasks: PlanTask[]; removeInboxId?: string }
   | { type: "startResize"; taskId: string }
   | { type: "updateResize"; deltaMinutes: number }
@@ -51,7 +57,11 @@ function planReducer(state: PlanState, action: PlanAction): PlanState {
       const scheduled = state.plan.scheduled.filter((t) => t.id !== task.id);
       const unscheduled = state.plan.unscheduled.filter((t) => t.id !== task.id);
       const inbox = state.inbox.filter((t) => t.id !== task.id);
-      if (task.scheduledStart && isoDateParam(new Date(task.scheduledStart)) === state.plan.date) {
+      // Compare against the *view* date (the grid the drop landed on), not
+      // state.plan.date — that lags at the server-guessed day until the mount
+      // refetch resolves, and a mismatch here silently wiped the task from
+      // every list even though the PATCH persisted fine.
+      if (task.scheduledStart && isoDateParam(new Date(task.scheduledStart)) === action.viewDate) {
         scheduled.push(task);
         scheduled.sort((a, b) => (a.scheduledStart ?? "").localeCompare(b.scheduledStart ?? ""));
       } else if (!task.scheduledStart) {
@@ -81,13 +91,34 @@ function planReducer(state: PlanState, action: PlanAction): PlanState {
 
 interface PlanDayAppProps {
   initialDate: string;
+  /** Whether ?date= was explicitly in the URL (vs. server-guessed "today"). */
+  initialDateExplicit: boolean;
   initialPlan: DayPlan;
   initialInbox: PlanTask[];
   initialError?: string;
 }
 
-export function PlanDayApp({ initialDate, initialPlan, initialInbox, initialError }: PlanDayAppProps) {
+export function PlanDayApp({
+  initialDate,
+  initialDateExplicit,
+  initialPlan,
+  initialInbox,
+  initialError,
+}: PlanDayAppProps) {
   const [date, setDate] = useQueryState("date", parseAsString.withDefault(initialDate));
+
+  useEffect(() => {
+    // With no explicit ?date=, the server guessed "today" in *its* zone (UTC in
+    // Docker). Past local midnight that's the browser's *yesterday*, so tasks
+    // just added to the real today silently vanish on reload. Snap to the
+    // browser's today; the refetch effect below then loads the right window.
+    if (!initialDateExplicit) {
+      const localToday = isoDateParam(new Date());
+      if (localToday !== initialDate) void setDate(localToday);
+    }
+    // Mount-only: correcting the server's guess must not re-run on later state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [state, dispatch] = useReducer(planReducer, {
     plan: initialPlan,
     inbox: initialInbox,
@@ -99,10 +130,15 @@ export function PlanDayApp({ initialDate, initialPlan, initialInbox, initialErro
   }, [initialError]);
 
   useEffect(() => {
-    if (date === initialDate) return; // server already fetched this one
+    const tz = tzOffsetMin(date);
+    // The server-rendered plan was fetched with a UTC day window (the server
+    // can't know the browser's zone), so blocks before local-midnight-vs-UTC
+    // divergence are missing. Refetch with the real offset unless we're in
+    // UTC, where the initial data is already correct.
+    if (date === initialDate && tz === 0) return;
     let cancelled = false;
     void (async () => {
-      const result = await getDayPlanAction(date);
+      const result = await getDayPlanAction(date, tz);
       if (cancelled) return;
       if (!result.ok || !result.data) {
         toast.error(result.error ?? "Could not load the day plan.");
@@ -116,7 +152,10 @@ export function PlanDayApp({ initialDate, initialPlan, initialInbox, initialErro
   }, [date, initialDate]);
 
   function navigate(direction: 1 | -1) {
-    void setDate(isoDateParam(addDays(new Date(date), direction)));
+    // `new Date("YYYY-MM-DD")` parses as UTC midnight, which is the *previous*
+    // local day in negative UTC offsets — Prev/Next would get stuck. Parse as
+    // local time instead.
+    void setDate(isoDateParam(addDays(new Date(`${date}T00:00:00`), direction)));
   }
 
   async function refreshInbox() {
@@ -154,7 +193,20 @@ export function PlanDayApp({ initialDate, initialPlan, initialInbox, initialErro
       toast.error(result.error ?? "Could not update the schedule.");
       return;
     }
-    dispatch({ type: "applySchedule", task: result.data });
+    dispatch({ type: "applySchedule", task: result.data, viewDate: date });
+  }
+
+  /** Click-to-create: capture a brand-new task, then time-block it at `minutes` past midnight. */
+  async function createTaskAt(title: string, minutes: number) {
+    try {
+      const task = await whatnowApi.captureTask(title);
+      await scheduleTask(task.id, {
+        scheduledStart: dateAtMinutes(startOfDay(new Date(`${date}T00:00:00`)), minutes).toISOString(),
+        status: "planned",
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create the task.");
+    }
   }
 
   return (
@@ -173,6 +225,7 @@ export function PlanDayApp({ initialDate, initialPlan, initialInbox, initialErro
         date={date}
         resizePreview={state.resizePreview}
         tasks={state.plan.scheduled}
+        onCreateAt={(title, minutes) => void createTaskAt(title, minutes)}
         onNavigate={navigate}
         onResizeEnd={() => dispatch({ type: "clearResize" })}
         onResizeMove={(deltaMinutes) => dispatch({ type: "updateResize", deltaMinutes })}

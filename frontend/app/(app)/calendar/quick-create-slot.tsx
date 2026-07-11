@@ -25,6 +25,9 @@ function withTimeOfDay(base: Date, timeValue: string): Date {
 
 // Rendered inside a <PopoverContent>, which already supplies the card
 // chrome (border/shadow/padding) — this is just the field stack.
+//
+// NOTE: This is the compact version. For full time-blocking features,
+// use <EnhancedQuickCreate /> which adds duration presets, notes, and better UX.
 export function QuickCreateSlot({ defaultStart, defaultEnd, onCreate, onCancel }: QuickCreateSlotProps) {
   const [title, setTitle] = React.useState("");
   const [isTask, setIsTask] = React.useState(false);

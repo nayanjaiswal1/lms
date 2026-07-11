@@ -32,7 +32,6 @@ const ROUTES = {
   // Mentoring
   MENTORING:           "/mentoring",
   MENTORING_MESSAGES:  "/mentoring/messages",
-  MENTORING_BATCHES:   "/mentoring/batches",
   MENTORING_TICKETS:   "/mentoring/tickets",
 
   // Mentor directory
@@ -84,6 +83,7 @@ const ROUTES = {
   ADMIN_RBAC_ROLES_NEW:    "/admin/rbac/roles/new",
   ADMIN_RBAC_PERMISSIONS:  "/admin/rbac/permissions",
   ADMIN_RBAC_AUDIT:        "/admin/rbac/audit",
+  ADMIN_RBAC_USERS:        "/admin/rbac/users",
 
   // Platform Admin (super_admin console — cross-tenant)
   PLATFORM_JOBS:           "/platform/jobs",
@@ -121,13 +121,6 @@ const ROUTES = {
   manageAssessmentResults:  (id: string)                        => `/assessments/manage/${id}/results`,
   manageAssessmentReview:   (id: string)                        => `/assessments/manage/${id}/review`,
   mentoringTicketChat:      (id: string)                        => `/mentoring/tickets/${id}/chat`,
-  mentoringBatch:           (id: string)                        => `/mentoring/batches/${id}`,
-  mentoringBatchChat:       (id: string)                        => `/mentoring/batches/${id}/chat`,
-  mentoringBatchMembers:    (id: string)                        => `/mentoring/batches/${id}/members`,
-  mentoringBatchMentors:    (id: string)                        => `/mentoring/batches/${id}/mentors`,
-  mentoringBatchCourses:    (id: string)                        => `/mentoring/batches/${id}/courses`,
-  mentoringBatchInvitations: (id: string)                       => `/mentoring/batches/${id}/invitations`,
-  mentoringBatchProgress:   (id: string)                        => `/mentoring/batches/${id}/progress`,
   mentor:                   (id: string)                        => `/mentors/${id}`,
   practiceSession:          (id: string)                        => `/practice/${id}`,
   certificate:              (uuid: string)                      => `/certificates/${uuid}`,

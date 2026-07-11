@@ -77,13 +77,13 @@ func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) 
 	var c Course
 	err := r.pool.QueryRow(ctx,
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
-		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.estimated_hours,
+		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
 		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.id = $1 AND c.org_id = $2`, id, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
-		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree,
+		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
 		&c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
@@ -143,7 +143,7 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 	args = append(args, limit, offset)
 	rows, err := r.pool.Query(ctx,
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
-		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
+		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public,
 		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
 		        c.starts_at, c.ends_at, c.created_at, c.updated_at
 		 FROM courses c
@@ -160,9 +160,54 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 		var c Course
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description,
 			&c.CoverURL, &c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents,
-			&c.IsFree, &c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount,
+			&c.IsFree, &c.IsPublic, &c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount,
 			&c.StartsAt, &c.EndsAt, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("courses: scan: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, total, rows.Err()
+}
+
+// ListPublicCourses returns published courses whose instructors opted into
+// the public marketplace. No org scope — this backs the anonymous
+// landing-page catalog, so it must only ever expose opted-in rows.
+func (r *Repo) ListPublicCourses(ctx context.Context, limit, offset int) ([]Course, int, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 12
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	const where = `WHERE c.status = 'published' AND c.is_public`
+
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM courses c `+where).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("courses: public count: %w", err)
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
+		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
+		        c.is_public, c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
+		        c.starts_at, c.ends_at, c.created_at, c.updated_at
+		 FROM courses c
+		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
+		 `+where+` ORDER BY COALESCE(cr.review_count, 0) DESC, c.created_at DESC LIMIT $1 OFFSET $2`,
+		limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("courses: public list: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Course{}
+	for rows.Next() {
+		var c Course
+		if err := rows.Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description,
+			&c.CoverURL, &c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents,
+			&c.IsFree, &c.IsPublic, &c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount,
+			&c.StartsAt, &c.EndsAt, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("courses: public scan: %w", err)
 		}
 		out = append(out, c)
 	}
@@ -173,11 +218,11 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 func (r *Repo) UpdateCourse(ctx context.Context, orgID string, c Course) (Course, error) {
 	err := r.pool.QueryRow(ctx,
 		`UPDATE courses SET title=$3, description=$4, cover_url=$5, difficulty=$6, tags=$7,
-		        estimated_hours=$8, price_cents=$9, is_free=$10, starts_at=$11, ends_at=$12, updated_at=now()
+		        estimated_hours=$8, price_cents=$9, is_free=$10, is_public=$11, starts_at=$12, ends_at=$13, updated_at=now()
 		 WHERE id=$1 AND org_id=$2
 		 RETURNING updated_at`,
 		c.ID, orgID, c.Title, c.Description, c.CoverURL, c.Difficulty, c.Tags,
-		c.EstimatedHours, c.PriceCents, c.IsFree, c.StartsAt, c.EndsAt,
+		c.EstimatedHours, c.PriceCents, c.IsFree, c.IsPublic, c.StartsAt, c.EndsAt,
 	).Scan(&c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -571,7 +616,7 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 	rows, err := r.pool.Query(ctx,
 		`SELECT e.id, e.user_id, e.course_id, e.batch_id, e.enrolled_by, e.enrolled_at, e.completed_at,
 		        c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
-		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
+		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public,
 		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
 		        c.created_at, c.updated_at
 		 FROM enrollments e
@@ -590,7 +635,7 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 			&e.ID, &e.UserID, &e.CourseID, &e.BatchID, &e.EnrolledBy, &e.EnrolledAt, &e.CompletedAt,
 			&e.Course.ID, &e.Course.OrgID, &e.Course.CreatorID, &e.Course.Title, &e.Course.Slug,
 			&e.Course.Description, &e.Course.CoverURL, &e.Course.Difficulty, &e.Course.Tags,
-			&e.Course.Status, &e.Course.ForkedFromID, &e.Course.PriceCents, &e.Course.IsFree,
+			&e.Course.Status, &e.Course.ForkedFromID, &e.Course.PriceCents, &e.Course.IsFree, &e.Course.IsPublic,
 			&e.Course.EstimatedHours, &e.Course.InstructorName, &e.Course.AvgRating, &e.Course.ReviewCount,
 			&e.Course.CreatedAt, &e.Course.UpdatedAt,
 		); err != nil {

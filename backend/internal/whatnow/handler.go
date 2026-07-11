@@ -135,7 +135,13 @@ func (h *Handler) GetDayPlan(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	plan, err := h.service.GetDayPlan(r.Context(), claims.UserID, r.URL.Query().Get("date"))
+	// ?tz= is the client's UTC offset in minutes east of UTC; malformed or
+	// out-of-range (beyond UTC±14:00) values fall back to a UTC day window.
+	tzOffsetMin, tzErr := strconv.Atoi(r.URL.Query().Get("tz"))
+	if tzErr != nil || tzOffsetMin < -14*60 || tzOffsetMin > 14*60 {
+		tzOffsetMin = 0
+	}
+	plan, err := h.service.GetDayPlan(r.Context(), claims.UserID, r.URL.Query().Get("date"), tzOffsetMin)
 	if err != nil {
 		writeDomainError(w, err)
 		return

@@ -23,7 +23,7 @@ type sectionMeta struct {
 // re-running Render on unchanged input produces byte-identical SQL, and
 // re-running it on edited input updates existing rows via ON CONFLICT ...
 // DO UPDATE rather than duplicating them.
-func Render(docs []*canonical.Document) (string, error) {
+func Render(docs []*canonical.Document, meta canonical.CourseMeta) (string, error) {
 	if len(docs) == 0 {
 		return "", fmt.Errorf("generator.Render: no documents to render")
 	}
@@ -48,7 +48,7 @@ func Render(docs []*canonical.Document) (string, error) {
 	out.WriteString("-- ══════════════════════════════════════════════════════════════════════════\n\n")
 
 	for _, slug := range courseSlugs {
-		if err := renderCourse(&out, slug, byCourse[slug]); err != nil {
+		if err := renderCourse(&out, slug, byCourse[slug], meta); err != nil {
 			return "", fmt.Errorf("generator.Render: course %q: %w", slug, err)
 		}
 	}
@@ -56,9 +56,30 @@ func Render(docs []*canonical.Document) (string, error) {
 	return out.String(), nil
 }
 
-func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document) error {
+func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document, meta canonical.CourseMeta) error {
 	courseID := canonical.ID(slug, "course")
-	title := titleCase(slug)
+
+	title := meta.Title
+	if title == "" {
+		title = titleCase(slug)
+	}
+	description := meta.Description
+	if description == "" {
+		description = fmt.Sprintf("Course content imported and generated from the canonical markdown content pipeline for %q.", title)
+	}
+	difficulty := meta.Difficulty
+	if difficulty == "" {
+		difficulty = "intermediate"
+	}
+	tags := meta.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+	isFree := true
+	if meta.IsFree != nil {
+		isFree = *meta.IsFree
+	}
+
 	totalMinutes := 0
 	for _, doc := range docs {
 		totalMinutes += commonOf(doc).EstimatedMinutes
@@ -76,11 +97,11 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document)
 		sqlString(seededInstructorID),
 		sqlString(title),
 		sqlString(slug),
-		sqlString(fmt.Sprintf("Course content imported and generated from the canonical markdown content pipeline for %q.", title)),
-		sqlString("intermediate"),
-		sqlStringArray([]string{"kubernetes", "k8s", "devops", "containers"}),
+		sqlString(description),
+		sqlString(difficulty),
+		sqlStringArray(tags),
 		sqlString("published"),
-		sqlBool(true),
+		sqlBool(isFree),
 		estimatedHours,
 	)
 
@@ -123,7 +144,7 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document)
 			case canonical.KindLab:
 				err = renderLab(out, courseID, sectionID, doc.Lab)
 			case canonical.KindQuiz:
-				err = renderQuiz(out, courseID, sectionID, doc.Quiz)
+				err = renderQuiz(out, courseID, sectionID, doc.Quiz, tags)
 			default:
 				err = fmt.Errorf("unknown document kind %q at %s", doc.Kind, doc.Path)
 			}

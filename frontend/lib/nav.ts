@@ -248,7 +248,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   },
   mentor_batches: {
     label:               "My Batches",
-    href:                ROUTES.MENTORING_BATCHES,
+    href:                ROUTES.BATCHES,
     icon:                Users,
     feature:             FEATURES.BATCH_CHAT,
     requiredPermission:  "mentoring.manage_batches",
@@ -266,6 +266,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.ADMIN_RBAC_ROLES,
     icon:                Shield,
     requiredPermission:  "admin.manage_roles",
+  },
+  admin_users: {
+    label:               "Users",
+    href:                ROUTES.ADMIN_RBAC_USERS,
+    icon:                Users,
+    requiredPermission:  "admin.view_members",
   },
 
 };
@@ -339,6 +345,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     label: "Administration",
     items: [
       ALL_NAV_ITEMS.admin_rbac,
+      ALL_NAV_ITEMS.admin_users,
     ],
   },
 ];

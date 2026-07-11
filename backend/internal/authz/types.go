@@ -94,6 +94,25 @@ type ListRolesParams struct {
 	Offset        int
 }
 
+// ListUsersParams filters the tenant's user list.
+type ListUsersParams struct {
+	TenantID string
+	Search   string
+	Limit    int
+	Offset   int
+}
+
+// UserSummary is a row in the tenant's user list, joined from org_members +
+// users, with the count of RBAC roles currently assigned within the tenant.
+type UserSummary struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	AvatarURL *string   `json:"avatar_url"`
+	RoleCount int       `json:"role_count"`
+	JoinedAt  time.Time `json:"joined_at"`
+}
+
 // ListAuditParams filters the audit_logs list.
 type ListAuditParams struct {
 	TenantID   string

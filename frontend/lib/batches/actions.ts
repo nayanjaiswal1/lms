@@ -30,25 +30,25 @@ export async function acceptInvitationAction(
 
 export async function assignCourseAction(batchId: string, courseId: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/batches/${batchId}/courses`, { course_id: courseId });
-  if (result.ok) revalidatePath(ROUTES.mentoringBatchCourses(batchId));
+  if (result.ok) revalidatePath(`${ROUTES.batch(batchId)}/courses`);
   return result;
 }
 
 export async function unassignCourseAction(batchId: string, courseId: string): Promise<ActionResult> {
   const result = await apiAction("DELETE", `/api/batches/${batchId}/courses/${courseId}`);
-  if (result.ok) revalidatePath(ROUTES.mentoringBatchCourses(batchId));
+  if (result.ok) revalidatePath(`${ROUTES.batch(batchId)}/courses`);
   return result;
 }
 
 export async function addBatchMentorAction(batchId: string, userId: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/batches/${batchId}/mentors`, { user_id: userId });
-  if (result.ok) revalidatePath(ROUTES.mentoringBatchMentors(batchId));
+  if (result.ok) revalidatePath(`${ROUTES.batch(batchId)}/mentors`);
   return result;
 }
 
 export async function removeBatchMentorAction(batchId: string, userId: string): Promise<ActionResult> {
   const result = await apiAction("DELETE", `/api/batches/${batchId}/mentors/${userId}`);
-  if (result.ok) revalidatePath(ROUTES.mentoringBatchMentors(batchId));
+  if (result.ok) revalidatePath(`${ROUTES.batch(batchId)}/mentors`);
   return result;
 }
 
@@ -60,13 +60,13 @@ export async function resendInvitationAction(
     "POST",
     `/api/batches/${batchId}/invitations/${invitationId}/resend`,
   );
-  if (result.ok) revalidatePath(ROUTES.mentoringBatchInvitations(batchId));
+  if (result.ok) revalidatePath(ROUTES.batch(batchId));
   return result;
 }
 
 export async function revokeInvitationAction(batchId: string, invitationId: string): Promise<ActionResult> {
   const result = await apiAction("DELETE", `/api/batches/${batchId}/invitations/${invitationId}`);
-  if (result.ok) revalidatePath(ROUTES.mentoringBatchInvitations(batchId));
+  if (result.ok) revalidatePath(ROUTES.batch(batchId));
   return result;
 }
 
@@ -94,7 +94,7 @@ export async function uploadBatchImageAction(
     if (!res.ok) return { error: json.error ?? "Failed to upload image." };
     revalidatePath(ROUTES.BATCHES);
     revalidatePath(ROUTES.batch(batchId));
-    revalidatePath(ROUTES.MENTORING_BATCHES);
+    revalidatePath(ROUTES.BATCHES);
     return { ok: true, data: json.data };
   } catch {
     return { error: "Network error. Please try again." };
@@ -106,7 +106,7 @@ export async function deleteBatchImageAction(batchId: string): Promise<ActionRes
   if (result.ok) {
     revalidatePath(ROUTES.BATCHES);
     revalidatePath(ROUTES.batch(batchId));
-    revalidatePath(ROUTES.MENTORING_BATCHES);
+    revalidatePath(ROUTES.BATCHES);
   }
   return result;
 }

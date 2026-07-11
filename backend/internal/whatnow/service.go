@@ -364,8 +364,13 @@ func applyPatch(t *Task, patch TaskPatch) {
 	if patch.ScheduledStart != nil {
 		if *patch.ScheduledStart == "" {
 			t.scheduledStart = nil
+			t.ScheduledStart = ""
 		} else if parsed, err := time.Parse(time.RFC3339, *patch.ScheduledStart); err == nil {
 			t.scheduledStart = &parsed
+			// Keep the exported wire field in sync — it is only populated by the
+			// repo scan, so without this the PATCH response would omit the new
+			// schedule and clients would file the task as unscheduled.
+			t.ScheduledStart = parsed.Format(time.RFC3339)
 		}
 	}
 	t.touchedAt = time.Now()
@@ -598,12 +603,19 @@ func (s *Service) GetPlanToday(ctx context.Context, userID string) (PlanToday, e
 // GetDayPlan returns the Plan Day view for dateStr ("2006-01-02"): tasks
 // time-blocked that day, plus the unscheduled backlog ranked by
 // plan_position. Falls back to today when dateStr is empty or unparseable.
-func (s *Service) GetDayPlan(ctx context.Context, userID, dateStr string) (DayPlan, error) {
-	day, err := time.Parse("2006-01-02", dateStr)
+//
+// tzOffsetMin is the client's UTC offset in minutes east of UTC (JS:
+// -Date.getTimezoneOffset()). The day window must be the *client's*
+// midnight-to-midnight: with a plain UTC window, a block at 01:00 in a
+// positive-offset zone is stored on the previous UTC day and silently
+// vanishes from the day it was created on.
+func (s *Service) GetDayPlan(ctx context.Context, userID, dateStr string, tzOffsetMin int) (DayPlan, error) {
+	loc := time.FixedZone("client", tzOffsetMin*60)
+	day, err := time.ParseInLocation("2006-01-02", dateStr, loc)
 	if err != nil {
-		day = time.Now()
+		day = time.Now().In(loc)
 	}
-	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, loc)
 	dayEnd := dayStart.AddDate(0, 0, 1)
 
 	if err := s.repo.SweepDecayed(ctx, userID); err != nil {

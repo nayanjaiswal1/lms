@@ -86,21 +86,21 @@ func sampleDocs() []*canonical.Document {
 
 func TestRender_Idempotent(t *testing.T) {
 	docs := sampleDocs()
-	out1, err := Render(docs)
+	out1, err := Render(docs, canonical.CourseMeta{})
 	require.NoError(t, err)
-	out2, err := Render(sampleDocs()) // fresh structs, same content
+	out2, err := Render(sampleDocs(), canonical.CourseMeta{}) // fresh structs, same content
 	require.NoError(t, err)
 	require.Equal(t, out1, out2, "Render must be byte-identical across runs on identical input")
 }
 
 func TestRender_NeverLeaksSolutionScript(t *testing.T) {
-	out, err := Render(sampleDocs())
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
 	require.NoError(t, err)
 	require.NotContains(t, out, "kubectl create namespace demo", "solution_script content must never appear in generated SQL")
 }
 
 func TestRender_MutableTablesUseOnConflict(t *testing.T) {
-	out, err := Render(sampleDocs())
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
 	require.NoError(t, err)
 	for _, table := range []string{
 		"INSERT INTO courses",
@@ -124,15 +124,40 @@ func TestRender_MutableTablesUseOnConflict(t *testing.T) {
 }
 
 func TestRender_DeterministicIDsMatchCanonicalPackage(t *testing.T) {
-	out, err := Render(sampleDocs())
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
 	require.NoError(t, err)
 	labID := canonical.ID("test/section/lab", "lab")
 	require.Contains(t, out, labID)
 }
 
 func TestRender_EmptyInputErrors(t *testing.T) {
-	_, err := Render(nil)
+	_, err := Render(nil, canonical.CourseMeta{})
 	require.Error(t, err)
+}
+
+func TestRender_CourseMetaOverridesDefaults(t *testing.T) {
+	notFree := false
+	meta := canonical.CourseMeta{
+		Title:       "Test Course Title",
+		Description: "A custom description.",
+		Difficulty:  "advanced",
+		Tags:        []string{"go", "backend"},
+		IsFree:      &notFree,
+	}
+	out, err := Render(sampleDocs(), meta)
+	require.NoError(t, err)
+	require.Contains(t, out, "Test Course Title")
+	require.Contains(t, out, "A custom description.")
+	require.Contains(t, out, "'advanced'")
+	require.Contains(t, out, "ARRAY['go','backend']")
+	require.NotContains(t, out, "kubernetes")
+}
+
+func TestRender_CourseMetaDefaultsWhenEmpty(t *testing.T) {
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
+	require.NoError(t, err)
+	require.Contains(t, out, "'intermediate'")
+	require.Contains(t, out, "true") // is_free defaults true
 }
 
 func TestLoad_InvalidDocumentAggregatesErrors(t *testing.T) {

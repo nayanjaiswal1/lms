@@ -202,6 +202,17 @@ func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"courses": courses, "total": total})
 }
 
+// ListPublicCourses serves the anonymous landing-page catalog. No auth and no
+// org scope — the repo only ever returns published courses with is_public set.
+func (h *Handler) ListPublicCourses(w http.ResponseWriter, r *http.Request) {
+	courses, total, err := h.repo.ListPublicCourses(r.Context(), queryInt(r, "limit", 12), queryInt(r, "offset", 0))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"courses": courses, "total": total})
+}
+
 type courseUpdateReq struct {
 	Title          string     `json:"title"`
 	Description    *string    `json:"description"`
@@ -211,6 +222,7 @@ type courseUpdateReq struct {
 	EstimatedHours *float64   `json:"estimated_hours"`
 	PriceCents     int        `json:"price_cents"`
 	IsFree         bool       `json:"is_free"`
+	IsPublic       bool       `json:"is_public"`
 	StartsAt       *time.Time `json:"starts_at"`
 	EndsAt         *time.Time `json:"ends_at"`
 }
@@ -240,6 +252,7 @@ func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 		EstimatedHours: req.EstimatedHours,
 		PriceCents:     req.PriceCents,
 		IsFree:         req.IsFree,
+		IsPublic:       req.IsPublic,
 		StartsAt:       req.StartsAt,
 		EndsAt:         req.EndsAt,
 	}

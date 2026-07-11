@@ -53,7 +53,7 @@ async function MentoringOverviewContent() {
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="section-title">Your batches</h2>
         <Link
-          href={ROUTES.MENTORING_BATCHES}
+          href={ROUTES.BATCHES}
           className="flex items-center gap-1 text-sm text-primary hover:underline"
         >
           View all <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -69,7 +69,7 @@ async function MentoringOverviewContent() {
         <ol className="flex flex-col gap-3" aria-label="Batches">
           {summaries.map(({ batch, memberCount, unresolvedCount }) => (
             <li key={batch.id}>
-              <Link href={ROUTES.mentoringBatch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
+              <Link href={ROUTES.batch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
                 <div className="flex flex-1 flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{batch.name}</span>

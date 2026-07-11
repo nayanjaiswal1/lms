@@ -54,3 +54,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Patch("/api/modules/{moduleID}/progress", h.UpdateProgress)
 	r.Get("/api/courses/{courseID}/progress/me", h.GetMyProgress)
 }
+
+// RegisterPublicRoutes mounts routes that require no authentication. The
+// handler only returns published courses explicitly opted in via is_public.
+func (h *Handler) RegisterPublicRoutes(r chi.Router) {
+	r.Get("/api/public/courses", h.ListPublicCourses)
+}

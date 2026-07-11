@@ -247,6 +247,38 @@ func (h *Handler) HandleSetRolePermissions(w http.ResponseWriter, r *http.Reques
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"permissions": perms})
 }
 
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+// HandleListUsers returns the caller's tenant members, each annotated with
+// their assigned RBAC role count.
+//
+// GET /api/admin/rbac/users?search=jane&limit=20&offset=0
+func (h *Handler) HandleListUsers(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.getClaims(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+
+	params := ListUsersParams{
+		TenantID: claims.OrgID,
+		Search:   h.queryString(r, "search"),
+		Limit:    h.queryInt(r, "limit", 20),
+		Offset:   h.queryInt(r, "offset", 0),
+	}
+
+	users, total, err := h.adminRepo.ListUsers(r.Context(), params)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to list users.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{
+		"users": users,
+		"total": total,
+	})
+}
+
 // ─── User-role management ─────────────────────────────────────────────────────
 
 // HandleGetUserRoles lists roles held by a user within the caller's tenant.

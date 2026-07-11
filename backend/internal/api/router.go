@@ -128,6 +128,9 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// both authorized by their own token, not a session cookie.
 	calendarRouter.RegisterPublicRoutes(r)
 
+	// Public course catalog — anonymous marketplace listing for the landing page.
+	coursesRouter.RegisterPublicRoutes(r)
+
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache)
 

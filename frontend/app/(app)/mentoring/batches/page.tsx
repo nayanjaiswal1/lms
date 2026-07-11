@@ -25,7 +25,7 @@ async function BatchList() {
     <ol className="flex flex-col gap-3" aria-label="Batches">
       {batches.map((batch) => (
         <li key={batch.id}>
-          <Link href={ROUTES.mentoringBatch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
+          <Link href={ROUTES.batch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
             <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} />
             <div className="flex flex-1 flex-col gap-1">
               <div className="flex items-center gap-2">

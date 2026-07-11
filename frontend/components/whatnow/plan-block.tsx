@@ -11,6 +11,8 @@ export interface ResizeHandlers {
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
+  /** Pointer was lost (e.g. touch cancelled) — abandon the resize without committing. */
+  onPointerCancel: (e: React.PointerEvent) => void;
 }
 
 interface PlanBlockProps {
@@ -25,8 +27,8 @@ interface PlanBlockProps {
 export function PlanBlock({ task, style, timeLabel, resizeHandlers, onDragStart, onUnschedule }: PlanBlockProps) {
   return (
     <div
-      className="group absolute inset-x-0.5 z-raised flex flex-col gap-0.5 overflow-hidden rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-left text-xs"
       draggable
+      className="group absolute inset-x-0.5 z-raised flex flex-col gap-0.5 overflow-hidden rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-left text-xs"
       style={style}
       onDragStart={onDragStart}
     >
@@ -46,6 +48,8 @@ export function PlanBlock({ task, style, timeLabel, resizeHandlers, onDragStart,
       <div
         aria-hidden
         className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none bg-primary opacity-0 group-hover:opacity-100"
+        onLostPointerCapture={resizeHandlers.onPointerCancel}
+        onPointerCancel={resizeHandlers.onPointerCancel}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           resizeHandlers.onPointerDown(e);

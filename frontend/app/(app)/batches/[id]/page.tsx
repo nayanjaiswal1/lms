@@ -1,124 +1,59 @@
-import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import {
-  getBatch,
-  getBatchMembers,
-  getOrgId,
-  getOrgMembersAll,
-} from "@/lib/server/batches";
+import { getBatchMembers, getBatchMentors, getOrgId, getOrgMembersAll } from "@/lib/server/batches";
 import { AddStudentsPanel } from "@/app/(app)/batches/[id]/add-students-panel";
-import { RemoveMemberButton } from "@/app/(app)/batches/[id]/remove-member-button";
-import { EditBatchPanel } from "@/app/(app)/batches/[id]/edit-batch-panel";
-import { BatchAvatar } from "@/components/batches/batch-avatar";
+import { AddMentorPanel } from "@/components/batches/add-mentor-panel";
+import { PeopleList, type Person } from "@/app/(app)/batches/[id]/people-list";
 import ROUTES from "@/lib/routes";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
-export async function generateMetadata({ params }: Props) {
+export default async function BatchPeoplePage({ params }: Props) {
   const { id } = await params;
-  const batch = await getBatch(id).catch(() => null);
-  return { title: batch ? `${batch.name} — MindForge` : "Batch — MindForge" };
-}
-
-export default async function InstructorBatchDetailPage({ params }: Props) {
-  const { id } = await params;
-
   const orgId = await getOrgId();
+
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 
-  const [batch, members, orgMembers] = await Promise.all([
-    getBatch(id).catch(() => null),
+  const [members, mentors, orgMembers] = await Promise.all([
     getBatchMembers(id).catch(() => []),
+    getBatchMentors(id).catch(() => []),
     getOrgMembersAll(orgId).catch(() => []),
   ]);
 
-  if (!batch) notFound();
+  const people: Person[] = [
+    ...members.map((m) => ({ ...m, role: "member" as const })),
+    ...mentors.map((m) => ({ ...m, role: "mentor" as const })),
+  ].sort((a, b) => a.name.localeCompare(b.name));
 
   const currentMemberIds = members.map((m) => m.user_id);
+  const currentMentorIds = mentors.map((m) => m.user_id);
 
   return (
-    <main className="page-container py-8">
-      <div className="page-header">
-        <div className="flex items-center gap-3 flex-wrap">
-          <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} size="md" />
-          <div className="flex items-center gap-3 flex-wrap">
-            <Link
-              className="text-sm text-muted-foreground hover:text-foreground"
-              href={ROUTES.BATCHES}
-            >
-              Batches
-            </Link>
-            <span aria-hidden className="text-muted-foreground">/</span>
-            <h1 className="page-title">{batch.name}</h1>
-            <Badge variant={batch.status === "active" ? "default" : "secondary"}>
-              {batch.status}
-            </Badge>
-          </div>
+    <section className="flex flex-col gap-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Users aria-hidden className="h-5 w-5 text-muted-foreground" />
+          <h2 className="section-title">People</h2>
         </div>
-        <EditBatchPanel batch={batch} orgMembers={orgMembers} />
+        <div className="flex items-center gap-2">
+          <AddStudentsPanel batchId={id} currentMemberIds={currentMemberIds} orgMembers={orgMembers} />
+          <AddMentorPanel batchId={id} currentMentorIds={currentMentorIds} orgMembers={orgMembers} />
+        </div>
       </div>
 
-      {batch.description && (
-        <p className="mb-8 text-muted-foreground">{batch.description}</p>
-      )}
-      {(batch.starts_at || batch.ends_at) && (
-        <p className="mb-8 text-sm text-muted-foreground">
-          {batch.starts_at && new Date(batch.starts_at).toLocaleDateString()}
-          {batch.ends_at && ` – ${new Date(batch.ends_at).toLocaleDateString()}`}
-        </p>
-      )}
-
-      <section className="flex flex-col gap-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Users aria-hidden className="h-5 w-5 text-muted-foreground" />
-            <h2 className="section-title">Members</h2>
-            <Badge variant="secondary">{members.length}</Badge>
-          </div>
-          <AddStudentsPanel batchId={id} currentMemberIds={currentMemberIds} orgMembers={orgMembers} />
+      {people.length === 0 ? (
+        <div className="empty-state py-12">
+          <Users aria-hidden className="h-10 w-10 text-muted-foreground" />
+          <p className="mt-3 font-medium">No people yet</p>
+          <p className="text-sm text-muted-foreground">
+            Use &ldquo;Add students&rdquo; or &ldquo;Add mentor&rdquo; to add people to this batch.
+          </p>
         </div>
-
-        {members.length === 0 ? (
-          <div className="empty-state py-12">
-            <Users aria-hidden className="h-10 w-10 text-muted-foreground" />
-            <p className="mt-3 font-medium">No members yet</p>
-            <p className="text-sm text-muted-foreground">
-              Use the &ldquo;Add students&rdquo; button to add existing members, invite by email, or bulk import.
-            </p>
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="pb-2 font-medium">Name</th>
-                  <th className="pb-2 font-medium">Email</th>
-                  <th className="pb-2 font-medium sr-only">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {members.map((m) => (
-                  <tr key={m.user_id}>
-                    <td className="py-2.5 pr-4 font-medium">{m.name}</td>
-                    <td className="py-2.5 pr-4 text-muted-foreground">{m.email}</td>
-                    <td className="py-2.5 text-right">
-                      <RemoveMemberButton
-                        batchId={id}
-                        userId={m.user_id}
-                        userName={m.name}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </main>
+      ) : (
+        <PeopleList batchId={id} people={people} />
+      )}
+    </section>
   );
 }

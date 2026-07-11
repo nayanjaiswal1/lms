@@ -14,6 +14,7 @@ const PROTECTED_PREFIXES = [
   "/admin",
   "/sheets",
   "/platform",
+  "/plan",
 ]
 
 // Decode JWT expiry from the payload without verifying the signature.

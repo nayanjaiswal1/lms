@@ -352,6 +352,69 @@ func (r *AdminRepo) SetRolePermissions(ctx context.Context, roleID, tenantID str
 	return nil
 }
 
+// ─── User queries ─────────────────────────────────────────────────────────────
+
+// ListUsers returns a filtered, paginated list of the tenant's members (from
+// org_members joined with users), each annotated with how many RBAC roles
+// they currently hold within the tenant, plus the total matching count.
+func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]UserSummary, int, error) {
+	args := []interface{}{params.TenantID} // $1
+	where := "WHERE m.org_id = $1 AND m.status <> 'removed'"
+
+	if params.Search != "" {
+		args = append(args, "%"+params.Search+"%")
+		where += fmt.Sprintf(" AND (u.name ILIKE $%d OR u.email ILIKE $%d)", len(args), len(args))
+	}
+
+	countQ := "SELECT COUNT(*) FROM org_members m JOIN users u ON u.id = m.user_id " + where
+	var total int
+	if err := r.pool.QueryRow(ctx, countQ, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("admin: list users: count: %w", err)
+	}
+
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 20
+	} else if limit > 100 {
+		limit = 100
+	}
+
+	args = append(args, params.TenantID, limit, params.Offset)
+	listQ := fmt.Sprintf(`
+		SELECT u.id, u.name, u.email, u.avatar_url, m.created_at,
+		       COALESCE(ur.role_count, 0) AS role_count
+		FROM org_members m
+		JOIN users u ON u.id = m.user_id
+		LEFT JOIN (
+			SELECT user_id, COUNT(*) AS role_count
+			FROM user_roles
+			WHERE tenant_id = $%d
+			GROUP BY user_id
+		) ur ON ur.user_id = u.id
+		%s
+		ORDER BY u.name ASC
+		LIMIT $%d OFFSET $%d`, len(args)-2, where, len(args)-1, len(args))
+
+	rows, err := r.pool.Query(ctx, listQ, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("admin: list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []UserSummary
+	for rows.Next() {
+		var u UserSummary
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.RoleCount); err != nil {
+			return nil, 0, fmt.Errorf("admin: list users: scan: %w", err)
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("admin: list users: rows: %w", err)
+	}
+	return users, total, nil
+}
+
 // ─── User-role queries ────────────────────────────────────────────────────────
 
 // GetUserRoles returns all active roles held by userID within tenantID.

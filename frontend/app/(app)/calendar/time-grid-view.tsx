@@ -10,7 +10,7 @@ import {
   startOfDay,
 } from "@/app/(app)/calendar/calendar-math";
 import { EventBlock, primaryLayerFor } from "@/app/(app)/calendar/event-block";
-import { QuickCreateSlot } from "@/app/(app)/calendar/quick-create-slot";
+import { QuickCreateAdapter } from "@/app/(app)/calendar/quick-create-adapter";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { CalendarEvent } from "@/lib/calendar/types";
 
@@ -113,7 +113,7 @@ export function TimeGridView({
               </PopoverAnchor>
               {isCreatingHere && creatingSlot && (
                 <PopoverContent align="center" className="w-80" side="bottom" onClick={(e) => e.stopPropagation()}>
-                  <QuickCreateSlot
+                  <QuickCreateAdapter
                     defaultEnd={dateAtMinutes(startOfDay(day), creatingSlot.minutes + 30)}
                     defaultStart={dateAtMinutes(startOfDay(day), creatingSlot.minutes)}
                     onCancel={onCreateCancel}

@@ -48,9 +48,9 @@ export interface PlanToday {
   throughput: number;
 }
 
-export async function getDayPlanAction(date: string): Promise<ActionResult<DayPlan>> {
+export async function getDayPlanAction(date: string, tzOffsetMin = 0): Promise<ActionResult<DayPlan>> {
   try {
-    const plan = await apiGet<DayPlan>(`/api/whatnow/plan/day?date=${date}`);
+    const plan = await apiGet<DayPlan>(`/api/whatnow/plan/day?date=${date}&tz=${tzOffsetMin}`);
     return { ok: true, data: plan };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not load the day plan." };
