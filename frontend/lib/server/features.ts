@@ -1,7 +1,7 @@
 import { cache } from "react";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
+import { apiGet } from "@/lib/server/api";
 import { type Feature, type LockedFeatureInfo } from "@/lib/features";
 import ROUTES from "@/lib/routes";
 
@@ -40,27 +40,8 @@ const EMPTY_CONFIG: FeatureConfig = { orgFeatures: [], entitlements: [], lockedI
  * The frontend never re-derives this — it trusts the entitlements list.
  */
 export const getFeatureConfig = cache(async (): Promise<FeatureConfig> => {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
-
-  if (!token) return EMPTY_CONFIG;
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) {
-    console.error("[features] BACKEND_URL is not set — feature config unavailable");
-    return EMPTY_CONFIG;
-  }
-
   try {
-    const res = await fetch(`${apiUrl}/api/me/features`, {
-      headers: { Cookie: `access_token=${token}` },
-      cache: "no-store",
-    });
-
-    if (!res.ok) return EMPTY_CONFIG;
-
-    const body: { data: FeatureConfig } = await res.json();
-    return body.data;
+    return await apiGet<FeatureConfig>("/api/me/features");
   } catch {
     return EMPTY_CONFIG;
   }

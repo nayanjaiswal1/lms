@@ -65,12 +65,17 @@ export async function createOrgAction(
   const accessToken = store.get("access_token")?.value ?? "";
   const csrfToken = store.get("csrf_token")?.value ?? "";
 
+  // Raw fetch instead of apiAction: needs the raw Response for the 409
+  // slug-taken status check below AND for forwardSetCookies() (org creation
+  // switches the caller's active org, which re-issues access_token) — apiAction
+  // only returns {ok, data, error} and never captures Set-Cookie.
   let response: Response;
   try {
     response = await fetch(`${apiBase}/api/orgs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // eslint-disable-next-line no-restricted-syntax -- see comment above; raw Response required for status-code branching + forwardSetCookies.
         Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
         "X-CSRF-Token": csrfToken,
         "Idempotency-Key": idempotencyKey,

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
-import { cookies } from "next/headers"
 import { Badge } from "@/components/ui/badge"
+import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 
@@ -23,13 +23,6 @@ interface SearchParams {
 async function fetchAudit(
   params: SearchParams,
 ): Promise<{ entries: AuditEntry[]; total: number }> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("access_token")?.value
-  if (!token) return { entries: [], total: 0 }
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL
-  if (!apiUrl) return { entries: [], total: 0 }
-
   const qs = new URLSearchParams()
   if (params.entity_type) qs.set("entity_type", params.entity_type)
   if (params.entity_id) qs.set("entity_id", params.entity_id)
@@ -37,13 +30,10 @@ async function fetchAudit(
   qs.set("offset", params.offset ?? "0")
 
   try {
-    const res = await fetch(`${apiUrl}/api/admin/rbac/audit?${qs.toString()}`, {
-      headers: { Cookie: `access_token=${token}` },
-      cache: "no-store",
-    })
-    if (!res.ok) return { entries: [], total: 0 }
-    const body = (await res.json()) as { data: { entries: AuditEntry[]; total: number } }
-    return { entries: body.data.entries ?? [], total: body.data.total ?? 0 }
+    const body = await apiGet<{ entries: AuditEntry[]; total: number }>(
+      `/api/admin/rbac/audit?${qs.toString()}`,
+    )
+    return { entries: body.entries ?? [], total: body.total ?? 0 }
   } catch {
     return { entries: [], total: 0 }
   }

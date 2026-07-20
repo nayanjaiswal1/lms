@@ -1,45 +1,25 @@
 "use server"
-import { cookies } from "next/headers"
 import { apiAction } from "@/lib/server/api"
 import type { ActionResult } from "@/lib/server/api"
-import type { LabSession, VerifyTaskResult, GetSessionResponse } from "@/lib/labs"
+import type {
+  LabSession,
+  VerifyTaskResult,
+  GetSessionResponse,
+  LabPortsData,
+  LabRunResult,
+  LabSubmitResult,
+} from "@/lib/labs"
 
 export async function startLabSessionAction(
   labId: string,
   idempotencyKey: string,
 ): Promise<ActionResult<LabSession>> {
-  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL
-  if (!url) return { error: "Service unavailable." }
-  try {
-    const store = await cookies()
-    const accessToken = store.get("access_token")?.value ?? ""
-    const csrfToken = store.get("csrf_token")?.value ?? ""
-    const res = await fetch(`${url}/api/labs/${labId}/sessions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
-        "X-CSRF-Token": csrfToken,
-        "Idempotency-Key": idempotencyKey,
-      },
-      cache: "no-store",
-    })
-    if (res.status === 429) {
-      const raw = res.headers.get("Retry-After")
-      const wait = raw ? parseInt(raw, 10) : 60
-      return {
-        error: `Too many requests. Please wait ${isNaN(wait) ? 60 : wait} seconds before trying again.`,
-      }
-    }
-    const json = (await res.json().catch(() => ({}))) as {
-      data?: LabSession
-      error?: string
-    }
-    if (!res.ok) return { error: json.error ?? "Failed to start lab session." }
-    return { ok: true, data: json.data }
-  } catch {
-    return { error: "Network error. Please try again." }
-  }
+  return apiAction<LabSession>(
+    "POST",
+    `/api/labs/${labId}/sessions`,
+    undefined,
+    { "Idempotency-Key": idempotencyKey },
+  )
 }
 
 export async function mintWSTokenAction(
@@ -73,4 +53,22 @@ export async function verifyLabTaskAction(
     `/api/labs/sessions/${sessionId}/tasks/${taskId}/verify`,
     { code },
   )
+}
+
+export async function listLabPortsAction(
+  sessionId: string,
+): Promise<ActionResult<LabPortsData>> {
+  return apiAction<LabPortsData>("GET", `/api/labs/sessions/${sessionId}/ports`)
+}
+
+export async function runLabScriptAction(
+  sessionId: string,
+): Promise<ActionResult<LabRunResult>> {
+  return apiAction<LabRunResult>("POST", `/api/labs/sessions/${sessionId}/run`)
+}
+
+export async function submitLabAction(
+  sessionId: string,
+): Promise<ActionResult<LabSubmitResult>> {
+  return apiAction<LabSubmitResult>("POST", `/api/labs/sessions/${sessionId}/submit`)
 }

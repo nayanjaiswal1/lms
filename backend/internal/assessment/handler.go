@@ -58,6 +58,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusConflict, "Only draft assessments can be edited.")
 	case errors.Is(err, ErrConflict):
 		httputil.WriteError(w, http.StatusConflict, "This action conflicts with the current state.")
+	case errors.Is(err, ErrInvalidScore):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "Score must be between 0 and the test's max score.")
 	case errors.Is(err, ErrNotAssigned):
 		httputil.WriteError(w, http.StatusForbidden, "This assessment is not assigned to you.")
 	case errors.Is(err, ErrNotAttemptOwner):

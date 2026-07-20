@@ -67,6 +67,11 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
 	})
+	// Live app preview: token-in-path entry for the iframe document, plus a
+	// cookie-resolved catch-all for the app's absolute-path subresources.
+	// ServeMux picks the longest pattern, so /ws and /health stay unaffected.
+	mux.HandleFunc("/preview/", handler.ServePreview)
+	mux.HandleFunc("/", handler.ServePreviewAsset)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

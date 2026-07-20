@@ -142,9 +142,9 @@ func (h *Handler) CombineSheets(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if len(req.SheetIDs) < 2 {
+	if len(req.SheetIDs) < 1 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
-			"sheet_ids": "select at least 2 sheets to combine.",
+			"sheet_ids": "select at least one sheet.",
 		})
 		return
 	}
@@ -292,6 +292,36 @@ func (h *Handler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+const maxImportBytes = 10 << 20 // 10MB
+
+// ImportExcel handles POST /api/sheets/import/excel — a multipart .xlsx
+// upload. Parses only; nothing is persisted until the client later submits
+// the sheet with these rows as custom items.
+func (h *Handler) ImportExcel(w http.ResponseWriter, r *http.Request) {
+	if _, ok := ctxClaims(w, r); !ok {
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxImportBytes+1)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Failed to parse multipart form.")
+		return
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "An .xlsx file is required.")
+		return
+	}
+	defer file.Close()
+
+	items, err := ParseSheetExcel(file)
+	if err != nil {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "Could not read the uploaded file: "+err.Error())
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, items)
 }
 
 // UpdateProgress handles PATCH /api/progress/:topic_tag.

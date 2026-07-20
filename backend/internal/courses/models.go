@@ -1,6 +1,7 @@
 package courses
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -76,22 +77,68 @@ type CourseSection struct {
 }
 
 type CourseModule struct {
-	ID               string     `json:"id"`
-	CourseID         string     `json:"course_id"`
-	SectionID        string     `json:"section_id"`
-	Title            string     `json:"title"`
-	Type             string     `json:"type"`
-	Position         int        `json:"position"`
-	IsFreePreview    bool       `json:"is_free_preview"`
-	StorageKey       *string    `json:"storage_key,omitempty"`
-	DurationSeconds  *int       `json:"duration_seconds,omitempty"`
-	ContentBody      *string    `json:"content_body,omitempty"`
-	AssessmentID     *string    `json:"assessment_id,omitempty"`
-	EstimatedMinutes *int       `json:"estimated_minutes,omitempty"`
-	StartsAt         *time.Time `json:"starts_at"`
-	EndsAt           *time.Time `json:"ends_at"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID               string                   `json:"id"`
+	CourseID         string                   `json:"course_id"`
+	SectionID        string                   `json:"section_id"`
+	Title            string                   `json:"title"`
+	Type             string                   `json:"type"`
+	Position         int                      `json:"position"`
+	IsFreePreview    bool                     `json:"is_free_preview"`
+	StorageKey       *string                  `json:"storage_key,omitempty"`
+	DurationSeconds  *int                     `json:"duration_seconds,omitempty"`
+	ContentBody      *string                  `json:"content_body,omitempty"`
+	AssessmentID     *string                  `json:"assessment_id,omitempty"`
+	EstimatedMinutes *int                     `json:"estimated_minutes,omitempty"`
+	KnowledgeCheck   []KnowledgeCheckQuestion `json:"knowledge_check,omitempty"`
+	StartsAt         *time.Time               `json:"starts_at"`
+	EndsAt           *time.Time               `json:"ends_at"`
+	CreatedAt        time.Time                `json:"created_at"`
+	UpdatedAt        time.Time                `json:"updated_at"`
+}
+
+// KnowledgeCheckQuestion is one entry of a notes module's knowledge_check
+// jsonb column — the server-side grading/gating key for an embedded question
+// authored via a lesson's ```knowledge-check fenced block (see
+// contentpipeline/generator/render_lesson.go). Correct is populated only for
+// "mcq" questions; "sql" questions have no server-side executor to verify
+// against (see backend/internal/assessment/executor.go), so they carry no
+// answer key and stay client-graded like the pre-existing sql-challenge
+// lesson segment already does.
+type KnowledgeCheckQuestion struct {
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Correct string `json:"correct,omitempty"`
+}
+
+// LessonCheckAttempt is one row of lesson_check_attempts — a single submit of
+// one knowledge-check question, correct or wrong.
+type LessonCheckAttempt struct {
+	ID           string          `json:"id"`
+	OrgID        string          `json:"-"`
+	UserID       string          `json:"-"`
+	ModuleID     string          `json:"module_id"`
+	QuestionID   string          `json:"question_id"`
+	QuestionType string          `json:"question_type"`
+	Answer       json.RawMessage `json:"answer"`
+	IsCorrect    bool            `json:"is_correct"`
+	CreatedAt    time.Time       `json:"created_at"`
+}
+
+// LessonReflection is one student's free-text "what did you understand from
+// this lesson" reflection for a notes module — captured at the bottom of
+// every lesson page, below the mcq knowledge-check. Ungraded, one row per
+// (user, module); resubmitting replaces the previous answer rather than
+// accumulating a history, since only the student's current stated
+// understanding matters to a future revision-plan / concept-dependency-graph
+// reader, which does not exist yet — this table only captures the raw input.
+type LessonReflection struct {
+	ID        string    `json:"id"`
+	OrgID     string    `json:"-"`
+	UserID    string    `json:"-"`
+	ModuleID  string    `json:"module_id"`
+	Response  string    `json:"response"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CourseTree struct {

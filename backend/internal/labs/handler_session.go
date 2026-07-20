@@ -3,6 +3,7 @@ package labs
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -40,6 +41,13 @@ type labStudentResponse struct {
 	// Layout selects the student workspace arrangement: "split" or "console".
 	// See LabDefinition.WorkspaceLayout.
 	Layout         string            `json:"layout"`
+	// PreviewPort is the container port of the lab's running app; 0 = the
+	// workspace shows no live preview pane. See LabDefinition.PreviewPort.
+	PreviewPort    int               `json:"preview_port"`
+	// HasRunScript tells the workspace whether to show a Run button (sandbox
+	// labs). The script body itself never crosses the wire — students only
+	// ever see its output via POST /sessions/:id/run.
+	HasRunScript   bool              `json:"has_run_script"`
 	Tasks          []studentTaskView `json:"tasks"`
 }
 
@@ -57,6 +65,8 @@ func newLabStudentResponse(lab *LabDefinition) labStudentResponse {
 		HintPenaltyPct: lab.HintPenaltyPct,
 		IsRequired:     lab.IsRequired,
 		Layout:         lab.WorkspaceLayout,
+		PreviewPort:    lab.PreviewPort,
+		HasRunScript:   lab.RunScript != nil && strings.TrimSpace(*lab.RunScript) != "",
 		Tasks:          []studentTaskView{},
 	}
 }

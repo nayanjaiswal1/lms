@@ -7,6 +7,7 @@ import { CheckCircle2 } from "lucide-react";
 import { AuthPageShell } from "@/components/auth/auth-page-shell";
 import { LoginForm } from "@/components/auth/login-form";
 import ROUTES from "@/lib/routes";
+import { safeNextPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -14,16 +15,17 @@ export const metadata: Metadata = {
 };
 
 interface LoginPageProps {
-  searchParams: Promise<{ verified?: string; error?: string }>;
+  searchParams: Promise<{ verified?: string; error?: string; next?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+
   const cookieStore = await cookies();
   if (cookieStore.get("access_token")?.value) {
-    redirect(ROUTES.DASHBOARD);
+    redirect(safeNextPath(params.next) ?? ROUTES.DASHBOARD);
   }
 
-  const params = await searchParams;
   const verified = params.verified === "1";
 
   return (
@@ -40,7 +42,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Email verified! Sign in to continue.
         </p>
       )}
-      <LoginForm oauthError={params.error} />
+      <LoginForm oauthError={params.error} next={params.next} />
       <p className="text-center text-sm text-muted-foreground sm:text-left">
         Just exploring?{" "}
         <Link href={ROUTES.DEMO} className="font-medium">

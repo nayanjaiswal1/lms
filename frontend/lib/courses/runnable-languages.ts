@@ -8,6 +8,7 @@ export const RUNNABLE_LANGUAGES: Record<string, string> = {
   python3: "Python",
   typescript: "TypeScript",
   go: "Go",
+  java: "Java",
 };
 
 export function isRunnableLanguage(language: string): boolean {

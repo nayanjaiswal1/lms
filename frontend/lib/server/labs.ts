@@ -1,5 +1,4 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { apiGet } from "@/lib/server/api";
 import type { ActiveLabSession, GetSessionResponse, Lab } from "@/lib/labs";
 
@@ -11,21 +10,9 @@ import type { ActiveLabSession, GetSessionResponse, Lab } from "@/lib/labs";
  * backend hiccup here must not break the whole app shell.
  */
 export async function getActiveLabSession(): Promise<ActiveLabSession | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
-  if (!token) return null;
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return null;
-
   try {
-    const res = await fetch(`${apiUrl}/api/labs/sessions/active`, {
-      headers: { Cookie: `access_token=${token}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { data: ActiveLabSession[] };
-    return body.data?.[0] ?? null;
+    const sessions = await apiGet<ActiveLabSession[]>("/api/labs/sessions/active");
+    return sessions?.[0] ?? null;
   } catch {
     return null;
   }

@@ -15,6 +15,10 @@ type Sheet struct {
 	SourceSheetIDs []string  `json:"source_sheet_ids,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+	// ItemCount and Topics are only populated by the listing queries
+	// (ListPublicSheets, ListUserSheets) — zero-value elsewhere.
+	ItemCount int      `json:"item_count"`
+	Topics    []string `json:"topics,omitempty"`
 }
 
 // UserSheetSummary is one row in the current user's sheet tab bar — a Sheet
@@ -50,10 +54,13 @@ type CreateSheetRequest struct {
 
 // CombineSheetsRequest is the body for POST /api/sheets/combine. The new
 // sheet's items are the union of every listed sheet's items, deduped by
-// topic_tag (first occurrence, in SheetIDs order, wins).
+// topic_tag (first occurrence, in SheetIDs order, wins), minus anything in
+// ExcludeTopicTags. A single sheet ID is allowed — that clones one sheet
+// with specific problems left out.
 type CombineSheetsRequest struct {
-	Name     string   `json:"name"`
-	SheetIDs []string `json:"sheet_ids"`
+	Name             string   `json:"name"`
+	SheetIDs         []string `json:"sheet_ids"`
+	ExcludeTopicTags []string `json:"exclude_topic_tags,omitempty"`
 }
 
 // AddItemRequest is the body for POST /api/sheets/:id/items.

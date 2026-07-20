@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Trophy } from "lucide-react";
 
 import { LeaderboardTable } from "@/components/rewards/leaderboard-table";
 import { ScopeTabs } from "@/components/rewards/scope-tabs";
 import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
+import { getCurrentUser } from "@/lib/server/auth";
 import { getLeaderboard, getMyRank } from "@/lib/server/rewards";
 import ROUTES from "@/lib/routes";
 
@@ -22,27 +22,6 @@ interface LeaderboardPageProps {
   }>;
 }
 
-async function getCurrentUserID(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("access_token")?.value;
-  if (!accessToken) return null;
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return null;
-
-  try {
-    const res = await fetch(`${apiUrl}/api/auth/me`, {
-      headers: { Cookie: `access_token=${accessToken}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const body = await res.json() as { data: { user: { id: string } } };
-    return body.data.user.id;
-  } catch {
-    return null;
-  }
-}
-
 const VALID_SCOPES = new Set<LeaderboardScope>(["global", "org", "batch", "course", "feature"]);
 
 function sanitizeScope(raw?: string): LeaderboardScope {
@@ -51,8 +30,8 @@ function sanitizeScope(raw?: string): LeaderboardScope {
 }
 
 export default async function LeaderboardPage({ searchParams }: LeaderboardPageProps) {
-  const userID = await getCurrentUserID();
-  if (!userID) redirect(ROUTES.LOGIN);
+  const user = await getCurrentUser();
+  if (!user) redirect(ROUTES.LOGIN);
 
   const params = await searchParams;
   const scope = sanitizeScope(params.scope);
@@ -124,7 +103,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
 
       <LeaderboardTable
         entries={entries}
-        myUserID={userID}
+        myUserID={user.id}
         myRank={myRankData && myRankData.rank > 0 ? myRankData.rank : undefined}
       />
     </main>

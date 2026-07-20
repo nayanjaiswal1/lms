@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { BookOpen, CheckCircle2, Clock, Star } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { CourseProgressRing } from "@/components/courses/course-progress-ring";
+import type { CSSProperties } from "react";
+import { BookOpen, Clock, Star } from "lucide-react";
 import type { Course } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
@@ -12,17 +11,14 @@ interface CourseCardProps {
   href?: string;
 }
 
-const DIFFICULTY_CLASS: Record<string, string> = {
-  beginner:     "difficulty-beginner",
-  intermediate: "difficulty-intermediate",
-  advanced:     "difficulty-advanced",
-  expert:       "difficulty-expert",
-};
-
 export function CourseCard({ course, enrolled, progressPct, href }: CourseCardProps) {
+  const showProgress = enrolled && progressPct !== undefined;
+
   return (
-    <article className="card-interactive relative flex flex-col gap-2 p-6">
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+    <article className="card-interactive relative flex flex-col overflow-hidden p-0">
+      {/* Full-bleed media — card corners clip it, no inner frame */}
+      {/* 2:1 cover — shorter than 16:9, keeps the grid row compact */}
+      <div className="relative aspect-[2/1] w-full bg-muted">
         {course.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- dynamic remote cover, no known dimensions (same convention as course detail page)
           <img
@@ -36,60 +32,62 @@ export function CourseCard({ course, enrolled, progressPct, href }: CourseCardPr
             <BookOpen aria-hidden className="h-10 w-10 text-muted-foreground" />
           </div>
         )}
-        <Badge
-          variant="outline"
-          className={`absolute right-2 top-2 z-raised ${DIFFICULTY_CLASS[course.difficulty]}`}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <Link
+          href={href ?? ROUTES.course(course.slug)}
+          className="line-clamp-2 text-sm font-semibold leading-snug after:absolute after:inset-0 after:content-['']"
         >
-          {course.difficulty}
-        </Badge>
-        {enrolled && (
-          <Badge variant="outline" className="badge-success absolute left-2 top-2 z-raised">
-            <CheckCircle2 aria-hidden className="h-3 w-3" />
-            Enrolled
-          </Badge>
+          {course.title}
+        </Link>
+
+        {course.instructor_name && (
+          <p className="truncate text-xs text-muted-foreground">By {course.instructor_name}</p>
         )}
-      </div>
 
-      <Link
-        href={href ?? ROUTES.course(course.slug)}
-        className="line-clamp-2 text-base font-semibold leading-snug after:absolute after:inset-0 after:content-['']"
-      >
-        {course.title}
-      </Link>
+        {/* Spacer so footers align across the grid regardless of title length */}
+        <div className="flex-1" />
 
-      {course.instructor_name && (
-        <p className="truncate text-xs text-muted-foreground">By {course.instructor_name}</p>
-      )}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          {course.avg_rating !== null && (
+            <span className="flex items-center gap-1">
+              <Star aria-hidden className="h-3.5 w-3.5 fill-primary text-primary" />
+              <span className="font-bold text-primary">{course.avg_rating.toFixed(1)}</span>
+              <span>({course.review_count})</span>
+            </span>
+          )}
 
-      <div className="flex items-center justify-between gap-2 text-xs">
-        {course.avg_rating !== null ? (
-          <div className="flex items-center gap-1">
-            <Star aria-hidden className="h-3.5 w-3.5 fill-primary text-primary" />
-            <span className="font-bold text-primary">{course.avg_rating.toFixed(1)}</span>
-            <span className="text-muted-foreground">({course.review_count})</span>
+          {course.estimated_hours && (
+            <span className="flex items-center gap-1">
+              <Clock aria-hidden className="h-3.5 w-3.5" />
+              {course.estimated_hours}h
+            </span>
+          )}
+
+          {!enrolled && (
+            <span className="ml-auto text-sm font-bold text-foreground">
+              {course.is_free ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
+            </span>
+          )}
+        </div>
+
+        {showProgress && (
+          <div className="flex flex-col gap-1.5 pt-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{progressPct}% complete</span>
+              <span className="font-semibold text-primary">
+                {progressPct === 0 ? "Start" : progressPct === 100 ? "Review" : "Continue"}
+                <span aria-hidden> →</span>
+              </span>
+            </div>
+            <div className="progress-track">
+              {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+              <div className="progress-fill" style={{ "--progress": `${progressPct}%` } as CSSProperties} />
+            </div>
           </div>
-        ) : (
-          <p className="text-muted-foreground">New</p>
-        )}
-
-        {enrolled && progressPct !== undefined ? (
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <CourseProgressRing pct={progressPct} />
-            {progressPct}% complete
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 text-sm font-bold text-foreground">
-            {course.is_free ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
-          </span>
         )}
       </div>
-
-      {course.estimated_hours && (
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock aria-hidden className="h-3.5 w-3.5" />
-          {course.estimated_hours}h
-        </span>
-      )}
     </article>
   );
 }

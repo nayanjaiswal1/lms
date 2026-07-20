@@ -11,6 +11,15 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Validate a post-login `?next=` redirect target: must be an internal path
+ * (single leading slash, no protocol-relative `//host` open-redirect trick).
+ */
+export function safeNextPath(next: string | undefined | null): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
+/**
  * Human-readable file size, e.g. 542000 -> "529.3 KB".
  */
 export function formatBytes(bytes: number): string {

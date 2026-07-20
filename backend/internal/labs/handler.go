@@ -64,6 +64,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusConflict, "You already have a lab running. End it before starting another.")
 	case errors.Is(err, ErrSessionNotRunning):
 		httputil.WriteError(w, http.StatusConflict, "Session is not running.")
+	case errors.Is(err, ErrNoRunScript):
+		httputil.WriteError(w, http.StatusBadRequest, "This lab has no run script.")
 	case errors.Is(err, ErrSessionTerminal):
 		httputil.WriteError(w, http.StatusConflict, "Session has already ended.")
 	case errors.Is(err, ErrLabNotPublished):

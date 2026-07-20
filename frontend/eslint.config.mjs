@@ -252,6 +252,29 @@ export default tseslint.config(
             'See: frontend/CLAUDE.md → Data Fetching.',
         },
 
+        // ── Ban: hand-built Cookie header ──────────────────────────────────
+        // This is the exact fingerprint of the "reimplement the auth-header
+        // fetch block instead of reusing the shared helper" duplication that
+        // was found repeated across ~10 files (server components, lib/server/*
+        // modules, and a copy-pasted client-side apiFetch). Server code must
+        // call apiGet/apiPost/apiAction/apiUpload from lib/server/api.ts, which
+        // already build this header via authHeaders() (and get 429 handling
+        // for free). Client components must call apiFetch from
+        // lib/client/api.ts. Genuine exceptions (pre-session bootstrap, Set-
+        // Cookie forwarding, Edge middleware) are documented case-by-case with
+        // an inline disable comment explaining why — see lib/server/api.ts,
+        // middleware.ts, app/login/actions.ts, app/org/create/actions.ts,
+        // app/org-select/actions.ts.
+        {
+          selector: 'Property[key.name="Cookie"]',
+          message:
+            '[Architecture] Do not hand-build a Cookie header. ' +
+            'Use apiGet/apiPost/apiAction/apiUpload (lib/server/api.ts) in server code, ' +
+            'or apiFetch (lib/client/api.ts) in client components. ' +
+            'If this is a genuine exception (pre-session bootstrap, Set-Cookie forwarding, Edge ' +
+            'middleware), disable this line with a comment explaining why.',
+        },
+
         // ── Responsive: ban w-screen ─────────────────────────────────────
         // w-screen = 100vw which causes horizontal overflow on iOS when the
         // page has a scrollbar (scrollbar width is included in vw).

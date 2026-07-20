@@ -24,6 +24,7 @@ All cookies: `httpOnly=true · SameSite=Lax · Secure=true (prod) · Path=/`
 | Microsoft OAuth | `org_auth_config.allow_microsoft` |
 | Magic link | `org_auth_config.allow_magic_link` |
 | OIDC / SAML (SSO) | `org_auth_config.oidc_*` / `saml_metadata_xml` |
+| Passkey (WebAuthn) | Additive — always available once a password/OAuth account exists; enrolled from Settings → Security, never a standalone signup path |
 
 ---
 
@@ -130,6 +131,37 @@ GET  /api/auth/magic-link/verify?token=...
                                     → redirects to dashboard
 ```
 
+### Passkeys (WebAuthn)
+
+```
+POST /api/auth/webauthn/login/begin     body: {email?}
+                                        → email known + has passkeys: scoped challenge (webauthn.BeginLogin)
+                                        → email absent/unknown/no passkeys: discoverable challenge
+                                          (webauthn.BeginDiscoverableLogin) — never reveals account existence
+                                        → rate limited (same /api/auth group as login)
+                                        → returns {data: {handle, options}}
+
+POST /api/auth/webauthn/login/finish    body: {handle, response}
+                                        → verifies the authenticator response; mints the same
+                                          access/refresh/CSRF cookies as password login
+                                        → JWT auth_method: "passkey"
+                                        → returns {data: {user, orgs, onboarding_completed}}
+
+POST /api/auth/webauthn/register/begin   (authenticated) → excludes already-registered credentials
+                                        → requires a discoverable (resident-key) credential
+                                        → returns {data: {handle, options}}
+
+POST /api/auth/webauthn/register/finish  (authenticated) body: {handle, nickname, response}
+                                        → verifies + stores the new credential
+                                        → returns {data: {credential: {id, nickname, created_at}}}
+
+GET    /api/auth/webauthn/credentials         (authenticated) → list the user's passkeys
+PATCH  /api/auth/webauthn/credentials/:id     (authenticated) body: {nickname} → rename
+DELETE /api/auth/webauthn/credentials/:id     (authenticated)
+                                        → 409 if this is the account's last sign-in method
+                                          (no password_hash, no social_accounts, no other passkey)
+```
+
 ### Org Auth Config
 
 ```
@@ -231,6 +263,24 @@ magic_link_tokens (
   used_at     TIMESTAMPTZ
 )
 
+-- Passkey (WebAuthn) credentials — one row per registered authenticator
+webauthn_credentials (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credential_id    BYTEA NOT NULL UNIQUE,   -- raw WebAuthn credential ID
+  public_key       BYTEA NOT NULL,          -- COSE public key
+  attestation_type TEXT NOT NULL DEFAULT 'none',
+  transports       TEXT[] NOT NULL DEFAULT '{}',
+  aaguid           BYTEA NOT NULL DEFAULT '\x',
+  sign_count       BIGINT NOT NULL DEFAULT 0,   -- clone-detection counter
+  clone_warning    BOOLEAN NOT NULL DEFAULT false,
+  backup_eligible  BOOLEAN NOT NULL DEFAULT false,
+  backup_state     BOOLEAN NOT NULL DEFAULT false,
+  nickname         TEXT NOT NULL DEFAULT 'Passkey',   -- user-facing label
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at     TIMESTAMPTZ
+)
+
 -- Org member invitations (sent by org_admin; accepted via link)
 org_invites (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -289,6 +339,9 @@ MICROSOFT_CLIENT_ID=
 MICROSOFT_CLIENT_SECRET=
 
 MAXMIND_DB_PATH=./GeoLite2-City.mmdb    # optional; enables impossible-travel detection
+
+WEBAUTHN_RP_DISPLAY_NAME=MindForge      # optional, defaults to "MindForge"
+                                         # RPID/RPOrigin are NOT separate env vars — derived from FRONTEND_URL
 ```
 
 ---
@@ -312,3 +365,7 @@ MAXMIND_DB_PATH=./GeoLite2-City.mmdb    # optional; enables impossible-travel de
 - Invite acceptance: verify `accepted_at IS NULL` (single-use) + `expires_at > now()` + logged-in user email matches `org_invites.email` (case-insensitive). Set `accepted_at` and insert `org_members` in one transaction.
 - `org_members`: `UNIQUE(org_id, user_id)` to prevent duplicate memberships.
 - Cookie forwarding (`forwardSetCookies`): strip the `Domain` attribute from backend `Set-Cookie` headers before re-emitting. Assert `access_token` cookie was set before redirecting.
+- Passkey RPID/RPOrigin are pinned to `FRONTEND_URL` (parsed at config load) — never accepted from a request. Passkey registration requires a discoverable (resident-key) credential so login/begin can always fall back to a usernameless challenge.
+- Passkey in-flight challenges (`SessionData`) live in Redis only, keyed by a random handle, 5-minute TTL, consumed exactly once (`GETDEL`) — never persisted to Postgres, never trusted from the client.
+- Passkey sign-counter regression (`clone_warning`) is advisory, not a block: the login is allowed to complete, the credential is flagged, and an alert email is sent — mirrors the impossible-travel posture, since synced/cloud-backed passkeys often report a static or zero counter and would otherwise false-positive constantly.
+- Deleting a passkey is blocked with `409` when it is the account's last remaining sign-in method (`password_hash IS NULL` and no `social_accounts` and no other `webauthn_credentials` row) — prevents an irrecoverable lockout.

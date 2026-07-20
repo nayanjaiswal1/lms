@@ -58,6 +58,15 @@ const ROUTES = {
   PRACTICE:            "/practice",
   PRACTICE_NEW:        "/practice/new",
 
+  // Interview Prep — paste a job title/JD, get a scored multi-round mock test
+  INTERVIEW_PREP:      "/interview-prep",
+  INTERVIEW_PREP_NEW:  "/interview-prep/new",
+
+  // Roadmap — AI personalized learning paths
+  ROADMAP:             "/roadmap",
+  ROADMAP_NEW:         "/roadmap/new",
+  ROADMAP_DISCOVER:    "/roadmap/discover",
+
   // Interview practice readiness
   INTERVIEW_PROGRESS:  "/interview/progress",
   INTERVIEW_SKILLS:    "/interview/skills",
@@ -77,6 +86,7 @@ const ROUTES = {
 
   // Settings
   SETTINGS_PROFILE:    "/settings/profile",
+  SETTINGS_SECURITY:   "/settings/security",
 
   // Admin — RBAC
   ADMIN_RBAC_ROLES:        "/admin/rbac/roles",
@@ -84,6 +94,9 @@ const ROUTES = {
   ADMIN_RBAC_PERMISSIONS:  "/admin/rbac/permissions",
   ADMIN_RBAC_AUDIT:        "/admin/rbac/audit",
   ADMIN_RBAC_USERS:        "/admin/rbac/users",
+
+  // Admin — Labs
+  ADMIN_LABS_WARM_POOLS:   "/admin/labs/warm-pools",
 
   // Platform Admin (super_admin console — cross-tenant)
   PLATFORM_JOBS:           "/platform/jobs",
@@ -111,6 +124,7 @@ const ROUTES = {
   course:                   (slug: string)                      => `/courses/${slug}`,
   courseLearn:              (slug: string)                      => `/courses/${slug}/learn`,
   courseLearnModule:        (slug: string, moduleId: string)    => `/courses/${slug}/learn/${moduleId}`,
+  courseSolve:              (slug: string, problem: string)     => `/courses/${slug}/solve/${problem}`,
   module:                   (slug: string, moduleId: string)    => `/courses/${slug}/${moduleId}`,
   manageCourse:             (id: string)                        => `/courses/manage/${id}`,
   manageCourseEdit:         (id: string)                        => `/courses/manage/${id}/edit`,
@@ -123,6 +137,10 @@ const ROUTES = {
   mentoringTicketChat:      (id: string)                        => `/mentoring/tickets/${id}/chat`,
   mentor:                   (id: string)                        => `/mentors/${id}`,
   practiceSession:          (id: string)                        => `/practice/${id}`,
+  interviewPrepPlan:        (id: string)                        => `/interview-prep/${id}`,
+  interviewPrepCoding:      (id: string)                        => `/interview-prep/${id}/coding`,
+  interviewPrepReport:      (id: string)                        => `/interview-prep/${id}/report`,
+  roadmap:                  (id: string)                        => `/roadmap/${id}`,
   certificate:              (uuid: string)                      => `/certificates/${uuid}`,
   sheet:                    (slug: string)                      => `/sheets/${slug}`,
   assessmentTake:           (id: string)                        => `/assessments/${id}/take`,

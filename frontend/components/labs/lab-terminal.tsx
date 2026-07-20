@@ -5,6 +5,7 @@
 
 import { WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { LAB_FILE_DRAG_MIME } from "@/lib/labs/files"
 
 // CSS must be imported statically so Next.js bundles it.
 // If the package is not yet installed, run: pnpm add @xterm/xterm
@@ -14,14 +15,29 @@ interface LabTerminalProps {
   containerRef: (node: HTMLDivElement | null) => void
   isConnected: boolean
   reconnectManually: () => void
+  /** Types text into the shell — used to insert a file path dropped from the tree. */
+  sendText: (text: string) => void
 }
 
 // Presentational only — the WebSocket connection (useLabTerminal) is owned by
 // LabContainerWorkspace so its connection status can be shown in that
 // component's persistent tab-bar header instead of a second header here.
-export function LabTerminal({ containerRef, isConnected, reconnectManually }: LabTerminalProps) {
+export function LabTerminal({ containerRef, isConnected, reconnectManually, sendText }: LabTerminalProps) {
   return (
-    <div className="relative h-full bg-terminal">
+    <div
+      className="relative h-full bg-terminal"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes(LAB_FILE_DRAG_MIME)) e.preventDefault()
+      }}
+      onDrop={(e) => {
+        const path = e.dataTransfer.getData(LAB_FILE_DRAG_MIME)
+        if (!path) return
+        e.preventDefault()
+        // VS Code behavior: dropping a file inserts its path at the prompt so
+        // the user can run it — it never auto-executes.
+        sendText(path.includes(" ") ? `'${path}'` : path)
+      }}
+    >
       <div className="h-full w-full px-5 py-4">
         <div className="h-full w-full" ref={containerRef} />
       </div>

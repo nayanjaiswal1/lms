@@ -3,7 +3,10 @@
 import { redirect } from "next/navigation";
 import { AUTH_COPY, loginSchema } from "@/lib/validation/auth";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
+import { apiAction, type ActionResult } from "@/lib/server/api";
+import type { WebAuthnRequestOptions } from "@/lib/webauthn";
 import ROUTES from "@/lib/routes";
+import { safeNextPath } from "@/lib/utils";
 
 // Result surfaced back to the form via useActionState.
 //   error       — top-level failure (bad credentials, rate limit, network…)
@@ -91,16 +94,97 @@ export async function loginAction(
 
   // 3. Re-emit the auth cookies the API set, then route into the app.
   //    redirect() throws NEXT_REDIRECT, so it must run outside any try/catch.
+  const next = safeNextPath(formData.get("next")?.toString());
+  const dest = await resolveLoginDestination(apiUrl, response, body, next);
+  redirect(dest);
+}
+
+// ── Passkey (WebAuthn) sign-in ────────────────────────────────────────────────
+//
+// begin uses the normal authenticated-fetch helper — the endpoint is public
+// and mints no cookies. finish DOES mint cookies (same as loginAction step 2
+// above), so it needs the same raw-fetch + forwardSetCookies treatment;
+// apiAction swallows response headers and can't carry Set-Cookie through.
+//
+// Unlike loginAction, finish is invoked directly from a client component
+// (not dispatched through useActionState's form action), so it returns the
+// destination instead of calling redirect() itself — relying on a bare
+// server-action call to propagate a thrown redirect back through a manual
+// try/catch in the caller is fragile. The button navigates on success.
+
+interface WebAuthnLoginBeginResult {
+  handle: string;
+  options: WebAuthnRequestOptions;
+}
+
+export async function loginPasskeyBeginAction(
+  email?: string,
+): Promise<ActionResult<WebAuthnLoginBeginResult>> {
+  return apiAction<WebAuthnLoginBeginResult>(
+    "POST",
+    "/api/auth/webauthn/login/begin",
+    { email: email ?? "" },
+  );
+}
+
+export interface PasskeyLoginResult {
+  error?: string;
+  redirectTo?: string;
+}
+
+export async function loginPasskeyFinishAction(
+  handle: string,
+  credentialResponse: unknown,
+  next?: string,
+): Promise<PasskeyLoginResult> {
+  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) {
+    console.error("[login] BACKEND_URL is not set");
+    return { error: AUTH_COPY.configMissing };
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/api/auth/webauthn/login/finish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handle, response: credentialResponse }),
+      cache: "no-store",
+    });
+  } catch {
+    return { error: AUTH_COPY.network };
+  }
+
+  const body: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    return { error: resolveError(response.status, body) };
+  }
+
+  const redirectTo = await resolveLoginDestination(apiUrl, response, body, safeNextPath(next));
+  return { redirectTo };
+}
+
+// Shared cookie-mint + destination logic for every flow that ends in a fresh
+// session (password login, passkey login). Forwards the Set-Cookie headers
+// from the login response, auto-switches into a user's only org, and returns
+// where the caller should navigate next.
+async function resolveLoginDestination(
+  apiUrl: string,
+  response: Response,
+  body: unknown,
+  next: string | null,
+): Promise<string> {
   await forwardSetCookies(response.headers);
 
   const onboardingCompleted = getField(getField(body, "data"), "onboarding_completed");
   if (onboardingCompleted === false) {
-    redirect(ROUTES.ONBOARDING);
+    return ROUTES.ONBOARDING;
   }
 
   const count = orgCount(body);
   if (count > 1) {
-    redirect(ROUTES.ORG_SELECT);
+    return ROUTES.ORG_SELECT;
   }
 
   // Single org: auto-switch so the access token carries an org_id and
@@ -114,6 +198,7 @@ export async function loginAction(
         headers: {
           "Content-Type": "application/json",
           // Forward the new access token the login response just set.
+          // eslint-disable-next-line no-restricted-syntax -- can't use authHeaders()/apiAction here, the token being forwarded isn't in the cookie store yet (this response set it, next/headers cookies() hasn't seen it).
           Cookie: response.headers.getSetCookie?.()
             .filter((c) => c.startsWith("access_token="))
             .join("; ") ?? "",
@@ -125,5 +210,5 @@ export async function loginAction(
     }
   }
 
-  redirect(ROUTES.DASHBOARD);
+  return next ?? ROUTES.DASHBOARD;
 }

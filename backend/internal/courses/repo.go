@@ -2,6 +2,7 @@ package courses
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -434,21 +435,25 @@ func (r *Repo) CreateModule(ctx context.Context, m CourseModule) (CourseModule, 
 // GetModule returns a single module; respects org scope via course FK.
 func (r *Repo) GetModule(ctx context.Context, orgID, moduleID string) (CourseModule, error) {
 	var m CourseModule
+	var knowledgeCheckRaw []byte
 	err := r.pool.QueryRow(ctx,
 		`SELECT cm.id, cm.course_id, cm.section_id, cm.title, cm.type, cm.position,
 		        cm.is_free_preview, cm.storage_key, cm.duration_seconds, cm.content_body,
-		        cm.assessment_id, cm.estimated_minutes, cm.starts_at, cm.ends_at, cm.created_at, cm.updated_at
+		        cm.assessment_id, cm.estimated_minutes, cm.knowledge_check, cm.starts_at, cm.ends_at, cm.created_at, cm.updated_at
 		 FROM course_modules cm
 		 JOIN courses c ON c.id = cm.course_id
 		 WHERE cm.id=$1 AND c.org_id=$2 AND cm.deleted_at IS NULL`, moduleID, orgID,
 	).Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
 		&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
-		&m.AssessmentID, &m.EstimatedMinutes, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt)
+		&m.AssessmentID, &m.EstimatedMinutes, &knowledgeCheckRaw, &m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseModule{}, ErrNotFound
 		}
 		return CourseModule{}, fmt.Errorf("courses: get module: %w", err)
+	}
+	if err := json.Unmarshal(knowledgeCheckRaw, &m.KnowledgeCheck); err != nil {
+		return CourseModule{}, fmt.Errorf("courses: get module: decode knowledge_check: %w", err)
 	}
 	return m, nil
 }
@@ -611,6 +616,43 @@ func (r *Repo) GetMyReview(ctx context.Context, userID, courseID string) (Course
 	return rev, nil
 }
 
+// UpsertReflection creates or updates the student's free-text reflection for
+// a lesson module. One row per (user, module) — resubmitting replaces the
+// previous answer rather than accumulating a history, same rationale as
+// UpsertReview: only the current state matters to readers.
+func (r *Repo) UpsertReflection(ctx context.Context, ref LessonReflection) (LessonReflection, error) {
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO lesson_reflections (org_id, user_id, module_id, response)
+		 VALUES ($1,$2,$3,$4)
+		 ON CONFLICT (user_id, module_id) DO UPDATE
+		   SET response = EXCLUDED.response, updated_at = now()
+		 RETURNING id, created_at, updated_at`,
+		ref.OrgID, ref.UserID, ref.ModuleID, ref.Response,
+	).Scan(&ref.ID, &ref.CreatedAt, &ref.UpdatedAt)
+	if err != nil {
+		return LessonReflection{}, fmt.Errorf("courses: upsert reflection: %w", err)
+	}
+	return ref, nil
+}
+
+// GetMyReflection returns the authenticated user's existing reflection for a
+// module, if any — used to prefill the textarea so revisiting a lesson shows
+// what was already submitted instead of a blank box.
+func (r *Repo) GetMyReflection(ctx context.Context, userID, moduleID string) (LessonReflection, error) {
+	var ref LessonReflection
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, module_id, response, created_at, updated_at
+		 FROM lesson_reflections WHERE user_id = $1 AND module_id = $2`, userID, moduleID,
+	).Scan(&ref.ID, &ref.ModuleID, &ref.Response, &ref.CreatedAt, &ref.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return LessonReflection{}, ErrNotFound
+		}
+		return LessonReflection{}, fmt.Errorf("courses: get my reflection: %w", err)
+	}
+	return ref, nil
+}
+
 // GetMyEnrollments returns all courses a student is enrolled in within an org, with course data joined.
 func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]Enrollment, error) {
 	rows, err := r.pool.Query(ctx,
@@ -680,6 +722,47 @@ func (r *Repo) GetCourseProgress(ctx context.Context, userID, courseID string) (
 		return CourseProgress{}, fmt.Errorf("courses: get progress: %w", err)
 	}
 	return cp, nil
+}
+
+// InsertCheckAttempt records one lesson knowledge-check attempt (correct or
+// wrong) — the append-only history the product wants for future
+// analytics/spaced-repetition weighting, and the source UpdateProgress checks
+// before allowing a gated notes module to be marked complete.
+func (r *Repo) InsertCheckAttempt(ctx context.Context, a LessonCheckAttempt) (LessonCheckAttempt, error) {
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO lesson_check_attempts (org_id, user_id, module_id, question_id, question_type, answer, is_correct)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7)
+		 RETURNING id, created_at`,
+		a.OrgID, a.UserID, a.ModuleID, a.QuestionID, a.QuestionType, a.Answer, a.IsCorrect,
+	).Scan(&a.ID, &a.CreatedAt)
+	if err != nil {
+		return LessonCheckAttempt{}, fmt.Errorf("courses: insert check attempt: %w", err)
+	}
+	return a, nil
+}
+
+// GetPassedQuestionIDs returns the distinct knowledge-check question IDs the
+// user has ever answered correctly for the given module.
+func (r *Repo) GetPassedQuestionIDs(ctx context.Context, userID, moduleID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT question_id FROM lesson_check_attempts
+		 WHERE module_id=$1 AND user_id=$2 AND is_correct`,
+		moduleID, userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("courses: get passed question ids: %w", err)
+	}
+	defer rows.Close()
+
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("courses: get passed question ids: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // GetModuleProgressForCourse returns the per-module progress rows for a user

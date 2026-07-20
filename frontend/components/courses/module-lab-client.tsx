@@ -1,9 +1,10 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Terminal, Clock, CheckSquare, Loader2, LogOut } from "lucide-react";
+import { Terminal, Clock, CheckSquare, Loader2, LogOut, Maximize2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,7 +59,9 @@ export function ModuleLabClient({ lab, title, initialSession }: ModuleLabClientP
         expires_at: result.data.expires_at,
         last_active_at: result.data.last_active_at,
       });
-      router.refresh();
+      // Open the full-screen IDE workspace (CodeSandbox-style) instead of the
+      // boxed in-page embed — the session page owns the provisioning wait.
+      router.push(ROUTES.labSession(result.data.id));
     });
   };
 
@@ -110,6 +113,15 @@ export function ModuleLabClient({ lab, title, initialSession }: ModuleLabClientP
           <span className="truncate text-sm font-semibold text-foreground">{lab.title}</span>
           <div className="flex shrink-0 items-center gap-3">
             <LabTimer expiresAt={initialSession.session.expires_at} onExpired={handleEnd} />
+            <Button asChild size="sm" variant="ghost">
+              <Link
+                aria-label="Open lab in full screen"
+                href={ROUTES.labSession(initialSession.session.id)}
+              >
+                <Maximize2 aria-hidden className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Full screen</span>
+              </Link>
+            </Button>
             <Button disabled={isEnding} size="sm" variant="outline" onClick={handleEnd}>
               <LogOut aria-hidden className="h-3.5 w-3.5" />
               {isEnding ? "Ending…" : "End Lab"}

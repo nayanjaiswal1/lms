@@ -462,6 +462,40 @@ export type MentorChangeRequestStatus =
 
 // ─────────────────────────────────────────────
 
+export const WARM_POOL_MODE = {
+  AUTO:  "auto",
+  FIXED: "fixed",
+  OFF:   "off",
+} as const;
+export type WarmPoolMode = (typeof WARM_POOL_MODE)[keyof typeof WARM_POOL_MODE];
+
+export const WARM_POOL_MODE_OPTIONS = [
+  { label: "Auto (demand-driven)", value: WARM_POOL_MODE.AUTO },
+  { label: "Fixed size",           value: WARM_POOL_MODE.FIXED },
+  { label: "Off",                  value: WARM_POOL_MODE.OFF },
+] as const;
+
+// ─────────────────────────────────────────────
+
+export const ORG_TYPE = {
+  SCHOOL:     "school",
+  COLLEGE:    "college",
+  UNIVERSITY: "university",
+  BOOTCAMP:   "bootcamp",
+  CORPORATE:  "corporate",
+} as const;
+export type OrgType = (typeof ORG_TYPE)[keyof typeof ORG_TYPE];
+
+export const ORG_TYPE_OPTIONS = [
+  { label: "School",             value: ORG_TYPE.SCHOOL },
+  { label: "College",            value: ORG_TYPE.COLLEGE },
+  { label: "University",         value: ORG_TYPE.UNIVERSITY },
+  { label: "Bootcamp",           value: ORG_TYPE.BOOTCAMP },
+  { label: "Company / Corporate", value: ORG_TYPE.CORPORATE },
+] as const;
+
+// ─────────────────────────────────────────────
+
 export const SUGGESTED_SKILLS = [
   "Python", "JavaScript", "TypeScript", "Go", "Java", "Rust", "C++",
   "React", "Next.js", "Vue", "Angular", "Node.js",

@@ -36,7 +36,15 @@ func scanSheet(row pgx.Row) (Sheet, error) {
 // catalogue a user can "start with".
 func (r *Repo) ListPublicSheets(ctx context.Context) ([]Sheet, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+sheetColumns+` FROM sheets WHERE is_system = true ORDER BY name`)
+		`SELECT s.id, s.name, s.slug, s.description, s.category, s.is_system, s.created_by,
+		        s.created_at, s.updated_at, COALESCE(s.source_sheet_ids, '{}'),
+		        COUNT(si.id),
+		        COALESCE(array_agg(DISTINCT si.category) FILTER (WHERE si.category IS NOT NULL), '{}')
+		 FROM sheets s
+		 LEFT JOIN sheet_items si ON si.sheet_id = s.id
+		 WHERE s.is_system = true
+		 GROUP BY s.id
+		 ORDER BY s.name`)
 	if err != nil {
 		return nil, fmt.Errorf("sheets: list public sheets: %w", err)
 	}
@@ -44,8 +52,11 @@ func (r *Repo) ListPublicSheets(ctx context.Context) ([]Sheet, error) {
 
 	out := []Sheet{}
 	for rows.Next() {
-		s, err := scanSheet(rows)
-		if err != nil {
+		var s Sheet
+		if err := rows.Scan(
+			&s.ID, &s.Name, &s.Slug, &s.Description, &s.Category, &s.IsSystem, &s.CreatedBy,
+			&s.CreatedAt, &s.UpdatedAt, &s.SourceSheetIDs, &s.ItemCount, &s.Topics,
+		); err != nil {
 			return nil, fmt.Errorf("sheets: scan public sheet: %w", err)
 		}
 		out = append(out, s)
@@ -212,10 +223,15 @@ func (r *Repo) CombineSheets(ctx context.Context, userID, slug string, req Combi
 		return all[i].orderIndex < all[j].orderIndex
 	})
 
+	excluded := make(map[string]bool, len(req.ExcludeTopicTags))
+	for _, t := range req.ExcludeTopicTags {
+		excluded[t] = true
+	}
+
 	seen := make(map[string]bool, len(all))
 	deduped := make([]sourceItem, 0, len(all))
 	for _, it := range all {
-		if seen[it.topicTag] {
+		if seen[it.topicTag] || excluded[it.topicTag] {
 			continue
 		}
 		seen[it.topicTag] = true
@@ -313,10 +329,14 @@ func (r *Repo) DeleteItem(ctx context.Context, sheetID, itemID string) error {
 func (r *Repo) ListUserSheets(ctx context.Context, userID string) ([]UserSheetSummary, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.name, s.slug, s.description, s.category, s.is_system,
-		        s.created_by, s.created_at, s.updated_at, us.role, COALESCE(s.source_sheet_ids, '{}')
+		        s.created_by, s.created_at, s.updated_at, us.role, COALESCE(s.source_sheet_ids, '{}'),
+		        COUNT(si.id),
+		        COALESCE(array_agg(DISTINCT si.category) FILTER (WHERE si.category IS NOT NULL), '{}')
 		 FROM user_sheets us
 		 JOIN sheets s ON s.id = us.sheet_id
+		 LEFT JOIN sheet_items si ON si.sheet_id = s.id
 		 WHERE us.user_id = $1
+		 GROUP BY s.id, us.role, us.added_at
 		 ORDER BY us.added_at`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("sheets: list user sheets: %w", err)
@@ -329,6 +349,7 @@ func (r *Repo) ListUserSheets(ctx context.Context, userID string) ([]UserSheetSu
 		if err := rows.Scan(
 			&u.ID, &u.Name, &u.Slug, &u.Description, &u.Category, &u.IsSystem,
 			&u.CreatedBy, &u.CreatedAt, &u.UpdatedAt, &u.Role, &u.SourceSheetIDs,
+			&u.ItemCount, &u.Topics,
 		); err != nil {
 			return nil, fmt.Errorf("sheets: scan user sheet: %w", err)
 		}

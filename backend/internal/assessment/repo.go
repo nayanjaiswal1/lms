@@ -29,6 +29,8 @@ var (
 	ErrNotDraft = errors.New("assessment: only draft assessments can be edited")
 	// ErrConflict — a uniqueness or state-transition rule was violated.
 	ErrConflict = errors.New("assessment: conflict")
+	// ErrInvalidScore — a score fell outside 0..max_score.
+	ErrInvalidScore = errors.New("assessment: invalid score")
 )
 
 // txFunc runs fn inside a transaction, committing on nil error and rolling back

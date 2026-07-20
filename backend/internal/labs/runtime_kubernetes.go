@@ -64,7 +64,15 @@ func NewKubernetesContainerService(namespace string) (*KubernetesContainerServic
 // force-deleted before the error is returned.
 func (k *KubernetesContainerService) Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error) {
 	name := fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount)
+	return k.startPod(ctx, name, map[string]string{"app": "mindforge-lab", "session-id": sessionID}, image, setupScript)
+}
 
+// StartWarm creates an unbound warm-pool Pod. See ContainerRuntime.
+func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID string, image, setupScript string) (containerID, containerHost string, err error) {
+	return k.startPod(ctx, "mindforge-warm-"+warmID, map[string]string{"app": "mindforge-lab-warm", "warm-id": warmID}, image, setupScript)
+}
+
+func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image, setupScript string) (containerID, containerHost string, err error) {
 	cpuQty, err := resource.ParseQuantity(ContainerCPU)
 	if err != nil {
 		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse ContainerCPU: %w", err)
@@ -78,10 +86,7 @@ func (k *KubernetesContainerService) Start(ctx context.Context, sessionID string
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: k.namespace,
-			Labels: map[string]string{
-				"app":        "mindforge-lab",
-				"session-id": sessionID,
-			},
+			Labels:    labels,
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy:                corev1.RestartPolicyNever,

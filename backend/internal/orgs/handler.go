@@ -334,7 +334,7 @@ func (h *Handler) handleSaveOnboarding(w http.ResponseWriter, r *http.Request) {
 	state, err := h.onboSvc.SaveStep(r.Context(), orgCtx.OrgID, step, req)
 	if err != nil {
 		switch err.Error() {
-		case "invalid_slug", "reserved_slug", "invalid_name":
+		case "invalid_slug", "reserved_slug", "invalid_name", "invalid_org_type":
 			httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
 		default:
 			httputil.WriteError(w, http.StatusInternalServerError, "Failed to save onboarding step.")
@@ -412,11 +412,11 @@ func (h *Handler) handleUpdateAuthConfig(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeAuditLog(r.Context(), h.pool, auditEntry{
-		OrgID:      orgCtx.OrgID,
+		OrgID:       orgCtx.OrgID,
 		ActorUserID: func() *string { s := orgCtx.MemberID; return &s }(),
-		Action:     "org_auth_config.updated",
-		TargetType: "org_auth_config",
-		TargetID:   &orgCtx.OrgID,
+		Action:      "org_auth_config.updated",
+		TargetType:  "org_auth_config",
+		TargetID:    &orgCtx.OrgID,
 	})
 
 	cfg := &OrgAuthConfig{OrgID: orgCtx.OrgID}
@@ -1150,8 +1150,9 @@ func (h *Handler) mapOrgError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusUnprocessableEntity, "That slug is reserved.")
 	case err.Error() == "invalid_name":
 		httputil.WriteError(w, http.StatusUnprocessableEntity, "Name must be 2–100 characters.")
+	case err.Error() == "invalid_org_type":
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "Invalid organisation type.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "An unexpected error occurred.")
 	}
 }
-

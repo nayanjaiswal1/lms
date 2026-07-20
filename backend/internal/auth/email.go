@@ -54,6 +54,25 @@ func SendDuplicateRegistration(cfg *config.Config, to string) error {
 	return sendSMTP(cfg, to, subject, body)
 }
 
+// SendPasskeyCloneAlert notifies the user that a passkey sign-in produced a
+// signature-counter regression — a signal (not proof) that the credential's
+// private key may exist in more than one place. The login is allowed to
+// proceed (see webauthn.go); this is advisory, mirroring the existing
+// impossible-travel posture. In development it logs to stdout instead of
+// using SMTP.
+func SendPasskeyCloneAlert(cfg *config.Config, to string) error {
+	if !cfg.IsProd() {
+		slog.Info("DEV EMAIL: Passkey clone warning", "to", to)
+		return nil
+	}
+	subject := "Unusual passkey activity on your MindForge account"
+	body := "We noticed unusual activity from a passkey on your account, which can happen if " +
+		"the passkey was copied or restored from a backup.\n\n" +
+		"If this was you, no action is needed. If you don't recognize this, review your " +
+		"passkeys at " + cfg.FrontendURL + "/settings/security and remove any you don't recognize."
+	return sendSMTP(cfg, to, subject, body)
+}
+
 // ─── internal ─────────────────────────────────────────────────────────────────
 
 func sendSMTP(cfg *config.Config, to, subject, body string) error {

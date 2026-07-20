@@ -3,6 +3,11 @@ export interface LabFileEntry {
   type: "file" | "dir"
 }
 
+// Drag-and-drop payload MIME type for lab file paths, namespaced so drop
+// targets (file tree, terminal) only react to drags started by the tree
+// itself — not files dragged in from the OS or other browser tabs.
+export const LAB_FILE_DRAG_MIME = "application/x-mindforge-lab-path"
+
 export interface ValidateResult {
   valid: boolean
   stdout?: string

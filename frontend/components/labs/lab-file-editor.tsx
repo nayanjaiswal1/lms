@@ -1,11 +1,14 @@
 "use client"
 
-import { CheckCircle2, XCircle, Save, ShieldCheck } from "lucide-react"
+import { Fragment } from "react"
+import { CheckCircle2, ChevronRight, XCircle, Save, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CodeEditor } from "@/components/shared/code-editor"
 import { LabFileTabs } from "@/components/labs/lab-file-tabs"
+import { EditorSettingsMenu } from "@/components/labs/editor-settings-menu"
 import { useLabSaveShortcut } from "@/hooks/use-lab-save-shortcut"
+import { useEditorSettings } from "@/hooks/use-editor-settings"
 import { cn } from "@/lib/utils"
 import type { ValidateResult } from "@/lib/labs/files"
 
@@ -24,7 +27,8 @@ interface LabFileEditorProps {
   onCloseTab: (path: string) => void
   onChange: (content: string) => void
   onSave: () => void
-  onValidate: () => void
+  /** Manifest validation (kubectl dry-run) for guided container labs; omit to hide the button. */
+  onValidate?: () => void
 }
 
 function languageForPath(path: string): string {
@@ -45,6 +49,7 @@ export function LabFileEditor({
   onValidate,
 }: LabFileEditorProps) {
   const active = openFiles.find((f) => f.path === activePath) ?? null
+  const { settings } = useEditorSettings()
 
   useLabSaveShortcut(!!active, onSave)
 
@@ -58,22 +63,32 @@ export function LabFileEditor({
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border shrink-0">
-            <span className="text-sm font-mono truncate text-foreground">
-              {active.path}
-              {active.dirty && <span className="text-primary"> •</span>}
+          <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border shrink-0">
+            {/* VS Code-style breadcrumb: path segments with chevron separators. */}
+            <span className="flex min-w-0 items-center gap-0.5 text-xs font-mono text-muted-foreground">
+              {active.path.split("/").map((segment, i, all) => (
+                <Fragment key={`${i}-${segment}`}>
+                  {i > 0 && <ChevronRight aria-hidden className="h-3 w-3 shrink-0" />}
+                  <span className={cn("truncate", i === all.length - 1 && "text-foreground")}>
+                    {segment}
+                  </span>
+                </Fragment>
+              ))}
+              {active.dirty && <span className="text-primary">&nbsp;•</span>}
             </span>
             <div className="flex items-center gap-2 shrink-0">
-              <Button
-                className="gap-1.5 h-7 text-xs"
-                disabled={isSaving}
-                size="sm"
-                variant="outline"
-                onClick={onValidate}
-              >
-                <ShieldCheck aria-hidden className="h-3.5 w-3.5" />
-                Validate
-              </Button>
+              {onValidate && (
+                <Button
+                  className="gap-1.5 h-7 text-xs"
+                  disabled={isSaving}
+                  size="sm"
+                  variant="outline"
+                  onClick={onValidate}
+                >
+                  <ShieldCheck aria-hidden className="h-3.5 w-3.5" />
+                  Validate
+                </Button>
+              )}
               <Button
                 className="gap-1.5 h-7 text-xs"
                 disabled={isSaving || !active.dirty}
@@ -83,14 +98,19 @@ export function LabFileEditor({
                 <Save aria-hidden className="h-3.5 w-3.5" />
                 {isSaving ? "Saving…" : "Save"}
               </Button>
+              <EditorSettingsMenu />
             </div>
           </div>
 
           <div className="flex-1 min-h-0">
             <CodeEditor
+              fontSize={settings.fontSize}
               height="100%"
               language={languageForPath(active.path)}
+              minimap={settings.minimap}
+              tabSize={settings.tabSize}
               value={active.content}
+              wordWrap={settings.wordWrap}
               onChange={(v) => onChange(v ?? "")}
             />
           </div>

@@ -16,6 +16,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/sheets/public", h.ListPublicSheets)
 	r.Post("/api/sheets", h.CreateSheet)
 	r.Post("/api/sheets/combine", h.CombineSheets)
+	r.Post("/api/sheets/import/excel", h.ImportExcel)
 	r.Get("/api/sheets/{slug}/items", h.GetSheetItems)
 	r.Post("/api/sheets/{id}/items", h.AddItem)
 	r.Patch("/api/sheets/{id}/items/{itemId}", h.UpdateItem)

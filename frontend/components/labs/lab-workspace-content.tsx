@@ -14,6 +14,7 @@ import {
 import { LabTaskPanel } from "@/components/labs/lab-task-panel"
 import { LabTaskChecklist } from "@/components/labs/lab-task-checklist"
 import { LabContainerWorkspace } from "@/components/labs/lab-container-workspace"
+import { SandboxWorkspace } from "@/components/labs/sandbox-workspace"
 import { LabConsoleWorkspace } from "@/components/labs/lab-console-workspace"
 import { LabFixedConsole } from "@/components/labs/lab-fixed-console"
 import { useLabVerify } from "@/hooks/use-lab-verify"
@@ -190,6 +191,23 @@ export function LabWorkspaceContent({
     })
   }, [completions, isVerifying, selectedTaskId, onVerifyStateChange, handleTaskSelect, verify])
 
+  // Sandbox/playground labs get the CodeSandbox-style IDE instead of the
+  // task-checklist layout — no per-task Check; grading (if the lab has tasks)
+  // happens through the workspace's batch Submit. Early return is safe here:
+  // every hook above has already run unconditionally.
+  if (lab.lab_type === "sandbox" || lab.lab_type === "playground") {
+    return (
+      <div className="relative flex flex-col flex-1 min-h-0">
+        {isAuthExpired && <SessionExpiredOverlay onLogin={onLogin} />}
+        <SandboxWorkspace
+          lab={lab}
+          sessionId={session.id}
+          onScoreChange={onScoreChange}
+        />
+      </div>
+    )
+  }
+
   const workspacePanel = isCodeLab ? (
     <LabCodePanel
       code={code}
@@ -207,6 +225,7 @@ export function LabWorkspaceContent({
     <LabContainerWorkspace
       isTaskPassed={isTaskPassed}
       isVerifying={isVerifying}
+      previewPort={lab.preview_port}
       sessionId={session.id}
       taskId={selectedTaskId ?? undefined}
       onCheck={verify}

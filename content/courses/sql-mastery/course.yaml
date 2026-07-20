@@ -1,0 +1,17 @@
+title: "SQL Mastery: From Scratch to Interview-Ready"
+description: >-
+  A comprehensive, hands-on SQL course built around a single running example —
+  a small library database (books, authors, genres, members, loans). Every
+  lesson ships runnable "Try it Yourself" query boxes powered by an in-browser
+  SQLite engine, so you write and execute real SQL with zero setup. Covers
+  querying, filtering, aggregation, every join type, data modification,
+  subqueries, schema design and constraints, dates, and a final section of
+  classic interview query patterns (Nth highest value, duplicates, running
+  counts) with a mixed-topic assessment.
+difficulty: beginner
+tags:
+  - sql
+  - databases
+  - interview-prep
+is_free: true
+cover_url: "/course-covers/sql-mastery.svg"

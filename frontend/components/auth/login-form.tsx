@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { loginAction, type LoginState } from "@/app/login/actions";
 import { AuthFormError } from "@/components/auth/auth-form-error";
 import { SocialLoginButtons } from "@/components/auth/social-login-buttons";
+import { PasskeyAutofill } from "@/components/auth/passkey-autofill";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -19,6 +20,7 @@ const INITIAL_STATE: LoginState = {};
 
 interface LoginFormProps {
   oauthError?: string;
+  next?: string;
 }
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
@@ -34,7 +36,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   config: "Authentication is not configured. Contact support.",
 };
 
-export function LoginForm({ oauthError }: LoginFormProps) {
+export function LoginForm({ oauthError, next }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(loginAction, INITIAL_STATE);
 
   const form = useForm<LoginInput>({
@@ -47,6 +49,7 @@ export function LoginForm({ oauthError }: LoginFormProps) {
     const data = new FormData();
     data.set("email", values.email);
     data.set("password", values.password);
+    if (next) data.set("next", next);
     startTransition(() => formAction(data));
   });
 
@@ -56,6 +59,7 @@ export function LoginForm({ oauthError }: LoginFormProps) {
 
   return (
     <div className="form-stack">
+      <PasskeyAutofill next={next} />
       <SocialLoginButtons disabled={isPending} />
 
       <div className="divider-label">or continue with email</div>
@@ -70,7 +74,10 @@ export function LoginForm({ oauthError }: LoginFormProps) {
             label="Email"
             type="email"
             inputMode="email"
-            autoComplete="email"
+            // "webauthn" alongside the normal token turns on conditional UI —
+            // the browser lists matching passkeys in this field's own
+            // autofill dropdown (see components/auth/passkey-autofill.tsx).
+            autoComplete="email webauthn"
             placeholder="you@example.com"
             disabled={isPending}
             serverError={state.fieldErrors?.email}

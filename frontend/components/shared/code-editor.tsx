@@ -2,17 +2,19 @@
 
 import React from "react"
 import dynamic from "next/dynamic"
+import { useTheme } from "next-themes"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
 const MonacoEditor = dynamic(
   async () => {
-    const [{ default: loaderLib }, { default: monacoReact }] = await Promise.all([
-      import("@monaco-editor/loader"),
-      import("@monaco-editor/react"),
-    ])
-    loaderLib.config({ paths: { vs: "/monaco-vs" } })
+    // Configure the loader instance re-exported by @monaco-editor/react —
+    // importing @monaco-editor/loader separately can resolve to a second
+    // module instance under pnpm, leaving the react package's own loader on
+    // its default CDN paths (which then 404/503s offline).
+    const { default: monacoReact, loader } = await import("@monaco-editor/react")
+    loader.config({ paths: { vs: "/monaco-vs" } })
     return monacoReact
   },
   {
@@ -28,6 +30,9 @@ interface CodeEditorProps {
   readOnly?: boolean
   height?: string | number
   fontSize?: number
+  tabSize?: number
+  wordWrap?: boolean
+  minimap?: boolean
   className?: string
 }
 
@@ -63,27 +68,32 @@ export function CodeEditor({
   readOnly = false,
   height = "400px",
   fontSize = 14,
+  tabSize = 4,
+  wordWrap = true,
+  minimap = false,
   className,
 }: CodeEditorProps) {
+  // Monaco is client-only (ssr: false), so resolvedTheme is always settled
+  // by the time the editor paints — no light/dark flash.
+  const { resolvedTheme } = useTheme()
   const fallback = (
     <Textarea
       className={cn(
         "h-full w-full resize-none font-mono text-sm",
         className,
       )}
+      placeholder={`Write your ${language} code here…`}
+      readOnly={readOnly}
+      spellCheck={false}
       // eslint-disable-next-line no-restricted-syntax -- dynamic editor fallback height
       style={{ height }}
       value={value}
-      readOnly={readOnly}
       onChange={(e) => onChange?.(e.target.value)}
-      placeholder={`Write your ${language} code here…`}
-      spellCheck={false}
     />
   )
 
   return (
     <EditorErrorBoundary fallback={fallback}>
-      {/* eslint-disable-next-line no-restricted-syntax -- dynamic editor container height */}
       <div
         className={className}
         // eslint-disable-next-line no-restricted-syntax -- dynamic editor container height
@@ -91,22 +101,22 @@ export function CodeEditor({
         <MonacoEditor
           height="100%"
           language={language}
-          value={value}
-          onChange={onChange}
-          theme="vs-dark"
           options={{
             readOnly,
             fontSize,
             fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
-            minimap: { enabled: false },
+            minimap: { enabled: minimap },
             scrollBeyondLastLine: false,
             lineNumbers: "on",
-            tabSize: 4,
-            wordWrap: "on",
+            tabSize,
+            wordWrap: wordWrap ? "on" : "off",
             padding: { top: 12, bottom: 12 },
             renderLineHighlight: "all",
             smoothScrolling: true,
           }}
+          theme={resolvedTheme === "light" ? "light" : "vs-dark"}
+          value={value}
+          onChange={onChange}
         />
       </div>
     </EditorErrorBoundary>

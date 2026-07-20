@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction } from "@/lib/server/api";
+import { apiAction, apiUpload } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type {
   AddItemInput,
   CombineSheetsInput,
   CreateSheetInput,
+  ImportedSheetItem,
   ProgressStatus,
   Sheet,
   SheetItem,
@@ -49,6 +50,12 @@ export async function deleteSheetItemAction(sheetId: string, itemId: string): Pr
   const result = await apiAction("DELETE", `/api/sheets/${sheetId}/items/${itemId}`);
   if (result.ok) revalidatePath(ROUTES.SHEETS);
   return result;
+}
+
+export async function importSheetItemsExcelAction(
+  formData: FormData,
+): Promise<ActionResult<ImportedSheetItem[]>> {
+  return apiUpload<ImportedSheetItem[]>("/api/sheets/import/excel", formData);
 }
 
 export async function subscribeSheetAction(sheetId: string): Promise<ActionResult> {

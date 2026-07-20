@@ -27,6 +27,26 @@ const (
 	MemberRemoved   = "removed"
 )
 
+// Org type constants — drive the frontend terminology map (Teacher vs
+// Mentor, Class vs Batch, etc). A nil OrgType keeps the app's generic wording.
+const (
+	OrgTypeSchool     = "school"
+	OrgTypeCollege    = "college"
+	OrgTypeUniversity = "university"
+	OrgTypeBootcamp   = "bootcamp"
+	OrgTypeCorporate  = "corporate"
+)
+
+var validOrgTypes = map[string]struct{}{
+	OrgTypeSchool: {}, OrgTypeCollege: {}, OrgTypeUniversity: {},
+	OrgTypeBootcamp: {}, OrgTypeCorporate: {},
+}
+
+func IsValidOrgType(t string) bool {
+	_, ok := validOrgTypes[t]
+	return ok
+}
+
 var roleRank = map[string]int{
 	RoleOwner:      5,
 	RoleAdmin:      4,
@@ -75,6 +95,7 @@ type Org struct {
 	Name                  string     `json:"name"`
 	LogoURL               *string    `json:"logo_url"`
 	Description           *string    `json:"description"`
+	OrgType               *string    `json:"org_type"`
 	Status                string     `json:"status"`
 	SeatLimit             *int       `json:"seat_limit"`
 	ActiveMemberCount     int        `json:"active_member_count"`
@@ -157,16 +178,16 @@ type Domain struct {
 }
 
 type AuditLog struct {
-	ID          int64      `json:"id"`
-	OrgID       string     `json:"org_id"`
-	ActorUserID *string    `json:"actor_user_id"`
-	Action      string     `json:"action"`
-	TargetType  string     `json:"target_type"`
-	TargetID    *string    `json:"target_id"`
-	BeforeState *any       `json:"before_state"`
-	AfterState  *any       `json:"after_state"`
-	IPAddress   *string    `json:"ip_address"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID          int64     `json:"id"`
+	OrgID       string    `json:"org_id"`
+	ActorUserID *string   `json:"actor_user_id"`
+	Action      string    `json:"action"`
+	TargetType  string    `json:"target_type"`
+	TargetID    *string   `json:"target_id"`
+	BeforeState *any      `json:"before_state"`
+	AfterState  *any      `json:"after_state"`
+	IPAddress   *string   `json:"ip_address"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type AuditLogPage struct {
@@ -202,6 +223,7 @@ type UpdateOrgRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	LogoURL     *string `json:"logo_url"`
+	OrgType     *string `json:"org_type"`
 	SeatLimit   *int    `json:"seat_limit"`
 }
 
@@ -235,6 +257,7 @@ type SaveOnboardingRequest struct {
 	Slug        *string `json:"slug"`
 	Description *string `json:"description"`
 	LogoURL     *string `json:"logo_url"`
+	OrgType     *string `json:"org_type"`
 	// Step 2 — Auth config
 	AllowedDomains *[]string `json:"allowed_domains"`
 	SSOEnabled     *bool     `json:"sso_enabled"`

@@ -1,6 +1,7 @@
 package courses
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -144,6 +145,31 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		// A notes module authored with an embedded ```knowledge-check block
+		// (see contentpipeline/generator/render_lesson.go) can't be marked
+		// complete until every required question has a recorded correct
+		// attempt — checked server-side (not just the UI button's disabled
+		// state) so a direct API call can't skip the questions, same
+		// rationale as the clientCompletableModuleTypes check above.
+		if len(m.KnowledgeCheck) > 0 {
+			passed, err := h.repo.GetPassedQuestionIDs(r.Context(), claims.UserID, moduleID)
+			if err != nil {
+				writeDomainError(w, err)
+				return
+			}
+			passedSet := make(map[string]bool, len(passed))
+			for _, id := range passed {
+				passedSet[id] = true
+			}
+			for _, q := range m.KnowledgeCheck {
+				if !passedSet[q.ID] {
+					httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+						"status": "Answer the knowledge check correctly first.",
+					})
+					return
+				}
+			}
+		}
 		updated, rewardResult, err := h.service.CompleteModule(r.Context(), claims.UserID, claims.OrgID, moduleID, m.CourseID)
 		if err != nil {
 			writeDomainError(w, err)
@@ -191,6 +217,97 @@ func (h *Handler) GetMyProgress(w http.ResponseWriter, r *http.Request) {
 		Pct:       cp.Pct,
 		Modules:   modules,
 	})
+}
+
+// RecordCheckAttempt records one submit of an embedded lesson knowledge-check
+// question (right or wrong — every attempt is kept for future analytics).
+// MCQ answers are graded here, server-side, against the module's stored
+// answer key, so a client can't fake a pass. "sql" questions have no
+// server-side executor (see backend/internal/assessment/executor.go, which
+// has no "sql" language entry either) — ClientCorrect is trusted only for
+// that type, the same trust level the pre-existing sql-challenge lesson
+// segment already ships for SQL grading.
+func (h *Handler) RecordCheckAttempt(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		QuestionID    string          `json:"question_id"`
+		Answer        json.RawMessage `json:"answer"`
+		ClientCorrect bool            `json:"client_correct"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	moduleID := urlParam(r, "moduleID")
+	m, err := h.repo.GetModule(r.Context(), claims.OrgID, moduleID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	var spec *KnowledgeCheckQuestion
+	for i := range m.KnowledgeCheck {
+		if m.KnowledgeCheck[i].ID == req.QuestionID {
+			spec = &m.KnowledgeCheck[i]
+			break
+		}
+	}
+	if spec == nil {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"question_id": "Unknown knowledge-check question."})
+		return
+	}
+
+	var isCorrect bool
+	switch spec.Type {
+	case "mcq":
+		var a struct {
+			Selected string `json:"selected"`
+		}
+		if err := json.Unmarshal(req.Answer, &a); err != nil {
+			httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"answer": "Invalid answer."})
+			return
+		}
+		isCorrect = a.Selected != "" && a.Selected == spec.Correct
+	case "sql":
+		isCorrect = req.ClientCorrect
+	default:
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"question_type": "Unsupported question type."})
+		return
+	}
+
+	attempt, err := h.repo.InsertCheckAttempt(r.Context(), LessonCheckAttempt{
+		OrgID:        claims.OrgID,
+		UserID:       claims.UserID,
+		ModuleID:     moduleID,
+		QuestionID:   req.QuestionID,
+		QuestionType: spec.Type,
+		Answer:       req.Answer,
+		IsCorrect:    isCorrect,
+	})
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, attempt)
+}
+
+// GetMyCheckProgress returns the knowledge-check question IDs the
+// authenticated student has ever answered correctly for a module — used to
+// seed the frontend's Mark-Complete gate on page load without re-asking
+// already-passed questions.
+func (h *Handler) GetMyCheckProgress(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	ids, err := h.repo.GetPassedQuestionIDs(r.Context(), claims.UserID, urlParam(r, "moduleID"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"passed_question_ids": ids})
 }
 
 // GetAllProgress returns all student progress for a course (instructor/mentor view).

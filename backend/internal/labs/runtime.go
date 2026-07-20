@@ -25,6 +25,14 @@ type ContainerRuntime interface {
 	// dialed directly by labproxy for the in-browser terminal.
 	Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error)
 
+	// StartWarm provisions a pool sandbox that is not yet bound to any
+	// session — identical to Start except it is named after the
+	// lab_warm_containers row ("mindforge-warm-<warmID>") so the cleanup job
+	// can reconcile warm sandboxes against the pool table instead of
+	// lab_sessions. When a session later claims it, the container keeps its
+	// warm name; the session row carries the coordinates.
+	StartWarm(ctx context.Context, warmID string, image, setupScript string) (containerID, containerHost string, err error)
+
 	// Kill force-removes a sandbox by ID.
 	Kill(ctx context.Context, containerID string) error
 

@@ -63,6 +63,12 @@ export function LabTimer({ expiresAt, onExpired }: LabTimerProps) {
       )}
       aria-live="polite"
       aria-label={`Time remaining: ${formatSeconds(secondsLeft)}`}
+      // The countdown derives from Date.now(), so the server-rendered text is
+      // always a few seconds ahead of the client's first render. Without this,
+      // React throws a hydration mismatch and regenerates the ENTIRE client
+      // tree, silently discarding sibling state (e.g. the lab file tree's
+      // initial load). The next interval tick corrects the text anyway.
+      suppressHydrationWarning
     >
       <Clock
         aria-hidden

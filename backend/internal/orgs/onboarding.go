@@ -23,13 +23,13 @@ func NewOrgOnboardingService(pool *pgxpool.Pool) *OrgOnboardingService {
 func (s *OrgOnboardingService) GetState(ctx context.Context, orgID string) (*OnboardingState, error) {
 	var org Org
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, slug, name, logo_url, description, status, seat_limit,
+		`SELECT id, slug, name, logo_url, description, org_type, status, seat_limit,
 		        active_member_count, onboarding_step, onboarding_completed_at,
 		        activated_at, created_at, updated_at
 		 FROM organizations WHERE id = $1`,
 		orgID,
 	).Scan(
-		&org.ID, &org.Slug, &org.Name, &org.LogoURL, &org.Description, &org.Status,
+		&org.ID, &org.Slug, &org.Name, &org.LogoURL, &org.Description, &org.OrgType, &org.Status,
 		&org.SeatLimit, &org.ActiveMemberCount, &org.OnboardingStep,
 		&org.OnboardingCompletedAt, &org.ActivatedAt, &org.CreatedAt, &org.UpdatedAt,
 	)
@@ -114,6 +114,18 @@ func (s *OrgOnboardingService) saveStep1(ctx context.Context, orgID string, req 
 	if req.LogoURL != nil {
 		setClauses = append(setClauses, fmt.Sprintf("logo_url = $%d", argIdx))
 		args = append(args, *req.LogoURL)
+		argIdx++
+	}
+	if req.OrgType != nil {
+		if *req.OrgType != "" && !IsValidOrgType(*req.OrgType) {
+			return fmt.Errorf("invalid_org_type")
+		}
+		setClauses = append(setClauses, fmt.Sprintf("org_type = $%d", argIdx))
+		if *req.OrgType == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *req.OrgType)
+		}
 		argIdx++
 	}
 

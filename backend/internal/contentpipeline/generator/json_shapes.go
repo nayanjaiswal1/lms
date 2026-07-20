@@ -78,3 +78,29 @@ const (
 	defaultCodingMemoryLimitKB = 262144
 	defaultSubjectiveWordLimit = 400
 )
+
+// knowledgeCheckSourceJSON mirrors the authoring shape inside a lesson's
+// ```knowledge-check fenced block (see parseKnowledgeCheck in
+// render_lesson.go). Only id/type/correct are read out of it — prompt,
+// options, starter, and solution text stay in the lesson's raw markdown body
+// and are parsed client-side, exactly like the pre-existing sql-challenge
+// segment already does.
+type knowledgeCheckSourceJSON struct {
+	Questions []struct {
+		ID      string `json:"id"`
+		Type    string `json:"type"`
+		Correct string `json:"correct"`
+	} `json:"questions"`
+}
+
+// knowledgeCheckEntryJSON mirrors one entry of course_modules.knowledge_check
+// — the server-side grading/gating key for one embedded question. Correct is
+// omitted for "sql" questions: there is no server-side SQL executor (see
+// backend/internal/assessment/executor.go's judge0LanguageIDs/pistonLanguages,
+// which have no "sql" entry either), so sql questions can't be verified
+// server-side and carry no answer key here.
+type knowledgeCheckEntryJSON struct {
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Correct string `json:"correct,omitempty"`
+}

@@ -16,6 +16,8 @@ export interface Sheet {
   source_sheet_ids?: string[];
   created_at: string;
   updated_at: string;
+  item_count: number;
+  topics?: string[];
 }
 
 export interface UserSheetSummary extends Sheet {
@@ -51,6 +53,7 @@ export interface CreateSheetInput {
 export interface CombineSheetsInput {
   name: string;
   sheet_ids: string[];
+  exclude_topic_tags?: string[];
 }
 
 export interface AddItemInput {
@@ -58,6 +61,12 @@ export interface AddItemInput {
   category?: string;
   difficulty?: Difficulty;
   external_url?: string;
+}
+
+export interface ImportedSheetItem {
+  title: string;
+  category?: string;
+  difficulty?: Difficulty;
 }
 
 export interface UpdateItemInput {

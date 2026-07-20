@@ -2,7 +2,12 @@ import { Fragment } from "react";
 import type { Segment } from "@/lib/courses/markdown";
 import type { GetSessionResponse, Lab } from "@/lib/labs";
 import { LessonCodeRunner } from "@/components/courses/lesson-code-runner";
+import { LessonSqlRunner } from "@/components/courses/lesson-sql-runner";
+import { LessonSqlChallenge } from "@/components/courses/lesson-sql-challenge";
+import { LessonKnowledgeCheck } from "@/components/courses/lesson-knowledge-check";
+import { LessonReflection } from "@/components/courses/lesson-reflection";
 import { LessonFigure } from "@/components/courses/lesson-figure";
+import { LessonHtml } from "@/components/courses/lesson-html";
 import { ModuleCompleteButton } from "@/components/courses/module-complete-button";
 import { isRunnableLanguage } from "@/lib/courses/runnable-languages";
 import { LessonLabProvider } from "@/components/courses/lesson-lab-provider";
@@ -14,6 +19,7 @@ interface ModuleNotesProps {
   title: string;
   segments: Segment[];
   initialCompleted: boolean;
+  initialReflection: string | null;
   lab?: Lab | null;
   initialSession?: GetSessionResponse | null;
 }
@@ -23,6 +29,7 @@ export function ModuleNotes({
   title,
   segments,
   initialCompleted,
+  initialReflection,
   lab = null,
   initialSession = null,
 }: ModuleNotesProps) {
@@ -33,13 +40,7 @@ export function ModuleNotes({
       {segments.map((segment, index) => {
         switch (segment.type) {
           case "html":
-            return (
-              <div
-                className="prose-content"
-                dangerouslySetInnerHTML={{ __html: segment.html }}
-                key={index}
-              />
-            );
+            return <LessonHtml html={segment.html} key={index} />;
           case "code":
             // Runnable languages get the in-page code runner (feature 2);
             // anything else stays a static block.
@@ -54,6 +55,20 @@ export function ModuleNotes({
                 <code>{segment.code}</code>
               </pre>
             );
+          case "sql-try":
+            return <LessonSqlRunner initialQuery={segment.query} key={index} />;
+          case "sql-challenge":
+            return (
+              <LessonSqlChallenge
+                key={index}
+                moduleId={moduleId}
+                prompt={segment.prompt}
+                solution={segment.solution}
+                starter={segment.starter}
+              />
+            );
+          case "knowledge-check":
+            return <LessonKnowledgeCheck key={index} moduleId={moduleId} questions={segment.questions} />;
           case "image":
             return (
               <LessonFigure
@@ -73,6 +88,7 @@ export function ModuleNotes({
             );
         }
       })}
+      <LessonReflection initialResponse={initialReflection} moduleId={moduleId} />
     </div>
   );
 

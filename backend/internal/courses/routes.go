@@ -52,6 +52,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/courses/{courseID}/reviews/me", h.GetMyReview)
 	r.Get("/api/modules/{moduleID}", h.GetModuleContent)
 	r.Patch("/api/modules/{moduleID}/progress", h.UpdateProgress)
+	r.Post("/api/modules/{moduleID}/check-attempts", h.RecordCheckAttempt)
+	r.Get("/api/modules/{moduleID}/check-attempts/me", h.GetMyCheckProgress)
+	r.Post("/api/modules/{moduleID}/reflection", h.SubmitReflection)
+	r.Get("/api/modules/{moduleID}/reflection/me", h.GetMyReflection)
 	r.Get("/api/courses/{courseID}/progress/me", h.GetMyProgress)
 }
 

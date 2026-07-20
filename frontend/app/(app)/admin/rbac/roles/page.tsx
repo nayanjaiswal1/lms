@@ -1,8 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { cookies } from "next/headers"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 import ROUTES from "@/lib/routes"
@@ -18,21 +18,9 @@ interface Role {
 }
 
 async function fetchRoles(): Promise<{ roles: Role[]; total: number }> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("access_token")?.value
-  if (!token) return { roles: [], total: 0 }
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL
-  if (!apiUrl) return { roles: [], total: 0 }
-
   try {
-    const res = await fetch(`${apiUrl}/api/admin/rbac/roles?limit=100`, {
-      headers: { Cookie: `access_token=${token}` },
-      cache: "no-store",
-    })
-    if (!res.ok) return { roles: [], total: 0 }
-    const body = (await res.json()) as { data: { roles: Role[]; total: number } }
-    return { roles: body.data.roles ?? [], total: body.data.total ?? 0 }
+    const body = await apiGet<{ roles: Role[]; total: number }>("/api/admin/rbac/roles?limit=100")
+    return { roles: body.roles ?? [], total: body.total ?? 0 }
   } catch {
     return { roles: [], total: 0 }
   }

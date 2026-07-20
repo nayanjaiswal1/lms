@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useHasPermission } from "@/lib/auth/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
+import { apiFetch, API } from "@/lib/client/api"
 
 interface Permission {
   id: string
@@ -23,23 +24,6 @@ interface Role {
   is_system: boolean
   is_editable: boolean
   is_active: boolean
-}
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? ""
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${API}/api${path}`, {
-      ...options,
-      credentials: "include",
-      headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
-    })
-    if (!res.ok) return null
-    const body = (await res.json()) as { data: T }
-    return body.data
-  } catch {
-    return null
-  }
 }
 
 function groupByModule(perms: Permission[]): Record<string, Permission[]> {

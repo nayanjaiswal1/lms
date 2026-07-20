@@ -1,0 +1,21 @@
+title: "Java Mastery: From Scratch to Interview-Ready"
+description: >-
+  A comprehensive, hands-on Java course built around a single running example —
+  TaskFlow, a small task-management system (tasks, users, projects, teams) that
+  grows in sophistication as the course progresses. Every lesson ships runnable
+  "Try it Yourself" Java code boxes (server-side execution, real javac/java under
+  the hood) so you write and run real Java with zero local setup. Covers syntax
+  and control flow, full OOP (encapsulation, inheritance, polymorphism,
+  interfaces), arrays and strings, exceptions, the Collections Framework,
+  generics, file I/O and NIO, lambdas and the Stream API, concurrency, JVM and
+  memory internals, JDBC, classic design patterns, modern Java (records, sealed
+  types, pattern matching), testing with JUnit, Maven/Gradle build tooling, and a
+  final interview-mastery module of theory questions and mixed assessments.
+difficulty: beginner
+tags:
+  - java
+  - programming
+  - oop
+  - interview-prep
+is_free: true
+cover_url: "/course-covers/java-mastery.svg"

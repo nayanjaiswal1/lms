@@ -32,6 +32,10 @@ var (
 	// that is in a terminal state (completed, expired, failed, terminated_abuse).
 	ErrSessionTerminal = errors.New("labs: session is in a terminal state")
 
+	// ErrNoRunScript is returned when POST /sessions/:id/run is called for a
+	// lab that has no run_script authored.
+	ErrNoRunScript = errors.New("labs: lab has no run script")
+
 	// ErrLabNotPublished is returned when a student tries to start a session for
 	// a lab that has no published version.
 	ErrLabNotPublished = errors.New("labs: lab has no published version")

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { apiGet } from "@/lib/server/api";
+import { getOrgId } from "@/lib/server/batches";
 import type {
   Org,
   OrgSummary,
@@ -18,6 +19,14 @@ export async function getMyOrgs(): Promise<OrgSummary[]> {
 
 export async function getOrgById(orgId: string): Promise<Org> {
   return apiGet<Org>(`/api/orgs/${orgId}`);
+}
+
+/** The current session's org_type, or null if unset/unauthenticated — feeds TerminologyProvider. */
+export async function getCurrentOrgType(): Promise<string | null> {
+  const orgId = await getOrgId();
+  if (!orgId) return null;
+  const org = await getOrgById(orgId).catch(() => null);
+  return org?.org_type ?? null;
 }
 
 export async function getOnboardingState(orgId: string): Promise<OnboardingState> {

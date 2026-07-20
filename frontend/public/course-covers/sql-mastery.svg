@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="SQL Mastery course cover">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1a1c"/>
+      <stop offset="55%" stop-color="#0d3d45"/>
+      <stop offset="100%" stop-color="#0E7490"/>
+    </linearGradient>
+    <linearGradient id="disk" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#CFFAFE"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+
+  <!-- stacked database cylinders -->
+  <g opacity="0.98">
+    <ellipse cx="690" cy="200" rx="90" ry="26" fill="url(#disk)"/>
+    <path d="M600 200 v46 a90 26 0 0 0 180 0 v-46" fill="url(#disk)" opacity="0.85"/>
+    <ellipse cx="690" cy="246" rx="90" ry="26" fill="#0E7490" opacity="0.35"/>
+
+    <path d="M600 246 v46 a90 26 0 0 0 180 0 v-46" fill="url(#disk)" opacity="0.7"/>
+    <ellipse cx="690" cy="292" rx="90" ry="26" fill="#0E7490" opacity="0.35"/>
+
+    <path d="M600 292 v46 a90 26 0 0 0 180 0 v-46" fill="url(#disk)" opacity="0.55"/>
+    <ellipse cx="690" cy="338" rx="90" ry="26" fill="#083344"/>
+  </g>
+
+  <text x="90" y="500" font-family="Georgia, serif" font-size="64" font-weight="700" fill="#ECFEFF">SQL Mastery</text>
+  <text x="90" y="540" font-family="Arial, sans-serif" font-size="26" fill="#CFFAFE" opacity="0.85">From Scratch to Interview-Ready</text>
+
+  <rect x="90" y="565" width="64" height="6" rx="3" fill="#22D3EE"/>
+</svg>

@@ -11,10 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/session"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -32,11 +34,25 @@ type Handler struct {
 	cfg   *config.Config
 	pool  *pgxpool.Pool
 	cache *session.Cache
+	rdb   *redis.Client
+	wa    *webauthn.WebAuthn
 }
 
-// NewHandler constructs a Handler with the given config, DB pool, and session cache.
-func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache) *Handler {
-	return &Handler{cfg: cfg, pool: pool, cache: cache}
+// NewHandler constructs a Handler with the given config, DB pool, session cache,
+// and Redis client (used for passkey in-flight challenge storage).
+func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client) *Handler {
+	wa, err := webauthn.New(&webauthn.Config{
+		RPID:          cfg.WebAuthnRPID,
+		RPDisplayName: cfg.WebAuthnRPDisplayName,
+		RPOrigins:     []string{cfg.WebAuthnRPOrigin},
+	})
+	if err != nil {
+		// FrontendURL is validated at config load, so RPID/RPOrigin are always
+		// well-formed here — this only trips on a config bug, and the passkey
+		// endpoints degrade to a clear 503 rather than panicking the server.
+		slog.Error("auth: webauthn config invalid — passkey endpoints will 503", "error", err)
+	}
+	return &Handler{cfg: cfg, pool: pool, cache: cache, rdb: rdb, wa: wa}
 }
 
 // ─── request / response types ─────────────────────────────────────────────────

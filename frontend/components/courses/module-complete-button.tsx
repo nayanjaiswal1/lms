@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { updateProgressAction } from "@/lib/courses/actions";
 import { showRewardToasts } from "@/components/shared/reward-toast";
+import { useModuleGate } from "@/components/courses/module-gate-provider";
 import { cn } from "@/lib/utils";
 
 interface ModuleCompleteButtonProps {
@@ -16,6 +17,8 @@ interface ModuleCompleteButtonProps {
 export function ModuleCompleteButton({ moduleId, initialCompleted, className }: ModuleCompleteButtonProps) {
   const [completed, setCompleted] = useState(initialCompleted);
   const [pending, setPending] = useState(false);
+  const { requiredIds, passedIds } = useModuleGate();
+  const locked = !completed && requiredIds.some((id) => !passedIds.has(id));
 
   async function handleMarkComplete() {
     setPending(true);
@@ -29,9 +32,10 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
   return (
     <Button
       className={cn("w-full sm:w-fit", className)}
-      disabled={completed || pending}
-      onClick={handleMarkComplete}
+      disabled={completed || pending || locked}
       size="sm"
+      title={locked ? "Answer the knowledge check correctly first." : undefined}
+      onClick={handleMarkComplete}
     >
       {completed ? (
         <>
@@ -40,6 +44,8 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
         </>
       ) : pending ? (
         "Marking as complete…"
+      ) : locked ? (
+        "Answer the knowledge check first"
       ) : (
         "Mark as Complete"
       )}

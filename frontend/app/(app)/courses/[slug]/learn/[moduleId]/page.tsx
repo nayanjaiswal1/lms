@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Clock, CheckCircle2, ArrowRight } from "lucide-react";
-import { authHeaders } from "@/lib/server/api";
+import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
-import { getCourses, getCourseTree, getCourseProgress, getEnrollments } from "@/lib/server/courses";
+import { getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection } from "@/lib/server/courses";
 import { getMyFeedback } from "@/lib/server/feedback";
+import { getRevisionPlan } from "@/lib/server/revision-plan";
 import { getModuleLab } from "@/lib/server/labs";
 import { renderModuleMarkdown } from "@/lib/courses/markdown";
+import { ModuleGateProvider } from "@/components/courses/module-gate-provider";
 import { MODULE_TYPE_LABEL } from "@/lib/courses/module-types";
 import { computeCompletion } from "@/lib/courses/progress";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +25,8 @@ import { ModulePDF } from "@/components/courses/module-pdf";
 import { ModuleNotes } from "@/components/courses/module-notes";
 import { ModuleAssessment } from "@/components/courses/module-assessment";
 import { ModuleLab } from "@/components/courses/module-lab";
+import { ModuleSystemDesign } from "@/components/courses/module-system-design";
+import { RevisionPlanCard } from "@/components/revision-plan/revision-plan-card";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -35,13 +39,11 @@ interface ModuleContent {
 }
 
 async function getModuleContent(moduleId: string): Promise<ModuleContent | null> {
-  const api = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!api) return null;
-  const headers = await authHeaders();
-  const res = await fetch(`${api}/api/modules/${moduleId}/content`, { headers, cache: "no-store" });
-  if (!res.ok) return null;
-  const body: { data: ModuleContent } = await res.json();
-  return body.data;
+  try {
+    return await apiGet<ModuleContent>(`/api/modules/${moduleId}/content`);
+  } catch {
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }: Props) {
@@ -80,13 +82,20 @@ export default async function ModuleLearnPage({ params }: Props) {
   const myCourseFeedback = courseComplete
     ? await getMyFeedback("course", course.id).catch(() => null)
     : null;
+  const revisionPlan = courseComplete ? await getRevisionPlan(course.id).catch(() => null) : null;
 
   const notes = currentModule.type === "notes" && currentModule.content_body
     ? renderModuleMarkdown(currentModule.content_body)
     : null;
 
+  const requiredCheckIds = notes
+    ? notes.segments.flatMap((s) => (s.type === "knowledge-check" ? s.questions.map((q) => q.id) : []))
+    : [];
+  const passedCheckIds = requiredCheckIds.length > 0 ? await getMyCheckProgress(moduleId).catch(() => []) : [];
+  const initialReflection = notes ? await getMyReflection(moduleId).catch(() => null) : null;
+
   const moduleLab = currentModule.type === "notes" ? await getModuleLab(moduleId) : null;
-  const isWideLayout = currentModule.type === "lab";
+  const isWideLayout = currentModule.type === "lab" || currentModule.type === "system_design";
 
   const moduleMeta = (
     <>
@@ -107,6 +116,7 @@ export default async function ModuleLearnPage({ params }: Props) {
   );
 
   return (
+    <ModuleGateProvider initialPassedIds={passedCheckIds} requiredIds={requiredCheckIds}>
     <div className="flex flex-col items-start gap-6 lg:flex-row">
       {courseComplete && !myCourseFeedback && <CourseCompletionPrompt courseId={course.id} />}
 
@@ -145,6 +155,7 @@ export default async function ModuleLearnPage({ params }: Props) {
             {currentModule.type === "notes" && notes && (
               <ModuleNotes
                 initialCompleted={moduleProgress?.status === "completed"}
+                initialReflection={initialReflection}
                 initialSession={moduleLab?.initialSession ?? null}
                 lab={moduleLab?.lab ?? null}
                 moduleId={moduleId}
@@ -162,11 +173,16 @@ export default async function ModuleLearnPage({ params }: Props) {
             {currentModule.type === "lab" && (
               <ModuleLab moduleId={moduleId} title={currentModule.title} />
             )}
-            {!content?.presigned_url && currentModule.type !== "notes" && currentModule.type !== "assessment" && currentModule.type !== "lab" && (
+            {currentModule.type === "system_design" && (
+              <ModuleSystemDesign contentBody={currentModule.content_body ?? null} moduleId={moduleId} title={currentModule.title} />
+            )}
+            {!content?.presigned_url && currentModule.type !== "notes" && currentModule.type !== "assessment" && currentModule.type !== "lab" && currentModule.type !== "system_design" && (
               <div className="empty-state py-16">
                 <p className="text-sm text-muted-foreground">Content is not available yet.</p>
               </div>
             )}
+
+            {courseComplete && <RevisionPlanCard courseId={course.id} plan={revisionPlan} />}
 
             <ModuleNavFooter courseSlug={slug} nextModule={nextModule} prevModule={prevModule} />
           </article>
@@ -206,5 +222,6 @@ export default async function ModuleLearnPage({ params }: Props) {
         </div>
       </main>
     </div>
+    </ModuleGateProvider>
   );
 }

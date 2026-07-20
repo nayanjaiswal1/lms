@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   BookOpen,
@@ -14,6 +13,7 @@ import { XPProgressBar } from "@/components/rewards/xp-progress-bar";
 import { LeaderboardTable } from "@/components/rewards/leaderboard-table";
 import { CourseCard } from "@/components/courses/course-card";
 import ROUTES from "@/lib/routes";
+import { getCurrentUser } from "@/lib/server/auth";
 import { getEnrollments, getCourseProgress } from "@/lib/server/courses";
 import { getMyAssessments } from "@/lib/assessments/server";
 import { getMyRewardProfile, getLeaderboard, getMyRank } from "@/lib/server/rewards";
@@ -28,34 +28,6 @@ export const metadata: Metadata = {
   title: "Dashboard",
   description: "Your MindForge learning dashboard.",
 };
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar_url: string;
-}
-
-async function getCurrentUser(): Promise<User | null> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("access_token")?.value;
-  if (!accessToken) return null;
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return null;
-
-  try {
-    const response = await fetch(`${apiUrl}/api/auth/me`, {
-      headers: { Cookie: `access_token=${accessToken}` },
-      cache: "no-store",
-    });
-    if (!response.ok) return null;
-    const body: { data: { user: User } } = await response.json();
-    return body.data.user;
-  } catch {
-    return null;
-  }
-}
 
 interface EnrolledCourseWithProgress {
   enrollment: Enrollment;
@@ -236,7 +208,7 @@ export default async function DashboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {coursesWithProgress.map(({ enrollment, progress }) => (
                   <CourseCard
                     enrolled

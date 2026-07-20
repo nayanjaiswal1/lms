@@ -46,7 +46,7 @@ export function ProctorBanner({
           {violations > 0 && (
             <span
               aria-label={`${violations} violation${violations !== 1 ? "s" : ""}`}
-              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-bold tabular-nums text-primary-foreground"
+              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-bold tabular-nums text-destructive-foreground"
             >
               {violations}
             </span>
@@ -71,7 +71,7 @@ export function ProctorBanner({
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-sm font-semibold tabular-nums transition-colors duration-normal",
               expired
-                ? "bg-destructive text-primary-foreground"
+                ? "bg-destructive text-destructive-foreground"
                 : low
                   ? "bg-destructive/10 text-destructive"
                   : safe

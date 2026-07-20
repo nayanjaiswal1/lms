@@ -19,6 +19,7 @@ import (
 	"github.com/mindforge/backend/internal/feedback"
 	"github.com/mindforge/backend/internal/highlights"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/mentoring"
@@ -29,11 +30,14 @@ import (
 	"github.com/mindforge/backend/internal/payments"
 	"github.com/mindforge/backend/internal/practice"
 	"github.com/mindforge/backend/internal/profile"
+	"github.com/mindforge/backend/internal/revisionplan"
 	"github.com/mindforge/backend/internal/rewards"
+	"github.com/mindforge/backend/internal/roadmap"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/storage"
+	"github.com/mindforge/backend/internal/systemdesign"
 	"github.com/mindforge/backend/internal/whatnow"
 	"github.com/redis/go-redis/v9"
 )
@@ -55,7 +59,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	})
 
 	// ─── Handlers ─────────────────────────────────────────────────────────────
-	authHandler := auth.NewHandler(cfg, pool, cache)
+	authHandler := auth.NewHandler(cfg, pool, cache, rdb)
 	onboardingHandler := onboarding.NewHandler(pool)
 	profileHandler := profile.New(pool, cfg, store)
 
@@ -85,13 +89,17 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	feedbackRouter := feedback.New(pool, mentoringRouter.Service)
 	experienceRouter := experience.New(pool)
 	practiceRouter := practice.New(pool, aiProvider)
+	interviewPrepRouter := interviewprep.New(pool, cfg, aiProvider, practiceRouter.Service)
 	orgsHandler := orgs.NewHandler(cfg, pool, jobsRegistry)
 	srsRouter := srs.New(pool)
 	sheetsRouter := sheets.New(pool)
 	highlightsRouter := highlights.New(pool, aiProvider)
+	systemDesignRouter := systemdesign.New(pool, coursesRepo, aiProvider)
 	calendarRouter := calendar.New(pool, authzHandler.Service(), cfg)
 	whatnowRouter := whatnow.New(pool)
 	featuresRouter := features.New(pool)
+	roadmapRouter := roadmap.New(pool, jobsRegistry)
+	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.
@@ -116,6 +124,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		r.Get("/github", authHandler.HandleOAuthRedirect("github"))
 		r.Get("/github/callback", authHandler.HandleOAuthCallback("github"))
 		r.Post("/social/exchange", authHandler.HandleSocialExchange)
+
+		// Passkey (WebAuthn) login — unauthenticated ceremony, identity is
+		// established by the authenticator response itself.
+		r.Post("/webauthn/login/begin", authHandler.HandleWebAuthnLoginBegin)
+		r.Post("/webauthn/login/finish", authHandler.HandleWebAuthnLoginFinish)
 	})
 
 	// Public invitation preview — no auth required
@@ -140,6 +153,14 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		r.Get("/api/auth/me", authHandler.HandleMe)
 		r.Post("/api/auth/logout-all", authHandler.HandleLogoutAll)
+
+		// Passkey (WebAuthn) enrollment/management — the account must already
+		// exist (created via password or OAuth) before a passkey can be added.
+		r.Post("/api/auth/webauthn/register/begin", authHandler.HandleWebAuthnRegisterBegin)
+		r.Post("/api/auth/webauthn/register/finish", authHandler.HandleWebAuthnRegisterFinish)
+		r.Get("/api/auth/webauthn/credentials", authHandler.HandleWebAuthnCredentialsList)
+		r.Patch("/api/auth/webauthn/credentials/{id}", authHandler.HandleWebAuthnCredentialRename)
+		r.Delete("/api/auth/webauthn/credentials/{id}", authHandler.HandleWebAuthnCredentialDelete)
 
 		r.Post("/api/user/onboarding", onboardingHandler.HandleSave)
 		r.Get("/api/user/onboarding", onboardingHandler.HandleGet)
@@ -169,6 +190,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Practice — AI interview prep sessions and answer review.
 		practiceRouter.RegisterRoutes(r)
+
+		// Interview Prep — paste a job title/JD, get a scored multi-round mock
+		// test (conceptual round via practice, coding round self-contained).
+		interviewPrepRouter.RegisterRoutes(r)
 
 		// Orgs — multi-tenant org management, members, invites, domains, onboarding.
 		orgsHandler.RegisterRoutes(r)
@@ -201,12 +226,27 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Highlights — in-content text selection, AI explain, revision saves, analytics.
 		highlightsRouter.RegisterRoutes(r)
 
+		// System Design — per-question Excalidraw whiteboard attempts, AI
+		// clarifying-question chat, and AI feedback on course modules of
+		// type='system_design'.
+		systemDesignRouter.RegisterRoutes(r, authzHandler.Service())
+
 		// Labs — interactive sandboxed lab environments (terminal, code, guided, playground).
 		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime)
 		labsHandler.RegisterRoutes(r)
+		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
 
 		// Calendar — events, RSVPs, recurring series, external invites, personal ICS feed.
 		calendarRouter.RegisterRoutes(r)
+
+		// Roadmap — AI personalized learning paths: state a goal, get an AI
+		// generated phase -> milestone -> module roadmap linked into the real
+		// course/lab/question catalog where possible.
+		roadmapRouter.RegisterRoutes(r)
+
+		// Revision plan — AI-ranked weak topics built from a learner's actual
+		// knowledge-check accuracy and lesson reflections in a completed course.
+		revisionPlanRouter.RegisterRoutes(r)
 	})
 
 	return r

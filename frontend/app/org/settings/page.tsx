@@ -6,6 +6,8 @@ import { Building2, Users, Globe, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Org } from "@/lib/orgs/types";
+import { OrgTypeCard } from "@/app/org/settings/org-type-card";
+import { apiGet } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -37,25 +39,16 @@ async function getOrgRole(): Promise<string | null> {
     if (parts.length !== 3) return null;
     const payload = JSON.parse(
       Buffer.from(parts[1], "base64url").toString(),
-    ) as { role?: string };
-    return payload.role ?? null;
+    ) as { org_role?: string };
+    return payload.org_role ?? null;
   } catch {
     return null;
   }
 }
 
 async function fetchOrg(orgId: string): Promise<Org | null> {
-  const store = await cookies();
-  const access = store.get("access_token")?.value ?? "";
-  const apiUrl = process.env.BACKEND_URL ?? "";
   try {
-    const res = await fetch(`${apiUrl}/api/orgs/${orgId}`, {
-      headers: { Cookie: `access_token=${access}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { data: Org };
-    return body.data;
+    return await apiGet<Org>(`/api/orgs/${orgId}`);
   } catch {
     return null;
   }
@@ -157,6 +150,10 @@ export default async function OrgSettingsPage() {
           </div>
         )}
       </div>
+
+      {(role === "owner" || role === "admin") && (
+        <OrgTypeCard orgId={org.id} orgType={org.org_type} />
+      )}
 
       {/* Quick links */}
       <div className="grid-responsive-2 gap-4">

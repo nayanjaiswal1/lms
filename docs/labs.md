@@ -24,8 +24,26 @@ Labs are optional per module — instructor decides whether a module has one. Wh
 | `code` | In-browser editor + sandboxed runner | Piston (already wired) |
 | `playground` | No tasks, free exploration, TTL only | Docker + ttyd |
 | `guided` | Step-by-step tasks with inline AI hints | Docker + ttyd |
+| `sandbox` | CodeSandbox-style IDE: multi-terminal, auto-detected ports, Run/Submit | Docker + ttyd |
 
 `terminal` and `guided` use the same container infrastructure. `code` reuses the existing Piston executor. `playground` is a `terminal` with no `lab_tasks` rows.
+
+**`sandbox` labs** (migration 009) share the container infrastructure but replace the
+task-checklist workspace with a VS Code-like IDE: file tree + editor, up to 4 terminal
+tabs (each its own WS → ttyd connection — ttyd spawns a bash per client), a Ports bar
+fed by `GET /sessions/:id/ports` (parses `/proc/net/tcp{,6}` in-container every 5s,
+client-side visibility-gated so background tabs don't defeat idle-pause), and a
+multi-port preview (`/preview/{token}/{port}/{path}` on labproxy; port validated
+1–65535 and ≠7681; `mf_preview_port` cookie routes absolute-path assets — one active
+preview port at a time, subdomain-per-port is the upgrade path). Grading is
+HackerEarth-style instead of per-task Check: **Run** (`POST /sessions/:id/run`,
+3s cooldown) executes the instructor's `run_script` (nullable column on
+`lab_definitions`; only a `has_run_script` boolean reaches the client) and shows raw
+output; **Submit** (`POST /sessions/:id/submit`, 10s cooldown) batch-verifies every
+task's hidden `verification_script` through the same `finalizeTaskPass`
+scoring/completion pipeline, returning per-task pass/fail with stdout/stderr hint
+context. Tasks are optional for `sandbox` (like `playground`); `playground` labs also
+render the IDE shell, just with no Run/Submit.
 
 **`code`-type labs diverge from the container model — make this explicit so handlers branch on `lab_type`:**
 - No Docker container, no `cmd/labproxy`, no WebSocket/PTY, no `ttyd`, no idle-pause/reset/egress.
@@ -518,6 +536,7 @@ Terminal uses `xterm.js` + `@xterm/addon-fit` + `@xterm/addon-web-links`. Loaded
 | `idle_pause_sessions` | Every 5 min | Find `status='running'`, `container_id IS NOT NULL` sessions with `last_active_at < now() - 15min` and no active WS in the proxy's Redis connection registry → `docker pause`; status → `paused`; record pause start |
 | `resume_on_connect` | On WS connect / verify | If session is `paused`, `docker unpause`, add the just-ended pause duration to `paused_seconds` (cost metric — `expires_at` is NOT moved), status → `running`, before serving the request |
 | `cleanup_dead_containers` | Every 10 min | Find containers named `mindforge-lab-*` with no matching `provisioning/running/paused` session → `docker rm -f`. Includes `provisioning` so a container mid-startup is never reaped as an orphan; only reaps containers whose session reached a terminal state or never existed. A 2-min grace on container age guards the provisioning window. |
+| `lab.warm_pool_reconcile` | Every 60s | Metrics-driven warm pool planner (`labs/warmpool.go`). Each tick, per lab: gather the signal matrix (platform-active users, enrolled-active, starts in last 60m, historical expected starts for this hour/day-of-week, scheduled cohort starts in next 60m, current ready/warming/claimed counts) → compute a target warm count (mode `auto`, or `fixed`/`off` override from `lab_warm_pool_configs`) capped by `LABS_WARM_POOL_GLOBAL_MAX` → start/stop `mindforge-warm-*` containers to converge. Every tick writes a `lab_warm_pool_decisions` row whose `inputs` jsonb is the exact metrics snapshot the decision used — the admin UI renders this matrix. |
 | `test_session_cleanup` | Hourly | Delete `is_test=true` sessions older than 2 hours; kill their containers |
 | `monitor_container_resources` | Every 60s | Over all non-terminal sessions **with `container_id IS NOT NULL`** (incl. playground; excludes container-less `code` labs): `docker stats` for CPU, `docker exec df` for disk. >90% CPU for >5 min with no WS activity → kill + `terminated_abuse`. Disk ≥95% → flag session, surface "disk full" on next interaction. Covers labs that never call verify. |
 | `lab_analytics_rollup` | Daily 02:00 | Aggregate pass rates, avg time, hint usage per lab into `lab_analytics` table (UPSERT on `(lab_id, day)`) |
@@ -1162,30 +1181,35 @@ Cold start is the single biggest UX problem for lab platforms. Users clicking "S
 - Use slim base images. `mindforge/lab-linux:24.04` is based on `ubuntu:24.04-slim`, not full Ubuntu.
 - Minimize layers. Each `RUN` instruction is a layer add cost. Combine related commands.
 
-**Strategy — Layer 2: Pre-warmed container pool**
+**Strategy — Layer 2+3: Metrics-driven warm pool (IMPLEMENTED)**
 
-For high-traffic lab images (the most-used environments), maintain a pool of started-but-unassigned containers:
+Warm containers are per **lab** (image + setup), named `mindforge-warm-{uuid}`, tracked in
+`lab_warm_containers` (`warming` → `ready` → `claimed`). The pool is not a fixed size —
+every minute `lab.warm_pool_reconcile` computes a per-lab target from a signal matrix:
 
 ```
-Pre-warm pool per image (configurable):
-  mindforge/lab-linux:24.04  → pool size: 10
-  mindforge/lab-k8s:1.31     → pool size: 5
-  others                     → pool size: 2 (on-demand)
+Signal matrix (per lab, captured every tick into lab_warm_pool_decisions.inputs):
+  platform_active_users   users active anywhere on the platform right now
+  enrolled_active         active users enrolled in a course containing this lab
+  recent_starts_60m       real session starts in the last 60 minutes
+  hist_expected_starts    avg starts for this hour + day-of-week (4-week history)
+  scheduled_starts_60m    cohort/schedule entries starting within 60 minutes
+  ready / warming / claimed  current pool state
+
+target = f(matrix), clamped by per-lab max_size and LABS_WARM_POOL_GLOBAL_MAX.
+Per-lab lab_warm_pool_configs.mode: auto (default) | fixed(fixed_size) | off.
 
 On session start:
-  1. Check if pool has an available container for the requested image
-  2. If yes: assign container to session instantly → sub-500ms start
-  3. If no: provision new container normally → 3–8s start
-  4. Async: replenish pool after each assignment
-
-Pool containers are kept alive but have setup_script run per-assignment (not per-start),
-so each student gets a clean environment even from the pool.
+  1. Atomically claim a ready warm container (single UPDATE … RETURNING) → sub-500ms
+  2. Miss → provision normally (3–8s); the miss shows up in the next tick's matrix
+  3. setup_script runs per-assignment, so pooled containers hand over clean environments
 ```
 
-**Strategy — Layer 3: Predictive pre-warming (Phase 5)**
-- Track hourly lab start rates per image per day of week
-- Use a sliding window forecast to pre-warm containers before anticipated demand spikes
-- Example: if K8s labs peak Mon–Thu 6–9pm, pre-warm starts at 5:45pm
+The admin page (`/admin/labs/warm-pools`) renders the same matrix the planner used —
+what you see is literally what the engine decided from, so operators can audit and
+override (mode/fixed/max) based on the numbers, not narrative logs.
+`cleanup_dead_containers` reaps any `mindforge-warm-*` container older than 2 minutes
+with no `lab_warm_containers` row (see Background Jobs).
 
 **Strategy — Layer 4: Checkpoint/restore (Phase 5)**
 - Use CRIU (Checkpoint/Restore In Userspace) to snapshot a freshly initialized container to disk

@@ -98,12 +98,12 @@ func (s *OrgService) Create(ctx context.Context, actorUserID string, req CreateO
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      org.ID,
+		OrgID:       org.ID,
 		ActorUserID: &actorUserID,
-		Action:     "org.created",
-		TargetType: "org",
-		TargetID:   &org.ID,
-		AfterState: org,
+		Action:      "org.created",
+		TargetType:  "org",
+		TargetID:    &org.ID,
+		AfterState:  org,
 	})
 
 	return &org, nil
@@ -127,7 +127,7 @@ func (s *OrgService) Bootstrap(ctx context.Context, orgID string) error {
 // active membership for that user.
 func (s *OrgService) GetByID(ctx context.Context, orgID, userID string) (*Org, error) {
 	query := `
-		SELECT o.id, o.slug, o.name, o.logo_url, o.description, o.status,
+		SELECT o.id, o.slug, o.name, o.logo_url, o.description, o.org_type, o.status,
 		       o.seat_limit, o.active_member_count, o.onboarding_step,
 		       o.onboarding_completed_at, o.activated_at, o.created_at, o.updated_at
 		FROM organizations o`
@@ -144,7 +144,7 @@ func (s *OrgService) GetByID(ctx context.Context, orgID, userID string) (*Org, e
 
 	var org Org
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
-		&org.ID, &org.Slug, &org.Name, &org.LogoURL, &org.Description, &org.Status,
+		&org.ID, &org.Slug, &org.Name, &org.LogoURL, &org.Description, &org.OrgType, &org.Status,
 		&org.SeatLimit, &org.ActiveMemberCount, &org.OnboardingStep,
 		&org.OnboardingCompletedAt, &org.ActivatedAt, &org.CreatedAt, &org.UpdatedAt,
 	)
@@ -223,11 +223,23 @@ func (s *OrgService) Update(ctx context.Context, orgID, actorUserID, actorRole s
 		args = append(args, *req.SeatLimit)
 		argIdx++
 	}
+	if req.OrgType != nil {
+		if *req.OrgType != "" && !IsValidOrgType(*req.OrgType) {
+			return nil, fmt.Errorf("invalid_org_type")
+		}
+		setClauses = append(setClauses, fmt.Sprintf("org_type = $%d", argIdx))
+		if *req.OrgType == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *req.OrgType)
+		}
+		argIdx++
+	}
 
 	args = append(args, orgID)
 	query := fmt.Sprintf(
 		`UPDATE organizations SET %s WHERE id = $%d
-		 RETURNING id, slug, name, logo_url, description, status, seat_limit,
+		 RETURNING id, slug, name, logo_url, description, org_type, status, seat_limit,
 		           active_member_count, onboarding_step, onboarding_completed_at,
 		           activated_at, created_at, updated_at`,
 		strings.Join(setClauses, ", "), argIdx,
@@ -235,7 +247,7 @@ func (s *OrgService) Update(ctx context.Context, orgID, actorUserID, actorRole s
 
 	var org Org
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
-		&org.ID, &org.Slug, &org.Name, &org.LogoURL, &org.Description, &org.Status,
+		&org.ID, &org.Slug, &org.Name, &org.LogoURL, &org.Description, &org.OrgType, &org.Status,
 		&org.SeatLimit, &org.ActiveMemberCount, &org.OnboardingStep,
 		&org.OnboardingCompletedAt, &org.ActivatedAt, &org.CreatedAt, &org.UpdatedAt,
 	)
@@ -247,12 +259,12 @@ func (s *OrgService) Update(ctx context.Context, orgID, actorUserID, actorRole s
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "org.updated",
-		TargetType: "org",
-		TargetID:   &orgID,
-		AfterState: org,
+		Action:      "org.updated",
+		TargetType:  "org",
+		TargetID:    &orgID,
+		AfterState:  org,
 	})
 
 	return &org, nil
@@ -292,11 +304,11 @@ func (s *OrgService) Activate(ctx context.Context, orgID, actorUserID string) (*
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "org.activated",
-		TargetType: "org",
-		TargetID:   &orgID,
+		Action:      "org.activated",
+		TargetType:  "org",
+		TargetID:    &orgID,
 		BeforeState: org,
 		AfterState:  updated,
 	})

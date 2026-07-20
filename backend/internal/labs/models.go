@@ -12,11 +12,26 @@ const (
 	MaxSessionDurationDefault    = 120 // minutes
 	MaxHintsPerTask              = 3
 	VerifyRateLimitSeconds       = 3
-	ProvisionTimeoutSeconds      = 30
+	// ProvisionTimeoutSeconds must cover docker run + the setup_script's
+	// readiness probe across DockerContainerService.Start's retry loop.
+	// Web-app lab images (lab-python-web, lab-node-web) boot a dev server
+	// via their entrypoint's app-runner before the probe passes — Vite cold
+	// starts alone can take >15s under the 1-CPU/512MB container limits, so
+	// the old 30s budget hard-failed sessions that were about to succeed.
+	ProvisionTimeoutSeconds      = 90
 	IdleTimeoutMinutes           = 15
 	ContainerCPU                 = "1.0"
 	ContainerMemoryMB            = 512
 	ContainerDiskGB              = 3
+	// WarmContainerNamePrefix names pre-provisioned pool sandboxes
+	// ("mindforge-warm-{warmID}"), keeping them out of LabCleanupHandler's
+	// "mindforge-lab-" orphan scan — the warm-pool reconciler owns their
+	// lifecycle instead.
+	WarmContainerNamePrefix = "mindforge-warm-"
+	// WarmPoolMaxStartsPerTick bounds how many warm containers a single
+	// reconciler run may provision, so a fleet-wide deficit ramps up
+	// gradually instead of saturating the host in one tick.
+	WarmPoolMaxStartsPerTick = 4
 )
 
 // ─── Enumerations (mirror the DB CHECK constraints) ──────────────────────────
@@ -32,6 +47,7 @@ const (
 	LabTypeCode       = "code"
 	LabTypePlayground = "playground"
 	LabTypeGuided     = "guided"
+	LabTypeSandbox    = "sandbox"
 
 	// Workspace layouts
 	LabLayoutSplit   = "split"
@@ -124,11 +140,20 @@ type LabDefinition struct {
 	Description        *string    `json:"description"`
 	LabType            string     `json:"lab_type"`
 	Environment        string     `json:"environment"`
+	// PreviewPort is the container port where the lab's own application
+	// listens (Django/FastAPI/Vite web labs); 0 = no live preview pane.
+	// Served to the browser through labproxy's /preview/{token}/ proxy.
+	PreviewPort        int        `json:"preview_port"`
 	// Language is the authoritative language for a "code" type lab (required
 	// by the DB CHECK constraint whenever lab_type = 'code'; nil for
 	// terminal/guided/playground labs, which have no student code editor).
 	Language           *string    `json:"language"`
 	SetupScript        *string    `json:"setup_script"`
+	// RunScript is the instructor-authored sample-test command for sandbox
+	// labs, executed in the session container by POST /sessions/:id/run.
+	// nil = no Run button. Never serialized to students (see labStudentResponse
+	// — only a has_run_script boolean crosses the wire).
+	RunScript          *string    `json:"-"`
 	MaxDuration        int        `json:"max_duration"`
 	MaxResets          int        `json:"max_resets"`
 	HintPenaltyPct     int        `json:"hint_penalty_pct"`

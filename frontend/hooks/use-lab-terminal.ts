@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react"
 import type { Terminal as XTerm } from "@xterm/xterm"
 import type { FitAddon as XFitAddon } from "@xterm/addon-fit"
 import { mintWSTokenAction } from "@/app/(app)/labs/[labId]/actions"
+import { getEditorSettings, subscribeEditorSettings } from "@/lib/labs/editor-settings"
 
 interface UseLabTerminalOptions {
   sessionId: string
@@ -13,6 +14,8 @@ interface UseLabTerminalReturn {
   containerRef: (node: HTMLDivElement | null) => void
   isConnected: boolean
   reconnectManually: () => void
+  /** Types `text` into the shell as if the user had typed it (no newline). */
+  sendText: (text: string) => void
 }
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000] as const
@@ -51,6 +54,12 @@ export function useLabTerminal({
     reconnectFnRef.current?.()
   }, [])
 
+  const sendText = useCallback((text: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(TTYD_INPUT + text)
+    }
+  }, [])
+
   useEffect(() => {
     if (!containerNode) return
 
@@ -60,10 +69,22 @@ export function useLabTerminal({
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
     let resizeDebounce: ReturnType<typeof setTimeout> | null = null
     let resizeObserver: ResizeObserver | null = null
-    const lastReceived = { value: Date.now() }
 
     let term: XTerm | null = null
     let fit: XFitAddon | null = null
+
+    // Apply font-size changes from the settings gear live (VS Code behavior):
+    // restyle, refit, and tell the pty its new dimensions.
+    const unsubscribeSettings = subscribeEditorSettings(() => {
+      if (!term || disposed) return
+      term.options.fontSize = getEditorSettings().fontSize
+      fit?.fit()
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          TTYD_RESIZE + JSON.stringify({ columns: term.cols, rows: term.rows }),
+        )
+      }
+    })
 
     const scheduleReconnect = () => {
       if (disposed) return
@@ -105,7 +126,6 @@ export function useLabTerminal({
           return
         }
         reconnectCountRef.current = 0
-        lastReceived.value = Date.now()
         setIsConnected(true)
 
         // ttyd only spawns the pty after receiving this unprefixed init frame.
@@ -117,18 +137,27 @@ export function useLabTerminal({
           }),
         )
 
+        // ttyd has no application-level pong, so "did we receive data lately"
+        // can't distinguish an idle shell from a dead link — killing on that
+        // signal executed every healthy-but-quiet terminal ~20s in (the
+        // repeated fresh prompts users saw). Probe liveness by sending a
+        // no-op resize (a real protocol frame ttyd accepts silently) and
+        // checking the socket actually flushed it: a half-dead connection
+        // accumulates in bufferedAmount, an idle-healthy one drains to 0.
         heartbeatInterval = setInterval(() => {
           if (ws.readyState !== WebSocket.OPEN) return
-          ws.send("\x00")
+          ws.send(
+            TTYD_RESIZE +
+              JSON.stringify({ columns: term?.cols ?? 80, rows: term?.rows ?? 24 }),
+          )
           if (lastPongCheck) clearTimeout(lastPongCheck)
           lastPongCheck = setTimeout(() => {
-            if (Date.now() - lastReceived.value > 20000) ws.close()
+            if (ws.bufferedAmount > 0) ws.close()
           }, 5000)
         }, 15000)
       }
 
       ws.onmessage = (e: MessageEvent) => {
-        lastReceived.value = Date.now()
         if (e.data instanceof ArrayBuffer) {
           const bytes = new Uint8Array(e.data)
           if (bytes.length > 0 && bytes[0] === TTYD_OUTPUT_BYTE) {
@@ -179,13 +208,13 @@ export function useLabTerminal({
 
       if (disposed || !containerNode) return
 
-      // eslint-disable-next-line no-restricted-syntax -- terminal canvas theme requires literal hex; xterm.js does not accept CSS variables in theme config.
+      // Terminal canvas theme requires literal hex; xterm.js does not accept CSS variables in theme config.
       // Values are kept in sync with the --terminal-* tokens in globals.css (bg/chrome/foreground)
       // plus brand accents (amber primary, cyan ai) mapped onto the ANSI yellow/cyan slots.
       term = new Terminal({
         screenReaderMode: true,
         fontFamily: "var(--font-jetbrains-mono)",
-        fontSize: 14,
+        fontSize: getEditorSettings().fontSize,
         lineHeight: 2.1,
         letterSpacing: 0.7,
         cursorBlink: true,
@@ -251,6 +280,7 @@ export function useLabTerminal({
 
     return () => {
       disposed = true
+      unsubscribeSettings()
       reconnectFnRef.current = null
       if (heartbeatInterval) clearInterval(heartbeatInterval)
       if (lastPongCheck) clearTimeout(lastPongCheck)
@@ -264,5 +294,5 @@ export function useLabTerminal({
     }
   }, [sessionId, containerNode])
 
-  return { containerRef, isConnected, reconnectManually }
+  return { containerRef, isConnected, reconnectManually, sendText }
 }

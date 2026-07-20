@@ -2,11 +2,18 @@
 
 import { useState } from "react"
 import dynamic from "next/dynamic"
-import { TerminalSquare, FolderTree, Boxes, Loader2, CheckCircle2 } from "lucide-react"
+import { TerminalSquare, FolderTree, Boxes, AppWindow, Loader2, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable"
 import { LabFileTree } from "@/components/labs/lab-file-tree"
 import { LabFileEditor } from "@/components/labs/lab-file-editor"
+import { LabQuickOpen } from "@/components/labs/lab-quick-open"
+import { LabPreviewPane } from "@/components/labs/lab-preview-pane"
 import { LabResourcesPanel } from "@/components/labs/lab-resources-panel"
 import { useLabFiles } from "@/hooks/use-lab-files"
 import { useLabResources } from "@/hooks/use-lab-resources"
@@ -18,11 +25,12 @@ const LabTerminal = dynamic(
   { ssr: false, loading: () => <Skeleton className="h-full w-full rounded-none" /> },
 )
 
-type Panel = "terminal" | "files" | "resources"
+type Panel = "terminal" | "files" | "preview" | "resources"
 
 const TABS: { id: Panel; label: string; icon: typeof TerminalSquare }[] = [
   { id: "terminal", label: "Terminal", icon: TerminalSquare },
   { id: "files", label: "Files", icon: FolderTree },
+  { id: "preview", label: "Preview", icon: AppWindow },
   { id: "resources", label: "Resources", icon: Boxes },
 ]
 
@@ -31,6 +39,8 @@ interface LabContainerWorkspaceProps {
   taskId: string | undefined
   isTaskPassed: boolean
   isVerifying: boolean
+  /** Container port of the lab's running app; 0 hides all preview UI. */
+  previewPort: number
   onCheck: (taskId: string) => void
 }
 
@@ -46,12 +56,21 @@ export function LabContainerWorkspace({
   taskId,
   isTaskPassed,
   isVerifying,
+  previewPort,
   onCheck,
 }: LabContainerWorkspaceProps) {
-  const [activePanel, setActivePanel] = useState<Panel>("terminal")
-  const filesState = useLabFiles(sessionId)
+  // Web labs (previewPort > 0) open on the IDE view — editor + live app —
+  // since that's where all their work happens; pure terminal labs (k8s)
+  // keep the terminal front and center.
+  const [activePanel, setActivePanel] = useState<Panel>(
+    previewPort > 0 ? "files" : "terminal",
+  )
+  // Always autoload the file list (not just for web labs) so Ctrl+P quick
+  // open can search files before the Files tab is ever visited.
+  const filesState = useLabFiles(sessionId, true)
   const resourcesState = useLabResources(sessionId)
-  const { containerRef, isConnected, reconnectManually } = useLabTerminal({ sessionId })
+  const { containerRef, isConnected, reconnectManually, sendText } = useLabTerminal({ sessionId })
+  const tabs = TABS.filter((t) => t.id !== "preview" || previewPort > 0)
 
   function selectPanel(panel: Panel) {
     setActivePanel(panel)
@@ -61,12 +80,21 @@ export function LabContainerWorkspace({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Ctrl+P go-to-file; opening a result jumps to the Files panel. */}
+      <LabQuickOpen
+        files={filesState.files}
+        onOpen={(path) => {
+          setActivePanel("files")
+          filesState.openFile(path)
+        }}
+      />
       <div aria-label="Lab workspace view" className="flex items-center gap-1 border-b border-border px-2 shrink-0 bg-card" role="tablist">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             aria-selected={activePanel === id}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px touch-target",
+              // Compact tabs: desktop-only surface, no 44px touch-target here.
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-b-2 -mb-px",
               activePanel === id
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground",
@@ -130,6 +158,7 @@ export function LabContainerWorkspace({
             containerRef={containerRef}
             isConnected={isConnected}
             reconnectManually={reconnectManually}
+            sendText={sendText}
           />
         </div>
 
@@ -148,18 +177,46 @@ export function LabContainerWorkspace({
               />
             </aside>
             <div className="flex-1 overflow-hidden">
-              <LabFileEditor
-                activePath={filesState.activePath}
-                isSaving={filesState.isSaving}
-                openFiles={filesState.openFiles}
-                validateResult={filesState.validateResult}
-                onChange={filesState.updateContent}
-                onCloseTab={filesState.closeFile}
-                onSave={filesState.save}
-                onSelectTab={filesState.openFile}
-                onValidate={filesState.validate}
-              />
+              {previewPort > 0 ? (
+                <ResizablePanelGroup orientation="horizontal">
+                  <ResizablePanel defaultSize="55%" id="lab-ide-editor" minSize="30%">
+                    <LabFileEditor
+                      activePath={filesState.activePath}
+                      isSaving={filesState.isSaving}
+                      openFiles={filesState.openFiles}
+                      validateResult={filesState.validateResult}
+                      onChange={filesState.updateContent}
+                      onCloseTab={filesState.closeFile}
+                      onSave={filesState.save}
+                      onSelectTab={filesState.openFile}
+                      onValidate={filesState.validate}
+                    />
+                  </ResizablePanel>
+                  <ResizableHandle withHandle orientation="horizontal" />
+                  <ResizablePanel defaultSize="45%" id="lab-ide-preview" minSize="20%">
+                    <LabPreviewPane previewPort={previewPort} sessionId={sessionId} />
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+              ) : (
+                <LabFileEditor
+                  activePath={filesState.activePath}
+                  isSaving={filesState.isSaving}
+                  openFiles={filesState.openFiles}
+                  validateResult={filesState.validateResult}
+                  onChange={filesState.updateContent}
+                  onCloseTab={filesState.closeFile}
+                  onSave={filesState.save}
+                  onSelectTab={filesState.openFile}
+                  onValidate={filesState.validate}
+                />
+              )}
             </div>
+          </div>
+        )}
+
+        {activePanel === "preview" && previewPort > 0 && (
+          <div className="absolute inset-0">
+            <LabPreviewPane previewPort={previewPort} sessionId={sessionId} />
           </div>
         )}
 

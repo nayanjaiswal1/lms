@@ -47,6 +47,40 @@ export async function updateProgressAction(input: {
   });
 }
 
+interface CheckAttemptResult {
+  id: string;
+  is_correct: boolean;
+}
+
+// Records one submit of an embedded lesson knowledge-check question. mcq
+// answers are graded server-side (see backend RecordCheckAttempt) — the
+// caller only sends the selection. sql questions have no server-side
+// executor, so clientCorrect carries the client-graded (sql.js) result,
+// same trust level the pre-existing sql-challenge segment already uses.
+export async function recordCheckAttemptAction(input: {
+  moduleID: string;
+  questionID: string;
+  answer: Record<string, unknown>;
+  clientCorrect?: boolean;
+}): Promise<ActionResult<CheckAttemptResult>> {
+  return apiAction<CheckAttemptResult>("POST", `/api/modules/${input.moduleID}/check-attempts`, {
+    question_id: input.questionID,
+    answer: input.answer,
+    client_correct: input.clientCorrect ?? false,
+  });
+}
+
+// Saves the student's free-text "what did you understand from this lesson"
+// reflection — ungraded, one per (user, module), resubmitting overwrites the
+// previous answer. Raw input for a future revision-plan / concept-dependency
+// -graph feature; not part of the module-complete gate.
+export async function submitReflectionAction(input: {
+  moduleID: string;
+  response: string;
+}): Promise<ActionResult> {
+  return apiAction("POST", `/api/modules/${input.moduleID}/reflection`, { response: input.response });
+}
+
 export async function createModuleAction(input: {
   course_id: string;
   section_id: string;

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
-import { cookies } from "next/headers"
 import { Badge } from "@/components/ui/badge"
+import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 
@@ -14,21 +14,9 @@ interface Permission {
 }
 
 async function fetchPermissions(): Promise<Permission[]> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("access_token")?.value
-  if (!token) return []
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL
-  if (!apiUrl) return []
-
   try {
-    const res = await fetch(`${apiUrl}/api/admin/rbac/permissions?limit=100`, {
-      headers: { Cookie: `access_token=${token}` },
-      cache: "no-store",
-    })
-    if (!res.ok) return []
-    const body = (await res.json()) as { data: { permissions: Permission[] } }
-    return body.data.permissions ?? []
+    const body = await apiGet<{ permissions: Permission[] }>("/api/admin/rbac/permissions?limit=100")
+    return body.permissions ?? []
   } catch {
     return []
   }

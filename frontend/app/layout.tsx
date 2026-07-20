@@ -3,11 +3,13 @@ import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { NuqsAdapter } from 'nuqs/adapters/next'
 import { FeatureFlagProvider } from '@/lib/feature-context'
+import { TerminologyProvider } from '@/lib/terminology-context'
 import { PermissionProvider } from '@/lib/auth/permissions'
 import { LabProvisioningProvider } from '@/lib/labs/provisioning-context'
 import { getFeatureConfig } from '@/lib/server/features'
 import { getMyPermissions } from '@/lib/server/permissions'
 import { getActiveLabSession } from '@/lib/server/labs'
+import { getCurrentOrgType } from '@/lib/orgs/server'
 import { Toaster } from '@/components/ui/sonner'
 import { LabProvisioningWatcher } from '@/components/labs/lab-provisioning-watcher'
 import { ActiveLabsBar } from '@/components/labs/active-labs-bar'
@@ -97,10 +99,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [{ orgFeatures, entitlements, lockedInfo }, permissions, activeLabSession] = await Promise.all([
+  const [{ orgFeatures, entitlements, lockedInfo }, permissions, activeLabSession, orgType] = await Promise.all([
     getFeatureConfig(),
     getMyPermissions(),
     getActiveLabSession(),
+    getCurrentOrgType(),
   ])
 
   return (
@@ -122,13 +125,15 @@ export default async function RootLayout({
               lockedInfo={lockedInfo}
               orgFeatures={orgFeatures}
             >
-              <PermissionProvider permissions={permissions}>
-                <LabProvisioningProvider initialSession={activeLabSession}>
-                  {children}
-                  <LabProvisioningWatcher />
-                  <ActiveLabsBar />
-                </LabProvisioningProvider>
-              </PermissionProvider>
+              <TerminologyProvider orgType={orgType}>
+                <PermissionProvider permissions={permissions}>
+                  <LabProvisioningProvider initialSession={activeLabSession}>
+                    {children}
+                    <LabProvisioningWatcher />
+                    <ActiveLabsBar />
+                  </LabProvisioningProvider>
+                </PermissionProvider>
+              </TerminologyProvider>
             </FeatureFlagProvider>
           </NuqsAdapter>
           <Toaster />

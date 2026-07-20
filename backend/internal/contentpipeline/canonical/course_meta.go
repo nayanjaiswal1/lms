@@ -23,6 +23,7 @@ type CourseMeta struct {
 	Difficulty  string   `yaml:"difficulty"` // beginner|intermediate|advanced|expert
 	Tags        []string `yaml:"tags"`
 	IsFree      *bool    `yaml:"is_free"` // pointer: nil (unset) defaults to true, distinct from an explicit false
+	CoverURL    string   `yaml:"cover_url"`
 }
 
 // LoadCourseMeta reads <canonicalDir>/course.yaml. A missing file is not an

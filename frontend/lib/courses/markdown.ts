@@ -11,14 +11,73 @@ export interface TocEntry {
   level: 2 | 3;
 }
 
+// One question inside a ```knowledge-check block. `correct` (the mcq answer
+// key) never reaches this type — parseKnowledgeCheck strips it before the
+// segment is built, so it never ships to the browser. Grading for mcq
+// happens server-side (see backend/internal/courses/handler_student.go's
+// RecordCheckAttempt); sql has no server executor and stays client-graded,
+// same trust level the sql-challenge segment already uses.
+export interface KnowledgeCheckQuestion {
+  id: string;
+  type: "mcq" | "sql";
+  prompt: string;
+  options?: { id: string; text: string }[];
+  explanation?: string;
+  starter?: string;
+  solution?: string;
+}
+
 // Lesson content split at the two seams the reader UI cares about: code
 // blocks (live Run button) and images (pulled into the side diagram panel).
 // Everything else batches into opaque html segments.
 export type Segment =
   | { type: "html"; html: string }
   | { type: "code"; language: string; code: string }
+  | { type: "sql-try"; query: string }
+  | { type: "sql-challenge"; prompt: string; starter: string; solution: string }
+  | { type: "knowledge-check"; questions: KnowledgeCheckQuestion[] }
   | { type: "image"; src: string; alt: string; caption?: string; headingId: string | null }
   | { type: "lab-task"; position: number };
+
+// A sql-challenge fenced block is authored as three `-- marker` sections:
+//   -- prompt
+//   what to write
+//   -- starter
+//   SELECT
+//   -- solution
+//   SELECT title FROM books WHERE price > 15;
+// The solution section is graded client-side against the seed data and never
+// rendered to the student.
+function parseSqlChallenge(source: string): { prompt: string; starter: string; solution: string } {
+  const sections: Record<"prompt" | "starter" | "solution", string[]> = { prompt: [], starter: [], solution: [] };
+  let current: "prompt" | "starter" | "solution" = "prompt";
+  for (const line of source.split("\n")) {
+    const marker = line.trim().toLowerCase().match(/^--\s*(prompt|starter|solution)\s*$/);
+    if (marker) {
+      current = marker[1] as "prompt" | "starter" | "solution";
+      continue;
+    }
+    sections[current].push(line);
+  }
+  return {
+    prompt: sections.prompt.join("\n").trim(),
+    starter: sections.starter.join("\n").trim(),
+    solution: sections.solution.join("\n").trim(),
+  };
+}
+
+// A knowledge-check fenced block is authored as a JSON object:
+//   { "questions": [
+//       { "id": "...", "type": "mcq", "prompt": "...", "options": [{"id":"a","text":"..."}], "correct": "a", "explanation": "..." },
+//       { "id": "...", "type": "sql", "prompt": "...", "starter": "SELECT", "solution": "SELECT ..." }
+//   ] }
+// `correct` is the mcq answer key — authored so the generator can extract it
+// into course_modules.knowledge_check for server-side grading, but stripped
+// here before the segment reaches any client component.
+function parseKnowledgeCheck(source: string): KnowledgeCheckQuestion[] {
+  const parsed = JSON.parse(source) as { questions: (KnowledgeCheckQuestion & { correct?: string })[] };
+  return parsed.questions.map(({ correct: _correct, ...question }) => question);
+}
 
 export interface LessonImage {
   src: string;
@@ -154,7 +213,17 @@ function markdownToSegments(body: string): Segment[] {
   for (const token of tokens) {
     if (token.type === "code") {
       flush();
-      segments.push({ type: "code", language: (token.lang as string | undefined) ?? "", code: token.text });
+      const language = (token.lang as string | undefined) ?? "";
+      const normalizedLang = language.trim().toLowerCase();
+      if (normalizedLang === "sql-try") {
+        segments.push({ type: "sql-try", query: token.text });
+      } else if (normalizedLang === "sql-challenge") {
+        segments.push({ type: "sql-challenge", ...parseSqlChallenge(token.text) });
+      } else if (normalizedLang === "knowledge-check") {
+        segments.push({ type: "knowledge-check", questions: parseKnowledgeCheck(token.text) });
+      } else {
+        segments.push({ type: "code", language, code: token.text });
+      }
       continue;
     }
     if (token.type === "paragraph") {
@@ -199,7 +268,9 @@ function annotate(segments: Segment[]): ParsedModuleContent {
     }
     if (segment.type !== "html") return segment;
 
-    const html = segment.html.replace(/<h([23])>(.*?)<\/h\1>/g, (_match, level: string, inner: string) => {
+    const html = segment.html
+      .replace(/<a href="(https?:\/\/[^"]*)"/g, '<a href="$1" target="_blank" rel="noopener noreferrer"')
+      .replace(/<h([23])>(.*?)<\/h\1>/g, (_match, level: string, inner: string) => {
       const text = inner.replace(/<[^>]+>/g, "");
       const base = slugify(text);
       const count = seen.get(base) ?? 0;
@@ -209,7 +280,7 @@ function annotate(segments: Segment[]): ParsedModuleContent {
       toc.push({ id, text, level: Number(level) as 2 | 3 });
       lastHeadingId = id;
       return `<h${level} id="${id}">${inner}</h${level}>`;
-    });
+      });
 
     return { type: "html", html };
   });

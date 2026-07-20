@@ -114,6 +114,16 @@ export async function getCourseProgress(courseID: string): Promise<CourseProgres
   return apiGet<CourseProgressSummary>(`/api/courses/${courseID}/progress/me`);
 }
 
+export async function getMyCheckProgress(moduleID: string): Promise<string[]> {
+  const data = await apiGet<{ passed_question_ids: string[] }>(`/api/modules/${moduleID}/check-attempts/me`);
+  return data.passed_question_ids ?? [];
+}
+
+export async function getMyReflection(moduleID: string): Promise<string | null> {
+  const data = await apiGet<{ response: string | null }>(`/api/modules/${moduleID}/reflection/me`);
+  return data.response;
+}
+
 export async function getMyReview(courseID: string): Promise<number | null> {
   const data = await apiGet<{ rating: number | null }>(`/api/courses/${courseID}/reviews/me`);
   return data.rating;

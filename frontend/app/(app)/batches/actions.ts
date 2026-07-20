@@ -80,3 +80,36 @@ export async function confirmImportAction(
   }
   return result;
 }
+
+// ─── Classroom Test Assessment Engine ───────────────────────────────────────
+
+export interface EnterOfflineTestScoresInput {
+  test_name: string;
+  test_date: string; // YYYY-MM-DD
+  max_score: number;
+  scores: { user_id: string; score: number }[];
+}
+
+export async function enterOfflineTestScoresAction(
+  batchId: string,
+  input: EnterOfflineTestScoresInput,
+): Promise<ActionResult<{ test_id: string }>> {
+  const result = await apiAction<{ test_id: string }>("POST", `/api/batches/${batchId}/offline-tests`, input);
+  if (result.ok) revalidatePath(`${ROUTES.batch(batchId)}/tests`);
+  return result;
+}
+
+export async function updateOfflineTestScoreAction(
+  batchId: string,
+  testId: string,
+  userId: string,
+  score: number,
+): Promise<ActionResult> {
+  const result = await apiAction(
+    "PATCH",
+    `/api/batches/${batchId}/offline-tests/${testId}/scores/${userId}`,
+    { score },
+  );
+  if (result.ok) revalidatePath(`${ROUTES.batch(batchId)}/tests/${testId}`);
+  return result;
+}

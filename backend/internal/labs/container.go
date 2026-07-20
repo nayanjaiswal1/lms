@@ -38,7 +38,15 @@ func NewDockerContainerService() *DockerContainerService { return &DockerContain
 // optional setup script inside it as root. On setup failure the container is
 // force-removed before the error is returned.
 func (c *DockerContainerService) Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error) {
-	name := fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount)
+	return c.startNamed(ctx, fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount), image, setupScript)
+}
+
+// StartWarm provisions an unbound warm-pool sandbox. See ContainerRuntime.
+func (c *DockerContainerService) StartWarm(ctx context.Context, warmID string, image, setupScript string) (containerID, containerHost string, err error) {
+	return c.startNamed(ctx, "mindforge-warm-"+warmID, image, setupScript)
+}
+
+func (c *DockerContainerService) startNamed(ctx context.Context, name, image, setupScript string) (containerID, containerHost string, err error) {
 	args := []string{
 		"run", "-d",
 		"--name", name,

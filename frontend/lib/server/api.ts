@@ -19,6 +19,7 @@ export async function authHeaders(): Promise<Record<string, string>> {
   const csrfToken = store.get("csrf_token")?.value ?? "";
   return {
     "Content-Type": "application/json",
+    // eslint-disable-next-line no-restricted-syntax -- this is the one place allowed to build the Cookie header; everyone else must call authHeaders()/apiGet/apiAction.
     Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
     "X-CSRF-Token": csrfToken,
   };
@@ -73,15 +74,12 @@ export async function apiUpload<T = undefined>(
   const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!url) return { error: "Service unavailable." };
   try {
-    const store = await cookies();
-    const accessToken = store.get("access_token")?.value ?? "";
-    const csrfToken   = store.get("csrf_token")?.value   ?? "";
+    // Omit Content-Type from authHeaders() so the browser sets the correct
+    // multipart boundary automatically.
+    const { "Content-Type": _contentType, ...headers } = await authHeaders();
     const res = await fetch(`${url}${path}`, {
       method:  "POST",
-      headers: {
-        Cookie:           `access_token=${accessToken}; csrf_token=${csrfToken}`,
-        "X-CSRF-Token":   csrfToken,
-      },
+      headers,
       body:  formData,
       cache: "no-store",
     });
@@ -101,13 +99,14 @@ export async function apiAction<T = undefined>(
   method: string,
   path: string,
   payload?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<ActionResult<T>> {
   const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!url) return { error: "Service unavailable." };
   try {
     const res = await fetch(`${url}${path}`, {
       method,
-      headers: await authHeaders(),
+      headers: { ...(await authHeaders()), ...extraHeaders },
       body: payload !== undefined ? JSON.stringify(payload) : undefined,
       cache: "no-store",
     });

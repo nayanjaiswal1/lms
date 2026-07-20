@@ -23,14 +23,14 @@ func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition, error) {
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment,
-		       language, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
+		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
+		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
 		       published_version_id, workspace_layout, created_by, created_at, updated_at
 		FROM lab_definitions WHERE id=$1 AND org_id=$2`,
 		labID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
-		&l.LabType, &l.Environment, &l.Language, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
+		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
 		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
 	)
@@ -47,15 +47,15 @@ func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition,
 func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*LabDefinition, error) {
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment,
-		       language, setup_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
+		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
+		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
 		       published_version_id, workspace_layout, created_by, created_at, updated_at
 		FROM lab_definitions WHERE module_id=$1 AND org_id=$2 AND is_published=true
 		LIMIT 1`,
 		moduleID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
-		&l.LabType, &l.Environment, &l.Language, &l.SetupScript, &l.MaxDuration, &l.MaxResets,
+		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
 		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
 	)

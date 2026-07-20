@@ -38,7 +38,10 @@ export function LabFileTabs({ openFiles, activePath, onSelect, onClose }: LabFil
           <div
             aria-selected={isActive}
             className={cn(
-              "group flex max-w-48 shrink-0 items-center gap-1.5 border-r border-border px-3 py-2 text-xs cursor-pointer",
+              // Compact VS Code-style tabs: this surface is desktop-only (the
+              // workspace shows a "larger screen" notice on mobile), so no
+              // 44px touch-target enforcement here.
+              "group flex max-w-48 shrink-0 items-center gap-1.5 border-r border-border px-3 py-1.5 text-xs cursor-pointer",
               isActive
                 ? "bg-background text-foreground border-t-2 border-t-primary -mt-px"
                 : "text-muted-foreground hover:bg-muted/60",
@@ -48,6 +51,13 @@ export function LabFileTabs({ openFiles, activePath, onSelect, onClose }: LabFil
             tabIndex={0}
             title={file.path}
             onClick={() => onSelect(file.path)}
+            // VS Code behavior: middle-click closes the tab.
+            onMouseDown={(e) => {
+              if (e.button === 1) {
+                e.preventDefault()
+                onClose(file.path)
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault()
@@ -59,7 +69,7 @@ export function LabFileTabs({ openFiles, activePath, onSelect, onClose }: LabFil
             <span className="flex-1 truncate">{basename(file.path)}</span>
             <button
               aria-label={`Close ${basename(file.path)}${file.dirty ? " (unsaved changes)" : ""}`}
-              className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted touch-target"
+              className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-muted"
               type="button"
               onClick={(e) => {
                 e.stopPropagation()

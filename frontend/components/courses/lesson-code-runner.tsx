@@ -11,12 +11,14 @@ import { RUNNABLE_LANGUAGES } from "@/lib/courses/runnable-languages";
 interface LessonCodeRunnerProps {
   language: string;
   initialCode: string;
+  /** Editor floor in lines — the solve page wants a tall LeetCode-style editor. */
+  minLines?: number;
 }
 
 // Interactive code block for lesson content: the snippet from the lesson is
 // editable and runnable in place (feature 2). Runs go through the session-less
 // snippet endpoint — no lab session, no scoring, just stdout/stderr.
-export function LessonCodeRunner({ language, initialCode }: LessonCodeRunnerProps) {
+export function LessonCodeRunner({ language, initialCode, minLines = 4 }: LessonCodeRunnerProps) {
   const lang = language.trim().toLowerCase();
   const [code, setCode] = useState(initialCode);
   const [result, setResult] = useState<SnippetResult | null>(null);
@@ -24,7 +26,7 @@ export function LessonCodeRunner({ language, initialCode }: LessonCodeRunnerProp
   const [isRunning, startRun] = useTransition();
 
   const isDirty = code !== initialCode;
-  const editorLines = Math.min(Math.max(code.split("\n").length, 4), 24);
+  const editorLines = Math.min(Math.max(code.split("\n").length, minLines), Math.max(24, minLines));
 
   function run() {
     setError(null);

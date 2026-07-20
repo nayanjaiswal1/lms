@@ -13,6 +13,8 @@ source:
     - labs/configmap/theme.txt
 lab_type: terminal
 environment: mindforge/lab-k8s:1.31
+preview_port: 0
+run_script: ""
 max_duration: 60
 max_resets: 3
 hint_penalty_pct: 10

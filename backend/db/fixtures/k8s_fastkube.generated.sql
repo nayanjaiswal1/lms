@@ -6,9 +6,9 @@
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Fast Kubernetes ─────────────────────────────────────────────
-INSERT INTO courses (id, org_id, creator_id, title, slug, description, difficulty, tags, status, is_free, estimated_hours)
-VALUES ('36d5d8be-468e-5eb6-b650-0f5c827cb390', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Fast Kubernetes', 'fast-kubernetes', 'Course content imported and generated from the canonical markdown content pipeline for "Fast Kubernetes".', 'intermediate', ARRAY['kubernetes','k8s','devops','containers'], 'published', true, 16.2)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, tags=EXCLUDED.tags, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
+INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, estimated_hours)
+VALUES ('36d5d8be-468e-5eb6-b650-0f5c827cb390', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'Fast Kubernetes', 'fast-kubernetes', 'A hands-on Kubernetes course covering pod fundamentals, workloads, scheduling, networking, config and secrets, storage, Helm, and observability — with guided labs against a real cluster so concepts are exercised, not just read.', '/course-covers/fast-kubernetes.svg', 'intermediate', ARRAY['kubernetes','k8s','devops','containers'], 'published', true, 16.2)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 -- Section: Pod Fundamentals
 INSERT INTO course_sections (id, course_id, title, position)

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════════════════════
 # scripts/db-seed-courses.sh — Load generated course-content fixtures
-# Runs backend/db/fixtures/k8s_fastkube.generated.sql inside the Postgres
+# Runs every backend/db/fixtures/*.generated.sql inside the Postgres
 # container. Idempotent — the SQL uses ON CONFLICT ... DO UPDATE/NOTHING
 # throughout, so re-running after `coursegen generate` produces updates, not
-# duplicates. Regenerate the file first with:
-#   cd backend && go run ./cmd/coursegen generate
+# duplicates. Regenerate a course's fixture first with:
+#   cd backend && go run ./cmd/coursegen generate --in ../content/courses/<slug> --out db/fixtures/<slug>.generated.sql
 # ══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-SEED_FILE="${PROJECT_ROOT}/backend/db/fixtures/k8s_fastkube.generated.sql"
+FIXTURES_DIR="${PROJECT_ROOT}/backend/db/fixtures"
 CONTAINER="mindforge_postgres_dev"
 
 RED='\033[0;31m'
@@ -39,22 +39,32 @@ if ! docker inspect "$CONTAINER" &>/dev/null; then
   error "Container '$CONTAINER' is not running. Start it with: make dev-up"
 fi
 
-if [[ ! -f "$SEED_FILE" ]]; then
-  # Non-fatal: this file is generated content, not checked-in-by-default
+shopt -s nullglob
+FIXTURE_FILES=("${FIXTURES_DIR}"/*.generated.sql)
+shopt -u nullglob
+
+if [[ ${#FIXTURE_FILES[@]} -eq 0 ]]; then
+  # Non-fatal: these files are generated content, not checked-in-by-default
   # source. dev-reset calls this script unconditionally, so a repo clone
   # that hasn't run `coursegen generate` yet (or content authoring still in
   # progress) must not break the base dev-seed flow.
-  info "Generated fixture not found: $SEED_FILE — skipping (run: cd backend && go run ./cmd/coursegen generate)"
+  info "No generated fixtures found in backend/db/fixtures/ — skipping (run: cd backend && go run ./cmd/coursegen generate)"
   exit 0
 fi
 
-info "Loading generated fixture: backend/db/fixtures/k8s_fastkube.generated.sql"
-docker cp "$SEED_FILE" "${CONTAINER}:/tmp/k8s_fastkube.generated.sql"
-docker exec "$CONTAINER" psql \
-  -U "$POSTGRES_USER" \
-  -d "$POSTGRES_DB" \
-  -v ON_ERROR_STOP=1 \
-  -f /tmp/k8s_fastkube.generated.sql > /dev/null
-docker exec "$CONTAINER" rm -f /tmp/k8s_fastkube.generated.sql
+for seed_file in "${FIXTURE_FILES[@]}"; do
+  fixture_name="$(basename "$seed_file")"
+  info "Loading generated fixture: backend/db/fixtures/${fixture_name}"
+  # Pipe over stdin instead of `docker cp` + `-f <in-container path>` — the
+  # latter needs an in-container /tmp/... path as a CLI arg, which Git Bash
+  # on Windows rewrites into a host path before docker ever sees it. Stdin
+  # redirection is opened by bash itself, so no in-container path is ever
+  # passed as an argument and there's nothing to mangle or clean up.
+  docker exec -i "$CONTAINER" psql \
+    -U "$POSTGRES_USER" \
+    -d "$POSTGRES_DB" \
+    -v ON_ERROR_STOP=1 \
+    < "$seed_file" > /dev/null
+done
 
 success "Generated course content loaded successfully."

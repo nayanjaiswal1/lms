@@ -24,9 +24,13 @@ type Common struct {
 }
 
 // Lesson maps to course_modules(type='notes'); Body becomes content_body.
+// ModuleType optionally overrides the default 'notes' type — currently only
+// 'system_design' is allowed, for lessons that pair a design question's
+// guidance markdown with the whiteboard practice board.
 type Lesson struct {
-	Common `yaml:",inline"`
-	Body   string `yaml:"-"` // markdown body — not part of frontmatter, set by the parser after splitting
+	Common     `yaml:",inline"`
+	ModuleType string `yaml:"type,omitempty"`
+	Body       string `yaml:"-"` // markdown body — not part of frontmatter, set by the parser after splitting
 }
 
 // QuizOption is one answer choice on an mcq Question.
@@ -102,9 +106,14 @@ type Task struct {
 // Lab maps to lab_definitions + lab_tasks + lab_task_versions + publish +
 // course_modules(type='lab').
 type Lab struct {
-	Common         `yaml:",inline"`
-	LabType        string    `yaml:"lab_type"` // must be one of terminal|code|playground|guided
-	Environment    string    `yaml:"environment"`
+	Common      `yaml:",inline"`
+	LabType     string `yaml:"lab_type"` // must be one of terminal|code|playground|guided|sandbox
+	Environment string `yaml:"environment"`
+	PreviewPort int    `yaml:"preview_port"` // container port of the lab's running app; 0 = no live preview pane
+	// RunScript is the student-visible sample-test command for sandbox labs
+	// (the Run button); empty = no Run button. Unlike solution_script it IS
+	// written to the DB, but its content never reaches the client.
+	RunScript      string    `yaml:"run_script"`
 	MaxDuration    int       `yaml:"max_duration"`
 	MaxResets      int       `yaml:"max_resets"`
 	HintPenaltyPct int       `yaml:"hint_penalty_pct"`

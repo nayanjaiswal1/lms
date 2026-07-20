@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="Fast Kubernetes course cover">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1420"/>
+      <stop offset="55%" stop-color="#0d2f45"/>
+      <stop offset="100%" stop-color="#0E7490"/>
+    </linearGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+
+  <!-- orchestrated hex cluster -->
+  <g stroke="#67E8F9" stroke-width="3" opacity="0.6">
+    <line x1="695" y1="270" x2="620" y2="200"/>
+    <line x1="695" y1="270" x2="770" y2="200"/>
+    <line x1="695" y1="270" x2="620" y2="340"/>
+    <line x1="695" y1="270" x2="770" y2="340"/>
+    <line x1="695" y1="270" x2="695" y2="180"/>
+  </g>
+  <g fill="#22D3EE">
+    <polygon points="695,240 715,252 715,276 695,288 675,276 675,252" fill="#CFFAFE"/>
+    <polygon points="620,170 640,182 640,206 620,218 600,206 600,182"/>
+    <polygon points="770,170 790,182 790,206 770,218 750,206 750,182"/>
+    <polygon points="620,310 640,322 640,346 620,358 600,346 600,322"/>
+    <polygon points="770,310 790,322 790,346 770,358 750,346 750,322"/>
+  </g>
+
+  <!-- speed chevrons -->
+  <path d="M540 250 l24 20 l-24 20" fill="none" stroke="#F59E0B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+  <path d="M508 250 l24 20 l-24 20" fill="none" stroke="#F59E0B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+
+  <text x="90" y="500" font-family="Georgia, serif" font-size="64" font-weight="700" fill="#ECFEFF">Fast Kubernetes</text>
+  <text x="90" y="540" font-family="Arial, sans-serif" font-size="26" fill="#CFFAFE" opacity="0.85">Pods · Workloads · Networking · Ops</text>
+
+  <rect x="90" y="565" width="64" height="6" rx="3" fill="#22D3EE"/>
+</svg>

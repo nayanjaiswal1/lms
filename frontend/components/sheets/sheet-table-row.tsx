@@ -35,12 +35,12 @@ const STATUS_LABEL: Record<ProgressStatus, string> = {
 const STATUS_CLASS: Record<ProgressStatus, string> = {
   todo: "text-muted-foreground border-border",
   done: "text-success border-success bg-success/10",
-  revisit: "text-warning-foreground border-warning bg-warning/10",
+  revisit: "text-warning border-warning bg-warning/10",
 };
 
 const DIFFICULTY_CLASS: Record<string, string> = {
   easy: "bg-success/10 text-success border-success/20",
-  medium: "bg-warning/10 text-warning-foreground border-warning/20",
+  medium: "bg-warning/10 text-warning border-warning/20",
   hard: "bg-destructive/10 text-destructive border-destructive/20",
 };
 

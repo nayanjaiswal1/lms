@@ -1,0 +1,20 @@
+title: "45-Day Interview Preparation Bootcamp"
+description: >-
+  A structured 45-day preparation plan for full-stack engineer interviews
+  (3+ years experience). Covers DSA patterns (100+ LeetCode problems),
+  20+ system design exercises, backend deep dives (Django, FastAPI,
+  PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals,
+  performance, TypeScript), and behavioral preparation with STAR stories.
+  Mock interviews begin on Day 30; weekly checkpoints track progress.
+difficulty: intermediate
+tags:
+  - interview-prep
+  - dsa
+  - system-design
+  - react
+  - django
+  - fastapi
+  - postgresql
+  - behavioral
+is_free: true
+cover_url: "/course-covers/interview-prep-45.svg"

@@ -15,6 +15,7 @@ export interface Org {
   name: string;
   logo_url: string | null;
   description: string | null;
+  org_type: string | null;
   status: OrgStatus;
   seat_limit: number | null;
   active_member_count: number;

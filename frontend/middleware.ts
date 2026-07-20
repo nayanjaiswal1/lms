@@ -5,6 +5,11 @@ const PROTECTED_PREFIXES = [
   "/dashboard",
   "/now",
   "/courses",
+  // Lab pages mint short-lived terminal/preview tokens continuously — without
+  // the silent refresh here, every lab dies 15 minutes in (ACCESS_TOKEN_TTL)
+  // with "connection lost" / "session expired" while the refresh token is
+  // still perfectly valid.
+  "/labs",
   "/assessments",
   "/question-bank",
   "/batches",
@@ -33,6 +38,17 @@ function jwtExpired(token: string): boolean {
   }
 }
 
+// Builds a /login redirect that preserves the original path + query in `next`,
+// instead of leaking the original search params onto the /login URL itself.
+function loginRedirect(request: NextRequest): NextResponse {
+  const next = request.nextUrl.pathname + request.nextUrl.search
+  const url = request.nextUrl.clone()
+  url.pathname = "/login"
+  url.search = ""
+  url.searchParams.set("next", next)
+  return NextResponse.redirect(url)
+}
+
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
@@ -47,10 +63,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // No refresh token — redirect to login.
   if (!refreshToken) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    url.searchParams.set("next", pathname)
-    return NextResponse.redirect(url)
+    return loginRedirect(request)
   }
 
   // Access token missing or expired — attempt a silent refresh.
@@ -60,15 +73,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     const refreshRes = await fetch(`${backendUrl}/api/auth/refresh`, {
       method: "POST",
+      // eslint-disable-next-line no-restricted-syntax -- middleware runs on the Edge runtime; lib/server/api.ts is server-only and can't be imported here, and this refreshes off refresh_token, not access_token.
       headers: { Cookie: `refresh_token=${refreshToken}` },
       cache: "no-store",
     })
 
     if (!refreshRes.ok) {
-      const url = request.nextUrl.clone()
-      url.pathname = "/login"
-      url.searchParams.set("next", pathname)
-      return NextResponse.redirect(url)
+      return loginRedirect(request)
     }
 
     // Refresh succeeded — redirect to the same URL so the browser stores the

@@ -95,7 +95,7 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
 
             <div className="w-full grid-responsive-2 gap-3">
               <RatingSummaryItem label="Again" count={ratings.again} colorClass="text-destructive" />
-              <RatingSummaryItem label="Hard" count={ratings.hard} colorClass="text-warning-foreground" />
+              <RatingSummaryItem label="Hard" count={ratings.hard} colorClass="text-warning" />
               <RatingSummaryItem label="Good" count={ratings.good} colorClass="text-primary" />
               <RatingSummaryItem label="Easy" count={ratings.easy} colorClass="text-ai" />
             </div>
@@ -211,7 +211,7 @@ interface RatingButtonProps {
 
 const ratingStyles: Record<RatingButtonProps["variant"], string> = {
   again: "border-destructive/50 text-destructive hover:bg-destructive/10",
-  hard:  "border-warning/50 text-warning-foreground hover:bg-warning/10",
+  hard:  "border-warning/50 text-warning hover:bg-warning/10",
   good:  "border-primary/50 text-primary hover:bg-primary/10",
   easy:  "border-ai/50 text-ai hover:bg-ai/10",
 };

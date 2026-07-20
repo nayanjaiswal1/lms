@@ -16,11 +16,18 @@ var (
 		"code":       true,
 		"playground": true,
 		"guided":     true,
+		"sandbox":    true,
 	}
 	validQuestionTypes = map[string]bool{
 		"mcq":        true,
 		"coding":     true,
 		"subjective": true,
+	}
+	// validLessonModuleTypeOverrides mirrors course_modules_type_check
+	// (backend/db/migrations/011_system_design.sql) minus 'notes', which is
+	// the Lesson default and never needs to be stated explicitly.
+	validLessonModuleTypeOverrides = map[string]bool{
+		"system_design": true,
 	}
 )
 
@@ -67,6 +74,9 @@ func (l *Lesson) Validate() error {
 	errs := l.Common.validate("lesson")
 	if strings.TrimSpace(l.Body) == "" {
 		errs = append(errs, fmt.Errorf("%s: body is empty", ctx))
+	}
+	if l.ModuleType != "" && !validLessonModuleTypeOverrides[l.ModuleType] {
+		errs = append(errs, fmt.Errorf("%s: invalid type override %q", ctx, l.ModuleType))
 	}
 	return errors.Join(errs...)
 }
@@ -135,8 +145,13 @@ func (l *Lab) Validate() error {
 	if strings.TrimSpace(l.Environment) == "" {
 		errs = append(errs, fmt.Errorf("%s: environment is required", ctx))
 	}
-	if l.LabType != "playground" && len(l.Tasks) == 0 {
-		errs = append(errs, fmt.Errorf("%s: at least one task is required (lab_type != playground)", ctx))
+	// playground and sandbox labs may have zero tasks — free exploration; a
+	// sandbox with tasks is graded via batch Submit instead of per-task Check.
+	if l.LabType != "playground" && l.LabType != "sandbox" && len(l.Tasks) == 0 {
+		errs = append(errs, fmt.Errorf("%s: at least one task is required (lab_type != playground|sandbox)", ctx))
+	}
+	if l.PreviewPort < 0 || l.PreviewPort > 65535 {
+		errs = append(errs, fmt.Errorf("%s: preview_port must be in [0,65535], got %d", ctx, l.PreviewPort))
 	}
 
 	if l.IsRequired {

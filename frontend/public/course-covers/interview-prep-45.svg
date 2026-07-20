@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="45-Day Interview Preparation Bootcamp course cover">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#171313"/>
+      <stop offset="45%" stop-color="#5a2e0d"/>
+      <stop offset="100%" stop-color="#0E7490"/>
+    </linearGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+
+  <!-- target -->
+  <circle cx="695" cy="270" r="95" fill="none" stroke="#22D3EE" stroke-width="10" opacity="0.9"/>
+  <circle cx="695" cy="270" r="63" fill="none" stroke="#F59E0B" stroke-width="10" opacity="0.95"/>
+  <circle cx="695" cy="270" r="31" fill="#FDE7C7"/>
+  <path d="M654 272 l26 26 l58 -66" fill="none" stroke="#0d3d45" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="90" y="500" font-family="Georgia, serif" font-size="58" font-weight="700" fill="#FDF3E3">45-Day Interview Prep</text>
+  <text x="90" y="540" font-family="Arial, sans-serif" font-size="26" fill="#CFFAFE" opacity="0.85">DSA · System Design · Behavioral</text>
+
+  <rect x="90" y="565" width="64" height="6" rx="3" fill="#F59E0B"/>
+</svg>

@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/revisionplan"
+	"github.com/mindforge/backend/internal/roadmap"
 )
 
 // LLMPayload is the JSON payload for llm.task jobs.
@@ -55,6 +58,10 @@ func (h *LLMHandler) Handle(ctx context.Context, job jobs.Job) error {
 		return h.handleCourseOutline(ctx, job, p)
 	case "interview_review":
 		return h.handleInterviewReview(ctx, job, p)
+	case "roadmap_generate":
+		return h.handleRoadmapGenerate(ctx, job, p)
+	case "revision_plan_generate":
+		return h.handleRevisionPlanGenerate(ctx, job, p)
 	default:
 		return fmt.Errorf("handlers.llm: unknown LLM task: %s", p.Task)
 	}
@@ -342,4 +349,179 @@ func (h *LLMHandler) handleInterviewReview(ctx context.Context, job jobs.Job, p 
 		"item_id", itemID,
 		"model", resp.Model)
 	return nil
+}
+
+// handleRoadmapGenerate generates and stores an AI personalized learning
+// roadmap (phases -> milestones -> modules) for the roadmap row at EntityID.
+// ReplaceGeneratedTree deletes-then-reinserts the tree, so re-running this
+// (job retry, or a user-triggered regenerate that reset status to
+// 'generating' before re-enqueueing) is naturally idempotent — there is no
+// separate "already generated" guard to get out of sync with retries.
+func (h *LLMHandler) handleRoadmapGenerate(ctx context.Context, job jobs.Job, p LLMPayload) error {
+	repo := roadmap.NewRepo(h.pool)
+
+	rm, err := repo.GetByID(ctx, p.EntityID)
+	if err != nil {
+		if errors.Is(err, roadmap.ErrNotFound) {
+			slog.InfoContext(ctx, "handlers.llm: roadmap_generate: roadmap not found or deleted, skipping",
+				"roadmap_id", p.EntityID)
+			return nil
+		}
+		return fmt.Errorf("handlers.llm: roadmap_generate: fetch roadmap %s: %w", p.EntityID, err)
+	}
+
+	// Tenant isolation: if the job is scoped to an org, verify the roadmap belongs to it.
+	if job.OrgID != nil && *job.OrgID != "" {
+		if rm.OrgID == nil || *rm.OrgID != *job.OrgID {
+			return fmt.Errorf("handlers.llm: roadmap_generate: org_id mismatch, refusing to process (roadmap %s)", p.EntityID)
+		}
+	}
+
+	if !h.ai.Available() {
+		if err := repo.MarkFailed(ctx, rm.ID, "AI provider not available"); err != nil {
+			return fmt.Errorf("handlers.llm: roadmap_generate: mark failed (roadmap %s): %w", p.EntityID, err)
+		}
+		return nil
+	}
+
+	llmCtx, cancel := context.WithTimeout(ctx, h.cfg.LLMTimeout)
+	defer cancel()
+
+	resp, err := h.ai.Complete(llmCtx, ai.CompletionRequest{
+		SystemPrompt: ai.RoadmapSystemPrompt,
+		UserPrompt:   buildRoadmapPrompt(rm),
+		MaxTokens:    4096,
+		JSONMode:     true,
+	})
+	if err != nil {
+		reason := "AI generation failed. Please try regenerating."
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			reason = "AI generation timed out. Please try regenerating."
+		}
+		if markErr := repo.MarkFailed(ctx, rm.ID, reason); markErr != nil {
+			return fmt.Errorf("handlers.llm: roadmap_generate: mark failed (roadmap %s): %w", p.EntityID, markErr)
+		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return fmt.Errorf("handlers.llm: roadmap_generate: AI timed out (roadmap %s): %w", p.EntityID, err)
+		}
+		return fmt.Errorf("handlers.llm: roadmap_generate: AI call (roadmap %s): %w", p.EntityID, err)
+	}
+
+	phases, err := roadmap.ParseAndMatchGenerated(ctx, h.pool, rm.OrgID, []byte(resp.Content))
+	if err != nil {
+		if markErr := repo.MarkFailed(ctx, rm.ID, "Could not parse the generated roadmap. Please try regenerating."); markErr != nil {
+			return fmt.Errorf("handlers.llm: roadmap_generate: mark failed (roadmap %s): %w", p.EntityID, markErr)
+		}
+		return fmt.Errorf("handlers.llm: roadmap_generate: %w", err)
+	}
+
+	if err := repo.ReplaceGeneratedTree(ctx, rm.ID, phases); err != nil {
+		return fmt.Errorf("handlers.llm: roadmap_generate: persist tree (roadmap %s): %w", p.EntityID, err)
+	}
+
+	slog.InfoContext(ctx, "handlers.llm: roadmap generated and stored",
+		"roadmap_id", rm.ID, "phases", len(phases), "model", resp.Model)
+	return nil
+}
+
+// handleRevisionPlanGenerate generates and stores an AI revision plan (ranked
+// weak topics) for the revision_plans row at EntityID, reading the target
+// user's actual per-course performance signals (lesson reflections +
+// knowledge-check accuracy) as the only input the model is given to reason
+// from. Idempotent the same way handleRoadmapGenerate is: ReplaceTopics
+// deletes-then-reinserts, so a job retry or a user-triggered regenerate is
+// safe to re-run.
+func (h *LLMHandler) handleRevisionPlanGenerate(ctx context.Context, job jobs.Job, p LLMPayload) error {
+	repo := revisionplan.NewRepo(h.pool)
+
+	plan, err := repo.GetByID(ctx, p.EntityID)
+	if err != nil {
+		if errors.Is(err, revisionplan.ErrNotFound) {
+			slog.InfoContext(ctx, "handlers.llm: revision_plan_generate: plan not found, skipping",
+				"revision_plan_id", p.EntityID)
+			return nil
+		}
+		return fmt.Errorf("handlers.llm: revision_plan_generate: fetch plan %s: %w", p.EntityID, err)
+	}
+
+	// Tenant isolation: if the job is scoped to an org, verify the plan belongs to it.
+	if job.OrgID != nil && *job.OrgID != "" && plan.OrgID != *job.OrgID {
+		return fmt.Errorf("handlers.llm: revision_plan_generate: org_id mismatch, refusing to process (plan %s)", p.EntityID)
+	}
+
+	if !h.ai.Available() {
+		if err := repo.MarkFailed(ctx, plan.ID, "AI provider not available"); err != nil {
+			return fmt.Errorf("handlers.llm: revision_plan_generate: mark failed (plan %s): %w", p.EntityID, err)
+		}
+		return nil
+	}
+
+	signals, err := repo.GatherSignals(ctx, plan.UserID, plan.CourseID)
+	if err != nil {
+		return fmt.Errorf("handlers.llm: revision_plan_generate: gather signals (plan %s): %w", p.EntityID, err)
+	}
+	validModuleIDs := make(map[string]bool, len(signals.Modules))
+	for _, m := range signals.Modules {
+		validModuleIDs[m.ModuleID] = true
+	}
+
+	llmCtx, cancel := context.WithTimeout(ctx, h.cfg.LLMTimeout)
+	defer cancel()
+
+	resp, err := h.ai.Complete(llmCtx, ai.CompletionRequest{
+		SystemPrompt: ai.RevisionPlanSystemPrompt,
+		UserPrompt:   revisionplan.BuildPrompt(signals),
+		MaxTokens:    2048,
+		JSONMode:     true,
+	})
+	if err != nil {
+		reason := "AI generation failed. Please try again."
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			reason = "AI generation timed out. Please try again."
+		}
+		if markErr := repo.MarkFailed(ctx, plan.ID, reason); markErr != nil {
+			return fmt.Errorf("handlers.llm: revision_plan_generate: mark failed (plan %s): %w", p.EntityID, markErr)
+		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return fmt.Errorf("handlers.llm: revision_plan_generate: AI timed out (plan %s): %w", p.EntityID, err)
+		}
+		return fmt.Errorf("handlers.llm: revision_plan_generate: AI call (plan %s): %w", p.EntityID, err)
+	}
+
+	topics, err := revisionplan.ParseTopics(resp.Content, validModuleIDs)
+	if err != nil {
+		if markErr := repo.MarkFailed(ctx, plan.ID, "Could not parse the generated plan. Please try again."); markErr != nil {
+			return fmt.Errorf("handlers.llm: revision_plan_generate: mark failed (plan %s): %w", p.EntityID, markErr)
+		}
+		return fmt.Errorf("handlers.llm: revision_plan_generate: %w", err)
+	}
+
+	if err := repo.ReplaceTopics(ctx, plan.ID, topics); err != nil {
+		return fmt.Errorf("handlers.llm: revision_plan_generate: persist topics (plan %s): %w", p.EntityID, err)
+	}
+
+	slog.InfoContext(ctx, "handlers.llm: revision plan generated and stored",
+		"revision_plan_id", plan.ID, "topics", len(topics), "model", resp.Model)
+	return nil
+}
+
+// buildRoadmapPrompt turns a roadmap's stored inputs into the user prompt for
+// ai.RoadmapSystemPrompt. All free-text fields are sanitized the same way as
+// every other user-supplied AI input in this file (ai.SanitizeTopic).
+func buildRoadmapPrompt(rm roadmap.Roadmap) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Goal: %s\n", ai.SanitizeTopic(rm.GoalDescription, 2000))
+	if rm.TargetRole != nil && *rm.TargetRole != "" {
+		fmt.Fprintf(&b, "Target role: %s\n", ai.SanitizeTopic(*rm.TargetRole, 200))
+	}
+	if rm.SkillLevel != nil && *rm.SkillLevel != "" {
+		fmt.Fprintf(&b, "Current skill level: %s\n", ai.SanitizeTopic(*rm.SkillLevel, 100))
+	}
+	if rm.TimeframeWeeks != nil && *rm.TimeframeWeeks > 0 {
+		fmt.Fprintf(&b, "Target timeframe: %d weeks\n", *rm.TimeframeWeeks)
+	}
+	if len(rm.FocusAreas) > 0 {
+		fmt.Fprintf(&b, "Focus areas: %s\n", ai.SanitizeTopic(strings.Join(rm.FocusAreas, ", "), 500))
+	}
+	return b.String()
 }

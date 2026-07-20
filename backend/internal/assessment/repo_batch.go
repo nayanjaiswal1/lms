@@ -259,13 +259,50 @@ type BatchInvitation struct {
 	ResentAt   *time.Time `json:"resent_at"`
 }
 
+// Engagement status thresholds — a student's completion ratio
+// (courses_completed / courses_enrolled) buckets them for the class health
+// widgets and the roster status badge. Zero attempts is always not_engaged
+// regardless of ratio (an enrolled-but-untouched student isn't "on track").
+const (
+	StatusOnTrack      = "on_track"      // completion > 70%
+	StatusNeedsSupport = "needs_support" // completion 40-70%
+	StatusNotEngaged   = "not_engaged"   // completion < 40%, or zero attempts
+)
+
+// MemberStatus classifies a student's progress ratio into the three health
+// buckets. attempts counts any signal of activity (tests passed, hints used,
+// or courses touched) — a student with zero attempts is not_engaged even if
+// their (0/0) ratio would otherwise be undefined.
+func MemberStatus(coursesEnrolled, coursesCompleted, testsPassed int, avgHints float64) string {
+	hasActivity := coursesEnrolled > 0 || testsPassed > 0 || avgHints > 0
+	if !hasActivity {
+		return StatusNotEngaged
+	}
+	ratio := 0.0
+	if coursesEnrolled > 0 {
+		ratio = float64(coursesCompleted) / float64(coursesEnrolled)
+	}
+	switch {
+	case ratio > 0.7:
+		return StatusOnTrack
+	case ratio >= 0.4:
+		return StatusNeedsSupport
+	default:
+		return StatusNotEngaged
+	}
+}
+
 type MemberProgress struct {
-	UserID           string `json:"user_id"`
-	Name             string `json:"name"`
-	Email            string `json:"email"`
-	CoursesEnrolled  int    `json:"courses_enrolled"`
-	CoursesCompleted int    `json:"courses_completed"`
-	TestsPassed      int    `json:"tests_passed"`
+	UserID           string     `json:"user_id"`
+	Name             string     `json:"name"`
+	Email            string     `json:"email"`
+	CoursesEnrolled  int        `json:"courses_enrolled"`
+	CoursesCompleted int        `json:"courses_completed"`
+	TestsPassed      int        `json:"tests_passed"`
+	AvgHints         float64    `json:"avg_hints"`
+	XPTotal          int        `json:"xp_total"`
+	LastActiveAt     *time.Time `json:"last_active_at"`
+	Status           string     `json:"status"`
 }
 
 type InvitationToken struct {
@@ -620,19 +657,37 @@ func (r *Repo) DeclineInvitation(ctx context.Context, rawToken string) error {
 	return nil
 }
 
+// GetBatchProgress returns the roster with each student's course/test
+// progress plus hint usage, XP, and last-active timestamp scoped to this
+// batch — the data behind the Progress tab roster table and the class
+// health widgets (both derived from Status, computed here in Go).
 func (r *Repo) GetBatchProgress(ctx context.Context, orgID, batchID string) ([]MemberProgress, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT u.id, u.name, u.email,
 		        COUNT(DISTINCT e.course_id) AS courses_enrolled,
 		        COUNT(DISTINCT CASE WHEN e.completed_at IS NOT NULL THEN e.course_id END) AS courses_completed,
-		        COUNT(DISTINCT aa.id) FILTER (WHERE aa.passed = true) AS tests_passed
+		        COUNT(DISTINCT aa.id) FILTER (WHERE aa.passed = true) AS tests_passed,
+		        COALESCE(AVG(ltc.hints_used), 0) AS avg_hints,
+		        COALESCE(xp.total, 0) AS xp_total,
+		        xp.last_active_at
 		 FROM batch_members bm
 		 JOIN users u ON u.id = bm.user_id
 		 LEFT JOIN enrollments e ON e.user_id = u.id AND e.batch_id = $1
 		 LEFT JOIN assessment_attempts aa ON aa.user_id = u.id AND aa.status = 'evaluated'
+		 LEFT JOIN lab_sessions ls ON ls.user_id = u.id
+		   AND ls.lab_id IN (
+		     SELECT ld.id FROM lab_definitions ld
+		     JOIN course_modules cm ON cm.id = ld.module_id
+		     JOIN batch_courses bc ON bc.course_id = cm.course_id AND bc.batch_id = $1
+		   )
+		 LEFT JOIN lab_task_completions ltc ON ltc.session_id = ls.id
+		 LEFT JOIN LATERAL (
+		   SELECT SUM(xe.xp_amount) AS total, MAX(xe.created_at) AS last_active_at
+		   FROM xp_events xe WHERE xe.user_id = u.id AND xe.batch_id = $1
+		 ) xp ON true
 		 WHERE bm.batch_id = $1
 		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $1 AND b.org_id = $2)
-		 GROUP BY u.id, u.name, u.email
+		 GROUP BY u.id, u.name, u.email, xp.total, xp.last_active_at
 		 ORDER BY u.name`, batchID, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("assessment: get batch progress: %w", err)
@@ -642,9 +697,11 @@ func (r *Repo) GetBatchProgress(ctx context.Context, orgID, batchID string) ([]M
 	for rows.Next() {
 		var m MemberProgress
 		if err := rows.Scan(&m.UserID, &m.Name, &m.Email,
-			&m.CoursesEnrolled, &m.CoursesCompleted, &m.TestsPassed); err != nil {
+			&m.CoursesEnrolled, &m.CoursesCompleted, &m.TestsPassed,
+			&m.AvgHints, &m.XPTotal, &m.LastActiveAt); err != nil {
 			return nil, fmt.Errorf("assessment: scan member progress: %w", err)
 		}
+		m.Status = MemberStatus(m.CoursesEnrolled, m.CoursesCompleted, m.TestsPassed, m.AvgHints)
 		out = append(out, m)
 	}
 	return out, rows.Err()

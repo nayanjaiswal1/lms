@@ -189,11 +189,39 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 	return session, nil
 }
 
-// provisionContainer runs in a goroutine. It starts the Docker container,
-// records the coordinates in the DB, and publishes a readiness event via Redis.
+// provisionContainer runs in a goroutine. It first tries to claim a
+// pre-warmed sandbox from the pool (near-instant); on a miss it cold-starts a
+// container, records the coordinates in the DB, and publishes a readiness
+// event via Redis.
 func (s *Service) provisionContainer(ctx context.Context, session *LabSession, lab *LabDefinition) {
 	ctx, cancel := context.WithTimeout(ctx, ProvisionTimeoutSeconds*time.Second)
 	defer cancel()
+
+	// Warm-pool fast path. Only first provisions (reset_count 0) qualify:
+	// resets must rebuild from the original image anyway, and a reset user
+	// already waited once. A claimed-but-dead container falls through to a
+	// normal cold start; its row is deleted so the reconciler re-provisions.
+	if session.ResetCount == 0 {
+		if warm, err := s.repo.ClaimWarmContainer(ctx, session.LabID, session.TaskVersionID, session.ID); err != nil {
+			slog.Error("labs.Service.provisionContainer: claim warm", "session_id", session.ID, "error", err)
+		} else if warm != nil {
+			if s.container.IsRunning(ctx, warm.ContainerID) {
+				bgCtx := context.Background()
+				if err := s.repo.UpdateSessionRunning(bgCtx, session.ID, warm.ContainerID, warm.ContainerHost); err != nil {
+					slog.Error("labs.Service.provisionContainer: update running (warm)", "session_id", session.ID, "error", err)
+				}
+				if err := s.rdb.Publish(bgCtx, "lab:events:"+session.ID, "ready").Err(); err != nil {
+					slog.Error("labs.Service.provisionContainer: publish ready (warm)", "session_id", session.ID, "error", err)
+				}
+				return
+			}
+			slog.Warn("labs.Service.provisionContainer: warm container dead at claim, cold-starting", "session_id", session.ID, "warm_id", warm.ID)
+			if err := s.repo.DeleteWarmContainer(ctx, warm.ID); err != nil {
+				slog.Error("labs.Service.provisionContainer: delete dead warm row", "warm_id", warm.ID, "error", err)
+			}
+			_ = s.container.Kill(ctx, warm.ContainerID)
+		}
+	}
 
 	var setupScript string
 	if lab.SetupScript != nil {
@@ -453,15 +481,11 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 		return nil, ErrNotFound
 	}
 
-	// 4. Ensure a completion row exists (idempotent upsert).
-	if err := s.repo.EnsureTaskCompletion(ctx, sessionID, taskID); err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: ensure completion: %w", err)
-	}
-
-	// 5. Atomically increment attempts (read-modify-write free — DB does it).
-	attempts, err := s.repo.IncrementTaskAttempts(ctx, sessionID, taskID)
+	// 4+5. Completion-row upsert + atomic attempt increment (shared with
+	// SubmitAll's batch loop).
+	attempts, err := s.bumpTaskAttempt(ctx, sessionID, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("labs.Service.VerifyTask: increment attempts: %w", err)
+		return nil, err
 	}
 
 	// Load the lab once so both branches can dispatch on lab_type and, on
@@ -479,6 +503,20 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 		return s.verifyCodeTask(ctx, session, lab, tasks, task, code, *lab.Language, attempts)
 	}
 	return s.verifyContainerTask(ctx, session, lab, tasks, task, attempts)
+}
+
+// bumpTaskAttempt ensures a completion row exists for the task (idempotent
+// upsert) and atomically increments its attempt counter, returning the new
+// attempt count. Shared by the single-task verify path and SubmitAll's batch.
+func (s *Service) bumpTaskAttempt(ctx context.Context, sessionID, taskID string) (int, error) {
+	if err := s.repo.EnsureTaskCompletion(ctx, sessionID, taskID); err != nil {
+		return 0, fmt.Errorf("labs.Service.bumpTaskAttempt: ensure completion: %w", err)
+	}
+	attempts, err := s.repo.IncrementTaskAttempts(ctx, sessionID, taskID)
+	if err != nil {
+		return 0, fmt.Errorf("labs.Service.bumpTaskAttempt: increment attempts: %w", err)
+	}
+	return attempts, nil
 }
 
 // verifyCodeTask verifies a code-lab task by running the student's code

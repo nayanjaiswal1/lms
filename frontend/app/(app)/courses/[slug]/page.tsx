@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props) {
 
 const DIFFICULTY_TEXT_CLASS: Record<string, string> = {
   beginner: "text-success",
-  intermediate: "text-warning-foreground",
+  intermediate: "text-warning",
   advanced: "text-destructive",
 };
 

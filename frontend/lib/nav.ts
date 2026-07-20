@@ -20,11 +20,15 @@ import {
   BookmarkCheck,
   Calendar,
   Compass,
+  Map,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
 import { FEATURES, type Feature } from "@/lib/features";
 import { usePermissions } from "@/lib/auth/permissions";
+import { useTerminology } from "@/lib/terminology-context";
+import { type Terminology } from "@/lib/terminology";
 
 // ─────────────────────────────────────────────
 // Nav item shape
@@ -65,7 +69,8 @@ export const SETTINGS_NAV: NavGroup[] = [
   {
     label: "Account",
     items: [
-      { label: "Profile", href: ROUTES.SETTINGS_PROFILE, icon: User, exact: true },
+      { label: "Profile",  href: ROUTES.SETTINGS_PROFILE,  icon: User,   exact: true },
+      { label: "Security", href: ROUTES.SETTINGS_SECURITY, icon: Shield, exact: true },
     ],
   },
 ];
@@ -110,6 +115,19 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  "practice.use",
     mode:                "badge",
   },
+  interview_prep: {
+    label:               "Interview Prep",
+    href:                ROUTES.INTERVIEW_PREP,
+    icon:                ClipboardCheck,
+    feature:             FEATURES.PRACTICE_AI,
+    requiredPermission:  "practice.use",
+    mode:                "badge",
+  },
+  roadmap: {
+    label: "Roadmap",
+    href:  ROUTES.ROADMAP,
+    icon:  Map,
+  },
   assessments: {
     label:               "Assessments",
     href:                ROUTES.ASSESSMENTS,
@@ -145,6 +163,14 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label:               "Sheet Tracker",
     href:                ROUTES.SHEETS,
     icon:                ListChecks,
+    feature:             FEATURES.SHEET_TRACKER,
+    requiredPermission:  "content.sheets",
+    mode:                "badge",
+  },
+  new_sheet: {
+    label:               "New Sheet",
+    href:                ROUTES.SHEETS_NEW,
+    icon:                Plus,
     feature:             FEATURES.SHEET_TRACKER,
     requiredPermission:  "content.sheets",
     mode:                "badge",
@@ -291,14 +317,30 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
 // permission filtering lives in exactly one place.
 // ─────────────────────────────────────────────
 
+// Nav items whose label carries the word "Batch"/"Batches" — the org-flavored
+// noun (Class/Cohort/Team depending on org type). A word-boundary replace
+// (not a full label swap) so prefixed labels like "My Batches" keep their
+// "My " and become "My Classes". Scoped to the batch/instructor items only:
+// the separate 1:1 mentoring-ticket system (ROUTES.MENTORS, "Mentor Chat")
+// is a distinct support feature, not the class-teacher concept, so it keeps
+// its own wording.
+const BATCH_LABEL_HREFS = new Set<string>([ROUTES.BATCHES]);
+
+function applyTerminology(label: string, t: Terminology): string {
+  return label.replace(/\bBatches\b/g, t.classPlural).replace(/\bBatch\b/g, t.class_);
+}
+
 export function useVisibleNavGroups(): NavGroup[] {
   const perms = usePermissions();
+  const t = useTerminology();
 
   return MAIN_NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter(
-      (item) => !item.requiredPermission || perms.has(item.requiredPermission),
-    ),
+    items: group.items
+      .filter((item) => !item.requiredPermission || perms.has(item.requiredPermission))
+      .map((item) =>
+        BATCH_LABEL_HREFS.has(item.href) ? { ...item, label: applyTerminology(item.label, t) } : item,
+      ),
   })).filter((group) => group.items.length > 0);
 }
 
@@ -308,13 +350,16 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.dashboard,
       ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.courses,
+      ALL_NAV_ITEMS.roadmap,
       ALL_NAV_ITEMS.practice,
+      ALL_NAV_ITEMS.interview_prep,
       ALL_NAV_ITEMS.assessments,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.calendar,
       ALL_NAV_ITEMS.highlights,
       ALL_NAV_ITEMS.flashcards,
       ALL_NAV_ITEMS.sheet_tracker,
+      ALL_NAV_ITEMS.new_sheet,
       ALL_NAV_ITEMS.mentor_chat,
       ALL_NAV_ITEMS.certificates,
       ALL_NAV_ITEMS.wiki,

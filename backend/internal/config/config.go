@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -38,6 +39,12 @@ type Config struct {
 	FrontendURL string
 	BackendURL  string
 
+	// WebAuthn (passkey login) relying-party config — RPID/RPOrigin derive
+	// from FrontendURL; only the display name is a real env var.
+	WebAuthnRPID          string
+	WebAuthnRPOrigin      string
+	WebAuthnRPDisplayName string
+
 	// Social OAuth
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -71,6 +78,10 @@ type Config struct {
 	// value falls back to "docker".
 	LabsRuntime      string
 	LabsK8sNamespace string
+
+	// Total warm lab containers allowed across all labs (0 disables warming).
+	// Per-lab targets come from the metrics-driven planner, capped by this.
+	LabsWarmPoolGlobalMax int
 
 	// Object storage (MinIO / S3-compatible).
 	// When MinioAccessKey is empty, avatar upload returns 503; other features unaffected.
@@ -149,6 +160,18 @@ func Load() *Config {
 	requireSecret("COOKIE_SECRET", cfg.CookieSecret)
 	requireSecret("ENCRYPTION_KEY", cfg.EncryptionKey)
 
+	// WebAuthn RP identity derives from FrontendURL: RPID is the bare hostname
+	// (no scheme/port — the spec calls this the "effective domain"), RPOrigin
+	// is the full origin the browser's navigator.credentials call must match.
+	if u, err := url.Parse(cfg.FrontendURL); err != nil || u.Hostname() == "" {
+		slog.Error("invalid FRONTEND_URL for WebAuthn relying-party config", "value", cfg.FrontendURL)
+		os.Exit(1)
+	} else {
+		cfg.WebAuthnRPID = u.Hostname()
+		cfg.WebAuthnRPOrigin = u.Scheme + "://" + u.Host
+	}
+	cfg.WebAuthnRPDisplayName = getEnvDefault("WEBAUTHN_RP_DISPLAY_NAME", "MindForge")
+
 	// Parse token TTLs
 	cfg.AccessTokenTTL = parseDuration("ACCESS_TOKEN_TTL", "15m")
 	cfg.RefreshTokenTTL = parseDuration("REFRESH_TOKEN_TTL", "720h")
@@ -168,6 +191,7 @@ func Load() *Config {
 
 	cfg.LabsRuntime = getEnvDefault("LABS_RUNTIME", "docker")
 	cfg.LabsK8sNamespace = getEnvDefault("LABS_K8S_NAMESPACE", "mindforge-labs")
+	cfg.LabsWarmPoolGlobalMax = getEnvInt("LABS_WARM_POOL_GLOBAL_MAX", 20)
 
 	cfg.MinioEndpoint = getEnvDefault("MINIO_ENDPOINT", "localhost:9000")
 	cfg.MinioAccessKey = os.Getenv("MINIO_ACCESS_KEY")

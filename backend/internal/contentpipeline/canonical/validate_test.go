@@ -266,6 +266,22 @@ func TestLabValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "zero tasks allowed for sandbox lab",
+			mutate: func(l *canonical.Lab) {
+				l.LabType = "sandbox"
+				l.IsRequired = false
+				l.Tasks = nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "sandbox lab with tasks accepted",
+			mutate: func(l *canonical.Lab) {
+				l.LabType = "sandbox"
+			},
+			wantErr: false,
+		},
+		{
 			name: "is_required with only optional tasks rejected",
 			mutate: func(l *canonical.Lab) {
 				l.IsRequired = true

@@ -1,4 +1,4 @@
-import { Terminal, Code2, Beaker, BookOpen, type LucideIcon } from "lucide-react"
+import { Terminal, Code2, Beaker, BookOpen, Boxes, type LucideIcon } from "lucide-react"
 import type { LabType } from "@/lib/labs"
 
 export const LAB_TYPE_ICONS: Record<LabType, LucideIcon> = {
@@ -6,6 +6,7 @@ export const LAB_TYPE_ICONS: Record<LabType, LucideIcon> = {
   code: Code2,
   playground: Beaker,
   guided: BookOpen,
+  sandbox: Boxes,
 }
 
 export const LAB_TYPE_LABELS: Record<LabType, string> = {
@@ -13,4 +14,5 @@ export const LAB_TYPE_LABELS: Record<LabType, string> = {
   code: "Code",
   playground: "Playground",
   guided: "Guided",
+  sandbox: "Sandbox",
 }

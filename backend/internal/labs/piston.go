@@ -38,6 +38,7 @@ var pistonLabLanguages = map[string]string{
 	"python3":    "python",
 	"typescript": "typescript",
 	"go":         "go",
+	"java":       "java",
 }
 
 type pistonLabRequest struct {

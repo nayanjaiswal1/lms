@@ -80,6 +80,13 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 		// Batch progress
 		r.Get("/api/batches/{batchID}/progress", h.GetBatchProgress)
+		r.Get("/api/batches/{batchID}/analytics", h.GetBatchAnalytics)
+
+		// Classroom Test Assessment Engine — manual offline test scores
+		r.Post("/api/batches/{batchID}/offline-tests", h.CreateOfflineTestScores)
+		r.Get("/api/batches/{batchID}/offline-tests", h.ListOfflineTests)
+		r.Get("/api/batches/{batchID}/offline-tests/{testID}", h.GetOfflineTest)
+		r.Patch("/api/batches/{batchID}/offline-tests/{testID}/scores/{userID}", h.UpdateOfflineTestScore)
 
 		// Assessments
 		r.Post("/api/assessments", h.CreateAssessment)

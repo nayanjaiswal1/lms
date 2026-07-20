@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { MessageSquare, BookOpen, Users, BarChart3 } from "lucide-react";
+import { MessageSquare, BookOpen, Users, BarChart3, LineChart, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BatchAvatar } from "@/components/batches/batch-avatar";
 import { getBatch, getOrgId } from "@/lib/server/batches";
+import { getCurrentOrgType } from "@/lib/orgs/server";
+import { resolveTerminology } from "@/lib/terminology";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -19,17 +21,21 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function BatchLayout({ params, children }: Props) {
   const { id } = await params;
-  const orgId = await getOrgId();
+  const [orgId, orgType] = await Promise.all([getOrgId(), getCurrentOrgType()]);
 
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 
   const batch = await getBatch(id).catch(() => null);
   if (!batch) notFound();
 
+  const t = resolveTerminology(orgType);
+
   const TABS = [
     { href: ROUTES.batch(id), label: "People", Icon: Users },
     { href: `${ROUTES.batch(id)}/courses`, label: "Courses", Icon: BookOpen },
     { href: `${ROUTES.batch(id)}/progress`, label: "Progress", Icon: BarChart3 },
+    { href: `${ROUTES.batch(id)}/analytics`, label: "Analytics", Icon: LineChart },
+    { href: `${ROUTES.batch(id)}/tests`, label: `${t.class_} Tests`, Icon: ClipboardList },
     { href: `${ROUTES.batch(id)}/chat`, label: "Chat", Icon: MessageSquare },
   ] as const;
 

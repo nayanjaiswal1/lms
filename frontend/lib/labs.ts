@@ -1,4 +1,4 @@
-export type LabType = 'terminal' | 'code' | 'playground' | 'guided'
+export type LabType = 'terminal' | 'code' | 'playground' | 'guided' | 'sandbox'
 
 export type LabWorkspaceLayout = 'split' | 'console'
 
@@ -51,7 +51,43 @@ export interface Lab {
   hint_penalty_pct: number
   description: string | null
   layout: LabWorkspaceLayout
+  // Container port of the lab's running app; 0 = no live preview pane.
+  preview_port: number
+  // Whether the lab has an instructor-authored sample-test script (sandbox
+  // Run button). The script body itself never reaches the client.
+  has_run_script: boolean
   tasks: LabTask[]
+}
+
+// One listening TCP port detected inside the session container.
+export interface LabPort {
+  port: number
+}
+
+export interface LabPortsData {
+  ports: LabPort[]
+}
+
+// Response of POST /sessions/:id/run — raw sample-test output.
+export interface LabRunResult {
+  exit_code: number
+  stdout: string
+  stderr: string
+}
+
+export interface LabSubmitTaskResult {
+  task_id: string
+  passed: boolean
+  // Failure hint context (verification scripts echo hints to stdout).
+  stdout?: string
+  stderr?: string
+}
+
+// Response of POST /sessions/:id/submit — batch hidden-test outcome.
+export interface LabSubmitResult {
+  results: LabSubmitTaskResult[]
+  score: number
+  session_completed: boolean
 }
 
 export interface TaskCompletion {

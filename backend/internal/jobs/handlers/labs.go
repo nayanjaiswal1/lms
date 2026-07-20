@@ -193,6 +193,69 @@ func (h *LabCleanupHandler) Handle(ctx context.Context, job jobs.Job) error {
 		}
 	}
 
+	// --- warm-pool sandboxes ---
+	// A "mindforge-warm-{UUID36}" container is legitimate exactly while its
+	// lab_warm_containers row exists (any status — claimed ones belong to a
+	// live session). No row means the reconciler gave up on it (e.g. a
+	// StartWarm that timed out after the row was deleted) — remove it.
+	warmSandboxes, wErr := h.runtime.List(ctx, "mindforge-warm-")
+	if wErr != nil {
+		slog.Warn("lab.cleanup_containers: list (warm)", "error", wErr)
+	} else {
+		warmRepo := labs.NewRepo(h.pool)
+		for _, sb := range warmSandboxes {
+			trimmed := strings.TrimPrefix(sb.Name, "mindforge-warm-")
+			if len(trimmed) < 36 {
+				continue
+			}
+			warmID := trimmed[:36]
+
+			if time.Since(sb.CreatedAt) < 2*time.Minute {
+				continue
+			}
+
+			exists, qErr := warmRepo.WarmContainerExists(ctx, warmID)
+			if qErr != nil {
+				// DB error — skip removal to avoid destroying a live sandbox.
+				slog.Warn("lab.cleanup_containers: query warm row", "warm_id", warmID, "error", qErr)
+				continue
+			}
+			if exists {
+				continue
+			}
+
+			if rmErr := h.runtime.Kill(ctx, sb.ID); rmErr != nil {
+				slog.Error("lab.cleanup_containers: kill (warm)",
+					"container", sb.ID, "error", rmErr)
+				continue
+			}
+			removed++
+		}
+	}
+
 	slog.Info("lab.cleanup_containers: removed orphaned containers", "count", removed)
 	return nil
+}
+
+// ─── Warm pool reconciler ────────────────────────────────────────────────────
+
+// HandlerLabWarmPool runs the demand-driven warm pool planner (labs/warmpool.go)
+// once per minute: gather signals → decide per-lab targets → record every
+// decision with its inputs → converge containers.
+const HandlerLabWarmPool = "lab.warm_pool_reconcile"
+
+// LabWarmPoolHandler adapts labs.WarmPoolPlanner to the jobs registry.
+type LabWarmPoolHandler struct {
+	planner *labs.WarmPoolPlanner
+}
+
+// NewLabWarmPoolHandler constructs the handler. globalMax is
+// LABS_WARM_POOL_GLOBAL_MAX — the total warm container budget across labs.
+func NewLabWarmPoolHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime, globalMax int) *LabWarmPoolHandler {
+	return &LabWarmPoolHandler{planner: labs.NewWarmPoolPlanner(pool, runtime, globalMax)}
+}
+
+// Handle runs one reconcile tick.
+func (h *LabWarmPoolHandler) Handle(ctx context.Context, job jobs.Job) error {
+	return h.planner.Tick(ctx)
 }

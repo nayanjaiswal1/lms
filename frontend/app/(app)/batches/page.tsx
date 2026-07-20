@@ -5,6 +5,8 @@ import { Users } from "lucide-react";
 import { getBatches } from "@/lib/assessments/server";
 import { BatchesPanel } from "@/app/(app)/batches/batches-panel";
 import { BatchAvatar } from "@/components/batches/batch-avatar";
+import { getCurrentOrgType } from "@/lib/orgs/server";
+import { resolveTerminology } from "@/lib/terminology";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -13,13 +15,14 @@ export const metadata: Metadata = {
 };
 
 export default async function BatchesPage() {
-  const batches = await getBatches();
+  const [batches, orgType] = await Promise.all([getBatches(), getCurrentOrgType()]);
+  const t = resolveTerminology(orgType);
 
   return (
     <main className="page-container py-10">
       <header className="page-header">
         <div className="flex flex-col gap-1">
-          <h1 className="page-title">Batches</h1>
+          <h1 className="page-title">{t.classPlural}</h1>
           <p className="text-muted-foreground">Cohorts you can assign assessments to in one action.</p>
         </div>
         <BatchesPanel />
@@ -28,8 +31,8 @@ export default async function BatchesPage() {
       {batches.length === 0 ? (
         <div className="empty-state mt-10">
           <Users aria-hidden className="h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 font-medium">No batches yet</p>
-          <p className="text-sm text-muted-foreground">Create a batch, then add students to it.</p>
+          <p className="mt-3 font-medium">No {t.classPlural.toLowerCase()} yet</p>
+          <p className="text-sm text-muted-foreground">Create a {t.class_.toLowerCase()}, then add {t.studentPlural.toLowerCase()} to it.</p>
         </div>
       ) : (
         <section className="card-grid mt-8">

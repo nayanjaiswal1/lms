@@ -84,6 +84,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/design.md](docs/design.md) | System design canvas, palette, interactions, versioning, embed, API, DB schema |
 | [docs/interview.md](docs/interview.md) | Interview board, load test simulator, Yjs sync, API, DB schema |
 | [docs/sheets.md](docs/sheets.md) | Sheet tracker, overlap view, subscribe/fork, API, DB schema |
+| [docs/roadmap.md](docs/roadmap.md) | AI personalized roadmaps — goal-to-plan generation, catalog matching, GENERATED/DEFINED mode, API, DB schema |
 | [docs/anonymous.md](docs/anonymous.md) | Public tests, anonymous attempts, API, DB schema |
 | [docs/calendar-sync.md](docs/calendar-sync.md) | Opt-in Google Calendar account sync — OAuth flow, push/pull, DB schema, API, edge cases |
 | [docs/entity-schedules-and-calendar-sync.md](docs/entity-schedules-and-calendar-sync.md) | starts_at/ends_at on batches/courses/lessons, auto-synced read-only into the in-app calendar |
@@ -104,8 +105,12 @@ All server-side fetch calls go through helpers in `lib/server/api.ts`. Never wri
 |---|---|
 | `apiGet<T>(path)` | Server component reads — throws on error, propagates to `error.tsx` |
 | `apiPost<T>(path, payload)` | Server component one-shot POSTs — throws on error |
-| `apiAction<T>(method, path, payload?)` | Server actions — returns `ActionResult<T>`, never throws |
+| `apiAction<T>(method, path, payload?, extraHeaders?)` | Server actions — returns `ActionResult<T>`, never throws. `extraHeaders` is for one-off headers a caller needs (e.g. `Idempotency-Key`) — do not add new positional params for other one-off needs, pass them here |
 | `apiUpload<T>(path, formData)` | Multipart file uploads — returns `ActionResult<T>`, omits `Content-Type` so the browser sets the correct multipart boundary |
+
+A raw `fetch()` with a hand-built `Cookie` header anywhere in the frontend is flagged by the `no-restricted-syntax` ESLint rule in `eslint.config.mjs` (`Property[key.name="Cookie"]`). Genuine exceptions (pre-session bootstrap before a token exists, capturing `Set-Cookie` from a response via `forwardSetCookies`, Edge middleware) are allowed but must be marked with an inline `eslint-disable-next-line` comment explaining why — see `lib/server/api.ts`, `middleware.ts`, `app/login/actions.ts`, `app/org/create/actions.ts`, `app/org-select/actions.ts` for the existing documented cases.
+
+For client components (`"use client"`) that must call the backend directly rather than through a server action, use `apiFetch<T>(path, options?)` from `lib/client/api.ts` — do not redeclare a local `apiFetch` helper.
 
 **Rule:** `export type { ActionResult }` must never appear in a `"use server"` file. Next.js registers every export in a server action module as a server reference at runtime. TypeScript erases type-only exports, leaving a missing reference that crashes the page. Import `ActionResult` directly from `@/lib/server/api` wherever the type is needed.
 

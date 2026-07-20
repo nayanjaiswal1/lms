@@ -50,6 +50,8 @@ export interface BatchCourse {
   assigned_at: string;
 }
 
+export type MemberStatus = "on_track" | "needs_support" | "not_engaged";
+
 export interface MemberProgress {
   user_id: string;
   name: string;
@@ -57,6 +59,61 @@ export interface MemberProgress {
   courses_enrolled: number;
   courses_completed: number;
   tests_passed: number;
+  avg_hints: number;
+  xp_total: number;
+  last_active_at: string | null;
+  status: MemberStatus;
+}
+
+export interface ClassHealth {
+  total_students: number;
+  on_track_pct: number;
+  needs_support_pct: number;
+  not_engaged_pct: number;
+}
+
+export type MasteryStatus = "mastered" | "needs_practice" | "needs_review" | "insufficient_data";
+
+export interface ChapterMasteryCell {
+  user_id: string;
+  user_name: string;
+  section_id: string;
+  section_title: string;
+  avg_hints: number | null;
+  status: MasteryStatus;
+}
+
+export interface ChapterHintStat {
+  section_id: string;
+  section_title: string;
+  avg_hints: number;
+  student_count: number;
+}
+
+export interface BlockerBucket {
+  category: string;
+  count: number;
+}
+
+export interface BlockersBreakdown {
+  buckets: BlockerBucket[];
+  estimated: boolean;
+}
+
+export interface EngagementPoint {
+  user_id: string;
+  user_name: string;
+  days_active: number;
+  problems_solved: number;
+}
+
+export interface BatchAnalytics {
+  health: ClassHealth;
+  roster: MemberProgress[];
+  chapter_mastery: ChapterMasteryCell[];
+  chapter_hint_ranking: ChapterHintStat[];
+  blockers: BlockersBreakdown;
+  engagement: EngagementPoint[];
 }
 
 export type ImportRowStatus =
@@ -150,6 +207,43 @@ export async function getBatchCourses(batchId: string): Promise<BatchCourse[]> {
 export async function getBatchProgress(batchId: string): Promise<MemberProgress[]> {
   const data = await apiGet<{ progress: MemberProgress[] }>(`/api/batches/${batchId}/progress`);
   return data.progress ?? [];
+}
+
+export async function getBatchAnalytics(batchId: string): Promise<BatchAnalytics> {
+  return apiGet<BatchAnalytics>(`/api/batches/${batchId}/analytics`);
+}
+
+export interface OfflineTestSummary {
+  test_id: string;
+  test_name: string;
+  test_date: string;
+  max_score: number;
+  student_count: number;
+  avg_score: number;
+}
+
+export interface OfflineTestScoreRow {
+  user_id: string;
+  user_name: string;
+  email: string;
+  score: number;
+}
+
+export interface OfflineTestDetail {
+  test_id: string;
+  test_name: string;
+  test_date: string;
+  max_score: number;
+  scores: OfflineTestScoreRow[];
+}
+
+export async function listOfflineTests(batchId: string): Promise<OfflineTestSummary[]> {
+  const data = await apiGet<{ tests: OfflineTestSummary[] }>(`/api/batches/${batchId}/offline-tests`);
+  return data.tests ?? [];
+}
+
+export async function getOfflineTest(batchId: string, testId: string): Promise<OfflineTestDetail> {
+  return apiGet<OfflineTestDetail>(`/api/batches/${batchId}/offline-tests/${testId}`);
 }
 
 export interface OrgMemberSummary {

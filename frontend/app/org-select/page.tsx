@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
 
 import { AuthPageShell } from "@/components/auth/auth-page-shell";
 import { OrgSelectList } from "@/app/org-select/org-select-list";
+import { getAuthMe } from "@/lib/server/auth";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -12,44 +12,8 @@ export const metadata: Metadata = {
   description: "Choose which organisation to continue with.",
 };
 
-interface Org {
-  id: string;
-  slug: string;
-  name: string;
-  role: string;
-}
-
-interface MeResponse {
-  data: {
-    user: { id: string; name: string; email: string; avatar_url: string };
-    orgs: Org[];
-    onboarding_completed: boolean;
-  };
-}
-
-async function getOrgs(): Promise<{ user: MeResponse["data"]["user"]; orgs: Org[] } | null> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("access_token")?.value;
-  if (!accessToken) return null;
-
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return null;
-
-  try {
-    const response = await fetch(`${apiUrl}/api/auth/me`, {
-      headers: { Cookie: `access_token=${accessToken}` },
-      cache: "no-store",
-    });
-    if (!response.ok) return null;
-    const body: MeResponse = await response.json();
-    return { user: body.data.user, orgs: body.data.orgs };
-  } catch {
-    return null;
-  }
-}
-
 export default async function OrgSelectPage() {
-  const data = await getOrgs();
+  const data = await getAuthMe();
   if (!data) redirect(ROUTES.LOGIN);
 
   const { user, orgs } = data;

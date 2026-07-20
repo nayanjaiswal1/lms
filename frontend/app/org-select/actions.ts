@@ -29,12 +29,18 @@ export async function selectOrgAction(
     return { error: "Server configuration error." };
   }
 
+  // Raw fetch instead of apiAction: this call needs the raw Response so
+  // forwardSetCookies() below can capture the new Set-Cookie headers the
+  // switch endpoint issues — apiAction only reads existing cookies, it never
+  // captures Set-Cookie from the response (same pattern as
+  // acceptCalendarInviteAction in lib/server/calendar.ts).
   let response: Response;
   try {
     response = await fetch(`${apiUrl}/api/orgs/switch`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // eslint-disable-next-line no-restricted-syntax -- see comment above; raw Response required for forwardSetCookies.
         Cookie: `access_token=${accessToken}`,
       },
       body: JSON.stringify({ org_id: orgId }),

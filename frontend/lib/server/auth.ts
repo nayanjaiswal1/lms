@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { apiGet } from "@/lib/server/api";
 
 export interface AuthUser {
   id: string;
@@ -9,23 +9,21 @@ export interface AuthUser {
   platform_role: "super_admin" | "user";
 }
 
-export async function getCurrentUser(): Promise<AuthUser | null> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("access_token")?.value;
-  if (!accessToken) return null;
+export interface AuthMeResponse {
+  user: AuthUser;
+  orgs: { id: string; slug: string; name: string; role: string }[];
+  onboarding_completed: boolean;
+}
 
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return null;
-
+export async function getAuthMe(): Promise<AuthMeResponse | null> {
   try {
-    const res = await fetch(`${apiUrl}/api/auth/me`, {
-      headers: { Cookie: `access_token=${accessToken}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const body: { data: { user: AuthUser } } = await res.json();
-    return body.data.user;
+    return await apiGet<AuthMeResponse>("/api/auth/me");
   } catch {
     return null;
   }
+}
+
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  const me = await getAuthMe();
+  return me?.user ?? null;
 }
