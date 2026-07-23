@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { getCourseTree } from "@/lib/server/courses";
+import { getCourseTree, getFinalTestForEdit } from "@/lib/server/courses";
 import { CourseWizard } from "@/components/courses/course-wizard";
 import ROUTES from "@/lib/routes";
 
@@ -26,6 +26,8 @@ export default async function EditCoursePage({ params }: Props) {
     redirect(ROUTES.manageCourse(id));
   }
 
+  const finalTest = await getFinalTestForEdit(id);
+
   return (
     <main className="page-container py-8">
       <div className="page-header mb-6">
@@ -38,7 +40,7 @@ export default async function EditCoursePage({ params }: Props) {
           </p>
         </div>
       </div>
-      <CourseWizard course={tree} />
+      <CourseWizard course={tree} finalTest={finalTest} />
     </main>
   );
 }

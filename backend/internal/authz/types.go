@@ -103,13 +103,13 @@ type ListUsersParams struct {
 }
 
 // UserSummary is a row in the tenant's user list, joined from org_members +
-// users, with the count of RBAC roles currently assigned within the tenant.
+// users, with the names of RBAC roles currently assigned within the tenant.
 type UserSummary struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	AvatarURL *string   `json:"avatar_url"`
-	RoleCount int       `json:"role_count"`
+	RoleNames []string  `json:"role_names"`
 	JoinedAt  time.Time `json:"joined_at"`
 }
 

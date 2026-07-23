@@ -3,6 +3,7 @@ package profile
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/storage"
 )
@@ -13,10 +14,12 @@ type ProfileHandler struct {
 	handler *Handler
 }
 
-// New constructs the profile stack: Repo → Service → Handler.
-func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient) *ProfileHandler {
+// New constructs the profile stack: Repo → Service → Handler. certsRepo is
+// shared (read-only here) so the public profile can list a learner's earned
+// certificates without a second query path into the certificates domain.
+func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, certsRepo *certificates.Repo) *ProfileHandler {
 	repo := NewRepo(pool)
-	svc := NewService(repo, store, cfg)
+	svc := NewService(repo, store, cfg, certsRepo)
 	h := newHandler(svc)
 	return &ProfileHandler{handler: h}
 }

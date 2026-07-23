@@ -13,6 +13,15 @@ import (
 
 var ErrNotFound = errors.New("practice: not found")
 
+// QuestionBank is one previously-generated set of questions for a
+// (technology, difficulty, category) key, shared across all users who
+// request that combo — see generateQuestions' cache-first logic.
+type QuestionBank struct {
+	ID        string
+	Questions []string
+	AIModel   *string
+}
+
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -23,10 +32,10 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 
 func (r *Repo) CreateSession(ctx context.Context, s PracticeSession) (PracticeSession, error) {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO practice_sessions (user_id, org_id, technology, difficulty, question_count, ai_model)
-		 VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO practice_sessions (user_id, org_id, technology, difficulty, category, question_count, ai_model)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id, created_at`,
-		s.UserID, s.OrgID, s.Technology, s.Difficulty, s.QuestionCount, s.AIModel,
+		s.UserID, s.OrgID, s.Technology, s.Difficulty, s.Category, s.QuestionCount, s.AIModel,
 	).Scan(&s.ID, &s.CreatedAt)
 	if err != nil {
 		return PracticeSession{}, fmt.Errorf("practice: create session: %w", err)
@@ -35,34 +44,12 @@ func (r *Repo) CreateSession(ctx context.Context, s PracticeSession) (PracticeSe
 	return s, nil
 }
 
-func (r *Repo) ListSessions(ctx context.Context, userID string) ([]PracticeSession, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, org_id, technology, difficulty, question_count, status, ai_model, created_at, completed_at
-		 FROM practice_sessions
-		 WHERE user_id = $1
-		 ORDER BY created_at DESC`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("practice: list sessions: %w", err)
-	}
-	defer rows.Close()
-	out := []PracticeSession{}
-	for rows.Next() {
-		var s PracticeSession
-		if err := rows.Scan(&s.ID, &s.UserID, &s.OrgID, &s.Technology, &s.Difficulty,
-			&s.QuestionCount, &s.Status, &s.AIModel, &s.CreatedAt, &s.CompletedAt); err != nil {
-			return nil, fmt.Errorf("practice: scan session: %w", err)
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
-}
-
 func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (PracticeSession, error) {
 	var s PracticeSession
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, org_id, technology, difficulty, question_count, status, ai_model, created_at, completed_at
+		`SELECT id, user_id, org_id, technology, difficulty, category, question_count, status, ai_model, created_at, completed_at
 		 FROM practice_sessions WHERE id = $1 AND user_id = $2`, sessionID, userID,
-	).Scan(&s.ID, &s.UserID, &s.OrgID, &s.Technology, &s.Difficulty,
+	).Scan(&s.ID, &s.UserID, &s.OrgID, &s.Technology, &s.Difficulty, &s.Category,
 		&s.QuestionCount, &s.Status, &s.AIModel, &s.CreatedAt, &s.CompletedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -172,8 +159,11 @@ func (r *Repo) GetItems(ctx context.Context, sessionID string) ([]PracticeItem, 
 	return out, rows.Err()
 }
 
-func (r *Repo) SaveAnswer(ctx context.Context, sessionID, userID string, position int, answer string) (PracticeItem, error) {
+// SaveAnswer also returns the parent session's category (technical/behavioral)
+// so the caller can pick the right grading rubric without a second round-trip.
+func (r *Repo) SaveAnswer(ctx context.Context, sessionID, userID string, position int, answer string) (PracticeItem, string, error) {
 	var item PracticeItem
+	var category string
 	err := r.pool.QueryRow(ctx,
 		`UPDATE practice_items pi
 		 SET user_answer = $1, answered_at = now()
@@ -182,17 +172,17 @@ func (r *Repo) SaveAnswer(ctx context.Context, sessionID, userID string, positio
 		   AND pi.session_id = ps.id AND ps.user_id = $4
 		   AND pi.user_answer IS NULL
 		 RETURNING pi.id, pi.session_id, pi.position, pi.question_text, pi.user_answer,
-		           pi.ai_feedback, pi.answered_at, pi.feedback_at, pi.created_at`,
+		           pi.ai_feedback, pi.answered_at, pi.feedback_at, pi.created_at, ps.category`,
 		answer, sessionID, position, userID,
 	).Scan(&item.ID, &item.SessionID, &item.Position, &item.QuestionText,
-		&item.UserAnswer, &item.rawFeedback, &item.AnsweredAt, &item.FeedbackAt, &item.CreatedAt)
+		&item.UserAnswer, &item.rawFeedback, &item.AnsweredAt, &item.FeedbackAt, &item.CreatedAt, &category)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return PracticeItem{}, ErrNotFound
+			return PracticeItem{}, "", ErrNotFound
 		}
-		return PracticeItem{}, fmt.Errorf("practice: save answer: %w", err)
+		return PracticeItem{}, "", fmt.Errorf("practice: save answer: %w", err)
 	}
-	return item, nil
+	return item, category, nil
 }
 
 func (r *Repo) SaveFeedback(ctx context.Context, itemID string, feedback AIFeedback) (PracticeItem, error) {
@@ -239,4 +229,56 @@ func (r *Repo) GetItemByPosition(ctx context.Context, sessionID, userID string, 
 		}
 	}
 	return item, nil
+}
+
+// ─── Question bank (shared cache) ──────────────────────────────────────────
+
+// LookupQuestionBank returns the least-recently-used fresh bank for the given
+// key (ORDER BY use_count ASC — rotation, so a hot combo doesn't always hand
+// every user the same set — then created_at DESC as a tiebreak), or an empty
+// slice on a cache miss. Never returns an error for "no rows" — a miss is a
+// normal outcome, not a failure.
+func (r *Repo) LookupQuestionBank(ctx context.Context, technology, difficulty, category string, maxAgeDays int) ([]QuestionBank, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, questions, ai_model FROM practice_question_bank
+		 WHERE technology = $1 AND difficulty = $2 AND category = $3
+		   AND created_at > now() - make_interval(days => $4)
+		 ORDER BY use_count ASC, created_at DESC
+		 LIMIT 1`,
+		technology, difficulty, category, maxAgeDays,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("practice: lookup question bank: %w", err)
+	}
+	defer rows.Close()
+
+	out := []QuestionBank{}
+	for rows.Next() {
+		var b QuestionBank
+		if err := rows.Scan(&b.ID, &b.Questions, &b.AIModel); err != nil {
+			return nil, fmt.Errorf("practice: scan question bank: %w", err)
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+func (r *Repo) InsertQuestionBank(ctx context.Context, technology, difficulty, category string, questions []string, model string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO practice_question_bank (technology, difficulty, category, questions, ai_model)
+		 VALUES ($1, $2, $3, $4, $5)`,
+		technology, difficulty, category, questions, model,
+	)
+	if err != nil {
+		return fmt.Errorf("practice: insert question bank: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) IncrementQuestionBankUse(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE practice_question_bank SET use_count = use_count + 1 WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("practice: increment question bank use: %w", err)
+	}
+	return nil
 }

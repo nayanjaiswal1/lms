@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { XPProgressBar } from "@/components/rewards/xp-progress-bar";
-import { LeaderboardTable } from "@/components/rewards/leaderboard-table";
+import { LeaderboardTable, MyRewardSummary } from "@/components/rewards/leaderboard-table";
+import { ScopeTabs } from "@/components/rewards/scope-tabs";
+import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
 import { CourseCard } from "@/components/courses/course-card";
 import ROUTES from "@/lib/routes";
 import { getCurrentUser } from "@/lib/server/auth";
@@ -22,7 +23,6 @@ import { getMyBatches } from "@/lib/server/batches";
 import type { Enrollment, CourseProgressSummary } from "@/lib/server/courses";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 import type { CalendarEvent } from "@/lib/calendar/types";
-import type { MyBatch } from "@/lib/server/batches";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -84,9 +84,9 @@ const UPCOMING_EVENTS_WINDOW_DAYS = 7;
 const UPCOMING_EVENTS_LIMIT = 4;
 
 // Real calendar_events only (mentor sessions, live classes, deadlines,
-// custom) — assessment due-windows already have their own "Upcoming
-// assessments" section above, and listEventsAction merges them in as
-// virtual entries too, so they're excluded here to avoid showing twice.
+// custom) — assessment due-windows are merged in separately by
+// fetchUpcomingItems, and listEventsAction merges them in as virtual
+// entries too, so they're excluded here to avoid showing twice.
 async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
   const from = new Date();
   const to = new Date(from.getTime() + UPCOMING_EVENTS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -99,12 +99,40 @@ async function fetchUpcomingEvents(): Promise<CalendarEvent[]> {
     .slice(0, UPCOMING_EVENTS_LIMIT);
 }
 
+type UpcomingItem =
+  | { kind: "assessment"; sortTime: number; assessment: AssignedAssessment }
+  | { kind: "event"; sortTime: number; event: CalendarEvent };
+
+const UPCOMING_ITEMS_LIMIT = 5;
+
+// One merged, date-sorted timeline instead of two separate "upcoming"
+// sections — assessments and calendar events were previously split across
+// the main column and the right rail even though both answer "what's next".
+async function fetchUpcomingItems(): Promise<UpcomingItem[]> {
+  const [assessments, events] = await Promise.all([fetchUpcomingAssessments(), fetchUpcomingEvents()]);
+
+  const items: UpcomingItem[] = [
+    ...assessments.map((assessment) => ({
+      kind: "assessment" as const,
+      sortTime: assessment.ends_at ? new Date(assessment.ends_at).getTime() : Infinity,
+      assessment,
+    })),
+    ...events.map((event) => ({
+      kind: "event" as const,
+      sortTime: new Date(event.starts_at).getTime(),
+      event,
+    })),
+  ];
+
+  return items.sort((a, b) => a.sortTime - b.sortTime).slice(0, UPCOMING_ITEMS_LIMIT);
+}
+
 const DASHBOARD_LEADERBOARD_SIZE = 5;
 
-async function fetchLeaderboardPreview() {
+async function fetchLeaderboardPreview(scope: LeaderboardScope, scopeId?: string) {
   const [leaderboard, myRank] = await Promise.all([
-    getLeaderboard("global", undefined, undefined, DASHBOARD_LEADERBOARD_SIZE, 0),
-    getMyRank("global"),
+    getLeaderboard(scope, scopeId, undefined, DASHBOARD_LEADERBOARD_SIZE, 0),
+    getMyRank(scope, scopeId),
   ]);
 
   return {
@@ -160,20 +188,50 @@ function formatDueDate(endsAt: string | null): string {
   return `Due ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: Promise<{ scope?: string; scope_id?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const user = await getCurrentUser();
   if (!user) redirect(ROUTES.LOGIN);
 
   const firstName = user.name.split(" ")[0];
+  const params = await searchParams;
 
-  const [coursesWithProgress, upcomingAssessments, upcomingEvents, rewardProfile, leaderboardPreview, myBatches] = await Promise.all([
+  const [coursesWithProgress, upcomingItems, rewardProfile, myBatches] = await Promise.all([
     fetchEnrolledCoursesWithProgress(),
-    fetchUpcomingAssessments(),
-    fetchUpcomingEvents(),
+    fetchUpcomingItems(),
     getMyRewardProfile(),
-    fetchLeaderboardPreview(),
     getMyBatches(),
   ]);
+
+  // "Your standing" scope: global by default, one of the user's batches, or —
+  // if a batch belongs to a cohort group (Class/Section hierarchy above
+  // batches) — that group, rolling up every batch under it. Folds what used
+  // to be a separate "Your batch" box into a filter here.
+  const activeBatch = params.scope === "batch" ? myBatches.find((b) => b.id === params.scope_id) : undefined;
+  const activeGroupBatch = params.scope === "group" ? myBatches.find((b) => b.cohort_group_id === params.scope_id) : undefined;
+  const standingScope: LeaderboardScope = activeBatch ? "batch" : activeGroupBatch ? "group" : "global";
+  const standingScopeId = activeBatch?.id ?? activeGroupBatch?.cohort_group_id ?? undefined;
+  const leaderboardPreview = await fetchLeaderboardPreview(standingScope, standingScopeId);
+
+  const seenGroupIds = new Set<string>();
+  const groupTabs = myBatches.flatMap((b) => {
+    if (!b.cohort_group_id || seenGroupIds.has(b.cohort_group_id)) return [];
+    seenGroupIds.add(b.cohort_group_id);
+    return [{ scope: "group" as const, label: b.cohort_group_name ?? "Group", scopeId: b.cohort_group_id }];
+  });
+  const standingTabs = [
+    { scope: "global" as const, label: "Global" },
+    ...myBatches.map((b) => ({ scope: "batch" as const, label: b.name, scopeId: b.id })),
+    ...groupTabs,
+  ];
+  const standingHref = activeBatch
+    ? `${ROUTES.LEADERBOARD}?scope=batch&scope_id=${activeBatch.id}`
+    : activeGroupBatch?.cohort_group_id
+      ? `${ROUTES.LEADERBOARD}?scope=group&scope_id=${activeGroupBatch.cohort_group_id}`
+      : ROUTES.LEADERBOARD;
 
   return (
     <main className="page-container py-10">
@@ -222,53 +280,10 @@ export default async function DashboardPage() {
             )}
           </section>
 
-          {/* Upcoming assessments */}
+          {/* Upcoming — assessments due and calendar events, merged into one timeline */}
           <section>
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="section-title">Upcoming assessments</h2>
-              <Link
-                className="flex items-center gap-1 text-sm text-primary hover:underline"
-                href={ROUTES.ASSESSMENTS}
-              >
-                View all <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-
-            {upcomingAssessments.length === 0 ? (
-              <div className="empty-state">
-                <Calendar aria-hidden className="h-10 w-10 text-muted-foreground" />
-                <p className="text-muted-foreground">No upcoming assessments right now.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {upcomingAssessments.map((assessment) => (
-                  <AssessmentRow assessment={assessment} key={assessment.id} />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* Right rail */}
-        <aside className="flex flex-col gap-8 lg:col-span-1">
-          {/* Your batch widget */}
-          {myBatches.length > 0 && (
-            <section>
-              <h2 className="subsection-title mb-4">
-                {myBatches.length === 1 ? "Your batch" : "Your batches"}
-              </h2>
-              <div className="flex flex-col gap-2">
-                {myBatches.map((batch) => (
-                  <BatchWindowRow batch={batch} key={batch.id} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Upcoming events widget */}
-          <section>
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="subsection-title">Upcoming</h2>
+              <h2 className="section-title">Upcoming</h2>
               <Link
                 className="flex items-center gap-1 text-sm text-primary hover:underline"
                 href={ROUTES.CALENDAR}
@@ -276,63 +291,69 @@ export default async function DashboardPage() {
                 Calendar <ArrowRight aria-hidden className="h-3.5 w-3.5" />
               </Link>
             </div>
-            {upcomingEvents.length === 0 ? (
+
+            {upcomingItems.length === 0 ? (
               <div className="empty-state">
-                <Calendar aria-hidden className="h-8 w-8 text-muted-foreground" />
-                <p className="text-muted-foreground">Nothing on your calendar for the next {UPCOMING_EVENTS_WINDOW_DAYS} days.</p>
+                <Calendar aria-hidden className="h-10 w-10 text-muted-foreground" />
+                <p className="text-muted-foreground">Nothing due or on your calendar right now.</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                {upcomingEvents.map((event) => (
-                  <UpcomingEventRow event={event} key={event.id} />
-                ))}
+              <div className="flex flex-col gap-3">
+                {upcomingItems.map((item) =>
+                  item.kind === "assessment" ? (
+                    <AssessmentRow assessment={item.assessment} key={`a-${item.assessment.id}`} />
+                  ) : (
+                    <UpcomingEventRow event={item.event} key={`e-${item.event.id}`} />
+                  ),
+                )}
               </div>
             )}
           </section>
+        </div>
 
-          {/* XP progress widget */}
-          {rewardProfile && (
+        {/* Right rail */}
+        <aside className="flex flex-col gap-8 lg:col-span-1">
+          {/* Your standing — XP/achievements, batch, and leaderboard rank, one card.
+              Batch used to be its own box; it's now a scope filter here instead,
+              since "which leaderboard" and "which batch" are the same question. */}
+          {(rewardProfile || leaderboardPreview.entries.length > 0 || myBatches.length > 0) && (
             <section className="card-base flex flex-col gap-4 p-5">
-              <h2 className="subsection-title">Your Progress</h2>
-              <XPProgressBar level={rewardProfile.level} totalXP={rewardProfile.total_xp} />
-              {rewardProfile.achievements.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {rewardProfile.achievements.slice(0, 5).map((a) => (
-                    <span
-                      className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs"
-                      key={a.id}
-                      title={a.definition.description}
-                    >
-                      {a.definition.icon} {a.definition.name}
-                    </span>
-                  ))}
-                  {rewardProfile.achievements.length > 5 && (
-                    <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      +{rewardProfile.achievements.length - 5} more
-                    </span>
-                  )}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Leaderboard */}
-          {leaderboardPreview.entries.length > 0 && (
-            <section>
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="subsection-title">Leaderboard</h2>
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="subsection-title">Your standing</h2>
                 <Link
                   className="flex items-center gap-1 text-sm text-primary hover:underline"
-                  href={ROUTES.LEADERBOARD}
+                  href={standingHref}
                 >
                   View all <ArrowRight aria-hidden className="h-3.5 w-3.5" />
                 </Link>
               </div>
-              <LeaderboardTable
-                entries={leaderboardPreview.entries}
-                myRank={leaderboardPreview.myRank}
-                myUserID={user.id}
-              />
+
+              {myBatches.length > 0 && (
+                <ScopeTabs activeScope={standingScope} activeScopeId={standingScopeId} tabs={standingTabs} />
+              )}
+
+              {activeBatch && (
+                <p className="text-xs text-muted-foreground">{formatBatchWindow(activeBatch.starts_at, activeBatch.ends_at)}</p>
+              )}
+
+              {/* Progress-to-next-level and achievements render inline inside your
+                  own highlighted row in the list below — no separate block needed. */}
+              {leaderboardPreview.entries.length > 0 ? (
+                <LeaderboardTable
+                  entries={leaderboardPreview.entries}
+                  myAchievements={rewardProfile?.achievements}
+                  myProgressPct={rewardProfile && rewardProfile.level.max_xp !== -1 ? rewardProfile.level.progress_pct : undefined}
+                  myRank={leaderboardPreview.myRank}
+                  myUserID={user.id}
+                />
+              ) : (
+                rewardProfile && (
+                  <MyRewardSummary
+                    achievements={rewardProfile.achievements}
+                    progressPct={rewardProfile.level.max_xp !== -1 ? rewardProfile.level.progress_pct : undefined}
+                  />
+                )
+              )}
             </section>
           )}
         </aside>
@@ -342,28 +363,6 @@ export default async function DashboardPage() {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
-
-interface BatchWindowRowProps {
-  batch: MyBatch;
-}
-
-function BatchWindowRow({ batch }: BatchWindowRowProps) {
-  const ending = batch.ends_at ? new Date(batch.ends_at) < new Date() : false;
-
-  return (
-    <div className="card-base flex items-center gap-3 p-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <Calendar aria-hidden className="h-4 w-4 text-primary" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{batch.name}</p>
-        <p className={`text-xs ${ending ? "text-destructive" : "text-muted-foreground"}`}>
-          {formatBatchWindow(batch.starts_at, batch.ends_at)}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 interface UpcomingEventRowProps {
   event: CalendarEvent;

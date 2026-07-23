@@ -9,7 +9,9 @@ import { InfoTab }      from "@/components/courses/wizard/info-tab";
 import { StructureTab } from "@/components/courses/wizard/structure-tab";
 import { ContentTab }   from "@/components/courses/wizard/content-tab";
 import { SettingsTab }  from "@/components/courses/wizard/settings-tab";
+import { FinalTestTab } from "@/components/courses/wizard/final-test-tab";
 import { useCourseDraft, type WizardTab } from "@/lib/courses/use-course-draft";
+import type { FinalTestConfig } from "@/lib/server/courses";
 import {
   createCourseAction, updateCourseAction, publishCourseAction,
   createSectionAction, updateSectionAction, deleteSectionAction, reorderSectionsAction,
@@ -22,6 +24,7 @@ import ROUTES from "@/lib/routes";
 
 interface Props {
   course?: CourseTree; // present in edit mode, absent when creating a new course
+  finalTest?: FinalTestConfig | null; // present only in edit mode
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -52,11 +55,12 @@ const TABS: { id: WizardTab; label: string }[] = [
   { id: "structure", label: "Structure" },
   { id: "content",   label: "Content"   },
   { id: "settings",  label: "Settings"  },
+  { id: "final-test", label: "Final Test" },
 ];
 
 // ─── Wizard ───────────────────────────────────────────────────────────────────
 
-export function CourseWizard({ course }: Props) {
+export function CourseWizard({ course, finalTest }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const wiz = useCourseDraft(course);
@@ -247,7 +251,7 @@ export function CourseWizard({ course }: Props) {
     <div className="flex flex-col gap-6">
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-border" role="tablist">
-        {TABS.map((tab) => (
+        {TABS.filter((tab) => tab.id !== "final-test" || course).map((tab) => (
           <button
             key={tab.id}
             role="tab"
@@ -306,6 +310,9 @@ export function CourseWizard({ course }: Props) {
             onChange={wiz.setStatus}
             disableDraft={course?.status === "published"}
           />
+        )}
+        {wiz.activeTab === "final-test" && course && (
+          <FinalTestTab courseId={course.id} initial={finalTest ?? null} />
         )}
       </div>
 

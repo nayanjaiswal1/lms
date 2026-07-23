@@ -129,7 +129,7 @@ func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	att, err := h.repo.SubmitPublicAttempt(r.Context(), token, req.Answers, questions, a.PassPercentage)
+	att, err := h.service.SubmitPublicAttempt(r.Context(), token, req.Answers, questions, a.PassPercentage)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -165,6 +165,36 @@ func (h *Handler) GetPublicResult(w http.ResponseWriter, r *http.Request) {
 		"duration_sec": att.DurationSec,
 		"submitted_at": att.SubmittedAt,
 	})
+}
+
+type overridePublicAttemptRequest struct {
+	Score float64 `json:"score"`
+	Note  string  `json:"note"`
+}
+
+// OverridePublicCandidateScore lets staff manually adjust a hiring candidate's
+// total score — e.g. spot-checking a sandbox-graded FastAPI/React submission's
+// code quality on top of its pass/fail result. PATCH /api/assessments/{assessmentID}/candidates/{candidateID}/override
+func (h *Handler) OverridePublicCandidateScore(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req overridePublicAttemptRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Score < 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"score": "Score cannot be negative."})
+		return
+	}
+	att, err := h.repo.OverridePublicAttemptScore(r.Context(), claims.OrgID,
+		chiURLParam(r, "candidateID"), claims.UserID, req.Score, req.Note)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, att)
 }
 
 // GetPublicCandidates returns all candidate attempts for a hiring assessment (staff).

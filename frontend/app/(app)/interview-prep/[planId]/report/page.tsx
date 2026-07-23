@@ -17,7 +17,7 @@ export default async function InterviewPrepReportPage({ params }: Props) {
   const plan = await getPrepPlan(planId).catch(() => null);
   if (!plan) notFound();
 
-  const report = plan.report ?? (await getPrepReport(planId).catch(() => null));
+  const report = plan.plan_type === "quick" ? null : plan.report ?? (await getPrepReport(planId).catch(() => null));
 
   return (
     <main className="page-container-sm py-8">
@@ -31,7 +31,9 @@ export default async function InterviewPrepReportPage({ params }: Props) {
       ) : (
         <div className="empty-state py-16">
           <p className="text-sm text-muted-foreground">
-            Complete both rounds before viewing your readiness report.
+            {plan.plan_type === "quick"
+              ? "Quick practice sessions don't generate a readiness report."
+              : "Complete both rounds before viewing your readiness report."}
           </p>
           <Button asChild className="mt-4">
             <Link href={ROUTES.interviewPrepPlan(planId)}>Back to plan</Link>

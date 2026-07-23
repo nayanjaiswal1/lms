@@ -10,20 +10,31 @@ const (
 	StatusFailed     = "failed"
 
 	RoundConceptual = "conceptual"
+	RoundBehavioral = "behavioral"
 	RoundCoding     = "coding"
 
 	RoundPending   = "pending"
 	RoundActive    = "active"
 	RoundCompleted = "completed"
+
+	ModeQuick    = "quick"
+	ModeTargeted = "targeted"
 )
 
-// Plan is one self-serve interview-prep run, created from a job title / JD.
+// Plan is one self-serve interview-prep run — either a lightweight "quick"
+// practice session (technology/difficulty, one round, no report) or a full
+// "targeted" mock test derived from a job title/JD (conceptual + coding
+// rounds, aggregate readiness report).
 type Plan struct {
 	ID                 string     `json:"id"`
 	UserID             string     `json:"user_id"`
 	OrgID              *string    `json:"org_id"`
+	PlanType           string     `json:"plan_type"`
+	Category           string     `json:"category"`
 	JobTitle           string     `json:"job_title"`
 	JDText             *string    `json:"jd_text,omitempty"`
+	Technology         *string    `json:"technology,omitempty"`
+	Difficulty         *string    `json:"difficulty,omitempty"`
 	ExtractedRole      string     `json:"extracted_role"`
 	ExtractedSeniority string     `json:"extracted_seniority"`
 	ExtractedSkills    []string   `json:"extracted_skills"`

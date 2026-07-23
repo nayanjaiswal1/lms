@@ -71,23 +71,23 @@ export function CourseCard({ course, enrolled, progressPct, href }: CourseCardPr
             </span>
           )}
         </div>
-
-        {showProgress && (
-          <div className="flex flex-col gap-1.5 pt-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{progressPct}% complete</span>
-              <span className="font-semibold text-primary">
-                {progressPct === 0 ? "Start" : progressPct === 100 ? "Review" : "Continue"}
-                <span aria-hidden> →</span>
-              </span>
-            </div>
-            <div className="progress-track">
-              {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
-              <div className="progress-fill" style={{ "--progress": `${progressPct}%` } as CSSProperties} />
-            </div>
-          </div>
-        )}
       </div>
+
+      {showProgress && (
+        <div
+          aria-label={`${progressPct}% complete`}
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={progressPct}
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-muted"
+          role="progressbar"
+        >
+          <div
+            className="h-full bg-primary"
+            style={{ "--progress": `${progressPct}%`, width: "var(--progress)" } as CSSProperties}
+          />
+        </div>
+      )}
     </article>
   );
 }

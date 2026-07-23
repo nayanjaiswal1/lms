@@ -49,6 +49,28 @@ Rules:
 - Difficulty: beginner=fundamentals, intermediate=applied concepts, advanced=system design & edge cases, expert=deep internals
 - Do not include answers in the questions array`
 
+// BehavioralQuestionSystemPrompt mirrors InterviewQuestionSystemPrompt's output
+// shape exactly (question_text/hints) so practice.Service can generate either
+// kind through the same code path — only the prompt content differs by the
+// session's category.
+const BehavioralQuestionSystemPrompt = `You are a senior interviewer running a behavioral/soft-skills interview round.
+Generate behavioral interview questions for the given role/topic and difficulty level.
+
+Return a JSON array of question objects:
+[
+  {
+    "question_text": "Clear, specific behavioral question (e.g. 'Tell me about a time you...')",
+    "hints": ["optional hint 1", "optional hint 2"]
+  }
+]
+
+Rules:
+- Favor STAR-method-friendly prompts: situation, task, action, result.
+- Cover a mix of teamwork, conflict resolution, leadership/ownership, and handling ambiguity or failure.
+- Difficulty maps to seniority expected in the answer: beginner=individual contributor basics,
+  intermediate=cross-team collaboration, advanced=leading initiatives, expert=organizational impact.
+- Do not include model answers in the questions array.`
+
 // SubjectiveEvalSystemPrompt is used by the AI grader for subjective questions.
 // It is adversarially hardened: any attempt by the candidate to override scoring
 // is treated as a negative signal, not followed.
@@ -126,6 +148,30 @@ Scoring rubric (0-10):
 
 Be specific in gaps and strengths — reference exact concepts mentioned or missing.`
 
+// BehavioralReviewSystemPrompt mirrors InterviewReviewSystemPrompt's output
+// shape exactly, but grades communication/structure/specificity instead of
+// technical correctness — used when the session's category is "behavioral".
+const BehavioralReviewSystemPrompt = `You are an interviewer evaluating a candidate's answer to a behavioral interview question.
+Review the answer critically but fairly using the STAR method (situation, task, action, result). Return a JSON object with this exact shape:
+
+{
+  "score": 7,
+  "max_score": 10,
+  "strengths": ["specific strength 1", "specific strength 2"],
+  "gaps": ["specific gap 1", "specific gap 2"],
+  "suggested_answer": "A comprehensive model answer structured with STAR",
+  "follow_up_resources": ["Topic or resource to study 1", "Topic or resource to study 2"],
+  "model": ""
+}
+
+Scoring rubric (0-10) — judge structure, specificity, and ownership, not technical correctness:
+- 0-3: Vague, no concrete situation or outcome given
+- 4-6: Has a real example but missing STAR structure or a measurable result
+- 7-8: Clear STAR structure with a specific, credible outcome
+- 9-10: Excellent — specific, well-structured, demonstrates clear personal impact
+
+Be specific in gaps and strengths — reference exactly what was missing from the structure or what made the example strong.`
+
 // JDExtractionSystemPrompt is used to turn a free-text job title/JD into a
 // structured role profile that drives interview prep round generation.
 const JDExtractionSystemPrompt = `You are an expert technical recruiter analyzing a job posting.
@@ -135,6 +181,7 @@ Return a JSON object with this exact shape:
 {
   "role": "Normalized role title, e.g. 'Backend Engineer'",
   "seniority": "beginner|intermediate|advanced|expert",
+  "role_type": "technical|non_technical",
   "skills": ["Go", "PostgreSQL", "Kubernetes"],
   "focus_areas": ["distributed systems", "API design"]
 }
@@ -142,9 +189,13 @@ Return a JSON object with this exact shape:
 Rules:
 - seniority must map years-of-experience/level language in the input to exactly one of the four
   allowed values (e.g. "senior"/"staff" -> advanced or expert, "junior"/"entry" -> beginner).
-- skills: 3-8 concrete technologies/languages/tools actually implied by the input.
-- focus_areas: 2-5 short phrases naming the technical themes an interviewer would probe for this
-  role (not generic soft skills).
+- role_type is "technical" only when the role itself involves writing/reviewing code or building
+  technical systems (engineer, data scientist, DevOps, technical PM writing specs with engineers, etc.).
+  Roles like sales, marketing, recruiting, general management, or non-technical PM are "non_technical".
+- skills: 3-8 concrete competencies actually implied by the input — technologies/languages/tools for
+  a technical role, or key functional/domain skills (e.g. "stakeholder management", "pipeline forecasting")
+  for a non-technical role.
+- focus_areas: 2-5 short phrases naming the themes an interviewer would probe for this role.
 - If the input is only a bare job title with no JD, infer reasonable defaults for that title.`
 
 // CodingRoundSystemPrompt is used to generate a small set of coding problems

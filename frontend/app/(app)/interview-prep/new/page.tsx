@@ -9,8 +9,8 @@ export default function NewInterviewPrepPage() {
         <h1 className="page-title">New Interview Prep Plan</h1>
       </div>
       <p className="mb-8 text-muted-foreground">
-        Paste a job title or full job description. AI will build a scored mock test — a conceptual
-        round and a coding round — tailored to the role.
+        Type a topic for a quick practice drill, or paste a job title/description for a full scored
+        mock test — we&apos;ll figure out which one you mean.
       </p>
       <NewPlanForm />
     </main>

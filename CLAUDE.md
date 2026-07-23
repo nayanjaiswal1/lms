@@ -36,13 +36,8 @@ Subagent, advisor-strategy, context-protection, and parallel-agent rules are alr
 
 ## Custom Skills (Slash Commands)
 
-Run these in the Claude Code chat. They live in `.claude/commands/`.
-
 | Command | What it does |
 |---|---|
-| `/go-endpoint` | Scaffold a complete Go endpoint: Chi route + handler + sqlc queries + migration + integration test |
-| `/fe-component` | Scaffold a complete Next.js component following MindForge conventions (server/client, shadcn, tokens, responsive) |
-| `/phase-status` | Read docs + git log and report what's done, what's in-progress, and what's next for the current phase |
 | `/frontend-design` | Official Anthropic skill — aesthetic direction, typography, intentional visual choices before writing code |
 | `/ui-ux-pro-max` | Design intelligence: UX guidelines, accessibility checklist, interaction patterns, spacing, chart types |
 
@@ -58,7 +53,7 @@ python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "form validation" --dom
 
 ---
 
-MCP server list and hooks.json template: see the `dev-env-setup` skill. The post-edit hook is already wired in `.claude/settings.local.json` — `post-edit.sh` runs `go vet ./...` after `.go` edits and `pnpm tsc --noEmit` after `.ts/.tsx` edits, so Claude self-corrects before moving to the next file.
+MCP server list and hooks.json template: see the `dev-env-setup` skill. The post-edit hook is already wired in `.claude/settings.json` — `post-edit.sh` runs `go vet ./...` after `.go` edits and `pnpm tsc --noEmit` after `.ts/.tsx` edits, so Claude self-corrects before moving to the next file.
 
 ---
 

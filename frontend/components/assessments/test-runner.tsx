@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProctorBanner } from "@/components/assessments/proctor-banner";
 import { ProctorPreflight } from "@/components/assessments/proctor-preflight";
 import { CameraPip } from "@/components/assessments/camera-pip";
-import { MCQQuestion } from "@/components/assessments/mcq-question";
+import { MCQQuestion } from "@/components/shared/mcq-question";
 import { CodingQuestion } from "@/components/assessments/coding-question";
 import { TranscriptInput } from "@/components/assessments/transcript-input";
 import { useProctor } from "@/lib/assessments/use-proctor";

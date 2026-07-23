@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/practice"
 )
 
 // maxPlansPerDay caps how many prep plans a user can generate per day — each
@@ -38,6 +39,8 @@ func writeError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusNotFound, "Not found.")
 	case errors.Is(err, ErrRoundsIncomplete):
 		httputil.WriteError(w, http.StatusConflict, "Both rounds must be completed before viewing the report.")
+	case errors.Is(err, ErrNoReportForQuickPlan):
+		httputil.WriteError(w, http.StatusBadRequest, "Quick sessions don't generate a readiness report.")
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "AI response timed out. Please try again.")
 	default:
@@ -76,19 +79,44 @@ func (h *Handler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		JobTitle string `json:"job_title"`
-		JDText   string `json:"jd_text"`
+		Mode          string `json:"mode"`
+		JobTitle      string `json:"job_title"`
+		JDText        string `json:"jd_text"`
+		Technology    string `json:"technology"`
+		Difficulty    string `json:"difficulty"`
+		Category      string `json:"category"`
+		QuestionCount int    `json:"question_count"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if strings.TrimSpace(body.JobTitle) == "" {
-		httputil.WriteError(w, http.StatusBadRequest, "job_title is required.")
+	if body.Mode != ModeQuick && body.Mode != ModeTargeted {
+		httputil.WriteError(w, http.StatusBadRequest, "mode must be 'quick' or 'targeted'.")
 		return
 	}
-	if len(body.JDText) > 10000 {
-		httputil.WriteError(w, http.StatusBadRequest, "jd_text cannot exceed 10,000 characters.")
-		return
+	if body.Mode == ModeTargeted {
+		if strings.TrimSpace(body.JobTitle) == "" {
+			httputil.WriteError(w, http.StatusBadRequest, "job_title is required.")
+			return
+		}
+		if len(body.JDText) > 10000 {
+			httputil.WriteError(w, http.StatusBadRequest, "jd_text cannot exceed 10,000 characters.")
+			return
+		}
+	} else {
+		if strings.TrimSpace(body.Technology) == "" {
+			httputil.WriteError(w, http.StatusBadRequest, "technology is required.")
+			return
+		}
+		if body.Difficulty == "" {
+			body.Difficulty = "intermediate"
+		}
+		if body.Category != practice.CategoryTechnical && body.Category != practice.CategoryBehavioral {
+			body.Category = practice.CategoryTechnical
+		}
+		if body.QuestionCount < 1 || body.QuestionCount > 20 {
+			body.QuestionCount = 5
+		}
 	}
 
 	var orgID *string
@@ -96,7 +124,15 @@ func (h *Handler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 		orgID = &claims.OrgID
 	}
 
-	plan, err := h.service.CreatePlan(r.Context(), claims.UserID, orgID, body.JobTitle, body.JDText)
+	plan, err := h.service.CreatePlan(r.Context(), claims.UserID, orgID, CreatePlanInput{
+		Mode:          body.Mode,
+		JobTitle:      body.JobTitle,
+		JDText:        body.JDText,
+		Technology:    body.Technology,
+		Difficulty:    body.Difficulty,
+		Category:      body.Category,
+		QuestionCount: body.QuestionCount,
+	})
 	if err != nil {
 		writeError(w, err)
 		return

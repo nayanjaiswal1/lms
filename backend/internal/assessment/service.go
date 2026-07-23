@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mindforge/backend/internal/config"
@@ -15,16 +16,31 @@ import (
 )
 
 // Service holds the assessment domain's business logic. It coordinates the repo,
-// the code executor, and the grading/proctoring rules.
+// the code executor(s), and the grading/proctoring rules.
 type Service struct {
-	repo *Repo
-	exec CodeExecutor
-	cfg  *config.Config
+	repo        *Repo
+	exec        CodeExecutor // stdio Piston/Judge0 diff path — the default
+	sandboxExec CodeExecutor // Docker/K8s container path, used when a question sets Runtime == RuntimeSandbox
+	cfg         *config.Config
 }
 
 // NewService wires the service with its data and execution dependencies.
-func NewService(repo *Repo, exec CodeExecutor, cfg *config.Config) *Service {
-	return &Service{repo: repo, exec: exec, cfg: cfg}
+// sandboxExec may be a executor whose Available() reports false (e.g.
+// NewSandboxExecutor(nil)) in deploys with no container runtime configured —
+// sandbox questions then grade as "pending manual review", same as an
+// unconfigured stdio executor.
+func NewService(repo *Repo, exec, sandboxExec CodeExecutor, cfg *config.Config) *Service {
+	return &Service{repo: repo, exec: exec, sandboxExec: sandboxExec, cfg: cfg}
+}
+
+// executorFor picks the grading engine for a coding question: the Docker/K8s
+// sandbox when the question opts in via Runtime, otherwise the stdio
+// Piston/Judge0 executor that has always graded coding questions.
+func (s *Service) executorFor(c CodingContent) CodeExecutor {
+	if c.Runtime == RuntimeSandbox {
+		return s.sandboxExec
+	}
+	return s.exec
 }
 
 // Business-rule errors distinct from data errors, mapped to 4xx by handlers.
@@ -279,13 +295,15 @@ func (s *Service) RunSample(ctx context.Context, userID, attemptID, sessionToken
 	if aqc.Type != QuestionTypeCoding {
 		return RunResult{}, ErrNotCodingQuestion
 	}
-	if !s.exec.Available() {
-		return RunResult{}, ErrExecutorUnavailable
-	}
 
 	var c CodingContent
 	if err := json.Unmarshal(aqc.Content, &c); err != nil {
 		return RunResult{}, fmt.Errorf("assessment: decode coding content: %w", err)
+	}
+
+	exec := s.executorFor(c)
+	if !exec.Available() {
+		return RunResult{}, ErrExecutorUnavailable
 	}
 
 	// Only non-hidden cases are ever run here — hidden cases stay server-side
@@ -303,7 +321,82 @@ func (s *Service) RunSample(ctx context.Context, userID, attemptID, sessionToken
 
 	runCtx, cancel := runDeadline(ctx, s.cfg.Judge0Timeout)
 	defer cancel()
-	return s.exec.Run(runCtx, language, code, sampleOnly)
+	return exec.Run(runCtx, language, code, sampleOnly)
+}
+
+// SubmitPublicAttempt grades a no-auth hiring candidate's answers and
+// persists the result. MCQ is graded inline (as before); coding questions are
+// now graded through the same per-question executor selection the
+// authenticated flow uses (executorFor) — previously this path silently
+// skipped coding questions entirely (counted toward max_score, never
+// awarded), which meant DSA/FastAPI/React sandbox questions on a public
+// hiring link always scored zero regardless of the candidate's answer.
+// Subjective questions remain unsupported here (no AI eval queue for
+// candidates without accounts — cost control, see docs/anonymous.md) and are
+// still excluded from scoring, counted only toward max_score.
+//
+// Coding questions grade concurrently, one goroutine per question: a sandbox
+// grade (container start + write files + run pytest/vitest + teardown) can
+// take several seconds each, and the server's fixed 30s WriteTimeout
+// (cmd/server/main.go) would otherwise abort the whole request — grading N
+// coding questions sequentially scales wall-clock time with N, concurrently
+// it scales with the slowest single question. A hiring assessment realistically
+// holds a handful of questions, so no worker-pool cap is needed here.
+func (s *Service) SubmitPublicAttempt(ctx context.Context, token string, answersRaw json.RawMessage, questions []AssessmentQuestion, passPercent float64) (PublicAttempt, error) {
+	att, err := s.repo.GetPublicAttemptByToken(ctx, token)
+	if err != nil {
+		return PublicAttempt{}, err
+	}
+	if att.Status == "submitted" {
+		return att, nil
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(answersRaw, &raw); err != nil {
+		raw = map[string]json.RawMessage{}
+	}
+
+	codingPoints := make([]float64, len(questions))
+	var wg sync.WaitGroup
+	for i, q := range questions {
+		if q.Type != QuestionTypeCoding {
+			continue
+		}
+		wg.Add(1)
+		go func(i int, q AssessmentQuestion) {
+			defer wg.Done()
+			runCtx, cancel := runDeadline(ctx, s.cfg.Judge0Timeout)
+			defer cancel()
+			_, _, pts, _, _, _, gradeErr := gradeCoding(runCtx, s.executorFor, q.Content, raw[q.ID], q.Points)
+			if gradeErr == nil {
+				codingPoints[i] = pts
+			}
+		}(i, q)
+	}
+	wg.Wait()
+
+	var totalScore, maxScore float64
+	for i, q := range questions {
+		maxScore += q.Points
+		switch q.Type {
+		case QuestionTypeMCQ:
+			_, pts, gradeErr := gradeMCQ(q.Content, raw[q.ID], q.Points)
+			if gradeErr == nil {
+				totalScore += pts
+			}
+		case QuestionTypeCoding:
+			totalScore += codingPoints[i]
+		}
+	}
+
+	var pct float64
+	if maxScore > 0 {
+		pct = (totalScore / maxScore) * 100
+	}
+	passed := pct >= passPercent
+	durationSec := int(time.Since(att.StartedAt).Seconds())
+
+	return s.repo.FinalizePublicAttempt(ctx, token, answersRaw, totalScore, maxScore, pct, passed, durationSec)
 }
 
 // Submit is the student-facing entry point: it verifies the caller still
@@ -368,7 +461,7 @@ func (s *Service) finalizeSubmit(ctx context.Context, orgID, userID, attemptID s
 
 		case QuestionTypeCoding:
 			runCtx, cancel := runDeadline(ctx, s.cfg.Judge0Timeout)
-			done, correct, pts, run, lang, src, gErr := gradeCoding(runCtx, s.exec, ans.Content, ans.Answer, ans.MaxPoints)
+			done, correct, pts, run, lang, src, gErr := gradeCoding(runCtx, s.executorFor, ans.Content, ans.Answer, ans.MaxPoints)
 			cancel()
 			if gErr != nil {
 				return Attempt{}, false, gErr

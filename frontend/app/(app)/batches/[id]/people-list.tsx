@@ -1,8 +1,8 @@
 "use client";
 
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RemoveMemberButton } from "@/app/(app)/batches/[id]/remove-member-button";
 import { RemoveMentorButton } from "@/components/batches/remove-mentor-button";
 
@@ -17,47 +17,44 @@ export interface Person {
 interface Props {
   batchId: string;
   people: Person[];
+  actions?: React.ReactNode;
 }
 
 const ROLE_FILTERS = ["all", "member", "mentor"] as const;
 const ROLE_FILTER_LABEL: Record<(typeof ROLE_FILTERS)[number], string> = {
-  all:    "All",
+  all:    "All roles",
   member: "Members",
   mentor: "Mentors",
 };
 
-export function PeopleList({ batchId, people }: Props) {
+export function PeopleList({ batchId, people, actions }: Props) {
   const [role, setRole] = useQueryState("role", parseAsStringLiteral(ROLE_FILTERS).withDefault("all"));
 
   const filtered = role === "all" ? people : people.filter((p) => p.role === role);
 
   return (
     <div className="flex flex-col gap-4">
-      <div aria-label="Role filter" className="flex gap-1 border-b border-border" role="tablist">
-        {ROLE_FILTERS.map((f) => {
-          const isActive = f === role;
-          return (
-            <button
-              aria-selected={isActive}
-              className={cn(
-                "px-3 py-2 text-sm font-medium border-b-2 transition-colors duration-fast",
-                isActive
-                  ? "text-primary border-primary"
-                  : "text-muted-foreground border-transparent hover:text-foreground hover:border-border",
-              )}
-              key={f}
-              role="tab"
-              type="button"
-              onClick={() => void setRole(f)}
-            >
-              {ROLE_FILTER_LABEL[f]}
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            {filtered.length} {filtered.length === 1 ? "person" : "people"}
+          </p>
+          <Select value={role} onValueChange={(v) => void setRole(v as (typeof ROLE_FILTERS)[number])}>
+            <SelectTrigger aria-label="Filter by role" className="h-8 w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_FILTERS.map((f) => (
+                <SelectItem key={f} value={f}>{ROLE_FILTER_LABEL[f]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {actions}
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-6 text-center">No {role === "all" ? "people" : ROLE_FILTER_LABEL[role].toLowerCase()} match this filter.</p>
+        <p className="text-sm text-muted-foreground py-6 text-center">No {ROLE_FILTER_LABEL[role].toLowerCase()} in this batch.</p>
       ) : (
         <div className="table-responsive">
           <table className="w-full text-sm">

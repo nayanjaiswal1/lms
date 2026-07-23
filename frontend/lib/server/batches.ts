@@ -15,6 +15,7 @@ export interface Batch {
   starts_at: string | null;
   ends_at: string | null;
   image_url: string | null;
+  cohort_group_id: string | null;
   created_at: string;
 }
 
@@ -40,6 +41,7 @@ export interface BatchInvitation {
   accepted_at: string | null;
   declined_at: string | null;
   resent_at: string | null;
+  import_job_id: string | null;
 }
 
 export interface BatchCourse {
@@ -166,6 +168,8 @@ export interface MyBatch {
   starts_at: string | null;
   ends_at: string | null;
   image_url: string | null;
+  cohort_group_id: string | null;
+  cohort_group_name?: string | null; // omitted entirely by the API when null (Go `omitempty`)
   created_by: string;
   created_at: string;
 }

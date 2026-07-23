@@ -20,8 +20,12 @@ export function PracticeAgainButton({ jobTitle, weakSkills }: PracticeAgainButto
   const [state, formAction, pending] = useActionState(
     async (_prev: State | null): Promise<State | null> => {
       const result = await createPrepPlanAction({
-        job_title: jobTitle,
-        jd_text: weakSkills.length > 0 ? `Focus specifically on: ${weakSkills.join(", ")}` : undefined,
+        text:
+          jobTitle +
+          (weakSkills.length > 0 ? `\n\nFocus specifically on: ${weakSkills.join(", ")}` : ""),
+        // Force targeted — a short job title alone could otherwise misclassify
+        // as quick, and "practice again" must always regenerate a full mock test.
+        modeOverride: "targeted",
       });
       if (!result.ok || !result.data) return { error: result.error };
       router.push(ROUTES.interviewPrepPlan(result.data.id));

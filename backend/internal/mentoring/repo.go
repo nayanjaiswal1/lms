@@ -33,6 +33,11 @@ var (
 	// interface without importing this package's concrete error value —
 	// see courses.Handler.Purchase.
 	ErrAlreadyPurchased = &conflictErr{msg: "mentoring: course already purchased"}
+
+	// ErrAlreadyHasMentor is returned by RequestMentor when the student
+	// already has an open or assigned ticket in this org — the handler maps
+	// this to HTTP 409.
+	ErrAlreadyHasMentor = &conflictErr{msg: "mentoring: you already have an active mentor request"}
 )
 
 // conflictErr is a sentinel error type that signals "this is a conflict, not
@@ -168,6 +173,35 @@ func recordAssignment(ctx context.Context, tx pgx.Tx, orgID, ticketID, mentorID,
 		return fmt.Errorf("mentoring: record assignment: %w", err)
 	}
 	return nil
+}
+
+// ListTicketAssignments returns every mentor ever assigned to ticketID, in
+// chronological order — the durable history behind mentor_tickets'
+// current-only assigned_mentor_id.
+func (r *Repo) ListTicketAssignments(ctx context.Context, ticketID string) ([]TicketAssignment, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, ticket_id, mentor_id, assigned_at
+		 FROM mentor_ticket_assignments
+		 WHERE ticket_id = $1
+		 ORDER BY assigned_at ASC`, ticketID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("mentoring: list ticket assignments: %w", err)
+	}
+	defer rows.Close()
+
+	assignments := []TicketAssignment{}
+	for rows.Next() {
+		var a TicketAssignment
+		if err := rows.Scan(&a.ID, &a.TicketID, &a.MentorID, &a.AssignedAt); err != nil {
+			return nil, fmt.Errorf("mentoring: list ticket assignments: scan: %w", err)
+		}
+		assignments = append(assignments, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("mentoring: list ticket assignments: rows: %w", err)
+	}
+	return assignments, nil
 }
 
 // ClaimTicket lets mentorID self-assign an open ticket within orgID. Returns
@@ -325,7 +359,7 @@ func (r *Repo) ListTickets(ctx context.Context, orgID string, status *string, me
 // used by assessment.Repo.GetBatchProgress: subquery joins, one round-trip.
 func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorDirectoryEntry, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT u.id, u.name, u.email,
+		`SELECT u.id, u.name, u.email, u.avatar_url,
 		        COALESCE(mt.mentee_count, 0) AS mentee_count,
 		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count
 		 FROM org_members om
@@ -352,7 +386,7 @@ func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorD
 	out := []MentorDirectoryEntry{}
 	for rows.Next() {
 		var m MentorDirectoryEntry
-		if err := rows.Scan(&m.UserID, &m.Name, &m.Email, &m.MenteeCount, &m.AvgRating, &m.RatingCount); err != nil {
+		if err := rows.Scan(&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.MenteeCount, &m.AvgRating, &m.RatingCount); err != nil {
 			return nil, fmt.Errorf("mentoring: scan mentor directory entry: %w", err)
 		}
 		out = append(out, m)
@@ -427,6 +461,27 @@ func (r *Repo) ResolveReport(ctx context.Context, orgID, reportID, resolvedBy, s
 		return Report{}, fmt.Errorf("mentoring: resolve report: %w", err)
 	}
 	return rep, nil
+}
+
+// ListReportsByTicket returns every complaint report filed against
+// ticketID, most recent first — used by GetTicketDetail. Callers must check
+// mentoring.manage_reports before calling this; it is not checked here.
+func (r *Repo) ListReportsByTicket(ctx context.Context, ticketID string) ([]Report, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+reportColumns+` FROM mentor_reports WHERE ticket_id = $1 ORDER BY created_at DESC`, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("mentoring: list reports by ticket: %w", err)
+	}
+	defer rows.Close()
+	out := []Report{}
+	for rows.Next() {
+		rep, err := scanReport(rows)
+		if err != nil {
+			return nil, fmt.Errorf("mentoring: scan report: %w", err)
+		}
+		out = append(out, rep)
+	}
+	return out, rows.Err()
 }
 
 const chatMessageColumns = `id, org_id, ticket_id, sender_id, body, created_at`
@@ -516,6 +571,27 @@ func (r *Repo) ListChangeRequests(ctx context.Context, orgID string, status *str
 	rows, err := r.pool.Query(ctx, `SELECT `+changeRequestColumns+` FROM mentor_change_requests `+where+` ORDER BY created_at DESC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("mentoring: list change requests: %w", err)
+	}
+	defer rows.Close()
+	out := []ChangeRequest{}
+	for rows.Next() {
+		cr, err := scanChangeRequest(rows)
+		if err != nil {
+			return nil, fmt.Errorf("mentoring: scan change request: %w", err)
+		}
+		out = append(out, cr)
+	}
+	return out, rows.Err()
+}
+
+// ListChangeRequestsByTicket returns every change request ever filed for
+// ticketID, most recent first — used by GetTicketDetail to assemble a
+// ticket's full lifecycle alongside its assignments and reports.
+func (r *Repo) ListChangeRequestsByTicket(ctx context.Context, ticketID string) ([]ChangeRequest, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+changeRequestColumns+` FROM mentor_change_requests WHERE ticket_id = $1 ORDER BY created_at DESC`, ticketID)
+	if err != nil {
+		return nil, fmt.Errorf("mentoring: list change requests by ticket: %w", err)
 	}
 	defer rows.Close()
 	out := []ChangeRequest{}

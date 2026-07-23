@@ -83,7 +83,7 @@ func (h *BatchImportHandler) Handle(ctx context.Context, job jobs.Job) error {
 		h.processExistingMembers(ctx, orgID, p.BatchID, existingEmails, existingUserIDs)
 	}
 	if len(inviteEmails) > 0 {
-		h.processInvitees(ctx, orgID, p.BatchID, p.InvitedBy, batchName, inviteEmails, fullNames)
+		h.processInvitees(ctx, orgID, p.BatchID, p.InvitedBy, batchName, job.ID, inviteEmails, fullNames)
 	}
 
 	authz.NewAuditRepo(h.pool).Write(ctx, orgID, p.InvitedBy, "batch_import.completed", "batch", p.BatchID,
@@ -118,15 +118,17 @@ func (h *BatchImportHandler) processExistingMembers(ctx context.Context, orgID, 
 }
 
 // processInvitees creates/refreshes batch invitations for emails with no
-// active org membership yet and emails the invite link.
-func (h *BatchImportHandler) processInvitees(ctx context.Context, orgID, batchID, invitedBy, batchName string, emails []string, fullNames map[string]string) {
+// active org membership yet and emails the invite link. jobID tags the
+// created rows so the invite history UI can group everyone invited by this
+// job — a bulk Excel import or a single "invite new" — as one unit.
+func (h *BatchImportHandler) processInvitees(ctx context.Context, orgID, batchID, invitedBy, batchName, jobID string, emails []string, fullNames map[string]string) {
 	alreadyInvited, err := h.repo.ExistingInvitationEmails(ctx, batchID, emails)
 	if err != nil {
 		slog.ErrorContext(ctx, "handlers.batch_import: check existing invitations", "batch_id", batchID, "error", err)
 		return
 	}
 
-	tokens, err := h.repo.CreateBatchInvitations(ctx, orgID, batchID, invitedBy, emails)
+	tokens, err := h.repo.CreateBatchInvitations(ctx, orgID, batchID, invitedBy, emails, &jobID)
 	if err != nil {
 		slog.ErrorContext(ctx, "handlers.batch_import: create invitations", "batch_id", batchID, "error", err)
 		msg := err.Error()

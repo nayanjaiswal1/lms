@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { ExternalLink, Globe, Link2, Copy, Check } from "lucide-react"
+import { Award, ExternalLink, Globe, Link2, Copy, Check } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ProfileAvatar } from "@/components/shared/profile-avatar"
 import { cn } from "@/lib/utils"
+import ROUTES from "@/lib/routes"
 import type { PublicProfile, Skill } from "@/lib/profile/types"
 
 // Inline client sub-component — only interactive piece in this file
@@ -59,6 +60,7 @@ export function PublicProfileCard({ profile }: Props) {
     stats,
     social_links,
     profile_slug,
+    certificates,
   } = profile
 
   const profileUrl =
@@ -139,6 +141,32 @@ export function PublicProfileCard({ profile }: Props) {
                 <p className="text-lg font-bold text-foreground">{value}</p>
                 <p className="text-xs text-muted-foreground">{label}</p>
               </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Certificates — each one independently verifiable at its own cert_uuid link */}
+      {certificates && certificates.length > 0 && (
+        <section aria-label="Certificates">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+            Certificates
+          </h2>
+          <div className="flex flex-col gap-2">
+            {certificates.map((cert) => (
+              <Link
+                className="flex items-center gap-3 rounded-lg bg-muted p-3 transition-colors duration-fast hover:bg-muted/70"
+                href={ROUTES.certificate(cert.cert_uuid)}
+                key={cert.cert_uuid}
+              >
+                <Award aria-hidden="true" className="shrink-0 text-primary" size={18} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{cert.course_title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Issued {new Date(cert.issued_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </Link>
             ))}
           </div>
         </section>

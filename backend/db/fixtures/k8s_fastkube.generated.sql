@@ -8133,3 +8133,1062 @@ INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('b76c3962-dcf2-5631-869c-8e2310f740dc', '00000000-0000-0000-0000-000000000014', '36d5d8be-468e-5eb6-b650-0f5c827cb390', '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (user_id, course_id) DO NOTHING;
 
+
+-- Backfill: lab_task_version_items for the 14 labs above.
+-- This fixture predates render_lab.go step 3b (added after generation) which
+-- materializes lab_task_versions.tasks JSONB into normalized rows here.
+-- Repo.GetPublishedVersion reads ONLY this table and returns ErrNotFound on zero
+-- rows, which 404s /api/modules/{id}/lab for every lab above -- the frontend
+-- swallows that into a silent "Lab not available yet." Generated from the data
+-- already committed in this file's lab_task_versions.tasks blocks; no content
+-- invented. See docs/labs.md and .claude/skills/create-course for the schema.
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('1a96abbf-3a26-422c-99d7-1511734cefea', 'fd4caf13-2929-514d-8218-f5e95e207bfc', '33e01790-be8e-5278-a7fe-acae16ceb140', '5', 'Create a ConfigMap from the theme.txt file', 'Using `theme.txt` (already in your workdir, containing `theme=dark`), create a new
+ConfigMap named **themeconfig** with `kubectl create configmap --from-file`, so the
+ConfigMap ends up with a data key named `theme.txt` holding the file''s contents.
+', E'#!/bin/bash
+kubectl get configmap themeconfig >/dev/null 2>&1 || exit 1
+kubectl get configmap themeconfig -o jsonpath="{.data[''theme\\.txt'']}" | grep -q "theme=dark"
+', 'Use `kubectl create configmap themeconfig --from-file=theme.txt`.', '`--from-file=theme.txt` (with no `key=` prefix) uses the base filename as the data key
+and the file''s full contents as the value — the resulting ConfigMap is functionally
+equivalent to hand-writing a `data` block in YAML, but generated straight from a file
+already on disk.
+', '20', 'f', 't'),
+('236c1193-0e14-477a-beba-cbdc08551d1c', 'fd4caf13-2929-514d-8218-f5e95e207bfc', '0eb1ad30-8728-5aab-9592-f27032374744', '1', 'Create the myconfigmap ConfigMap and configmappod Pod', 'Apply `configmap.yaml` (already in your workdir) to create a ConfigMap named
+**myconfigmap** and a Pod named **configmappod** that consumes it.
+', '#!/bin/bash
+kubectl get configmap myconfigmap >/dev/null 2>&1 || exit 1
+kubectl get pod configmappod --no-headers 2>/dev/null | grep -q Running
+', 'Use `kubectl apply -f configmap.yaml`.', '`configmap.yaml` bundles a ConfigMap and a Pod in one manifest separated by `---` —
+`kubectl apply -f` creates both with a single command. The Pod references the
+ConfigMap by name, but Kubernetes does not validate that reference until the kubelet
+actually starts the container.
+', '15', 'f', 't'),
+('c92c4f23-22e2-4a1d-bc78-8870bf63b72b', 'fd4caf13-2929-514d-8218-f5e95e207bfc', '977c5da0-dd8f-57c9-92c8-eafd1aacbca0', '2', 'Confirm the myconfigmap data keys and values', 'Confirm that **myconfigmap** holds the data keys declared in `configmap.yaml`:
+`db_server` = `db.example.com`, `database` = `mydatabase`, and a multi-line
+`site.settings` key containing `color=blue` and `padding:25px`.
+', E'#!/bin/bash
+DBSERVER=$(kubectl get configmap myconfigmap -o jsonpath=''{.data.db_server}'' 2>/dev/null)
+test "$DBSERVER" = "db.example.com" || exit 1
+DATABASE=$(kubectl get configmap myconfigmap -o jsonpath=''{.data.database}'' 2>/dev/null)
+test "$DATABASE" = "mydatabase" || exit 1
+SETTINGS=$(kubectl get configmap myconfigmap -o jsonpath="{.data[''site\\.settings'']}" 2>/dev/null)
+echo "$SETTINGS" | grep -q "color=blue" || exit 1
+echo "$SETTINGS" | grep -q "padding:25px"
+', E'Use `kubectl get configmap myconfigmap -o jsonpath=''{.data.db_server}''` and the
+equivalent for `database` and `site.settings` — bracket notation
+(`{.data[''site\\.settings'']}`) is required for a key that itself contains a dot.
+', 'A ConfigMap''s `data` field is a flat map of string keys to string values. Keys with
+dots (like `site.settings`, used here to mimic a filename) still parse fine, but
+jsonpath needs bracket-escaped notation to disambiguate the dot in the key from the
+path separator.
+', '15', 'f', 'f'),
+('b8a6716c-88a1-4b3e-9b68-c542d6a64e13', 'fd4caf13-2929-514d-8218-f5e95e207bfc', 'feb3b719-1415-51a3-981c-6831b2c82057', '3', 'Confirm configmappod''s env vars reference myconfigmap', 'Confirm that `configmapcontainer` in **configmappod** defines environment variables
+`DB_SERVER` and `DATABASE`, each sourced via `configMapKeyRef` from **myconfigmap**''s
+`db_server` and `database` keys respectively.
+', '#!/bin/bash
+kubectl get pod configmappod -o jsonpath=''{.spec.containers[0].env[?(@.name=="DB_SERVER")].valueFrom.configMapKeyRef.name}'' | grep -qx myconfigmap || exit 1
+kubectl get pod configmappod -o jsonpath=''{.spec.containers[0].env[?(@.name=="DB_SERVER")].valueFrom.configMapKeyRef.key}'' | grep -qx db_server || exit 1
+kubectl get pod configmappod -o jsonpath=''{.spec.containers[0].env[?(@.name=="DATABASE")].valueFrom.configMapKeyRef.name}'' | grep -qx myconfigmap || exit 1
+kubectl get pod configmappod -o jsonpath=''{.spec.containers[0].env[?(@.name=="DATABASE")].valueFrom.configMapKeyRef.key}'' | grep -qx database
+', 'Inspect `.spec.containers[0].env` with a jsonpath filter on `@.name` and look at each
+entry''s `valueFrom.configMapKeyRef`.
+', '`configMapKeyRef` injects a single ConfigMap key as one environment variable at
+container start — unlike mounting the whole ConfigMap as a volume, this pattern lets
+each env var pull from a different key (or even a different ConfigMap) independently.
+', '15', 'f', 'f'),
+('fe8ab137-3970-49b4-b4fc-b698a9f7cc9e', 'fd4caf13-2929-514d-8218-f5e95e207bfc', '8dcfcefc-2a6f-5cb4-85f1-959f855c3273', '4', 'Confirm configmappod mounts myconfigmap as a read-only volume', 'Confirm that **configmappod** defines a volume named `config-vol` backed by
+**myconfigmap**, and that `configmapcontainer` mounts it read-only at `/config`.
+', '#!/bin/bash
+kubectl get pod configmappod -o jsonpath=''{.spec.volumes[?(@.name=="config-vol")].configMap.name}'' | grep -qx myconfigmap || exit 1
+kubectl get pod configmappod -o jsonpath=''{.spec.containers[0].volumeMounts[?(@.name=="config-vol")].mountPath}'' | grep -qx /config || exit 1
+kubectl get pod configmappod -o jsonpath=''{.spec.containers[0].volumeMounts[?(@.name=="config-vol")].readOnly}'' | grep -qx true
+', 'Check `.spec.volumes` for a `configMap` volume source named `config-vol`, then check
+`.spec.containers[0].volumeMounts` for a matching entry with `mountPath: /config` and
+`readOnly: true`.
+', 'Mounting a ConfigMap as a volume exposes every key as a file inside the mount path
+(here, `/config/db_server`, `/config/database`, `/config/site.settings`) rather than a
+single env var — useful for config files an app reads from disk. `readOnly: true`
+prevents the container from ever writing back into the projected ConfigMap volume.
+', '15', 'f', 'f')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('c2e0d06d-300f-4165-bb15-e696fad6da71', '3546b028-3c3a-521c-899a-588034d65714', '87be12f8-04c8-5763-b30f-f348cfa4ecfb', '2', 'Confirm the container command and restartPolicy', 'Confirm that `hello`''s Job template runs the command
+`/bin/sh -c "date; echo Hello from the Kubernetes cluster"` and that the Pod template''s
+`restartPolicy` is `OnFailure`, exactly as declared in `cronjob.yaml`.
+', '#!/bin/bash
+POLICY=$(kubectl get cronjob hello -o jsonpath=''{.spec.jobTemplate.spec.template.spec.restartPolicy}'')
+test "$POLICY" = "OnFailure" || exit 1
+CMD=$(kubectl get cronjob hello -o jsonpath=''{.spec.jobTemplate.spec.template.spec.containers[0].command[2]}'')
+echo "$CMD" | grep -q "Hello from the Kubernetes cluster"
+', 'Inspect `.spec.jobTemplate.spec.template.spec` with `jsonpath` — both `restartPolicy`
+and `containers[0].command` live there.
+', 'A CronJob''s Pod template must set `restartPolicy` to `OnFailure` or `Never` — never the
+`Always` default used by long-running controllers like Deployments, since a Job''s Pod is
+expected to run to completion rather than restart forever. The container''s `command`
+array here overrides `busybox`''s default entrypoint to run a one-off shell command.
+', '10', 'f', 'f'),
+('4ac4b6c2-cd58-4282-9fec-296cd540f88b', '3546b028-3c3a-521c-899a-588034d65714', '35db9ada-13ad-5692-8ce2-f467ae854da9', '4', 'Configure concurrencyPolicy and job history limits', 'Patch the **hello** CronJob to set `.spec.concurrencyPolicy` to `Forbid` (skip a run
+if the previous Job hasn''t finished), `.spec.successfulJobsHistoryLimit` to `2`, and
+`.spec.failedJobsHistoryLimit` to `1`.
+', '#!/bin/bash
+CP=$(kubectl get cronjob hello -o jsonpath=''{.spec.concurrencyPolicy}'')
+test "$CP" = "Forbid" || exit 1
+SJHL=$(kubectl get cronjob hello -o jsonpath=''{.spec.successfulJobsHistoryLimit}'')
+test "$SJHL" = "2" || exit 1
+FJHL=$(kubectl get cronjob hello -o jsonpath=''{.spec.failedJobsHistoryLimit}'')
+test "$FJHL" = "1"
+', '`kubectl patch cronjob hello -p
+''{"spec":{"concurrencyPolicy":"Forbid","successfulJobsHistoryLimit":2,"failedJobsHistoryLimit":1}}''
+--type merge`
+', '`concurrencyPolicy: Forbid` skips a new run if the previous Job is still active — the
+alternatives are `Allow` (the default, runs overlap freely) and `Replace` (cancels the
+running Job and starts the new one). `successfulJobsHistoryLimit` and
+`failedJobsHistoryLimit` cap how many completed Job objects the controller retains for
+inspection before garbage-collecting the oldest ones.
+', '20', 'f', 't'),
+('8b391ca4-4135-4f31-a4d8-c5915af684c6', '3546b028-3c3a-521c-899a-588034d65714', 'c7f86528-d743-5e81-a9ea-2e1ca7ed5539', '1', 'Create the hello CronJob', 'Apply `cronjob.yaml` (already in your workdir) to create a CronJob named **hello**
+with schedule `*/1 * * * *`, running a `busybox` container.
+', '#!/bin/bash
+kubectl get cronjob hello >/dev/null 2>&1 || exit 1
+SCHEDULE=$(kubectl get cronjob hello -o jsonpath=''{.spec.schedule}'')
+test "$SCHEDULE" = "*/1 * * * *" || exit 1
+IMAGE=$(kubectl get cronjob hello -o jsonpath=''{.spec.jobTemplate.spec.template.spec.containers[0].image}'')
+test "$IMAGE" = "busybox"
+', 'Use `kubectl apply -f cronjob.yaml`.', 'The CronJob controller creates a new Job from `.spec.jobTemplate` each time
+`.spec.schedule` fires — `*/1 * * * *` is standard cron syntax for "every minute".
+Because a Job wraps a Pod template, that template sits one level deeper here than on a
+bare Pod or Deployment: `.spec.jobTemplate.spec.template.spec`.
+', '15', 'f', 't'),
+('59f358c8-9f87-4271-a639-c391295664c2', '3546b028-3c3a-521c-899a-588034d65714', '96366eea-16a9-54ad-ba1a-432005e3d09c', '3', 'Suspend the hello CronJob', 'Suspend the **hello** CronJob so it stops scheduling new Jobs, without deleting it.
+Patch `.spec.suspend` to `true`.
+', '#!/bin/bash
+SUSPEND=$(kubectl get cronjob hello -o jsonpath=''{.spec.suspend}'')
+test "$SUSPEND" = "true"
+', 'Use `kubectl patch cronjob hello -p ''{"spec":{"suspend":true}}'' --type merge`, or
+`kubectl edit cronjob hello`.
+', 'Setting `.spec.suspend: true` tells the CronJob controller to stop creating new Jobs
+from this schedule while leaving the CronJob object, and any Jobs it already created,
+untouched — the standard way to pause a CronJob temporarily (e.g. during an incident)
+without losing its configuration.
+', '15', 'f', 't')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('47977b0a-09b0-49cb-80ac-91d1ece7c150', 'e858ff7d-9bf2-5c07-b12b-e0ffb4e9af9f', '689b197f-1485-5f10-8fcf-756074400688', '5', 'Confirm the DaemonSet controller never reconciles Pods in this lab', 'This lab''s `kube-controller-manager` is started with an explicit `--controllers` allowlist
+that does **not** include `daemonset` — so, unlike the Deployment lab, no controller ever
+reads `logdaemonset`''s spec and turns it into Pods. Confirm this:
+`.status.desiredNumberScheduled` and `.status.numberReady` on `logdaemonset` both remain
+`0`, and no Pod carrying the `name=fluentd-elasticsearch` selector label exists anywhere in
+the cluster — even though the single fake node would otherwise be perfectly eligible (no
+`nodeSelector`, no unsatisfied taint).
+', '#!/bin/bash
+DESIRED=$(kubectl get daemonset logdaemonset -o jsonpath=''{.status.desiredNumberScheduled}'')
+READY=$(kubectl get daemonset logdaemonset -o jsonpath=''{.status.numberReady}'')
+test "${DESIRED:-0}" -eq 0 || exit 1
+test "${READY:-0}" -eq 0 || exit 1
+COUNT=$(kubectl get pods -l name=fluentd-elasticsearch --no-headers 2>/dev/null | wc -l)
+test "$COUNT" -eq 0
+', 'Compare `kubectl get daemonset logdaemonset -o yaml`''s `.status` block against
+`kubectl get pods -l name=fluentd-elasticsearch` — the object exists, but nothing is
+scheduling Pods for it.
+', 'A DaemonSet''s `.status` fields (`desiredNumberScheduled`, `currentNumberScheduled`,
+`numberReady`, ...) are not computed by the API server — they are written by the DaemonSet
+controller inside `kube-controller-manager` as it watches nodes and reconciles one Pod per
+eligible node. This lab''s control plane starts `kube-controller-manager` with a scoped
+`--controllers` list (`deployment,replicaset,namespace,endpoint,endpointslice,
+endpointslicemirroring,resourcequota,garbagecollector`) that omits `daemonset`, so
+`logdaemonset` sits in etcd as a valid, well-formed spec that nothing ever acts on — a
+useful reminder that a resource existing in the API is not the same as a controller
+reconciling it.
+', '20', 'f', 'f'),
+('ad36a5c0-2078-46f7-8839-f961dd21c29a', 'e858ff7d-9bf2-5c07-b12b-e0ffb4e9af9f', 'e9b73a24-e557-54c3-b837-b0a78a17a910', '4', 'Confirm the master-node toleration', 'Confirm `logdaemonset`''s pod template tolerates the `node-role.kubernetes.io/master` taint
+with effect `NoSchedule`, as declared in `daemonset.yaml`.
+', '#!/bin/bash
+KEY=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.tolerations[0].key}'')
+EFFECT=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.tolerations[0].effect}'')
+echo "$KEY" | grep -qx node-role.kubernetes.io/master || exit 1
+echo "$EFFECT" | grep -qx NoSchedule
+', 'Use `kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.tolerations}''`.
+', 'DaemonSets commonly tolerate the control-plane''s `NoSchedule` taint because node-local
+agents — log shippers, CNI plugins, monitoring agents — need to run on every node,
+including control-plane nodes that regular workloads are excluded from. This lab''s single
+fake node carries the `node-role.kubernetes.io/agent` label and no taints at all, so the
+toleration is inert here — it exists purely to demonstrate the pattern.
+', '10', 'f', 'f'),
+('991420b1-bcee-48f2-8093-52956203ef71', 'e858ff7d-9bf2-5c07-b12b-e0ffb4e9af9f', '894fa5fd-ee5e-57a2-9c0f-aaa24d3d8b6f', '1', 'Create the logdaemonset DaemonSet', 'Apply `daemonset.yaml` (already in your workdir) to create a DaemonSet named
+**logdaemonset** with label `app=fluentd-logging` and pod selector
+`matchLabels: name=fluentd-elasticsearch`.
+', '#!/bin/bash
+kubectl get daemonset logdaemonset >/dev/null 2>&1 || exit 1
+kubectl get daemonset logdaemonset -o jsonpath=''{.metadata.labels.app}'' | grep -qx fluentd-logging || exit 1
+kubectl get daemonset logdaemonset -o jsonpath=''{.spec.selector.matchLabels.name}'' | grep -qx fluentd-elasticsearch
+', 'Use `kubectl apply -f daemonset.yaml`.', '`kubectl apply` creates the DaemonSet API object from the manifest. Unlike a Deployment, a
+DaemonSet has no `replicas` field — its `.spec.selector` must match
+`.spec.template.metadata.labels` exactly, and the DaemonSet controller normally uses that
+template to run one Pod per eligible node.
+', '15', 'f', 't'),
+('a4988deb-379d-41f8-96c4-5d0c6927ec5a', 'e858ff7d-9bf2-5c07-b12b-e0ffb4e9af9f', '4b7e4d22-9586-5d72-9008-a146a87a2f89', '2', 'Confirm the fluentd-elasticsearch container spec', 'Confirm that `logdaemonset`''s pod template defines a single container named
+**fluentd-elasticsearch** running image `quay.io/fluentd_elasticsearch/fluentd:v2.5.2`,
+with a memory limit of `200Mi` and requests of `cpu: 100m` / `memory: 200Mi`.
+', '#!/bin/bash
+NAME=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.containers[0].name}'')
+IMAGE=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.containers[0].image}'')
+LIMIT=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.containers[0].resources.limits.memory}'')
+REQCPU=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.containers[0].resources.requests.cpu}'')
+REQMEM=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.containers[0].resources.requests.memory}'')
+echo "$NAME" | grep -qx fluentd-elasticsearch || exit 1
+echo "$IMAGE" | grep -qx "quay.io/fluentd_elasticsearch/fluentd:v2.5.2" || exit 1
+echo "$LIMIT" | grep -qx 200Mi || exit 1
+echo "$REQCPU" | grep -qx 100m || exit 1
+echo "$REQMEM" | grep -qx 200Mi
+', 'Inspect `.spec.template.spec.containers[0]` with `kubectl get daemonset logdaemonset -o yaml`.
+', 'A DaemonSet''s `.spec.template` is the Pod template every node-local copy is stamped from —
+it is structurally identical to a Deployment''s template. Setting `resources.limits.memory`
+without a matching `resources.limits.cpu` leaves the container''s CPU unbounded while still
+capping memory.
+', '15', 'f', 'f'),
+('574e1684-28d1-4b9a-85bc-da4564083e14', 'e858ff7d-9bf2-5c07-b12b-e0ffb4e9af9f', '218aa489-dbd2-5930-a1d1-5585eb40a96a', '3', 'Confirm the hostPath volumes and mounts', 'Confirm `logdaemonset` declares two `hostPath` volumes — **varlog** (`/var/log`) and
+**varlibdockercontainers** (`/var/lib/docker/containers`) — and that the container mounts
+`varlibdockercontainers` as `readOnly`.
+', '#!/bin/bash
+VARLOG=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.volumes[?(@.name=="varlog")].hostPath.path}'')
+VARLIB=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.volumes[?(@.name=="varlibdockercontainers")].hostPath.path}'')
+echo "$VARLOG" | grep -qx /var/log || exit 1
+echo "$VARLIB" | grep -qx /var/lib/docker/containers || exit 1
+RO=$(kubectl get daemonset logdaemonset -o jsonpath=''{.spec.template.spec.containers[0].volumeMounts[?(@.name=="varlibdockercontainers")].readOnly}'')
+echo "$RO" | grep -qx true
+', 'Inspect `.spec.template.spec.volumes` and `.spec.template.spec.containers[0].volumeMounts`
+with `kubectl get daemonset logdaemonset -o yaml`.
+', '`hostPath` volumes mount a path from the **node''s own filesystem** into the Pod — this is
+how a logging DaemonSet like fluentd reads every other Pod''s log files (`/var/log`) and
+container runtime state (`/var/lib/docker/containers`) without those files ever going
+through the container image. Mounting the containers directory `readOnly: true` stops the
+log shipper from ever mutating runtime state it only needs to read.
+', '15', 'f', 'f')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('059040aa-ece8-4ab6-a642-5bc3b2fd7ce4', '8d979332-41b9-5f85-9a37-e15f4ff97ee9', 'f09c8d93-14b0-577e-bcda-9a7f984e1aed', '1', 'Create the firstdeployment Deployment', 'Apply `deployment1.yaml` (already in your workdir) to create a Deployment named
+**firstdeployment** with **3 replicas**, image `nginx:latest`, and label `app=frontend`.
+', '#!/bin/bash
+kubectl get deployment firstdeployment >/dev/null 2>&1 || exit 1
+READY=$(kubectl get deployment firstdeployment -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+test "${READY:-0}" -ge 3
+', 'Use `kubectl apply -f deployment1.yaml`.', '`kubectl apply` reconciles the cluster to match the manifest declaratively. The
+Deployment controller creates a ReplicaSet, which creates 3 Pods matching the
+`app=frontend` selector.
+', '15', 'f', 't'),
+('d711512f-be07-4e31-b781-de50074c8d3d', '8d979332-41b9-5f85-9a37-e15f4ff97ee9', '6247de56-7646-54b3-93ba-e8a3de75e32c', '3', 'Create the rolldeployment Deployment (RollingUpdate strategy)', 'Apply `rolling-deployment.yaml` to create a Deployment named **rolldeployment** with
+**10 replicas** and a `RollingUpdate` strategy configured with `maxSurge: 2` and
+`maxUnavailable: 2`.
+', '#!/bin/bash
+kubectl get deployment rolldeployment >/dev/null 2>&1 || exit 1
+kubectl get deployment rolldeployment -o jsonpath=''{.spec.strategy.rollingUpdate.maxSurge}'' | grep -qx 2 || exit 1
+kubectl get deployment rolldeployment -o jsonpath=''{.spec.strategy.rollingUpdate.maxUnavailable}'' | grep -qx 2 || exit 1
+READY=$(kubectl get deployment rolldeployment -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+test "${READY:-0}" -ge 10
+', 'Use `kubectl apply -f rolling-deployment.yaml`.', '`maxSurge` caps how many extra Pods above the desired count may exist during a rollout;
+`maxUnavailable` caps how many desired Pods may be missing. Both default to 25% when
+unset — this manifest sets them explicitly to absolute counts instead.
+', '20', 'f', 't'),
+('45ed551d-699c-4d81-8b47-fc717f7be364', '8d979332-41b9-5f85-9a37-e15f4ff97ee9', '3a35b142-5453-5172-9486-b9a02c9ba94e', '4', 'Scale firstdeployment down to 1 replica', 'Scale the **firstdeployment** Deployment down to **1 replica** using `kubectl scale`.
+', '#!/bin/bash
+DESIRED=$(kubectl get deployment firstdeployment -o jsonpath=''{.spec.replicas}'' 2>/dev/null)
+READY=$(kubectl get deployment firstdeployment -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+test "${DESIRED:-0}" -eq 1 && test "${READY:-0}" -le 1
+', 'Use `kubectl scale deployment firstdeployment --replicas=1`.', 'Scaling updates `.spec.replicas`; the Deployment controller adjusts the ReplicaSet''s
+replica count, which schedules or terminates Pods to match.
+', '15', 'f', 't'),
+('121831aa-ec47-4ffc-a20f-d6adacf4dc61', '8d979332-41b9-5f85-9a37-e15f4ff97ee9', '1d54c4f5-b5ee-5dca-9d27-1b2c4b49f955', '5', 'Roll out a new image on firstdeployment', 'Update `firstdeployment`''s container image to `nginx:1.27` and wait for the rollout to
+finish. Use `kubectl set image` and `kubectl rollout status`.
+', '#!/bin/bash
+IMAGE=$(kubectl get deployment firstdeployment -o jsonpath=''{.spec.template.spec.containers[0].image}'' 2>/dev/null)
+test "$IMAGE" = "nginx:1.27" || exit 1
+kubectl rollout status deployment/firstdeployment --timeout=30s >/dev/null 2>&1
+', 'Use `kubectl set image deployment/firstdeployment nginx=nginx:1.27`, then
+`kubectl rollout status deployment/firstdeployment`.
+', '`kubectl set image` patches `.spec.template.spec.containers[].image`, which changes the
+Pod template hash and triggers a new ReplicaSet. `kubectl rollout status` blocks until
+the new ReplicaSet is fully available — the same mechanism `kubectl rollout undo` reverses.
+', '20', 'f', 't'),
+('43928c68-0b0e-402b-aff1-8eb8a538fe5e', '8d979332-41b9-5f85-9a37-e15f4ff97ee9', '4ae360b6-396a-5b51-bd92-c600a1c4ccad', '2', 'Create the rcdeployment Deployment (Recreate strategy)', 'Apply `recreate-deployment.yaml` to create a Deployment named **rcdeployment** with
+**5 replicas** and `strategy.type: Recreate`.
+', '#!/bin/bash
+kubectl get deployment rcdeployment >/dev/null 2>&1 || exit 1
+kubectl get deployment rcdeployment -o jsonpath=''{.spec.strategy.type}'' | grep -q Recreate || exit 1
+READY=$(kubectl get deployment rcdeployment -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+test "${READY:-0}" -ge 5
+', 'Use `kubectl apply -f recreate-deployment.yaml`.', 'The `Recreate` strategy kills every existing Pod before creating replacements — unlike
+`RollingUpdate`, there is a window with zero available Pods, but it guarantees no two
+versions ever run simultaneously.
+', '15', 'f', 't')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('87d915a9-e3d7-460d-84f8-eedc327cbafc', '2b872fd0-5356-53b5-b6d5-5f5b1a03ce39', 'c268f59d-acb1-5782-935e-91c114913999', '4', 'Confirm both appingress path rules are wired correctly', 'Confirm both path rules on **appingress** are configured correctly — `/blue` routes to
+**bluesvc** on port `80` with `pathType: Prefix`, and `/green` routes to **greensvc** on
+port `80` with `pathType: Prefix`.
+', '#!/bin/bash
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[0].path}'' | grep -qx /blue || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[0].pathType}'' | grep -qx Prefix || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[0].backend.service.port.number}'' | grep -qx 80 || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[1].path}'' | grep -qx /green || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[1].pathType}'' | grep -qx Prefix || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[1].backend.service.port.number}'' | grep -qx 80
+', 'Inspect `.spec.rules[0].http.paths` with `kubectl get ingress appingress -o yaml`.
+', '`pathType: Prefix` means the path segment must match as a full URL element (or a prefix
+of it) rather than an exact string or unconstrained regex — this is what lets `/blue`
+also match `/blue/anything` without spilling into `/green`''s traffic.
+', '15', 'f', 'f'),
+('c24e73a8-593b-4cc6-8c61-e44f90310348', '2b872fd0-5356-53b5-b6d5-5f5b1a03ce39', 'b5899886-d38f-5796-8bce-a32d7a2cb35c', '6', 'Confirm each Ingress backend Service targets the right Deployment''s Pods', 'Confirm **bluesvc**, **greensvc**, and **todosvc** each select Pods by the same label
+their corresponding Deployment''s Pod template sets — `bluesvc` → `app=blue`
+(`blueapp`), `greensvc` → `app=green` (`greenapp`), and `todosvc` → `app=todo`
+(`todoapp`).
+', '#!/bin/bash
+BSEL=$(kubectl get svc bluesvc -o jsonpath=''{.spec.selector.app}'' 2>/dev/null)
+BLBL=$(kubectl get deployment blueapp -o jsonpath=''{.spec.template.metadata.labels.app}'' 2>/dev/null)
+test -n "$BSEL" && test "$BSEL" = "$BLBL" || exit 1
+GSEL=$(kubectl get svc greensvc -o jsonpath=''{.spec.selector.app}'' 2>/dev/null)
+GLBL=$(kubectl get deployment greenapp -o jsonpath=''{.spec.template.metadata.labels.app}'' 2>/dev/null)
+test -n "$GSEL" && test "$GSEL" = "$GLBL" || exit 1
+TSEL=$(kubectl get svc todosvc -o jsonpath=''{.spec.selector.app}'' 2>/dev/null)
+TLBL=$(kubectl get deployment todoapp -o jsonpath=''{.spec.template.metadata.labels.app}'' 2>/dev/null)
+test -n "$TSEL" && test "$TSEL" = "$TLBL"
+', 'Compare each Service''s `.spec.selector` against its Deployment''s
+`.spec.template.metadata.labels`.
+', 'An Ingress only ever forwards to a Service by name — it has no visibility into whether
+that Service actually has healthy endpoints. If a Service''s `selector` drifted from its
+backing Deployment''s Pod template labels, the Ingress and Service would both look
+"created" while traffic silently hit zero endpoints.
+', '15', 'f', 'f'),
+('5aae167e-811c-4902-acd6-b1c74b826772', '2b872fd0-5356-53b5-b6d5-5f5b1a03ce39', '756cc57d-d9a4-5f3f-b34e-3f5c245b3933', '5', 'Confirm the rewrite-target annotation on appingress', 'Confirm **appingress** carries the annotation
+`nginx.ingress.kubernetes.io/rewrite-target` set to `/$1`, which rewrites the matched
+path before forwarding to the backend.
+', E'#!/bin/bash
+VAL=$(kubectl get ingress appingress -o jsonpath=''{.metadata.annotations.nginx\\.ingress\\.kubernetes\\.io/rewrite-target}'' 2>/dev/null)
+test "$VAL" = ''/$1''
+', 'Use `kubectl get ingress appingress -o jsonpath=''{.metadata.annotations}''`.
+', 'The `rewrite-target` annotation is an nginx-ingress-controller-specific extension (not
+part of the core Ingress API) — combined with the path match, `/$1` strips the `/blue`
+or `/green` prefix before proxying, so the backend app sees requests at its own root
+path instead of under `/blue` or `/green`.
+', '10', 'f', 'f'),
+('8d9e2bbc-b75a-4641-99f2-587b2460c1a2', '2b872fd0-5356-53b5-b6d5-5f5b1a03ce39', '64e46815-1542-5f21-af10-884a3ca9e389', '1', 'Create the blue, green, and todo Deployments and Services', 'Apply `deploy.yaml` to create three Deployment+Service pairs: **blueapp**/**bluesvc**
+(2 replicas, image `ozgurozturknet/k8s:blue`, label `app=blue`),
+**greenapp**/**greensvc** (2 replicas, image `ozgurozturknet/k8s:green`, label
+`app=green`), and **todoapp**/**todosvc** (1 replica, image
+`ozgurozturknet/samplewebapp:latest`, label `app=todo`).
+', '#!/bin/bash
+kubectl get deployment blueapp >/dev/null 2>&1 || exit 1
+kubectl get deployment greenapp >/dev/null 2>&1 || exit 1
+kubectl get deployment todoapp >/dev/null 2>&1 || exit 1
+BREADY=$(kubectl get deployment blueapp -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+GREADY=$(kubectl get deployment greenapp -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+TREADY=$(kubectl get deployment todoapp -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+test "${BREADY:-0}" -ge 2 || exit 1
+test "${GREADY:-0}" -ge 2 || exit 1
+test "${TREADY:-0}" -ge 1 || exit 1
+kubectl get svc bluesvc >/dev/null 2>&1 || exit 1
+kubectl get svc greensvc >/dev/null 2>&1 || exit 1
+kubectl get svc todosvc >/dev/null 2>&1
+', 'Use `kubectl apply -f deploy.yaml`.', '`deploy.yaml` bundles three Deployment/Service pairs in one manifest separated by `---`
+— `kubectl apply -f` creates all six objects with a single command, giving the Ingress
+resources you create next real backends to route to.
+', '20', 'f', 't'),
+('38c15f45-9e9a-4886-acc2-0e6b26e97b79', '2b872fd0-5356-53b5-b6d5-5f5b1a03ce39', 'd02ec2c0-0258-5931-966a-638269d6cdd6', '2', 'Create the appingress Ingress for the blue/green apps', 'Apply `appingress.yaml` to create an Ingress named **appingress** carrying the
+`nginx.ingress.kubernetes.io/rewrite-target` annotation, routing host `webapp.com`''s
+`/blue` path to **bluesvc**:80 and `/green` path to **greensvc**:80.
+', '#!/bin/bash
+kubectl get ingress appingress >/dev/null 2>&1 || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].host}'' | grep -qx webapp.com || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[0].backend.service.name}'' | grep -qx bluesvc || exit 1
+kubectl get ingress appingress -o jsonpath=''{.spec.rules[0].http.paths[1].backend.service.name}'' | grep -qx greensvc
+', 'Use `kubectl apply -f appingress.yaml`.', 'An Ingress declares HTTP routing rules that an Ingress controller (not the API server)
+implements — here a single host `webapp.com` fans out to two independent backend
+Services based on URL path prefix, letting one entrypoint front both Deployments.
+', '15', 'f', 't'),
+('78f7bc73-b482-4c5e-a2c1-a704d6088ed2', '2b872fd0-5356-53b5-b6d5-5f5b1a03ce39', '7080bede-64d6-505c-9606-137b29af9c93', '3', 'Create the todoingress Ingress for the todo app', 'Apply `todoingress.yaml` to create an Ingress named **todoingress** routing host
+`todoapp.com`''s `/` path to **todosvc**:80.
+', '#!/bin/bash
+kubectl get ingress todoingress >/dev/null 2>&1 || exit 1
+kubectl get ingress todoingress -o jsonpath=''{.spec.rules[0].host}'' | grep -qx todoapp.com || exit 1
+kubectl get ingress todoingress -o jsonpath=''{.spec.rules[0].http.paths[0].backend.service.name}'' | grep -qx todosvc || exit 1
+kubectl get ingress todoingress -o jsonpath=''{.spec.rules[0].http.paths[0].backend.service.port.number}'' | grep -qx 80
+', 'Use `kubectl apply -f todoingress.yaml`.', 'Unlike `appingress`, `todoingress` carries no `rewrite-target` annotation — its single
+`/` path maps directly to the backend with no prefix to strip, so no rewrite is needed.
+', '15', 'f', 't')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('af16cc73-7f68-4ced-a2ef-3fb1ef56a2f7', 'b3f5113a-31a6-5c85-9cda-1dc46de7f15d', 'e3e526aa-2e89-5e2f-99b8-be0324840402', '4', 'Inspect the Job''s completion-tracking status fields', 'Kubernetes tracks a Job''s progress toward its **10** required completions through
+`.status.active` and `.status.succeeded` as the Job controller creates and reaps
+Pods. Inspect **pi**''s status block with `kubectl get job pi -o yaml` (or
+`-o jsonpath`) and confirm the Job is configured to reach that target.
+', '#!/bin/bash
+kubectl get job pi >/dev/null 2>&1 || exit 1
+SUCCEEDED=$(kubectl get job pi -o jsonpath=''{.status.succeeded}'' 2>/dev/null)
+ACTIVE=$(kubectl get job pi -o jsonpath=''{.status.active}'' 2>/dev/null)
+COMPLETIONS=$(kubectl get job pi -o jsonpath=''{.spec.completions}'' 2>/dev/null)
+if [ -n "$SUCCEEDED" ] && [ "$SUCCEEDED" -ge 1 ] 2>/dev/null; then exit 0; fi
+if [ -n "$ACTIVE" ] && [ "$ACTIVE" -ge 1 ] 2>/dev/null; then exit 0; fi
+test "${COMPLETIONS:-0}" = "10"
+', 'Check `.status.succeeded` and `.status.active` first. If neither has populated in
+this environment, falling back to confirming `.spec.completions` still proves the
+Job object is correctly configured to run to 10 successful completions.
+', 'In a full cluster, the Job controller watches `.status.active`, `.status.succeeded`,
+and `.status.failed`, creating Pods up to `parallelism` until `completions`
+successes are reached. This lab''s control plane does not enable the `job` controller
+(see `kube-controller-manager`''s `--controllers=` flag), so `pi` never gets Pods
+scheduled for it and its status subresource stays empty here — the same declarative
+spec you already verified (`completions: 10`) is exactly what a real cluster''s Job
+controller would drive toward.
+', '15', 'f', 'f'),
+('18b7c416-38a8-49a8-a0ca-0a9967a38d96', 'b3f5113a-31a6-5c85-9cda-1dc46de7f15d', '77545f6c-aba1-5807-a651-e54c8853ee41', '1', 'Create the pi Job', 'Apply `job.yaml` (already in your workdir) to create a Job named **pi** with
+**2** parallel workers (`parallelism: 2`) that must reach **10** successful
+completions (`completions: 10`).
+', '#!/bin/bash
+kubectl get job pi >/dev/null 2>&1 || exit 1
+COMPLETIONS=$(kubectl get job pi -o jsonpath=''{.spec.completions}'' 2>/dev/null)
+PARALLELISM=$(kubectl get job pi -o jsonpath=''{.spec.parallelism}'' 2>/dev/null)
+test "$COMPLETIONS" = "10" || exit 1
+test "$PARALLELISM" = "2"
+', 'Use `kubectl apply -f job.yaml`.', '`kubectl apply` creates the Job object with `.spec.completions` and
+`.spec.parallelism` set from the manifest. Unlike a Deployment, a Job''s controller
+drives Pods to successful completion rather than keeping them running forever.
+', '15', 'f', 't'),
+('8473a99e-8a85-4ac4-8239-82e4366f00df', 'b3f5113a-31a6-5c85-9cda-1dc46de7f15d', 'f72e47de-4740-50cf-b8e3-cb83164aa613', '2', 'Confirm the Job''s retry and deadline limits', 'Confirm that the **pi** Job has `backoffLimit: 5` and
+`activeDeadlineSeconds: 100`, as declared in `job.yaml`.
+', '#!/bin/bash
+BACKOFF=$(kubectl get job pi -o jsonpath=''{.spec.backoffLimit}'' 2>/dev/null)
+DEADLINE=$(kubectl get job pi -o jsonpath=''{.spec.activeDeadlineSeconds}'' 2>/dev/null)
+test "$BACKOFF" = "5" || exit 1
+test "$DEADLINE" = "100"
+', 'Inspect the Job spec with `kubectl get job pi -o yaml` or query
+`.spec.backoffLimit` and `.spec.activeDeadlineSeconds` directly with `jsonpath`.
+', '`backoffLimit` caps how many times the Job controller retries a failed Pod before
+marking the Job itself as failed. `activeDeadlineSeconds` is a hard wall-clock
+ceiling on the whole Job — once exceeded, the Job is terminated regardless of
+`backoffLimit`, which protects against a retry loop that never gives up on its own.
+', '10', 'f', 'f'),
+('262d2c24-941a-48cb-b7f9-cc21a53f5d5e', 'b3f5113a-31a6-5c85-9cda-1dc46de7f15d', '8a49b607-46e3-51a6-8455-494113a698e8', '3', 'Confirm the pi container''s image, command, and restart policy', 'Confirm that the **pi** Job''s Pod template runs container `pi` on image `perl`,
+with a command that computes `bpi(2000)`, and `restartPolicy: Never`.
+', '#!/bin/bash
+IMAGE=$(kubectl get job pi -o jsonpath=''{.spec.template.spec.containers[0].image}'' 2>/dev/null)
+test "$IMAGE" = "perl" || exit 1
+RESTART=$(kubectl get job pi -o jsonpath=''{.spec.template.spec.restartPolicy}'' 2>/dev/null)
+test "$RESTART" = "Never" || exit 1
+CMD=$(kubectl get job pi -o jsonpath=''{.spec.template.spec.containers[0].command}'' 2>/dev/null)
+echo "$CMD" | grep -q ''bpi(2000)''
+', 'Inspect `.spec.template.spec.containers[0]` for `image` and `command`, and
+`.spec.template.spec.restartPolicy` for the restart policy.
+', 'A Job''s Pod template only accepts `restartPolicy: Never` or `OnFailure` — never
+`Always` — because a Pod that''s supposed to run to completion and stop can''t use
+the same "restart forever" policy a long-running Deployment Pod does. `pi`''s
+container runs a one-shot Perl computation of pi to 2000 digits, then exits.
+', '15', 'f', 'f')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('cdcd9d25-9cd9-495f-b6b7-ea55e6369bf3', '0eaedfda-dd2b-59b1-a546-6e2e3c5ac7a2', 'd27f26ae-f52b-5f31-8ccc-aa487cee7016', '2', 'Confirm the liveness-http Pod''s httpGet probe configuration', 'Confirm that the **liveness-http** Pod''s container declares an `httpGet` liveness probe
+targeting path **`/healthz`** on port **`8080`**, with `initialDelaySeconds: 3` and
+`periodSeconds: 3`.
+', '#!/bin/bash
+P=''{.spec.containers[0].livenessProbe''
+kubectl get pod liveness-http -o jsonpath="${P}.httpGet.path}" | grep -qx /healthz || exit 1
+kubectl get pod liveness-http -o jsonpath="${P}.httpGet.port}" | grep -qx 8080 || exit 1
+kubectl get pod liveness-http -o jsonpath="${P}.initialDelaySeconds}" | grep -qx 3 || exit 1
+kubectl get pod liveness-http -o jsonpath="${P}.periodSeconds}" | grep -qx 3
+', 'Inspect `kubectl get pod liveness-http -o yaml` or query
+`.spec.containers[0].livenessProbe` with `jsonpath`.
+', '`httpGet` probes ask the kubelet to send a GET request to the container''s IP at the given
+path and port on every `periodSeconds` interval, starting `initialDelaySeconds` after the
+container starts. A non-2xx/3xx response (or connection failure) counts as a probe
+failure — after enough consecutive failures (`failureThreshold`, defaulting to 3), the
+kubelet restarts the container.
+', '20', 'f', 'f'),
+('af668a96-6458-4f3a-871d-d0cda78285ca', '0eaedfda-dd2b-59b1-a546-6e2e3c5ac7a2', '5f8069fc-b19f-5814-b1b5-0049d9fc5594', '3', 'Confirm the liveness-exec Pod''s exec probe configuration', 'Confirm that the **liveness-exec** Pod''s container declares an `exec` liveness probe
+running the command **`cat /tmp/healthy`**, with `initialDelaySeconds: 5` and
+`periodSeconds: 5`.
+', '#!/bin/bash
+P=''{.spec.containers[0].livenessProbe''
+kubectl get pod liveness-exec -o jsonpath="${P}.exec.command[0]}" | grep -qx cat || exit 1
+kubectl get pod liveness-exec -o jsonpath="${P}.exec.command[1]}" | grep -qx /tmp/healthy || exit 1
+kubectl get pod liveness-exec -o jsonpath="${P}.initialDelaySeconds}" | grep -qx 5 || exit 1
+kubectl get pod liveness-exec -o jsonpath="${P}.periodSeconds}" | grep -qx 5
+', 'Inspect `kubectl get pod liveness-exec -o yaml` or query
+`.spec.containers[0].livenessProbe.exec` with `jsonpath`.
+', 'This Pod''s container runs `touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600` —
+on a real kubelet, the `cat /tmp/healthy` exec probe would succeed (exit 0) for the first
+30 seconds, then fail continuously once the file is removed, eventually triggering a
+restart. This lab''s cluster is **kwok-simulated**: there is no real container process for
+kwok''s fake kubelet to exec into, so it never actually runs the probe command or restarts
+anything — `.status.containerStatuses[].restartCount` will not reflect real probe
+behavior here. That''s why this task (and its siblings) verify the **declared probe spec**
+on `.spec.containers[0].livenessProbe` rather than any observed runtime outcome.
+', '20', 'f', 'f'),
+('40b8e687-62a0-4864-aaaa-f3911ce6ade2', '0eaedfda-dd2b-59b1-a546-6e2e3c5ac7a2', 'd5aa4d85-8bb9-5a75-a522-61bc3faa21e0', '4', 'Confirm the goproxy Pod''s tcpSocket probe configuration', 'Confirm that the **goproxy** Pod''s container declares a `tcpSocket` liveness probe
+targeting port **`8080`**, with `initialDelaySeconds: 15` and `periodSeconds: 20`.
+', '#!/bin/bash
+P=''{.spec.containers[0].livenessProbe''
+kubectl get pod goproxy -o jsonpath="${P}.tcpSocket.port}" | grep -qx 8080 || exit 1
+kubectl get pod goproxy -o jsonpath="${P}.initialDelaySeconds}" | grep -qx 15 || exit 1
+kubectl get pod goproxy -o jsonpath="${P}.periodSeconds}" | grep -qx 20
+', 'Inspect `kubectl get pod goproxy -o yaml` or query
+`.spec.containers[0].livenessProbe.tcpSocket` with `jsonpath`.
+', '`tcpSocket` probes are the cheapest liveness check: the kubelet just attempts a TCP
+connection to the given port and considers it a success if the connection opens. It''s
+useful for protocols that don''t speak HTTP but does not verify that the application is
+actually functioning correctly — only that something is listening on the port.
+', '15', 'f', 'f'),
+('92e15a8d-f9f9-4b6a-9ea8-223ee0213c85', '0eaedfda-dd2b-59b1-a546-6e2e3c5ac7a2', '64992d5d-2db1-516d-a141-99139ea7a8f3', '1', 'Create the liveness-http, liveness-exec, and goproxy Pods', 'Apply `liveness.yaml` (already in your workdir) to create three Pods, each declaring a
+different liveness probe mechanism: **liveness-http** (`httpGet`), **liveness-exec**
+(`exec`), and **goproxy** (`tcpSocket`).
+', '#!/bin/bash
+for p in liveness-http liveness-exec goproxy; do
+  kubectl get pod "$p" --no-headers 2>/dev/null | grep -q Running || exit 1
+done
+', 'Use `kubectl apply -f liveness.yaml`.', '`liveness.yaml` bundles three Pod manifests separated by `---`, each demonstrating one of
+the three liveness probe types Kubernetes supports: an HTTP GET request, an exec command
+inside the container, and a raw TCP socket connect. `kubectl apply -f` creates all three
+with a single command.
+', '15', 'f', 't')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('14747411-f4e1-4f22-9f9e-b38312c96433', '1d2949c0-a5df-546e-9d12-fa20bb497bf6', '061c72a1-5bf6-529b-b767-fd4b57cf3503', '2', 'Confirm nodeaffinitypod1''s required affinity rule', 'Confirm that **nodeaffinitypod1** declares a `required` nodeAffinity rule under
+`.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution` matching
+key `app`, operator `In`, values `[production]`.
+', '#!/bin/bash
+BASE=''{.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0]''
+KEY=$(kubectl get pod nodeaffinitypod1 -o jsonpath="${BASE}.key}")
+OP=$(kubectl get pod nodeaffinitypod1 -o jsonpath="${BASE}.operator}")
+VAL=$(kubectl get pod nodeaffinitypod1 -o jsonpath="${BASE}.values[0]}")
+echo "$KEY" | grep -qx app || exit 1
+echo "$OP" | grep -qx In || exit 1
+echo "$VAL" | grep -qx production
+', 'Inspect `.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution` with
+`kubectl get pod nodeaffinitypod1 -o yaml`.
+', '`requiredDuringSchedulingIgnoredDuringExecution` is a hard constraint — the scheduler
+will not bind this Pod to any node whose labels don''t satisfy every `matchExpressions`
+entry inside at least one `nodeSelectorTerms` block. "IgnoredDuringExecution" means a
+Pod already running is not evicted later if the node''s labels change.
+', '15', 'f', 'f'),
+('4a7d74b1-2aeb-40b5-9b95-7f641d27f886', '1d2949c0-a5df-546e-9d12-fa20bb497bf6', 'bc72c391-7f55-5bd9-9b45-ec86fc8366c5', '1', 'Create the three node affinity Pods', 'Apply `podnodeaffinity.yaml` (already in your workdir) to create three Pods —
+**nodeaffinitypod1**, **nodeaffinitypod2**, and **nodeaffinitypod3** — each declaring a
+different `nodeAffinity` rule shape.
+', '#!/bin/bash
+kubectl get pod nodeaffinitypod1 >/dev/null 2>&1 || exit 1
+kubectl get pod nodeaffinitypod2 >/dev/null 2>&1 || exit 1
+kubectl get pod nodeaffinitypod3 >/dev/null 2>&1 || exit 1
+', 'Use `kubectl apply -f podnodeaffinity.yaml`.', 'The manifest bundles three Pod definitions separated by `---`; `kubectl apply -f`
+creates all three with a single command. Each Pod exercises a different nodeAffinity
+rule: a hard `required` rule with `In`, a soft `preferred` rule with two weighted terms,
+and a hard `required` rule with `Exists`.
+', '15', 'f', 't'),
+('9de2773a-523e-49eb-a60b-093e9ee366e7', '1d2949c0-a5df-546e-9d12-fa20bb497bf6', '7e9eac5b-de11-5111-97ab-dd17b16d0358', '3', 'Confirm nodeaffinitypod2''s preferred affinity terms', 'Confirm that **nodeaffinitypod2** declares two `preferred` nodeAffinity terms under
+`.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution` — weight
+`1` preferring `app In [production]`, and weight `2` preferring `app In [test]`.
+', '#!/bin/bash
+BASE=''{.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution''
+W0=$(kubectl get pod nodeaffinitypod2 -o jsonpath="${BASE}[0].weight}")
+V0=$(kubectl get pod nodeaffinitypod2 -o jsonpath="${BASE}[0].preference.matchExpressions[0].values[0]}")
+W1=$(kubectl get pod nodeaffinitypod2 -o jsonpath="${BASE}[1].weight}")
+V1=$(kubectl get pod nodeaffinitypod2 -o jsonpath="${BASE}[1].preference.matchExpressions[0].values[0]}")
+echo "$W0" | grep -qx 1 || exit 1
+echo "$V0" | grep -qx production || exit 1
+echo "$W1" | grep -qx 2 || exit 1
+echo "$V1" | grep -qx test
+', 'Use `kubectl get pod nodeaffinitypod2 -o jsonpath=''{.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution}''`.
+', '`preferredDuringSchedulingIgnoredDuringExecution` is a soft constraint — the scheduler
+scores nodes that satisfy each term by its `weight` and favors higher-scoring nodes, but
+will still schedule the Pod on a node that satisfies neither term if nothing else fits.
+Since this Pod has no `required` rule, it is never blocked by the absence of an `app`
+label anywhere in the cluster.
+', '15', 'f', 'f'),
+('f68feab9-417f-4d4b-a304-22cb7ca1223f', '1d2949c0-a5df-546e-9d12-fa20bb497bf6', '688c2790-92f7-5900-805c-a3de3b6270b5', '4', 'Confirm nodeaffinitypod3''s Exists operator rule', 'Confirm that **nodeaffinitypod3** declares a `required` nodeAffinity rule using operator
+`Exists` on key `app` — `Exists` takes no `values` list; it only checks that the label
+key is present on the node, regardless of its value.
+', '#!/bin/bash
+BASE=''{.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0]''
+KEY=$(kubectl get pod nodeaffinitypod3 -o jsonpath="${BASE}.key}")
+OP=$(kubectl get pod nodeaffinitypod3 -o jsonpath="${BASE}.operator}")
+echo "$KEY" | grep -qx app || exit 1
+echo "$OP" | grep -qx Exists
+', 'Use `kubectl get pod nodeaffinitypod3 -o jsonpath=''{.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0]}''`.
+', '`Exists` (like `DoesNotExist`) is a key-only operator — it never takes a `values` list.
+It matches any node carrying the label key `app` regardless of what it''s set to, unlike
+`In`/`NotIn`, which also compare the value.
+', '15', 'f', 'f'),
+('c2c7d83d-e3c3-4ef6-8b3b-319bd01e0b77', '1d2949c0-a5df-546e-9d12-fa20bb497bf6', 'fdbf9e54-459a-50bb-8353-19e824c8f550', '5', 'Confirm the actual scheduling outcome on the fake node', 'This lab''s cluster has a single fake (kwok) node whose labels are only
+`kubernetes.io/*`, `beta.kubernetes.io/*`, `node-role.kubernetes.io/agent`, and
+`type=kwok` — it carries **no `app` label at all**. Confirm the scheduling outcome this
+produces: **nodeaffinitypod2** (soft preference only) reaches `Running`, while
+**nodeaffinitypod1** and **nodeaffinitypod3** (hard `required` rules keyed on the
+missing `app` label) remain `Pending` because no node in the cluster satisfies their
+`nodeSelectorTerms`.
+', '#!/bin/bash
+PHASE2=$(kubectl get pod nodeaffinitypod2 -o jsonpath=''{.status.phase}'')
+echo "$PHASE2" | grep -qx Running || exit 1
+PHASE1=$(kubectl get pod nodeaffinitypod1 -o jsonpath=''{.status.phase}'')
+echo "$PHASE1" | grep -qx Pending || exit 1
+PHASE3=$(kubectl get pod nodeaffinitypod3 -o jsonpath=''{.status.phase}'')
+echo "$PHASE3" | grep -qx Pending
+', 'Compare `kubectl get pods -o wide` for all three Pods against the node''s real labels via
+`kubectl get nodes --show-labels` — none of them start with `app`.
+', 'A `required` nodeAffinity rule is enforced at scheduling time: if no node''s labels
+satisfy it, the scheduler leaves the Pod unbound (`Pending`) indefinitely rather than
+falling back to a mismatched node. Both `nodeaffinitypod1` (`In [production]`) and
+`nodeaffinitypod3` (`Exists`) key on `app`, a label the single fake node never carries,
+so neither can ever be scheduled here. `nodeaffinitypod2` has no `required` rule — only
+two `preferred` terms — so the scheduler simply ranks the one available node (which
+matches neither preference, scoring 0) and schedules the Pod anyway, reaching `Running`.
+', '20', 'f', 'f')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('af9b4b78-182f-4038-88c8-d26a1b2df8fd', '582e46bf-67ec-589b-aed3-09966b1e8e3a', 'b1624494-6267-5d22-8cc6-2c6e96d87e47', '4', 'Create the mysqldeployment Deployment', 'Apply `deploy.yaml` to create the **mysqlsecret** Secret and the **mysqldeployment**
+Deployment (`strategy.type: Recreate`, image `mysql`) in one shot.
+', '#!/bin/bash
+kubectl get secret mysqlsecret >/dev/null 2>&1 || exit 1
+kubectl get deployment mysqldeployment >/dev/null 2>&1 || exit 1
+kubectl get deployment mysqldeployment -o jsonpath=''{.spec.strategy.type}'' | grep -qx Recreate || exit 1
+IMAGE=$(kubectl get deployment mysqldeployment -o jsonpath=''{.spec.template.spec.containers[0].image}'' 2>/dev/null)
+echo "$IMAGE" | grep -q ''^mysql'' || exit 1
+READY=$(kubectl get deployment mysqldeployment -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+test "${READY:-0}" -ge 1
+', 'Use `kubectl apply -f deploy.yaml`.', '`deploy.yaml` bundles a Secret and a Deployment separated by `---` — `kubectl apply -f`
+creates both together. The `Recreate` strategy matters for anything backed by a
+`ReadWriteOnce` volume: the old Pod is fully terminated (releasing the volume) before a
+replacement is created, avoiding two Pods fighting over the same non-shareable mount.
+', '20', 'f', 't'),
+('d0ab6a20-3182-49ef-8bbc-cfc026a9163b', '582e46bf-67ec-589b-aed3-09966b1e8e3a', 'a2340712-c62d-5c23-b549-6f901d2f9eba', '1', 'Create the mysqlpv PersistentVolume', 'Apply `pv.yaml` (already in your workdir) to create a PersistentVolume named
+**mysqlpv** with **5Gi** capacity, access mode `ReadWriteOnce`, reclaim policy
+`Recycle`, and an NFS backend (`server: 10.255.255.10`, `path: /`).
+', '#!/bin/bash
+kubectl get pv mysqlpv >/dev/null 2>&1 || exit 1
+kubectl get pv mysqlpv -o jsonpath=''{.spec.capacity.storage}'' | grep -qx 5Gi || exit 1
+kubectl get pv mysqlpv -o jsonpath=''{.spec.accessModes[0]}'' | grep -qx ReadWriteOnce || exit 1
+kubectl get pv mysqlpv -o jsonpath=''{.spec.persistentVolumeReclaimPolicy}'' | grep -qx Recycle || exit 1
+kubectl get pv mysqlpv -o jsonpath=''{.spec.nfs.server}'' | grep -qx 10.255.255.10
+', 'Use `kubectl apply -f pv.yaml`.', 'A PersistentVolume is a cluster-scoped storage resource provisioned ahead of demand
+(static provisioning) — its `capacity`, `accessModes`, and `persistentVolumeReclaimPolicy`
+describe what it offers, and its `nfs` block (or another volume source) describes where
+the bytes actually live. No Pod references a PV directly; a PersistentVolumeClaim does.
+', '15', 'f', 't'),
+('eb1d53df-c854-4165-b2b9-37412d03f532', '582e46bf-67ec-589b-aed3-09966b1e8e3a', '5fa4bd61-13c7-51cd-a0f6-39c79a84ccc2', '2', 'Create the mysqlclaim PersistentVolumeClaim', 'Apply `pvc.yaml` to create a PersistentVolumeClaim named **mysqlclaim** requesting
+**5Gi** of `ReadWriteOnce` storage, with `storageClassName: ""` (static provisioning,
+no dynamic provisioner) and a `selector` matching label `app=mysql`.
+', '#!/bin/bash
+kubectl get pvc mysqlclaim >/dev/null 2>&1 || exit 1
+kubectl get pvc mysqlclaim -o jsonpath=''{.spec.accessModes[0]}'' | grep -qx ReadWriteOnce || exit 1
+kubectl get pvc mysqlclaim -o jsonpath=''{.spec.resources.requests.storage}'' | grep -qx 5Gi || exit 1
+kubectl get pvc mysqlclaim -o jsonpath=''{.spec.selector.matchLabels.app}'' | grep -qx mysql
+', 'Use `kubectl apply -f pvc.yaml`.', 'A PersistentVolumeClaim is a namespaced request for storage — a Pod mounts a PVC, never
+a PV directly. Leaving `storageClassName` empty (rather than omitting it) opts the claim
+out of dynamic provisioning entirely, so it can only bind to a pre-existing PV whose
+capacity, access modes, and (if set) `selector` match.
+', '15', 'f', 't'),
+('7b5ed4ba-002c-4bd6-881e-645c43db1447', '582e46bf-67ec-589b-aed3-09966b1e8e3a', '020f76ef-be17-55a0-9250-da843c8622ec', '3', 'Confirm mysqlpv and mysqlclaim are compatible for binding', 'Confirm that **mysqlpv** and **mysqlclaim** are wired to bind to each other: the PV''s
+`app` label matches the PVC''s `selector.matchLabels.app`, and their capacity and access
+mode agree.
+
+This lab''s control plane does not run the `persistentvolume-binder` controller, so
+`status.phase` never transitions to `Bound` here — this check instead confirms the
+spec-level fields that a running binder controller would use to make that decision.
+', '#!/bin/bash
+PV_LABEL=$(kubectl get pv mysqlpv -o jsonpath=''{.metadata.labels.app}'' 2>/dev/null)
+PVC_SEL=$(kubectl get pvc mysqlclaim -o jsonpath=''{.spec.selector.matchLabels.app}'' 2>/dev/null)
+test -n "$PV_LABEL" && test "$PV_LABEL" = "$PVC_SEL" || exit 1
+PV_CAP=$(kubectl get pv mysqlpv -o jsonpath=''{.spec.capacity.storage}'' 2>/dev/null)
+PVC_REQ=$(kubectl get pvc mysqlclaim -o jsonpath=''{.spec.resources.requests.storage}'' 2>/dev/null)
+test -n "$PV_CAP" && test "$PV_CAP" = "$PVC_REQ" || exit 1
+PV_MODE=$(kubectl get pv mysqlpv -o jsonpath=''{.spec.accessModes[0]}'' 2>/dev/null)
+PVC_MODE=$(kubectl get pvc mysqlclaim -o jsonpath=''{.spec.accessModes[0]}'' 2>/dev/null)
+test -n "$PV_MODE" && test "$PV_MODE" = "$PVC_MODE"
+', 'Compare `kubectl get pv mysqlpv -o jsonpath=''{.metadata.labels}''` against
+`kubectl get pvc mysqlclaim -o jsonpath=''{.spec.selector}''`, and compare
+`.spec.capacity.storage` / `.spec.resources.requests.storage` on each.
+', 'The PersistentVolumeController binds a PVC to the first PV whose `capacity` is
+sufficient, whose `accessModes` are a superset of the claim''s, and whose labels satisfy
+the claim''s `selector` (if any) — matching `storageClassName` too. Get any of those wrong
+and a claim sits `Pending` forever even with a PV that looks superficially available.
+', '15', 'f', 'f'),
+('053a9442-c885-4328-b1e2-5d425a225ac8', '582e46bf-67ec-589b-aed3-09966b1e8e3a', '5b6345d4-ae82-5723-8185-d237c200e5bf', '5', 'Confirm mysqldeployment correctly mounts mysqlclaim', 'Confirm that **mysqldeployment**''s Pod template mounts a volume named `mysqlvolume`
+backed by claim `mysqlclaim` at path `/var/lib/mysql`, and that its
+`MYSQL_ROOT_PASSWORD` environment variable is sourced from the `mysqlsecret` Secret.
+', '#!/bin/bash
+CLAIM=$(kubectl get deployment mysqldeployment -o jsonpath=''{.spec.template.spec.volumes[?(@.name=="mysqlvolume")].persistentVolumeClaim.claimName}'' 2>/dev/null)
+test "$CLAIM" = "mysqlclaim" || exit 1
+MOUNT=$(kubectl get deployment mysqldeployment -o jsonpath=''{.spec.template.spec.containers[0].volumeMounts[?(@.name=="mysqlvolume")].mountPath}'' 2>/dev/null)
+test "$MOUNT" = "/var/lib/mysql" || exit 1
+SECRETREF=$(kubectl get deployment mysqldeployment -o jsonpath=''{.spec.template.spec.containers[0].env[?(@.name=="MYSQL_ROOT_PASSWORD")].valueFrom.secretKeyRef.name}'' 2>/dev/null)
+test "$SECRETREF" = "mysqlsecret"
+', 'Inspect `.spec.template.spec.volumes` for the `persistentVolumeClaim.claimName`, and each
+container''s `.volumeMounts` and `.env` for the matching entries.
+', 'A Pod claims storage by name: `volumes[].persistentVolumeClaim.claimName` points at a
+PVC in the same namespace, and `containers[].volumeMounts[].name` links a container''s
+mount path back to that volume entry. A typo in either name silently drops the mount
+instead of failing loudly, which is why this wiring is worth checking explicitly.
+', '15', 'f', 'f')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('65a99744-a9ba-4fe6-a94e-eb0a986ed4e6', '56093b77-4d3c-5060-90f2-2a7b752fb261', 'b443715c-5da6-5b2e-b92c-e3cb34d4da66', '4', 'Confirm the shared emptyDir volume is mounted in both containers', 'Confirm that the `sharedvolume` `emptyDir` volume is mounted into both
+`webcontainer` and `sidecarcontainer` in the `multicontainer` Pod.
+', '#!/bin/bash
+kubectl get pod multicontainer -o jsonpath=''{.spec.volumes[?(@.name=="sharedvolume")].emptyDir}'' >/dev/null 2>&1 || exit 1
+MOUNTS=$(kubectl get pod multicontainer -o jsonpath=''{.spec.containers[*].volumeMounts[?(@.name=="sharedvolume")].name}'')
+test "$(echo "$MOUNTS" | wc -w)" -ge 2
+', 'Inspect `.spec.volumes` for the `emptyDir` definition and each container''s
+`.volumeMounts` for a matching `name: sharedvolume` entry.
+', 'An `emptyDir` volume is created fresh when the Pod is scheduled and lives as long as
+the Pod does — every container that mounts it sees the same directory, which is how
+the sidecar in this Pod delivers files to the main nginx container.
+', '15', 'f', 'f'),
+('05c98d53-eb56-4145-81a5-66144eace1f2', '56093b77-4d3c-5060-90f2-2a7b752fb261', '35c00541-ecb7-5129-b857-15fe47f52414', '1', 'Create the firstpod Pod', 'Apply `pod1.yaml` (already in your workdir) to create a Pod named **firstpod** with
+label `app=frontend`, running image `nginx:latest`.
+', '#!/bin/bash
+kubectl get pod firstpod --no-headers 2>/dev/null | grep -q Running || exit 1
+kubectl get pod firstpod -o jsonpath=''{.metadata.labels.app}'' | grep -qx frontend
+', 'Use `kubectl apply -f pod1.yaml`.', 'A bare Pod (no Deployment/ReplicaSet owner) is created directly from the manifest.
+kwok''s fast pod-ready stage marks it Running almost immediately once the scheduler
+binds it to the (fake) node.
+', '10', 'f', 't'),
+('e67ef2d3-6fd5-46d5-aa23-bee7ef23c418', '56093b77-4d3c-5060-90f2-2a7b752fb261', '264ef9d2-1468-51af-b2e2-493aa035eeee', '2', 'Confirm the USER environment variable', 'Confirm that `firstpod`''s container defines the environment variable `USER` with
+value `username`, as declared in `pod1.yaml`.
+', '#!/bin/bash
+kubectl get pod firstpod -o jsonpath=''{.spec.containers[0].env[?(@.name=="USER")].value}'' | grep -qx username
+', 'Inspect the Pod spec with `kubectl get pod firstpod -o yaml` or a `jsonpath` query
+against `.spec.containers[0].env`.
+', 'Environment variables declared under a container''s `env:` list are injected into the
+container''s process environment at start — this is the simplest way to pass
+configuration into a container without a ConfigMap or Secret.
+', '10', 'f', 'f'),
+('90e75ff0-b89d-4000-bbbd-4533d0368b32', '56093b77-4d3c-5060-90f2-2a7b752fb261', '68a23f47-a859-5a4c-9f24-dedc941e49f5', '3', 'Create the multicontainer Pod', 'Apply `multicontainer.yaml` to create a Pod named **multicontainer** with two
+containers — `webcontainer` (nginx) and `sidecarcontainer` (busybox) — sharing an
+`emptyDir` volume named `sharedvolume`.
+', '#!/bin/bash
+kubectl get pod multicontainer --no-headers 2>/dev/null | grep -q Running || exit 1
+NAMES=$(kubectl get pod multicontainer -o jsonpath=''{.spec.containers[*].name}'')
+echo "$NAMES" | grep -qw webcontainer || exit 1
+echo "$NAMES" | grep -qw sidecarcontainer
+', 'Use `kubectl apply -f multicontainer.yaml`.', 'All containers in a Pod share the same network namespace (one IP, localhost between
+containers) and can share storage via volumes — the sidecar pattern uses this to run a
+helper process (here, busybox polling a remote file) alongside the main app container.
+', '15', 'f', 't')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('2fd9a8ce-e24b-4419-8600-0d640c174619', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', '586aab0b-02b3-5dce-92c6-aaf2840ea3d5', '2', 'Create the filecreds Secret imperatively from literal files', 'Create a Secret named **filecreds** imperatively from `username.txt` and `password.txt`
+using `kubectl create secret generic`, mapping them to the keys `username` and
+`password` respectively (`--from-file=username=username.txt --from-file=password=password.txt`).
+', '#!/bin/bash
+kubectl get secret filecreds >/dev/null 2>&1 || exit 1
+kubectl get secret filecreds -o jsonpath=''{.data.username}'' | base64 -d | grep -qx admin || exit 1
+kubectl get secret filecreds -o jsonpath=''{.data.password}'' | base64 -d | grep -qx ''P@ssw0rd!''
+', 'Use `kubectl create secret generic filecreds --from-file=username=username.txt
+--from-file=password=password.txt`.
+', '`--from-file=key=path` reads the file''s raw bytes and stores them under the given key —
+unlike `--from-file=path` alone, which would use the file''s basename (`username.txt`) as
+the key instead. This is the imperative equivalent of hand-writing a Secret manifest.
+', '15', 'f', 't'),
+('d422c07a-951c-47f9-b728-b8e18bb811b1', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', '2750893c-19ed-5123-a581-7e09c5cd1f56', '3', 'Create the three Secret-consuming Pods', 'Apply `secret-pods.yaml` to create three Pods that each consume **mysecret** a
+different way: `secretvolumepod` (volume mount), `secretenvpod` (per-key env vars via
+`secretKeyRef`), and `secretenvallpod` (all keys via `envFrom.secretRef`).
+', '#!/bin/bash
+for p in secretvolumepod secretenvpod secretenvallpod; do
+  kubectl get pod "$p" --no-headers 2>/dev/null | grep -q Running || exit 1
+done
+', 'Use `kubectl apply -f secret-pods.yaml`. mysecret must already exist.', 'All three Pods declare `mysecret` as a dependency, either via `volumes[].secret.secretName`
+or `secretKeyRef`/`secretRef`. If the Secret doesn''t exist yet, kubelet blocks the volume
+mount and env injection until it appears — so `mysecret` must be created before this step.
+', '15', 'f', 't'),
+('ee5aadc5-335e-41f2-82ad-0a66172ec78e', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', 'cca397d8-6f98-5bc6-a375-bcc5dbf07e73', '4', 'Confirm secretvolumepod mounts mysecret at /secret', 'Confirm that `secretvolumepod`''s `secret-vol` volume is backed by the **mysecret**
+Secret and mounted into `secretcontainer` at path `/secret`.
+', '#!/bin/bash
+kubectl get pod secretvolumepod -o jsonpath=''{.spec.volumes[?(@.name=="secret-vol")].secret.secretName}'' | grep -qx mysecret || exit 1
+kubectl get pod secretvolumepod -o jsonpath=''{.spec.containers[0].volumeMounts[?(@.name=="secret-vol")].mountPath}'' | grep -qx /secret
+', 'Inspect `.spec.volumes` for the `secret.secretName` field and
+`.spec.containers[0].volumeMounts` for a matching `name: secret-vol` entry.
+', 'A `secret`-type volume tells kubelet to project every key in the referenced Secret as a
+file inside the mount path — `db_server`, `db_username`, and `db_password` each become
+a file named after the key, containing the decoded value, under `/secret`.
+', '15', 'f', 'f'),
+('309c2e3f-69ee-4685-830b-65c7353103a1', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', '29d50e1f-5265-56ea-9f9c-17e6a52cb782', '5', 'Confirm secretenvpod and secretenvallpod reference mysecret correctly', 'Confirm that `secretenvpod`''s `username`, `password`, and `server` environment variables
+resolve via `secretKeyRef` to `mysecret`''s `db_username`, `db_password`, and `db_server`
+keys, and that `secretenvallpod` imports every key from `mysecret` via `envFrom.secretRef`.
+', '#!/bin/bash
+kubectl get pod secretenvpod -o jsonpath=''{.spec.containers[0].env[?(@.name=="username")].valueFrom.secretKeyRef.key}'' | grep -qx db_username || exit 1
+kubectl get pod secretenvpod -o jsonpath=''{.spec.containers[0].env[?(@.name=="password")].valueFrom.secretKeyRef.key}'' | grep -qx db_password || exit 1
+kubectl get pod secretenvpod -o jsonpath=''{.spec.containers[0].env[?(@.name=="server")].valueFrom.secretKeyRef.key}'' | grep -qx db_server || exit 1
+kubectl get pod secretenvallpod -o jsonpath=''{.spec.containers[0].envFrom[0].secretRef.name}'' | grep -qx mysecret
+', 'Inspect `.spec.containers[0].env[].valueFrom.secretKeyRef` on `secretenvpod` and
+`.spec.containers[0].envFrom[].secretRef` on `secretenvallpod`.
+', '`secretKeyRef` injects one Secret key as one env var, letting you rename it freely (here
+`db_username` becomes `$username`); `envFrom.secretRef` instead injects every key in the
+Secret as an env var using the key name verbatim, trading control for brevity.
+', '20', 'f', 'f'),
+('9ed7a3ed-192f-409d-bf0f-b456f72c0f1b', 'fe60a567-cf3d-50b9-b98a-b4c9033ad0a8', 'ae1d9792-c7c2-5918-87b0-63d5a6d4cc90', '1', 'Create the mysecret Secret declaratively', 'Apply `secret.yaml` (already in your workdir) to create a Secret named **mysecret** of
+type **Opaque** with keys `db_server`, `db_username`, and `db_password` matching the
+values declared under `stringData`.
+', '#!/bin/bash
+kubectl get secret mysecret >/dev/null 2>&1 || exit 1
+kubectl get secret mysecret -o jsonpath=''{.type}'' | grep -qx Opaque || exit 1
+kubectl get secret mysecret -o jsonpath=''{.data.db_server}'' | base64 -d | grep -qx db.example.com || exit 1
+kubectl get secret mysecret -o jsonpath=''{.data.db_username}'' | base64 -d | grep -qx admin || exit 1
+kubectl get secret mysecret -o jsonpath=''{.data.db_password}'' | base64 -d | grep -qx ''P@ssw0rd!''
+', 'Use `kubectl apply -f secret.yaml`.', '`stringData` is a write-only convenience field — the API server base64-encodes each
+entry into `.data` on creation and never stores `stringData` itself. Every subsequent
+read (`kubectl get secret -o yaml`, jsonpath, etc.) only ever sees the encoded `.data`
+map, which is why verification must decode before comparing.
+', '15', 'f', 't')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('d250fed5-0ddf-44d6-aeaf-5d645606e231', '1986f45e-68ad-5486-9598-8d45ae2ff815', 'bb2dc2ec-5657-55b7-8aa8-fedf9f983ec0', '1', 'Create the frontend and backend Deployments', 'Apply `deploy.yaml` to create two Deployments: **frontend** (3 replicas, image
+`nginx:latest`, label `app=frontend`) and **backend** (3 replicas, image
+`ozgurozturknet/k8s:backend`, label `app=backend`).
+', '#!/bin/bash
+kubectl get deployment frontend >/dev/null 2>&1 || exit 1
+kubectl get deployment backend >/dev/null 2>&1 || exit 1
+FREADY=$(kubectl get deployment frontend -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+BREADY=$(kubectl get deployment backend -o jsonpath=''{.status.readyReplicas}'' 2>/dev/null)
+test "${FREADY:-0}" -ge 3 && test "${BREADY:-0}" -ge 3
+', 'Use `kubectl apply -f deploy.yaml`.', '`deploy.yaml` bundles two Deployments in one manifest separated by `---` — `kubectl apply
+-f` creates both with a single command, each producing its own ReplicaSet and Pods
+matching its own selector.
+', '15', 'f', 't'),
+('4114dfec-771c-4554-aa7f-49affd3ae796', '1986f45e-68ad-5486-9598-8d45ae2ff815', 'da10ba07-0219-5360-b471-31dcddf2724b', '3', 'Expose frontend via a NodePort Service', 'Apply `backend_nodeport.yaml` to create a Service named **frontend** of type
+**NodePort** that selects Pods labeled `app=frontend` and forwards port `80`.
+', '#!/bin/bash
+kubectl get svc frontend >/dev/null 2>&1 || exit 1
+kubectl get svc frontend -o jsonpath=''{.spec.type}'' | grep -qx NodePort || exit 1
+kubectl get svc frontend -o jsonpath=''{.spec.selector.app}'' | grep -qx frontend || exit 1
+kubectl get svc frontend -o jsonpath=''{.spec.ports[0].port}'' | grep -qx 80
+', 'Use `kubectl apply -f backend_nodeport.yaml`.', 'NodePort builds on ClusterIP by additionally opening the same port on every cluster node
+(default range 30000-32767), making the Service reachable from outside the cluster
+without a cloud load balancer.
+', '15', 'f', 't'),
+('3a002f79-17d3-4541-8ea9-3cc53a3aa7c7', '1986f45e-68ad-5486-9598-8d45ae2ff815', '940d76d5-b9c5-508d-b330-165a0ee892ff', '6', 'Confirm the frontend Service was allocated a valid NodePort', 'Confirm that the **frontend** NodePort Service was allocated a `nodePort` value in the
+default range `30000-32767`.
+', '#!/bin/bash
+NP=$(kubectl get svc frontend -o jsonpath=''{.spec.ports[0].nodePort}'' 2>/dev/null)
+test -n "$NP" && test "$NP" -ge 30000 && test "$NP" -le 32767
+', 'Use `kubectl get svc frontend -o jsonpath=''{.spec.ports[0].nodePort}''`.', 'When a NodePort Service''s manifest doesn''t pin `nodePort` explicitly, the API server
+auto-allocates one from the cluster''s configured range — confirming this shows the
+Service is fully provisioned, not just accepted by `kubectl apply`.
+', '10', 'f', 'f'),
+('15c02428-29ae-406e-9a60-ddb566e43802', '1986f45e-68ad-5486-9598-8d45ae2ff815', '18f040b2-71f5-59ae-bd47-4da59f78dafd', '5', 'Confirm the backend Service targets the backend Deployment''s Pods', 'Confirm that the **backend** Service''s selector (`app=backend`) matches the Pod template
+labels on the **backend** Deployment, so traffic sent to the Service actually reaches
+those Pods.
+', '#!/bin/bash
+SVC_SEL=$(kubectl get svc backend -o jsonpath=''{.spec.selector.app}'' 2>/dev/null)
+DEP_LABEL=$(kubectl get deployment backend -o jsonpath=''{.spec.template.metadata.labels.app}'' 2>/dev/null)
+test -n "$SVC_SEL" && test "$SVC_SEL" = "$DEP_LABEL"
+', 'Compare `kubectl get svc backend -o jsonpath=''{.spec.selector}''` against
+`kubectl get deployment backend -o jsonpath=''{.spec.template.metadata.labels}''`.
+', 'A Service has no idea what a "Deployment" is — it only watches for Pods whose labels
+match its `selector` and adds their IPs to its Endpoints/EndpointSlice. If the selector
+and Pod template labels drift apart, the Service silently ends up with zero endpoints.
+', '10', 'f', 'f'),
+('97b6a3dd-cb7d-42db-a50d-158925dfbdf6', '1986f45e-68ad-5486-9598-8d45ae2ff815', 'e9b6f49b-134c-56dc-9c20-bf8ad45e6ed4', '4', 'Expose frontend via a LoadBalancer Service', 'Apply `backend_loadbalancer.yaml` to create a Service named **frontendlb** of type
+**LoadBalancer** that selects Pods labeled `app=frontend` and forwards port `80`.
+', '#!/bin/bash
+kubectl get svc frontendlb >/dev/null 2>&1 || exit 1
+kubectl get svc frontendlb -o jsonpath=''{.spec.type}'' | grep -qx LoadBalancer || exit 1
+kubectl get svc frontendlb -o jsonpath=''{.spec.selector.app}'' | grep -qx frontend
+', 'Use `kubectl apply -f backend_loadbalancer.yaml`.', 'LoadBalancer builds on NodePort and asks the cloud provider''s controller to provision an
+external load balancer forwarding to the node ports — on a local cluster the external IP
+typically stays `<pending>`, but the Service object and its declared type are what this
+check confirms.
+', '15', 'f', 't'),
+('9bad46fc-29e3-49a6-ac67-152e39a1f0e5', '1986f45e-68ad-5486-9598-8d45ae2ff815', '2490aafc-5fbc-572d-bff6-ec47c71e61b6', '2', 'Expose backend via a ClusterIP Service', 'Apply `backend_clusterip.yaml` to create a Service named **backend** of type
+**ClusterIP** that selects Pods labeled `app=backend` and forwards port `5000` to
+`targetPort 5000`.
+', '#!/bin/bash
+kubectl get svc backend >/dev/null 2>&1 || exit 1
+kubectl get svc backend -o jsonpath=''{.spec.type}'' | grep -qx ClusterIP || exit 1
+kubectl get svc backend -o jsonpath=''{.spec.selector.app}'' | grep -qx backend || exit 1
+kubectl get svc backend -o jsonpath=''{.spec.ports[0].port}'' | grep -qx 5000
+', 'Use `kubectl apply -f backend_clusterip.yaml`.', 'ClusterIP is the default Service type — it allocates a stable virtual IP reachable only
+inside the cluster, and its `selector` determines which Pods'' endpoints get
+load-balanced behind it.
+', '15', 'f', 't')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('0a46d497-f53b-42cf-969c-0acde042ad43', '987d401f-cc6f-50ca-a164-a92877c81d76', 'fbb19cc9-df75-5309-ba42-fc3f015ec926', '4', 'Confirm the governing service wiring and predictable per-Pod DNS', 'Confirm that the StatefulSet''s `spec.serviceName` is set to `cassandra` (the headless
+Service), and that the container''s `CASSANDRA_SEEDS` environment variable is pinned to
+the predictable per-Pod DNS name `cassandra-0.cassandra.default.svc.cluster.local` —
+proof that StatefulSet Pods get stable, resolvable hostnames that Deployment Pods never
+do.
+', '#!/bin/bash
+kubectl get statefulset cassandra -o jsonpath=''{.spec.serviceName}'' | grep -qx cassandra || exit 1
+kubectl get statefulset cassandra -o jsonpath=''{.spec.template.spec.containers[0].env[?(@.name=="CASSANDRA_SEEDS")].value}'' | grep -qx cassandra-0.cassandra.default.svc.cluster.local
+', 'Check `.spec.serviceName` on the StatefulSet, and `.spec.template.spec.containers[0].env`
+for the `CASSANDRA_SEEDS` entry.
+', '`spec.serviceName` wires the StatefulSet to its governing headless Service, which is what
+makes `<pod>.<serviceName>.<namespace>.svc.cluster.local` resolvable per Pod. This
+manifest hardcodes `CASSANDRA_SEEDS` to `cassandra-0.cassandra...` specifically because
+`cassandra-0` is guaranteed to exist at a fixed name — every other Cassandra node
+bootstraps by gossiping to that one stable address.
+', '15', 'f', 'f'),
+('14c14bab-a4be-4218-bf26-915a61fc7b2a', '987d401f-cc6f-50ca-a164-a92877c81d76', 'b28af346-828d-5594-8772-9358e8ffe977', '2', 'Confirm the cassandra Service is headless and governs the StatefulSet', 'Confirm that the **cassandra** Service has `clusterIP: None` (headless), selects Pods
+labeled `app=cassandra`, and forwards port `9042`.
+', '#!/bin/bash
+kubectl get svc cassandra -o jsonpath=''{.spec.clusterIP}'' | grep -qx None || exit 1
+kubectl get svc cassandra -o jsonpath=''{.spec.selector.app}'' | grep -qx cassandra || exit 1
+kubectl get svc cassandra -o jsonpath=''{.spec.ports[0].port}'' | grep -qx 9042
+', 'Inspect `kubectl get svc cassandra -o jsonpath=''{.spec.clusterIP}''` — a headless Service
+has no cluster-assigned virtual IP.
+', 'A headless Service (`clusterIP: None`) skips load-balancing and virtual-IP allocation
+entirely — instead it publishes one DNS record per ready backing Pod
+(`<pod>.<svc>.<namespace>.svc.cluster.local`). A StatefulSet''s `spec.serviceName` must
+point at a headless Service like this one to get per-Pod stable network identities.
+', '15', 'f', 'f'),
+('212a1993-21b2-47da-8500-91564e69d515', '987d401f-cc6f-50ca-a164-a92877c81d76', 'a47ab844-6c26-5da2-b589-322fd1b5667f', '1', 'Create the cassandra headless Service and StatefulSet', 'Apply `statefulset.yaml` (already in your workdir) to create the headless Service and
+the StatefulSet, both named **cassandra**, with **2 replicas**.
+', '#!/bin/bash
+kubectl get statefulset cassandra >/dev/null 2>&1 || exit 1
+REPLICAS=$(kubectl get statefulset cassandra -o jsonpath=''{.spec.replicas}'' 2>/dev/null)
+test "${REPLICAS:-0}" -eq 2
+', 'Use `kubectl apply -f statefulset.yaml`.', '`kubectl apply` creates both objects declared in the multi-document manifest — the
+headless Service `cassandra` and the StatefulSet `cassandra` with `replicas: 2`. This
+lab''s cluster runs `kube-controller-manager` with a restricted `--controllers` allowlist
+that excludes `statefulset` (see the note on the last task below), so this check verifies
+the object was accepted and its desired spec is correct rather than that any Pod actually
+started — on a real cluster the StatefulSet controller would additionally create Pods one
+at a time, in order, waiting for each to become Ready before starting the next.
+', '15', 'f', 't'),
+('e94d4cd9-d545-4254-b71a-87196a36e4c8', '987d401f-cc6f-50ca-a164-a92877c81d76', '11bb4478-7e9f-56e3-b8c2-0655d3bb26b0', '6', 'Scale the cassandra StatefulSet''s desired replica count to 3', 'Scale the **cassandra** StatefulSet''s desired replica count up to **3** using
+`kubectl scale`.
+', '#!/bin/bash
+DESIRED=$(kubectl get statefulset cassandra -o jsonpath=''{.spec.replicas}'' 2>/dev/null)
+test "${DESIRED:-0}" -eq 3
+', 'Use `kubectl scale statefulset cassandra --replicas=3`.', '`kubectl scale` only ever updates `.spec.replicas` — the desired state. On a real cluster
+the StatefulSet controller reconciles that desired state by adding the *next* ordinal
+(here `cassandra-2`) without renumbering or replacing existing Pods, and provisions a
+matching `cassandra-data-cassandra-2` PVC from `volumeClaimTemplates`.
+', '15', 'f', 't'),
+('e4508bd8-5618-4507-b772-1672ed58226f', '987d401f-cc6f-50ca-a164-a92877c81d76', '1b04c301-c4c8-5284-9343-813ef03c1a0c', '7', 'Understand why no Pods appear for this StatefulSet', 'Confirm that, despite `.spec.replicas` being set, **no Pods with label `app=cassandra`
+exist** in this lab''s cluster.
+', '#!/bin/bash
+COUNT=$(kubectl get pods -l app=cassandra --no-headers 2>/dev/null | wc -l)
+test "${COUNT:-1}" -eq 0
+', 'Run `kubectl get pods -l app=cassandra` and count the results.', 'This lab''s control plane starts `kube-controller-manager` with an explicit
+`--controllers` allowlist (deployment, replicaset, namespace, endpoint, endpointslice,
+endpointslicemirroring, resourcequota, garbagecollector) that does **not** include
+`statefulset` — so nothing ever reconciles a StatefulSet''s desired replica count into
+real Pods here, no matter how long you wait. Every task in this lab therefore checks the
+StatefulSet/Service''s own declared spec, which the API server accepts and stores
+immediately, rather than runtime Pod/PVC state that only a running StatefulSet
+controller would produce. On a real cluster (or one with the controller enabled), the
+same manifests would produce real, ordered `cassandra-0`/`cassandra-1` Pods with their
+own PVCs.
+', '10', 'f', 'f'),
+('13a90270-8db2-4c19-b7b2-d443a15d0632', '987d401f-cc6f-50ca-a164-a92877c81d76', '8847b1c3-7f5e-5648-a7d1-ce3357d8d486', '5', 'Confirm the per-replica volumeClaimTemplates declaration', 'Confirm that the StatefulSet''s `volumeClaimTemplates` declares a `cassandra-data` claim
+template with `ReadWriteOnce` access mode, `storageClassName: standard`, and a `1Gi`
+storage request — the template Kubernetes uses to provision one separate,
+stably-named PersistentVolumeClaim per replica (`cassandra-data-cassandra-0`,
+`cassandra-data-cassandra-1`, ...) on a cluster where the StatefulSet controller runs.
+', '#!/bin/bash
+kubectl get statefulset cassandra -o jsonpath=''{.spec.volumeClaimTemplates[0].metadata.name}'' | grep -qx cassandra-data || exit 1
+kubectl get statefulset cassandra -o jsonpath=''{.spec.volumeClaimTemplates[0].spec.accessModes[0]}'' | grep -qx ReadWriteOnce || exit 1
+kubectl get statefulset cassandra -o jsonpath=''{.spec.volumeClaimTemplates[0].spec.storageClassName}'' | grep -qx standard || exit 1
+kubectl get statefulset cassandra -o jsonpath=''{.spec.volumeClaimTemplates[0].spec.resources.requests.storage}'' | grep -qx 1Gi
+', 'Inspect `.spec.volumeClaimTemplates[0]` on the StatefulSet object itself.
+', 'A Deployment''s Pods sharing a single `PersistentVolumeClaim` would all mount the *same*
+volume — rarely what a stateful workload wants. `volumeClaimTemplates` instead provisions
+one PVC per ordinal, and each PVC survives Pod rescheduling because it is bound to the
+ordinal, not to any one Pod instance — `cassandra-1` always reattaches to
+`cassandra-data-cassandra-1` on a cluster where the controller actually creates them.
+', '15', 'f', 'f'),
+('5b413e1f-5581-44dd-b60d-726726a29160', '987d401f-cc6f-50ca-a164-a92877c81d76', '78bad25c-7c03-5be9-a6c1-8959fe2b41a8', '3', 'Confirm the cassandra container''s ports and security context', 'Confirm the `cassandra` container in the Pod template declares its four named ports
+(`intra-node` 7000, `tls-intra-node` 7001, `jmx` 7199, `cql` 9042) and requests the
+`IPC_LOCK` capability (Cassandra uses it to lock memory pages and avoid swapping).
+', '#!/bin/bash
+PORTS=$(kubectl get statefulset cassandra -o jsonpath=''{.spec.template.spec.containers[0].ports[*].name}'')
+for p in intra-node tls-intra-node jmx cql; do
+  echo "$PORTS" | grep -qw "$p" || exit 1
+done
+kubectl get statefulset cassandra -o jsonpath=''{.spec.template.spec.containers[0].securityContext.capabilities.add[0]}'' | grep -qx IPC_LOCK
+', 'Inspect `.spec.template.spec.containers[0].ports` and
+`.spec.template.spec.containers[0].securityContext.capabilities.add` on the StatefulSet.
+', 'These fields live on the StatefulSet''s own Pod template, so they''re verifiable
+immediately after `kubectl apply` — independent of whether any Pod actually got created
+from that template (see the note on the last task in this lab).
+', '20', 'f', 'f')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+
+INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful) VALUES ('3adce4d0-856d-468f-930b-7db1a031f1bb', '18637ca0-9a1d-534a-b3f6-1e2a9243075e', '033968d9-b8a3-53a1-90b7-302d7b16eb9b', '1', 'Taint the cluster node', 'Find the name of the cluster''s (single) node and apply a taint
+`platform=production:NoSchedule` to it using `kubectl taint`.
+', '#!/bin/bash
+NODE=$(kubectl get nodes -o jsonpath=''{.items[0].metadata.name}'')
+test -n "$NODE" || exit 1
+kubectl get node "$NODE" -o jsonpath=''{.spec.taints[?(@.key=="platform")].value}'' | grep -qx production || exit 1
+kubectl get node "$NODE" -o jsonpath=''{.spec.taints[?(@.key=="platform")].effect}'' | grep -qx NoSchedule
+', 'Get the node name with `kubectl get nodes -o jsonpath=''{.items[0].metadata.name}''`, then
+run `kubectl taint nodes <node> platform=production:NoSchedule`.
+', 'A taint is applied to a Node and repels Pods unless they carry a matching toleration.
+The `key=value:effect` syntax here creates taint `platform=production` with effect
+`NoSchedule`, meaning the scheduler will not place new Pods on this node unless they
+tolerate it.
+', '15', 'f', 't'),
+('d3ce85e7-4533-46a6-ab87-7cfe3a5b8d03', '18637ca0-9a1d-534a-b3f6-1e2a9243075e', 'a8c8036c-9878-5541-bb23-965acf0246e2', '5', 'Confirm toleratedpod2''s toleration uses the Exists operator', 'Confirm that **toleratedpod2**''s toleration uses `operator: Exists` with `key: platform`
+and `effect: NoSchedule` — tolerating any taint value on that key, not just `production`.
+', '#!/bin/bash
+kubectl get pod toleratedpod2 -o jsonpath=''{.spec.tolerations[0].key}'' | grep -qx platform || exit 1
+kubectl get pod toleratedpod2 -o jsonpath=''{.spec.tolerations[0].operator}'' | grep -qx Exists || exit 1
+kubectl get pod toleratedpod2 -o jsonpath=''{.spec.tolerations[0].effect}'' | grep -qx NoSchedule || exit 1
+VALUE=$(kubectl get pod toleratedpod2 -o jsonpath=''{.spec.tolerations[0].value}'' 2>/dev/null)
+test -z "$VALUE"
+', 'Inspect `kubectl get pod toleratedpod2 -o jsonpath=''{.spec.tolerations}''`.', 'The `Exists` operator only checks that the `key` (and, if set, `effect`) is present on
+the taint — it ignores `value` entirely, which is why `podtoleration.yaml` omits `value`
+for toleratedpod2. This toleration matches `platform=<anything>:NoSchedule`.
+', '10', 'f', 'f'),
+('d3822a07-c3da-4ea4-9c41-e5af6107956a', '18637ca0-9a1d-534a-b3f6-1e2a9243075e', 'e07ed27b-0d7a-5285-b922-5eb70ba5d7a6', '2', 'Confirm an untolerated Pod cannot schedule on the tainted node', 'Create a Pod named **notoleratedpod** (image `nginx`) with no tolerations, e.g.
+`kubectl run notoleratedpod --image=nginx`. Because the node is tainted with
+`platform=production:NoSchedule` and this Pod declares no matching toleration, it
+should remain unscheduled.
+', '#!/bin/bash
+kubectl get pod notoleratedpod >/dev/null 2>&1 || exit 1
+NODENAME=$(kubectl get pod notoleratedpod -o jsonpath=''{.spec.nodeName}'' 2>/dev/null)
+test -z "$NODENAME" || exit 1
+kubectl get pod notoleratedpod -o jsonpath=''{.status.phase}'' | grep -qx Pending
+', 'Use `kubectl run notoleratedpod --image=nginx`, then check that
+`kubectl get pod notoleratedpod -o jsonpath=''{.spec.nodeName}''` is empty and
+`.status.phase` is `Pending`.
+', 'With only one Node in the cluster and that Node tainted `NoSchedule`, the scheduler has
+no eligible Node for a Pod lacking a toleration — it leaves the Pod `Pending` with
+`nodeName` unset rather than binding it anywhere. This is the taint doing its job.
+', '15', 'f', 't'),
+('bf30805f-e633-4cc1-81af-ca939f9d22d6', '18637ca0-9a1d-534a-b3f6-1e2a9243075e', '267fb157-6d7f-5658-92d5-b90fb1047d58', '3', 'Create the tolerated Pods', 'Apply `podtoleration.yaml` (already in your workdir) to create two Pods —
+**toleratedpod1** and **toleratedpod2** — each carrying a toleration for the
+`platform=production:NoSchedule` taint.
+', '#!/bin/bash
+kubectl get pod toleratedpod1 >/dev/null 2>&1 || exit 1
+kubectl get pod toleratedpod2 >/dev/null 2>&1 || exit 1
+', 'Use `kubectl apply -f podtoleration.yaml`.', '`podtoleration.yaml` declares two Pods sharing the `env=test` label, each with a
+`tolerations` entry under `.spec` — this is the only extra field a Pod needs to become
+eligible for scheduling onto a tainted Node.
+', '15', 'f', 't'),
+('8f713d0b-f8a6-4d05-bde6-46d0d50e6012', '18637ca0-9a1d-534a-b3f6-1e2a9243075e', 'e2fe9446-f6ed-5cfa-9fa3-c59e1a7ee3fa', '4', 'Confirm toleratedpod1''s toleration exactly matches the taint', 'Confirm that **toleratedpod1**''s toleration uses `operator: Equal` with `key: platform`,
+`value: production`, and `effect: NoSchedule` — an exact match for the taint on the node.
+', '#!/bin/bash
+kubectl get pod toleratedpod1 -o jsonpath=''{.spec.tolerations[0].key}'' | grep -qx platform || exit 1
+kubectl get pod toleratedpod1 -o jsonpath=''{.spec.tolerations[0].operator}'' | grep -qx Equal || exit 1
+kubectl get pod toleratedpod1 -o jsonpath=''{.spec.tolerations[0].value}'' | grep -qx production || exit 1
+kubectl get pod toleratedpod1 -o jsonpath=''{.spec.tolerations[0].effect}'' | grep -qx NoSchedule
+', 'Inspect `kubectl get pod toleratedpod1 -o jsonpath=''{.spec.tolerations}''`.', 'The `Equal` operator requires `key`, `value`, and `effect` to match the taint exactly.
+toleratedpod1''s toleration is written to match `platform=production:NoSchedule` field
+for field — a looser toleration (missing `value`, or a different `effect`) would not
+tolerate this specific taint.
+', '10', 'f', 'f'),
+('81ae8297-c383-4a9c-814a-bc2aa2d72ba1', '18637ca0-9a1d-534a-b3f6-1e2a9243075e', '6c4ae8b2-3170-57ab-9da1-a6bd97ed92db', '6', 'Confirm both tolerated Pods scheduled successfully despite the taint', 'Confirm that **toleratedpod1** and **toleratedpod2** were both bound to the tainted node
+(`.spec.nodeName` set) and reached phase `Running`, proving their tolerations let the
+scheduler place them despite the `platform=production:NoSchedule` taint.
+', '#!/bin/bash
+for POD in toleratedpod1 toleratedpod2; do
+  NODENAME=$(kubectl get pod "$POD" -o jsonpath=''{.spec.nodeName}'' 2>/dev/null)
+  test -n "$NODENAME" || exit 1
+  kubectl get pod "$POD" -o jsonpath=''{.status.phase}'' | grep -qx Running || exit 1
+done
+', 'Check `kubectl get pod toleratedpod1 toleratedpod2 -o wide` for the `NODE` and `STATUS`
+columns.
+', 'A toleration doesn''t attract a Pod to a tainted Node — it only removes the repulsion,
+letting the scheduler consider that Node like any other. Here it''s the only Node
+available, so both tolerated Pods land on it and reach `Running`, in contrast to
+notoleratedpod''s `Pending` state.
+', '15', 'f', 'f')
+ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;
+

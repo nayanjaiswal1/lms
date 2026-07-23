@@ -4,7 +4,7 @@ import * as React from "react";
 import { Loader2, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import styles from "./coding-question.module.css";
-import { PromptRenderer } from "@/components/assessments/prompt-renderer";
+import { PromptRenderer } from "@/components/shared/prompt-renderer";
 import { CodingConsole } from "@/components/assessments/coding-console";
 import { runCodeAction } from "@/app/(app)/assessments/[id]/take/actions";
 import { SESSION_SUPERSEDED_MESSAGE } from "@/lib/assessments/types";

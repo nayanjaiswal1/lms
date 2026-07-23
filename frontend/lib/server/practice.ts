@@ -29,17 +29,13 @@ export interface PracticeSession {
   user_id: string;
   technology: string;
   difficulty: string;
+  category: "technical" | "behavioral";
   question_count: number;
   status: "active" | "completed" | "abandoned";
   ai_model: string | null;
   created_at: string;
   completed_at: string | null;
   items?: PracticeItem[];
-}
-
-export async function getPracticeSessions(): Promise<PracticeSession[]> {
-  const data = await apiGet<{ sessions: PracticeSession[] }>("/api/practice/sessions");
-  return data.sessions ?? [];
 }
 
 export async function getPracticeSession(sessionID: string): Promise<PracticeSession> {

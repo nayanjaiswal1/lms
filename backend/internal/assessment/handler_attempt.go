@@ -197,6 +197,38 @@ func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, att)
 }
 
+type overrideAnswerScoreRequest struct {
+	Score float64 `json:"score"`
+	Note  string  `json:"note"`
+}
+
+// OverrideAnswerScore lets staff manually adjust one auto-graded answer's
+// score during hiring-assessment review — e.g. a sandbox-graded FastAPI/React
+// submission passed its tests but a reviewer wants to dock points for code
+// quality, or a borderline failure deserves partial credit. Recomputes the
+// attempt's aggregate score/percentage/passed from the answers table.
+func (h *Handler) OverrideAnswerScore(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req overrideAnswerScoreRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Score < 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"score": "Score cannot be negative."})
+		return
+	}
+	att, err := h.repo.OverrideAnswerScore(r.Context(), claims.OrgID,
+		chiURLParam(r, "attemptID"), chiURLParam(r, "answerID"), claims.UserID, req.Score, req.Note)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, att)
+}
+
 // awardAttemptXP awards XP for a synchronously graded passed attempt, stores the
 // reward result in the DB, and returns the attempt with RewardResult populated.
 // All errors are logged and swallowed — reward failures must not break the response.

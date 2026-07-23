@@ -144,8 +144,15 @@ GET    /api/sheets/view?ids=a,b,c          union of items from selected sheet ID
                                            filter params: category, difficulty, status, overlap_only
 
 -- Progress (upsert by topic_tag — cross-sheet)
-PATCH  /api/progress/:topic_tag            body: {status, solved_at?, revision_at?, notes?}
+PATCH  /api/progress/:topic_tag            body: {status}
+PATCH  /api/progress/:topic_tag/notes      body: {notes}  -- TipTap JSON, same shape as wiki_pages.content;
+                                                            -- separate endpoint so autosave-while-typing never
+                                                            -- races a status click
 ```
+
+### Notes View
+
+The sheet page renders a split view (`SheetSplitView`): the existing checklist table on the left (sticky on desktop), and a scrollable feed of every item's rich-text note on the right (`SheetNotesPanel`), one TipTap editor per problem. Scrolling the notes feed highlights the matching row on the left (`IntersectionObserver`, same scroll-spy pattern as the course TOC); clicking a row scrolls the feed to that problem's note. Editors mount lazily as their block nears the viewport — large system sheets (Striver A2Z ships ~450 items) would otherwise instantiate hundreds of ProseMirror instances at once.
 
 ### Combined View Response Shape
 
@@ -218,7 +225,7 @@ user_problem_progress (
   status      TEXT NOT NULL DEFAULT 'todo',  -- 'todo' | 'done' | 'revisit'
   solved_at   TIMESTAMPTZ,
   revision_at TIMESTAMPTZ,
-  notes       TEXT,
+  notes       JSONB NOT NULL DEFAULT '{}',  -- TipTap doc JSON
   PRIMARY KEY (user_id, topic_tag)
 )
 ```

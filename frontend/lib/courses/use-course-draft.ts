@@ -6,7 +6,7 @@ import {
   EMPTY_DRAFT, makeSection, makeModule, makeBlock, courseTreeToDraft,
 } from "@/lib/courses/draft-types";
 
-export type WizardTab = "info" | "structure" | "content" | "settings";
+export type WizardTab = "info" | "structure" | "content" | "settings" | "final-test";
 
 interface WizardState {
   draft:           CourseDraft;

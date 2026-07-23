@@ -1,6 +1,9 @@
 package sheets
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Sheet is a curated problem list — either system-seeded (Striver's A2Z,
 // NeetCode 150, Blind 75, Grind 169) or created by a user.
@@ -28,21 +31,39 @@ type UserSheetSummary struct {
 	Role string `json:"role"` // "owner" | "subscriber"
 }
 
+// SheetPreview is the minimal metadata shown on the share/join page before a
+// user decides to subscribe — visible to any authenticated user regardless
+// of ownership, unlike GetSheetItems which enforces real access.
+type SheetPreview struct {
+	Sheet
+	IsSubscribed bool `json:"is_subscribed"`
+}
+
+// UpdateSheetRequest is the body for PATCH /api/sheets/:id. Nil fields are
+// left unchanged.
+type UpdateSheetRequest struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
 // SheetItem is one problem within a sheet, joined with the requesting user's
 // cross-sheet progress for its topic_tag.
 type SheetItem struct {
-	ID          string     `json:"id"`
-	SheetID     string     `json:"sheet_id"`
-	Title       string     `json:"title"`
-	TopicTag    string     `json:"topic_tag"`
-	Category    *string    `json:"category,omitempty"`
-	Difficulty  *string    `json:"difficulty,omitempty"`
-	ExternalURL *string    `json:"external_url,omitempty"`
-	OrderIndex  int        `json:"order_index"`
-	Status      string     `json:"status"` // "todo" | "done" | "revisit"
-	SolvedAt    *time.Time `json:"solved_at,omitempty"`
-	RevisionAt  *time.Time `json:"revision_at,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID          string          `json:"id"`
+	SheetID     string          `json:"sheet_id"`
+	Title       string          `json:"title"`
+	TopicTag    string          `json:"topic_tag"`
+	Category    *string         `json:"category,omitempty"`
+	Difficulty  *string         `json:"difficulty,omitempty"`
+	ExternalURL *string         `json:"external_url,omitempty"`
+	OrderIndex  int             `json:"order_index"`
+	Status      string          `json:"status"` // "todo" | "done" | "revisit"
+	SolvedAt    *time.Time      `json:"solved_at,omitempty"`
+	RevisionAt  *time.Time      `json:"revision_at,omitempty"`
+	ReviewCount int             `json:"review_count"` // successful "Reviewed" clicks since last freshly marked done
+	Notes       json.RawMessage `json:"notes"`        // opaque TipTap JSON, same shape as wiki_pages.content
+	IsStarred   bool            `json:"is_starred"`   // per-user bookmark, independent of status
+	CreatedAt   time.Time       `json:"created_at"`
 }
 
 // CreateSheetRequest is the body for POST /api/sheets.
@@ -81,8 +102,50 @@ type UpdateItemRequest struct {
 }
 
 // UpdateProgressRequest is the body for PATCH /api/progress/:topic_tag.
+// SheetID identifies which sheet's revision settings apply — required
+// whenever Status is "done", since a topic_tag's progress is shared across
+// every sheet that contains it but the growth scheme is per-sheet.
 type UpdateProgressRequest struct {
-	Status string `json:"status"`
+	Status  string `json:"status"`
+	SheetID string `json:"sheet_id,omitempty"`
+}
+
+// UpdateProgressNotesRequest is the body for PATCH /api/progress/:topic_tag/notes.
+type UpdateProgressNotesRequest struct {
+	Notes json.RawMessage `json:"notes"`
+}
+
+// UpdateProgressStarredRequest is the body for PATCH /api/progress/:topic_tag/star.
+type UpdateProgressStarredRequest struct {
+	Starred bool `json:"starred"`
+}
+
+// UpdateRevisionRequest is the body for PATCH /api/progress/:topic_tag/revision
+// — directly sets an already-scheduled revision date to a new one.
+type UpdateRevisionRequest struct {
+	RevisionAt time.Time `json:"revision_at"`
+}
+
+// MarkReviewedRequest is the body for PATCH /api/progress/:topic_tag/review
+// — the "I still remember this" action. SheetID selects whose growth scheme
+// computes the next, longer interval.
+type MarkReviewedRequest struct {
+	SheetID string `json:"sheet_id"`
+}
+
+// UserSheetSettings is the current user's spaced-repetition configuration
+// for one sheet — every sheet a user tracks can use a different base
+// interval and growth scheme.
+type UserSheetSettings struct {
+	BaseRevisionDays int    `json:"base_revision_days"`
+	GrowthScheme     string `json:"growth_scheme"` // "doubling" | "ladder" | "linear"
+}
+
+// UpdateSheetSettingsRequest is the body for PUT /api/sheets/settings.
+type UpdateSheetSettingsRequest struct {
+	SheetID          string `json:"sheet_id"`
+	BaseRevisionDays int    `json:"base_revision_days"`
+	GrowthScheme     string `json:"growth_scheme"`
 }
 
 // SheetItemsResponse is the payload for GET /api/sheets/:slug/items.

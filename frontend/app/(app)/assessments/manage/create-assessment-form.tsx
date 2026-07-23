@@ -66,14 +66,18 @@ const PROCTOR_TOGGLES: { name: keyof FormData; label: string }[] = [
   { name: "allow_secondary_camera", label: "Allow secondary phone camera" },
 ];
 
-export function CreateAssessmentForm() {
+interface CreateAssessmentFormProps {
+  defaultParentType?: string;
+}
+
+export function CreateAssessmentForm({ defaultParentType }: CreateAssessmentFormProps) {
   const router = useRouter();
   const form = useForm<FormData>({
     resolver: zodResolver(Schema),
     defaultValues: {
       title: "",
       description: "",
-      parent_type: "standalone",
+      parent_type: defaultParentType ?? "standalone",
       duration_minutes: "30",
       pass_percentage: "40",
       max_attempts: "1",

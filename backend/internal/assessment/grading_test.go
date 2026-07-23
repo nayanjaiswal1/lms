@@ -140,7 +140,7 @@ func TestGradeCoding_EmptyTestCases(t *testing.T) {
 		TestCases: []TestCase{},
 	})
 	answer := mustJSON(t, codingAnswer{Language: "python", Code: "pass"})
-	graded, correct, pts, _, _, _, err := gradeCoding(context.Background(), exec, emptyContent, answer, 10)
+	graded, correct, pts, _, _, _, err := gradeCoding(context.Background(), always(exec), emptyContent, answer, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,6 +167,13 @@ func (f fakeExecutor) Run(context.Context, string, string, CodingContent) (RunRe
 	return f.result, f.err
 }
 
+// always adapts a fixed CodeExecutor to gradeCoding's resolve signature —
+// production code resolves per-question via Service.executorFor, but these
+// unit tests always want the one fakeExecutor regardless of content.Runtime.
+func always(exec CodeExecutor) func(CodingContent) CodeExecutor {
+	return func(CodingContent) CodeExecutor { return exec }
+}
+
 func codingContent() json.RawMessage {
 	return rawJSON(CodingContent{
 		Prompt:    "echo",
@@ -180,7 +187,7 @@ func codingContent() json.RawMessage {
 
 func TestGradeCoding_ExecutorUnavailable(t *testing.T) {
 	answer := mustJSON(t, codingAnswer{Language: "python", Code: "print(input())"})
-	graded, _, _, _, _, _, err := gradeCoding(context.Background(), unavailableExecutor{}, codingContent(), answer, 10)
+	graded, _, _, _, _, _, err := gradeCoding(context.Background(), always(unavailableExecutor{}), codingContent(), answer, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +203,7 @@ func TestGradeCoding_WeightedPass(t *testing.T) {
 		Cases: []CaseResult{{CaseID: "t1", Passed: true, Weight: 1}, {CaseID: "t2", Passed: false, Weight: 3}},
 	}}
 	answer := mustJSON(t, codingAnswer{Language: "python", Code: "x"})
-	graded, correct, pts, _, _, _, err := gradeCoding(context.Background(), exec, codingContent(), answer, 8)
+	graded, correct, pts, _, _, _, err := gradeCoding(context.Background(), always(exec), codingContent(), answer, 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,14 +221,14 @@ func TestGradeCoding_AllPass(t *testing.T) {
 		Cases: []CaseResult{{CaseID: "t1", Passed: true, Weight: 1}, {CaseID: "t2", Passed: true, Weight: 3}},
 	}}
 	answer := mustJSON(t, codingAnswer{Language: "python", Code: "x"})
-	_, correct, pts, _, _, _, _ := gradeCoding(context.Background(), exec, codingContent(), answer, 8)
+	_, correct, pts, _, _, _, _ := gradeCoding(context.Background(), always(exec), codingContent(), answer, 8)
 	if !correct || pts != 8 {
 		t.Fatalf("want correct/8, got %v/%v", correct, pts)
 	}
 }
 
 func TestGradeCoding_EmptyCodeFailsClosed(t *testing.T) {
-	graded, correct, pts, _, _, _, _ := gradeCoding(context.Background(), fakeExecutor{available: true}, codingContent(), mustJSON(t, codingAnswer{Language: "python"}), 8)
+	graded, correct, pts, _, _, _, _ := gradeCoding(context.Background(), always(fakeExecutor{available: true}), codingContent(), mustJSON(t, codingAnswer{Language: "python"}), 8)
 	if !graded || correct || pts != 0 {
 		t.Fatalf("empty code must grade as 0, got graded=%v correct=%v pts=%v", graded, correct, pts)
 	}

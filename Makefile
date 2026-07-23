@@ -1,6 +1,6 @@
 .PHONY: dev dev-up dev-down dev-reset migrate migrate-create seed seed-courses backend frontend \
         test-backend lint-frontend build-backend build-frontend docker-build logs psql redis-cli \
-        prod-deploy prod-down prod-logs
+        prod-deploy prod-down prod-logs flowmap-drift
 
 # ─── Dev containers ──────────────────────────────────────────────────────────
 
@@ -74,6 +74,11 @@ psql:
 
 redis-cli:
 	@docker exec -it mindforge_redis_dev redis-cli
+
+# ─── Docs ────────────────────────────────────────────────────────────────────
+
+flowmap-drift:
+	@python3 scripts/check-flowmap-drift.py
 
 # ─── Production ──────────────────────────────────────────────────────────────
 

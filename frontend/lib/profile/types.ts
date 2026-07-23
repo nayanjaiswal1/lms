@@ -101,6 +101,12 @@ export interface ResumeExtract {
   social_links?: { linkedin?: string | null; github?: string | null; portfolio?: string | null }
 }
 
+export interface PublicCertificate {
+  course_title: string
+  issued_at: string
+  cert_uuid: string
+}
+
 export interface PublicProfile {
   name: string
   display_name: string | null
@@ -112,4 +118,5 @@ export interface PublicProfile {
   skills?: Skill[]
   social_links?: SocialLinks
   stats?: Stats
+  certificates?: PublicCertificate[]
 }

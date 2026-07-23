@@ -60,11 +60,21 @@ func toStudentView(aq AssessmentQuestion, shuffleOptions bool) (StudentQuestion,
 		if err := json.Unmarshal(aq.Content, &c); err != nil {
 			return StudentQuestion{}, err
 		}
-		// Only sample (non-hidden) cases are exposed; hidden cases stay server-side.
+		// Only sample (non-hidden) cases are exposed; hidden cases, VerifyFiles,
+		// and VerifyCommand stay server-side (this map is an explicit allowlist,
+		// so new server-only CodingContent fields are safe by default).
 		samples := make([]map[string]string, 0)
-		for _, tc := range c.TestCases {
-			if !tc.Hidden {
-				samples = append(samples, map[string]string{"stdin": tc.Stdin, "expected": tc.Expected})
+		if c.Runtime == RuntimeSandbox {
+			for _, tc := range c.TestCases {
+				if !tc.Hidden {
+					samples = append(samples, map[string]string{"name": tc.ID})
+				}
+			}
+		} else {
+			for _, tc := range c.TestCases {
+				if !tc.Hidden {
+					samples = append(samples, map[string]string{"stdin": tc.Stdin, "expected": tc.Expected})
+				}
 			}
 		}
 		safe := map[string]any{

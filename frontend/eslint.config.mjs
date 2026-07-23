@@ -358,7 +358,11 @@ export default tseslint.config(
         { type: 'feature-components', pattern: 'components/*/**', capture: ['family'] },
         {
           type: 'shared-lib',
-          pattern: ['lib/*.ts', 'lib/*.tsx', 'lib/server/**', 'lib/validation/**'],
+          // lib/client/** is the client-side counterpart to lib/server/** —
+          // both are cross-cutting fetch helpers (see the Cookie-header ban
+          // above), not a feature of their own, so both must be reachable
+          // from any feature the same way.
+          pattern: ['lib/*.ts', 'lib/*.tsx', 'lib/server/**', 'lib/client/**', 'lib/validation/**'],
         },
         { type: 'feature-lib', pattern: 'lib/*/**', capture: ['family'] },
       ],
@@ -393,6 +397,9 @@ export default tseslint.config(
               allow: [
                 ['feature-components', { family: 'labs' }],
                 ['feature-lib', { family: 'labs' }],
+                // "Enable Course Docs" creates a course-linked wiki space —
+                // see components/courses/course-docs-toggle.tsx.
+                ['feature-lib', { family: 'wiki' }],
               ],
             },
             {

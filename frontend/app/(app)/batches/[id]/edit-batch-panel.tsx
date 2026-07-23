@@ -174,17 +174,19 @@ function EditBatchForm({ batch, orgMembers, onClose }: EditBatchFormProps) {
 interface EditBatchPanelProps {
   batch: Batch;
   orgMembers: OrgMemberSummary[];
+  triggerSize?: "default" | "sm" | "icon";
+  triggerVariant?: "default" | "outline" | "ghost";
 }
 
-export function EditBatchPanel({ batch, orgMembers }: EditBatchPanelProps) {
+export function EditBatchPanel({ batch, orgMembers, triggerSize = "sm", triggerVariant = "outline" }: EditBatchPanelProps) {
   const [open, setOpen] = React.useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
-          <Pencil aria-hidden className="mr-1.5 h-4 w-4" />
-          Edit batch
+        <Button aria-label={triggerSize === "icon" ? `Edit ${batch.name}` : undefined} size={triggerSize} variant={triggerVariant}>
+          <Pencil aria-hidden className={triggerSize === "icon" ? "h-3.5 w-3.5" : "mr-1.5 h-4 w-4"} />
+          {triggerSize !== "icon" && "Edit batch"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto">

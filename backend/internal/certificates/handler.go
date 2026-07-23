@@ -1,0 +1,152 @@
+package certificates
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/httputil"
+)
+
+type Handler struct {
+	service *Service
+}
+
+func newHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
+func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
+	claims, ok := auth.GetClaims(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return nil, false
+	}
+	return claims, true
+}
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		return false
+	}
+	return true
+}
+
+func writeDomainError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrNotFound), errors.Is(err, ErrCourseNotFound), errors.Is(err, ErrNoFinalTest):
+		httputil.WriteError(w, http.StatusNotFound, "Not found.")
+	case errors.Is(err, ErrNotEnrolled):
+		httputil.WriteError(w, http.StatusForbidden, "You are not enrolled in this course.")
+	case errors.Is(err, ErrCourseNotComplete):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "Complete every module in this course before taking the final test.")
+	case errors.Is(err, ErrAttemptsExhausted):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "You have used all of your attempts for this final test.")
+	case errors.Is(err, ErrInvalidQuestions):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"questions": "must have at least one question"})
+	case errors.Is(err, ErrInvalidTimeLimit):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"time_limit_minutes": "must be positive"})
+	case errors.Is(err, ErrInvalidPassingScore):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"passing_score_percent": "must be between 1 and 100"})
+	case errors.Is(err, ErrInvalidMaxAttempts):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"max_attempts": "must be positive"})
+	default:
+		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+	}
+}
+
+// UpsertFinalTest handles PUT /api/courses/{courseID}/final-test
+func (h *Handler) UpsertFinalTest(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req UpsertFinalTestRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	ft, err := h.service.UpsertFinalTest(r.Context(), claims.OrgID, courseID, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, ft)
+}
+
+// GetFinalTestForEdit handles GET /api/courses/{courseID}/final-test/edit
+func (h *Handler) GetFinalTestForEdit(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	ft, err := h.service.GetFinalTestForEdit(r.Context(), claims.OrgID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, ft)
+}
+
+// GetFinalTestForStudent handles GET /api/courses/{courseID}/final-test
+func (h *Handler) GetFinalTestForStudent(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	ft, err := h.service.GetFinalTestForStudent(r.Context(), claims.UserID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, ft)
+}
+
+// SubmitAttempt handles POST /api/courses/{courseID}/final-test/attempt
+func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req SubmitAttemptRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	resp, err := h.service.SubmitAttempt(r.Context(), claims.OrgID, claims.UserID, courseID, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, resp)
+}
+
+// ListMyCertificates handles GET /api/certificates/me
+func (h *Handler) ListMyCertificates(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	certs, err := h.service.ListMyCertificates(r.Context(), claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, certs)
+}
+
+// VerifyCertificate handles GET /api/certificates/{uuid} — public, no auth.
+func (h *Handler) VerifyCertificate(w http.ResponseWriter, r *http.Request) {
+	certUUID := chi.URLParam(r, "uuid")
+	cert, err := h.service.VerifyCertificate(r.Context(), certUUID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, cert)
+}

@@ -1,4 +1,5 @@
 import { getHighlightAnalytics } from "@/lib/server/highlights";
+import { HighlightsTabs } from "@/components/platform/highlights-tabs";
 
 export const metadata = { title: "Confusing Content — Platform Console" };
 
@@ -24,6 +25,8 @@ export default async function PlatformHighlightsPage() {
           </p>
         </div>
       </div>
+
+      <HighlightsTabs active="all" />
 
       {entries.length === 0 ? (
         <div className="empty-state py-16">

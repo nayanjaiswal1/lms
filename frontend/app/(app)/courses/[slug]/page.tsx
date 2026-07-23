@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
+  Award,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -9,6 +10,7 @@ import {
   GraduationCap,
   Layers,
   Lock,
+  NotebookText,
   Star,
   Tag,
   type LucideIcon,
@@ -20,7 +22,8 @@ import { CourseProgressBar } from "@/components/courses/course-progress-bar";
 import { ReviewForm } from "@/components/courses/review-form";
 import { FAQPanel } from "@/components/shared/faq-panel";
 import { AskQuestion } from "@/components/messaging/ask-question";
-import { getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview } from "@/lib/server/courses";
+import { getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview, getFinalTest } from "@/lib/server/courses";
+import { getWikiSpaces } from "@/lib/server/wiki";
 import { getCourseFAQs } from "@/lib/server/messaging";
 import { enrollAction } from "@/lib/courses/actions";
 import { PurchaseCourseButton } from "./purchase-course-button";
@@ -65,12 +68,15 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
   const enrollment = enrollments.find((e) => e.course_id === courseId);
   const isEnrolled = Boolean(enrollment);
 
-  const [tree, progressSummary, myRating, faqs] = await Promise.all([
+  const [tree, progressSummary, myRating, faqs, wikiSpaces, finalTest] = await Promise.all([
     getCourseTree(courseId).catch(() => null),
     isEnrolled ? getCourseProgress(courseId).catch(() => null) : Promise.resolve(null),
     isEnrolled ? getMyReview(courseId).catch(() => null) : Promise.resolve(null),
     getCourseFAQs(courseId).catch(() => []),
+    isEnrolled ? getWikiSpaces().catch(() => []) : Promise.resolve([]),
+    isEnrolled ? getFinalTest(courseId) : Promise.resolve(null),
   ]);
+  const docsSpace = wikiSpaces.find((s) => s.course_id === courseId) ?? null;
 
   const sections = tree?.sections ?? [];
   const allModules = sections.flatMap((s) => s.modules);
@@ -275,11 +281,29 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                     <p className="text-sm font-medium text-primary">You&apos;re enrolled</p>
                     <CourseProgressBar completed={completed} total={total || allModules.length} />
                   </div>
-                  <Button asChild className="w-full" size="lg">
-                    <Link href={ROUTES.courseLearn(course.slug)}>
-                      {completed > 0 ? "Continue learning" : "Start learning"}
+                  {finalTest ? (
+                    <Button asChild className="w-full" size="lg" variant={finalTest.already_passed ? "outline" : "default"}>
+                      <Link href={finalTest.already_passed && finalTest.cert_uuid ? ROUTES.certificate(finalTest.cert_uuid) : ROUTES.courseFinalTest(course.slug)}>
+                        <Award aria-hidden className="h-4 w-4" />
+                        {finalTest.already_passed ? "View Certificate" : "Take Final Test"}
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button asChild className="w-full" size="lg">
+                      <Link href={ROUTES.courseLearn(course.slug)}>
+                        {completed > 0 ? "Continue learning" : "Start learning"}
+                      </Link>
+                    </Button>
+                  )}
+                  {docsSpace && (
+                    <Link
+                      className="flex items-center gap-2 text-sm text-primary hover:underline"
+                      href={ROUTES.wikiSpace(docsSpace.slug)}
+                    >
+                      <NotebookText aria-hidden className="h-4 w-4" />
+                      Course Docs
                     </Link>
-                  </Button>
+                  )}
                   <ReviewForm courseId={courseId} initialRating={myRating} />
                 </>
               ) : (

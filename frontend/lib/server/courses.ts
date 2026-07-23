@@ -142,3 +142,119 @@ export async function getAllStudentProgress(courseID: string): Promise<StudentPr
   const data = await apiGet<{ progress: StudentProgressRow[] }>(`/api/courses/${courseID}/progress`);
   return data.progress ?? [];
 }
+
+// ─── Final test + certificates ───────────────────────────────────────────────
+
+export interface MCQOption {
+  id: string;
+  text: string;
+  is_correct?: boolean;
+}
+
+export interface MCQContent {
+  prompt: string;
+  multiple: boolean;
+  options: MCQOption[];
+  explanation?: string;
+}
+
+export interface TestCase {
+  id: string;
+  stdin: string;
+  expected: string;
+  hidden: boolean;
+  weight: number;
+}
+
+export interface CodingContent {
+  prompt: string;
+  languages: string[];
+  starter_code: Record<string, string>;
+  time_limit_ms: number;
+  memory_limit_kb: number;
+  test_cases: TestCase[];
+}
+
+export interface FinalTestQuestion {
+  id: string;
+  type: "mcq" | "coding";
+  points: number;
+  mcq?: MCQContent;
+  coding?: CodingContent;
+}
+
+export interface StudentFinalTest {
+  id: string;
+  course_id: string;
+  questions: FinalTestQuestion[];
+  time_limit_minutes: number;
+  passing_score_percent: number;
+  max_attempts: number;
+  attempts_used: number;
+  already_passed: boolean;
+  cert_uuid?: string;
+}
+
+export interface FinalTestAttempt {
+  id: string;
+  user_id: string;
+  final_test_id: string;
+  score: number;
+  total: number;
+  passed: boolean;
+  completed_at: string;
+}
+
+export interface Certificate {
+  id: string;
+  user_id: string;
+  course_id: string;
+  final_test_attempt_id: string;
+  issued_at: string;
+  cert_uuid: string;
+}
+
+export interface CertificateView extends Certificate {
+  course_title: string;
+  learner_name: string;
+}
+
+export interface SubmitFinalTestAttemptResult {
+  attempt: FinalTestAttempt;
+  certificate?: Certificate;
+}
+
+// Returns null when the course has no final test, or the learner hasn't
+// completed every module yet — both are expected states, not errors, so the
+// course page can decide what CTA (if any) to show.
+export async function getFinalTest(courseID: string): Promise<StudentFinalTest | null> {
+  try {
+    return await apiGet<StudentFinalTest>(`/api/courses/${courseID}/final-test`);
+  } catch {
+    return null;
+  }
+}
+
+export interface FinalTestConfig {
+  id: string;
+  course_id: string;
+  questions: FinalTestQuestion[];
+  time_limit_minutes: number;
+  passing_score_percent: number;
+  max_attempts: number;
+}
+
+// Instructor-only — includes correct answers, for the authoring form. Returns
+// null when the course has no final test yet (fresh authoring form).
+export async function getFinalTestForEdit(courseID: string): Promise<FinalTestConfig | null> {
+  try {
+    return await apiGet<FinalTestConfig>(`/api/courses/${courseID}/final-test/edit`);
+  } catch {
+    return null;
+  }
+}
+
+export async function getMyCertificates(): Promise<CertificateView[]> {
+  const data = await apiGet<CertificateView[]>("/api/certificates/me");
+  return data ?? [];
+}

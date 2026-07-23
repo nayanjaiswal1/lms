@@ -2,6 +2,7 @@ package assessment
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"regexp"
 
@@ -160,7 +161,7 @@ func (h *Handler) BulkInvite(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, "No valid email addresses provided.")
 		return
 	}
-	tokens, err := h.repo.CreateBatchInvitations(r.Context(), claims.OrgID, batchID, claims.UserID, valid)
+	tokens, err := h.repo.CreateBatchInvitations(r.Context(), claims.OrgID, batchID, claims.UserID, valid, nil)
 	if err != nil {
 		writeBatchExtError(w, err)
 		return
@@ -182,6 +183,7 @@ func (h *Handler) ListInvitations(w http.ResponseWriter, r *http.Request) {
 		writeBatchExtError(w, err)
 		return
 	}
+	slog.InfoContext(r.Context(), "DEBUG ListInvitations", "batch_id", batchID, "org_id", claims.OrgID, "count", len(invitations))
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"invitations": invitations})
 }
 

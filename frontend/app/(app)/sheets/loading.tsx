@@ -11,14 +11,9 @@ export default function SheetsLoading() {
         <Skeleton className="h-9 w-32" />
       </div>
 
-      <div className="flex gap-2 border-b border-border -mt-1 mb-4">
-        <Skeleton className="h-8 w-24" />
-        <Skeleton className="h-8 w-24" />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton className="h-12 w-full" key={i} />
+      <div className="card-grid">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton className="h-28 w-full" key={i} />
         ))}
       </div>
     </main>

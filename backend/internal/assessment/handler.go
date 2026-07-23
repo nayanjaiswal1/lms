@@ -80,6 +80,10 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusServiceUnavailable, "Code execution is not available right now.")
 	case errors.Is(err, ErrSessionSuperseded):
 		httputil.WriteError(w, http.StatusConflict, "Your session moved to another device or tab. This window is no longer active.")
+	case errors.Is(err, ErrInvalidParent):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "Parent group not found in this organization.")
+	case errors.Is(err, ErrCyclicParent):
+		httputil.WriteError(w, http.StatusConflict, "Cannot move a group under its own descendant.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

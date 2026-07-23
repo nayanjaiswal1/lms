@@ -49,7 +49,7 @@ func (r *Repo) UpdateBatch(ctx context.Context, orgID string, b Batch) (Batch, e
 func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
-		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.created_at, b.updated_at,
+		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.cohort_group_id, b.created_at, b.updated_at,
 		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id) AS member_count
 		 FROM batches b
 		 WHERE b.org_id = $1 AND b.status = 'active'
@@ -63,7 +63,7 @@ func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 	for rows.Next() {
 		var b Batch
 		if err := rows.Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID,
-			&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CreatedAt, &b.UpdatedAt,
+			&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CohortGroupID, &b.CreatedAt, &b.UpdatedAt,
 			&b.MemberCount); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch: %w", err)
 		}
@@ -73,14 +73,18 @@ func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 }
 
 // ListBatchesForUser returns the active batches a student is a member of
-// within the given org, newest first.
+// within the given org, newest first. Includes the cohort group's name
+// (denormalized via LEFT JOIN) rather than just its id — GET /api/cohort-groups
+// is staff-only, so a student's own dashboard can't otherwise resolve a name
+// for the group label on its own batch.
 func (r *Repo) ListBatchesForUser(ctx context.Context, orgID, userID string) ([]Batch, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
-		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.created_at, b.updated_at,
+		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.cohort_group_id, cg.name, b.created_at, b.updated_at,
 		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id) AS member_count
 		 FROM batches b
 		 JOIN batch_members bm ON bm.batch_id = b.id
+		 LEFT JOIN cohort_groups cg ON cg.id = b.cohort_group_id
 		 WHERE bm.user_id = $1 AND b.org_id = $2 AND b.status = 'active'
 		 ORDER BY b.created_at DESC`, userID, orgID)
 	if err != nil {
@@ -92,7 +96,7 @@ func (r *Repo) ListBatchesForUser(ctx context.Context, orgID, userID string) ([]
 	for rows.Next() {
 		var b Batch
 		if err := rows.Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID,
-			&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CreatedAt, &b.UpdatedAt,
+			&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CohortGroupID, &b.CohortGroupName, &b.CreatedAt, &b.UpdatedAt,
 			&b.MemberCount); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch for user: %w", err)
 		}
@@ -105,11 +109,11 @@ func (r *Repo) GetBatch(ctx context.Context, orgID, id string) (Batch, error) {
 	var b Batch
 	err := r.pool.QueryRow(ctx,
 		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
-		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.created_at, b.updated_at,
+		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.cohort_group_id, b.created_at, b.updated_at,
 		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id)
 		 FROM batches b WHERE b.id = $1 AND b.org_id = $2`, id, orgID,
 	).Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID,
-		&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CreatedAt, &b.UpdatedAt, &b.MemberCount)
+		&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CohortGroupID, &b.CreatedAt, &b.UpdatedAt, &b.MemberCount)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Batch{}, ErrNotFound
@@ -117,6 +121,24 @@ func (r *Repo) GetBatch(ctx context.Context, orgID, id string) (Batch, error) {
 		return Batch{}, fmt.Errorf("assessment: get batch: %w", err)
 	}
 	return b, nil
+}
+
+// MoveBatchToGroup sets (or clears, when groupID is nil) a batch's cohort
+// group. Scoped to orgID; both the batch and the target group (if non-nil)
+// must belong to it.
+func (r *Repo) MoveBatchToGroup(ctx context.Context, orgID, batchID string, groupID *string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE batches SET cohort_group_id = $1, updated_at = now()
+		 WHERE id = $2 AND org_id = $3
+		   AND ($1::uuid IS NULL OR EXISTS (SELECT 1 FROM cohort_groups WHERE id = $1 AND org_id = $3))`,
+		groupID, batchID, orgID)
+	if err != nil {
+		return fmt.Errorf("assessment: move batch to group: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // AddBatchMembers adds users to a batch in a single query, ignoring duplicates
@@ -250,13 +272,14 @@ type BatchCourse struct {
 }
 
 type BatchInvitation struct {
-	ID         string     `json:"id"`
-	Email      string     `json:"email"`
-	InvitedAt  time.Time  `json:"invited_at"`
-	ExpiresAt  time.Time  `json:"expires_at"`
-	AcceptedAt *time.Time `json:"accepted_at"`
-	DeclinedAt *time.Time `json:"declined_at"`
-	ResentAt   *time.Time `json:"resent_at"`
+	ID          string     `json:"id"`
+	Email       string     `json:"email"`
+	InvitedAt   time.Time  `json:"invited_at"`
+	ExpiresAt   time.Time  `json:"expires_at"`
+	AcceptedAt  *time.Time `json:"accepted_at"`
+	DeclinedAt  *time.Time `json:"declined_at"`
+	ResentAt    *time.Time `json:"resent_at"`
+	ImportJobID *string    `json:"import_job_id"`
 }
 
 // Engagement status thresholds — a student's completion ratio
@@ -439,7 +462,10 @@ func (r *Repo) ListBatchCourses(ctx context.Context, orgID, batchID string) ([]B
 
 const invitationTTL = 7 * 24 * time.Hour
 
-func (r *Repo) CreateBatchInvitations(ctx context.Context, orgID, batchID, invitedBy string, emails []string) ([]InvitationToken, error) {
+// jobID is the batch_import job that triggered these invitations, if any —
+// nil for invitations created synchronously outside a job (e.g. BulkInvite).
+// It lets the invite history UI group invitations sent together into one unit.
+func (r *Repo) CreateBatchInvitations(ctx context.Context, orgID, batchID, invitedBy string, emails []string, jobID *string) ([]InvitationToken, error) {
 	expiresAt := time.Now().Add(invitationTTL)
 	out := make([]InvitationToken, 0, len(emails))
 
@@ -470,16 +496,17 @@ func (r *Repo) CreateBatchInvitations(ctx context.Context, orgID, batchID, invit
 
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx,
-			`INSERT INTO batch_invitations (batch_id, org_id, email, invited_by, token_hash, expires_at)
-			 SELECT $1, $2, u.email, $3, u.hash, $4
+			`INSERT INTO batch_invitations (batch_id, org_id, email, invited_by, token_hash, expires_at, import_job_id)
+			 SELECT $1, $2, u.email, $3, u.hash, $4, $7
 			 FROM unnest($5::text[], $6::text[]) AS u(email, hash)
 			 ON CONFLICT (batch_id, email) DO UPDATE
-			   SET token_hash  = EXCLUDED.token_hash,
-			       expires_at  = EXCLUDED.expires_at,
-			       accepted_at = NULL,
-			       declined_at = NULL,
-			       resent_at   = NULL`,
-			batchID, orgID, invitedBy, expiresAt, emails2, hashes)
+			   SET token_hash    = EXCLUDED.token_hash,
+			       expires_at    = EXCLUDED.expires_at,
+			       accepted_at   = NULL,
+			       declined_at   = NULL,
+			       resent_at     = NULL,
+			       import_job_id = EXCLUDED.import_job_id`,
+			batchID, orgID, invitedBy, expiresAt, emails2, hashes, jobID)
 		if err != nil {
 			return fmt.Errorf("assessment: upsert invitations: %w", err)
 		}
@@ -493,7 +520,7 @@ func (r *Repo) CreateBatchInvitations(ctx context.Context, orgID, batchID, invit
 
 func (r *Repo) ListBatchInvitations(ctx context.Context, orgID, batchID string) ([]BatchInvitation, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT bi.id, bi.email, bi.invited_at, bi.expires_at, bi.accepted_at, bi.declined_at, bi.resent_at
+		`SELECT bi.id, bi.email, bi.invited_at, bi.expires_at, bi.accepted_at, bi.declined_at, bi.resent_at, bi.import_job_id
 		 FROM batch_invitations bi
 		 WHERE bi.batch_id = $1 AND bi.org_id = $2
 		 ORDER BY bi.invited_at DESC`, batchID, orgID)
@@ -505,7 +532,7 @@ func (r *Repo) ListBatchInvitations(ctx context.Context, orgID, batchID string) 
 	for rows.Next() {
 		var inv BatchInvitation
 		if err := rows.Scan(&inv.ID, &inv.Email, &inv.InvitedAt, &inv.ExpiresAt,
-			&inv.AcceptedAt, &inv.DeclinedAt, &inv.ResentAt); err != nil {
+			&inv.AcceptedAt, &inv.DeclinedAt, &inv.ResentAt, &inv.ImportJobID); err != nil {
 			return nil, fmt.Errorf("assessment: scan invitation: %w", err)
 		}
 		out = append(out, inv)

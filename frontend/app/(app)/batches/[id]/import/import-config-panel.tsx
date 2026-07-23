@@ -1,13 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { confirmImportAction } from "@/app/(app)/batches/actions";
-import ROUTES from "@/lib/routes";
 import type { Course } from "@/lib/server/courses";
 import type { ImportMemberRow, OrgMemberSummary } from "@/lib/server/batches";
 
@@ -23,16 +21,16 @@ interface ImportConfigPanelProps {
   courses: Course[];
   orgMembers: OrgMemberSummary[];
   blockingCount: number;
+  onConfirmed: (jobId: string) => void;
 }
 
-export function ImportConfigPanel({ batchId, rows, courses, orgMembers, blockingCount }: ImportConfigPanelProps) {
+export function ImportConfigPanel({ batchId, rows, courses, orgMembers, blockingCount, onConfirmed }: ImportConfigPanelProps) {
   const [config, setConfig] = React.useState<ImportConfig>({
     courseIds: new Set(),
     mentorIds: new Set(),
     lockFullName: true,
   });
   const [submitting, setSubmitting] = React.useState(false);
-  const router = useRouter();
 
   const mentors = orgMembers.filter((m) => m.role === "mentor" || m.role === "instructor" || m.role === "admin");
 
@@ -56,7 +54,7 @@ export function ImportConfigPanel({ batchId, rows, courses, orgMembers, blocking
       toast.error(result.error);
       return;
     }
-    router.push(`${ROUTES.batchImport(batchId)}?job=${result.data?.job_id}`);
+    if (result.data?.job_id) onConfirmed(result.data.job_id);
   }
 
   return (

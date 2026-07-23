@@ -16,6 +16,12 @@ import (
 // have been completed — there is nothing to aggregate yet.
 var ErrRoundsIncomplete = fmt.Errorf("interviewprep: rounds not yet completed")
 
+// ErrNoReportForQuickPlan is returned for quick plans, which never generate a
+// report — that's the defining cost difference from targeted plans (targeted
+// always pays for one summarization call regardless of round count; quick
+// never does).
+var ErrNoReportForQuickPlan = fmt.Errorf("interviewprep: quick plans do not generate a report")
+
 // GetReport returns the plan's aggregate readiness report, generating it (once)
 // the first time both rounds are completed, and returning the cached copy on
 // every call after — mirrors the "AI called once" rule used by revision plans.
@@ -24,6 +30,9 @@ func (s *Service) GetReport(ctx context.Context, planID, userID string) (Report,
 	if err != nil {
 		return Report{}, err
 	}
+	if plan.PlanType == ModeQuick {
+		return Report{}, ErrNoReportForQuickPlan
+	}
 	if plan.Report != nil {
 		return *plan.Report, nil
 	}
@@ -31,53 +40,62 @@ func (s *Service) GetReport(ctx context.Context, planID, userID string) (Report,
 		return Report{}, fmt.Errorf("interviewprep: AI provider not available")
 	}
 
-	var conceptual, coding *Round
+	// primary is the conceptual (technical) or behavioral (non-technical) round —
+	// always present, always order_index 0. secondary is the coding round, only
+	// present for technical plans; non-technical plans are single-round.
+	var primary, secondary *Round
 	for i := range plan.Rounds {
 		switch plan.Rounds[i].RoundType {
-		case RoundConceptual:
-			conceptual = &plan.Rounds[i]
+		case RoundConceptual, RoundBehavioral:
+			primary = &plan.Rounds[i]
 		case RoundCoding:
-			coding = &plan.Rounds[i]
+			secondary = &plan.Rounds[i]
 		}
 	}
-	if conceptual == nil || coding == nil || coding.Status != RoundCompleted {
+	if primary == nil || (secondary != nil && secondary.Status != RoundCompleted) {
 		return Report{}, ErrRoundsIncomplete
 	}
 
-	// The conceptual round has no explicit "submit round" step of its own — it is
+	// The primary round has no explicit "submit round" step of its own — it is
 	// complete once every generated question has been answered in its linked
 	// practice session (matching how the practice UI itself treats a session as
 	// done: all items answered, regardless of whether AI feedback finished).
-	if conceptual.PracticeSessionID == nil {
-		return Report{}, fmt.Errorf("interviewprep: conceptual round has no linked practice session")
+	if primary.PracticeSessionID == nil {
+		return Report{}, fmt.Errorf("interviewprep: primary round has no linked practice session")
 	}
-	session, err := s.practiceRepo.GetSession(ctx, *conceptual.PracticeSessionID, userID)
+	session, err := s.practiceRepo.GetSession(ctx, *primary.PracticeSessionID, userID)
 	if err != nil {
-		return Report{}, fmt.Errorf("interviewprep: load conceptual session: %w", err)
+		return Report{}, fmt.Errorf("interviewprep: load primary session: %w", err)
 	}
-	conceptualPct, conceptualSkills, conceptualDone := scoreConceptualItems(session.Items, session.Technology)
-	if !conceptualDone {
+	primaryPct, primarySkills, primaryDone := scoreConceptualItems(session.Items, session.Technology)
+	if !primaryDone {
 		return Report{}, ErrRoundsIncomplete
 	}
-	var codingPct float64
-	if coding.Score != nil {
-		codingPct = *coding.Score
+
+	var secondaryItems []CodingItem
+	var secondaryPct float64
+	readiness := primaryPct
+	if secondary != nil {
+		secondaryItems = secondary.Items
+		if secondary.Score != nil {
+			secondaryPct = *secondary.Score
+		}
+		readiness = 0.5*primaryPct + 0.5*secondaryPct
 	}
 
-	strong, weak := splitSkills(coding.Items, conceptualPct, conceptualSkills)
-	readiness := 0.5*conceptualPct + 0.5*codingPct
+	strong, weak := splitSkills(secondaryItems, primaryPct, primarySkills)
 
-	summary, nextSteps, model, err := s.summarizeReport(ctx, plan, readiness, conceptualPct, codingPct, strong, weak)
+	summary, nextSteps, model, err := s.summarizeReport(ctx, plan, readiness, primaryPct, secondaryPct, strong, weak)
 	if err != nil {
 		return Report{}, err
 	}
 
-	cardsAdded := s.createRevisionCards(ctx, userID, session.Items, coding.Items)
+	cardsAdded := s.createRevisionCards(ctx, userID, session.Items, secondaryItems)
 
 	report := Report{
 		ReadinessScore:     round1(readiness),
-		ConceptualScorePct: round1(conceptualPct),
-		CodingPassRatePct:  round1(codingPct),
+		ConceptualScorePct: round1(primaryPct),
+		CodingPassRatePct:  round1(secondaryPct),
 		StrongSkills:       strong,
 		WeakSkills:         weak,
 		Summary:            summary,

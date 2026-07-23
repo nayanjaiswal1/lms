@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/storage"
 )
@@ -36,14 +37,17 @@ var (
 
 // Service implements the profile domain business logic.
 type Service struct {
-	repo    *Repo
-	storage storage.StorageClient
-	cfg     *config.Config
+	repo      *Repo
+	storage   storage.StorageClient
+	cfg       *config.Config
+	certsRepo *certificates.Repo
 }
 
-// NewService constructs a Service.
-func NewService(repo *Repo, store storage.StorageClient, cfg *config.Config) *Service {
-	return &Service{repo: repo, storage: store, cfg: cfg}
+// NewService constructs a Service. certsRepo backs the public profile's
+// certificate list — read-only here, same shared-repo pattern as
+// systemdesign.NewService's coursesRepo dependency.
+func NewService(repo *Repo, store storage.StorageClient, cfg *config.Config, certsRepo *certificates.Repo) *Service {
+	return &Service{repo: repo, storage: store, cfg: cfg, certsRepo: certsRepo}
 }
 
 // ─── GetMyProfile ─────────────────────────────────────────────────────────────
@@ -398,6 +402,21 @@ func (s *Service) GetPublicProfile(ctx context.Context, slug string) (*PublicPro
 		return nil, fmt.Errorf("profile: get public social links: %w", err)
 	}
 	pub.SocialLinks = socialLinks
+
+	// Certificates are always shown when present — each one is already
+	// independently public via its own cert_uuid verification link, so
+	// listing them here leaks nothing a privacy flag would meaningfully gate.
+	certs, err := s.certsRepo.ListMyCertificates(ctx, prof.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("profile: get public certificates: %w", err)
+	}
+	for _, c := range certs {
+		pub.Certificates = append(pub.Certificates, PublicCertificate{
+			CourseTitle: c.CourseTitle,
+			IssuedAt:    c.IssuedAt,
+			CertUUID:    c.CertUUID,
+		})
+	}
 
 	return pub, nil
 }

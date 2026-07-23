@@ -93,7 +93,7 @@ export function LandingPage({ courses, total }: LandingPageProps) {
             Courses built to take you from lesson to job-ready
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg">
-            MindForge combines instructor-led courses with labs, assessments,
+            MindForge combines structured courses with labs, assessments,
             mentoring, and a daily plan — everything you need to actually finish
             what you start.
           </p>
@@ -151,8 +151,8 @@ export function LandingPage({ courses, total }: LandingPageProps) {
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {total > 0
-                  ? `${total} published course${total === 1 ? "" : "s"} from instructors on MindForge.`
-                  : "Published courses from instructors on MindForge."}
+                  ? `${total} published course${total === 1 ? "" : "s"} ready to enroll.`
+                  : "Published courses ready to enroll."}
               </p>
             </div>
             <Button asChild variant="ghost">

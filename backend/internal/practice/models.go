@@ -11,6 +11,9 @@ const (
 	StatusActive    SessionStatus = "active"
 	StatusCompleted SessionStatus = "completed"
 	StatusAbandoned SessionStatus = "abandoned"
+
+	CategoryTechnical  = "technical"
+	CategoryBehavioral = "behavioral"
 )
 
 type PracticeSession struct {
@@ -19,6 +22,7 @@ type PracticeSession struct {
 	OrgID         *string       `json:"org_id"`
 	Technology    string        `json:"technology"`
 	Difficulty    string        `json:"difficulty"`
+	Category      string        `json:"category"`
 	QuestionCount int           `json:"question_count"`
 	Status        SessionStatus `json:"status"`
 	AIModel       *string       `json:"ai_model"`

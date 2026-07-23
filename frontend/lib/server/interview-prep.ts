@@ -29,7 +29,7 @@ export interface CodingItem {
 export interface PrepRound {
   id: string;
   plan_id: string;
-  round_type: "conceptual" | "coding";
+  round_type: "conceptual" | "behavioral" | "coding";
   order_index: number;
   practice_session_id?: string | null;
   items?: CodingItem[];
@@ -54,8 +54,12 @@ export interface PrepReport {
 export interface PrepPlan {
   id: string;
   user_id: string;
+  plan_type: "quick" | "targeted";
+  category: "technical" | "behavioral";
   job_title: string;
   jd_text?: string | null;
+  technology?: string | null;
+  difficulty?: string | null;
   extracted_role: string;
   extracted_seniority: string;
   extracted_skills: string[];

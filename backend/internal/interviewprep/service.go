@@ -17,10 +17,17 @@ var validSeniorities = []string{"beginner", "intermediate", "advanced", "expert"
 
 const (
 	conceptualQuestionCount = 6
+	// behavioralQuestionCount is larger than the technical conceptual round —
+	// a non-technical plan has no coding round, so its single round carries
+	// the full assessment on its own.
+	behavioralQuestionCount = 9
 	maxJDChars              = 4000
 	maxJobTitleChars        = 200
 	codingTimeLimitMs       = 5000
 	codingMemoryLimitKb     = 256 * 1024
+
+	roleTypeTechnical    = "technical"
+	roleTypeNonTechnical = "non_technical"
 )
 
 type Service struct {
@@ -59,43 +66,122 @@ func NewService(repo *Repo, aiProvider ai.LLMProvider, executor assessment.CodeE
 type extractedProfile struct {
 	Role       string   `json:"role"`
 	Seniority  string   `json:"seniority"`
+	RoleType   string   `json:"role_type"`
 	Skills     []string `json:"skills"`
 	FocusAreas []string `json:"focus_areas"`
 }
 
-func (s *Service) CreatePlan(ctx context.Context, userID string, orgID *string, jobTitle, jdText string) (Plan, error) {
+// CreatePlanInput carries both modes' fields. Quick plans use Technology/
+// Difficulty/Category/QuestionCount; targeted plans use JobTitle/JDText (role
+// type and therefore category is derived from JD extraction, not passed in).
+// The caller (handler.go) is responsible for validating the fields required
+// by Mode.
+type CreatePlanInput struct {
+	Mode          string
+	JobTitle      string
+	JDText        string
+	Technology    string
+	Difficulty    string
+	Category      string
+	QuestionCount int
+}
+
+func (s *Service) CreatePlan(ctx context.Context, userID string, orgID *string, input CreatePlanInput) (Plan, error) {
 	if !s.ai.Available() {
 		return Plan{}, fmt.Errorf("interviewprep: AI provider not available")
 	}
 
-	profile, model, err := s.extractProfile(ctx, jobTitle, jdText)
+	if input.Mode == ModeQuick {
+		return s.createQuickPlan(ctx, userID, orgID, input)
+	}
+	return s.createTargetedPlan(ctx, userID, orgID, input)
+}
+
+// createQuickPlan skips JD extraction and the coding round entirely — it's
+// the direct replacement for the old standalone practice.CreateSession flow,
+// just wrapped in a Plan so quick and targeted sessions share one list/detail
+// UI. Costs exactly one LLM call (question generation), same as before.
+func (s *Service) createQuickPlan(ctx context.Context, userID string, orgID *string, input CreatePlanInput) (Plan, error) {
+	category := input.Category
+	if category == "" {
+		category = practice.CategoryTechnical
+	}
+
+	practiceSession, err := s.practiceSvc.CreateSession(ctx, userID, orgID,
+		input.Technology, input.Difficulty, category, input.QuestionCount, "")
+	if err != nil {
+		return Plan{}, fmt.Errorf("interviewprep: create quick session: %w", err)
+	}
+
+	roundType := RoundConceptual
+	if category == practice.CategoryBehavioral {
+		roundType = RoundBehavioral
+	}
+
+	technology, difficulty := input.Technology, input.Difficulty
+	plan := Plan{
+		UserID:     userID,
+		OrgID:      orgID,
+		PlanType:   ModeQuick,
+		Category:   category,
+		JobTitle:   input.Technology,
+		Technology: &technology,
+		Difficulty: &difficulty,
+		Status:     StatusReady,
+		AIModel:    practiceSession.AIModel,
+	}
+	practiceSessionID := practiceSession.ID
+	rounds := []Round{
+		{
+			RoundType:         roundType,
+			OrderIndex:        0,
+			PracticeSessionID: &practiceSessionID,
+			Status:            RoundActive,
+		},
+	}
+
+	return s.repo.CreatePlanWithRounds(ctx, plan, rounds)
+}
+
+// createTargetedPlan builds a plan from a job title/JD. Technical roles get
+// the original two-round shape (conceptual + coding). Non-technical roles
+// get a single, larger behavioral round instead — there's no honest coding-
+// round equivalent for a role that doesn't involve writing code, so a fake
+// second round would just be padding.
+func (s *Service) createTargetedPlan(ctx context.Context, userID string, orgID *string, input CreatePlanInput) (Plan, error) {
+	profile, model, err := s.extractProfile(ctx, input.JobTitle, input.JDText)
 	if err != nil {
 		return Plan{}, err
 	}
 
-	// Round 1 (conceptual) — delegates entirely to the existing practice engine.
-	// technology is the joined skill list; difficulty is the extracted seniority.
-	practiceSession, err := s.practiceSvc.CreateSession(ctx, userID, orgID,
-		strings.Join(profile.Skills, ", "), profile.Seniority, conceptualQuestionCount, "")
-	if err != nil {
-		return Plan{}, fmt.Errorf("interviewprep: create conceptual round: %w", err)
+	category := practice.CategoryTechnical
+	roundType := RoundConceptual
+	questionCount := conceptualQuestionCount
+	if profile.RoleType == roleTypeNonTechnical {
+		category = practice.CategoryBehavioral
+		roundType = RoundBehavioral
+		questionCount = behavioralQuestionCount
 	}
 
-	// Round 2 (coding) — self-contained, generated here.
-	codingItems, err := s.generateCodingItems(ctx, profile)
+	// Round 1 — delegates entirely to the existing practice engine. technology
+	// is the joined skill list; difficulty is the extracted seniority.
+	practiceSession, err := s.practiceSvc.CreateSession(ctx, userID, orgID,
+		strings.Join(profile.Skills, ", "), profile.Seniority, category, questionCount, "")
 	if err != nil {
-		return Plan{}, fmt.Errorf("interviewprep: create coding round: %w", err)
+		return Plan{}, fmt.Errorf("interviewprep: create round 1: %w", err)
 	}
 
 	var jdPtr *string
-	if strings.TrimSpace(jdText) != "" {
-		jdPtr = &jdText
+	if strings.TrimSpace(input.JDText) != "" {
+		jdPtr = &input.JDText
 	}
 
 	plan := Plan{
 		UserID:             userID,
 		OrgID:              orgID,
-		JobTitle:           jobTitle,
+		PlanType:           ModeTargeted,
+		Category:           category,
+		JobTitle:           input.JobTitle,
 		JDText:             jdPtr,
 		ExtractedRole:      profile.Role,
 		ExtractedSeniority: profile.Seniority,
@@ -106,17 +192,25 @@ func (s *Service) CreatePlan(ctx context.Context, userID string, orgID *string, 
 	practiceSessionID := practiceSession.ID
 	rounds := []Round{
 		{
-			RoundType:         RoundConceptual,
+			RoundType:         roundType,
 			OrderIndex:        0,
 			PracticeSessionID: &practiceSessionID,
 			Status:            RoundActive,
 		},
-		{
+	}
+
+	// Round 2 (coding) — technical roles only.
+	if category == practice.CategoryTechnical {
+		codingItems, err := s.generateCodingItems(ctx, profile)
+		if err != nil {
+			return Plan{}, fmt.Errorf("interviewprep: create coding round: %w", err)
+		}
+		rounds = append(rounds, Round{
 			RoundType:  RoundCoding,
 			OrderIndex: 1,
 			Items:      codingItems,
 			Status:     RoundPending,
-		},
+		})
 	}
 
 	return s.repo.CreatePlanWithRounds(ctx, plan, rounds)
@@ -152,6 +246,9 @@ func (s *Service) extractProfile(ctx context.Context, jobTitle, jdText string) (
 	}
 	if !contains(validSeniorities, profile.Seniority) {
 		profile.Seniority = "intermediate"
+	}
+	if profile.RoleType != roleTypeNonTechnical {
+		profile.RoleType = roleTypeTechnical
 	}
 	if profile.Role == "" {
 		profile.Role = jobTitle

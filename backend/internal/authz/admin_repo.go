@@ -382,14 +382,15 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 	args = append(args, params.TenantID, limit, params.Offset)
 	listQ := fmt.Sprintf(`
 		SELECT u.id, u.name, u.email, u.avatar_url, m.created_at,
-		       COALESCE(ur.role_count, 0) AS role_count
+		       COALESCE(ur.role_names, '{}'::text[]) AS role_names
 		FROM org_members m
 		JOIN users u ON u.id = m.user_id
 		LEFT JOIN (
-			SELECT user_id, COUNT(*) AS role_count
-			FROM user_roles
-			WHERE tenant_id = $%d
-			GROUP BY user_id
+			SELECT ur.user_id, array_agg(r.name ORDER BY r.name) AS role_names
+			FROM user_roles ur
+			JOIN roles r ON r.id = ur.role_id AND r.is_active = true
+			WHERE ur.tenant_id = $%d
+			GROUP BY ur.user_id
 		) ur ON ur.user_id = u.id
 		%s
 		ORDER BY u.name ASC
@@ -404,7 +405,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 	var users []UserSummary
 	for rows.Next() {
 		var u UserSummary
-		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.RoleCount); err != nil {
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.RoleNames); err != nil {
 			return nil, 0, fmt.Errorf("admin: list users: scan: %w", err)
 		}
 		users = append(users, u)

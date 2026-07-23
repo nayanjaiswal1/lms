@@ -50,6 +50,11 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	// A student's own tickets — any authenticated org member.
 	r.Get("/api/mentor-tickets/me", rt.handler.ListMyTickets)
 
+	// Student-initiated mentor request — any authenticated org member; the
+	// service verifies course enrollment and dedupes against an existing
+	// active ticket.
+	r.Post("/api/mentor-tickets/request", rt.handler.RequestMentor)
+
 	// Self-claim — any mentor-role org member.
 	r.Group(func(r chi.Router) {
 		r.Use(mentorOnly)
@@ -76,6 +81,9 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	r.Get("/api/mentor-tickets/{ticketID}/messages", rt.handler.ListChatMessages)
 	r.Post("/api/mentor-tickets/{ticketID}/messages", rt.handler.SendChatMessage)
 
+	// Ticket status + mentor-assignment history — same access rule as chat.
+	r.Get("/api/mentor-tickets/{ticketID}/history", rt.handler.GetTicketHistory)
+
 	// Change-request review — gated by mentoring.assign_tickets, same staff
 	// who can hand-assign a ticket in the first place.
 	r.Group(func(r chi.Router) {
@@ -83,6 +91,12 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 		r.Get("/api/mentor-change-requests", rt.handler.ListChangeRequests)
 		r.Post("/api/mentor-change-requests/{requestID}/approve", rt.handler.ApproveChangeRequest)
 		r.Post("/api/mentor-change-requests/{requestID}/deny", rt.handler.DenyChangeRequest)
+
+		// Ticket detail — the single-page lifecycle view (assignments +
+		// change requests + reports) for staff. Same permission group as
+		// change-request review since it's the same "manages the ticket
+		// queue" audience.
+		r.Get("/api/mentor-tickets/{ticketID}/detail", rt.handler.GetTicketDetail)
 	})
 
 	// Directory + reporting — any authenticated org member.

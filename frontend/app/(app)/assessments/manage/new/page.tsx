@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
 
 import { CreateAssessmentForm } from "@/app/(app)/assessments/manage/create-assessment-form";
+import { ASSESSMENT_PARENT_TYPE } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "New Assessment",
 };
 
-export default function NewAssessmentPage() {
+interface NewAssessmentPageProps {
+  searchParams: Promise<{ type?: string }>;
+}
+
+export default async function NewAssessmentPage({ searchParams }: NewAssessmentPageProps) {
+  const { type } = await searchParams;
+  const defaultParentType = type === ASSESSMENT_PARENT_TYPE.HIRING ? ASSESSMENT_PARENT_TYPE.HIRING : undefined;
+
   return (
     <main className="page-container-sm py-10">
       <header className="mb-6 flex flex-col gap-1">
@@ -14,7 +22,7 @@ export default function NewAssessmentPage() {
         <p className="text-muted-foreground">Configure the test, then add questions and assign it.</p>
       </header>
       <div className="card-base p-6">
-        <CreateAssessmentForm />
+        <CreateAssessmentForm defaultParentType={defaultParentType} />
       </div>
     </main>
   );

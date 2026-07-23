@@ -27,9 +27,10 @@ type RequestChangeFormData = z.infer<typeof RequestChangeSchema>;
 
 interface RequestMentorChangeDialogProps {
   ticketId: string;
+  showTrigger?: boolean;
 }
 
-export function RequestMentorChangeDialog({ ticketId }: RequestMentorChangeDialogProps) {
+export function RequestMentorChangeDialog({ ticketId, showTrigger = true }: RequestMentorChangeDialogProps) {
   const [open, setOpen] = useQueryState("request-change", parseAsBoolean.withDefault(false));
   const router = useRouter();
   const form = useForm<RequestChangeFormData>({
@@ -51,9 +52,11 @@ export function RequestMentorChangeDialog({ ticketId }: RequestMentorChangeDialo
 
   return (
     <Dialog open={open} onOpenChange={(next) => void setOpen(next || null)}>
-      <DialogTrigger asChild>
-        <Button variant="outline">Request a different mentor</Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="outline">Request a different mentor</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>Request a different mentor</DialogTitle>

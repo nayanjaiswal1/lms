@@ -18,6 +18,7 @@ import (
 //	leaderboard:global                          — platform-wide
 //	leaderboard:org:{org_id}                    — org-scoped
 //	leaderboard:batch:{batch_id}                — batch/bootcamp-scoped
+//	leaderboard:group:{cohort_group_id}         — cohort-group-scoped (rolls up every batch in its subtree)
 //	leaderboard:course:{course_id}              — course-scoped
 //	leaderboard:feature:org:{org_id}:problems   — problems only
 //	leaderboard:feature:org:{org_id}:quizzes    — quizzes only
@@ -537,6 +538,14 @@ func (r *Repo) SetUserProfileCache(ctx context.Context, userID, name string, ava
 func (r *Repo) GetUserRank(ctx context.Context, key, userID string) (rank int64, xp float64, err error) {
 	rank, err = r.rdb.ZRevRank(ctx, key, userID).Result()
 	if err == redis.Nil {
+		// "group" scope has no real-time ZIncrBy write path (IncrementSortedSets
+		// only touches global/org/batch/course/feature on XP award — a single XP
+		// event doesn't know which cohort_groups a batch rolls up into), so its
+		// Redis key is never populated. Compute directly from Postgres instead of
+		// silently reporting "not ranked".
+		if scope, scopeID, _ := parseLBKey(key); scope == "group" {
+			return r.groupUserRankFromDB(ctx, scopeID, userID)
+		}
 		return -1, 0, nil
 	}
 	if err != nil {
@@ -547,6 +556,42 @@ func (r *Repo) GetUserRank(ctx context.Context, key, userID string) (rank int64,
 		xp = 0
 	}
 	return rank, xp, nil
+}
+
+// groupUserRankFromDB computes a user's 0-based rank and total XP within a
+// cohort_groups subtree directly from Postgres — the DB-fallback counterpart
+// to leaderboardFromDB's "group" case, needed because group scope has no
+// Redis sorted set to rank against (see GetUserRank).
+func (r *Repo) groupUserRankFromDB(ctx context.Context, groupID, userID string) (rank int64, xp float64, err error) {
+	var rnk int64
+	var total int
+	err = r.pool.QueryRow(ctx, `
+		WITH RECURSIVE subtree AS (
+			SELECT id FROM cohort_groups WHERE id = $1
+			UNION ALL
+			SELECT cg.id FROM cohort_groups cg JOIN subtree s ON cg.parent_id = s.id
+		),
+		totals AS (
+			SELECT bm.user_id, COALESCE(SUM(xe.xp_amount), 0)::int AS total_xp
+			FROM batch_members bm
+			JOIN batches b ON b.id = bm.batch_id AND b.cohort_group_id IN (SELECT id FROM subtree)
+			LEFT JOIN xp_events xe ON xe.user_id = bm.user_id AND xe.batch_id = bm.batch_id
+			GROUP BY bm.user_id
+		),
+		ranked AS (
+			SELECT user_id, total_xp, RANK() OVER (ORDER BY total_xp DESC) - 1 AS rnk
+			FROM totals
+		)
+		SELECT rnk, total_xp FROM ranked WHERE user_id = $2`,
+		groupID, userID,
+	).Scan(&rnk, &total)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return -1, 0, nil
+	}
+	if err != nil {
+		return -1, 0, fmt.Errorf("rewards: group user rank: %w", err)
+	}
+	return rnk, float64(total), nil
 }
 
 // ─── PostgreSQL: fallback leaderboard ────────────────────────────────────────
@@ -590,6 +635,29 @@ func (r *Repo) leaderboardFromDB(ctx context.Context, key string, limit, offset 
 			LEFT JOIN xp_events xe ON xe.user_id = u.id AND xe.batch_id = bm.batch_id
 			LEFT JOIN user_stats us ON us.user_id = u.id
 			WHERE bm.batch_id = $1
+			GROUP BY u.id, u.name, u.avatar_url, us.xp_level, us.xp_level_name
+			ORDER BY total_xp DESC
+			LIMIT $2 OFFSET $3`
+		args = []any{scopeID, limit, offset}
+	case "group":
+		// Rolls up every batch under a cohort_groups subtree (Class/Section
+		// hierarchy above batches). rewards doesn't import internal/assessment,
+		// so this CTE is duplicated from Repo.DescendantBatchIDs there — it's
+		// the same query, just inlined to avoid a cross-package dependency.
+		query = `
+			WITH RECURSIVE subtree AS (
+				SELECT id FROM cohort_groups WHERE id = $1
+				UNION ALL
+				SELECT cg.id FROM cohort_groups cg JOIN subtree s ON cg.parent_id = s.id
+			)
+			SELECT u.id, u.name, u.avatar_url,
+			       COALESCE(SUM(xe.xp_amount), 0)::int AS total_xp,
+			       COALESCE(us.xp_level, 1), COALESCE(us.xp_level_name, 'Apprentice')
+			FROM batch_members bm
+			JOIN batches b ON b.id = bm.batch_id AND b.cohort_group_id IN (SELECT id FROM subtree)
+			JOIN users u ON u.id = bm.user_id
+			LEFT JOIN xp_events xe ON xe.user_id = u.id AND xe.batch_id = bm.batch_id
+			LEFT JOIN user_stats us ON us.user_id = u.id
 			GROUP BY u.id, u.name, u.avatar_url, us.xp_level, us.xp_level_name
 			ORDER BY total_xp DESC
 			LIMIT $2 OFFSET $3`
@@ -736,6 +804,12 @@ func (r *Repo) rebuildGlobal(ctx context.Context) error {
 }
 
 func (r *Repo) rebuildScope(ctx context.Context, key, scope, scopeID, _ string) error {
+	// "group" spans multiple batches (a cohort_groups subtree), so it can't use
+	// the single-column WHERE shortcut below — resolve the subtree first.
+	if scope == "group" {
+		return r.rebuildGroupScope(ctx, key, scopeID)
+	}
+
 	var col string
 	switch scope {
 	case "org":
@@ -749,6 +823,37 @@ func (r *Repo) rebuildScope(ctx context.Context, key, scope, scopeID, _ string) 
 	}
 	rows, err := r.pool.Query(ctx, fmt.Sprintf(`
 		SELECT user_id, SUM(xp_amount)::int FROM xp_events WHERE %s = $1 GROUP BY user_id`, col), scopeID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	pipe := r.rdb.Pipeline()
+	for rows.Next() {
+		var userID string
+		var xp int
+		if err := rows.Scan(&userID, &xp); err != nil {
+			return err
+		}
+		pipe.ZAdd(ctx, key, redis.Z{Score: float64(xp), Member: userID})
+	}
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+// rebuildGroupScope rebuilds a cohort-group leaderboard by resolving its
+// subtree's batches and summing xp_events across all of them per user — the
+// Redis-rebuild counterpart to leaderboardFromDB's "group" case.
+func (r *Repo) rebuildGroupScope(ctx context.Context, key, groupID string) error {
+	rows, err := r.pool.Query(ctx, `
+		WITH RECURSIVE subtree AS (
+			SELECT id FROM cohort_groups WHERE id = $1
+			UNION ALL
+			SELECT cg.id FROM cohort_groups cg JOIN subtree s ON cg.parent_id = s.id
+		)
+		SELECT xe.user_id, SUM(xe.xp_amount)::int
+		FROM xp_events xe
+		JOIN batches b ON b.id = xe.batch_id AND b.cohort_group_id IN (SELECT id FROM subtree)
+		GROUP BY xe.user_id`, groupID)
 	if err != nil {
 		return err
 	}
@@ -859,6 +964,7 @@ func parseLBKey(key string) (scope, scopeID, featureType string) {
 		pfxGlobal  = "leaderboard:global"
 		pfxOrg     = "leaderboard:org:"        // 16 chars
 		pfxBatch   = "leaderboard:batch:"      // 18 chars
+		pfxGroup   = "leaderboard:group:"      // 18 chars
 		pfxCourse  = "leaderboard:course:"     // 19 chars
 		pfxFeature = "leaderboard:feature:org:" // 24 chars
 	)
@@ -869,6 +975,8 @@ func parseLBKey(key string) (scope, scopeID, featureType string) {
 		return "org", key[len(pfxOrg):], ""
 	case len(key) > len(pfxBatch) && key[:len(pfxBatch)] == pfxBatch:
 		return "batch", key[len(pfxBatch):], ""
+	case len(key) > len(pfxGroup) && key[:len(pfxGroup)] == pfxGroup:
+		return "group", key[len(pfxGroup):], ""
 	case len(key) > len(pfxCourse) && key[:len(pfxCourse)] == pfxCourse:
 		return "course", key[len(pfxCourse):], ""
 	case len(key) > len(pfxFeature) && key[:len(pfxFeature)] == pfxFeature:

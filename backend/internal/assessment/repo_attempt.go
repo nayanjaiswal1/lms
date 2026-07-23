@@ -399,6 +399,57 @@ func (r *Repo) FinalizeAttempt(ctx context.Context, attemptID, status string, sc
 	})
 }
 
+// OverrideAnswerScore lets staff manually adjust one auto-graded answer's
+// score (e.g. spot-checking a sandbox-graded FastAPI/React submission's code
+// quality on top of its pass/fail test result) and recomputes the attempt's
+// aggregate score/percentage/passed from the answers table — reusing the same
+// sum-of-points-awarded arithmetic FinalizeAttempt already establishes,
+// instead of re-deriving the scoring formula here.
+func (r *Repo) OverrideAnswerScore(ctx context.Context, orgID, attemptID, answerID, reviewerID string, score float64, note string) (Attempt, error) {
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx,
+			`UPDATE attempt_answers ans
+			 SET points_awarded = $3,
+			     is_correct      = ($3 >= ans.max_points AND ans.max_points > 0),
+			     evaluated_at    = now(),
+			     override_note   = $4,
+			     overridden_by   = $5,
+			     overridden_at   = now()
+			 FROM assessment_attempts att
+			 WHERE ans.id = $2 AND ans.attempt_id = $1
+			   AND att.id = ans.attempt_id AND att.org_id = $6`,
+			attemptID, answerID, score, note, reviewerID, orgID)
+		if err != nil {
+			return fmt.Errorf("assessment: override answer score: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+
+		tag, err = tx.Exec(ctx,
+			`UPDATE assessment_attempts a
+			 SET score      = s.total,
+			     percentage = CASE WHEN a.max_score > 0 THEN 100 * s.total / a.max_score ELSE 0 END,
+			     passed     = CASE WHEN a.max_score > 0 THEN (100 * s.total / a.max_score) >= asmt.pass_percentage ELSE false END,
+			     updated_at = now()
+			 FROM (SELECT sum(points_awarded) AS total FROM attempt_answers WHERE attempt_id = $1) s,
+			      assessments asmt
+			 WHERE a.id = $1 AND asmt.id = a.assessment_id`,
+			attemptID)
+		if err != nil {
+			return fmt.Errorf("assessment: recompute attempt totals after override: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		return Attempt{}, err
+	}
+	return r.GetAttempt(ctx, attemptID)
+}
+
 // RecordCodingSubmission persists a coding execution result linked to an answer.
 func (r *Repo) RecordCodingSubmission(ctx context.Context, answerID, language, source string, res RunResult) error {
 	resultJSON, err := json.Marshal(res.Cases)

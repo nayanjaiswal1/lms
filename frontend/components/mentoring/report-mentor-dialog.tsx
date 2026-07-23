@@ -35,9 +35,10 @@ type ReportFormData = z.infer<typeof ReportSchema>;
 interface ReportMentorDialogProps {
   mentorId: string;
   ticketId?: string;
+  showTrigger?: boolean;
 }
 
-export function ReportMentorDialog({ mentorId, ticketId }: ReportMentorDialogProps) {
+export function ReportMentorDialog({ mentorId, ticketId, showTrigger = true }: ReportMentorDialogProps) {
   const [open, setOpen] = useQueryState("report", parseAsBoolean.withDefault(false));
   const form = useForm<ReportFormData>({
     resolver: zodResolver(ReportSchema),
@@ -57,9 +58,11 @@ export function ReportMentorDialog({ mentorId, ticketId }: ReportMentorDialogPro
 
   return (
     <Dialog open={open} onOpenChange={(next) => void setOpen(next || null)}>
-      <DialogTrigger asChild>
-        <Button variant="outline">Report this mentor</Button>
-      </DialogTrigger>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="outline">Report this mentor</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>Report this mentor</DialogTitle>

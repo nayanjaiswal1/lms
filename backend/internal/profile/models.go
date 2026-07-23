@@ -173,15 +173,27 @@ type ProfileOverview struct {
 // PublicProfile is the limited view of a profile visible to anonymous visitors
 // when public_enabled is true. Privacy flags gate optional sections.
 type PublicProfile struct {
-	Name            string       `json:"name"`
-	DisplayName     *string      `json:"display_name"`
-	AvatarURL       *string      `json:"avatar_url"`
-	Bio             *string      `json:"bio"`
-	ExperienceLevel *string      `json:"experience_level"`
-	CurrentRole     *string      `json:"current_role"`
-	Skills          []Skill      `json:"skills,omitempty"`
-	SocialLinks     *SocialLinks `json:"social_links,omitempty"`
-	Stats           *Stats       `json:"stats,omitempty"`
+	Name            string              `json:"name"`
+	DisplayName     *string             `json:"display_name"`
+	AvatarURL       *string             `json:"avatar_url"`
+	Bio             *string             `json:"bio"`
+	ExperienceLevel *string             `json:"experience_level"`
+	CurrentRole     *string             `json:"current_role"`
+	Skills          []Skill             `json:"skills,omitempty"`
+	SocialLinks     *SocialLinks        `json:"social_links,omitempty"`
+	Stats           *Stats              `json:"stats,omitempty"`
+	Certificates    []PublicCertificate `json:"certificates,omitempty"`
+}
+
+// PublicCertificate is the portfolio-facing view of an earned certificate —
+// no user_id/attempt_id, just enough to display and link to the same
+// cert_uuid that GET /api/certificates/:uuid independently verifies. Always
+// shown when present (unlike Skills/Stats) since each certificate is already
+// individually public via its own verification link.
+type PublicCertificate struct {
+	CourseTitle string    `json:"course_title"`
+	IssuedAt    time.Time `json:"issued_at"`
+	CertUUID    string    `json:"cert_uuid"`
 }
 
 // ─── Input types ───────────────────────────────────────────────────────────────

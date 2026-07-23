@@ -12,6 +12,7 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/calendar"
+	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/experience"
@@ -61,7 +62,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// ─── Handlers ─────────────────────────────────────────────────────────────
 	authHandler := auth.NewHandler(cfg, pool, cache, rdb)
 	onboardingHandler := onboarding.NewHandler(pool)
-	profileHandler := profile.New(pool, cfg, store)
+	// Built early (before certificatesRouter below) purely so the public
+	// profile can list a learner's certificates — same *pool-backed Repo
+	// shape certificatesRouter constructs internally for its own routes.
+	profileCertsRepo := certificates.NewRepo(pool)
+	profileHandler := profile.New(pool, cfg, store, profileCertsRepo)
 
 	// Courses service is built explicitly (rather than via courses.New) so its
 	// *courses.Service can be shared with the assessment and labs handlers below —
@@ -83,7 +88,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service)
 
-	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc, store)
+	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc, store, labsRuntime)
 	rewardsHandler := rewards.New(pool, rdb)
 	messagingRouter := messaging.New(pool)
 	feedbackRouter := feedback.New(pool, mentoringRouter.Service)
@@ -95,6 +100,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	sheetsRouter := sheets.New(pool)
 	highlightsRouter := highlights.New(pool, aiProvider)
 	systemDesignRouter := systemdesign.New(pool, coursesRepo, aiProvider)
+	certificatesRouter := certificates.New(pool, coursesRepo, assessment.NewExecutor(cfg))
 	calendarRouter := calendar.New(pool, authzHandler.Service(), cfg)
 	whatnowRouter := whatnow.New(pool)
 	featuresRouter := features.New(pool)
@@ -143,6 +149,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	// Public course catalog — anonymous marketplace listing for the landing page.
 	coursesRouter.RegisterPublicRoutes(r)
+
+	// Public certificate verification — no auth, proof of access is the
+	// cert_uuid itself.
+	certificatesRouter.RegisterPublicRoutes(r)
 
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache)
@@ -230,6 +240,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// clarifying-question chat, and AI feedback on course modules of
 		// type='system_design'.
 		systemDesignRouter.RegisterRoutes(r, authzHandler.Service())
+
+		// Certificates — course final test (MCQ + coding), grading, and
+		// certificate issuance/verification.
+		certificatesRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Labs — interactive sandboxed lab environments (terminal, code, guided, playground).
 		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime)

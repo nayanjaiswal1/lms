@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCourseTree } from "@/lib/server/courses";
+import { getWikiSpaces } from "@/lib/server/wiki";
 import { ModuleEditor } from "@/components/courses/module-editor";
+import { CourseDocsToggle } from "@/components/courses/course-docs-toggle";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -18,8 +20,12 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function InstructorCourseDetailPage({ params }: Props) {
   const { id } = await params;
-  const tree = await getCourseTree(id).catch(() => null);
+  const [tree, wikiSpaces] = await Promise.all([
+    getCourseTree(id).catch(() => null),
+    getWikiSpaces().catch(() => []),
+  ]);
   if (!tree) notFound();
+  const docsSpace = wikiSpaces.find((s) => s.course_id === id) ?? null;
 
   return (
     <main className="page-container py-8">
@@ -37,6 +43,7 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
           <Link className="text-sm text-primary hover:underline" href={ROUTES.manageCourseAnalytics(id)}>
             View analytics
           </Link>
+          <CourseDocsToggle courseId={id} courseTitle={tree.title} existingSpaceSlug={docsSpace?.slug ?? null} />
         </div>
       </div>
 

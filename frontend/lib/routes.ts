@@ -19,12 +19,12 @@ const ROUTES = {
 
   // Student
   DASHBOARD:           "/dashboard",
+  LEARN:               "/learn",
   NOW:                 "/now",
   PLAN:                "/plan",
   CALENDAR:            "/calendar",
   LEADERBOARD:         "/leaderboard",
   REVIEW:              "/review",
-  CERTIFICATES:        "/certificates",
   SHEETS:              "/sheets",
   SHEETS_NEW:          "/sheets/new",
   SHEETS_COMPARE:      "/sheets/compare",
@@ -50,15 +50,13 @@ const ROUTES = {
 
   // Batches (assessment delivery)
   BATCHES:                 "/batches",
+  COHORT_GROUPS:           "/cohort-groups",
 
   // Assessments — student
   ASSESSMENTS:         "/assessments",
 
-  // Practice / AI interview prep
-  PRACTICE:            "/practice",
-  PRACTICE_NEW:        "/practice/new",
-
-  // Interview Prep — paste a job title/JD, get a scored multi-round mock test
+  // Interview Prep — single entry point for both quick topic drills and a
+  // full job-title/JD-derived scored mock test (see plan_type on PrepPlan)
   INTERVIEW_PREP:      "/interview-prep",
   INTERVIEW_PREP_NEW:  "/interview-prep/new",
 
@@ -93,7 +91,7 @@ const ROUTES = {
   ADMIN_RBAC_ROLES_NEW:    "/admin/rbac/roles/new",
   ADMIN_RBAC_PERMISSIONS:  "/admin/rbac/permissions",
   ADMIN_RBAC_AUDIT:        "/admin/rbac/audit",
-  ADMIN_RBAC_USERS:        "/admin/rbac/users",
+  USERS:                   "/users",
 
   // Admin — Labs
   ADMIN_LABS_WARM_POOLS:   "/admin/labs/warm-pools",
@@ -131,9 +129,11 @@ const ROUTES = {
   manageCourseAnalytics:    (id: string)                        => `/courses/manage/${id}/analytics`,
   batch:                    (id: string)                        => `/batches/${id}`,
   batchImport:              (id: string)                        => `/batches/${id}/import`,
+  cohortGroup:              (id: string)                        => `/cohort-groups/${id}`,
   manageAssessment:         (id: string)                        => `/assessments/manage/${id}`,
   manageAssessmentResults:  (id: string)                        => `/assessments/manage/${id}/results`,
   manageAssessmentReview:   (id: string)                        => `/assessments/manage/${id}/review`,
+  mentoringTicketDetail:    (id: string)                        => `/mentoring/tickets/${id}`,
   mentoringTicketChat:      (id: string)                        => `/mentoring/tickets/${id}/chat`,
   mentor:                   (id: string)                        => `/mentors/${id}`,
   practiceSession:          (id: string)                        => `/practice/${id}`,
@@ -143,6 +143,7 @@ const ROUTES = {
   roadmap:                  (id: string)                        => `/roadmap/${id}`,
   certificate:              (uuid: string)                      => `/certificates/${uuid}`,
   sheet:                    (slug: string)                      => `/sheets/${slug}`,
+  sheetJoin:                (slug: string)                      => `/sheets/join/${slug}`,
   assessmentTake:           (id: string)                        => `/assessments/${id}/take`,
   assessmentResult:         (attemptId: string)                 => `/assessments/result/${attemptId}`,
   attemptProctoring:        (attemptId: string)                 => `/assessments/manage/attempts/${attemptId}/proctoring`,
@@ -150,9 +151,10 @@ const ROUTES = {
   interviewLive:            (id: string)                        => `/interview/${id}/live`,
   interviewJoin:            (code: string)                      => `/interview/join/${code}`,
   design:                   (id: string)                        => `/design/${id}`,
+  courseFinalTest:          (slug: string)                     => `/courses/${slug}/final-test`,
   wikiSpace:                (spaceSlug: string)                 => `/wiki/${spaceSlug}`,
   wikiPage:                 (spaceSlug: string, ...path: string[]) => `/wiki/${spaceSlug}/${path.join("/")}`,
-  wikiEdit:                 (spaceSlug: string, ...path: string[]) => `/wiki/${spaceSlug}/${path.join("/")}/edit`,
+  wikiEdit:                 (spaceSlug: string, ...path: string[]) => `/wiki/${spaceSlug}/edit/${path.join("/")}`,
   publicProfile:            (slug: string)                      => `/u/${slug}`,
 
   // Labs

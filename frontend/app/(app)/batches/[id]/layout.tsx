@@ -1,8 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
-import { MessageSquare, BookOpen, Users, BarChart3, LineChart, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { BatchAvatar } from "@/components/batches/batch-avatar";
+import { BatchTabs } from "@/app/(app)/batches/[id]/batch-tabs";
 import { getBatch, getOrgId } from "@/lib/server/batches";
 import { getCurrentOrgType } from "@/lib/orgs/server";
 import { resolveTerminology } from "@/lib/terminology";
@@ -30,15 +29,6 @@ export default async function BatchLayout({ params, children }: Props) {
 
   const t = resolveTerminology(orgType);
 
-  const TABS = [
-    { href: ROUTES.batch(id), label: "People", Icon: Users },
-    { href: `${ROUTES.batch(id)}/courses`, label: "Courses", Icon: BookOpen },
-    { href: `${ROUTES.batch(id)}/progress`, label: "Progress", Icon: BarChart3 },
-    { href: `${ROUTES.batch(id)}/analytics`, label: "Analytics", Icon: LineChart },
-    { href: `${ROUTES.batch(id)}/tests`, label: `${t.class_} Tests`, Icon: ClipboardList },
-    { href: `${ROUTES.batch(id)}/chat`, label: "Chat", Icon: MessageSquare },
-  ] as const;
-
   return (
     <main className="page-container py-8">
       <div className="page-header">
@@ -64,18 +54,7 @@ export default async function BatchLayout({ params, children }: Props) {
         </div>
       </div>
 
-      <nav aria-label="Batch sections" className="mb-6 flex gap-1 border-b border-border overflow-x-auto">
-        {TABS.map(({ href, label, Icon }) => (
-          <Link
-            className="flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors duration-fast border-transparent text-muted-foreground hover:text-foreground whitespace-nowrap"
-            href={href}
-            key={href}
-          >
-            <Icon aria-hidden className="h-4 w-4" />
-            {label}
-          </Link>
-        ))}
-      </nav>
+      <BatchTabs batchId={id} testsLabel={`${t.class_} Tests`} />
 
       <div>{children}</div>
     </main>

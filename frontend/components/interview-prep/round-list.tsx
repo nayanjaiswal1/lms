@@ -11,19 +11,72 @@ interface RoundListProps {
   plan: PrepPlan;
 }
 
+// The primary round is whichever practice-session-backed round starts the
+// plan — "conceptual" for technical plans, "behavioral" for non-technical
+// ones. Both are answered through the same /practice/[sessionId] UI, just
+// with different generated content. A secondary "coding" round only exists
+// for technical, targeted plans — quick plans and non-technical targeted
+// plans are single-round.
 export async function RoundList({ plan }: RoundListProps) {
-  const conceptual = plan.rounds?.find((r) => r.round_type === "conceptual");
-  const coding = plan.rounds?.find((r) => r.round_type === "coding");
+  const primary = plan.rounds?.find((r) => r.round_type === "conceptual" || r.round_type === "behavioral");
+  const secondary = plan.rounds?.find((r) => r.round_type === "coding");
 
-  const session = conceptual?.practice_session_id
-    ? await getPracticeSession(conceptual.practice_session_id).catch(() => null)
+  const session = primary?.practice_session_id
+    ? await getPracticeSession(primary.practice_session_id).catch(() => null)
     : null;
 
   const answered = session?.items?.filter((i) => i.answered_at !== null).length ?? 0;
   const total = session?.items?.length ?? 0;
-  const conceptualDone = total > 0 && answered === total;
-  const codingDone = coding?.status === "completed";
-  const bothDone = conceptualDone && codingDone;
+  const primaryDone = total > 0 && answered === total;
+  const secondaryDone = secondary?.status === "completed";
+  const readyForReport = primaryDone && (!secondary || secondaryDone);
+
+  const primaryHref = session
+    ? `${ROUTES.practiceSession(session.id)}?q=${Math.min(answered, Math.max(total - 1, 0))}`
+    : "#";
+
+  const isBehavioral = primary?.round_type === "behavioral";
+  const primaryLabel = secondary ? "Round 1 · Conceptual" : isBehavioral ? "Behavioral Round" : "Practice Session";
+
+  if (!secondary) {
+    return (
+      <div className="flex flex-col gap-4">
+        {plan.plan_type === "targeted" && (
+          <div className="ai-surface rounded-lg p-4">
+            <p className="text-sm">
+              <span className="font-medium">{plan.extracted_role}</span> · <span className="capitalize">{plan.extracted_seniority}</span>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {plan.extracted_skills.map((skill) => (
+                <Badge className="text-xs" key={skill} variant="outline">{skill}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+        <Link className="card-interactive flex items-center gap-4 p-5" href={primaryHref}>
+          {primaryDone ? (
+            <CheckCircle2 aria-hidden className="h-6 w-6 shrink-0 text-primary" />
+          ) : (
+            <Circle aria-hidden className="h-6 w-6 shrink-0 text-muted-foreground" />
+          )}
+          <div className="flex flex-1 flex-col gap-1">
+            <span className="font-medium">{primaryLabel}</span>
+            <span className="text-sm text-muted-foreground">
+              {total > 0 ? `${answered}/${total} answered` : "Preparing questions…"}
+            </span>
+          </div>
+          <Badge variant="outline">{primaryDone ? "Completed" : "In progress"}</Badge>
+        </Link>
+
+        {/* Quick plans never generate a report; non-technical targeted plans do. */}
+        {plan.plan_type === "targeted" && readyForReport && (
+          <Button asChild className="mt-2" size="lg">
+            <Link href={ROUTES.interviewPrepReport(plan.id)}>View readiness report</Link>
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -39,28 +92,25 @@ export async function RoundList({ plan }: RoundListProps) {
       </div>
 
       {/* Round 1 — conceptual */}
-      <Link
-        className="card-interactive flex items-center gap-4 p-5"
-        href={session ? `${ROUTES.practiceSession(session.id)}?q=${Math.min(answered, Math.max(total - 1, 0))}` : "#"}
-      >
-        {conceptualDone ? (
+      <Link className="card-interactive flex items-center gap-4 p-5" href={primaryHref}>
+        {primaryDone ? (
           <CheckCircle2 aria-hidden className="h-6 w-6 shrink-0 text-primary" />
         ) : (
           <Circle aria-hidden className="h-6 w-6 shrink-0 text-muted-foreground" />
         )}
         <div className="flex flex-1 flex-col gap-1">
-          <span className="font-medium">Round 1 · Conceptual</span>
+          <span className="font-medium">{primaryLabel}</span>
           <span className="text-sm text-muted-foreground">
             {total > 0 ? `${answered}/${total} answered` : "Preparing questions…"}
           </span>
         </div>
-        <Badge variant="outline">{conceptualDone ? "Completed" : "In progress"}</Badge>
+        <Badge variant="outline">{primaryDone ? "Completed" : "In progress"}</Badge>
       </Link>
 
       {/* Round 2 — coding */}
-      {conceptualDone ? (
+      {primaryDone ? (
         <Link className="card-interactive flex items-center gap-4 p-5" href={ROUTES.interviewPrepCoding(plan.id)}>
-          {codingDone ? (
+          {secondaryDone ? (
             <CheckCircle2 aria-hidden className="h-6 w-6 shrink-0 text-primary" />
           ) : (
             <Circle aria-hidden className="h-6 w-6 shrink-0 text-muted-foreground" />
@@ -68,11 +118,13 @@ export async function RoundList({ plan }: RoundListProps) {
           <div className="flex flex-1 flex-col gap-1">
             <span className="font-medium">Round 2 · Coding</span>
             <span className="text-sm text-muted-foreground">
-              {coding?.items?.length ?? 0} problem{(coding?.items?.length ?? 0) === 1 ? "" : "s"}
-              {codingDone && coding?.score !== null && coding?.score !== undefined ? ` · ${Math.round(coding.score)}% passed` : ""}
+              {secondary?.items?.length ?? 0} problem{(secondary?.items?.length ?? 0) === 1 ? "" : "s"}
+              {secondaryDone && secondary?.score !== null && secondary?.score !== undefined
+                ? ` · ${Math.round(secondary.score)}% passed`
+                : ""}
             </span>
           </div>
-          <Badge variant="outline">{codingDone ? "Completed" : "Start"}</Badge>
+          <Badge variant="outline">{secondaryDone ? "Completed" : "Start"}</Badge>
         </Link>
       ) : (
         <div className={cn("card-base flex items-center gap-4 p-5 opacity-60")}>
@@ -84,7 +136,7 @@ export async function RoundList({ plan }: RoundListProps) {
         </div>
       )}
 
-      {bothDone && (
+      {readyForReport && (
         <Button asChild className="mt-2" size="lg">
           <Link href={ROUTES.interviewPrepReport(plan.id)}>View readiness report</Link>
         </Button>

@@ -2,7 +2,12 @@ import "server-only";
 
 import { apiGet } from "@/lib/server/api";
 import type { Enrollment } from "@/lib/server/courses";
-import type { MentorTicketStatus, MentorChangeRequestStatus } from "@/lib/constants";
+import type {
+  MentorTicketStatus,
+  MentorChangeRequestStatus,
+  MentorReportReason,
+  MentorReportStatus,
+} from "@/lib/constants";
 
 export interface MentorTicket {
   id: string;
@@ -23,6 +28,7 @@ export interface MentorDirectoryEntry {
   user_id: string;
   name: string;
   email: string;
+  avatar_url: string | null;
   mentee_count: number;
   avg_rating: number | null;
   rating_count: number;
@@ -84,12 +90,17 @@ export async function getMyMentorTickets(): Promise<MentorTicket[]> {
   return body.tickets ?? [];
 }
 
-// No single-ticket GET exists on the mentor-tickets API — the ticket queue is
-// always listed in bulk, so this reuses that list rather than adding a new
-// backend endpoint just for one lookup.
+// Reuses /history rather than getMentorTickets(): that list endpoint is
+// staff-only (mentorOrStaff), but this lookup also has to work for the
+// ticket's own student (e.g. the chat page) — /history is already scoped to
+// exactly that audience (student or the currently assigned mentor).
 export async function getMentorTicketById(ticketId: string): Promise<MentorTicket | null> {
-  const tickets = await getMentorTickets();
-  return tickets.find((t) => t.id === ticketId) ?? null;
+  try {
+    const { ticket } = await getTicketHistory(ticketId);
+    return ticket;
+  } catch {
+    return null;
+  }
 }
 
 export async function getMentorChangeRequests(status?: MentorChangeRequestStatus): Promise<MentorChangeRequest[]> {
@@ -110,4 +121,50 @@ export interface MentorChatMessage {
 export async function getMentorChatMessages(ticketId: string): Promise<MentorChatMessage[]> {
   const body = await apiGet<{ messages: MentorChatMessage[] }>(`/api/mentor-tickets/${ticketId}/messages`);
   return body.messages ?? [];
+}
+
+export interface TicketAssignment {
+  id: string;
+  ticket_id: string;
+  mentor_id: string;
+  assigned_at: string;
+}
+
+export interface TicketHistory {
+  ticket: MentorTicket;
+  assignments: TicketAssignment[];
+}
+
+export async function getTicketHistory(ticketId: string): Promise<TicketHistory> {
+  return apiGet<TicketHistory>(`/api/mentor-tickets/${ticketId}/history`);
+}
+
+export interface MentorReport {
+  id: string;
+  org_id: string;
+  mentor_id: string;
+  reporter_id: string;
+  ticket_id: string | null;
+  reason: MentorReportReason;
+  description: string;
+  status: MentorReportStatus;
+  resolved_by: string | null;
+  resolution_note: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+// The single source of truth for a ticket's full lifecycle — assignments,
+// change requests, and (only when the caller holds
+// mentoring.manage_reports) reports. `reports` is undefined, not an empty
+// array, when the backend omitted it for lack of permission.
+export interface TicketDetail {
+  ticket: MentorTicket;
+  assignments: TicketAssignment[];
+  change_requests: MentorChangeRequest[];
+  reports?: MentorReport[];
+}
+
+export async function getMentorTicketDetail(ticketId: string): Promise<TicketDetail> {
+  return apiGet<TicketDetail>(`/api/mentor-tickets/${ticketId}/detail`);
 }

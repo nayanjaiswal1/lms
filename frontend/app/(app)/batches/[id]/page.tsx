@@ -1,26 +1,34 @@
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
-import { getBatchMembers, getBatchMentors, getOrgId, getOrgMembersAll } from "@/lib/server/batches";
-import { AddStudentsPanel } from "@/app/(app)/batches/[id]/add-students-panel";
-import { AddMentorPanel } from "@/components/batches/add-mentor-panel";
+import { getBatchInvitations, getBatchMembers, getBatchMentors, getOrgId, getOrgMembersAll } from "@/lib/server/batches";
+import { getCourses } from "@/lib/server/courses";
+import { getImportJobStatusAction } from "@/app/(app)/batches/actions";
+import { AddPeoplePanel } from "@/app/(app)/batches/[id]/add-people-panel";
+import { BulkImportPanel } from "@/app/(app)/batches/[id]/bulk-import-panel";
 import { PeopleList, type Person } from "@/app/(app)/batches/[id]/people-list";
 import ROUTES from "@/lib/routes";
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ job?: string }>;
 }
 
-export default async function BatchPeoplePage({ params }: Props) {
+export default async function BatchPeoplePage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { job: jobId } = await searchParams;
   const orgId = await getOrgId();
 
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 
-  const [members, mentors, orgMembers] = await Promise.all([
+  const [members, mentors, orgMembers, invitations, courses, jobStatusResult] = await Promise.all([
     getBatchMembers(id).catch(() => []),
     getBatchMentors(id).catch(() => []),
     getOrgMembersAll(orgId).catch(() => []),
+    getBatchInvitations(id).catch(() => []),
+    getCourses().catch(() => []),
+    jobId ? getImportJobStatusAction(id, jobId) : Promise.resolve(null),
   ]);
+  const initialJobStatus = jobStatusResult?.data ?? null;
 
   const people: Person[] = [
     ...members.map((m) => ({ ...m, role: "member" as const })),
@@ -30,30 +38,31 @@ export default async function BatchPeoplePage({ params }: Props) {
   const currentMemberIds = members.map((m) => m.user_id);
   const currentMentorIds = mentors.map((m) => m.user_id);
 
+  const addPeoplePanel = (
+    <AddPeoplePanel
+      batchId={id}
+      currentMemberIds={currentMemberIds}
+      currentMentorIds={currentMentorIds}
+      invitations={invitations}
+      orgMembers={orgMembers}
+    />
+  );
+
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Users aria-hidden className="h-5 w-5 text-muted-foreground" />
-          <h2 className="section-title">People</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <AddStudentsPanel batchId={id} currentMemberIds={currentMemberIds} orgMembers={orgMembers} />
-          <AddMentorPanel batchId={id} currentMentorIds={currentMentorIds} orgMembers={orgMembers} />
-        </div>
-      </div>
-
       {people.length === 0 ? (
         <div className="empty-state py-12">
           <Users aria-hidden className="h-10 w-10 text-muted-foreground" />
           <p className="mt-3 font-medium">No people yet</p>
           <p className="text-sm text-muted-foreground">
-            Use &ldquo;Add students&rdquo; or &ldquo;Add mentor&rdquo; to add people to this batch.
+            Add students or mentors to get started.
           </p>
+          {addPeoplePanel}
         </div>
       ) : (
-        <PeopleList batchId={id} people={people} />
+        <PeopleList actions={addPeoplePanel} batchId={id} people={people} />
       )}
+      <BulkImportPanel batchId={id} courses={courses} initialJobStatus={initialJobStatus} orgMembers={orgMembers} />
     </section>
   );
 }

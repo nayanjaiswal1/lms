@@ -31,7 +31,7 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
       : groups;
 
   return (
-    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto px-3 py-6">
+    <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto px-3 py-6 mr-1">
       {visibleGroups.map((group, i) => (
         <div className="flex flex-col gap-1" key={group.label ?? `group-${i}`}>
           {group.label && !collapsed && (
@@ -51,6 +51,7 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   collapsed && "justify-center px-0",
+                  item.feature && !collapsed && "flex-1 min-w-0",
                   isActive
                     ? "bg-accent text-accent-foreground font-medium"
                     : "text-sidebar-foreground hover:bg-accent/60 hover:text-accent-foreground",
@@ -68,7 +69,7 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
             if (!item.feature) return link;
 
             return (
-              <AccessGate feature={item.feature} key={item.href} mode={item.mode ?? "badge"}>
+              <AccessGate collapsed={collapsed} feature={item.feature} key={item.href} mode={item.mode ?? "badge"}>
                 {link}
               </AccessGate>
             );

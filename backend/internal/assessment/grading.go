@@ -17,6 +17,18 @@ type codingAnswer struct {
 	Code     string `json:"code"`
 }
 
+// GradeMCQ exports gradeMCQ for other domains that grade the same MCQContent/
+// answer wire format (e.g. internal/certificates' final-test attempts) —
+// reuse the scoring rules here instead of re-implementing them.
+func GradeMCQ(content, answer json.RawMessage, maxPoints float64) (bool, float64, error) {
+	return gradeMCQ(content, answer, maxPoints)
+}
+
+// GradeCoding exports gradeCoding for the same cross-domain reuse as GradeMCQ.
+func GradeCoding(ctx context.Context, resolve func(CodingContent) CodeExecutor, content, answer json.RawMessage, maxPoints float64) (graded bool, correct bool, points float64, run RunResult, lang, source string, err error) {
+	return gradeCoding(ctx, resolve, content, answer, maxPoints)
+}
+
 // gradeMCQ scores a single MCQ answer against its version content.
 //
 // Single-select: full points only if the one correct option is the sole selection.
@@ -75,10 +87,13 @@ func gradeMCQ(content, answer json.RawMessage, maxPoints float64) (bool, float64
 	return fullyCorrect, maxPoints * ratio, nil
 }
 
-// gradeCoding runs the submission through the executor and scores by weighted
-// test-case pass ratio. When the executor is unavailable it returns ungraded so
-// the caller can leave the answer pending for manual review.
-func gradeCoding(ctx context.Context, exec CodeExecutor, content, answer json.RawMessage, maxPoints float64) (graded bool, correct bool, points float64, run RunResult, lang, source string, err error) {
+// gradeCoding runs the submission through the executor resolved for this
+// question's content (see Service.executorFor — stdio Piston/Judge0 by
+// default, or the Docker sandbox executor when content.Runtime == "sandbox")
+// and scores by weighted test-case pass ratio. When the resolved executor is
+// unavailable it returns ungraded so the caller can leave the answer pending
+// for manual review.
+func gradeCoding(ctx context.Context, resolve func(CodingContent) CodeExecutor, content, answer json.RawMessage, maxPoints float64) (graded bool, correct bool, points float64, run RunResult, lang, source string, err error) {
 	var a codingAnswer
 	if len(answer) > 0 {
 		if err := json.Unmarshal(answer, &a); err != nil {
@@ -88,13 +103,15 @@ func gradeCoding(ctx context.Context, exec CodeExecutor, content, answer json.Ra
 	if a.Code == "" {
 		return true, false, 0, RunResult{Status: "failed"}, a.Language, a.Code, nil
 	}
-	if !exec.Available() {
-		return false, false, 0, RunResult{Status: "pending"}, a.Language, a.Code, nil
-	}
 
 	var c CodingContent
 	if err := json.Unmarshal(content, &c); err != nil {
 		return false, false, 0, RunResult{}, a.Language, a.Code, fmt.Errorf("assessment: decode coding content: %w", err)
+	}
+
+	exec := resolve(c)
+	if !exec.Available() {
+		return false, false, 0, RunResult{Status: "pending"}, a.Language, a.Code, nil
 	}
 
 	result, err := exec.Run(ctx, a.Language, a.Code, c)

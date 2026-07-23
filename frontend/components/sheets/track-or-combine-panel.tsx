@@ -75,7 +75,7 @@ export function TrackOrCombinePanel({ startableSheets, userSheets, itemsBySheetI
       if (result.data) {
         const addError = await addCustomItemsTo(result.data.id);
         if (addError) return { error: addError };
-        router.push(`${ROUTES.SHEETS}?sheet=${encodeURIComponent(result.data.slug)}`);
+        router.push(ROUTES.sheet(result.data.slug));
       }
       return null;
     }
@@ -91,7 +91,7 @@ export function TrackOrCombinePanel({ startableSheets, userSheets, itemsBySheetI
 
       if (sheetIds.length === 1) {
         const sheet = allSheets.find((s) => s.id === sheetIds[0]);
-        router.push(`${ROUTES.SHEETS}?sheet=${encodeURIComponent(sheet?.slug ?? "")}`);
+        router.push(ROUTES.sheet(sheet?.slug ?? ""));
         return null;
       }
     }
@@ -107,7 +107,7 @@ export function TrackOrCombinePanel({ startableSheets, userSheets, itemsBySheetI
     if (result.data) {
       const addError = await addCustomItemsTo(result.data.id);
       if (addError) return { error: addError };
-      router.push(`${ROUTES.SHEETS}?sheet=${encodeURIComponent(result.data.slug)}`);
+      router.push(ROUTES.sheet(result.data.slug));
     }
     return null;
   }, null);

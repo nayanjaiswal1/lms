@@ -65,7 +65,9 @@ BEGIN
     WHERE table_schema = 'public' AND table_name = 'feature_grants'
   ) THEN
     INSERT INTO feature_grants (user_id, feature_key)
-    SELECT id, 'what_now' FROM users WHERE email = 'jaiswal2062@gmail.com'
+    SELECT id, feature_key
+    FROM   users, unnest(ARRAY['what_now', 'assessments']) AS feature_key
+    WHERE  email = 'jaiswal2062@gmail.com'
     ON CONFLICT (user_id, feature_key) DO NOTHING;
   END IF;
 END $$;

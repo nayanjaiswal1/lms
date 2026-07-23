@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { apiAction, apiUpload } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import type { AwardResult } from "@/lib/server/rewards";
+import type { FinalTestQuestion, SubmitFinalTestAttemptResult } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 interface ProgressResult {
@@ -210,4 +211,31 @@ export async function uploadAssetAction(
   formData: FormData,
 ): Promise<ActionResult<{ url: string; storage_key: string }>> {
   return apiUpload<{ url: string; storage_key: string }>("/api/upload", formData);
+}
+
+// ─── Final test + certificates ───────────────────────────────────────────────
+
+export async function upsertFinalTestAction(
+  courseId: string,
+  input: {
+    questions: FinalTestQuestion[];
+    time_limit_minutes: number;
+    passing_score_percent: number;
+    max_attempts: number;
+  },
+): Promise<ActionResult> {
+  const result = await apiAction("PUT", `/api/courses/${courseId}/final-test`, input);
+  if (result.ok) revalidatePath(ROUTES.manageCourse(courseId));
+  return result;
+}
+
+export async function submitFinalTestAttemptAction(
+  courseId: string,
+  answers: Record<string, unknown>,
+): Promise<ActionResult<SubmitFinalTestAttemptResult>> {
+  return apiAction<SubmitFinalTestAttemptResult>(
+    "POST",
+    `/api/courses/${courseId}/final-test/attempt`,
+    { answers },
+  );
 }

@@ -34,9 +34,10 @@ interface ReviewStepProps {
   setRows: (rows: ImportMemberRow[]) => void;
   courses: Course[];
   orgMembers: OrgMemberSummary[];
+  onConfirmed: (jobId: string) => void;
 }
 
-export function ReviewStep({ batchId, rows, setRows, courses, orgMembers }: ReviewStepProps) {
+export function ReviewStep({ batchId, rows, setRows, courses, orgMembers, onConfirmed }: ReviewStepProps) {
   const [rechecking, setRechecking] = React.useState(false);
   const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
 
@@ -164,6 +165,7 @@ export function ReviewStep({ batchId, rows, setRows, courses, orgMembers }: Revi
         courses={courses}
         orgMembers={orgMembers}
         rows={rows}
+        onConfirmed={onConfirmed}
       />
     </section>
   );

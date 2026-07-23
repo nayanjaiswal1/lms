@@ -15,10 +15,17 @@ import (
 // jobRegistry is used by SubmitAttempt to enqueue eval.subjective jobs via the Job Management System.
 // coursesSvc lets a passed assessment complete the course module that embeds it.
 // store backs batch cover-image uploads.
-func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service, store storage.StorageClient) *Handler {
+// sandboxRuntime is the same labs.ContainerRuntime the labs domain uses (Docker or
+// Kubernetes, chosen once at startup — see internal/api/router.go); it grades
+// "sandbox" runtime coding questions (real FastAPI/React execution) by running
+// them in the same container infrastructure labs already uses. May be nil in
+// deploys with no container runtime configured — sandbox questions then grade
+// as pending manual review, same as an unconfigured Piston/Judge0 executor.
+func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rewardsSvc *rewards.Service, coursesSvc *courses.Service, store storage.StorageClient, sandboxRuntime SandboxRuntime) *Handler {
 	repo := NewRepo(pool)
 	exec := NewExecutor(cfg)
-	service := NewService(repo, exec, cfg)
+	sandboxExec := NewSandboxExecutor(sandboxRuntime)
+	service := NewService(repo, exec, sandboxExec, cfg)
 	return NewHandler(repo, service, pool, jobRegistry, rewardsSvc, coursesSvc, store)
 }
 
@@ -55,6 +62,14 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Delete("/api/batches/{batchID}/members/{userID}", h.RemoveBatchMember)
 		r.Post("/api/batches/{batchID}/image", h.UploadBatchImage)
 		r.Delete("/api/batches/{batchID}/image", h.DeleteBatchImage)
+
+		// Cohort groups (optional hierarchy above batches, e.g. Class/Section)
+		r.Post("/api/cohort-groups", h.CreateCohortGroup)
+		r.Get("/api/cohort-groups", h.ListCohortGroups)
+		r.Get("/api/cohort-groups/{groupID}", h.GetCohortGroup)
+		r.Patch("/api/cohort-groups/{groupID}", h.UpdateCohortGroup)
+		r.Delete("/api/cohort-groups/{groupID}", h.ArchiveCohortGroup)
+		r.Put("/api/batches/{batchID}/cohort-group", h.MoveBatchToGroup)
 
 		// Batch mentors
 		r.Post("/api/batches/{batchID}/mentors", h.AddBatchMentor)
@@ -94,6 +109,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/api/assessments/{assessmentID}", h.GetAssessment)
 		r.Patch("/api/assessments/{assessmentID}", h.UpdateAssessment)
 		r.Post("/api/assessments/{assessmentID}/questions", h.AddAssessmentQuestion)
+		r.Post("/api/assessments/{assessmentID}/questions/auto-select", h.AutoSelectAssessmentQuestions)
 		r.Delete("/api/assessments/{assessmentID}/questions/{aqID}", h.RemoveAssessmentQuestion)
 		r.Post("/api/assessments/{assessmentID}/publish", h.PublishAssessment)
 		r.Post("/api/assessments/{assessmentID}/status", h.SetAssessmentStatus)
@@ -107,7 +123,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/api/assessments/{assessmentID}/analytics", h.AssessmentAnalytics)
 		r.Get("/api/assessments/{assessmentID}/attempts", h.ListAssessmentAttempts)
 		r.Get("/api/assessments/{assessmentID}/candidates", h.GetPublicCandidates)
+		r.Patch("/api/assessments/{assessmentID}/candidates/{candidateID}/override", h.OverridePublicCandidateScore)
 		r.Get("/api/attempts/{attemptID}/proctoring", h.AttemptProctoringLog)
+		r.Patch("/api/attempts/{attemptID}/answers/{answerID}/override", h.OverrideAnswerScore)
 		r.Get("/api/analytics/overview", h.OrgAnalytics)
 
 		// Interview evaluation — staff review queue and queue health

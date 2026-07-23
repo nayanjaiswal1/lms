@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -232,6 +233,42 @@ func (r *Repo) AddQuestion(ctx context.Context, orgID, assessmentID, questionID 
 		return AssessmentQuestion{}, err
 	}
 	return aq, nil
+}
+
+// AutoSelectQuestions attaches up to count questions matching f (typically
+// CategoryID/Difficulty/Tags) picked at random from the active question bank,
+// reusing ListQuestions' filter and AddQuestion's single-question insert (and
+// its position-sequencing/recomputeTotals) rather than duplicating either.
+// Each pick is its own small transaction via AddQuestion — if one insert fails
+// partway through (e.g. the assessment stops being a draft mid-loop), the
+// questions already attached stay attached and totals stay consistent; the
+// caller gets back exactly what succeeded plus the error.
+func (r *Repo) AutoSelectQuestions(ctx context.Context, orgID, assessmentID string, f QuestionFilter, count int) ([]AssessmentQuestion, error) {
+	if count <= 0 {
+		return nil, fmt.Errorf("assessment: auto-select count must be positive")
+	}
+
+	f.Status = "active"
+	f.Limit = 200 // ListQuestions caps at 200; pick count at random from that pool
+	pool, _, err := r.ListQuestions(ctx, orgID, f)
+	if err != nil {
+		return nil, fmt.Errorf("assessment: list questions for auto-select: %w", err)
+	}
+
+	rand.Shuffle(len(pool), func(i, j int) { pool[i], pool[j] = pool[j], pool[i] })
+	if count > len(pool) {
+		count = len(pool)
+	}
+
+	added := make([]AssessmentQuestion, 0, count)
+	for _, q := range pool[:count] {
+		aq, err := r.AddQuestion(ctx, orgID, assessmentID, q.ID, nil)
+		if err != nil {
+			return added, fmt.Errorf("assessment: auto-select add question %s: %w", q.ID, err)
+		}
+		added = append(added, aq)
+	}
+	return added, nil
 }
 
 // RemoveQuestion detaches a question and recomputes totals (draft only).

@@ -377,6 +377,11 @@ export const COURSE_DIFFICULTY_OPTIONS = [
 // Practice / AI Interview Prep (Phase 8)
 // ─────────────────────────────────────────────
 
+export const PRACTICE_CATEGORY_OPTIONS = [
+  { label: "Technical",  value: "technical" },
+  { label: "Behavioral", value: "behavioral" },
+] as const;
+
 export const PRACTICE_DIFFICULTY_OPTIONS = [
   { label: "Beginner",     value: "beginner" },
   { label: "Intermediate", value: "intermediate" },
@@ -506,3 +511,42 @@ export const SUGGESTED_SKILLS = [
   "GraphQL", "REST", "gRPC",
   "TensorFlow", "PyTorch", "Pandas",
 ] as const;
+
+// ─────────────────────────────────────────────
+
+// Sheet tracker spaced-repetition growth schemes — how far the revision date
+// jumps forward with each successful "Reviewed" click, given a per-sheet
+// base interval in days.
+export const GROWTH_SCHEME = {
+  DOUBLING: "doubling",
+  LADDER:   "ladder",
+  LINEAR:   "linear",
+} as const;
+export type GrowthScheme = (typeof GROWTH_SCHEME)[keyof typeof GROWTH_SCHEME];
+
+export const GROWTH_SCHEME_OPTIONS = [
+  { label: "Doubling",     value: GROWTH_SCHEME.DOUBLING, description: "Base, then double each time (7d → 14d → 28d → 56d...)" },
+  { label: "Fixed ladder", value: GROWTH_SCHEME.LADDER,   description: "1d → 3d → 7d → 14d → 30d → 90d, then holds" },
+  { label: "Linear",       value: GROWTH_SCHEME.LINEAR,   description: "Grows by the base interval each time (7d → 14d → 21d...)" },
+] as const;
+
+// Mirrors backend/internal/sheets/repo.go's nextRevisionDays — keep both in
+// sync if the growth schemes ever change shape.
+const REVISION_LADDER = [1, 3, 7, 14, 30, 90] as const;
+
+/** How many days until the revision after `reviewCount` successful reviews (0 = the first scheduling). */
+export function revisionIntervalDays(scheme: GrowthScheme, base: number, reviewCount: number): number {
+  switch (scheme) {
+    case "ladder":
+      return REVISION_LADDER[Math.min(reviewCount, REVISION_LADDER.length - 1)];
+    case "linear":
+      return base * (reviewCount + 1);
+    default:
+      return base * 2 ** reviewCount;
+  }
+}
+
+/** The next `steps` interval lengths, for previewing a schedule as it's configured. */
+export function revisionSchedulePreview(scheme: GrowthScheme, base: number, steps = 5): number[] {
+  return Array.from({ length: steps }, (_, i) => revisionIntervalDays(scheme, base, i));
+}

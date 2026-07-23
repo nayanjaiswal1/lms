@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getMyHighlights } from "@/lib/server/highlights"
 import type { Highlight } from "@/lib/server/highlights"
+import { getCurrentUser } from "@/lib/server/auth"
+import ROUTES from "@/lib/routes"
+import { cn } from "@/lib/utils"
 
 export const metadata = { title: "Saved Highlights — MindForge" }
 
@@ -126,7 +129,8 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
 }
 
 export default async function SavedHighlightsPage() {
-  const highlights = await getMyHighlights(true)
+  const [highlights, user] = await Promise.all([getMyHighlights(true), getCurrentUser()])
+  const isSuperAdmin = user?.platform_role === "super_admin"
 
   return (
     <main className="page-container-sm py-8">
@@ -139,6 +143,29 @@ export default async function SavedHighlightsPage() {
           {highlights.length} saved
         </span>
       </div>
+
+      {isSuperAdmin && (
+        <div aria-label="Highlights view" className="flex gap-1 border-b border-border mb-6" role="tablist">
+          <span
+            aria-selected="true"
+            className="px-3 py-2 text-sm font-medium border-b-2 border-primary text-foreground"
+            role="tab"
+          >
+            My Saved
+          </span>
+          <Link
+            aria-selected="false"
+            className={cn(
+              "px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+            href={ROUTES.PLATFORM_HIGHLIGHTS}
+            role="tab"
+          >
+            Confusing Content (Platform)
+          </Link>
+        </div>
+      )}
 
       {highlights.length === 0 ? (
         <div className="empty-state py-16">

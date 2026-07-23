@@ -45,7 +45,7 @@ export function AddItemInlineRow({ sheetId, cancelHref }: AddItemInlineRowProps)
   );
 
   return (
-    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 mt-3">
+    <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
       <form action={formAction} className="flex flex-col gap-2 md:flex-row md:items-start" id="inline-add-item-form">
         <Input required className="md:flex-1" disabled={pending} name="title" placeholder="Problem title" />
         <Input className="md:w-56" disabled={pending} name="external_url" placeholder="Problem URL" type="url" />

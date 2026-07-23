@@ -136,7 +136,7 @@ func main() {
 	// A standalone assessment.Handler for the expire-attempts reaper — like
 	// coursesSvcForJobs above, constructed separately from api.NewRouter's own
 	// instance since it holds no in-process state beyond shared pointers.
-	assessmentHandlerForJobs := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvcForJobs, storageClient)
+	assessmentHandlerForJobs := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvcForJobs, storageClient, labsRuntime)
 
 	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc, coursesSvcForJobs))
 	// Fires once, exactly when an eval.subjective job permanently dies, instead

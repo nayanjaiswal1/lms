@@ -109,6 +109,16 @@ type Ticket struct {
 	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
+// TicketAssignment is a durable row from mentor_ticket_assignments — one per
+// mentor ever assigned to a ticket, so reassignment history survives even
+// after mentor_tickets.assigned_mentor_id moves on to someone else.
+type TicketAssignment struct {
+	ID         string    `json:"id"`
+	TicketID   string    `json:"ticket_id"`
+	MentorID   string    `json:"mentor_id"`
+	AssignedAt time.Time `json:"assigned_at"`
+}
+
 // Report is a student's complaint about a mentor. Matches mentor_reports
 // (020_mentor_reports.sql).
 type Report struct {
@@ -172,6 +182,21 @@ type ChatMessage struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// TicketDetail is the full staff-facing lifecycle view of a ticket —
+// assignments, change requests, and (for callers holding
+// mentoring.manage_reports) complaint reports — the single aggregate the
+// ticket detail page renders instead of piecing history together from
+// separate list endpoints. Reports is nil (omitted from the JSON response)
+// for callers who lack that permission; the frontend independently gates
+// its Reports section on the same permission, so the omission and the UI
+// gate agree without the caller needing an explicit "can view reports" flag.
+type TicketDetail struct {
+	Ticket         Ticket             `json:"ticket"`
+	Assignments    []TicketAssignment `json:"assignments"`
+	ChangeRequests []ChangeRequest    `json:"change_requests"`
+	Reports        []Report           `json:"reports,omitempty"`
+}
+
 // MentorDirectoryEntry is one row of the org-wide mentor directory: a
 // mentor's live assigned-mentee count and aggregated rating pulled from the
 // generic feedback table (subject_type = 'mentor').
@@ -179,6 +204,7 @@ type MentorDirectoryEntry struct {
 	UserID      string   `json:"user_id"`
 	Name        string   `json:"name"`
 	Email       string   `json:"email"`
+	AvatarURL   *string  `json:"avatar_url"`
 	MenteeCount int      `json:"mentee_count"`
 	AvgRating   *float64 `json:"avg_rating"`
 	RatingCount int      `json:"rating_count"`

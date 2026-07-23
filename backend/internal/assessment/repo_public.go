@@ -89,8 +89,12 @@ func (r *Repo) GetPublicAttemptByToken(ctx context.Context, token string) (Publi
 	return att, nil
 }
 
-// SubmitPublicAttempt grades all MCQ answers inline and finalises the record.
-func (r *Repo) SubmitPublicAttempt(ctx context.Context, token string, answersRaw json.RawMessage, questions []AssessmentQuestion, passPercent float64) (PublicAttempt, error) {
+// FinalizePublicAttempt persists an already-graded candidate result. Grading
+// itself (MCQ + coding, the latter needing the executor the repo layer has no
+// access to) happens in Service.SubmitPublicAttempt — this only writes the
+// outcome, mirroring how FinalizeAttempt is the persistence tail of the
+// authenticated finalizeSubmit.
+func (r *Repo) FinalizePublicAttempt(ctx context.Context, token string, answersRaw json.RawMessage, totalScore, maxScore, pct float64, passed bool, durationSec int) (PublicAttempt, error) {
 	att, err := r.GetPublicAttemptByToken(ctx, token)
 	if err != nil {
 		return PublicAttempt{}, err
@@ -98,31 +102,6 @@ func (r *Repo) SubmitPublicAttempt(ctx context.Context, token string, answersRaw
 	if att.Status == "submitted" {
 		return att, nil
 	}
-
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(answersRaw, &raw); err != nil {
-		raw = map[string]json.RawMessage{}
-	}
-
-	var totalScore, maxScore float64
-	for _, q := range questions {
-		if q.Type != QuestionTypeMCQ {
-			maxScore += q.Points
-			continue
-		}
-		_, pts, gradeErr := gradeMCQ(q.Content, raw[q.ID], q.Points)
-		if gradeErr == nil {
-			totalScore += pts
-		}
-		maxScore += q.Points
-	}
-
-	var pct float64
-	if maxScore > 0 {
-		pct = (totalScore / maxScore) * 100
-	}
-	passed := pct >= passPercent
-	durationSec := int(time.Since(att.StartedAt).Seconds())
 
 	_, err = r.pool.Exec(ctx,
 		`UPDATE public_attempts
@@ -142,6 +121,64 @@ func (r *Repo) SubmitPublicAttempt(ctx context.Context, token string, answersRaw
 	att.Status = "submitted"
 	att.DurationSec = &durationSec
 	att.Answers = answersRaw
+	return att, nil
+}
+
+// OverridePublicAttemptScore lets staff manually adjust a hiring candidate's
+// total score. public_attempts has no per-question breakdown (see
+// PublicAttempt) so, unlike OverrideAnswerScore, this replaces the aggregate
+// score/percentage/passed directly rather than recomputing from a sum.
+// orgID scopes the update through assessments so staff can only override
+// candidates within their own org.
+func (r *Repo) OverridePublicAttemptScore(ctx context.Context, orgID, publicAttemptID, reviewerID string, score float64, note string) (PublicAttempt, error) {
+	var passPercent, maxScore float64
+	if err := r.pool.QueryRow(ctx,
+		`SELECT a.pass_percentage, pa.max_score
+		 FROM public_attempts pa JOIN assessments a ON a.id = pa.assessment_id
+		 WHERE pa.id = $1 AND a.org_id = $2`,
+		publicAttemptID, orgID).Scan(&passPercent, &maxScore); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PublicAttempt{}, ErrNotFound
+		}
+		return PublicAttempt{}, fmt.Errorf("assessment: load public attempt for override: %w", err)
+	}
+
+	var pct float64
+	if maxScore > 0 {
+		pct = (score / maxScore) * 100
+	}
+	passed := pct >= passPercent
+
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE public_attempts
+		 SET score = $2, percentage = $3, passed = $4,
+		     override_note = $5, overridden_by = $6, overridden_at = now()
+		 WHERE id = $1`,
+		publicAttemptID, score, pct, passed, note, reviewerID)
+	if err != nil {
+		return PublicAttempt{}, fmt.Errorf("assessment: override public attempt score: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return PublicAttempt{}, ErrNotFound
+	}
+
+	var att PublicAttempt
+	var answers []byte
+	if err := r.pool.QueryRow(ctx,
+		`SELECT id, assessment_id, name, email, phone, session_token,
+		        answers, score, max_score, percentage, passed,
+		        flags, status, started_at, submitted_at, duration_sec
+		 FROM public_attempts WHERE id = $1`, publicAttemptID,
+	).Scan(
+		&att.ID, &att.AssessmentID, &att.Name, &att.Email, &att.Phone, &att.SessionToken,
+		&answers, &att.Score, &att.MaxScore, &att.Percentage, &att.Passed,
+		&att.Flags, &att.Status, &att.StartedAt, &att.SubmittedAt, &att.DurationSec,
+	); err != nil {
+		return PublicAttempt{}, fmt.Errorf("assessment: reload overridden public attempt: %w", err)
+	}
+	if len(answers) > 0 {
+		att.Answers = answers
+	}
 	return att, nil
 }
 

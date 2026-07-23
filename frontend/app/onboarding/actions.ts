@@ -5,14 +5,10 @@ import { authHeaders } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 type LearningGoal = "get_promotion" | "switch_careers" | "build_project" | "stay_current" | "compliance";
-type WeeklyTimeCommitment = "1_2_hrs" | "3_5_hrs" | "5_10_hrs" | "10_plus_hrs";
 type SkillLevel = "beginner" | "some_experience" | "intermediate" | "advanced";
 
 interface OnboardingData {
   learning_goal?: LearningGoal;
-  job_title?: string;
-  topics_interest?: string[];
-  weekly_time_commitment?: WeeklyTimeCommitment;
   skill_level?: SkillLevel;
   // Legacy fields — kept for backward compatibility
   timeline?: string;

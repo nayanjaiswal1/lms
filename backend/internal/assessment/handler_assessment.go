@@ -249,6 +249,45 @@ func (h *Handler) AddAssessmentQuestion(w http.ResponseWriter, r *http.Request) 
 	httputil.WriteJSON(w, http.StatusCreated, aq)
 }
 
+type autoSelectQuestionsRequest struct {
+	CategoryID string   `json:"category_id"`
+	Difficulty string   `json:"difficulty"`
+	Tags       []string `json:"tags"`
+	Type       string   `json:"type"`
+	Count      int      `json:"count"`
+}
+
+// AutoSelectAssessmentQuestions lets a hiring admin bulk-attach a random pool
+// of questions matching a category/difficulty/tag filter instead of adding
+// them one at a time via AddAssessmentQuestion — e.g. "3 intermediate React
+// questions" or "2 DSA questions from the Algorithms category".
+func (h *Handler) AutoSelectAssessmentQuestions(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req autoSelectQuestionsRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Count <= 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"count": "Count must be a positive number."})
+		return
+	}
+	filter := QuestionFilter{
+		CategoryID: req.CategoryID,
+		Difficulty: req.Difficulty,
+		Tags:       req.Tags,
+		Type:       req.Type,
+	}
+	added, err := h.repo.AutoSelectQuestions(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"), filter, req.Count)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, map[string]any{"questions": added, "added_count": len(added)})
+}
+
 func (h *Handler) RemoveAssessmentQuestion(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {

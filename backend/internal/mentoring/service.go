@@ -121,6 +121,48 @@ func (s *Service) PurchaseCourse(ctx context.Context, orgID, userID, courseID st
 	return purchase, enrollment, ticket, nil
 }
 
+// RequestMentor lets a student who does not currently have an active mentor
+// ticket open one for a course they are enrolled in. This is the
+// student-initiated counterpart to the auto-opened ticket in purchaseCourse
+// — it covers free courses and any other case where no ticket was opened
+// automatically. Returns ErrInvalid if the student isn't enrolled in
+// courseID, ErrAlreadyHasMentor if they already have an open or assigned
+// ticket anywhere in the org (mirrors purchaseCourse's HasActiveMentor dedup).
+func (s *Service) RequestMentor(ctx context.Context, orgID, userID, courseID string) (Ticket, error) {
+	enrolled, err := s.coursesRepo.IsEnrolled(ctx, userID, courseID)
+	if err != nil {
+		return Ticket{}, fmt.Errorf("mentoring: request mentor: check enrollment: %w", err)
+	}
+	if !enrolled {
+		return Ticket{}, fmt.Errorf("%w: you must be enrolled in this course to request a mentor", ErrInvalid)
+	}
+
+	var ticket Ticket
+	err = s.repo.tx(ctx, func(tx pgx.Tx) error {
+		hasMentor, txErr := s.repo.HasActiveMentor(ctx, tx, orgID, userID)
+		if txErr != nil {
+			return txErr
+		}
+		if hasMentor {
+			return ErrAlreadyHasMentor
+		}
+		created, txErr := s.repo.CreateTicket(ctx, tx, Ticket{
+			OrgID:     orgID,
+			StudentID: userID,
+			CourseID:  courseID,
+		})
+		if txErr != nil {
+			return txErr
+		}
+		ticket = created
+		return nil
+	})
+	if err != nil {
+		return Ticket{}, err
+	}
+	return ticket, nil
+}
+
 // ClaimTicket lets a mentor self-assign an open ticket within orgID.
 func (s *Service) ClaimTicket(ctx context.Context, orgID, ticketID, mentorID string) (Ticket, error) {
 	return s.repo.ClaimTicket(ctx, orgID, ticketID, mentorID)
@@ -204,6 +246,54 @@ func (s *Service) ListChatMessages(ctx context.Context, orgID, ticketID, callerI
 		return nil, ErrForbidden
 	}
 	return s.repo.ListChatMessages(ctx, orgID, ticketID)
+}
+
+// GetTicketHistory returns a ticket plus its full mentor-assignment history.
+// Only the ticket's student or its currently assigned mentor may view it —
+// same access rule as ListChatMessages.
+func (s *Service) GetTicketHistory(ctx context.Context, orgID, ticketID, callerID string) (Ticket, []TicketAssignment, error) {
+	ticket, err := s.repo.GetTicket(ctx, orgID, ticketID)
+	if err != nil {
+		return Ticket{}, nil, err
+	}
+	isMentor := ticket.AssignedMentorID != nil && *ticket.AssignedMentorID == callerID
+	if callerID != ticket.StudentID && !isMentor {
+		return Ticket{}, nil, ErrForbidden
+	}
+	assignments, err := s.repo.ListTicketAssignments(ctx, ticketID)
+	if err != nil {
+		return Ticket{}, nil, err
+	}
+	return ticket, assignments, nil
+}
+
+// GetTicketDetail returns the full staff-facing lifecycle for ticketID:
+// the ticket, its assignment history, and every change request filed
+// against it. Reports are included only when canViewReports is true — the
+// handler decides that via authzSvc.HasPermission before calling in, since
+// Service has no access to the authz package's permission check.
+func (s *Service) GetTicketDetail(ctx context.Context, orgID, ticketID string, canViewReports bool) (TicketDetail, error) {
+	ticket, err := s.repo.GetTicket(ctx, orgID, ticketID)
+	if err != nil {
+		return TicketDetail{}, err
+	}
+	assignments, err := s.repo.ListTicketAssignments(ctx, ticketID)
+	if err != nil {
+		return TicketDetail{}, err
+	}
+	changeRequests, err := s.repo.ListChangeRequestsByTicket(ctx, ticketID)
+	if err != nil {
+		return TicketDetail{}, err
+	}
+	detail := TicketDetail{Ticket: ticket, Assignments: assignments, ChangeRequests: changeRequests}
+	if canViewReports {
+		reports, err := s.repo.ListReportsByTicket(ctx, ticketID)
+		if err != nil {
+			return TicketDetail{}, err
+		}
+		detail.Reports = reports
+	}
+	return detail, nil
 }
 
 // HasBeenMentoredBy implements feedback.MentorshipVerifier — it lets the

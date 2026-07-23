@@ -116,6 +116,16 @@ type TestCase struct {
 }
 
 // CodingContent is the gradable payload for a coding question version.
+//
+// Runtime selects the grading engine: "" (or "stdio") runs the existing
+// Piston/Judge0 stdin/stdout diff path via TestCase.Stdin/Expected. "sandbox"
+// runs the submission in a real Docker container (see executor_sandbox.go) —
+// in that mode Stdin/Expected are unused and TestCase.ID must instead match a
+// JUnit <testcase name="..."> emitted by VerifyCommand, so Hidden/Weight still
+// apply per named test. SandboxImage/SubmitPath/VerifyFiles/VerifyCommand are
+// only meaningful when Runtime == "sandbox"; VerifyFiles/VerifyCommand are
+// server-only and must be stripped before sending content to students, same as
+// MCQOption.IsCorrect.
 type CodingContent struct {
 	Prompt        string            `json:"prompt"`
 	Languages     []string          `json:"languages"`
@@ -123,7 +133,21 @@ type CodingContent struct {
 	TimeLimitMs   int               `json:"time_limit_ms"`
 	MemoryLimitKb int               `json:"memory_limit_kb"`
 	TestCases     []TestCase        `json:"test_cases"`
+
+	Runtime      string            `json:"runtime,omitempty"`
+	SandboxImage string            `json:"sandbox_image,omitempty"`
+	SubmitPath   string            `json:"submit_path,omitempty"`
+	VerifyFiles  map[string]string `json:"verify_files,omitempty"`
+	// VerifyCommand must write its JUnit XML report to the fixed path
+	// /tmp/mindforge-grade-result.xml, e.g.
+	// "pytest --junitxml=/tmp/mindforge-grade-result.xml -q test_app.py" or
+	// "vitest run --reporter=junit --outputFile=/tmp/mindforge-grade-result.xml".
+	VerifyCommand string `json:"verify_command,omitempty"`
 }
+
+// RuntimeSandbox marks a CodingContent as graded by executing real code in a
+// Docker container rather than the stdio Piston/Judge0 diff path.
+const RuntimeSandbox = "sandbox"
 
 // SubjectiveContent is the AI-graded payload for a subjective question version.
 // ReferenceAnswer and ExpectedTopics are server-only — never sent to students.
@@ -162,20 +186,45 @@ type Question struct {
 }
 
 type Batch struct {
-	ID          string     `json:"id"`
-	OrgID       string     `json:"org_id"`
-	Name        string     `json:"name"`
-	Slug        string     `json:"slug"`
-	Description *string    `json:"description"`
-	MentorID    *string    `json:"mentor_id"`
-	Status      string     `json:"status"`
-	MemberCount int        `json:"member_count"`
-	CreatedBy   string     `json:"created_by"`
-	StartsAt    *time.Time `json:"starts_at"`
-	EndsAt      *time.Time `json:"ends_at"`
-	ImageURL    *string    `json:"image_url"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID            string     `json:"id"`
+	OrgID         string     `json:"org_id"`
+	Name          string     `json:"name"`
+	Slug          string     `json:"slug"`
+	Description   *string    `json:"description"`
+	MentorID      *string    `json:"mentor_id"`
+	Status        string     `json:"status"`
+	MemberCount   int        `json:"member_count"`
+	CreatedBy     string     `json:"created_by"`
+	StartsAt      *time.Time `json:"starts_at"`
+	EndsAt        *time.Time `json:"ends_at"`
+	ImageURL      *string    `json:"image_url"`
+	CohortGroupID *string    `json:"cohort_group_id"`
+	// CohortGroupName is denormalized in from cohort_groups only by
+	// ListBatchesForUser (the student-facing "/api/my/batches" query) — group
+	// CRUD/listing is staff-only, so a student's own dashboard has no other way
+	// to resolve a display name for their batch's group. Nil on the
+	// admin-listing queries (ListBatches/GetBatch), which have no such join.
+	CohortGroupName *string   `json:"cohort_group_name,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// CohortGroup is an optional grouping node above batches (e.g. Class/Section)
+// for orgs that need more than one level of cohort hierarchy. Self-referencing
+// via ParentID; LevelLabel is free text so each org names its own levels.
+type CohortGroup struct {
+	ID         string    `json:"id"`
+	OrgID      string    `json:"org_id"`
+	ParentID   *string   `json:"parent_id"`
+	Name       string    `json:"name"`
+	Slug       string    `json:"slug"`
+	LevelLabel *string   `json:"level_label"`
+	Status     string    `json:"status"`
+	BatchCount int       `json:"batch_count"`
+	ChildCount int       `json:"child_count"`
+	CreatedBy  string    `json:"created_by"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type Assessment struct {

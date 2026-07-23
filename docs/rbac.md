@@ -485,7 +485,8 @@ All under route group `app/(app)/` — transparent to URL routing, so URLs are `
 | `/admin/rbac/roles` | `app/(app)/admin/rbac/roles/page.tsx` | `admin.manage_roles` |
 | `/admin/rbac/roles/new` | `app/(app)/admin/rbac/roles/new/page.tsx` | `admin.manage_roles` |
 | `/admin/rbac/roles/[id]` | `app/(app)/admin/rbac/roles/[id]/page.tsx` | `admin.manage_permissions` (edit) |
-| `/admin/rbac/users/[userId]` | `app/(app)/admin/rbac/users/[userId]/page.tsx` | `admin.manage_members` OR `admin.view_members` |
+| `/users` | `app/(app)/users/page.tsx` | `admin.view_members` |
+| `/users/[userId]` | `app/(app)/users/[userId]/page.tsx` | `admin.manage_members` OR `admin.view_members` |
 | `/admin/rbac/audit` | `app/(app)/admin/rbac/audit/page.tsx` | `admin.view_audit_log` |
 
 ### Layout

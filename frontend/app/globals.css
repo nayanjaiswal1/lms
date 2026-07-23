@@ -296,6 +296,12 @@
   }
 
   /* ── Scrollbar ─────────────────────────────────────────────────── */
+  /* Firefox has no ::-webkit-scrollbar support — without this it falls back
+     to the fat native OS scrollbar instead of the thin themed one below. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
   ::-webkit-scrollbar       { @apply w-1.5 h-1.5; }
   ::-webkit-scrollbar-track { @apply bg-transparent; }
   ::-webkit-scrollbar-thumb {

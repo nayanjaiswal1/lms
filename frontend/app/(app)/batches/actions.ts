@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { apiAction, apiUpload } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
-import type { ImportMemberRow } from "@/lib/server/batches";
+import { getBatchImportReport, getOrgId } from "@/lib/server/batches";
+import type { ImportMemberRow, ImportReport } from "@/lib/server/batches";
+import { fetchJob } from "@/lib/jobs/server";
 import ROUTES from "@/lib/routes";
 
 export async function createBatchAction(input: { name: string; description?: string; mentor_id?: string }): Promise<ActionResult> {
@@ -78,6 +80,45 @@ export async function confirmImportAction(
   if (result.ok) {
     revalidatePath(ROUTES.batch(batchId));
   }
+  return result;
+}
+
+export interface ImportJobStatus {
+  status: string;
+  lastError: string | null;
+  isTerminal: boolean;
+  report: ImportReport | null;
+}
+
+const TERMINAL_JOB_STATUSES = ["success", "failed", "dead", "cancelled"];
+
+// getImportJobStatusAction lets the bulk-import dialog check on a running
+// job without a full page navigation — the wizard fetches this once up
+// front (server-rendered) and again on demand via a "Check status" click.
+export async function getImportJobStatusAction(batchId: string, jobId: string): Promise<ActionResult<ImportJobStatus>> {
+  const orgId = await getOrgId();
+  if (!orgId) return { error: "Session expired." };
+  try {
+    const detail = await fetchJob(orgId, jobId);
+    const isTerminal = TERMINAL_JOB_STATUSES.includes(detail.job.status);
+    const report = isTerminal ? await getBatchImportReport(batchId).catch(() => null) : null;
+    return { ok: true, data: { status: detail.job.status, lastError: detail.job.last_error, isTerminal, report } };
+  } catch {
+    return { error: "Could not load import status." };
+  }
+}
+
+// ─── Batch invitations ──────────────────────────────────────────────────────
+
+export async function resendBatchInvitationAction(batchId: string, invitationId: string): Promise<ActionResult> {
+  const result = await apiAction("POST", `/api/batches/${batchId}/invitations/${invitationId}/resend`);
+  if (result.ok) revalidatePath(ROUTES.batch(batchId));
+  return result;
+}
+
+export async function revokeBatchInvitationAction(batchId: string, invitationId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/batches/${batchId}/invitations/${invitationId}`);
+  if (result.ok) revalidatePath(ROUTES.batch(batchId));
   return result;
 }
 

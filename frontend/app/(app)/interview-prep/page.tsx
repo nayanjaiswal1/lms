@@ -17,6 +17,11 @@ const STATUS_BADGE: Record<string, string> = {
   failed:      "border border-destructive text-destructive",
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  quick:    "Quick",
+  targeted: "Job-Targeted",
+};
+
 async function PlanList() {
   const plans = await listPrepPlans();
 
@@ -25,10 +30,10 @@ async function PlanList() {
       <div className="empty-state py-16">
         <Briefcase aria-hidden className="h-12 w-12 text-muted-foreground" />
         <p className="mt-3 text-sm text-muted-foreground">
-          No prep plans yet. Paste a job title or description to generate a scored mock test.
+          No sessions yet. Start a quick practice drill or paste a job description for a scored mock test.
         </p>
         <Button asChild className="mt-4">
-          <Link href={ROUTES.INTERVIEW_PREP_NEW}>Start your first plan</Link>
+          <Link href={ROUTES.INTERVIEW_PREP_NEW}>Get started</Link>
         </Button>
       </div>
     );
@@ -36,34 +41,44 @@ async function PlanList() {
 
   return (
     <ol aria-label="Interview prep plans" className="flex flex-col gap-3">
-      {plans.map((plan) => (
-        <li key={plan.id}>
-          <Link
-            className="card-interactive flex items-center gap-4 p-4"
-            href={ROUTES.interviewPrepPlan(plan.id)}
-          >
-            <div className="flex flex-1 flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{plan.job_title}</span>
-                <Badge className={STATUS_BADGE[plan.status] ?? ""} variant="outline">
-                  {plan.status.replace("_", " ")}
-                </Badge>
+      {plans.map((plan) => {
+        const isQuick = plan.plan_type === "quick";
+        return (
+          <li key={plan.id}>
+            <Link
+              className="card-interactive flex items-center gap-4 p-4"
+              href={ROUTES.interviewPrepPlan(plan.id)}
+            >
+              <div className="flex flex-1 flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{plan.job_title}</span>
+                  <Badge variant="secondary">{TYPE_LABEL[plan.plan_type] ?? plan.plan_type}</Badge>
+                  <Badge className={STATUS_BADGE[plan.status] ?? ""} variant="outline">
+                    {plan.status.replace("_", " ")}
+                  </Badge>
+                </div>
+                <div className="flex gap-3 text-xs text-muted-foreground">
+                  {isQuick ? (
+                    <span className="capitalize">{plan.difficulty}</span>
+                  ) : (
+                    <>
+                      <span className="capitalize">{plan.extracted_seniority}</span>
+                      <span>{plan.extracted_skills.slice(0, 4).join(", ")}</span>
+                    </>
+                  )}
+                  <span>{new Date(plan.created_at).toLocaleDateString()}</span>
+                </div>
               </div>
-              <div className="flex gap-3 text-xs text-muted-foreground">
-                <span className="capitalize">{plan.extracted_seniority}</span>
-                <span>{plan.extracted_skills.slice(0, 4).join(", ")}</span>
-                <span>{new Date(plan.created_at).toLocaleDateString()}</span>
-              </div>
-            </div>
-            {plan.report && (
-              <div className="flex flex-col items-end">
-                <span className="text-lg font-bold text-primary">{Math.round(plan.report.readiness_score)}</span>
-                <span className="text-xs text-muted-foreground">readiness</span>
-              </div>
-            )}
-          </Link>
-        </li>
-      ))}
+              {plan.report && (
+                <div className="flex flex-col items-end">
+                  <span className="text-lg font-bold text-primary">{Math.round(plan.report.readiness_score)}</span>
+                  <span className="text-xs text-muted-foreground">readiness</span>
+                </div>
+              )}
+            </Link>
+          </li>
+        );
+      })}
     </ol>
   );
 }

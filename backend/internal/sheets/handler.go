@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -124,6 +125,85 @@ func (h *Handler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusCreated, sheet)
+}
+
+// GetSheetPreview handles GET /api/sheets/:slug — minimal metadata for the
+// share/join flow, visible to any authenticated user.
+func (h *Handler) GetSheetPreview(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	slug := chi.URLParam(r, "slug")
+
+	preview, err := h.repo.GetSheetPreview(r.Context(), claims.UserID, slug)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, preview)
+}
+
+// UpdateSheet handles PATCH /api/sheets/:id.
+func (h *Handler) UpdateSheet(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	sheetID := chi.URLParam(r, "id")
+
+	isOwner, err := h.repo.IsOwner(r.Context(), claims.UserID, sheetID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if !isOwner {
+		httputil.WriteError(w, http.StatusForbidden, "Access denied.")
+		return
+	}
+
+	var req UpdateSheetRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Name != nil && *req.Name == "" {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"name": "name cannot be empty.",
+		})
+		return
+	}
+
+	sheet, err := h.repo.UpdateSheet(r.Context(), sheetID, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, sheet)
+}
+
+// DeleteSheet handles DELETE /api/sheets/:id.
+func (h *Handler) DeleteSheet(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	sheetID := chi.URLParam(r, "id")
+
+	isOwner, err := h.repo.IsOwner(r.Context(), claims.UserID, sheetID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if !isOwner {
+		httputil.WriteError(w, http.StatusForbidden, "Access denied.")
+		return
+	}
+
+	if err := h.repo.DeleteSheet(r.Context(), sheetID); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // CombineSheets handles POST /api/sheets/combine.
@@ -343,7 +423,188 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := h.repo.UpsertProgress(r.Context(), claims.UserID, topicTag, req.Status)
+	var revisionAt *time.Time
+	if req.Status == "done" {
+		if req.SheetID == "" {
+			httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+				"sheet_id": "sheet_id is required to resolve the revision schedule.",
+			})
+			return
+		}
+		settings, err := h.repo.GetSheetSettings(r.Context(), claims.UserID, req.SheetID)
+		if err != nil {
+			writeDomainError(w, err)
+			return
+		}
+		at := time.Now().AddDate(0, 0, nextRevisionDays(settings.GrowthScheme, settings.BaseRevisionDays, 0))
+		revisionAt = &at
+	}
+
+	item, err := h.repo.UpsertProgress(r.Context(), claims.UserID, topicTag, req.Status, revisionAt)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, item)
+}
+
+// UpdateProgressReview handles PATCH /api/progress/:topic_tag/review — the
+// "I still remember this" action, advancing an already-"done" item to its
+// next, longer interval per the given sheet's growth scheme.
+func (h *Handler) UpdateProgressReview(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	topicTag := chi.URLParam(r, "topic_tag")
+
+	var req MarkReviewedRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.SheetID == "" {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"sheet_id": "sheet_id is required to resolve the revision schedule.",
+		})
+		return
+	}
+
+	item, err := h.repo.MarkReviewed(r.Context(), claims.UserID, topicTag, req.SheetID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, item)
+}
+
+// UpdateProgressRevision handles PATCH /api/progress/:topic_tag/revision —
+// directly reschedules an already-solved item's revision date, distinct from
+// the interval picker shown when first marking it solved.
+func (h *Handler) UpdateProgressRevision(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	topicTag := chi.URLParam(r, "topic_tag")
+
+	var req UpdateRevisionRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.RevisionAt.IsZero() {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"revision_at": "revision_at is required.",
+		})
+		return
+	}
+
+	item, err := h.repo.UpdateRevision(r.Context(), claims.UserID, topicTag, req.RevisionAt)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, item)
+}
+
+var validGrowthSchemes = map[string]bool{"doubling": true, "ladder": true, "linear": true}
+
+// GetSheetSettings handles GET /api/sheets/settings?sheet_id=...
+func (h *Handler) GetSheetSettings(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	sheetID := r.URL.Query().Get("sheet_id")
+	if sheetID == "" {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"sheet_id": "sheet_id is required.",
+		})
+		return
+	}
+
+	settings, err := h.repo.GetSheetSettings(r.Context(), claims.UserID, sheetID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, settings)
+}
+
+// UpdateSheetSettings handles PUT /api/sheets/settings.
+func (h *Handler) UpdateSheetSettings(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req UpdateSheetSettingsRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	fieldErrors := map[string]string{}
+	if req.SheetID == "" {
+		fieldErrors["sheet_id"] = "sheet_id is required."
+	}
+	if req.BaseRevisionDays < 1 || req.BaseRevisionDays > 365 {
+		fieldErrors["base_revision_days"] = "base_revision_days must be between 1 and 365."
+	}
+	if !validGrowthSchemes[req.GrowthScheme] {
+		fieldErrors["growth_scheme"] = "growth_scheme must be one of: doubling, ladder, linear."
+	}
+	if len(fieldErrors) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fieldErrors)
+		return
+	}
+
+	settings, err := h.repo.UpsertSheetSettings(r.Context(), claims.UserID, req.SheetID, req.BaseRevisionDays, req.GrowthScheme)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, settings)
+}
+
+// UpdateProgressNotes handles PATCH /api/progress/:topic_tag/notes.
+func (h *Handler) UpdateProgressNotes(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	topicTag := chi.URLParam(r, "topic_tag")
+
+	var req UpdateProgressNotesRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Notes) == 0 || !json.Valid(req.Notes) {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"notes": "notes must be valid JSON.",
+		})
+		return
+	}
+
+	item, err := h.repo.UpsertNotes(r.Context(), claims.UserID, topicTag, req.Notes)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, item)
+}
+
+// UpdateProgressStarred handles PATCH /api/progress/:topic_tag/star.
+func (h *Handler) UpdateProgressStarred(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	topicTag := chi.URLParam(r, "topic_tag")
+
+	var req UpdateProgressStarredRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	item, err := h.repo.SetStarred(r.Context(), claims.UserID, topicTag, req.Starred)
 	if err != nil {
 		writeDomainError(w, err)
 		return

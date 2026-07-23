@@ -5,16 +5,6 @@ import { apiAction } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
-export async function createSessionAction(input: {
-  technology: string;
-  difficulty: string;
-  question_count: number;
-}): Promise<ActionResult<{ id: string }>> {
-  const result = await apiAction<{ id: string }>("POST", "/api/practice/sessions", input);
-  if (result.ok) revalidatePath(ROUTES.PRACTICE);
-  return result;
-}
-
 export async function submitAnswerAction(
   sessionId: string,
   position: number,

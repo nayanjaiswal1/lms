@@ -1,9 +1,12 @@
 import "server-only";
 
+import type { JSONContent } from "@tiptap/react";
 import { apiGet } from "@/lib/server/api";
+import type { GrowthScheme } from "@/lib/constants";
 
 export type ProgressStatus = "todo" | "done" | "revisit";
 export type Difficulty = "easy" | "medium" | "hard";
+export type { GrowthScheme };
 
 export interface Sheet {
   id: string;
@@ -24,6 +27,15 @@ export interface UserSheetSummary extends Sheet {
   role: "owner" | "subscriber";
 }
 
+export interface SheetPreview extends Sheet {
+  is_subscribed: boolean;
+}
+
+export interface UpdateSheetInput {
+  name?: string;
+  description?: string;
+}
+
 export interface SheetItem {
   id: string;
   sheet_id: string;
@@ -36,12 +48,20 @@ export interface SheetItem {
   status: ProgressStatus;
   solved_at: string | null;
   revision_at: string | null;
+  review_count: number;
+  notes: JSONContent;
+  is_starred: boolean;
   created_at: string;
 }
 
 export interface SheetItemsResponse {
   sheet: Sheet;
   items: SheetItem[];
+}
+
+export interface UserSheetSettings {
+  base_revision_days: number;
+  growth_scheme: GrowthScheme;
 }
 
 export interface CreateSheetInput {
@@ -84,6 +104,14 @@ export async function getUserSheets(): Promise<UserSheetSummary[]> {
   return apiGet<UserSheetSummary[]>("/api/user/sheets");
 }
 
+export async function getSheetPreview(slug: string): Promise<SheetPreview> {
+  return apiGet<SheetPreview>(`/api/sheets/${encodeURIComponent(slug)}`);
+}
+
 export async function getSheetItems(slug: string): Promise<SheetItemsResponse> {
   return apiGet<SheetItemsResponse>(`/api/sheets/${encodeURIComponent(slug)}/items`);
+}
+
+export async function getSheetSettings(sheetId: string): Promise<UserSheetSettings> {
+  return apiGet<UserSheetSettings>(`/api/sheets/settings?sheet_id=${encodeURIComponent(sheetId)}`);
 }

@@ -42,6 +42,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusConflict, "This ticket has already been claimed.")
 	case errors.Is(err, ErrAlreadyPurchased):
 		httputil.WriteError(w, http.StatusConflict, "You have already purchased this course.")
+	case errors.Is(err, ErrAlreadyHasMentor):
+		httputil.WriteError(w, http.StatusConflict, "You already have an active mentor request.")
 	case errors.Is(err, ErrChangeRequestPending):
 		httputil.WriteError(w, http.StatusConflict, "A mentor change request is already pending for this ticket.")
 	case errors.Is(err, ErrInvalid):

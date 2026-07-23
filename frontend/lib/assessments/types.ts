@@ -324,4 +324,5 @@ export interface Batch {
   status: string;
   member_count: number;
   image_url: string | null;
+  cohort_group_id: string | null;
 }

@@ -107,14 +107,46 @@ mindforge/
 ├── backend/                    Go API server
 │   ├── cmd/
 │   │   └── server/            main.go — entry point
-│   ├── internal/
-│   │   ├── config/            env var parsing and validation
-│   │   ├── db/                pgxpool setup
-│   │   ├── auth/              JWT, middleware, OAuth, password, tokens
-│   │   ├── orgs/              org management handlers
-│   │   └── shared/            response helpers, validation utilities
+│   ├── internal/               37 domain packages, one per feature area:
+│   │   ├── ai/                 LLMProvider interface — Anthropic, Gemini, NoOp
+│   │   ├── api/                router wiring
+│   │   ├── assessment/         tests, attempts, batches, invitations
+│   │   ├── auth/                JWT, middleware, OAuth, password, tokens
+│   │   ├── authz/               RBAC engine
+│   │   ├── calendar/            calendar sync, entity schedules
+│   │   ├── config/               env var parsing and validation
+│   │   ├── contentpipeline/     course/lesson ingestion
+│   │   ├── courses/              course tree, enrollment, progress
+│   │   ├── db/                   pgxpool setup, migrations, fixtures
+│   │   ├── experience/           feedback/experience reports
+│   │   ├── features/             feature flags, entitlements
+│   │   ├── feedback/             rating/feedback capture
+│   │   ├── highlights/           text highlights + AI explanations
+│   │   ├── httputil/             response helpers, validation utilities
+│   │   ├── interviewprep/        AI interview practice sessions
+│   │   ├── jobs/                 background job queue + handlers
+│   │   ├── labs/                 sandboxed terminal/code/guided labs
+│   │   ├── llm/                  shared LLM plumbing
+│   │   ├── mentoring/            mentor tickets, reports, chat
+│   │   ├── messaging/            batch messages, reactions, FAQs
+│   │   ├── middleware/           shared HTTP middleware
+│   │   ├── onboarding/           user onboarding flow
+│   │   ├── orgs/                 org management handlers
+│   │   ├── payments/             billing/subscription
+│   │   ├── practice/             coding challenges, quizzes, SRS
+│   │   ├── profile/               user profile
+│   │   ├── revisionplan/          spaced-repetition revision plans
+│   │   ├── rewards/               XP, achievements
+│   │   ├── roadmap/               AI-generated personalized roadmaps
+│   │   ├── session/               session management
+│   │   ├── sheets/                sheet tracker (Blind 75, NeetCode, etc.)
+│   │   ├── srs/                   spaced-repetition cards
+│   │   ├── storage/               MinIO presigned URL client
+│   │   ├── systemdesign/          system design canvas
+│   │   ├── whatnow/               task suggestions
+│   │   └── wiki/                  wiki spaces, pages, versioning
 │   ├── db/
-│   │   ├── migrations/        *.sql migration files (numbered, ordered)
+│   │   ├── migrations/        001_baseline.sql (+ .down.sql) — squashed history; new work adds 002_*, 003_*, ...
 │   │   └── fixtures/          dev_seed.sql — dev-only test data
 │   ├── Dockerfile             Multi-stage production build
 │   ├── go.mod
@@ -122,16 +154,20 @@ mindforge/
 │   └── .env.example           Backend-only env var reference
 │
 ├── frontend/                  Next.js 16 app
-│   ├── app/                   App Router pages and layouts
+│   ├── app/                   App Router pages and layouts — (app), (public), auth, org, platform, onboarding
 │   ├── components/            Shared UI components
 │   ├── lib/                   Utilities, auth, API client
 │   ├── Dockerfile             Multi-stage standalone build
 │   └── .env.example           Frontend env var reference
 │
+├── k8s/                       Kustomize manifests (base/ + overlays/prod/) — see Kubernetes Deployment below
+│
 ├── scripts/
 │   ├── dev-setup.sh           One-shot dev environment setup
 │   ├── start-dev.ps1          One-click Windows dev launcher (Docker services + frontend)
 │   ├── deploy-prod.sh         Build and (re)start the production stack
+│   ├── deploy-k8s.sh          Apply k8s manifests, wait for rollout
+│   ├── build-push-k8s-images.sh Build, push, pin image tags for k8s
 │   ├── db-migrate.sh          Apply pending migrations
 │   ├── db-seed.sh             Load dev fixtures
 │   ├── db-reset.sh            Drop and recreate the database

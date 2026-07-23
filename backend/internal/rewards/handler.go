@@ -51,8 +51,8 @@ func (h *Handler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
 //
 // Query params:
 //
-//	scope        — global | org | batch | course | feature  (default: org)
-//	scope_id     — UUID of the org/batch/course (required for non-global scopes)
+//	scope        — global | org | batch | group | course | feature  (default: org)
+//	scope_id     — UUID of the org/batch/cohort_group/course (required for non-global scopes)
 //	feature_type — problems | quizzes (required when scope=feature)
 //	limit        — 1–100 (default 20)
 //	offset       — (default 0)
@@ -145,6 +145,11 @@ func buildLBKey(scope, scopeID, featureType, defaultOrgID string) (string, bool)
 			return "", false
 		}
 		return "leaderboard:batch:" + scopeID, true
+	case "group":
+		if scopeID == "" {
+			return "", false
+		}
+		return "leaderboard:group:" + scopeID, true
 	case "course":
 		if scopeID == "" {
 			return "", false

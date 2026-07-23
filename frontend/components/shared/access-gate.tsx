@@ -30,6 +30,7 @@ interface AccessGateProps {
   children:  React.ReactNode;
   mode?:     GateMode;
   className?: string;
+  collapsed?: boolean;
 }
 
 /**
@@ -55,7 +56,7 @@ interface AccessGateProps {
  *     <SidebarItem label="Wiki" />
  *   </AccessGate>
  */
-export function AccessGate({ feature, children, mode = "lock", className }: AccessGateProps) {
+export function AccessGate({ feature, children, mode = "lock", className, collapsed = false }: AccessGateProps) {
   const orgEnabled  = useIsOrgFeatureEnabled(feature);
   const entitled    = useIsEntitled(feature);
   const lockedInfo  = useLockedInfo(feature);
@@ -70,8 +71,9 @@ export function AccessGate({ feature, children, mode = "lock", className }: Acce
   if (mode === "hide") return null;
 
   if (mode === "badge") {
+    if (collapsed) return <>{children}</>;
     return (
-      <span className="relative inline-flex items-center gap-1.5">
+      <span className="flex w-full items-center gap-2">
         {children}
         <UnlockBadge lockedInfo={lockedInfo} />
       </span>
@@ -135,7 +137,7 @@ function UnlockBadge({ lockedInfo }: { lockedInfo: ReturnType<typeof useLockedIn
   const label = lockedInfo?.unlock_via === "addon" ? "Add-on" : "Upgrade";
   return (
     <Badge
-      className="badge-info text-xs px-1.5 py-0 h-4 uppercase tracking-wide"
+      className="shrink-0 badge-info text-xs px-1.5 py-0 h-4 uppercase tracking-wide"
       variant="outline"
     >
       {label}

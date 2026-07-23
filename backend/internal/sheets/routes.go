@@ -17,6 +17,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/sheets", h.CreateSheet)
 	r.Post("/api/sheets/combine", h.CombineSheets)
 	r.Post("/api/sheets/import/excel", h.ImportExcel)
+	r.Get("/api/sheets/{slug}", h.GetSheetPreview)
+	r.Patch("/api/sheets/{id}", h.UpdateSheet)
+	r.Delete("/api/sheets/{id}", h.DeleteSheet)
 	r.Get("/api/sheets/{slug}/items", h.GetSheetItems)
 	r.Post("/api/sheets/{id}/items", h.AddItem)
 	r.Patch("/api/sheets/{id}/items/{itemId}", h.UpdateItem)
@@ -25,6 +28,12 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Delete("/api/sheets/{id}/subscribe", h.Unsubscribe)
 
 	r.Get("/api/user/sheets", h.ListUserSheets)
+	r.Get("/api/sheets/settings", h.GetSheetSettings)
+	r.Put("/api/sheets/settings", h.UpdateSheetSettings)
 
 	r.Patch("/api/progress/{topic_tag}", h.UpdateProgress)
+	r.Patch("/api/progress/{topic_tag}/notes", h.UpdateProgressNotes)
+	r.Patch("/api/progress/{topic_tag}/revision", h.UpdateProgressRevision)
+	r.Patch("/api/progress/{topic_tag}/review", h.UpdateProgressReview)
+	r.Patch("/api/progress/{topic_tag}/star", h.UpdateProgressStarred)
 }

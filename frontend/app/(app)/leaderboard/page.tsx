@@ -5,8 +5,10 @@ import { Trophy } from "lucide-react";
 import { LeaderboardTable } from "@/components/rewards/leaderboard-table";
 import { ScopeTabs } from "@/components/rewards/scope-tabs";
 import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
+import { LeaderboardGroupPicker } from "@/components/cohorts/leaderboard-group-picker";
 import { getCurrentUser } from "@/lib/server/auth";
 import { getLeaderboard, getMyRank } from "@/lib/server/rewards";
+import { getCohortGroups, buildCohortTree } from "@/lib/server/cohorts";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -22,7 +24,7 @@ interface LeaderboardPageProps {
   }>;
 }
 
-const VALID_SCOPES = new Set<LeaderboardScope>(["global", "org", "batch", "course", "feature"]);
+const VALID_SCOPES = new Set<LeaderboardScope>(["global", "org", "batch", "group", "course", "feature"]);
 
 function sanitizeScope(raw?: string): LeaderboardScope {
   if (raw && VALID_SCOPES.has(raw as LeaderboardScope)) return raw as LeaderboardScope;
@@ -38,12 +40,17 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
   const scopeId = params.scope_id;
   const featureType = params.feature_type;
 
-  const [leaderboardData, myRankData] = await Promise.all([
+  const [leaderboardData, myRankData, cohortGroups] = await Promise.all([
     getLeaderboard(scope, scopeId, featureType, 50, 0),
     getMyRank(scope, scopeId, featureType),
+    // Staff-only endpoint (RequireOrgRole admin/instructor/mentor) — students
+    // get a 403, so the tree picker simply doesn't render for them below.
+    getCohortGroups().catch(() => []),
   ]);
 
   const entries = leaderboardData?.entries ?? [];
+  const cohortTree = buildCohortTree(cohortGroups);
+  const activeGroup = scope === "group" ? cohortGroups.find((g) => g.id === scopeId) : undefined;
 
   // Build the tab list — always show Global + Org; conditionally show Batch/Course/Feature
   // when scope_id is present in the URL (the user navigated here from a context page)
@@ -52,6 +59,9 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
     { scope: "org" as LeaderboardScope, label: "My Org" },
     ...(scopeId && scope === "batch"
       ? [{ scope: "batch" as LeaderboardScope, label: "This Batch", scopeId }]
+      : []),
+    ...(activeGroup
+      ? [{ scope: "group" as LeaderboardScope, label: activeGroup.name, scopeId: activeGroup.id }]
       : []),
     ...(scopeId && scope === "course"
       ? [{ scope: "course" as LeaderboardScope, label: "This Course", scopeId }]
@@ -94,17 +104,24 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
 
       <div className="mb-6">
         <ScopeTabs
-          tabs={tabs}
+          activeFeatureType={featureType}
           activeScope={scope}
           activeScopeId={scopeId}
-          activeFeatureType={featureType}
+          tabs={tabs}
         />
       </div>
 
+      {cohortTree.length > 0 && (
+        <div className="card-base mb-6 p-4">
+          <h2 className="subsection-title mb-3">Browse by cohort group</h2>
+          <LeaderboardGroupPicker allGroups={cohortGroups} roots={cohortTree} selectedId={activeGroup?.id} />
+        </div>
+      )}
+
       <LeaderboardTable
         entries={entries}
-        myUserID={user.id}
         myRank={myRankData && myRankData.rank > 0 ? myRankData.rank : undefined}
+        myUserID={user.id}
       />
     </main>
   );

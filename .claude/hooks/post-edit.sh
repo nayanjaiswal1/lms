@@ -7,7 +7,7 @@ file=$(echo "$input" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    print(d.get('file_path', ''))
+    print(d.get('tool_input', {}).get('file_path', ''))
 except:
     print('')
 " 2>/dev/null)
@@ -20,7 +20,7 @@ BACKEND_DIR="$(dirname "$0")/../../backend"
 FRONTEND_DIR="$(dirname "$0")/../../frontend"
 
 if [[ "$file" == *.go ]]; then
-  cd "$BACKEND_DIR" 2>/dev/null && go build ./... 2>&1 | head -30
+  cd "$BACKEND_DIR" 2>/dev/null && go vet ./... 2>&1 | head -30
 elif [[ "$file" == *.ts ]] || [[ "$file" == *.tsx ]]; then
   cd "$FRONTEND_DIR" 2>/dev/null && pnpm tsc --noEmit 2>&1 | head -30
 fi

@@ -59,7 +59,9 @@ export function AchievementsCard({ stats, achievements }: Props) {
           )}
         </div>
 
-        {/* Certificates */}
+        {/* Certificates — full list with links now lives on the public
+            profile card (components/profile/public-profile-card.tsx); this
+            private settings view only needs the count. */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Certificates
@@ -81,7 +83,7 @@ export function AchievementsCard({ stats, achievements }: Props) {
                 size={32}
               />
               <p className="text-sm text-muted-foreground max-w-56">
-                Complete courses and assessments to earn certificates.
+                Complete courses and pass their final tests to earn certificates.
               </p>
             </div>
           )}

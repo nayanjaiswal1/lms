@@ -16,6 +16,12 @@ export async function purchaseCourseAction(courseId: string): Promise<ActionResu
   return result;
 }
 
+export async function requestMentorAction(courseId: string): Promise<ActionResult<MentorTicket>> {
+  const result = await apiAction<MentorTicket>("POST", "/api/mentor-tickets/request", { course_id: courseId });
+  if (result.ok) revalidatePath(ROUTES.MENTORS);
+  return result;
+}
+
 export async function claimTicketAction(ticketId: string): Promise<ActionResult<MentorTicket>> {
   const result = await apiAction<MentorTicket>("POST", `/api/mentor-tickets/${ticketId}/claim`);
   if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
@@ -78,6 +84,19 @@ export async function approveChangeRequestAction(requestId: string, note?: strin
 
 export async function denyChangeRequestAction(requestId: string, note?: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/mentor-change-requests/${requestId}/deny`, { note });
+  if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
+  return result;
+}
+
+export async function resolveReportAction(
+  reportId: string,
+  status: "resolved" | "dismissed",
+  note?: string,
+): Promise<ActionResult> {
+  const result = await apiAction("PATCH", `/api/mentor-reports/${reportId}`, {
+    status,
+    resolution_note: note,
+  });
   if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
   return result;
 }

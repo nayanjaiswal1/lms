@@ -1,104 +1,158 @@
-# Schema Review — Remaining Work (Phases 2-4)
+# Schema Review — Status & Remaining Work
 
-Phase 1 (Critical: #1 audit merge, #2 auth vocab, #39 token hashing) is DONE —
-see migrations 002/003/004. This file tracks what's left. Check items off as
-migrations land. Each phase = one migration file (or a few), matching the
-`00N_description.sql` + `00N_description.down.sql` convention in
-`backend/db/migrations/`. No `BEGIN;`/`COMMIT;` inside files — the runner
-wraps each file in its own transaction (see `db/migrate.go`).
+Re-audited 2026-07-21 directly against `backend/db/migrations/001_baseline.sql`
+(114 tables). The migration history was squashed into a single baseline at
+some point — the old `002`–`010` numbering this file used to track no longer
+exists. **Next migration is `002_*`.** `SCHEMA_REVIEW.md` (the original
+40-issue audit this file was extracted from) has been deleted — its
+actionable items are folded in below with verified current status; anything
+below marked "fixed" or "open" was checked against the live baseline, not
+assumed.
+
+No `BEGIN;`/`COMMIT;` inside migration files — the runner wraps each file in
+its own transaction (see `db/migrate.go`). Each phase = one migration number,
+with a matching `.down.sql`.
 
 ---
 
-## Phase 2 — Structural (next migration: `005_*`)
+## Fixed (verified in baseline, no action needed)
 
-- [ ] **#4 — Merge attempt models.** `assessment_attempts` vs `public_attempts`.
+- **#1 — Audit merge.** `audit_log` is gone; only `audit_logs` remains.
+- **#2 — Auth vocab.** `org_members`, `nav_permissions`, and `org_invites` role
+  CHECK constraints all use `'learner'` consistently now (the `student`/`learner`
+  mismatch is resolved). Note: `roles`/`permissions`/`role_permissions`/`user_roles`
+  (the RBAC tables) still exist alongside `org_members.role` — the vocab was
+  aligned, the four-systems consolidation was never done and isn't tracked here
+  unless a real bug surfaces from it.
+- **#23 — `jobs.idempotency_key` uniqueness.** `jobs_idempotency_key_key UNIQUE` exists.
+- **#27 — Email → citext.** `batch_invitations`, `batch_member_details`,
+  `calendar_event_invites`, `org_invites`, `public_attempts` all use `citext` now.
+  Leftover: `social_accounts.email` is still plain `text` — low value, pick up
+  opportunistically.
+- **#39 (partial) — Token hashing.** `oauth_exchanges` now stores `token_hash`
+  with a `UNIQUE` constraint; `refresh_tokens` and `password_reset_tokens` both
+  gained `UNIQUE(token_hash)`. **Not fixed:** `assessment_attempts.active_session_token`
+  and `public_attempts.session_token` are still stored **plaintext** — see Phase 4.
+
+## Partially fixed / resolved differently than recommended
+
+- **#5 — Lab task versioning.** `lab_task_version_items` was added as recommended,
+  but `lab_tasks` was never dropped — both tables coexist. Check what
+  `lab_task_completions` actually FKs to in `internal/labs` before finishing the
+  drop; may already be safe to remove `lab_tasks`, may still be load-bearing.
+- **#9 — `organizations.active_member_count`.** Column was *not* dropped, but a
+  trigger (`update_active_member_count()` on `org_members` insert/update/delete)
+  now keeps it in sync — the drift risk the review flagged is addressed, just
+  not via the recommended denormalization removal. Leave as-is; revisit only if
+  the trigger itself becomes a bottleneck.
+- **#36 — Naming inconsistencies.** `created_by` is now the standard across
+  nearly every table (assessments, calendar_events, lab_definitions, roadmaps,
+  sheets, wiki, etc.). `courses.creator_id` is the one remaining holdout.
+
+---
+
+## Phase 2 — Structural (next migration: `002_*`)
+
+- [ ] **#4 — Merge attempt models.** `assessment_attempts` vs `public_attempts`
+      still fully duplicated: different column types (`numeric(9,2)` vs bare
+      `numeric`), different status enums, separate `score`/`percentage`/`passed`.
       Add nullable `user_id` + `attempt_guests(attempt_id, name, email citext, phone)`
       sub-table to `assessment_attempts`. Rename `public_attempts` →
       `public_attempts_archive`, backfill, update Go call sites in
-      `internal/assessment` (repo + handlers) to write/read the unified table.
-- [ ] **#5 — Fix lab task versioning.** `lab_tasks` (mutable rows) vs
-      `lab_task_versions.tasks jsonb` (immutable snapshot) — completions can
-      reference an edited/deleted task. Create `lab_task_version_items`,
-      backfill from `lab_tasks` joined through version context, repoint
-      `lab_task_completions.task_version_item_id`, drop `lab_tasks`. Update Go
-      in lab session/completion code.
-- [ ] **#27 — Email → citext everywhere.** `batch_invitations.email`,
-      `batch_member_details.email`, `org_invites.email`,
-      `calendar_event_invites.email`, `public_attempts.email` →
-      `ALTER COLUMN email TYPE citext USING LOWER(email)`. Pure DB-side, no Go
-      change needed (citext behaves like text over the wire).
-- [ ] **#8 — Derive `percentage`/`passed` on attempts.** Drop
-      `percentage`, add `pass_percentage_at_submit` snapshot column,
-      make `passed` a generated column. Touches scoring code in
-      `internal/assessment` (wherever attempts are scored/submitted) — must
-      write `pass_percentage_at_submit` at submit time.
+      `internal/assessment` (repo + handlers).
+- [ ] **#6 — Invite table triplication.** `batch_invitations`, `org_invites`,
+      `calendar_event_invites` are all still separate, still with inconsistent
+      columns (`invited_by` vs `invited_by_user_id`; only `batch_invitations`
+      has `resent_at`). Consolidate into one `invitations(target_type, target_id, ...)`
+      table per the original design in the (now-deleted) schema review.
 
-⚠️ #4, #5, #8 all touch `internal/assessment`, which has unrelated in-flight
-feature work (batch/excel import). Coordinate or rebase before merging.
+⚠️ #4 touches `internal/assessment`, which has unrelated in-flight feature
+work. Check `git diff`/current branch state there before editing.
 
 ---
 
-## Phase 3 — High-priority denormalization (next migration: `006_*`)
+## Phase 3 — High-priority denormalization (next migration: `003_*`)
 
-- [ ] **#7 — Drop `courses.is_free`.** Compute `price_cents = 0` at query time.
-      Grep Go for `is_free` reads first.
-- [ ] **#9 — Drop `organizations.active_member_count`.** Replace with
-      `COUNT(*) FROM org_members WHERE org_id=? AND status='active'`
-      (index `idx_org_members_org_status` already covers it). Check seat-limit
-      enforcement code path specifically.
-- [ ] **#10 — Trim `user_stats`.** Drop `xp_level_name`, `xp_level`,
-      `tests_passed` (all derivable). Needs a rebuild job/query if the read
-      model stays.
-- [ ] **#11 — Drop `assessments.total_points`.** Compute
-      `SUM(assessment_questions.points)` at read time.
-- [ ] **#17 — Drop `batches.mentor_id`.** Single source of truth becomes
-      `batch_mentors` + new `is_lead boolean` (unique per batch where true).
-      Update Go wherever `batches.mentor_id` is read/written.
+- [ ] **#7 — Drop `courses.is_free`.** Still present (`DEFAULT true NOT NULL`),
+      still redundant with `price_cents`. Grep Go for `is_free` reads first.
+- [ ] **#8 — Derive `percentage`/`passed` on attempts.** Still stored plain
+      columns on `assessment_attempts`. Drop `percentage`, add
+      `pass_percentage_at_submit` snapshot column, make `passed` generated.
+      Touches scoring code in `internal/assessment`.
+- [ ] **#10 — Trim `user_stats`.** `xp_level_name`, `xp_level`, `tests_passed`
+      all still present and still derivable. Needs a rebuild job/query if the
+      read model stays.
+- [ ] **#11 — Drop `assessments.total_points`.** Still a stored column
+      (`DEFAULT 0`), still divergeable from `SUM(assessment_questions.points)`.
+- [ ] **#17 — Drop `batches.mentor_id`.** Still present with its own FK + index
+      (`idx_batches_mentor`), still duplicated by `batch_mentors`. Single source
+      of truth becomes `batch_mentors` + `is_lead boolean`.
 - [ ] **#20 — Replace unenforced arrays with join tables.**
-      `whatnow_tasks.depends_on uuid[]` → `whatnow_task_dependencies`.
-      `sheets.source_sheet_ids text[]` → `sheet_sources` (also fixes the
-      text-instead-of-uuid type bug). Leave `batch_member_details.locked_fields`,
+      `whatnow_tasks.depends_on uuid[]` and `sheets.source_sheet_ids text[]`
+      both still raw arrays, no FK enforcement. Leave `batch_member_details.locked_fields`,
       `user_profiles.topics_interest`, `organizations.allowed_domains` alone —
-      lower value, defer to Phase 4/backlog.
-- [ ] **#33 — Refactor `org_auth_config` boolean explosion.** New
-      `org_auth_providers(org_id, provider, is_enabled, is_required, config jsonb)`
-      child table, drop `org_auth_config`. Also fixes plaintext
-      `oidc_client_secret` — move secret into `config` via KMS reference, not
-      raw text. Touches auth provider config code — check before dropping.
-- [ ] **#35 — Consolidate `user_profiles` duplicate fields.** Drop
-      `timeline`, `role_intent`, `learning_goal`, `industry`, `skill_level`,
-      `weekly_time_commitment` into a `meta jsonb` archive column; standardize
-      on `experience_level`/`career_goal`/`weekly_goal_hrs`. Grep onboarding
-      flow in Go before touching — likely the widest blast radius in this repo.
+      still lower value, still deferred.
+- [ ] **#33 — Refactor `org_auth_config` boolean explosion.** Still one row per
+      org with a provider boolean per column; no `org_auth_providers` child
+      table exists. Also still no encryption on `oidc_client_secret` — plaintext.
+- [ ] **#35 — Consolidate `user_profiles` duplicate fields.** All four
+      duplicate-answer pairs are still present verbatim: `experience_level` /
+      `skill_level`, `role_intent` / `job_title` (verify) / `current_role` (verify),
+      `learning_goal` / `career_goal`, `weekly_time_commitment` / `weekly_goal_hrs`.
+      This is still the widest-blast-radius item — grep the onboarding flow
+      before touching.
 
 ---
 
-## Phase 4 — Consistency + quick wins (next migration: `007_*`)
+## Phase 4 — Consistency + quick wins (next migration: `004_*`)
 
 Quick wins (safe, mostly one-liners):
-- [ ] **#23** — `CREATE UNIQUE INDEX ON jobs(idempotency_key) WHERE idempotency_key IS NOT NULL AND deleted_at IS NULL`
-- [ ] **#24** — `UNIQUE(user_id, question_id) WHERE question_id IS NOT NULL` on `srs_cards`
-- [ ] **#25** — rename `sheet_items.order_index` → `position`, add `UNIQUE(sheet_id, position) DEFERRABLE INITIALLY DEFERRED`
-- [ ] **#31** — add `updated_at` to `enrollments`, `srs_cards`, `sheet_items`, `email_verifications`, `user_roles`, `batch_courses`, `batch_mentors`, `calendar_event_attendees`
-- [ ] **#32** — `srs_cards.ease_factor` → `numeric(4,2)`
+- [ ] **#24** — `UNIQUE(user_id, question_id) WHERE question_id IS NOT NULL` on
+      `srs_cards` — still missing.
+- [ ] **#25** — rename `sheet_items.order_index` → `position`, add
+      `UNIQUE(sheet_id, position) DEFERRABLE INITIALLY DEFERRED` — still only a
+      plain (non-unique) index exists (`idx_sheet_items_sheet_order`).
+- [ ] **#28** — `refresh_tokens.ip` → `inet`, rename to `ip_address` — still `text`.
+- [ ] **#29** — standardize duration columns to `*_seconds`; `lab_definitions.max_duration`
+      and `lab_org_config.max_session_duration` are still unitless integers — rename
+      with a unit suffix at minimum.
+- [ ] **#32** — `srs_cards.ease_factor` → `numeric(4,2)` — still `double precision`.
 - [ ] **#37** — `highlight_explanations` unique key → `(text_hash, source_type, model_used)`
+      — still `UNIQUE(text_hash)` alone.
+- [ ] **#39 (remainder)** — Hash `assessment_attempts.active_session_token` and
+      `public_attempts.session_token`. Both are still plaintext bearer tokens —
+      this is the one still-open **critical**-severity item from the original audit.
 
 Needs care (logic or naming touches Go):
-- [ ] **#16** — `assessments.status` collapse to `draft/published/archived`; compute scheduled/active/completed from `starts_at`/`ends_at` at read time. Update status checks in Go.
-- [ ] **#18** — `mentor_ticket_assignments` drop duplicated `student_id`/`org_id`, join through `mentor_tickets` instead.
-- [ ] **#19** — `course_modules.course_id` — drop redundant column, or add composite FK `(section_id, course_id)`. Pick the composite-FK route if Go queries filter by `course_modules.course_id` directly (avoids a join rewrite).
-- [ ] **#21** — `user_problem_progress.topic_tag` → FK to `sheet_items.id` (needs surrogate key backfill).
-- [ ] **#22** — polymorphic type/id pairs (`assessment_assignments`, etc.) — convert the 2-arity ones (assignee_type student/batch) to exclusive-arc nullable FKs; leave true polymorphism (audit_logs, xp_events) as-is with a reconciliation job.
-- [ ] **#26** — composite FK `(assessment_id, org_id)` on attempts/scores tables to guard transitive `org_id`.
-- [ ] **#28** — `refresh_tokens.ip` → `inet`, rename to `ip_address`.
-- [ ] **#29** — standardize duration columns to `*_seconds`; the two unitless ones (`lab_definitions.max_duration`, `lab_org_config.max_session_duration`) are the actual bugs — rename with unit suffix at minimum even if full seconds-migration is deferred.
-- [ ] **#30** — `SET NOT NULL` on the ~10 nullable `created_at` columns; drop `org_members.created_at` (redundant with `joined_at`).
-- [ ] **#36** — naming pass: `courses.creator_id` → `created_by`, `audit_log`-style `tenant_id` → `org_id` (already gone with table), unquote `"position"` → `sort_order`. Do last since it touches the most call sites for the least functional value.
+- [ ] **#3** — `feedback` vs `experience_reports` still fully duplicated —
+      merge, low urgency (medium value per original review).
+- [ ] **#13** — `interview_evaluations.composite_score` still a plain stored
+      column, not generated from the seven `score_*` fields.
+- [ ] **#16** — `assessments.status` still the full 6-value enum
+      (`draft/published/scheduled/active/completed/archived`); collapse to
+      `draft/published/archived` and compute temporal phase at read time.
+- [ ] **#18** — `mentor_ticket_assignments` still duplicates `student_id` AND
+      `org_id` from `mentor_tickets`. Drop both, join through `ticket_id`.
+- [ ] **#19** — `course_modules.course_id` still present despite `section_id`
+      already determining it — drop, or add composite FK if Go filters by it directly.
+- [ ] **#21** — `user_problem_progress` still PKs on `(user_id, topic_tag)` with
+      no FK to `sheet_items` — needs surrogate key backfill.
+- [ ] **#22** — polymorphic type/id pairs (`assessment_assignments.assignee_type/id`,
+      etc.) still unenforced — convert 2-arity ones to exclusive-arc nullable FKs;
+      leave true polymorphism (`audit_logs`, `xp_events`) as-is.
+- [ ] **#36 (remainder)** — `courses.creator_id` → `created_by`, to match every
+      other table. Do last, touches the most call sites for least functional value.
+- [ ] **#40** — `enrollments.batch_id` still present alongside `batch_members` +
+      `batch_courses` — three tables can still disagree on batch membership.
 
-Deferred (documented, not migrating now):
-- #3 (feedback/experience_reports merge — medium value, do opportunistically)
-- #6 (invite table triplication — bigger lift, own migration when touched)
-- #12, #13, #14, #15, #34, #38, #40 — low impact or already-acceptable denormalization per the review; revisit only if a bug surfaces in that area
+Deferred (documented, not migrating now — unchanged from original review, not reverified this pass):
+- #12 (`coding_submissions` dual test counts — defensible denormalization)
+- #14 (`users.email_verified` vs `email_verifications.verified_at` — acceptable with discipline)
+- #15 (`batch_member_details.status` vs `batch_invitations` timestamps)
+- #26 (transitive `org_id` on attempts/scores — needed for RLS/partitioning)
+- #30, #31 (`created_at` nullability chaos, missing `updated_at` — low impact)
+- #34 (`user_profiles.show_*` / assessment toggle booleans — tolerable today)
+- #38 (event/log tables not partition-ready — matters at 10M+ rows, not yet)
 
 ---
 
@@ -107,5 +161,7 @@ Deferred (documented, not migrating now):
 1. One phase = one migration number, with a matching `.down.sql`.
 2. No `BEGIN;`/`COMMIT;` in the `.sql` file — runner-managed transaction.
 3. Grep Go call sites for every dropped/renamed column before dropping it.
-4. `internal/assessment` has unrelated in-flight work — check `git diff` there before editing.
-5. No Go toolchain in this environment — migrations are reviewed by hand, not compiled. Flag this in the completion report.
+4. `internal/assessment` may have unrelated in-flight work — check `git diff`
+   / `git status` there before editing.
+5. Re-verify against `001_baseline.sql` before starting — this file reflects a
+   point-in-time audit (2026-07-21), not a live query.

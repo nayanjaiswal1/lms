@@ -17,6 +17,7 @@ const PROTECTED_PREFIXES = [
   "/practice",
   "/settings",
   "/admin",
+  "/users",
   "/sheets",
   "/platform",
   "/plan",

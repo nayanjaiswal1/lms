@@ -1,6 +1,3 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { SheetItem } from "@/lib/server/sheets";
 import { SheetTableRow } from "@/components/sheets/sheet-table-row";
 import { SheetItemGroups, type ItemGroup } from "@/components/sheets/sheet-item-groups";
@@ -12,10 +9,12 @@ interface SheetTableProps {
   sheetId: string;
   items: SheetItem[];
   isOwner: boolean;
+  isEditMode: boolean;
   groupBy: GroupBy;
   isAdding: boolean;
-  addItemHref: string;
   cancelAddItemHref: string;
+  activeItemId?: string | null;
+  onSelectItem?: (itemId: string) => void;
 }
 
 const DIFFICULTY_ORDER = ["easy", "medium", "hard"] as const;
@@ -45,13 +44,21 @@ export function SheetTable({
   sheetId,
   items,
   isOwner,
+  isEditMode,
   groupBy,
   isAdding,
-  addItemHref,
   cancelAddItemHref,
+  activeItemId,
+  onSelectItem,
 }: SheetTableProps) {
   return (
     <div className="table-responsive">
+      {isOwner && isEditMode && isAdding && (
+        <div className="border-b border-border p-3">
+          <AddItemInlineRow cancelHref={cancelAddItemHref} sheetId={sheetId} />
+        </div>
+      )}
+
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground py-6 text-center">
           {isOwner ? "No problems yet — add your first one." : "This sheet has no problems yet."}
@@ -59,24 +66,28 @@ export function SheetTable({
       ) : groupBy === "none" ? (
         <ul>
           {items.map((item, index) => (
-            <SheetTableRow index={index} isOwner={isOwner} item={item} key={item.id} sheetId={sheetId} />
+            <SheetTableRow
+              index={index}
+              isActive={item.id === activeItemId}
+              isEditMode={isEditMode}
+              isOwner={isOwner}
+              item={item}
+              key={item.id}
+              sheetId={sheetId}
+              onSelect={onSelectItem}
+            />
           ))}
         </ul>
       ) : (
-        <SheetItemGroups groups={groupItems(items, groupBy)} isOwner={isOwner} sheetId={sheetId} />
+        <SheetItemGroups
+          activeItemId={activeItemId}
+          groups={groupItems(items, groupBy)}
+          isEditMode={isEditMode}
+          isOwner={isOwner}
+          sheetId={sheetId}
+          onSelectItem={onSelectItem}
+        />
       )}
-
-      {isOwner &&
-        (isAdding ? (
-          <AddItemInlineRow cancelHref={cancelAddItemHref} sheetId={sheetId} />
-        ) : (
-          <Button asChild className="mt-3" size="sm" variant="outline">
-            <Link href={addItemHref}>
-              <Plus aria-hidden className="h-4 w-4" />
-              Add problem
-            </Link>
-          </Button>
-        ))}
     </div>
   );
 }

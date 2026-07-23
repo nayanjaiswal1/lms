@@ -47,11 +47,12 @@ func (r *Repo) CreatePlanWithRounds(ctx context.Context, plan Plan, rounds []Rou
 
 	err = tx.QueryRow(ctx,
 		`INSERT INTO interview_prep_plans
-		   (user_id, org_id, job_title, jd_text, extracted_role, extracted_seniority, extracted_skills, status, ai_model)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		   (user_id, org_id, plan_type, category, job_title, jd_text, technology, difficulty,
+		    extracted_role, extracted_seniority, extracted_skills, status, ai_model)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		 RETURNING id, created_at`,
-		plan.UserID, plan.OrgID, plan.JobTitle, plan.JDText, plan.ExtractedRole,
-		plan.ExtractedSeniority, plan.ExtractedSkills, plan.Status, plan.AIModel,
+		plan.UserID, plan.OrgID, plan.PlanType, plan.Category, plan.JobTitle, plan.JDText, plan.Technology, plan.Difficulty,
+		plan.ExtractedRole, plan.ExtractedSeniority, plan.ExtractedSkills, plan.Status, plan.AIModel,
 	).Scan(&plan.ID, &plan.CreatedAt)
 	if err != nil {
 		return Plan{}, fmt.Errorf("interviewprep: create plan: %w", err)
@@ -88,8 +89,8 @@ func (r *Repo) CreatePlanWithRounds(ctx context.Context, plan Plan, rounds []Rou
 func scanPlan(row pgx.Row) (Plan, error) {
 	var p Plan
 	var reportRaw []byte
-	err := row.Scan(&p.ID, &p.UserID, &p.OrgID, &p.JobTitle, &p.JDText, &p.ExtractedRole,
-		&p.ExtractedSeniority, &p.ExtractedSkills, &p.Status, &reportRaw, &p.AIModel,
+	err := row.Scan(&p.ID, &p.UserID, &p.OrgID, &p.PlanType, &p.Category, &p.JobTitle, &p.JDText, &p.Technology, &p.Difficulty,
+		&p.ExtractedRole, &p.ExtractedSeniority, &p.ExtractedSkills, &p.Status, &reportRaw, &p.AIModel,
 		&p.CreatedAt, &p.CompletedAt)
 	if err != nil {
 		return Plan{}, err
@@ -103,8 +104,8 @@ func scanPlan(row pgx.Row) (Plan, error) {
 	return p, nil
 }
 
-const planColumns = `id, user_id, org_id, job_title, jd_text, extracted_role, extracted_seniority,
-	extracted_skills, status, report, ai_model, created_at, completed_at`
+const planColumns = `id, user_id, org_id, plan_type, category, job_title, jd_text, technology, difficulty,
+	extracted_role, extracted_seniority, extracted_skills, status, report, ai_model, created_at, completed_at`
 
 // GetPlan fetches a plan owned by userID, including its rounds ordered by stage.
 func (r *Repo) GetPlan(ctx context.Context, planID, userID string) (Plan, error) {

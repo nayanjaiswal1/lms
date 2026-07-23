@@ -1,4 +1,5 @@
 import { getHighlightAnalytics } from "@/lib/server/highlights";
+import { HighlightsTabs } from "@/components/platform/highlights-tabs";
 
 export const metadata = { title: "Highlights by Source Type — Platform Console" };
 
@@ -44,6 +45,8 @@ export default async function PlatformHighlightsBySourcePage() {
           </p>
         </div>
       </div>
+
+      <HighlightsTabs active="by-source" />
 
       {rows.length === 0 ? (
         <div className="empty-state py-16">

@@ -12,25 +12,10 @@ import { AssignTicketControl } from "@/components/mentoring/assign-ticket-contro
 import { ChangeRequestReviewControls } from "@/components/mentoring/change-request-review-controls";
 import { getMentorTickets, getMentors, getMentorChangeRequests } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
+import { TICKET_STATUS_VARIANT, ESCALATION_LABEL, truncateId, formatDate } from "@/lib/mentoring/format";
 import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "Mentor Ticket Queue — MindForge" };
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
-  open: "outline",
-  assigned: "default",
-  closed: "secondary",
-};
-
-const ESCALATION_LABEL: Record<number, string> = {
-  1: "Escalated: 1 day",
-  2: "Escalated: 3 days",
-  3: "Escalated: 7 days",
-};
-
-function truncateId(id: string): string {
-  return `${id.slice(0, 8)}…`;
-}
 
 async function TicketQueueContent() {
   const [tickets, mentors, currentUser] = await Promise.all([
@@ -79,7 +64,7 @@ async function TicketQueueContent() {
                 </td>
                 <td className="py-2.5 pr-4">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <Badge variant={STATUS_VARIANT[ticket.status] ?? "outline"}>{ticket.status}</Badge>
+                    <Badge variant={TICKET_STATUS_VARIANT[ticket.status] ?? "outline"}>{ticket.status}</Badge>
                     {ticket.status === "open" && ticket.escalation_level > 0 && (
                       <Badge variant="destructive">{ESCALATION_LABEL[ticket.escalation_level]}</Badge>
                     )}
@@ -91,10 +76,15 @@ async function TicketQueueContent() {
                     : "—"}
                 </td>
                 <td className="py-2.5 pr-4 text-muted-foreground">
-                  {new Date(ticket.created_at).toLocaleDateString()}
+                  {formatDate(ticket.created_at)}
                 </td>
                 <td className="py-2.5">
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Can permission={PERMISSIONS.MENTORING.ASSIGN_TICKETS}>
+                      <Link href={ROUTES.mentoringTicketDetail(ticket.id)}>
+                        <Button size="sm" variant="ghost">Details</Button>
+                      </Link>
+                    </Can>
                     {ticket.status === "open" && (
                       <>
                         <ClaimTicketButton ticketId={ticket.id} />
@@ -154,7 +144,7 @@ async function ChangeRequestsContent() {
                 </td>
                 <td className="max-w-xs py-2.5 pr-4 text-foreground">{req.reason}</td>
                 <td className="py-2.5 pr-4 text-muted-foreground">
-                  {new Date(req.created_at).toLocaleDateString()}
+                  {formatDate(req.created_at)}
                 </td>
                 <td className="py-2.5">
                   <ChangeRequestReviewControls requestId={req.id} />

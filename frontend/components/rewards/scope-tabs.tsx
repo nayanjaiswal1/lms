@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export type LeaderboardScope = "global" | "org" | "batch" | "course" | "feature";
+export type LeaderboardScope = "global" | "org" | "batch" | "group" | "course" | "feature";
 
 interface ScopeTab {
   scope: LeaderboardScope;
@@ -39,24 +39,24 @@ export function ScopeTabs({ tabs, activeScope, activeScopeId, activeFeatureType 
 
   return (
     <div
-      role="tablist"
       aria-label="Leaderboard scope"
       className="flex flex-wrap gap-1 rounded-xl border border-border bg-muted/40 p-1"
+      role="tablist"
     >
       {tabs.map((tab) => {
         const active = isActive(tab);
         return (
           <button
-            key={`${tab.scope}-${tab.scopeId ?? ""}-${tab.featureType ?? ""}`}
-            role="tab"
             aria-selected={active}
-            onClick={() => handleSelect(tab)}
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
             )}
+            key={`${tab.scope}-${tab.scopeId ?? ""}-${tab.featureType ?? ""}`}
+            role="tab"
+            onClick={() => handleSelect(tab)}
           >
             {tab.label}
           </button>

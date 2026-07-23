@@ -123,19 +123,7 @@ Every component is mobile-first from the moment it is written. Responsiveness is
 
 ### The three layout modes
 
-```
-Mobile  (<lg)          Tablet (md)            Desktop (lg+)
-─────────────────      ────────────────       ─────────────────────────
-┌──────────────┐       ┌──────────────┐       ┌──────┬───────────────┐
-│  app-header  │       │  app-header  │       │      │  app-header   │
-├──────────────┤       ├──────────────┤       │ side │───────────────┤
-│              │       │  2-col grid  │       │ bar  │  3-col grid   │
-│  1-col stack │       │              │       │      │               │
-│              │       │              │       │      │               │
-├──────────────┤       └──────────────┘       └──────┴───────────────┘
-│  bottom-nav  │       (no bottom nav)        (no bottom nav)
-└──────────────┘
-```
+Mobile (`<lg`): 1-col stack + bottom-nav, no sidebar. Tablet (`md`): 2-col grid, no bottom-nav. Desktop (`lg+`): sidebar + 3-col grid, no bottom-nav.
 
 Use the shell utilities from `globals.css`:
 
@@ -239,71 +227,17 @@ Never let the sidebar collapse to a narrow icon-only rail on mobile — use the 
 
 ### Notch, camera cutout, and safe area insets
 
-Modern phones have camera hardware that cuts into the screen. If you ignore safe areas, your UI appears behind the camera or home indicator bar.
+Ignoring safe areas puts UI behind the camera cutout or home-indicator bar. `app/layout.tsx` already sets `viewport.viewportFit = 'cover'` — never remove it, since `env(safe-area-inset-*)` is `0` without it.
 
-**Step 1 — already configured in `app/layout.tsx`:**
-```tsx
-export const viewport: Viewport = {
-  viewportFit: 'cover',   // ← unlocks env() safe area values
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#B45309' },
-    { media: '(prefers-color-scheme: dark)',  color: '#F59E0B' },
-  ],
-}
-```
-`viewportFit: 'cover'` is already set — do not remove it. Without it, `env(safe-area-inset-*)` is always `0` and all safe area utilities do nothing.
+`.app-header`, `.bottom-nav`, and `.sidebar-drawer` already apply their own insets — don't re-add padding to them. For anything else fixed to an edge, use these (defined in `globals.css`):
 
-**Step 2 — device regions:**
-```
-Portrait iPhone with Dynamic Island:
-┌─────────────────────────────┐
-│  safe-area-inset-top ~59px  │  ← status bar + Dynamic Island
-│  ┌─────────────────────┐   │
-│  │   app content       │   │
-│  └─────────────────────┘   │
-│  safe-area-inset-bottom ~34px│  ← home indicator swipe bar
-└─────────────────────────────┘
-
-Landscape with notch (left side):
-┌──┬──────────────────────────┐
-│  │   app content            │
-│  └──────────────────────────┘
-↑ safe-area-inset-left ~44–59px
-```
-
-**Step 3 — use the utilities:**
-```tsx
-// Fixed header — already handled by .app-header
-<header className="app-header">...</header>
-
-// Fixed bottom nav — already handled by .bottom-nav
-<nav className="bottom-nav">...</nav>
-
-// Full-screen modal or sheet — must clear all edges
-<div className="fixed inset-0 safe-inset z-modal">...</div>
-
-// Custom fixed-bottom element
-<div className="fixed bottom-0 inset-x-0 safe-bottom safe-x">...</div>
-
-// Landscape-safe content (if page has no sidebar on mobile)
-<main className="safe-x">...</main>
-```
-
-**Safe area utility classes (defined in globals.css):**
 | Class | CSS property |
 |---|---|
-| `.safe-top` | `padding-top: env(safe-area-inset-top)` |
-| `.safe-bottom` | `padding-bottom: env(safe-area-inset-bottom)` |
-| `.safe-left` | `padding-left: env(safe-area-inset-left)` |
-| `.safe-right` | `padding-right: env(safe-area-inset-right)` |
-| `.safe-x` | left + right insets |
-| `.safe-y` | top + bottom insets |
+| `.safe-top` / `.safe-bottom` / `.safe-left` / `.safe-right` | single-edge `env(safe-area-inset-*)` |
+| `.safe-x` / `.safe-y` | left+right / top+bottom |
 | `.safe-inset` | all four sides |
 
-**What's already handled (don't re-implement):**
-- `.app-header` — `padding-top: env(safe-area-inset-top)` + landscape left/right
-- `.bottom-nav` — `padding-bottom: env(safe-area-inset-bottom)`
-- `.sidebar-drawer` — top, bottom, and left insets
+E.g. a full-screen modal: `<div className="fixed inset-0 safe-inset z-modal">`.
 
 ---
 
@@ -551,175 +485,30 @@ Components, routes, and data logic are organized by feature, not by type — `co
 
 ## Feature Flags & Subscription Gating
 
-**Every gated feature uses `<AccessGate>` from day 1. No exceptions.**
-Never write `if (user.plan === 'pro')`, `if (user.subscription === 'enterprise')`, or any plan/tier comparison in a component. Hardcoding plan names in UI breaks the moment add-ons or custom org grants are introduced.
+**Every gated feature uses `<AccessGate>` from day 1.** Two axes, both resolved server-side, frontend just trusts them: **org toggle** (admin turns a feature ON/OFF for the whole org — OFF means fully hidden, no lock/CTA) and **user entitlement** (plan / add-on / org-granted seat — resolved into `orgFeatures`, `entitlements`, `lockedInfo` by `getFeatureConfig()` in root `app/layout.tsx`, cached 60s, exposed via `<FeatureFlagProvider>` and the `useIsEntitled()` / `useIsOrgFeatureEnabled()` / `useLockedInfo()` hooks).
 
----
-
-### Two axes the backend resolves, one component the frontend uses
-
-```
-Org-level toggle       Is this feature switched ON for this org?
-                       (org admin controls this — not the user)
-       ↓
-User entitlement       Does THIS user have access to the feature?
-                       Resolved by backend from: org plan + user add-ons + org-granted seats
-       ↓
-Frontend component     <AccessGate feature={FEATURES.X} mode="lock|badge|hide">
-```
-
-The frontend never re-derives either check. It receives a resolved `orgFeatures` list and a resolved `entitlements` list from the backend and trusts them.
-
----
-
-### Org control vs user control — how it works
-
-**Org-level toggle (org admin decision):**
-- The org admin enables/disables features for the whole org (e.g., org doesn't want wiki at all)
-- When a feature is org-OFF: it is completely hidden — no lock, no CTA, the feature does not exist for that org
-- Users cannot see or ask for org-OFF features
-
-**User entitlement (subscription / add-on / org seat grant):**
-- Within an org that has a feature enabled, individual users may or may not have entitlement
-- Entitlement sources (all resolved server-side, frontend doesn't care which):
-  - User's personal subscription plan
-  - User's purchased add-ons
-  - Org grants the seat to the user (org admin assigns access)
-- When entitled: feature works normally
-- When not entitled: `<AccessGate>` shows lock/badge/hide per `mode`
-
-**The key distinction for the lock CTA:**
-The backend returns `lockedInfo.unlock_via` which tells the frontend the path to unlock:
-- `"addon"` → user can buy the add-on themselves → CTA: "Add Interview Board"
-- `"plan"` → user needs to upgrade their plan → CTA: "Upgrade Plan"
-- `"org_admin"` → org controls access, user cannot self-serve → CTA: "Contact your admin"
-- `"plan_or_addon"` → either path works → show both options
-
-The frontend renders whichever label the backend sends. It never decides the CTA text itself.
-
----
-
-### The single gate component: `<AccessGate>`
-
-```tsx
-<AccessGate feature={FEATURES.INTERVIEW_BOARD}>
-  <InterviewSection />
-</AccessGate>
-```
-
-**Mode decision guide:**
+**Mode decision guide** for `<AccessGate feature={FEATURES.X} mode="lock|badge|hide">`:
 
 | Situation | Mode | What user sees |
 |---|---|---|
-| Org has feature ON, user not entitled, show them what they're missing | `lock` (default) | Content blurred + lock icon + CTA from `lockedInfo` |
-| Sidebar / nav item for a feature the user doesn't have | `badge` | Item visible + "Add-on" or "Upgrade" badge inline |
-| Feature user must never know exists (role-restricted admin tool) | `hide` | Nothing rendered |
-| Feature org has turned OFF entirely | N/A | `<AccessGate>` renders nothing automatically, no mode needed |
+| Org ON, user not entitled — show what they're missing (default, prefer this for discoverability) | `lock` | Content blurred + lock icon + CTA from `lockedInfo` |
+| Nav/sidebar item user doesn't have | `badge` | Item visible + "Add-on"/"Upgrade" badge |
+| Feature the user must never know exists | `hide` | Nothing rendered (use sparingly) |
+| Org OFF entirely | N/A | Renders nothing automatically |
 
-**Always use `mode="lock"` for discoverability** — users who can see that a feature exists and understand how to unlock it are more likely to upgrade than users who see a blank page.
+Lock CTA text always comes from `lockedInfo.unlock_via` (`"addon"` → "Add X", `"plan"` → "Upgrade Plan", `"org_admin"` → "Contact your admin", `"plan_or_addon"` → show both) — the component never invents CTA copy.
 
-**Use `mode="badge"` for navigation** — sidebar and navbar items should always be visible so users can discover features. The badge tells them it requires an upgrade.
+**Server-side guard `page.tsx` too — UI gates are UX, not security:** `await requireAccess(FEATURES.WIKI)` (404 if org-OFF, redirect to `/billing?feature=X` if not entitled), or `requireOrgFeature()` / `requireEntitlement()` for a single-axis check.
 
-**Use `mode="hide"` sparingly** — only for things the user genuinely has no path to access (e.g., org-admin-only tools that regular users can never get).
-
----
-
-### Server-side guards in `page.tsx`
-
-Always guard at the route level too — UI gates are UX, not security.
-
-```ts
-// Feature must be org-enabled; user must be entitled.
-// 404 if org-OFF, redirect to /billing?feature=X if not entitled.
-await requireAccess(FEATURES.WIKI);
-
-// Org check only (feature exists for org, just check if user is on the right page)
-await requireOrgFeature(FEATURES.WIKI);
-
-// Entitlement check only
-await requireEntitlement(FEATURES.INTERVIEW_BOARD);
-```
-
----
-
-### Where the data comes from
-
-- Root `app/layout.tsx` calls `getFeatureConfig()` (server, cached 60 s)
-- Passes `orgFeatures`, `entitlements`, and `lockedInfo` to `<FeatureFlagProvider>`
-- Client components use `useIsEntitled()`, `useIsOrgFeatureEnabled()`, `useLockedInfo()` hooks
-- `<AccessGate>` reads from context automatically — no props needed beyond `feature` and `mode`
-- The entire tree has access to feature state with zero per-component fetching
-
----
-
-### How to apply access control — without scattering gates everywhere
-
-**Rule: `<AccessGate>` is never written at the call site of a component. It is either baked into the component (HOC) or driven by config (nav/listings).**
-
-#### Pattern 1 — `withFeature()` HOC: bake the gate into the component once
-
-Use for any component that is always tied to one feature.
-Define it once; every use site is transparent — callers never know or care about the gate.
-
-```tsx
-// components/wiki/wiki-card.tsx — internal base component
-function WikiCardBase(props: WikiCardProps) { ... }
-
-// Export the gated version — this is what the rest of the app imports
-export const WikiCard = withFeature(WikiCardBase, FEATURES.WIKI);
-
-// Usage anywhere — no AccessGate wrapper needed:
-<WikiCard />          // mode="lock" by default
-```
-
-```tsx
-// For nav/sidebar components, use mode="badge":
-export const WikiSidebarItem = withFeature(WikiSidebarItemBase, FEATURES.WIKI, "badge");
-```
-
-#### Pattern 2 — Config-driven nav and listings: feature in the data, not the JSX
-
-Nav items, dashboard cards, and feature grids include a `feature` field in the config object.
-The renderer (`<Sidebar>`, `<DashboardGrid>`, etc.) applies `<AccessGate>` automatically.
-Adding a new item to the config is all that's needed — no JSX change.
-
-```ts
-// lib/nav.ts — adding a new gated nav item:
-{ label: "Interview Board", href: ROUTES.INTERVIEW, icon: Video,
-  feature: FEATURES.INTERVIEW_BOARD, mode: "badge" }
-// ↑ That's it. Sidebar renders it with the gate automatically.
-```
-
-#### Pattern 3 — Server guard at the route boundary
-
-For whole pages, put the guard at the top of `page.tsx`.
-The component rendered by the page never needs an internal gate — it's unreachable without access.
-
-```ts
-// app/wiki/page.tsx
-export default async function WikiPage() {
-  await requireAccess(FEATURES.WIKI); // 404 or /billing redirect
-  const data = await fetchWikiData();
-  return <WikiRoot data={data} />;    // no AccessGate inside WikiRoot
-}
-```
-
-#### When each pattern applies
-
+**`<AccessGate>` is never written at a component's call site** — pick one:
 | Situation | Pattern |
 |---|---|
-| Component always belongs to one feature (WikiCard, InterviewPad) | `withFeature()` HOC |
-| Sidebar / top nav / feature grid | Config-driven — add `feature` to nav config |
-| Entire page / route | Server guard in `page.tsx` |
-| Section within a mixed page | `<AccessGate>` directly — this is the one valid call-site use |
+| Component always belongs to one feature (WikiCard) | `export const WikiCard = withFeature(WikiCardBase, FEATURES.WIKI)` — bakes the gate in once, callers never wrap it |
+| Sidebar / nav / feature grid | Config-driven: add `feature`/`mode` to the nav-item object (`lib/nav.ts`), the renderer applies the gate |
+| Entire page/route | Server guard at the top of `page.tsx`; the rendered tree needs no internal gate |
+| Section within a mixed page | `<AccessGate>` directly — the one valid call-site use |
 
-#### What is banned
-
-- `<AccessGate>` wrapping a component at its call site when that component is always tied to one feature — use `withFeature()` instead
-- `if (user.plan === 'pro')` or `if (user.subscription === 'enterprise')` anywhere
-- Hardcode plan names (`"pro"`, `"free"`) or feature strings (`"wiki"`) in components — use `PLANS.*` and `FEATURES.*`
-- Decide lock CTA text in the component — backend sends `lockedInfo.cta_label`
-- Fetch feature config client-side — root layout fetches once, cached 60 s
+**Banned:** any `if (user.plan === 'pro')` / `if (user.subscription === ...)` comparison in a component; hardcoded plan or feature strings (`"pro"`, `"wiki"`) instead of `PLANS.*`/`FEATURES.*`; deciding lock CTA text client-side; fetching feature config client-side (root layout already fetches once).
 
 ---
 
