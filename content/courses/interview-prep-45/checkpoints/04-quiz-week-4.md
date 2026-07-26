@@ -3,9 +3,9 @@ kind: quiz
 id_key: interview-prep-45/quiz-week-4
 course: interview-prep-45
 section: checkpoints
-section_title: "Weekly Checkpoints"
+section_title: "Checkpoint Quizzes"
 section_position: 6
-title: "Week 4 Checkpoint Quiz — Breadth & Design"
+title: "Checkpoint Quiz 4 — Breadth & Design"
 position: 4
 estimated_minutes: 20
 source:

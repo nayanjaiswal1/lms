@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/auth"
@@ -80,25 +79,12 @@ func (h *Handler) ReviewCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := h.repo.GetCard(r.Context(), req.CardID, claims.UserID)
+	result, err := ReviewCard(r.Context(), h.repo, claims.UserID, req.CardID, req.Quality)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-
-	newInterval, newReps, newEF := SM2(card.IntervalDays, card.Repetitions, card.EaseFactor, req.Quality)
-	nextDue := time.Now().AddDate(0, 0, newInterval).Format("2006-01-02")
-
-	if err := h.repo.UpdateCardAfterReview(r.Context(), card.ID, newInterval, newReps, newEF, nextDue); err != nil {
-		writeDomainError(w, err)
-		return
-	}
-
-	httputil.WriteJSON(w, http.StatusOK, ReviewResult{
-		NextDue:      nextDue,
-		IntervalDays: newInterval,
-		EaseFactor:   newEF,
-	})
+	httputil.WriteJSON(w, http.StatusOK, result)
 }
 
 // CreateCard handles POST /api/srs/cards.

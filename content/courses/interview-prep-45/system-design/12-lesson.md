@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 12 — File Storage Service (Dropbox style)"
+title: "File Storage Service (Dropbox style)"
 position: 12
 estimated_minutes: 60
 source:
@@ -150,12 +150,3 @@ A: Deleting a file removes its `file_chunks` rows and decrements `ref_count` on 
 - Sync is a pull-based delta protocol (cursor-based `/sync/changes`) with a lightweight push channel as a wake-up signal, not a full-state push on every change.
 - Conflicting concurrent edits to binary files are resolved by writing a conflicted copy, not silent overwrite or automatic merge — merge only works for structured, mergeable formats.
 - Shard metadata by owner_id for cheap per-user file/folder operations; cross-user sharing is a separate lookup layer on top.
-
-## Today's checklist
-
-- [ ] Write functional requirements: upload, download, sync.
-- [ ] Write non-functional requirements: consistency, deduplication, durability target.
-- [ ] Design the file storage architecture (metadata DB vs blob store split).
-- [ ] Design chunked upload with resume for large files.
-- [ ] Handle sync conflicts between devices.
-- [ ] Discuss metadata storage sharding at scale.

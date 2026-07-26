@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 9 — Collaboration Story"
+title: "Collaboration Story"
 position: 9
 estimated_minutes: 15
 source:
@@ -46,12 +46,3 @@ Result: [outcome] + [evidence the working relationship held up]
 | Show you translated jargon into a decision they could make | Recount a technical explanation they clearly didn't need |
 | Give them real options, not just "no" | Present the constraint as immovable with no alternative |
 | Credit their input in the final plan | Make it a story about educating them |
-
-## Today's checklist
-- [ ] Write STAR story about working with cross-functional team
-- [ ] Include: PM, designer, or other stakeholder interaction
-- [ ] Practice: "Tell me about working with non-engineers"
-
-**Revision tasks:**
-- [ ] Review graph traversal patterns
-- [ ] Review REST API design principles

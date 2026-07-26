@@ -39,6 +39,13 @@ type Config struct {
 	FrontendURL string
 	BackendURL  string
 
+	// MCPPublicURL is the address external MCP clients (Claude, ChatGPT) use to
+	// reach this server's OAuth/MCP endpoints — defaults to BackendURL, but can
+	// be overridden independently (e.g. a tunnel URL while developing locally)
+	// without disturbing BackendURL, which also builds the Google/GitHub OAuth
+	// callback URLs already registered exactly with those providers.
+	MCPPublicURL string
+
 	// WebAuthn (passkey login) relying-party config — RPID/RPOrigin derive
 	// from FrontendURL; only the display name is a real env var.
 	WebAuthnRPID          string
@@ -230,6 +237,8 @@ func Load() *Config {
 	cfg.SchedulerLeaderRenew = parseDuration("SCHEDULER_LEADER_RENEW", "10s")
 
 	cfg.CalendarReminderLeadMinutes = getEnvInt("CALENDAR_REMINDER_LEAD_MINUTES", 30)
+
+	cfg.MCPPublicURL = getEnvDefault("MCP_PUBLIC_URL", cfg.BackendURL)
 
 	return cfg
 }

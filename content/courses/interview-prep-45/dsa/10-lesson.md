@@ -5,7 +5,7 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 10 — Graphs - Topological Sort and Cycles"
+title: "Graphs - Topological Sort and Cycles"
 position: 10
 estimated_minutes: 150
 source:
@@ -274,14 +274,3 @@ def longestIncreasingPath(matrix: list[list[int]]) -> int:
 - DFS-based topo sort needs 3-color (white/gray/black) tracking on directed graphs — a plain visited set gives false cycle positives.
 - Multiple valid topological orders can exist; LeetCode accepts any one that respects all edge constraints.
 - "Longest/shortest path in a DAG" problems (like LIP in Matrix) are DFS + memoization even without an explicit adjacency list — recognize strictly-increasing/decreasing value constraints as implicit acyclic edges.
-
-## Today's checklist
-
-- [ ] Explain why topological sort requires a DAG
-- [ ] Implement Kahn's algorithm from scratch
-- [ ] Implement directed-graph cycle detection (3-color DFS) from scratch
-- [ ] Solve Course Schedule (LeetCode 207)
-- [ ] Solve Course Schedule II (LeetCode 210)
-- [ ] Solve Alien Dictionary (LeetCode 269)
-- [ ] Solve Longest Increasing Path in Matrix (LeetCode 329)
-- [ ] Review: how multiple valid topological orderings can arise from one graph

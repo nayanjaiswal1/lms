@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 11 — Search Autocomplete System"
+title: "Search Autocomplete System"
 position: 11
 estimated_minutes: 60
 source:
@@ -122,12 +122,3 @@ A: Keep the shared trie's top-K global and un-personalized — that's what makes
 - Shard the trie by prefix to fit memory and distribute load; a query only ever needs one shard.
 - Rank by decayed frequency, not raw lifetime count, so stale-but-once-popular queries fade out.
 - Personalization is a re-ranking layer on top of the shared global trie, not a per-user trie.
-
-## Today's checklist
-
-- [ ] Write functional requirements: prefix matching, ranking.
-- [ ] Write non-functional requirements: latency budget, freshness target.
-- [ ] Design the trie structure with precomputed top-K per node.
-- [ ] Design the ranking algorithm (frequency + decay).
-- [ ] Handle real-time/trending updates without full rebuilds.
-- [ ] Discuss storage sharding and scalability of the in-memory trie.

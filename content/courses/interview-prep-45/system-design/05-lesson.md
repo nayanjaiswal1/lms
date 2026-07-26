@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 5 — Analytics Pipeline"
+title: "Analytics Pipeline"
 position: 5
 estimated_minutes: 60
 source:
@@ -156,11 +156,3 @@ A: Isolate query compute from ingestion compute entirely — analysts query the 
 - Data lake (cheap, raw, replayable) feeds a data warehouse (fast, structured, query-optimized) — don't put raw firehose data directly into the expensive warehouse.
 - Dedup via client-generated `event_id` gives you effectively-once results on top of an at-least-once pipeline.
 - Real-time numbers are approximate by design; batch recomputation is the source of truth — say this explicitly in interviews.
-
-## Today's checklist
-- [ ] Define functional requirements: track events, generate reports
-- [ ] Define non-functional requirements: high throughput, data accuracy
-- [ ] Design event ingestion pipeline (Kafka/Kinesis)
-- [ ] Design storage: data lake vs data warehouse
-- [ ] Design real-time vs batch processing
-- [ ] Handle late-arriving data

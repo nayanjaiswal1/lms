@@ -14,6 +14,21 @@ var ErrNotFound = errors.New("courses: not found")
 var ErrForbidden = errors.New("courses: forbidden")
 var ErrConflict = errors.New("courses: conflict")
 
+// ValidationError is returned by Service methods that are reachable directly
+// from an MCP tool call — with no HTTP handler in front of them to pre-check
+// input — when a caller-supplied field would otherwise fail a DB CHECK
+// constraint. Handler-level pre-checks (e.g. CreateCourse's inline title/
+// difficulty validation) exist for immediate UI feedback; this is the
+// boundary-of-last-resort so a bad field from an AI client surfaces as a
+// clean 422 with a field name instead of a raw wrapped Postgres error
+// mapped to a generic 500 by writeDomainError's default case.
+type ValidationError struct {
+	Field   string
+	Message string
+}
+
+func (e ValidationError) Error() string { return e.Message }
+
 // courseRatingJoin aggregates course_reviews per course; joined wherever a
 // query needs avg_rating/review_count alongside the courses row (aliased c).
 const courseRatingJoin = `
@@ -46,15 +61,21 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 }
 
 // CreateCourse inserts a new course and its default "Introduction" section
-// atomically inside a single transaction.
+// atomically inside a single transaction. Kind defaults to KindOrg when the
+// caller (the instructor-authoring handler) leaves it unset, since that path
+// predates the self/org split and never populates it.
 func (r *Repo) CreateCourse(ctx context.Context, c Course) (Course, error) {
+	if c.Kind == "" {
+		c.Kind = KindOrg
+	}
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx,
-			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours, starts_at, ends_at)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours, starts_at, ends_at, kind, owner_id)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 			 RETURNING id, created_at, updated_at`,
 			c.OrgID, c.CreatorID, c.Title, c.Slug, c.Description, c.CoverURL, c.Difficulty,
 			c.Tags, c.Status, c.PriceCents, c.IsFree, c.EstimatedHours, c.StartsAt, c.EndsAt,
+			c.Kind, c.OwnerID,
 		).Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
 			return fmt.Errorf("courses: create: %w", err)
@@ -79,14 +100,15 @@ func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) 
 	err := r.pool.QueryRow(ctx,
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
-		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at, c.created_at, c.updated_at
+		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
+		        c.kind, c.owner_id, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.id = $1 AND c.org_id = $2`, id, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
-		&c.CreatedAt, &c.UpdatedAt)
+		&c.Kind, &c.OwnerID, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -108,7 +130,10 @@ type CourseFilter struct {
 // ListCourses returns courses matching the filter for an org.
 func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilter) ([]Course, int, error) {
 	args := []any{orgID}
-	where := "WHERE c.org_id = $1"
+	// Self-courses are private to their owner and never appear in the org
+	// browse listing — only GetMyEnrollments (auto-enrolled at creation) or a
+	// direct owner-scoped fetch surfaces them.
+	where := "WHERE c.org_id = $1 AND c.kind = 'org'"
 	n := 2
 
 	if filter.Status != "" {
@@ -146,7 +171,7 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
 		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public,
 		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
-		        c.starts_at, c.ends_at, c.created_at, c.updated_at
+		        c.starts_at, c.ends_at, c.kind, c.owner_id, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 `+where+fmt.Sprintf(` ORDER BY c.created_at DESC LIMIT $%d OFFSET $%d`, n, n+1),
@@ -162,7 +187,7 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description,
 			&c.CoverURL, &c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents,
 			&c.IsFree, &c.IsPublic, &c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount,
-			&c.StartsAt, &c.EndsAt, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			&c.StartsAt, &c.EndsAt, &c.Kind, &c.OwnerID, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("courses: scan: %w", err)
 		}
 		out = append(out, c)
@@ -180,7 +205,10 @@ func (r *Repo) ListPublicCourses(ctx context.Context, limit, offset int) ([]Cour
 	if offset < 0 {
 		offset = 0
 	}
-	const where = `WHERE c.status = 'published' AND c.is_public`
+	// kind = 'org' is redundant with is_public today (self-courses have no
+	// path to set is_public), but kept explicit — this is the anonymous
+	// landing-page catalog, the one place a leak would be worst.
+	const where = `WHERE c.status = 'published' AND c.is_public AND c.kind = 'org'`
 
 	var total int
 	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM courses c `+where).Scan(&total); err != nil {
@@ -191,7 +219,7 @@ func (r *Repo) ListPublicCourses(ctx context.Context, limit, offset int) ([]Cour
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
 		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free,
 		        c.is_public, c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
-		        c.starts_at, c.ends_at, c.created_at, c.updated_at
+		        c.starts_at, c.ends_at, c.kind, c.owner_id, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 `+where+` ORDER BY COALESCE(cr.review_count, 0) DESC, c.created_at DESC LIMIT $1 OFFSET $2`,
@@ -207,7 +235,7 @@ func (r *Repo) ListPublicCourses(ctx context.Context, limit, offset int) ([]Cour
 		if err := rows.Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description,
 			&c.CoverURL, &c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents,
 			&c.IsFree, &c.IsPublic, &c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount,
-			&c.StartsAt, &c.EndsAt, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			&c.StartsAt, &c.EndsAt, &c.Kind, &c.OwnerID, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("courses: public scan: %w", err)
 		}
 		out = append(out, c)
@@ -261,11 +289,18 @@ func (r *Repo) ArchiveCourse(ctx context.Context, orgID, id string) error {
 	return nil
 }
 
-// GetCourseTree loads a course with all its sections and modules in a single query.
-func (r *Repo) GetCourseTree(ctx context.Context, orgID, courseID string) (CourseTree, error) {
+// GetCourseTree loads a course with all its sections and modules in a single
+// query. userID gates visibility: a kind='self' course is only ever visible
+// to its own owner — anyone else gets ErrNotFound (never ErrForbidden, so a
+// guessed ID doesn't confirm the course's existence, same rationale as
+// internal/roadmap's ownership check).
+func (r *Repo) GetCourseTree(ctx context.Context, orgID, userID, courseID string) (CourseTree, error) {
 	c, err := r.GetCourse(ctx, orgID, courseID)
 	if err != nil {
 		return CourseTree{}, err
+	}
+	if c.Kind == KindSelf && (c.OwnerID == nil || *c.OwnerID != userID) {
+		return CourseTree{}, ErrNotFound
 	}
 
 	sectionRows, err := r.pool.Query(ctx,
@@ -356,6 +391,35 @@ func (r *Repo) GetSectionForOrg(ctx context.Context, orgID, sectionID string) (C
 		return CourseSection{}, fmt.Errorf("courses: get section for org: %w", err)
 	}
 	return s, nil
+}
+
+// queryRower is satisfied by both *pgxpool.Pool and pgx.Tx — lets a helper
+// run either standalone or inside an in-flight transaction without a second
+// copy of the query.
+type queryRower interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// firstSectionID returns the lowest-position section id for a course — used
+// to default an omitted/unset section_id on a self-course module write, or a
+// proposal approval, without loading the whole tree just to read one field.
+func firstSectionID(ctx context.Context, q queryRower, courseID string) (string, error) {
+	var id string
+	err := q.QueryRow(ctx,
+		`SELECT id FROM course_sections WHERE course_id=$1 ORDER BY position LIMIT 1`, courseID,
+	).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", fmt.Errorf("courses: get first section: %w", err)
+	}
+	return id, nil
+}
+
+// GetFirstSectionID is firstSectionID run outside any transaction.
+func (r *Repo) GetFirstSectionID(ctx context.Context, courseID string) (string, error) {
+	return firstSectionID(ctx, r.pool, courseID)
 }
 
 // UpdateSection updates section title.
@@ -621,13 +685,16 @@ func (r *Repo) GetMyReview(ctx context.Context, userID, courseID string) (Course
 // previous answer rather than accumulating a history, same rationale as
 // UpsertReview: only the current state matters to readers.
 func (r *Repo) UpsertReflection(ctx context.Context, ref LessonReflection) (LessonReflection, error) {
+	if ref.Source == "" {
+		ref.Source = "manual"
+	}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO lesson_reflections (org_id, user_id, module_id, response)
-		 VALUES ($1,$2,$3,$4)
+		`INSERT INTO lesson_reflections (org_id, user_id, module_id, response, source)
+		 VALUES ($1,$2,$3,$4,$5)
 		 ON CONFLICT (user_id, module_id) DO UPDATE
-		   SET response = EXCLUDED.response, updated_at = now()
+		   SET response = EXCLUDED.response, source = EXCLUDED.source, updated_at = now()
 		 RETURNING id, created_at, updated_at`,
-		ref.OrgID, ref.UserID, ref.ModuleID, ref.Response,
+		ref.OrgID, ref.UserID, ref.ModuleID, ref.Response, ref.Source,
 	).Scan(&ref.ID, &ref.CreatedAt, &ref.UpdatedAt)
 	if err != nil {
 		return LessonReflection{}, fmt.Errorf("courses: upsert reflection: %w", err)
@@ -641,9 +708,9 @@ func (r *Repo) UpsertReflection(ctx context.Context, ref LessonReflection) (Less
 func (r *Repo) GetMyReflection(ctx context.Context, userID, moduleID string) (LessonReflection, error) {
 	var ref LessonReflection
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, module_id, response, created_at, updated_at
+		`SELECT id, module_id, response, source, created_at, updated_at
 		 FROM lesson_reflections WHERE user_id = $1 AND module_id = $2`, userID, moduleID,
-	).Scan(&ref.ID, &ref.ModuleID, &ref.Response, &ref.CreatedAt, &ref.UpdatedAt)
+	).Scan(&ref.ID, &ref.ModuleID, &ref.Response, &ref.Source, &ref.CreatedAt, &ref.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return LessonReflection{}, ErrNotFound
@@ -653,6 +720,96 @@ func (r *Repo) GetMyReflection(ctx context.Context, userID, moduleID string) (Le
 	return ref, nil
 }
 
+// UpsertLessonNote creates or updates the student's personal note overlay for
+// a lesson module. One row per (user, module) — saving replaces the previous
+// note, same rationale as UpsertReflection.
+func (r *Repo) UpsertLessonNote(ctx context.Context, note LessonNote) (LessonNote, error) {
+	if note.Source == "" {
+		note.Source = "manual"
+	}
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO lesson_notes (org_id, user_id, module_id, content, source)
+		 VALUES ($1,$2,$3,$4,$5)
+		 ON CONFLICT (user_id, module_id) DO UPDATE
+		   SET content = EXCLUDED.content, source = EXCLUDED.source, updated_at = now()
+		 RETURNING id, created_at, updated_at`,
+		note.OrgID, note.UserID, note.ModuleID, note.Content, note.Source,
+	).Scan(&note.ID, &note.CreatedAt, &note.UpdatedAt)
+	if err != nil {
+		return LessonNote{}, fmt.Errorf("courses: upsert lesson note: %w", err)
+	}
+	return note, nil
+}
+
+// GetMyLessonNote returns the authenticated user's existing note for a
+// module, if any — used to prefill the notes panel.
+func (r *Repo) GetMyLessonNote(ctx context.Context, userID, moduleID string) (LessonNote, error) {
+	var note LessonNote
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, module_id, content, source, created_at, updated_at
+		 FROM lesson_notes WHERE user_id = $1 AND module_id = $2`, userID, moduleID,
+	).Scan(&note.ID, &note.ModuleID, &note.Content, &note.Source, &note.CreatedAt, &note.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return LessonNote{}, ErrNotFound
+		}
+		return LessonNote{}, fmt.Errorf("courses: get my lesson note: %w", err)
+	}
+	return note, nil
+}
+
+// DeleteReflection removes the student's reflection for a module, if any —
+// used to revert an MCP log_understanding call that created one where none
+// existed before.
+func (r *Repo) DeleteReflection(ctx context.Context, orgID, userID, moduleID string) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM lesson_reflections WHERE org_id=$1 AND user_id=$2 AND module_id=$3`,
+		orgID, userID, moduleID)
+	if err != nil {
+		return fmt.Errorf("courses: delete reflection: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteLessonNote removes the student's note for a module, if any — used to
+// revert an MCP save_my_lesson_note call that created one where none existed
+// before.
+func (r *Repo) DeleteLessonNote(ctx context.Context, orgID, userID, moduleID string) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM lesson_notes WHERE org_id=$1 AND user_id=$2 AND module_id=$3`,
+		orgID, userID, moduleID)
+	if err != nil {
+		return fmt.Errorf("courses: delete lesson note: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteOwnedSelfCourse permanently removes a self-course the caller owns —
+// used to revert an MCP create_self_course call. Unlike ArchiveCourse (a
+// soft status flip with no kind/ownership check, meant for an instructor
+// retiring a real org course), this is a hard delete scoped to kind='self'
+// and the given ownerID, so it can never touch an org course or another
+// student's private course. course_modules/course_sections both cascade on
+// courses.id, so this also removes everything the student added under it.
+func (r *Repo) DeleteOwnedSelfCourse(ctx context.Context, orgID, ownerID, courseID string) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM courses WHERE id=$1 AND org_id=$2 AND kind='self' AND owner_id=$3`,
+		courseID, orgID, ownerID)
+	if err != nil {
+		return fmt.Errorf("courses: delete owned self course: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // GetMyEnrollments returns all courses a student is enrolled in within an org, with course data joined.
 func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]Enrollment, error) {
 	rows, err := r.pool.Query(ctx,
@@ -660,7 +817,7 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 		        c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
 		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public,
 		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
-		        c.created_at, c.updated_at
+		        c.kind, c.owner_id, c.created_at, c.updated_at
 		 FROM enrollments e
 		 JOIN courses c ON c.id = e.course_id
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
@@ -679,7 +836,7 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 			&e.Course.Description, &e.Course.CoverURL, &e.Course.Difficulty, &e.Course.Tags,
 			&e.Course.Status, &e.Course.ForkedFromID, &e.Course.PriceCents, &e.Course.IsFree, &e.Course.IsPublic,
 			&e.Course.EstimatedHours, &e.Course.InstructorName, &e.Course.AvgRating, &e.Course.ReviewCount,
-			&e.Course.CreatedAt, &e.Course.UpdatedAt,
+			&e.Course.Kind, &e.Course.OwnerID, &e.Course.CreatedAt, &e.Course.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("courses: scan enrollment: %w", err)
 		}
@@ -830,67 +987,177 @@ func (r *Repo) ForkCourse(ctx context.Context, orgID, originalID, creatorID, new
 			`INSERT INTO courses (org_id, creator_id, title, slug, description, difficulty, tags, forked_from_id, price_cents, is_free)
 			 SELECT $1,$2,$3,$4,description,difficulty,tags,$5,price_cents,is_free
 			 FROM courses WHERE id=$5 AND org_id=$1
-			 RETURNING id, org_id, creator_id, title, slug, description, difficulty, tags, status, forked_from_id, price_cents, is_free, created_at, updated_at`,
+			 RETURNING id, org_id, creator_id, title, slug, description, difficulty, tags, status, forked_from_id, price_cents, is_free, kind, owner_id, created_at, updated_at`,
 			orgID, creatorID, newTitle, newSlug, originalID,
 		).Scan(&newCourse.ID, &newCourse.OrgID, &newCourse.CreatorID, &newCourse.Title, &newCourse.Slug,
 			&newCourse.Description, &newCourse.Difficulty, &newCourse.Tags, &newCourse.Status,
-			&newCourse.ForkedFromID, &newCourse.PriceCents, &newCourse.IsFree, &newCourse.CreatedAt, &newCourse.UpdatedAt)
+			&newCourse.ForkedFromID, &newCourse.PriceCents, &newCourse.IsFree,
+			&newCourse.Kind, &newCourse.OwnerID, &newCourse.CreatedAt, &newCourse.UpdatedAt)
 		if err != nil {
 			return fmt.Errorf("courses: fork course: %w", err)
 		}
+		return copySectionsAndModules(ctx, tx, originalID, newCourse.ID)
+	})
+	if err != nil {
+		return Course{}, err
+	}
+	return newCourse, nil
+}
 
-		// Fetch original section IDs in order
-		origSecs, err := tx.Query(ctx, `SELECT id FROM course_sections WHERE course_id=$1 ORDER BY position`, originalID)
+// copySectionsAndModules copies every section and (non-deleted) module from
+// fromCourseID into toCourseID, preserving position order — the shared body
+// of ForkCourse and ForkToSelfCourse, which differ only in how the
+// destination course row itself is created (instructor-owned org copy vs.
+// student-owned private copy).
+func copySectionsAndModules(ctx context.Context, tx pgx.Tx, fromCourseID, toCourseID string) error {
+	origSecs, err := tx.Query(ctx, `SELECT id FROM course_sections WHERE course_id=$1 ORDER BY position`, fromCourseID)
+	if err != nil {
+		return fmt.Errorf("courses: copy sections: fetch orig: %w", err)
+	}
+	defer origSecs.Close()
+	var origSecIDs []string
+	for origSecs.Next() {
+		var id string
+		if err := origSecs.Scan(&id); err != nil {
+			return fmt.Errorf("courses: copy sections: scan orig: %w", err)
+		}
+		origSecIDs = append(origSecIDs, id)
+	}
+	if err := origSecs.Err(); err != nil {
+		return fmt.Errorf("courses: copy sections: orig rows: %w", err)
+	}
+
+	secRows, err := tx.Query(ctx,
+		`INSERT INTO course_sections (course_id, title, position)
+		 SELECT $1, title, position FROM course_sections WHERE course_id=$2 ORDER BY position
+		 RETURNING id`,
+		toCourseID, fromCourseID)
+	if err != nil {
+		return fmt.Errorf("courses: copy sections: insert: %w", err)
+	}
+	defer secRows.Close()
+	var newSecIDs []string
+	for secRows.Next() {
+		var id string
+		if err := secRows.Scan(&id); err != nil {
+			return fmt.Errorf("courses: copy sections: scan new: %w", err)
+		}
+		newSecIDs = append(newSecIDs, id)
+	}
+	if err := secRows.Err(); err != nil {
+		return fmt.Errorf("courses: copy sections: new rows: %w", err)
+	}
+
+	for i, origSecID := range origSecIDs {
+		if i >= len(newSecIDs) {
+			break
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO course_modules (course_id, section_id, title, type, position, is_free_preview, storage_key, duration_seconds, content_body, assessment_id, estimated_minutes)
+			 SELECT $1,$2,title,type,position,is_free_preview,storage_key,duration_seconds,content_body,assessment_id,estimated_minutes
+			 FROM course_modules WHERE section_id=$3 AND deleted_at IS NULL ORDER BY position`,
+			toCourseID, newSecIDs[i], origSecID); err != nil {
+			return fmt.Errorf("courses: copy modules for section %s: %w", origSecID, err)
+		}
+	}
+	return nil
+}
+
+// ─── Self-courses ─────────────────────────────────────────────────────────────
+
+// CreateSelfCourse creates a student's own private course from scratch —
+// kind='self', owned by ownerID, published immediately (there is no audience
+// to gate a draft from), with a default "Introduction" section and the owner
+// auto-enrolled in the same transaction — so every existing
+// enrollment/progress/module code path treats it like any other course with
+// no self-course special-casing required there.
+func (r *Repo) CreateSelfCourse(ctx context.Context, orgID, ownerID, title string, description *string, difficulty string, tags []string) (Course, error) {
+	if difficulty == "" {
+		difficulty = DifficultyBeginner
+	}
+	if tags == nil {
+		tags = []string{}
+	}
+	c := Course{
+		OrgID: orgID, CreatorID: ownerID, Title: title, Slug: Slugify(title),
+		Description: description, Difficulty: difficulty, Tags: tags,
+		Status: StatusPublished, IsFree: true, Kind: KindSelf, OwnerID: &ownerID,
+	}
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx,
+			`INSERT INTO courses (org_id, creator_id, title, slug, description, difficulty, tags, status, is_free, kind, owner_id)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+			 RETURNING id, created_at, updated_at`,
+			c.OrgID, c.CreatorID, c.Title, c.Slug, c.Description, c.Difficulty, c.Tags, c.Status, c.IsFree, c.Kind, c.OwnerID,
+		).Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
-			return fmt.Errorf("courses: fork get orig sections: %w", err)
+			return fmt.Errorf("courses: create self course: %w", err)
 		}
-		defer origSecs.Close()
-		var origSecIDs []string
-		for origSecs.Next() {
-			var id string
-			if err := origSecs.Scan(&id); err != nil {
-				return fmt.Errorf("courses: fork scan orig section: %w", err)
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO course_sections (course_id, title, position) VALUES ($1, 'Introduction', 0)`, c.ID,
+		); err != nil {
+			return fmt.Errorf("courses: create self course default section: %w", err)
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO enrollments (user_id, course_id, enrolled_by) VALUES ($1,$2,$1)
+			 ON CONFLICT (user_id, course_id) DO NOTHING`, ownerID, c.ID,
+		); err != nil {
+			return fmt.Errorf("courses: create self course auto-enroll: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Course{}, err
+	}
+	return c, nil
+}
+
+// ForkToSelfCourse copies a published org course's sections and modules into
+// a brand-new private course owned by the forking student — same shape as
+// ForkCourse, but the result is kind='self' (never listed in the org
+// catalog) and the owner is auto-enrolled in the same transaction. Only a
+// published kind='org' course can be forked this way: forking another
+// student's private self-course, or an instructor's still-drafting course,
+// is refused with ErrForbidden.
+func (r *Repo) ForkToSelfCourse(ctx context.Context, orgID, originalID, ownerID, newTitle string) (Course, error) {
+	var newCourse Course
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		var origKind, origStatus string
+		if err := tx.QueryRow(ctx,
+			`SELECT kind, status FROM courses WHERE id=$1 AND org_id=$2`, originalID, orgID,
+		).Scan(&origKind, &origStatus); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
 			}
-			origSecIDs = append(origSecIDs, id)
+			return fmt.Errorf("courses: fork to self: lookup original: %w", err)
 		}
-		if err := origSecs.Err(); err != nil {
-			return fmt.Errorf("courses: fork orig section rows: %w", err)
+		if origKind != KindOrg || origStatus != StatusPublished {
+			return ErrForbidden
 		}
 
-		// Copy sections and collect new IDs in order
-		secRows, err := tx.Query(ctx,
-			`INSERT INTO course_sections (course_id, title, position)
-			 SELECT $1, title, position FROM course_sections WHERE course_id=$2 ORDER BY position
-			 RETURNING id`,
-			newCourse.ID, originalID)
+		newSlug := Slugify(newTitle)
+		err := tx.QueryRow(ctx,
+			`INSERT INTO courses (org_id, creator_id, title, slug, description, difficulty, tags, forked_from_id, price_cents, is_free, status, kind, owner_id)
+			 SELECT $1,$2,$3,$4,description,difficulty,tags,$5,0,true,'published','self',$2
+			 FROM courses WHERE id=$5 AND org_id=$1
+			 RETURNING id, org_id, creator_id, title, slug, description, difficulty, tags, status, forked_from_id, price_cents, is_free, kind, owner_id, created_at, updated_at`,
+			orgID, ownerID, newTitle, newSlug, originalID,
+		).Scan(&newCourse.ID, &newCourse.OrgID, &newCourse.CreatorID, &newCourse.Title, &newCourse.Slug,
+			&newCourse.Description, &newCourse.Difficulty, &newCourse.Tags, &newCourse.Status,
+			&newCourse.ForkedFromID, &newCourse.PriceCents, &newCourse.IsFree,
+			&newCourse.Kind, &newCourse.OwnerID, &newCourse.CreatedAt, &newCourse.UpdatedAt)
 		if err != nil {
-			return fmt.Errorf("courses: fork sections: %w", err)
+			return fmt.Errorf("courses: fork to self: insert: %w", err)
 		}
-		defer secRows.Close()
-		var newSecIDs []string
-		for secRows.Next() {
-			var id string
-			if err := secRows.Scan(&id); err != nil {
-				return fmt.Errorf("courses: fork scan new section: %w", err)
-			}
-			newSecIDs = append(newSecIDs, id)
-		}
-		if err := secRows.Err(); err != nil {
-			return fmt.Errorf("courses: fork new section rows: %w", err)
+		if err := copySectionsAndModules(ctx, tx, originalID, newCourse.ID); err != nil {
+			return err
 		}
 
-		// Copy modules for each section
-		for i, origSecID := range origSecIDs {
-			if i >= len(newSecIDs) {
-				break
-			}
-			if _, err := tx.Exec(ctx,
-				`INSERT INTO course_modules (course_id, section_id, title, type, position, is_free_preview, storage_key, duration_seconds, content_body, assessment_id, estimated_minutes)
-				 SELECT $1,$2,title,type,position,is_free_preview,storage_key,duration_seconds,content_body,assessment_id,estimated_minutes
-				 FROM course_modules WHERE section_id=$3 AND deleted_at IS NULL ORDER BY position`,
-				newCourse.ID, newSecIDs[i], origSecID); err != nil {
-				return fmt.Errorf("courses: fork modules for section %s: %w", origSecID, err)
-			}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO enrollments (user_id, course_id, enrolled_by) VALUES ($1,$2,$1)
+			 ON CONFLICT (user_id, course_id) DO NOTHING`, ownerID, newCourse.ID,
+		); err != nil {
+			return fmt.Errorf("courses: fork to self: auto-enroll: %w", err)
 		}
 		return nil
 	})
@@ -898,4 +1165,231 @@ func (r *Repo) ForkCourse(ctx context.Context, orgID, originalID, creatorID, new
 		return Course{}, err
 	}
 	return newCourse, nil
+}
+
+// GetRecentReflections returns a user's most recently updated
+// lesson_reflections across every course, newest first, with the
+// lesson/course title already joined in — the "what have I recently
+// understood or struggled with" feed behind get_learning_context.
+func (r *Repo) GetRecentReflections(ctx context.Context, orgID, userID string, limit int) ([]ReflectionSummary, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT c.title, cm.title, cm.id, lr.response, lr.source, lr.updated_at
+		 FROM lesson_reflections lr
+		 JOIN course_modules cm ON cm.id = lr.module_id
+		 JOIN courses c ON c.id = cm.course_id
+		 WHERE lr.user_id = $1 AND lr.org_id = $2
+		 ORDER BY lr.updated_at DESC LIMIT $3`, userID, orgID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("courses: get recent reflections: %w", err)
+	}
+	defer rows.Close()
+	out := []ReflectionSummary{}
+	for rows.Next() {
+		var s ReflectionSummary
+		if err := rows.Scan(&s.CourseTitle, &s.ModuleTitle, &s.ModuleID, &s.Response, &s.Source, &s.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("courses: scan recent reflection: %w", err)
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// GetRecentSelfCourseModules returns the most recently updated modules
+// across every self-course ownerID owns — the "what have I been building
+// lately" feed behind get_learning_context.
+func (r *Repo) GetRecentSelfCourseModules(ctx context.Context, orgID, ownerID string, limit int) ([]SelfModuleSummary, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT c.id, c.title, cm.id, cm.title, cm.updated_at
+		 FROM course_modules cm
+		 JOIN courses c ON c.id = cm.course_id
+		 WHERE c.kind = 'self' AND c.owner_id = $1 AND c.org_id = $2 AND cm.deleted_at IS NULL
+		 ORDER BY cm.updated_at DESC LIMIT $3`, ownerID, orgID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("courses: get recent self-course modules: %w", err)
+	}
+	defer rows.Close()
+	out := []SelfModuleSummary{}
+	for rows.Next() {
+		var s SelfModuleSummary
+		if err := rows.Scan(&s.CourseID, &s.CourseTitle, &s.ModuleID, &s.ModuleTitle, &s.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("courses: scan recent self-course module: %w", err)
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// GetOwnedSelfCourse returns courseID only if it is a kind='self' course
+// owned by ownerID — the single authorization check every self-course write
+// path (in-app, or via the owner's connected MCP client) must pass before
+// touching its sections/modules.
+func (r *Repo) GetOwnedSelfCourse(ctx context.Context, orgID, ownerID, courseID string) (Course, error) {
+	c, err := r.GetCourse(ctx, orgID, courseID)
+	if err != nil {
+		return Course{}, err
+	}
+	if c.Kind != KindSelf || c.OwnerID == nil || *c.OwnerID != ownerID {
+		return Course{}, ErrForbidden
+	}
+	return c, nil
+}
+
+// ─── Content proposals (self-course → org-course contribution audit) ─────────
+
+// CreateProposal inserts a pending contribution from a student's self-course
+// module into a shared org course. It never touches course_modules itself —
+// only ApproveProposal does that, after an instructor/admin reviews it.
+func (r *Repo) CreateProposal(ctx context.Context, p CourseContentProposal) (CourseContentProposal, error) {
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO course_content_proposals (org_id, proposer_id, source_course_id, source_module_id, target_course_id, target_section_id, title, type, content_body)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		 RETURNING id, status, created_at, updated_at`,
+		p.OrgID, p.ProposerID, p.SourceCourseID, p.SourceModuleID, p.TargetCourseID, p.TargetSectionID, p.Title, p.Type, p.ContentBody,
+	).Scan(&p.ID, &p.Status, &p.CreatedAt, &p.UpdatedAt)
+	if err != nil {
+		return CourseContentProposal{}, fmt.Errorf("courses: create proposal: %w", err)
+	}
+	return p, nil
+}
+
+const proposalColumns = `p.id, p.proposer_id, p.source_course_id, p.source_module_id, p.target_course_id,
+		        p.target_section_id, p.title, p.type, p.content_body, p.status, p.review_note,
+		        p.reviewed_by, p.reviewed_at, p.created_module_id, p.created_at, p.updated_at`
+
+func scanProposal(row pgx.Row, p *CourseContentProposal) error {
+	return row.Scan(&p.ID, &p.ProposerID, &p.SourceCourseID, &p.SourceModuleID, &p.TargetCourseID,
+		&p.TargetSectionID, &p.Title, &p.Type, &p.ContentBody, &p.Status, &p.ReviewNote,
+		&p.ReviewedBy, &p.ReviewedAt, &p.CreatedModuleID, &p.CreatedAt, &p.UpdatedAt)
+}
+
+// ListProposalsForCourse returns proposals targeting courseID, newest first —
+// the instructor/admin review queue. status filters to one status when set,
+// otherwise returns every proposal regardless of status.
+func (r *Repo) ListProposalsForCourse(ctx context.Context, orgID, courseID, status string) ([]CourseContentProposal, error) {
+	args := []any{orgID, courseID}
+	where := "WHERE p.org_id=$1 AND p.target_course_id=$2"
+	if status != "" {
+		args = append(args, status)
+		where += fmt.Sprintf(" AND p.status=$%d", len(args))
+	}
+	rows, err := r.pool.Query(ctx, `SELECT `+proposalColumns+` FROM course_content_proposals p `+where+` ORDER BY p.created_at DESC`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("courses: list proposals: %w", err)
+	}
+	defer rows.Close()
+	out := []CourseContentProposal{}
+	for rows.Next() {
+		var p CourseContentProposal
+		if err := scanProposal(rows, &p); err != nil {
+			return nil, fmt.Errorf("courses: scan proposal: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// GetProposalForOrg returns a single proposal scoped to orgID.
+func (r *Repo) GetProposalForOrg(ctx context.Context, orgID, proposalID string) (CourseContentProposal, error) {
+	var p CourseContentProposal
+	err := scanProposal(r.pool.QueryRow(ctx,
+		`SELECT `+proposalColumns+` FROM course_content_proposals p WHERE p.id=$1 AND p.org_id=$2`, proposalID, orgID,
+	), &p)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseContentProposal{}, ErrNotFound
+		}
+		return CourseContentProposal{}, fmt.Errorf("courses: get proposal: %w", err)
+	}
+	return p, nil
+}
+
+// ApproveProposal transactionally re-checks the proposal is still pending
+// (FOR UPDATE, so two simultaneous approvals can't both create a module),
+// inserts a real course_modules row from its snapshot (into target_section_id
+// if set, else the target course's first section by position), and marks the
+// proposal approved with the resulting module id — all in one transaction so
+// a proposal can never end up "approved" without a module to show for it.
+func (r *Repo) ApproveProposal(ctx context.Context, orgID, proposalID, reviewerID string, reviewNote *string) (CourseContentProposal, error) {
+	var out CourseContentProposal
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		var p CourseContentProposal
+		err := tx.QueryRow(ctx,
+			`SELECT id, target_course_id, target_section_id, title, type, content_body, status
+			 FROM course_content_proposals WHERE id=$1 AND org_id=$2 FOR UPDATE`, proposalID, orgID,
+		).Scan(&p.ID, &p.TargetCourseID, &p.TargetSectionID, &p.Title, &p.Type, &p.ContentBody, &p.Status)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("courses: approve proposal: lookup: %w", err)
+		}
+		if p.Status != ProposalStatusPending {
+			return ErrConflict
+		}
+
+		sectionID := p.TargetSectionID
+		if sectionID == nil {
+			id, err := firstSectionID(ctx, tx, p.TargetCourseID)
+			if err != nil {
+				return fmt.Errorf("courses: approve proposal: find target section: %w", err)
+			}
+			sectionID = &id
+		}
+
+		var moduleID string
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO course_modules (course_id, section_id, title, type, position, content_body)
+			 VALUES ($1,$2,$3,$4, COALESCE((SELECT MAX(position)+1 FROM course_modules WHERE section_id=$2 AND deleted_at IS NULL),0), $5)
+			 RETURNING id`,
+			p.TargetCourseID, *sectionID, p.Title, p.Type, p.ContentBody,
+		).Scan(&moduleID); err != nil {
+			return fmt.Errorf("courses: approve proposal: create module: %w", err)
+		}
+
+		if err := scanProposal(tx.QueryRow(ctx,
+			`UPDATE course_content_proposals p
+			 SET status='approved', reviewed_by=$2, reviewed_at=now(), review_note=$3, created_module_id=$4, updated_at=now()
+			 WHERE p.id=$1
+			 RETURNING `+proposalColumns,
+			proposalID, reviewerID, reviewNote, moduleID,
+		), &out); err != nil {
+			return fmt.Errorf("courses: approve proposal: update: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return CourseContentProposal{}, err
+	}
+	return out, nil
+}
+
+// RejectProposal marks a pending proposal rejected without creating a
+// module. Returns ErrConflict if the proposal has already been reviewed.
+func (r *Repo) RejectProposal(ctx context.Context, orgID, proposalID, reviewerID string, reviewNote *string) (CourseContentProposal, error) {
+	var out CourseContentProposal
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		var status string
+		if err := tx.QueryRow(ctx,
+			`SELECT status FROM course_content_proposals WHERE id=$1 AND org_id=$2 FOR UPDATE`, proposalID, orgID,
+		).Scan(&status); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("courses: reject proposal: lookup: %w", err)
+		}
+		if status != ProposalStatusPending {
+			return ErrConflict
+		}
+		return scanProposal(tx.QueryRow(ctx,
+			`UPDATE course_content_proposals p
+			 SET status='rejected', reviewed_by=$2, reviewed_at=now(), review_note=$3, updated_at=now()
+			 WHERE p.id=$1
+			 RETURNING `+proposalColumns,
+			proposalID, reviewerID, reviewNote,
+		), &out)
+	})
+	if err != nil {
+		return CourseContentProposal{}, err
+	}
+	return out, nil
 }

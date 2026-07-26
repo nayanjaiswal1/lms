@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 25 — Career Goals"
+title: "Career Goals"
 position: 25
 estimated_minutes: 15
 source:
@@ -48,12 +48,3 @@ Connection: This role is a step toward that because [specific, honest link].
 | Make the 1-year goal concrete and role-relevant | Say "I want to keep growing and learning" |
 | Frame the 5-year goal around capability, not title | Recite a generic career ladder |
 | Tie both goals explicitly to this role | Describe a trajectory this job wouldn't advance |
-
-## Today's checklist
-- [ ] Write 1-year and 5-year career goals
-- [ ] Align with target companies
-- [ ] Practice: "Where do you see yourself in 5 years?"
-
-**Revision tasks:**
-- [ ] Review math/geometry
-- [ ] Review WebSocket

@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 9 — Social Media Feed"
+title: "Social Media Feed"
 position: 9
 estimated_minutes: 60
 source:
@@ -127,12 +127,3 @@ A: Instrument the fan-out worker with delivery tracking — an event log of "pos
 - Cold start needs explicit handling — trending content filler and follow-time backfill, not just "wait for data to accumulate."
 - Chronological ranking is the baseline; algorithmic ranking is a scoring layer applied on top of the same candidate set, not a replacement architecture.
 - Use cursor-based pagination, never offset — offset breaks under concurrent inserts and gets slower with depth.
-
-## Today's checklist
-
-- [ ] Write functional requirements: post, feed, like, comment.
-- [ ] Write non-functional requirements: consistency, availability, latency targets.
-- [ ] Compare chronological vs algorithmic timeline and pick a default.
-- [ ] Design fan-out on write for high read throughput, with the celebrity exception.
-- [ ] Handle the new-user cold start problem explicitly.
-- [ ] Design cursor-based pagination for the feed.

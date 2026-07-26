@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 13 — Situational Questions"
+title: "Situational Questions"
 position: 13
 estimated_minutes: 15
 source:
@@ -52,12 +52,3 @@ Weakness: [real, specific limitation] — I manage it by [concrete system/habit]
 | Name concrete, role-relevant criteria | Say "good culture" or "growth opportunities" with no detail |
 | Pick a weakness that's real and specific | Disguise a brag as a weakness |
 | Show a concrete system for managing the weakness | Just say "I'm working on it" with no mechanism |
-
-## Today's checklist
-- [ ] Prepare answers for: "Why are you looking to change?"
-- [ ] Prepare answers for: "What are you looking for in a new role?"
-- [ ] Prepare answers for: "What is your greatest strength/weakness?"
-
-**Revision tasks:**
-- [ ] Review DP patterns
-- [ ] Review Docker

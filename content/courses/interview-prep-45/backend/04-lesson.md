@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 4 — PostgreSQL Indexing"
+title: "PostgreSQL Indexing"
 position: 4
 estimated_minutes: 45
 source:
@@ -142,11 +142,3 @@ CREATE INDEX idx_orders_customer_status ON orders (customer_id, status);
 - `EXPLAIN ANALYZE` shows both the planner's estimate and the real measured cost — a big gap between estimated and actual rows means stale statistics; run `ANALYZE`.
 - Composite index column order follows the leftmost-prefix rule: `(a, b)` serves queries on `a` or `a+b`, not `b` alone.
 - Every index adds write overhead — don't index write-heavy, rarely-queried columns.
-
-## Today's checklist
-
-- [ ] Read: B-tree index internals
-- [ ] Create a table with 100k rows
-- [ ] Write queries and add appropriate indexes
-- [ ] Measure before/after performance with `EXPLAIN ANALYZE`
-- [ ] Be ready to answer: when would you NOT use an index? What is index selectivity?

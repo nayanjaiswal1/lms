@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 24 — State Machines in React"
+title: "State Machines in React"
 position: 27
 estimated_minutes: 30
 source:
@@ -240,12 +240,3 @@ No `render()`, no DOM, no `userEvent` — you're testing the actual business rul
 - XState adds guards, nested/parallel states, and visualization — valuable once flows get genuinely complex (multi-step forms, guarded transitions).
 - Guards enforce business rules ("can't advance with invalid data") inside the machine itself, replacing scattered validation checks across every button handler.
 - State machines are pure and UI-independent, which makes them fast and precise to unit test — exercise invalid-transition edge cases at the machine level, not through full UI integration tests.
-
-## Today's checklist
-
-- [ ] Read: XState basics
-- [ ] Implement: Simple state machine for UI
-- [ ] Implement: Complex form with state machine
-- [ ] Understand unidirectional data flow in state machines
-- [ ] Understand how guards prevent invalid transitions
-- [ ] Write at least one unit test against a machine's transition table directly

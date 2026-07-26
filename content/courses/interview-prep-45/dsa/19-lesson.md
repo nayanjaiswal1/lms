@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 19 — Union Find / DSU"
+title: "Union Find / DSU"
 position: 19
-estimated_minutes: 150
+estimated_minutes: 105
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -243,14 +243,3 @@ def num_islands2(m: int, n: int, positions: list[list[int]]) -> list[int]:
 - Graph Valid Tree needs both the edge-count check (`n - 1` edges) and the cycle check — acyclic alone doesn't guarantee connectivity.
 - DSU shines specifically for *dynamic* / incremental connectivity (edges or nodes arriving over time, as in Number of Islands II) — for static, one-shot connectivity questions, BFS/DFS is simpler and equally efficient.
 - Use a dict-based sparse DSU when the universe of elements is large but only a few are ever touched.
-
-## Today's checklist
-
-- [ ] Solve Number of Connected Components (LeetCode 323)
-- [ ] Solve Longest Consecutive Sequence (LeetCode 128)
-- [ ] Solve Graph Valid Tree (LeetCode 261)
-- [ ] Solve Number of Islands II (LeetCode 305)
-- [ ] Implement DSU with both path compression and union by rank
-- [ ] Compare DSU's incremental approach against a BFS/DFS re-scan approach
-- [ ] Memorize: DSU is nearly O(1) amortized per operation
-- [ ] Review when to reach for DSU vs. plain DFS/BFS

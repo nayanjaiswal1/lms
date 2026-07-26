@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 11 — FastAPI Background Tasks"
+title: "FastAPI Background Tasks"
 position: 11
 estimated_minutes: 45
 source:
@@ -163,11 +163,3 @@ async def get_durable_job_status(job_id: str):
 - In-memory job state breaks under multiple app instances or a restart — move it to Redis (or the DB) the moment you need it visible across processes.
 - Celery's `self.update_state(state="PROGRESS", meta={...})` plus `AsyncResult` gives you progress tracking and durability in one mechanism, without hand-rolling a separate store.
 - Know when to reach for which layer: `BackgroundTasks` for fire-and-forget, Redis for shared state visibility, Celery for durability, retry, and scheduling.
-
-## Today's checklist
-
-- [ ] Read: FastAPI background tasks documentation
-- [ ] Offload heavy computation to a background task
-- [ ] Implement progress tracking for long-running tasks
-- [ ] Implement a file-processing endpoint with progress updates
-- [ ] Be ready to answer: how do you handle long-running tasks? What is the difference between sync and async tasks?

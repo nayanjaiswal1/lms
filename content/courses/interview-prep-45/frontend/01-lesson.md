@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 1 — React Rendering Fundamentals"
+title: "React Rendering Fundamentals"
 position: 4
 estimated_minutes: 30
 source:
@@ -193,12 +193,3 @@ Click "Increment" and watch the console: each click bumps `renderCount.current` 
 - Class lifecycle maps onto hooks: mount/update `useEffect(fn, [])`/`useEffect(fn, [deps])`, unmount → cleanup function, but `componentDidCatch` still has no hook equivalent.
 - `useRef` is the tool for tracking values (like a render counter) without causing extra renders.
 - Reconciliation uses two heuristics — different element type tears down the subtree, keys match list items by identity instead of position — and Fiber (React 16+) makes that diffing interruptible, which is what powers `useTransition`/`Suspense`.
-
-## Today's checklist
-
-- [ ] Be able to explain: the reconciliation algorithm (heuristics, keys, Fiber)
-- [ ] Implement a class component and trace through its render cycle
-- [ ] Build a counter that logs its own render count
-- [ ] Be able to explain: virtual DOM vs real DOM
-- [ ] Be able to explain: why React re-renders
-- [ ] Be able to explain: the component lifecycle phases (class and hooks)

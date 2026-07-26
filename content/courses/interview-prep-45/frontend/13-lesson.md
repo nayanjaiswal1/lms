@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 13 — React Testing"
+title: "React Testing"
 position: 16
 estimated_minutes: 30
 source:
@@ -278,12 +278,3 @@ The interview-safe answer when asked "what coverage percentage do you target": t
 - Mock at the network boundary with MSW rather than mocking `fetch` directly — it decouples the test from *how* the component fetches data.
 - Integration tests exercise a realistic multi-step user flow across several components, giving confidence closer to production without full E2E overhead.
 - Coverage percentage is a floor for finding untested branches, not a quality target — a test with no meaningful assertion inflates coverage while catching nothing.
-
-## Today's checklist
-
-- [ ] Read: React Testing Library best practices
-- [ ] Implement: Write unit tests for a component
-- [ ] Implement: Write integration test for user flow
-- [ ] Understand testing behavior vs implementation details
-- [ ] Practice mocking API calls with MSW
-- [ ] Be able to explain why coverage percentage isn't a quality metric

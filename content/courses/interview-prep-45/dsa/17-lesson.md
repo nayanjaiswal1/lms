@@ -5,7 +5,7 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 17 — Backtracking - Advanced"
+title: "Backtracking - Advanced"
 position: 17
 estimated_minutes: 150
 source:
@@ -243,14 +243,3 @@ def restore_ip_addresses(s: str) -> list[str]:
 - Restore IP Addresses is backtracking with domain-specific validation and pruning (leading zeros, segment length bounds) rather than generic "avoid duplicates" pruning.
 - Prune using bounds on remaining work (`remaining_segments <= remaining_chars <= remaining_segments * 3`) whenever the problem gives you a fixed target shape.
 - Undo state fully and in the same order it was added — partial undos are the most common bug in CSP backtracking.
-
-## Today's checklist
-
-- [ ] Solve N-Queens (LeetCode 51)
-- [ ] Solve N-Queens II (LeetCode 52)
-- [ ] Solve Letter Combinations of a Phone Number (LeetCode 17)
-- [ ] Solve Restore IP Addresses (LeetCode 93)
-- [ ] Implement N-Queens with position validation using the three-set trick
-- [ ] Practice pruning invalid states as early as possible
-- [ ] Memorize: N-Queens uses 3 sets for column/diagonal constraints
-- [ ] Review how to convert a new problem into the backtracking template

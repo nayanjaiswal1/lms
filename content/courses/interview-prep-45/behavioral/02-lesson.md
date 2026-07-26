@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 2 — Project Deep Dive - Project 1"
+title: "Project Deep Dive - Project 1"
 position: 2
 estimated_minutes: 15
 source:
@@ -55,17 +55,3 @@ Decisions: [trade-off made] vs [alternative rejected] — because [reason]
 | Quantify impact, even roughly | Say "it made things a lot faster" |
 | Name one real trade-off you made | Pretend the design was obviously correct from day one |
 | Practice the 5-minute version out loud | Only ever say it in your head |
-
-## Today's checklist
-- [ ] Pick your most complex project
-- [ ] Write structure:
-  - [ ] Problem: What problem did you solve?
-  - [ ] Solution: What did you build?
-  - [ ] Impact: What was the result? (metrics)
-  - [ ] Challenges: What was hard?
-  - [ ] Decisions: What trade-offs did you make?
-- [ ] Practice explaining in 5 minutes
-
-**Revision tasks:**
-- [ ] Review two pointers patterns
-- [ ] Review Django ORM lazy evaluation

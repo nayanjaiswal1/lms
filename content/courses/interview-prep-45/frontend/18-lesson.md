@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 18 — Micro-frontends"
+title: "Micro-frontends"
 position: 21
 estimated_minutes: 30
 source:
@@ -182,12 +182,3 @@ Contract tests in CI on the exposed module's public interface, run against the r
 - Independent deployment means the shell treats remotes as a runtime contract (exposed module + props shape), not a build-time dependency.
 - Cross-microfrontend communication should go through explicit channels (custom events, a typed event bus) — never direct function calls or a shared framework-level store, which reintroduces coupling.
 - Integration testing across independently-deployed remotes requires contract tests and a staging composition environment — unit tests alone can't catch it.
-
-## Today's checklist
-
-- [ ] Read: Micro-frontend architecture patterns
-- [ ] Implement: Module federation config
-- [ ] Implement: Shared component library
-- [ ] Explain independent deployment
-- [ ] Explain communication patterns
-- [ ] Explain testing challenges

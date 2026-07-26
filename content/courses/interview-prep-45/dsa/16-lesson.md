@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 16 — Backtracking"
+title: "Backtracking"
 position: 16
-estimated_minutes: 150
+estimated_minutes: 135
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -218,14 +218,3 @@ def permute(nums: list[int]) -> list[list[int]]:
 - Combinations use a `start` index that only moves forward; permutations use a `used` set and re-scan from 0 every call — mixing these up is the #1 conceptual bug.
 - Unbounded reuse (Combination Sum) passes `i` to the recursive call instead of `i + 1`.
 - Record results at the right point: every node for subsets, only complete-length paths for permutations, only zero-remaining paths for combination-sum style problems.
-
-## Today's checklist
-
-- [ ] Solve Subsets (LeetCode 78)
-- [ ] Solve Subsets II (LeetCode 90)
-- [ ] Solve Combination Sum (LeetCode 39)
-- [ ] Solve Permutations (LeetCode 46)
-- [ ] Implement subsets both iteratively and recursively
-- [ ] Practice identifying when to prune
-- [ ] Memorize: backtracking is O(n * 2^n) worst case
-- [ ] Review how to handle duplicate elements at the same recursion level

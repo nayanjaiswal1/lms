@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 17 — Innovation Story"
+title: "Innovation Story"
 position: 17
 estimated_minutes: 15
 source:
@@ -44,12 +44,3 @@ Result: [adoption evidence] + [measurable impact]
 | Show real adoption by other people | Stop the story at "I built it" |
 | Explain what gap or inefficiency prompted it | Describe innovation for its own sake |
 | Quantify the before/after | Leave impact implicit |
-
-## Today's checklist
-- [ ] Write story about introducing something new
-- [ ] Include: What you saw, what you built, adoption
-- [ ] Practice: "Tell me about an innovation you brought"
-
-**Revision tasks:**
-- [ ] Review backtracking
-- [ ] Review distributed systems concepts

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 23 — FastAPI Dependency Injection"
+title: "FastAPI Dependency Injection"
 position: 23
 estimated_minutes: 45
 source:
@@ -168,11 +168,3 @@ Two design points worth naming explicitly in an interview:
 - `OAuth2PasswordBearer` only extracts and documents the bearer token; validating it (JWT decode, user lookup) is application code layered on top via `Depends`.
 - Small dependencies compose into stricter ones (`get_current_user` → `get_current_active_user`) instead of one large auth function — reuse and layering are the actual interview signal here.
 - A class passed to `Depends()` turns its `__init__` parameters into sub-dependencies automatically, useful for grouping related query/path parameters like pagination.
-
-## Today's checklist
-
-- [ ] Read the FastAPI dependency injection system docs
-- [ ] Implement a custom dependency with caching (lru_cache for process-lifetime)
-- [ ] Implement scoped (request-level, yield-based) dependencies
-- [ ] Answer: how FastAPI manages dependencies, and what Depends() does
-- [ ] Implement an authentication dependency with layered strictness

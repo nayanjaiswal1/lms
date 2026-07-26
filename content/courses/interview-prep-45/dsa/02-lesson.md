@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 2 — Two Pointers Pattern"
+title: "Two Pointers Pattern"
 position: 2
-estimated_minutes: 150
+estimated_minutes: 90
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -187,13 +187,3 @@ The `dummy` head node is the recurring trick: it removes the special case of "is
 - In-place two-pointer edits use a slow "write" pointer and fast "read" pointer — always trace a tiny example by hand.
 - 3Sum reduces to Two Sum via sorting + fixing one element; duplicate-skipping is the main source of bugs.
 - Container With Most Water's greedy pointer-move (always shift the shorter side) is provably optimal — know the one-sentence proof, not just the code.
-
-## Today's checklist
-
-- [ ] Solve Valid Palindrome with the two-pointer skip-and-compare approach
-- [ ] Solve 3Sum with sort + two pointers, handling duplicates correctly
-- [ ] Solve Container With Most Water with the shorter-side-move greedy approach
-- [ ] Implement a linked list node class for future problems
-- [ ] Practice writing pointer movement logic cleanly
-- [ ] Review: how to avoid duplicates when using two pointers
-- [ ] Memorize: 3Sum time complexity is O(n²)

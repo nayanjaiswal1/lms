@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 5 — PostgreSQL Query Optimization"
+title: "PostgreSQL Query Optimization"
 position: 5
 estimated_minutes: 45
 source:
@@ -132,12 +132,3 @@ The number that matters in an interview answer isn't query *execution* time — 
 - `LEFT JOIN ... WHERE right.col IS NULL` is the standard anti-join pattern for "find X with no matching Y."
 - N+1 in raw SQL is the same bug as N+1 in an ORM — fix it the same way, with a JOIN and application-side grouping.
 - The real cost of N+1 is round-trip latency multiplied by query count, not per-query execution time — that's the number to quote when explaining the fix's impact.
-
-## Today's checklist
-
-- [ ] Read: query planner internals
-- [ ] Analyze slow queries from your own projects with `EXPLAIN ANALYZE`
-- [ ] Write a query with and without JOIN optimization
-- [ ] Create queries with N+1 problems
-- [ ] Fix using JOINs and measure the improvement
-- [ ] Be ready to answer: what is the difference between WHERE and HAVING? Explain the JOIN types.

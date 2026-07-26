@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 22 — Tries (Prefix Trees)"
+title: "Tries (Prefix Trees)"
 position: 22
-estimated_minutes: 150
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -265,13 +265,3 @@ def findMaximumXOR(nums: list[int]) -> int:
 - Word Search II's core trick is sharing one DFS pass across all target words via a shared trie, instead of running separate searches per word.
 - A **binary trie** (bits instead of characters) generalizes the prefix-tree idea to numeric problems like maximum XOR — walk most-significant-bit first and greedily prefer the opposite branch.
 - Tries beat hash tables specifically for prefix-based queries; for plain exact-match lookups, a hash table is simpler and just as fast.
-
-## Today's checklist
-
-- [ ] Implement a Trie with insert, search, and startsWith from scratch
-- [ ] Solve Implement Trie (LeetCode 208)
-- [ ] Solve Word Search II (LeetCode 212)
-- [ ] Solve Replace Words (LeetCode 648)
-- [ ] Solve Maximum XOR of Two Numbers in an Array (LeetCode 421)
-- [ ] Compare trie vs hash table trade-offs out loud
-- [ ] Review: when a Trie beats a hash table for prefix queries

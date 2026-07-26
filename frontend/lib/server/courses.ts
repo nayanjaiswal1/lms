@@ -110,6 +110,13 @@ export async function getEnrollments(): Promise<Enrollment[]> {
   return data.enrollments ?? [];
 }
 
+// `getCourses()` only returns org-scoped courses (kind = 'org') — self-practice
+// courses (kind = 'self') never appear there, only in `getEnrollments()` (auto-
+// enrolled at creation). Callers resolving a course by slug must check both.
+export function findCourseBySlug(courses: Course[], enrollments: Enrollment[], slug: string): Course | undefined {
+  return courses.find((c) => c.slug === slug) ?? enrollments.find((e) => e.course.slug === slug)?.course;
+}
+
 export async function getCourseProgress(courseID: string): Promise<CourseProgressSummary> {
   return apiGet<CourseProgressSummary>(`/api/courses/${courseID}/progress/me`);
 }
@@ -122,6 +129,11 @@ export async function getMyCheckProgress(moduleID: string): Promise<string[]> {
 export async function getMyReflection(moduleID: string): Promise<string | null> {
   const data = await apiGet<{ response: string | null }>(`/api/modules/${moduleID}/reflection/me`);
   return data.response;
+}
+
+export async function getMyLessonNote(moduleID: string): Promise<string | null> {
+  const data = await apiGet<{ content: string | null }>(`/api/modules/${moduleID}/notes/me`);
+  return data.content;
 }
 
 export async function getMyReview(courseID: string): Promise<number | null> {

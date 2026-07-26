@@ -15,6 +15,7 @@ export interface Highlight {
   source_url: string | null
   source_orphaned: boolean
   saved_for_revision: boolean
+  note?: string
   explanation?: Explanation
   created_at: string
   updated_at: string

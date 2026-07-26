@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 20 — Design Ticketmaster/Eventbrite"
+title: "Design Ticketmaster/Eventbrite"
 position: 20
 estimated_minutes: 60
 source:
@@ -129,12 +129,3 @@ A: This is why the waiting room should be a thin, horizontally-scalable, statele
 - Anti-scalping is a layered set of weak individual measures (rate limits, auth requirement, CAPTCHA, per-account caps) — no single mechanism solves it, and the interview answer should say so.
 - Redis-based holds trade a small consistency window for much higher throughput on the hottest path than DB-only locking — know when that trade is worth it (extreme contention events).
 - Payment failure must always release the seat hold, defensively via TTL/expiry, not solely via explicit application cleanup that can be skipped by a crash.
-
-## Today's checklist
-
-- [ ] Write functional requirements: events, seats, booking.
-- [ ] Write non-functional requirements: high concurrency, fairness.
-- [ ] Design seat selection with atomic hold mechanics.
-- [ ] Explain exactly how double booking is prevented under concurrent requests.
-- [ ] Design the waiting room / virtual queue for high-demand on-sales.
-- [ ] Discuss anti-scalping measures and their limits.

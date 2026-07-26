@@ -25,6 +25,7 @@ const ROUTES = {
   CALENDAR:            "/calendar",
   LEADERBOARD:         "/leaderboard",
   REVIEW:              "/review",
+  MISTAKES:            "/mistakes",
   SHEETS:              "/sheets",
   SHEETS_NEW:          "/sheets/new",
   SHEETS_COMPARE:      "/sheets/compare",
@@ -83,8 +84,10 @@ const ROUTES = {
   HIGHLIGHTS:          "/highlights",
 
   // Settings
-  SETTINGS_PROFILE:    "/settings/profile",
-  SETTINGS_SECURITY:   "/settings/security",
+  SETTINGS_PROFILE:               "/settings/profile",
+  SETTINGS_SECURITY:              "/settings/security",
+  SETTINGS_INTEGRATIONS:          "/settings/integrations",
+  SETTINGS_INTEGRATIONS_ACTIVITY: "/settings/integrations/activity",
 
   // Admin — RBAC
   ADMIN_RBAC_ROLES:        "/admin/rbac/roles",

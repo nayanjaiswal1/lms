@@ -3,9 +3,9 @@ kind: quiz
 id_key: interview-prep-45/quiz-week-5
 course: interview-prep-45
 section: checkpoints
-section_title: "Weekly Checkpoints"
+section_title: "Checkpoint Quizzes"
 section_position: 6
-title: "Week 5 Checkpoint Quiz — Mock Interview Skills"
+title: "Checkpoint Quiz 5 — Mock Interview Skills"
 position: 5
 estimated_minutes: 20
 source:

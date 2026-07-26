@@ -5,7 +5,7 @@ course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
 section_position: 7
-title: "Day 29 — Mock Interview - Arrays and Strings"
+title: "Mock Interview - Arrays and Strings"
 position: 29
 estimated_minutes: 240
 source:
@@ -339,17 +339,3 @@ Score each /5. Be honest — this only works if you grade like an interviewer, n
 ## Debrief
 
 Immediately after each segment — not at the end of the day, while it's fresh — write down every place you hesitated, guessed, or needed the reference solution. For each one, record: what the mistake was, what the root cause was (knowledge gap vs. nerves vs. time pressure), and the specific fix (a problem to redo, a concept to re-read, a pattern to drill). Add anything scored 3/5 or below into tomorrow's warm-up so it gets revisited within 48 hours — that's the window where spaced repetition actually sticks.
-
-## Today's checklist
-
-- [ ] Two Sum — solved in 15 minutes
-- [ ] Longest Substring Without Repeating — solved in 20 minutes
-- [ ] Practiced thinking out loud on both problems
-- [ ] URL Shortener: defined requirements in 5 minutes
-- [ ] URL Shortener: high-level architecture in 10 minutes
-- [ ] URL Shortener: deep dive in 15 minutes
-- [ ] URL Shortener: scaling discussion in 10 minutes
-- [ ] Built the Autocomplete component from scratch
-- [ ] Added state management (query, results, active index, loading)
-- [ ] Optimized for performance (debounce, abort stale requests, memoized list)
-- [ ] Scored every segment against the rubric and logged debrief notes

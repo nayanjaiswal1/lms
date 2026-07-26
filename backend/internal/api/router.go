@@ -23,9 +23,11 @@ import (
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labs"
+	"github.com/mindforge/backend/internal/mcpconnect"
 	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/messaging"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/onboarding"
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
@@ -97,6 +99,14 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	interviewPrepRouter := interviewprep.New(pool, cfg, aiProvider, practiceRouter.Service)
 	orgsHandler := orgs.NewHandler(cfg, pool, jobsRegistry)
 	srsRouter := srs.New(pool)
+	// A second *srs.Repo wrapping the same pool (NewRepo holds no state of its
+	// own beyond the pool reference) so mistakes.Service and mcpconnect can
+	// reach GetDueCardsBySource/ReviewCard without srsRouter needing to expose
+	// its unexported repo field.
+	srsRepo := srs.NewRepo(pool)
+	mistakesRepo := mistakes.NewRepo(pool)
+	mistakesSvc := mistakes.NewService(mistakesRepo, pool)
+	mistakesRouter := mistakes.NewHandler(mistakesRepo, mistakesSvc)
 	sheetsRouter := sheets.New(pool)
 	highlightsRouter := highlights.New(pool, aiProvider)
 	systemDesignRouter := systemdesign.New(pool, coursesRepo, aiProvider)
@@ -106,6 +116,12 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	featuresRouter := features.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
+
+	// AI Connector (MCP) — lets a student connect their own Claude/ChatGPT to
+	// their account via OAuth 2.1+PKCE. Built with coursesRepo/coursesSvc
+	// (not a fresh *courses.Repo) so its tools share the exact same
+	// enrollment/authorization rules as the student-facing course API.
+	mcpConnectRouter := mcpconnect.New(cfg, pool, coursesRepo, coursesSvc, calendarRouter.Service, mistakesRepo, mistakesSvc, srsRepo)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.
@@ -149,6 +165,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	// Public course catalog — anonymous marketplace listing for the landing page.
 	coursesRouter.RegisterPublicRoutes(r)
+
+	// AI Connector (MCP) — discovery, dynamic client registration, the
+	// authorize/token endpoints, and /mcp itself. None of these are
+	// cookie-authenticated (see RegisterPublicRoutes' own comment).
+	mcpConnectRouter.RegisterPublicRoutes(r)
 
 	// Public certificate verification — no auth, proof of access is the
 	// cert_uuid itself.
@@ -211,6 +232,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// SRS — spaced-repetition cards, daily review queue, SM-2 scheduling.
 		srsRouter.RegisterRoutes(r)
 
+		// Mistakes — the Mistake & Progress Ledger: timestamped mistake events,
+		// per-category trend summary, resolve. Spaced revision for these rides
+		// the SRS engine above (source_type="mistake"), not a separate queue.
+		mistakesRouter.RegisterRoutes(r)
+
 		// Sheets — curated problem-list tracker: create/start a sheet, track
 		// per-problem progress (todo/done/revisit).
 		sheetsRouter.RegisterRoutes(r)
@@ -261,6 +287,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Revision plan — AI-ranked weak topics built from a learner's actual
 		// knowledge-check accuracy and lesson reflections in a completed course.
 		revisionPlanRouter.RegisterRoutes(r)
+
+		// AI Connector (MCP) — consent screen (details/approve/deny) and the
+		// settings-page connection list/revoke, all called by our own frontend.
+		mcpConnectRouter.RegisterRoutes(r)
 	})
 
 	return r

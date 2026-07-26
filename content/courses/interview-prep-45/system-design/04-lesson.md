@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 4 — Chat Application (WhatsApp style)"
+title: "Chat Application (WhatsApp style)"
 position: 4
 estimated_minutes: 60
 source:
@@ -161,11 +161,3 @@ A: Switch that conversation type to fan-out-on-read: don't write a copy of the m
 - Sent/delivered/read is a three-state model — persistence gives you "sent" durability independent of whether the recipient is online.
 - At-least-once delivery plus client-side `client_msg_id` dedupe is the realistic guarantee, not exactly-once.
 - Large group broadcasts need fan-out-on-read instead of fan-out-on-write to avoid write amplification.
-
-## Today's checklist
-- [ ] Define functional requirements: 1-on-1 chat, groups, read receipts
-- [ ] Define non-functional requirements: real-time, offline support
-- [ ] Design WebSocket connection handling
-- [ ] Design database schema for messages
-- [ ] Design message ordering and consistency
-- [ ] Handle message delivery guarantees

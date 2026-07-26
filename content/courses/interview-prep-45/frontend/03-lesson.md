@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 3 — Event Loop and Browser Rendering"
+title: "Event Loop and Browser Rendering"
 position: 6
 estimated_minutes: 30
 source:
@@ -134,12 +134,3 @@ elements.forEach((el, i) => {
 - `requestAnimationFrame` runs right before paint, synced to the display refresh rate — use it for anything that visually animates every frame; `requestIdleCallback` for genuinely low-priority background work.
 - The render pipeline is Style → Layout → Paint → Composite; `transform`/`opacity` skip layout and paint entirely (composite-only, GPU-accelerated).
 - Layout thrashing comes from interleaving DOM reads and writes in a loop — batch reads, then batch writes.
-
-## Today's checklist
-
-- [ ] Read the JS event loop documentation (MDN)
-- [ ] Write code demonstrating macrotask vs microtask ordering
-- [ ] Trace the render pipeline (frame anatomy: style, layout, paint, composite)
-- [ ] Be able to explain: task queue vs microtask queue
-- [ ] Be able to explain: requestAnimationFrame
-- [ ] Be able to explain: layout and paint phases

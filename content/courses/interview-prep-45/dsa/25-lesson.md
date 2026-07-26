@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 25 — Math and Geometry"
+title: "Math and Geometry"
 position: 25
-estimated_minutes: 150
+estimated_minutes: 105
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -229,14 +229,3 @@ def myPow(x: float, n: int) -> float:
 - In-place 90° matrix rotation = transpose + reverse each row — trace a small example by hand to internalize why, rather than memorizing it as a rule.
 - Spiral traversal is four shrinking boundaries (`top`, `bottom`, `left`, `right`) walked in a fixed order, with guards to prevent double-counting on single-row/column remnants.
 - Binary exponentiation turns O(n) power computation into O(log n) by squaring the base and halving the exponent each step — a general technique that reappears in matrix exponentiation and modular arithmetic problems.
-
-## Today's checklist
-
-- [ ] Explain why primality checks only need divisors up to sqrt(n)
-- [ ] Solve Rotate Image (LeetCode 48)
-- [ ] Solve Spiral Matrix (LeetCode 54)
-- [ ] Solve Count Primes (LeetCode 204)
-- [ ] Solve Pow(x, n) (LeetCode 50)
-- [ ] Implement matrix rotation in place from memory
-- [ ] Implement the Sieve of Eratosthenes from memory
-- [ ] Review: why fast power reduces multiplications to O(log n)

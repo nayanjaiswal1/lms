@@ -82,6 +82,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/roadmap.md](docs/roadmap.md) | AI personalized roadmaps — goal-to-plan generation, catalog matching, GENERATED/DEFINED mode, API, DB schema |
 | [docs/anonymous.md](docs/anonymous.md) | Public tests, anonymous attempts, API, DB schema |
 | [docs/calendar-sync.md](docs/calendar-sync.md) | Opt-in Google Calendar account sync — OAuth flow, push/pull, DB schema, API, edge cases |
+| [docs/ai-connector.md](docs/ai-connector.md) | AI Connector (MCP) — connect the student's own Claude/ChatGPT via OAuth 2.1+PKCE, course/notes/calendar tools, DB schema, API |
 | [docs/entity-schedules-and-calendar-sync.md](docs/entity-schedules-and-calendar-sync.md) | starts_at/ends_at on batches/courses/lessons, auto-synced read-only into the in-app calendar |
 | [docs/infrastructure.md](docs/infrastructure.md) | Project file structure, all env vars, AI rules, payments, SSRF denylist |
 

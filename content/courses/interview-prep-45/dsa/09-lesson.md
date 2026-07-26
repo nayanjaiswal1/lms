@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 9 — Graphs - BFS and DFS"
+title: "Graphs - BFS and DFS"
 position: 9
-estimated_minutes: 150
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -245,14 +245,3 @@ def wallsAndGates(rooms: list[list[int]]) -> None:
 - Mark nodes visited at enqueue/push time, never at pop/process time, or you'll do duplicate work (and get wrong answers in weighted variants).
 - Grid problems are graphs in disguise — 4-directional (or 8-directional) neighbor checks replace `graph[node]` lookups.
 - Multi-source BFS (seed the queue with *all* starting points before the first pop) is the pattern behind Rotting Oranges and Walls and Gates — recognize it whenever "simultaneously" or "nearest of several sources" appears.
-
-## Today's checklist
-
-- [ ] Explain adjacency list vs matrix trade-offs out loud
-- [ ] State when BFS beats DFS and vice versa
-- [ ] Solve Number of Islands (LeetCode 200)
-- [ ] Solve Clone Graph (LeetCode 133)
-- [ ] Solve Rotting Oranges (LeetCode 994)
-- [ ] Solve Walls and Gates (LeetCode 286)
-- [ ] Implement a graph with an adjacency list from scratch
-- [ ] Implement BFS and DFS from scratch, without looking at today's examples

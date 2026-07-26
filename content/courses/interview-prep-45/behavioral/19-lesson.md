@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 19 — Success Story"
+title: "Success Story"
 position: 19
 estimated_minutes: 15
 source:
@@ -46,12 +46,3 @@ Result: [quantified impact] + [recognition — promotion, adoption, praise, ongo
 | Start with a baseline number to measure against | Say "it went really well" with no metric |
 | Give yourself clear individual credit if it's your story | Say "we" for every sentence when it was mostly you |
 | Include external recognition if there was any | Rely only on your own assessment of impact |
-
-## Today's checklist
-- [ ] Write story about biggest achievement
-- [ ] Include: What you did, impact, recognition
-- [ ] Practice: "What is your biggest professional achievement?"
-
-**Revision tasks:**
-- [ ] Review DSU patterns
-- [ ] Review Celery

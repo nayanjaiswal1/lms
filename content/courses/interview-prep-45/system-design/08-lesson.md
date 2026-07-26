@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 8 — Job Queue System"
+title: "Job Queue System"
 position: 8
 estimated_minutes: 60
 source:
@@ -144,12 +144,3 @@ A: Separate queues per tenant/type with weighted round-robin worker polling, or 
 - A dead letter queue with a max-attempts cap is mandatory — infinite retries hide bugs and burn capacity.
 - Priority queues are best implemented as separate physical queues with weighted polling, not a sort column.
 - Choose the broker by throughput need: Postgres/Redis for most products, Kafka only when you need per-key ordering or replay at scale.
-
-## Today's checklist
-
-- [ ] Write functional requirements: enqueue, worker processing, retries.
-- [ ] Write non-functional requirements: delivery guarantee, ordering, priorities.
-- [ ] Design the job schema (id, payload, status, attempts, scheduled_at).
-- [ ] Sketch the worker leasing/visibility-timeout mechanism.
-- [ ] Design the dead letter queue and requeue flow.
-- [ ] Talk through scaling the broker choice under load.

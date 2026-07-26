@@ -12,11 +12,14 @@ import (
 )
 
 var (
-	ErrAIUnavailable    = errors.New("highlights: AI provider not available")
-	ErrInvalidSource    = errors.New("highlights: invalid source type")
-	ErrTextTooShort     = errors.New("highlights: selected text must be at least 3 characters")
-	ErrTextTooLong      = errors.New("highlights: selected text exceeds 2000 characters")
+	ErrAIUnavailable = errors.New("highlights: AI provider not available")
+	ErrInvalidSource = errors.New("highlights: invalid source type")
+	ErrTextTooShort  = errors.New("highlights: selected text must be at least 3 characters")
+	ErrTextTooLong   = errors.New("highlights: selected text exceeds 2000 characters")
+	ErrNoteTooLong   = errors.New("highlights: note exceeds 1000 characters")
 )
+
+const maxNoteLength = 1000
 
 // Service holds the highlight domain's business logic.
 type Service struct {
@@ -33,6 +36,9 @@ func NewService(repo *Repo, provider ai.LLMProvider) *Service {
 func (s *Service) Create(ctx context.Context, userID string, req CreateRequest) (Highlight, error) {
 	if err := validateRequest(req.SourceType, req.SelectedText); err != nil {
 		return Highlight{}, err
+	}
+	if req.Note != nil && len(strings.TrimSpace(*req.Note)) > maxNoteLength {
+		return Highlight{}, ErrNoteTooLong
 	}
 	textHash := computeHash(req.SelectedText, string(req.SourceType))
 	return s.repo.Create(ctx, userID, textHash, req)
@@ -112,9 +118,13 @@ func (s *Service) GetForSource(ctx context.Context, userID string, sourceType So
 	return s.repo.ListBySource(ctx, userID, string(sourceType), sourceID)
 }
 
-// ToggleRevision flips the saved_for_revision flag on a user-owned highlight.
-func (s *Service) ToggleRevision(ctx context.Context, userID, highlightID string, save bool) (Highlight, error) {
-	return s.repo.ToggleRevision(ctx, highlightID, userID, save)
+// ToggleRevision flips the saved_for_revision flag on a user-owned highlight,
+// and updates its note when one is supplied.
+func (s *Service) ToggleRevision(ctx context.Context, userID, highlightID string, save bool, note *string) (Highlight, error) {
+	if note != nil && len(strings.TrimSpace(*note)) > maxNoteLength {
+		return Highlight{}, ErrNoteTooLong
+	}
+	return s.repo.ToggleRevision(ctx, highlightID, userID, save, note)
 }
 
 // ListMine returns the caller's highlights, optionally filtered to revision-saved only.

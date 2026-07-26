@@ -4,6 +4,27 @@ Course structure, lifecycle, and student progress tracking. A course is a tree: 
 
 ---
 
+## Kind: org vs. self
+
+Every course has a `kind`:
+
+| Kind | Owner | Visibility | Who can write its modules |
+|---|---|---|---|
+| `org` (default) | the org — authored by an instructor/admin | listed in the org browse catalog (and `is_public` ones in the anonymous catalog) | instructor/admin only, via the authoring API above |
+| `self` | one student (`owner_id`) | **never** listed anywhere — only its owner can see it (`GetCourseTree` returns 404, not 403, to anyone else, same rationale as `docs/roadmap.md`'s ownership check) | only the owner — including their connected MCP client (see `docs/ai-connector.md`), with **no review gate** |
+
+A self-course is created either from scratch (`POST /api/self-courses`) or by forking a published org course (`POST /api/self-courses/fork`) — the owner is auto-enrolled in the same transaction, so every existing enrollment/progress/module code path (module completion, XP, `GetModuleContent`'s enrollment check) treats it exactly like any other course with no self-course special-casing needed there. Its modules are always `notes` (markdown) — created/edited via `POST /api/self-courses/{courseID}/modules` and `PATCH /api/self-course-modules/{moduleID}`, both ownership-gated rather than role-gated (any student may call them for a course they own; `RequireOrgRole` doesn't apply).
+
+### Contributing self-course content back into an org course
+
+A self-course write never touches a shared org course directly. Instead, `POST /api/courses/{courseID}/proposals` queues a `course_content_proposals` row (`status='pending'`) with a snapshot of the proposed title/content — the target course's instructor/admin reviews it at `GET /api/courses/{courseID}/proposals` and either:
+- **Approves** (`POST /api/proposals/{id}/approve`) — inside one transaction, inserts a real `course_modules` row from the snapshot (into `target_section_id`, or the course's first section if none was given) and marks the proposal `approved` with the resulting module id.
+- **Rejects** (`POST /api/proposals/{id}/reject`) — marks it `rejected`, nothing is created.
+
+Both actions require the same instructor/admin role as authoring the course directly — approving a proposal *is* authoring the course, just sourced from a student's own work.
+
+---
+
 ## Module Types
 
 | Type | Content storage | Notes |
@@ -38,9 +59,32 @@ CREATE TABLE courses (
   price_cents     INT          NOT NULL DEFAULT 0 CHECK (price_cents >= 0),
   is_free         BOOLEAN      NOT NULL DEFAULT true,
   estimated_hours NUMERIC(5,1) CHECK (estimated_hours > 0),
+  kind            TEXT         NOT NULL DEFAULT 'org' CHECK (kind IN ('org', 'self')), -- added in 016
+  owner_id        UUID         REFERENCES users(id) ON DELETE CASCADE, -- set only when kind='self'; added in 016
   created_at      TIMESTAMPTZ  DEFAULT now(),
   updated_at      TIMESTAMPTZ  DEFAULT now(),
-  UNIQUE (org_id, slug)
+  UNIQUE (org_id, slug),
+  CHECK (kind = 'org' OR owner_id IS NOT NULL)
+);
+
+CREATE TABLE course_content_proposals ( -- added in 016
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id             UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  proposer_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_course_id   UUID        REFERENCES courses(id) ON DELETE SET NULL,
+  source_module_id   UUID        REFERENCES course_modules(id) ON DELETE SET NULL,
+  target_course_id   UUID        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  target_section_id  UUID        REFERENCES course_sections(id) ON DELETE SET NULL,
+  title              TEXT        NOT NULL,
+  type               TEXT        NOT NULL CHECK (type IN ('notes', 'assessment')), -- text-only: the proposer is always an MCP tool call, no file-upload transport
+  content_body       TEXT        NOT NULL,
+  status             TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  review_note        TEXT,
+  reviewed_by        UUID        REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at        TIMESTAMPTZ,
+  created_module_id  UUID        REFERENCES course_modules(id) ON DELETE SET NULL, -- set on approve
+  created_at         TIMESTAMPTZ DEFAULT now(),
+  updated_at         TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE course_sections (
@@ -153,6 +197,28 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/courses/{courseID}/progress` | All-students progress overview |
+
+### Instructor: content-proposal review queue
+
+Same `admin`/`instructor` role gate as authoring the target course directly.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/courses/{courseID}/proposals` | List proposals for this course (`?status=` filters, defaults to `pending`) |
+| `POST` | `/api/proposals/{proposalID}/approve` | Merge a pending proposal into the course as a real module (body: `{review_note?}`) |
+| `POST` | `/api/proposals/{proposalID}/reject` | Reject a pending proposal, no module created (body: `{review_note?}`) |
+
+### All authenticated users: self-courses
+
+No `RequireOrgRole` gate — ownership (not org role) is what these enforce.
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/self-courses` | Create a private course from scratch (body: `{title, description?, difficulty?, tags?}`) |
+| `POST` | `/api/self-courses/fork` | Fork a published org course into a private copy (body: `{course_id, title}`) |
+| `POST` | `/api/self-courses/{courseID}/modules` | Add a notes module to a self-course you own (body: `{section_id?, title, content_body}`) |
+| `PATCH` | `/api/self-course-modules/{moduleID}` | Replace a self-course module's title/content (body: `{title, content_body}`) |
+| `POST` | `/api/courses/{courseID}/proposals` | Propose a contribution to a shared org course (body: `{target_section_id?, source_module_id?, title?, content_body?}` — either `source_module_id` from one of your own self-courses, or both `title` and `content_body`) |
 
 ### All authenticated users
 

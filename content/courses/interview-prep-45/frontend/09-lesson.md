@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 9 — Code Splitting and Bundle Optimization"
+title: "Code Splitting and Bundle Optimization"
 position: 12
 estimated_minutes: 30
 source:
@@ -231,12 +231,3 @@ The interview point: budgets should be enforced in CI, not checked manually befo
 - Prefetch on hover/focus/viewport intent to hide the chunk-loading waterfall behind user hesitation time.
 - Never optimize what you haven't measured — `source-map-explorer` or a bundle visualizer tells you exactly what's taking up space.
 - Enforce bundle budgets in CI so regressions fail the build instead of shipping unnoticed.
-
-## Today's checklist
-
-- [ ] Read: Webpack code splitting strategies
-- [ ] Implement: Dynamic imports in React
-- [ ] Implement: Measure bundle with source-map-explorer
-- [ ] Understand tree shaking and its ES-module requirement
-- [ ] Understand lazy loading components with `React.lazy`/`Suspense`
-- [ ] Set a bundle budget and enforce it in CI

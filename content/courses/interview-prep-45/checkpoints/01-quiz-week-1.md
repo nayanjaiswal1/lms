@@ -3,9 +3,9 @@ kind: quiz
 id_key: interview-prep-45/quiz-week-1
 course: interview-prep-45
 section: checkpoints
-section_title: "Weekly Checkpoints"
+section_title: "Checkpoint Quizzes"
 section_position: 6
-title: "Week 1 Checkpoint Quiz — Fundamentals"
+title: "Checkpoint Quiz 1 — Fundamentals"
 position: 1
 estimated_minutes: 20
 source:

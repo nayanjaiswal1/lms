@@ -5,7 +5,7 @@ course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
 section_position: 7
-title: "Day 31 — Mock Interviews 4–6: Graphs, Twitter, Todo App"
+title: "Mock Interviews 4–6: Graphs, Twitter, Todo App"
 position: 31
 estimated_minutes: 240
 source:
@@ -354,16 +354,3 @@ function TodoRow({
 ## Debrief
 
 After each mock, log the biggest gap immediately: what broke down, why (missed pattern recognition, ran out of time, didn't know the trade-off), and the specific fix. For the DSA extra-practice problem, note explicitly which pattern it was testing (multi-source BFS, cycle-safe DFS, etc.) so you can recognize the shape faster next time instead of re-deriving it from scratch. Anything scored 3/5 or below goes on tomorrow's warm-up.
-
-## Today's checklist
-
-- [ ] Mock 4: solved Number of Islands with BFS
-- [ ] Mock 4: solved Number of Islands with DFS
-- [ ] Mock 4: compared both approaches out loud
-- [ ] Mock 4 extra: attempted Clone Graph, Pacific Atlantic Water Flow, or Walls and Gates
-- [ ] Mock 5: focused on feed generation within the 40-minute timer
-- [ ] Mock 5: discussed trade-offs between fan-out on write vs fan-out on read
-- [ ] Mock 6: built a Todo App with full CRUD within 30 minutes
-- [ ] Mock 6: added persistence
-- [ ] Mock 6: styled the component properly
-- [ ] Scored every mock against the rubric and logged debrief notes

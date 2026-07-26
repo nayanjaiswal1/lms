@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 20 — Distributed Locks"
+title: "Distributed Locks"
 position: 20
 estimated_minutes: 45
 source:
@@ -160,11 +160,3 @@ Practical answer, in order of increasing rigor:
 - The strongest known critique of Redlock is the missing fencing token — without it, a lock alone can't guarantee mutual exclusion on the protected resource under pathological timing.
 - For most application use cases (dedup, single-job-instance enforcement), TTL+renewal+token-checked release is the pragmatic standard; reach for fencing tokens or idempotent operations when correctness failures are expensive.
 - Always release locks via a script that verifies you still hold the token — never a bare `DEL`.
-
-## Today's checklist
-
-- [ ] Read Redis distributed lock patterns
-- [ ] Implement a lock with TTL and heartbeat renewal
-- [ ] Implement the Redlock algorithm across multiple instances
-- [ ] Answer: problems with distributed locks, and handling lock expiration
-- [ ] Implement a distributed mutex end to end

@@ -400,6 +400,10 @@ export default tseslint.config(
                 // "Enable Course Docs" creates a course-linked wiki space —
                 // see components/courses/course-docs-toggle.tsx.
                 ['feature-lib', { family: 'wiki' }],
+                // module-notes.tsx overlays a student's previously saved
+                // highlights onto lesson HTML server-side — see
+                // lib/highlights/mark-html.ts.
+                ['feature-lib', { family: 'highlights' }],
               ],
             },
             {

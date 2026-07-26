@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 3 — Project Deep Dive - Project 2"
+title: "Project Deep Dive - Project 2"
 position: 3
 estimated_minutes: 15
 source:
@@ -50,12 +50,3 @@ Decisions: [trade-off made] vs [alternative rejected] — because [reason]
 | Choose a project that covers a different skill than Project 1 | Pick a near-duplicate of yesterday's story |
 | Be explicit about your individual contribution on team projects | Say "we" for every sentence and never "I" |
 | Keep it to 5 minutes, same as Day 2 | Let it run long because it's a favorite story |
-
-## Today's checklist
-- [ ] Pick second most complex project
-- [ ] Write same structure as Day 2
-- [ ] Practice explaining in 5 minutes
-
-**Revision tasks:**
-- [ ] Review sliding window template
-- [ ] Review async/await patterns

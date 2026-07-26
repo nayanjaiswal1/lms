@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 15 — Design Uber/Lyft"
+title: "Design Uber/Lyft"
 position: 15
 estimated_minutes: 60
 source:
@@ -167,12 +167,3 @@ A: The matching service becomes a constrained optimization problem instead of on
 - Batch matching beats greedy nearest-match for global efficiency; be ready to explain why "closest driver" isn't always the answer.
 - Lock fare/surge at match time, not at trip completion, to avoid billing disputes.
 - Use a distributed lock or atomic status transition to prevent double-dispatching a driver — this is the classic race condition interviewers probe for.
-
-## Today's checklist
-
-- [ ] Define functional requirements: matching, tracking, payments
-- [ ] Define non-functional requirements: real-time, availability
-- [ ] Design rider-driver matching system
-- [ ] Design surge pricing logic
-- [ ] Handle driver location updates
-- [ ] Discuss dispatch algorithms

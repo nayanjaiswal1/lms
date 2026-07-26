@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 26 — String Manipulation"
+title: "String Manipulation"
 position: 26
-estimated_minutes: 150
+estimated_minutes: 105
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -231,14 +231,3 @@ def rabin_karp(text: str, pattern: str) -> list[int]:
 - Not every "substring" problem is sliding window — "at least K repeating characters" needs divide-and-conquer because the validity condition isn't monotonic in window size.
 - Minimum Window Substring is the hardest standard sliding-window problem — the `missing` counter trick (only decrement when a character actually helps satisfy a requirement) is the key insight worth re-deriving until automatic.
 - Rabin-Karp's rolling hash turns substring search from O(n·m) to average O(n+m) by updating the window hash in O(1) per shift instead of rehashing from scratch — always verify hash matches with a direct comparison to rule out collisions.
-
-## Today's checklist
-
-- [ ] Explain why `s += char` in a loop is O(n²) and what to do instead
-- [ ] Solve Longest Substring with At Least K Repeating Characters (LeetCode 395)
-- [ ] Solve Find All Anagrams in a String (LeetCode 438)
-- [ ] Re-solve Minimum Window Substring (LeetCode 76) from memory
-- [ ] Implement the Rabin-Karp algorithm from scratch
-- [ ] Implement a sliding-window substring search using frequency counts
-- [ ] Review: every sliding-window problem covered this week
-- [ ] Review: anagram detection techniques (Counter comparison vs incremental match counting)

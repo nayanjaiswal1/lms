@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 23 — Sliding Window - Advanced"
+title: "Sliding Window - Advanced"
 position: 23
-estimated_minutes: 150
+estimated_minutes: 135
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -199,14 +199,3 @@ def longestOnes(nums: list[int], k: int) -> int:
 - "At most K distinct" and "longest with condition X after up to K changes" are the two dominant advanced sliding-window templates — most problems are one of these two wearing different words.
 - A frequency map that's only *approximately* accurate in one direction (like `max_freq` in Character Replacement, which is allowed to be stale-low but never stale-high) is a common and valid optimization — understand why it's still correct before using it.
 - Minimizing a window (shortest subarray satisfying a condition) uses the identical two-pointer skeleton as maximizing one — only the direction of "is this window good, should I shrink or expand" flips.
-
-## Today's checklist
-
-- [ ] Explain the fixed-window "two incremental updates per step" pattern
-- [ ] Explain why `left` never resets in variable-window solutions (the O(n) argument)
-- [ ] Solve Longest Repeating Character Replacement (LeetCode 424)
-- [ ] Solve Fruit Into Baskets (LeetCode 904)
-- [ ] Solve Minimum Size Subarray Sum (LeetCode 209)
-- [ ] Solve Max Consecutive Ones III / Longest Subarray with Ones after Replacement
-- [ ] Review: how character-replacement frequency counting generalizes to at-most-K-distinct problems
-- [ ] Review: how to handle multiple simultaneous window conditions

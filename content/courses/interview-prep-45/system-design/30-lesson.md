@@ -2,12 +2,12 @@
 kind: lesson
 id_key: interview-prep-45/day-28
 course: interview-prep-45
-section: dsa
-section_title: "DSA — Data Structures & Algorithms"
-section_position: 1
-title: "Day 28 — Database Design"
-position: 28
-estimated_minutes: 150
+section: system-design
+section_title: "System Design"
+section_position: 2
+title: "Database Design (LLD)"
+position: 30
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -267,13 +267,3 @@ WHERE pc.post_count > (SELECT AVG(post_count) FROM post_counts);
 - Denormalization is a deliberate read-performance trade-off for a specific hot path, not a default — always name which reads you're optimizing for and how you'll keep the duplicated data consistent.
 - `WHERE` filters rows before grouping; `HAVING` filters groups after aggregation — mixing these up is one of the most common SQL interview mistakes.
 - Reach for `INNER JOIN` unless you specifically need unmatched rows preserved — defaulting to `LEFT JOIN` "to be safe" silently changes result semantics and can corrupt aggregate counts.
-
-## Today's checklist
-
-- [ ] Explain one-to-one, one-to-many, and many-to-many cardinality with examples
-- [ ] Explain 1NF, 2NF, and 3NF with a violating and fixed example for each
-- [ ] Design a SQL schema for a blog system (users, posts, comments, tags)
-- [ ] Write SQL queries for typical aggregation/filtering problems
-- [ ] Practice all four join types (INNER, LEFT, RIGHT, FULL OUTER) with concrete examples
-- [ ] Practice writing both subqueries and their CTE equivalents
-- [ ] Review: when to denormalize and what trade-off you're accepting

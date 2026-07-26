@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 26 — Asking for Help Story"
+title: "Asking for Help Story"
 position: 26
 estimated_minutes: 15
 source:
@@ -44,12 +44,3 @@ Result: [what you learned] + [how it changed your instinct for when to ask]
 | Show what you tried before asking | Make it sound like you asked immediately |
 | Frame the ask so it's fast for the other person to answer | Dump the whole problem with no context |
 | Note a concrete rule for when you ask now | End without any lasting takeaway |
-
-## Today's checklist
-- [ ] Write story about when you needed help
-- [ ] Include: How you asked, what you learned
-- [ ] Practice: "How do you ask for help?"
-
-**Revision tasks:**
-- [ ] Review string problems
-- [ ] Review async pipelines

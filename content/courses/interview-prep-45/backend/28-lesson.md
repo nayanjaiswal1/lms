@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 28 — Migrations and Schema Changes"
+title: "Migrations and Schema Changes"
 position: 28
 estimated_minutes: 45
 source:
@@ -245,11 +245,3 @@ migrations.RemoveField(model_name="user", name="username")
 - Data migrations use `apps.get_model` (historical models) and `iterator()`/batching for large tables, with a real `reverse_code` where feasible.
 - Zero-downtime requires the expand/contract pattern because old and new app code run simultaneously against the same schema during a rolling deploy — any migration that isn't backward-compatible with the currently-running old code causes an outage.
 - Never edit an already-applied migration; write a new one.
-
-## Today's checklist
-
-- [ ] Read up on Django migration best practices (sqlmigrate, reversibility, one change per migration)
-- [ ] Implement a safe migration for adding a required column to a large table
-- [ ] Implement a data migration using `apps.get_model` and batching
-- [ ] Be able to answer: how do you handle migrations on production, what is zero-downtime migration
-- [ ] Implement a migration that adds a column with a default, safely, on a large table

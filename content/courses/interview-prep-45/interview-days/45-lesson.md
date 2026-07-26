@@ -5,7 +5,7 @@ course: interview-prep-45
 section: interview-days
 section_title: "Interview Days"
 section_position: 9
-title: "Day 45 — Final Checkpoint and Ongoing Roadmap"
+title: "Final Checkpoint and Ongoing Roadmap"
 position: 45
 estimated_minutes: 90
 source:
@@ -152,10 +152,3 @@ Interview prep doesn't stop at Day 45 — skills decay without maintenance, and 
 - Backend and frontend strength should be provable in under a few sentences per topic — if an explanation takes longer than that to retrieve, it needs more repetition, not more reading.
 - STAR stories that can't compress to ~10 words per beat are still carrying backstory that will get cut mid-interview by a 2-minute time cap.
 - Interview readiness decays without maintenance — 2 problems daily and one system design weekly is the minimum to hold the level this course built, not to keep growing it.
-
-## Today's checklist
-
-- [ ] Continue daily LeetCode
-- [ ] Keep practicing system design
-- [ ] Read more about company-specific tech
-- [ ] Stay updated on industry trends

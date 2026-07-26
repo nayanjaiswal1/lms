@@ -61,3 +61,9 @@ packages:
     type_mappings:
       "uuid.UUID": "string"
       "time.Time": "string"
+
+  - path: "github.com/mindforge/backend/internal/mistakes"
+    output_path: "../frontend/types/generated/mistakes.ts"
+    type_mappings:
+      "uuid.UUID": "string"
+      "time.Time": "string"

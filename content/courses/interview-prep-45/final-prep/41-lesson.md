@@ -5,7 +5,7 @@ course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
 section_position: 8
-title: "Day 41 — Last DSA Push + Interview Logistics"
+title: "Last DSA Push + Interview Logistics"
 position: 41
 estimated_minutes: 240
 source:
@@ -83,14 +83,3 @@ Nothing here is optional busywork — a broken mic or a wrinkled shirt at 8:55am
 - Logistics failures (bad mic, wrong time zone, un-tested screen share) are entirely preventable and disproportionately costly — treat this block as seriously as the technical ones.
 - A dry run of your actual interview tooling, done today, surfaces friction while there's still time to fix it.
 - From tomorrow, volume practice stops mattering as much as rest and confidence.
-
-## Today's checklist
-
-- [ ] Solve 8 medium problems across different patterns, 15 min hard cap each
-- [ ] Tally results by pattern; note any pattern that's slow or unsolved
-- [ ] Mock: 1 system design interview — 40 min
-- [ ] Mock: 1 behavioral interview — 20 min
-- [ ] Prepare outfit (in-person) or test camera/mic/lighting (remote)
-- [ ] Check tech setup end to end with a real test call
-- [ ] Confirm questions-to-ask list is accessible and ready
-- [ ] Review logistics: commute or time zone, panel structure, required documents

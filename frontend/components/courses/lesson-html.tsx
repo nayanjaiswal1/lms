@@ -7,13 +7,18 @@ const LEETCODE_HREF = /^https:\/\/leetcode\.com\/problems\/([a-z0-9-]+)\/?$/;
 
 interface LessonHtmlProps {
   html: string;
+  // Index of this segment within the lesson's segment list — lets the
+  // highlight flow anchor a selection to "segment N, occurrence M" instead
+  // of matching by text alone. Omit for html rendered outside a highlight
+  // context (e.g. the design guidance panel).
+  segmentIndex?: number;
 }
 
 // Lesson html segment with one job on top of dangerouslySetInnerHTML:
 // clicks on LeetCode problem links open the in-app solve page instead of
 // navigating away. Course slug and module id come from the learn-page path
 // (/courses/[slug]/learn/[moduleId]) so the solve page can link back.
-export function LessonHtml({ html }: LessonHtmlProps) {
+export function LessonHtml({ html, segmentIndex }: LessonHtmlProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -37,6 +42,7 @@ export function LessonHtml({ html }: LessonHtmlProps) {
     <div
       className="prose-content"
       dangerouslySetInnerHTML={{ __html: html }}
+      data-segment-index={segmentIndex}
       onClick={onClick}
     />
   );

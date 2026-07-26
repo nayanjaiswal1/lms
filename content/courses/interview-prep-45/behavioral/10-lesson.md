@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 10 — Failure and Learning Story"
+title: "Failure and Learning Story"
 position: 10
 estimated_minutes: 15
 source:
@@ -46,12 +46,3 @@ Result: [the consequence] + [the specific way you work differently now]
 | Name the mistake plainly, no hedging | Pick a "mistake" that's actually a humblebrag |
 | Pick something sized like a real misjudgment | Pick something career-ending or trivially small |
 | End with a concrete behavior change | End with "I learned to be more careful" |
-
-## Today's checklist
-- [ ] Write STAR story about a project that failed or went wrong
-- [ ] Include: What you learned, how you applied it
-- [ ] Practice: "Tell me about a mistake you made"
-
-**Revision tasks:**
-- [ ] Review topological sort
-- [ ] Review API versioning

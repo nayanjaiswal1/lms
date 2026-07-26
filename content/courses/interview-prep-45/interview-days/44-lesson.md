@@ -5,7 +5,7 @@ course: interview-prep-45
 section: interview-days
 section_title: "Interview Days"
 section_position: 9
-title: "Day 44 — Interview Day 2"
+title: "Interview Day 2"
 position: 44
 estimated_minutes: 60
 source:
@@ -101,11 +101,3 @@ Look specifically for **patterns across companies** — if three different inter
 - Reflect across both interview days together — repeated question patterns across companies are the highest-value signal for what to polish next.
 - Keep the pipeline moving and set an explicit status-check timeline instead of refreshing your inbox.
 - Do negotiation prep — target range, leverage, and a default "let me review and get back to you" — before any offer call happens, not during it.
-
-## Today's checklist
-
-- [ ] Follow-up interviews — adjust for what final rounds actually test (judgment, fit, collaboration)
-- [ ] Final rounds / panels — engage the room, reference names naturally, treat quiet interviewers as normal
-- [ ] Send thank-you notes within 24 hours, one specific detail each, no status-check baked in
-- [ ] Reflect — aggregate patterns across both interview days
-- [ ] Plan next steps — keep other pipelines moving, set a status-check timeline, do negotiation homework now

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 6 — Leadership Story"
+title: "Leadership Story"
 position: 6
 estimated_minutes: 15
 source:
@@ -47,12 +47,3 @@ Result: [outcome] + [evidence others followed: adoption, spread, credit]
 | Show how you got buy-in without authority | Describe just announcing a decision and everyone complying |
 | Give evidence the change stuck | End at "I proposed it" with no follow-through |
 | Keep the story scoped — one initiative, not your whole career | Try to cram three examples into one answer |
-
-## Today's checklist
-- [ ] Write STAR story about taking initiative
-- [ ] Include: What you saw, what you did, what happened
-- [ ] Practice: "Tell me about a time you took the lead"
-
-**Revision tasks:**
-- [ ] Review tree traversals
-- [ ] Review caching patterns

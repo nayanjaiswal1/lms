@@ -5,7 +5,7 @@ course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
 section_position: 8
-title: "Day 36 — Weakness Focus — DP, System Design, Frontend"
+title: "Weakness Focus — DP, System Design, Frontend"
 position: 36
 estimated_minutes: 240
 source:
@@ -237,12 +237,3 @@ Know the tradeoff: controlled gives you validation-per-keystroke and predictable
 - Every system design should run through the same six-step checklist so nothing gets skipped under interview pressure.
 - `useEffect` dependency arrays are a correctness tool, not a performance knob — treat missing dependencies as bugs.
 - Verification beats review: re-solving cold and explaining out loud exposes gaps that re-reading a solution hides.
-
-## Today's checklist
-
-- [ ] Solve Regex Matching, Wildcard Matching, Edit Distance — 30 min each, cold
-- [ ] Review solutions; confirm state definition and base cases for each
-- [ ] Redesign your 3 weakest system designs from scratch; compare against reference solutions
-- [ ] Note the common pattern/gap across all three redesigns
-- [ ] Build a tiny working example for your weakest React topic (not a copy-paste)
-- [ ] Read the official docs section for that topic, end to end

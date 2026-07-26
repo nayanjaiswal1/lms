@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 19 — Design WhatsApp"
+title: "Design WhatsApp"
 position: 19
 estimated_minutes: 60
 source:
@@ -152,12 +152,3 @@ A: You can't search server-side ciphertext meaningfully, so this has to happen c
 - Per-conversation sequence numbers are enough for ordering — no need for vector clocks or a global order in a chat app.
 - End-to-end encryption (Signal Protocol / Double Ratchet) means the server is a pure relay for ciphertext; be ready to name the real trade-off this creates (no server-side search or content moderation on message text).
 - Media bytes flow through object storage + CDN, never through the messaging pipeline itself — only a reference does.
-
-## Today's checklist
-
-- [ ] Define functional requirements: messaging, groups, status
-- [ ] Define non-functional requirements: delivery, ordering
-- [ ] Design message storage
-- [ ] Design end-to-end encryption
-- [ ] Handle media storage
-- [ ] Discuss message synchronization

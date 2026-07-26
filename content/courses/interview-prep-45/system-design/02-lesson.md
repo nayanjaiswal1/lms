@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 2 — Rate Limiter (api gateway style)"
+title: "Rate Limiter (api gateway style)"
 position: 2
 estimated_minutes: 60
 source:
@@ -169,10 +169,3 @@ A: Use different key prefixes and different limit configs (`ratelimit:ip:{ip}` v
 - In-memory counters only work with sticky routing; a real distributed gateway needs a shared store like Redis.
 - Atomicity (Lua script or `INCR`) is what prevents race conditions under concurrent requests — read-then-write is a bug.
 - Decide and state your fail-open vs fail-closed policy for when the counter store is down — interviewers will ask.
-
-## Today's checklist
-- [ ] Define functional requirements: limit requests per user/IP
-- [ ] Define non-functional requirements: accuracy vs performance trade-off
-- [ ] Design algorithms: token bucket, leaky bucket, sliding window, fixed window
-- [ ] Discuss where to store counters: Redis vs in-memory
-- [ ] Handle distributed rate limiting challenges

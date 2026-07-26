@@ -237,6 +237,26 @@ func (r *Repo) Cancel(ctx context.Context, orgID, eventID string) (Event, error)
 	return e, nil
 }
 
+// Restore un-cancels an event previously cancelled by Cancel — the mirror
+// operation, used to revert an MCP delete_calendar_event call. Only flips a
+// currently-cancelled row, so it can't accidentally "restore" an event that
+// was never deleted.
+func (r *Repo) Restore(ctx context.Context, orgID, eventID string) (Event, error) {
+	row := r.pool.QueryRow(ctx,
+		`UPDATE calendar_events SET status = $1, updated_at = now()
+		 WHERE id = $2 AND org_id = $3 AND status = $4
+		 RETURNING `+eventColumns,
+		EventStatusScheduled, eventID, orgID, EventStatusCancelled)
+	e, err := scanEvent(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Event{}, ErrNotFound
+		}
+		return Event{}, fmt.Errorf("calendar: restore event: %w", err)
+	}
+	return e, nil
+}
+
 // UpdateRSVP sets the caller's own rsvp_status on eventID. Returns
 // ErrNotFound if the caller is not an attendee of eventID.
 func (r *Repo) UpdateRSVP(ctx context.Context, eventID, userID, status string) (Attendee, error) {

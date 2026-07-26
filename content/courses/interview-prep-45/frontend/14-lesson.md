@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 14 — Weekly Review"
+title: "Checkpoint 2"
 position: 17
 estimated_minutes: 18
 source:
@@ -78,12 +78,3 @@ Before moving on, you should be able to answer each of these out loud, in under 
 3. A user reports the page "feels janky" while scrolling — what do you check first, and in what order?
 4. Type a `useFetch<T>` hook end to end, including the loading/error/success states.
 5. Given a component with a "Submit" button and a validation error message, write the two RTL tests that matter most.
-
-## Today's checklist
-
-- [ ] Network Performance: Completed
-- [ ] Code Splitting: Completed
-- [ ] Virtualization: Completed
-- [ ] Rendering Performance: Completed
-- [ ] TypeScript: Completed
-- [ ] Testing: Completed

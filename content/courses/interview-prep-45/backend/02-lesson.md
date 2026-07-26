@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 2 — Django ORM Internals"
+title: "Django ORM Internals"
 position: 2
 estimated_minutes: 45
 source:
@@ -155,13 +155,3 @@ print(len(ctx.captured_queries))  # 1
 - `qs.explain(analyze=True)` runs real `EXPLAIN ANALYZE` against generated SQL — use it before guessing which index is missing.
 - Raw SQL via `connection.cursor()` is fine for the ORM's blind spots — always parameterize with `%s`, never string-format user input into a query.
 - `CaptureQueriesContext` / `assertNumQueries` turns "I checked N+1 once" into a regression test.
-
-## Today's checklist
-
-- [ ] Read: Django ORM query execution flow
-- [ ] Implement: write raw SQL and compare with ORM-generated SQL
-- [ ] Implement: run `EXPLAIN ANALYZE` on a complex query
-- [ ] Create a model with 1000 records
-- [ ] Write a query using `select_related` and `prefetch_related`
-- [ ] Compare query counts with `CaptureQueriesContext`
-- [ ] Be ready to answer: what happens when you call `Model.objects.filter()`? What is lazy evaluation in the Django ORM?

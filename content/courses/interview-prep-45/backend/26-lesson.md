@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 26 — Async Pipelines"
+title: "Async Pipelines"
 position: 26
 estimated_minutes: 45
 source:
@@ -259,11 +259,3 @@ The combination — transactional outbox on the producer, idempotent handling ke
 - A DLQ without a replay path is just a graveyard — the interview-relevant part is how a dead-lettered task gets fixed and re-enqueued.
 - The outbox pattern solves "DB write + event publish must be atomic" by writing the event in the same transaction as the business data, then relaying it out-of-band.
 - Outbox delivery is "at least once," never "exactly once" — pair it with idempotent, event-ID-keyed consumers for true reliability.
-
-## Today's checklist
-
-- [ ] Read up on async processing patterns (fire-and-forget, fan-out/fan-in, pipeline)
-- [ ] Implement a pipeline with multiple independently-retryable stages
-- [ ] Implement dead letter queue handling with a replay path
-- [ ] Be able to answer: how do you handle partial failures, what is the outbox pattern
-- [ ] Implement reliable event publishing (transactional outbox + idempotent consumer)

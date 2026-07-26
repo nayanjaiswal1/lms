@@ -5,7 +5,7 @@ course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
 section_position: 7
-title: "Day 34 — Mock Interviews 13–15: Trees, Airbnb, Frontend"
+title: "Mock Interviews 13–15: Trees, Airbnb, Frontend"
 position: 34
 estimated_minutes: 240
 source:
@@ -247,17 +247,3 @@ The index-key bug, made concrete — have this ready if the interviewer asks "sh
 ## Debrief
 
 Log mistakes right after each mock while they're fresh. For Mock 13, note whether BFS vs DFS was actually a choice you reasoned through or just "the one I happened to remember" — pattern recognition speed on tree traversal type (BFS for level/shortest-path-shaped problems, DFS for path-sum/subtree-shaped problems) is the transferable skill, not the specific code. For Mock 14, note precisely how fast you spotted the double-booking race — if it took a hint, that's a signal to drill "what breaks under concurrency" as a standing question for every future system design mock, not just booking systems. For Mock 15, flag any answer that was accurate but shallow (correct terminology, no concrete example) — that's exactly the gap a strong interviewer's follow-up question exposes, so rewrite that answer with a specific example before it goes stale. Everything scored 3/5 or below goes on tomorrow's warm-up.
-
-## Today's checklist
-
-- [ ] Mock 13: solved Binary Tree Level Order with BFS
-- [ ] Mock 13: solved Binary Tree Level Order with DFS
-- [ ] Mock 13: compared both approaches out loud
-- [ ] Mock 13 extra: attempted Validate BST, LCA, or Invert Binary Tree
-- [ ] Mock 14: identified the double-booking race condition unprompted
-- [ ] Mock 14: proposed and justified a concrete concurrency-safe fix
-- [ ] Mock 14: separated search consistency from booking consistency
-- [ ] Mock 15: answered how reconciliation works
-- [ ] Mock 15: answered when to use useMemo
-- [ ] Mock 15: answered the component lifecycle question
-- [ ] Scored every mock against the rubric and logged debrief notes

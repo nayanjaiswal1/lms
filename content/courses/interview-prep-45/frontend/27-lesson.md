@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 27 — React Patterns"
+title: "React Patterns"
 position: 30
 estimated_minutes: 30
 source:
@@ -235,12 +235,3 @@ Custom hooks compose cleanly with each other (a hook can call other hooks) and d
 - Custom hooks are the default modern answer for sharing stateful logic — no tree nesting, clean composition, straightforward TypeScript inference.
 - The "when to use each" answer an interviewer wants: hooks by default, compound components for fixed-family shared-state UI, render props/HOCs only for the specific legacy or third-party-wrapping cases they still solve better.
 - Naming real libraries (Radix, TanStack Query, React Hook Form) as examples of each pattern is a stronger signal than describing the pattern in the abstract.
-
-## Today's checklist
-
-- [ ] Read: Compound components, Render props, HOCs
-- [ ] Implement: Compound component pattern
-- [ ] Implement: Custom hook
-- [ ] Understand when to use each pattern
-- [ ] Understand the trade-offs (wrapper hell, prop collisions, implicit coupling)
-- [ ] Identify these patterns in at least one popular library's API

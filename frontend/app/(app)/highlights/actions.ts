@@ -13,6 +13,7 @@ interface CreatePayload {
   context_snippet?: string
   source_url?: string
   save_for_revision: boolean
+  note?: string
 }
 
 interface ExplainPayload {
@@ -40,8 +41,10 @@ export async function explainHighlightAction(
 export async function toggleRevisionAction(
   highlightId: string,
   save_for_revision: boolean,
+  note?: string,
 ): Promise<ActionResult<Highlight>> {
   return apiAction<Highlight>("PATCH", `/api/highlights/${highlightId}/revision`, {
     save_for_revision,
+    ...(note !== undefined && { note }),
   })
 }

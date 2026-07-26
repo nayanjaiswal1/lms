@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 20 — New Skill Story"
+title: "New Skill Story"
 position: 20
 estimated_minutes: 15
 source:
@@ -44,12 +44,3 @@ Result: [what you shipped, and how fast] + [reusable takeaway from the method]
 | Name the specific concepts you had to learn | Say "I read the docs and figured it out" |
 | Show a method — test in isolation, targeted questions | Imply you just powered through by working long hours |
 | Note the time pressure that made it hard | Skip the deadline that made this a real test |
-
-## Today's checklist
-- [ ] Write story about learning new technology quickly
-- [ ] Include: What you learned, how you applied it
-- [ ] Practice: "Tell me about a time you learned something fast"
-
-**Revision tasks:**
-- [ ] Review bit manipulation
-- [ ] Review distributed locks

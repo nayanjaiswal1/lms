@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 7 — Weekly Review"
+title: "Checkpoint 1"
 position: 10
 estimated_minutes: 18
 source:
@@ -55,11 +55,3 @@ Work through these as if in a live interview, out loud, before checking your not
 - Microtasks always fully drain before the next macrotask runs, independent of `setTimeout` delay.
 - `transform`/`opacity` are composite-only properties — the only safe choices for 60fps animation.
 - State scope should be the narrowest that solves the problem; Context is DI, not a state manager; stores need reference-equality-respecting updates to be detected at all.
-
-## Today's checklist
-
-- [ ] React rendering: reviewed and can explain without notes
-- [ ] React hooks: reviewed and can explain without notes
-- [ ] Event loop: reviewed and can explain without notes
-- [ ] State management: reviewed and can explain without notes
-- [ ] Answered all six self-test questions out loud before checking answers

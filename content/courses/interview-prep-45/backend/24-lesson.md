@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 24 — API Security"
+title: "API Security"
 position: 24
 estimated_minutes: 45
 source:
@@ -259,11 +259,3 @@ Use `secrets.compare_digest` (constant-time) instead of `==` to avoid timing att
 - Refresh token rotation turns an unrevokable JWT scheme into a practically revokable one: rotate on every use, detect reuse of a rotated-out token as compromise, store only hashes.
 - CSRF only affects cookie-based auth; `SameSite` cookies plus a synchronizer token cover it. Header-based JWT auth sidesteps CSRF entirely (but introduces XSS token-theft risk instead — know that trade-off too).
 - Always hash secrets and tokens at rest, use constant-time comparison for security-sensitive checks.
-
-## Today's checklist
-
-- [ ] Read up on JWT, OAuth, and API keys and know when to use each
-- [ ] Implement JWT authentication (login + protected route)
-- [ ] Implement a Redis-backed rate limiting decorator
-- [ ] Implement refresh token rotation with reuse detection
-- [ ] Be able to answer: JWT vs session, and how to prevent CSRF

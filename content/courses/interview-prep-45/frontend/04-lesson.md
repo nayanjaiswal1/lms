@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 4 — State Management"
+title: "State Management"
 position: 7
 estimated_minutes: 30
 source:
@@ -239,12 +239,3 @@ function editComment(state: NormalizedState, commentId: string, text: string): N
 - `useReducer` beats multiple `useState` calls when fields update together or transition logic is complex — same reducer pattern as Redux, scoped to one component.
 - React detects changes by reference equality — always produce new object/array references on update, never mutate in place.
 - Normalize nested/duplicated state into flat `byId`/`allIds` tables for O(1) lookups and single-source-of-truth updates.
-
-## Today's checklist
-
-- [ ] Read: Redux vs Context API vs Zustand comparison
-- [ ] Build a simple Redux-like store (`createStore`, `dispatch`, `subscribe`)
-- [ ] Implement `useReducer` for a complex local state case
-- [ ] Be able to explain: when to use local state vs global state
-- [ ] Be able to explain: immutable update patterns
-- [ ] Be able to explain: state normalization

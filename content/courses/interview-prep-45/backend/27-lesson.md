@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 27 — Testing Strategies"
+title: "Testing Strategies"
 position: 27
 estimated_minutes: 45
 source:
@@ -284,11 +284,3 @@ To hit 80% on a module deliberately: run coverage once, read the `Missing` colum
 - For async code, use `AsyncMock` for anything the code awaits, and assert on elapsed time or interleaving (not just final results) to prove concurrency actually happened.
 - Stubs provide canned data for the code under test to consume; mocks assert that an interaction happened correctly. Pick based on what you're actually verifying.
 - Coverage percentage is a floor, not a quality bar — target the `Missing` line numbers with branch-specific tests instead of writing broad tests hoping for incidental coverage.
-
-## Today's checklist
-
-- [ ] Read up on the testing pyramid and the speed/confidence trade-off
-- [ ] Implement unit tests with pytest, including parametrized cases
-- [ ] Implement integration tests with fixtures (DB session, test client)
-- [ ] Be able to answer: how do you test async code, mock vs stub
-- [ ] Write tests to reach 80% coverage on a module, targeting the Missing lines

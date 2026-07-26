@@ -14,7 +14,24 @@ function Err     { param($msg) Write-Host "[ERROR] $msg" -ForegroundColor Red; e
 # --- 1. Check Docker is running --------------------------------------------
 Info "Checking Docker..."
 try { docker info 2>$null | Out-Null; Success "Docker is running." }
-catch { Err "Docker is not running. Start Docker Desktop and retry." }
+catch {
+    $dockerExe = "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
+    if (-not (Test-Path $dockerExe)) { Err "Docker is not running and Docker Desktop.exe was not found at '$dockerExe'." }
+
+    Info "Docker is not running. Starting Docker Desktop..."
+    Start-Process $dockerExe
+
+    $attempts = 0
+    while ($attempts -lt 60) {
+        try { docker info 2>$null | Out-Null; Success "Docker is running."; break }
+        catch {}
+        $attempts++
+        Start-Sleep -Seconds 2
+        Write-Host -NoNewline "."
+    }
+    Write-Host ""
+    if ($attempts -ge 60) { Err "Docker Desktop did not start within 2 minutes." }
+}
 
 # --- 2. Start infra containers ----------------------------------------------
 Info "Starting Docker services (Postgres, Redis, MinIO, backend)..."

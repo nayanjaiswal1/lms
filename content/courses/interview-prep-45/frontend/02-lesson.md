@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 2 — React Hooks Internals"
+title: "React Hooks Internals"
 position: 5
 estimated_minutes: 30
 source:
@@ -206,12 +206,3 @@ function Fixed({ showExtra }: { showExtra: boolean }) {
 - `useEffect` diffs the dependency array with `Object.is` per-element after every commit; an empty array means "once," no array means "every render."
 - Effect cleanup runs before the next effect invocation and on unmount, in that order.
 - Hooks must be called in the same order every render because React tracks them by index, not name — conditionals, loops, and early returns around hook calls corrupt state silently.
-
-## Today's checklist
-
-- [ ] Read the React hooks rules and how they're implemented
-- [ ] Build `useState` from scratch
-- [ ] Build `useEffect` with cleanup
-- [ ] Be able to explain: how useState updates trigger re-renders
-- [ ] Be able to explain: how useEffect handles dependencies
-- [ ] Be able to explain: why hooks can't be conditional

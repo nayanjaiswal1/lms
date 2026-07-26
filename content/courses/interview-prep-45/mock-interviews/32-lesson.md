@@ -5,7 +5,7 @@ course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
 section_position: 7
-title: "Day 32 — Mock Interviews 7–9: DP, Backend, Behavioral"
+title: "Mock Interviews 7–9: DP, Backend, Behavioral"
 position: 32
 estimated_minutes: 240
 source:
@@ -152,19 +152,3 @@ This is the one candidates fumble most by picking a fake failure ("I worked too 
 ## Debrief
 
 For the DP problem, log which sub-pattern you recognized slowly (prefix DP, interval DP, knapsack-shaped) — LIS-family problems recur constantly, and the fix is pattern recognition speed, not re-deriving recurrences from scratch each time. For the backend round, note any question where your answer was syntax-only without the "why" — that's the gap technical Q&A rounds are designed to expose. For behavioral, flag any story where the Action section ran under a minute; that story needs a rewrite with more concrete detail before your next mock. Everything scored 3/5 or below goes on tomorrow's warm-up.
-
-## Today's checklist
-
-- [ ] Mock 7: solved LIS with DP approach
-- [ ] Mock 7: solved LIS with binary search approach
-- [ ] Mock 7: explained both approaches out loud
-- [ ] Mock 7 extra: attempted Word Break, Coin Change, or Edit Distance
-- [ ] Mock 8: answered Django request lifecycle
-- [ ] Mock 8: answered async in FastAPI
-- [ ] Mock 8: answered slow query optimization
-- [ ] Mock 8: answered database transactions
-- [ ] Mock 9: answered conflict resolution using STAR (5 min)
-- [ ] Mock 9: answered technical challenge using STAR (5 min)
-- [ ] Mock 9: answered leadership using STAR (5 min)
-- [ ] Mock 9: answered failure using STAR (5 min)
-- [ ] Scored every mock against the rubric and logged debrief notes

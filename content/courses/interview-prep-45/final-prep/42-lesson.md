@@ -5,7 +5,7 @@ course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
 section_position: 8
-title: "Day 42 — Light Practice and Rest"
+title: "Light Practice and Rest"
 position: 42
 estimated_minutes: 240
 source:
@@ -138,14 +138,3 @@ If your mind keeps circling back to a specific weak spot, write one sentence abo
 - For system design review, you only need to recall the ONE hardest part of each canonical system from memory — that's the signal interviewers actually probe for.
 - Sleep and cortisol reduction the night before interviews measurably improve recall and composure — treat rest as part of the prep, not a break from it.
 - Any gap found today gets written down, not chased — fix small things tonight if time allows, then stop.
-
-## Today's checklist
-
-- [ ] 3 easy problems, one per pattern family, 15-20 min each
-- [ ] 2 system designs, 15-minute speed rounds
-- [ ] Review all STAR stories — confirm every category has a ready 2-minute story
-- [ ] Review all system designs — say the hard part of each from memory
-- [ ] Review common technical questions across backend, frontend, DSA
-- [ ] Get good sleep — screens off, caffeine cutoff, no new material tonight
-- [ ] Stay calm — externalize any lingering worry to paper instead of rehearsing it
-- [ ] Believe in yourself — the work is already done; tonight is about protecting it

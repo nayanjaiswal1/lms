@@ -5,7 +5,7 @@ course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
 section_position: 8
-title: "Day 38 — Final Practice — DSA and System Design"
+title: "Final Practice — DSA and System Design"
 position: 38
 estimated_minutes: 240
 source:
@@ -135,16 +135,3 @@ Light touch today — you have real mocks coming on Day 39, so don't burn out to
 - Uber, Netflix, and Ticketmaster each hinge on one hard sub-problem (geospatial matching, CDN-first delivery, overselling prevention) — narrate the tradeoff behind your choice, not just the choice.
 - Talking continuously without long silences is a practiced skill, not a personality trait — today's repetition builds it.
 - Today is intentionally lighter in the evening — tomorrow's mocks need a rested brain, not a maximally-drilled one.
-
-## Today's checklist
-
-- [ ] Two Pointers problem — 15 min
-- [ ] Sliding Window problem — 15 min
-- [ ] Binary Search problem — 15 min
-- [ ] BFS/DFS problem — 15 min
-- [ ] Design Uber — 40 min
-- [ ] Design Netflix — 40 min
-- [ ] Design Ticketmaster — 40 min
-- [ ] Light practice session
-- [ ] Prepare materials for tomorrow's mocks
-- [ ] Get good rest

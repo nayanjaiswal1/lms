@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 10 — Design Twitter/X"
+title: "Design Twitter/X"
 position: 10
 estimated_minutes: 60
 source:
@@ -126,12 +126,3 @@ A: Combine text relevance (Elasticsearch's BM25 score) with a recency decay fact
 - Shard by author_id for cheap per-user queries; pay the fan-out cost once at write time so timeline reads don't need scatter-gather across shards.
 - Viral content stresses cache hot-keys and counter contention specifically — plan for local caching layers and async batched counters, not just "add more read replicas."
 - Consistent hashing (not naive modulo) is the answer whenever a follow-up asks about resharding without full data movement.
-
-## Today's checklist
-
-- [ ] Write functional requirements: tweets, timeline, followers.
-- [ ] Write non-functional requirements: latency, consistency targets.
-- [ ] Design tweet storage with fan-out on write vs read, and the celebrity hybrid.
-- [ ] Design search as a separate async-indexed system.
-- [ ] Explain how the design survives a viral tweet.
-- [ ] Define the database sharding strategy (key choice + consistent hashing).

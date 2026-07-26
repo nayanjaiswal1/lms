@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-07-20T17:20:03Z
+-- Generated at: 2026-07-25T19:01:01Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: SQL Mastery: From Scratch to Interview-Ready ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, estimated_hours)
-VALUES ('a4531b49-7973-5e3f-8659-8fcae686dbdd', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'SQL Mastery: From Scratch to Interview-Ready', 'sql-mastery', 'A comprehensive, hands-on SQL course built around a single running example — a small library database (books, authors, genres, members, loans). Every lesson ships runnable "Try it Yourself" query boxes powered by an in-browser SQLite engine, so you write and execute real SQL with zero setup. Covers querying, filtering, aggregation, every join type, data modification, subqueries, schema design and constraints, dates, and a final section of classic interview query patterns (Nth highest value, duplicates, running counts) with a mixed-topic assessment.', '/course-covers/sql-mastery.svg', 'beginner', ARRAY['sql','databases','interview-prep'], 'published', true, 8.6)
+VALUES ('a4531b49-7973-5e3f-8659-8fcae686dbdd', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', 'SQL Mastery: From Scratch to Interview-Ready', 'sql-mastery', 'A comprehensive, hands-on SQL course built around a single running example — a small library database (books, authors, genres, members, loans). Every lesson ships runnable "Try it Yourself" query boxes powered by an in-browser SQLite engine, so you write and execute real SQL with zero setup. Covers querying, filtering, aggregation, every join type, data modification, subqueries, schema design and constraints, dates, and a final section of classic interview query patterns (Nth highest value, duplicates, running counts) with a mixed-topic assessment.', '/course-covers/sql-mastery.svg', 'beginner', ARRAY['sql','databases','interview-prep'], 'published', true, 9.4)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 -- Section: Getting Started
@@ -142,7 +142,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You can already read any column from any table. The next lesson covers **filtering** — `WHERE`, comparisons, `LIKE`, and sorting with `ORDER BY` — so you can ask for exactly the rows you want instead of all of them.
 $md$, 25, $json$[{"id":"getting-started-q1","type":"mcq","correct":"a"},{"id":"getting-started-q2","type":"mcq","correct":"b"},{"id":"getting-started-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('d4cdd6e0-4a7f-559e-8340-240c611e1372', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does SQL stand for?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -199,7 +199,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('5f9f9b49-bfb7-5ee4-ada0-1c9e750bf37d', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'ec8706bf-ebe9-5b3b-b724-5dd325900479', 'Quiz: SQL Basics', 'assessment', 1, 10, '265e7683-4152-5e8e-81a4-d9952197b04a')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Filtering & Sorting
 INSERT INTO course_sections (id, course_id, title, position)
@@ -397,7 +397,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You can now ask for exactly the rows you want, in exactly the order you want. The next lesson covers **aggregation** — `COUNT`, `SUM`, `AVG`, and `GROUP BY` — for turning many rows into summary numbers.
 $md$, 30, $json$[{"id":"filtering-q1","type":"mcq","correct":"a"},{"id":"filtering-q2","type":"mcq","correct":"b"},{"id":"filtering-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('93920a9b-269f-5faa-a1db-0f48e98b8b7e', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does a WHERE clause do?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -463,7 +463,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('d7d96d37-94e8-595d-8f1b-a71051b62112', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '0b221161-76a6-53d8-97fe-3b8d48a4d523', 'Quiz: Filtering & Sorting', 'assessment', 1, 10, '8d86744c-4b2d-52e3-93a4-8b26bd426ca9')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Aggregation
 INSERT INTO course_sections (id, course_id, title, position)
@@ -594,7 +594,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You can now summarize data at any granularity — the whole table, or per category. The next lesson covers **joins** — pulling related rows together from `books`, `authors`, `genres`, `members`, and `loans` in a single query.
 $md$, 25, $json$[{"id":"aggregation-q1","type":"mcq","correct":"a"},{"id":"aggregation-q2","type":"mcq","correct":"a"},{"id":"aggregation-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('707522fd-8d79-5f6a-8773-07883ead30b2', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does `SELECT COUNT(*) FROM books;` return, given the library has 15 books?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -651,7 +651,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('e7f8c830-99e7-5672-828e-076eeb001c7a', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '9e77b8f4-1f70-5617-a4bc-37d4711c0a5c', 'Quiz: Aggregation', 'assessment', 1, 10, 'de050e4d-ee61-51cb-87cd-f983441df3bf')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Joining Tables
 INSERT INTO course_sections (id, course_id, title, position)
@@ -828,7 +828,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You can now pull related data together across every table in the schema, and stack result sets on top of each other. From here, the rest of the course builds on these fundamentals — modifying data, subqueries, schema design, and the classic interview query patterns that combine everything you've learned so far.
 $md$, 30, $json$[{"id":"joins-q1","type":"mcq","correct":"b"},{"id":"joins-q2","type":"mcq","correct":"a"},{"id":"joins-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('30a309b7-4622-57d0-9e0d-66e4e5eb4d6a', '00000000-0000-0000-0000-000000000001', 'mcq', 'What''s the key difference between INNER JOIN and LEFT JOIN?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -894,7 +894,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('8da41f22-2066-58f5-aab4-f31f234105d0', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '8f22fa33-bfba-53e7-bd87-383159ceb34a', 'Quiz: Joining Tables', 'assessment', 1, 10, '689c5110-4097-53f8-9d5f-f16a9521636d')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('fdb6648e-4b12-5338-a474-651f865c550b', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '8f22fa33-bfba-53e7-bd87-383159ceb34a', 'Notes: CROSS JOIN — the One Join Type the Main Lesson Skipped', 'notes', 2, $md$The main lesson covered `INNER`, `LEFT`, `RIGHT`, `FULL OUTER`, and self joins — every join that matches rows by a condition. `CROSS JOIN` is different: it has no matching condition at all.
@@ -935,7 +935,40 @@ This produces one row per genre/city combination that exists in the data — a c
 - Row count multiplies: N rows × M rows = N×M rows, which is why an accidental `CROSS JOIN` (a missing join condition) is a common source of exploded result sets.
 - Deliberate use case: generating a complete combination grid (every category × every period) to left-join real data against, so empty combinations still appear instead of being silently absent.
 $md$, 10, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('4269e709-e3fe-59b9-a226-f1b10bb9db0a', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '8f22fa33-bfba-53e7-bd87-383159ceb34a', 'Notes: EXCEPT and INTERSECT — the Set Operators UNION Left Out', 'notes', 3, $md$The main lesson covered `UNION` and `UNION ALL` for stacking result sets. Two more set operators follow the exact same rule (same column count, compatible types) but ask a different question than "combine everything."
+
+## INTERSECT: rows in both queries
+
+```sql-try
+SELECT member_id FROM loans WHERE loan_date < '2024-06-01'
+INTERSECT
+SELECT member_id FROM loans WHERE loan_date >= '2024-06-01';
+```
+
+Returns only the member ids that appear in **both** halves — members who borrowed something before June 2024 *and* borrowed something after. Not a `JOIN`: there's no row-pairing, just two independent row sets reduced to their overlap.
+
+## EXCEPT: rows in the first query but not the second
+
+```sql-try
+SELECT member_id FROM members
+EXCEPT
+SELECT member_id FROM loans;
+```
+
+Returns member ids from `members` that never show up in `loans` at all — members who have never borrowed a book. This is a set-operator alternative to the `NOT EXISTS`/anti-join pattern from the advanced-queries and interview-ready lessons; same answer, different mechanism. `EXCEPT` is order-sensitive: `A EXCEPT B` (rows in A missing from B) is not the same as `B EXCEPT A`.
+
+(MySQL doesn't support `EXCEPT`/`INTERSECT` before 8.0.31 — `NOT EXISTS`/`EXISTS` is the portable version interviewers usually want anyway. SQLite and PostgreSQL support both directly, as used here.)
+
+## Key takeaways
+
+- `INTERSECT` = rows returned by both queries. `EXCEPT` = rows in the first query with no match in the second.
+- Both dedupe automatically, like `UNION` (no `ALL` variant needed for the common case).
+- `EXCEPT` for "never happened" questions is equivalent to `NOT EXISTS`/anti-join — know both, since `EXCEPT` support varies more across engines.
+$md$, 10, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Modifying Data
 INSERT INTO course_sections (id, course_id, title, position)
@@ -1122,7 +1155,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You can now shape the data itself, not just read it. The next lesson, **Advanced Queries**, builds on `SELECT` in the other direction — subqueries, `EXISTS`, and `CASE` expressions that let you ask sharper, more conditional questions of the data you've got.
 $md$, 30, $json$[{"id":"modifying-data-q1","type":"mcq","correct":"c"},{"id":"modifying-data-q2","type":"mcq","correct":"b"},{"id":"modifying-data-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('5cfb48b4-721b-5fb5-980c-25262fb2e4ef', '00000000-0000-0000-0000-000000000001', 'mcq', 'What must be true for `INSERT INTO genres VALUES (101, ''Poetry'');` (no column...', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -1191,7 +1224,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('e993e43a-e47e-55ba-8919-e6d1b4201a46', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'fad91ed3-1863-541b-98fe-5ebb27565bc7', 'Quiz: Modifying Data', 'assessment', 1, 10, '51d523fe-1a20-5f00-9512-a5dbd0f6c07e')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Advanced Queries
 INSERT INTO course_sections (id, course_id, title, position)
@@ -1368,7 +1401,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You can now ask questions that depend on other questions. The next lesson, **Database & Table Design**, moves from querying data to defining it — creating tables, constraints, indexes, and views of your own.
 $md$, 30, $json$[{"id":"advanced-queries-q1","type":"mcq","correct":"a"},{"id":"advanced-queries-q2","type":"mcq","correct":"a"},{"id":"advanced-queries-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8246c4e8-508a-52fe-a371-ac29378ea87b', '00000000-0000-0000-0000-000000000001', 'mcq', 'How many rows does `SELECT title FROM books WHERE id NOT IN (SELECT book_id F...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -1434,7 +1467,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('770defb5-4faa-5eff-a117-00246076dcad', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'eb95795c-8a47-5888-a951-3748874737f6', 'Quiz: Advanced Queries', 'assessment', 1, 10, '64909eca-09f9-566e-9da6-cbe33f6ca9eb')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Database & Table Design
 INSERT INTO course_sections (id, course_id, title, position)
@@ -1635,7 +1668,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You can now design a schema, not just query one. The next lesson turns to dates and time — the `loan_date`/`return_date` columns you've been reading past this whole course, and the functions SQLite gives you to work with them.
 $md$, 35, $json$[{"id":"schema-design-q1","type":"mcq","correct":"a"},{"id":"schema-design-q2","type":"mcq","correct":"b"},{"id":"schema-design-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('c7d6aac4-b44b-5358-9c37-10201e959e54', '00000000-0000-0000-0000-000000000001', 'mcq', 'In SQLite, what happens when you INSERT into a table without providing a valu...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -1701,7 +1734,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('dd9a5489-f523-55c8-a87b-4eb6541c77a9', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '4eb23bfa-1550-5e4a-b344-5cc8599b42d7', 'Quiz: Database & Table Design', 'assessment', 1, 10, '55de8810-6e9a-5261-bce6-04f54d2b782c')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('15247137-f471-5c59-a9a6-2d29bf83776d', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '4eb23bfa-1550-5e4a-b344-5cc8599b42d7', 'Notes: Normal Forms, and Why You''d Break Them', 'notes', 2, $md$The main lesson in this section covered constraints, indexes, and views — the tools you use to design a schema. This note names the formal target those tools are usually aimed at: **normalization**, the process of structuring tables to reduce redundancy, and its deliberate opposite, **denormalization**.
@@ -1764,7 +1797,7 @@ A denormalized design might add a `book_count` column directly onto `authors`, u
 - Denormalization is the deliberate reverse: duplicate or precompute data to skip `JOIN`s/aggregation on read, at the cost of extra write work and a risk of the copies drifting apart.
 - Default to normalized; denormalize only a specific, measured hot path — not the whole schema.
 $md$, 20, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Dates & Useful Functions
 INSERT INTO course_sections (id, course_id, title, position)
@@ -1935,7 +1968,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You now have the full toolkit: querying, filtering, aggregating, joining, modifying, subquerying, designing schema, and working with dates. The final section puts it all together — classic query patterns you'll be asked to write in SQL interviews, using this same library database.
 $md$, 25, $json$[{"id":"dates-and-functions-q1","type":"mcq","correct":"b"},{"id":"dates-and-functions-q2","type":"mcq","correct":"a"},{"id":"dates-and-functions-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8ac14422-9d70-5519-9c8b-0bbcdaac6942', '00000000-0000-0000-0000-000000000001', 'mcq', 'How does SQLite store a value like `loans.loan_date`?', 'beginner', 1, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -2001,7 +2034,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('3b62031f-738f-590e-bb0e-ea4bde6bd6a5', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '146b0641-5cfc-5f8c-811b-09a129b2d8c5', 'Quiz: Dates & Useful Functions', 'assessment', 1, 10, 'ba8eee7d-7993-5182-8416-a296ae88b292')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 -- Section: Window Functions
 INSERT INTO course_sections (id, course_id, title, position)
@@ -2140,7 +2173,109 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 Window functions round out how you can look at data per-row while still seeing the bigger picture. Next: **Indexing & Query Performance** — how the database actually finds the rows you ask for, fast, and when an index helps versus when it just slows writes down.
 $md$, 30, $json$[{"id":"window-functions-q1","type":"mcq","correct":"a"},{"id":"window-functions-q2","type":"mcq","correct":"b"},{"id":"window-functions-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('8cc622c0-fefe-5db0-ba78-369d729dff22', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '1538b09b-a39c-5f45-af24-772ae0ebc7f7', 'Notes: Gaps and Islands — Streaks and Missing IDs', 'notes', 1, $md$The main lesson's `LAG`/`LEAD` example finds the date of a member's *previous* loan. Two closely related interview shapes build on that same idea: finding a **run of consecutive rows** (an "island"), and finding a **missing value in a sequence** (a "gap").
+
+## Finding a streak (the island half)
+
+"Which members borrowed a book on 3+ consecutive days?" The trick: subtract a `ROW_NUMBER()` from the actual date. Within a real streak, the date advances by 1 each row while the row number also advances by 1 — so `date - row_number` stays **constant** for every row in that streak, and changes the moment the streak breaks:
+
+```sql-try
+WITH numbered AS (
+  SELECT member_id, loan_date,
+    ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY loan_date) AS rn,
+    date(loan_date, '-' || ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY loan_date) || ' days') AS grp
+  FROM (SELECT DISTINCT member_id, loan_date FROM loans)
+)
+SELECT member_id, MIN(loan_date) AS streak_start, COUNT(*) AS streak_len
+FROM numbered
+GROUP BY member_id, grp
+HAVING COUNT(*) >= 3;
+```
+
+`grp` is identical for every row inside one unbroken run of days, so grouping by it collapses each streak into a single row. `HAVING COUNT(*) >= 3` keeps only streaks of 3+ days. This is the general "gaps and islands" technique — it works for any "N consecutive units" question (days, order numbers, log-in dates), not just this one.
+
+## Finding a gap (the other half)
+
+"Which book ids are missing from the sequence?" — i.e. ids that should exist between the min and max but don't:
+
+```sql-try
+SELECT id + 1 AS gap_starts_after
+FROM books b
+WHERE NOT EXISTS (SELECT 1 FROM books WHERE id = b.id + 1)
+AND id < (SELECT MAX(id) FROM books);
+```
+
+For each row, check whether `id + 1` exists anywhere in the table; if it doesn't (and this isn't the last row), there's a gap right after it. This is the same anti-join shape from the interview-ready lesson, just applied to a self-comparison instead of a second table.
+
+## Key takeaways
+
+- **Islands** (consecutive runs): `ROW_NUMBER() - the ordered value` (a date, or an integer) is constant within one run — group by that difference to collapse each run into one row.
+- **Gaps** (missing values): for each row, check whether `value + 1` exists in the same table — `NOT EXISTS` flags where the sequence breaks.
+- Both are "known shape, not known trick" interview questions — recognizing which one applies matters more than memorizing the exact SQL.
+$md$, 15, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('bf077b54-1574-5f51-9c07-c306ffdc166f', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '1538b09b-a39c-5f45-af24-772ae0ebc7f7', 'Notes: NTILE, Multi-Column Partitions, and Tie-Breaking', 'notes', 2, $md$The main lesson covered `ROW_NUMBER`/`RANK`/`DENSE_RANK`, `PARTITION BY`, running totals, and `LAG`/`LEAD`. A few syntax pieces from that same family didn't come up there.
+
+## NTILE: splitting a partition into N equal buckets
+
+`NTILE(n)` divides the (partitioned, ordered) rows into `n` roughly-equal groups and labels each row with its bucket number — the classic use is splitting data into quartiles/percentiles:
+
+```sql-try
+SELECT title, price,
+  NTILE(4) OVER (ORDER BY price) AS price_quartile
+FROM books
+ORDER BY price;
+```
+
+With 15 books split into 4 buckets, the first ~4 (cheapest) books get bucket 1, the next ~4 get bucket 2, and so on — the last bucket absorbs any remainder. This is how "top 25% by revenue" or "which salary quartile is this employee in" questions get answered without hardcoding cutoff values.
+
+## PARTITION BY with more than one column
+
+`PARTITION BY` isn't limited to a single column — partitioning by `genre_id, author_id` together resets the window for every unique *combination* of the two, not just each genre:
+
+```sql-try
+SELECT title, genre_id, author_id, price,
+  RANK() OVER (PARTITION BY genre_id, author_id ORDER BY price DESC) AS rank_in_group
+FROM books;
+```
+
+## Tie-breaking with a second ORDER BY column
+
+`ROW_NUMBER()` breaks ties arbitrarily unless you tell it what to fall back on. Adding a second column to `ORDER BY` inside `OVER (...)` makes the numbering deterministic instead of leaving equal-price rows in whatever order the engine happens to return them:
+
+```sql-try
+SELECT title, price,
+  ROW_NUMBER() OVER (ORDER BY price DESC, title ASC) AS row_num
+FROM books;
+```
+
+Now the two $18.00 books are always ordered alphabetically by title relative to each other, run after run — worth mentioning in an interview whenever the question involves ties and the interviewer asks "but which one comes first?"
+
+## LAG/LEAD's third argument: a default instead of NULL
+
+Both `LAG` and `LEAD` take an optional third argument — the value to return instead of `NULL` when there's no row to look at (e.g. the very first row has no "previous" row):
+
+```sql-try
+SELECT id, member_id, loan_date,
+  LAG(loan_date, 1, 'none') OVER (PARTITION BY member_id ORDER BY loan_date) AS previous_loan_date
+FROM loans;
+```
+
+A member's first loan now shows the literal string `'none'` instead of `NULL` in that column — useful when downstream code (or a report) can't cleanly handle `NULL` and needs a real placeholder value instead.
+
+## Key takeaways
+
+- `NTILE(n) OVER (ORDER BY ...)` buckets rows into `n` roughly-equal groups — the tool for quartiles/percentile splits.
+- `PARTITION BY` accepts multiple columns — the window resets per unique combination, not per single column.
+- A second `ORDER BY` column inside `OVER (...)` makes ranking/numbering deterministic when the first column has ties.
+- `LAG(col, n, default)` / `LEAD(col, n, default)` — the third argument replaces the edge-row `NULL` with a value you choose.
+$md$, 10, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Indexing & Query Performance
 INSERT INTO course_sections (id, course_id, title, position)
@@ -2250,7 +2385,54 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 You now know how the database finds your rows efficiently, and how to check its plan rather than guess. The next lesson, **Transactions & Concurrency**, covers what happens when multiple statements — or multiple users — touch the database at the same time.
 $md$, 30, $json$[{"id":"indexing-performance-q1","type":"mcq","correct":"b"},{"id":"indexing-performance-q2","type":"mcq","correct":"b"},{"id":"indexing-performance-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c68c63ec-0668-515d-bd97-a30688f368ff', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '81fb90fc-1997-565d-af29-9667cea13a55', 'Notes: Clustered vs Non-Clustered Indexes', 'notes', 1, $md$The main lesson described an index as "a separate, sorted B-tree that maps column values to rows" — that's true of a **non-clustered** index. There's a second kind, and the distinction between the two is one of the most common database interview questions there is.
+
+## Clustered index: the table data itself, in sorted order
+
+A clustered index isn't a separate structure — the table's rows are physically stored on disk sorted by the index key. There's nothing to "look up and then jump to"; the data already is the sorted order. Think of a dictionary: the words themselves are printed in alphabetical order on the page, not listed separately in an index at the back.
+
+Because rows can only be physically sorted one way at a time, **a table can have only one clustered index** — usually the primary key, by default, in engines that support this (SQL Server, MySQL/InnoDB).
+
+## Non-clustered index: a separate lookup structure
+
+A non-clustered index is the B-tree structure from the main lesson: a separate list of (indexed column value → pointer back to the row), while the table's own row order is untouched. Think of a textbook's index page: "Dragon — page 45, 112" is a separate list; the book's pages haven't been reordered around it. A table can have **many** non-clustered indexes, since each one is just an extra lookup structure sitting alongside the data.
+
+## How a non-clustered lookup actually resolves (InnoDB)
+
+In MySQL/InnoDB specifically, a non-clustered index (called a "secondary index" there) doesn't store a raw disk pointer — it stores the row's **primary key value**. So looking up a row by a secondary-indexed column is a two-step process:
+
+1. Search the secondary index for the matching value → get back the primary key.
+2. Use that primary key to look the row up in the clustered index (the actual table).
+
+This is sometimes called a "bookmark lookup." The direct consequence: **every secondary index carries an internal copy of the primary key**, for every row. A large primary key (e.g. a 36-character UUID string) doesn't just bloat the primary key itself — it bloats every other index on the table too, since each one silently repeats it.
+
+## Random primary keys cause fragmentation
+
+Because a clustered index keeps rows in sorted key order, inserting a row means placing it in the *correct sorted position* — not just appending it. A sequential key (auto-increment integer, or a time-ordered UUIDv7) always inserts at the end, which is cheap. A random key (UUIDv4) inserts somewhere in the middle of existing sorted data almost every time.
+
+When the data page that new row belongs to is full, the engine performs a **page split** — the full page divides into two so the row has somewhere to go. Repeated over many random inserts, this leaves pages half-empty and scattered instead of tightly packed and contiguous — **fragmentation**, which slows down both writes (more splits) and range scans (more pages to read for the same number of rows). This is the practical reason many teams prefer sequential IDs or UUIDv7 over UUIDv4 for primary keys on tables with heavy insert traffic.
+
+## Engine caveat: this isn't universal
+
+Not every engine implements "true" clustered indexes the way SQL Server and MySQL/InnoDB do:
+
+- **PostgreSQL** has no maintained clustered index — its `CLUSTER` command physically reorders a table once, based on an index, but new inserts don't preserve that order afterward. Postgres tables are fundamentally heap-organized.
+- **SQLite** (what this course runs on) stores ordinary tables in a B-tree keyed by an internal `rowid` — conceptually similar to a clustered index on that rowid — unless the table is declared `WITHOUT ROWID`, in which case the primary key itself becomes the clustering key.
+
+Worth naming explicitly in an interview if the conversation is Postgres- or SQLite-specific — the clustered/non-clustered distinction is real, but "which engines actually maintain one automatically" varies.
+
+## Key takeaways
+
+- Clustered index = the table rows themselves, physically sorted by the key. Only one per table.
+- Non-clustered index = a separate B-tree pointing back to the row. Many per table.
+- InnoDB secondary indexes store the primary key internally, not a raw pointer — so a bloated primary key bloats every secondary index too.
+- Random primary keys (UUIDv4) cause page splits and fragmentation because inserts land mid-sort, not at the end; sequential keys avoid this.
+- Postgres and SQLite don't maintain a clustered index the same automatic way SQL Server/InnoDB do — check the engine before assuming.
+$md$, 15, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Transactions & Concurrency
 INSERT INTO course_sections (id, course_id, title, position)
@@ -2354,7 +2536,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 
 That's every fundamental this course set out to teach — querying, filtering, aggregating, joining, modifying data safely inside transactions, subqueries, schema design, indexing, dates, and window functions. **SQL for Interviews** closes the course by walking through the classic problem shapes that combine everything you've learned.
 $md$, 25, $json$[{"id":"transactions-concurrency-q1","type":"mcq","correct":"b"},{"id":"transactions-concurrency-q2","type":"mcq","correct":"b"},{"id":"transactions-concurrency-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('e7c37c2a-24d3-50df-8990-bf7d79dfb34c', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', 'dffba7a6-fe2c-50b7-84a3-53fc15a08d92', 'Notes: The Full ACID Acronym', 'notes', 2, $md$The main lesson in this section already covered two of the four ACID letters in depth: **Atomicity** (the `BEGIN`/`COMMIT`/`ROLLBACK` all-or-nothing guarantee) and **Isolation** (dirty reads, non-repeatable reads, and how SQLite's locking compares to Postgres/MySQL). This note completes the picture with **Consistency** and **Durability**, and gives you the acronym as a single interview-ready answer.
@@ -2405,7 +2587,7 @@ SQLite defaults to a rollback-journal mode, but can run in `WAL` mode explicitly
 - Consistency isn't a separate feature to configure — it's the natural result of the constraints you already declare with `CHECK`, `NOT NULL`, `UNIQUE`, and foreign keys.
 - Durability is implemented via a write-ahead log in every major database, SQLite included (`PRAGMA journal_mode = WAL`).
 $md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: SQL for Interviews
 INSERT INTO course_sections (id, course_id, title, position)
@@ -2599,7 +2781,7 @@ Answer all three questions correctly to unlock **Mark as Complete** for this les
 }
 ```
 $md$, 40, $json$[{"id":"interview-ready-q1","type":"mcq","correct":"a"},{"id":"interview-ready-q2","type":"mcq","correct":"b"},{"id":"interview-ready-q3","type":"sql"}]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('897639d2-6192-57e4-8ecb-9a7bc7360335', '00000000-0000-0000-0000-000000000001', 'mcq', 'In `SELECT title, price FROM books ORDER BY price DESC LIMIT 1 OFFSET 1;`, wh...', 'intermediate', 2, ARRAY['sql','databases','interview-prep'], 1, '00000000-0000-0000-0000-000000000012')
@@ -2701,7 +2883,7 @@ ON CONFLICT (assessment_id, question_id) DO UPDATE SET version_id=EXCLUDED.versi
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)
 VALUES ('b395c65d-bb64-5d8c-ad58-297cd78ebfa6', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '6f6f149b-633c-5cfa-a03f-40ecfc1e7fd7', 'Final Assessment: SQL Mastery', 'assessment', 1, 20, '3051448e-3ac4-5de4-9142-0ab52b7d3f25')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
 VALUES ('126e0634-8a16-5ac5-8cef-bdc0d7926512', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '6f6f149b-633c-5cfa-a03f-40ecfc1e7fd7', 'Notes: SQL vs NoSQL', 'notes', 2, $md$Everything in this course has been relational SQL against a fixed schema — `books`, `authors`, `genres`, `members`, `loans`, each with declared columns and foreign keys tying them together. "SQL vs NoSQL" is one of the most common conceptual questions asked right alongside hands-on SQL, and it's really asking whether you understand *why* the library schema is shaped the way it is, not just how to query it.
@@ -2744,7 +2926,7 @@ A relational (SQL) database like the one this course uses requires a fixed schem
 - SQL: fixed schema, ACID transactions, joins. NoSQL: flexible schema, eventual consistency (BASE), horizontal scaling, joins rare or absent.
 - This isn't "SQL is better" — it's a trade-off between consistency/structure and flexibility/scale, chosen based on the actual access pattern.
 $md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO enrollments (id, user_id, course_id, enrolled_by)
 VALUES ('3008a9b9-fd48-50a0-9aa6-06d300a965d6', '00000000-0000-0000-0000-000000000014', 'a4531b49-7973-5e3f-8659-8fcae686dbdd', '00000000-0000-0000-0000-000000000012')

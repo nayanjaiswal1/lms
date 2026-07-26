@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 12 — Handling Ambiguity Story"
+title: "Handling Ambiguity Story"
 position: 12
 estimated_minutes: 15
 source:
@@ -43,12 +43,3 @@ Result: [outcome] + [what you'd have gotten wrong without the technique]
 | State a specific assumption, not an open question | Ask "what do you want?" and wait passively |
 | Build so a wrong guess is cheap to fix | Fully commit to one interpretation with no flexibility |
 | Communicate the assumption before shipping | Silently guess and reveal the guess only at review |
-
-## Today's checklist
-- [ ] Write STAR story about unclear requirements
-- [ ] Include: How you got clarity, what you did
-- [ ] Practice: "Tell me about a time requirements were unclear"
-
-**Revision tasks:**
-- [ ] Review DP basics
-- [ ] Review S3 patterns

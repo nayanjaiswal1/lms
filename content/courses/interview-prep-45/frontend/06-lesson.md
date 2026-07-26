@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 6 — HTTP and Caching"
+title: "HTTP and Caching"
 position: 9
 estimated_minutes: 30
 source:
@@ -157,12 +157,3 @@ Demonstrating browser caching behavior for the checklist item below: open DevToo
 - `stale-while-revalidate` serves cached data instantly and refreshes in the background — the pattern behind SWR/React Query's default UX.
 - Cache invalidation strategies rank by reliability: content-addressed URLs (best) > TTL expiration (simple, has a staleness window) > explicit purge (necessary for unpredictable changes, but must fire reliably).
 - Service workers let you implement any caching strategy per-route by intercepting `fetch` events; bump the cache name string to invalidate old entries on `activate`.
-
-## Today's checklist
-
-- [ ] Read: HTTP caching headers (`Cache-Control`, `ETag`, `Last-Modified`)
-- [ ] Implement a service worker for caching
-- [ ] Demonstrate browser caching behavior in DevTools Network tab
-- [ ] Be able to explain: CDN caching strategies
-- [ ] Be able to explain: stale-while-revalidate
-- [ ] Be able to explain: cache invalidation strategies

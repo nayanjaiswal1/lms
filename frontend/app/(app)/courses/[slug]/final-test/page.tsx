@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { getCourses, getEnrollments } from "@/lib/server/courses";
+import { findCourseBySlug, getCourses, getEnrollments } from "@/lib/server/courses";
 import { getFinalTest } from "@/lib/server/courses";
 import { FinalTestClient } from "@/components/courses/final-test-client";
 import ROUTES from "@/lib/routes";
@@ -18,7 +18,7 @@ export default async function FinalTestPage({ params }: Props) {
   const { slug } = await params;
 
   const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments()]);
-  const course = courses.find((c) => c.slug === slug);
+  const course = findCourseBySlug(courses, enrollments, slug);
   if (!course) notFound();
 
   const isEnrolled = enrollments.some((e) => e.course_id === course.id);

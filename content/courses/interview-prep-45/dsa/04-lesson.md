@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 4 — Binary Search"
+title: "Binary Search"
 position: 4
-estimated_minutes: 150
+estimated_minutes: 105
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -197,14 +197,3 @@ def search_matrix(matrix: list[list[int]], target: int) -> bool:
 - Rotated-array search works by identifying which half of the current range is normally sorted, then checking if the target's value falls within that half's range.
 - "Search the answer" problems hide a monotonic yes/no predicate over a range of candidate answers — binary search the predicate, not the input array.
 - A sorted 2D matrix can often be treated as a flattened 1D array for a single binary search pass.
-
-## Today's checklist
-
-- [ ] Solve Binary Search with the exact-match template from memory
-- [ ] Solve Search in Rotated Sorted Array by identifying the sorted half
-- [ ] Solve Find Minimum in Rotated Sorted Array
-- [ ] Solve Search a 2D Matrix by treating it as 1D
-- [ ] Implement lower_bound and upper_bound functions
-- [ ] Practice identifying when binary search applies
-- [ ] Memorize: binary search is O(log n)
-- [ ] Review: common off-by-one errors

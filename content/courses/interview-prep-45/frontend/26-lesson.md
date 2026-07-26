@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 26 — Internationalization"
+title: "Internationalization"
 position: 29
 estimated_minutes: 30
 source:
@@ -233,12 +233,3 @@ A few details interviewers use to check depth beyond the obvious date/currency e
 - Memoize `Intl` formatter instances (`useMemo`) — construction has real cost and they're commonly created in render loops (list of prices, list of dates).
 - `dir="rtl"` on `<html>` automatically flips flex/grid order and direction-aware CSS; CSS logical properties (`margin-inline-start`, `text-align: start`) are what make that flip correct — physical properties (`margin-left`) stay pinned regardless.
 - Directional icons need explicit RTL mirroring; translated text needs layout tolerance for expansion (German/Finnish routinely 30-40% longer than English).
-
-## Today's checklist
-
-- [ ] Read: i18n approaches
-- [ ] Implement: react-intl setup
-- [ ] Implement: Date/number formatting
-- [ ] Understand lazy translation bundle loading
-- [ ] Understand RTL support and CSS logical properties
-- [ ] Practice locale-specific pluralization with ICU MessageFormat

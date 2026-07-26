@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 13 — Docker and Containerization"
+title: "Docker and Containerization"
 position: 13
 estimated_minutes: 45
 source:
@@ -180,11 +180,3 @@ volumes:
 - Clean up `apt-get` cache in the *same* `RUN` layer as the install, since layers are immutable once committed — a later `rm` in a new layer doesn't shrink the old one.
 - Compose services reach each other by service name over the auto-created bridge network; named volumes persist data beyond a container's lifecycle, bind mounts are for dev-only hot reload.
 - `depends_on: condition: service_healthy` waits for actual readiness (via a healthcheck), not just container start — use it for any service with a startup lag, like Postgres.
-
-## Today's checklist
-
-- [ ] Read: Docker networking and volumes
-- [ ] Write a multi-stage Dockerfile for a Python app
-- [ ] Write docker-compose for app + database + Redis
-- [ ] Write a production-ready Dockerfile for a Django/FastAPI app
-- [ ] Be ready to answer: what is the difference between COPY and ADD? How do you reduce image size?

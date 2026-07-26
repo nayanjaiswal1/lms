@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 15 — Web Security"
+title: "Web Security"
 position: 18
 estimated_minutes: 30
 source:
@@ -176,12 +176,3 @@ A strict CSP (no `unsafe-inline`, no `unsafe-eval`) stops the injected script fr
 - `Access-Control-Allow-Origin: *` cannot be paired with `Access-Control-Allow-Credentials: true` — cookies-across-origins requires echoing the exact origin.
 - Prefer `httpOnly` cookies for refresh tokens (immune to XSS theft) and short-lived in-memory access tokens over long-lived localStorage JWTs.
 - CSP is the last line of defense — it neutralizes injected scripts even when sanitization fails somewhere.
-
-## Today's checklist
-
-- [ ] Read: XSS, CSRF, CORS documentation
-- [ ] Implement: Sanitize user input
-- [ ] Implement: Handle CORS properly
-- [ ] Explain JWT vs Sessions trade-offs
-- [ ] Explain why HTTPS everywhere matters
-- [ ] Write a Content Security Policy header

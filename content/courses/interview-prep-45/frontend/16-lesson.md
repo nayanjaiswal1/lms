@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 16 — WebSockets and Real-time"
+title: "WebSockets and Real-time"
 position: 19
 estimated_minutes: 30
 source:
@@ -184,12 +184,3 @@ Server A doesn't hold that socket, so it can't write to it directly. It publishe
 - Heartbeats (ping/pong) detect half-dead TCP connections that never fire a close event.
 - At-least-once delivery needs client-generated idempotency keys and server-side dedup, not "just send it."
 - WebSocket servers are stateful — scaling requires sticky sessions plus a pub/sub layer (Redis, NATS) so any instance can reach a socket held by another instance.
-
-## Today's checklist
-
-- [ ] Read: WebSocket vs HTTP long-polling vs SSE
-- [ ] Implement: React component with WebSocket
-- [ ] Implement: Reconnection logic
-- [ ] Explain heartbeat/ping-pong
-- [ ] Explain message acknowledgment
-- [ ] Explain scaling WebSocket servers

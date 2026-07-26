@@ -5,7 +5,7 @@ course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
 section_position: 7
-title: "Day 30 — Mock Interviews 1–3: DSA, System Design, Behavioral"
+title: "Mock Interviews 1–3: DSA, System Design, Behavioral"
 position: 30
 estimated_minutes: 240
 source:
@@ -175,13 +175,3 @@ Record yourself if possible and review immediately after: listen for filler word
 ## Debrief
 
 Right after each mock, write three things while it's fresh: the single biggest mistake, its root cause (gap in knowledge, nerves, or poor time management), and the fix (a problem to redo, a story to rewrite with real numbers, a concept to re-read). If you recorded yourself, watch back only the segments scored 3/5 or below — don't waste time re-watching what already went well. Anything under 3/5 goes on tomorrow's warm-up list.
-
-## Today's checklist
-
-- [ ] Mock 1: Merge Intervals solved within 30 minutes, thinking out loud
-- [ ] Mock 1: logged what went well and what to improve
-- [ ] Mock 2: followed the 4-step system design framework with correct time splits
-- [ ] Mock 2: spoke continuously, no long silences
-- [ ] Mock 3: answered all 3 behavioral questions within 20 minutes
-- [ ] Mock 3: recorded and reviewed the answers
-- [ ] Scored every mock against the rubric and logged debrief notes

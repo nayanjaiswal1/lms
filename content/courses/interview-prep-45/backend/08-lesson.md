@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 8 — Celery and Task Queues"
+title: "Celery and Task Queues"
 position: 8
 estimated_minutes: 45
 source:
@@ -161,12 +161,3 @@ celery -A celery_app beat --loglevel=info
 - `task_acks_late=True` protects against losing work when a worker crashes mid-task, but requires idempotent tasks since it also causes more retries.
 - `retry_jitter=True` prevents synchronized retry storms when many tasks fail at once.
 - `celery beat` schedules, workers execute — they're separate processes, and only one `beat` should run at a time.
-
-## Today's checklist
-
-- [ ] Read: Celery architecture documentation
-- [ ] Set up Celery with a Redis broker
-- [ ] Implement: task with retry logic
-- [ ] Implement: task with exponential backoff
-- [ ] Implement: schedule a periodic task with Celery Beat
-- [ ] Be ready to answer: how do you ensure idempotency? What happens when a worker dies?

@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 28 — Design Code Review System"
+title: "Design Code Review System"
 position: 28
 estimated_minutes: 60
 source:
@@ -130,12 +130,3 @@ A: This is fundamentally git's own merge-conflict detection, not something the r
 - Approval staleness after new commits is an explicit policy decision the schema must support (`commit_sha_reviewed` tracked per review), not something to leave implicit.
 - Mergeability must be re-validated atomically at the moment of merge, not trusted from a possibly-stale display-time computation — the same "check at the point of the state-changing action" principle as inventory/checkout systems.
 - Sharding by repo_id isolates busy repositories from quiet ones and is the natural partition boundary for this domain, since most access patterns are scoped to a single repository.
-
-## Today's checklist
-
-- [ ] Write functional requirements: submit, review, approve.
-- [ ] Write non-functional requirements: notifications, real-time collaboration.
-- [ ] Design code diff storage as a computed/cached derivation of git data.
-- [ ] Design the review workflow, including approval staleness policy.
-- [ ] Handle merge conflicts and atomic mergeability re-validation.
-- [ ] Discuss CI/CD integration via async trigger and webhook callback.

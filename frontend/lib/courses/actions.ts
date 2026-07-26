@@ -82,6 +82,13 @@ export async function submitReflectionAction(input: {
   return apiAction("POST", `/api/modules/${input.moduleID}/reflection`, { response: input.response });
 }
 
+export async function saveLessonNoteAction(input: {
+  moduleID: string;
+  content: string;
+}): Promise<ActionResult> {
+  return apiAction("PUT", `/api/modules/${input.moduleID}/notes`, { content: input.content });
+}
+
 export async function createModuleAction(input: {
   course_id: string;
   section_id: string;

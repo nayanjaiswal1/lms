@@ -53,6 +53,7 @@ func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
+	var ve ValidationError
 	switch {
 	case errors.Is(err, ErrNotFound):
 		httputil.WriteError(w, http.StatusNotFound, "Not found.")
@@ -60,6 +61,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusForbidden, "Access denied.")
 	case errors.Is(err, ErrConflict):
 		httputil.WriteError(w, http.StatusConflict, "Conflict.")
+	case errors.As(err, &ve):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{ve.Field: ve.Message})
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
 	}
@@ -130,7 +133,7 @@ func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	if diff == "" {
 		diff = DifficultyBeginner
 	}
-	if diff != DifficultyBeginner && diff != DifficultyIntermediate && diff != DifficultyAdvanced {
+	if !IsValidDifficulty(diff) {
 		fields["difficulty"] = "Invalid difficulty."
 	}
 	validateSchedule(req.StartsAt, req.EndsAt, fields)
@@ -174,7 +177,7 @@ func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tree, err := h.repo.GetCourseTree(r.Context(), claims.OrgID, urlParam(r, "courseID"))
+	tree, err := h.repo.GetCourseTree(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "courseID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

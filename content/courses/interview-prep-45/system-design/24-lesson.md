@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 24 — Design E-commerce Cart/Checkout"
+title: "Design E-commerce Cart/Checkout"
 position: 24
 estimated_minutes: 60
 source:
@@ -132,13 +132,4 @@ A: If reservation waited until payment success, a shopper could enter their addr
 - Idempotency keys on the confirm and payment-charge steps are what make retries (double-click, network timeout, client crash-and-retry) safe against duplicate orders and double charges.
 - Reserve inventory at checkout start, not at payment confirmation, to avoid a late-stage "sorry, sold out" failure after the shopper has invested effort — protect the reservation window with an abandoned-checkout reaper.
 - Ambiguous payment failures (timeout with unknown outcome) are resolved by querying the payment provider's status via the original idempotency key, never by blindly retrying the charge.
-- This lesson is Day 23's checkout section under a microscope — recognize when an interview question is asking you to go deeper on a sub-system you've already sketched, rather than starting from zero.
-
-## Today's checklist
-
-- [ ] Write functional requirements: cart, payment, inventory.
-- [ ] Write non-functional requirements: consistency, availability, idempotency.
-- [ ] Design cart persistence across sessions/devices, including guest-to-user merge.
-- [ ] Design the full checkout state machine from init through confirm.
-- [ ] Handle payment processing, including ambiguous/timeout failures.
-- [ ] Discuss inventory reservation timing and the abandoned-checkout reaper.
+- This lesson is the checkout section under a microscope — recognize when an interview question is asking you to go deeper on a sub-system you've already sketched, rather than starting from zero.

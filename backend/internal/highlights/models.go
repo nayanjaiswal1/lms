@@ -33,6 +33,7 @@ type Highlight struct {
 	SourceURL        *string      `json:"source_url,omitempty"`
 	SourceOrphaned   bool         `json:"source_orphaned"`
 	SavedForRevision bool         `json:"saved_for_revision"`
+	Note             *string      `json:"note,omitempty"`
 	Explanation      *Explanation `json:"explanation,omitempty"`
 	CreatedAt        time.Time    `json:"created_at"`
 	UpdatedAt        time.Time    `json:"updated_at"`
@@ -64,6 +65,7 @@ type CreateRequest struct {
 	ContextSnippet  *string    `json:"context_snippet,omitempty"`
 	SourceURL       *string    `json:"source_url,omitempty"`
 	SaveForRevision bool       `json:"save_for_revision"`
+	Note            *string    `json:"note,omitempty"`
 }
 
 type ExplainRequest struct {
@@ -81,8 +83,11 @@ type ExplainResponse struct {
 	Explanation *Explanation `json:"explanation"`
 }
 
+// ToggleRevisionRequest updates a highlight's revision flag and, optionally, its note.
+// Note is a pointer so "omit" (no change) is distinguishable from "" (clear the note).
 type ToggleRevisionRequest struct {
-	SaveForRevision bool `json:"save_for_revision"`
+	SaveForRevision bool    `json:"save_for_revision"`
+	Note            *string `json:"note,omitempty"`
 }
 
 type AnalyticsEntry struct {

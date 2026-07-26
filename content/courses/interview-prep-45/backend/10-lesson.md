@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 10 — API Versioning and Error Handling"
+title: "API Versioning and Error Handling"
 position: 10
 estimated_minutes: 45
 source:
@@ -207,12 +207,3 @@ Rate limit by API key (or authenticated user ID) when available, falling back to
 - One error envelope shape across every endpoint, with a stable machine-readable `code` and a catch-all handler that logs details server-side but never leaks them to the client.
 - Know the status code table cold, especially the 401/403 distinction and 409 for conflicts — these come up in almost every API design discussion.
 - Rate limit by API key/user ID first, IP as a fallback only — and always return `Retry-After`.
-
-## Today's checklist
-
-- [ ] Read: API versioning strategies
-- [ ] Add versioning to a FastAPI endpoint
-- [ ] Implement a standardized error response format
-- [ ] Design error-handling middleware for FastAPI
-- [ ] Implement rate limiting at the API level
-- [ ] Be ready to answer: how do you handle breaking changes? What HTTP status codes do you use?

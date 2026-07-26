@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 15 — Dynamic Programming - Hard"
+title: "Dynamic Programming - Hard"
 position: 15
-estimated_minutes: 150
+estimated_minutes: 135
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -206,14 +206,3 @@ def longest_palindrome(s: str) -> str:
 - In-place DP on the input (Minimum Path Sum) is the ultimate space optimization, but confirm mutating input is acceptable.
 - Expand-around-center beats table-based DP for palindrome problems when O(1) space matters.
 - Say the recurrence in English before writing code — this is what prevents dropped branches under interview pressure.
-
-## Today's checklist
-
-- [ ] Solve Regular Expression Matching (LeetCode 10)
-- [ ] Solve Wildcard Matching (LeetCode 44)
-- [ ] Solve Minimum Path Sum (LeetCode 64)
-- [ ] Solve Longest Palindromic Substring (LeetCode 5)
-- [ ] Implement wildcard matching with O(m*n) time, O(n) space
-- [ ] Practice explaining state transitions out loud before coding them
-- [ ] Memorize: both pattern-matching problems use 2D DP
-- [ ] Review why space optimization matters (100M-cell table vs. a few thousand cells)

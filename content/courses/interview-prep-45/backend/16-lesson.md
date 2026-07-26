@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 16 — Redis Advanced Patterns"
+title: "Redis Advanced Patterns"
 position: 16
 estimated_minutes: 45
 source:
@@ -140,11 +140,3 @@ return 0
 - Sentinel/Cluster handle automatic failover; application code should treat Redis-only state as disposable, not authoritative.
 - A sliding-window log (sorted set of timestamps) avoids the boundary-burst problem of fixed-window counters.
 - Pipelining batches round trips but isn't atomic across clients — use a Lua script (`EVAL`) when the read-check-write must be a single atomic server-side step.
-
-## Today's checklist
-
-- [ ] Read Redis sorted sets and streams documentation
-- [ ] Implement a leaderboard using sorted sets
-- [ ] Implement pub/sub for real-time updates
-- [ ] Answer: what is Redis persistence, and how do you handle Redis failure
-- [ ] Implement a rate limiter using the sliding window algorithm

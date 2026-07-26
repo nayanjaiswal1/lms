@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 14 — Weekly Review"
+title: "Checkpoint 2"
 position: 14
 estimated_minutes: 10
 source:
@@ -32,13 +32,3 @@ Score each of your Week 1 and Week 2 stories against the same three checks from 
 | Say each story out loud, timed, at least once | Assume a written draft is interview-ready |
 | Flag weak stories now, before Week 3 starts | Discover a weak story mid-interview |
 | Set a concrete Week 3 technical plan | Let "deepen backend knowledge" stay vague |
-
-## Today's checklist
-- [ ] Resume: 2 minutes prepared
-- [ ] 5 STAR stories prepared
-- [ ] Situational questions prepared
-
-**Plan for Week 3:**
-- [ ] Start DP hard problems
-- [ ] Add more system designs
-- [ ] Deepen backend knowledge

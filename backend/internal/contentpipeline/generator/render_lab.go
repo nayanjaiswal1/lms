@@ -43,7 +43,7 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 	// 0. Linking course_modules row — must exist before lab_definitions
 	//    references it via module_id.
 	fmt.Fprintf(out,
-		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)\nVALUES (%s, %s, %s, %s, 'lab', %s, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();\n\n",
+		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)\nVALUES (%s, %s, %s, %s, 'lab', %s, %s)\nON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();\n\n",
 		sqlString(moduleID), sqlString(courseID), sqlString(sectionID), sqlString(lab.Title), sqlInt(lab.Position), sqlInt(estMinutes),
 	)
 

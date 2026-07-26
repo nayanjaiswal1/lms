@@ -5,7 +5,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 14 — Weekly Review"
+title: "Checkpoint 2"
 position: 14
 estimated_minutes: 36
 source:
@@ -76,12 +76,3 @@ Not everything is reusable — know the differences too:
 - State your CAP trade-off out loud in every interview — it signals deliberate design, not a lucky guess.
 - Sharding key choice is a bet on which access pattern matters most; know what becomes expensive as a result and how you'd fix it (usually: a precomputed fan-out or a secondary index).
 - If you can't answer the self-check questions above fluently, that's the signal to re-read the specific day, not to move forward and hope it clicks in the real interview.
-
-## Today's checklist
-
-- [ ] Job Queue: review completed and self-check passed.
-- [ ] Social Media Feed: review completed and self-check passed.
-- [ ] Twitter: review completed and self-check passed.
-- [ ] Search Autocomplete: review completed and self-check passed.
-- [ ] File Storage: review completed and self-check passed.
-- [ ] Netflix: review completed and self-check passed.

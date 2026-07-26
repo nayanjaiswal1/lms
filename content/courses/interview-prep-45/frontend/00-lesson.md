@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 0 — JavaScript Prototype Chain and Inheritance"
+title: "JavaScript Prototype Chain and Inheritance"
 position: 1
 estimated_minutes: 25
 source:
@@ -174,12 +174,3 @@ Yes — because they don't own a copy, they delegate to the prototype object eve
 - `hasOwnProperty()` checks only the object itself; `in` and `for...in` walk the whole chain — `Object.keys()` is the safe default for "just this object's own keys."
 - `class`/`extends` is sugar over the same prototype wiring — `extends` sets `Child.prototype.__proto__ = Parent.prototype`.
 - Prototype methods are shared live references, not per-instance copies — reassigning `Constructor.prototype.method` changes behavior for every instance immediately, including ones already constructed.
-
-## Today's checklist
-
-- [ ] Be able to explain: the prototype chain and how property lookup delegation works
-- [ ] Be able to explain: `__proto__` vs `.prototype`, with an example of each
-- [ ] Walk through the four steps of what `new` does, from memory
-- [ ] Build a small chain with `Object.create()` and confirm lookups with `hasOwnProperty()` vs `in`
-- [ ] Be able to explain: how `class`/`extends` desugars to prototype wiring
-- [ ] Be able to explain why the `Person.prototype.greet` reassignment example prints "hello", not "hi"

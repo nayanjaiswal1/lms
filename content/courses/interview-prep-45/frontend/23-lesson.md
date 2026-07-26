@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 23 — Accessibility (a11y)"
+title: "Accessibility (a11y)"
 position: 26
 estimated_minutes: 30
 source:
@@ -262,12 +262,3 @@ npm install --save-dev eslint-plugin-jsx-a11y
 - `htmlFor`/`id`, `aria-invalid`, and `aria-describedby` are the specific mechanics that make a form's validation errors accessible, not just visually present.
 - Color contrast is a hard numeric threshold (4.5:1 normal text, 3:1 large text/UI) under WCAG AA — verify it, don't eyeball it.
 - Automated tools (axe, Lighthouse, `eslint-plugin-jsx-a11y`) catch a meaningful minority of issues; manual keyboard and screen reader testing is what catches the rest.
-
-## Today's checklist
-
-- [ ] Read: WCAG guidelines
-- [ ] Implement: Accessible form components
-- [ ] Implement: Screen reader testing
-- [ ] Understand ARIA attributes and when not to use them
-- [ ] Practice keyboard navigation and focus management (modal focus trap)
-- [ ] Verify color contrast against WCAG AA thresholds

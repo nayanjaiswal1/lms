@@ -96,7 +96,7 @@ func renderQuiz(out *strings.Builder, courseID, sectionID string, quiz *canonica
 		estMinutes = durationMinutes
 	}
 	fmt.Fprintf(out,
-		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)\nVALUES (%s, %s, %s, %s, 'assessment', %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();\n\n",
+		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, assessment_id)\nVALUES (%s, %s, %s, %s, 'assessment', %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();\n\n",
 		sqlString(moduleID), sqlString(courseID), sqlString(sectionID), sqlString(quiz.Title), sqlInt(quiz.Position), sqlInt(estMinutes), sqlString(assessmentID),
 	)
 

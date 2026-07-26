@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash 'C:\\Users\\jaisw\\OneDrive\\Desktop\\dream\\mindforge\\.codex\\hooks\\post-edit.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

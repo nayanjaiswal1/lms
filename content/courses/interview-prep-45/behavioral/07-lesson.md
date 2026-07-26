@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 7 — Weekly Review"
+title: "Checkpoint 1"
 position: 7
 estimated_minutes: 10
 source:
@@ -46,14 +46,3 @@ Any story that fails two of the three isn't done — it's a draft. Flag it for a
 | Score each story against timing, specificity, ownership | Assume writing it once means it's interview-ready |
 | Note which common questions have no story yet | Only notice the gap mid-interview |
 | Rewrite anything that failed the checks | Carry a weak story forward unchanged |
-
-## Today's checklist
-- [ ] Resume walkthrough: Prepared
-- [ ] 2 project deep-dives: Prepared
-- [ ] Conflict story: Prepared
-- [ ] Production failure story: Prepared
-- [ ] Leadership story: Prepared
-
-**Weaknesses to address:**
-- [ ] Note topics where you need more practice
-- [ ] Plan specific improvements for Week 2

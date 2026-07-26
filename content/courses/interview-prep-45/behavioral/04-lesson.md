@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 4 — Conflict Resolution Story"
+title: "Conflict Resolution Story"
 position: 4
 estimated_minutes: 15
 source:
@@ -49,12 +49,3 @@ Result: [outcome, quantified] + [what you'd do differently, if anything]
 | Use data or a concrete example to make your case | Rely on "I've done this before, trust me" |
 | Land on a resolution, even a compromise | Leave the ending ambiguous or unresolved |
 | Say "I" for your actions | Hide behind "we decided" the whole time |
-
-## Today's checklist
-- [ ] Write STAR story about a technical disagreement
-- [ ] Structure: Situation, Task, Action, Result
-- [ ] Practice answering: "Tell me about a time you disagreed with someone"
-
-**Revision tasks:**
-- [ ] Review binary search variations
-- [ ] Review PostgreSQL index types

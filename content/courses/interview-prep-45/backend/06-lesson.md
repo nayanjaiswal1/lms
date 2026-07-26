@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 6 — Redis Caching Strategies"
+title: "Redis Caching Strategies"
 position: 6
 estimated_minutes: 45
 source:
@@ -153,11 +153,3 @@ Using `r.pipeline()` batches these four commands into a single round trip — wo
 - A Redis lock needs a unique per-holder token and an atomic compare-and-delete (Lua script) on release — a plain GET-then-DELETE has a race.
 - Single-instance Redis locks are best-effort, not correctness guarantees — they can fail across a master/replica failover; use Postgres advisory locks or a consensus system when correctness actually matters.
 - A fixed-window rate limiter is cheap but bursts at window boundaries; a sorted-set sliding-window log is accurate but costs more memory per key.
-
-## Today's checklist
-
-- [ ] Read: Redis data structures and use cases
-- [ ] Implement: cache-aside pattern with TTL
-- [ ] Implement: Redis distributed lock
-- [ ] Implement: rate limiter using Redis
-- [ ] Be ready to answer: what is cache invalidation? What are the problems with distributed locks?

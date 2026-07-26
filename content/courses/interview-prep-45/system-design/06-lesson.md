@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 6 — Multi-tenant SaaS Architecture"
+title: "Multi-tenant SaaS Architecture"
 position: 6
 estimated_minutes: 60
 source:
@@ -192,11 +192,3 @@ A: A `custom_fields jsonb` column on the base tables lets tenants define arbitra
 - RBAC roles are scoped per `(tenant_id, user_id)`, not globally, except for a separately-audited platform-admin role.
 - Noisy-neighbor protection (per-tenant rate limits, query timeouts, connection pool caps) matters even inside a shared database.
 - Plan tenant tier migration (shared -> dedicated) as a real engineering feature, not an afterthought, if you offer it as a premium SKU.
-
-## Today's checklist
-- [ ] Define functional requirements: isolation, billing per tenant
-- [ ] Define non-functional requirements: security, performance
-- [ ] Design tenancy models: shared database, separate schema, separate database
-- [ ] Design RBAC for multi-tenant access
-- [ ] Discuss tenant-specific customization
-- [ ] Handle data migration across tenants

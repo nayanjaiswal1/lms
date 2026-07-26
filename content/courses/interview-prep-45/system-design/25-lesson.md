@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 25 — Design Payment System"
+title: "Design Payment System"
 position: 25
 estimated_minutes: 60
 source:
@@ -131,12 +131,3 @@ A: Verify the webhook's cryptographic signature against the provider's published
 - Webhooks exist because settlement is genuinely asynchronous for many payment methods (ACH, 3DS, disputes) — webhook handlers must be idempotent and signature-verified.
 - Ambiguous failures (timeouts) are resolved by querying the provider's status with the original idempotency key, never by blind retry — this is the same pattern as Day 24's checkout, applied at the payment-provider boundary specifically.
 - This system explicitly prioritizes correctness and auditability over throughput — say that trade-off out loud when a follow-up pushes on scaling, since it explains why you wouldn't relax consistency here the way you would for, say, a view counter.
-
-## Today's checklist
-
-- [ ] Write functional requirements: process, refund, dispute.
-- [ ] Write non-functional requirements: security, reliability.
-- [ ] Design the payment flow including synchronous and async (webhook) paths.
-- [ ] Handle failed payments, distinguishing declines from ambiguous timeouts.
-- [ ] Design idempotency at both the client-to-service and service-to-provider boundaries.
-- [ ] Discuss PCI compliance and its effect on where card data can live.

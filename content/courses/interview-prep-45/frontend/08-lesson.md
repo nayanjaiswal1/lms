@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 8 — Network Performance"
+title: "Network Performance"
 position: 11
 estimated_minutes: 30
 source:
@@ -123,12 +123,3 @@ Key levers: `loading="lazy"` defers offscreen images until they near the viewpor
 - Core Web Vitals — LCP (load speed), INP (responsiveness), CLS (visual stability) — are the standard proxy metrics for perceived performance and a search ranking factor.
 - `preload` = fetch now, high priority, for this page's late-discovered critical resources; `prefetch` = fetch when idle, low priority, for the next page's likely resources — don't over-preload, it competes with the current critical path.
 - `loading="lazy"`, explicit `width`/`height`, and modern formats (AVIF/WebP via `<picture>`) are the highest-leverage image optimizations.
-
-## Today's checklist
-
-- [ ] Read and interpret a network waterfall visualization
-- [ ] Measure request performance with the Performance API (navigation, resource, custom marks)
-- [ ] Run a bundle size analysis
-- [ ] Be able to explain: preload vs prefetch
-- [ ] Be able to explain: image optimization techniques
-- [ ] Be able to explain: code splitting strategies (previewed here, deep dive Day 9)

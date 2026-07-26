@@ -5,7 +5,7 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 14 — Weekly Checkpoint — Week 2 Review"
+title: "Checkpoint 2"
 position: 14
 estimated_minutes: 90
 source:
@@ -109,13 +109,3 @@ Re-solve without looking at your previous solution or these notes. Time yourself
 - Directed-graph cycle detection needs 3 states, not 2 — this is the most common graph bug in interviews.
 - DP problems are solved in a fixed order every time: state → base case → transition → space optimization. State the state out loud before writing any code.
 - A problem "completed" a week ago that you can't re-solve cold today isn't actually learned — re-solving under light time pressure is what converts exposure into recall.
-
-## Today's checklist
-
-- [ ] Review: Trees (BST) — 4 problems completed
-- [ ] Review: Graphs — 8 problems completed
-- [ ] Review: Heaps — 4 problems completed
-- [ ] Review: DP Basics — 4 problems completed
-- [ ] Review: DP Intermediate — 4 problems completed
-- [ ] Re-solve the 5 hardest problems from Week 2 listed above, timed
-- [ ] Identify which patterns need more practice and note them for spaced review

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
 section_position: 8
-title: "Day 39 — Final Mock Interviews"
+title: "Final Mock Interviews"
 position: 39
 estimated_minutes: 240
 source:
@@ -121,15 +121,3 @@ Different from Mock 3 — these are hypotheticals, not past-experience stories: 
 - Backend depth questions chain ("what, then why, then what if") — practice the follow-up, not just the first answer.
 - Situational behavioral questions test judgment under ambiguity, not memorized stories — state the principle, then the steps.
 - End with exactly one fix per track for tomorrow — more than that isn't achievable with the time remaining.
-
-## Today's checklist
-
-- [ ] Mock 1: DSA (medium problem, communication-focused) — 30 min
-- [ ] Mock 2: System design (random system, full simulation) — 40 min
-- [ ] Mock 3: Behavioral (full simulation) — 20 min
-- [ ] Mock 4: Frontend (build a component) — 30 min
-- [ ] Mock 5: Backend (deep technical questions) — 30 min
-- [ ] Mock 6: Behavioral (situational questions) — 20 min
-- [ ] Grade all six mocks against the rubric tables; circle every miss
-- [ ] Write down one fix per track for tomorrow
-- [ ] Relax and rest

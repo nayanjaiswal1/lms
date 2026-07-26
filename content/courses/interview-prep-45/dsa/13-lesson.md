@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 13 — Dynamic Programming - Intermediate"
+title: "Dynamic Programming - Intermediate"
 position: 13
-estimated_minutes: 150
+estimated_minutes: 135
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -196,14 +196,3 @@ def wordBreak(s: str, wordDict: list[str]) -> bool:
 - Always initialize the base-case row and column explicitly (empty-prefix comparisons) before filling the main table — Edit Distance breaks immediately without this.
 - LIS has two standard solutions: O(n²) DP (derive first, easy to explain) and O(n log n) via binary search on a `tails` array (the follow-up optimization interviewers look for).
 - Reconstructing the actual solution (not just its length/cost) from a DP table means walking backward from `dp[m][n]`, re-deriving which transition was taken at each step.
-
-## Today's checklist
-
-- [ ] Explain when a problem needs 2D DP vs 1D
-- [ ] Solve Longest Common Subsequence (LeetCode 1143)
-- [ ] Solve Edit Distance (LeetCode 72)
-- [ ] Solve Longest Increasing Subsequence (LeetCode 300), both O(n²) and O(n log n)
-- [ ] Solve Word Break (LeetCode 139)
-- [ ] Implement LCS with space optimized to O(min(m,n))
-- [ ] Practice drawing a DP table by hand for Edit Distance before coding it
-- [ ] Review: how to reconstruct the actual solution (not just the value) from a DP table

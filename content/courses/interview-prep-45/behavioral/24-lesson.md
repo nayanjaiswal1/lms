@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 24 — Difficult Coworker Story"
+title: "Difficult Coworker Story"
 position: 24
 estimated_minutes: 15
 source:
@@ -46,12 +46,3 @@ Result: [the outcome, even if partial] — no invented full resolution
 | Describe behavior factually, not as a personality attack | Turn the story into venting about the person |
 | Show you tried a direct conversation before escalating | Jump straight to going over their head |
 | Admit if the resolution was only partial | Fabricate a tidy happy ending |
-
-## Today's checklist
-- [ ] Write story about working with difficult person
-- [ ] Include: How you handled it professionally
-- [ ] Practice: "Tell me about a difficult coworker"
-
-**Revision tasks:**
-- [ ] Review interval patterns
-- [ ] Review API security

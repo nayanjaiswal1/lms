@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 25 — Error Handling"
+title: "Error Handling"
 position: 28
 estimated_minutes: 30
 source:
@@ -265,12 +265,3 @@ function Dashboard() {
 - Retry only idempotent/retryable failures (5xx, 429) with exponential backoff and jitter, never client errors (4xx), and always cap retry count.
 - Distinguish error causes (offline, unauthorized, server error) in the UI — a generic "Something went wrong" with no next step is a dead end for the user.
 - Scope error boundaries per independent unit (widget, panel) rather than wrapping an entire page, so one failure doesn't take down everything else on screen.
-
-## Today's checklist
-
-- [ ] Read: Error boundaries in React
-- [ ] Implement: Global error handler
-- [ ] Implement: Retry logic for failed requests
-- [ ] Understand graceful degradation and per-widget error isolation
-- [ ] Understand error reporting (Sentry-style breadcrumbs, source maps, release tagging)
-- [ ] Write actionable, cause-specific user feedback for at least one error state

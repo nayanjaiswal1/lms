@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 23 — Design Amazon/Library System"
+title: "Design Amazon/Library System"
 position: 23
 estimated_minutes: 60
 source:
@@ -125,12 +125,3 @@ A: Yes — this is the same eventual-consistency trade-off as search freshness i
 - Returns are a multi-step, partially-external workflow — model them as an explicit state machine with idempotent transitions, and never credit inventory/refund without an independent verification step (fraud prevention).
 - Catalog search is a separate, asynchronously-indexed system exactly like Twitter's search — the authoritative stock check always happens at checkout against the real inventory row, not against the search index.
 - Recommendations reuse the same offline-batch-plus-cache pattern and cold-start fallback seen in every recommendation system this course covers — it's a solved shape, not a new problem each time.
-
-## Today's checklist
-
-- [ ] Write functional requirements: inventory, recommendations.
-- [ ] Write non-functional requirements: consistency on inventory counts.
-- [ ] Design inventory management with atomic reserve-then-commit and zero overselling.
-- [ ] Design the recommendation system (collaborative + content-based, cold start).
-- [ ] Design the returns/refunds workflow as an explicit state machine.
-- [ ] Discuss scalability: read-heavy catalog caching vs. write-contended checkout path.

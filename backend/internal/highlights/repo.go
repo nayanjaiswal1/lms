@@ -28,17 +28,17 @@ func (r *Repo) Create(ctx context.Context, userID, textHash string, req CreateRe
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO highlights
 		   (user_id, source_type, source_id, selected_text, text_hash,
-		    position_start, position_end, context_snippet, source_url, saved_for_revision)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		    position_start, position_end, context_snippet, source_url, saved_for_revision, note)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		 RETURNING id, user_id, source_type, source_id, selected_text, text_hash,
 		           position_start, position_end, context_snippet, source_url,
-		           source_orphaned, saved_for_revision, created_at, updated_at`,
+		           source_orphaned, saved_for_revision, note, created_at, updated_at`,
 		userID, req.SourceType, req.SourceID, req.SelectedText, textHash,
-		req.PositionStart, req.PositionEnd, req.ContextSnippet, req.SourceURL, req.SaveForRevision,
+		req.PositionStart, req.PositionEnd, req.ContextSnippet, req.SourceURL, req.SaveForRevision, req.Note,
 	).Scan(
 		&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
 		&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-		&h.SourceOrphaned, &h.SavedForRevision, &h.CreatedAt, &h.UpdatedAt,
+		&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
 	)
 	if err != nil {
 		return Highlight{}, fmt.Errorf("highlights: create: %w", err)
@@ -119,22 +119,25 @@ func (r *Repo) InsertExplanation(ctx context.Context, textHash, selectedText, so
 	return e, nil
 }
 
-// ToggleRevision updates the saved_for_revision flag on a user-owned highlight.
+// ToggleRevision updates the saved_for_revision flag on a user-owned highlight,
+// and — when note is non-nil — replaces its note (nil means "leave note unchanged";
+// COALESCE only falls back to the existing value on a true SQL NULL, so a non-nil
+// pointer to an empty string still clears the note).
 // Returns ErrNotFound when the highlight does not exist or belongs to another user.
-func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, save bool) (Highlight, error) {
+func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, save bool, note *string) (Highlight, error) {
 	var h Highlight
 	err := r.pool.QueryRow(ctx,
 		`UPDATE highlights
-		 SET saved_for_revision = $1, updated_at = now()
+		 SET saved_for_revision = $1, note = COALESCE($4, note), updated_at = now()
 		 WHERE id = $2 AND user_id = $3
 		 RETURNING id, user_id, source_type, source_id, selected_text, text_hash,
 		           position_start, position_end, context_snippet, source_url,
-		           source_orphaned, saved_for_revision, created_at, updated_at`,
-		save, highlightID, userID,
+		           source_orphaned, saved_for_revision, note, created_at, updated_at`,
+		save, highlightID, userID, note,
 	).Scan(
 		&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
 		&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-		&h.SourceOrphaned, &h.SavedForRevision, &h.CreatedAt, &h.UpdatedAt,
+		&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -150,7 +153,7 @@ func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, s
 func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool) ([]Highlight, error) {
 	query := `SELECT id, user_id, source_type, source_id, selected_text, text_hash,
 	                 position_start, position_end, context_snippet, source_url,
-	                 source_orphaned, saved_for_revision, created_at, updated_at
+	                 source_orphaned, saved_for_revision, note, created_at, updated_at
 	          FROM highlights WHERE user_id = $1`
 	if savedOnly {
 		query += ` AND saved_for_revision = TRUE`
@@ -169,7 +172,7 @@ func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool) ([
 		if err := rows.Scan(
 			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
 			&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-			&h.SourceOrphaned, &h.SavedForRevision, &h.CreatedAt, &h.UpdatedAt,
+			&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("highlights: scan highlight: %w", err)
 		}
@@ -184,7 +187,7 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 	rows, err := r.pool.Query(ctx,
 		`SELECT h.id, h.user_id, h.source_type, h.source_id, h.selected_text, h.text_hash,
 		        h.position_start, h.position_end, h.context_snippet, h.source_url,
-		        h.source_orphaned, h.saved_for_revision, h.created_at, h.updated_at,
+		        h.source_orphaned, h.saved_for_revision, h.note, h.created_at, h.updated_at,
 		        he.id, he.text_hash, he.selected_text, he.source_type, he.explanation,
 		        he.model_used, he.serve_count, he.created_at, he.updated_at
 		 FROM highlights h
@@ -209,7 +212,7 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 		if err := rows.Scan(
 			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
 			&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-			&h.SourceOrphaned, &h.SavedForRevision, &h.CreatedAt, &h.UpdatedAt,
+			&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
 			&eID, &eHash, &eText, &eSrcType, &eExpl, &eModel, &eServe, &eCreatedAt, &eUpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("highlights: scan list by source: %w", err)

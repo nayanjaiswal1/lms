@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 22 — Communication Story"
+title: "Communication Story"
 position: 22
 estimated_minutes: 15
 source:
@@ -44,12 +44,3 @@ Result: [the decision/outcome that followed] + [evidence the explanation actuall
 | Use a concrete analogy tied to something familiar | Simplify by leaving out the point entirely |
 | Tie the explanation to a decision they needed to make | Explain for the sake of explaining |
 | Show evidence they understood, not just that you talked | Assume nodding along means comprehension |
-
-## Today's checklist
-- [ ] Write story about explaining technical concept to non-technical person
-- [ ] Include: How you simplified, outcome
-- [ ] Practice: "Explain [technical topic] to a 5-year-old"
-
-**Revision tasks:**
-- [ ] Review Trie implementations
-- [ ] Review Django ORM

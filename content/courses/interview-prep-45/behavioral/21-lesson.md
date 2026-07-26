@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 21 — Weekly Review"
+title: "Checkpoint 3"
 position: 21
 estimated_minutes: 10
 source:
@@ -32,11 +32,3 @@ List every remaining gap honestly rather than assuming Week 4's stories will cov
 | Test every story cold, without notes | Assume having written it once is enough |
 | Refresh company research that's gone stale | Reuse Day 15 research unchanged three weeks later |
 | Write down specific gaps, not "I should review more" | Leave weaknesses vague and unscheduled |
-
-## Today's checklist
-- [ ] All STAR stories prepared
-- [ ] Company-specific answers prepared
-
-**Weaknesses to address:**
-- [ ] Note any remaining gaps
-- [ ] Plan for Day 30+ mock interviews

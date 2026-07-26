@@ -5,7 +5,7 @@ course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
 section_position: 7
-title: "Day 35 — Mock Interviews 16–17 + Weakness Identification"
+title: "Mock Interviews 16–17 + Weakness Identification"
 position: 35
 estimated_minutes: 240
 source:
@@ -231,17 +231,3 @@ Using the worked example above, a real Step 3–4 output looks like this — thr
 3. **Gap:** edge cases only get tested after being prompted. **Drill:** before running any test in a coding round, say the edge case list out loud first (empty input, single element, all-duplicate, already-sorted/reverse-sorted) — commit to testing at least two before declaring done. **Target:** every remaining coding round.
 
 Notice none of these say "practice more" — each names the exact trigger (before writing code, before declaring done, which specific stories to rewrite) that makes the fix checkable rather than aspirational.
-
-## Today's checklist
-
-- [ ] Mock 16: completed the resume walkthrough in 5 minutes with real added context
-- [ ] Mock 16: completed two distinct project deep dives using STAR
-- [ ] Mock 16: wrote honest self-feedback on today's performance
-- [ ] Mock 17: designed the notification system with per-channel queue isolation
-- [ ] Mock 17: covered idempotency, retries, dead-lettering, and circuit breaking
-- [ ] Mock 17: stated the real delivery guarantee (at-least-once) explicitly
-- [ ] Scored both mocks against the rubric and logged debrief notes
-- [ ] Weakness Identification: tallied every sub-3 score from Mocks 1–17
-- [ ] Weakness Identification: identified the 3 most-recurring weaknesses
-- [ ] Weakness Identification: wrote a concrete drill and target day for each
-- [ ] Weakness Identification: adjusted remaining days' buffer blocks accordingly

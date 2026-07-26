@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 8 — Trees - BST and Reconstruction"
+title: "Trees - BST and Reconstruction"
 position: 8
-estimated_minutes: 150
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -203,14 +203,3 @@ def kth_smallest(root, k: int) -> int:
 - BST LCA is O(h) using the ordering shortcut; don't fall back to the general-tree O(n) algorithm when the BST property is available.
 - Tree reconstruction needs preorder+inorder or postorder+inorder — preorder+postorder alone is ambiguous unless every node has 0 or 2 children.
 - Validate BST must pass down a tightening `(low, high)` range — checking only immediate parent-child relationships is a classic, easy-to-miss bug.
-
-## Today's checklist
-
-- [ ] Solve Validate Binary Search Tree using range propagation
-- [ ] Solve Lowest Common Ancestor using BST ordering
-- [ ] Solve Construct Binary Tree from Preorder and Inorder Traversal
-- [ ] Solve Kth Smallest Element in a BST using inorder traversal
-- [ ] Implement BST insert and search
-- [ ] Practice range-based validation
-- [ ] Memorize: inorder of BST gives sorted array
-- [ ] Review: why reconstruct from preorder + inorder but not preorder alone

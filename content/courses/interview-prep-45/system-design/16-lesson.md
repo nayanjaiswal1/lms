@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 16 — Design Spotify"
+title: "Design Spotify"
 position: 16
 estimated_minutes: 60
 source:
@@ -166,12 +166,3 @@ A: Flip the track's status/region flags in the metadata DB, which invalidates th
 - Recommendations must be fully decoupled and precomputed — never on the synchronous playback path.
 - Popularity is Zipfian: a small hot set drives most traffic, which is exactly what makes CDN caching so effective here.
 - Licensing/region restrictions need a fast, cache-friendly enforcement point (short-TTL flag check), separate from the slow catalog metadata pipeline.
-
-## Today's checklist
-
-- [ ] Define functional requirements: music streaming, playlists
-- [ ] Define non-functional requirements: latency, audio quality
-- [ ] Design music recommendation
-- [ ] Design playlist management
-- [ ] Handle offline playback
-- [ ] Discuss licensing

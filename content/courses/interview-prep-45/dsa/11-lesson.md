@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 11 — Heaps / Priority Queues"
+title: "Heaps / Priority Queues"
 position: 11
-estimated_minutes: 150
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -221,14 +221,3 @@ class MedianFinder:
 - Python's `heapq` is min-heap only; negate values for a max heap, and add a tiebreaker in tuples to avoid comparing unorderable objects.
 - Top-K problems: maintain a heap of size K and evict the extreme element — O(n log k) beats sorting (O(n log n)) whenever k << n.
 - Two-heap (max heap for lower half, min heap for upper half) is the standard pattern for running-median / balanced-partition streaming problems.
-
-## Today's checklist
-
-- [ ] Explain the complete binary tree property and array index math
-- [ ] Implement a heap (array-based) from scratch, including push and pop
-- [ ] Implement `heapify` from scratch and explain why it's O(n)
-- [ ] Solve Kth Largest Element in Array (LeetCode 215)
-- [ ] Solve Top K Frequent Elements (LeetCode 347)
-- [ ] Solve Merge K Sorted Lists (LeetCode 23)
-- [ ] Solve Find Median from Data Stream (LeetCode 295)
-- [ ] Review: why heaps beat sorting for top-K problems

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 19 — React Performance Patterns"
+title: "React Performance Patterns"
 position: 22
 estimated_minutes: 30
 source:
@@ -246,12 +246,3 @@ Partially — `useDeferredValue` defers *rendering* work, not the timing of a ne
 - `use()` + `Suspense` requires the promise to be created outside the render reading it, or it suspends forever on every render.
 - `useOptimistic` needs an async boundary (`useTransition` or a form action) to know when to commit or revert the optimistic value.
 - Debounced search needs two separate cancellations: a timer for the input delay, and an `AbortController` for in-flight requests, to avoid stale-response race conditions.
-
-## Today's checklist
-
-- [ ] Read: React performance optimization checklist
-- [ ] Implement: Optimistic updates
-- [ ] Implement: Debounced search input
-- [ ] Explain useTransition vs useDeferredValue
-- [ ] Explain automatic batching
-- [ ] Explain Suspense for data fetching

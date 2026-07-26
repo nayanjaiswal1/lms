@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 17 — SSR and Next.js"
+title: "SSR and Next.js"
 position: 20
 estimated_minutes: 30
 source:
@@ -191,12 +191,3 @@ Middleware (auth redirects, locale detection, feature flag routing) needs to run
 - Hydration mismatches come from non-deterministic first renders — defer `Date`, `Math.random`, and `window` reads to `useEffect`.
 - Streaming SSR with `Suspense` decouples TTFB from your slowest data dependency by sending the shell first and streaming the rest.
 - Edge functions trade full Node API support for lower, globally-distributed latency — good for middleware/auth/routing, not heavy computation.
-
-## Today's checklist
-
-- [ ] Read: Next.js rendering strategies
-- [ ] Implement: Page with server-side data fetching
-- [ ] Implement: Static generation with dynamic routes
-- [ ] Explain hydration and hydration mismatches
-- [ ] Explain streaming SSR
-- [ ] Explain edge functions

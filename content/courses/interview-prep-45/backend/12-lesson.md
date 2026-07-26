@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 12 — AWS S3 and Storage"
+title: "AWS S3 and Storage"
 position: 12
 estimated_minutes: 45
 source:
@@ -138,11 +138,3 @@ For presigned-URL uploads specifically, the failure mode is different: the clien
 - S3 has been strongly read-after-write consistent for all operations since December 2020 — know this current behavior, but also understand the general eventual-consistency concept since it's often tested as the example.
 - CDN/cache layers in front of S3 (CloudFront) introduce their own staleness window independent of S3's own consistency — design with versioned keys or explicit invalidation.
 - Categorize S3 errors as transient (retry with backoff: `SlowDown`, `ServiceUnavailable`) vs permanent (fail fast: `AccessDenied`, `NoSuchBucket`) — retrying a permanent error wastes time and hides the real problem.
-
-## Today's checklist
-
-- [ ] Read: S3 best practices documentation
-- [ ] Implement: upload a file to S3 with a presigned URL
-- [ ] Implement: multipart upload for large files
-- [ ] Implement a file upload endpoint using boto3
-- [ ] Be ready to answer: what is eventual consistency in S3? How do you handle S3 failures?

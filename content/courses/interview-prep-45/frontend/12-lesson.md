@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 12 — TypeScript for React"
+title: "TypeScript for React"
 position: 15
 estimated_minutes: 30
 source:
@@ -304,12 +304,3 @@ TypeScript narrows `state` inside each `case` based on the `status` literal — 
 - Type event handlers with the specific React synthetic event generic (`React.ChangeEvent<HTMLInputElement>`, etc.) to get correctly-typed `target`/`currentTarget`.
 - `as T` after `.json()` is an assertion, not validation — use a schema library like Zod at real trust boundaries so the TypeScript type and runtime shape can't drift apart.
 - Model mutually-exclusive UI state as a discriminated union so impossible combinations (loading + error simultaneously) can't be constructed.
-
-## Today's checklist
-
-- [ ] Read: React TypeScript cheatsheet
-- [ ] Implement: Generic component with proper types
-- [ ] Implement: Type-safe API response handling
-- [ ] Practice utility types (`Partial`, `Required`, `Pick`, `Omit`, `Record`)
-- [ ] Practice typing React event handlers
-- [ ] Model at least one piece of state as a discriminated union

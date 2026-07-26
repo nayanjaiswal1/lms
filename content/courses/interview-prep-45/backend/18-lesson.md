@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 18 — Message Queues (Kafka)"
+title: "Message Queues (Kafka)"
 position: 18
 estimated_minutes: 45
 source:
@@ -125,11 +125,3 @@ Run the producer script to publish a few `orders.events`, then run the consumer 
 - Kafka is at-least-once by default; correctness requires idempotent consumers (dedupe by message ID/offset), not just an idempotent producer.
 - `enable_idempotence=True` dedupes producer retries at the broker; it does not make consumer processing exactly-once.
 - Manual offset commits after successful processing (not auto-commit on a timer) prevent silently dropping messages that failed mid-processing.
-
-## Today's checklist
-
-- [ ] Read Kafka architecture documentation
-- [ ] Implement a producer and consumer
-- [ ] Implement consumer groups and observe a rebalance
-- [ ] Answer: message ordering in Kafka, and how you handle message duplication
-- [ ] Build a simple producer/consumer with Kafka

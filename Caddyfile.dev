@@ -1,0 +1,14 @@
+# Caddyfile.dev — dev-only, disposable. Puts the frontend (host.docker.internal:3000)
+# and backend (backend:8080, including the AI Connector's /oauth, /.well-known,
+# /mcp routes — not just /api/*) behind one origin, so a single tunnel URL
+# reaches the whole app from another device. Mirrors the routing shape of the
+# production Caddyfile; not itself used in production.
+:80 {
+	reverse_proxy /api/* backend:8080
+	reverse_proxy /oauth/* backend:8080
+	reverse_proxy /.well-known/* backend:8080
+	reverse_proxy /mcp backend:8080
+	reverse_proxy /mindforge/* minio:9000
+
+	reverse_proxy host.docker.internal:3000
+}

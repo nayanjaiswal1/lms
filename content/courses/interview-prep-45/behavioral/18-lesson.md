@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 18 — Overcoming Obstacle Story"
+title: "Overcoming Obstacle Story"
 position: 18
 estimated_minutes: 15
 source:
@@ -44,12 +44,3 @@ Result: [the fix] + [what changed in how you approach similar problems]
 | Include the wrong theories you ruled out | Present the first guess as the correct one |
 | Show the specific debugging step that found root cause | Say "after some investigation, I found..." |
 | End with a lasting change to your process | End at "and then it worked" |
-
-## Today's checklist
-- [ ] Write story about technical challenge you overcame
-- [ ] Include: What made it hard, how you solved it
-- [ ] Practice: "Tell me about a technical challenge"
-
-**Revision tasks:**
-- [ ] Review greedy algorithms
-- [ ] Review Kafka

@@ -70,11 +70,24 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
       {/* Context block */}
       <ContextBlock highlight={highlight} />
 
+      {/* Personal note */}
+      {highlight.note && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <BookmarkCheck aria-hidden className="size-3.5 text-primary shrink-0" />
+            <span className="text-xs font-medium text-primary">Your note</span>
+          </div>
+          <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">
+            {highlight.note}
+          </p>
+        </div>
+      )}
+
       {/* AI explanation */}
       {highlight.explanation && (
         <div className="ai-surface rounded-lg p-3">
           <div className="flex items-center gap-1.5 mb-2">
-            <Sparkles className="size-3.5 text-ai shrink-0" aria-hidden />
+            <Sparkles aria-hidden className="size-3.5 text-ai shrink-0" />
             <span className="text-xs font-medium text-ai">AI Explanation</span>
           </div>
           <p className="text-xs leading-relaxed text-foreground">
@@ -86,12 +99,12 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
       {/* Footer: source badge + date + navigation */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">
+          <Badge className="text-xs" variant="secondary">
             {sourceLabel}
           </Badge>
           <time
-            dateTime={highlight.created_at}
             className="text-xs text-muted-foreground"
+            dateTime={highlight.created_at}
           >
             {new Date(highlight.created_at).toLocaleDateString("en-US", {
               month: "short",
@@ -103,22 +116,22 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
 
         {highlight.source_orphaned ? (
           <Badge
-            variant="secondary"
-            className="gap-1 text-xs text-muted-foreground"
             aria-label="Source content was deleted"
+            className="gap-1 text-xs text-muted-foreground"
+            variant="secondary"
           >
-            <FileX className="size-3" aria-hidden />
+            <FileX aria-hidden className="size-3" />
             Source deleted
           </Badge>
         ) : highlight.source_url ? (
           <Button
             asChild
+            className="gap-1.5 text-xs h-7 px-2 touch-target text-muted-foreground hover:text-foreground"
             size="sm"
             variant="ghost"
-            className="gap-1.5 text-xs h-7 px-2 touch-target text-muted-foreground hover:text-foreground"
           >
             <Link href={highlight.source_url}>
-              <ExternalLink className="size-3" aria-hidden />
+              <ExternalLink aria-hidden className="size-3" />
               Go to {sourceLabel.toLowerCase()}
             </Link>
           </Button>
@@ -136,7 +149,7 @@ export default async function SavedHighlightsPage() {
     <main className="page-container-sm py-8">
       <div className="page-header">
         <div className="flex items-center gap-3">
-          <BookmarkCheck className="size-6 text-primary" aria-hidden />
+          <BookmarkCheck aria-hidden className="size-6 text-primary" />
           <h1 className="page-title">Saved Highlights</h1>
         </div>
         <span className="text-sm text-muted-foreground">
@@ -169,7 +182,7 @@ export default async function SavedHighlightsPage() {
 
       {highlights.length === 0 ? (
         <div className="empty-state py-16">
-          <BookmarkCheck className="size-10 text-muted-foreground mb-4" aria-hidden />
+          <BookmarkCheck aria-hidden className="size-10 text-muted-foreground mb-4" />
           <p className="text-muted-foreground text-center">
             No saved highlights yet.
             <br />
@@ -179,7 +192,7 @@ export default async function SavedHighlightsPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {highlights.map((h) => (
-            <HighlightCard key={h.id} highlight={h} />
+            <HighlightCard highlight={h} key={h.id} />
           ))}
         </div>
       )}

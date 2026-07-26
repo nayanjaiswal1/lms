@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 16 — Negotiation Story"
+title: "Negotiation Story"
 position: 16
 estimated_minutes: 15
 source:
@@ -48,12 +48,3 @@ Result: [what you actually got] + [why the compromise worked]
 | Frame the ask as a tradeoff, not a demand | Say "I pushed back and they agreed" with no mechanism |
 | Show what you offered in exchange | Make it sound like a one-sided win |
 | Quantify the outcome | Leave the result vague |
-
-## Today's checklist
-- [ ] Write story about negotiating scope, timeline, or resources
-- [ ] Include: How you approached it, outcome
-- [ ] Practice: "Tell me about a time you negotiated"
-
-**Revision tasks:**
-- [ ] Review backtracking patterns
-- [ ] Review Redis patterns

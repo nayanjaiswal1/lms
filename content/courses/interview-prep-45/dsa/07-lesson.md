@@ -5,7 +5,7 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 7 — Weekly Checkpoint — Week 1 Review"
+title: "Checkpoint 1"
 position: 7
 estimated_minutes: 90
 source:
@@ -55,16 +55,3 @@ Two numbers matter more than raw problem count:
 - Track *why* a re-solve differed from the original, not just whether it passed — the reason is the reusable lesson.
 - Time-per-problem broken into recognize/code/debug phases tells you what kind of practice you actually need next.
 - A pattern that fails more than once in your log is a structural gap — prioritize it before Week 2's harder problems build on it.
-
-## Today's checklist
-
-- [ ] Arrays/Hashing: 3 problems completed
-- [ ] Two Pointers: 3 problems completed
-- [ ] Sliding Window: 3 problems completed
-- [ ] Binary Search: 4 problems completed
-- [ ] Stacks: 4 problems completed
-- [ ] Trees: 4 problems completed
-- [ ] Re-solve 3 hardest problems from this week without looking
-- [ ] Note which patterns still feel weak
-- [ ] Track time per problem
-- [ ] Track blind spots (topics where you struggle)

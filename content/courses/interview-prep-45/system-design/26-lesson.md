@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 26 — Design Notification System (Advanced)"
+title: "Design Notification System (Advanced)"
 position: 26
 estimated_minutes: 60
 source:
@@ -128,12 +128,3 @@ A: Add a dedup key to `POST /notifications/send` (e.g., derived from user_id + c
 - Ordering only matters within a single user+channel, not globally — solve it with partition-key routing (by user_id) into the per-channel queue, same pattern as Day 8's ordering discussion.
 - Mass-notification bursts are bounded by external provider rate limits, not just your own infrastructure — the honest fix is prioritization (critical categories first) plus elastic worker scaling, not a promise to send everything instantly.
 - Dedup/idempotency keys prevent notification storms from retrying or buggy callers — the same pattern reused from job queues and payments, applied to a new domain.
-
-## Today's checklist
-
-- [ ] Write functional requirements: push, email, SMS.
-- [ ] Write non-functional requirements: delivery, ordering.
-- [ ] Design notification preferences and per-category channel resolution.
-- [ ] Handle unsubscribes with a synchronous, send-time enforcement check.
-- [ ] Design the template system with per-recipient rendering.
-- [ ] Discuss delivery guarantees per channel and how a mass burst is handled.

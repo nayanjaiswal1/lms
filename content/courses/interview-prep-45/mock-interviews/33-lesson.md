@@ -5,7 +5,7 @@ course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
 section_position: 7
-title: "Day 33 — Mock Interviews 10–12: Hard DSA, YouTube, Full Stack"
+title: "Mock Interviews 10–12: Hard DSA, YouTube, Full Stack"
 position: 33
 estimated_minutes: 240
 source:
@@ -417,16 +417,3 @@ export function TaskList() {
 ## Debrief
 
 Log every stumble immediately after each mock, not at the end of the day. For Mock 10, note specifically whether the heap approach was slow to arrive at (a knowledge gap — review "top-k / stream" pattern recognition) or slow to *code* (a mechanics gap — drill `heapq` syntax cold). For Mock 11, note whether you reached for CDN + blob storage unprompted or needed a nudge — this is one of the most-repeated patterns in video/media system design and should become reflexive. For Mock 12, note the exact moment error handling was skipped (did you write the happy path first and never circle back? that's a habit to break, not a one-off). Anything scored 3/5 or below goes on tomorrow's warm-up so it gets revisited inside 48 hours.
-
-## Today's checklist
-
-- [ ] Mock 10: solved Merge K Sorted Lists with the heap approach in 40 minutes
-- [ ] Mock 10: implemented and compared the divide-and-conquer approach
-- [ ] Mock 10 extra: attempted Median of Data Stream, Sliding Window Maximum, or Top K Frequent Elements
-- [ ] Mock 11: defined requirements for YouTube in 5 minutes
-- [ ] Mock 11: covered upload/transcode pipeline and playback/CDN path separately
-- [ ] Mock 11: discussed adaptive bitrate streaming and CDN caching trade-offs
-- [ ] Mock 12: designed the API contract before writing code
-- [ ] Mock 12: built the backend with server-side validation and correct status codes
-- [ ] Mock 12: built the frontend with loading, error, and rollback handling
-- [ ] Scored every mock against the rubric and logged debrief notes

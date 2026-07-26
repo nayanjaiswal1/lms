@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 11 — CSS and Rendering Performance"
+title: "CSS and Rendering Performance"
 position: 14
 estimated_minutes: 30
 source:
@@ -195,12 +195,3 @@ Other render-blocking resources to know:
 - `contain` and `content-visibility: auto` let the browser skip layout/paint work for isolated or off-screen content without you writing any JavaScript.
 - Critical CSS (inline above-the-fold styles, async-load the rest) reduces render-blocking delay on first paint; `defer`/`async` do the same for non-critical scripts.
 - DevTools Performance tab is where you prove any of this — "Forced reflow" warnings and repeated purple Layout blocks are the evidence, not intuition.
-
-## Today's checklist
-
-- [ ] Read: CSS containment and will-change
-- [ ] Implement: Measure layout thrashing
-- [ ] Implement: Optimize render-blocking resources
-- [ ] Understand composite-only properties (`transform`, `opacity`) and GPU acceleration
-- [ ] Understand `contain` and `content-visibility`
-- [ ] Be able to explain critical CSS and how to defer non-critical stylesheets/scripts

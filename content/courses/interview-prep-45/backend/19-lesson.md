@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 19 — Celery Deep Dive"
+title: "Celery Deep Dive"
 position: 19
 estimated_minutes: 45
 source:
@@ -196,11 +196,3 @@ Each stage is independently retryable (`fetch_data` retries on network failure) 
 - Long-running tasks need `task_time_limit`/`task_soft_time_limit` for runaway protection and `acks_late=True` so a worker crash redelivers in-flight work instead of losing it.
 - The result backend (Redis/Postgres) is separate from the broker — the broker queues messages, the backend stores state/return values for polling.
 - Multi-stage pipelines built from independent, retryable tasks (via `chain`) isolate failures to one stage instead of forcing a full pipeline restart on any error.
-
-## Today's checklist
-
-- [ ] Read Celery task routing and priority queue docs
-- [ ] Implement a task using chain and chord
-- [ ] Implement custom task states with update_state
-- [ ] Answer: handling tasks that take too long, and what a result backend is
-- [ ] Build the pipeline: fetch -> process -> save -> notify

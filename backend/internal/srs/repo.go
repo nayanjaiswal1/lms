@@ -27,7 +27,7 @@ var ErrNotFound = errors.New("srs: not found")
 // given user, ordered by oldest due date first.
 func (r *Repo) GetDueCards(ctx context.Context, userID string) ([]Card, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, question_id, front, back, source_type,
+		`SELECT id, user_id, question_id, mistake_entry_id, front, back, source_type,
 		        interval_days, repetitions, ease_factor,
 		        to_char(due_date, 'YYYY-MM-DD'), last_reviewed_at, created_at
 		 FROM srs_cards
@@ -43,7 +43,40 @@ func (r *Repo) GetDueCards(ctx context.Context, userID string) ([]Card, error) {
 	for rows.Next() {
 		var c Card
 		if err := rows.Scan(
-			&c.ID, &c.UserID, &c.QuestionID, &c.Front, &c.Back, &c.SourceType,
+			&c.ID, &c.UserID, &c.QuestionID, &c.MistakeEntryID, &c.Front, &c.Back, &c.SourceType,
+			&c.IntervalDays, &c.Repetitions, &c.EaseFactor,
+			&c.DueDate, &c.LastReviewedAt, &c.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("srs: scan due card: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// GetDueCardsBySource returns up to 20 cards due today or earlier for the
+// given user, restricted to one source_type. Filtering happens in SQL
+// before the LIMIT — filtering GetDueCards' results in Go instead would
+// starve a source_type behind whichever cards sort first by due_date.
+func (r *Repo) GetDueCardsBySource(ctx context.Context, userID, sourceType string) ([]Card, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, user_id, question_id, mistake_entry_id, front, back, source_type,
+		        interval_days, repetitions, ease_factor,
+		        to_char(due_date, 'YYYY-MM-DD'), last_reviewed_at, created_at
+		 FROM srs_cards
+		 WHERE user_id = $1 AND source_type = $2 AND due_date <= CURRENT_DATE
+		 ORDER BY due_date
+		 LIMIT 20`, userID, sourceType)
+	if err != nil {
+		return nil, fmt.Errorf("srs: get due cards by source: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Card{}
+	for rows.Next() {
+		var c Card
+		if err := rows.Scan(
+			&c.ID, &c.UserID, &c.QuestionID, &c.MistakeEntryID, &c.Front, &c.Back, &c.SourceType,
 			&c.IntervalDays, &c.Repetitions, &c.EaseFactor,
 			&c.DueDate, &c.LastReviewedAt, &c.CreatedAt,
 		); err != nil {
@@ -58,14 +91,14 @@ func (r *Repo) GetDueCards(ctx context.Context, userID string) ([]Card, error) {
 func (r *Repo) CreateCard(ctx context.Context, userID string, req CreateCardRequest) (Card, error) {
 	var c Card
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO srs_cards (user_id, question_id, front, back, source_type)
-		 VALUES ($1, $2, $3, $4, $5)
-		 RETURNING id, user_id, question_id, front, back, source_type,
+		`INSERT INTO srs_cards (user_id, question_id, mistake_entry_id, front, back, source_type)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING id, user_id, question_id, mistake_entry_id, front, back, source_type,
 		           interval_days, repetitions, ease_factor,
 		           to_char(due_date, 'YYYY-MM-DD'), last_reviewed_at, created_at`,
-		userID, req.QuestionID, req.Front, req.Back, req.SourceType,
+		userID, req.QuestionID, req.MistakeEntryID, req.Front, req.Back, req.SourceType,
 	).Scan(
-		&c.ID, &c.UserID, &c.QuestionID, &c.Front, &c.Back, &c.SourceType,
+		&c.ID, &c.UserID, &c.QuestionID, &c.MistakeEntryID, &c.Front, &c.Back, &c.SourceType,
 		&c.IntervalDays, &c.Repetitions, &c.EaseFactor,
 		&c.DueDate, &c.LastReviewedAt, &c.CreatedAt,
 	)
@@ -117,13 +150,13 @@ func (r *Repo) CardExists(ctx context.Context, userID, questionID string) (bool,
 func (r *Repo) GetCard(ctx context.Context, cardID, userID string) (Card, error) {
 	var c Card
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, question_id, front, back, source_type,
+		`SELECT id, user_id, question_id, mistake_entry_id, front, back, source_type,
 		        interval_days, repetitions, ease_factor,
 		        to_char(due_date, 'YYYY-MM-DD'), last_reviewed_at, created_at
 		 FROM srs_cards
 		 WHERE id = $1 AND user_id = $2`, cardID, userID,
 	).Scan(
-		&c.ID, &c.UserID, &c.QuestionID, &c.Front, &c.Back, &c.SourceType,
+		&c.ID, &c.UserID, &c.QuestionID, &c.MistakeEntryID, &c.Front, &c.Back, &c.SourceType,
 		&c.IntervalDays, &c.Repetitions, &c.EaseFactor,
 		&c.DueDate, &c.LastReviewedAt, &c.CreatedAt,
 	)

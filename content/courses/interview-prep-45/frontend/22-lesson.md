@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 22 — CSS Architecture"
+title: "CSS Architecture"
 position: 25
 estimated_minutes: 30
 source:
@@ -251,12 +251,3 @@ Two responsive mechanisms worth distinguishing in an interview: `grid-template-c
 - Design tokens as CSS custom properties enable instant, re-render-free theme switching by flipping a `data-theme` attribute — cheaper than a JS theme object through Context.
 - Container queries (`@container`) solve "make this component responsive to its own box," which viewport media queries cannot do.
 - There's no universally "correct" CSS architecture — the right answer in an interview names the trade-offs and picks based on team size, SSR needs, and existing tooling.
-
-## Today's checklist
-
-- [ ] Read: BEM, CSS Modules, CSS-in-JS approaches
-- [ ] Implement: Theme system with CSS variables
-- [ ] Implement: Responsive component
-- [ ] Understand atomic CSS trade-offs
-- [ ] Understand CSS-in-JS runtime cost and why zero-runtime alternatives emerged
-- [ ] Understand design tokens as a single source of truth

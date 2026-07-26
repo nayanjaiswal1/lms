@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 3 — Sliding Window"
+title: "Sliding Window"
 position: 3
-estimated_minutes: 150
+estimated_minutes: 90
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -168,13 +168,3 @@ def min_window(s: str, t: str) -> str:
 - Track a running `min`/`max` (Buy/Sell Stock) or an index map (Longest Substring) to avoid re-scanning the window on every step.
 - The `have`/`need` counter pair is the standard technique for "window must satisfy a multiset of requirements" problems like Minimum Window Substring.
 - If a problem says "longest/shortest/minimum contiguous," think sliding window before anything else.
-
-## Today's checklist
-
-- [ ] Solve Best Time to Buy and Sell Stock with the running-minimum approach
-- [ ] Solve Longest Substring Without Repeating Characters with the index-map window
-- [ ] Solve Minimum Window Substring with the have/need counter technique
-- [ ] Implement the sliding window template from memory
-- [ ] Practice identifying when sliding window applies
-- [ ] Memorize: sliding window reduces O(n²) to O(n)
-- [ ] Review: how to handle characters outside ASCII range

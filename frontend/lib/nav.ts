@@ -22,6 +22,7 @@ import {
   Map,
   Briefcase,
   FolderTree,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -73,8 +74,9 @@ export const SETTINGS_NAV: NavGroup[] = [
   {
     label: "Account",
     items: [
-      { label: "Profile",  href: ROUTES.SETTINGS_PROFILE,  icon: User,   exact: true },
-      { label: "Security", href: ROUTES.SETTINGS_SECURITY, icon: Shield, exact: true },
+      { label: "Profile",      href: ROUTES.SETTINGS_PROFILE,      icon: User,   exact: true },
+      { label: "Security",     href: ROUTES.SETTINGS_SECURITY,     icon: Shield, exact: true },
+      { label: "Integrations", href: ROUTES.SETTINGS_INTEGRATIONS, icon: Bot,    exact: true },
     ],
   },
 ];
@@ -160,6 +162,11 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     feature:             FEATURES.FLASHCARDS,
     requiredPermission:  "content.srs",
     mode:                "badge",
+  },
+  mistakes: {
+    label: "My Mistakes",
+    href:  ROUTES.MISTAKES,
+    icon:  Brain,
   },
   sheet_tracker: {
     label:               "Sheet Tracker",

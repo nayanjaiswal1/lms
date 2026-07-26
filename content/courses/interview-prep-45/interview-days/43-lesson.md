@@ -5,7 +5,7 @@ course: interview-prep-45
 section: interview-days
 section_title: "Interview Days"
 section_position: 9
-title: "Day 43 — Interview Day 1"
+title: "Interview Day 1"
 position: 43
 estimated_minutes: 60
 source:
@@ -99,12 +99,3 @@ Then the same rest discipline as yesterday: screens off, caffeine cutoff respect
 - Avoid both post-mortem spiraling and over-preparing between rounds — neither improves the next interview.
 - Plan for the afternoon energy dip with food, water, and a conscious context-switch between interview types.
 - Keep the evening review to 15-20 minutes; protect sleep over squeezing in more study.
-
-## Today's checklist
-
-- [ ] Morning interview — arrive early, warm up 5 min, think out loud, ask clarifying questions
-- [ ] Brain-dump notes immediately after each round
-- [ ] Afternoon interview — manage energy dip, context-switch consciously between round types
-- [ ] Brief review after each round — no post-mortem spiraling, no cramming new material
-- [ ] Evening: 15-20 min review of patterns across today's questions
-- [ ] Rest — screens off, caffeine cutoff, protect sleep for tomorrow

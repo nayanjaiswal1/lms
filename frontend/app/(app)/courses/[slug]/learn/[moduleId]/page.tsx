@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, CheckCircle2, ArrowRight } from "lucide-react";
+import { Clock, CheckCircle2, ArrowRight, Brain } from "lucide-react";
 import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
-import { getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection } from "@/lib/server/courses";
+import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote } from "@/lib/server/courses";
 import { getMyFeedback } from "@/lib/server/feedback";
 import { getRevisionPlan } from "@/lib/server/revision-plan";
+import { getDueCards } from "@/lib/server/srs";
 import { getModuleLab } from "@/lib/server/labs";
 import { renderModuleMarkdown } from "@/lib/courses/markdown";
 import { ModuleGateProvider } from "@/components/courses/module-gate-provider";
+import { HighlightProvider } from "@/components/highlights/highlight-provider";
+import { getHighlightsForSource } from "@/lib/server/highlights";
 import { MODULE_TYPE_LABEL } from "@/lib/courses/module-types";
 import { computeCompletion } from "@/lib/courses/progress";
 import { Badge } from "@/components/ui/badge";
@@ -54,15 +57,15 @@ export async function generateMetadata({ params }: Props) {
 export default async function ModuleLearnPage({ params }: Props) {
   const { slug, moduleId } = await params;
 
-  const courses = await getCourses();
-  const course = courses.find((c) => c.slug === slug);
+  const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments().catch(() => [])]);
+  const course = findCourseBySlug(courses, enrollments, slug);
   if (!course) notFound();
 
-  const [tree, progress, content, enrollments] = await Promise.all([
+  const [tree, progress, content, dueRevisions] = await Promise.all([
     getCourseTree(course.id),
     getCourseProgress(course.id).catch(() => null),
     getModuleContent(moduleId),
-    getEnrollments().catch(() => []),
+    getDueCards().catch(() => ({ cards: [], total: 0 })),
   ]);
 
   const allModules = tree.sections.flatMap((s) => s.modules);
@@ -93,6 +96,10 @@ export default async function ModuleLearnPage({ params }: Props) {
     : [];
   const passedCheckIds = requiredCheckIds.length > 0 ? await getMyCheckProgress(moduleId).catch(() => []) : [];
   const initialReflection = notes ? await getMyReflection(moduleId).catch(() => null) : null;
+  const initialNote = notes ? await getMyLessonNote(moduleId).catch(() => null) : null;
+  const initialHighlights = notes
+    ? await getHighlightsForSource("lesson", moduleId).catch(() => [])
+    : [];
 
   const moduleLab = currentModule.type === "notes" ? await getModuleLab(moduleId) : null;
   const isWideLayout = currentModule.type === "lab" || currentModule.type === "system_design";
@@ -111,6 +118,14 @@ export default async function ModuleLearnPage({ params }: Props) {
         <Badge className="badge-success" variant="outline">
           <CheckCircle2 aria-hidden className="mr-1 h-3 w-3" />Completed
         </Badge>
+      )}
+      {dueRevisions.total > 0 && (
+        <Link href={ROUTES.REVIEW}>
+          <Badge className="badge-warning" variant="outline">
+            <Brain aria-hidden className="mr-1 h-3 w-3" />
+            {dueRevisions.total} due for revision
+          </Badge>
+        </Link>
       )}
     </>
   );
@@ -153,15 +168,19 @@ export default async function ModuleLearnPage({ params }: Props) {
               />
             )}
             {currentModule.type === "notes" && notes && (
-              <ModuleNotes
-                initialCompleted={moduleProgress?.status === "completed"}
-                initialReflection={initialReflection}
-                initialSession={moduleLab?.initialSession ?? null}
-                lab={moduleLab?.lab ?? null}
-                moduleId={moduleId}
-                segments={notes.segments}
-                title={currentModule.title}
-              />
+              <HighlightProvider initialHighlights={initialHighlights} sourceId={moduleId} sourceType="lesson">
+                <ModuleNotes
+                  highlights={initialHighlights}
+                  initialCompleted={moduleProgress?.status === "completed"}
+                  initialNote={initialNote}
+                  initialReflection={initialReflection}
+                  initialSession={moduleLab?.initialSession ?? null}
+                  lab={moduleLab?.lab ?? null}
+                  moduleId={moduleId}
+                  segments={notes.segments}
+                  title={currentModule.title}
+                />
+              </HighlightProvider>
             )}
             {currentModule.type === "assessment" && currentModule.assessment_id && (
               <ModuleAssessment

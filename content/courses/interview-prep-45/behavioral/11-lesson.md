@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 11 — Time Management Story"
+title: "Time Management Story"
 position: 11
 estimated_minutes: 15
 source:
@@ -48,12 +48,3 @@ Result: [what got done, in what order] + [what you learned about your own assump
 | Name the actual reasoning you used to sequence work | Say "I just prioritized" with no method |
 | Show you communicated trade-offs to stakeholders | Silently drop a commitment without telling anyone |
 | Mention confirming an assumption that turned out wrong | Only tell the story where your first instinct was right |
-
-## Today's checklist
-- [ ] Write STAR story about managing competing priorities
-- [ ] Include: How you decided what to do first
-- [ ] Practice: "Tell me about a time you had too much work"
-
-**Revision tasks:**
-- [ ] Review heap implementations
-- [ ] Review background task patterns

@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 27 — Design Logging/Monitoring System"
+title: "Design Logging/Monitoring System"
 position: 27
 estimated_minutes: 60
 source:
@@ -138,12 +138,3 @@ A: Computing aggregate metrics (average latency, p99, request rate) by querying 
 - Tiered retention with progressive downsampling trades old-data resolution for storage cost — recent data needs fine granularity, old data mostly doesn't.
 - Alerting design is fundamentally a trade-off between detection speed and false-positive fatigue — sustained-condition rules and severity tiering are the standard mitigation, not single-sample thresholds.
 - This system reuses the "separate write-optimized ingestion from read-optimized index, accept async lag" pattern seen throughout the course (Twitter search, e-commerce catalog search) — recognize it as a repeat, not a new problem.
-
-## Today's checklist
-
-- [ ] Write functional requirements: collect, search, alert.
-- [ ] Write non-functional requirements: throughput, retention.
-- [ ] Design log aggregation with async ingestion and indexing.
-- [ ] Design metrics collection as a separate time-series-optimized path.
-- [ ] Design the alerting system, including false-positive mitigation.
-- [ ] Discuss Elasticsearch (or equivalent) usage for log search specifically.

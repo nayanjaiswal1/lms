@@ -5,7 +5,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 21 — Weekly Review"
+title: "Checkpoint 3"
 position: 21
 estimated_minutes: 36
 source:
@@ -70,12 +70,3 @@ Same reasoning as Day 14: six systems compress into a handful of reusable decisi
 - Atomic conditional writes (compare-and-swap, unique/exclusion constraints) are the real mechanism behind every "prevent double-booking/double-assignment" answer this week — "use a transaction" alone is an incomplete answer.
 - High-frequency, low-durability-need data (live location, presence) belongs in an in-memory TTL store, separate from the durable system of record.
 - A waiting room sequences excess demand fairly; a rate limiter merely rejects it — know when a system needs the former.
-
-## Today's checklist
-
-- [ ] Uber: review completed and self-check passed.
-- [ ] Spotify: review completed and self-check passed.
-- [ ] Google Docs: review completed and self-check passed.
-- [ ] Airbnb: review completed and self-check passed.
-- [ ] WhatsApp: review completed and self-check passed.
-- [ ] Ticketmaster: review completed and self-check passed.

@@ -550,3 +550,47 @@ export function revisionIntervalDays(scheme: GrowthScheme, base: number, reviewC
 export function revisionSchedulePreview(scheme: GrowthScheme, base: number, steps = 5): number[] {
   return Array.from({ length: steps }, (_, i) => revisionIntervalDays(scheme, base, i));
 }
+
+// ─────────────────────────────────────────────
+// Mirrors backend/internal/mistakes/models.go's category constants and the
+// mistake_entries_category_check DB constraint — keep all three in sync.
+
+export const MISTAKE_CATEGORY = {
+  TENSE:                   "tense",
+  ARTICLE:                 "article",
+  PREPOSITION:             "preposition",
+  SUBJECT_VERB_AGREEMENT:  "subject_verb_agreement",
+  SPELLING:                "spelling",
+  SENTENCE_FRAGMENT:       "sentence_fragment",
+  RUN_ON:                  "run_on",
+  VOCABULARY:              "vocabulary",
+  PUNCTUATION:             "punctuation",
+  OTHER:                   "other",
+} as const;
+export type MistakeCategory = (typeof MISTAKE_CATEGORY)[keyof typeof MISTAKE_CATEGORY];
+
+export const MISTAKE_CATEGORY_OPTIONS = [
+  { label: "Tense",                    value: MISTAKE_CATEGORY.TENSE },
+  { label: "Article",                  value: MISTAKE_CATEGORY.ARTICLE },
+  { label: "Preposition",              value: MISTAKE_CATEGORY.PREPOSITION },
+  { label: "Subject-verb agreement",   value: MISTAKE_CATEGORY.SUBJECT_VERB_AGREEMENT },
+  { label: "Spelling",                 value: MISTAKE_CATEGORY.SPELLING },
+  { label: "Sentence fragment",        value: MISTAKE_CATEGORY.SENTENCE_FRAGMENT },
+  { label: "Run-on sentence",          value: MISTAKE_CATEGORY.RUN_ON },
+  { label: "Vocabulary",               value: MISTAKE_CATEGORY.VOCABULARY },
+  { label: "Punctuation",              value: MISTAKE_CATEGORY.PUNCTUATION },
+  { label: "Other",                    value: MISTAKE_CATEGORY.OTHER },
+] as const;
+
+export const MISTAKE_STATUS_LABEL: Record<string, string> = {
+  new:       "New",
+  recurring: "Recurring",
+  improving: "Improving",
+  resolved:  "Resolved",
+};
+
+export const MISTAKE_TREND_LABEL: Record<string, string> = {
+  worsening: "Worsening",
+  stable:    "Stable",
+  improving: "Improving",
+};

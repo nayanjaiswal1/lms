@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 10 — Virtualization"
+title: "Virtualization"
 position: 13
 estimated_minutes: 30
 source:
@@ -242,12 +242,3 @@ Virtualization isn't free — know the costs an interviewer expects you to name:
 - Overscan trades DOM node count for scroll smoothness — too little flashes blank space, too much defeats the purpose.
 - Virtualization breaks native find-in-page, select-all, and anchor scrolling — call this out unprompted, it's the kind of trade-off senior interviewers want to hear you volunteer.
 - Don't virtualize lists that don't need it — a few hundred simple rows is fine unvirtualized; measure before adding the complexity.
-
-## Today's checklist
-
-- [ ] Read: react-window or react-virtual documentation
-- [ ] Implement: Render large list efficiently
-- [ ] Implement: Variable height list item handling
-- [ ] Understand windowing vs virtualization terminology
-- [ ] Understand overscan and its trade-offs
-- [ ] Be able to name the performance/UX trade-offs of virtualizing a list

@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 20 — Bit Manipulation"
+title: "Bit Manipulation"
 position: 20
-estimated_minutes: 150
+estimated_minutes: 105
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -152,14 +152,3 @@ def missing_number(nums: list[int]) -> int:
 - Fixed-width problems (Reverse Bits) loop a constant 32 times; sparse-bit problems (popcount) should loop only as many times as there are set bits, not 32.
 - XOR-based solutions are safer than sum-based arithmetic tricks in languages with fixed-width overflow, even when both work fine in Python.
 - Always check whether "appears twice except one" (XOR works) vs. "appears three times except one" (XOR alone fails, needs a different technique) before applying the trick.
-
-## Today's checklist
-
-- [ ] Solve Number of 1 Bits (LeetCode 191)
-- [ ] Solve Reverse Bits (LeetCode 190)
-- [ ] Solve Single Number (LeetCode 136)
-- [ ] Solve Missing Number (LeetCode 268)
-- [ ] Implement all four core bit operations (set/clear/toggle/read a bit) from scratch
-- [ ] Practice the XOR properties: a^a=0, a^0=a, commutative, associative
-- [ ] Memorize: XOR a^a = 0, a^0 = a
-- [ ] Review how to count set bits efficiently with n & (n-1)

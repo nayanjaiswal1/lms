@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 15 — Why This Company"
+title: "Why This Company"
 position: 15
 estimated_minutes: 15
 source:
@@ -48,12 +48,3 @@ Timing: I'm looking to move to [company stage/trajectory] because [honest reason
 | Cite something specific you found in research | Say "great culture" or "exciting mission" alone |
 | Pick 3 target companies and do real homework on each | Reuse one generic answer for every company |
 | Connect the reason to your own trajectory | Only talk about the company, never about fit |
-
-## Today's checklist
-- [ ] Research 3 target companies
-- [ ] Write 3 specific reasons for each
-- [ ] Practice: "Why do you want to work at [Company]?"
-
-**Revision tasks:**
-- [ ] Review DP hard problems
-- [ ] Review transactions

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 5 — React Performance Optimization"
+title: "React Performance Optimization"
 position: 8
 estimated_minutes: 30
 source:
@@ -131,12 +131,3 @@ The workflow that answers "how would you optimize a slow app" well in an intervi
 - Memoization has real costs: memory retention, per-render comparison cost, and dependency-array correctness risk (stale closures) — don't apply it by default.
 - React DevTools Profiler tab shows per-commit flamegraphs and "why did this render"; `React.Profiler` gives programmatic timing that works in production.
 - The correct optimization workflow is profile → identify → targeted fix → profile again, never "wrap it in memo and hope."
-
-## Today's checklist
-
-- [ ] Read the React Profiler API documentation
-- [ ] Add `React.memo` to a component and verify it actually skips renders
-- [ ] Use `useMemo` and `useCallback` correctly, paired with a memoized child
-- [ ] Be able to explain: when to use memoization
-- [ ] Be able to explain: the cost of memoization
-- [ ] Practice using the DevTools Performance/Profiler tab on a real component

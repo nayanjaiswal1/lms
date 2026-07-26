@@ -5,7 +5,7 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 21 — Weekly Checkpoint — Week 3 Review"
+title: "Checkpoint 3"
 position: 21
 estimated_minutes: 90
 source:
@@ -73,14 +73,3 @@ Priority order (weak areas first, per the roadmap):
 - DP Hard and Backtracking are the designated weak areas — they get today's first and largest time blocks.
 - Structural differences from a reference solution signal a real gap; re-solve those problems again in 2 days.
 - At 66 problems, most new mediums should map onto a pattern you already know — practice making that mapping explicit before coding.
-
-## Today's checklist
-
-- [ ] DP Hard: 4 problems completed (verify, re-solve weakest)
-- [ ] Backtracking: 8 problems completed (verify, re-solve weakest)
-- [ ] Greedy: 4 problems completed (verify)
-- [ ] DSU: 4 problems completed (verify)
-- [ ] Bit Manipulation: 4 problems completed (verify)
-- [ ] Confirm total: 66 LeetCode problems solved
-- [ ] Focus on weak areas: DP hard, backtracking
-- [ ] Re-solve at least 3 problems without looking at previous solutions

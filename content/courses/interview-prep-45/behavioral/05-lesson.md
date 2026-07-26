@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 5 — Production Failure Story"
+title: "Production Failure Story"
 position: 5
 estimated_minutes: 15
 source:
@@ -49,12 +49,3 @@ Result: [outcome] + [root cause] + [systemic change made afterward]
 | Show mitigate-first, diagnose-second instinct | Describe debugging live in prod as the first move |
 | End with a concrete systemic fix | End with "and I was more careful after that" |
 | Quantify blast radius and recovery time | Leave severity vague |
-
-## Today's checklist
-- [ ] Write STAR story about a production incident
-- [ ] Include: What happened, your role, how you fixed it, what you learned
-- [ ] Practice: "Tell me about a time something went wrong in production"
-
-**Revision tasks:**
-- [ ] Review stack problems
-- [ ] Review PostgreSQL query optimization

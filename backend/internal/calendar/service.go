@@ -326,6 +326,21 @@ func (s *Service) DeleteEvent(ctx context.Context, orgID, eventID, callerID, sco
 	return err
 }
 
+// RestoreEvent un-cancels an event previously removed by DeleteEvent — used
+// to revert an MCP delete_calendar_event call. Reuses the same canMutate
+// check DeleteEvent applies, so a revert is held to the same authorization
+// as the original delete.
+func (s *Service) RestoreEvent(ctx context.Context, orgID, eventID, callerID string) (Event, error) {
+	allowed, err := s.canMutate(ctx, orgID, eventID, callerID)
+	if err != nil {
+		return Event{}, err
+	}
+	if !allowed {
+		return Event{}, ErrForbidden
+	}
+	return s.repo.Restore(ctx, orgID, eventID)
+}
+
 // RSVP sets the caller's own rsvp_status on eventID. Any attendee (owner,
 // editor, or viewer) may change their own RSVP; the UPDATE is scoped to
 // (event_id, user_id) so it can never touch another attendee's row.

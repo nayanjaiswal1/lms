@@ -1,6 +1,7 @@
 .PHONY: dev dev-up dev-down dev-reset migrate migrate-create seed seed-courses backend frontend \
         test-backend lint-frontend build-backend build-frontend docker-build logs psql redis-cli \
-        prod-deploy prod-down prod-logs flowmap-drift
+        prod-deploy prod-down prod-logs flowmap-drift \
+        prod-update prod-backup prod-backup-full prod-restore
 
 # ─── Dev containers ──────────────────────────────────────────────────────────
 
@@ -90,3 +91,15 @@ prod-down:
 
 prod-logs:
 	@docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f
+
+prod-update:
+	@bash scripts/update-prod.sh
+
+prod-backup:
+	@bash scripts/backup-prod.sh incremental
+
+prod-backup-full:
+	@bash scripts/backup-prod.sh full
+
+prod-restore:
+	@bash scripts/restore-prod.sh "$(ts)"

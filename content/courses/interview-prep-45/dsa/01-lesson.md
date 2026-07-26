@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 1 — Arrays and Hashing - Fundamentals"
+title: "Arrays and Hashing - Fundamentals"
 position: 1
-estimated_minutes: 150
+estimated_minutes: 90
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -239,13 +239,3 @@ A one-liner alternative trades early exit for brevity: `return len(nums) != len(
 - Array index access is O(1); insertion/deletion at the front or middle is O(n) due to shifting — don't confuse this with linked-list behavior.
 - "Have I seen this value?" is almost always a hash-set problem in disguise — recognize the pattern fast.
 - Frequency counting (via `Counter` or a manual dict) solves anagram/permutation-comparison problems in O(n).
-
-## Today's checklist
-
-- [ ] Solve Two Sum using the complement hash-map approach
-- [ ] Solve Valid Anagram using frequency counting
-- [ ] Solve Contains Duplicate using a hash set
-- [ ] Implement a hash map from scratch with chaining
-- [ ] Implement a dynamic array with amortized O(1) push
-- [ ] Review Big-O notation for arrays and hash tables
-- [ ] Memorize: hash map lookup is O(1) average, O(n) worst case

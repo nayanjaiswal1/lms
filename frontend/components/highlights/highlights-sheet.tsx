@@ -50,20 +50,38 @@ function HighlightRow({
   }
 
   return (
-    <article className="border-b border-border last:border-0 py-4 flex flex-col gap-3">
+    <article
+      className={cn(
+        "border-b border-border last:border-0 py-4 flex flex-col gap-3 pl-3 -ml-3 border-l-2 border-l-transparent",
+        highlight.saved_for_revision && "border-l-primary",
+      )}
+    >
       {/* Selected text */}
       <blockquote className="text-sm font-medium leading-relaxed text-foreground">
         &ldquo;{highlight.selected_text}&rdquo;
       </blockquote>
 
+      {/* Personal note */}
+      {highlight.note && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <BookmarkCheck aria-hidden className="size-3 text-primary shrink-0" />
+            <span className="text-xs font-medium text-primary">Your note</span>
+          </div>
+          <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">
+            {highlight.note}
+          </p>
+        </div>
+      )}
+
       {/* AI explanation */}
       {highlight.explanation && (
         <div className="ai-surface rounded-lg p-3">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <Sparkles className="size-3 text-ai shrink-0" aria-hidden />
+            <Sparkles aria-hidden className="size-3 text-ai shrink-0" />
             <span className="text-xs font-medium text-ai">AI</span>
             {highlight.explanation.from_cache && (
-              <Badge variant="secondary" className="text-xs h-4 px-1">cached</Badge>
+              <Badge className="text-xs h-4 px-1" variant="secondary">cached</Badge>
             )}
           </div>
           <p className="text-xs leading-relaxed text-foreground">
@@ -84,35 +102,35 @@ function HighlightRow({
           </span>
           {highlight.source_orphaned && (
             <Badge
-              variant="secondary"
-              className="gap-1 text-xs text-muted-foreground"
               aria-label="Source content was deleted"
+              className="gap-1 text-xs text-muted-foreground"
+              variant="secondary"
             >
-              <FileX className="size-3" aria-hidden />
+              <FileX aria-hidden className="size-3" />
               Deleted
             </Badge>
           )}
         </div>
 
         <Button
-          size="sm"
-          variant={highlight.saved_for_revision ? "secondary" : "ghost"}
+          aria-label={
+            highlight.saved_for_revision ? "Remove from revision" : "Save for revision"
+          }
           className={cn(
             "gap-1.5 text-xs h-7 px-2 touch-target",
             highlight.saved_for_revision && "text-primary",
           )}
-          onClick={() => toggle(!highlight.saved_for_revision)}
           disabled={isPending}
-          aria-label={
-            highlight.saved_for_revision ? "Remove from revision" : "Save for revision"
-          }
+          size="sm"
+          variant={highlight.saved_for_revision ? "secondary" : "ghost"}
+          onClick={() => toggle(!highlight.saved_for_revision)}
         >
           {isPending ? (
-            <Loader2 className="size-3 animate-spin" aria-hidden />
+            <Loader2 aria-hidden className="size-3 animate-spin" />
           ) : highlight.saved_for_revision ? (
-            <BookmarkCheck className="size-3" aria-hidden />
+            <BookmarkCheck aria-hidden className="size-3" />
           ) : (
-            <BookmarkPlus className="size-3" aria-hidden />
+            <BookmarkPlus aria-hidden className="size-3" />
           )}
           {highlight.saved_for_revision ? "Saved" : "Save"}
         </Button>
@@ -131,12 +149,12 @@ export function HighlightsSheet({
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <SheetContent side="right" className="w-full sm:w-[400px] flex flex-col p-0">
+      <SheetContent className="w-full sm:w-[400px] flex flex-col p-0" side="right">
         <SheetHeader className="px-5 py-4 border-b border-border shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-base">
               Highlights
-              <Badge variant="secondary" className="ml-2 text-xs">
+              <Badge className="ml-2 text-xs" variant="secondary">
                 {highlights.length}
               </Badge>
             </SheetTitle>
@@ -160,8 +178,8 @@ export function HighlightsSheet({
           ) : (
             highlights.map((h) => (
               <HighlightRow
-                key={h.id}
                 highlight={h}
+                key={h.id}
                 onUpdated={onHighlightUpdated}
               />
             ))

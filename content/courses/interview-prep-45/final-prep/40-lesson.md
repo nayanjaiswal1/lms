@@ -5,7 +5,7 @@ course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
 section_position: 8
-title: "Day 40 — Company-Specific Preparation"
+title: "Company-Specific Preparation"
 position: 40
 estimated_minutes: 240
 source:
@@ -62,14 +62,3 @@ Two designs today, but the focus is different from Day 38 — **clarity and cont
 - Every one of your 10 STAR stories should be interview-ready cold, at random, under 2 minutes — that's the actual bar, not "I know roughly what I'd say."
 - Prepare more closing questions than you'll need; some get answered organically during the interview.
 - "Why this company" only works if it's specific enough that it would fail as an answer for a different company.
-
-## Today's checklist
-
-- [ ] Research 3 target companies — engineering blog, tech stack, recent news, product itself, interview reports
-- [ ] Write a tailored system design angle for each company's domain
-- [ ] Prepare 2 company-specific questions per company
-- [ ] Design 2 systems with zero silence over 5 seconds
-- [ ] Practice narrating transitions between design steps
-- [ ] Deliver all 10 STAR stories with perfect 2-minute timing
-- [ ] Confirm company-specific "why us" / "why this role" answers for all 3 targets
-- [ ] Finalize your list of questions to ask

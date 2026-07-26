@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 24 — Interval Problems"
+title: "Interval Problems"
 position: 24
-estimated_minutes: 150
+estimated_minutes: 105
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -195,14 +195,3 @@ def findMinArrowShots(points: list[list[int]]) -> int:
 - Greedy interval scheduling (sort by end, keep the earliest-finishing non-conflicting interval) is provably optimal via an exchange argument — be ready to explain why, not just recite the algorithm.
 - Meeting Rooms I asks yes/no (any overlap); Meeting Rooms II asks a count (min rooms needed) — recognizing which one you're solving prevents over- or under-engineering the solution.
 - Watch the boundary convention (`<` vs `<=`) at every overlap check — touching endpoints are a frequent off-by-one trap across every problem in this category.
-
-## Today's checklist
-
-- [ ] Explain when to sort by start vs by end, with a reason for each
-- [ ] Solve Merge Intervals (LeetCode 56)
-- [ ] Solve Insert Interval (LeetCode 57)
-- [ ] Solve Meeting Rooms (LeetCode 252)
-- [ ] Solve Minimum Number of Arrows to Burst Balloons (LeetCode 452)
-- [ ] Implement merge intervals cleanly from memory, no notes
-- [ ] Practice the start-vs-end interval comparison logic until it's automatic
-- [ ] Review: the difference between Meeting Rooms I and II

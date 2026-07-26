@@ -1,11 +1,14 @@
 import { Fragment } from "react";
 import type { Segment } from "@/lib/courses/markdown";
 import type { GetSessionResponse, Lab } from "@/lib/labs";
+import type { Highlight } from "@/lib/server/highlights";
+import { markHighlightsInHtml } from "@/lib/highlights/mark-html";
 import { LessonCodeRunner } from "@/components/courses/lesson-code-runner";
 import { LessonSqlRunner } from "@/components/courses/lesson-sql-runner";
 import { LessonSqlChallenge } from "@/components/courses/lesson-sql-challenge";
 import { LessonKnowledgeCheck } from "@/components/courses/lesson-knowledge-check";
 import { LessonReflection } from "@/components/courses/lesson-reflection";
+import { LessonNotes } from "@/components/courses/lesson-notes";
 import { LessonFigure } from "@/components/courses/lesson-figure";
 import { LessonHtml } from "@/components/courses/lesson-html";
 import { ModuleCompleteButton } from "@/components/courses/module-complete-button";
@@ -20,8 +23,10 @@ interface ModuleNotesProps {
   segments: Segment[];
   initialCompleted: boolean;
   initialReflection: string | null;
+  initialNote: string | null;
   lab?: Lab | null;
   initialSession?: GetSessionResponse | null;
+  highlights?: Highlight[];
 }
 
 export function ModuleNotes({
@@ -30,8 +35,10 @@ export function ModuleNotes({
   segments,
   initialCompleted,
   initialReflection,
+  initialNote,
   lab = null,
   initialSession = null,
+  highlights = [],
 }: ModuleNotesProps) {
   const firstLabTaskIndex = segments.findIndex((s) => s.type === "lab-task");
 
@@ -40,7 +47,13 @@ export function ModuleNotes({
       {segments.map((segment, index) => {
         switch (segment.type) {
           case "html":
-            return <LessonHtml html={segment.html} key={index} />;
+            return (
+              <LessonHtml
+                html={markHighlightsInHtml(segment.html, highlights, index)}
+                key={index}
+                segmentIndex={index}
+              />
+            );
           case "code":
             // Runnable languages get the in-page code runner (feature 2);
             // anything else stays a static block.
@@ -99,7 +112,8 @@ export function ModuleNotes({
           it a third time here was pure duplication. Kept for screen readers
           and document outline. */}
       <h2 className="sr-only">{title}</h2>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <LessonNotes initialContent={initialNote} moduleId={moduleId} />
         {/* At xl+ this button moves into the ModuleProgressRail instead. */}
         <ModuleCompleteButton className="xl:hidden" initialCompleted={initialCompleted} moduleId={moduleId} />
       </div>

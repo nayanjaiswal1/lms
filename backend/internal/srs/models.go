@@ -7,6 +7,7 @@ type Card struct {
 	ID             string     `json:"id"`
 	UserID         string     `json:"user_id"`
 	QuestionID     *string    `json:"question_id,omitempty"`
+	MistakeEntryID *string    `json:"mistake_entry_id,omitempty"`
 	Front          string     `json:"front"`
 	Back           string     `json:"back"`
 	SourceType     string     `json:"source_type"`
@@ -45,8 +46,9 @@ type DueCardsResponse struct {
 
 // CreateCardRequest is the body for POST /api/srs/cards.
 type CreateCardRequest struct {
-	QuestionID *string `json:"question_id,omitempty"`
-	Front      string  `json:"front"`
-	Back       string  `json:"back"`
-	SourceType string  `json:"source_type"`
+	QuestionID     *string `json:"question_id,omitempty"`
+	MistakeEntryID *string `json:"mistake_entry_id,omitempty"`
+	Front          string  `json:"front"`
+	Back           string  `json:"back"`
+	SourceType     string  `json:"source_type"`
 }

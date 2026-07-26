@@ -1,6 +1,11 @@
 package srs
 
-import "math"
+import (
+	"context"
+	"fmt"
+	"math"
+	"time"
+)
 
 // SM2 applies the SM-2 spaced-repetition algorithm and returns the new
 // scheduling values to persist on the card.
@@ -61,4 +66,29 @@ func SM2(intervalDays, repetitions int, easeFactor float64, quality int) (newInt
 		newEF = easeFactor + 0.1
 		return newInterval, newReps, newEF
 	}
+}
+
+// ReviewCard runs the SM-2 algorithm against a card's current scheduling
+// state, persists the result, and returns the new schedule. Shared by the
+// HTTP handler (POST /api/srs/review) and the MCP mark_revision_result tool
+// so both paths reschedule identically without one calling the other over
+// HTTP.
+func ReviewCard(ctx context.Context, repo *Repo, userID, cardID string, quality int) (ReviewResult, error) {
+	card, err := repo.GetCard(ctx, cardID, userID)
+	if err != nil {
+		return ReviewResult{}, err
+	}
+
+	newInterval, newReps, newEF := SM2(card.IntervalDays, card.Repetitions, card.EaseFactor, quality)
+	nextDue := time.Now().AddDate(0, 0, newInterval).Format("2006-01-02")
+
+	if err := repo.UpdateCardAfterReview(ctx, card.ID, newInterval, newReps, newEF, nextDue); err != nil {
+		return ReviewResult{}, fmt.Errorf("srs: review card: %w", err)
+	}
+
+	return ReviewResult{
+		NextDue:      nextDue,
+		IntervalDays: newInterval,
+		EaseFactor:   newEF,
+	}, nil
 }

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 25 — WebSocket Systems"
+title: "WebSocket Systems"
 position: 25
 estimated_minutes: 45
 source:
@@ -229,11 +229,3 @@ This single-process version is what you'd write in a 45-minute interview. Say ou
 - Use ping/pong heartbeats to detect half-dead connections the OS hasn't noticed yet, and bound per-connection send queues to handle slow clients.
 - Scaling past one process requires a shared pub/sub layer (Redis or Kafka) because a socket lives on exactly one server instance — that's the answer interviewers are fishing for.
 - Connection count, not CPU, is usually the WebSocket server's bottleneck.
-
-## Today's checklist
-
-- [ ] Read up on the WebSocket protocol and the HTTP upgrade handshake
-- [ ] Implement a FastAPI WebSocket endpoint
-- [ ] Implement connection management (registry, cleanup on disconnect)
-- [ ] Be able to answer: how do you handle WebSocket failures, how do you scale WebSockets
-- [ ] Build a real-time chat app with rooms and broadcast

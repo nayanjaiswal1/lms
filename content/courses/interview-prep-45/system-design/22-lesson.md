@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 22 — Design YouTube"
+title: "Design YouTube"
 position: 22
 estimated_minutes: 60
 source:
@@ -118,12 +118,3 @@ A: Keep the raw event ingestion path fast and unfiltered (every `/videos/{id}/vi
 - "Up next" and home-feed recommendations are two separate candidate-generation queries (co-watch vs. personal history) against the same offline ML pipeline and event stream, not two separate systems.
 - View counts need an asynchronous fraud-detection layer between raw ingestion and the publicly displayed number — never trust and display a client-fired event directly.
 - When a follow-up says "how is this different from a similar system you already designed," the strongest answer names the specific scale/predictability difference driving the divergence, not just "it's bigger."
-
-## Today's checklist
-
-- [ ] Write functional requirements: upload, stream, recommendations.
-- [ ] Write non-functional requirements: buffering, quality.
-- [ ] Design the video transcoding pipeline as an elastic, job-queue-backed system.
-- [ ] Design recommendation engine basics (up next vs. home feed).
-- [ ] Explain how the design handles millions of views on a single spiking video.
-- [ ] Discuss CDN strategy and how it differs from a curated-catalog system like Netflix.

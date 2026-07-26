@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 21 — Weekly Review"
+title: "Checkpoint 3"
 position: 21
 estimated_minutes: 27
 source:
@@ -21,41 +21,41 @@ Don't re-read the lessons passively — that produces false confidence. For each
 2. **Answer the interview questions out loud**, as if a person asked them. Silently "knowing" the answer and being able to say it fluently under time pressure are different skills — this is the one interviews actually test.
 3. **Re-read only the lesson sections tied to what you flagged in step 1.** Don't re-read everything; that's how a review session eats your whole day and teaches you nothing new.
 
-## Self-check: PostgreSQL Transactions (Day 15)
+## Self-check: PostgreSQL Transactions
 
 - Recall the four ACID properties and which failure mode each one addresses.
 - Explain, without looking, why Postgres never produces a dirty read (MVCC — readers see committed snapshots only).
 - State the difference between Read Committed and Serializable, including what happens when Serializable detects a conflict.
 - Recall why `select_for_update()` plus sorted lock ordering avoids deadlocks in the bank transfer example.
 
-## Self-check: Redis Advanced Patterns (Day 16)
+## Self-check: Redis Advanced Patterns
 
 - Explain why a sorted set fits a leaderboard (skip list + hash table → ordered scan and O(1) lookup).
 - State the one-sentence difference between streams and pub/sub (persistence and replay vs. fire-and-forget).
 - Recall RDB vs AOF trade-offs and why production systems often run both.
 - Rebuild the sliding-window rate limiter logic from memory: what does the sorted set store, and why prune before counting?
 
-## Self-check: Distributed Systems Basics (Day 17)
+## Self-check: Distributed Systems Basics
 
 - State CAP precisely: it's a forced choice only *during a partition*, and it's CP vs AP, not "pick two" in general.
 - Explain eventual consistency and the read-your-own-writes problem it creates.
 - Recall why `SET NX PX` must be one atomic command, and why lock release needs a token check.
 - Explain why full jitter beats fixed exponential backoff under contention.
 
-## Self-check: Message Queues / Kafka (Day 18)
+## Self-check: Message Queues / Kafka
 
 - State what Kafka guarantees about ordering (within a partition only) and why keying by entity ID is the standard pattern.
 - Explain what bounds consumer parallelism within a consumer group (partition count).
 - Recall the two-layer defense against duplicate processing (idempotent producer + idempotent consumer).
 
-## Self-check: Celery Deep Dive (Day 19)
+## Self-check: Celery Deep Dive
 
 - Explain how Celery routing simulates "priority" on a Redis broker (separate queues, not a priority field).
 - State the difference between `chain` and `chord`, and why a chord needs a result backend.
 - Recall the two settings that protect against a task that runs too long and a worker that crashes mid-task (`task_soft_time_limit`, `acks_late`).
 - Explain why broker and result backend are conceptually separate even when both point at Redis.
 
-## Self-check: Distributed Locks (Day 20)
+## Self-check: Distributed Locks
 
 - Explain the core weakness of any TTL-based lock (a paused holder can't know its lock expired before it's too late).
 - State what Redlock adds over a single-instance lock (quorum across N independent instances) and what it does *not* solve by default (the fencing token problem).
@@ -74,15 +74,3 @@ Before moving into Days 22-28 (Django ORM, FastAPI, security, WebSockets, async 
 - A review day's value comes from recall-under-pressure practice, not re-reading — treat each self-check like a live interview question.
 - Track every gap you find in step 1; those are your actual study list for the next pass, not the full lesson set.
 - Week 4 shifts from distributed-systems infrastructure to framework-specific backend work — make sure this week's concepts (transactions, locks, queues) are solid before that context switch.
-
-## Today's checklist
-
-- [ ] PostgreSQL Transactions: reviewed and self-tested
-- [ ] Redis Advanced: reviewed and self-tested
-- [ ] Distributed Systems: reviewed and self-tested
-- [ ] Kafka: reviewed and self-tested
-- [ ] Celery Deep Dive: reviewed and self-tested
-- [ ] Distributed Locks: reviewed and self-tested
-- [ ] Complete remaining DSA topics
-- [ ] Add more system designs
-- [ ] Start frontend deep dives

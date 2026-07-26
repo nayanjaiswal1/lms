@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 18 — Design Airbnb"
+title: "Design Airbnb"
 position: 18
 estimated_minutes: 60
 source:
@@ -151,12 +151,3 @@ A: This is exactly what a dedicated search engine is for — Elasticsearch (or s
 - Model availability sparsely (blocked dates only), not as a dense calendar table — it scales with actual usage, not catalog size × days.
 - Idempotency keys on payment requests prevent double-charging on client retries — a pattern that recurs across nearly every payment-adjacent system design question.
 - Double-blind review reveal is a concrete, nameable mechanism for review integrity — worth citing directly if asked.
-
-## Today's checklist
-
-- [ ] Define functional requirements: listings, booking, search
-- [ ] Define non-functional requirements: availability, consistency
-- [ ] Design booking system with date locking
-- [ ] Design search with filters
-- [ ] Handle payments
-- [ ] Discuss review system

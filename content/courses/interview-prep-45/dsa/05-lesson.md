@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 5 — Stacks"
+title: "Stacks"
 position: 5
-estimated_minutes: 150
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -243,14 +243,3 @@ class MinStack:
 - A monotonic stack resolves "next greater/smaller element" for every element in a single O(n) pass by only pushing/popping each index once.
 - Largest Rectangle in Histogram is the monotonic stack pattern's hardest common application — the width formula (`i - stack[-1] - 1`) is the detail to memorize.
 - Min Stack achieves O(1) min by storing the running minimum alongside each pushed value, not by recomputing it.
-
-## Today's checklist
-
-- [ ] Solve Valid Parentheses using a stack of expected closers
-- [ ] Solve Daily Temperatures using a monotonic decreasing stack
-- [ ] Solve Largest Rectangle in Histogram using the monotonic stack + sentinel trick
-- [ ] Solve Min Stack with O(1) min retrieval
-- [ ] Implement a stack using a linked list
-- [ ] Practice the monotonic stack template
-- [ ] Memorize: monotonic stack solves next greater/smaller problems
-- [ ] Review: when to use stack over recursion

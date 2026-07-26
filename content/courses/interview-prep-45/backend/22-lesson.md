@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 22 — Django ORM Querysets"
+title: "Django ORM Querysets"
 position: 22
 estimated_minutes: 45
 source:
@@ -155,11 +155,3 @@ If the view also needs each book's tags (`ManyToMany`), add `.prefetch_related("
 - `bulk_create` skips `save()` and signals, needs `batch_size` for large inserts, and needs `update_conflicts` for upsert behavior.
 - N+1 queries hide inside template/serializer loops that access a related object per row — diagnose with query counting, don't guess.
 - Nested prefetching (`prefetch_related("reviews__reviewer")`) and combining `select_related` with `prefetch_related` handle multi-level relation graphs in a bounded number of queries.
-
-## Today's checklist
-
-- [ ] Read Django queryset internals (lazy evaluation, caching)
-- [ ] Implement custom queryset methods
-- [ ] Implement a manager with custom methods
-- [ ] Answer: select_related vs prefetch_related, and how bulk_create works
-- [ ] Optimize an N+1 query in existing project code

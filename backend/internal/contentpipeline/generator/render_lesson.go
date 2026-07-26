@@ -62,7 +62,7 @@ func renderLesson(out *strings.Builder, courseID, sectionID string, lesson *cano
 	}
 
 	fmt.Fprintf(out,
-		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)\nVALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();\n\n",
+		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)\nVALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();\n\n",
 		sqlString(moduleID), sqlString(courseID), sqlString(sectionID),
 		sqlString(lesson.Title), sqlString(moduleType), sqlInt(lesson.Position),
 		dollarQuote("md", lesson.Body), sqlInt(estMinutes), knowledgeCheckJSON,

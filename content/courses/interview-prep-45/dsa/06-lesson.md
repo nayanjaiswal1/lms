@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 6 — Trees - Basics"
+title: "Trees - Basics"
 position: 6
-estimated_minutes: 150
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -69,7 +69,7 @@ The list-concatenation versions above are readable but build intermediate lists;
 
 ## Recursive vs iterative traversal
 
-Every DFS traversal has an iterative form using an explicit stack (see Day 5's stack-vs-recursion section). The tricky one is inorder, because you can't just push both children like preorder — you have to go all the way left first, then process, then go right:
+Every DFS traversal has an iterative form using an explicit stack (see the stack-vs-recursion section). The tricky one is inorder, because you can't just push both children like preorder — you have to go all the way left first, then process, then go right:
 
 ```python
 def inorder_iterative(root):
@@ -244,14 +244,3 @@ def level_order_traversal(root):
 - Iterative inorder needs an explicit stack plus a "current node" pointer, because you must descend fully left before processing anything.
 - Height-balance checks should compute height and balance in one bottom-up pass (O(n)), not recompute height at every node (O(n²)).
 - Most binary-tree problems are a direct recursive translation of "do this for the node, combining results from left and right" — identify whether it's pre/in/postorder shaped before coding.
-
-## Today's checklist
-
-- [ ] Solve Invert Binary Tree
-- [ ] Solve Maximum Depth of Binary Tree
-- [ ] Solve Same Tree
-- [ ] Solve Binary Tree Level Order Traversal
-- [ ] Implement a tree node class
-- [ ] Implement all four traversals iteratively and recursively
-- [ ] Memorize: DFS uses stack or recursion, BFS uses queue
-- [ ] Review: when to use preorder vs inorder vs postorder

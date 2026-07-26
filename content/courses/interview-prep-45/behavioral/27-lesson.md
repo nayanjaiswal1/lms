@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 27 — Feedback Story"
+title: "Feedback Story"
 position: 27
 estimated_minutes: 15
 source:
@@ -46,12 +46,3 @@ Result: [evidence the change stuck] — ideally confirmed by someone else, unpro
 | Pick feedback that genuinely stung | Pick a disguised brag as your "hard feedback" |
 | Show you didn't get defensive in the moment | Argue the point in your retelling of the story |
 | Give evidence the change actually stuck | Say "I took it to heart" with nothing concrete after |
-
-## Today's checklist
-- [ ] Write story about receiving difficult feedback
-- [ ] Include: How you reacted, what you changed
-- [ ] Practice: "Tell me about receiving feedback"
-
-**Revision tasks:**
-- Review design patterns
-- Review testing

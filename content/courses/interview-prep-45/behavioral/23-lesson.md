@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 23 — Mentorship Story"
+title: "Mentorship Story"
 position: 23
 estimated_minutes: 15
 source:
@@ -46,12 +46,3 @@ Result: [concrete change in their capability] + [evidence it stuck without you]
 | Name a specific before/after in their skill | Say "I helped them a lot" with no specifics |
 | Show a method that builds independence, not dependence | Describe just doing the work for them |
 | End with evidence the growth stuck after you stepped back | End at "they were grateful" |
-
-## Today's checklist
-- [ ] Write story about mentoring someone
-- [ ] Include: What you taught, how you helped them grow
-- [ ] Practice: "Tell me about mentoring someone"
-
-**Revision tasks:**
-- [ ] Review sliding window advanced
-- [ ] Review FastAPI DI

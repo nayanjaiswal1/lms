@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 1 — URL Shortener"
+title: "URL Shortener"
 position: 1
 estimated_minutes: 60
 source:
@@ -149,11 +149,3 @@ A: Store `expires_at`, check it on cache miss during read (lazy expiration), and
 - Cache-aside with async click tracking keeps the hot redirect path fast and decoupled from analytics writes.
 - 302 redirects preserve click tracking and flexibility; 301 is faster but loses both.
 - A Key Generation Service removes uniqueness checks from the write path entirely.
-
-## Today's checklist
-- [ ] Define functional requirements: redirect, create short URL, custom aliases
-- [ ] Define non-functional requirements: high availability, low latency, redirect speed
-- [ ] Design database schema: URL table with original_url, short_code, click_count, created_at
-- [ ] Design API endpoints: POST /shorten, GET /{short_code}, GET /{short_code}/stats
-- [ ] Discuss hash function choices: base-62 encoding vs random ID
-- [ ] Analyze read vs write ratio implications

@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 3 — Notification Service"
+title: "Notification Service"
 position: 3
 estimated_minutes: 60
 source:
@@ -162,11 +162,3 @@ A: Add a rate-limit/dedupe layer keyed by `(user_id, notification_type)` with a 
 - Exponential backoff with jitter plus a dead-letter queue is the standard retry pattern — cap retries, don't loop forever.
 - At-least-once delivery + idempotency keys is the realistic target; true exactly-once across a third-party provider isn't achievable.
 - Separate worker pools per channel/provider isolate failures — one dead SMS gateway shouldn't stall email.
-
-## Today's checklist
-- [ ] Define functional requirements: send email, SMS, push notifications
-- [ ] Define non-functional requirements: reliability, ordering, retry logic
-- [ ] Design message queue architecture
-- [ ] Discuss notification templates
-- [ ] Handle delivery failures and retries
-- [ ] Design for scale: millions of notifications

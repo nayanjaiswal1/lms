@@ -3,9 +3,9 @@ kind: quiz
 id_key: interview-prep-45/quiz-week-6
 course: interview-prep-45
 section: checkpoints
-section_title: "Weekly Checkpoints"
+section_title: "Checkpoint Quizzes"
 section_position: 6
-title: "Week 6 Checkpoint Quiz — Final Readiness"
+title: "Checkpoint Quiz 6 — Final Readiness"
 position: 6
 estimated_minutes: 20
 source:
@@ -72,7 +72,7 @@ questions:
       - text: "Join exactly on time — early looks desperate"
       - text: "Keep a solutions cheat-sheet open on a second monitor"
       - text: "Prepare nothing; spontaneity shows confidence"
-    explanation: "Day 41's logistics pass removes every controllable failure mode. A dead mic or dying laptop costs composure in the minutes that matter most — and composure is half the interview."
+    explanation: "A logistics pass before interviews start removes every controllable failure mode. A dead mic or dying laptop costs composure in the minutes that matter most — and composure is half the interview."
   - id_key: interview-prep-45/quiz-week-6/q6
     type: mcq
     difficulty: advanced

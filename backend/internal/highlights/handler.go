@@ -57,6 +57,10 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
 			"selected_text": "must not exceed 2000 characters",
 		})
+	case errors.Is(err, ErrNoteTooLong):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"note": "must not exceed 1000 characters",
+		})
 	case errors.Is(err, ErrAIUnavailable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "AI provider is not configured.")
 	default:
@@ -119,7 +123,7 @@ func (h *Handler) ToggleRevision(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	highlight, err := h.service.ToggleRevision(r.Context(), claims.UserID, highlightID, req.SaveForRevision)
+	highlight, err := h.service.ToggleRevision(r.Context(), claims.UserID, highlightID, req.SaveForRevision, req.Note)
 	if err != nil {
 		writeDomainError(w, err)
 		return

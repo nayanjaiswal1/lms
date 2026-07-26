@@ -7,9 +7,13 @@ import (
 	"github.com/mindforge/backend/internal/config"
 )
 
-// Router mounts the calendar HTTP API.
+// Router mounts the calendar HTTP API. Service is exported so other domains
+// that need to act on a user's calendar (e.g. mcpconnect's calendar tools)
+// share this exact instance instead of constructing a second repo/service
+// pair — same pattern as mentoring.Router.Service.
 type Router struct {
 	handler *Handler
+	Service *Service
 }
 
 // New wires the calendar package's repo/service/handler dependency graph.
@@ -19,7 +23,7 @@ type Router struct {
 func New(pool *pgxpool.Pool, authzSvc *authz.Service, cfg *config.Config) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo, authzSvc)
-	return &Router{handler: &Handler{service: service, cfg: cfg}}
+	return &Router{handler: &Handler{service: service, cfg: cfg}, Service: service}
 }
 
 // RegisterRoutes mounts the authenticated calendar API onto r. Caller has

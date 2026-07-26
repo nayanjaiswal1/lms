@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 15 — PostgreSQL Transactions"
+title: "PostgreSQL Transactions"
 position: 15
 estimated_minutes: 45
 source:
@@ -177,11 +177,3 @@ Read Committed re-takes a snapshot before every statement, so it can see other t
 - `select_for_update()` plus a consistent lock-acquisition order is the standard defense against deadlocks in multi-row transactions.
 - `F()` expressions push read-modify-write arithmetic into the database, closing races that a Python-side `balance += amount` would leave open.
 - Serializable isolation doesn't prevent conflicts — it detects them and forces a retry; your app code must handle `OperationalError`/serialization failures.
-
-## Today's checklist
-
-- [ ] Read the Postgres transaction isolation levels documentation
-- [ ] Reproduce a dirty read attempt and a non-repeatable read across two sessions
-- [ ] Use a savepoint inside a transaction and roll back to it
-- [ ] Answer: what is ACID, and READ COMMITTED vs SERIALIZABLE
-- [ ] Write transaction handling for the bank transfer scenario

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 20 — Build Tools and Bundling"
+title: "Build Tools and Bundling"
 position: 23
 estimated_minutes: 30
 source:
@@ -213,12 +213,3 @@ Fast Refresh preserves state when it can safely re-run just the function body an
 - Module resolution checks relative paths directly, then walks up `node_modules` for bare specifiers, reading `package.json` `exports`/`main` to find the real entry file.
 - Tree shaking requires static ES module syntax; CommonJS and namespace imports (`import * as`) both defeat it because usage becomes dynamically unprovable.
 - HMR sends only the changed module over a persistent WebSocket connection; React Fast Refresh preserves component state only when hook call order is provably unchanged.
-
-## Today's checklist
-
-- [ ] Read: How bundlers work (Webpack, Vite, esbuild)
-- [ ] Implement: Simple bundler
-- [ ] Implement: Babel-style AST transform
-- [ ] Explain module resolution
-- [ ] Explain tree shaking mechanism
-- [ ] Explain hot module replacement

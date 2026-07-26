@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 13 — Design Netflix"
+title: "Design Netflix"
 position: 13
 estimated_minutes: 60
 source:
@@ -123,12 +123,3 @@ A: Layer real-time signal on top of the batch-computed base recommendations rath
 - Predictive, off-peak CDN pre-positioning turns "serve millions of concurrent viewers" into a cache-hit problem instead of a real-time origin-fetch problem.
 - Recommendations are an offline batch ML pipeline with a cached serving layer, optionally topped with a lightweight real-time re-rank — never computed fully live per request.
 - This system explicitly favors availability over consistency (playback must never block on watch-progress sync) — know when to state that trade-off out loud.
-
-## Today's checklist
-
-- [ ] Write functional requirements: streaming, recommendations.
-- [ ] Write non-functional requirements: buffering, quality adaptation.
-- [ ] Design the video encoding pipeline (variants, batch processing).
-- [ ] Design the CDN strategy for global low-latency delivery.
-- [ ] Sketch recommendation system basics (offline model, cached serving).
-- [ ] Discuss the availability-over-consistency trade-off for this system.

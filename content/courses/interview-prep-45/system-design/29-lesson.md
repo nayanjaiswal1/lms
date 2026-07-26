@@ -2,11 +2,11 @@
 kind: lesson
 id_key: interview-prep-45/day-27
 course: interview-prep-45
-section: dsa
-section_title: "DSA — Data Structures & Algorithms"
-section_position: 1
-title: "Day 27 — Design Patterns"
-position: 27
+section: system-design
+section_title: "System Design"
+section_position: 2
+title: "Design Patterns (LLD)"
+position: 29
 estimated_minutes: 150
 source:
     - 45-day-interview-roadmap.md
@@ -324,13 +324,3 @@ class LRUCache:
 - O(1) win detection in Tic-Tac-Toe comes from maintaining running row/column/diagonal counters instead of rescanning the board.
 - A hash map from scratch is buckets (array) + chaining (list of pairs per bucket) + a hash function — the same idea as language-builtin dicts, just without dynamic resizing unless you implement it.
 - LRU Cache's O(1) get/put requires combining a hash map (O(1) lookup) with a doubly linked list (O(1) reordering) — sentinel head/tail nodes eliminate edge-case null checks and are worth using by default in linked-list-heavy design problems.
-
-## Today's checklist
-
-- [ ] Explain what problem each pattern solves: Singleton, Factory, Observer, Strategy, Repository, Builder
-- [ ] Implement Singleton (thread-safe version) as a coding exercise
-- [ ] Solve Design Tic-Tac-Toe (LeetCode 348)
-- [ ] Solve Design HashMap (LeetCode 706)
-- [ ] Solve LRU Cache (LeetCode 146)
-- [ ] Implement LRU cache with hash map + doubly linked list, from memory, no `OrderedDict`
-- [ ] Practice explaining design choices and trade-offs out loud, not just describing the code

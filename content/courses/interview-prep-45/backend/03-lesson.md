@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 3 — FastAPI ASGI and Async"
+title: "FastAPI ASGI and Async"
 position: 3
 estimated_minutes: 45
 source:
@@ -113,7 +113,7 @@ failed = [r for r in results if isinstance(r, Exception)]
 
 ## Background tasks for fire-and-forget work
 
-For work that shouldn't block the response but doesn't need a full task queue (see Day 8's Celery lesson for heavier jobs):
+For work that shouldn't block the response but doesn't need a full task queue (see the Celery lesson for heavier jobs):
 
 ```python
 from fastapi import BackgroundTasks
@@ -162,12 +162,3 @@ Run both against the same set of URLs with artificial latency (e.g. `httpbin.org
 - `asyncio.gather` turns `sum(latency)` into `max(latency)` for independent I/O calls — quote real numbers when explaining the win.
 - `return_exceptions=True` on `gather` is how you avoid one failed call aborting a whole batch.
 - `BackgroundTasks` is in-process and non-durable — for anything that must survive a worker crash, use a real queue (Celery/RQ), not `BackgroundTasks`.
-
-## Today's checklist
-
-- [ ] Read: ASGI vs WSGI difference
-- [ ] Implement: async endpoint with a background task
-- [ ] Implement: measure the difference between a sync and async function
-- [ ] Build endpoint that fetches from 3 APIs concurrently using `asyncio.gather`
-- [ ] Implement proper error handling in an async context
-- [ ] Be ready to answer: what is the difference between async and await? How does FastAPI handle concurrency?

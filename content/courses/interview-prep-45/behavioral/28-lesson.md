@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 28 — Ownership Story"
+title: "Ownership Story"
 position: 28
 estimated_minutes: 15
 source:
@@ -44,12 +44,3 @@ Result: [the outcome] + [a decision you were accountable for that a non-owner wo
 | Show the project started genuinely undefined | Describe a well-specified ticket as "ownership" |
 | Name a real decision you made without escalating | Make every choice sound pre-approved by someone else |
 | Show you communicated status without being asked | Wait for the interviewer to ask how you kept people informed |
-
-## Today's checklist
-- [ ] Write story about owning a project end-to-end
-- [ ] Include: What you were responsible for, outcomes
-- [ ] Practice: "Tell me about a project you owned"
-
-**Revision tasks:**
-- Review database design
-- Review migrations

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 9 — REST API Design"
+title: "REST API Design"
 position: 9
 estimated_minutes: 45
 source:
@@ -79,7 +79,7 @@ The nesting choice (`/posts/{id}/comments` vs a flat `/comments?post_id={id}`) i
 | `PUT` | Replace a resource entirely at a known URL | Yes | Full resource — omitted fields should be cleared/defaulted |
 | `PATCH` | Partially update a resource | Not guaranteed, but typically implemented as idempotent | Only the fields to change |
 
-**Idempotent** means calling it N times has the same effect as calling it once. `PUT /posts/7` with the same body twice leaves the post in the same state both times — idempotent. `POST /posts` called twice creates two posts — not idempotent. This distinction matters operationally: idempotent methods are safe to blindly retry on a network timeout (you don't know if the first request succeeded, but retrying is harmless); non-idempotent ones need an idempotency key if you want retry-safety (see Day 8's Celery idempotency section for the same pattern applied to background jobs).
+**Idempotent** means calling it N times has the same effect as calling it once. `PUT /posts/7` with the same body twice leaves the post in the same state both times — idempotent. `POST /posts` called twice creates two posts — not idempotent. This distinction matters operationally: idempotent methods are safe to blindly retry on a network timeout (you don't know if the first request succeeded, but retrying is harmless); non-idempotent ones need an idempotency key if you want retry-safety (see the Celery idempotency section for the same pattern applied to background jobs).
 
 ```python
 @app.patch("/posts/{post_id}", response_model=Post)
@@ -140,11 +140,3 @@ Briefly: URL versioning (`/v1/posts`), header versioning (`Accept: application/v
 - Idempotency is what makes a method safe to retry blindly on a timeout — non-idempotent operations need an explicit idempotency key for that safety.
 - `exclude_unset=True` (or the equivalent in your framework) is what makes a PATCH endpoint genuinely partial instead of silently defaulting unset fields.
 - Cursor pagination scales and stays consistent under concurrent writes; offset pagination is simpler but degrades and can skip/duplicate rows at scale — know which one to reach for and why.
-
-## Today's checklist
-
-- [ ] Read: REST best practices (Richardson Maturity Model)
-- [ ] Design an API for a resource with full CRUD
-- [ ] Add pagination, filtering, and sorting to an endpoint
-- [ ] Design an API for a blog system with posts, comments, likes
-- [ ] Be ready to answer: when to use POST vs PUT vs PATCH? How would you version an API?

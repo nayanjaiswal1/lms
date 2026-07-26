@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 28 — Animation"
+title: "Animation"
 position: 31
 estimated_minutes: 30
 source:
@@ -235,12 +235,3 @@ The interview-ready framing: reach for CSS first (cheapest, most performant, zer
 - `useMotionValue`/`useTransform` update the DOM directly without going through React's render cycle, which is why drag interactions don't re-render on every pixel of movement.
 - The `layout` prop implements FLIP (First-Last-Invert-Play) automatically, animating real layout changes using only compositor-friendly transforms.
 - Respect `prefers-reduced-motion` via `useReducedMotion`/the media query — keep opacity fades, drop translation/scale/parallax; auto-playing looped animations need a pause control per WCAG.
-
-## Today's checklist
-
-- [ ] Read: CSS animations vs JS animations
-- [ ] Implement: Framer Motion animations
-- [ ] Implement: Complex gesture animations
-- [ ] Understand performance considerations (transform/opacity, will-change, FLIP)
-- [ ] Understand accessibility concerns (`prefers-reduced-motion`, pause controls)
-- [ ] Compare CSS, Framer Motion, React Spring, and GSAP trade-offs

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
 section_position: 4
-title: "Day 21 — Weekly Review"
+title: "Checkpoint 3"
 position: 24
 estimated_minutes: 18
 source:
@@ -73,12 +73,3 @@ Answer each in under 90 seconds, without notes:
 3. Explain hydration mismatch to someone who's never heard the term, with a concrete example that causes one.
 4. Your team wants to split a monolith frontend across three teams — what's the actual problem you're solving, and what does it cost?
 5. A list re-renders every keystroke in an unrelated search box. Walk through the diagnosis and fix.
-
-## Today's checklist
-
-- [ ] Web Security: Completed
-- [ ] WebSockets: Completed
-- [ ] SSR/Next.js: Completed
-- [ ] Micro-frontends: Completed
-- [ ] React Performance: Completed
-- [ ] Build Tools: Completed

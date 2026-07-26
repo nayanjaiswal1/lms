@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 1 — Django Request Lifecycle"
+title: "Django Request Lifecycle"
 position: 1
 estimated_minutes: 45
 source:
@@ -159,12 +159,3 @@ Common follow-up: **"Where would you put a database transaction?"** — wrap the
 - Put `functools.wraps` on every decorator — it's a two-second interview tell for whether you've written real decorators before.
 - Global middleware costs every request, including ones that don't need it — scope expensive logic to specific views instead.
 - CSRF validation, content negotiation, and body parsing happen before your view code ever runs on a POST — know that order cold.
-
-## Today's checklist
-
-- [ ] Read: Django request lifecycle diagram
-- [ ] Implement: custom middleware that logs request path and response time
-- [ ] Implement: decorator to time function execution
-- [ ] Implement: middleware that adds `X-Request-ID` to every response
-- [ ] Trace through: request -> URLconf -> view -> response
-- [ ] Be ready to answer: what happens when a POST request hits Django?

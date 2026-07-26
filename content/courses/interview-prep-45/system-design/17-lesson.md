@@ -6,7 +6,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 17 — Design Google Docs"
+title: "Design Google Docs"
 position: 17
 estimated_minutes: 60
 source:
@@ -139,12 +139,3 @@ A: Model comments as anchored to a stable position/range in the document (using 
 - Undo/redo in a multi-user document must be selective (transform your own op's inverse against subsequent ops), not a blind revert.
 - Separate high-frequency, low-durability traffic (cursors/presence) from the durable operation log — they have completely different consistency and storage requirements.
 - Bound storage growth with snapshot + op-log compaction; never keep infinite full-granularity history as the primary read path.
-
-## Today's checklist
-
-- [ ] Define functional requirements: real-time editing, collaboration
-- [ ] Define non-functional requirements: consistency, latency
-- [ ] Design operational transformation (OT) or CRDT
-- [ ] Handle conflict resolution
-- [ ] Design undo/redo
-- [ ] Discuss storage strategy

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
 section_position: 8
-title: "Day 37 — Weakness Focus — Backend, System Design, Behavioral"
+title: "Weakness Focus — Backend, System Design, Behavioral"
 position: 37
 estimated_minutes: 240
 source:
@@ -183,14 +183,3 @@ By now you have 10 STAR stories. Today is about **delivery**, not content:
 - Amazon and WhatsApp both hinge on one hard sub-problem (inventory consistency; message delivery guarantees) — go deep there, not evenly across the whole system.
 - STAR stories should be 2 minutes, filler-word-free, and Result-heavy — cut Situation/Task before you cut Result.
 - Recording and re-listening exposes delivery problems that reading a script never will.
-
-## Today's checklist
-
-- [ ] Write a database migration with a safe data backfill — 45 min
-- [ ] Implement a Redis distributed lock (acquire + atomic release) — 45 min
-- [ ] Write unit tests with mocking for a service with an external dependency — 30 min
-- [ ] Design Amazon — 45 min
-- [ ] Design WhatsApp — 45 min
-- [ ] Review both designs and self-evaluate against the six-step checklist — 30 min
-- [ ] Deliver all 10 STAR stories, 2 min each, recorded
-- [ ] Review recordings and count/remove filler words

@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 1 — Resume Walkthrough"
+title: "Resume Walkthrough"
 position: 1
 estimated_minutes: 15
 source:
@@ -52,15 +52,3 @@ Future: I'm looking to move now because [specific, honest reason], and I'm drawn
 | End on a reason tied to this role | Trail off with "and that's about it" |
 | Practice out loud, not just in your head | Read it verbatim from a script |
 | Flag 3 deep-dive-worthy projects | Mention ten projects at equal weight |
-
-## Today's checklist
-- [ ] Write 3-paragraph summary of your background:
-  - [ ] Paragraph 1: Current role, company, tech stack
-  - [ ] Paragraph 2: Key projects and achievements with metrics
-  - [ ] Paragraph 3: Why you're looking to move, what you want next
-- [ ] Practice saying this in 2 minutes
-- [ ] Identify 3 projects to deep-dive later
-
-**Revision tasks:**
-- [ ] Review hash map implementation
-- [ ] Review Django middleware flow

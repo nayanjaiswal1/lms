@@ -5,7 +5,7 @@ course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
 section_position: 3
-title: "Day 17 — Distributed Systems Basics"
+title: "Distributed Systems Basics"
 position: 17
 estimated_minutes: 45
 source:
@@ -148,11 +148,3 @@ The idempotency key is generated client-side (once, before the first attempt) an
 - Exponential backoff with full jitter avoids both hammering a failing service and synchronized retry storms across clients.
 - Idempotency keys, checked and recorded inside the same transaction as the write, make retries of a "did it go through?" request safe.
 - Network partitions make delivery uncertain, not data loss inevitable — the fix is idempotent servers, not perfect networks.
-
-## Today's checklist
-
-- [ ] Read about the CAP theorem and its trade-offs
-- [ ] Implement a simple distributed lock (SET NX PX + token-checked release)
-- [ ] Implement retry with exponential backoff and jitter
-- [ ] Answer: what is eventual consistency, and how do you handle network partitions
-- [ ] Implement an idempotent API endpoint

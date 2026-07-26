@@ -22,7 +22,7 @@ import { CourseProgressBar } from "@/components/courses/course-progress-bar";
 import { ReviewForm } from "@/components/courses/review-form";
 import { FAQPanel } from "@/components/shared/faq-panel";
 import { AskQuestion } from "@/components/messaging/ask-question";
-import { getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview, getFinalTest } from "@/lib/server/courses";
+import { findCourseBySlug, getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview, getFinalTest } from "@/lib/server/courses";
 import { getWikiSpaces } from "@/lib/server/wiki";
 import { getCourseFAQs } from "@/lib/server/messaging";
 import { enrollAction } from "@/lib/courses/actions";
@@ -61,7 +61,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
   const { batchId } = await searchParams;
 
   const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments()]);
-  const course = courses.find((c) => c.slug === slug);
+  const course = findCourseBySlug(courses, enrollments, slug);
   if (!course) notFound();
 
   const courseId = course.id;

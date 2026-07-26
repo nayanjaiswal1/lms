@@ -5,7 +5,7 @@ course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
 section_position: 5
-title: "Day 8 — STAR Story Refinement"
+title: "STAR Story Refinement"
 position: 8
 estimated_minutes: 15
 source:
@@ -45,13 +45,3 @@ Rewrite the story to fix what you heard, then record it again. Two passes per st
 | Trim Situation to 2 sentences | Spend a minute setting the scene |
 | Use a timer every practice rep | Guess at how long you're taking |
 | Replace vague results with numbers or estimates | Leave "it went well" as the entire Result |
-
-## Today's checklist
-- [ ] Refine all 5 prepared stories
-- [ ] Each story should be 2-3 minutes when spoken
-- [ ] Practice with a timer
-- [ ] Remove filler words
-
-**Revision tasks:**
-- [ ] Review BST patterns
-- [ ] Review Celery architecture

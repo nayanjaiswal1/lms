@@ -5,7 +5,7 @@ course: interview-prep-45
 section: system-design
 section_title: "System Design"
 section_position: 2
-title: "Day 7 — Weekly Review"
+title: "Checkpoint 1"
 position: 7
 estimated_minutes: 36
 source:
@@ -64,11 +64,3 @@ If any of these take you more than 30 seconds to answer, go back and re-read tha
 - Back-of-envelope capacity estimates aren't decoration — they're what justifies "why Redis," "why Kafka," "why sharding," in your answer.
 - Stating your consistency-vs-availability choice explicitly, per feature, is a strong signal interviewers look for.
 - Use the self-test above as a real gate — don't move to week 2's systems until you can answer all six from memory.
-
-## Today's checklist
-- [ ] URL Shortener: Completed
-- [ ] Rate Limiter: Completed
-- [ ] Notification Service: Completed
-- [ ] Chat Application: Completed
-- [ ] Analytics Pipeline: Completed
-- [ ] Multi-tenant SaaS: Completed

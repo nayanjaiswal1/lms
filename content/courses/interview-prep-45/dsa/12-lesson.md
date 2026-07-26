@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 12 — Dynamic Programming - Basics"
+title: "Dynamic Programming - Basics"
 position: 12
-estimated_minutes: 150
+estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -181,14 +181,3 @@ def rob_ii(nums: list[int]) -> int:
 - Base cases anchor the whole table — verify them by hand on the smallest 1-2 inputs before trusting the transition.
 - When `dp[i]` only depends on a fixed number of previous states (not the whole history), you can collapse the array to O(1) space — this is the single most common DP follow-up question.
 - "Circular" variants (House Robber II) often reduce to two runs of the linear version rather than needing new logic.
-
-## Today's checklist
-
-- [ ] Explain recursion → memoization → tabulation as one progression
-- [ ] Practice stating the state definition before coding, for every problem below
-- [ ] Solve Climbing Stairs (LeetCode 70)
-- [ ] Solve Min Cost Climbing Stairs (LeetCode 746)
-- [ ] Solve House Robber (LeetCode 198)
-- [ ] Solve House Robber II (LeetCode 213)
-- [ ] Implement both top-down (memoized) and bottom-up versions for one of today's problems
-- [ ] Review: when 1D DP suffices vs when you'll need 2D (preview for tomorrow)

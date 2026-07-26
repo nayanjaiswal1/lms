@@ -5,9 +5,9 @@ course: interview-prep-45
 section: dsa
 section_title: "DSA — Data Structures & Algorithms"
 section_position: 1
-title: "Day 18 — Greedy Algorithms"
+title: "Greedy Algorithms"
 position: 18
-estimated_minutes: 150
+estimated_minutes: 90
 source:
     - 45-day-interview-roadmap.md
 ---
@@ -157,14 +157,3 @@ def least_interval(tasks: list[str], n: int) -> int:
 - Task Scheduler reduces to a formula because the max-frequency task structurally determines the minimum schedule length — recognize when a problem has a closed-form answer instead of needing simulation.
 - Always sanity-check greedy against 2-3 small counterexamples before committing in an interview — coin change with `[1,3,4]` is the canonical "greedy looks right but isn't."
 - If you can't prove the greedy choice safe quickly, say so and fall back to DP rather than guessing.
-
-## Today's checklist
-
-- [ ] Solve Jump Game (LeetCode 55)
-- [ ] Solve Jump Game II (LeetCode 45)
-- [ ] Solve Meeting Rooms II (LeetCode 253)
-- [ ] Solve Task Scheduler (LeetCode 621)
-- [ ] Implement Meeting Rooms II with a min-heap
-- [ ] Practice proving greedy correctness with an exchange argument
-- [ ] Memorize: greedy works when the local optimum provably leads to the global optimum
-- [ ] Review the difference between Jump Game I (reachability) and II (minimum jumps)
