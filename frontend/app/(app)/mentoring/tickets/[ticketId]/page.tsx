@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Can } from "@/components/auth/can";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { ClaimTicketButton } from "@/components/mentoring/claim-ticket-button";
@@ -76,17 +76,16 @@ export default async function TicketDetailPage({ params }: Props) {
 
   return (
     <main className="page-container-sm">
-      <Link
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        href={ROUTES.MENTORING_TICKETS}
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" />
-        Ticket queue
-      </Link>
+      <Breadcrumb
+        items={[
+          { label: "Mentoring Tickets", href: ROUTES.MENTORING_TICKETS },
+          { label: `Ticket ${truncateId(ticket.id)}` },
+        ]}
+      />
 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="page-title">Ticket {truncateId(ticket.id)}</h1>
+          <h1 className="section-title">Ticket {truncateId(ticket.id)}</h1>
           <p className="text-muted-foreground">
             Student {truncateId(ticket.student_id)} · Course {truncateId(ticket.course_id)}
           </p>

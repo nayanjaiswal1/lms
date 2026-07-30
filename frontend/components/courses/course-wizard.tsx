@@ -85,12 +85,12 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
           coverUrl = res.data.url;
         }
 
-        const courseId = course
+        const slug = course
           ? await saveExistingCourse(course, coverUrl)
           : await createNewCourse(coverUrl);
 
         toast.success(course ? "Course updated!" : "Course created!");
-        router.push(ROUTES.manageCourse(courseId));
+        router.push(ROUTES.courseEdit(slug));
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Something went wrong.");
       }
@@ -108,6 +108,7 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
     });
     if (!courseRes.ok || !courseRes.data) throw new Error(courseRes.error ?? "Failed to create course");
     const courseId = courseRes.data.id;
+    const slug = courseRes.data.slug;
 
     for (let si = 0; si < wiz.draft.sections.length; si++) {
       const section = wiz.draft.sections[si];
@@ -133,7 +134,7 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       if (!pubRes.ok) throw new Error(pubRes.error ?? "Course was created but failed to publish.");
     }
 
-    return courseId;
+    return slug;
   }
 
   async function saveExistingCourse(existing: CourseTree, coverUrl: string): Promise<string> {
@@ -243,7 +244,7 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       if (!reorderRes.ok) throw new Error(reorderRes.error ?? "Failed to save section order.");
     }
 
-    return courseId;
+    return existing.slug;
   }
 
   const totalModules = wiz.draft.sections.reduce((n, s) => n + s.modules.length, 0);

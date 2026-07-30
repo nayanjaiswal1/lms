@@ -199,7 +199,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   // by the in-course design canvas (components/courses/design-canvas.tsx).
   instructor_assessments: {
     label:               "Assessments",
-    href:                ROUTES.MANAGE_ASSESSMENTS,
+    href:                ROUTES.ASSESSMENTS,
     icon:                ClipboardCheck,
     feature:             FEATURES.ASSESSMENTS,
     requiredPermission:  "assessments.create",
@@ -269,7 +269,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   },
   manage_courses: {
     label:               "Courses",
-    href:                ROUTES.MANAGE_COURSES_NEW,
+    href:                ROUTES.COURSE_NEW,
     icon:                GraduationCap,
     feature:             FEATURES.COURSES,
     requiredPermission:  "courses.create",

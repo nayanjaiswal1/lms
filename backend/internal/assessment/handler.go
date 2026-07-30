@@ -413,14 +413,15 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
 		tags = strings.Split(t, ",")
 	}
 	filter := QuestionFilter{
-		Type:       q.Get("type"),
-		CategoryID: q.Get("category_id"),
-		Difficulty: q.Get("difficulty"),
-		Tags:       tags,
-		Search:     q.Get("search"),
-		Status:     q.Get("status"),
-		Limit:      queryInt(r, "limit", 50),
-		Offset:     queryInt(r, "offset", 0),
+		Type:                q.Get("type"),
+		CategoryID:          q.Get("category_id"),
+		Difficulty:          q.Get("difficulty"),
+		Tags:                tags,
+		Search:              q.Get("search"),
+		Status:              q.Get("status"),
+		Limit:               queryInt(r, "limit", 50),
+		Offset:              queryInt(r, "offset", 0),
+		ExcludeAssessmentID: q.Get("exclude_assessment_id"),
 	}
 	items, total, err := h.repo.ListQuestions(r.Context(), claims.OrgID, filter)
 	if err != nil {
@@ -428,6 +429,19 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"questions": items, "total": total})
+}
+
+func (h *Handler) ListQuestionTags(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	tags, err := h.repo.ListQuestionTags(r.Context(), claims.OrgID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"tags": tags})
 }
 
 func (h *Handler) ArchiveQuestion(w http.ResponseWriter, r *http.Request) {

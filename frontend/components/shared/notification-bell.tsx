@@ -98,7 +98,7 @@ export function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-          className="relative"
+          className="relative touch-target"
           size="icon"
           variant="ghost"
         >

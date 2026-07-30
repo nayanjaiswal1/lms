@@ -77,8 +77,8 @@ enforces):
 | `get_my_lesson_note` | `notes:write` | `courses.Service.GetMyLessonNote` |
 | `save_my_lesson_note` | `notes:write` | `courses.Service.SaveLessonNote` (source="ai") |
 | `log_understanding` | `signals:write` | `courses.Service.LogUnderstanding` → `lesson_reflections` (source="ai") |
-| `create_self_course` | `courses:write` | `courses.Service.CreateSelfCourse` / `ForkSelfCourseFromOrgCourse` |
-| `add_self_course_module` | `courses:write` | `courses.Service.AddSelfCourseModule` |
+| `create_self_course` | `courses:write` | `courses.Service.CreateSelfCourse` / `ForkSelfCourseFromOrgCourse` — first checks `Repo.FindSimilarSelfCourse` (pg_trgm title match against the owner's own self-courses, same `> 0.3` threshold `internal/roadmap/matcher.go` uses); a match returns the existing course (`matched_existing: true`) instead of creating a duplicate |
+| `add_self_course_module` | `courses:write` | `courses.Service.AddSelfCourseModule` — first checks `Repo.FindSimilarModuleInCourse`; a same-course match appends the new content to the existing module (`matched_existing: true`) instead of a duplicate lesson. Also checks `Repo.FindSimilarModuleElsewhere` (other self-courses the owner has); a match is returned as `similar_elsewhere` without touching either module — cross-course overlap is only ever surfaced, never auto-merged |
 | `update_self_course_module` | `courses:write` | `courses.Service.UpdateSelfCourseModule` |
 | `propose_module_to_org_course` | `courses:write` | `courses.Service.ProposeModuleToOrgCourse` → `course_content_proposals` (`status='pending'`); given `source_module_id`, copies that self-course lesson's title/content server-side and records `source_course_id`/`source_module_id` for traceability instead of trusting retyped text |
 | `get_learning_context` | `courses:read` | `courses.Service.GetLearningContext` — enrolled courses + progress, recent reflections, recent self-course activity, all in one call |

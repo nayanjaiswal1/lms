@@ -68,6 +68,51 @@ export const PLANS = {
 export type Plan = (typeof PLANS)[keyof typeof PLANS];
 
 // ─────────────────────────────────────────────
+// PLAN TIER DISPLAY
+// UI-only — there is no plan/entitlement/payment
+// backend yet (every feature is currently free for
+// every org, see internal/features/service.go).
+// Pro/Enterprise are presentational placeholders,
+// not tied to any real feature gate or price.
+// ─────────────────────────────────────────────
+
+export interface PlanTierMeta {
+  id: Plan;
+  name: string;
+  price: string;
+  tagline: string;
+  cta: string;
+  ctaDisabled: boolean;
+}
+
+export const PLAN_TIERS: PlanTierMeta[] = [
+  {
+    id: PLANS.FREE,
+    name: "Free",
+    price: "$0",
+    tagline: "Everything included while we're in beta.",
+    cta: "Current plan",
+    ctaDisabled: true,
+  },
+  {
+    id: PLANS.PRO,
+    name: "Pro",
+    price: "Contact us",
+    tagline: "For growing teams that need more seats and support.",
+    cta: "Coming soon",
+    ctaDisabled: true,
+  },
+  {
+    id: PLANS.ENTERPRISE,
+    name: "Enterprise",
+    price: "Contact us",
+    tagline: "For large organizations with custom requirements.",
+    cta: "Coming soon",
+    ctaDisabled: true,
+  },
+];
+
+// ─────────────────────────────────────────────
 // LOCKED FEATURE INFO
 // The backend tells the frontend HOW to unlock
 // each feature the user currently can't access.

@@ -12,6 +12,7 @@ import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiVersionHistory } from "@/components/wiki/wiki-version-history";
 import { WikiCommentsPanel } from "@/components/wiki/wiki-comments-panel";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb, type BreadcrumbItem } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -43,21 +44,18 @@ export default async function WikiPagePage({ params }: Props) {
     getWikiComments(pageId),
   ]);
 
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: "Wiki", href: ROUTES.WIKI },
+    { label: page.space_name, href: ROUTES.wikiSpace(spaceSlug) },
+    ...page.breadcrumb.slice(0, -1).map((b, i) => ({
+      label: b.title,
+      href: ROUTES.wikiPage(spaceSlug, ...page.breadcrumb.slice(0, i + 1).map((a) => a.slug)),
+    })),
+  ];
+
   return (
     <main className="page-container">
-      <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-        <Link className="hover:text-foreground" href={ROUTES.WIKI}>Wiki</Link>
-        <span aria-hidden>/</span>
-        <Link className="hover:text-foreground" href={ROUTES.wikiSpace(spaceSlug)}>{page.space_name}</Link>
-        {page.breadcrumb.slice(0, -1).map((b, i) => (
-          <span className="flex items-center gap-1" key={b.id}>
-            <span aria-hidden>/</span>
-            <Link className="hover:text-foreground" href={ROUTES.wikiPage(spaceSlug, ...page.breadcrumb.slice(0, i + 1).map((a) => a.slug))}>
-              {b.title}
-            </Link>
-          </span>
-        ))}
-      </nav>
+      <Breadcrumb items={breadcrumbItems} />
 
       <div className="flex flex-col items-start gap-6 lg:flex-row">
         <WikiSidebarTree

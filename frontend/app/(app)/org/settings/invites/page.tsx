@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/server/api";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
+import ROUTES from "@/lib/routes";
 import { InviteManager } from "./invite-manager";
 
 export const metadata: Metadata = { title: "Invite Members — MindForge" };
@@ -75,9 +77,11 @@ export default async function OrgInvitesPage({ searchParams }: Props) {
 
   return (
     <main className="page-container">
+      <Breadcrumb items={[{ label: "Organisation Settings", href: ROUTES.ORG_SETTINGS }, { label: "Invites" }]} />
+
       <div className="page-header">
         <div>
-          <h1 className="page-title">Invite Members</h1>
+          <h1 className="section-title">Invite Members</h1>
           <p className="text-muted-foreground mt-1">
             Send invitations and manage pending, accepted, and revoked invites for{" "}
             <span className="font-medium text-foreground">{activeOrg.name}</span>.

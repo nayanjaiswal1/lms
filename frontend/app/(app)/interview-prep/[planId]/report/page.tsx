@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getPrepPlan, getPrepReport } from "@/lib/server/interview-prep";
 import { ReportCard } from "@/components/interview-prep/report-card";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -21,8 +22,15 @@ export default async function InterviewPrepReportPage({ params }: Props) {
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb
+        items={[
+          { href: ROUTES.INTERVIEW_PREP, label: "Interview Prep" },
+          { href: ROUTES.interviewPrepPlan(planId), label: plan.job_title },
+          { label: "Report" },
+        ]}
+      />
       <div className="flex flex-col gap-1 mb-6">
-        <h1 className="page-title">Readiness Report</h1>
+        <h1 className="section-title">Readiness Report</h1>
         <p className="text-sm text-muted-foreground">{plan.job_title}</p>
       </div>
 

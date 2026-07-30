@@ -1,7 +1,7 @@
 .PHONY: dev dev-up dev-down dev-reset migrate migrate-create seed seed-courses backend frontend \
         test-backend lint-frontend build-backend build-frontend docker-build logs psql redis-cli \
         prod-deploy prod-down prod-logs flowmap-drift \
-        prod-update prod-backup prod-backup-full prod-restore
+        prod-update prod-backup prod-backup-full prod-restore prod-migrate
 
 # ─── Dev containers ──────────────────────────────────────────────────────────
 
@@ -103,3 +103,6 @@ prod-backup-full:
 
 prod-restore:
 	@bash scripts/restore-prod.sh "$(ts)"
+
+prod-migrate:
+	@DB_CONTAINER=mindforge_postgres_prod DB_ENV_FILE=.env.prod bash scripts/db-migrate.sh

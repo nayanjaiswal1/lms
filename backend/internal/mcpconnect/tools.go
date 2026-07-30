@@ -422,7 +422,7 @@ var tools = []mcpTool{
 	},
 	{
 		Name:        "create_self_course",
-		Description: "Create the student's own private course — either from scratch, or (if fork_from_course_id is given) by forking one of their enrolled published org courses into a private copy. This is the student's personal learning space: their connected AI can freely add and edit its content with no review step, unlike a shared org course.",
+		Description: "Create the student's own private course — either from scratch, or (if fork_from_course_id is given) by forking one of their enrolled published org courses into a private copy. This is the student's personal learning space: their connected AI can freely add and edit its content with no review step, unlike a shared org course. If a self-course with a closely matching title already exists, this returns that existing course (matched_existing: true) instead of creating a duplicate — call list_my_courses or get_learning_context first if unsure whether the student already has this course, and check matched_existing on the result either way before assuming a new course was created.",
 		Scope:       ScopeCoursesWrite,
 		InputSchema: map[string]any{
 			"type": "object",
@@ -444,6 +444,15 @@ var tools = []mcpTool{
 			if forkFrom, ok := args["fork_from_course_id"].(string); ok && forkFrom != "" {
 				return rt.coursesSvc.ForkSelfCourseFromOrgCourse(ctx, id.OrgID, id.UserID, forkFrom, title)
 			}
+			// Guard against a connected AI re-requesting a course the student
+			// already has (misread conversation, retried call, etc.) — check
+			// DB first per CLAUDE.md rule #4 rather than trusting the caller
+			// to have checked list_my_courses itself.
+			if existing, found, err := rt.coursesRepo.FindSimilarSelfCourse(ctx, id.OrgID, id.UserID, title); err != nil {
+				return nil, err
+			} else if found {
+				return courses.SelfCourseCreationResult{Course: existing, MatchedExisting: true}, nil
+			}
 			var tags []string
 			if raw, ok := args["tags"].([]any); ok {
 				for _, v := range raw {
@@ -452,7 +461,11 @@ var tools = []mcpTool{
 					}
 				}
 			}
-			return rt.coursesSvc.CreateSelfCourse(ctx, id.OrgID, id.UserID, title, optString(args, "description"), optStringOr(args, "difficulty", ""), tags)
+			created, err := rt.coursesSvc.CreateSelfCourse(ctx, id.OrgID, id.UserID, title, optString(args, "description"), optStringOr(args, "difficulty", ""), tags)
+			if err != nil {
+				return nil, err
+			}
+			return courses.SelfCourseCreationResult{Course: created, MatchedExisting: false}, nil
 		},
 		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
 			return rt.coursesRepo.DeleteOwnedSelfCourse(ctx, id.OrgID, id.UserID, entry.TargetID)
@@ -460,7 +473,7 @@ var tools = []mcpTool{
 	},
 	{
 		Name:        "add_self_course_module",
-		Description: "Add a new lesson (as markdown notes) to one of the student's own self-courses — use this to record something new the student just learned, so their private course grows as they study. section_id is optional; omitted, it goes into the course's first section.",
+		Description: "Add a new lesson (as markdown notes) to one of the student's own self-courses — use this to record something new the student just learned, so their private course grows as they study. section_id is optional; omitted, it goes into the course's first section. If a closely-titled module already exists in this course, the content is appended to it instead of creating a duplicate lesson (matched_existing: true). If a similar module exists in a DIFFERENT self-course, it's returned as similar_elsewhere instead of being touched — mention it to the student rather than writing the same notes again.",
 		Scope:       ScopeCoursesWrite,
 		InputSchema: map[string]any{
 			"type": "object",
@@ -486,7 +499,37 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return rt.coursesSvc.AddSelfCourseModule(ctx, id.OrgID, id.UserID, courseID, optStringOr(args, "section_id", ""), title, contentBody)
+			// Ownership check up front (AddSelfCourseModule/UpdateSelfCourseModule
+			// each repeat it too, but the dedup lookups below must never run
+			// against a course_id the caller doesn't actually own).
+			if _, err := rt.coursesRepo.GetOwnedSelfCourse(ctx, id.OrgID, id.UserID, courseID); err != nil {
+				return nil, err
+			}
+
+			if existing, found, err := rt.coursesRepo.FindSimilarModuleInCourse(ctx, id.OrgID, courseID, title); err != nil {
+				return nil, err
+			} else if found {
+				mergedBody := contentBody
+				if existing.ContentBody != nil && *existing.ContentBody != "" {
+					mergedBody = *existing.ContentBody + "\n\n---\n\n" + contentBody
+				}
+				merged, err := rt.coursesSvc.UpdateSelfCourseModule(ctx, id.OrgID, id.UserID, existing.ID, existing.Title, mergedBody)
+				if err != nil {
+					return nil, err
+				}
+				return courses.SelfCourseModuleResult{CourseModule: merged, MatchedExisting: true}, nil
+			}
+
+			var similarElsewhere *courses.SimilarModuleElsewhere
+			if hit, found, err := rt.coursesRepo.FindSimilarModuleElsewhere(ctx, id.OrgID, id.UserID, courseID, title); err == nil && found {
+				similarElsewhere = &hit
+			}
+
+			created, err := rt.coursesSvc.AddSelfCourseModule(ctx, id.OrgID, id.UserID, courseID, optStringOr(args, "section_id", ""), title, contentBody)
+			if err != nil {
+				return nil, err
+			}
+			return courses.SelfCourseModuleResult{CourseModule: created, MatchedExisting: false, SimilarElsewhere: similarElsewhere}, nil
 		},
 		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
 			return rt.coursesRepo.SoftDeleteModule(ctx, id.OrgID, entry.TargetID)

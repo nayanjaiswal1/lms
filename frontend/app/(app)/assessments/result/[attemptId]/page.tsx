@@ -4,6 +4,7 @@ import { CheckCircle2, XCircle, Clock, Hourglass, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { EvaluationCard } from "@/components/assessments/evaluation-card";
 import { EvalPoller } from "@/components/assessments/eval-poller";
 import { RewardResultNotifier } from "@/components/rewards/reward-result-notifier";
@@ -51,6 +52,7 @@ export default async function ResultPage({ params }: PageProps) {
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb items={[{ label: "Assessments", href: ROUTES.ASSESSMENTS }, { label: "Result" }]} />
       <EvalPoller status={attempt.status} />
       <RewardResultNotifier result={attempt.reward_result ?? null} />
       {showPostAttemptPrompts && (
@@ -75,7 +77,7 @@ export default async function ResultPage({ params }: PageProps) {
         )}
 
         <div className="flex flex-col gap-1">
-          <h1 className="page-title tabular-nums">
+          <h1 className="section-title tabular-nums">
             {evaluating
               ? "Evaluating…"
               : pending

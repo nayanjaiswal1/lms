@@ -7,6 +7,8 @@ import { ArchiveRoadmapButton } from "@/components/roadmap/archive-roadmap-butto
 import { PublishRoadmapToggle } from "@/components/roadmap/publish-roadmap-toggle";
 import { DeleteRoadmapButton } from "@/components/roadmap/delete-roadmap-button";
 import { getRoadmap } from "@/lib/server/roadmap";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
+import ROUTES from "@/lib/routes";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -35,9 +37,11 @@ export default async function RoadmapDetailPage({ params }: Props) {
           status leaves 'generating' since this tag is then simply absent. */}
       {roadmap.status === "generating" && <meta content="3" httpEquiv="refresh" />}
 
+      <Breadcrumb items={[{ href: ROUTES.ROADMAP, label: "Roadmap" }, { label: roadmap.title }]} />
+
       <div className="flex flex-col gap-1 mb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="page-title">{roadmap.title}</h1>
+          <h1 className="section-title">{roadmap.title}</h1>
           <Badge variant="outline">{roadmap.status}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">{roadmap.goal_description}</p>

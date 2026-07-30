@@ -44,7 +44,7 @@ async function CourseGrid({ canManage, canEdit, canViewAnalytics }: CourseGridPr
         <p className="mt-3 text-sm text-muted-foreground">No courses are available yet.</p>
         {canManage && (
           <Button asChild className="mt-4">
-            <Link href={ROUTES.MANAGE_COURSES_NEW}>Create your first course</Link>
+            <Link href={ROUTES.COURSE_NEW}>Create your first course</Link>
           </Button>
         )}
       </div>
@@ -89,7 +89,7 @@ export default async function CoursesPage() {
         <h1 className="page-title">Courses</h1>
         {canManage && (
           <Button asChild>
-            <Link href={ROUTES.MANAGE_COURSES_NEW}>
+            <Link href={ROUTES.COURSE_NEW}>
               <Plus aria-hidden className="mr-2 h-4 w-4" />
               New course
             </Link>

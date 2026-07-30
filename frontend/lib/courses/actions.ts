@@ -136,7 +136,7 @@ export async function updateCourseAction(
 
   const result = await apiAction("PATCH", `/api/courses/${courseId}`, body);
   if (result.ok) {
-    revalidatePath(ROUTES.manageCourse(courseId));
+    revalidatePath(ROUTES.courseEdit(slug));
     revalidatePath(ROUTES.COURSES);
     revalidatePath(ROUTES.course(slug));
     revalidatePath(ROUTES.DASHBOARD);
@@ -214,7 +214,9 @@ export async function reorderModulesAction(
 export async function publishCourseAction(courseId: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/courses/${courseId}/publish`);
   if (result.ok) {
-    revalidatePath(ROUTES.manageCourse(courseId));
+    // Slug isn't known here — revalidate the dynamic route pattern itself
+    // (Next.js resolves this to every matching /courses/{slug}/edit instance).
+    revalidatePath("/courses/[slug]/edit", "page");
     revalidatePath(ROUTES.COURSES);
   }
   return result;
@@ -238,7 +240,7 @@ export async function upsertFinalTestAction(
   },
 ): Promise<ActionResult> {
   const result = await apiAction("PUT", `/api/courses/${courseId}/final-test`, input);
-  if (result.ok) revalidatePath(ROUTES.manageCourse(courseId));
+  if (result.ok) revalidatePath("/courses/[slug]/edit", "page");
   return result;
 }
 
@@ -262,6 +264,6 @@ export async function upsertCertificateRuleAction(
     `/api/courses/${courseId}/certificate-rule`,
     { threshold_percent: thresholdPercent },
   );
-  if (result.ok) revalidatePath(ROUTES.manageCourse(courseId));
+  if (result.ok) revalidatePath("/courses/[slug]/edit", "page");
   return result;
 }

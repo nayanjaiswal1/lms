@@ -9,7 +9,12 @@
 #   bash scripts/restore-prod.sh latest --yes    # skip the confirmation prompt
 #
 # DESTRUCTIVE: overwrites the current Postgres DB, MinIO data, and Caddy TLS
-# state. Stops backend/frontend/labproxy/caddy for the duration.
+# state. Stops backend/frontend/labproxy/caddy for the duration. Reapplies any
+# schema migrations missing from the restored dump (scripts/db-migrate.sh)
+# so the schema matches the currently deployed backend code.
+#
+# On failure, posts to BACKUP_ALERT_WEBHOOK (if set in .env.prod) — see
+# scripts/lib-alert.sh.
 # ══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -33,6 +38,10 @@ set -a
 # shellcheck disable=SC1091
 source .env.prod
 set +a
+
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib-alert.sh"
+trap 'alert_on_failure "restore-prod.sh"' ERR
 
 TARGET="${1:-}"
 ASSUME_YES=0
@@ -89,6 +98,15 @@ docker cp "${BACKUP_ROOT}/${TARGET_DIR_NAME}/postgres.dump" "${PG_CONTAINER}:/tm
 docker exec "$PG_CONTAINER" pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists -1 /tmp/restore.dump
 docker exec "$PG_CONTAINER" rm -f /tmp/restore.dump
 success "Postgres restored."
+
+# ─── 3b. Reapply migrations ───────────────────────────────────────────────────
+# The restored dump carries whatever schema_migrations state existed when that
+# backup was taken. If the currently deployed backend expects migrations newer
+# than the backup, the app breaks post-restore — so bring the schema forward
+# to match the migration files on disk (which match the running code).
+info "Reapplying pending schema migrations..."
+DB_CONTAINER="$PG_CONTAINER" DB_ENV_FILE="${PROJECT_ROOT}/.env.prod" bash "${SCRIPT_DIR}/db-migrate.sh"
+success "Schema migrations up to date."
 
 # ─── 4. Restore MinIO: wipe volume, replay full + incrementals in order ──────
 info "Restoring MinIO data volume (replaying ${#CHAIN[@]} archive(s))..."

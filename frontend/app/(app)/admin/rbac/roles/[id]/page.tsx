@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChecklistGrid } from "@/components/shared/checklist-grid"
+import { Breadcrumb } from "@/components/shared/breadcrumb"
 import { toast } from "sonner"
 import { useHasPermission } from "@/lib/auth/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
@@ -101,16 +100,7 @@ export default function RoleDetailPage() {
 
   return (
     <div className="page-container">
-      <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-        <Link aria-label="Back to Roles" className="touch-target -ml-2 hover:text-foreground" href={ROUTES.ADMIN_RBAC_ROLES}>
-          <ArrowLeft aria-hidden className="h-4 w-4" />
-        </Link>
-        <Link className="hover:text-foreground" href={ROUTES.ADMIN_RBAC_ROLES}>
-          Roles
-        </Link>
-        <span aria-hidden>/</span>
-        <span className="text-foreground">{role.name}</span>
-      </nav>
+      <Breadcrumb items={[{ label: "Roles", href: ROUTES.ADMIN_RBAC_ROLES }, { label: role.name }]} />
 
       <div className="page-header">
         <RoleInfoForm

@@ -16,6 +16,9 @@
 #   - Caddy TLS state (certs/config volumes): full tar every run, cheap and small.
 #
 # Restore with scripts/restore-prod.sh.
+#
+# On failure, posts to BACKUP_ALERT_WEBHOOK (if set in .env.prod) — see
+# scripts/lib-alert.sh. Unset means failures just exit non-zero, as before.
 # ══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -39,6 +42,10 @@ set -a
 # shellcheck disable=SC1091
 source .env.prod
 set +a
+
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/lib-alert.sh"
+trap 'alert_on_failure "backup-prod.sh"' ERR
 
 PG_CONTAINER="mindforge_postgres_prod"
 MINIO_VOLUME="mindforge_minio_prod"

@@ -76,7 +76,7 @@ func (h *Handler) StartPublicAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	questions, err := h.repo.ListAssessmentQuestions(r.Context(), a.ID)
+	questions, err := h.repo.ListAssessmentQuestions(r.Context(), a.ID, AssessmentQuestionFilter{})
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -123,7 +123,7 @@ func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	questions, err := h.repo.ListAssessmentQuestions(r.Context(), a.ID)
+	questions, err := h.repo.ListAssessmentQuestions(r.Context(), a.ID, AssessmentQuestionFilter{})
 	if err != nil {
 		writeDomainError(w, err)
 		return

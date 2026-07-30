@@ -1,18 +1,80 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ClipboardCheck, Clock, Loader2, Target, Trophy } from "lucide-react";
+import { ClipboardCheck, Clock, Loader2, Plus, Target, Trophy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getMyAssessments, getMyAnalytics } from "@/lib/assessments/server";
+import { getMyAssessments, getMyAnalytics, getAssessments, getOrgAnalytics, getBatches } from "@/lib/assessments/server";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
+import { AssessmentList } from "@/app/(app)/assessments/assessment-list";
 import ROUTES from "@/lib/routes";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 
-export const metadata: Metadata = {
-  title: "Assessments",
-  description: "Your assigned tests and results.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const canManage = await canManageAssessments();
+  return {
+    title: "Assessments",
+    description: canManage ? "Author, publish, and assign assessments." : "Your assigned tests and results.",
+  };
+}
+
+async function canManageAssessments(): Promise<boolean> {
+  const permissions = await getMyPermissions();
+  return permissions.includes(PERMISSIONS.ASSESSMENTS.CREATE);
+}
+
+interface AssessmentsPageProps {
+  searchParams: Promise<{ search?: string }>;
+}
+
+export default async function AssessmentsPage({ searchParams }: AssessmentsPageProps) {
+  const canManage = await canManageAssessments();
+  return canManage ? <StaffAssessmentsView searchParams={searchParams} /> : <StudentAssessmentsView />;
+}
+
+async function StaffAssessmentsView({ searchParams }: AssessmentsPageProps) {
+  const { search } = await searchParams;
+  const query = search?.trim() ?? "";
+  const qs = query ? `&search=${encodeURIComponent(query)}` : "";
+
+  const [assessments, org, batches] = await Promise.all([
+    getAssessments(`?limit=200${qs}`),
+    getOrgAnalytics(),
+    getBatches(),
+  ]);
+
+  return (
+    <main className="page-container">
+      <header className="page-header">
+        <div className="flex flex-col gap-1">
+          <h1 className="page-title">Assessments</h1>
+          <p className="text-muted-foreground">
+            {org.total_assessments} assessments · {org.total_attempts} attempts · {Math.round(org.avg_pass_rate)}% avg pass rate
+          </p>
+        </div>
+        <Button asChild>
+          <Link href={ROUTES.ASSESSMENT_NEW}>
+            <Plus /> New assessment
+          </Link>
+        </Button>
+      </header>
+
+      {assessments.length === 0 && !query ? (
+        <div className="empty-state mt-10">
+          <ClipboardCheck aria-hidden className="h-10 w-10 text-muted-foreground" />
+          <p className="mt-3 font-medium">No assessments yet</p>
+          <p className="text-sm text-muted-foreground">Create one, add questions from your bank, then assign it.</p>
+        </div>
+      ) : (
+        <div className="mt-8">
+          <AssessmentList assessments={assessments} batches={batches} />
+        </div>
+      )}
+    </main>
+  );
+}
 
 function cta(a: AssignedAssessment) {
   if (a.active_attempt_id) {
@@ -28,7 +90,7 @@ function cta(a: AssignedAssessment) {
   return null;
 }
 
-export default async function AssessmentsPage() {
+async function StudentAssessmentsView() {
   const [assessments, analytics] = await Promise.all([getMyAssessments(), getMyAnalytics()]);
 
   return (

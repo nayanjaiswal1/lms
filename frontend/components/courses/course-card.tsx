@@ -26,7 +26,6 @@ export function CourseCard({ course, enrolled, owned, canEdit, canViewAnalytics,
           <ManageCourseMenu
             canEdit={canEdit ?? false}
             canViewAnalytics={canViewAnalytics ?? false}
-            courseId={course.id}
             courseSlug={course.slug}
             courseTitle={course.title}
             published={course.status === "published"}

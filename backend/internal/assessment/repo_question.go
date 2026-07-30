@@ -156,6 +156,10 @@ type QuestionFilter struct {
 	Status     string
 	Limit      int
 	Offset     int
+	// ExcludeAssessmentID, when set, drops questions already pinned to that
+	// assessment — lets the "add from bank" list exclude attached questions
+	// in the same query instead of the caller diffing two lists client-side.
+	ExcludeAssessmentID string
 }
 
 // ListQuestions returns metadata rows (no content) matching the filter.
@@ -186,6 +190,9 @@ func (r *Repo) ListQuestions(ctx context.Context, orgID string, f QuestionFilter
 	}
 	if f.Search != "" {
 		add("title ILIKE $%d", "%"+f.Search+"%")
+	}
+	if f.ExcludeAssessmentID != "" {
+		add("NOT EXISTS (SELECT 1 FROM assessment_questions aq WHERE aq.assessment_id = $%d AND aq.question_id = questions.id)", f.ExcludeAssessmentID)
 	}
 	where := strings.Join(conds, " AND ")
 
@@ -224,6 +231,30 @@ func (r *Repo) ListQuestions(ctx context.Context, orgID string, f QuestionFilter
 		out = append(out, q)
 	}
 	return out, total, rows.Err()
+}
+
+// ListQuestionTags returns every distinct tag used by the org's active
+// question bank, for populating tag-filter dropdowns dynamically — tags are
+// free-form per question, not a fixed enum, so there is no static option list.
+func (r *Repo) ListQuestionTags(ctx context.Context, orgID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT tag FROM questions, unnest(tags) AS tag
+		 WHERE org_id = $1 AND status = 'active'
+		 ORDER BY tag`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment: list question tags: %w", err)
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, fmt.Errorf("assessment: scan question tag: %w", err)
+		}
+		out = append(out, tag)
+	}
+	return out, rows.Err()
 }
 
 // ListQuestionUsage returns one row per (question, assessment) pin across the

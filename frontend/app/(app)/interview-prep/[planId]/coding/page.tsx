@@ -4,6 +4,7 @@ import { CheckCircle2, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getPrepPlan } from "@/lib/server/interview-prep";
 import { CodingItemPanel } from "@/components/interview-prep/coding-item-panel";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -29,8 +30,15 @@ export default async function InterviewPrepCodingPage({ params, searchParams }: 
 
   return (
     <main className="page-container">
+      <Breadcrumb
+        items={[
+          { href: ROUTES.INTERVIEW_PREP, label: "Interview Prep" },
+          { href: ROUTES.interviewPrepPlan(planId), label: plan.job_title },
+          { label: "Coding" },
+        ]}
+      />
       <div className="flex flex-col gap-2 mb-6">
-        <h1 className="page-title">Coding Round</h1>
+        <h1 className="section-title">Coding Round</h1>
         <p className="text-sm text-muted-foreground">{plan.job_title}</p>
       </div>
 

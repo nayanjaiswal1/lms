@@ -141,7 +141,7 @@ func (s *Service) StartAttempt(ctx context.Context, orgID, userID, assessmentID 
 		return Attempt{}, nil, Assessment{}, ErrNoAttemptsLeft
 	}
 
-	questions, err := s.repo.ListAssessmentQuestions(ctx, assessmentID)
+	questions, err := s.repo.ListAssessmentQuestions(ctx, assessmentID, AssessmentQuestionFilter{})
 	if err != nil {
 		return Attempt{}, nil, Assessment{}, err
 	}
@@ -221,7 +221,7 @@ func (s *Service) ResumeAttempt(ctx context.Context, orgID, userID, attemptID st
 // It accepts the already-loaded Attempt so callers that fetched it themselves do not
 // pay for a second DB round-trip.
 func (s *Service) attemptState(ctx context.Context, att Attempt, a Assessment) ([]StudentQuestion, error) {
-	questions, err := s.repo.ListAssessmentQuestions(ctx, att.AssessmentID)
+	questions, err := s.repo.ListAssessmentQuestions(ctx, att.AssessmentID, AssessmentQuestionFilter{})
 	if err != nil {
 		return nil, err
 	}

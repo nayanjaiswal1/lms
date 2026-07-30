@@ -74,10 +74,36 @@ func extractTargetID(args map[string]any, result any) string {
 	return ""
 }
 
+// matchedExistingResult is implemented by tool results that resolved to an
+// already-existing row instead of creating a new one (see
+// courses.SelfCourseCreationResult/SelfCourseModuleResult). logAction checks
+// it to force Revertible=false for these — the row's ID lands in TargetID
+// same as a real create, but nothing was created, so a later Revert must
+// never delete/soft-delete a row that existed before this call.
+type matchedExistingResult interface {
+	IsMatchedExisting() bool
+}
+
+// isRevertible decides whether a completed tool call should be recorded as
+// undoable. A tool with no Revert closure never is; one that resolved to an
+// already-existing row (see matchedExistingResult) never is either, however
+// its Revert closure is not nil — Revert exists for the ordinary "created
+// something new" case, and there is nothing for it to safely undo here.
+func isRevertible(tool mcpTool, result any) bool {
+	if tool.Revert == nil {
+		return false
+	}
+	if m, ok := result.(matchedExistingResult); ok && m.IsMatchedExisting() {
+		return false
+	}
+	return true
+}
+
 // logAction records a completed tool call. Fire-and-forget, mirroring
 // internal/orgs.writeAuditLog: a logging failure must never fail the tool
 // call itself, since the student's AI already got its real result.
 func (rt *Router) logAction(ctx context.Context, id mcpIdentity, tool mcpTool, args map[string]any, before, result any) {
+	revertible := isRevertible(tool, result)
 	var beforePtr *any
 	if before != nil {
 		beforePtr = &before
@@ -86,7 +112,7 @@ func (rt *Router) logAction(ctx context.Context, id mcpIdentity, tool mcpTool, a
 		OrgID: id.OrgID, UserID: id.UserID, ConnectionID: id.ConnectionID,
 		ToolName: tool.Name, Args: args, TargetType: tool.TargetType,
 		TargetID: extractTargetID(args, result), BeforeState: beforePtr, AfterState: &result,
-		Revertible: tool.Revert != nil,
+		Revertible: revertible,
 	}
 	if err := rt.repo.InsertActionLog(ctx, entry); err != nil {
 		slog.Error("mcpconnect: write action log", "tool", tool.Name, "error", err)

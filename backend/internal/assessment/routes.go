@@ -50,6 +50,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/questions", h.CreateQuestion)
 		r.Get("/api/questions", h.ListQuestions)
 		r.Get("/api/questions/usage", h.ListQuestionUsage)
+		r.Get("/api/questions/tags", h.ListQuestionTags)
 		r.Get("/api/questions/{questionID}", h.GetQuestion)
 		r.Patch("/api/questions/{questionID}", h.UpdateQuestion)
 		r.Delete("/api/questions/{questionID}", h.ArchiveQuestion)

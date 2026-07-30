@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Star, Users } from "lucide-react";
+import { Star, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { StatCard } from "@/components/shared/stat-card";
 import { MentorRatingForm } from "@/components/mentoring/mentor-rating-form";
@@ -45,20 +46,14 @@ export default async function MentorProfilePage({ params }: Props) {
 
   return (
     <main className="page-container-sm">
-      <Link
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        href={ROUTES.MENTORS}
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" />
-        All mentors
-      </Link>
+      <Breadcrumb items={[{ label: "Mentors", href: ROUTES.MENTORS }, { label: mentor.name }]} />
 
       <div className="mb-8 flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           <ProfileAvatar avatarUrl={mentor.avatar_url} name={mentor.name} size="lg" />
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="page-title">{mentor.name}</h1>
+              <h1 className="section-title">{mentor.name}</h1>
               {assignedTicket && <Badge>Your mentor</Badge>}
             </div>
             <p className="text-muted-foreground">{mentor.email}</p>

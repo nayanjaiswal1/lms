@@ -40,7 +40,7 @@ export function RoleInfoForm({ roleId, name, description, canEdit, badges, onSav
       <div className="flex items-start gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="page-title">{name}</h1>
+            <h1 className="section-title">{name}</h1>
             {badges}
           </div>
           <p className="text-muted-foreground mt-1">{description}</p>

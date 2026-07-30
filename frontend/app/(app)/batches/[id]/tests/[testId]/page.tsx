@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import { getOfflineTest } from "@/lib/server/batches";
 import { EditableScoreCell } from "@/app/(app)/batches/[id]/tests/[testId]/editable-score-cell";
+import { TestDetailBreadcrumb } from "@/app/(app)/batches/[id]/tests/[testId]/test-detail-breadcrumb";
 
 interface Props {
   params: Promise<{ id: string; testId: string }>;
@@ -18,6 +19,7 @@ export default async function OfflineTestDetailPage({ params }: Props) {
 
   return (
     <section className="flex flex-col gap-6">
+      <TestDetailBreadcrumb batchId={id} testTitle={test.test_name} />
       <div className="flex items-center gap-2">
         <ClipboardList aria-hidden className="h-5 w-5 text-muted-foreground" />
         <div>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { CheckCircle2, XCircle, Clock, Trophy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Breadcrumb } from "@/components/shared/breadcrumb"
 import { ClearActiveLabSession } from "@/components/labs/clear-active-lab-session"
 import { FeedbackPrompt } from "@/components/feedback/feedback-prompt"
 import { apiGet } from "@/lib/server/api"
@@ -82,6 +83,7 @@ export default async function LabResultPage({ params }: PageProps) {
 
   return (
     <main className="page-container-sm flex flex-col gap-6">
+      <Breadcrumb items={[{ label: "Labs", href: ROUTES.LABS }, { label: lab.title }]} />
       <ClearActiveLabSession sessionId={sessionId} />
       <FeedbackPrompt
         alreadyResponded={myFeedback !== null}
@@ -96,7 +98,7 @@ export default async function LabResultPage({ params }: PageProps) {
         )}
 
         <div className="flex flex-col gap-1">
-          <h1 className="page-title tabular-nums">
+          <h1 className="section-title tabular-nums">
             {maxScore > 0 ? `${session.score} / ${maxScore}` : "Done"}
           </h1>
           <p className="text-muted-foreground">

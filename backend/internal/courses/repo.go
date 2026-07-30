@@ -1112,6 +1112,96 @@ func (r *Repo) CreateSelfCourse(ctx context.Context, orgID, ownerID, title strin
 	return c, nil
 }
 
+// selfContentMatchThreshold mirrors internal/roadmap/matcher.go's
+// matchThreshold — the minimum pg_trgm similarity score trusted before
+// treating two titles as "the same thing." Below it, nothing is returned
+// rather than guessing: a false match would misdirect new content into the
+// wrong course/module, which is worse than a duplicate.
+const selfContentMatchThreshold = 0.3
+
+// FindSimilarSelfCourse returns the closest-titled self-course ownerID
+// already has, if any title clears selfContentMatchThreshold. Used by the
+// create_self_course MCP tool (only — the human-driven "Create course" web
+// form calls CreateSelfCourse directly and always means a new course) so a
+// connected AI that misunderstood and re-requested a course the student
+// already has resumes it instead of spinning up a duplicate.
+func (r *Repo) FindSimilarSelfCourse(ctx context.Context, orgID, ownerID, title string) (Course, bool, error) {
+	var id string
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM courses
+		 WHERE org_id=$1 AND kind='self' AND owner_id=$2
+		   AND similarity(title, $3) > $4
+		 ORDER BY similarity(title, $3) DESC LIMIT 1`,
+		orgID, ownerID, title, selfContentMatchThreshold,
+	).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Course{}, false, nil
+		}
+		return Course{}, false, fmt.Errorf("courses: find similar self course: %w", err)
+	}
+	c, err := r.GetCourse(ctx, orgID, id)
+	if err != nil {
+		return Course{}, false, err
+	}
+	return c, true, nil
+}
+
+// FindSimilarModuleInCourse looks for a module already in courseID whose
+// title closely matches title — a repeated "new lesson" about the same
+// sub-topic should merge into the existing module instead of forking into a
+// sibling duplicate within the same course.
+func (r *Repo) FindSimilarModuleInCourse(ctx context.Context, orgID, courseID, title string) (CourseModule, bool, error) {
+	var id string
+	err := r.pool.QueryRow(ctx,
+		`SELECT cm.id FROM course_modules cm
+		 JOIN courses c ON c.id = cm.course_id
+		 WHERE cm.course_id=$1 AND c.org_id=$2 AND cm.deleted_at IS NULL
+		   AND similarity(cm.title, $3) > $4
+		 ORDER BY similarity(cm.title, $3) DESC LIMIT 1`,
+		courseID, orgID, title, selfContentMatchThreshold,
+	).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseModule{}, false, nil
+		}
+		return CourseModule{}, false, fmt.Errorf("courses: find similar module in course: %w", err)
+	}
+	m, err := r.GetModule(ctx, orgID, id)
+	if err != nil {
+		return CourseModule{}, false, err
+	}
+	return m, true, nil
+}
+
+// FindSimilarModuleElsewhere searches every OTHER self-course ownerID has
+// (excluding excludeCourseID) for a module whose title closely matches
+// title. Read-only signal, never auto-merged: cross-course content overlap
+// is surfaced to the caller so a connected AI can point the student at what
+// they already covered elsewhere, but only a same-course match
+// (FindSimilarModuleInCourse) is trusted enough to merge into automatically
+// — merging across courses risks folding content into the wrong context.
+func (r *Repo) FindSimilarModuleElsewhere(ctx context.Context, orgID, ownerID, excludeCourseID, title string) (SimilarModuleElsewhere, bool, error) {
+	var m SimilarModuleElsewhere
+	err := r.pool.QueryRow(ctx,
+		`SELECT cm.id, cm.title, c.id, c.title
+		 FROM course_modules cm
+		 JOIN courses c ON c.id = cm.course_id
+		 WHERE c.org_id=$1 AND c.kind='self' AND c.owner_id=$2 AND c.id != $3
+		   AND cm.deleted_at IS NULL
+		   AND similarity(cm.title, $4) > $5
+		 ORDER BY similarity(cm.title, $4) DESC LIMIT 1`,
+		orgID, ownerID, excludeCourseID, title, selfContentMatchThreshold,
+	).Scan(&m.ModuleID, &m.ModuleTitle, &m.CourseID, &m.CourseTitle)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SimilarModuleElsewhere{}, false, nil
+		}
+		return SimilarModuleElsewhere{}, false, fmt.Errorf("courses: find similar module elsewhere: %w", err)
+	}
+	return m, true, nil
+}
+
 // ForkToSelfCourse copies a published org course's sections and modules into
 // a brand-new private course owned by the forking student — same shape as
 // ForkCourse, but the result is kind='self' (never listed in the org

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { getBatches } from "@/lib/server/batches";
 import { BatchAvatar } from "@/components/batches/batch-avatar";
 import ROUTES from "@/lib/routes";
@@ -22,10 +23,10 @@ async function BatchList() {
   }
 
   return (
-    <ol className="flex flex-col gap-3" aria-label="Batches">
+    <ol aria-label="Batches" className="flex flex-col gap-3">
       {batches.map((batch) => (
         <li key={batch.id}>
-          <Link href={ROUTES.batch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
+          <Link className="card-interactive flex items-center gap-4 p-5" href={ROUTES.batch(batch.id)}>
             <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} />
             <div className="flex flex-1 flex-col gap-1">
               <div className="flex items-center gap-2">
@@ -54,8 +55,9 @@ async function BatchList() {
 export default function MentorBatchesPage() {
   return (
     <main className="page-container">
+      <Breadcrumb items={[{ label: "Mentoring", href: ROUTES.MENTORING }, { label: "Batches" }]} />
       <div className="page-header">
-        <h1 className="page-title">My Batches</h1>
+        <h1 className="section-title">My Batches</h1>
       </div>
       <Suspense fallback={<Skeleton className="h-64 rounded-lg" />}>
         <BatchList />

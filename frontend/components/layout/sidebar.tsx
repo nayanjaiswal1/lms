@@ -42,11 +42,15 @@ export function Sidebar({ user }: Props) {
     <div className="hidden lg:block group relative shrink-0">
       <aside
         aria-label="Main navigation"
-        className={cn("app-sidebar transition-[width] duration-normal ease-smooth", collapsed && "w-18")}
+        className={cn("app-sidebar transition-[width] duration-normal ease-smooth", collapsed && "w-16")}
       >
-        <div className={cn("flex items-center justify-between gap-2 px-5 py-5 border-b border-sidebar-border overflow-hidden", collapsed && "flex-col px-3")}>
-          <BrandMark showName={!collapsed} />
-          {user && <NotificationBell />}
+        <div className={cn("flex items-center px-5 py-4 border-b border-sidebar-border overflow-hidden", collapsed && "justify-center px-3")}>
+          <BrandMark iconClassName="h-6 w-6" showName={!collapsed} />
+          {user && !collapsed && (
+            <div className="ml-auto flex items-center">
+              <NotificationBell />
+            </div>
+          )}
         </div>
 
         <SidebarNavContent collapsed={collapsed} user={user} />

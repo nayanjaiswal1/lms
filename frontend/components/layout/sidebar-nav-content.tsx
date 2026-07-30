@@ -61,7 +61,7 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
                 title={collapsed ? item.label : undefined}
                 onClick={onNavigate}
               >
-                <item.icon aria-hidden className="h-4 w-4 shrink-0" />
+                <item.icon aria-hidden className="h-4 w-4 shrink-0 scale-90" />
                 {!collapsed && item.label}
               </Link>
             );

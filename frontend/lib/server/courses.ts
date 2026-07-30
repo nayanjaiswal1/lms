@@ -136,6 +136,14 @@ export function findCourseBySlug(courses: Course[], enrollments: Enrollment[], s
   return courses.find((c) => c.slug === slug) ?? enrollments.find((e) => e.course.slug === slug)?.course;
 }
 
+// Resolves the /courses/{slug}/edit* routes' slug param to a course, scoped
+// to courses the caller instructs (role=instructor already covers drafts,
+// unlike the plain published-only getCourses() the public catalog uses).
+export async function getInstructorCourseBySlug(slug: string): Promise<Course | undefined> {
+  const ownCourses = await getCourses("?role=instructor");
+  return ownCourses.find((c) => c.slug === slug);
+}
+
 export async function getCourseProgress(courseID: string): Promise<CourseProgressSummary> {
   return apiGet<CourseProgressSummary>(`/api/courses/${courseID}/progress/me`);
 }

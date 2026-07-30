@@ -38,12 +38,13 @@ const ROUTES = {
   // Mentor directory
   MENTORS:             "/mentors",
 
-  // Course management (author/instructor)
-  MANAGE_COURSES_NEW:      "/courses/manage/new",
+  // Courses — "/courses" already serves both students and staff, branching
+  // by permission (see app/(app)/courses/page.tsx)
+  COURSE_NEW:              "/courses/new",
 
-  // Assessment management (author/instructor)
-  MANAGE_ASSESSMENTS:      "/assessments/manage",
-  MANAGE_ASSESSMENT_NEW:   "/assessments/manage/new",
+  // Assessments — "/assessments" now serves both students and staff,
+  // branching by permission (see app/(app)/assessments/page.tsx)
+  ASSESSMENT_NEW:          "/assessments/new",
 
   // Question bank
   QUESTION_BANK:           "/question-bank",
@@ -75,13 +76,8 @@ const ROUTES = {
 
   // Tools (feature-gated)
   WIKI:                "/wiki",
-  DESIGN:              "/design",
-  INTERVIEW:           "/interview",
-  INTERVIEW_NEW:       "/interview/new",
-  LOAD_TEST:           "/load-test",
 
   // Interview Experiences — crowd-sourced company/position Q&A board.
-  // Unrelated to INTERVIEW above (the live mock-interview board).
   INTERVIEW_EXP:       "/interview-exp",
   INTERVIEW_EXP_NEW:   "/interview-exp/new",
   INTERVIEW_EXP_FAQ:   "/interview-exp/faq",
@@ -136,17 +132,20 @@ const ROUTES = {
   courseLearnModule:        (slug: string, moduleId: string)    => `/courses/${slug}/learn/${moduleId}`,
   courseSolve:              (slug: string, problem: string)     => `/courses/${slug}/solve/${problem}`,
   module:                   (slug: string, moduleId: string)    => `/courses/${slug}/${moduleId}`,
-  manageCourse:             (id: string)                        => `/courses/manage/${id}`,
-  manageCourseEdit:         (id: string)                        => `/courses/manage/${id}/edit`,
-  manageCourseAnalytics:    (id: string)                        => `/courses/manage/${id}/analytics`,
+  courseEdit:               (slug: string)                      => `/courses/${slug}/edit`,
+  courseEditSettings:       (slug: string)                      => `/courses/${slug}/edit/settings`,
+  courseEditAnalytics:      (slug: string)                      => `/courses/${slug}/edit/analytics`,
   batch:                    (id: string)                        => `/batches/${id}`,
   batchImport:              (id: string)                        => `/batches/${id}/import`,
+  batchTests:               (id: string)                        => `/batches/${id}/tests`,
   cohortGroup:              (id: string)                        => `/cohort-groups/${id}`,
   projectAssignment:        (id: string)                        => `/projects/${id}`,
   myProject:                (teamId: string)                    => `/projects/team/${teamId}`,
-  manageAssessment:         (id: string)                        => `/assessments/manage/${id}`,
-  manageAssessmentResults:  (id: string)                        => `/assessments/manage/${id}/results`,
-  manageAssessmentReview:   (id: string)                        => `/assessments/manage/${id}/review`,
+  assessmentEdit:           (id: string)                        => `/assessments/${id}/edit`,
+  assessmentEditBatches:    (id: string)                        => `/assessments/${id}/edit/batches`,
+  assessmentEditSettings:   (id: string)                        => `/assessments/${id}/edit/settings`,
+  assessmentResults:        (id: string)                        => `/assessments/${id}/results`,
+  assessmentReview:         (id: string)                        => `/assessments/${id}/review`,
   mentoringTicketDetail:    (id: string)                        => `/mentoring/tickets/${id}`,
   mentoringTicketChat:      (id: string)                        => `/mentoring/tickets/${id}/chat`,
   mentor:                   (id: string)                        => `/mentors/${id}`,
@@ -160,11 +159,7 @@ const ROUTES = {
   sheetJoin:                (slug: string)                      => `/sheets/join/${slug}`,
   assessmentTake:           (id: string)                        => `/assessments/${id}/take`,
   assessmentResult:         (attemptId: string)                 => `/assessments/result/${attemptId}`,
-  attemptProctoring:        (attemptId: string)                 => `/assessments/manage/attempts/${attemptId}/proctoring`,
-  interview:                (id: string)                        => `/interview/${id}`,
-  interviewLive:            (id: string)                        => `/interview/${id}/live`,
-  interviewJoin:            (code: string)                      => `/interview/join/${code}`,
-  design:                   (id: string)                        => `/design/${id}`,
+  attemptProctoring:        (attemptId: string)                 => `/assessments/attempts/${attemptId}/proctoring`,
   courseFinalTest:          (slug: string)                     => `/courses/${slug}/final-test`,
   wikiSpace:                (spaceSlug: string)                 => `/wiki/${spaceSlug}`,
   wikiPage:                 (spaceSlug: string, ...path: string[]) => `/wiki/${spaceSlug}/${path.join("/")}`,

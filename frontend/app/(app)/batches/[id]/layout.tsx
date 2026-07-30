@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { BatchAvatar } from "@/components/batches/batch-avatar";
+import { BatchBreadcrumb } from "@/app/(app)/batches/[id]/batch-breadcrumb";
+import { BatchNameProvider } from "@/app/(app)/batches/[id]/batch-name-context";
 import { BatchTabs } from "@/app/(app)/batches/[id]/batch-tabs";
 import { getBatch, getOrgId } from "@/lib/server/batches";
 import { getCurrentOrgType } from "@/lib/orgs/server";
@@ -29,14 +31,17 @@ export default async function BatchLayout({ params, children }: Props) {
 
   const t = resolveTerminology(orgType);
 
+  const testsLabel = `${t.class_} Tests`;
+
   return (
     <main className="page-container">
+      <BatchBreadcrumb batchId={id} batchName={batch.name} testsLabel={testsLabel} />
       <div className="page-header">
         <div className="flex items-center gap-3">
           <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} size="md" />
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <h1 className="page-title">{batch.name}</h1>
+              <h1 className="section-title">{batch.name}</h1>
               <Badge variant={batch.status === "active" ? "default" : "secondary"}>
                 {batch.status}
               </Badge>
@@ -54,9 +59,11 @@ export default async function BatchLayout({ params, children }: Props) {
         </div>
       </div>
 
-      <BatchTabs batchId={id} testsLabel={`${t.class_} Tests`} />
+      <BatchTabs batchId={id} testsLabel={testsLabel} />
 
-      <div>{children}</div>
+      <BatchNameProvider name={batch.name}>
+        <div>{children}</div>
+      </BatchNameProvider>
     </main>
   );
 }

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 
+import ROUTES from "@/lib/routes";
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
 import { getBatches } from "@/lib/server/batches";
 import { apiGet } from "@/lib/server/api";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { CreateAssignmentForm } from "@/components/projects/create-assignment-form";
 import type { GitlabInstallationStatus } from "@/components/settings/gitlab-installation-card";
 
@@ -33,8 +35,9 @@ export default async function NewProjectAssignmentPage() {
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb items={[{ label: "Projects", href: ROUTES.PROJECTS }, { label: "New" }]} />
       <header className="mb-6 flex flex-col gap-1">
-        <h1 className="page-title">New project assignment</h1>
+        <h1 className="section-title">New project assignment</h1>
         <p className="text-muted-foreground">Every team under this assignment forks the same template repo.</p>
       </header>
       <CreateAssignmentForm allowInstallationOverride={allowInstallationOverride} batches={batches} installations={installations} />

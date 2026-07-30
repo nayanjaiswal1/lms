@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { QnaBlock } from "@/components/interview-exp/qna-block";
 import { AddQnaForm } from "@/components/interview-exp/add-qna-form";
 import { AddEntryForm } from "@/components/interview-exp/add-entry-form";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
+import ROUTES from "@/lib/routes";
 
 interface InterviewExpDetailPageProps {
   params: Promise<{ id: string }>;
@@ -22,9 +24,12 @@ export default async function InterviewExpDetailPage({ params }: InterviewExpDet
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb
+        items={[{ href: ROUTES.INTERVIEW_EXP, label: "Interview Experiences" }, { label: post.title }]}
+      />
       <div className="page-header">
         <div>
-          <h1 className="page-title">{post.title}</h1>
+          <h1 className="section-title">{post.title}</h1>
           <p className="text-sm text-muted-foreground">
             {post.company} · {post.position}
           </p>

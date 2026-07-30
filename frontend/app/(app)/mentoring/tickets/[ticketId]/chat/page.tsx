@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { MentorChatComposer } from "@/components/mentoring/mentor-chat-composer";
 import { ScheduleSessionButton } from "@/app/(app)/mentoring/tickets/[ticketId]/chat/schedule-session-button";
 import { getMentorChatMessages, getMentorTicketById } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
+import { truncateId } from "@/lib/mentoring/format";
 import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "Mentor Chat — MindForge" };
@@ -27,13 +28,16 @@ export default async function MentorTicketChatPage({ params }: Props) {
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb
+        items={[
+          { label: "Mentoring Tickets", href: ROUTES.MENTORING_TICKETS },
+          { label: `Ticket ${truncateId(ticketId)}`, href: ROUTES.mentoringTicketDetail(ticketId) },
+          { label: "Chat" },
+        ]}
+      />
+
       <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Link className="text-muted-foreground hover:text-foreground" href={ROUTES.MENTORING_TICKETS}>
-            <ArrowLeft aria-label="Back to tickets" className="h-5 w-5" />
-          </Link>
-          <h1 className="page-title">Mentor chat</h1>
-        </div>
+        <h1 className="section-title">Mentor chat</h1>
         {ticket && <ScheduleSessionButton studentId={ticket.student_id} />}
       </div>
 

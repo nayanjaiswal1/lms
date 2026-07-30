@@ -11,6 +11,7 @@ import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiVersionHistory } from "@/components/wiki/wiki-version-history";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb, type BreadcrumbItem } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -33,8 +34,20 @@ export default async function WikiPageEditPage({ params }: Props) {
   if (!pageId) notFound();
   const page = await getWikiPage(pageId);
 
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: "Wiki", href: ROUTES.WIKI },
+    { label: page.space_name, href: ROUTES.wikiSpace(spaceSlug) },
+    ...page.breadcrumb.slice(0, -1).map((b, i) => ({
+      label: b.title,
+      href: ROUTES.wikiPage(spaceSlug, ...page.breadcrumb.slice(0, i + 1).map((a) => a.slug)),
+    })),
+    { label: "Edit" },
+  ];
+
   return (
     <main className="page-container">
+      <Breadcrumb items={breadcrumbItems} />
+
       <div className="flex flex-col items-start gap-6 lg:flex-row">
         <WikiSidebarTree
           canManage={canManage}

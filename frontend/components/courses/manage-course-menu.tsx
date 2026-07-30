@@ -12,7 +12,6 @@ import {
 import ROUTES from "@/lib/routes";
 
 interface ManageCourseMenuProps {
-  courseId: string;
   courseSlug: string;
   courseTitle: string;
   published: boolean;
@@ -21,7 +20,6 @@ interface ManageCourseMenuProps {
 }
 
 export function ManageCourseMenu({
-  courseId,
   courseSlug,
   courseTitle,
   published,
@@ -46,7 +44,7 @@ export function ManageCourseMenu({
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
         {canEdit && (
           <DropdownMenuItem asChild>
-            <Link href={ROUTES.manageCourseEdit(courseId)}>Edit</Link>
+            <Link href={ROUTES.courseEditSettings(courseSlug)}>Edit</Link>
           </DropdownMenuItem>
         )}
         {published && (
@@ -58,7 +56,7 @@ export function ManageCourseMenu({
         )}
         {canViewAnalytics && (
           <DropdownMenuItem asChild>
-            <Link href={ROUTES.manageCourseAnalytics(courseId)}>Analytics</Link>
+            <Link href={ROUTES.courseEditAnalytics(courseSlug)}>Analytics</Link>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

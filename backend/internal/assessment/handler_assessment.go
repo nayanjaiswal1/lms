@@ -172,6 +172,18 @@ func (h *Handler) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
 		EndsAt:           req.EndsAt,
 		Proctoring:       req.proctoringConfig(),
 	}
+	// An assessment moved into hiring scope after creation needs a public
+	// short_code too — CreateAssessment only generates one at creation time.
+	// The repo only applies this candidate when the row doesn't already have
+	// one (see UpdateAssessment's COALESCE), so it's a no-op otherwise.
+	if req.ParentType == ParentHiring {
+		code, err := generateShortCode()
+		if err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Could not generate public link.")
+			return
+		}
+		a.ShortCode = &code
+	}
 	updated, err := h.repo.UpdateAssessment(r.Context(), claims.OrgID, a)
 	if err != nil {
 		writeDomainError(w, err)
@@ -215,7 +227,18 @@ func (h *Handler) GetAssessment(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	questions, err := h.repo.ListAssessmentQuestions(r.Context(), id)
+	q := r.URL.Query()
+	var tags []string
+	if t := q.Get("tags"); t != "" {
+		tags = strings.Split(t, ",")
+	}
+	filter := AssessmentQuestionFilter{
+		Type:       q.Get("type"),
+		Difficulty: q.Get("difficulty"),
+		Tags:       tags,
+		Search:     q.Get("search"),
+	}
+	questions, err := h.repo.ListAssessmentQuestions(r.Context(), id, filter)
 	if err != nil {
 		writeDomainError(w, err)
 		return

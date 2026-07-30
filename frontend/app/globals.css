@@ -17,6 +17,7 @@
   --color-popover-foreground:     hsl(var(--popover-foreground));
   --color-primary:                hsl(var(--primary));
   --color-primary-foreground:     hsl(var(--primary-foreground));
+  --color-brand:                  hsl(var(--brand));
   --color-secondary:              hsl(var(--secondary));
   --color-secondary-foreground:   hsl(var(--secondary-foreground));
   --color-muted:                  hsl(var(--muted));
@@ -115,6 +116,10 @@
   --primary:               26 90% 37%;   /* #B45309 */
   --primary-foreground:    0 0% 100%;    /* white on amber-700 buttons */
 
+  /* Brand mark colour — fixed across themes (like --terminal), the flame/wordmark
+     never shifts with light/dark since it's the literal logo, not a UI accent */
+  --brand:                 24 97% 31%;   /* #9D3F02 */
+
   /* Secondary = warm stone surface */
   --secondary:             30 10% 93%;
   --secondary-foreground:  25 15% 10%;
@@ -180,6 +185,10 @@
   /* Amber-400 */
   --primary:               38 92% 50%;   /* #F59E0B */
   --primary-foreground:    0 0% 0%;      /* black on amber */
+
+  /* Brand mark colour — fixed across themes (like --terminal), the flame/wordmark
+     never shifts with light/dark since it's the literal logo, not a UI accent */
+  --brand:                 24 97% 31%;   /* #9D3F02 */
 
   /* Secondary */
   --secondary:             20 7% 15%;
@@ -532,7 +541,7 @@
   /* ── Sidebar — desktop only (lg+) ──────────────────────────────── */
   /* On mobile the sidebar is a drawer — see sidebar-drawer below */
   .app-sidebar {
-    @apply hidden lg:flex flex-col w-60 shrink-0
+    @apply hidden lg:flex flex-col w-56 shrink-0
            border-r border-sidebar-border bg-sidebar
            h-dvh sticky top-0 overflow-hidden;
   }

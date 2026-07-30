@@ -129,6 +129,46 @@ type CourseModule struct {
 	UpdatedAt        time.Time                `json:"updated_at"`
 }
 
+// SimilarModuleElsewhere is a lightweight pointer to a module that closely
+// matches a requested title, found in one of the owner's OTHER self-courses.
+// Surfaced to a connected AI as a "you already covered this in course X"
+// hint — never auto-merged, since folding content across course boundaries
+// risks the wrong context.
+type SimilarModuleElsewhere struct {
+	CourseID    string `json:"course_id"`
+	CourseTitle string `json:"course_title"`
+	ModuleID    string `json:"module_id"`
+	ModuleTitle string `json:"module_title"`
+}
+
+// SelfCourseCreationResult wraps a self-course create so an MCP caller can
+// tell whether this call created a brand-new course or resumed an existing
+// one it matched by title (see Repo.FindSimilarSelfCourse). MatchedExisting
+// also tells the action-log/revert plumbing (mcpconnect.logAction) never to
+// mark this call revertible-by-delete — nothing new was created, so there's
+// nothing this call's own "undo" should ever remove.
+type SelfCourseCreationResult struct {
+	Course
+	MatchedExisting bool `json:"matched_existing"`
+}
+
+func (r SelfCourseCreationResult) IsMatchedExisting() bool { return r.MatchedExisting }
+
+// SelfCourseModuleResult is SelfCourseCreationResult's equivalent for
+// add_self_course_module: MatchedExisting means the new content was merged
+// into an already-similar module in the same course rather than inserted as
+// a sibling duplicate. SimilarElsewhere is set independently (even on a
+// fresh create) when a similarly-titled module exists in a different
+// self-course, so the caller can point the student at it instead of writing
+// the same notes twice.
+type SelfCourseModuleResult struct {
+	CourseModule
+	MatchedExisting  bool                    `json:"matched_existing"`
+	SimilarElsewhere *SimilarModuleElsewhere `json:"similar_elsewhere,omitempty"`
+}
+
+func (r SelfCourseModuleResult) IsMatchedExisting() bool { return r.MatchedExisting }
+
 // KnowledgeCheckQuestion is one entry of a notes module's knowledge_check
 // jsonb column — the server-side grading/gating key for an embedded question
 // authored via a lesson's ```knowledge-check fenced block (see

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ExternalLink, FolderGit2 } from "lucide-react";
 
+import ROUTES from "@/lib/routes";
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
 import { getMyProject, getMyProjectCheckpoints, getMyProjectContributions, listMyProjects } from "@/lib/projects/server";
@@ -9,6 +10,7 @@ import { PROVISION_STATUS_LABEL, PROVISION_VARIANT } from "@/lib/constants";
 import { ContributionBreakdown } from "@/components/projects/contribution-breakdown";
 import { MyCheckpointList } from "@/components/projects/my-checkpoint-list";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import type { ProjectTeam } from "@/lib/projects/types";
 
 export const metadata: Metadata = { title: "My Project" };
@@ -37,10 +39,11 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
 
   return (
     <main className="page-container">
+      <Breadcrumb items={[{ label: "Projects", href: ROUTES.PROJECTS }, { label: team.name }]} />
       <header className="page-header items-start">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <h1 className="page-title">{team.name}</h1>
+            <h1 className="section-title">{team.name}</h1>
             <Badge variant={PROVISION_VARIANT[team.provision_status] ?? "outline"}>
               {PROVISION_STATUS_LABEL[team.provision_status] ?? team.provision_status}
             </Badge>

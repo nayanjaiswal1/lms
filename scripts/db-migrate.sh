@@ -9,7 +9,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MIGRATIONS_DIR="${PROJECT_ROOT}/backend/db/migrations"
-CONTAINER="mindforge_postgres_dev"
+# DB_CONTAINER/DB_ENV_FILE let restore-prod.sh reuse this against the prod
+# container instead of dev — defaults preserve the plain dev-loop usage.
+CONTAINER="${DB_CONTAINER:-mindforge_postgres_dev}"
+ENV_FILE="${DB_ENV_FILE:-${PROJECT_ROOT}/.env}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -20,11 +23,11 @@ info()    { echo -e "${BLUE}[migrate]${NC} $*"; }
 success() { echo -e "${GREEN}[migrate]${NC} $*"; }
 error()   { echo -e "${RED}[migrate]${NC} $*" >&2; exit 1; }
 
-# Load .env from project root if available
-if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+# Load env file if available
+if [[ -f "$ENV_FILE" ]]; then
   set -a
   # shellcheck disable=SC1091
-  source "${PROJECT_ROOT}/.env"
+  source "$ENV_FILE"
   set +a
 fi
 
@@ -33,7 +36,7 @@ POSTGRES_DB="${POSTGRES_DB:-mindforge_dev}"
 
 # Verify the container is running
 if ! docker inspect "$CONTAINER" &>/dev/null; then
-  error "Container '$CONTAINER' is not running. Start it with: make dev-up"
+  error "Container '$CONTAINER' is not running."
 fi
 
 # psql helper — runs SQL inside the Postgres container

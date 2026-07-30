@@ -1,8 +1,10 @@
-import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { notFound } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProblemSolver } from "@/components/courses/problem-solver";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { findCourseBySlug, getCourses, getEnrollments } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -28,21 +30,24 @@ export async function generateMetadata({ params, searchParams }: Props) {
 export default async function ProblemSolvePage({ params, searchParams }: Props) {
   const [{ slug, problem }, { title, module: moduleId }] = await Promise.all([params, searchParams]);
 
+  const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments()]);
+  const course = findCourseBySlug(courses, enrollments, slug);
+  if (!course) notFound();
+
   const displayTitle = title ?? prettify(problem);
   const leetcodeUrl = `https://leetcode.com/problems/${problem}/`;
   const backHref = moduleId ? ROUTES.courseLearnModule(slug, moduleId) : ROUTES.courseLearn(slug);
 
   return (
     <main className="page-container">
-      <div className="mb-4">
-        <Link
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-          href={backHref}
-        >
-          <ArrowLeft aria-hidden className="h-4 w-4" />
-          Back to lesson
-        </Link>
-      </div>
+      <Breadcrumb
+        items={[
+          { label: "Courses", href: ROUTES.COURSES },
+          { label: course.title, href: ROUTES.course(slug) },
+          { label: "Lesson", href: backHref },
+          { label: displayTitle },
+        ]}
+      />
 
       <div className="stack-lg items-start">
         <section className="card-base flex w-full flex-col gap-4 p-6 lg:w-80 lg:shrink-0">

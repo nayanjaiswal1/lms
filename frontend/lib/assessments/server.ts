@@ -59,8 +59,9 @@ export async function getAssessments(query = ""): Promise<Assessment[]> {
 
 export async function getAssessment(
   id: string,
+  query = "",
 ): Promise<{ assessment: Assessment; questions: AssessmentQuestionFull[] }> {
-  return apiGet(`/api/assessments/${id}`);
+  return apiGet(`/api/assessments/${id}${query}`);
 }
 
 export interface AssessmentQuestionFull {
@@ -71,6 +72,7 @@ export interface AssessmentQuestionFull {
   type: "mcq" | "coding";
   title: string;
   difficulty: string;
+  tags: string[];
   content: unknown;
 }
 
@@ -86,6 +88,11 @@ export async function getCategories(): Promise<Category[]> {
 export async function getQuestionUsage(): Promise<QuestionUsage[]> {
   const data = await apiGet<{ usage: QuestionUsage[] }>("/api/questions/usage");
   return data.usage;
+}
+
+export async function getQuestionTags(): Promise<string[]> {
+  const data = await apiGet<{ tags: string[] }>("/api/questions/tags");
+  return data.tags;
 }
 
 export async function getBatches(): Promise<Batch[]> {

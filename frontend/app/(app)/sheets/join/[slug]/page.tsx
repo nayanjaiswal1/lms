@@ -7,6 +7,7 @@ import ROUTES from "@/lib/routes";
 import { getSheetPreview } from "@/lib/server/sheets";
 import { joinSheetAction } from "@/lib/sheets/actions";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 
 export const metadata: Metadata = { title: "Join a sheet" };
 
@@ -24,9 +25,10 @@ export default async function JoinSheetPage({ params, searchParams }: JoinSheetP
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb items={[{ label: "Sheets", href: ROUTES.SHEETS }, { label: "Join" }]} />
       <div className="card-base flex flex-col items-center gap-3 p-8 text-center">
         <ListChecks aria-hidden className="h-10 w-10 text-primary" />
-        <h1 className="page-title">{preview.name}</h1>
+        <h1 className="section-title">{preview.name}</h1>
         {preview.description && <p className="text-sm text-muted-foreground">{preview.description}</p>}
         <p className="text-xs text-muted-foreground">
           {preview.item_count} question{preview.item_count === 1 ? "" : "s"}

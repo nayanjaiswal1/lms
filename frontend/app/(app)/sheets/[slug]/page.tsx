@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import ROUTES from "@/lib/routes";
 import { getSheetItems, getSheetSettings, getUserSheets } from "@/lib/server/sheets";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { SheetSplitView } from "@/components/sheets/sheet-split-view";
 import type { GroupBy } from "@/components/sheets/sheet-table";
 import { GroupToggle } from "@/components/sheets/group-toggle";
@@ -76,19 +77,13 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
 
   return (
     <main>
-      <Link
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        href={ROUTES.SHEETS}
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" />
-        All sheets
-      </Link>
+      <Breadcrumb items={[{ label: "Sheets", href: ROUTES.SHEETS }, { label: activeSheet.name }]} />
 
       <GroupExpandProvider>
         <NotesPanelProvider>
           <div className="page-header items-start pt-0 pb-6">
             <div>
-              <h1 className="page-title">{activeSheet.name}</h1>
+              <h1 className="section-title">{activeSheet.name}</h1>
               {activeSheet.description && (
                 <p className="text-sm text-muted-foreground">{activeSheet.description}</p>
               )}

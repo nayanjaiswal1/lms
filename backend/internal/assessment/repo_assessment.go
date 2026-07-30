@@ -46,11 +46,11 @@ func (r *Repo) UpdateAssessment(ctx context.Context, orgID string, a Assessment)
 		   duration_minutes = $7, pass_percentage = $8, max_attempts = $9,
 		   shuffle_questions = $10, shuffle_options = $11, allow_backtrack = $12,
 		   show_results = $13, starts_at = $14, ends_at = $15, proctoring = $16,
-		   mock_mode = $17, updated_at = now()
+		   mock_mode = $17, short_code = COALESCE(short_code, $18), updated_at = now()
 		 WHERE id = $1 AND org_id = $2 AND status = 'draft'`,
 		a.ID, orgID, a.Title, a.Description, a.ParentType, a.ParentID,
 		a.DurationMinutes, a.PassPercentage, a.MaxAttempts, a.ShuffleQuestions,
-		a.ShuffleOptions, a.AllowBacktrack, a.ShowResults, a.StartsAt, a.EndsAt, proctoring, a.MockMode)
+		a.ShuffleOptions, a.AllowBacktrack, a.ShowResults, a.StartsAt, a.EndsAt, proctoring, a.MockMode, a.ShortCode)
 	if err != nil {
 		return Assessment{}, fmt.Errorf("assessment: update assessment: %w", err)
 	}
@@ -190,6 +190,7 @@ type AssessmentQuestion struct {
 	Type          string          `json:"type"`
 	Title         string          `json:"title"`
 	Difficulty    string          `json:"difficulty"`
+	Tags          []string        `json:"tags"`
 	Content       json.RawMessage `json:"content,omitempty"`
 }
 
@@ -201,11 +202,12 @@ func (r *Repo) AddQuestion(ctx context.Context, orgID, assessmentID, questionID 
 		var status string
 		var version int
 		var defaultPoints float64
+		var tags []string
 		if err := tx.QueryRow(ctx,
-			`SELECT a.status, q.current_version, q.default_points
+			`SELECT a.status, q.current_version, q.default_points, q.tags
 			 FROM assessments a, questions q
 			 WHERE a.id = $1 AND a.org_id = $3 AND q.id = $2 AND q.org_id = $3`,
-			assessmentID, questionID, orgID).Scan(&status, &version, &defaultPoints); err != nil {
+			assessmentID, questionID, orgID).Scan(&status, &version, &defaultPoints, &tags); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
@@ -243,6 +245,7 @@ func (r *Repo) AddQuestion(ctx context.Context, orgID, assessmentID, questionID 
 		aq.QuestionID = questionID
 		aq.VersionID = versionID
 		aq.Points = pts
+		aq.Tags = tags
 		aq.Content = content
 
 		return recomputeTotals(ctx, tx, assessmentID)
@@ -317,16 +320,50 @@ func (r *Repo) RemoveQuestion(ctx context.Context, orgID, assessmentID, assessme
 	})
 }
 
-// ListAssessmentQuestions returns the ordered questions with pinned content.
-func (r *Repo) ListAssessmentQuestions(ctx context.Context, assessmentID string) ([]AssessmentQuestion, error) {
+// AssessmentQuestionFilter narrows an attached-questions listing. All fields
+// are optional — the zero value lists every attached question, unfiltered,
+// matching the previous unconditional behavior.
+type AssessmentQuestionFilter struct {
+	Type       string
+	Difficulty string
+	Tags       []string
+	Search     string
+}
+
+// ListAssessmentQuestions returns the ordered questions with pinned content,
+// narrowed by f. Filtering/search/ordering all happen in this query so
+// callers never re-filter or re-sort the result client-side.
+func (r *Repo) ListAssessmentQuestions(ctx context.Context, assessmentID string, f AssessmentQuestionFilter) ([]AssessmentQuestion, error) {
+	conds := []string{"aq.assessment_id = $1"}
+	args := []any{assessmentID}
+	add := func(clause string, val any) {
+		args = append(args, val)
+		conds = append(conds, fmt.Sprintf(clause, len(args)))
+	}
+	if f.Type != "" {
+		add("q.type = $%d", f.Type)
+	}
+	if f.Difficulty != "" {
+		add("q.difficulty = $%d", f.Difficulty)
+	}
+	if len(f.Tags) > 0 {
+		add("q.tags && $%d", f.Tags)
+	}
+	if f.Search != "" {
+		add("q.title ILIKE $%d", "%"+f.Search+"%")
+	}
+	where := strings.Join(conds, " AND ")
+
 	rows, err := r.pool.Query(ctx,
-		`SELECT aq.id, aq.assessment_id, aq.question_id, aq.version_id, aq.position,
-		        aq.points, q.type, q.title, q.difficulty, qv.content
-		 FROM assessment_questions aq
-		 JOIN questions q ON q.id = aq.question_id
-		 JOIN question_versions qv ON qv.id = aq.version_id
-		 WHERE aq.assessment_id = $1
-		 ORDER BY aq.position`, assessmentID)
+		fmt.Sprintf(
+			`SELECT aq.id, aq.assessment_id, aq.question_id, aq.version_id, aq.position,
+			        aq.points, q.type, q.title, q.difficulty, q.tags, qv.content
+			 FROM assessment_questions aq
+			 JOIN questions q ON q.id = aq.question_id
+			 JOIN question_versions qv ON qv.id = aq.version_id
+			 WHERE %s
+			 ORDER BY aq.position`, where),
+		args...)
 	if err != nil {
 		return nil, fmt.Errorf("assessment: list assessment questions: %w", err)
 	}
@@ -337,7 +374,7 @@ func (r *Repo) ListAssessmentQuestions(ctx context.Context, assessmentID string)
 		var aq AssessmentQuestion
 		var content []byte
 		if err := rows.Scan(&aq.ID, &aq.AssessmentID, &aq.QuestionID, &aq.VersionID,
-			&aq.Position, &aq.Points, &aq.Type, &aq.Title, &aq.Difficulty, &content); err != nil {
+			&aq.Position, &aq.Points, &aq.Type, &aq.Title, &aq.Difficulty, &aq.Tags, &content); err != nil {
 			return nil, fmt.Errorf("assessment: scan assessment question: %w", err)
 		}
 		aq.Content = content

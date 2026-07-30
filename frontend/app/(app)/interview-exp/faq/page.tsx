@@ -4,6 +4,8 @@ import { HelpCircle } from "lucide-react";
 import { listFaq, type FaqItem, type FaqStatus } from "@/lib/server/interview-exp";
 import { FaqFilters } from "@/components/interview-exp/faq-filters";
 import { FaqRow } from "@/components/interview-exp/faq-row";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
+import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = { title: "Frequently Asked Questions" };
 
@@ -55,9 +57,10 @@ export default async function FaqPage({ searchParams }: FaqPageProps) {
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb items={[{ href: ROUTES.INTERVIEW_EXP, label: "Interview Experiences" }, { label: "FAQ" }]} />
       <div className="page-header">
         <div>
-          <h1 className="page-title">Frequently Asked Questions</h1>
+          <h1 className="section-title">Frequently Asked Questions</h1>
           <p className="text-sm text-muted-foreground">
             Every question asked across every interview experience, ranked by upvotes. Track your own progress
             like a sheet — mark solved, flag for revision, star the important ones.

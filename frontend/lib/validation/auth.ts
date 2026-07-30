@@ -48,6 +48,31 @@ export const registerSchema = z
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Enter your email address")
+    .regex(EMAIL_PATTERN, "Enter a valid email address"),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(8, "Use at least 8 characters")
+      .max(72, "Password must be 72 characters or fewer"),
+    confirmPassword: z.string().min(1, "Confirm your password"),
+  })
+  .refine(({ newPassword, confirmPassword }) => newPassword === confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
 // All user-facing auth copy lives here, never inlined at a call site.
 export const AUTH_COPY = {
   invalidCredentials: "Incorrect email or password.",
@@ -60,4 +85,6 @@ export const AUTH_COPY = {
   emailInUse: "An account with this email already exists.",
   registerConfigMissing:
     "Account creation is temporarily unavailable. Please try again later.",
+  resetLinkSent: "If that email exists, a reset link was sent.",
+  invalidResetToken: "This reset link is invalid or has expired.",
 } as const;

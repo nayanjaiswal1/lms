@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StartRoadmapButton } from "@/components/roadmap/start-roadmap-button";
 import { listPublicRoadmaps } from "@/lib/server/roadmap";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
+import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "Discover Roadmaps — MindForge" };
 
@@ -44,8 +46,9 @@ async function PublicRoadmapList() {
 export default function DiscoverRoadmapsPage() {
   return (
     <main className="page-container">
+      <Breadcrumb items={[{ href: ROUTES.ROADMAP, label: "Roadmap" }, { label: "Discover" }]} />
       <div className="page-header">
-        <h1 className="page-title">Discover Roadmaps</h1>
+        <h1 className="section-title">Discover Roadmaps</h1>
       </div>
       <p className="mb-6 text-muted-foreground">
         Browse roadmaps other learners have shared and start one instantly — no wait, no AI call, just a

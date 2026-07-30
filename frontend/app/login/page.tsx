@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 interface LoginPageProps {
-  searchParams: Promise<{ verified?: string; error?: string; next?: string }>;
+  searchParams: Promise<{ verified?: string; reset?: string; error?: string; next?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -27,14 +27,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   const verified = params.verified === "1";
+  const reset = params.reset === "1";
 
   return (
     <AuthPageShell
-      title="Welcome back"
-      description="Sign in to continue forging your knowledge."
-      alternatePrompt="New to MindForge?"
-      alternateLabel="Create an account"
       alternateHref={ROUTES.REGISTER}
+      alternateLabel="Create an account"
+      alternatePrompt="New to MindForge?"
+      description="Sign in to continue forging your knowledge."
+      title="Welcome back"
     >
       {verified && (
         <p className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-foreground">
@@ -42,10 +43,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Email verified! Sign in to continue.
         </p>
       )}
-      <LoginForm oauthError={params.error} next={params.next} />
+      {reset && (
+        <p className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-foreground">
+          <CheckCircle2 aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+          Password updated! Sign in with your new password.
+        </p>
+      )}
+      <LoginForm next={params.next} oauthError={params.error} />
       <p className="text-center text-sm text-muted-foreground sm:text-left">
         Just exploring?{" "}
-        <Link href={ROUTES.DEMO} className="font-medium">
+        <Link className="font-medium" href={ROUTES.DEMO}>
           Try demo →
         </Link>
       </p>

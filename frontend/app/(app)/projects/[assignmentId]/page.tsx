@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import ROUTES from "@/lib/routes";
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
 import {
@@ -27,6 +28,7 @@ import { OriginalityReport } from "@/components/projects/originality-report";
 import { AssignmentLeaderboard } from "@/components/projects/assignment-leaderboard";
 import { AssignmentBurndown } from "@/components/projects/assignment-burndown";
 import { Badge } from "@/components/ui/badge";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 
 export const metadata: Metadata = { title: "Project Assignment" };
 
@@ -77,10 +79,11 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
 
   return (
     <main className="page-container">
+      <Breadcrumb items={[{ label: "Projects", href: ROUTES.PROJECTS }, { label: assignment.title }]} />
       <header className="page-header items-start">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <h1 className="page-title">{assignment.title}</h1>
+            <h1 className="section-title">{assignment.title}</h1>
             <Badge variant={STATUS_VARIANT[assignment.status] ?? "outline"}>{assignment.status}</Badge>
           </div>
           <p className="text-muted-foreground">{batch.name}</p>

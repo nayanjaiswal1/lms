@@ -1,9 +1,26 @@
 // Shared zod schema + option lists for the assessment config form — used by
 // both the create form and the edit-settings form so the two never drift.
 import { z } from "zod";
+import { ASSESSMENT_PARENT_TYPE } from "@/lib/constants";
 import type { ProctoringConfig } from "@/lib/assessments/types";
 
 const numeric = z.string().refine((v) => v !== "" && !Number.isNaN(Number(v)), "Enter a number.");
+
+// Only the two parent types a user picks directly when creating a test from
+// this generic form. course/module/roadmap/batch (see ValidParentTypes on the
+// backend) are set programmatically by their own builders — never chosen here.
+export const ASSESSMENT_SCOPE_OPTIONS = [
+  {
+    value: ASSESSMENT_PARENT_TYPE.STANDALONE,
+    label: "Standalone",
+    description: "A regular test — assign it to batches or individual students once published.",
+  },
+  {
+    value: ASSESSMENT_PARENT_TYPE.HIRING,
+    label: "Hiring / Recruitment",
+    description: "Adds a public candidate link — external applicants take it with just their name and email, no account.",
+  },
+] as const;
 
 export const FULLSCREEN_EXIT_OPTIONS = [
   { value: "pause",       label: "Pause timer",        description: "Freeze the clock; student must return to fullscreen to resume" },

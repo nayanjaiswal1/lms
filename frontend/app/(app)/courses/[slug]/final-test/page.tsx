@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { findCourseBySlug, getCourses, getEnrollments } from "@/lib/server/courses";
 import { getFinalTest } from "@/lib/server/courses";
 import { FinalTestClient } from "@/components/courses/final-test-client";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -36,6 +37,14 @@ export default async function FinalTestPage({ params }: Props) {
 
   return (
     <main className="page-container-sm">
+      <Breadcrumb
+        items={[
+          { label: "Courses", href: ROUTES.COURSES },
+          { label: course.title, href: ROUTES.course(slug) },
+          { label: "Final Test" },
+        ]}
+      />
+
       <FinalTestClient courseId={course.id} courseSlug={slug} courseTitle={course.title} finalTest={finalTest} />
     </main>
   );
