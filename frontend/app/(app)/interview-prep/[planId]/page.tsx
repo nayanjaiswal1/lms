@@ -19,7 +19,7 @@ export default async function InterviewPrepPlanPage({ params }: Props) {
   if (!plan) notFound();
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container-sm">
       <div className="flex flex-col gap-1 mb-6">
         <h1 className="page-title">{plan.job_title}</h1>
         <p className="text-sm text-muted-foreground">

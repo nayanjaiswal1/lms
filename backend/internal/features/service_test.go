@@ -56,7 +56,7 @@ func TestResolve_GrantedFeatureIsEntitled(t *testing.T) {
 	require.NoError(t, err)
 
 	service := features.NewService(features.NewRepo(pool))
-	cfg, err := service.Resolve(ctx, userID)
+	cfg, err := service.Resolve(ctx, userID, "")
 	require.NoError(t, err)
 
 	require.Contains(t, cfg.OrgFeatures, "what_now")
@@ -71,7 +71,7 @@ func TestResolve_UngrantedUserIsNotEntitled(t *testing.T) {
 	userID := createTestUser(t, pool, email)
 
 	service := features.NewService(features.NewRepo(pool))
-	cfg, err := service.Resolve(ctx, userID)
+	cfg, err := service.Resolve(ctx, userID, "")
 	require.NoError(t, err)
 
 	require.Contains(t, cfg.OrgFeatures, "what_now")

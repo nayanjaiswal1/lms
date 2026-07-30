@@ -85,7 +85,7 @@ async function PlanList() {
 
 export default function InterviewPrepPage() {
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <h1 className="page-title">Interview Prep</h1>
         <Button asChild>

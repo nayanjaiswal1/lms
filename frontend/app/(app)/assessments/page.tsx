@@ -32,7 +32,7 @@ export default async function AssessmentsPage() {
   const [assessments, analytics] = await Promise.all([getMyAssessments(), getMyAnalytics()]);
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <header className="page-header">
         <div className="flex flex-col gap-1">
           <h1 className="page-title">Assessments</h1>

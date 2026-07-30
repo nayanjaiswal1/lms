@@ -9,6 +9,9 @@ import { LessonSqlChallenge } from "@/components/courses/lesson-sql-challenge";
 import { LessonKnowledgeCheck } from "@/components/courses/lesson-knowledge-check";
 import { LessonReflection } from "@/components/courses/lesson-reflection";
 import { LessonNotes } from "@/components/courses/lesson-notes";
+import { LessonAIConnect } from "@/components/courses/lesson-ai-connect";
+import { AccessGate } from "@/components/shared/access-gate";
+import { FEATURES } from "@/lib/features";
 import { LessonFigure } from "@/components/courses/lesson-figure";
 import { LessonHtml } from "@/components/courses/lesson-html";
 import { ModuleCompleteButton } from "@/components/courses/module-complete-button";
@@ -27,6 +30,8 @@ interface ModuleNotesProps {
   lab?: Lab | null;
   initialSession?: GetSessionResponse | null;
   highlights?: Highlight[];
+  lessonUrl: string;
+  hasAIConnection: boolean;
 }
 
 export function ModuleNotes({
@@ -39,6 +44,8 @@ export function ModuleNotes({
   lab = null,
   initialSession = null,
   highlights = [],
+  lessonUrl,
+  hasAIConnection,
 }: ModuleNotesProps) {
   const firstLabTaskIndex = segments.findIndex((s) => s.type === "lab-task");
 
@@ -113,6 +120,14 @@ export function ModuleNotes({
           and document outline. */}
       <h2 className="sr-only">{title}</h2>
       <div className="flex justify-end gap-2">
+        <AccessGate feature={FEATURES.AI_CONNECTOR} mode="hide">
+          <LessonAIConnect
+            hasConnection={hasAIConnection}
+            lessonUrl={lessonUrl}
+            moduleId={moduleId}
+            moduleTitle={title}
+          />
+        </AccessGate>
         <LessonNotes initialContent={initialNote} moduleId={moduleId} />
         {/* At xl+ this button moves into the ModuleProgressRail instead. */}
         <ModuleCompleteButton className="xl:hidden" initialCompleted={initialCompleted} moduleId={moduleId} />

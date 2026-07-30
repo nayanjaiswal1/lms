@@ -16,10 +16,13 @@ type Router struct {
 
 // New builds the certificates Router. coursesRepo backs the enrollment/
 // completion gate and course-existence check; executor grades coding
-// questions via the same Piston/Judge0 path assessment attempts use.
-func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, executor assessment.CodeExecutor) *Router {
+// questions via the same Piston/Judge0 path assessment attempts use;
+// mentorAuth/purchases back the mentor-manual and threshold-auto-issue
+// paths respectively (both satisfied by *mentoring.Service — see
+// backend/internal/api/router.go).
+func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, executor assessment.CodeExecutor, mentorAuth MentorAuthChecker, purchases PurchaseChecker) *Router {
 	repo := NewRepo(pool)
-	service := NewService(repo, coursesRepo, executor)
+	service := NewService(repo, coursesRepo, executor, mentorAuth, purchases)
 	return &Router{handler: newHandler(service)}
 }
 
@@ -33,12 +36,23 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(instructor).Group(func(r chi.Router) {
 		r.Get("/api/courses/{courseID}/final-test/edit", rt.handler.GetFinalTestForEdit)
 		r.Put("/api/courses/{courseID}/final-test", rt.handler.UpsertFinalTest)
+		r.Get("/api/courses/{courseID}/certificate-rule", rt.handler.GetCertificateRule)
+		r.Put("/api/courses/{courseID}/certificate-rule", rt.handler.UpsertCertificateRule)
+	})
+
+	// Manual award — a mentor may only issue for their own assigned student
+	// (enforced in the service, since middleware can't see the mentor/student
+	// pairing); instructor/admin may issue for anyone enrolled.
+	mentorOrStaff := middleware.RequireOrgRole(middleware.RoleMentor, middleware.RoleInstructor, middleware.RoleAdmin)
+	r.With(mentorOrStaff).Group(func(r chi.Router) {
+		r.Post("/api/courses/{courseID}/certificates/issue", rt.handler.IssueCertificate)
 	})
 
 	r.With(authz.RequirePermission(authzSvc, "content.certificates")).Group(func(r chi.Router) {
 		r.Get("/api/courses/{courseID}/final-test", rt.handler.GetFinalTestForStudent)
 		r.Post("/api/courses/{courseID}/final-test/attempt", rt.handler.SubmitAttempt)
 		r.Get("/api/certificates/me", rt.handler.ListMyCertificates)
+		r.Post("/api/courses/{courseID}/certificates/check-threshold", rt.handler.CheckThresholdCertificate)
 	})
 }
 

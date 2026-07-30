@@ -60,7 +60,7 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
   const canCancel = job.status === "pending" || job.status === "queued";
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <div className="flex items-center gap-3 flex-wrap">

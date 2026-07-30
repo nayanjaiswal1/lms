@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { resendBatchInvitationAction, revokeBatchInvitationAction } from "@/app/(app)/batches/actions";
 
 interface InviteRowActionsProps {
@@ -16,6 +17,7 @@ interface InviteRowActionsProps {
 
 export function InviteRowActions({ batchId, invitationId, email }: InviteRowActionsProps) {
   const [pending, setPending] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
   const router = useRouter();
 
   async function handleResend() {
@@ -60,10 +62,20 @@ export function InviteRowActions({ batchId, invitationId, email }: InviteRowActi
         disabled={pending}
         size="icon"
         variant="ghost"
-        onClick={handleRevoke}
+        onClick={() => setConfirmOpen(true)}
       >
         <X aria-hidden className="h-4 w-4 text-destructive" />
       </Button>
+      <ConfirmDialog
+        destructive
+        confirmLabel="Revoke"
+        description={`This revokes the pending invite to ${email}. They will no longer be able to join with this link.`}
+        open={confirmOpen}
+        pending={pending}
+        title="Revoke invite?"
+        onConfirm={handleRevoke}
+        onOpenChange={setConfirmOpen}
+      />
     </div>
   );
 }

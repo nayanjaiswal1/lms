@@ -23,6 +23,19 @@ export const DIFFICULTY_OPTIONS = [
 
 // ─────────────────────────────────────────────
 
+export const ORG_MEMBER_STATUS = {
+  ACTIVE:    "active",
+  SUSPENDED: "suspended",
+} as const;
+export type OrgMemberStatus = (typeof ORG_MEMBER_STATUS)[keyof typeof ORG_MEMBER_STATUS];
+
+export const ORG_MEMBER_STATUS_OPTIONS = [
+  { label: "Active",    value: ORG_MEMBER_STATUS.ACTIVE },
+  { label: "Suspended", value: ORG_MEMBER_STATUS.SUSPENDED },
+] as const;
+
+// ─────────────────────────────────────────────
+
 export const PROBLEM_STATUS = {
   UNSOLVED:  "unsolved",
   ATTEMPTED: "attempted",
@@ -213,6 +226,18 @@ export const ASSESSMENT_STATUS_OPTIONS = [
   { label: "Active",    value: ASSESSMENT_STATUS.ACTIVE },
   { label: "Completed", value: ASSESSMENT_STATUS.COMPLETED },
   { label: "Archived",  value: ASSESSMENT_STATUS.ARCHIVED },
+] as const;
+
+// Subset of statuses the backend accepts on the generic manual status-move
+// endpoint (POST /api/assessments/{id}/status — see the `allowed` map in
+// handler_assessment.go SetAssessmentStatus). "published" and "scheduled"
+// are deliberately excluded — those only happen via the dedicated /publish
+// flow, never a manual status move.
+export const ASSESSMENT_MANUAL_STATUS_OPTIONS = [
+  { label: "Draft",     value: ASSESSMENT_STATUS.DRAFT,     description: "Unpublish — reopen for editing, hidden from students." },
+  { label: "Active",    value: ASSESSMENT_STATUS.ACTIVE,    description: "Open and available for students to attempt." },
+  { label: "Completed", value: ASSESSMENT_STATUS.COMPLETED, description: "Closed to new attempts, results remain visible." },
+  { label: "Archived",  value: ASSESSMENT_STATUS.ARCHIVED,  description: "Hidden from active lists — for long-term storage." },
 ] as const;
 
 export const ASSESSMENT_PARENT_TYPE = {
@@ -581,6 +606,141 @@ export const MISTAKE_CATEGORY_OPTIONS = [
   { label: "Punctuation",              value: MISTAKE_CATEGORY.PUNCTUATION },
   { label: "Other",                    value: MISTAKE_CATEGORY.OTHER },
 ] as const;
+
+// ─────────────────────────────────────────────
+// GitLab project assignments & teams (Batch 2 — mirrors backend/internal/
+// gitlab/models.go's constants; keep both in sync).
+// ─────────────────────────────────────────────
+
+export const PROJECT_VISIBILITY = {
+  PRIVATE:  "private",
+  INTERNAL: "internal",
+} as const;
+export type ProjectVisibilityConst = (typeof PROJECT_VISIBILITY)[keyof typeof PROJECT_VISIBILITY];
+
+export const PROJECT_VISIBILITY_OPTIONS = [
+  { label: "Private",  value: PROJECT_VISIBILITY.PRIVATE },
+  { label: "Internal", value: PROJECT_VISIBILITY.INTERNAL },
+] as const;
+
+export const PROJECT_TEAM_MEMBER_ROLE = {
+  LEAD:   "lead",
+  MEMBER: "member",
+} as const;
+
+export const PROJECT_TEAM_MEMBER_ROLE_OPTIONS = [
+  { label: "Lead",   value: PROJECT_TEAM_MEMBER_ROLE.LEAD },
+  { label: "Member", value: PROJECT_TEAM_MEMBER_ROLE.MEMBER },
+] as const;
+
+// GitLab's own numeric access-level scale (project_team_members.gitlab_access_level).
+export const GITLAB_ACCESS_LEVEL = {
+  REPORTER:   20,
+  DEVELOPER:  30,
+  MAINTAINER: 40,
+} as const;
+
+export const GITLAB_ACCESS_LEVEL_OPTIONS = [
+  { label: "Reporter",   value: String(GITLAB_ACCESS_LEVEL.REPORTER) },
+  { label: "Developer",  value: String(GITLAB_ACCESS_LEVEL.DEVELOPER) },
+  { label: "Maintainer", value: String(GITLAB_ACCESS_LEVEL.MAINTAINER) },
+] as const;
+
+export const PROVISION_STATUS_LABEL: Record<string, string> = {
+  pending:      "Pending",
+  provisioning: "Provisioning",
+  ready:        "Ready",
+  failed:       "Failed",
+};
+
+// Badge variant per ProjectTeam.provision_status — shared by every surface
+// that renders a team's provisioning state (team-card, projects pages)
+// so the color mapping only needs to be right in one place.
+export const PROVISION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  pending:      "outline",
+  provisioning: "secondary",
+  ready:        "default",
+  failed:       "destructive",
+};
+
+// project_team_checkpoints.status / ci_status label + badge-variant maps —
+// mirrors backend/internal/gitlab/models.go's Batch 5 constants. Shared by
+// checkpoint-submissions.tsx (staff) and any student-facing surface so the
+// color/label mapping stays in one place.
+export const CHECKPOINT_STATUS_LABEL: Record<string, string> = {
+  open:      "Open",
+  submitted: "Submitted",
+  approved:  "Approved",
+  merged:    "Merged",
+  graded:    "Graded",
+};
+
+export const CHECKPOINT_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  open:      "outline",
+  submitted: "secondary",
+  approved:  "secondary",
+  merged:    "default",
+  graded:    "default",
+};
+
+export const CI_STATUS_LABEL: Record<string, string> = {
+  none:     "No CI run yet",
+  pending:  "Pending",
+  running:  "Running",
+  success:  "Passing",
+  failed:   "Failed",
+  canceled: "Canceled",
+};
+
+export const CI_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  none:     "outline",
+  pending:  "outline",
+  running:  "secondary",
+  success:  "default",
+  failed:   "destructive",
+  canceled: "outline",
+};
+
+// Batch 6: originality report status + capstone handoff label/variant maps —
+// mirrors backend/internal/gitlab/models.go's OriginalityStatus*/HandoffStatus*
+// constants. Both lifecycles share the same four states, but stay separate
+// maps since they describe unrelated jobs (a table shared by coincidence
+// would drift the moment one gains a state the other doesn't).
+export const ORIGINALITY_STATUS_LABEL: Record<string, string> = {
+  pending:  "Pending",
+  running:  "Running",
+  complete: "Complete",
+  failed:   "Failed",
+};
+
+export const ORIGINALITY_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  pending:  "outline",
+  running:  "secondary",
+  complete: "default",
+  failed:   "destructive",
+};
+
+// Fork pre-selected for multi-member teams, transfer for solo teams (per
+// kind-herding-cookie.md §0.5) — TeamHandoffDialog picks the default, this is
+// just the option list/labels.
+export const HANDOFF_MODE_OPTIONS = [
+  { label: "Fork — new project, team keeps its current repo", value: "fork" },
+  { label: "Transfer — moves the team's project itself",      value: "transfer" },
+] as const;
+
+export const HANDOFF_STATUS_LABEL: Record<string, string> = {
+  pending:  "Pending",
+  running:  "Running",
+  complete: "Complete",
+  failed:   "Failed",
+};
+
+export const HANDOFF_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  pending:  "outline",
+  running:  "secondary",
+  complete: "default",
+  failed:   "destructive",
+};
 
 export const MISTAKE_STATUS_LABEL: Record<string, string> = {
   new:       "New",

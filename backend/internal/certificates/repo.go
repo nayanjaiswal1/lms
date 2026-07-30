@@ -121,10 +121,10 @@ func (r *Repo) CreateAttempt(ctx context.Context, userID, finalTestID string, an
 func (r *Repo) GetCertificateForCourse(ctx context.Context, userID, courseID string) (Certificate, error) {
 	var c Certificate
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, course_id, final_test_attempt_id, issued_at, cert_uuid
+		`SELECT id, user_id, course_id, final_test_attempt_id, issued_at, cert_uuid, issue_type, issued_by
 		 FROM certificates WHERE user_id = $1 AND course_id = $2`,
 		userID, courseID,
-	).Scan(&c.ID, &c.UserID, &c.CourseID, &c.FinalTestAttemptID, &c.IssuedAt, &c.CertUUID)
+	).Scan(&c.ID, &c.UserID, &c.CourseID, &c.FinalTestAttemptID, &c.IssuedAt, &c.CertUUID, &c.IssueType, &c.IssuedBy)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Certificate{}, ErrNotFound
@@ -134,14 +134,17 @@ func (r *Repo) GetCertificateForCourse(ctx context.Context, userID, courseID str
 	return c, nil
 }
 
-func (r *Repo) IssueCertificate(ctx context.Context, userID, courseID, attemptID string) (Certificate, error) {
+// IssueCertificate inserts a new certificate row. attemptID is set only for
+// the final-test path (nil for manual/threshold); issuedBy is set only for
+// the manual path (nil otherwise).
+func (r *Repo) IssueCertificate(ctx context.Context, userID, courseID string, attemptID, issuedBy *string, issueType string) (Certificate, error) {
 	var c Certificate
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO certificates (user_id, course_id, final_test_attempt_id)
-		 VALUES ($1, $2, $3)
-		 RETURNING id, user_id, course_id, final_test_attempt_id, issued_at, cert_uuid`,
-		userID, courseID, attemptID,
-	).Scan(&c.ID, &c.UserID, &c.CourseID, &c.FinalTestAttemptID, &c.IssuedAt, &c.CertUUID)
+		`INSERT INTO certificates (user_id, course_id, final_test_attempt_id, issue_type, issued_by)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id, user_id, course_id, final_test_attempt_id, issued_at, cert_uuid, issue_type, issued_by`,
+		userID, courseID, attemptID, issueType, issuedBy,
+	).Scan(&c.ID, &c.UserID, &c.CourseID, &c.FinalTestAttemptID, &c.IssuedAt, &c.CertUUID, &c.IssueType, &c.IssuedBy)
 	if err != nil {
 		return Certificate{}, fmt.Errorf("certificates: issue certificate: %w", err)
 	}
@@ -151,7 +154,7 @@ func (r *Repo) IssueCertificate(ctx context.Context, userID, courseID, attemptID
 func (r *Repo) ListMyCertificates(ctx context.Context, userID string) ([]CertificateView, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT cert.id, cert.user_id, cert.course_id, cert.final_test_attempt_id, cert.issued_at, cert.cert_uuid,
-		        c.title, u.name
+		        cert.issue_type, cert.issued_by, c.title, u.name
 		 FROM certificates cert
 		 JOIN courses c ON c.id = cert.course_id
 		 JOIN users u ON u.id = cert.user_id
@@ -166,7 +169,7 @@ func (r *Repo) ListMyCertificates(ctx context.Context, userID string) ([]Certifi
 	for rows.Next() {
 		var v CertificateView
 		if err := rows.Scan(&v.ID, &v.UserID, &v.CourseID, &v.FinalTestAttemptID, &v.IssuedAt, &v.CertUUID,
-			&v.CourseTitle, &v.LearnerName); err != nil {
+			&v.IssueType, &v.IssuedBy, &v.CourseTitle, &v.LearnerName); err != nil {
 			return nil, fmt.Errorf("certificates: scan certificate view: %w", err)
 		}
 		out = append(out, v)
@@ -179,13 +182,13 @@ func (r *Repo) GetByUUID(ctx context.Context, certUUID string) (CertificateView,
 	var v CertificateView
 	err := r.pool.QueryRow(ctx,
 		`SELECT cert.id, cert.user_id, cert.course_id, cert.final_test_attempt_id, cert.issued_at, cert.cert_uuid,
-		        c.title, u.name
+		        cert.issue_type, cert.issued_by, c.title, u.name
 		 FROM certificates cert
 		 JOIN courses c ON c.id = cert.course_id
 		 JOIN users u ON u.id = cert.user_id
 		 WHERE cert.cert_uuid = $1`, certUUID,
 	).Scan(&v.ID, &v.UserID, &v.CourseID, &v.FinalTestAttemptID, &v.IssuedAt, &v.CertUUID,
-		&v.CourseTitle, &v.LearnerName)
+		&v.IssueType, &v.IssuedBy, &v.CourseTitle, &v.LearnerName)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CertificateView{}, ErrNotFound
@@ -193,4 +196,39 @@ func (r *Repo) GetByUUID(ctx context.Context, certUUID string) (CertificateView,
 		return CertificateView{}, fmt.Errorf("certificates: get by uuid: %w", err)
 	}
 	return v, nil
+}
+
+// ─── Certificate rules (threshold-based auto-issue config) ────────────────────
+
+// UpsertCertificateRule creates or replaces the one threshold rule a course
+// may have.
+func (r *Repo) UpsertCertificateRule(ctx context.Context, courseID string, thresholdPercent int) (CertificateRule, error) {
+	var rule CertificateRule
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO certificate_rules (course_id, threshold_percent)
+		 VALUES ($1, $2)
+		 ON CONFLICT (course_id) DO UPDATE
+		   SET threshold_percent = EXCLUDED.threshold_percent, updated_at = now()
+		 RETURNING id, course_id, threshold_percent, created_at, updated_at`,
+		courseID, thresholdPercent,
+	).Scan(&rule.ID, &rule.CourseID, &rule.ThresholdPercent, &rule.CreatedAt, &rule.UpdatedAt)
+	if err != nil {
+		return CertificateRule{}, fmt.Errorf("certificates: upsert certificate rule: %w", err)
+	}
+	return rule, nil
+}
+
+func (r *Repo) GetCertificateRule(ctx context.Context, courseID string) (CertificateRule, error) {
+	var rule CertificateRule
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, course_id, threshold_percent, created_at, updated_at
+		 FROM certificate_rules WHERE course_id = $1`, courseID,
+	).Scan(&rule.ID, &rule.CourseID, &rule.ThresholdPercent, &rule.CreatedAt, &rule.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CertificateRule{}, ErrNotFound
+		}
+		return CertificateRule{}, fmt.Errorf("certificates: get certificate rule: %w", err)
+	}
+	return rule, nil
 }

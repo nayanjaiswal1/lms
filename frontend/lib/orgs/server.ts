@@ -11,6 +11,7 @@ import type {
   AuditLogPage,
   Domain,
   OrgAuthConfig,
+  OrgAIConnectorConfig,
 } from "@/lib/orgs/types";
 
 export async function getMyOrgs(): Promise<OrgSummary[]> {
@@ -63,4 +64,8 @@ export async function getOrgDomains(orgId: string): Promise<Domain[]> {
 
 export async function getOrgAuthConfig(orgId: string): Promise<OrgAuthConfig> {
   return apiGet<OrgAuthConfig>(`/api/orgs/${orgId}/auth-config`);
+}
+
+export async function getOrgAIConnectorConfig(orgId: string): Promise<OrgAIConnectorConfig> {
+  return apiGet<OrgAIConnectorConfig>(`/api/orgs/${orgId}/ai-connector-config`);
 }

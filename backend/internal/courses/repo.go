@@ -1393,3 +1393,78 @@ func (r *Repo) RejectProposal(ctx context.Context, orgID, proposalID, reviewerID
 	}
 	return out, nil
 }
+
+// ─── Random topic discovery ───────────────────────────────────────────────────
+
+// RandomTopicFilter narrows the candidate pool GetRandomPublishedCourse picks
+// from. A zero-value filter means "no filter" for that dimension.
+type RandomTopicFilter struct {
+	// Tags, when non-empty, requires overlap with the course's own tags
+	// (courses_tags_gin makes this an index scan, not a sequential one).
+	Tags []string
+	// ExcludeCourseIDs, when non-empty, excludes those courses from the pool
+	// — used to keep a "surprise me" pick from resurfacing something the
+	// student is already enrolled in.
+	ExcludeCourseIDs []string
+}
+
+// GetRandomPublishedCourse picks one published, org-kind course at random
+// from orgID's own catalog (the same visibility rule ListCourses uses),
+// narrowed by filter. Returns ErrNotFound when the filtered pool is empty —
+// callers decide whether/how to widen the filter and retry.
+func (r *Repo) GetRandomPublishedCourse(ctx context.Context, orgID string, filter RandomTopicFilter) (Course, error) {
+	args := []any{orgID}
+	where := "WHERE c.org_id = $1 AND c.kind = 'org' AND c.status = 'published'"
+	n := 2
+	if len(filter.Tags) > 0 {
+		where += fmt.Sprintf(" AND c.tags && $%d::text[]", n)
+		args = append(args, filter.Tags)
+		n++
+	}
+	if len(filter.ExcludeCourseIDs) > 0 {
+		where += fmt.Sprintf(" AND NOT (c.id = ANY($%d::uuid[]))", n)
+		args = append(args, filter.ExcludeCourseIDs)
+		n++
+	}
+
+	var c Course
+	err := r.pool.QueryRow(ctx,
+		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
+		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
+		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
+		        c.kind, c.owner_id, c.created_at, c.updated_at
+		 FROM courses c
+		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
+		 `+where+`
+		 ORDER BY random() LIMIT 1`,
+		args...,
+	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
+		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
+		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
+		&c.Kind, &c.OwnerID, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Course{}, ErrNotFound
+		}
+		return Course{}, fmt.Errorf("courses: get random published course: %w", err)
+	}
+	return c, nil
+}
+
+// GetTopicsInterest returns the student's stated topic interests from
+// onboarding (user_profiles.topics_interest) — empty if they never set any or
+// have no profile row at all, never an error for that case, since "no stated
+// interest" is a normal, common state, not a failure.
+func (r *Repo) GetTopicsInterest(ctx context.Context, userID string) ([]string, error) {
+	var tags []string
+	err := r.pool.QueryRow(ctx,
+		`SELECT topics_interest FROM user_profiles WHERE user_id = $1`, userID,
+	).Scan(&tags)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("courses: get topics interest: %w", err)
+	}
+	return tags, nil
+}

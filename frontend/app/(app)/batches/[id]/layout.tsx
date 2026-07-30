@@ -30,7 +30,7 @@ export default async function BatchLayout({ params, children }: Props) {
   const t = resolveTerminology(orgType);
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <div className="flex items-center gap-3">
           <BatchAvatar batchId={batch.id} imageUrl={batch.image_url} name={batch.name} size="md" />

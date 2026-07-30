@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-07-25T18:54:27Z
+-- Generated at: 2026-07-27T17:35:21Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: 45-Day Interview Preparation Bootcamp ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, estimated_hours)
-VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), 20+ system design exercises plus low-level/OOP design, backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 'published', true, 200.3)
+VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), 20+ system design exercises plus low-level/OOP design, backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 'published', true, 201.2)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 -- Section: DSA — Data Structures & Algorithms
@@ -15734,6 +15734,400 @@ Slows down on deep hierarchies since every read re-walks the recursion.
 - It's Postgres-specific; on other engines the realistic choices are adjacency list + recursive query (simplest, worst on deep reads), materialized path (manual `ltree`), or nested sets (fastest reads, costly writes) — pick based on read/write ratio and hierarchy depth.
 - Interview one-liner: *"`ltree` is a PostgreSQL extension that stores label-based tree paths and gives you efficient ancestor/descendant queries via GiST/GIN indexes, avoiding hand-written recursive CTEs — the tradeoff other databases face without it is recursion cost (adjacency list) vs. write cost (nested sets)."*
 $md$, 10, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('ca1ce2f4-b3c8-543f-922f-42cbb254cba4', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '18add646-da46-5396-ac6e-b7bbd367501c', 'Notes: Abstract Class vs Interface (LLD)', 'notes', 113, $md$Day 27/29 cover Singleton/Factory/Observer/Strategy/Repository/Builder, and backend/108 covers SOLID, polymorphism, and abstraction-vs-encapsulation — but none of those name the specific question that opens almost every LLD round: *"when do you reach for an abstract class instead of an interface?"* This note is that answer, framed the way interviewers actually ask it.
+
+## The one-line distinction
+
+- **Abstract class → "IS-A"**: use it when subclasses share both a *type relationship* and *some common implementation*. A `Dog` **is an** `Animal`.
+- **Interface → "CAN-DO"**: use it when unrelated classes need to promise the same *capability*, with no shared code. A `Dog` **can** `Swim`; so can a `Boat`, which is not an `Animal`.
+
+## Side by side
+
+| | Abstract class | Interface |
+|---|---|---|
+| Instantiable directly | No | No |
+| Method implementation | Can mix concrete + abstract methods | Python `Protocol`/`ABC` with no body — contract only |
+| State (fields) | Yes — shared instance state | No (Python `Protocol` structural types carry no state) |
+| Inheritance | Single (most languages) | A class can satisfy many |
+| Answers | "What are you, and what do you already do?" | "What can you do, regardless of what you are?" |
+
+## Python: `abc.ABC` as the abstract-class mechanism
+
+Python doesn't have a separate `abstract class` keyword like Java/C# — `abc.ABC` + `@abstractmethod` gives the same contract-enforcement:
+
+```python
+from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    def __init__(self, color: str):
+        self.color = color          # shared state — every Shape has a color
+
+    def describe(self) -> str:      # concrete method — shared behavior
+        return f"A {self.color} shape with area {self.area():.2f}"
+
+    @abstractmethod
+    def area(self) -> float: ...    # subclass MUST implement this
+
+class Circle(Shape):
+    def __init__(self, color: str, radius: float):
+        super().__init__(color)
+        self.radius = radius
+
+    def area(self) -> float:
+        return 3.14159 * self.radius ** 2
+
+Shape("red")     # TypeError: Can't instantiate abstract class Shape
+Circle("red", 2).describe()   # "A red shape with area 12.57"
+```
+
+Trying to instantiate `Shape` directly raises `TypeError` at the moment of instantiation — Python enforces the abstract contract at runtime, not compile time (there is no compile step). A subclass that forgets to implement `area()` is *also* abstract and *also* can't be instantiated — the error surfaces the first time someone tries to construct it, not when the subclass is defined.
+
+## Python's actual "interface": `Protocol`, not a keyword
+
+Python has no `interface` keyword. The closest equivalent is `typing.Protocol` — **structural** typing ("if it has the right shape, it satisfies the protocol") instead of the **nominal** typing Java's `implements` requires:
+
+```python
+from typing import Protocol
+
+class Swimmer(Protocol):
+    def swim(self) -> str: ...
+
+class Dog:
+    def swim(self) -> str:
+        return "paddles"
+
+class Boat:
+    def swim(self) -> str:
+        return "cuts through water"
+
+def race(swimmer: Swimmer) -> str:
+    return swimmer.swim()
+
+race(Dog())   # works — Dog never declared "implements Swimmer", it just has the method
+race(Boat())  # works too — Boat is unrelated to Dog entirely
+```
+
+Neither `Dog` nor `Boat` inherits from `Swimmer` — they satisfy it just by having a matching method signature. This is the concrete Python answer to "CAN-DO": no shared ancestor, no shared code, just a shared capability checked structurally (by a type checker like mypy, or duck-typing at runtime).
+
+## Template Method — the pattern abstract classes exist to enable
+
+The **Template Method** pattern is the reason abstract classes are useful beyond "a place to put shared fields": the abstract class defines the *skeleton* of an algorithm, and subclasses fill in only the steps that vary.
+
+```python
+class DataPipeline(ABC):
+    def run(self) -> None:              # the "template" — fixed sequence, never overridden
+        data = self.extract()
+        cleaned = self.transform(data)
+        self.load(cleaned)
+
+    @abstractmethod
+    def extract(self): ...
+    @abstractmethod
+    def transform(self, data): ...
+    @abstractmethod
+    def load(self, data): ...
+
+class CsvPipeline(DataPipeline):
+    def extract(self): return open("in.csv").read()
+    def transform(self, data): return data.upper()
+    def load(self, data): open("out.csv", "w").write(data)
+```
+
+`run()` is never overridden — the algorithm's *shape* is fixed in the base class, only its *steps* vary per subclass. This is the pattern interviewers are checking for when they ask "why not just use an interface with three methods and call them in the right order from the caller" — the answer is that the abstract class owns and guarantees the calling order itself, so no subclass can call the steps out of sequence or forget one.
+
+## Interview Q&A
+
+**Q: Abstract class vs interface — when do you pick which?**
+> "Abstract class when subclasses share both an IS-A relationship and some common state or implementation — put the shared part there once. Interface (or in Python, a `Protocol`) when unrelated classes need to promise the same capability with no shared code — a `Dog` and a `Boat` can both `swim()` without being related types."
+
+**Q: Can an abstract class have a constructor if it can't be instantiated?**
+> "Yes — the constructor runs when a subclass instance is created, via `super().__init__()`. It can't be instantiated *directly*, but its `__init__` is still part of every subclass's construction."
+
+**Q: Why not just use a Strategy (Day 27) instead of an abstract base class?**
+> "Strategy swaps a whole algorithm at runtime via composition — you inject a different strategy object. Template Method fixes the algorithm's shape at compile/definition time and only lets subclasses vary specific steps. Pick Template Method when the *sequence* must never change; pick Strategy when you need to swap the *entire* algorithm dynamically."
+
+## Key takeaways
+
+- Abstract class = IS-A + shared implementation; interface/`Protocol` = CAN-DO + contract only, no shared code, no common ancestor required.
+- Python has no `interface` keyword — `abc.ABC`/`@abstractmethod` plays the abstract-class role; `typing.Protocol` plays the interface role via structural (not nominal) typing.
+- Template Method is the concrete reason abstract classes exist beyond convenience: the base class fixes the algorithm's *sequence*, subclasses fill in only the *steps* — this is what to name when asked "why not just an interface with three separate methods."
+$md$, 15, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a06c1786-5813-5a36-929c-f68e105f0ccc', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '18add646-da46-5396-ac6e-b7bbd367501c', 'Notes: RBAC + Hierarchical Data — Concurrency-Safe Design Decisions', 'notes', 114, $md$backend/97 covers what RBAC *is* (roles vs permissions vs bearer tokens) and backend/112 covers `ltree` as a hierarchy-storage mechanism. Neither covers what happens when you combine them in a real system: scoped roles over a tree-shaped org structure, under concurrent writes. This note is a distilled set of architectural decisions from a production RBAC+hierarchy build — the kind of "how did you handle X" follow-up that separates a candidate who's read about RBAC from one who's shipped it.
+
+## Advisory checks vs authoritative triggers — the core pattern
+
+The recurring shape across every decision below: **application-level validation is advisory, the database constraint is authoritative.** Python (or any app-layer) code cannot make a check-then-write sequence concurrency-safe without external locking, because two requests can both pass the check before either commits. A database trigger or constraint that runs *inside the same transaction as the write* closes that window.
+
+```python
+# Advisory only — a race window exists between this check and the actual save()
+def clean(self):
+    if self._would_create_cycle():
+        raise ValidationError("cycle detected")
+```
+
+```sql
+-- Authoritative — runs inside the same transaction as the INSERT/UPDATE, no race window
+CREATE OR REPLACE FUNCTION check_no_cycle() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.hierarchy_path <@ (SELECT parent_path FROM org_units WHERE id = NEW.parent_id) THEN
+    RAISE EXCEPTION 'cycle detected: % would become an ancestor of itself', NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Interview framing:** "Python-level validation cannot be made concurrency-safe without serializing all writes through a single process — a Postgres trigger runs inside the same transaction as the mutation, so it's the only place a cycle check is actually race-free." Keep the Python check anyway — it gives a fast, friendly error in the common case; the trigger is the backstop for the concurrent case.
+
+## Scoped RBAC: additive overlap, not precedence
+
+When roles can be assigned at any node of an org tree (a role at `/company/sales` and another at `/company/sales/india`), the design question is: do overlapping grants combine, or does the more specific one win?
+
+**Decision: additive (union) semantics, no precedence model.** A user with a role at `/company/sales` and a different role at `/company/sales/india` gets the union of both roles' permissions inside `/company/sales/india`. This is simpler to reason about and to audit ("why can this user do X" is always "some ancestor scope granted it," never "which of these two conflicting grants wins") — precedence can be added later via a `priority` field without breaking any existing grant, so it's a safe thing to defer rather than a corner cut.
+
+## The query most systems get wrong: filtering "currently active" grants
+
+A naive scoped-role query filters only `deleted_at IS NULL` — but a role assignment with a past `expires_at` is soft-deleted-looking (not deleted) and still passes that filter, silently granting access that should have lapsed. **The fix is a single canonical queryset method** (`currently_active()`) that every permission check must go through, rather than trusting every call site to remember both conditions:
+
+```python
+class ScopedRoleAssignmentQuerySet(models.QuerySet):
+    def currently_active(self):
+        return self.filter(
+            models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
+        )
+```
+
+This is the same "one blessed path, not a convention every caller has to remember" principle as a shared response helper or a single auth-check function — a permission leak from a forgotten `.filter()` is a security bug, not a style nit.
+
+## Soft delete breaks chained querysets unless the manager is built right
+
+`ActiveManager.get_queryset()` returning a plain `models.QuerySet` looks fine until someone chains `.filter(...).delete()` — the *type* of the returned queryset determines whether `.delete()` does a soft delete or a real SQL `DELETE`. The fix: build the manager from a custom `QuerySet` subclass so every chained call preserves soft-delete semantics all the way down:
+
+```python
+class SoftDeleteQuerySet(models.QuerySet):
+    def delete(self):
+        return self.update(deleted_at=timezone.now(), updated_at=timezone.now())  # bulk soft delete
+    def hard_delete(self):
+        return super().delete()
+
+ActiveManager = models.Manager.from_queryset(SoftDeleteQuerySet)
+```
+
+**The trap this avoids:** Django's `auto_now=True` only fires on `.save()` — a bulk `.update()` call (which is what a queryset-level soft delete has to use) silently skips it. Any custom `.delete()` override on a queryset must set `updated_at` explicitly, or every soft-deleted row ends up with a stale `updated_at`.
+
+## Locking a subtree: lock the root, not every descendant
+
+Moving or soft-deleting a subtree needs to serialize concurrent operations on that same subtree — but `select_for_update()` on the *entire descendant set* can hold thousands of row locks for the whole transaction, blocking unrelated reads on nodes that aren't even involved in the conflict. **Lock only the subtree root** to serialize concurrent callers; the bulk `UPDATE` that follows acquires its own row locks atomically as it touches each row, which is sufficient — you don't need to pre-lock what the UPDATE will lock anyway.
+
+```python
+def move_subtree(self, new_parent):
+    with transaction.atomic():
+        # lock only the root — .exists() forces evaluation, a lazy queryset locks nothing
+        OrgUnit.objects.select_for_update().filter(id=self.id).exists()
+        ...
+```
+
+Two concrete bugs hide in that one line if you're not careful: a `select_for_update().filter(...)` queryset that's never evaluated (e.g. never iterated or checked with `.exists()`) sends no lock request to Postgres at all — the lock silently does nothing. And locking every descendant instead of just the root is lock amplification — correct, but needlessly expensive.
+
+## Partial indexes: the condition Postgres won't let you write
+
+A composite index on `(user_id, deleted_at)` still leaves `expires_at` as a post-scan filter. The instinct is to add a partial index with `WHERE expires_at > now()` — **Postgres rejects this**, because a partial index's condition is evaluated once at index-build/definition time, and `now()` is not immutable (it changes every call). The workable partial index instead targets the *permanent*-grant hot path, which has no time-based condition:
+
+```sql
+CREATE INDEX scoped_role_user_permanent_active_idx
+  ON scoped_role_assignment (user_id)
+  WHERE deleted_at IS NULL AND expires_at IS NULL;
+```
+
+Time-bound (expiring) grants fall back to the regular composite index — documenting *why* they can't get the same partial-index treatment is itself the interview-worthy part of this answer, not just knowing partial indexes exist.
+
+## Audit log immutability: two layers, one authoritative
+
+Application-level immutability (blocking `UPDATE`/`DELETE` in the model's `save()`/`delete()` methods) only holds if every write goes through the ORM — a raw SQL client bypasses it entirely. **Defense in depth:** keep the Django-layer guard (fails fast, good error message, no round trip to discover the problem) *and* a Postgres trigger that raises on any `UPDATE`/`DELETE` to the audit table regardless of what wrote it:
+
+```sql
+CREATE OR REPLACE FUNCTION prevent_audit_mutation() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log rows are immutable';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_audit_immutable_update BEFORE UPDATE ON audit_log
+  FOR EACH ROW EXECUTE FUNCTION prevent_audit_mutation();
+```
+
+The Django guard is convenience; the trigger is the actual guarantee — same advisory-vs-authoritative split as the cycle check above.
+
+## Key takeaways
+
+- The pattern underlying every decision here: app-level checks are advisory (fast, friendly errors, but racy); DB constraints/triggers that run inside the transaction are authoritative (slower to hit, but actually correctness-guaranteeing).
+- Overlapping scoped permissions are simplest as additive/union semantics — precedence is a `priority` field you can add later without a breaking migration, so it's a safe thing to defer, not a shortcut.
+- A soft-delete manager must be built from a custom `QuerySet` subclass (`Manager.from_queryset(...)`), or chained `.filter().delete()` calls silently fall back to a real SQL delete.
+- Lock the subtree *root* for a tree-move/soft-delete operation, not every descendant — the bulk UPDATE's own row locks are sufficient once the root serializes concurrent callers.
+- Postgres partial indexes can't use `now()` in their condition (not immutable) — split the index strategy between permanent grants (partial index works) and time-bound grants (falls back to a full composite index).
+- Immutability and cycle-safety both want the same two-layer answer: an app-level guard for a fast, friendly failure, plus a DB trigger as the actual authority that survives even raw SQL access.
+$md$, 20, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('8871a187-be17-56e6-96ed-7a896fa7b2e8', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '18add646-da46-5396-ac6e-b7bbd367501c', 'Notes: Closures, Context Managers, Generators & Scope Resolution', 'notes', 115, $md$The course covers Python's object model in depth — MRO (backend/107), memory management and the GIL (backend/106), deep vs shallow copy (backend/109) — but four fundamentals candidates are expected to rattle off cold don't have a home yet: closures, context managers, generators, and LEGB scope resolution. These are quick, but they're exactly the kind of "explain this in one sentence, then show a gotcha" questions that open a Python round.
+
+## Closures
+
+> **One-line definition:** "An inner function that remembers a variable from its enclosing function's scope, even after the enclosing function has already returned."
+
+```python
+def make_multiplier(factor):
+    def multiply(x):
+        return x * factor      # 'factor' is captured, not copied
+    return multiply
+
+double = make_multiplier(2)
+triple = make_multiplier(3)
+double(5)  # 10
+triple(5)  # 15
+```
+
+`multiply` doesn't get a snapshot of `factor` at creation time — it keeps a live reference to the variable itself, inspectable via `double.__closure__[0].cell_contents`.
+
+**The gotcha that trips people up — closures in a loop capture the variable, not its value at iteration time:**
+
+```python
+funcs = [lambda: i for i in range(3)]
+[f() for f in funcs]   # [2, 2, 2] — all three closures share the same 'i' cell
+
+funcs = [lambda i=i: i for i in range(3)]   # fix: snapshot via a default argument
+[f() for f in funcs]   # [0, 1, 2]
+```
+
+This is the same closure-over-a-variable mechanism backend/01 mentions for Django middleware (`A(B(C(view)))` — each layer closes over the next) — a decorator's `wrapper` function is a closure over the original function for the exact same reason.
+
+## Context managers
+
+> **One-line definition:** "An object that sets something up before your code runs and cleans it up after, no matter what happens — including on an exception."
+
+```python
+with open("file.txt") as f:
+    data = f.read()
+# file is closed here even if .read() raised
+```
+
+**Class-based**, via `__enter__`/`__exit__`:
+
+```python
+class Timer:
+    def __enter__(self):
+        self.start = time.time()
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f"Elapsed: {time.time() - self.start:.3f}s")
+        return False   # False/None re-raises any exception; True would swallow it
+
+with Timer():
+    do_work()
+```
+
+**Function-based**, via `@contextmanager` — usually the less boilerplate-heavy choice for a one-off:
+
+```python
+from contextlib import contextmanager
+
+@contextmanager
+def timer():
+    start = time.time()
+    yield                      # code inside the `with` block runs here
+    print(f"Elapsed: {time.time() - start:.3f}s")
+
+with timer():
+    do_work()
+```
+
+Everything before `yield` is `__enter__`; everything after is `__exit__`. If the `with` block raises, the exception surfaces at the `yield` line — wrap it in `try/finally` inside the generator if cleanup must run even on error.
+
+**Common real uses:** `open()` (file), `threading.Lock()` (acquire/release), a DB connection (connect/disconnect), `unittest.mock.patch` (patch/restore). The `__exit__` return value matters in interviews: returning `True` suppresses the exception — a subtle footgun if you don't mean to swallow errors silently.
+
+## Generators
+
+A generator is a function that produces a lazy sequence via `yield` instead of building and returning a full list — nothing is computed until the caller asks for the next value.
+
+```python
+def squares(n):
+    for i in range(n):
+        yield i * i
+
+gen = squares(5)
+next(gen)   # 0 — nothing beyond this has run yet
+next(gen)   # 1
+
+total = sum(x * x for x in range(10_000_000))   # generator expression — no intermediate list materialized
+```
+
+**Interview framing:** the payoff is memory, not raw speed — `sum(x*x for x in range(10_000_000))` never holds 10 million values in memory simultaneously, unlike the list-comprehension equivalent. This is the same reason `dict`/`Counter`/`defaultdict` construction from a generator expression scales to inputs a list comprehension can't.
+
+## LEGB — scope resolution order
+
+Python resolves a name by checking four scopes in order: **L**ocal → **E**nclosing → **G**lobal → **B**uilt-in — the first scope where the name exists wins.
+
+```python
+x = "global"
+
+def outer():
+    x = "enclosing"
+    def inner():
+        x = "local"
+        print(x)     # "local" — found in Local scope, search stops immediately
+    inner()
+
+outer()
+```
+
+To *write* to an outer scope (rather than just read it) requires an explicit declaration — this is the part people forget under pressure:
+
+```python
+count = 0
+
+def increment():
+    global count      # without this, 'count += 1' raises UnboundLocalError
+    count += 1
+```
+
+`nonlocal` plays the same role one level up, for writing to an *enclosing* function's variable (not global) from a nested function — the same mechanism a closure needs if it wants to mutate, not just read, the captured variable.
+
+## Default mutable argument — the classic gotcha
+
+```python
+def add_item(item, cart=[]):   # BAD — the list literal is created ONCE, at function definition time
+    cart.append(item)
+    return cart
+
+add_item("apple")   # ['apple']
+add_item("banana")  # ['apple', 'banana'] — the SAME list, carried over from the previous call
+```
+
+Default argument values are evaluated **once**, when the `def` statement runs — not once per call. A mutable default (list, dict, set) is therefore shared and accumulates state across every call that doesn't explicitly pass its own.
+
+```python
+def add_item(item, cart=None):   # GOOD — sentinel default, fresh list created inside the call
+    if cart is None:
+        cart = []
+    cart.append(item)
+    return cart
+```
+
+## Key takeaways
+
+- Closure = inner function + captured variable from an enclosing scope, alive after that scope returns; loop-variable capture is the classic gotcha (all closures share one cell unless you snapshot via a default argument).
+- Context manager = guaranteed setup/teardown around a block, even on exception; `__exit__` returning `True` swallows the exception — usually not what you want.
+- Generators trade eagerness for memory: nothing computes until `next()` is called, so a generator expression never materializes an intermediate collection.
+- LEGB (Local → Enclosing → Global → Built-in) is the read-resolution order; writing to an outer scope needs an explicit `global`/`nonlocal`, or Python creates a new local variable instead.
+- A mutable default argument (`def f(x, cache=[])`) is created once at function-definition time and shared across every call — always default to `None` and create the mutable value inside the function body.
+$md$, 20, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Frontend Engineering

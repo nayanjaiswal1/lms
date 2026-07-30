@@ -9,6 +9,7 @@ import {
   Shield,
   ScrollText,
   Cpu,
+  GitBranch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
@@ -25,6 +26,7 @@ const ORG_SETTINGS_NAV: OrgNavItem[] = [
   { label: "Members",        href: ROUTES.ORG_SETTINGS_MEMBERS,  icon: Users },
   { label: "Domains",        href: ROUTES.ORG_SETTINGS_DOMAINS,  icon: Globe },
   { label: "Authentication", href: ROUTES.ORG_SETTINGS_AUTH,     icon: Shield },
+  { label: "Integrations",   href: ROUTES.ORG_SETTINGS_INTEGRATIONS, icon: GitBranch },
   { label: "Audit Log",      href: ROUTES.ORG_SETTINGS_AUDIT,    icon: ScrollText },
   { label: "Jobs",           href: ROUTES.ORG_SETTINGS_JOBS,     icon: Cpu },
 ];

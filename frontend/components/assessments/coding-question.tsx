@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import styles from "./coding-question.module.css";
 import { PromptRenderer } from "@/components/shared/prompt-renderer";
 import { CodingConsole } from "@/components/assessments/coding-console";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { runCodeAction } from "@/app/(app)/assessments/[id]/take/actions";
 import { SESSION_SUPERSEDED_MESSAGE } from "@/lib/assessments/types";
 import type { RunResult, StudentCodingContent } from "@/lib/assessments/types";
@@ -40,8 +41,12 @@ const LANG_LABEL: Record<string, string> = {
   rust: "Rust",
 };
 
-// CodingQuestion uses a LeetCode-style split panel: the left panel shows the
-// problem description, constraints, and sample cases; the right panel is a dark
+// CodingQuestion uses a LeetCode-style split panel, draggable via the same
+// react-resizable-panels wrapper the labs feature already uses (see
+// lab-container-workspace.tsx / sandbox-workspace.tsx): an outer horizontal
+// group divides problem prompt from editor+console, an inner vertical group
+// divides the editor from the console. The left panel shows the problem
+// description, constraints, and sample cases; the right panel is a dark
 // monospace editor with line numbers, Tab-key indent, language tab selection,
 // a Run button, and a console (Testcase/Result tabs) below the editor. Run only
 // ever executes against non-hidden sample cases via runCodeAction — it never
@@ -119,133 +124,149 @@ export function CodingQuestion({
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
 
   return (
-    <div className="flex min-h-[520px] flex-col overflow-hidden rounded-[--radius-lg] border border-border lg:min-h-[640px] lg:flex-row">
+    <div className="h-full overflow-hidden rounded-[--radius-lg] border border-border">
+      <ResizablePanelGroup orientation="horizontal">
 
-      {/* ── Left panel: problem description ──────────────────────────────── */}
-      <div className="flex flex-col gap-5 overflow-y-auto border-b border-border p-5 lg:w-[42%] lg:border-b-0 lg:border-r">
+        {/* ── Left panel: problem description ────────────────────────────── */}
+        <ResizablePanel defaultSize="42%" id="coding-question-prompt" maxSize="65%" minSize="25%">
+          <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
 
-        {/* Problem statement */}
-        <PromptRenderer text={content.prompt} textClassName="text-sm leading-relaxed" />
+            {/* Problem statement */}
+            <PromptRenderer text={content.prompt} textClassName="text-sm leading-relaxed" />
 
-        {/* Sample cases */}
-        {content.sample_cases.length > 0 && (
-          <div className="flex flex-col gap-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Examples
-            </p>
-            {content.sample_cases.map((c, i) => (
-              <div className="flex flex-col gap-2" key={i}>
-                <p className="text-xs font-medium text-muted-foreground">Example {i + 1}</p>
-                <div className="rounded-[--radius-md] bg-muted p-3">
-                  <p className="mb-1 text-xs text-muted-foreground">Input</p>
-                  <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.stdin}</pre>
+            {/* Sample cases */}
+            {content.sample_cases.length > 0 && (
+              <div className="flex flex-col gap-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Examples
+                </p>
+                {content.sample_cases.map((c, i) => (
+                  <div className="flex flex-col gap-2" key={i}>
+                    <p className="text-xs font-medium text-muted-foreground">Example {i + 1}</p>
+                    <div className="rounded-[--radius-md] bg-muted p-3">
+                      <p className="mb-1 text-xs text-muted-foreground">Input</p>
+                      <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.stdin}</pre>
+                    </div>
+                    <div className="rounded-[--radius-md] bg-muted p-3">
+                      <p className="mb-1 text-xs text-muted-foreground">Output</p>
+                      <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.expected}</pre>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Constraints */}
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Constraints
+              </p>
+              <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+                <li>
+                  Time limit:{" "}
+                  <span className="font-mono text-foreground">{content.time_limit_ms} ms</span>
+                </li>
+                <li>
+                  Memory:{" "}
+                  <span className="font-mono text-foreground">
+                    {Math.round(content.memory_limit_kb / 1024)} MB
+                  </span>
+                </li>
+                {content.hidden_count > 0 && (
+                  <li>
+                    {content.hidden_count} hidden test case
+                    {content.hidden_count > 1 ? "s" : ""} (graded)
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle orientation="horizontal" />
+
+        {/* ── Right panel: editor + run console ──────────────────────────── */}
+        <ResizablePanel defaultSize="58%" id="coding-question-editor" minSize="35%">
+          <ResizablePanelGroup orientation="vertical">
+            <ResizablePanel defaultSize="70%" id="coding-question-editor-pane" minSize="30%">
+              <div className="flex h-full flex-col">
+
+                {/* Editor toolbar: language tabs + Run button + line count */}
+                <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
+                  <div className="flex gap-0.5">
+                    {content.languages.map((lang) => (
+                      <button
+                        className={cn(
+                          "rounded px-3 py-1 text-xs font-medium transition-colors",
+                          language === lang
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                        key={lang}
+                        type="button"
+                        onClick={() => onLanguage(lang, content.starter_code?.[lang] ?? "")}
+                      >
+                        {LANG_LABEL[lang] ?? lang}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {code.split("\n").length} lines
+                    </span>
+                    <button
+                      aria-label="Run code against sample tests"
+                      className="flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-ai transition-colors hover:bg-ai/10 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"
+                      disabled={run.running || !code.trim() || content.sample_cases.length === 0}
+                      type="button"
+                      onClick={() => void handleRun()}
+                    >
+                      {run.running ? (
+                        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Play aria-hidden className="h-3.5 w-3.5" />
+                      )}
+                      Run
+                    </button>
+                  </div>
                 </div>
-                <div className="rounded-[--radius-md] bg-muted p-3">
-                  <p className="mb-1 text-xs text-muted-foreground">Output</p>
-                  <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.expected}</pre>
+
+                {/* Dark code editor with gutter */}
+                <div className={styles.editorWrap}>
+                  <div aria-hidden className={styles.lineNums} ref={lineNumRef}>
+                    {lineNumbers}
+                  </div>
+                  <textarea
+                    aria-label="Code editor"
+                    className={styles.editor}
+                    placeholder={`# Write your ${LANG_LABEL[language] ?? language} solution here…`}
+                    ref={textareaRef}
+                    spellCheck={false}
+                    value={code}
+                    onChange={(e) => onCode(e.target.value, language)}
+                    onKeyDown={handleKeyDown}
+                    onScroll={handleScroll}
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </ResizablePanel>
 
-        {/* Constraints */}
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Constraints
-          </p>
-          <ul className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-            <li>
-              Time limit:{" "}
-              <span className="font-mono text-foreground">{content.time_limit_ms} ms</span>
-            </li>
-            <li>
-              Memory:{" "}
-              <span className="font-mono text-foreground">
-                {Math.round(content.memory_limit_kb / 1024)} MB
-              </span>
-            </li>
-            {content.hidden_count > 0 && (
-              <li>
-                {content.hidden_count} hidden test case
-                {content.hidden_count > 1 ? "s" : ""} (graded)
-              </li>
-            )}
-          </ul>
-        </div>
-      </div>
+            <ResizableHandle withHandle orientation="vertical" />
 
-      {/* ── Right panel: editor + run console ──────────────────────────────── */}
-      <div className="flex min-h-[300px] flex-1 flex-col lg:min-h-0">
-
-        {/* Editor toolbar: language tabs + Run button + line count */}
-        <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
-          <div className="flex gap-0.5">
-            {content.languages.map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                onClick={() => onLanguage(lang, content.starter_code?.[lang] ?? "")}
-                className={cn(
-                  "rounded px-3 py-1 text-xs font-medium transition-colors",
-                  language === lang
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {LANG_LABEL[lang] ?? lang}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {code.split("\n").length} lines
-            </span>
-            <button
-              type="button"
-              onClick={() => void handleRun()}
-              disabled={run.running || !code.trim() || content.sample_cases.length === 0}
-              aria-label="Run code against sample tests"
-              className="flex h-7 items-center gap-1.5 rounded px-2.5 text-xs font-medium text-ai transition-colors hover:bg-ai/10 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"
-            >
-              {run.running ? (
-                <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Play aria-hidden className="h-3.5 w-3.5" />
-              )}
-              Run
-            </button>
-          </div>
-        </div>
-
-        {/* Dark code editor with gutter */}
-        <div className={styles.editorWrap}>
-          <div ref={lineNumRef} className={styles.lineNums} aria-hidden>
-            {lineNumbers}
-          </div>
-          <textarea
-            ref={textareaRef}
-            aria-label="Code editor"
-            className={styles.editor}
-            placeholder={`# Write your ${LANG_LABEL[language] ?? language} solution here…`}
-            spellCheck={false}
-            value={code}
-            onChange={(e) => onCode(e.target.value, language)}
-            onKeyDown={handleKeyDown}
-            onScroll={handleScroll}
-          />
-        </div>
-
-        {/* Run console — Testcase / Result tabs */}
-        <CodingConsole
-          sampleCases={content.sample_cases}
-          tab={run.tab}
-          running={run.running}
-          result={run.result}
-          error={run.error}
-          onTabChange={(tab) => setRun((prev) => ({ ...prev, tab }))}
-        />
-      </div>
+            <ResizablePanel defaultSize="30%" id="coding-question-console" minSize="15%">
+              {/* Run console — Testcase / Result tabs */}
+              <CodingConsole
+                error={run.error}
+                result={run.result}
+                running={run.running}
+                sampleCases={content.sample_cases}
+                tab={run.tab}
+                onTabChange={(tab) => setRun((prev) => ({ ...prev, tab }))}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

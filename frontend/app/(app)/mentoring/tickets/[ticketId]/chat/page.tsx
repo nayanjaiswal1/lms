@@ -26,7 +26,7 @@ export default async function MentorTicketChatPage({ params }: Props) {
   if (messages === null) notFound();
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container-sm">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link className="text-muted-foreground hover:text-foreground" href={ROUTES.MENTORING_TICKETS}>

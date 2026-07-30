@@ -2,13 +2,18 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
+import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ChecklistGrid } from "@/components/shared/checklist-grid"
 import { toast } from "sonner"
 import { useHasPermission } from "@/lib/auth/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
-import { apiFetch, API } from "@/lib/client/api"
+import { apiFetch } from "@/lib/client/api"
+import ROUTES from "@/lib/routes"
+import { RoleInfoForm } from "./role-info-form"
 
 interface Permission {
   id: string
@@ -26,17 +31,10 @@ interface Role {
   is_active: boolean
 }
 
-function groupByModule(perms: Permission[]): Record<string, Permission[]> {
-  return perms.reduce<Record<string, Permission[]>>((acc, p) => {
-    if (!acc[p.module]) acc[p.module] = []
-    acc[p.module].push(p)
-    return acc
-  }, {})
-}
-
 export default function RoleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const canEdit = useHasPermission(PERMISSIONS.ADMIN.MANAGE_PERMISSIONS)
+  const canEditRole = useHasPermission(PERMISSIONS.ADMIN.MANAGE_ROLES)
 
   const [role, setRole] = useState<Role | null>(null)
   const [allPerms, setAllPerms] = useState<Permission[]>([])
@@ -61,27 +59,20 @@ export default function RoleDetailPage() {
     void load()
   }, [load])
 
-  function toggle(permID: string) {
+  function setAssignedIfEditable(next: Set<string>) {
     if (!canEdit || role?.is_system) return
-    setAssigned((prev) => {
-      const next = new Set(prev)
-      if (next.has(permID)) next.delete(permID)
-      else next.add(permID)
-      return next
-    })
+    setAssigned(next)
   }
 
   async function save() {
     if (!canEdit) return
     setSaving(true)
-    const res = await fetch(`${API}/api/admin/rbac/roles/${id}/permissions`, {
+    const result = await apiFetch(`/admin/rbac/roles/${id}/permissions`, {
       method: "PUT",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ permission_ids: Array.from(assigned) }),
     })
     setSaving(false)
-    if (res.ok) {
+    if (result !== null) {
       toast.success("Permissions saved.")
     } else {
       toast.error("Failed to save permissions.")
@@ -90,7 +81,7 @@ export default function RoleDetailPage() {
 
   if (loading) {
     return (
-      <div className="page-container py-8 space-y-4">
+      <div className="page-container space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-96" />
         <Skeleton className="h-64 w-full" />
@@ -100,29 +91,43 @@ export default function RoleDetailPage() {
 
   if (!role) {
     return (
-      <div className="page-container py-8">
+      <div className="page-container">
         <p className="text-muted-foreground">Role not found.</p>
       </div>
     )
   }
 
-  const grouped = groupByModule(allPerms)
-  const modules = Object.keys(grouped).sort()
   const isReadOnly = role.is_system || !role.is_editable || !canEdit
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
+      <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+        <Link aria-label="Back to Roles" className="touch-target -ml-2 hover:text-foreground" href={ROUTES.ADMIN_RBAC_ROLES}>
+          <ArrowLeft aria-hidden className="h-4 w-4" />
+        </Link>
+        <Link className="hover:text-foreground" href={ROUTES.ADMIN_RBAC_ROLES}>
+          Roles
+        </Link>
+        <span aria-hidden>/</span>
+        <span className="text-foreground">{role.name}</span>
+      </nav>
+
       <div className="page-header">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="page-title">{role.name}</h1>
-            {role.is_system && <Badge variant="outline">System</Badge>}
-            {!role.is_active && <Badge variant="secondary">Disabled</Badge>}
-          </div>
-          <p className="text-muted-foreground mt-1">{role.description}</p>
-        </div>
+        <RoleInfoForm
+          badges={
+            <>
+              {role.is_system && <Badge variant="outline">System</Badge>}
+              {!role.is_active && <Badge variant="secondary">Disabled</Badge>}
+            </>
+          }
+          canEdit={canEditRole && role.is_editable && !role.is_system}
+          description={role.description}
+          name={role.name}
+          roleId={role.id}
+          onSaved={(next) => setRole((prev) => (prev ? { ...prev, ...next } : prev))}
+        />
         {!isReadOnly && (
-          <Button onClick={save} disabled={saving}>
+          <Button disabled={saving} onClick={save}>
             {saving ? "Saving…" : "Save Permissions"}
           </Button>
         )}
@@ -136,40 +141,13 @@ export default function RoleDetailPage() {
         </p>
       )}
 
-      <div className="mt-8 space-y-8">
-        {modules.map((module) => (
-          <section key={module}>
-            <h2 className="section-title capitalize mb-4">{module}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {grouped[module].map((p) => {
-                const checked = assigned.has(p.id)
-                return (
-                  <label
-                    key={p.id}
-                    htmlFor={`perm-${p.id}`}
-                    aria-label={`${p.name} (${p.code})`}
-                    className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
-                      isReadOnly ? "cursor-default" : "cursor-pointer hover:bg-muted/50"
-                    } ${checked ? "border-primary bg-primary/5" : "border-border"}`}
-                  >
-                    <input
-                      id={`perm-${p.id}`}
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggle(p.id)}
-                      disabled={isReadOnly}
-                      className="mt-0.5 accent-primary"
-                    />
-                    <div>
-                      <p className="font-medium text-sm">{p.name}</p>
-                      <code className="text-xs text-muted-foreground">{p.code}</code>
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
-          </section>
-        ))}
+      <div className="mt-8">
+        <ChecklistGrid
+          disabled={isReadOnly}
+          options={allPerms.map((p) => ({ id: p.id, label: p.name, sublabel: p.code, group: p.module }))}
+          selected={assigned}
+          onChange={setAssignedIfEditable}
+        />
       </div>
     </div>
   )

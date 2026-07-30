@@ -65,7 +65,7 @@ export default async function AuditPage({
   const offset = Number(sp.offset ?? 0)
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Audit Log</h1>

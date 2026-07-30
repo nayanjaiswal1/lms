@@ -14,7 +14,7 @@ export default async function InterviewProgressPage() {
   const avg = Math.round(progress.avg_readiness_score);
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <div className="page-header">
         <h1 className="page-title">Interview Readiness</h1>
       </div>

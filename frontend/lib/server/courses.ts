@@ -1,6 +1,6 @@
 import "server-only";
 
-import { apiGet } from "@/lib/server/api";
+import { apiGet, apiPost } from "@/lib/server/api";
 
 export interface Course {
   id: string;
@@ -66,6 +66,7 @@ export interface ModuleProgress {
   status: "not_started" | "in_progress" | "completed";
   last_position_seconds: number;
   completed_at: string | null;
+  updated_at: string;
 }
 
 export interface CourseProgressSummary {
@@ -108,6 +109,24 @@ export async function getCourseTree(courseID: string): Promise<CourseTree> {
 export async function getEnrollments(): Promise<Enrollment[]> {
   const data = await apiGet<{ enrollments: Enrollment[] }>("/api/enrollments/me");
   return data.enrollments ?? [];
+}
+
+export interface RandomTopic {
+  course: Course;
+  matched_interest: boolean;
+  already_enrolled: boolean;
+}
+
+// "Surprise me" discovery card — one published course the student hasn't
+// tried yet. Returns null (not thrown) when the org catalog has no published
+// courses at all, since that's a normal empty state for a fresh org, not an
+// error the page should crash on.
+export async function getRandomTopic(): Promise<RandomTopic | null> {
+  try {
+    return await apiGet<RandomTopic>("/api/courses/random-topic");
+  } catch {
+    return null;
+  }
 }
 
 // `getCourses()` only returns org-scoped courses (kind = 'org') — self-practice
@@ -217,18 +236,30 @@ export interface FinalTestAttempt {
   completed_at: string;
 }
 
+export type CertificateIssueType = "final_test" | "manual" | "threshold";
+
 export interface Certificate {
   id: string;
   user_id: string;
   course_id: string;
-  final_test_attempt_id: string;
+  final_test_attempt_id: string | null;
   issued_at: string;
   cert_uuid: string;
+  issue_type: CertificateIssueType;
+  issued_by: string | null;
 }
 
 export interface CertificateView extends Certificate {
   course_title: string;
   learner_name: string;
+}
+
+export interface CertificateRule {
+  id: string;
+  course_id: string;
+  threshold_percent: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SubmitFinalTestAttemptResult {
@@ -269,4 +300,26 @@ export async function getFinalTestForEdit(courseID: string): Promise<FinalTestCo
 export async function getMyCertificates(): Promise<CertificateView[]> {
   const data = await apiGet<CertificateView[]>("/api/certificates/me");
   return data ?? [];
+}
+
+// Instructor-only — returns null when the course has no threshold rule
+// configured yet (a normal, not-yet-set-up state).
+export async function getCertificateRule(courseID: string): Promise<CertificateRule | null> {
+  try {
+    return await apiGet<CertificateRule | null>(`/api/courses/${courseID}/certificate-rule`);
+  } catch {
+    return null;
+  }
+}
+
+// Evaluates and, if eligible, issues the caller's own threshold-based
+// certificate for this course. Safe to call on every course-page render —
+// a no-op once a certificate already exists or no rule is configured.
+// Never throws: an unreachable backend just means no certificate this load.
+export async function checkThresholdCertificate(courseID: string): Promise<Certificate | null> {
+  try {
+    return await apiPost<Certificate | null>(`/api/courses/${courseID}/certificates/check-threshold`);
+  } catch {
+    return null;
+  }
 }

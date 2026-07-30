@@ -81,7 +81,7 @@ export default async function LabResultPage({ params }: PageProps) {
   const myFeedback = await getMyFeedback("lab", session.lab_id).catch(() => null)
 
   return (
-    <main className="page-container-sm py-10 flex flex-col gap-6">
+    <main className="page-container-sm flex flex-col gap-6">
       <ClearActiveLabSession sessionId={sessionId} />
       <FeedbackPrompt
         alreadyResponded={myFeedback !== null}

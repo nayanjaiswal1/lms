@@ -34,7 +34,7 @@ export default async function PlatformJobsPage({ searchParams }: PageProps) {
   )?.org_name;
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Platform Jobs</h1>

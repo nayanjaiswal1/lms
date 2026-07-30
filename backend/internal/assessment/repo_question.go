@@ -226,6 +226,33 @@ func (r *Repo) ListQuestions(ctx context.Context, orgID string, f QuestionFilter
 	return out, total, rows.Err()
 }
 
+// ListQuestionUsage returns one row per (question, assessment) pin across the
+// org, so callers can group the question bank by the test — and, transitively,
+// the course — each question actually belongs to.
+func (r *Repo) ListQuestionUsage(ctx context.Context, orgID string) ([]QuestionUsage, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT aq.question_id, a.id, a.title, course.course_id, course.title
+		 FROM assessment_questions aq
+		 JOIN assessments a ON a.id = aq.assessment_id
+		 `+courseLinkJoin+`
+		 WHERE a.org_id = $1
+		 ORDER BY a.title`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment: list question usage: %w", err)
+	}
+	defer rows.Close()
+
+	out := []QuestionUsage{}
+	for rows.Next() {
+		var u QuestionUsage
+		if err := rows.Scan(&u.QuestionID, &u.AssessmentID, &u.AssessmentTitle, &u.CourseID, &u.CourseTitle); err != nil {
+			return nil, fmt.Errorf("assessment: scan question usage: %w", err)
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
 // ArchiveQuestion soft-deletes by flipping status to archived.
 func (r *Repo) ArchiveQuestion(ctx context.Context, orgID, id string) error {
 	tag, err := r.pool.Exec(ctx,

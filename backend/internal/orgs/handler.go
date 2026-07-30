@@ -70,6 +70,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/auth-config", h.handleGetAuthConfig)
 		r.Patch("/auth-config", h.handleUpdateAuthConfig)
 
+		r.Get("/ai-connector-config", h.handleGetAIConnectorConfig)
+		r.Patch("/ai-connector-config", h.handleUpdateAIConnectorConfig)
+
 		r.Post("/domains", h.handleAddDomain)
 		r.Post("/domains/verify", h.handleVerifyDomain)
 		r.Post("/domains/{domain_id}/auto-join", h.handleSetAutoJoin)
@@ -432,6 +435,78 @@ func (h *Handler) handleUpdateAuthConfig(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	httputil.WriteJSON(w, http.StatusOK, cfg)
+}
+
+// ─── AI connector config ───────────────────────────────────────────────────
+
+// handleGetAIConnectorConfig reads the org's AI Connector (MCP) on/off
+// switch. Unlike auth config, no row is seeded at org creation, so a missing
+// row means "never toggled" — defaults to enabled, matching
+// features.Repo.OrgAIConnectorEnabled's same default.
+func (h *Handler) handleGetAIConnectorConfig(w http.ResponseWriter, r *http.Request) {
+	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return
+	}
+
+	enabled := true
+	err := h.pool.QueryRow(r.Context(),
+		`SELECT enabled FROM org_ai_connector_config WHERE org_id = $1`,
+		orgCtx.OrgID,
+	).Scan(&enabled)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to load AI connector configuration.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"enabled": enabled})
+}
+
+func (h *Handler) handleUpdateAIConnectorConfig(w http.ResponseWriter, r *http.Request) {
+	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	_, err := h.pool.Exec(r.Context(),
+		`INSERT INTO org_ai_connector_config (org_id, enabled)
+		 VALUES ($1, $2)
+		 ON CONFLICT (org_id) DO UPDATE
+		   SET enabled = EXCLUDED.enabled, updated_at = now()`,
+		orgCtx.OrgID, req.Enabled,
+	)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to update AI connector configuration.")
+		return
+	}
+
+	writeAuditLog(r.Context(), h.pool, auditEntry{
+		OrgID:       orgCtx.OrgID,
+		ActorUserID: func() *string { s := orgCtx.MemberID; return &s }(),
+		Action:      "org_ai_connector_config.updated",
+		TargetType:  "org_ai_connector_config",
+		TargetID:    &orgCtx.OrgID,
+	})
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"enabled": req.Enabled})
 }
 
 // ─── domains ──────────────────────────────────────────────────────────────────

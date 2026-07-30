@@ -4,9 +4,6 @@ import {
   Brain,
   MessageSquare,
   FileText,
-  Layers,
-  Video,
-  Activity,
   ListChecks,
   ClipboardCheck,
   FileQuestion,
@@ -20,9 +17,10 @@ import {
   Calendar,
   Compass,
   Map,
-  Briefcase,
   FolderTree,
+  FolderGit2,
   Bot,
+  Presentation,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -34,7 +32,10 @@ import { type Terminology } from "@/lib/terminology";
 // ─────────────────────────────────────────────
 // Nav item shape
 // `feature`          — if present, item is wrapped in <AccessGate> automatically.
-// `requiredPermission` — RBAC permission code; item hidden unless user holds it.
+// `requiredPermission` — RBAC permission code(s); item hidden unless the user
+//                       holds it. An array is an any-of check (e.g. a hub
+//                       entry that should show if the user can reach any one
+//                       of the pages it links to).
 // `hideForPermission`  — inverse of the above; item hidden if user DOES hold it
 //                       (e.g. hide the learner-facing mentor directory from
 //                       admins, who already have the full Users page for that).
@@ -46,7 +47,7 @@ export interface NavItem {
   href:                string;
   icon:                LucideIcon;
   feature?:            Feature;
-  requiredPermission?: string;
+  requiredPermission?: string | string[];
   hideForPermission?:  string;
   mode?:               "badge" | "hide";
   exact?:              boolean;
@@ -184,48 +185,22 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  "content.wiki",
     mode:                "badge",
   },
-  system_design: {
-    label:               "System Design",
-    href:                ROUTES.DESIGN,
-    icon:                Layers,
-    feature:             FEATURES.SYSTEM_DESIGN,
-    requiredPermission:  "content.system_design",
+  interview_exp: {
+    label:               "Interview Experiences",
+    href:                ROUTES.INTERVIEW_EXP,
+    icon:                MessageSquare,
+    feature:             FEATURES.INTERVIEW_EXP,
+    requiredPermission:  "content.interview_exp",
     mode:                "badge",
   },
-  interview_board: {
-    label:               "Interview Board",
-    href:                ROUTES.INTERVIEW,
-    icon:                Video,
-    feature:             FEATURES.INTERVIEW_BOARD,
-    requiredPermission:  "content.interview_board",
-    mode:                "badge",
-  },
-  load_test: {
-    label:               "Load Test",
-    href:                ROUTES.LOAD_TEST,
-    icon:                Activity,
-    feature:             FEATURES.LOAD_TEST,
-    requiredPermission:  "content.load_test",
-    mode:                "badge",
-  },
-  instructor_courses: {
-    label:               "My Courses",
-    href:                ROUTES.MANAGE_COURSES,
-    icon:                BookOpen,
-    requiredPermission:  "courses.create",
-  },
+  // system_design / interview_board / load_test nav items removed: those
+  // routes (/design, /interview, /load-test) have no page.tsx yet. Re-add
+  // once each ships. FEATURES.SYSTEM_DESIGN etc. stay defined — still used
+  // by the in-course design canvas (components/courses/design-canvas.tsx).
   instructor_assessments: {
     label:               "Assessments",
     href:                ROUTES.MANAGE_ASSESSMENTS,
     icon:                ClipboardCheck,
-    feature:             FEATURES.ASSESSMENTS,
-    requiredPermission:  "assessments.create",
-    mode:                "badge",
-  },
-  hiring_assessments: {
-    label:               "Hiring Assessments",
-    href:                `${ROUTES.MANAGE_ASSESSMENT_NEW}?type=hiring`,
-    icon:                Briefcase,
     feature:             FEATURES.ASSESSMENTS,
     requiredPermission:  "assessments.create",
     mode:                "badge",
@@ -246,18 +221,20 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  "assessments.manage_batches",
     mode:                "badge",
   },
+  projects: {
+    label:               "Projects",
+    href:                ROUTES.PROJECTS,
+    icon:                FolderGit2,
+    feature:             FEATURES.GITLAB_INTEGRATION,
+    requiredPermission:  "projects.view",
+    mode:                "hide",
+  },
   mentor_dashboard: {
     label:               "Overview",
     href:                ROUTES.MENTORING,
     icon:                LayoutDashboard,
     requiredPermission:  "mentoring.manage_batches",
     exact:               true,
-  },
-  mentor_messages: {
-    label:               "Messages",
-    href:                ROUTES.MENTORING_MESSAGES,
-    icon:                MessageSquare,
-    requiredPermission:  "mentoring.manage_batches",
   },
   mentor_tickets: {
     label:               "Ticket Queue",
@@ -277,6 +254,26 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.USERS,
     icon:                Users,
     requiredPermission:  "admin.view_members",
+  },
+
+  teach_hub: {
+    label:               "Instructor",
+    href:                ROUTES.TEACH,
+    icon:                Presentation,
+    requiredPermission:  [
+      "courses.create",
+      "assessments.create",
+      "assessments.manage_questions",
+      "mentoring.manage_batches",
+    ],
+  },
+  manage_courses: {
+    label:               "Courses",
+    href:                ROUTES.MANAGE_COURSES_NEW,
+    icon:                GraduationCap,
+    feature:             FEATURES.COURSES,
+    requiredPermission:  "courses.create",
+    mode:                "badge",
   },
 
 };
@@ -320,7 +317,12 @@ export function useVisibleNavGroups(groups: NavGroup[] = MAIN_NAV_GROUPS): NavGr
     .map((group) => ({
       ...group,
       items: group.items
-        .filter((item) => !item.requiredPermission || perms.has(item.requiredPermission))
+        .filter((item) => {
+          if (!item.requiredPermission) return true;
+          return Array.isArray(item.requiredPermission)
+            ? item.requiredPermission.some((p) => perms.has(p))
+            : perms.has(item.requiredPermission);
+        })
         .filter((item) => !item.hideForPermission || !perms.has(item.hideForPermission))
         .map((item) =>
           BATCH_LABEL_HREFS.has(item.href) ? { ...item, label: applyTerminology(item.label, t) } : item,
@@ -354,40 +356,66 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.flashcards,
       ALL_NAV_ITEMS.sheet_tracker,
       ALL_NAV_ITEMS.wiki,
+      ALL_NAV_ITEMS.interview_exp,
+    ],
+  },
+  // "Tools" group (System Design, Interview Board, Load Test) removed: those
+  // routes have no page.tsx yet, so the cards 404'd. Re-add once each ships.
+];
+
+// ─────────────────────────────────────────────
+// TEACH HUB — course authoring, assessment authoring, question bank, and
+// mentoring live behind one sidebar entry (ALL_NAV_ITEMS.teach_hub → /teach)
+// instead of a permanent slot each. Batches (cohort_groups) stays a direct
+// sidebar link — it's a delivery/roster tool used constantly, not a
+// destination someone browses to occasionally like the hub cards. Rendered
+// as cards on /teach via useVisibleNavGroups (frontend/app/(app)/teach/page.tsx).
+// ─────────────────────────────────────────────
+
+export const TEACHING_HUB_GROUPS: NavGroup[] = [
+  {
+    label: "Courses",
+    items: [
+      ALL_NAV_ITEMS.manage_courses,
     ],
   },
   {
-    label: "Tools",
+    label: "Assessments",
     items: [
-      ALL_NAV_ITEMS.system_design,
-      ALL_NAV_ITEMS.interview_board,
-      ALL_NAV_ITEMS.load_test,
+      ALL_NAV_ITEMS.instructor_assessments,
+      ALL_NAV_ITEMS.question_bank,
+    ],
+  },
+  {
+    label: "Mentoring",
+    items: [
+      ALL_NAV_ITEMS.mentor_dashboard,
+      ALL_NAV_ITEMS.mentor_tickets,
     ],
   },
 ];
 
 export const MAIN_NAV_GROUPS: NavGroup[] = [
   {
-    label: "Learn",
+    // No label: this group already contains a "Learn" link (learn_hub)
+    // alongside Dashboard/Mentors/Calendar, which aren't Learn sub-items —
+    // a "Learn" header over that mix duplicated the child item and misnamed
+    // the rest.
     items: [
       ALL_NAV_ITEMS.dashboard,
       ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.calendar,
+      ALL_NAV_ITEMS.projects,
     ],
   },
   {
-    label: "Teaching",
+    // No label: a single-line "Teaching" header over just Teach + Batches
+    // read as noise once the hub collapsed the 6-item group to this.
     items: [
-      ALL_NAV_ITEMS.instructor_courses,
-      ALL_NAV_ITEMS.instructor_assessments,
-      ALL_NAV_ITEMS.hiring_assessments,
-      ALL_NAV_ITEMS.question_bank,
+      ALL_NAV_ITEMS.teach_hub,
       ALL_NAV_ITEMS.cohort_groups,
-      ALL_NAV_ITEMS.mentor_dashboard,
-      ALL_NAV_ITEMS.mentor_messages,
-      ALL_NAV_ITEMS.mentor_tickets,
     ],
   },
   {

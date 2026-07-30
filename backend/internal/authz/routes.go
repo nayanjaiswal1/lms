@@ -41,6 +41,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.With(RequirePermission(h.svc, "admin.manage_roles")).
 			Delete("/roles/{roleID}", h.HandleDisableRole)
 
+		r.With(RequirePermission(h.svc, "admin.manage_roles")).
+			Post("/roles/{roleID}/enable", h.HandleEnableRole)
+
 		r.With(RequireAnyPermission(h.svc,
 			"admin.manage_roles",
 			"admin.manage_permissions",
@@ -71,6 +74,21 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			"admin.manage_members",
 			"admin.view_members",
 		)).Get("/users/{userID}/permissions", h.HandleGetUserPermissions)
+
+		// ── User-permission overrides ──────────────────────────────────────────
+		// Direct per-user grants that bypass roles entirely — a stricter guard
+		// than plain role assignment: granting skips the curation a role
+		// provides, so both codes are required, not just admin.manage_members.
+		r.With(RequireAnyPermission(h.svc,
+			"admin.manage_members",
+			"admin.view_members",
+		)).Get("/users/{userID}/permission-overrides", h.HandleGetUserPermissionOverrides)
+
+		r.With(RequirePermission(h.svc, "admin.manage_members", "admin.manage_permissions")).
+			Post("/users/{userID}/permission-overrides", h.HandleGrantUserPermission)
+
+		r.With(RequirePermission(h.svc, "admin.manage_members", "admin.manage_permissions")).
+			Delete("/users/{userID}/permission-overrides/{permissionID}", h.HandleRevokeUserPermission)
 
 		// ── Audit log ─────────────────────────────────────────────────────────
 		r.With(RequirePermission(h.svc, "admin.view_audit_log")).

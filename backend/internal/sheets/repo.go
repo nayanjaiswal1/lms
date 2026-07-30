@@ -401,10 +401,12 @@ func (r *Repo) ListUserSheets(ctx context.Context, userID string) ([]UserSheetSu
 		`SELECT s.id, s.name, s.slug, s.description, s.category, s.is_system,
 		        s.created_by, s.created_at, s.updated_at, us.role, COALESCE(s.source_sheet_ids, '{}'),
 		        COUNT(si.id),
-		        COALESCE(array_agg(DISTINCT si.category) FILTER (WHERE si.category IS NOT NULL), '{}')
+		        COALESCE(array_agg(DISTINCT si.category) FILTER (WHERE si.category IS NOT NULL), '{}'),
+		        COUNT(si.id) FILTER (WHERE upp.status = 'done')
 		 FROM user_sheets us
 		 JOIN sheets s ON s.id = us.sheet_id
 		 LEFT JOIN sheet_items si ON si.sheet_id = s.id
+		 LEFT JOIN user_problem_progress upp ON upp.topic_tag = si.topic_tag AND upp.user_id = us.user_id
 		 WHERE us.user_id = $1
 		 GROUP BY s.id, us.role, us.added_at
 		 ORDER BY us.added_at`, userID)
@@ -419,7 +421,7 @@ func (r *Repo) ListUserSheets(ctx context.Context, userID string) ([]UserSheetSu
 		if err := rows.Scan(
 			&u.ID, &u.Name, &u.Slug, &u.Description, &u.Category, &u.IsSystem,
 			&u.CreatedBy, &u.CreatedAt, &u.UpdatedAt, &u.Role, &u.SourceSheetIDs,
-			&u.ItemCount, &u.Topics,
+			&u.ItemCount, &u.Topics, &u.SolvedCount,
 		); err != nil {
 			return nil, fmt.Errorf("sheets: scan user sheet: %w", err)
 		}

@@ -309,6 +309,30 @@ export default tseslint.config(
             '[Responsive] Avoid h-screen — use h-dvh or min-h-dvh instead.',
         },
 
+        // ── Design: ban py-* stacked onto page-container/page-container-sm ─
+        // .page-container is horizontal-padding-only by design (mx-auto
+        // max-w-7xl px-*) — every page under (app)/ and platform/ already
+        // gets vertical padding from .app-content (p-4 sm:p-6 lg:p-8), and
+        // .page-header supplies the title's own py-6 on top of that. Bolting
+        // a py-* onto page-container stacks a third layer of padding and
+        // was a regression across 60+ pages (fixed 2026-07-30). If a
+        // page-container is a genuine nested content column with no
+        // .page-header (not the page's top-level shell), disable this line
+        // with a comment explaining why.
+        {
+          selector: `JSXAttribute[name.name="className"] Literal[value=/(?=.*\\bpage-container(-sm)?\\b)(?=.*\\bpy-\\d)/]`,
+          message:
+            '[Design] Do not add py-* to page-container/page-container-sm. ' +
+            '.app-content already provides page-level vertical padding and .page-header provides title spacing — ' +
+            'stacking py-* here triples the top/bottom whitespace. ' +
+            'If this is a nested content column (no .page-header), disable this line with a reason.',
+        },
+        {
+          selector: `JSXAttribute[name.name="className"] TemplateElement[value.raw=/(?=.*\\bpage-container(-sm)?\\b)(?=.*\\bpy-\\d)/]`,
+          message:
+            '[Design] Do not add py-* to page-container/page-container-sm — see className rule above.',
+        },
+
         // ── Responsive: ban overflow-x-hidden on root elements ───────────
         // Applying overflow-x-hidden to body/html breaks position:sticky and
         // masks real overflow bugs rather than fixing them. Fix the root cause.
@@ -361,8 +385,11 @@ export default tseslint.config(
           // lib/client/** is the client-side counterpart to lib/server/** —
           // both are cross-cutting fetch helpers (see the Cookie-header ban
           // above), not a feature of their own, so both must be reachable
-          // from any feature the same way.
-          pattern: ['lib/*.ts', 'lib/*.tsx', 'lib/server/**', 'lib/client/**', 'lib/validation/**'],
+          // from any feature the same way. lib/notifications/** is the same
+          // shape of exception: system-wide in-app notifications (Batch 5)
+          // are read by components/shared/notification-bell.tsx, which by
+          // definition isn't scoped to any one feature — see docs there.
+          pattern: ['lib/*.ts', 'lib/*.tsx', 'lib/server/**', 'lib/client/**', 'lib/validation/**', 'lib/notifications/**'],
         },
         { type: 'feature-lib', pattern: 'lib/*/**', capture: ['family'] },
       ],
@@ -432,6 +459,15 @@ export default tseslint.config(
             {
               from: { type: 'feature-components', captured: { family: 'landing' } },
               allow: [['feature-components', { family: 'courses' }]],
+            },
+            // Project assignment creation lets an instructor pick which of
+            // the org's GitLab connections (settings-owned concept) a given
+            // assignment provisions against — reuses GitlabInstallationStatus
+            // from the settings feature instead of duplicating that shape —
+            // see components/projects/create-assignment-form.tsx.
+            {
+              from: { type: 'feature-components', captured: { family: 'projects' } },
+              allow: [['feature-components', { family: 'settings' }]],
             },
             { from: { type: 'shared-lib' }, allow: ['shared-lib'] },
             {

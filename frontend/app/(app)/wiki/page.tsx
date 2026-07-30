@@ -16,7 +16,7 @@ export default async function WikiIndexPage() {
   const spaces = await getWikiSpaces();
 
   return (
-    <main className="page-container py-6">
+    <main className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Wiki</h1>

@@ -20,9 +20,11 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { CourseProgressBar } from "@/components/courses/course-progress-bar";
 import { ReviewForm } from "@/components/courses/review-form";
+import { RevisionPlanCard } from "@/components/revision-plan/revision-plan-card";
 import { FAQPanel } from "@/components/shared/faq-panel";
 import { AskQuestion } from "@/components/messaging/ask-question";
-import { findCourseBySlug, getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview, getFinalTest } from "@/lib/server/courses";
+import { findCourseBySlug, getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview, getFinalTest, getMyCertificates, checkThresholdCertificate } from "@/lib/server/courses";
+import { getRevisionPlan } from "@/lib/server/revision-plan";
 import { getWikiSpaces } from "@/lib/server/wiki";
 import { getCourseFAQs } from "@/lib/server/messaging";
 import { enrollAction } from "@/lib/courses/actions";
@@ -68,20 +70,34 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
   const enrollment = enrollments.find((e) => e.course_id === courseId);
   const isEnrolled = Boolean(enrollment);
 
-  const [tree, progressSummary, myRating, faqs, wikiSpaces, finalTest] = await Promise.all([
+  // Best-effort auto-issue check, run before the certificate list below is
+  // fetched (not in the Promise.all — it must land before the read so a
+  // certificate issued just now shows up in this same render).
+  if (isEnrolled) {
+    await checkThresholdCertificate(courseId);
+  }
+
+  const [tree, progressSummary, myRating, faqs, wikiSpaces, finalTest, myCertificates] = await Promise.all([
     getCourseTree(courseId).catch(() => null),
     isEnrolled ? getCourseProgress(courseId).catch(() => null) : Promise.resolve(null),
     isEnrolled ? getMyReview(courseId).catch(() => null) : Promise.resolve(null),
     getCourseFAQs(courseId).catch(() => []),
     isEnrolled ? getWikiSpaces().catch(() => []) : Promise.resolve([]),
     isEnrolled ? getFinalTest(courseId) : Promise.resolve(null),
+    isEnrolled ? getMyCertificates().catch(() => []) : Promise.resolve([]),
   ]);
   const docsSpace = wikiSpaces.find((s) => s.course_id === courseId) ?? null;
+  // Certificates can be earned via final test, mentor award, or completion
+  // threshold — never gate "does this learner have a certificate" on
+  // whether the course happens to have a final test configured.
+  const myCertificate = myCertificates.find((c) => c.course_id === courseId) ?? null;
 
   const sections = tree?.sections ?? [];
   const allModules = sections.flatMap((s) => s.modules);
   const progress = progressSummary?.modules ?? [];
   const { completed, total } = computeCompletion(allModules.map((m) => m.id), progress);
+  const courseComplete = isEnrolled && total > 0 && completed === total;
+  const revisionPlan = courseComplete ? await getRevisionPlan(courseId).catch(() => null) : null;
   const totalMinutes = allModules.reduce((sum, m) => sum + (m.estimated_minutes ?? 0), 0);
   const contentLabel = totalMinutes > 0 ? formatDuration(totalMinutes) : course.estimated_hours ? `${course.estimated_hours}h` : "Self-paced";
 
@@ -114,7 +130,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
   }
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
         <div className="min-w-0 flex-1">
           <h1 className="page-title">{course.title}</h1>
@@ -281,11 +297,18 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                     <p className="text-sm font-medium text-primary">You&apos;re enrolled</p>
                     <CourseProgressBar completed={completed} total={total || allModules.length} />
                   </div>
-                  {finalTest ? (
-                    <Button asChild className="w-full" size="lg" variant={finalTest.already_passed ? "outline" : "default"}>
-                      <Link href={finalTest.already_passed && finalTest.cert_uuid ? ROUTES.certificate(finalTest.cert_uuid) : ROUTES.courseFinalTest(course.slug)}>
+                  {myCertificate ? (
+                    <Button asChild className="w-full" size="lg" variant="outline">
+                      <Link href={ROUTES.certificate(myCertificate.cert_uuid)}>
                         <Award aria-hidden className="h-4 w-4" />
-                        {finalTest.already_passed ? "View Certificate" : "Take Final Test"}
+                        View Certificate
+                      </Link>
+                    </Button>
+                  ) : finalTest ? (
+                    <Button asChild className="w-full" size="lg">
+                      <Link href={ROUTES.courseFinalTest(course.slug)}>
+                        <Award aria-hidden className="h-4 w-4" />
+                        Take Final Test
                       </Link>
                     </Button>
                   ) : (
@@ -295,6 +318,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                       </Link>
                     </Button>
                   )}
+                  {courseComplete && <RevisionPlanCard courseId={courseId} plan={revisionPlan} />}
                   {docsSpace && (
                     <Link
                       className="flex items-center gap-2 text-sm text-primary hover:underline"

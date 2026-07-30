@@ -39,7 +39,7 @@ export default async function ReviewPage() {
   if (total === 0) {
     const hint = formatNextReviewHint(cards);
     return (
-      <main className="page-container py-10">
+      <main className="page-container">
         <div className="empty-state">
           <Brain aria-hidden className="h-10 w-10 text-muted-foreground" />
           <p className="text-muted-foreground font-medium">You&apos;re all caught up!</p>

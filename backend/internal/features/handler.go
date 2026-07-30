@@ -23,7 +23,7 @@ func (h *Handler) GetMyFeatures(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := h.service.Resolve(r.Context(), claims.UserID)
+	cfg, err := h.service.Resolve(r.Context(), claims.UserID, claims.OrgID)
 	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Could not resolve features.")
 		return

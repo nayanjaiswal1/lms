@@ -34,7 +34,7 @@ export default async function WikiPageEditPage({ params }: Props) {
   const page = await getWikiPage(pageId);
 
   return (
-    <main className="page-container py-6">
+    <main className="page-container">
       <div className="flex flex-col items-start gap-6 lg:flex-row">
         <WikiSidebarTree
           canManage={canManage}

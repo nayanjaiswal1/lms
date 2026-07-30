@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, FolderPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
+import { FormSelectField } from "@/components/ui/form-select-field";
 import {
   Select,
   SelectContent,
@@ -27,9 +29,13 @@ import {
   ASSESSMENT_DIFFICULTY_OPTIONS,
   CODE_LANGUAGE_OPTIONS,
 } from "@/lib/constants";
-import { createQuestionAction } from "@/app/(app)/question-bank/actions";
+import type { Category } from "@/lib/assessments/types";
+import { createQuestionAction, createCategoryAction } from "@/app/(app)/question-bank/actions";
 
 const numeric = z.string().refine((v) => v !== "" && !Number.isNaN(Number(v)), "Enter a number.");
+
+// Sentinel for "no category" — Radix Select items can't carry an empty string value.
+const NO_CATEGORY = "none";
 
 const Schema = z.object({
   type: z.enum(["mcq", "coding"]),
@@ -37,6 +43,7 @@ const Schema = z.object({
   difficulty: z.string(),
   default_points: numeric,
   tags: z.string(),
+  category_id: z.string(),
   prompt: z.string().min(3, "Prompt is required."),
   multiple: z.boolean(),
   explanation: z.string(),
@@ -47,10 +54,11 @@ const Schema = z.object({
 type FormData = z.infer<typeof Schema>;
 
 interface CreateQuestionFormProps {
+  categories: Category[];
   onCreated: () => void;
 }
 
-export function CreateQuestionForm({ onCreated }: CreateQuestionFormProps) {
+export function CreateQuestionForm({ categories, onCreated }: CreateQuestionFormProps) {
   const form = useForm<FormData>({
     resolver: zodResolver(Schema),
     defaultValues: {
@@ -59,6 +67,7 @@ export function CreateQuestionForm({ onCreated }: CreateQuestionFormProps) {
       difficulty: "intermediate",
       default_points: "1",
       tags: "",
+      category_id: NO_CATEGORY,
       prompt: "",
       multiple: false,
       explanation: "",
@@ -81,6 +90,7 @@ export function CreateQuestionForm({ onCreated }: CreateQuestionFormProps) {
       difficulty: data.difficulty,
       default_points: Number(data.default_points),
       tags: data.tags.split(",").map((t) => t.trim()).filter(Boolean),
+      category_id: data.category_id === NO_CATEGORY ? null : data.category_id,
       prompt: data.prompt,
       multiple: data.multiple,
       options: data.options,
@@ -156,6 +166,8 @@ export function CreateQuestionForm({ onCreated }: CreateQuestionFormProps) {
           <FormInputField control={form.control} label="Tags (comma sep)" name="tags" placeholder="arrays, hashing" />
         </div>
 
+        <CategoryField categories={categories} form={form} />
+
         <FormField
           control={form.control}
           name="prompt"
@@ -185,6 +197,61 @@ export function CreateQuestionForm({ onCreated }: CreateQuestionFormProps) {
 }
 
 type FormType = ReturnType<typeof useForm<FormData>>;
+
+// CategoryField lets an author group this question under a folder-style
+// category, with an inline "New category" affordance so grouping never
+// requires leaving the form. New categories appear via router.refresh(),
+// which re-fetches the server-rendered category list this form is passed.
+function CategoryField({ form, categories }: { form: FormType; categories: Category[] }) {
+  const router = useRouter();
+  const [adding, setAdding] = React.useState(false);
+  const [name, setName] = React.useState("");
+
+  const options = [
+    { label: "Uncategorized", value: NO_CATEGORY },
+    ...categories.map((c) => ({ label: c.name, value: c.id })),
+  ];
+
+  const onCreate = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const res = await createCategoryAction(trimmed);
+    if (res.error || !res.data) {
+      toast.error(res.error ?? "Could not create the category.");
+      return;
+    }
+    form.setValue("category_id", res.data.id);
+    setName("");
+    setAdding(false);
+    router.refresh();
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <FormSelectField control={form.control} label="Category" name="category_id" options={options} />
+        </div>
+        <Button size="sm" type="button" variant="outline" onClick={() => setAdding((a) => !a)}>
+          <FolderPlus /> New
+        </Button>
+      </div>
+      {adding && (
+        <div className="flex gap-2">
+          <Input
+            autoFocus
+            placeholder="e.g. Arrays & Hashing"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Button size="sm" type="button" onClick={onCreate}>
+            Add
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MCQEditor({ form, options }: { form: FormType; options: ReturnType<typeof useFieldArray<FormData, "options">> }) {
   return (

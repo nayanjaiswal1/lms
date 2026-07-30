@@ -25,10 +25,12 @@ type Sheet struct {
 }
 
 // UserSheetSummary is one row in the current user's sheet tab bar — a Sheet
-// plus the role that put it there.
+// plus the role that put it there and how many of its items the user has
+// marked done, for a per-sheet progress indicator.
 type UserSheetSummary struct {
 	Sheet
-	Role string `json:"role"` // "owner" | "subscriber"
+	Role        string `json:"role"` // "owner" | "subscriber"
+	SolvedCount int    `json:"solved_count"`
 }
 
 // SheetPreview is the minimal metadata shown on the share/join page before a

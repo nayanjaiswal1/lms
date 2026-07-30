@@ -68,10 +68,26 @@ func (r *Repo) GetAssessment(ctx context.Context, orgID, id string) (Assessment,
 		        a.allow_backtrack, a.show_results, a.starts_at, a.ends_at, a.proctoring,
 		        a.created_by, a.published_at, a.created_at, a.updated_at,
 		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id),
-		        a.short_code
-		 FROM assessments a WHERE a.id = $1 AND a.org_id = $2`, id, orgID)
+		        a.short_code, course.course_id, course.title
+		 FROM assessments a
+		 ` + courseLinkJoin + `
+		 WHERE a.id = $1 AND a.org_id = $2`, id, orgID)
 	return scanAssessment(row)
 }
+
+// courseLinkJoin resolves the course a assessment is actually embedded in, via
+// the course_modules.assessment_id back-reference (not the self-reported
+// parent_type/parent_id columns, which the course builder never sets). Shared
+// by every query that scans through scanAssessment.
+const courseLinkJoin = `
+	LEFT JOIN LATERAL (
+		SELECT cm.course_id, c.title
+		FROM course_modules cm
+		JOIN courses c ON c.id = cm.course_id
+		WHERE cm.assessment_id = a.id AND cm.deleted_at IS NULL
+		ORDER BY cm.created_at
+		LIMIT 1
+	) course(course_id, title) ON true`
 
 // AssessmentFilter narrows a staff assessment listing.
 type AssessmentFilter struct {
@@ -120,8 +136,10 @@ func (r *Repo) ListAssessments(ctx context.Context, orgID string, f AssessmentFi
 		        a.allow_backtrack, a.show_results, a.starts_at, a.ends_at, a.proctoring,
 		        a.created_by, a.published_at, a.created_at, a.updated_at,
 		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id),
-		        a.short_code
-		 FROM assessments a WHERE %s
+		        a.short_code, course.course_id, course.title
+		 FROM assessments a
+		 `+courseLinkJoin+`
+		 WHERE %s
 		 ORDER BY a.updated_at DESC
 		 LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args))
 
@@ -481,7 +499,8 @@ func scanAssessment(row pgx.Row) (Assessment, error) {
 		&a.ParentType, &a.ParentID, &a.DurationMinutes, &a.PassPercentage,
 		&a.MaxAttempts, &a.TotalPoints, &a.MockMode, &a.ShuffleQuestions, &a.ShuffleOptions,
 		&a.AllowBacktrack, &a.ShowResults, &a.StartsAt, &a.EndsAt, &proctoring,
-		&a.CreatedBy, &a.PublishedAt, &a.CreatedAt, &a.UpdatedAt, &a.QuestionCount, &a.ShortCode)
+		&a.CreatedBy, &a.PublishedAt, &a.CreatedAt, &a.UpdatedAt, &a.QuestionCount, &a.ShortCode,
+		&a.CourseID, &a.CourseTitle)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Assessment{}, ErrNotFound

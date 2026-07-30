@@ -1,20 +1,28 @@
-import Link from "next/link"
-import { notFound } from "next/navigation"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { cookies } from "next/headers"
+import { notFound, redirect } from "next/navigation"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { apiGet } from "@/lib/server/api"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
 import ROUTES from "@/lib/routes"
+import { RoleLegend } from "@/app/(app)/users/role-legend"
+import { UserFilters } from "@/app/(app)/users/user-filters"
+import { UserSearchInput } from "@/app/(app)/users/user-search-input"
+import { UserTable, type RoleOption, type UserSummary } from "@/app/(app)/users/user-table"
 
-interface UserSummary {
-  id: string
-  name: string
-  email: string
-  avatar_url: string | null
-  role_names: string[]
-  joined_at: string
+async function getCurrentOrgId(): Promise<string | null> {
+  const store = await cookies()
+  const token = store.get("access_token")?.value
+  if (!token) return null
+  try {
+    const parts = token.split(".")
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString()) as {
+      org_id?: string
+    }
+    return payload.org_id ?? null
+  } catch {
+    return null
+  }
 }
 
 export default async function UsersPage({
@@ -27,15 +35,19 @@ export default async function UsersPage({
     notFound()
   }
 
+  const orgId = await getCurrentOrgId()
+  if (!orgId) redirect(ROUTES.ORG_SELECT)
+
   const { search } = await searchParams
   const query = search?.trim() ?? ""
   const qs = query ? `&search=${encodeURIComponent(query)}` : ""
-  const { users } = await apiGet<{ users: UserSummary[]; total: number }>(
-    `/api/admin/rbac/users?limit=100${qs}`,
-  )
+  const [{ users }, { roles }] = await Promise.all([
+    apiGet<{ users: UserSummary[]; total: number }>(`/api/admin/rbac/users?limit=100${qs}`),
+    apiGet<{ roles: RoleOption[] }>(`/api/admin/rbac/roles?limit=100&active=true`),
+  ])
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Users</h1>
@@ -45,14 +57,13 @@ export default async function UsersPage({
         </div>
       </div>
 
-      <form method="GET" className="mt-6 max-w-sm">
-        <Input
-          type="search"
-          name="search"
-          placeholder="Search by name or email…"
-          defaultValue={query}
-        />
-      </form>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <UserSearchInput />
+        <UserFilters roleOptions={roles} />
+        <div className="sm:ml-auto">
+          <RoleLegend />
+        </div>
+      </div>
 
       <section className="mt-6">
         {users.length === 0 ? (
@@ -60,52 +71,9 @@ export default async function UsersPage({
             <p className="text-muted-foreground">No users found.</p>
           </div>
         ) : (
-          <UserTable users={users} />
+          <UserTable orgId={orgId} users={users} />
         )}
       </section>
-    </div>
-  )
-}
-
-function UserTable({ users }: { users: UserSummary[] }) {
-  return (
-    <div className="table-responsive">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
-            <th className="pb-2 pr-6 font-medium">Name</th>
-            <th className="pb-2 pr-6 font-medium">Email</th>
-            <th className="pb-2 pr-6 font-medium">Roles</th>
-            <th className="pb-2 font-medium" />
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id} className="border-b border-border last:border-0">
-              <td className="py-3 pr-6 font-medium">{user.name}</td>
-              <td className="py-3 pr-6 text-muted-foreground">{user.email}</td>
-              <td className="py-3 pr-6">
-                {user.role_names.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {user.role_names.map((name) => (
-                      <Badge key={name} variant="default">
-                        {name}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <Badge variant="secondary">None</Badge>
-                )}
-              </td>
-              <td className="py-3 text-right">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={`${ROUTES.USERS}/${user.id}`}>Manage roles</Link>
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   )
 }

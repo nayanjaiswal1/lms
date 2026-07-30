@@ -41,6 +41,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusNotFound, "Not found.")
 	case errors.Is(err, ErrNotEnrolled):
 		httputil.WriteError(w, http.StatusForbidden, "You are not enrolled in this course.")
+	case errors.Is(err, ErrNotAssignedMentor):
+		httputil.WriteError(w, http.StatusForbidden, "You are not this student's assigned mentor.")
 	case errors.Is(err, ErrCourseNotComplete):
 		httputil.WriteError(w, http.StatusUnprocessableEntity, "Complete every module in this course before taking the final test.")
 	case errors.Is(err, ErrAttemptsExhausted):
@@ -53,6 +55,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"passing_score_percent": "must be between 1 and 100"})
 	case errors.Is(err, ErrInvalidMaxAttempts):
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"max_attempts": "must be positive"})
+	case errors.Is(err, ErrInvalidThreshold):
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"threshold_percent": "must be between 1 and 100"})
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
 	}
@@ -149,4 +153,82 @@ func (h *Handler) VerifyCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, cert)
+}
+
+// IssueCertificate handles POST /api/courses/{courseID}/certificates/issue —
+// mentor/instructor/admin manual award for a specific student.
+func (h *Handler) IssueCertificate(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req IssueCertificateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.StudentID == "" {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"student_id": "required"})
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	cert, err := h.service.IssueByMentor(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, req.StudentID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, cert)
+}
+
+// CheckThresholdCertificate handles POST
+// /api/courses/{courseID}/certificates/check-threshold — evaluates and, if
+// eligible, issues the caller's own threshold-based certificate. Called by
+// the course page on every load; idempotent no-op once issued.
+func (h *Handler) CheckThresholdCertificate(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	cert, err := h.service.CheckThresholdIssue(r.Context(), claims.OrgID, claims.UserID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, cert)
+}
+
+// UpsertCertificateRule handles PUT /api/courses/{courseID}/certificate-rule
+// — instructor authoring of the threshold-based auto-issue rule.
+func (h *Handler) UpsertCertificateRule(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	var req UpsertCertificateRuleRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	rule, err := h.service.UpsertCertificateRule(r.Context(), claims.OrgID, courseID, req.ThresholdPercent)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, rule)
+}
+
+// GetCertificateRule handles GET /api/courses/{courseID}/certificate-rule —
+// instructor authoring read.
+func (h *Handler) GetCertificateRule(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	rule, err := h.service.GetCertificateRule(r.Context(), claims.OrgID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, rule)
 }

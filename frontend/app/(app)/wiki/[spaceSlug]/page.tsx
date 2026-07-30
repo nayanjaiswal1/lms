@@ -36,7 +36,7 @@ export default async function WikiSpacePage({ params }: Props) {
   }
 
   return (
-    <main className="page-container py-6">
+    <main className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">{space.name}</h1>

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Sparkles, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { RoadmapTree } from "@/components/roadmap/roadmap-tree";
+import { RoadmapView } from "@/components/roadmap/roadmap-view";
 import { RegenerateRoadmapButton } from "@/components/roadmap/regenerate-roadmap-button";
 import { ArchiveRoadmapButton } from "@/components/roadmap/archive-roadmap-button";
 import { PublishRoadmapToggle } from "@/components/roadmap/publish-roadmap-toggle";
@@ -29,7 +29,7 @@ export default async function RoadmapDetailPage({ params }: Props) {
     : 0;
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container">
       {/* ponytail: meta-refresh polls the server component while generating —
           no client interval/useEffect needed, and it stops on its own once
           status leaves 'generating' since this tag is then simply absent. */}
@@ -88,7 +88,7 @@ export default async function RoadmapDetailPage({ params }: Props) {
               <DeleteRoadmapButton roadmapId={roadmap.id} />
             </div>
           </div>
-          <RoadmapTree roadmap={roadmap} />
+          <RoadmapView roadmap={roadmap} />
         </>
       )}
     </main>

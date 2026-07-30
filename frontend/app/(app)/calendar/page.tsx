@@ -29,7 +29,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   ]);
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="mb-6 flex flex-col gap-1">
         <h1 className="page-title">Calendar</h1>
         <p className="text-muted-foreground">Time-block your tasks, schedule events, and manage your time effectively.</p>

@@ -17,10 +17,13 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
 	idb "github.com/mindforge/backend/internal/db"
+	"github.com/mindforge/backend/internal/gitlab"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/jobs/handlers"
 	"github.com/mindforge/backend/internal/labs"
+	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/rewards"
+	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/mindforge/backend/internal/storage"
 	"github.com/redis/go-redis/v9"
@@ -138,6 +141,24 @@ func main() {
 	// instance since it holds no in-process state beyond shared pointers.
 	assessmentHandlerForJobs := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvcForJobs, storageClient, labsRuntime)
 
+	// A standalone secrets.Vault + gitlab.Service for the token-refresh job —
+	// like assessmentHandlerForJobs above, built separately from
+	// api.NewRouter's own instance since a Vault holds no state beyond its
+	// derived AES key, so constructing a second one here is safe as long as
+	// both derive from the same cfg.EncryptionKey.
+	gitlabVault, err := secrets.New(cfg)
+	if err != nil {
+		slog.Error("gitlab: secrets vault init failed", "error", err)
+		os.Exit(1)
+	}
+	// A standalone notifications.Service for the same reason — it holds no
+	// state beyond shared pointers (pool, jobsRegistry), so a second instance
+	// alongside api.NewRouter's own is safe. gitlab.ingest_event (registered
+	// below) is the job that needs it: Batch 5's checkpoint/peer-review
+	// notifications fire from inside webhook ingest, which runs here.
+	notificationsSvcForJobs := notifications.NewService(pool, jobsRegistry)
+	gitlabSvcForJobs := gitlab.NewService(pool, cfg, gitlabVault, jobsRegistry, notificationsSvcForJobs)
+
 	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc, coursesSvcForJobs))
 	// Fires once, exactly when an eval.subjective job permanently dies, instead
 	// of a separate cron job polling for the same condition after the fact —
@@ -155,6 +176,16 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerMentorEscalate, handlers.NewMentorEscalationHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerCalendarReminder, handlers.NewCalendarReminderHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerBatchImport, handlers.NewBatchImportHandler(pool, cfg))
+	jobsRegistry.Register(handlers.HandlerGitlabTokenRefresh, handlers.NewGitlabTokenRefreshHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabProvisionTeam, handlers.NewGitlabProvisionTeamHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabSyncMembers, handlers.NewGitlabSyncMembersHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabIngestEvent, handlers.NewGitlabIngestEventHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabCommitStats, handlers.NewGitlabCommitStatsHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabPollSync, handlers.NewGitlabPollSyncHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabDeadlineSnapshot, handlers.NewGitlabDeadlineSnapshotHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabTemplateSync, handlers.NewGitlabTemplateSyncHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabOriginalityScan, handlers.NewGitlabOriginalityScanHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabHandoff, handlers.NewGitlabHandoffHandler(gitlabSvcForJobs))
 
 	cronDefs := []jobs.CronJobDef{
 		{Handler: handlers.HandlerSRSReminder, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
@@ -166,6 +197,21 @@ func main() {
 		{Handler: handlers.HandlerAssessmentExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
 		{Handler: handlers.HandlerMentorEscalate, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerCalendarReminder, Schedule: "*/5 * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
+		{Handler: handlers.HandlerGitlabTokenRefresh, Schedule: "*/15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		// provision_team is triggered by assignment-publish/team-create, not
+		// cron — no entry here for it. sync_members' 30-min sweep is the
+		// self-healing reconciliation pass for any roster change a per-team
+		// enqueue somehow missed.
+		{Handler: handlers.HandlerGitlabSyncMembers, Schedule: "*/30 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// ingest_event is triggered per webhook delivery, not cron — no entry
+		// here for it. poll_sync is the self-healing pull for webhook_mode='poll'
+		// installs or any team whose hook has gone silent.
+		{Handler: handlers.HandlerGitlabPollSync, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 180000},
+		// deadline_snapshot is the only Batch 6 job on a cron: past-due
+		// checkpoints need to get their HEAD snapshot without a human
+		// triggering it. template_sync/originality_scan/handoff are all
+		// instructor/student-triggered actions — no cron entry for them.
+		{Handler: handlers.HandlerGitlabDeadlineSnapshot, Schedule: "*/5 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
 	}
 
 	workerCtx, workerCancel := context.WithCancel(ctx)

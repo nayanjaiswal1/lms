@@ -20,16 +20,42 @@ var (
 	ErrInvalidTimeLimit    = errors.New("certificates: time limit must be positive")
 	ErrInvalidPassingScore = errors.New("certificates: passing score must be between 1 and 100")
 	ErrInvalidMaxAttempts  = errors.New("certificates: max attempts must be positive")
+	ErrNotAssignedMentor   = errors.New("certificates: you are not this student's mentor")
+	ErrInvalidThreshold    = errors.New("certificates: threshold must be between 1 and 100")
 )
+
+// roleMentor mirrors middleware.RoleMentor's DB/JWT value. Certificates
+// takes it as a plain string (rather than importing the middleware package)
+// so the domain layer stays decoupled from the HTTP-role constant — the
+// handler is what actually reads claims.OrgRole.
+const roleMentor = "mentor"
+
+// MentorAuthChecker is the narrow capability certificates needs from the
+// mentoring package to gate manual issuance: a mentor may only award a
+// certificate to a student they have actually been assigned to, past or
+// present. Mirrors feedback.MentorshipVerifier — same shape, same reason
+// (avoids certificates -> mentoring -> courses import cycle risk).
+type MentorAuthChecker interface {
+	HasBeenMentoredBy(ctx context.Context, orgID, studentID, mentorID string) (bool, error)
+}
+
+// PurchaseChecker is the narrow capability certificates needs to gate
+// threshold-based auto-issue on paid courses: has this learner completed a
+// purchase for this course.
+type PurchaseChecker interface {
+	HasCompletedPurchase(ctx context.Context, userID, courseID string) (bool, error)
+}
 
 type Service struct {
 	repo        *Repo
 	coursesRepo *courses.Repo
 	executor    assessment.CodeExecutor
+	mentorAuth  MentorAuthChecker
+	purchases   PurchaseChecker
 }
 
-func NewService(repo *Repo, coursesRepo *courses.Repo, executor assessment.CodeExecutor) *Service {
-	return &Service{repo: repo, coursesRepo: coursesRepo, executor: executor}
+func NewService(repo *Repo, coursesRepo *courses.Repo, executor assessment.CodeExecutor, mentorAuth MentorAuthChecker, purchases PurchaseChecker) *Service {
+	return &Service{repo: repo, coursesRepo: coursesRepo, executor: executor, mentorAuth: mentorAuth, purchases: purchases}
 }
 
 // ─── Instructor authoring ──────────────────────────────────────────────────────
@@ -222,7 +248,7 @@ func (s *Service) SubmitAttempt(ctx context.Context, orgID, userID, courseID str
 		existing, err := s.repo.GetCertificateForCourse(ctx, userID, courseID)
 		switch {
 		case errors.Is(err, ErrNotFound):
-			cert, err := s.repo.IssueCertificate(ctx, userID, courseID, attempt.ID)
+			cert, err := s.repo.IssueCertificate(ctx, userID, courseID, &attempt.ID, nil, IssueTypeFinalTest)
 			if err != nil {
 				return SubmitAttemptResponse{}, err
 			}
@@ -242,6 +268,141 @@ func (s *Service) ListMyCertificates(ctx context.Context, userID string) ([]Cert
 
 func (s *Service) VerifyCertificate(ctx context.Context, certUUID string) (CertificateView, error) {
 	return s.repo.GetByUUID(ctx, certUUID)
+}
+
+// ─── Mentor manual issuance ────────────────────────────────────────────────────
+
+// IssueByMentor lets a mentor (for their own assigned student), or an
+// instructor/admin (for any enrolled student), directly award a
+// certificate — a deliberate human override that bypasses the final-test
+// and threshold gates entirely. Idempotent: a student who already has a
+// certificate for this course gets the existing one back rather than a
+// second row.
+func (s *Service) IssueByMentor(ctx context.Context, orgID, callerID, callerRole, studentID, courseID string) (Certificate, error) {
+	if _, err := s.coursesRepo.GetCourse(ctx, orgID, courseID); err != nil {
+		if errors.Is(err, courses.ErrNotFound) {
+			return Certificate{}, ErrCourseNotFound
+		}
+		return Certificate{}, fmt.Errorf("certificates: load course: %w", err)
+	}
+	enrolled, err := s.coursesRepo.IsEnrolled(ctx, studentID, courseID)
+	if err != nil {
+		return Certificate{}, fmt.Errorf("certificates: check enrollment: %w", err)
+	}
+	if !enrolled {
+		return Certificate{}, ErrNotEnrolled
+	}
+	if callerRole == roleMentor {
+		assigned, err := s.mentorAuth.HasBeenMentoredBy(ctx, orgID, studentID, callerID)
+		if err != nil {
+			return Certificate{}, fmt.Errorf("certificates: check mentor assignment: %w", err)
+		}
+		if !assigned {
+			return Certificate{}, ErrNotAssignedMentor
+		}
+	}
+
+	existing, err := s.repo.GetCertificateForCourse(ctx, studentID, courseID)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return s.repo.IssueCertificate(ctx, studentID, courseID, nil, &callerID, IssueTypeManual)
+	case err != nil:
+		return Certificate{}, err
+	default:
+		return existing, nil
+	}
+}
+
+// ─── Threshold-based auto-issue ────────────────────────────────────────────────
+
+func (s *Service) UpsertCertificateRule(ctx context.Context, orgID, courseID string, thresholdPercent int) (CertificateRule, error) {
+	if _, err := s.coursesRepo.GetCourse(ctx, orgID, courseID); err != nil {
+		if errors.Is(err, courses.ErrNotFound) {
+			return CertificateRule{}, ErrCourseNotFound
+		}
+		return CertificateRule{}, fmt.Errorf("certificates: load course: %w", err)
+	}
+	if thresholdPercent < 1 || thresholdPercent > 100 {
+		return CertificateRule{}, ErrInvalidThreshold
+	}
+	return s.repo.UpsertCertificateRule(ctx, courseID, thresholdPercent)
+}
+
+// GetCertificateRule returns nil (not an error) when the course has no
+// threshold rule configured — a normal state, not a fault.
+func (s *Service) GetCertificateRule(ctx context.Context, orgID, courseID string) (*CertificateRule, error) {
+	if _, err := s.coursesRepo.GetCourse(ctx, orgID, courseID); err != nil {
+		if errors.Is(err, courses.ErrNotFound) {
+			return nil, ErrCourseNotFound
+		}
+		return nil, fmt.Errorf("certificates: load course: %w", err)
+	}
+	rule, err := s.repo.GetCertificateRule(ctx, courseID)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &rule, nil
+}
+
+// CheckThresholdIssue evaluates whether userID now qualifies for this
+// course's threshold-based certificate — enrolled, progress at or above the
+// configured threshold, and (for paid courses) a completed purchase on
+// record — and issues one if so. Returns (nil, nil) whenever the learner
+// isn't eligible yet, no rule is configured, or a certificate already
+// exists; safe to call on every course-page load.
+func (s *Service) CheckThresholdIssue(ctx context.Context, orgID, userID, courseID string) (*Certificate, error) {
+	if _, err := s.repo.GetCertificateForCourse(ctx, userID, courseID); err == nil {
+		return nil, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	rule, err := s.repo.GetCertificateRule(ctx, courseID)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	enrolled, err := s.coursesRepo.IsEnrolled(ctx, userID, courseID)
+	if err != nil {
+		return nil, fmt.Errorf("certificates: check enrollment: %w", err)
+	}
+	if !enrolled {
+		return nil, nil
+	}
+
+	progress, err := s.coursesRepo.GetCourseProgress(ctx, userID, courseID)
+	if err != nil {
+		return nil, fmt.Errorf("certificates: check progress: %w", err)
+	}
+	if progress.Total == 0 || progress.Pct < float64(rule.ThresholdPercent) {
+		return nil, nil
+	}
+
+	course, err := s.coursesRepo.GetCourse(ctx, orgID, courseID)
+	if err != nil {
+		return nil, fmt.Errorf("certificates: load course: %w", err)
+	}
+	if !course.IsFree {
+		paid, err := s.purchases.HasCompletedPurchase(ctx, userID, courseID)
+		if err != nil {
+			return nil, fmt.Errorf("certificates: check purchase: %w", err)
+		}
+		if !paid {
+			return nil, nil
+		}
+	}
+
+	cert, err := s.repo.IssueCertificate(ctx, userID, courseID, nil, nil, IssueTypeThreshold)
+	if err != nil {
+		return nil, err
+	}
+	return &cert, nil
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

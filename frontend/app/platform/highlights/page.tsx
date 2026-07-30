@@ -16,7 +16,7 @@ export default async function PlatformHighlightsPage() {
   const entries = await getHighlightAnalytics(200);
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Confusing Content</h1>

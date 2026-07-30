@@ -8,7 +8,7 @@ export default async function PlatformWorkersPage() {
   const data = await fetchWorkerHealth();
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Worker Health</h1>

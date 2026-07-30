@@ -25,20 +25,37 @@ type VerifyResult struct {
 	SessionCompleted bool   `json:"session_completed"`
 }
 
+// RepoPreparer is the optional dependency behind the Batch 3 lab-container
+// auto-clone hook — satisfied by *gitlab.Service, nil when GitLab isn't
+// configured for this deploy. Defined here (in labs, the consumer) rather
+// than imported from internal/gitlab, the same nil-safe-optional-dependency
+// shape assessment.New's SandboxRuntime param already uses: PrepareLabRepo
+// returns an empty script with a nil error to mean "skip, nothing to clone"
+// (no project_team_id on the session, no GitLab connection for this user,
+// GitLab not configured at all, etc.) — that is not an error, only a
+// non-nil error is. The returned script is run verbatim via the session's
+// own container.Exec.
+type RepoPreparer interface {
+	PrepareLabRepo(ctx context.Context, sessionID, userID, labID string) (script string, err error)
+}
+
 // Service holds the business logic for the labs domain.
 type Service struct {
-	repo       *Repo
-	container  ContainerRuntime
-	rdb        *redis.Client
-	pool       *pgxpool.Pool
-	piston     *labPiston
-	coursesSvc *courses.Service
+	repo         *Repo
+	container    ContainerRuntime
+	rdb          *redis.Client
+	pool         *pgxpool.Pool
+	piston       *labPiston
+	coursesSvc   *courses.Service
+	repoPreparer RepoPreparer
 }
 
 // NewService wires up the labs service. coursesSvc completes the course module
 // wrapping a lab (if any) once its session finishes — see VerifyTask.
-func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc}
+// repoPreparer may be nil (GitLab integration not configured for this
+// deploy) — see RepoPreparer's own doc comment.
+func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer) *Service {
+	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer}
 }
 
 // wsTokenClaims is the JWT payload issued by MintWSToken.
@@ -210,6 +227,7 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 				if err := s.repo.UpdateSessionRunning(bgCtx, session.ID, warm.ContainerID, warm.ContainerHost); err != nil {
 					slog.Error("labs.Service.provisionContainer: update running (warm)", "session_id", session.ID, "error", err)
 				}
+				s.runRepoClone(bgCtx, session, warm.ContainerID)
 				if err := s.rdb.Publish(bgCtx, "lab:events:"+session.ID, "ready").Err(); err != nil {
 					slog.Error("labs.Service.provisionContainer: publish ready (warm)", "session_id", session.ID, "error", err)
 				}
@@ -245,8 +263,71 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 	if err := s.repo.UpdateSessionRunning(bgCtx, session.ID, containerID, containerHost); err != nil {
 		slog.Error("labs.Service.provisionContainer: update running", "session_id", session.ID, "error", err)
 	}
+	s.runRepoClone(bgCtx, session, containerID)
 	if err := s.rdb.Publish(bgCtx, "lab:events:"+session.ID, "ready").Err(); err != nil {
 		slog.Error("labs.Service.provisionContainer: publish ready", "session_id", session.ID, "error", err)
+	}
+}
+
+// repoCloneTimeoutSec bounds how long the auto-clone script may run inside
+// the container before runRepoClone gives up and marks the session
+// repo_clone_status='failed' — a slow or hung clone must never block the
+// student from getting a working terminal (the "ready" publish still fires
+// right after this returns, on both provisionContainer paths).
+const repoCloneTimeoutSec = 45
+
+// runRepoClone is the Batch 3 lab-container auto-clone hook: if a
+// RepoPreparer is configured, ask it for a clone script and run it inside
+// the session's own container before the student ever sees it. A nil
+// RepoPreparer, an empty script (RepoPreparer's own "nothing to clone"
+// signal — no project_team_id on this session, no GitLab connection for
+// this user, etc.), or a script that fails to run all record
+// repo_clone_status accordingly but never fail the session itself — per
+// kind-herding-cookie.md §5, a broken clone must still hand the student a
+// working terminal.
+func (s *Service) runRepoClone(ctx context.Context, session *LabSession, containerID string) {
+	if s.repoPreparer == nil {
+		if err := s.repo.UpdateSessionRepoClone(ctx, session.ID, RepoCloneStatusSkipped, nil); err != nil {
+			slog.Error("labs.Service.runRepoClone: record skipped (no preparer)", "session_id", session.ID, "error", err)
+		}
+		return
+	}
+
+	script, err := s.repoPreparer.PrepareLabRepo(ctx, session.ID, session.UserID, session.LabID)
+	if err != nil {
+		msg := err.Error()
+		if updErr := s.repo.UpdateSessionRepoClone(ctx, session.ID, RepoCloneStatusFailed, &msg); updErr != nil {
+			slog.Error("labs.Service.runRepoClone: record failed (prepare)", "session_id", session.ID, "error", updErr)
+		}
+		slog.Error("labs.Service.runRepoClone: prepare lab repo failed", "session_id", session.ID, "error", err)
+		return
+	}
+	if script == "" {
+		if err := s.repo.UpdateSessionRepoClone(ctx, session.ID, RepoCloneStatusSkipped, nil); err != nil {
+			slog.Error("labs.Service.runRepoClone: record skipped (nothing to clone)", "session_id", session.ID, "error", err)
+		}
+		return
+	}
+
+	_, stderr, exitCode, execErr := s.container.Exec(ctx, containerID, script, repoCloneTimeoutSec)
+	if execErr != nil {
+		msg := execErr.Error()
+		if updErr := s.repo.UpdateSessionRepoClone(ctx, session.ID, RepoCloneStatusFailed, &msg); updErr != nil {
+			slog.Error("labs.Service.runRepoClone: record failed (exec)", "session_id", session.ID, "error", updErr)
+		}
+		slog.Error("labs.Service.runRepoClone: exec clone script failed", "session_id", session.ID, "error", execErr)
+		return
+	}
+	if exitCode != 0 {
+		msg := fmt.Sprintf("clone script exited %d: %s", exitCode, stderr)
+		if updErr := s.repo.UpdateSessionRepoClone(ctx, session.ID, RepoCloneStatusFailed, &msg); updErr != nil {
+			slog.Error("labs.Service.runRepoClone: record failed (exit code)", "session_id", session.ID, "error", updErr)
+		}
+		return
+	}
+
+	if err := s.repo.UpdateSessionRepoClone(ctx, session.ID, RepoCloneStatusCloned, nil); err != nil {
+		slog.Error("labs.Service.runRepoClone: record cloned", "session_id", session.ID, "error", err)
 	}
 }
 

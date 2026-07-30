@@ -76,6 +76,11 @@ type AssignRoleRequest struct {
 	RoleID string `json:"role_id"`
 }
 
+// GrantPermissionRequest grants a permission directly to a user, bypassing roles.
+type GrantPermissionRequest struct {
+	PermissionID string `json:"permission_id"`
+}
+
 // ListPermissionsParams filters the permissions list.
 type ListPermissionsParams struct {
 	Module string
@@ -104,12 +109,17 @@ type ListUsersParams struct {
 
 // UserSummary is a row in the tenant's user list, joined from org_members +
 // users, with the names of RBAC roles currently assigned within the tenant.
+// MemberID is the org_members.id primary key — required for lifecycle
+// actions (suspend/activate/remove) which operate on the membership row,
+// not the user row.
 type UserSummary struct {
 	ID        string    `json:"id"`
+	MemberID  string    `json:"member_id"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	AvatarURL *string   `json:"avatar_url"`
 	RoleNames []string  `json:"role_names"`
+	Status    string    `json:"status"`
 	JoinedAt  time.Time `json:"joined_at"`
 }
 

@@ -29,6 +29,13 @@ var alwaysOrgEnabled = []string{
 	"system_design",
 	"interview_board",
 	"load_test",
+	"interview_exp",
+	// gitlab_integration: no org-level toggle UI or plan/billing concept —
+	// same situation every other entry here is in. The feature is inert
+	// until an org admin explicitly connects a GitLab installation
+	// (internal/gitlab), so there is nothing unsafe about it being
+	// unconditionally "on" for every org from day one.
+	"gitlab_integration",
 }
 
 // alwaysEntitled is alwaysOrgEnabled minus "what_now" — none of these have a
@@ -50,6 +57,11 @@ var alwaysEntitled = []string{
 	"system_design",
 	"interview_board",
 	"load_test",
+	"interview_exp",
+	"gitlab_integration",
+	// ai_connector: org-gated only (see Resolve), no per-user plan/seat
+	// concept — once an org has it on, every member is entitled.
+	"ai_connector",
 }
 
 type Service struct {
@@ -63,10 +75,24 @@ func NewService(repo *Repo) *Service {
 // Resolve builds the full feature config for a user. There is currently no
 // plan/add-on/org-grant entitlement system for anything other than "what_now"
 // above, so LockedInfo is always empty — there is no unlock path to advertise.
-func (s *Service) Resolve(ctx context.Context, userID string) (FeatureConfig, error) {
+//
+// ai_connector is the first feature key with a real, DB-backed per-org
+// on/off switch (org_ai_connector_config) rather than a static
+// alwaysOrgEnabled entry — everything else in that list is unconditionally
+// "on" for every org today.
+func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureConfig, error) {
 	granted, err := s.repo.GrantedFeatureKeys(ctx, userID)
 	if err != nil {
 		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+	}
+
+	orgFeatures := slices.Clone(alwaysOrgEnabled)
+	aiConnectorOn, err := s.repo.OrgAIConnectorEnabled(ctx, orgID)
+	if err != nil {
+		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+	}
+	if aiConnectorOn {
+		orgFeatures = append(orgFeatures, "ai_connector")
 	}
 
 	entitlements := slices.Clone(alwaysEntitled)
@@ -77,7 +103,7 @@ func (s *Service) Resolve(ctx context.Context, userID string) (FeatureConfig, er
 	}
 
 	return FeatureConfig{
-		OrgFeatures:  alwaysOrgEnabled,
+		OrgFeatures:  orgFeatures,
 		Entitlements: entitlements,
 		LockedInfo:   map[string]LockedFeatureInfo{},
 	}, nil

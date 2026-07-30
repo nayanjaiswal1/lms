@@ -43,7 +43,7 @@ async function PublicRoadmapList() {
 
 export default function DiscoverRoadmapsPage() {
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <h1 className="page-title">Discover Roadmaps</h1>
       </div>

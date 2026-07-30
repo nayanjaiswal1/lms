@@ -126,6 +126,15 @@ func (rt *Router) HandleAuthorizeApprove(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
+
+	if enabled, err := rt.repo.OrgAIConnectorEnabled(r.Context(), claims.OrgID); err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to check AI connector status.")
+		return
+	} else if !enabled {
+		httputil.WriteError(w, http.StatusForbidden, "The AI Connector is turned off for your organization.")
+		return
+	}
+
 	var req authorizeDecisionRequest
 	if !decodeJSON(w, r, &req) {
 		return

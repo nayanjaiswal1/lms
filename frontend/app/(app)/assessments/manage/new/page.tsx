@@ -16,14 +16,12 @@ export default async function NewAssessmentPage({ searchParams }: NewAssessmentP
   const defaultParentType = type === ASSESSMENT_PARENT_TYPE.HIRING ? ASSESSMENT_PARENT_TYPE.HIRING : undefined;
 
   return (
-    <main className="page-container-sm py-10">
+    <main className="page-container">
       <header className="mb-6 flex flex-col gap-1">
         <h1 className="page-title">New assessment</h1>
         <p className="text-muted-foreground">Configure the test, then add questions and assign it.</p>
       </header>
-      <div className="card-base p-6">
-        <CreateAssessmentForm defaultParentType={defaultParentType} />
-      </div>
+      <CreateAssessmentForm defaultParentType={defaultParentType} />
     </main>
   );
 }

@@ -43,7 +43,7 @@ export default async function OrgInvitesPage({ searchParams }: Props) {
 
   if (me.orgs.length === 0) {
     return (
-      <main className="page-container py-8">
+      <main className="page-container">
         <div className="empty-state py-16">
           <p className="font-medium">No organization found</p>
           <p className="text-sm text-muted-foreground">
@@ -58,7 +58,7 @@ export default async function OrgInvitesPage({ searchParams }: Props) {
 
   if (activeOrg.role !== "admin" && activeOrg.role !== "owner") {
     return (
-      <main className="page-container py-8">
+      <main className="page-container">
         <div className="empty-state py-16">
           <p className="font-medium">Access denied</p>
           <p className="text-sm text-muted-foreground">
@@ -74,7 +74,7 @@ export default async function OrgInvitesPage({ searchParams }: Props) {
   );
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Invite Members</h1>

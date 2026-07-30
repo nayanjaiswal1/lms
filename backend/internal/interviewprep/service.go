@@ -3,6 +3,7 @@ package interviewprep
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -22,12 +23,35 @@ const (
 	// the full assessment on its own.
 	behavioralQuestionCount = 9
 	maxJDChars              = 4000
-	maxJobTitleChars        = 200
-	codingTimeLimitMs       = 5000
-	codingMemoryLimitKb     = 256 * 1024
+	// maxJDInputChars bounds the raw jd_text a caller may submit, before
+	// extractProfile truncates it further (maxJDChars) for the prompt itself.
+	maxJDInputChars     = 10000
+	maxJobTitleChars    = 200
+	codingTimeLimitMs   = 5000
+	codingMemoryLimitKb = 256 * 1024
 
 	roleTypeTechnical    = "technical"
 	roleTypeNonTechnical = "non_technical"
+
+	// MaxPlansPerDay caps how many prep plans a user can generate per day —
+	// each creation is 1-2 AI calls plus a practice-session creation, same
+	// cost class as the per-day caps already used by labs/practice creation
+	// flows. Enforced once here so every caller (the HTTP handler and the MCP
+	// tool) gets the same limit, rather than each entry point re-implementing it.
+)
+
+const MaxPlansPerDay = 5
+
+// Sentinel errors for CreatePlan's input validation and rate limiting — kept
+// as errors.Is-checkable values (rather than ad-hoc fmt.Errorf strings) so
+// every caller (HTTP handler, MCP tool) can map them to its own user-facing
+// message without parsing error text.
+var (
+	ErrInvalidMode        = errors.New("interviewprep: mode must be 'quick' or 'targeted'")
+	ErrJobTitleRequired   = errors.New("interviewprep: job_title is required")
+	ErrJDTextTooLong      = errors.New("interviewprep: jd_text cannot exceed 10,000 characters")
+	ErrTechnologyRequired = errors.New("interviewprep: technology is required")
+	ErrDailyLimitReached  = errors.New("interviewprep: daily plan limit reached")
 )
 
 type Service struct {
@@ -86,15 +110,74 @@ type CreatePlanInput struct {
 	QuestionCount int
 }
 
+// ListPlans and GetPlan thinly wrap the repo so external callers (the MCP
+// tools in mcpconnect) go through Service like every other interview-prep
+// operation, rather than reaching into a separate *Repo dependency for just
+// these two reads.
+func (s *Service) ListPlans(ctx context.Context, userID string) ([]Plan, error) {
+	return s.repo.ListPlans(ctx, userID)
+}
+
+func (s *Service) GetPlan(ctx context.Context, planID, userID string) (Plan, error) {
+	return s.repo.GetPlan(ctx, planID, userID)
+}
+
+// GetRoundSession and SubmitRoundAnswer expose round 1 (conceptual or
+// behavioral — every plan type has one) through Service, the same as the
+// coding round's SubmitCodingItem. Without these, a caller that only sees
+// Plan/Round JSON has nothing but an opaque practice_session_id for round 1:
+// no question text, no way to answer it, and no way to read the AI feedback
+// that ultimately feeds GetReport's readiness score. The in-app frontend
+// reaches the practice package directly for this (components/interview-prep/
+// round-list.tsx -> getPracticeSession); this gives the same access to
+// callers (like the MCP tools) that only ever go through interviewprep.Service.
+func (s *Service) GetRoundSession(ctx context.Context, sessionID, userID string) (practice.PracticeSession, error) {
+	return s.practiceSvc.GetSession(ctx, sessionID, userID)
+}
+
+func (s *Service) SubmitRoundAnswer(ctx context.Context, sessionID, userID string, position int, answerText string) (practice.PracticeItem, error) {
+	return s.practiceSvc.SubmitAnswer(ctx, sessionID, userID, position, answerText)
+}
+
 func (s *Service) CreatePlan(ctx context.Context, userID string, orgID *string, input CreatePlanInput) (Plan, error) {
 	if !s.ai.Available() {
 		return Plan{}, fmt.Errorf("interviewprep: AI provider not available")
 	}
-
-	if input.Mode == ModeQuick {
-		return s.createQuickPlan(ctx, userID, orgID, input)
+	if input.Mode != ModeQuick && input.Mode != ModeTargeted {
+		return Plan{}, ErrInvalidMode
 	}
-	return s.createTargetedPlan(ctx, userID, orgID, input)
+
+	count, err := s.repo.CountRecentPlans(ctx, userID)
+	if err != nil {
+		return Plan{}, fmt.Errorf("interviewprep: count recent plans: %w", err)
+	}
+	if count >= MaxPlansPerDay {
+		return Plan{}, ErrDailyLimitReached
+	}
+
+	if input.Mode == ModeTargeted {
+		if strings.TrimSpace(input.JobTitle) == "" {
+			return Plan{}, ErrJobTitleRequired
+		}
+		if len(input.JDText) > maxJDInputChars {
+			return Plan{}, ErrJDTextTooLong
+		}
+		return s.createTargetedPlan(ctx, userID, orgID, input)
+	}
+
+	if strings.TrimSpace(input.Technology) == "" {
+		return Plan{}, ErrTechnologyRequired
+	}
+	if input.Difficulty == "" {
+		input.Difficulty = "intermediate"
+	}
+	if input.Category != practice.CategoryTechnical && input.Category != practice.CategoryBehavioral {
+		input.Category = practice.CategoryTechnical
+	}
+	if input.QuestionCount < 1 || input.QuestionCount > 20 {
+		input.QuestionCount = 5
+	}
+	return s.createQuickPlan(ctx, userID, orgID, input)
 }
 
 // createQuickPlan skips JD extraction and the coding round entirely — it's
@@ -276,9 +359,15 @@ func (s *Service) generateCodingItems(ctx context.Context, profile extractedProf
 	resp, err := s.ai.Complete(llmCtx, ai.CompletionRequest{
 		SystemPrompt: ai.CodingRoundSystemPrompt,
 		UserPrompt:   userPrompt,
-		MaxTokens:    2048,
-		Temperature:  0.6,
-		JSONMode:     true,
+		// 2-3 problems, each with a full prompt, starter code, and 3+ test
+		// cases, as strict JSON easily exceeds 2048 tokens for verbose
+		// languages (Java, C++) — a tight budget here doesn't error, it
+		// silently truncates the JSON mid-array, so generateCodingItems below
+		// either fails to parse or (worse) silently returns fewer/thinner
+		// problems than intended. 4096 gives real headroom.
+		MaxTokens:   4096,
+		Temperature: 0.6,
+		JSONMode:    true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("interviewprep: generate coding items: %w", err)

@@ -18,7 +18,7 @@ export default async function MistakesPage() {
     .slice(0, 2);
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <div className="flex items-center gap-3">
           <Brain aria-hidden className="size-6 text-primary" />

@@ -32,7 +32,7 @@ export default async function ResultsPage({ params }: PageProps) {
   ]);
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <header className="mb-6 flex flex-col gap-1">
         <h1 className="page-title">{detail.assessment.title}</h1>
         <p className="text-muted-foreground">Results &amp; analytics</p>

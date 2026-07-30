@@ -22,7 +22,7 @@ export default async function LabPage({ params }: PageProps) {
   const requiredCount = lab.tasks.filter((t) => !t.is_optional).length
 
   return (
-    <main className="page-container-sm py-10 flex flex-col gap-8">
+    <main className="page-container-sm flex flex-col gap-8">
       <header className="flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline" className="capitalize">

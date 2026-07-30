@@ -6,10 +6,15 @@ import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CreateQuestionForm } from "@/app/(app)/question-bank/create-question-form";
+import type { Category } from "@/lib/assessments/types";
+
+interface QuestionBankPanelProps {
+  categories: Category[];
+}
 
 // QuestionBankPanel is the client island that toggles and hosts the create form,
 // refreshing the server-rendered list on success.
-export function QuestionBankPanel() {
+export function QuestionBankPanel({ categories }: QuestionBankPanelProps) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
 
@@ -30,6 +35,7 @@ export function QuestionBankPanel() {
         </Button>
       </div>
       <CreateQuestionForm
+        categories={categories}
         onCreated={() => {
           setOpen(false);
           router.refresh();

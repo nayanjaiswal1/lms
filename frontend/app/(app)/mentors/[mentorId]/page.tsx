@@ -44,7 +44,7 @@ export default async function MentorProfilePage({ params }: Props) {
   const history = assignedTicket ? await getTicketHistory(assignedTicket.id).catch(() => null) : null;
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container-sm">
       <Link
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         href={ROUTES.MENTORS}

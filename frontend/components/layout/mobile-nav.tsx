@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { SidebarNavContent } from "@/components/layout/sidebar-nav-content";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { useVisibleNavGroups } from "@/lib/nav";
@@ -48,6 +49,11 @@ export function MobileNav({ user }: Props) {
           <Menu aria-hidden className="h-5 w-5" />
         </button>
         <BrandMark />
+        {user && (
+          <div className="ml-auto flex items-center">
+            <NotificationBell />
+          </div>
+        )}
       </header>
 
       {open && (

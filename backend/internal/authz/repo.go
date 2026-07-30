@@ -18,7 +18,9 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 }
 
 // GetEffectivePermissions returns all active permission codes held by userID
-// within tenantID, resolved by walking user_roles → roles → role_permissions → permissions.
+// within tenantID, resolved by walking user_roles → roles → role_permissions → permissions,
+// unioned with any direct grants in user_permission_overrides (bypasses roles
+// entirely — see docs/rbac.md §1 for why this exception exists).
 // Returns an empty (non-nil) slice when the user holds no permissions.
 func (r *Repo) GetEffectivePermissions(ctx context.Context, userID, tenantID string) ([]string, error) {
 	const q = `
@@ -28,7 +30,13 @@ func (r *Repo) GetEffectivePermissions(ctx context.Context, userID, tenantID str
 		JOIN role_permissions rp ON rp.role_id = r.id
 		JOIN permissions p ON p.id = rp.permission_id AND p.is_active = true
 		WHERE ur.user_id = $1
-		  AND ur.tenant_id = $2`
+		  AND ur.tenant_id = $2
+		UNION
+		SELECT p.code
+		FROM user_permission_overrides upo
+		JOIN permissions p ON p.id = upo.permission_id AND p.is_active = true
+		WHERE upo.user_id = $1
+		  AND upo.tenant_id = $2`
 
 	rows, err := r.pool.Query(ctx, q, userID, tenantID)
 	if err != nil {

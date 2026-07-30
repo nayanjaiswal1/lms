@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function NewSheetLoading() {
   return (
-    <main className="page-container py-6">
+    <main className="page-container">
       <div className="page-header">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-8 w-48" />

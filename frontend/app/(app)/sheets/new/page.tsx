@@ -18,7 +18,7 @@ export default async function NewSheetPage() {
   });
 
   return (
-    <main className="page-container-sm py-6">
+    <main className="page-container-sm">
       <div className="page-header">
         <div>
           <h1 className="page-title">Create a sheet</h1>

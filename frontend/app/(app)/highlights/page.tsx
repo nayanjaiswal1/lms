@@ -146,7 +146,7 @@ export default async function SavedHighlightsPage() {
   const isSuperAdmin = user?.platform_role === "super_admin"
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container-sm">
       <div className="page-header">
         <div className="flex items-center gap-3">
           <BookmarkCheck aria-hidden className="size-6 text-primary" />

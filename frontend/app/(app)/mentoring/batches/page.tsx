@@ -53,7 +53,7 @@ async function BatchList() {
 
 export default function MentorBatchesPage() {
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <h1 className="page-title">My Batches</h1>
       </div>

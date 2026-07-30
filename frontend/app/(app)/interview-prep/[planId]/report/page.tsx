@@ -20,7 +20,7 @@ export default async function InterviewPrepReportPage({ params }: Props) {
   const report = plan.plan_type === "quick" ? null : plan.report ?? (await getPrepReport(planId).catch(() => null));
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container-sm">
       <div className="flex flex-col gap-1 mb-6">
         <h1 className="page-title">Readiness Report</h1>
         <p className="text-sm text-muted-foreground">{plan.job_title}</p>

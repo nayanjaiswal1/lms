@@ -9,6 +9,7 @@ import (
 
 	"github.com/mindforge/backend/internal/calendar"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/srs"
 )
@@ -402,6 +403,15 @@ var tools = []mcpTool{
 		},
 	},
 	{
+		Name:        "get_random_topic",
+		Description: "Pick one published course from the student's org catalog they haven't tried yet — a \"surprise me\" suggestion for when they don't know what to learn next. Weighted toward their stated topic interests when possible; falls back to any unstarted course, then (only if they've enrolled in everything) any course at all.",
+		Scope:       ScopeCoursesRead,
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
+			return rt.coursesSvc.GetRandomTopic(ctx, id.OrgID, id.UserID)
+		},
+	},
+	{
 		Name:        "get_learning_context",
 		Description: "Call this FIRST, before anything else, at the start of any conversation about the student's courses, practice, or progress — including English practice. Returns their enrolled courses with completion percentages, their most recent lesson reflections (what they recently understood or struggled with, across every course), and the most recently added/edited lessons in their own private self-courses. This exists so the student never has to re-explain their level, recent mistakes, or what they were last working on — check here before asking them to recap.",
 		Scope:       ScopeCoursesRead,
@@ -670,6 +680,188 @@ var tools = []mcpTool{
 			return srs.ReviewCard(ctx, rt.srsRepo, id.UserID, cardID, qualityFromBool(wasCorrect))
 		},
 	},
+	{
+		Name:        "list_interview_prep_plans",
+		Description: "List the student's interview-prep plans — quick practice drills and job-targeted mock tests — newest first.",
+		Scope:       ScopeInterviewPrep,
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
+			return rt.interviewPrepSvc.ListPlans(ctx, id.UserID)
+		},
+	},
+	{
+		Name:        "get_interview_prep_plan",
+		Description: "Get one interview-prep plan by id, including its rounds (conceptual/behavioral/coding) and their status/score — use this to check whether a round is ready to take or what's left before a report can be generated. This does NOT include the actual question text for a conceptual/behavioral round — call get_interview_prep_round with that round's practice_session_id for the questions themselves.",
+		Scope:       ScopeInterviewPrep,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"plan_id": map[string]any{"type": "string"}},
+			"required":   []string{"plan_id"},
+		},
+		TargetType: "interview_prep_plan",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			planID, err := argString(args, "plan_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.interviewPrepSvc.GetPlan(ctx, planID, id.UserID)
+		},
+	},
+	{
+		Name:        "create_interview_prep_plan",
+		Description: "Start a new interview-prep plan for the student — either a 'quick' practice drill on one technology, or a 'targeted' mock test derived from a job title/description (conceptual + coding rounds, scored readiness report once both are completed). Capped at 5 new plans per day, same as the in-app form.",
+		Scope:       ScopeInterviewPrep,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"mode":           map[string]any{"type": "string", "description": "One of: quick, targeted."},
+				"technology":     map[string]any{"type": "string", "description": "Quick mode only, required — the technology/topic to practice, e.g. \"Go concurrency\"."},
+				"difficulty":     map[string]any{"type": "string", "description": "Quick mode only — one of: beginner, intermediate, advanced. Defaults to intermediate."},
+				"category":       map[string]any{"type": "string", "description": "Quick mode only — one of: technical, behavioral. Defaults to technical."},
+				"question_count": map[string]any{"type": "integer", "description": "Quick mode only — number of questions, 1-20. Defaults to 5."},
+				"job_title":      map[string]any{"type": "string", "description": "Targeted mode only, required — the role to prep for, e.g. \"Senior Backend Engineer\"."},
+				"jd_text":        map[string]any{"type": "string", "description": "Targeted mode only, optional — the full job description text, used to extract role/seniority/skills and tailor the rounds. Up to 10,000 characters."},
+			},
+			"required": []string{"mode"},
+		},
+		TargetType: "interview_prep_plan",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			mode, err := argString(args, "mode")
+			if err != nil {
+				return nil, err
+			}
+			var orgID *string
+			if id.OrgID != "" {
+				orgID = &id.OrgID
+			}
+			return rt.interviewPrepSvc.CreatePlan(ctx, id.UserID, orgID, interviewprep.CreatePlanInput{
+				Mode:          mode,
+				JobTitle:      optStringOr(args, "job_title", ""),
+				JDText:        optStringOr(args, "jd_text", ""),
+				Technology:    optStringOr(args, "technology", ""),
+				Difficulty:    optStringOr(args, "difficulty", ""),
+				Category:      optStringOr(args, "category", ""),
+				QuestionCount: optInt(args, "question_count", 0),
+			})
+		},
+		// ponytail: no Revert — creation is capped at interviewprep.MaxPlansPerDay
+		// per day via CountRecentPlans; deleting the row on revert would let a
+		// connected client bypass that cap by looping create+revert, and the AI
+		// cost of generating the plan has already been spent either way.
+	},
+	{
+		Name:        "get_interview_prep_round",
+		Description: "Get the actual questions, any answers already given, and AI feedback for an interview-prep plan's conceptual or behavioral round (round_type is 'conceptual' or 'behavioral' on get_interview_prep_plan/list_interview_prep_plans — every plan has exactly one such round; a targeted technical plan also has a separate coding round, which uses submit_interview_prep_coding_item instead). Pass the round's practice_session_id, not the round_id or plan_id.",
+		Scope:       ScopeInterviewPrep,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"session_id": map[string]any{"type": "string", "description": "The round's practice_session_id, from get_interview_prep_plan."}},
+			"required":   []string{"session_id"},
+		},
+		TargetType: "interview_prep_round",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sessionID, err := argString(args, "session_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.interviewPrepSvc.GetRoundSession(ctx, sessionID, id.UserID)
+		},
+	},
+	{
+		Name:        "submit_interview_prep_round_answer",
+		Description: "Submit the student's answer to one question of an interview-prep plan's conceptual or behavioral round (from get_interview_prep_round). Grades it with AI feedback (score, strengths, gaps, a suggested answer) the same as the in-app round UI — call get_interview_prep_round again afterward to see it.",
+		Scope:       ScopeInterviewPrep,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"session_id":  map[string]any{"type": "string", "description": "The round's practice_session_id, from get_interview_prep_plan."},
+				"position":    map[string]any{"type": "integer", "description": "The question's position within the round, from get_interview_prep_round."},
+				"answer_text": map[string]any{"type": "string"},
+			},
+			"required": []string{"session_id", "position", "answer_text"},
+		},
+		TargetType: "interview_prep_round",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sessionID, err := argString(args, "session_id")
+			if err != nil {
+				return nil, err
+			}
+			answerText, err := argString(args, "answer_text")
+			if err != nil {
+				return nil, err
+			}
+			position := optInt(args, "position", -1)
+			if position < 0 {
+				return nil, fmt.Errorf("missing required argument %q", "position")
+			}
+			return rt.interviewPrepSvc.SubmitRoundAnswer(ctx, sessionID, id.UserID, position, answerText)
+		},
+		// ponytail: no Revert — like submit_interview_prep_coding_item, the AI
+		// grading has already run by the time this returns; there's no
+		// meaningful undo for an answer that's already been scored.
+	},
+	{
+		Name:        "submit_interview_prep_coding_item",
+		Description: "Submit the student's code for one item of an interview-prep plan's coding round — runs it against the item's test cases and grades it, the same as the in-app code editor's submit button.",
+		Scope:       ScopeInterviewPrep,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"plan_id":  map[string]any{"type": "string"},
+				"round_id": map[string]any{"type": "string"},
+				"item_id":  map[string]any{"type": "string"},
+				"code":     map[string]any{"type": "string"},
+				"language": map[string]any{"type": "string"},
+			},
+			"required": []string{"plan_id", "round_id", "item_id", "code", "language"},
+		},
+		TargetType: "interview_prep_coding_item",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			planID, err := argString(args, "plan_id")
+			if err != nil {
+				return nil, err
+			}
+			roundID, err := argString(args, "round_id")
+			if err != nil {
+				return nil, err
+			}
+			itemID, err := argString(args, "item_id")
+			if err != nil {
+				return nil, err
+			}
+			code, err := argString(args, "code")
+			if err != nil {
+				return nil, err
+			}
+			language, err := argString(args, "language")
+			if err != nil {
+				return nil, err
+			}
+			return rt.interviewPrepSvc.SubmitCodingItem(ctx, planID, roundID, itemID, id.UserID, code, language)
+		},
+		// ponytail: no Revert — the code has already run against the test cases
+		// by the time this returns; there's no meaningful undo for an executed
+		// submission, only for the stored answer text, which isn't worth
+		// reverting on its own.
+	},
+	{
+		Name:        "get_interview_prep_report",
+		Description: "Get the aggregate readiness report for a job-targeted interview-prep plan — readiness score, conceptual/coding scores, strong and weak skills, a summary, and next steps. Only available once both rounds are completed; quick plans never generate a report.",
+		Scope:       ScopeInterviewPrep,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"plan_id": map[string]any{"type": "string"}},
+			"required":   []string{"plan_id"},
+		},
+		TargetType: "interview_prep_plan",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			planID, err := argString(args, "plan_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.interviewPrepSvc.GetReport(ctx, planID, id.UserID)
+		},
+	},
 }
 
 // qualityFromBool maps the boolean grading a caller of mark_revision_result
@@ -695,6 +887,16 @@ func optStringOr(args map[string]any, key, def string) string {
 	return def
 }
 
+// optInt returns args[key] as an int, or def if absent — JSON-RPC numeric
+// arguments decode as float64, so this is the numeric counterpart to
+// optStringOr (e.g. create_interview_prep_plan's question_count).
+func optInt(args map[string]any, key string, def int) int {
+	if v, ok := args[key].(float64); ok {
+		return int(v)
+	}
+	return def
+}
+
 func findTool(name string) (mcpTool, bool) {
 	for _, t := range tools {
 		if t.Name == name {
@@ -708,7 +910,7 @@ func findTool(name string) (mcpTool, bool) {
 // the single choke point every /mcp tools/call request passes through. This
 // is also where every call gets logged to mcp_action_log (before-state
 // captured first, so a later revert can restore it) — one instrumentation
-// point covers all 14 tools instead of repeating it in each Call closure.
+// point covers every tool instead of repeating it in each Call closure.
 func (rt *Router) callTool(ctx context.Context, id mcpIdentity, name string, args map[string]any) (json.RawMessage, error) {
 	tool, ok := findTool(name)
 	if !ok {

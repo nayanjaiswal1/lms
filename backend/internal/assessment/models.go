@@ -185,6 +185,18 @@ type Question struct {
 	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
+// QuestionUsage is one (question, assessment) pin — a question can be pinned
+// into several assessments, so a question's usage is a list, not a single
+// value. CourseID/CourseTitle carry the same course_modules back-reference as
+// Assessment.CourseID, resolved for the assessment side of the pin.
+type QuestionUsage struct {
+	QuestionID      string  `json:"question_id"`
+	AssessmentID    string  `json:"assessment_id"`
+	AssessmentTitle string  `json:"assessment_title"`
+	CourseID        *string `json:"course_id"`
+	CourseTitle     *string `json:"course_title"`
+}
+
 type Batch struct {
 	ID            string     `json:"id"`
 	OrgID         string     `json:"org_id"`
@@ -255,6 +267,12 @@ type Assessment struct {
 	PublishedAt      *time.Time       `json:"published_at"`
 	CreatedAt        time.Time        `json:"created_at"`
 	UpdatedAt        time.Time        `json:"updated_at"`
+	// CourseID/CourseTitle are resolved from course_modules.assessment_id (the
+	// actual course-embedding link — parent_type/parent_id above are just a
+	// self-reported tag and are never set when a module embeds an assessment).
+	// Nil when the assessment isn't used as any course module's content.
+	CourseID    *string `json:"course_id"`
+	CourseTitle *string `json:"course_title"`
 }
 
 type Attempt struct {

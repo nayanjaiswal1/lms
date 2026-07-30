@@ -336,6 +336,67 @@ func (s *Service) GetLearningContext(ctx context.Context, orgID, userID string) 
 	return LearningContext{Courses: courses, RecentReflections: reflections, RecentSelfActivity: selfActivity}, nil
 }
 
+// randomTopicAttempts returns the ordered fallback tiers GetRandomTopic
+// tries, each one only reached if the previous found nothing:
+//  1. published courses matching the student's stated topic interests,
+//     excluding ones they're already enrolled in (only when they have stated
+//     interests at all)
+//  2. any published course, excluding ones they're already enrolled in
+//  3. any published course at all, including ones they're already enrolled
+//     in — reached only once tier 2 finds nothing, i.e. the student has
+//     enrolled in the entire org catalog; still surfaces something rather
+//     than an empty state
+//
+// Extracted as a pure function (no DB) so the fallback ordering itself is
+// unit-testable without the DB-backed test infra this codebase doesn't have
+// for domain packages yet (see roadmap.service_test.go's precedent).
+func randomTopicAttempts(interests, excludeCourseIDs []string) []RandomTopicFilter {
+	attempts := make([]RandomTopicFilter, 0, 3)
+	if len(interests) > 0 {
+		attempts = append(attempts, RandomTopicFilter{Tags: interests, ExcludeCourseIDs: excludeCourseIDs})
+	}
+	attempts = append(attempts, RandomTopicFilter{ExcludeCourseIDs: excludeCourseIDs})
+	attempts = append(attempts, RandomTopicFilter{})
+	return attempts
+}
+
+// GetRandomTopic picks one course the student hasn't tried yet as a learning
+// suggestion for the "surprise me" discovery feature, walking
+// randomTopicAttempts' tiers until one finds a course. Returns ErrNotFound
+// only when the org's entire published catalog is empty.
+func (s *Service) GetRandomTopic(ctx context.Context, orgID, userID string) (RandomTopic, error) {
+	enrollments, err := s.repo.GetMyEnrollments(ctx, userID, orgID)
+	if err != nil {
+		return RandomTopic{}, err
+	}
+	excludeIDs := make([]string, len(enrollments))
+	for i, e := range enrollments {
+		excludeIDs[i] = e.CourseID
+	}
+
+	interests, err := s.repo.GetTopicsInterest(ctx, userID)
+	if err != nil {
+		return RandomTopic{}, err
+	}
+
+	attempts := randomTopicAttempts(interests, excludeIDs)
+	lastTier := len(attempts) - 1
+	for i, filter := range attempts {
+		c, err := s.repo.GetRandomPublishedCourse(ctx, orgID, filter)
+		if err == nil {
+			return RandomTopic{
+				Course:          c,
+				MatchedInterest: len(filter.Tags) > 0,
+				AlreadyEnrolled: i == lastTier,
+			}, nil
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return RandomTopic{}, err
+		}
+	}
+	return RandomTopic{}, ErrNotFound
+}
+
 // ─── Content proposals ────────────────────────────────────────────────────────
 
 // ProposeModuleToOrgCourse lets a student propose content as a contribution

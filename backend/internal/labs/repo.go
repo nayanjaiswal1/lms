@@ -289,6 +289,21 @@ func (r *Repo) UpdateSessionRunning(ctx context.Context, sessionID, containerID,
 	return nil
 }
 
+// UpdateSessionRepoClone records the outcome of the Batch 3 lab-container
+// auto-clone hook (see Service.runRepoClone) — status is one of
+// 'cloned'/'failed'/'skipped' (migration 023's check constraint also allows
+// 'pending', unused here since the clone runs synchronously inside
+// provisionContainer before the session is ever reported ready).
+func (r *Repo) UpdateSessionRepoClone(ctx context.Context, sessionID, status string, cloneErr *string) error {
+	if _, err := r.pool.Exec(ctx,
+		"UPDATE lab_sessions SET repo_clone_status=$2, repo_clone_error=$3 WHERE id=$1",
+		sessionID, status, cloneErr,
+	); err != nil {
+		return fmt.Errorf("labs.Repo.UpdateSessionRepoClone: %w", err)
+	}
+	return nil
+}
+
 // UpdateSessionStatus sets the session to an arbitrary status.
 func (r *Repo) UpdateSessionStatus(ctx context.Context, sessionID, status string) error {
 	if _, err := r.pool.Exec(ctx,

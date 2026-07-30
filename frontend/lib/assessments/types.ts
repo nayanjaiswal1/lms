@@ -42,6 +42,10 @@ export interface Assessment {
   question_count: number;
   short_code?: string | null;
   created_at: string;
+  // Resolved from the course module that actually embeds this assessment
+  // (course_modules.assessment_id) — null when it isn't used in any course.
+  course_id: string | null;
+  course_title: string | null;
 }
 
 export interface AssignedAssessment extends Assessment {
@@ -63,6 +67,24 @@ export interface Question {
   current_version: number;
   category_id: string | null;
   content?: unknown;
+}
+
+export interface Category {
+  id: string;
+  org_id: string;
+  parent_id: string | null;
+  name: string;
+  slug: string;
+}
+
+// One (question, assessment) pin — a question can be pinned into several
+// tests, so a question's usage is a list, not a single value.
+export interface QuestionUsage {
+  question_id: string;
+  assessment_id: string;
+  assessment_title: string;
+  course_id: string | null;
+  course_title: string | null;
 }
 
 export interface StudentMCQContent {
@@ -149,6 +171,23 @@ export function isMCQQuestion(q: StudentQuestion): q is StudentMCQQuestion {
 
 export function isSubjectiveQuestion(q: StudentQuestion): q is StudentSubjectiveQuestion {
   return q.type === "subjective";
+}
+
+// Display labels for the take-page section navigator, which groups
+// questions by type (see TestRunner). Keyed off the closed StudentQuestion
+// union, not a server-configurable option list.
+export const QUESTION_TYPE_LABELS: Record<StudentQuestion["type"], string> = {
+  mcq: "MCQ",
+  coding: "Coding",
+  subjective: "Subjective",
+};
+
+export interface QuestionSection {
+  type: StudentQuestion["type"];
+  label: string;
+  startIndex: number;
+  count: number;
+  answeredCount: number;
 }
 
 export interface Attempt {

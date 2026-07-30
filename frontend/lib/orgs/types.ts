@@ -104,6 +104,10 @@ export interface OrgAuthConfig {
   allowed_domains: string[];
 }
 
+export interface OrgAIConnectorConfig {
+  enabled: boolean;
+}
+
 export interface OnboardingState {
   step: number;
   onboarding_completed_at: string | null;

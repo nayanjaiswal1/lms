@@ -11,7 +11,7 @@ import { ContentTab }   from "@/components/courses/wizard/content-tab";
 import { SettingsTab }  from "@/components/courses/wizard/settings-tab";
 import { FinalTestTab } from "@/components/courses/wizard/final-test-tab";
 import { useCourseDraft, type WizardTab } from "@/lib/courses/use-course-draft";
-import type { FinalTestConfig } from "@/lib/server/courses";
+import type { CertificateRule, FinalTestConfig } from "@/lib/server/courses";
 import {
   createCourseAction, updateCourseAction, publishCourseAction,
   createSectionAction, updateSectionAction, deleteSectionAction, reorderSectionsAction,
@@ -25,6 +25,7 @@ import ROUTES from "@/lib/routes";
 interface Props {
   course?: CourseTree; // present in edit mode, absent when creating a new course
   finalTest?: FinalTestConfig | null; // present only in edit mode
+  certificateRule?: CertificateRule | null; // present only in edit mode
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ const TABS: { id: WizardTab; label: string }[] = [
 
 // ─── Wizard ───────────────────────────────────────────────────────────────────
 
-export function CourseWizard({ course, finalTest }: Props) {
+export function CourseWizard({ course, finalTest, certificateRule }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const wiz = useCourseDraft(course);
@@ -312,7 +313,7 @@ export function CourseWizard({ course, finalTest }: Props) {
           />
         )}
         {wiz.activeTab === "final-test" && course && (
-          <FinalTestTab courseId={course.id} initial={finalTest ?? null} />
+          <FinalTestTab courseId={course.id} initial={finalTest ?? null} certificateRule={certificateRule ?? null} />
         )}
       </div>
 

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AssessmentResultsLoading() {
   return (
-    <div className="page-container py-10">
+    <div className="page-container">
       <div className="mb-6 flex flex-col gap-2">
         <Skeleton className="h-9 w-72" />
         <Skeleton className="h-4 w-32" />

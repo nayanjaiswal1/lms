@@ -20,6 +20,7 @@ const ROUTES = {
   // Student
   DASHBOARD:           "/dashboard",
   LEARN:               "/learn",
+  TEACH:               "/teach",
   NOW:                 "/now",
   PLAN:                "/plan",
   CALENDAR:            "/calendar",
@@ -32,14 +33,12 @@ const ROUTES = {
 
   // Mentoring
   MENTORING:           "/mentoring",
-  MENTORING_MESSAGES:  "/mentoring/messages",
   MENTORING_TICKETS:   "/mentoring/tickets",
 
   // Mentor directory
   MENTORS:             "/mentors",
 
   // Course management (author/instructor)
-  MANAGE_COURSES:          "/courses/manage",
   MANAGE_COURSES_NEW:      "/courses/manage/new",
 
   // Assessment management (author/instructor)
@@ -52,6 +51,10 @@ const ROUTES = {
   // Batches (assessment delivery)
   BATCHES:                 "/batches",
   COHORT_GROUPS:           "/cohort-groups",
+
+  // GitLab project assignments & teams (instructor/admin management)
+  PROJECTS:                "/projects",
+  PROJECTS_NEW:            "/projects/new",
 
   // Assessments — student
   ASSESSMENTS:         "/assessments",
@@ -77,6 +80,12 @@ const ROUTES = {
   INTERVIEW_NEW:       "/interview/new",
   LOAD_TEST:           "/load-test",
 
+  // Interview Experiences — crowd-sourced company/position Q&A board.
+  // Unrelated to INTERVIEW above (the live mock-interview board).
+  INTERVIEW_EXP:       "/interview-exp",
+  INTERVIEW_EXP_NEW:   "/interview-exp/new",
+  INTERVIEW_EXP_FAQ:   "/interview-exp/faq",
+
   // Platform
   BILLING:             "/billing",
 
@@ -91,7 +100,6 @@ const ROUTES = {
 
   // Admin — RBAC
   ADMIN_RBAC_ROLES:        "/admin/rbac/roles",
-  ADMIN_RBAC_ROLES_NEW:    "/admin/rbac/roles/new",
   ADMIN_RBAC_PERMISSIONS:  "/admin/rbac/permissions",
   ADMIN_RBAC_AUDIT:        "/admin/rbac/audit",
   USERS:                   "/users",
@@ -118,6 +126,7 @@ const ROUTES = {
   ORG_SETTINGS_AUDIT:      "/org/settings/audit-log",
   ORG_SETTINGS_JOBS:       "/org/settings/jobs",
   ORG_SETTINGS_INVITES:    "/org/settings/invites",
+  ORG_SETTINGS_INTEGRATIONS: "/org/settings/integrations",
   orgSettingsJobs:      (orgId: string) => `/org/settings/jobs/${orgId}`,
   orgSettingsJob:       (orgId: string, jobId: string) => `/org/settings/jobs/${orgId}/${jobId}`,
 
@@ -133,6 +142,8 @@ const ROUTES = {
   batch:                    (id: string)                        => `/batches/${id}`,
   batchImport:              (id: string)                        => `/batches/${id}/import`,
   cohortGroup:              (id: string)                        => `/cohort-groups/${id}`,
+  projectAssignment:        (id: string)                        => `/projects/${id}`,
+  myProject:                (teamId: string)                    => `/projects/team/${teamId}`,
   manageAssessment:         (id: string)                        => `/assessments/manage/${id}`,
   manageAssessmentResults:  (id: string)                        => `/assessments/manage/${id}/results`,
   manageAssessmentReview:   (id: string)                        => `/assessments/manage/${id}/review`,
@@ -157,6 +168,7 @@ const ROUTES = {
   courseFinalTest:          (slug: string)                     => `/courses/${slug}/final-test`,
   wikiSpace:                (spaceSlug: string)                 => `/wiki/${spaceSlug}`,
   wikiPage:                 (spaceSlug: string, ...path: string[]) => `/wiki/${spaceSlug}/${path.join("/")}`,
+  interviewExpPost:         (id: string)                        => `/interview-exp/${id}`,
   wikiEdit:                 (spaceSlug: string, ...path: string[]) => `/wiki/${spaceSlug}/edit/${path.join("/")}`,
   publicProfile:            (slug: string)                      => `/u/${slug}`,
 

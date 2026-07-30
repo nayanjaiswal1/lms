@@ -33,6 +33,16 @@ export async function createAssessmentAction(input: CreateAssessmentInput): Prom
   return { ok: true, id: result.data?.id };
 }
 
+export interface UpdateAssessmentInput extends CreateAssessmentInput {
+  parent_id?: string | null;
+}
+
+export async function updateAssessmentAction(assessmentId: string, input: UpdateAssessmentInput): Promise<ActionResult> {
+  const result = await apiAction("PATCH", `/api/assessments/${assessmentId}`, input);
+  if (result.ok) revalidatePath(ROUTES.manageAssessment(assessmentId));
+  return result;
+}
+
 export async function addAssessmentQuestionAction(assessmentId: string, questionId: string, points?: number): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/assessments/${assessmentId}/questions`, { question_id: questionId, points });
   if (result.ok) revalidatePath(ROUTES.manageAssessment(assessmentId));
@@ -47,13 +57,19 @@ export async function removeAssessmentQuestionAction(assessmentId: string, aqId:
 
 export async function publishAssessmentAction(assessmentId: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/assessments/${assessmentId}/publish`);
-  if (result.ok) revalidatePath(ROUTES.manageAssessment(assessmentId));
+  if (result.ok) {
+    revalidatePath(ROUTES.manageAssessment(assessmentId));
+    revalidatePath(ROUTES.MANAGE_ASSESSMENTS);
+  }
   return result;
 }
 
 export async function setAssessmentStatusAction(assessmentId: string, status: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/assessments/${assessmentId}/status`, { status });
-  if (result.ok) revalidatePath(ROUTES.manageAssessment(assessmentId));
+  if (result.ok) {
+    revalidatePath(ROUTES.manageAssessment(assessmentId));
+    revalidatePath(ROUTES.MANAGE_ASSESSMENTS);
+  }
   return result;
 }
 
@@ -66,6 +82,9 @@ export async function assignAssessmentAction(
     assignee_type: assigneeType,
     assignee_ids: assigneeIds,
   });
-  if (result.ok) revalidatePath(ROUTES.manageAssessment(assessmentId));
+  if (result.ok) {
+    revalidatePath(ROUTES.manageAssessment(assessmentId));
+    revalidatePath(ROUTES.MANAGE_ASSESSMENTS);
+  }
   return result;
 }

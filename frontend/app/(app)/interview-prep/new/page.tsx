@@ -4,7 +4,7 @@ export const metadata = { title: "New Interview Prep Plan — MindForge" };
 
 export default function NewInterviewPrepPage() {
   return (
-    <main className="page-container-sm py-10">
+    <main className="page-container-sm">
       <div className="page-header">
         <h1 className="page-title">New Interview Prep Plan</h1>
       </div>

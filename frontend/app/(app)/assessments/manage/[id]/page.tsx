@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { getAssessment, getQuestions, getBatches } from "@/lib/assessments/server";
+import { getAssessment, getQuestions } from "@/lib/assessments/server";
 import { AssessmentBuilder } from "@/app/(app)/assessments/manage/[id]/assessment-builder";
 
 export const metadata: Metadata = {
@@ -22,14 +22,9 @@ export default async function AssessmentBuilderPage({ params }: PageProps) {
     notFound();
   }
 
-  const [bank, batches] = await Promise.all([getQuestions("?limit=100"), getBatches()]);
+  const bank = await getQuestions("?limit=100");
 
   return (
-    <AssessmentBuilder
-      assessment={detail.assessment}
-      attached={detail.questions}
-      bank={bank.questions}
-      batches={batches}
-    />
+    <AssessmentBuilder assessment={detail.assessment} attached={detail.questions} bank={bank.questions} />
   );
 }

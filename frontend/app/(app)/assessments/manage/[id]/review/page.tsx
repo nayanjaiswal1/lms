@@ -20,7 +20,7 @@ export default async function ReviewQueuePage({ params }: PageProps) {
   const items = data.items;
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Review Queue</h1>

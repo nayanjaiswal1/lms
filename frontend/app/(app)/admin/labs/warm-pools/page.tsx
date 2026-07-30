@@ -13,7 +13,7 @@ export default async function WarmPoolsPage() {
   const { labs } = await apiGet<{ labs: WarmPoolRowData[] }>("/api/admin/labs/warm-pools");
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <WarmPoolTable labs={labs} />
     </div>
   );

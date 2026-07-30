@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getCourses, getCourseProgress, getCourseTree } from "@/lib/server/courses";
+import { findCourseBySlug, getCourses, getCourseProgress, getCourseTree, getEnrollments } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -9,8 +9,8 @@ interface Props {
 export default async function CourseLearnIndexPage({ params }: Props) {
   const { slug } = await params;
 
-  const courses = await getCourses();
-  const course = courses.find((c) => c.slug === slug);
+  const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments()]);
+  const course = findCourseBySlug(courses, enrollments, slug);
   if (!course) notFound();
 
   const [tree, progress] = await Promise.all([

@@ -18,7 +18,7 @@ export default async function InterviewSkillsPage() {
       : 0;
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <div className="page-header">
         <h1 className="page-title">Skill Trends</h1>
       </div>

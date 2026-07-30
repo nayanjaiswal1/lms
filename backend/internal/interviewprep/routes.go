@@ -20,7 +20,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config, aiProvider ai.LLMProvider, prac
 	executor := assessment.NewExecutor(cfg)
 	practiceRepo := practice.NewRepo(pool)
 	service := NewService(repo, aiProvider, executor, practiceSvc, practiceRepo, cfg, pool)
-	return &Handler{service: service, repo: repo}
+	return &Handler{Service: service, repo: repo}
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {

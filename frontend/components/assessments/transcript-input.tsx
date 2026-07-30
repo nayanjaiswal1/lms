@@ -114,69 +114,65 @@ export function TranscriptInput({ prompt, value, onChange, onSave }: TranscriptI
   return (
     <div className="flex flex-col gap-5">
       {/* Question prompt — styled as a callout so it reads as a question, not a label */}
-      <div className="rounded-[--radius-md] border border-border bg-muted/40 p-4">
+      <div className="card-base p-4">
         <p className="text-base leading-relaxed">{prompt}</p>
       </div>
 
-      {/* Answer textarea */}
-      <div className="relative">
+      {/* Answer panel — textarea + footer live in one bordered surface */}
+      <div className="flex flex-col rounded-[--radius-lg] border border-border bg-muted/40">
         <textarea
           aria-label="Your answer"
-          className="min-h-[320px] w-full resize-y rounded-[--radius-md] border border-border bg-background px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-[280px] w-full resize-y rounded-t-[--radius-lg] bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none"
           placeholder="Write your answer here…"
           value={value}
           onChange={(e) => handleChange(e.target.value)}
         />
 
-        {/* Footer indicators */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs text-muted-foreground">
-          {ui.saved && (
-            <span className="flex items-center gap-1 text-ai">
-              <CheckCircle2 className="h-3 w-3" aria-hidden />
-              Saved
-            </span>
-          )}
-          <span>{wordCount} word{wordCount !== 1 ? "s" : ""}</span>
-          <span className={remaining < 500 ? "text-destructive" : ""}>
-            {remaining.toLocaleString()} left
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            {/* Mic button — only mounted after hydration confirms browser support */}
+            {ui.hasSpeech && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={ui.listening ? "Stop recording" : "Start voice input"}
+                onClick={toggleMic}
+                className={cn(
+                  "h-auto gap-1.5 px-2 py-1 text-muted-foreground hover:text-foreground",
+                  ui.listening && "animate-pulse text-destructive hover:text-destructive",
+                )}
+              >
+                {ui.listening ? (
+                  <MicOff className="h-3.5 w-3.5" aria-hidden />
+                ) : (
+                  <Mic className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {ui.listening ? "Stop recording" : "Speak your answer"}
+              </Button>
+            )}
+            {ui.listening && (
+              <span className="flex items-center gap-1.5 text-xs text-destructive">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
+                </span>
+                Recording…
+              </span>
+            )}
+            {ui.saved && !ui.listening && (
+              <span className="flex items-center gap-1 text-xs text-ai">
+                <CheckCircle2 className="h-3 w-3" aria-hidden />
+                Saved
+              </span>
+            )}
+          </div>
+
+          <span className={cn("shrink-0 text-xs text-muted-foreground", remaining < 500 && "text-destructive")}>
+            {wordCount} word{wordCount !== 1 ? "s" : ""} · {remaining.toLocaleString()} left
           </span>
         </div>
       </div>
-
-      {/* Mic button — only mounted after hydration confirms browser support */}
-      {ui.hasSpeech && (
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant={ui.listening ? "destructive" : "outline"}
-            size="sm"
-            aria-label={ui.listening ? "Stop recording" : "Start voice input"}
-            onClick={toggleMic}
-            className={cn("w-fit gap-2", ui.listening && "animate-pulse")}
-          >
-            {ui.listening ? (
-              <>
-                <MicOff className="h-4 w-4" aria-hidden />
-                Stop recording
-              </>
-            ) : (
-              <>
-                <Mic className="h-4 w-4" aria-hidden />
-                Speak your answer
-              </>
-            )}
-          </Button>
-          {ui.listening && (
-            <span className="flex items-center gap-1.5 text-xs text-destructive">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
-              </span>
-              Recording…
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }

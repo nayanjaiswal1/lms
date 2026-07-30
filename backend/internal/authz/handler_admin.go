@@ -182,6 +182,32 @@ func (h *Handler) HandleDisableRole(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Role disabled."})
 }
 
+// HandleEnableRole re-activates a previously disabled role.
+//
+// POST /api/admin/rbac/roles/{roleID}/enable
+func (h *Handler) HandleEnableRole(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.getClaims(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+
+	roleID := chi.URLParam(r, "roleID")
+	if err := h.adminSvc.EnableRole(r.Context(), claims.UserID, claims.OrgID, roleID); err != nil {
+		switch {
+		case isNotFound(err):
+			httputil.WriteError(w, http.StatusNotFound, "Role not found.")
+		case isForbidden(err):
+			httputil.WriteError(w, http.StatusForbidden, err.Error())
+		default:
+			httputil.WriteError(w, http.StatusInternalServerError, "Failed to enable role.")
+		}
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Role enabled."})
+}
+
 // HandleGetRolePermissions lists the permissions attached to a role.
 //
 // GET /api/admin/rbac/roles/{roleID}/permissions
@@ -380,6 +406,93 @@ func (h *Handler) HandleGetUserPermissions(w http.ResponseWriter, r *http.Reques
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"permissions": codes})
 }
 
+// ─── User-permission-override management ──────────────────────────────────────
+
+// HandleGetUserPermissionOverrides lists permissions granted directly to a
+// user within the caller's tenant, bypassing roles.
+//
+// GET /api/admin/rbac/users/{userID}/permission-overrides
+func (h *Handler) HandleGetUserPermissionOverrides(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.getClaims(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+
+	userID := chi.URLParam(r, "userID")
+	perms, err := h.adminRepo.GetUserPermissionOverrides(r.Context(), userID, claims.OrgID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to fetch permission overrides.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"permissions": perms})
+}
+
+// HandleGrantUserPermission grants a permission directly to a user within
+// the caller's tenant, bypassing roles.
+//
+// POST /api/admin/rbac/users/{userID}/permission-overrides
+func (h *Handler) HandleGrantUserPermission(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.getClaims(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+
+	userID := chi.URLParam(r, "userID")
+	var req GrantPermissionRequest
+	if err := h.decodeJSON(r, &req); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.PermissionID == "" {
+		httputil.WriteError(w, http.StatusBadRequest, "permission_id is required.")
+		return
+	}
+
+	if err := h.adminSvc.GrantUserPermission(r.Context(), claims.UserID, claims.OrgID, userID, req.PermissionID); err != nil {
+		if isNotFound(err) {
+			httputil.WriteError(w, http.StatusNotFound, "Permission not found.")
+			return
+		}
+		if isForbidden(err) {
+			httputil.WriteError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to grant permission.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Permission granted."})
+}
+
+// HandleRevokeUserPermission removes a direct permission grant from a user
+// within the caller's tenant.
+//
+// DELETE /api/admin/rbac/users/{userID}/permission-overrides/{permissionID}
+func (h *Handler) HandleRevokeUserPermission(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.getClaims(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+
+	userID := chi.URLParam(r, "userID")
+	permissionID := chi.URLParam(r, "permissionID")
+
+	if err := h.adminSvc.RevokeUserPermission(r.Context(), claims.UserID, claims.OrgID, userID, permissionID); err != nil {
+		if isNotFound(err) {
+			httputil.WriteError(w, http.StatusNotFound, "Permission grant not found.")
+			return
+		}
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to revoke permission.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Permission revoked."})
+}
+
 // ─── Audit log ────────────────────────────────────────────────────────────────
 
 // HandleListAudit returns a paginated audit log scoped to the caller's tenant.
@@ -440,6 +553,7 @@ func isForbidden(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "cannot modify") ||
 		strings.Contains(msg, "cannot disable") ||
+		strings.Contains(msg, "cannot enable") ||
 		strings.Contains(msg, "does not belong") ||
 		strings.Contains(msg, "not accessible") ||
 		strings.Contains(msg, "not editable")

@@ -30,6 +30,13 @@ func NewService(repo *Repo, provider ai.LLMProvider) *Service {
 	return &Service{repo: repo, provider: provider}
 }
 
+// GetSession thinly wraps the repo so external callers going through Service
+// (e.g. interviewprep, which delegates its conceptual/behavioral round to a
+// practice session) don't need a separate *Repo dependency for this one read.
+func (s *Service) GetSession(ctx context.Context, sessionID, userID string) (PracticeSession, error) {
+	return s.repo.GetSession(ctx, sessionID, userID)
+}
+
 // category is CategoryTechnical or CategoryBehavioral — it picks both the
 // question-generation prompt here and the grading rubric in reviewAnswer,
 // so a behavioral round reuses this exact same engine end to end, just

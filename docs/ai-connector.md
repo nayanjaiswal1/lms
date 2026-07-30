@@ -82,10 +82,22 @@ enforces):
 | `update_self_course_module` | `courses:write` | `courses.Service.UpdateSelfCourseModule` |
 | `propose_module_to_org_course` | `courses:write` | `courses.Service.ProposeModuleToOrgCourse` → `course_content_proposals` (`status='pending'`); given `source_module_id`, copies that self-course lesson's title/content server-side and records `source_course_id`/`source_module_id` for traceability instead of trusting retyped text |
 | `get_learning_context` | `courses:read` | `courses.Service.GetLearningContext` — enrolled courses + progress, recent reflections, recent self-course activity, all in one call |
+| `get_random_topic` | `courses:read` | `courses.Service.GetRandomTopic` — one published course the student hasn't tried yet, weighted toward `user_profiles.topics_interest` |
 | `list_calendar_events` | `calendar:manage` | `calendar.Service.ListRange` |
 | `create_calendar_event` | `calendar:manage` | `calendar.Service.CreateEvent` |
 | `update_calendar_event` | `calendar:manage` | `calendar.Service.GetEvent` + `UpdateEvent` (merges patch onto the current row — a bare partial struct would silently wipe `batch_id`/`course_id`/`entity_type` etc., since `Repo.Update` overwrites every column it touches) |
 | `delete_calendar_event` | `calendar:manage` | `calendar.Service.DeleteEvent` |
+| `list_interview_prep_plans` | `interview_prep:manage` | `interviewprep.Service.ListPlans` |
+| `get_interview_prep_plan` | `interview_prep:manage` | `interviewprep.Service.GetPlan` — plan + rounds, but not a conceptual/behavioral round's question text (see `get_interview_prep_round`) |
+| `create_interview_prep_plan` | `interview_prep:manage` | `interviewprep.Service.CreatePlan` — quick or targeted, same validation and 5/day rate limit (`interviewprep.MaxPlansPerDay`) as the in-app form, since both go through the same `Service.CreatePlan` |
+| `get_interview_prep_round` | `interview_prep:manage` | `interviewprep.Service.GetRoundSession` → `practice.Service.GetSession` — every plan's round 1 (conceptual or behavioral) is a practice session; this is the only way to read its actual question text/answers/AI feedback, since `get_interview_prep_plan` only returns the opaque `practice_session_id` |
+| `submit_interview_prep_round_answer` | `interview_prep:manage` | `interviewprep.Service.SubmitRoundAnswer` → `practice.Service.SubmitAnswer` |
+| `submit_interview_prep_coding_item` | `interview_prep:manage` | `interviewprep.Service.SubmitCodingItem` — round 2 (technical targeted plans only) |
+| `get_interview_prep_report` | `interview_prep:manage` | `interviewprep.Service.GetReport` |
+
+### `interview_prep:manage` — one combined scope, no revert on generation
+
+Every interview-prep tool shares one scope rather than splitting read/write, mirroring `calendar:manage` — every call is already scoped to the connection's own plans. `create_interview_prep_plan` and both submit tools have no `Revert`: `CreatePlan` is capped at `interviewprep.MaxPlansPerDay` (5/day) via `CountRecentPlans`, and deleting a plan on revert would let a connected client bypass that cap by looping create+revert; the two submit tools have already run AI grading (and, for coding items, executed the code) by the time they return, so there's no meaningful undo for the stored answer alone.
 
 ### `courses:write` — the one write scope that touches course content
 

@@ -37,6 +37,8 @@ A user's effective permissions are the union of all permissions granted through 
 | Cross-tenant probing returns identical 404 | No existence leakage about other orgs' roles |
 | Cache always comes from Redis; DB is always authoritative | A Redis failure falls through to the DB, never blocks the request |
 
+**One deliberate exception to "roles are bags of permissions":** `user_permission_overrides` (§2) lets an admin grant a single permission straight to a user, bypassing roles, for a one-off case that doesn't warrant creating or editing a role. It is a parallel table `GetEffectivePermissions` unions in — role resolution itself is untouched — and every grant/revoke is audited (`user.permission.grant` / `user.permission.revoke`) and cache-invalidated exactly like a role assignment. Prefer a role for anything recurring; reach for an override only for genuine one-offs.
+
 ---
 
 ## 2. Database Schema
@@ -105,6 +107,26 @@ PRIMARY KEY (user_id, role_id, tenant_id)
 Indexes:
 - `idx_user_roles_user_tenant ON user_roles(user_id, tenant_id)` — permission resolution
 - `idx_user_roles_role ON user_roles(role_id)` — cache invalidation on role change
+
+### `user_permission_overrides`
+
+**Migration file:** `mindforge/backend/db/migrations/026_add_user_permission_overrides.sql`
+**Down file:** `mindforge/backend/db/migrations/026_add_user_permission_overrides.down.sql`
+
+Direct per-user permission grants that bypass roles entirely — see the design-principle callout in §1 for why this exists.
+
+```sql
+user_id       UUID REFERENCES users(id)         ON DELETE CASCADE
+tenant_id     UUID REFERENCES organizations(id) ON DELETE CASCADE
+permission_id UUID REFERENCES permissions(id)   ON DELETE RESTRICT
+granted_by    UUID REFERENCES users(id)         ON DELETE SET NULL  -- nullable
+granted_at    TIMESTAMPTZ DEFAULT now()
+PRIMARY KEY (user_id, tenant_id, permission_id)
+```
+
+No tenant-scope trigger (unlike `user_roles`): `permissions` has no `tenant_id` at all — it's a global vocabulary — so there's no tenant-mismatch case to guard against. `GetEffectivePermissions` (`repo.go`) `UNION`s this table with the role-resolution query; nothing else in the resolution/cache layer changes.
+
+Index: `idx_user_permission_overrides_user_tenant ON user_permission_overrides(user_id, tenant_id)`
 
 ### `audit_log`
 
@@ -372,6 +394,18 @@ Query params: `module`, `active` (bool), `limit`, `offset`
 | DELETE | `/api/admin/rbac/users/{userID}/roles/{roleID}` | `admin.manage_members` (all) |
 | GET | `/api/admin/rbac/users/{userID}/permissions` | `admin.manage_members` OR `admin.view_members` |
 
+#### User-Permission Overrides
+
+Direct per-user grants that bypass roles (§1, §2). The write guard is deliberately stricter than plain role assignment — granting skips the curation a role provides, so **both** codes are required, not just `admin.manage_members`.
+
+| Method | Path | Required permission |
+|---|---|---|
+| GET | `/api/admin/rbac/users/{userID}/permission-overrides` | `admin.manage_members` OR `admin.view_members` |
+| POST | `/api/admin/rbac/users/{userID}/permission-overrides` | `admin.manage_members` AND `admin.manage_permissions` (all) |
+| DELETE | `/api/admin/rbac/users/{userID}/permission-overrides/{permissionID}` | `admin.manage_members` AND `admin.manage_permissions` (all) |
+
+POST body: `{ "permission_id": "<uuid>" }`
+
 #### Audit Log
 
 | Method | Path | Required permission |
@@ -482,8 +516,7 @@ All under route group `app/(app)/` — transparent to URL routing, so URLs are `
 | URL | File | Permission required |
 |---|---|---|
 | `/admin/rbac/permissions` | `app/(app)/admin/rbac/permissions/page.tsx` | `admin.manage_roles` OR `admin.manage_permissions` |
-| `/admin/rbac/roles` | `app/(app)/admin/rbac/roles/page.tsx` | `admin.manage_roles` |
-| `/admin/rbac/roles/new` | `app/(app)/admin/rbac/roles/new/page.tsx` | `admin.manage_roles` |
+| `/admin/rbac/roles` | `app/(app)/admin/rbac/roles/page.tsx` (role creation via `create-role-dialog.tsx`) | `admin.manage_roles` |
 | `/admin/rbac/roles/[id]` | `app/(app)/admin/rbac/roles/[id]/page.tsx` | `admin.manage_permissions` (edit) |
 | `/users` | `app/(app)/users/page.tsx` | `admin.view_members` |
 | `/users/[userId]` | `app/(app)/users/[userId]/page.tsx` | `admin.manage_members` OR `admin.view_members` |
@@ -687,6 +720,18 @@ function MyComponent() {
 3. Add the route constant to `mindforge/frontend/lib/routes.ts`.
 4. The sidebar will automatically show/hide the item based on the user's permissions.
 
+### Grant a permission directly to a user
+
+For a genuine one-off exception that doesn't warrant a whole role — prefer a role for anything recurring (§1).
+
+```
+POST /api/admin/rbac/users/{userID}/permission-overrides
+{ "permission_id": "<uuid>" }
+```
+Requires both `admin.manage_members` and `admin.manage_permissions`. Audits `user.permission.grant` and invalidates the user's permission cache — the grant is reflected in `GET /api/me/permissions` / `GET /api/admin/rbac/users/{userID}/permissions` immediately, no TTL wait. Revoke with `DELETE .../permission-overrides/{permissionID}`.
+
+Frontend: `<ManageRolesDialog>`'s "Custom permissions" section (`app/(app)/users/user-permission-overrides.tsx`), gated on both `PERMISSIONS.ADMIN.MANAGE_MEMBERS` and `PERMISSIONS.ADMIN.MANAGE_PERMISSIONS`.
+
 ### Invalidate a user's permission cache manually
 
 ```go
@@ -722,3 +767,4 @@ GET /api/admin/rbac/audit?entity_type=role&entity_id=<uuid>&limit=25
 - **System role UUIDs are immutable.** The seed file uses `ON CONFLICT (id) DO NOTHING`. Changing a UUID in the seed file after initial migration has no effect and will create a duplicate. To change a system role, update the existing row directly.
 - **`ON DELETE RESTRICT` on `user_roles.role_id`** means you cannot hard-delete a role that has current assignments. Use the disable flow (`DELETE /api/admin/rbac/roles/{id}` → sets `is_active=false`).
 - **No permission inheritance or hierarchy.** Permissions are flat — a role either has a code or it doesn't. There is no concept of "inherits from another role." Compose permission sets explicitly in the seed or via the admin UI.
+- **`ON DELETE RESTRICT` on `user_permission_overrides.permission_id`** (same as `role_permissions.permission_id`) means a permission cannot be hard-deleted while it is directly granted to any user.

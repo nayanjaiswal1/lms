@@ -26,7 +26,7 @@ export default async function CourseAnalyticsPage({ params }: Props) {
   const completionPct = totalStudents > 0 ? Math.round((completed / totalStudents) * 100) : 0;
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <h1 className="page-title">{tree.title} — Analytics</h1>
       </div>

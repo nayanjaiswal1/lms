@@ -6,6 +6,8 @@ import type {
   AssignedAssessment,
   Assessment,
   Question,
+  Category,
+  QuestionUsage,
   AttemptPayload,
   ReviewItem,
   Attempt,
@@ -74,6 +76,16 @@ export interface AssessmentQuestionFull {
 
 export async function getQuestions(query = ""): Promise<{ questions: Question[]; total: number }> {
   return apiGet(`/api/questions${query}`);
+}
+
+export async function getCategories(): Promise<Category[]> {
+  const data = await apiGet<{ categories: Category[] }>("/api/categories");
+  return data.categories;
+}
+
+export async function getQuestionUsage(): Promise<QuestionUsage[]> {
+  const data = await apiGet<{ usage: QuestionUsage[] }>("/api/questions/usage");
+  return data.usage;
 }
 
 export async function getBatches(): Promise<Batch[]> {

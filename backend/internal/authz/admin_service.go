@@ -90,6 +90,32 @@ func (s *AdminService) DisableRole(ctx context.Context, actorID, tenantID, roleI
 	return nil
 }
 
+// EnableRole re-activates a previously disabled role, writes an audit entry,
+// and invalidates the permission cache for affected users.
+func (s *AdminService) EnableRole(ctx context.Context, actorID, tenantID, roleID string) error {
+	before, err := s.adminRepo.GetRole(ctx, roleID)
+	if err != nil {
+		return fmt.Errorf("admin svc: enable role: %w", err)
+	}
+	if before == nil {
+		return fmt.Errorf("admin svc: enable role: role not found")
+	}
+	if before.IsSystem {
+		return fmt.Errorf("admin svc: enable role: cannot enable a system role")
+	}
+	if before.TenantID == nil || *before.TenantID != tenantID {
+		return fmt.Errorf("admin svc: enable role: role does not belong to this tenant")
+	}
+
+	if err := s.adminRepo.EnableRole(ctx, roleID, tenantID); err != nil {
+		return fmt.Errorf("admin svc: enable role: %w", err)
+	}
+
+	_ = s.auditRepo.Write(ctx, tenantID, actorID, "role.enable", "role", roleID, &AuditDiff{Before: before})
+	_ = s.svc.InvalidateForRoleChange(ctx, roleID)
+	return nil
+}
+
 // SetRolePermissions replaces the full permission set for a role in one
 // atomic operation, writes an audit diff, and invalidates affected caches.
 func (s *AdminService) SetRolePermissions(ctx context.Context, actorID, tenantID, roleID string, req SetPermissionsRequest) ([]Permission, error) {
@@ -158,6 +184,43 @@ func (s *AdminService) RevokeRole(ctx context.Context, actorID, tenantID, target
 			"user_id":   targetUserID,
 			"role_id":   roleID,
 			"tenant_id": tenantID,
+		}})
+	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	return nil
+}
+
+// ─── User-permission-override management ──────────────────────────────────────
+
+// GrantUserPermission grants a permission directly to a user within the
+// caller's tenant, bypassing roles, audits the action, and invalidates the
+// user's permission cache.
+func (s *AdminService) GrantUserPermission(ctx context.Context, actorID, tenantID, targetUserID, permissionID string) error {
+	if err := s.adminRepo.GrantUserPermission(ctx, targetUserID, tenantID, permissionID, actorID); err != nil {
+		return fmt.Errorf("admin svc: grant user permission: %w", err)
+	}
+
+	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.permission.grant", "user_permission",
+		targetUserID+"/"+permissionID, &AuditDiff{After: map[string]string{
+			"user_id":       targetUserID,
+			"permission_id": permissionID,
+			"tenant_id":     tenantID,
+		}})
+	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	return nil
+}
+
+// RevokeUserPermission removes a direct permission grant from a user, audits
+// the action, and invalidates the user's permission cache.
+func (s *AdminService) RevokeUserPermission(ctx context.Context, actorID, tenantID, targetUserID, permissionID string) error {
+	if err := s.adminRepo.RevokeUserPermission(ctx, targetUserID, tenantID, permissionID); err != nil {
+		return fmt.Errorf("admin svc: revoke user permission: %w", err)
+	}
+
+	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.permission.revoke", "user_permission",
+		targetUserID+"/"+permissionID, &AuditDiff{Before: map[string]string{
+			"user_id":       targetUserID,
+			"permission_id": permissionID,
+			"tenant_id":     tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil

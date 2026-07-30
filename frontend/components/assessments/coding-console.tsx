@@ -31,25 +31,25 @@ function OutputBox({ label, text }: { label: string; text: string }) {
 // non-hidden entries in the same relative order.
 export function CodingConsole({ sampleCases, tab, running, result, error, onTabChange }: CodingConsoleProps) {
   return (
-    <div className="flex h-56 shrink-0 flex-col border-t border-border">
+    <div className="flex h-full flex-col border-t border-border">
       <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-3 py-1.5">
         <button
-          type="button"
-          onClick={() => onTabChange("testcase")}
           className={cn(
             "rounded px-2.5 py-1 text-xs font-medium transition-colors",
             tab === "testcase" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
           )}
+          type="button"
+          onClick={() => onTabChange("testcase")}
         >
           Testcase
         </button>
         <button
-          type="button"
-          onClick={() => onTabChange("result")}
           className={cn(
             "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
             tab === "result" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
           )}
+          type="button"
+          onClick={() => onTabChange("result")}
         >
           Result
           {result && (

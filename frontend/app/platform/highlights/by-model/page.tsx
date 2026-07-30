@@ -32,7 +32,7 @@ export default async function PlatformHighlightsByModelPage() {
   const rows = groupByModel(entries);
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Highlights by Model</h1>

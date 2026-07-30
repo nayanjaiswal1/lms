@@ -177,6 +177,22 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"categories": cats})
 }
 
+// ListQuestionUsage returns every (question, assessment) pin in the org, so the
+// question bank UI can group questions by the test/course they're actually
+// used in.
+func (h *Handler) ListQuestionUsage(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	usage, err := h.repo.ListQuestionUsage(r.Context(), claims.OrgID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"usage": usage})
+}
+
 // ─── Questions ───────────────────────────────────────────────────────────────
 
 type questionRequest struct {

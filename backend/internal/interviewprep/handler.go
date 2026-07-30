@@ -11,16 +11,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/practice"
 )
 
-// maxPlansPerDay caps how many prep plans a user can generate per day — each
-// creation is 2 AI calls plus a practice-session creation, same cost class as
-// the per-day caps already used by labs/practice creation flows.
-const maxPlansPerDay = 5
-
 type Handler struct {
-	service *Service
+	// Service is exported so it can be shared with the mcpconnect package's
+	// interview-prep tools — the same instance a student's connected AI calls
+	// enforces the identical validation and daily rate limit as this handler,
+	// rather than either side re-implementing those rules.
+	Service *Service
 	repo    *Repo
 }
 
@@ -41,6 +39,16 @@ func writeError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusConflict, "Both rounds must be completed before viewing the report.")
 	case errors.Is(err, ErrNoReportForQuickPlan):
 		httputil.WriteError(w, http.StatusBadRequest, "Quick sessions don't generate a readiness report.")
+	case errors.Is(err, ErrDailyLimitReached):
+		httputil.WriteError(w, http.StatusTooManyRequests, "You've reached today's limit for new prep plans. Please try again tomorrow.")
+	case errors.Is(err, ErrInvalidMode):
+		httputil.WriteError(w, http.StatusBadRequest, "mode must be 'quick' or 'targeted'.")
+	case errors.Is(err, ErrJobTitleRequired):
+		httputil.WriteError(w, http.StatusBadRequest, "job_title is required.")
+	case errors.Is(err, ErrJDTextTooLong):
+		httputil.WriteError(w, http.StatusBadRequest, "jd_text cannot exceed 10,000 characters.")
+	case errors.Is(err, ErrTechnologyRequired):
+		httputil.WriteError(w, http.StatusBadRequest, "technology is required.")
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "AI response timed out. Please try again.")
 	default:
@@ -68,16 +76,6 @@ func (h *Handler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	count, err := h.repo.CountRecentPlans(r.Context(), claims.UserID)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	if count >= maxPlansPerDay {
-		httputil.WriteError(w, http.StatusTooManyRequests, "You've reached today's limit for new prep plans. Please try again tomorrow.")
-		return
-	}
-
 	var body struct {
 		Mode          string `json:"mode"`
 		JobTitle      string `json:"job_title"`
@@ -90,41 +88,13 @@ func (h *Handler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &body) {
 		return
 	}
-	if body.Mode != ModeQuick && body.Mode != ModeTargeted {
-		httputil.WriteError(w, http.StatusBadRequest, "mode must be 'quick' or 'targeted'.")
-		return
-	}
-	if body.Mode == ModeTargeted {
-		if strings.TrimSpace(body.JobTitle) == "" {
-			httputil.WriteError(w, http.StatusBadRequest, "job_title is required.")
-			return
-		}
-		if len(body.JDText) > 10000 {
-			httputil.WriteError(w, http.StatusBadRequest, "jd_text cannot exceed 10,000 characters.")
-			return
-		}
-	} else {
-		if strings.TrimSpace(body.Technology) == "" {
-			httputil.WriteError(w, http.StatusBadRequest, "technology is required.")
-			return
-		}
-		if body.Difficulty == "" {
-			body.Difficulty = "intermediate"
-		}
-		if body.Category != practice.CategoryTechnical && body.Category != practice.CategoryBehavioral {
-			body.Category = practice.CategoryTechnical
-		}
-		if body.QuestionCount < 1 || body.QuestionCount > 20 {
-			body.QuestionCount = 5
-		}
-	}
 
 	var orgID *string
 	if claims.OrgID != "" {
 		orgID = &claims.OrgID
 	}
 
-	plan, err := h.service.CreatePlan(r.Context(), claims.UserID, orgID, CreatePlanInput{
+	plan, err := h.Service.CreatePlan(r.Context(), claims.UserID, orgID, CreatePlanInput{
 		Mode:          body.Mode,
 		JobTitle:      body.JobTitle,
 		JDText:        body.JDText,
@@ -188,7 +158,7 @@ func (h *Handler) SubmitCodingItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := h.service.SubmitCodingItem(r.Context(), planID, roundID, itemID, claims.UserID, body.Code, body.Language)
+	item, err := h.Service.SubmitCodingItem(r.Context(), planID, roundID, itemID, claims.UserID, body.Code, body.Language)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -202,7 +172,7 @@ func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	planID := chi.URLParam(r, "planID")
-	report, err := h.service.GetReport(r.Context(), planID, claims.UserID)
+	report, err := h.Service.GetReport(r.Context(), planID, claims.UserID)
 	if err != nil {
 		writeError(w, err)
 		return

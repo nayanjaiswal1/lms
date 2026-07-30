@@ -75,7 +75,7 @@ async function RoadmapList() {
 
 export default function RoadmapPage() {
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <h1 className="page-title">Roadmap</h1>
         <div className="flex gap-2">

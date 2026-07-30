@@ -33,6 +33,12 @@ highlight_explanations
 highlights
 idempotency_keys
 interview_evaluations
+interview_exp_comments
+interview_exp_entries
+interview_exp_posts
+interview_exp_qna
+interview_exp_qna_progress
+interview_exp_votes
 interview_prep_plans
 interview_prep_rounds
 interview_skill_scores

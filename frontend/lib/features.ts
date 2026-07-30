@@ -26,6 +26,7 @@ export const FEATURES = {
   INTERVIEW_BOARD:   'interview_board',
   LOAD_TEST:         'load_test',
   SHEET_TRACKER:     'sheet_tracker',
+  INTERVIEW_EXP:     'interview_exp',
 
   // Platform
   PAYMENTS:          'payments',
@@ -40,6 +41,12 @@ export const FEATURES = {
 
   // Personal — no org/plan concept, gated by direct per-user grant
   WHAT_NOW:          'what_now',
+
+  // GitLab integration — inert until an org admin connects an installation
+  GITLAB_INTEGRATION: 'gitlab_integration',
+
+  // AI Connector (MCP) — org-admin togglable, defaults on
+  AI_CONNECTOR: 'ai_connector',
 } as const;
 
 export type Feature = (typeof FEATURES)[keyof typeof FEATURES];
@@ -99,6 +106,7 @@ export const FEATURE_META: Record<Feature, { label: string; description: string 
   interview_board:  { label: 'Interview Board',     description: 'Live coding interviews with real-time shared editor' },
   load_test:        { label: 'Load Test Simulator', description: 'Real HTTP load testing and canvas traffic simulation' },
   sheet_tracker:    { label: 'Sheet Tracker',       description: 'Multi-sheet problem tracker with overlap view' },
+  interview_exp:    { label: 'Interview Experiences', description: 'Crowd-sourced company/position interview Q&A with voting and nested discussion' },
   payments:         { label: 'Payments',            description: 'Paid course enrollment via Stripe / Razorpay' },
   anonymous_tests:  { label: 'Anonymous Tests',     description: 'Public tests with no login required' },
   multi_org:        { label: 'Multi-Org',           description: 'Belong to and switch between multiple organizations' },
@@ -107,4 +115,6 @@ export const FEATURE_META: Record<Feature, { label: string; description: string 
   practice_ai:      { label: 'AI Interview Prep',  description: 'AI-generated interview questions with personalised feedback' },
   batch_chat:       { label: 'Batch Chat',          description: 'Mentor–student messaging within cohort batches' },
   what_now:         { label: 'What Now?',           description: 'A single-question room for deciding what to work on next' },
+  gitlab_integration: { label: 'GitLab Integration', description: 'Connect your GitLab account and your organization\'s GitLab instance' },
+  ai_connector:     { label: 'AI Connector',        description: 'Connect your own Claude or ChatGPT to read lessons, save notes, and manage your calendar via MCP' },
 };

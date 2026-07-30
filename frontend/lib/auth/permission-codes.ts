@@ -37,6 +37,7 @@ export const PERMISSIONS = {
     SHEETS:          "content.sheets",
     SRS:             "content.srs",
     CERTIFICATES:    "content.certificates",
+    INTERVIEW_EXP:   "content.interview_exp",
   },
   ADMIN: {
     VIEW_MEMBERS:       "admin.view_members",

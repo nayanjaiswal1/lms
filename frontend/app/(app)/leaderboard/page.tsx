@@ -75,7 +75,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
   ];
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <div className="mb-8 flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">

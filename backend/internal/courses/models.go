@@ -11,10 +11,11 @@ const (
 	StatusPublished = "published"
 	StatusArchived  = "archived"
 
-	ModuleTypeVideo      = "video"
-	ModuleTypePDF        = "pdf"
-	ModuleTypeNotes      = "notes"
-	ModuleTypeAssessment = "assessment"
+	ModuleTypeVideo        = "video"
+	ModuleTypePDF          = "pdf"
+	ModuleTypeNotes        = "notes"
+	ModuleTypeAssessment   = "assessment"
+	ModuleTypeSystemDesign = "system_design"
 	// ModuleTypeLab modules are provisioned through the labs domain (see
 	// db/fixtures + internal/labs), never created via the generic
 	// CreateModule endpoint — only UpdateModule needs to recognize it so
@@ -333,6 +334,21 @@ type CourseContentProposal struct {
 	CreatedModuleID *string    `json:"created_module_id,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+// RandomTopic is the response shape for the "surprise me" discovery feature
+// (GET /api/courses/random-topic and the get_random_topic MCP tool) — one
+// published course the student hasn't tried yet, picked at random.
+type RandomTopic struct {
+	Course Course `json:"course"`
+	// MatchedInterest is true when Course was picked from the pool matching
+	// the student's stated user_profiles.topics_interest tags, rather than an
+	// unweighted pick across the whole catalog.
+	MatchedInterest bool `json:"matched_interest"`
+	// AlreadyEnrolled is true when the student has already enrolled in every
+	// published course in their org's catalog, so Course had to be picked
+	// from courses they've already started rather than something new.
+	AlreadyEnrolled bool `json:"already_enrolled"`
 }
 
 type StudentProgress struct {

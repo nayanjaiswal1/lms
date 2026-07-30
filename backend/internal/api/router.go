@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -18,8 +19,10 @@ import (
 	"github.com/mindforge/backend/internal/experience"
 	"github.com/mindforge/backend/internal/features"
 	"github.com/mindforge/backend/internal/feedback"
+	"github.com/mindforge/backend/internal/gitlab"
 	"github.com/mindforge/backend/internal/highlights"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/interviewexp"
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labs"
@@ -28,6 +31,7 @@ import (
 	"github.com/mindforge/backend/internal/messaging"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/mistakes"
+	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/onboarding"
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
@@ -36,6 +40,7 @@ import (
 	"github.com/mindforge/backend/internal/revisionplan"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/roadmap"
+	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
@@ -108,9 +113,14 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	mistakesSvc := mistakes.NewService(mistakesRepo, pool)
 	mistakesRouter := mistakes.NewHandler(mistakesRepo, mistakesSvc)
 	sheetsRouter := sheets.New(pool)
+	interviewExpRouter := interviewexp.New(pool)
 	highlightsRouter := highlights.New(pool, aiProvider)
 	systemDesignRouter := systemdesign.New(pool, coursesRepo, aiProvider)
-	certificatesRouter := certificates.New(pool, coursesRepo, assessment.NewExecutor(cfg))
+	// mentoringRouter.Service backs both the mentor-manual-issue authorization
+	// check (MentorAuthChecker) and the paid-course threshold-auto-issue check
+	// (PurchaseChecker) — it already sits above coursesRepo, so no new import
+	// cycle is introduced.
+	certificatesRouter := certificates.New(pool, coursesRepo, assessment.NewExecutor(cfg), mentoringRouter.Service, mentoringRouter.Service)
 	calendarRouter := calendar.New(pool, authzHandler.Service(), cfg)
 	whatnowRouter := whatnow.New(pool)
 	featuresRouter := features.New(pool)
@@ -118,10 +128,28 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
 
 	// AI Connector (MCP) — lets a student connect their own Claude/ChatGPT to
-	// their account via OAuth 2.1+PKCE. Built with coursesRepo/coursesSvc
-	// (not a fresh *courses.Repo) so its tools share the exact same
-	// enrollment/authorization rules as the student-facing course API.
-	mcpConnectRouter := mcpconnect.New(cfg, pool, coursesRepo, coursesSvc, calendarRouter.Service, mistakesRepo, mistakesSvc, srsRepo)
+	// their account via OAuth 2.1+PKCE. Built with coursesRepo/coursesSvc (not
+	// a fresh *courses.Repo) and interviewPrepRouter.Service so its tools
+	// share the exact same enrollment/authorization rules and daily plan
+	// rate limit as the student-facing API.
+	mcpConnectRouter := mcpconnect.New(cfg, pool, coursesRepo, coursesSvc, calendarRouter.Service, mistakesRepo, mistakesSvc, srsRepo, interviewPrepRouter.Service)
+
+	// Notifications — generic, dependency-free in-app notification domain
+	// (Batch 5). Built before gitlabRouter below so its *notifications.Service
+	// can be passed into gitlab.New's peer-review/CI-alert notification calls
+	// (service_checkpoint.go, service_webhook.go).
+	notificationsRouter := notifications.NewRouter(pool, jobsRegistry)
+
+	// GitLab integration — org-level installation (PAT or OAuth service
+	// account) plus per-user OAuth+PKCE connections (Batch 1). The vault is
+	// built once here and passed to gitlab.New; cmd/server/main.go builds its
+	// own separate instance for the token-refresh job the same way it builds
+	// a standalone assessment.Handler for the expire-attempts reaper.
+	gitlabVault, err := secrets.New(cfg)
+	if err != nil {
+		panic(fmt.Errorf("api: gitlab secrets vault init failed: %w", err))
+	}
+	gitlabRouter := gitlab.New(pool, cfg, gitlabVault, jobsRegistry, notificationsRouter.Service)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.
@@ -170,6 +198,12 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// authorize/token endpoints, and /mcp itself. None of these are
 	// cookie-authenticated (see RegisterPublicRoutes' own comment).
 	mcpConnectRouter.RegisterPublicRoutes(r)
+
+	// GitLab OAuth callback — authenticated via the gitlab_oauth_states row
+	// matched by the state param, not a session cookie, since PKCE's
+	// verifier must survive a cross-site top-level redirect back from the
+	// GitLab instance.
+	gitlabRouter.RegisterPublicRoutes(r)
 
 	// Public certificate verification — no auth, proof of access is the
 	// cert_uuid itself.
@@ -241,6 +275,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// per-problem progress (todo/done/revisit).
 		sheetsRouter.RegisterRoutes(r)
 
+		// Interview Experiences — crowd-sourced company/position-tagged Q&A
+		// board: multi-user continuation, nested discussion, voting. Unlike
+		// every other domain, reads are platform-wide, not org-scoped.
+		interviewExpRouter.RegisterRoutes(r, authzHandler.Service())
+
 		// What Now? — deterministic task-triage: capture, pick-now scoring,
 		// plan-today, breakdown, stuck resolution, weekly recap.
 		whatnowRouter.RegisterRoutes(r)
@@ -272,7 +311,14 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		certificatesRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Labs — interactive sandboxed lab environments (terminal, code, guided, playground).
-		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime)
+		// gitlabRouter.Service() is labs.New's Batch 3 RepoPreparer slot — built
+		// above (before this call, same reasoning as the router.go's own
+		// pre-existing gitlabRouter-before-labsHandler ordering) so a fresh
+		// terminal auto-clones its team's repo when GitLab is configured; it's
+		// never nil here since gitlab.Service always exists once an org has an
+		// installation; it's still a nil-safe optional dependency to labs
+		// itself (empty script -> skip) when no installation/connection exists.
+		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service())
 		labsHandler.RegisterRoutes(r)
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
 
@@ -291,6 +337,15 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// AI Connector (MCP) — consent screen (details/approve/deny) and the
 		// settings-page connection list/revoke, all called by our own frontend.
 		mcpConnectRouter.RegisterRoutes(r)
+
+		// GitLab integration — installation management (admin-only) and
+		// per-user connect/status/disconnect (any org member).
+		gitlabRouter.RegisterRoutes(r)
+
+		// Notifications — generic in-app notifications: list, unread count,
+		// mark read/read-all. Any authenticated member, row-scoped to their
+		// own notifications.
+		notificationsRouter.RegisterRoutes(r)
 	})
 
 	return r

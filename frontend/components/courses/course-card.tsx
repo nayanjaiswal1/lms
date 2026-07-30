@@ -1,21 +1,38 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { BookOpen, Clock, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ManageCourseMenu } from "@/components/courses/manage-course-menu";
 import type { Course } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 interface CourseCardProps {
   course: Course;
   enrolled?: boolean;
+  owned?: boolean;
+  canEdit?: boolean;
+  canViewAnalytics?: boolean;
   progressPct?: number;
   href?: string;
 }
 
-export function CourseCard({ course, enrolled, progressPct, href }: CourseCardProps) {
+export function CourseCard({ course, enrolled, owned, canEdit, canViewAnalytics, progressPct, href }: CourseCardProps) {
   const showProgress = enrolled && progressPct !== undefined;
 
   return (
     <article className="card-interactive relative flex flex-col overflow-hidden p-0">
+      {owned && (
+        <div className="absolute right-3 top-3 z-dropdown">
+          <ManageCourseMenu
+            canEdit={canEdit ?? false}
+            canViewAnalytics={canViewAnalytics ?? false}
+            courseId={course.id}
+            courseSlug={course.slug}
+            courseTitle={course.title}
+            published={course.status === "published"}
+          />
+        </div>
+      )}
       {/* Full-bleed media — card corners clip it, no inner frame */}
       {/* 2:1 cover — shorter than 16:9, keeps the grid row compact */}
       <div className="relative aspect-[2/1] w-full bg-muted">
@@ -36,8 +53,8 @@ export function CourseCard({ course, enrolled, progressPct, href }: CourseCardPr
 
       <div className="flex flex-1 flex-col gap-1.5 p-4">
         <Link
-          href={href ?? ROUTES.course(course.slug)}
           className="line-clamp-2 text-sm font-semibold leading-snug after:absolute after:inset-0 after:content-['']"
+          href={href ?? (enrolled ? ROUTES.courseLearn(course.slug) : ROUTES.course(course.slug))}
         >
           {course.title}
         </Link>
@@ -65,10 +82,18 @@ export function CourseCard({ course, enrolled, progressPct, href }: CourseCardPr
             </span>
           )}
 
-          {!enrolled && (
-            <span className="ml-auto text-sm font-bold text-foreground">
-              {course.is_free ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
-            </span>
+          {owned ? (
+            course.status !== "published" && (
+              <Badge className="ml-auto" variant="secondary">
+                {course.status}
+              </Badge>
+            )
+          ) : (
+            !enrolled && (
+              <span className="ml-auto text-sm font-bold text-foreground">
+                {course.is_free ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
+              </span>
+            )
           )}
         </div>
       </div>

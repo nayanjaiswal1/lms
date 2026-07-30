@@ -37,8 +37,10 @@ export function MCQQuestion({ content, selected, onToggle }: MCQQuestionProps) {
           {content.options.map((opt) => (
             <Label
               className={cn(
-                "card-base flex cursor-pointer items-start gap-3 p-4 font-normal transition-colors",
-                selected.includes(opt.id) && "border-primary bg-primary/5",
+                "flex cursor-pointer items-start gap-3 rounded-[--radius-lg] border p-4 font-normal shadow-card transition-all duration-fast",
+                selected.includes(opt.id)
+                  ? "border-primary bg-primary/5 shadow-raised"
+                  : "border-border bg-card hover:border-primary/40",
               )}
               htmlFor={`opt-${opt.id}`}
               key={opt.id}
@@ -62,8 +64,10 @@ export function MCQQuestion({ content, selected, onToggle }: MCQQuestionProps) {
           {content.options.map((opt) => (
             <Label
               className={cn(
-                "card-base flex cursor-pointer items-start gap-3 p-4 font-normal transition-colors",
-                selected[0] === opt.id && "border-primary bg-primary/5",
+                "flex cursor-pointer items-start gap-3 rounded-[--radius-lg] border p-4 font-normal shadow-card transition-all duration-fast",
+                selected[0] === opt.id
+                  ? "border-primary bg-primary/5 shadow-raised"
+                  : "border-border bg-card hover:border-primary/40",
               )}
               htmlFor={`opt-${opt.id}`}
               key={opt.id}

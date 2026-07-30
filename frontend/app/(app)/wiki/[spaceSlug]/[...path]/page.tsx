@@ -44,7 +44,7 @@ export default async function WikiPagePage({ params }: Props) {
   ]);
 
   return (
-    <main className="page-container py-6">
+    <main className="page-container">
       <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
         <Link className="hover:text-foreground" href={ROUTES.WIKI}>Wiki</Link>
         <span aria-hidden>/</span>

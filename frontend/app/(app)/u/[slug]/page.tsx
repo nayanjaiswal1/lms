@@ -26,7 +26,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   if (!profile) notFound()
 
   return (
-    <main className="page-container py-10 min-h-dvh">
+    <main className="page-container min-h-dvh">
       <div className="mx-auto max-w-2xl">
         <PublicProfileCard profile={profile} />
       </div>

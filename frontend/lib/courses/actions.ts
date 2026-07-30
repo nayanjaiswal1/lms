@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { apiAction, apiUpload } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import type { AwardResult } from "@/lib/server/rewards";
-import type { FinalTestQuestion, SubmitFinalTestAttemptResult } from "@/lib/server/courses";
+import type { CertificateRule, FinalTestQuestion, RandomTopic, SubmitFinalTestAttemptResult } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 interface ProgressResult {
@@ -21,7 +21,7 @@ export async function createCourseAction(input: {
   is_free?:    boolean;
 }): Promise<ActionResult<{ id: string; slug: string }>> {
   const result = await apiAction<{ id: string; slug: string }>("POST", "/api/courses", input);
-  if (result.ok) revalidatePath(ROUTES.MANAGE_COURSES);
+  if (result.ok) revalidatePath(ROUTES.COURSES);
   return result;
 }
 
@@ -29,6 +29,13 @@ export async function enrollAction(courseID: string): Promise<ActionResult> {
   const result = await apiAction("POST", `/api/courses/${courseID}/enroll`);
   if (result.ok) revalidatePath(ROUTES.COURSES);
   return result;
+}
+
+// Refetches the "surprise me" random-topic pick — used by the client-side
+// "Try another" button, since a fresh random pick can't come from a cached
+// server-rendered prop.
+export async function getRandomTopicAction(): Promise<ActionResult<RandomTopic>> {
+  return apiAction<RandomTopic>("GET", "/api/courses/random-topic");
 }
 
 export async function submitReviewAction(courseID: string, rating: number): Promise<ActionResult> {
@@ -130,7 +137,6 @@ export async function updateCourseAction(
   const result = await apiAction("PATCH", `/api/courses/${courseId}`, body);
   if (result.ok) {
     revalidatePath(ROUTES.manageCourse(courseId));
-    revalidatePath(ROUTES.MANAGE_COURSES);
     revalidatePath(ROUTES.COURSES);
     revalidatePath(ROUTES.course(slug));
     revalidatePath(ROUTES.DASHBOARD);
@@ -209,7 +215,7 @@ export async function publishCourseAction(courseId: string): Promise<ActionResul
   const result = await apiAction("POST", `/api/courses/${courseId}/publish`);
   if (result.ok) {
     revalidatePath(ROUTES.manageCourse(courseId));
-    revalidatePath(ROUTES.MANAGE_COURSES);
+    revalidatePath(ROUTES.COURSES);
   }
   return result;
 }
@@ -245,4 +251,17 @@ export async function submitFinalTestAttemptAction(
     `/api/courses/${courseId}/final-test/attempt`,
     { answers },
   );
+}
+
+export async function upsertCertificateRuleAction(
+  courseId: string,
+  thresholdPercent: number,
+): Promise<ActionResult<CertificateRule>> {
+  const result = await apiAction<CertificateRule>(
+    "PUT",
+    `/api/courses/${courseId}/certificate-rule`,
+    { threshold_percent: thresholdPercent },
+  );
+  if (result.ok) revalidatePath(ROUTES.manageCourse(courseId));
+  return result;
 }

@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/select";
 import { QUESTION_TYPE_OPTIONS, CODE_LANGUAGE_OPTIONS } from "@/lib/constants";
 import { upsertFinalTestAction } from "@/lib/courses/actions";
-import type { FinalTestConfig } from "@/lib/server/courses";
+import type { CertificateRule, FinalTestConfig } from "@/lib/server/courses";
+import { CertificateRuleForm } from "@/components/courses/wizard/certificate-rule-form";
 
 interface FormQuestion {
   id: string;
@@ -81,13 +82,14 @@ function configToForm(config: FinalTestConfig | null | undefined): FormData {
 interface FinalTestTabProps {
   courseId: string;
   initial: FinalTestConfig | null;
+  certificateRule: CertificateRule | null;
 }
 
 // Final Test is one-per-course and saved independently of the rest of the
 // course wizard (its own PUT /api/courses/:id/final-test) — it doesn't need
 // the multi-action diff-and-save flow the sections/modules tabs use, so this
 // tab owns its own form state and its own "Save" button.
-export function FinalTestTab({ courseId, initial }: FinalTestTabProps) {
+export function FinalTestTab({ courseId, initial, certificateRule }: FinalTestTabProps) {
   const form = useForm<FormData>({ defaultValues: configToForm(initial) });
   const questions = useFieldArray({ control: form.control, name: "questions" });
 
@@ -112,7 +114,10 @@ export function FinalTestTab({ courseId, initial }: FinalTestTabProps) {
   };
 
   return (
-    <form className="form-stack max-w-3xl" onSubmit={form.handleSubmit(onSubmit)}>
+    <div className="form-stack max-w-3xl">
+      <CertificateRuleForm courseId={courseId} initial={certificateRule} />
+
+      <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label>Time limit (minutes)</Label>
@@ -173,7 +178,8 @@ export function FinalTestTab({ courseId, initial }: FinalTestTabProps) {
           {form.formState.isSubmitting ? "Saving…" : "Save final test"}
         </Button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }
 

@@ -281,6 +281,46 @@ func (r *AdminRepo) DisableRole(ctx context.Context, id, tenantID string) error 
 	return nil
 }
 
+// EnableRole sets is_active=true on a tenant-owned, non-system, editable role.
+func (r *AdminRepo) EnableRole(ctx context.Context, id, tenantID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("admin: enable role: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var isSystem, isEditable bool
+	var roleTenantID pgtype.UUID
+	if err := tx.QueryRow(ctx,
+		`SELECT is_system, is_editable, tenant_id FROM roles WHERE id = $1 FOR UPDATE`, id,
+	).Scan(&isSystem, &isEditable, &roleTenantID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("admin: enable role: role not found")
+		}
+		return fmt.Errorf("admin: enable role: lock: %w", err)
+	}
+	if isSystem {
+		return fmt.Errorf("admin: enable role: cannot enable a system role")
+	}
+	if !isEditable {
+		return fmt.Errorf("admin: enable role: role is not editable")
+	}
+	if !roleTenantID.Valid || uuidToString(roleTenantID) != tenantID {
+		return fmt.Errorf("admin: enable role: role does not belong to this tenant")
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE roles SET is_active = true, updated_at = now() WHERE id = $1`, id,
+	); err != nil {
+		return fmt.Errorf("admin: enable role: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("admin: enable role: commit: %w", err)
+	}
+	return nil
+}
+
 // GetRolePermissions returns all active permissions attached to roleID.
 func (r *AdminRepo) GetRolePermissions(ctx context.Context, roleID string) ([]Permission, error) {
 	const q = `
@@ -381,7 +421,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 
 	args = append(args, params.TenantID, limit, params.Offset)
 	listQ := fmt.Sprintf(`
-		SELECT u.id, u.name, u.email, u.avatar_url, m.created_at,
+		SELECT u.id, m.id, u.name, u.email, u.avatar_url, m.created_at, m.status,
 		       COALESCE(ur.role_names, '{}'::text[]) AS role_names
 		FROM org_members m
 		JOIN users u ON u.id = m.user_id
@@ -405,7 +445,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 	var users []UserSummary
 	for rows.Next() {
 		var u UserSummary
-		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.RoleNames); err != nil {
+		if err := rows.Scan(&u.ID, &u.MemberID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.Status, &u.RoleNames); err != nil {
 			return nil, 0, fmt.Errorf("admin: list users: scan: %w", err)
 		}
 		users = append(users, u)
@@ -485,6 +525,74 @@ func (r *AdminRepo) RevokeRole(ctx context.Context, userID, roleID, tenantID str
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("admin: revoke role: role was not assigned to this user")
+	}
+	return nil
+}
+
+// ─── User-permission-override queries ──────────────────────────────────────────
+
+// GetUserPermissionOverrides returns permissions granted directly to userID
+// within tenantID, bypassing roles.
+func (r *AdminRepo) GetUserPermissionOverrides(ctx context.Context, userID, tenantID string) ([]Permission, error) {
+	const q = `
+		SELECT p.id, p.code, p.name, p.description, p.module, p.is_active, p.created_at, p.updated_at
+		FROM user_permission_overrides upo
+		JOIN permissions p ON p.id = upo.permission_id AND p.is_active = true
+		WHERE upo.user_id = $1 AND upo.tenant_id = $2
+		ORDER BY p.module, p.code`
+
+	rows, err := r.pool.Query(ctx, q, userID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("admin: get user permission overrides: %w", err)
+	}
+	defer rows.Close()
+
+	perms, err := scanPermissions(rows)
+	if err != nil {
+		return nil, fmt.Errorf("admin: get user permission overrides: %w", err)
+	}
+	return perms, nil
+}
+
+// GrantUserPermission grants permissionID directly to userID within tenantID,
+// bypassing roles. Duplicate grants are silently ignored.
+func (r *AdminRepo) GrantUserPermission(ctx context.Context, userID, tenantID, permissionID, grantedBy string) error {
+	var isActive bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT is_active FROM permissions WHERE id = $1`, permissionID,
+	).Scan(&isActive); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("admin: grant user permission: permission not found")
+		}
+		return fmt.Errorf("admin: grant user permission: lookup: %w", err)
+	}
+	if !isActive {
+		return fmt.Errorf("admin: grant user permission: permission is not active")
+	}
+
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO user_permission_overrides (user_id, tenant_id, permission_id, granted_by)
+		 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+		userID, tenantID, permissionID, grantedBy,
+	)
+	if err != nil {
+		return fmt.Errorf("admin: grant user permission: %w", err)
+	}
+	return nil
+}
+
+// RevokeUserPermission removes a direct permission grant from userID within
+// tenantID. Returns a descriptive error when the grant does not exist.
+func (r *AdminRepo) RevokeUserPermission(ctx context.Context, userID, tenantID, permissionID string) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM user_permission_overrides WHERE user_id = $1 AND tenant_id = $2 AND permission_id = $3`,
+		userID, tenantID, permissionID,
+	)
+	if err != nil {
+		return fmt.Errorf("admin: revoke user permission: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("admin: revoke user permission: permission was not granted to this user")
 	}
 	return nil
 }

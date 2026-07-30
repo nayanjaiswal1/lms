@@ -38,7 +38,7 @@ export default async function LabSessionPage({ params }: PageProps) {
 
   if (session.status === "failed") {
     return (
-      <main className="page-container-sm py-10">
+      <main className="page-container-sm">
         <div className="card-raised flex flex-col items-center gap-4 p-8 text-center">
           <AlertCircle aria-hidden className="h-12 w-12 text-destructive" />
           <div className="flex flex-col gap-1">

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { removeBatchMemberAction } from "@/app/(app)/batches/actions";
 
 interface RemoveMemberButtonProps {
@@ -16,6 +17,7 @@ interface RemoveMemberButtonProps {
 
 export function RemoveMemberButton({ batchId, userId, userName }: RemoveMemberButtonProps) {
   const [pending, setPending] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
   const router = useRouter();
 
   async function handleRemove() {
@@ -31,14 +33,26 @@ export function RemoveMemberButton({ batchId, userId, userName }: RemoveMemberBu
   }
 
   return (
-    <Button
-      aria-label={`Remove ${userName} from batch`}
-      disabled={pending}
-      size="icon"
-      variant="ghost"
-      onClick={handleRemove}
-    >
-      <Trash2 aria-hidden className="h-4 w-4 text-destructive" />
-    </Button>
+    <>
+      <Button
+        aria-label={`Remove ${userName} from batch`}
+        disabled={pending}
+        size="icon"
+        variant="ghost"
+        onClick={() => setConfirmOpen(true)}
+      >
+        <Trash2 aria-hidden className="h-4 w-4 text-destructive" />
+      </Button>
+      <ConfirmDialog
+        destructive
+        confirmLabel="Remove"
+        description={`${userName} will lose access to this batch's content and progress tracking.`}
+        open={confirmOpen}
+        pending={pending}
+        title={`Remove ${userName} from batch?`}
+        onConfirm={handleRemove}
+        onOpenChange={setConfirmOpen}
+      />
+    </>
   );
 }

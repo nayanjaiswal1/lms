@@ -36,7 +36,7 @@ export default async function PlatformHighlightsBySourcePage() {
   const rows = groupBySource(entries);
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Highlights by Source Type</h1>

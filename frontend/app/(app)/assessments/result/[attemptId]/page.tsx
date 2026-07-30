@@ -50,7 +50,7 @@ export default async function ResultPage({ params }: PageProps) {
     : [null, null];
 
   return (
-    <main className="page-container-sm py-10">
+    <main className="page-container-sm">
       <EvalPoller status={attempt.status} />
       <RewardResultNotifier result={attempt.reward_result ?? null} />
       {showPostAttemptPrompts && (

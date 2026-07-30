@@ -70,7 +70,7 @@ export default async function ProctoringLogPage({ params, searchParams }: PagePr
   const startedAt = attempt.started_at ? new Date(attempt.started_at) : null;
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <Link
         className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         href={ROUTES.manageAssessmentResults(attempt.assessment_id)}

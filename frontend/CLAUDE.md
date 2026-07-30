@@ -33,7 +33,8 @@ Do not disable the rules without a written explanation in the comment.
 | `style={{ color: '...' }}` | Add a CSS variable; inline style only for dynamic `--var` values |
 
 ### Spacing & shape
-- Card padding: `p-6` (24px)
+- Card padding: `p-6` (24px) for spacious feature/dashboard cards (`.card-base`, `.card-raised`, `.card-interactive`) — one focal card per grid cell.
+- Compact selectable tile padding (checkbox/radio list item, chip-style option in a dense `.card-grid`): `p-4` (16px). These hold a checkbox + 1-2 lines of text, not a full card's worth of content — `p-6` here reads as excess whitespace, not polish.
 - Input padding: `px-3 py-2.5` (12px / 10px)
 - Button padding: `px-5 py-2.5` (20px / 10px)
 - Page gutter: `px-6 sm:px-8 lg:px-12` — use `.page-container`
@@ -61,8 +62,10 @@ Never change these token values without re-checking contrast at [webaim.org/reso
 - No bounce, spring, or scale-on-click — `translateY(-2px)` lift only via `.card-interactive`
 
 ### Z-index
-Use named layers: `z-raised`, `z-dropdown`, `z-sticky`, `z-overlay`, `z-modal`, `z-toast`.
+Use named layers, low → high: `z-raised` (10) < `z-sticky` (200) < `z-overlay` (300) < `z-modal` (400) < `z-dropdown` (450) < `z-toast` (500).
 Never write `z-[400]` or `z-50` — it makes stacking context impossible to audit.
+
+`z-dropdown` is deliberately *above* `z-modal`. Select/DropdownMenu/ContextMenu/Tooltip render their content via a Radix Portal to `document.body` — a DOM sibling of `DialogContent`, not a descendant — so nesting one inside a `<Dialog>` does not inherit the dialog's stacking context; only the raw z-index number decides who's on top. Any popper-based component must out-rank `z-modal` or it silently renders behind an open dialog/sheet/alert-dialog the moment it's used inside one.
 
 ---
 
@@ -163,9 +166,15 @@ ESLint will error on `h-screen`.
 `100vw` causes horizontal overflow on devices with a scrollbar.
 ESLint will error on `w-screen`.
 
-**5. Every table needs `.table-responsive`**
+**5. Every table needs `.table-responsive`, and every row needs `whitespace-nowrap`**
 Wrap all `<table>` elements in a `.table-responsive` div.
 Never let a table overflow the page horizontally — it breaks mobile layout completely.
+`.table-responsive` only creates the scroll container — it does not stop individual cells from
+wrapping. Without `whitespace-nowrap` on the `<tr>` (header and body), a narrow column squeezes
+its text onto two lines instead of triggering the horizontal scroll, and the wrapped row
+overlaps the row below it. Always pair the two: `.table-responsive` on the wrapper, `whitespace-nowrap`
+on every `<tr>`. If a cell must wrap on purpose (e.g. a long description column), scope
+`whitespace-normal` to that one `<td>` — never omit `whitespace-nowrap` from the row as the default.
 
 **6. Modals are full-screen on mobile**
 Use `.modal-responsive` on `<DialogContent>` so dialogs fill the screen on mobile and are centred on `sm+`.
@@ -184,6 +193,17 @@ ESLint will warn on bare `w-[Npx]`.
 **9. Sidebar on mobile = drawer, never squished**
 On mobile, the sidebar must be completely hidden and accessible via a hamburger/drawer.
 Never let the sidebar collapse to a narrow icon-only rail on mobile — use the `.sidebar-drawer` + `.sidebar-drawer-backdrop` pattern from globals.css instead.
+
+**10. Unbreakable text inside a flex/grid child needs `min-w-0` on the child + `break-all`/`truncate` on the text**
+Flex and grid items default to `min-width: auto` — they will not shrink below the intrinsic width of
+their content. A long token with no spaces (a permission code like `assessments.manage_batches`, a slug,
+an email, a UUID) has a large intrinsic width, so the item is forced wider than its column/track and
+visually spills into the next card or column — this reads as "overlapping" content, not as a spacing bug,
+and no amount of padding or gap fixes it. Whenever a grid/flex cell renders a code, slug, ID, or email:
+add `min-w-0` to the flex/grid item (or its direct text wrapper) and either `truncate` (single line,
+ellipsis) or `break-all` (wraps mid-token) on the text itself. Reach for `whitespace-nowrap` + `.table-responsive`
+scrolling instead only inside an actual `<table>` (see rule 5) — inside a card/grid layout there is no
+scroll container, so the text must wrap or truncate in place.
 
 ---
 
@@ -222,6 +242,8 @@ Never let the sidebar collapse to a narrow icon-only rail on mobile — use the 
 | `w-[Npx]` alone | Fixed width breaks on small screens | `w-full sm:w-[Npx]` |
 | `overflow-x-hidden` on html/body | Masks bugs, breaks sticky | Fix the overflowing element |
 | Desktop-only design (no mobile style) | Page is broken on phones | Write mobile style first |
+| `<table>` row without `whitespace-nowrap` | Cell text wraps and overlaps the row below instead of scrolling | Add `whitespace-nowrap` to every `<tr>` |
+| Hand-written `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` (or any breakpoint chain that already exists as a named class) | Duplicates `.grid-responsive`/`.grid-responsive-2`/`.grid-responsive-4` with a drifted gap value | Use the existing `.grid-responsive*` class |
 
 ---
 

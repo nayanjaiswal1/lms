@@ -225,6 +225,7 @@ No `RequireOrgRole` gate — ownership (not org role) is what these enforce.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/courses` | List/browse courses |
+| `GET` | `/api/courses/random-topic` | "Surprise me" — one published course not yet enrolled in, weighted toward `topics_interest` |
 | `GET` | `/api/courses/{courseID}` | Course detail (tree of sections + modules) |
 | `POST` | `/api/courses/{courseID}/enroll` | Enroll |
 | `GET` | `/api/enrollments/me` | My enrollments |

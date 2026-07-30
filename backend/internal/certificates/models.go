@@ -48,14 +48,37 @@ type Attempt struct {
 	CompletedAt time.Time       `json:"completed_at"`
 }
 
-// Certificate is the issued, publicly-verifiable record of a passed final test.
+// Certificate issue-type values — how a given row came to exist.
+const (
+	IssueTypeFinalTest = "final_test" // learner passed the course's final test
+	IssueTypeManual    = "manual"     // a mentor/instructor/admin awarded it directly
+	IssueTypeThreshold = "threshold"  // learner crossed the course's configured completion threshold
+)
+
+// Certificate is the issued, publicly-verifiable record of course
+// completion — via a passed final test, a mentor's manual award, or a
+// crossed completion threshold (see IssueType).
 type Certificate struct {
 	ID                 string    `json:"id"`
 	UserID             string    `json:"user_id"`
 	CourseID           string    `json:"course_id"`
-	FinalTestAttemptID string    `json:"final_test_attempt_id"`
+	FinalTestAttemptID *string   `json:"final_test_attempt_id,omitempty"`
 	IssuedAt           time.Time `json:"issued_at"`
 	CertUUID           string    `json:"cert_uuid"`
+	IssueType          string    `json:"issue_type"`
+	IssuedBy           *string   `json:"issued_by,omitempty"`
+}
+
+// CertificateRule is the optional, one-per-course configuration that lets a
+// learner earn a certificate purely from completion percentage — no final
+// test required. Presence of a row enables the threshold path for that
+// course; absence means only final-test/manual issuance apply.
+type CertificateRule struct {
+	ID               string    `json:"id"`
+	CourseID         string    `json:"course_id"`
+	ThresholdPercent int       `json:"threshold_percent"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // CertificateView is what the "my certificates" list and the public
@@ -76,6 +99,18 @@ type UpsertFinalTestRequest struct {
 	TimeLimitMinutes    int        `json:"time_limit_minutes"`
 	PassingScorePercent int        `json:"passing_score_percent"`
 	MaxAttempts         int        `json:"max_attempts"`
+}
+
+// IssueCertificateRequest is the mentor/instructor/admin manual-award
+// payload for POST /api/courses/:id/certificates/issue.
+type IssueCertificateRequest struct {
+	StudentID string `json:"student_id"`
+}
+
+// UpsertCertificateRuleRequest is the instructor authoring payload for the
+// threshold-based auto-issue rule — PUT semantics, one rule per course.
+type UpsertCertificateRuleRequest struct {
+	ThresholdPercent int `json:"threshold_percent"`
 }
 
 // SubmitAttemptRequest carries one raw answer payload per question ID —

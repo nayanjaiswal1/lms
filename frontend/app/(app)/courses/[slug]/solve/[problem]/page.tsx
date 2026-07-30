@@ -33,7 +33,7 @@ export default async function ProblemSolvePage({ params, searchParams }: Props) 
   const backHref = moduleId ? ROUTES.courseLearnModule(slug, moduleId) : ROUTES.courseLearn(slug);
 
   return (
-    <main className="page-container py-6">
+    <main className="page-container">
       <div className="mb-4">
         <Link
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"

@@ -4,7 +4,7 @@ export interface PublicCertificate {
   id: string;
   user_id: string;
   course_id: string;
-  final_test_attempt_id: string;
+  final_test_attempt_id: string | null;
   issued_at: string;
   cert_uuid: string;
   course_title: string;

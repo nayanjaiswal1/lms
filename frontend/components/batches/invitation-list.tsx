@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { MailCheck, MailX, Clock, RotateCw, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { resendInvitationAction, revokeInvitationAction } from "@/lib/batches/actions";
 
 interface Invitation {
@@ -31,6 +32,7 @@ function statusLabel(inv: Invitation): { label: string; className: string; Icon:
 
 export function InvitationList({ batchId, invitations }: InvitationListProps) {
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [confirmInv, setConfirmInv] = React.useState<{ id: string; email: string } | null>(null);
   const router = useRouter();
 
   if (invitations.length === 0) {
@@ -53,6 +55,7 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
     setPendingId(invId);
     const result = await revokeInvitationAction(batchId, invId);
     setPendingId(null);
+    setConfirmInv(null);
     if (result.error) {
       toast.error(result.error);
       return;
@@ -109,7 +112,7 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
                         disabled={isPending}
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleRevoke(inv.id, inv.email)}
+                        onClick={() => setConfirmInv({ id: inv.id, email: inv.email })}
                       >
                         <Ban aria-hidden className="mr-1 h-3.5 w-3.5 text-destructive" />
                         Revoke
@@ -122,6 +125,16 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
           })}
         </tbody>
       </table>
+      <ConfirmDialog
+        destructive
+        confirmLabel="Revoke"
+        description={confirmInv ? `This revokes the pending invitation to ${confirmInv.email}. They will no longer be able to join with this link.` : ""}
+        open={confirmInv !== null}
+        pending={pendingId === confirmInv?.id}
+        title="Revoke invitation?"
+        onConfirm={() => confirmInv && handleRevoke(confirmInv.id, confirmInv.email)}
+        onOpenChange={(open) => !open && setConfirmInv(null)}
+      />
     </div>
   );
 }

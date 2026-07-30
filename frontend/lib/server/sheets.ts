@@ -25,6 +25,7 @@ export interface Sheet {
 
 export interface UserSheetSummary extends Sheet {
   role: "owner" | "subscriber";
+  solved_count: number;
 }
 
 export interface SheetPreview extends Sheet {

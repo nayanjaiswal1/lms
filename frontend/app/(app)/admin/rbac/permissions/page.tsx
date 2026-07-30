@@ -43,7 +43,7 @@ export default async function PermissionsPage() {
   const modules = Object.keys(grouped).sort()
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Permission Catalogue</h1>

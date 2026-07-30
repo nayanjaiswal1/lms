@@ -28,7 +28,7 @@ export default async function InterviewPrepCodingPage({ params, searchParams }: 
   const currentItem = items[itemIndex];
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="flex flex-col gap-2 mb-6">
         <h1 className="page-title">Coding Round</h1>
         <p className="text-sm text-muted-foreground">{plan.job_title}</p>

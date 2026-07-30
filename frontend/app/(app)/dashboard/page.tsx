@@ -13,6 +13,7 @@ import { LeaderboardTable, MyRewardSummary } from "@/components/rewards/leaderbo
 import { ScopeTabs } from "@/components/rewards/scope-tabs";
 import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
 import { CourseCard } from "@/components/courses/course-card";
+import { AIConnectorNudge } from "@/components/settings/ai-connector-nudge";
 import ROUTES from "@/lib/routes";
 import { getCurrentUser } from "@/lib/server/auth";
 import { getEnrollments, getCourseProgress } from "@/lib/server/courses";
@@ -20,6 +21,7 @@ import { getMyAssessments } from "@/lib/assessments/server";
 import { getMyRewardProfile, getLeaderboard, getMyRank } from "@/lib/server/rewards";
 import { listEventsAction } from "@/lib/server/calendar";
 import { getMyBatches } from "@/lib/server/batches";
+import { apiGet } from "@/lib/server/api";
 import type { Enrollment, CourseProgressSummary } from "@/lib/server/courses";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 import type { CalendarEvent } from "@/lib/calendar/types";
@@ -34,13 +36,20 @@ interface EnrolledCourseWithProgress {
   progress: CourseProgressSummary | null;
 }
 
+// Most recent module_progress.updated_at is the last time the student actually
+// touched the course; enrolled_at is the only fallback for a course with no
+// progress rows yet.
+function lastActivity({ enrollment, progress }: EnrolledCourseWithProgress): number {
+  const moduleTimestamps = progress?.modules.map((m) => new Date(m.updated_at).getTime()) ?? [];
+  return Math.max(new Date(enrollment.enrolled_at).getTime(), ...moduleTimestamps);
+}
+
 async function fetchEnrolledCoursesWithProgress(): Promise<EnrolledCourseWithProgress[]> {
   try {
     const enrollments = await getEnrollments();
-    const top = enrollments.slice(0, 3);
 
     const withProgress = await Promise.all(
-      top.map(async (enrollment) => {
+      enrollments.map(async (enrollment) => {
         try {
           const progress = await getCourseProgress(enrollment.course_id);
           return { enrollment, progress };
@@ -50,7 +59,7 @@ async function fetchEnrolledCoursesWithProgress(): Promise<EnrolledCourseWithPro
       }),
     );
 
-    return withProgress;
+    return withProgress.sort((a, b) => lastActivity(b) - lastActivity(a)).slice(0, 3);
   } catch {
     return [];
   }
@@ -199,11 +208,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const firstName = user.name.split(" ")[0];
   const params = await searchParams;
 
-  const [coursesWithProgress, upcomingItems, rewardProfile, myBatches] = await Promise.all([
+  const [coursesWithProgress, upcomingItems, rewardProfile, myBatches, hasAIConnection] = await Promise.all([
     fetchEnrolledCoursesWithProgress(),
     fetchUpcomingItems(),
     getMyRewardProfile(),
     getMyBatches(),
+    apiGet<{ id: string }[] | null>("/api/mcp-connections").then((c) => Boolean(c?.length)).catch(() => false),
   ]);
 
   // "Your standing" scope: global by default, one of the user's batches, or —
@@ -234,11 +244,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       : ROUTES.LEADERBOARD;
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <div className="mb-8 flex flex-col gap-2">
         <h1>Welcome back, {firstName}</h1>
         <p className="text-muted-foreground">Here&apos;s your learning overview.</p>
       </div>
+
+      <AIConnectorNudge hasConnection={hasAIConnection} />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Main column */}

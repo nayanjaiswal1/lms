@@ -1,4 +1,4 @@
-import { Clock, LogOut, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Clock, HelpCircle, LogOut, Send, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +8,9 @@ interface ProctorBannerProps {
   answered: number;
   total: number;
   onExit?: () => void;
+  onHelp: () => void;
+  onSubmit: () => void;
+  submitDisabled: boolean;
 }
 
 function formatTime(total: number): string {
@@ -24,6 +27,9 @@ export function ProctorBanner({
   answered,
   total,
   onExit,
+  onHelp,
+  onSubmit,
+  submitDisabled,
 }: ProctorBannerProps) {
   const low = secondsLeft > 0 && secondsLeft <= 120;
   const expired = secondsLeft === 0;
@@ -86,15 +92,35 @@ export function ProctorBanner({
           {onExit && (
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={onExit}
               aria-label="Exit test"
-              className="h-8 gap-1 px-2 text-muted-foreground hover:text-foreground"
+              className="touch-target h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <LogOut aria-hidden className="h-3.5 w-3.5" />
-              <span className="hidden text-xs sm:inline">Exit</span>
             </Button>
           )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onHelp}
+            aria-label="Proctoring rules & help"
+            className="touch-target h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <HelpCircle aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+
+          <Button
+            size="sm"
+            disabled={submitDisabled}
+            onClick={onSubmit}
+            aria-label="Submit test"
+            className="h-8 gap-1.5 px-3"
+          >
+            <Send aria-hidden className="h-3.5 w-3.5" />
+            <span className="hidden text-xs sm:inline">Submit</span>
+          </Button>
         </div>
       </div>
     </div>

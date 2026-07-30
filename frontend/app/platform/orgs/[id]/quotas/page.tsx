@@ -20,7 +20,7 @@ export default async function PlatformOrgQuotasPage({ params }: PageProps) {
   if (!orgStats) notFound();
 
   return (
-    <div className="page-container py-8">
+    <div className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Edit Quota</h1>

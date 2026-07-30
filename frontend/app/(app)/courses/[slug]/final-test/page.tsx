@@ -35,7 +35,7 @@ export default async function FinalTestPage({ params }: Props) {
   }
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container-sm">
       <FinalTestClient courseId={course.id} courseSlug={slug} courseTitle={course.title} finalTest={finalTest} />
     </main>
   );

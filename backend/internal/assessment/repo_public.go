@@ -38,7 +38,7 @@ func (r *Repo) GetAssessmentByShortCode(ctx context.Context, code string) (Asses
 		        a.allow_backtrack, a.show_results, a.starts_at, a.ends_at, a.proctoring,
 		        a.created_by, a.published_at, a.created_at, a.updated_at,
 		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id),
-		        a.short_code
+		        a.short_code, NULL::uuid, NULL::text
 		 FROM assessments a
 		 WHERE a.short_code = $1 AND a.status = 'published'`, code)
 	return scanAssessment(row)

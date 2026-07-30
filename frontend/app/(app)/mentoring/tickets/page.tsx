@@ -160,7 +160,7 @@ async function ChangeRequestsContent() {
 
 export default function MentorTicketQueuePage() {
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="mb-8 flex flex-col gap-2">
         <h1 className="page-title">Mentor ticket queue</h1>
         <p className="text-muted-foreground">Claim open tickets or manage the ones assigned to you.</p>

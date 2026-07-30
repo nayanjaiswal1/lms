@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { ClaimTicketButton } from "@/components/mentoring/claim-ticket-button";
 import { CloseTicketButton } from "@/components/mentoring/close-ticket-button";
 import { AssignTicketControl } from "@/components/mentoring/assign-ticket-control";
+import { IssueCertificateControl } from "@/components/mentoring/issue-certificate-control";
 import { ChangeRequestReviewControls } from "@/components/mentoring/change-request-review-controls";
 import { ResolveReportControl } from "@/components/mentoring/resolve-report-control";
 import { LifecycleRecordCard } from "@/components/mentoring/lifecycle-record-card";
@@ -74,7 +75,7 @@ export default async function TicketDetailPage({ params }: Props) {
   ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
   return (
-    <main className="page-container-sm py-8">
+    <main className="page-container-sm">
       <Link
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         href={ROUTES.MENTORING_TICKETS}
@@ -116,16 +117,29 @@ export default async function TicketDetailPage({ params }: Props) {
               <Button size="sm" variant="outline">Chat</Button>
             </Link>
             {isOwnTicket ? (
-              <CloseTicketButton ticketId={ticket.id} />
+              <>
+                <CloseTicketButton ticketId={ticket.id} />
+                <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
+              </>
             ) : (
               <Can permission={PERMISSIONS.MENTORING.ASSIGN_TICKETS}>
                 <CloseTicketButton ticketId={ticket.id} />
+                <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
               </Can>
             )}
           </>
         )}
         {ticket.status === "closed" && (
-          <p className="text-sm text-muted-foreground">This ticket is closed.</p>
+          <>
+            <p className="text-sm text-muted-foreground">This ticket is closed.</p>
+            {isOwnTicket ? (
+              <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
+            ) : (
+              <Can permission={PERMISSIONS.MENTORING.ASSIGN_TICKETS}>
+                <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
+              </Can>
+            )}
+          </>
         )}
       </div>
 

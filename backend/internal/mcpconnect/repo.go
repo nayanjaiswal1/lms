@@ -25,6 +25,27 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
+// OrgAIConnectorEnabled reports whether orgID has the AI Connector feature
+// turned on — mirrors features.Repo.OrgAIConnectorEnabled's identical query
+// and no-row-means-true default; duplicated here rather than importing the
+// features package for one boolean read, since mcpconnect already treats its
+// authorization checks (scopes, redirect_uri, PKCE) as self-contained rather
+// than reaching into sibling packages for them.
+func (r *Repo) OrgAIConnectorEnabled(ctx context.Context, orgID string) (bool, error) {
+	var enabled bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT enabled FROM org_ai_connector_config WHERE org_id = $1`,
+		orgID,
+	).Scan(&enabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("mcpconnect: org ai connector enabled: %w", err)
+	}
+	return enabled, nil
+}
+
 // RegisterClient inserts a new Dynamic-Client-Registration record.
 func (r *Repo) RegisterClient(ctx context.Context, clientID, clientName string, redirectURIs []string) (Client, error) {
 	c := Client{ClientID: clientID, ClientName: clientName, RedirectURIs: redirectURIs}

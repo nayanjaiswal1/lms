@@ -47,7 +47,22 @@ func (rt *Router) requireMCPAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		scopeSet := make(map[string]bool, len(conn.Scopes))
+		// Checked on every call (not just at connect time) so an admin
+			// turning the org's AI Connector off immediately blocks tool
+			// calls from already-connected clients too — without revoking
+			// the underlying connection/tokens, so re-enabling needs no
+			// reconnect.
+			enabled, err := rt.repo.OrgAIConnectorEnabled(r.Context(), conn.OrgID)
+			if err != nil {
+				writeOAuthError(w, http.StatusInternalServerError, "server_error", "Failed to check AI connector status.")
+				return
+			}
+			if !enabled {
+				writeOAuthError(w, http.StatusForbidden, "access_denied", "The AI Connector is turned off for your organization.")
+				return
+			}
+
+			scopeSet := make(map[string]bool, len(conn.Scopes))
 		for _, s := range conn.Scopes {
 			scopeSet[s] = true
 		}

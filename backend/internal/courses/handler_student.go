@@ -15,9 +15,10 @@ import (
 // Service.CompleteModule themselves, so a client can never PATCH its way to
 // finishing a lab or assessment without actually doing it.
 var clientCompletableModuleTypes = map[string]bool{
-	ModuleTypeVideo: true,
-	ModuleTypePDF:   true,
-	ModuleTypeNotes: true,
+	ModuleTypeVideo:        true,
+	ModuleTypePDF:          true,
+	ModuleTypeNotes:        true,
+	ModuleTypeSystemDesign: true,
 }
 
 // GetModuleContent serves module content to enrolled students (or free-preview viewers).
@@ -308,6 +309,22 @@ func (h *Handler) GetMyCheckProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"passed_question_ids": ids})
+}
+
+// GetRandomTopic serves the "surprise me" discovery card — one published
+// course from the student's org catalog they haven't tried yet, weighted
+// toward their stated topic interests when possible.
+func (h *Handler) GetRandomTopic(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	topic, err := h.service.GetRandomTopic(r.Context(), claims.OrgID, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, topic)
 }
 
 // GetAllProgress returns all student progress for a course (instructor/mentor view).

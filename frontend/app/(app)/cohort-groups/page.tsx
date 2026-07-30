@@ -31,7 +31,7 @@ export default async function CohortGroupsPage() {
   const t = resolveTerminology(orgType);
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <header className="page-header">
         <div className="flex flex-col gap-1">
           <h1 className="page-title">{t.classPlural}</h1>

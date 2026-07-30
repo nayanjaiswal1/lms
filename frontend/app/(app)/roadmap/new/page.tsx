@@ -7,7 +7,7 @@ export default async function NewRoadmapPage() {
   const defaults = await getRoadmapProfileDefaults().catch(() => null);
 
   return (
-    <main className="page-container-sm py-10">
+    <main className="page-container-sm">
       <div className="page-header">
         <h1 className="page-title">Build My Roadmap</h1>
       </div>

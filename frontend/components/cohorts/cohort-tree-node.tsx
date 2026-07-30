@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { CohortGroupsPanel } from "@/app/(app)/cohort-groups/cohort-groups-panel";
 import { EditCohortGroupPanel } from "@/app/(app)/cohort-groups/edit-cohort-group-panel";
 import { BatchRow } from "@/app/(app)/cohort-groups/batch-row";
@@ -30,7 +31,7 @@ interface CohortTreeNodeProps {
 
 export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSelect, batches = [], options = [], orgMembers = [] }: CohortTreeNodeProps) {
   const [open, setOpen] = useState(true);
-  const [archiving, setArchiving] = useState(false);
+  const [archiveState, setArchiveState] = useState<"idle" | "confirm" | "pending">("idle");
   const router = useRouter();
   const rowRef = useRef<HTMLDivElement>(null);
   const ownBatches = batches.filter((b) => b.cohort_group_id === node.id);
@@ -68,19 +69,24 @@ export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSel
     router.refresh();
   }
 
-  async function handleArchive() {
+  function requestArchive() {
     if (node.batch_count > 0 || node.child_count > 0) {
       toast.error("Move or archive this group's batches and sub-groups first.");
       return;
     }
-    setArchiving(true);
+    setArchiveState("confirm");
+  }
+
+  async function handleArchive() {
+    setArchiveState("pending");
     const res = await archiveCohortGroupAction(node.id);
-    setArchiving(false);
     if (res.error) {
       toast.error(res.error);
+      setArchiveState("confirm");
       return;
     }
     toast.success("Group archived.");
+    setArchiveState("idle");
     router.refresh();
   }
 
@@ -126,16 +132,27 @@ export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSel
             <CohortGroupsPanel groups={allGroups} presetParentId={node.id} triggerLabel="Add sub-group" triggerSize="icon" triggerVariant="ghost" />
             <Button
               aria-label={`Archive ${node.name}`}
-              disabled={archiving}
+              disabled={archiveState === "pending"}
               size="icon"
               variant="ghost"
-              onClick={handleArchive}
+              onClick={requestArchive}
             >
               <Trash2 aria-hidden className="h-3.5 w-3.5 text-destructive" />
             </Button>
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        destructive
+        confirmLabel="Archive"
+        description={`This archives "${node.name}". It can be restored later, but it will disappear from active views.`}
+        open={archiveState === "confirm" || archiveState === "pending"}
+        pending={archiveState === "pending"}
+        title={`Archive ${node.name}?`}
+        onConfirm={handleArchive}
+        onOpenChange={(o) => !o && setArchiveState("idle")}
+      />
 
       {open && mode === "manage" && ownBatches.map((b) => (
         <BatchRow batch={b} depth={depth + 1} key={b.id} options={options} orgMembers={orgMembers} />

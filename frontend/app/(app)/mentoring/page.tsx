@@ -46,7 +46,7 @@ async function MentoringOverviewContent() {
           value={String(totalUnresolved)}
           unit={totalUnresolved === 1 ? "question" : "questions"}
           highlighted={totalUnresolved > 0}
-          href={ROUTES.MENTORING_MESSAGES}
+          href={ROUTES.COHORT_GROUPS}
         />
       </div>
 
@@ -94,7 +94,7 @@ async function MentoringOverviewContent() {
 
 export default function MentoringOverviewPage() {
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <div className="mb-8 flex flex-col gap-2">
         <h1>Mentoring overview</h1>
         <p className="text-muted-foreground">Your batches, students, and open questions at a glance.</p>

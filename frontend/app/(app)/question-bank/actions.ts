@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { authHeaders, baseURL } from "@/lib/server/api";
+import { authHeaders, apiAction, baseURL } from "@/lib/server/api";
+import type { ActionResult } from "@/lib/server/api";
+import type { Category } from "@/lib/assessments/types";
 import ROUTES from "@/lib/routes";
 
 export interface FormState {
@@ -21,6 +23,7 @@ export interface CreateQuestionInput {
   difficulty: string;
   default_points: number;
   tags: string[];
+  category_id?: string | null;
   // MCQ
   prompt: string;
   multiple?: boolean;
@@ -60,6 +63,7 @@ export async function createQuestionAction(input: CreateQuestionInput): Promise<
         difficulty: input.difficulty,
         default_points: input.default_points,
         tags: input.tags,
+        category_id: input.category_id ?? null,
         content,
       }),
       cache: "no-store",
@@ -74,6 +78,12 @@ export async function createQuestionAction(input: CreateQuestionInput): Promise<
 
   revalidatePath(ROUTES.QUESTION_BANK);
   return { ok: true };
+}
+
+export async function createCategoryAction(name: string): Promise<ActionResult<Category>> {
+  const result = await apiAction<Category>("POST", "/api/categories", { name });
+  if (result.ok) revalidatePath(ROUTES.QUESTION_BANK);
+  return result;
 }
 
 export async function archiveQuestionAction(questionId: string): Promise<FormState> {

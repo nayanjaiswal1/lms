@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { getCourseTree } from "@/lib/server/courses";
+import { Button } from "@/components/ui/button";
+import { getAllStudentProgress, getCourseTree, type StudentProgressRow } from "@/lib/server/courses";
 import { getWikiSpaces } from "@/lib/server/wiki";
 import { ModuleEditor } from "@/components/courses/module-editor";
 import { CourseDocsToggle } from "@/components/courses/course-docs-toggle";
@@ -20,31 +21,46 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function InstructorCourseDetailPage({ params }: Props) {
   const { id } = await params;
-  const [tree, wikiSpaces] = await Promise.all([
+  const [tree, wikiSpaces, progress] = await Promise.all([
     getCourseTree(id).catch(() => null),
     getWikiSpaces().catch(() => []),
+    getAllStudentProgress(id).catch(() => [] as StudentProgressRow[]),
   ]);
   if (!tree) notFound();
   const docsSpace = wikiSpaces.find((s) => s.course_id === id) ?? null;
 
+  const totalStudents = progress.length;
+  const completed = progress.filter((r) => r.total_modules > 0 && r.completed_modules === r.total_modules).length;
+  const completionPct = totalStudents > 0 ? Math.round((completed / totalStudents) * 100) : 0;
+
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <div className="flex items-center gap-3">
           <h1 className="page-title">{tree.title}</h1>
-          <Badge variant={tree.status === "published" ? "default" : "secondary"}>
-            {tree.status}
-          </Badge>
+          {tree.status !== "published" && (
+            <Badge variant="secondary">{tree.status}</Badge>
+          )}
         </div>
-        <div className="flex items-center gap-4">
-          <Link className="text-sm text-primary hover:underline" href={ROUTES.manageCourseEdit(id)}>
+        <nav aria-label="Course management" className="flex flex-wrap items-center gap-6 text-sm">
+          <Link className="font-semibold text-primary underline underline-offset-4" href={ROUTES.manageCourseEdit(id)}>
             Edit course
           </Link>
-          <Link className="text-sm text-primary hover:underline" href={ROUTES.manageCourseAnalytics(id)}>
+          <Link className="text-muted-foreground transition-colors hover:text-foreground" href={ROUTES.manageCourseAnalytics(id)}>
             View analytics
           </Link>
+          {tree.status === "published" && (
+            <Link
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              href={ROUTES.course(tree.slug)}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Preview as student
+            </Link>
+          )}
           <CourseDocsToggle courseId={id} courseTitle={tree.title} existingSpaceSlug={docsSpace?.slug ?? null} />
-        </div>
+        </nav>
       </div>
 
       <div className="flex flex-col gap-8">
@@ -55,37 +71,65 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
         ) : (
           <ol aria-label="Course sections" className="flex flex-col gap-6">
             {tree.sections.map((section, si) => (
-              <li className="card-base p-6" key={section.id}>
-                <h2 className="section-title mb-4">
-                  Section {si + 1}: {section.title}
-                </h2>
-                {section.modules.length > 0 && (
-                  <ul className="mb-4 flex flex-col gap-2">
-                    {section.modules.map((mod, mi) => (
-                      <li className="flex items-center gap-3 rounded-md border border-border px-3 py-2 text-sm" key={mod.id}>
-                        <span className="w-5 text-muted-foreground">{mi + 1}.</span>
-                        <span className="flex-1">{mod.title}</span>
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs capitalize text-muted-foreground">{mod.type}</span>
-                        {mod.estimated_minutes && (
-                          <span className="text-xs text-muted-foreground">{mod.estimated_minutes}m</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <details className="mt-2">
-                  <summary className="flex cursor-pointer items-center gap-1 text-sm text-primary hover:underline">
-                    <Plus aria-hidden className="h-4 w-4" />
-                    Add module
-                  </summary>
-                  <div className="mt-3 rounded-lg border border-border p-4">
-                    <ModuleEditor courseId={id} sectionId={section.id} />
-                  </div>
-                </details>
+              <li className="flex flex-col gap-2" key={section.id}>
+                <div className="flex-between">
+                  <h2 className="section-title">
+                    Section {si + 1}: {section.title}
+                  </h2>
+                  <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    {section.modules.length} module{section.modules.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="card-base overflow-hidden p-0">
+                  {section.modules.length > 0 && (
+                    <ul className="flex flex-col divide-y divide-border">
+                      {section.modules.map((mod, mi) => (
+                        <li className="flex items-center gap-3 px-6 py-3 text-sm" key={mod.id}>
+                          <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">
+                            {String(mi + 1).padStart(2, "0")}
+                          </span>
+                          <span className="flex-1 truncate">{mod.title}</span>
+                          <span className="rounded-full border border-border px-2.5 py-0.5 text-xs capitalize text-muted-foreground">
+                            {mod.type}
+                          </span>
+                          <span className="w-10 shrink-0 text-right text-xs text-muted-foreground">
+                            {mod.estimated_minutes ? `${mod.estimated_minutes}m` : "—"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <details className="px-6 py-3">
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-primary hover:underline [&::-webkit-details-marker]:hidden">
+                      <Plus aria-hidden className="h-3.5 w-3.5" />
+                      Add module
+                    </summary>
+                    <div className="mt-3 rounded-lg border border-border p-4">
+                      <ModuleEditor courseId={id} sectionId={section.id} />
+                    </div>
+                  </details>
+                </div>
               </li>
             ))}
           </ol>
         )}
+
+        <div className="card-raised flex flex-col gap-4 bg-foreground text-background sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Users aria-hidden className="h-4 w-4" />
+              Student progress overview
+            </div>
+            <p className="text-sm text-background/70">
+              {totalStudents > 0
+                ? `${totalStudents} student${totalStudents === 1 ? "" : "s"} enrolled · ${completionPct}% have completed the course.`
+                : "No students have enrolled yet."}
+            </p>
+          </div>
+          <Button asChild size="sm" variant="secondary">
+            <Link href={ROUTES.manageCourseAnalytics(id)}>View full analytics</Link>
+          </Button>
+        </div>
       </div>
     </main>
   );

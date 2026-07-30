@@ -27,7 +27,7 @@ export default async function PracticeSessionPage({ params, searchParams }: Prop
   const currentItem = items[position];
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="flex flex-col gap-2 mb-6">
         <h1 className="page-title capitalize">{session.technology} Interview Practice</h1>
         <p className="text-sm text-muted-foreground capitalize">

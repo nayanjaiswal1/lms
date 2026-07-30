@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SheetDetailLoading() {
   return (
-    <main className="page-container py-6">
+    <main className="page-container">
       <Skeleton className="mb-4 h-5 w-20" />
 
       <div className="page-header">

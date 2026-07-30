@@ -8,6 +8,13 @@ export type CodingAnswer = { language: string; code: string };
 export type TranscriptAnswer = { transcript: string };
 export type AnswerValue = MCQAnswer | CodingAnswer | TranscriptAnswer;
 
+export function isAnswered(a: AnswerValue | undefined): boolean {
+  if (!a) return false;
+  if ("selected" in a) return a.selected.length > 0;
+  if ("transcript" in a) return a.transcript.trim().length > 0;
+  return a.code.trim().length > 0;
+}
+
 interface AnswersState {
   answers: Record<string, AnswerValue>;
   markedForReview: Record<string, boolean>;
@@ -94,14 +101,7 @@ export function useAnswers(questions: StudentQuestion[]) {
   });
 
   const answeredCount = React.useMemo(
-    () =>
-      questions.filter((q) => {
-        const a = state.answers[q.assessment_question_id];
-        if (!a) return false;
-        if ("selected" in a) return a.selected.length > 0;
-        if ("transcript" in a) return a.transcript.trim().length > 0;
-        return a.code.trim().length > 0;
-      }).length,
+    () => questions.filter((q) => isAnswered(state.answers[q.assessment_question_id])).length,
     [questions, state.answers],
   );
 

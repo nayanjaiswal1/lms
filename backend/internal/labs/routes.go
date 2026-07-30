@@ -15,11 +15,14 @@ import (
 // finishes. container is the lab sandbox runtime (Docker or Kubernetes) —
 // selected once by the caller (internal/api/router.go) based on
 // config.LabsRuntime, so both the HTTP handler and the reaper job handlers
-// (internal/jobs/handlers/labs.go) share one runtime instance.
-func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime) *Handler {
+// (internal/jobs/handlers/labs.go) share one runtime instance. repoPreparer
+// is the Batch 3 lab-container auto-clone hook's optional dependency — pass
+// nil when GitLab isn't configured (see RepoPreparer's own doc comment in
+// service.go); internal/api/router.go passes gitlabRouter.Service() here.
+func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer) *Handler {
 	repo := NewRepo(pool)
 	piston := newLabPiston(pistonURL, pistonTimeout)
-	service := NewService(repo, container, rdb, pool, piston, coursesSvc)
+	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer)
 	return NewHandler(repo, service, pool, rdb, jwtSecret, jwtIssuer, piston)
 }
 

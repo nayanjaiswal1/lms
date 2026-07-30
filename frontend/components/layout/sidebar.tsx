@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { SidebarNavContent } from "@/components/layout/sidebar-nav-content";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { isCourseLearnRoute } from "@/lib/routes";
@@ -43,8 +44,9 @@ export function Sidebar({ user }: Props) {
         aria-label="Main navigation"
         className={cn("app-sidebar transition-[width] duration-normal ease-smooth", collapsed && "w-18")}
       >
-        <div className={cn("px-5 py-5 border-b border-sidebar-border overflow-hidden", collapsed && "px-3")}>
+        <div className={cn("flex items-center justify-between gap-2 px-5 py-5 border-b border-sidebar-border overflow-hidden", collapsed && "flex-col px-3")}>
           <BrandMark showName={!collapsed} />
+          {user && <NotificationBell />}
         </div>
 
         <SidebarNavContent collapsed={collapsed} user={user} />

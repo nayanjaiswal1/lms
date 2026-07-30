@@ -135,6 +135,23 @@ func (r *Repo) HasBeenMentoredBy(ctx context.Context, orgID, studentID, mentorID
 	return exists, nil
 }
 
+// HasCompletedPurchase reports whether userID has a completed purchase on
+// record for courseID — the "has this learner paid" check certificates'
+// threshold-based auto-issue uses for non-free courses.
+func (r *Repo) HasCompletedPurchase(ctx context.Context, userID, courseID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		   SELECT 1 FROM course_purchases
+		   WHERE user_id = $1 AND course_id = $2 AND status = $3
+		 )`, userID, courseID, PurchaseStatusCompleted,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("mentoring: has completed purchase: %w", err)
+	}
+	return exists, nil
+}
+
 // CreateTicket opens a new 'open' mentor ticket within tx.
 func (r *Repo) CreateTicket(ctx context.Context, tx pgx.Tx, t Ticket) (Ticket, error) {
 	t.Status = TicketStatusOpen

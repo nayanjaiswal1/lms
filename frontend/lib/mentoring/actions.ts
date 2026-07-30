@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { MentorReportReason } from "@/lib/constants";
 import type { CoursePurchaseResult, MentorTicket, MentorChatMessage } from "@/lib/server/mentoring";
+import type { Certificate } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 export async function purchaseCourseAction(courseId: string): Promise<ActionResult<CoursePurchaseResult>> {
@@ -107,5 +108,18 @@ export async function sendMentorChatMessageAction(
 ): Promise<ActionResult<MentorChatMessage>> {
   const result = await apiAction<MentorChatMessage>("POST", `/api/mentor-tickets/${ticketId}/messages`, { body });
   if (result.ok) revalidatePath(ROUTES.mentoringTicketChat(ticketId));
+  return result;
+}
+
+// A mentor may only issue for their own assigned student (enforced
+// server-side); instructor/admin may issue for any enrolled student.
+export async function issueCertificateAction(
+  courseId: string,
+  studentId: string,
+): Promise<ActionResult<Certificate>> {
+  const result = await apiAction<Certificate>("POST", `/api/courses/${courseId}/certificates/issue`, {
+    student_id: studentId,
+  });
+  if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
   return result;
 }

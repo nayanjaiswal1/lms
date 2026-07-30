@@ -55,9 +55,9 @@
 
   /* ── Shadows — CSS-var-driven, auto-adapt to theme ───────────────── */
   --shadow-card:    0 0 0 1px hsl(var(--border)),
-                    0 1px 3px hsl(var(--foreground) / 0.05);
+                    0 1px 2px hsl(var(--foreground) / 0.015);
   --shadow-raised:  0 0 0 1px hsl(var(--border)),
-                    0 4px 16px hsl(var(--foreground) / 0.09);
+                    0 2px 6px hsl(var(--foreground) / 0.03);
   --shadow-modal:   0 0 0 1px hsl(var(--border)),
                     0 20px 48px hsl(var(--foreground) / 0.13);
   --shadow-float:   0 0 0 1px hsl(var(--border)),
@@ -72,11 +72,17 @@
   --ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);   /* balanced, no bounce */
 
   /* ── Z-index layers — use z-modal, z-toast, etc. in components ───── */
+  /* z-dropdown sits above z-modal: Select/DropdownMenu/ContextMenu/Tooltip
+     are Radix popper content portaled to document.body as a sibling of
+     DialogContent, not a DOM descendant — CSS stacking context nesting
+     doesn't apply, only the numeric z-index does. They must always
+     out-rank a modal, since any of them can be triggered from inside one
+     (e.g. the "Assign role" Select in manage-roles-dialog.tsx). */
   --z-raised:   10;
-  --z-dropdown: 100;
   --z-sticky:   200;
   --z-overlay:  300;
   --z-modal:    400;
+  --z-dropdown: 450;
   --z-toast:    500;
 
   /* ── Layout metrics — reuse instead of re-deriving in components ─── */
@@ -134,14 +140,14 @@
   --ai-foreground:         0 0% 100%;
 
   /* Structural */
-  --border:                30 10% 86%;   /* warm stone border */
-  --input:                 30 10% 86%;
+  --border:                30 10% 91%;   /* warm stone border — subtle hairline, not a boxed line */
+  --input:                 30 10% 91%;
   --ring:                  26 90% 37%;   /* amber focus ring = brand colour */
 
   /* Sidebar (slightly deeper than page bg) */
   --sidebar:               36 22% 94%;
   --sidebar-foreground:    25 15% 10%;
-  --sidebar-border:        30 10% 86%;
+  --sidebar-border:        30 10% 91%;
 
   /* Terminal — deliberately theme-independent, like a code editor's terminal panel */
   --terminal-bg:                 0 0% 4%;
@@ -409,6 +415,12 @@
   .card-grid   { @apply grid gap-6 sm:grid-cols-2 lg:grid-cols-3; }
   .card-grid-2 { @apply grid gap-6 sm:grid-cols-2; }
   .card-grid-4 { @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4; }
+  /* Masonry-style: packs cards by available height, not just width — a short
+     card doesn't leave a gap under it waiting for the tallest card in its row. */
+  .grid-auto {
+    columns: 320px;
+    column-gap: 1rem;
+  }
 
   /* ── Flex helpers ───────────────────────────────────────────────── */
   .flex-center  { @apply flex items-center justify-center; }
@@ -430,13 +442,13 @@
            [&>*+*]:mt-4
            [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-xl [&>h2]:font-semibold [&>h2]:leading-snug
            [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-lg [&>h3]:font-semibold [&>h3]:leading-snug
-           [&>pre]:my-5
+           [&>pre]:my-5 [&>pre]:block [&>pre]:overflow-x-auto
            [&>blockquote]:my-5
            [&>ul]:my-3 [&>ol]:my-3
            [&_ul]:list-disc [&_ul]:list-outside [&_ul]:pl-5 [&_ul]:space-y-1
            [&_ol]:list-decimal [&_ol]:list-outside [&_ol]:pl-5 [&_ol]:space-y-1
            [&_li]:leading-7
-           [&>table]:my-6
+           [&>table]:my-6 [&>table]:block [&>table]:overflow-x-auto
            [&_a]:underline-offset-4 [&_a:hover]:underline
            [&>*:first-child]:mt-0;
   }
@@ -675,8 +687,13 @@
 
   /* ── Full-screen modal on mobile, centred on sm+ ────────────────── */
   /* Apply to shadcn DialogContent or Sheet */
+  /* sm:h-auto alone never triggers overflow-y-auto on the content inside —
+     "auto" height means the modal just grows past the viewport with nothing
+     to scroll against. sm:max-h-[85dvh] gives it a real ceiling so a caller
+     pairing `.modal-responsive overflow-y-auto` on <DialogContent> (see
+     components/ui/dialog.tsx usages) actually scrolls once content exceeds it. */
   .modal-responsive {
-    @apply w-full h-dvh rounded-none sm:h-auto sm:max-w-lg sm:rounded-2xl;
+    @apply w-full h-dvh rounded-none sm:h-auto sm:max-h-[85dvh] sm:max-w-lg sm:rounded-2xl;
   }
 
   /* ─────────────────────────────────────────────

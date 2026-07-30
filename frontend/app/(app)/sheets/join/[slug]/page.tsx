@@ -23,7 +23,7 @@ export default async function JoinSheetPage({ params, searchParams }: JoinSheetP
   if (preview.is_subscribed) redirect(ROUTES.sheet(slug));
 
   return (
-    <main className="page-container-sm py-6">
+    <main className="page-container-sm">
       <div className="card-base flex flex-col items-center gap-3 p-8 text-center">
         <ListChecks aria-hidden className="h-10 w-10 text-primary" />
         <h1 className="page-title">{preview.name}</h1>

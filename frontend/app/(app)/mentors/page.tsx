@@ -217,7 +217,7 @@ export default async function MentorsDirectoryPage() {
   const mentors = await getMentors().catch(() => []);
 
   return (
-    <main className="page-container py-8">
+    <main className="page-container">
       <div className="page-header">
         <div className="flex flex-col gap-2">
           <h1 className="page-title">Mentors</h1>

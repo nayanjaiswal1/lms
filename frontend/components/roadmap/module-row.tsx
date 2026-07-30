@@ -5,7 +5,7 @@ import { ModuleProgressToggle } from "@/components/roadmap/module-progress-toggl
 import ROUTES from "@/lib/routes";
 import type { RoadmapModule } from "@/lib/server/roadmap";
 
-const MODULE_ICON: Record<RoadmapModule["module_type"], typeof BookOpen> = {
+export const MODULE_ICON: Record<RoadmapModule["module_type"], typeof BookOpen> = {
   course: BookOpen,
   lab: FlaskConical,
   dsa_problem: Code2,
@@ -14,7 +14,7 @@ const MODULE_ICON: Record<RoadmapModule["module_type"], typeof BookOpen> = {
   quiz: HelpCircle,
 };
 
-function resourceHref(mod: RoadmapModule): string | null {
+export function resourceHref(mod: RoadmapModule): string | null {
   if (mod.resource_type === "course" && mod.resource_slug) return ROUTES.course(mod.resource_slug);
   if (mod.resource_type === "lab" && mod.resource_id) return ROUTES.lab(mod.resource_id);
   if (mod.resource_type === "question") return ROUTES.QUESTION_BANK;

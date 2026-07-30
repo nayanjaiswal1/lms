@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Award, CalendarCheck2, ShieldCheck } from "lucide-react";
 import { getPublicCertificate } from "@/lib/server/certificates-public";
+import { CertificateActions } from "@/components/certificates/certificate-actions";
 
 interface PageProps {
   params: Promise<{ uuid: string }>;
@@ -52,6 +53,8 @@ export default async function CertificateVerifyPage({ params }: PageProps) {
 
         <p className="font-mono text-xs text-muted-foreground">{cert.cert_uuid}</p>
       </div>
+
+      <CertificateActions certUuid={cert.cert_uuid} />
     </main>
   );
 }

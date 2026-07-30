@@ -304,6 +304,13 @@ func (s *Service) HasBeenMentoredBy(ctx context.Context, orgID, studentID, mento
 	return s.repo.HasBeenMentoredBy(ctx, orgID, studentID, mentorID)
 }
 
+// HasCompletedPurchase implements certificates.PurchaseChecker — lets the
+// certificates package gate threshold-based auto-issue on payment for paid
+// courses without importing this package directly.
+func (s *Service) HasCompletedPurchase(ctx context.Context, userID, courseID string) (bool, error) {
+	return s.repo.HasCompletedPurchase(ctx, userID, courseID)
+}
+
 // ReportMentor validates and files a new complaint against a mentor.
 func (s *Service) ReportMentor(ctx context.Context, orgID, mentorID, reporterID, reason, description string, ticketID *string) (Report, error) {
 	if !IsValidReportReason(reason) {
