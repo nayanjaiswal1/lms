@@ -31,6 +31,7 @@ spec:
       containers:
         - name: labproxy
           image: mindforge-labproxy:latest # replaced by the overlay's images: transformer
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
           envFrom:
@@ -45,7 +46,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 6
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /health

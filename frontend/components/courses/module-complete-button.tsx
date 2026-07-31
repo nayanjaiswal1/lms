@@ -20,30 +20,32 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
   const { requiredIds, passedIds } = useModuleGate();
   const locked = !completed && requiredIds.some((id) => !passedIds.has(id));
 
-  async function handleMarkComplete() {
+  async function handleToggle() {
+    const nextStatus = completed ? "in_progress" : "completed";
     setPending(true);
-    const result = await updateProgressAction({ moduleID: moduleId, status: "completed" });
+    const result = await updateProgressAction({ moduleID: moduleId, status: nextStatus });
     setPending(false);
     if (!result.ok) return;
-    setCompleted(true);
-    if (result.data?.rewards) showRewardToasts(result.data.rewards);
+    setCompleted(!completed);
+    if (nextStatus === "completed" && result.data?.rewards) showRewardToasts(result.data.rewards);
   }
 
   return (
     <Button
       className={cn("w-full sm:w-fit", className)}
-      disabled={completed || pending || locked}
+      disabled={pending || locked}
       size="sm"
       title={locked ? "Answer the knowledge check correctly first." : undefined}
-      onClick={handleMarkComplete}
+      variant={completed ? "outline" : "default"}
+      onClick={handleToggle}
     >
-      {completed ? (
+      {pending ? (
+        completed ? "Marking as incomplete…" : "Marking as complete…"
+      ) : completed ? (
         <>
           <CheckCircle2 aria-hidden className="mr-2 h-4 w-4" />
           Completed
         </>
-      ) : pending ? (
-        "Marking as complete…"
       ) : locked ? (
         "Answer the knowledge check first"
       ) : (

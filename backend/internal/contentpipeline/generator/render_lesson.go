@@ -9,31 +9,40 @@ import (
 	"github.com/mindforge/backend/internal/contentpipeline/canonical"
 )
 
-// knowledgeCheckBlockPattern matches a lesson's optional ```knowledge-check
-// fenced JSON block. At most one is authored per lesson.
+// knowledgeCheckBlockPattern matches a lesson's ```knowledge-check fenced
+// JSON blocks. A lesson may author more than one — e.g. one small check
+// placed after each ## concept heading, rather than a single block batching
+// every concept at the end — and every block found is merged into one
+// course_modules.knowledge_check array.
 var knowledgeCheckBlockPattern = regexp.MustCompile("(?s)```knowledge-check\\s*\\n(.*?)\\n```")
 
 // parseKnowledgeCheck extracts the server-side grading/gating key
-// (id/type/correct per question) out of a lesson body's ```knowledge-check
-// fenced block, if present. Returns an empty (non-nil) slice when the lesson
-// has no such block, so the caller always emits a valid `[]` jsonb literal
-// rather than a bare/untyped empty array.
+// (id/type/correct per question) out of every ```knowledge-check fenced
+// block in a lesson body, if any. Returns an empty (non-nil) slice when the
+// lesson has no such block, so the caller always emits a valid `[]` jsonb
+// literal rather than a bare/untyped empty array. Errors if two blocks in the
+// same lesson declare the same question id — a likely copy-paste mistake
+// when authoring one block per concept — since a duplicate id would grade
+// one question against the other's answer key.
 func parseKnowledgeCheck(body string) ([]knowledgeCheckEntryJSON, error) {
 	entries := []knowledgeCheckEntryJSON{}
-	match := knowledgeCheckBlockPattern.FindStringSubmatch(body)
-	if match == nil {
-		return entries, nil
-	}
-	var src knowledgeCheckSourceJSON
-	if err := json.Unmarshal([]byte(match[1]), &src); err != nil {
-		return nil, fmt.Errorf("parse knowledge-check block: %w", err)
-	}
-	for _, q := range src.Questions {
-		entry := knowledgeCheckEntryJSON{ID: q.ID, Type: q.Type}
-		if q.Type == "mcq" {
-			entry.Correct = q.Correct
+	seen := map[string]bool{}
+	for _, match := range knowledgeCheckBlockPattern.FindAllStringSubmatch(body, -1) {
+		var src knowledgeCheckSourceJSON
+		if err := json.Unmarshal([]byte(match[1]), &src); err != nil {
+			return nil, fmt.Errorf("parse knowledge-check block: %w", err)
 		}
-		entries = append(entries, entry)
+		for _, q := range src.Questions {
+			if seen[q.ID] {
+				return nil, fmt.Errorf("duplicate knowledge-check question id %q", q.ID)
+			}
+			seen[q.ID] = true
+			entry := knowledgeCheckEntryJSON{ID: q.ID, Type: q.Type}
+			if q.Type == "mcq" {
+				entry.Correct = q.Correct
+			}
+			entries = append(entries, entry)
+		}
 	}
 	return entries, nil
 }
@@ -67,5 +76,9 @@ func renderLesson(out *strings.Builder, courseID, sectionID string, lesson *cano
 		sqlString(lesson.Title), sqlString(moduleType), sqlInt(lesson.Position),
 		dollarQuote("md", lesson.Body), sqlInt(estMinutes), knowledgeCheckJSON,
 	)
+
+	if lesson.Lab != nil {
+		return renderLabRows(out, courseID, moduleID, lesson.IDKey, lesson.Title, lesson.Lab)
+	}
 	return nil
 }

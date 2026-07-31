@@ -4,11 +4,19 @@ import * as React from "react";
 import { QuickCreateSlot } from "@/app/(app)/calendar/quick-create-slot";
 import { EnhancedQuickCreate } from "@/app/(app)/calendar/enhanced-quick-create";
 import { Lightbulb } from "lucide-react";
+import type { CalendarEventPriority } from "@/lib/calendar/types";
 
 interface QuickCreateAdapterProps {
   defaultStart: Date;
   defaultEnd: Date;
-  onCreate: (title: string, start: Date, end: Date, isTask: boolean, notes?: string) => void;
+  onCreate: (
+    title: string,
+    start: Date,
+    end: Date,
+    isTask: boolean,
+    notes?: string,
+    priority?: CalendarEventPriority,
+  ) => void;
   onCancel: () => void;
   useEnhanced?: boolean;
 }

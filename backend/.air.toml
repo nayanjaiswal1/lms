@@ -1,0 +1,28 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/server ./cmd/server"
+  bin = "./tmp/server"
+  full_bin = "./tmp/server"
+  delay = 200
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "bin"]
+  exclude_regex = ["_test\\.go"]
+  exclude_unchanged = true
+  stop_on_error = true
+  send_interrupt = true
+  kill_delay = "2s"
+  log = "build-errors.log"
+  # Bind-mounted volumes from Docker Desktop on Windows/Mac don't reliably
+  # forward inotify events into the Linux container, so file-watching (the
+  # non-poll default) silently misses saves. Polling is the documented
+  # workaround and is what makes reload actually fire here.
+  poll = true
+  poll_interval = 500
+
+[log]
+  time = true
+
+[misc]
+  clean_on_exit = true

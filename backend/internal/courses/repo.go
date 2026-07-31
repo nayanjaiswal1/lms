@@ -862,6 +862,30 @@ func (r *Repo) UpsertProgress(ctx context.Context, p ModuleProgress) (ModuleProg
 	return p, nil
 }
 
+// UpsertProgressCompleted marks a module completed and reports whether it was
+// already completed beforehand (same pre-statement snapshot as the write, so
+// concurrent-request races can't both see "not completed"). The caller uses
+// wasAlreadyCompleted to skip re-awarding one-time completion XP when a
+// student unmarks and remarks a module complete.
+func (r *Repo) UpsertProgressCompleted(ctx context.Context, p ModuleProgress) (updated ModuleProgress, wasAlreadyCompleted bool, err error) {
+	err = r.pool.QueryRow(ctx,
+		`WITH previous AS (
+		   SELECT status FROM module_progress WHERE user_id = $1 AND module_id = $2
+		 )
+		 INSERT INTO module_progress (user_id, module_id, course_id, status, last_position_seconds, completed_at)
+		 VALUES ($1,$2,$3,$4,$5,$6)
+		 ON CONFLICT (user_id, module_id) DO UPDATE
+		   SET status=EXCLUDED.status, last_position_seconds=EXCLUDED.last_position_seconds,
+		       completed_at=EXCLUDED.completed_at, updated_at=now()
+		 RETURNING id, updated_at, COALESCE((SELECT status FROM previous), '') = $4`,
+		p.UserID, p.ModuleID, p.CourseID, p.Status, p.LastPositionSeconds, p.CompletedAt,
+	).Scan(&p.ID, &p.UpdatedAt, &wasAlreadyCompleted)
+	if err != nil {
+		return ModuleProgress{}, false, fmt.Errorf("courses: upsert progress completed: %w", err)
+	}
+	return p, wasAlreadyCompleted, nil
+}
+
 // GetCourseProgress computes the completion percentage for a user in a course.
 func (r *Repo) GetCourseProgress(ctx context.Context, userID, courseID string) (CourseProgress, error) {
 	var cp CourseProgress
@@ -1362,7 +1386,8 @@ func (r *Repo) ListProposalsForCourse(ctx context.Context, orgID, courseID, stat
 		args = append(args, status)
 		where += fmt.Sprintf(" AND p.status=$%d", len(args))
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+proposalColumns+` FROM course_content_proposals p `+where+` ORDER BY p.created_at DESC`, args...)
+	// ponytail: hard cap, no pagination params on this endpoint yet — add offset/limit query params if a course ever needs more than 100 pending proposals.
+	rows, err := r.pool.Query(ctx, `SELECT `+proposalColumns+` FROM course_content_proposals p `+where+` ORDER BY p.created_at DESC LIMIT 100`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("courses: list proposals: %w", err)
 	}

@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { formatTimeLabel } from "@/app/(app)/calendar/calendar-math";
-import { CALENDAR_LAYER_OPTIONS } from "@/lib/calendar/types";
+import { CALENDAR_LAYER_OPTIONS, CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
 import type { CalendarEvent, CalendarLayer } from "@/lib/calendar/types";
 
 /** Picks the first matching layer's swatch/badge so an event that belongs to
@@ -51,6 +51,7 @@ export function EventBlock({
   const start = new Date(event.starts_at);
   const cancelled = event.status === "cancelled";
   const completed = Boolean(event.completed_at);
+  const priorityMeta = event.priority ? CALENDAR_PRIORITY_OPTIONS.find((p) => p.value === event.priority) : undefined;
 
   const base = `group relative flex cursor-pointer flex-col gap-0.5 overflow-hidden rounded-md border px-2 py-1 text-left text-xs transition-colors duration-fast ease-smooth ${meta.badgeClassName} ${
     cancelled || completed ? "opacity-50 line-through" : ""
@@ -82,6 +83,13 @@ export function EventBlock({
           {event.all_day ? "All day" : formatTimeLabel(start)}
         </span>
         <span className="truncate font-medium text-foreground">{event.title}</span>
+        {priorityMeta && (
+          <span
+            aria-label={`Priority: ${priorityMeta.label}`}
+            className={`ml-auto h-2 w-2 shrink-0 rounded-full ${priorityMeta.swatchClassName}`}
+            title={`Priority: ${priorityMeta.label}`}
+          />
+        )}
       </button>
     );
   }

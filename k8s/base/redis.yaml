@@ -30,6 +30,7 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
           command: ["redis-server"]
           # Container.args (unlike probe exec.command) does support $(VAR)
           # substitution from the container's own env.

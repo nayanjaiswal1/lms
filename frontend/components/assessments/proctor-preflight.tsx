@@ -103,7 +103,7 @@ export function ProctorPreflight({
     <div className="flex min-h-dvh flex-col lg:flex-row">
 
       {/* ── Left panel ────────────────────────────────────────────────────── */}
-      <div className="flex flex-col items-center justify-center gap-4 bg-muted p-6 lg:sticky lg:top-0 lg:h-dvh lg:w-2/5 lg:p-10">
+      <div className="flex flex-col items-center justify-center gap-4 bg-muted p-6 lg:sticky-rail lg:top-0 lg:h-dvh lg:w-2/5 lg:p-10">
         {proctoring.require_camera ? (
           <>
             {/* Camera preview */}

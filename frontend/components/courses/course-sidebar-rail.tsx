@@ -44,7 +44,7 @@ export function CourseSidebarRail({ course, currentModuleId, isEnrolled, progres
 
   return (
     <aside
-      className="relative hidden shrink-0 lg:-my-8 lg:-ml-8 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:border-r lg:border-sidebar-border lg:bg-sidebar"
+      className="relative hidden shrink-0 lg:-my-8 lg:-ml-8 lg:sticky-rail lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:border-r lg:border-sidebar-border lg:bg-sidebar"
       // eslint-disable-next-line no-restricted-syntax -- resizable rail width is user-driven, not expressible as a static class
       style={{ width }}
     >

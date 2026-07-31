@@ -82,6 +82,7 @@ type eventRequest struct {
 	EntityType      *string  `json:"entity_type"`
 	EntityID        *string  `json:"entity_id"`
 	RecurrenceRule  *string  `json:"recurrence_rule"`
+	Priority        *string  `json:"priority"`
 	AttendeeUserIDs []string `json:"attendee_user_ids"`
 }
 
@@ -150,6 +151,13 @@ func (req eventRequest) applyTo(base Event) (Event, error) {
 			base.RecurrenceRule = nil
 		} else {
 			base.RecurrenceRule = req.RecurrenceRule
+		}
+	}
+	if req.Priority != nil {
+		if *req.Priority == "" {
+			base.Priority = nil
+		} else {
+			base.Priority = req.Priority
 		}
 	}
 	return base, nil

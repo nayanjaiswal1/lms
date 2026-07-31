@@ -737,6 +737,11 @@ func (r *Repo) leaderboardFromDB(ctx context.Context, key string, limit, offset 
 
 // ─── Leaderboard warm-up ─────────────────────────────────────────────────────
 
+// warmupPageSize bounds how many org/batch ids WarmLeaderboards loads per
+// round-trip, so startup doesn't spike memory pulling every active org/batch
+// into one slice at once on a large deployment.
+const warmupPageSize = 500
+
 // WarmLeaderboards rebuilds all Redis sorted sets from xp_events on startup.
 // Runs in a background goroutine — never blocks the server start.
 func (r *Repo) WarmLeaderboards(ctx context.Context) {
@@ -747,38 +752,61 @@ func (r *Repo) WarmLeaderboards(ctx context.Context) {
 		slog.Error("rewards: warm global leaderboard", "err", err)
 	}
 
-	// Per-org
-	orgIDs, err := r.listActiveOrgIDs(ctx)
-	if err != nil {
-		slog.Error("rewards: warm org leaderboards: list orgs", "err", err)
-		return
-	}
-	for _, id := range orgIDs {
-		if err := r.rebuildScope(ctx, "leaderboard:org:"+id, "org", id, ""); err != nil {
-			slog.Error("rewards: warm org leaderboard", "org", id, "err", err)
+	// Per-org + per-org feature boards, keyset-paginated so a large org
+	// count is never loaded into memory all at once.
+	afterID := ""
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Warn("rewards: warm-up cancelled", "err", ctx.Err())
+			return
+		default:
 		}
+		orgIDs, err := r.listActiveOrgIDs(ctx, afterID, warmupPageSize)
+		if err != nil {
+			slog.Error("rewards: warm org leaderboards: list orgs", "err", err)
+			return
+		}
+		for _, id := range orgIDs {
+			if err := r.rebuildScope(ctx, "leaderboard:org:"+id, "org", id, ""); err != nil {
+				slog.Error("rewards: warm org leaderboard", "org", id, "err", err)
+			}
+			if err := r.rebuildFeatureBoard(ctx, id, "problems", "problem_solved"); err != nil {
+				slog.Error("rewards: warm problems leaderboard", "org", id, "err", err)
+			}
+			if err := r.rebuildFeatureBoard(ctx, id, "quizzes", "quiz_passed", "quiz_perfect"); err != nil {
+				slog.Error("rewards: warm quizzes leaderboard", "org", id, "err", err)
+			}
+		}
+		if len(orgIDs) < warmupPageSize {
+			break
+		}
+		afterID = orgIDs[len(orgIDs)-1]
 	}
 
-	// Per-batch
-	batchIDs, err := r.listActiveBatchIDs(ctx)
-	if err != nil {
-		slog.Error("rewards: warm batch leaderboards: list batches", "err", err)
-		return
-	}
-	for _, id := range batchIDs {
-		if err := r.rebuildScope(ctx, "leaderboard:batch:"+id, "batch", id, ""); err != nil {
-			slog.Error("rewards: warm batch leaderboard", "batch", id, "err", err)
+	// Per-batch, paginated the same way.
+	afterID = ""
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Warn("rewards: warm-up cancelled", "err", ctx.Err())
+			return
+		default:
 		}
-	}
-
-	// Feature boards (problems / quizzes) per org
-	for _, id := range orgIDs {
-		if err := r.rebuildFeatureBoard(ctx, id, "problems", "problem_solved"); err != nil {
-			slog.Error("rewards: warm problems leaderboard", "org", id, "err", err)
+		batchIDs, err := r.listActiveBatchIDs(ctx, afterID, warmupPageSize)
+		if err != nil {
+			slog.Error("rewards: warm batch leaderboards: list batches", "err", err)
+			return
 		}
-		if err := r.rebuildFeatureBoard(ctx, id, "quizzes", "quiz_passed", "quiz_perfect"); err != nil {
-			slog.Error("rewards: warm quizzes leaderboard", "org", id, "err", err)
+		for _, id := range batchIDs {
+			if err := r.rebuildScope(ctx, "leaderboard:batch:"+id, "batch", id, ""); err != nil {
+				slog.Error("rewards: warm batch leaderboard", "batch", id, "err", err)
+			}
 		}
+		if len(batchIDs) < warmupPageSize {
+			break
+		}
+		afterID = batchIDs[len(batchIDs)-1]
 	}
 
 	slog.Info("rewards: leaderboard warm-up complete")
@@ -871,8 +899,11 @@ func (r *Repo) rebuildGroupScope(ctx context.Context, key, groupID string) error
 	return err
 }
 
-func (r *Repo) listActiveOrgIDs(ctx context.Context) ([]string, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id FROM organizations WHERE status = 'active'`)
+// listActiveOrgIDs returns up to limit active org ids with id::text > afterID
+// (afterID = "" for the first page), ordered by id::text — a keyset page for
+// WarmLeaderboards' paginated startup sweep.
+func (r *Repo) listActiveOrgIDs(ctx context.Context, afterID string, limit int) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id FROM organizations WHERE status = 'active' AND id::text > $1 ORDER BY id::text LIMIT $2`, afterID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -888,8 +919,10 @@ func (r *Repo) listActiveOrgIDs(ctx context.Context) ([]string, error) {
 	return ids, rows.Err()
 }
 
-func (r *Repo) listActiveBatchIDs(ctx context.Context) ([]string, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id FROM batches WHERE status = 'active'`)
+// listActiveBatchIDs is listActiveOrgIDs' batches counterpart — same keyset
+// pagination contract.
+func (r *Repo) listActiveBatchIDs(ctx context.Context, afterID string, limit int) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id FROM batches WHERE status = 'active' AND id::text > $1 ORDER BY id::text LIMIT $2`, afterID, limit)
 	if err != nil {
 		return nil, err
 	}

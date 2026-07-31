@@ -133,3 +133,9 @@ export interface ActiveLabSession {
 export function isLabSessionAlreadyEnded(message: string): boolean {
   return message.toLowerCase().includes('already ended')
 }
+
+// A session is "live" (occupying a workspace) while running or paused —
+// provisioning/completed/expired/failed/terminated all mean no active UI.
+export function isLabSessionActive(status: SessionStatus): boolean {
+  return status === 'running' || status === 'paused'
+}

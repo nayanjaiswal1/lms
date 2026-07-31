@@ -20,6 +20,7 @@ const (
 	ScopeSignals        = "signals:write"
 	ScopeCalendarManage = "calendar:manage"
 	ScopeInterviewPrep  = "interview_prep:manage"
+	ScopeSystemDesign   = "system_design:manage"
 )
 
 // AllScopes is the full set offered on the consent screen — this MVP grants
@@ -31,7 +32,7 @@ const (
 // covers both reading and creating prep plans/rounds — like ScopeCalendarManage,
 // one combined scope rather than a read/write split, since every interview-prep
 // tool call is scoped to the connection's own plans only.
-var AllScopes = []string{ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep}
+var AllScopes = []string{ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign}
 
 // ScopeDescriptions is shown on the consent screen, keyed by scope.
 var ScopeDescriptions = map[string]string{
@@ -41,11 +42,12 @@ var ScopeDescriptions = map[string]string{
 	ScopeSignals:        "Log what you understood or struggled with",
 	ScopeCalendarManage: "View, create, update, and delete events on your calendar",
 	ScopeInterviewPrep:  "Create and run interview-prep practice plans, submit coding answers, and view your readiness report",
+	ScopeSystemDesign:   "Create and edit your system design whiteboard attempts, and get AI feedback",
 }
 
 func validScope(s string) bool {
 	switch s {
-	case ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep:
+	case ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign:
 		return true
 	default:
 		return false

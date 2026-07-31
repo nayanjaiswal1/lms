@@ -36,6 +36,10 @@ var alwaysOrgEnabled = []string{
 	// (internal/gitlab), so there is nothing unsafe about it being
 	// unconditionally "on" for every org from day one.
 	"gitlab_integration",
+	// lesson_compiler_bottom_dock: code-level toggle, no admin UI. Remove
+	// this entry (and redeploy) to restrict the lesson scratch compiler to
+	// right-dock only; there is no live per-org switch for it yet.
+	"lesson_compiler_bottom_dock",
 }
 
 // alwaysEntitled is alwaysOrgEnabled minus "what_now" — none of these have a
@@ -62,6 +66,7 @@ var alwaysEntitled = []string{
 	// ai_connector: org-gated only (see Resolve), no per-user plan/seat
 	// concept — once an org has it on, every member is entitled.
 	"ai_connector",
+	"lesson_compiler_bottom_dock",
 }
 
 type Service struct {

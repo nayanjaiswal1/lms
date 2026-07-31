@@ -30,11 +30,12 @@ import {
   updateEventAction,
   updateNotesAction,
 } from "@/lib/server/calendar";
-import { ATTENDEE_ROLE_OPTIONS } from "@/lib/calendar/types";
+import { ATTENDEE_ROLE_OPTIONS, CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
 import type {
   Attendee,
   AttendeeRole,
   CalendarEvent,
+  CalendarEventPriority,
   CalendarEventScope,
   EventInvite,
   RsvpStatus,
@@ -45,6 +46,13 @@ const RSVP_BADGE: Record<RsvpStatus, "default" | "secondary" | "destructive"> = 
   accepted: "default",
   declined: "destructive",
 };
+
+const PRIORITY_LABEL = Object.fromEntries(
+  CALENDAR_PRIORITY_OPTIONS.map((opt) => [opt.value, opt.label]),
+) as Record<CalendarEventPriority, string>;
+const PRIORITY_BADGE_CLASS = Object.fromEntries(
+  CALENDAR_PRIORITY_OPTIONS.map((opt) => [opt.value, opt.badgeClassName]),
+) as Record<CalendarEventPriority, string>;
 
 // An external invite can only ever grant 'editor' or 'viewer' — the backend
 // rejects 'owner' here (IsValidInviteRole in backend/internal/calendar/models.go).
@@ -127,6 +135,7 @@ const EditEventSchema = z.object({
   date: z.string().min(1, "Date is required."),
   startTime: z.string().min(1, "Start time is required."),
   endTime: z.string().min(1, "End time is required."),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
 });
 type EditEventFormData = z.infer<typeof EditEventSchema>;
 
@@ -160,8 +169,10 @@ function EditEventForm({ event, onSaved, onCancel }: EditEventFormProps) {
       date: toDateInputValue(start),
       startTime: toTimeInputValue(start),
       endTime: toTimeInputValue(end),
+      priority: event.priority ?? undefined,
     },
   });
+  const isTask = event.event_type === "task";
 
   async function submit(data: EditEventFormData, scope: CalendarEventScope) {
     const newStart = combineDateTime(data.date, data.startTime);
@@ -172,7 +183,12 @@ function EditEventForm({ event, onSaved, onCancel }: EditEventFormProps) {
     }
     const result = await updateEventAction(
       event.id,
-      { title: data.title, starts_at: newStart.toISOString(), ends_at: newEnd.toISOString() },
+      {
+        title: data.title,
+        starts_at: newStart.toISOString(),
+        ends_at: newEnd.toISOString(),
+        ...(isTask ? { priority: data.priority } : {}),
+      },
       scope,
     );
     if (!result.ok || !result.data) {
@@ -241,6 +257,32 @@ function EditEventForm({ event, onSaved, onCancel }: EditEventFormProps) {
             )}
           />
         </div>
+        {isTask && (
+          <FormField
+            control={form.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">Priority</FormLabel>
+                <Select defaultValue={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger aria-label="Task priority">
+                      <SelectValue placeholder="No priority" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CALENDAR_PRIORITY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <div className="flex flex-wrap justify-end gap-2">
           <Button disabled={form.formState.isSubmitting} size="sm" type="button" variant="ghost" onClick={onCancel}>
             Cancel
@@ -372,8 +414,8 @@ export function EventPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="modal-responsive flex w-full flex-col gap-6 overflow-y-auto p-6 sm:max-w-md" side="right">
-        <SheetHeader className="flex-row items-start justify-between gap-2 p-0 pr-8">
+      <SheetContent className="modal-responsive flex w-full flex-col gap-6 overflow-y-auto sm:max-w-md" side="right">
+        <SheetHeader className="flex-row items-start justify-between gap-2 pr-8">
           <div className="flex flex-col gap-1.5">
             <SheetTitle>{event.title}</SheetTitle>
             <SheetDescription>
@@ -418,15 +460,22 @@ export function EventPanel({
         </SheetHeader>
 
         {!isEditing && !readOnly && event.event_type === "task" && (
-          <label className="flex w-fit items-center gap-2 text-sm">
-            <input
-              checked={Boolean(event.completed_at)}
-              className="h-4 w-4"
-              type="checkbox"
-              onChange={(e) => void handleToggleComplete(e.target.checked)}
-            />
-            Mark as done
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label className="flex w-fit items-center gap-2 text-sm">
+              <input
+                checked={Boolean(event.completed_at)}
+                className="h-4 w-4"
+                type="checkbox"
+                onChange={(e) => void handleToggleComplete(e.target.checked)}
+              />
+              Mark as done
+            </label>
+            {event.priority && (
+              <Badge className={PRIORITY_BADGE_CLASS[event.priority]} variant="outline">
+                {PRIORITY_LABEL[event.priority]}
+              </Badge>
+            )}
+          </div>
         )}
 
         {isEditing && <EditEventForm event={event} onCancel={() => setIsEditing(false)} onSaved={handleEventSaved} />}

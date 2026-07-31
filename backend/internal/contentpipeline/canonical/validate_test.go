@@ -70,6 +70,68 @@ func TestLessonValidate(t *testing.T) {
 	}
 }
 
+func validLabSpec() *canonical.LabSpec {
+	return &canonical.LabSpec{
+		LabType:     "terminal",
+		Environment: "mindforge/lab-docker:27",
+		MaxDuration: 45,
+		MaxResets:   3,
+		Tasks:       []canonical.Task{validTask(), validTask()},
+	}
+}
+
+func TestLessonValidate_AttachedLab(t *testing.T) {
+	tests := []struct {
+		name      string
+		body      string
+		lab       *canonical.LabSpec
+		wantErr   bool
+		errSubstr string
+	}{
+		{
+			name: "valid hybrid lesson with markers matching every task",
+			body: "# Concept\n\n[[lab-task:1]]\n\n# Concept two\n\n[[lab-task:2]]\n",
+			lab:  validLabSpec(),
+		},
+		{
+			name:      "lab with tasks but no marker is unreachable",
+			body:      "# Concept\n\nJust prose, no marker.",
+			lab:       validLabSpec(),
+			wantErr:   true,
+			errSubstr: "would be unreachable",
+		},
+		{
+			name:      "marker position beyond task count",
+			body:      "[[lab-task:1]]\n\n[[lab-task:5]]\n",
+			lab:       validLabSpec(),
+			wantErr:   true,
+			errSubstr: "does not match any of the lab's 2 task(s)",
+		},
+		{
+			name:      "marker present with no lab attached",
+			body:      "# Concept\n\n[[lab-task:1]]\n",
+			lab:       nil,
+			wantErr:   true,
+			errSubstr: "no lab: block is attached",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lesson := canonical.Lesson{Common: baseCommon(), Body: tt.body, Lab: tt.lab}
+			err := lesson.Validate()
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errSubstr != "" {
+					assert.Contains(t, err.Error(), tt.errSubstr)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func validQuestion() canonical.Question {
 	return canonical.Question{
 		IDKey:      "q1",
@@ -323,14 +385,16 @@ func TestLabValidate(t *testing.T) {
 			c := baseCommon()
 			c.Kind = canonical.KindLab
 			l := canonical.Lab{
-				Common:         c,
-				LabType:        "terminal",
-				Environment:    "mindforge/lab-k8s:1.31",
-				MaxDuration:    60,
-				MaxResets:      3,
-				HintPenaltyPct: 10,
-				IsRequired:     true,
-				Tasks:          []canonical.Task{validTask()},
+				Common: c,
+				LabSpec: canonical.LabSpec{
+					LabType:        "terminal",
+					Environment:    "mindforge/lab-k8s:1.31",
+					MaxDuration:    60,
+					MaxResets:      3,
+					HintPenaltyPct: 10,
+					IsRequired:     true,
+					Tasks:          []canonical.Task{validTask()},
+				},
 			}
 			tt.mutate(&l)
 

@@ -87,6 +87,9 @@ erDiagram
         integer time_spent_seconds 
         timestamp_with_time_zone evaluated_at 
         timestamp_with_time_zone updated_at 
+        text override_note 
+        uuid overridden_by 
+        timestamp_with_time_zone overridden_at 
     }
     attempt_events {
         bigint id PK
@@ -96,16 +99,6 @@ erDiagram
         text severity 
         jsonb metadata 
         timestamp_with_time_zone client_ts 
-        timestamp_with_time_zone created_at 
-    }
-    audit_log {
-        bigint id PK
-        uuid tenant_id 
-        uuid actor_id 
-        text action 
-        text entity_type 
-        text entity_id 
-        jsonb diff 
         timestamp_with_time_zone created_at 
     }
     audit_logs {
@@ -130,7 +123,7 @@ erDiagram
         uuid id PK
         uuid batch_id 
         uuid org_id 
-        text email 
+        USER-DEFINED email 
         uuid invited_by 
         text token_hash 
         timestamp_with_time_zone expires_at 
@@ -138,10 +131,11 @@ erDiagram
         timestamp_with_time_zone accepted_at 
         timestamp_with_time_zone declined_at 
         timestamp_with_time_zone resent_at 
+        uuid import_job_id 
     }
     batch_member_details {
         uuid batch_id PK
-        text email PK
+        USER-DEFINED email PK
         uuid user_id 
         text full_name 
         text roll_number 
@@ -199,6 +193,7 @@ erDiagram
         timestamp_with_time_zone starts_at 
         timestamp_with_time_zone ends_at 
         text image_url 
+        uuid cohort_group_id 
     }
     calendar_event_attendees {
         uuid event_id PK
@@ -209,7 +204,7 @@ erDiagram
     calendar_event_invites {
         uuid id PK
         uuid event_id 
-        text email 
+        USER-DEFINED email 
         text role 
         text token_hash 
         timestamp_with_time_zone expires_at 
@@ -246,6 +241,23 @@ erDiagram
         text token_hash 
         timestamp_with_time_zone created_at 
     }
+    certificate_rules {
+        uuid id PK
+        uuid course_id 
+        integer threshold_percent 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    certificates {
+        uuid id PK
+        uuid user_id 
+        uuid course_id 
+        uuid final_test_attempt_id 
+        timestamp_with_time_zone issued_at 
+        uuid cert_uuid 
+        text issue_type 
+        uuid issued_by 
+    }
     coding_submissions {
         uuid id PK
         uuid attempt_answer_id 
@@ -260,6 +272,37 @@ erDiagram
         jsonb result 
         timestamp_with_time_zone created_at 
         timestamp_with_time_zone evaluated_at 
+    }
+    cohort_groups {
+        uuid id PK
+        uuid org_id 
+        uuid parent_id 
+        text name 
+        text slug 
+        text level_label 
+        text status 
+        uuid created_by 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    course_content_proposals {
+        uuid id PK
+        uuid org_id 
+        uuid proposer_id 
+        uuid source_course_id 
+        uuid source_module_id 
+        uuid target_course_id 
+        uuid target_section_id 
+        text title 
+        text type 
+        text content_body 
+        text status 
+        text review_note 
+        uuid reviewed_by 
+        timestamp_with_time_zone reviewed_at 
+        uuid created_module_id 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
     }
     course_faqs {
         uuid id PK
@@ -292,6 +335,7 @@ erDiagram
         timestamp_with_time_zone deleted_at 
         timestamp_with_time_zone starts_at 
         timestamp_with_time_zone ends_at 
+        jsonb knowledge_check 
     }
     course_purchases {
         uuid id PK
@@ -339,6 +383,9 @@ erDiagram
         timestamp_with_time_zone updated_at 
         timestamp_with_time_zone starts_at 
         timestamp_with_time_zone ends_at 
+        boolean is_public 
+        text kind 
+        uuid owner_id 
     }
     email_verifications {
         uuid id PK
@@ -387,6 +434,185 @@ erDiagram
         timestamp_with_time_zone created_at 
         timestamp_with_time_zone updated_at 
     }
+    final_test_attempts {
+        uuid id PK
+        uuid user_id 
+        uuid final_test_id 
+        jsonb answers 
+        integer score 
+        integer total 
+        boolean passed 
+        timestamp_with_time_zone completed_at 
+    }
+    final_tests {
+        uuid id PK
+        uuid course_id 
+        uuid org_id 
+        jsonb questions 
+        integer time_limit_minutes 
+        integer passing_score_percent 
+        integer max_attempts 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    gitlab_commits {
+        uuid id PK
+        uuid org_id 
+        uuid team_id 
+        text sha 
+        text branch 
+        bigint author_gitlab_user_id 
+        uuid user_id 
+        text author_email 
+        text author_name 
+        text message 
+        integer additions 
+        integer deletions 
+        integer files_changed 
+        boolean is_merge 
+        timestamp_with_time_zone committed_at 
+        timestamp_with_time_zone recorded_at 
+    }
+    gitlab_connections {
+        uuid id PK
+        uuid org_id 
+        uuid user_id 
+        bigint gitlab_user_id 
+        text gitlab_username 
+        text gitlab_email 
+        text avatar_url 
+        bytea access_token_enc 
+        timestamp_with_time_zone access_token_expires_at 
+        bytea refresh_token_enc 
+        ARRAY scopes 
+        text status 
+        timestamp_with_time_zone last_used_at 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone revoked_at 
+    }
+    gitlab_installations {
+        uuid id PK
+        uuid org_id 
+        text base_url 
+        text tier 
+        bigint gitlab_user_id 
+        text gitlab_username 
+        bytea access_token_enc 
+        timestamp_with_time_zone access_token_expires_at 
+        bytea refresh_token_enc 
+        text auth_kind 
+        text oauth_client_id 
+        bytea oauth_client_secret_enc 
+        bigint root_group_id 
+        text root_group_path 
+        bytea webhook_secret_enc 
+        text webhook_mode 
+        text status 
+        text last_error 
+        timestamp_with_time_zone last_verified_at 
+        uuid created_by 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        text name 
+        boolean is_default 
+    }
+    gitlab_issues {
+        uuid id PK
+        uuid org_id 
+        uuid team_id 
+        bigint issue_iid 
+        bigint issue_id 
+        text title 
+        text state 
+        bigint milestone_id 
+        uuid checkpoint_id 
+        bigint assignee_gitlab_user_id 
+        uuid assignee_user_id 
+        integer weight 
+        ARRAY labels 
+        timestamp_with_time_zone gl_created_at 
+        timestamp_with_time_zone gl_closed_at 
+        timestamp_with_time_zone updated_at 
+    }
+    gitlab_merge_requests {
+        uuid id PK
+        uuid org_id 
+        uuid team_id 
+        bigint mr_iid 
+        bigint mr_id 
+        text title 
+        text description 
+        text state 
+        text source_branch 
+        text target_branch 
+        bigint author_gitlab_user_id 
+        uuid author_user_id 
+        text web_url 
+        integer approvals_count 
+        integer changes_count 
+        timestamp_with_time_zone opened_at 
+        timestamp_with_time_zone merged_at 
+        timestamp_with_time_zone closed_at 
+        timestamp_with_time_zone updated_at 
+    }
+    gitlab_mr_reviews {
+        uuid id PK
+        uuid merge_request_id 
+        bigint reviewer_gitlab_user_id 
+        uuid reviewer_user_id 
+        text kind 
+        bigint note_id 
+        text body 
+        text file_path 
+        timestamp_with_time_zone created_at 
+    }
+    gitlab_oauth_states {
+        text state PK
+        uuid org_id 
+        uuid user_id 
+        text purpose 
+        text code_verifier 
+        text base_url 
+        text oauth_client_id 
+        bytea oauth_client_secret_enc 
+        text redirect_to 
+        timestamp_with_time_zone expires_at 
+        timestamp_with_time_zone created_at 
+        text name 
+        uuid installation_id 
+    }
+    gitlab_org_config {
+        uuid org_id PK
+        boolean allow_project_override 
+        timestamp_with_time_zone updated_at 
+    }
+    gitlab_pipelines {
+        uuid id PK
+        uuid org_id 
+        uuid team_id 
+        bigint pipeline_id 
+        text sha 
+        text ref 
+        text status 
+        text web_url 
+        integer duration_seconds 
+        timestamp_with_time_zone started_at 
+        timestamp_with_time_zone finished_at 
+        timestamp_with_time_zone updated_at 
+    }
+    gitlab_webhook_events {
+        uuid id PK
+        uuid org_id 
+        bigint project_id 
+        text event_type 
+        text event_uuid 
+        jsonb payload 
+        text status 
+        text error 
+        timestamp_with_time_zone received_at 
+        timestamp_with_time_zone processed_at 
+    }
     highlight_explanations {
         uuid id PK
         text text_hash 
@@ -413,6 +639,7 @@ erDiagram
         text context_snippet 
         text source_url 
         boolean source_orphaned 
+        text note 
     }
     idempotency_keys {
         uuid id PK
@@ -450,6 +677,96 @@ erDiagram
         boolean review_required 
         text ai_model 
         timestamp_with_time_zone created_at 
+    }
+    interview_exp_comments {
+        uuid id PK
+        uuid qna_id 
+        uuid parent_id 
+        uuid author_id 
+        text content 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone deleted_at 
+    }
+    interview_exp_entries {
+        uuid id PK
+        uuid post_id 
+        uuid author_id 
+        text round_label 
+        text content 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone deleted_at 
+    }
+    interview_exp_posts {
+        uuid id PK
+        uuid author_id 
+        text company 
+        text position 
+        ARRAY tags 
+        text title 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone deleted_at 
+    }
+    interview_exp_qna {
+        uuid id PK
+        uuid post_id 
+        uuid entry_id 
+        uuid author_id 
+        text question 
+        text answer 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone deleted_at 
+    }
+    interview_exp_qna_progress {
+        uuid id PK
+        uuid user_id 
+        uuid qna_id 
+        text status 
+        boolean is_starred 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    interview_exp_votes {
+        uuid id PK
+        uuid user_id 
+        text target_type 
+        uuid target_id 
+        smallint value 
+        timestamp_with_time_zone created_at 
+    }
+    interview_prep_plans {
+        uuid id PK
+        uuid user_id 
+        uuid org_id 
+        text job_title 
+        text jd_text 
+        text extracted_role 
+        text extracted_seniority 
+        ARRAY extracted_skills 
+        text status 
+        jsonb report 
+        text ai_model 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone completed_at 
+        text plan_type 
+        text technology 
+        text difficulty 
+        text category 
+    }
+    interview_prep_rounds {
+        uuid id PK
+        uuid plan_id 
+        text round_type 
+        integer order_index 
+        uuid practice_session_id 
+        jsonb items 
+        text status 
+        numeric score 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone completed_at 
     }
     interview_skill_scores {
         uuid id PK
@@ -550,6 +867,8 @@ erDiagram
         timestamp_with_time_zone updated_at 
         text language 
         text workspace_layout 
+        integer preview_port 
+        text run_script 
     }
     lab_egress_rules {
         uuid id PK
@@ -586,15 +905,32 @@ erDiagram
         timestamp_with_time_zone completed_at 
         timestamp_with_time_zone last_active_at 
         text end_reason 
+        uuid project_team_id 
+        text repo_clone_status 
+        text repo_clone_error 
     }
     lab_task_completions {
         uuid id PK
         uuid session_id 
-        uuid task_id 
         text status 
         integer attempts 
         integer hints_used 
         timestamp_with_time_zone completed_at 
+        uuid task_version_item_id 
+    }
+    lab_task_version_items {
+        uuid id PK
+        uuid task_version_id 
+        uuid source_task_id 
+        integer position 
+        text title 
+        text description 
+        text verification_script 
+        text hint_context 
+        text explanation_context 
+        integer points 
+        boolean is_optional 
+        boolean is_stateful 
     }
     lab_task_versions {
         uuid id PK
@@ -626,6 +962,121 @@ erDiagram
         bigint quantity 
         text image 
         timestamp_with_time_zone recorded_at 
+    }
+    lab_warm_containers {
+        uuid id PK
+        uuid lab_id 
+        uuid task_version_id 
+        text image 
+        text status 
+        text container_id 
+        text container_host 
+        uuid session_id 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone ready_at 
+        timestamp_with_time_zone claimed_at 
+    }
+    lab_warm_pool_configs {
+        uuid lab_id PK
+        text mode 
+        integer fixed_size 
+        integer max_size 
+        uuid updated_by 
+        timestamp_with_time_zone updated_at 
+    }
+    lab_warm_pool_decisions {
+        uuid id PK
+        uuid lab_id 
+        timestamp_with_time_zone decided_at 
+        text mode 
+        integer target 
+        integer previous_target 
+        jsonb inputs 
+        text reason 
+    }
+    lesson_check_attempts {
+        uuid id PK
+        uuid org_id 
+        uuid user_id 
+        uuid module_id 
+        text question_id 
+        text question_type 
+        jsonb answer 
+        boolean is_correct 
+        timestamp_with_time_zone created_at 
+    }
+    lesson_notes {
+        uuid id PK
+        uuid org_id 
+        uuid user_id 
+        uuid module_id 
+        text content 
+        text source 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    lesson_reflections {
+        uuid id PK
+        uuid org_id 
+        uuid user_id 
+        uuid module_id 
+        text response 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        text source 
+    }
+    mcp_access_tokens {
+        uuid id PK
+        uuid connection_id 
+        text token_hash 
+        timestamp_with_time_zone expires_at 
+        timestamp_with_time_zone created_at 
+    }
+    mcp_action_log {
+        uuid id PK
+        uuid org_id 
+        uuid user_id 
+        uuid connection_id 
+        text tool_name 
+        jsonb args 
+        text target_type 
+        uuid target_id 
+        jsonb before_state 
+        jsonb after_state 
+        boolean revertible 
+        timestamp_with_time_zone reverted_at 
+        uuid reverted_by 
+        timestamp_with_time_zone created_at 
+    }
+    mcp_auth_codes {
+        text code PK
+        text client_id 
+        uuid org_id 
+        uuid user_id 
+        ARRAY scopes 
+        text code_challenge 
+        text redirect_uri 
+        timestamp_with_time_zone expires_at 
+        timestamp_with_time_zone created_at 
+    }
+    mcp_clients {
+        text client_id PK
+        text client_name 
+        ARRAY redirect_uris 
+        timestamp_with_time_zone created_at 
+    }
+    mcp_connections {
+        uuid id PK
+        uuid org_id 
+        uuid user_id 
+        text client_id 
+        ARRAY scopes 
+        text refresh_token_hash 
+        timestamp_with_time_zone refresh_token_expires_at 
+        text status 
+        timestamp_with_time_zone last_used_at 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone revoked_at 
     }
     mentor_change_requests {
         uuid id PK
@@ -684,6 +1135,18 @@ erDiagram
         timestamp_with_time_zone updated_at 
         smallint escalation_level 
     }
+    mistake_entries {
+        uuid id PK
+        uuid user_id 
+        text category 
+        text sub_topic 
+        text original_text 
+        text corrected_text 
+        text context_tag 
+        uuid source_module_id 
+        timestamp_with_time_zone resolved_at 
+        timestamp_with_time_zone created_at 
+    }
     module_progress {
         uuid id PK
         uuid user_id 
@@ -704,13 +1167,48 @@ erDiagram
         boolean in_bottom_nav 
         timestamp_with_time_zone created_at 
     }
+    notifications {
+        uuid id PK
+        uuid org_id 
+        uuid user_id 
+        text type 
+        text title 
+        text body 
+        text link_url 
+        text entity_type 
+        uuid entity_id 
+        uuid actor_user_id 
+        text priority 
+        text dedupe_key 
+        timestamp_with_time_zone read_at 
+        timestamp_with_time_zone created_at 
+    }
     oauth_exchanges {
         uuid id PK
-        text token 
         uuid user_id 
         boolean onboarding_completed 
         timestamp_with_time_zone expires_at 
         timestamp_with_time_zone used_at 
+        text token_hash 
+    }
+    offline_test_scores {
+        uuid id PK
+        uuid org_id 
+        uuid batch_id 
+        uuid user_id 
+        uuid test_id 
+        text test_name 
+        date test_date 
+        numeric max_score 
+        numeric score 
+        uuid entered_by 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    org_ai_connector_config {
+        uuid org_id PK
+        boolean enabled 
+        timestamp_with_time_zone updated_at 
     }
     org_auth_config {
         uuid org_id PK
@@ -745,7 +1243,7 @@ erDiagram
     org_invites {
         uuid id PK
         uuid org_id 
-        text email 
+        USER-DEFINED email 
         text role 
         uuid invited_by_user_id 
         text token_hash 
@@ -788,6 +1286,7 @@ erDiagram
         timestamp_with_time_zone activated_at 
         timestamp_with_time_zone created_at 
         timestamp_with_time_zone updated_at 
+        text org_type 
     }
     password_reset_tokens {
         uuid id PK
@@ -817,6 +1316,16 @@ erDiagram
         timestamp_with_time_zone feedback_at 
         timestamp_with_time_zone created_at 
     }
+    practice_question_bank {
+        uuid id PK
+        text technology 
+        text difficulty 
+        text category 
+        ARRAY questions 
+        text ai_model 
+        integer use_count 
+        timestamp_with_time_zone created_at 
+    }
     practice_sessions {
         uuid id PK
         uuid user_id 
@@ -828,12 +1337,145 @@ erDiagram
         text ai_model 
         timestamp_with_time_zone created_at 
         timestamp_with_time_zone completed_at 
+        text category 
+    }
+    project_assignments {
+        uuid id PK
+        uuid org_id 
+        uuid batch_id 
+        uuid course_id 
+        uuid lab_id 
+        text title 
+        text slug 
+        text description 
+        bigint template_project_id 
+        text template_project_path 
+        bigint gitlab_group_id 
+        text gitlab_group_path 
+        text visibility 
+        integer required_approvals 
+        boolean protect_default_branch 
+        text default_branch 
+        timestamp_with_time_zone starts_at 
+        timestamp_with_time_zone due_at 
+        text status 
+        uuid created_by 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        uuid installation_id 
+    }
+    project_checkpoints {
+        uuid id PK
+        uuid org_id 
+        uuid assignment_id 
+        text title 
+        text description 
+        integer position 
+        timestamp_with_time_zone due_at 
+        integer weight 
+        boolean requires_mr 
+        boolean requires_ci_pass 
+        bigint gitlab_milestone_id 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    project_handoffs {
+        uuid id PK
+        uuid org_id 
+        uuid team_id 
+        uuid user_id 
+        text mode 
+        bigint target_namespace_id 
+        text target_namespace_path 
+        bigint new_project_id 
+        text new_web_url 
+        text status 
+        text error 
+        timestamp_with_time_zone requested_at 
+        timestamp_with_time_zone completed_at 
+    }
+    project_originality_matches {
+        uuid id PK
+        uuid report_id 
+        uuid team_a_id 
+        uuid team_b_id 
+        text file_path_a 
+        text file_path_b 
+        numeric similarity 
+        integer matched_lines 
+        text sample 
+    }
+    project_originality_reports {
+        uuid id PK
+        uuid org_id 
+        uuid assignment_id 
+        text status 
+        integer teams_scanned 
+        integer files_scanned 
+        text error 
+        uuid requested_by 
+        timestamp_with_time_zone requested_at 
+        timestamp_with_time_zone completed_at 
+    }
+    project_team_checkpoints {
+        uuid id PK
+        uuid org_id 
+        uuid team_id 
+        uuid checkpoint_id 
+        bigint mr_iid 
+        bigint mr_id 
+        text mr_web_url 
+        text mr_state 
+        integer approvals_count 
+        text ci_status 
+        bigint ci_pipeline_id 
+        text snapshot_sha 
+        timestamp_with_time_zone snapshot_at 
+        boolean is_late 
+        integer late_commit_count 
+        numeric score 
+        text feedback 
+        uuid graded_by 
+        timestamp_with_time_zone graded_at 
+        text status 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    project_team_members {
+        uuid team_id PK
+        uuid user_id PK
+        uuid assignment_id 
+        text role 
+        integer gitlab_access_level 
+        text sync_status 
+        text sync_error 
+        timestamp_with_time_zone synced_at 
+        uuid added_by 
+        timestamp_with_time_zone added_at 
+    }
+    project_teams {
+        uuid id PK
+        uuid org_id 
+        uuid assignment_id 
+        text name 
+        text slug 
+        bigint gitlab_project_id 
+        text gitlab_project_path 
+        text gitlab_web_url 
+        bigint gitlab_hook_id 
+        text pages_url 
+        text provision_status 
+        text provision_error 
+        timestamp_with_time_zone provisioned_at 
+        uuid created_by 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
     }
     public_attempts {
         uuid id PK
         uuid assessment_id 
         text name 
-        text email 
+         email 
         text phone 
         text session_token 
         jsonb answers 
@@ -846,6 +1488,9 @@ erDiagram
         timestamp_with_time_zone started_at 
         timestamp_with_time_zone submitted_at 
         integer duration_sec 
+        text override_note 
+        uuid overridden_by 
+        timestamp_with_time_zone overridden_at 
     }
     question_categories {
         uuid id PK
@@ -890,6 +1535,27 @@ erDiagram
         uuid family_id 
         timestamp_with_time_zone created_at 
     }
+    revision_plan_topics {
+        uuid id PK
+        uuid revision_plan_id 
+        uuid module_id 
+        text title 
+        text reason 
+        text recommendation 
+        integer priority 
+        integer position 
+    }
+    revision_plans {
+        uuid id PK
+        uuid user_id 
+        uuid course_id 
+        uuid org_id 
+        text status 
+        text generation_error 
+        timestamp_with_time_zone generated_at 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
     reward_definitions {
         uuid id PK
         text slug 
@@ -901,6 +1567,56 @@ erDiagram
         text trigger_event 
         integer trigger_threshold 
         timestamp_with_time_zone created_at 
+    }
+    roadmap_milestones {
+        uuid id PK
+        uuid phase_id 
+        text title 
+        text description 
+        integer position 
+        integer estimated_hours 
+        timestamp_with_time_zone created_at 
+    }
+    roadmap_modules {
+        uuid id PK
+        uuid milestone_id 
+        text title 
+        text description 
+        integer position 
+        text module_type 
+        text resource_type 
+        uuid resource_id 
+        integer estimated_minutes 
+        timestamp_with_time_zone completed_at 
+        timestamp_with_time_zone created_at 
+    }
+    roadmap_phases {
+        uuid id PK
+        uuid roadmap_id 
+        text title 
+        text description 
+        integer position 
+        integer estimated_weeks 
+        timestamp_with_time_zone created_at 
+    }
+    roadmaps {
+        uuid id PK
+        uuid user_id 
+        uuid org_id 
+        text title 
+        text mode 
+        text status 
+        boolean is_public 
+        text goal_description 
+        text target_role 
+        text skill_level 
+        integer timeframe_weeks 
+        jsonb focus_areas 
+        text generation_error 
+        timestamp_with_time_zone generated_at 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone deleted_at 
     }
     role_permissions {
         uuid role_id PK
@@ -965,6 +1681,27 @@ erDiagram
         date due_date 
         timestamp_with_time_zone last_reviewed_at 
         timestamp_with_time_zone created_at 
+        uuid mistake_entry_id 
+    }
+    system_design_attempts {
+        uuid id PK
+        uuid module_id 
+        uuid user_id 
+        integer attempt_number 
+        jsonb scene 
+        text feedback 
+        text feedback_model 
+        timestamp_with_time_zone feedback_at 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    system_design_chat_messages {
+        uuid id PK
+        uuid module_id 
+        uuid user_id 
+        text role 
+        text content 
+        timestamp_with_time_zone created_at 
     }
     user_achievements {
         uuid id PK
@@ -973,12 +1710,22 @@ erDiagram
         uuid org_id 
         timestamp_with_time_zone earned_at 
     }
+    user_permission_overrides {
+        uuid user_id PK
+        uuid tenant_id PK
+        uuid permission_id PK
+        uuid granted_by 
+        timestamp_with_time_zone granted_at 
+    }
     user_problem_progress {
         uuid user_id PK
         text topic_tag PK
         text status 
         timestamp_with_time_zone solved_at 
         timestamp_with_time_zone revision_at 
+        jsonb notes 
+        integer review_count 
+        boolean is_starred 
     }
     user_profiles {
         uuid user_id PK
@@ -1017,6 +1764,13 @@ erDiagram
         uuid user_id PK
         uuid role_id PK
         uuid tenant_id PK
+    }
+    user_sheet_settings {
+        uuid user_id PK
+        uuid sheet_id PK
+        integer base_revision_days 
+        text growth_scheme 
+        timestamp_with_time_zone updated_at 
     }
     user_sheets {
         uuid user_id PK
@@ -1067,6 +1821,22 @@ erDiagram
         timestamp_with_time_zone created_at 
         timestamp_with_time_zone updated_at 
     }
+    webauthn_credentials {
+        uuid id PK
+        uuid user_id 
+        bytea credential_id 
+        bytea public_key 
+        text attestation_type 
+        ARRAY transports 
+        bytea aaguid 
+        bigint sign_count 
+        boolean clone_warning 
+        boolean backup_eligible 
+        boolean backup_state 
+        text nickname 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone last_used_at 
+    }
     whatnow_tasks {
         uuid id PK
         uuid user_id 
@@ -1094,6 +1864,66 @@ erDiagram
         text energy 
         timestamp_with_time_zone updated_at 
     }
+    wiki_comments {
+        uuid id PK
+        uuid page_id 
+        uuid parent_id 
+        uuid author_id 
+        text content 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone deleted_at 
+    }
+    wiki_page_versions {
+        uuid id PK
+        uuid page_id 
+        integer version 
+        text title 
+        jsonb content 
+        uuid saved_by 
+        timestamp_with_time_zone saved_at 
+    }
+    wiki_pages {
+        uuid id PK
+        uuid space_id 
+        uuid parent_id 
+        text title 
+        text slug 
+        jsonb content 
+        text search_text 
+        integer order_index 
+        text status 
+        text emoji 
+        integer version 
+        uuid created_by 
+        uuid updated_by 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+        timestamp_with_time_zone deleted_at 
+        tsvector search_vector 
+    }
+    wiki_spaces {
+        uuid id PK
+        uuid org_id 
+        uuid course_id 
+        text name 
+        text slug 
+        text description 
+        text icon 
+        text visibility 
+        uuid created_by 
+        timestamp_with_time_zone created_at 
+        timestamp_with_time_zone updated_at 
+    }
+    wiki_templates {
+        uuid id PK
+        uuid org_id 
+        text name 
+        text description 
+        jsonb content 
+        uuid created_by 
+        timestamp_with_time_zone created_at 
+    }
     xp_events {
         bigint id PK
         uuid user_id 
@@ -1119,16 +1949,16 @@ erDiagram
     assessment_attempts ||--o{ attempt_answers : "attempt_id"
     assessment_questions ||--o{ attempt_answers : "assessment_question_id"
     questions ||--o{ attempt_answers : "question_id"
+    users ||--o{ attempt_answers : "overridden_by"
     assessment_attempts ||--o{ attempt_events : "attempt_id"
     users ||--o{ attempt_events : "user_id"
     organizations ||--o{ audit_logs : "org_id"
     users ||--o{ audit_logs : "actor_user_id"
-    organizations ||--o{ audit_log : "tenant_id"
-    users ||--o{ audit_log : "actor_id"
     batches ||--o{ batch_courses : "batch_id"
     courses ||--o{ batch_courses : "course_id"
     users ||--o{ batch_courses : "assigned_by"
     batches ||--o{ batch_invitations : "batch_id"
+    jobs ||--o{ batch_invitations : "import_job_id"
     organizations ||--o{ batch_invitations : "org_id"
     users ||--o{ batch_invitations : "invited_by"
     batches ||--o{ batch_member_details : "batch_id"
@@ -1143,6 +1973,7 @@ erDiagram
     batch_messages ||--o{ batch_messages : "parent_id"
     batches ||--o{ batch_messages : "batch_id"
     users ||--o{ batch_messages : "sender_id"
+    cohort_groups ||--o{ batches : "cohort_group_id"
     organizations ||--o{ batches : "org_id"
     users ||--o{ batches : "created_by"
     users ||--o{ batches : "mentor_id"
@@ -1156,7 +1987,22 @@ erDiagram
     users ||--o{ calendar_events : "created_by"
     organizations ||--o{ calendar_feed_tokens : "org_id"
     users ||--o{ calendar_feed_tokens : "user_id"
+    courses ||--o{ certificate_rules : "course_id"
+    courses ||--o{ certificates : "course_id"
+    final_test_attempts ||--o{ certificates : "final_test_attempt_id"
+    users ||--o{ certificates : "issued_by"
+    users ||--o{ certificates : "user_id"
     attempt_answers ||--o{ coding_submissions : "attempt_answer_id"
+    cohort_groups ||--o{ cohort_groups : "parent_id"
+    organizations ||--o{ cohort_groups : "org_id"
+    course_modules ||--o{ course_content_proposals : "created_module_id"
+    course_modules ||--o{ course_content_proposals : "source_module_id"
+    course_sections ||--o{ course_content_proposals : "target_section_id"
+    courses ||--o{ course_content_proposals : "source_course_id"
+    courses ||--o{ course_content_proposals : "target_course_id"
+    organizations ||--o{ course_content_proposals : "org_id"
+    users ||--o{ course_content_proposals : "proposer_id"
+    users ||--o{ course_content_proposals : "reviewed_by"
     batch_messages ||--o{ course_faqs : "source_message_id"
     courses ||--o{ course_faqs : "course_id"
     organizations ||--o{ course_faqs : "org_id"
@@ -1173,6 +2019,7 @@ erDiagram
     courses ||--o{ courses : "forked_from_id"
     organizations ||--o{ courses : "org_id"
     users ||--o{ courses : "creator_id"
+    users ||--o{ courses : "owner_id"
     users ||--o{ email_verifications : "user_id"
     batches ||--o{ enrollments : "batch_id"
     courses ||--o{ enrollments : "course_id"
@@ -1184,10 +2031,49 @@ erDiagram
     users ||--o{ feature_grants : "user_id"
     organizations ||--o{ feedback : "org_id"
     users ||--o{ feedback : "user_id"
+    final_tests ||--o{ final_test_attempts : "final_test_id"
+    users ||--o{ final_test_attempts : "user_id"
+    courses ||--o{ final_tests : "course_id"
+    organizations ||--o{ final_tests : "org_id"
+    project_teams ||--o{ gitlab_commits : "team_id"
+    users ||--o{ gitlab_commits : "user_id"
+    organizations ||--o{ gitlab_connections : "org_id"
+    users ||--o{ gitlab_connections : "user_id"
+    organizations ||--o{ gitlab_installations : "org_id"
+    users ||--o{ gitlab_installations : "created_by"
+    project_checkpoints ||--o{ gitlab_issues : "checkpoint_id"
+    project_teams ||--o{ gitlab_issues : "team_id"
+    users ||--o{ gitlab_issues : "assignee_user_id"
+    project_teams ||--o{ gitlab_merge_requests : "team_id"
+    users ||--o{ gitlab_merge_requests : "author_user_id"
+    gitlab_merge_requests ||--o{ gitlab_mr_reviews : "merge_request_id"
+    users ||--o{ gitlab_mr_reviews : "reviewer_user_id"
+    gitlab_installations ||--o{ gitlab_oauth_states : "installation_id"
+    organizations ||--o{ gitlab_oauth_states : "org_id"
+    users ||--o{ gitlab_oauth_states : "user_id"
+    organizations ||--o{ gitlab_org_config : "org_id"
+    project_teams ||--o{ gitlab_pipelines : "team_id"
+    organizations ||--o{ gitlab_webhook_events : "org_id"
     users ||--o{ highlights : "user_id"
     users ||--o{ idempotency_keys : "user_id"
     assessment_attempts ||--o{ interview_evaluations : "attempt_id"
     question_versions ||--o{ interview_evaluations : "question_id"
+    interview_exp_comments ||--o{ interview_exp_comments : "parent_id"
+    interview_exp_qna ||--o{ interview_exp_comments : "qna_id"
+    users ||--o{ interview_exp_comments : "author_id"
+    interview_exp_posts ||--o{ interview_exp_entries : "post_id"
+    users ||--o{ interview_exp_entries : "author_id"
+    users ||--o{ interview_exp_posts : "author_id"
+    interview_exp_qna ||--o{ interview_exp_qna_progress : "qna_id"
+    users ||--o{ interview_exp_qna_progress : "user_id"
+    interview_exp_entries ||--o{ interview_exp_qna : "entry_id"
+    interview_exp_posts ||--o{ interview_exp_qna : "post_id"
+    users ||--o{ interview_exp_qna : "author_id"
+    users ||--o{ interview_exp_votes : "user_id"
+    organizations ||--o{ interview_prep_plans : "org_id"
+    users ||--o{ interview_prep_plans : "user_id"
+    interview_prep_plans ||--o{ interview_prep_rounds : "plan_id"
+    practice_sessions ||--o{ interview_prep_rounds : "practice_session_id"
     assessment_attempts ||--o{ interview_skill_scores : "attempt_id"
     organizations ||--o{ interview_skill_scores : "org_id"
     users ||--o{ interview_skill_scores : "user_id"
@@ -1207,13 +2093,40 @@ erDiagram
     lab_definitions ||--o{ lab_sessions : "lab_id"
     lab_task_versions ||--o{ lab_sessions : "task_version_id"
     organizations ||--o{ lab_sessions : "org_id"
+    project_teams ||--o{ lab_sessions : "project_team_id"
     users ||--o{ lab_sessions : "user_id"
     lab_sessions ||--o{ lab_task_completions : "session_id"
+    lab_task_version_items ||--o{ lab_task_completions : "task_version_item_id"
+    lab_task_versions ||--o{ lab_task_version_items : "task_version_id"
     lab_definitions ||--o{ lab_task_versions : "lab_id"
     users ||--o{ lab_task_versions : "published_by"
     lab_definitions ||--o{ lab_tasks : "lab_id"
     lab_sessions ||--o{ lab_usage_events : "session_id"
     organizations ||--o{ lab_usage_events : "org_id"
+    lab_definitions ||--o{ lab_warm_containers : "lab_id"
+    lab_sessions ||--o{ lab_warm_containers : "session_id"
+    lab_task_versions ||--o{ lab_warm_containers : "task_version_id"
+    lab_definitions ||--o{ lab_warm_pool_configs : "lab_id"
+    users ||--o{ lab_warm_pool_configs : "updated_by"
+    lab_definitions ||--o{ lab_warm_pool_decisions : "lab_id"
+    course_modules ||--o{ lesson_check_attempts : "module_id"
+    users ||--o{ lesson_check_attempts : "user_id"
+    course_modules ||--o{ lesson_notes : "module_id"
+    organizations ||--o{ lesson_notes : "org_id"
+    users ||--o{ lesson_notes : "user_id"
+    course_modules ||--o{ lesson_reflections : "module_id"
+    users ||--o{ lesson_reflections : "user_id"
+    mcp_connections ||--o{ mcp_access_tokens : "connection_id"
+    mcp_connections ||--o{ mcp_action_log : "connection_id"
+    organizations ||--o{ mcp_action_log : "org_id"
+    users ||--o{ mcp_action_log : "reverted_by"
+    users ||--o{ mcp_action_log : "user_id"
+    mcp_clients ||--o{ mcp_auth_codes : "client_id"
+    organizations ||--o{ mcp_auth_codes : "org_id"
+    users ||--o{ mcp_auth_codes : "user_id"
+    mcp_clients ||--o{ mcp_connections : "client_id"
+    organizations ||--o{ mcp_connections : "org_id"
+    users ||--o{ mcp_connections : "user_id"
     mentor_tickets ||--o{ mentor_change_requests : "ticket_id"
     organizations ||--o{ mentor_change_requests : "org_id"
     users ||--o{ mentor_change_requests : "reviewed_by"
@@ -1236,10 +2149,20 @@ erDiagram
     users ||--o{ mentor_tickets : "assigned_by"
     users ||--o{ mentor_tickets : "assigned_mentor_id"
     users ||--o{ mentor_tickets : "student_id"
+    course_modules ||--o{ mistake_entries : "source_module_id"
+    users ||--o{ mistake_entries : "user_id"
     course_modules ||--o{ module_progress : "module_id"
     courses ||--o{ module_progress : "course_id"
     users ||--o{ module_progress : "user_id"
+    organizations ||--o{ notifications : "org_id"
+    users ||--o{ notifications : "actor_user_id"
+    users ||--o{ notifications : "user_id"
     users ||--o{ oauth_exchanges : "user_id"
+    batches ||--o{ offline_test_scores : "batch_id"
+    organizations ||--o{ offline_test_scores : "org_id"
+    users ||--o{ offline_test_scores : "entered_by"
+    users ||--o{ offline_test_scores : "user_id"
+    organizations ||--o{ org_ai_connector_config : "org_id"
     organizations ||--o{ org_auth_config : "org_id"
     organizations ||--o{ org_domains : "org_id"
     organizations ||--o{ org_invites : "org_id"
@@ -1252,7 +2175,32 @@ erDiagram
     practice_sessions ||--o{ practice_items : "session_id"
     organizations ||--o{ practice_sessions : "org_id"
     users ||--o{ practice_sessions : "user_id"
+    batches ||--o{ project_assignments : "batch_id"
+    courses ||--o{ project_assignments : "course_id"
+    gitlab_installations ||--o{ project_assignments : "installation_id"
+    lab_definitions ||--o{ project_assignments : "lab_id"
+    organizations ||--o{ project_assignments : "org_id"
+    users ||--o{ project_assignments : "created_by"
+    project_assignments ||--o{ project_checkpoints : "assignment_id"
+    project_teams ||--o{ project_handoffs : "team_id"
+    users ||--o{ project_handoffs : "user_id"
+    project_originality_reports ||--o{ project_originality_matches : "report_id"
+    project_teams ||--o{ project_originality_matches : "team_a_id"
+    project_teams ||--o{ project_originality_matches : "team_b_id"
+    project_assignments ||--o{ project_originality_reports : "assignment_id"
+    users ||--o{ project_originality_reports : "requested_by"
+    project_checkpoints ||--o{ project_team_checkpoints : "checkpoint_id"
+    project_teams ||--o{ project_team_checkpoints : "team_id"
+    users ||--o{ project_team_checkpoints : "graded_by"
+    project_teams ||--o{ project_team_members : "assignment_id"
+    project_teams ||--o{ project_team_members : "team_id"
+    users ||--o{ project_team_members : "added_by"
+    users ||--o{ project_team_members : "user_id"
+    organizations ||--o{ project_teams : "org_id"
+    project_assignments ||--o{ project_teams : "assignment_id"
+    users ||--o{ project_teams : "created_by"
     assessments ||--o{ public_attempts : "assessment_id"
+    users ||--o{ public_attempts : "overridden_by"
     organizations ||--o{ question_categories : "org_id"
     question_categories ||--o{ question_categories : "parent_id"
     questions ||--o{ question_versions : "question_id"
@@ -1261,29 +2209,65 @@ erDiagram
     question_categories ||--o{ questions : "category_id"
     users ||--o{ questions : "created_by"
     users ||--o{ refresh_tokens : "user_id"
+    course_modules ||--o{ revision_plan_topics : "module_id"
+    revision_plans ||--o{ revision_plan_topics : "revision_plan_id"
+    courses ||--o{ revision_plans : "course_id"
+    organizations ||--o{ revision_plans : "org_id"
+    users ||--o{ revision_plans : "user_id"
+    roadmap_phases ||--o{ roadmap_milestones : "phase_id"
+    roadmap_milestones ||--o{ roadmap_modules : "milestone_id"
+    roadmaps ||--o{ roadmap_phases : "roadmap_id"
+    organizations ||--o{ roadmaps : "org_id"
+    users ||--o{ roadmaps : "user_id"
     permissions ||--o{ role_permissions : "permission_id"
     roles ||--o{ role_permissions : "role_id"
     organizations ||--o{ roles : "tenant_id"
     sheets ||--o{ sheet_items : "sheet_id"
     users ||--o{ sheets : "created_by"
     users ||--o{ social_accounts : "user_id"
+    mistake_entries ||--o{ srs_cards : "mistake_entry_id"
     questions ||--o{ srs_cards : "question_id"
     users ||--o{ srs_cards : "user_id"
+    course_modules ||--o{ system_design_attempts : "module_id"
+    users ||--o{ system_design_attempts : "user_id"
+    course_modules ||--o{ system_design_chat_messages : "module_id"
+    users ||--o{ system_design_chat_messages : "user_id"
     organizations ||--o{ user_achievements : "org_id"
     reward_definitions ||--o{ user_achievements : "reward_definition_id"
     users ||--o{ user_achievements : "user_id"
+    organizations ||--o{ user_permission_overrides : "tenant_id"
+    permissions ||--o{ user_permission_overrides : "permission_id"
+    users ||--o{ user_permission_overrides : "granted_by"
+    users ||--o{ user_permission_overrides : "user_id"
     users ||--o{ user_problem_progress : "user_id"
     users ||--o{ user_profiles : "user_id"
     organizations ||--o{ user_roles : "tenant_id"
     roles ||--o{ user_roles : "role_id"
     users ||--o{ user_roles : "user_id"
+    sheets ||--o{ user_sheet_settings : "sheet_id"
+    users ||--o{ user_sheet_settings : "user_id"
     sheets ||--o{ user_sheets : "sheet_id"
     users ||--o{ user_sheets : "user_id"
     users ||--o{ user_skills : "user_id"
     users ||--o{ user_social_links : "user_id"
     users ||--o{ user_stats : "user_id"
+    users ||--o{ webauthn_credentials : "user_id"
     users ||--o{ whatnow_tasks : "user_id"
     users ||--o{ whatnow_user_state : "user_id"
+    users ||--o{ wiki_comments : "author_id"
+    wiki_comments ||--o{ wiki_comments : "parent_id"
+    wiki_pages ||--o{ wiki_comments : "page_id"
+    users ||--o{ wiki_page_versions : "saved_by"
+    wiki_pages ||--o{ wiki_page_versions : "page_id"
+    users ||--o{ wiki_pages : "created_by"
+    users ||--o{ wiki_pages : "updated_by"
+    wiki_pages ||--o{ wiki_pages : "parent_id"
+    wiki_spaces ||--o{ wiki_pages : "space_id"
+    courses ||--o{ wiki_spaces : "course_id"
+    organizations ||--o{ wiki_spaces : "org_id"
+    users ||--o{ wiki_spaces : "created_by"
+    organizations ||--o{ wiki_templates : "org_id"
+    users ||--o{ wiki_templates : "created_by"
     batches ||--o{ xp_events : "batch_id"
     courses ||--o{ xp_events : "course_id"
     organizations ||--o{ xp_events : "org_id"

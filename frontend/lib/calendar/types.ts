@@ -13,6 +13,7 @@ export type {
   AttendeeRole,
   CalendarEvent,
   CalendarEventDetail,
+  CalendarEventPriority,
   CalendarEventScope,
   CalendarEventStatus,
   CalendarEventType,
@@ -23,7 +24,7 @@ export type {
   UpdateCalendarEventInput,
 } from "@/lib/server/calendar";
 
-import type { AttendeeRole, CalendarEventType, CalendarVisibility } from "@/lib/server/calendar";
+import type { AttendeeRole, CalendarEventPriority, CalendarEventType, CalendarVisibility } from "@/lib/server/calendar";
 
 export const CALENDAR_EVENT_TYPE_OPTIONS: { label: string; value: CalendarEventType }[] = [
   { label: "Mentor session", value: "mentor_session" },
@@ -32,6 +33,26 @@ export const CALENDAR_EVENT_TYPE_OPTIONS: { label: string; value: CalendarEventT
   { label: "Custom",         value: "custom" },
   { label: "Task",           value: "task" },
 ];
+
+// Only meaningful on event_type: "task" rows — badge/swatch classes reuse the
+// same categorical token palette CALENDAR_LAYER_OPTIONS draws from.
+export const CALENDAR_PRIORITY_OPTIONS: {
+  label: string;
+  value: CalendarEventPriority;
+  badgeClassName: string;
+  swatchClassName: string;
+}[] = [
+  { label: "Low",    value: "low",    badgeClassName: "badge-muted",       swatchClassName: "bg-muted-foreground" },
+  { label: "Medium", value: "medium", badgeClassName: "badge-info",        swatchClassName: "bg-primary" },
+  { label: "High",   value: "high",   badgeClassName: "badge-warning",     swatchClassName: "bg-warning" },
+  { label: "Urgent", value: "urgent", badgeClassName: "badge-destructive", swatchClassName: "bg-destructive" },
+];
+
+// Lower rank sorts first (urgent → low); an unset priority always sorts last.
+export const CALENDAR_PRIORITY_RANK: Record<CalendarEventPriority, number> = Object.fromEntries(
+  [...CALENDAR_PRIORITY_OPTIONS].reverse().map((opt, i) => [opt.value, i]),
+) as Record<CalendarEventPriority, number>;
+export const CALENDAR_PRIORITY_UNSET_RANK = CALENDAR_PRIORITY_OPTIONS.length;
 
 export const CALENDAR_VISIBILITY_OPTIONS: { label: string; value: CalendarVisibility }[] = [
   { label: "Private", value: "private" },

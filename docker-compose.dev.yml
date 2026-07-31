@@ -13,6 +13,17 @@ networks:
   mindforge-labs:
     name: mindforge-labs
     external: true
+  # Separate bridge for nested-Docker (Docker-in-Docker) lab containers only
+  # (see docs/labs.md "Nested Docker labs") — kept off the shared
+  # mindforge-labs bridge so an elevated (SYS_ADMIN-holding) container is
+  # never L2-adjacent to every other student's unprivileged one, and so a
+  # nested dockerd's own docker0/iptables rules can't collide with the
+  # platform bridge. Same external lifecycle reasoning as mindforge-labs
+  # above. Only created/used when LABS_NESTED_DOCKER_IMAGES is set — inert
+  # otherwise. Create once with: docker network create mindforge-labs-dind
+  mindforge-labs-dind:
+    name: mindforge-labs-dind
+    external: true
 
 volumes:
   mindforge_pg_dev:
@@ -118,7 +129,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 60s
-    command: sh -c "apk add --no-cache docker-cli && go mod download && go run ./cmd/server"
+    command: sh -c "apk add --no-cache docker-cli && go mod download && go install github.com/air-verse/air@latest && air -c .air.toml"
 
   piston:
     image: ghcr.io/engineer-man/piston
@@ -159,6 +170,7 @@ services:
     networks:
       - mindforge_dev
       - mindforge-labs
+      - mindforge-labs-dind
     depends_on:
       postgres:
         condition: service_healthy

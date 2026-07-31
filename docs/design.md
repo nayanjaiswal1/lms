@@ -1,5 +1,7 @@
 # System Design Canvas
 
+> **Stale — describes a feature that was never built this way.** The actual implementation (`backend/internal/systemdesign`) is an Excalidraw whiteboard attached to a `course_modules` row of `type='system_design'` (attempts + AI feedback + clarifying-question chat, tables `system_design_attempts`/`system_design_chat_messages`) — not the standalone React-Flow canvas with a `system_designs`/`system_design_versions` table this file describes below. See `docs/ai-connector.md`'s `system_design:manage` section for the real data model.
+
 Everything about the drag-and-drop system architecture diagram tool: canvas, palette, interactions, versioning, embed, and course integration.
 
 ---

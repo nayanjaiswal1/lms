@@ -7,7 +7,11 @@ import { useLabProvisioning } from "@/lib/labs/provisioning-context"
 import ROUTES from "@/lib/routes"
 
 const REDIRECT_COUNTDOWN_SECONDS = 3
-const PROVISION_SAFETY_TIMEOUT_MS = 45_000
+// Must stay above backend's labs.ProvisionTimeoutSeconds (180s) — nested-
+// Docker labs on a proxied-socket host (Docker Desktop) can legitimately
+// take close to that full budget (a doomed scoped attempt runs to
+// completion before the privileged retry boots dockerd for real).
+const PROVISION_SAFETY_TIMEOUT_MS = 200_000
 
 type ReadinessEvent = { type: "ready" | "failed" }
 

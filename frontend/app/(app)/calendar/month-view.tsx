@@ -4,7 +4,7 @@ import { getMonthGridDays, isSameDay } from "@/app/(app)/calendar/calendar-math"
 import { EventBlock, primaryLayerFor } from "@/app/(app)/calendar/event-block";
 import { QuickCreateAdapter } from "@/app/(app)/calendar/quick-create-adapter";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import type { CalendarEvent } from "@/lib/calendar/types";
+import type { CalendarEvent, CalendarEventPriority } from "@/lib/calendar/types";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -16,7 +16,14 @@ interface MonthViewProps {
   onDayClick: (day: Date) => void;
   onEventClick: (eventId: string) => void;
   onEventDropOnDay: (eventId: string, day: Date) => void;
-  onCreateSubmit: (title: string, start: Date, end: Date, isTask: boolean) => void;
+  onCreateSubmit: (
+    title: string,
+    start: Date,
+    end: Date,
+    isTask: boolean,
+    notes?: string,
+    priority?: CalendarEventPriority,
+  ) => void;
   onCreateCancel: () => void;
 }
 

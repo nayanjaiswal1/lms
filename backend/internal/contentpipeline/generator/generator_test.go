@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,20 +30,22 @@ func sampleDocs() []*canonical.Document {
 			Title: "Lab Title", Position: 1, EstimatedMinutes: 30,
 			Source: []string{"upstream.yaml"},
 		},
-		LabType: "terminal", Environment: "mindforge/lab-k8s:1.31",
-		MaxDuration: 60, MaxResets: 3, HintPenaltyPct: 10, IsRequired: true,
-		SetupScript: "#!/bin/bash\necho setup",
-		Files: []canonical.LabFile{
-			{Path: "demo.yaml", Content: "apiVersion: v1\nkind: Namespace\n"},
-		},
-		Tasks: []canonical.Task{
-			{
-				IDKey: "t1", Title: "Task One", Points: 10,
-				Description:        "Do the thing.",
-				VerificationScript: "#!/bin/bash\nkubectl get ns demo",
-				HintContext:        "hint",
-				ExplanationContext: "explanation",
-				SolutionScript:     "kubectl create namespace demo",
+		LabSpec: canonical.LabSpec{
+			LabType: "terminal", Environment: "mindforge/lab-k8s:1.31",
+			MaxDuration: 60, MaxResets: 3, HintPenaltyPct: 10, IsRequired: true,
+			SetupScript: "#!/bin/bash\necho setup",
+			Files: []canonical.LabFile{
+				{Path: "demo.yaml", Content: "apiVersion: v1\nkind: Namespace\n"},
+			},
+			Tasks: []canonical.Task{
+				{
+					IDKey: "t1", Title: "Task One", Points: 10,
+					Description:        "Do the thing.",
+					VerificationScript: "#!/bin/bash\nkubectl get ns demo",
+					HintContext:        "hint",
+					ExplanationContext: "explanation",
+					SolutionScript:     "kubectl create namespace demo",
+				},
 			},
 		},
 	}
@@ -158,6 +161,74 @@ func TestRender_CourseMetaDefaultsWhenEmpty(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, out, "'intermediate'")
 	require.Contains(t, out, "true") // is_free defaults true
+}
+
+func TestParseKnowledgeCheck_MergesMultipleBlocks(t *testing.T) {
+	body := "# Concept A\n\ntext\n\n```knowledge-check\n" +
+		`{"questions":[{"id":"q1","type":"mcq","correct":"a"}]}` +
+		"\n```\n\n# Concept B\n\ntext\n\n```knowledge-check\n" +
+		`{"questions":[{"id":"q2","type":"mcq","correct":"b"}]}` +
+		"\n```\n"
+	entries, err := parseKnowledgeCheck(body)
+	require.NoError(t, err)
+	require.Len(t, entries, 2)
+	require.Equal(t, "q1", entries[0].ID)
+	require.Equal(t, "a", entries[0].Correct)
+	require.Equal(t, "q2", entries[1].ID)
+	require.Equal(t, "b", entries[1].Correct)
+}
+
+func TestParseKnowledgeCheck_DuplicateIDAcrossBlocksErrors(t *testing.T) {
+	body := "```knowledge-check\n" +
+		`{"questions":[{"id":"dup","type":"mcq","correct":"a"}]}` +
+		"\n```\n\n```knowledge-check\n" +
+		`{"questions":[{"id":"dup","type":"mcq","correct":"b"}]}` +
+		"\n```\n"
+	_, err := parseKnowledgeCheck(body)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `duplicate knowledge-check question id "dup"`)
+}
+
+func TestParseKnowledgeCheck_NoBlockReturnsEmptyNonNilSlice(t *testing.T) {
+	entries, err := parseKnowledgeCheck("# Just prose\n\nNo checks here.")
+	require.NoError(t, err)
+	require.NotNil(t, entries)
+	require.Empty(t, entries)
+}
+
+func TestRender_HybridLessonWithAttachedLab(t *testing.T) {
+	lesson := &canonical.Lesson{
+		Common: canonical.Common{
+			Kind: canonical.KindLesson, IDKey: "test/section/hybrid-lesson",
+			Course: "test-course", Section: "section", SectionTitle: "Section", SectionPosition: 1,
+			Title: "Hybrid Lesson", Position: 0, EstimatedMinutes: 40,
+			Source: []string{"upstream.md"},
+		},
+		Body: "# Concept one\n\n[[lab-task:1]]\n\n# Concept two\n\n[[lab-task:2]]\n",
+		Lab: &canonical.LabSpec{
+			LabType: "terminal", Environment: "mindforge/lab-docker:27",
+			MaxDuration: 45, MaxResets: 3,
+			Tasks: []canonical.Task{
+				{IDKey: "t1", Title: "Task One", Points: 10, Description: "Do thing one.", VerificationScript: "true"},
+				{IDKey: "t2", Title: "Task Two", Points: 10, Description: "Do thing two.", VerificationScript: "true"},
+			},
+		},
+	}
+	docs := []*canonical.Document{{Path: "hybrid.md", Kind: canonical.KindLesson, Lesson: lesson}}
+
+	out, err := Render(docs, canonical.CourseMeta{})
+	require.NoError(t, err)
+
+	require.Equal(t, 1, strings.Count(out, "INSERT INTO course_modules"), "hybrid lesson must emit exactly one course_modules row")
+	require.Contains(t, out, "'notes'")
+
+	moduleID := canonical.ID(lesson.IDKey, "module")
+	require.Contains(t, out, "INSERT INTO lab_definitions")
+	require.Contains(t, out, moduleID, "lab_definitions.module_id must be the notes module's own id")
+	require.Contains(t, out, "INSERT INTO lab_tasks")
+	require.Contains(t, out, "INSERT INTO lab_task_versions")
+	require.Contains(t, out, "INSERT INTO lab_task_version_items")
+	require.Contains(t, out, fmt.Sprintf("UPDATE lab_definitions\nSET is_published = true, published_version_id = %s", sqlString(canonical.ID(lesson.IDKey, "version"))))
 }
 
 func TestLoad_InvalidDocumentAggregatesErrors(t *testing.T) {

@@ -85,6 +85,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusServiceUnavailable, "Code executor is not configured on this server.")
 	case errors.Is(err, ErrInvalidPath):
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid file path.")
+	case errors.Is(err, ErrImageNotAllowed):
+		httputil.WriteError(w, http.StatusForbidden, "This lab is not available for your organization.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

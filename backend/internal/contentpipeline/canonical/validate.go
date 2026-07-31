@@ -3,8 +3,16 @@ package canonical
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 )
+
+// labTaskMarkerPattern matches a `[[lab-task:N]]` marker paragraph inside a
+// lesson body (see frontend/lib/courses/markdown.ts's identical regex) — the
+// inline anchor that renders a LessonLabTaskCard for task N (1-based) of the
+// lesson's attached lab.
+var labTaskMarkerPattern = regexp.MustCompile(`(?m)^\[\[lab-task:(\d+)\]\]\s*$`)
 
 // Allowed enum values, mirrored from the real DB CHECK constraints
 // (backend/db/migrations/008_labs_core.sql lab_definitions.lab_type,
@@ -78,6 +86,29 @@ func (l *Lesson) Validate() error {
 	if l.ModuleType != "" && !validLessonModuleTypeOverrides[l.ModuleType] {
 		errs = append(errs, fmt.Errorf("%s: invalid type override %q", ctx, l.ModuleType))
 	}
+
+	markers := labTaskMarkerPattern.FindAllStringSubmatch(l.Body, -1)
+
+	if l.Lab != nil {
+		errs = append(errs, l.Lab.validate(ctx)...)
+
+		// A lab attached to a lesson is reached via its first [[lab-task:N]]
+		// marker's Launch-Lab hero (frontend/components/courses/module-notes.tsx
+		// only renders it at the first marker's position) — a lab with tasks
+		// but no marker in the body is silently unreachable in the app.
+		if len(l.Lab.Tasks) > 0 && len(markers) == 0 {
+			errs = append(errs, fmt.Errorf("%s: has a lab with tasks but no [[lab-task:N]] marker in the body — the lab would be unreachable", ctx))
+		}
+		for _, m := range markers {
+			n, err := strconv.Atoi(m[1])
+			if err != nil || n < 1 || n > len(l.Lab.Tasks) {
+				errs = append(errs, fmt.Errorf("%s: [[lab-task:%s]] does not match any of the lab's %d task(s) — LessonLabTaskCard renders nothing for an out-of-range position", ctx, m[1], len(l.Lab.Tasks)))
+			}
+		}
+	} else if len(markers) > 0 {
+		errs = append(errs, fmt.Errorf("%s: body has [[lab-task:N]] marker(s) but no lab: block is attached", ctx))
+	}
+
 	return errors.Join(errs...)
 }
 
@@ -130,33 +161,33 @@ func (q *Quiz) Validate() error {
 	return errors.Join(errs...)
 }
 
-// Validate checks Lab against the canonical schema rules, including the
+// validate checks a LabSpec against the canonical schema rules, including the
 // publish-time invariants mirrored from docs/labs.md's "Required lab blocks
 // section unlock" rule (a required lab must have at least one non-optional
-// task, or it could never be completed). Returns a joined error covering
-// every violation found.
-func (l *Lab) Validate() error {
-	ctx := l.Common.context("lab")
-	errs := l.Common.validate("lab")
+// task, or it could never be completed). ctx identifies the owning document
+// (a standalone lab doc, or a lesson doc's attached lab) in error messages.
+// Returns the individual errors found — callers join them.
+func (s *LabSpec) validate(ctx string) []error {
+	var errs []error
 
-	if !validLabTypes[l.LabType] {
-		errs = append(errs, fmt.Errorf("%s: invalid lab_type %q", ctx, l.LabType))
+	if !validLabTypes[s.LabType] {
+		errs = append(errs, fmt.Errorf("%s: invalid lab_type %q", ctx, s.LabType))
 	}
-	if strings.TrimSpace(l.Environment) == "" {
+	if strings.TrimSpace(s.Environment) == "" {
 		errs = append(errs, fmt.Errorf("%s: environment is required", ctx))
 	}
 	// playground and sandbox labs may have zero tasks — free exploration; a
 	// sandbox with tasks is graded via batch Submit instead of per-task Check.
-	if l.LabType != "playground" && l.LabType != "sandbox" && len(l.Tasks) == 0 {
+	if s.LabType != "playground" && s.LabType != "sandbox" && len(s.Tasks) == 0 {
 		errs = append(errs, fmt.Errorf("%s: at least one task is required (lab_type != playground|sandbox)", ctx))
 	}
-	if l.PreviewPort < 0 || l.PreviewPort > 65535 {
-		errs = append(errs, fmt.Errorf("%s: preview_port must be in [0,65535], got %d", ctx, l.PreviewPort))
+	if s.PreviewPort < 0 || s.PreviewPort > 65535 {
+		errs = append(errs, fmt.Errorf("%s: preview_port must be in [0,65535], got %d", ctx, s.PreviewPort))
 	}
 
-	if l.IsRequired {
+	if s.IsRequired {
 		hasNonOptional := false
-		for _, t := range l.Tasks {
+		for _, t := range s.Tasks {
 			if !t.IsOptional {
 				hasNonOptional = true
 				break
@@ -167,7 +198,7 @@ func (l *Lab) Validate() error {
 		}
 	}
 
-	for i, task := range l.Tasks {
+	for i, task := range s.Tasks {
 		tctx := fmt.Sprintf("%s: task[%d] (id_key=%q)", ctx, i, task.IDKey)
 		if strings.TrimSpace(task.Title) == "" {
 			errs = append(errs, fmt.Errorf("%s: title is required", tctx))
@@ -180,6 +211,15 @@ func (l *Lab) Validate() error {
 		}
 	}
 
+	return errs
+}
+
+// Validate checks Lab against the canonical schema rules. Returns a joined
+// error covering every violation found.
+func (l *Lab) Validate() error {
+	ctx := l.Common.context("lab")
+	errs := l.Common.validate("lab")
+	errs = append(errs, l.LabSpec.validate(ctx)...)
 	return errors.Join(errs...)
 }
 

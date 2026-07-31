@@ -26,23 +26,34 @@ export function LabReadinessWait({
       withCredentials: true,
     })
 
+    // Safety backstop against a lab that never resolves — must clear the
+    // longest legitimate provisioning path server-side (see
+    // labs.ProvisionTimeoutSeconds, 180s: nested-Docker labs on a proxied-
+    // socket host run a doomed scoped attempt to completion before their
+    // privileged retry boots dockerd for real).
+    const safetyTimer = setTimeout(() => onFailedRef.current(), 200_000)
+
     es.onmessage = (e: MessageEvent) => {
       const data = JSON.parse(e.data as string) as { type: string }
       if (data.type === "ready") {
+        clearTimeout(safetyTimer)
         es.close()
         onReadyRef.current()
       } else if (data.type === "failed") {
+        clearTimeout(safetyTimer)
         es.close()
         onFailedRef.current()
       }
     }
 
-    es.onerror = () => {
-      es.close()
-      onFailedRef.current()
-    }
+    // The connection can drop for transient reasons (proxy hiccup, brief
+    // network loss); the browser retries EventSource automatically, so this
+    // must not be treated as a hard failure — the safety timeout above is
+    // the real backstop. See the identical comment in
+    // lab-provisioning-watcher.tsx, which this mirrors.
 
     return () => {
+      clearTimeout(safetyTimer)
       es.close()
     }
   }, [sessionId])

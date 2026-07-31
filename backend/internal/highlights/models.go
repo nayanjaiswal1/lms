@@ -39,7 +39,9 @@ type Highlight struct {
 	UpdatedAt        time.Time    `json:"updated_at"`
 }
 
-// Explanation is the shared cached AI response for a (text, source_type) pair.
+// Explanation is the shared cached AI response for a (text, source_type, source_id)
+// combination — scoped to the specific lesson/page/problem so the same word
+// highlighted in different content doesn't share one generic explanation.
 // FromCache indicates whether this was retrieved from the cache or freshly generated.
 type Explanation struct {
 	ID           string    `json:"id"`

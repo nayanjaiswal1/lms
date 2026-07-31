@@ -8,9 +8,12 @@ import (
 	"github.com/mindforge/backend/internal/courses"
 )
 
-// Router wires the systemdesign domain into the main chi router.
+// Router wires the systemdesign domain into the main chi router. Service is
+// exported so mcpconnect can reuse the exact same attempt/scene/feedback/chat
+// logic for its AI Connector tools instead of a second implementation.
 type Router struct {
 	handler *Handler
+	Service *Service
 }
 
 // New builds the systemdesign Router with its full dependency graph.
@@ -20,7 +23,7 @@ type Router struct {
 func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, provider ai.LLMProvider) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo, coursesRepo, provider)
-	return &Router{handler: newHandler(service)}
+	return &Router{handler: newHandler(service), Service: service}
 }
 
 // RegisterRoutes mounts system-design endpoints under the caller's

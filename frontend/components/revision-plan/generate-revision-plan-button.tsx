@@ -29,7 +29,13 @@ export function GenerateRevisionPlanButton({ courseId, label }: GenerateRevision
   }
 
   return (
-    <Button className="w-fit" disabled={pending} size="sm" onClick={handleClick}>
+    <Button
+      className="w-fit border-ai text-ai"
+      disabled={pending}
+      size="sm"
+      variant="outline"
+      onClick={handleClick}
+    >
       <Sparkles aria-hidden className="mr-1.5 h-3.5 w-3.5" />
       {pending ? "Starting…" : label}
     </Button>

@@ -1,5 +1,8 @@
+import { fileURLToPath } from "url";
 import type { NextConfig } from "next";
 import type { RemotePattern } from "next/dist/shared/lib/image-config";
+
+const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
 function buildSecurityHeaders() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -57,6 +60,14 @@ const nextConfig: NextConfig = {
   // Bundles a minimal `.next/standalone` server — required by frontend/Dockerfile's
   // production runtime stage. No effect on `next dev`.
   output: "standalone",
+
+  // Pins the workspace root explicitly. Without this, Turbopack's own root-inference
+  // (walking up from this directory looking for a lockfile) can pick the wrong
+  // ancestor when more than one lockfile is present (this repo has both
+  // package-lock.json and pnpm-lock.yaml in this same directory) and then fail with
+  // "Next.js package not found" because it's resolving node_modules relative to the
+  // wrong root.
+  turbopack: { root: projectRoot },
 
   async headers() {
     return [{ source: "/(.*)", headers: buildSecurityHeaders() }];

@@ -97,9 +97,21 @@ func (p *WarmPoolPlanner) Tick(ctx context.Context) error {
 		slog.Error("labs.WarmPoolPlanner: prune decisions", "error", err)
 	}
 
-	poolLabs, err := p.repo.ListWarmPoolLabs(ctx)
+	allPoolLabs, err := p.repo.ListWarmPoolLabs(ctx)
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
+	}
+	// Nested-Docker (Docker-in-Docker) labs are never pre-warmed: an idle
+	// elevated container sitting unclaimed is pure risk with no student
+	// waiting on it, and its ~30s+ dockerd boot means the pool can't verify
+	// "ready" the way it does for an ordinary lab anyway. These sessions
+	// always cold-start via Service.StartSession instead.
+	poolLabs := make([]WarmPoolLab, 0, len(allPoolLabs))
+	for _, lab := range allPoolLabs {
+		if p.runtime.IsNestedImage(lab.Image) {
+			continue
+		}
+		poolLabs = append(poolLabs, lab)
 	}
 	if len(poolLabs) == 0 {
 		return nil

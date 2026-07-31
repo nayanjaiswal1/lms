@@ -40,14 +40,25 @@ type KubernetesContainerService struct {
 	clientset  *kubernetes.Clientset
 	restConfig *rest.Config
 	namespace  string
+	// nestedImages/nestedRuntimeClass mirror DockerContainerService's fields
+	// (see container.go) — the Kubernetes runtime's equivalent of the
+	// nested-Docker-in-Docker gate. Unlike Docker there is no --cap-add
+	// escape hatch here: startPod requires nestedRuntimeClass to be set for
+	// any allowlisted image, and fails the session rather than approximate
+	// elevated capabilities on a shared node pool with no RuntimeClass
+	// isolation.
+	nestedImages       map[string]bool
+	nestedRuntimeClass string
 }
 
 // NewKubernetesContainerService returns a KubernetesContainerService using
 // the Pod's own in-cluster service account credentials. namespace is where
 // lab sandbox Pods are created — must match the Role/RoleBinding granting
 // this service account pods (create/get/list/watch/delete) and pods/exec
-// (create) in that namespace.
-func NewKubernetesContainerService(namespace string) (*KubernetesContainerService, error) {
+// (create) in that namespace. nestedImages/nestedRuntimeClass come from
+// config.LabsNestedDockerImages / config.LabsNestedDockerRuntimeClass — see
+// docs/labs.md "Nested Docker labs".
+func NewKubernetesContainerService(namespace string, nestedImages []string, nestedRuntimeClass string) (*KubernetesContainerService, error) {
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, fmt.Errorf("labs.NewKubernetesContainerService: in-cluster config: %w", err)
@@ -56,8 +67,25 @@ func NewKubernetesContainerService(namespace string) (*KubernetesContainerServic
 	if err != nil {
 		return nil, fmt.Errorf("labs.NewKubernetesContainerService: build clientset: %w", err)
 	}
-	return &KubernetesContainerService{clientset: clientset, restConfig: restConfig, namespace: namespace}, nil
+	set := make(map[string]bool, len(nestedImages))
+	for _, img := range nestedImages {
+		set[img] = true
+	}
+	return &KubernetesContainerService{
+		clientset: clientset, restConfig: restConfig, namespace: namespace,
+		nestedImages: set, nestedRuntimeClass: nestedRuntimeClass,
+	}, nil
 }
+
+// isNested reports whether image is on the operator's nested-Docker
+// allowlist — see DockerContainerService.isNested for why this, and never
+// the environment string's contents, is the security boundary.
+func (k *KubernetesContainerService) isNested(image string) bool {
+	return k.nestedImages[image]
+}
+
+// IsNestedImage implements ContainerRuntime.
+func (k *KubernetesContainerService) IsNestedImage(image string) bool { return k.isNested(image) }
 
 // Start creates a Pod for the given lab session and runs the optional setup
 // script inside it as the image's default user. On setup failure the Pod is
@@ -73,13 +101,22 @@ func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID strin
 }
 
 func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image, setupScript string) (containerID, containerHost string, err error) {
-	cpuQty, err := resource.ParseQuantity(ContainerCPU)
-	if err != nil {
-		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse ContainerCPU: %w", err)
+	nested := k.isNested(image)
+	if nested && k.nestedRuntimeClass == "" {
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: image %q requires nested Docker but LABS_NESTED_DOCKER_RUNTIME_CLASS is unset on the kubernetes runtime", image)
 	}
-	memQty, err := resource.ParseQuantity(fmt.Sprintf("%dMi", ContainerMemoryMB))
+
+	cpuStr, memMB := ContainerCPU, ContainerMemoryMB
+	if nested {
+		cpuStr, memMB = NestedContainerCPU, NestedContainerMemoryMB
+	}
+	cpuQty, err := resource.ParseQuantity(cpuStr)
 	if err != nil {
-		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse ContainerMemoryMB: %w", err)
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse cpu quantity: %w", err)
+	}
+	memQty, err := resource.ParseQuantity(fmt.Sprintf("%dMi", memMB))
+	if err != nil {
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse memory quantity: %w", err)
 	}
 
 	pod := &corev1.Pod{
@@ -111,6 +148,23 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 				},
 			}},
 		},
+	}
+	if nested {
+		// The RuntimeClass (sysbox-runc/kata-containers) is the entire
+		// isolation story here — SecurityContext stays exactly as it is for
+		// every other lab. Do not attempt to reproduce the Docker runtime's
+		// --cap-add flags on a shared node pool: SYS_ADMIN + unconfined
+		// seccomp with no RuntimeClass sandbox is strictly worse than on the
+		// single-host Docker deploy where it's at least the sole tenant of
+		// the elevated network segment (see docs/labs.md).
+		pod.Spec.RuntimeClassName = &k.nestedRuntimeClass
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name:         "docker-lib",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		})
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name: "docker-lib", MountPath: "/var/lib/docker",
+		})
 	}
 
 	created, err := k.clientset.CoreV1().Pods(k.namespace).Create(ctx, pod, metav1.CreateOptions{})

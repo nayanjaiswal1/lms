@@ -10,6 +10,18 @@ networks:
   mindforge-labs:
     name: mindforge-labs
     external: true
+  # Separate bridge for nested-Docker (Docker-in-Docker) lab containers only
+  # (see docs/labs.md "Nested Docker labs") — kept off the shared
+  # mindforge-labs bridge so an elevated (SYS_ADMIN-holding) container is
+  # never L2-adjacent to every other student's unprivileged one, and so a
+  # nested dockerd's own docker0/iptables rules can't collide with the
+  # platform bridge. Only created/used when LABS_NESTED_DOCKER_IMAGES is set
+  # on a deploy — inert otherwise, and per docs/labs.md must only be enabled
+  # on a lab host that does NOT also run this compose file's other services.
+  # Create once, before first deploy: docker network create mindforge-labs-dind
+  mindforge-labs-dind:
+    name: mindforge-labs-dind
+    external: true
 
 volumes:
   mindforge_pg_prod:
@@ -38,6 +50,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:7-alpine
@@ -52,6 +69,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   minio:
     image: minio/minio:RELEASE.2024-11-07T00-52-20Z
@@ -76,12 +98,18 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   piston:
     image: ghcr.io/engineer-man/piston
     container_name: mindforge_piston_prod
     restart: always
     privileged: true
+    mem_limit: 4g
     volumes:
       - mindforge_piston_prod:/piston
     networks:
@@ -94,6 +122,11 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   backend:
     build:
@@ -126,6 +159,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   labproxy:
     build:
@@ -142,6 +180,7 @@ services:
     networks:
       - mindforge_prod
       - mindforge-labs
+      - mindforge-labs-dind
     depends_on:
       postgres:
         condition: service_healthy
@@ -155,6 +194,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
@@ -174,6 +218,17 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   caddy:
     image: caddy:2-alpine
@@ -190,7 +245,22 @@ services:
     networks:
       - mindforge_prod
     depends_on:
-      - backend
-      - frontend
-      - labproxy
-      - minio
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+      labproxy:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -64,6 +64,9 @@ func normalizeAndValidateEvent(e Event) (Event, error) {
 			return Event{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 		}
 	}
+	if e.Priority != nil && *e.Priority != "" && !IsValidPriority(*e.Priority) {
+		return Event{}, fmt.Errorf("%w: priority must be one of low, medium, high, urgent", ErrInvalid)
+	}
 	return e, nil
 }
 
@@ -242,6 +245,7 @@ func (s *Service) detachOccurrence(ctx context.Context, orgID string, base Event
 			EntityType:         patch.EntityType,
 			EntityID:           patch.EntityID,
 			RecurrenceParentID: &base.ID,
+			Priority:           patch.Priority,
 		}
 		var txErr error
 		detached, txErr = s.repo.CreateDetachedTx(ctx, tx, detachedRow)

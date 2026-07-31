@@ -42,7 +42,7 @@ export function ChapterMasteryHeatmap({ cells, t }: ChapterMasteryHeatmapProps) 
         <table className="text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-background pb-2 pr-4 text-left text-xs font-medium text-muted-foreground">
+              <th className="sticky-rail left-0 bg-background pb-2 pr-4 text-left text-xs font-medium text-muted-foreground">
                 {t.student}
               </th>
               {sectionList.map(([id, title]) => (
@@ -55,7 +55,7 @@ export function ChapterMasteryHeatmap({ cells, t }: ChapterMasteryHeatmapProps) 
           <tbody className="divide-y divide-border">
             {studentList.map((s) => (
               <tr key={s.user_id}>
-                <td className="sticky left-0 bg-background py-1.5 pr-4 font-medium whitespace-nowrap">
+                <td className="sticky-rail left-0 bg-background py-1.5 pr-4 font-medium whitespace-nowrap">
                   {s.user_name}
                 </td>
                 {sectionList.map(([id]) => {

@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -58,7 +57,14 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RealIP)
 	r.Use(chimiddleware.Logger)
-	r.Use(chimiddleware.Timeout(30 * time.Second))
+	// No global chimiddleware.Timeout: it force-writes a 504 the instant its
+	// deadline passes (see its own doc comment), which cut off
+	// labs.Service.WaitForReadiness's SSE stream every 30s even while the lab
+	// was still legitimately provisioning (nested-Docker labs need up to
+	// ProvisionTimeoutSeconds=90s). Slow operations already bound themselves
+	// with their own context timeout (LLMTimeout, EvalJobTimeout, this
+	// package's per-request deadlines) — a blanket HTTP-layer timeout is
+	// redundant for those and actively wrong for the one long-lived endpoint.
 	r.Use(corsMiddleware(cfg))
 
 	// ─── Health check ─────────────────────────────────────────────────────────
@@ -129,10 +135,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	// AI Connector (MCP) — lets a student connect their own Claude/ChatGPT to
 	// their account via OAuth 2.1+PKCE. Built with coursesRepo/coursesSvc (not
-	// a fresh *courses.Repo) and interviewPrepRouter.Service so its tools
-	// share the exact same enrollment/authorization rules and daily plan
-	// rate limit as the student-facing API.
-	mcpConnectRouter := mcpconnect.New(cfg, pool, coursesRepo, coursesSvc, calendarRouter.Service, mistakesRepo, mistakesSvc, srsRepo, interviewPrepRouter.Service)
+	// a fresh *courses.Repo) and interviewPrepRouter.Service/
+	// systemDesignRouter.Service so its tools share the exact same
+	// enrollment/authorization rules and daily plan rate limit as the
+	// student-facing API.
+	mcpConnectRouter := mcpconnect.New(cfg, pool, coursesRepo, coursesSvc, calendarRouter.Service, mistakesRepo, mistakesSvc, srsRepo, interviewPrepRouter.Service, systemDesignRouter.Service)
 
 	// Notifications — generic, dependency-free in-app notification domain
 	// (Batch 5). Built before gitlabRouter below so its *notifications.Service

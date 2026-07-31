@@ -54,4 +54,13 @@ type ContainerRuntime interface {
 	// "mindforge-lab-" or "mindforge-validate-") — used by LabCleanupHandler
 	// to find and remove sandboxes with no corresponding active session row.
 	List(ctx context.Context, namePrefix string) ([]ContainerInfo, error)
+
+	// IsNestedImage reports whether image is on this runtime's operator-
+	// configured nested-Docker allowlist (config.LabsNestedDockerImages) —
+	// the ONLY thing that decides elevated container config, never the
+	// image string's own content. Service.StartSession uses this to also
+	// require the image be in the requesting org's lab_org_config.
+	// allowed_images before a session for it is allowed to start, and the
+	// warm-pool planner uses it to never pre-provision one unclaimed.
+	IsNestedImage(image string) bool
 }

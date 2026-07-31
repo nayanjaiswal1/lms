@@ -4,6 +4,7 @@ import * as React from "react";
 import { CheckCircle2, Circle, Clock, Zap, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CALENDAR_PRIORITY_OPTIONS, CALENDAR_PRIORITY_RANK, CALENDAR_PRIORITY_UNSET_RANK } from "@/lib/calendar/types";
 import type { CalendarEvent } from "@/lib/calendar/types";
 
 interface TimeBlocksDashboardProps {
@@ -67,9 +68,12 @@ export function TimeBlocksDashboard({ events, currentUserId, onEventClick }: Tim
   });
 
   const sortedEvents = [...filtered].sort((a, b) => {
-    const aDate = new Date(a.starts_at);
-    const bDate = new Date(b.starts_at);
-    return bDate.getTime() - aDate.getTime();
+    if (filter === "tasks") {
+      const rankA = a.priority ? CALENDAR_PRIORITY_RANK[a.priority] : CALENDAR_PRIORITY_UNSET_RANK;
+      const rankB = b.priority ? CALENDAR_PRIORITY_RANK[b.priority] : CALENDAR_PRIORITY_UNSET_RANK;
+      if (rankA !== rankB) return rankA - rankB;
+    }
+    return new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime();
   });
 
   const stats = {
@@ -157,6 +161,9 @@ export function TimeBlocksDashboard({ events, currentUserId, onEventClick }: Tim
             const isTask = event.event_type === "task";
             const isOv = isOverdue(event);
             const duration = getEventDuration(event);
+            const priorityMeta = isTask && event.priority
+              ? CALENDAR_PRIORITY_OPTIONS.find((p) => p.value === event.priority)
+              : undefined;
 
             return (
               <button
@@ -188,6 +195,11 @@ export function TimeBlocksDashboard({ events, currentUserId, onEventClick }: Tim
                       {event.title}
                     </h3>
                     <div className="flex flex-shrink-0 items-center gap-1.5">
+                      {priorityMeta && !isCompleted && (
+                        <Badge className={`text-xs ${priorityMeta.badgeClassName}`} variant="outline">
+                          {priorityMeta.label}
+                        </Badge>
+                      )}
                       {isOv && (
                         <Badge variant="destructive" className="text-xs">
                           Overdue

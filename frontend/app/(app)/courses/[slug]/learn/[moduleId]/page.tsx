@@ -5,10 +5,13 @@ import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
 import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote } from "@/lib/server/courses";
 import { getMyFeedback } from "@/lib/server/feedback";
-import { getRevisionPlan } from "@/lib/server/revision-plan";
 import { getDueCards } from "@/lib/server/srs";
 import { getModuleLab } from "@/lib/server/labs";
+import { isLabSessionActive } from "@/lib/labs";
 import { renderModuleMarkdown } from "@/lib/courses/markdown";
+import { isRunnableLanguage } from "@/lib/courses/runnable-languages";
+import { LabFixedConsole } from "@/components/labs/lab-fixed-console";
+import { LessonCompilerToggle } from "@/components/courses/lesson-compiler-toggle";
 import { ModuleGateProvider } from "@/components/courses/module-gate-provider";
 import { HighlightProvider } from "@/components/highlights/highlight-provider";
 import { getHighlightsForSource } from "@/lib/server/highlights";
@@ -29,7 +32,6 @@ import { ModuleNotes } from "@/components/courses/module-notes";
 import { ModuleAssessment } from "@/components/courses/module-assessment";
 import { ModuleLab } from "@/components/courses/module-lab";
 import { ModuleSystemDesign } from "@/components/courses/module-system-design";
-import { RevisionPlanCard } from "@/components/revision-plan/revision-plan-card";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -85,7 +87,6 @@ export default async function ModuleLearnPage({ params }: Props) {
   const myCourseFeedback = courseComplete
     ? await getMyFeedback("course", course.id).catch(() => null)
     : null;
-  const revisionPlan = courseComplete ? await getRevisionPlan(course.id).catch(() => null) : null;
 
   const notes = currentModule.type === "notes" && currentModule.content_body
     ? renderModuleMarkdown(currentModule.content_body)
@@ -94,27 +95,35 @@ export default async function ModuleLearnPage({ params }: Props) {
   const requiredCheckIds = notes
     ? notes.segments.flatMap((s) => (s.type === "knowledge-check" ? s.questions.map((q) => q.id) : []))
     : [];
+  // First runnable-language snippet in the lesson, if any — surfaced as a
+  // standalone scratch compiler in the right rail (LessonCompilerToggle) so
+  // a reader doesn't have to scroll back to a specific code block to try
+  // the language. Inline per-block runners (LessonCodeRunner) are unaffected.
+  const firstRunnableLanguage = notes
+    ? notes.segments.find((s): s is Extract<typeof s, { type: "code" }> => s.type === "code" && isRunnableLanguage(s.language))
+        ?.language ?? null
+    : null;
   const passedCheckIds = requiredCheckIds.length > 0 ? await getMyCheckProgress(moduleId).catch(() => []) : [];
   const initialReflection = notes ? await getMyReflection(moduleId).catch(() => null) : null;
   const initialNote = notes ? await getMyLessonNote(moduleId).catch(() => null) : null;
   const initialHighlights = notes
     ? await getHighlightsForSource("lesson", moduleId).catch(() => [])
     : [];
-  // Just needs "is there at least one active connection" — the same
-  // GET /api/mcp-connections Settings → Integrations already calls.
-  const hasAIConnection = notes
-    ? await apiGet<{ id: string }[] | null>("/api/mcp-connections")
-        .then((c) => Boolean(c?.length))
-        .catch(() => false)
-    : false;
 
   const moduleLab = currentModule.type === "notes" ? await getModuleLab(moduleId) : null;
+  // True once a lab linked to this notes lesson is actually running —
+  // ModuleNotes then splits into notes + workspace panes (see
+  // LessonLabWorkspacePane), so this page gives up the same space a
+  // type==="lab" module gets: no max-w column, no right rail, no left nav.
+  const isLabOpen = Boolean(
+    moduleLab?.initialSession && isLabSessionActive(moduleLab.initialSession.session.status),
+  );
   // system_design no longer needs the wide/no-rail treatment: its default
   // view is a compact guidance card like any other module, and the
   // whiteboard opens in its own fixed-position overlay that already escapes
   // this page's layout — so it gets the same right rail (progress bar,
   // badges, Mark as Complete, next module) as every other module type.
-  const isWideLayout = currentModule.type === "lab";
+  const isWideLayout = currentModule.type === "lab" || isLabOpen;
 
   const moduleMeta = (
     <>
@@ -147,7 +156,11 @@ export default async function ModuleLearnPage({ params }: Props) {
     <div className="flex flex-col items-start gap-6 lg:flex-row">
       {courseComplete && !myCourseFeedback && <CourseCompletionPrompt courseId={course.id} />}
 
-      <CourseSidebarRail course={tree} currentModuleId={moduleId} isEnrolled={isEnrolled} progress={progressModules} />
+      {/* Collapsed while the lab split is open — the workspace pane needs
+          the room, and the left nav is one click away via End Lab. */}
+      {!isLabOpen && (
+        <CourseSidebarRail course={tree} currentModuleId={moduleId} isEnrolled={isEnrolled} progress={progressModules} />
+      )}
 
       <main className="min-w-0 flex-1">
         <CourseSidebarDrawer
@@ -181,16 +194,20 @@ export default async function ModuleLearnPage({ params }: Props) {
               />
             )}
             {currentModule.type === "notes" && notes && (
-              <HighlightProvider initialHighlights={initialHighlights} sourceId={moduleId} sourceType="lesson">
+              <HighlightProvider
+                initialHighlights={initialHighlights}
+                lessonUrl={ROUTES.courseLearnModule(slug, moduleId)}
+                moduleTitle={currentModule.title}
+                sourceId={moduleId}
+                sourceType="lesson"
+              >
                 <ModuleNotes
-                  hasAIConnection={hasAIConnection}
                   highlights={initialHighlights}
                   initialCompleted={moduleProgress?.status === "completed"}
                   initialNote={initialNote}
                   initialReflection={initialReflection}
                   initialSession={moduleLab?.initialSession ?? null}
                   lab={moduleLab?.lab ?? null}
-                  lessonUrl={ROUTES.courseLearnModule(slug, moduleId)}
                   moduleId={moduleId}
                   segments={notes.segments}
                   title={currentModule.title}
@@ -220,8 +237,6 @@ export default async function ModuleLearnPage({ params }: Props) {
               </div>
             )}
 
-            {courseComplete && <RevisionPlanCard courseId={course.id} plan={revisionPlan} />}
-
             <ModuleNavFooter courseSlug={slug} nextModule={nextModule} prevModule={prevModule} />
           </article>
 
@@ -238,12 +253,25 @@ export default async function ModuleLearnPage({ params }: Props) {
               {/* Next-module navigation lives once, in <ModuleNavFooter> at the
                   bottom of the article (alongside Previous) — do not duplicate
                   it here in the rail. */}
+              {firstRunnableLanguage && <LessonCompilerToggle language={firstRunnableLanguage} />}
               {notes && (
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <ModuleToc entries={notes.toc} />
                 </div>
               )}
             </ModuleProgressRail>
+          )}
+
+          {/* The rail above is hidden while the lab split is open, so "On
+              this page" relocates to the same draggable bottom dock a
+              console-layout lab's terminal already uses. Skipped for
+              console-layout labs specifically — they're already using that
+              dock for the terminal, and stacking two fixed panels would
+              overlap (ponytail: narrow edge case, not worth a second dock). */}
+          {isLabOpen && notes && notes.toc.length > 0 && moduleLab?.lab.layout !== "console" && (
+            <LabFixedConsole title="On this page">
+              <ModuleToc entries={notes.toc} />
+            </LabFixedConsole>
           )}
         </div>
       </main>

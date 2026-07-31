@@ -90,6 +90,35 @@ type Config struct {
 	// Per-lab targets come from the metrics-driven planner, capped by this.
 	LabsWarmPoolGlobalMax int
 
+	// Nested-Docker (Docker-in-Docker) lab support — off by default. A lab
+	// whose environment image is NOT in this list runs with the platform's
+	// normal --cap-drop ALL, no-new-privileges, no-added-capabilities
+	// container; nothing about existing labs changes when this is unset.
+	// Only images explicitly listed here get the elevated container config
+	// (see labs.DockerContainerService.startNamed / KubernetesContainerService
+	// .startPod), and even then only for an org whose lab_org_config.
+	// allowed_images explicitly includes that image (see labs.Service.
+	// StartSession) — operator config and org-plan gating both have to agree.
+	// See docs/labs.md "Nested Docker labs" before setting this on a host
+	// that also runs Postgres/Redis/MinIO/the backend (which already holds
+	// docker.sock) — a nested-Docker container must be treated as
+	// potentially host-root and belongs on an isolated lab host/node pool.
+	LabsNestedDockerImages []string
+	// LabsNestedDockerRuntime, when set to "sysbox-runc", switches the Docker
+	// runtime's nested-image containers to `--runtime sysbox-runc` (no added
+	// capabilities at all) instead of the rootless-dind capability set. Only
+	// takes effect if the host actually has sysbox-runc installed. Empty =
+	// rootless-dind flags (the default, host-independent option).
+	LabsNestedDockerRuntime string
+	// LabsNestedDockerRuntimeClass sets the Kubernetes RuntimeClassName
+	// (e.g. "sysbox-runc" or "kata-containers") for nested-image Pods. The
+	// Kubernetes runtime has no equivalent of Docker's --cap-add flags, so a
+	// nested-image lab on the kubernetes runtime REQUIRES this to be set —
+	// KubernetesContainerService.startPod fails the session loudly rather
+	// than approximate elevated capabilities on a shared node pool with no
+	// RuntimeClass isolation.
+	LabsNestedDockerRuntimeClass string
+
 	// Object storage (MinIO / S3-compatible).
 	// When MinioAccessKey is empty, avatar upload returns 503; other features unaffected.
 	MinioEndpoint  string
@@ -199,6 +228,9 @@ func Load() *Config {
 	cfg.LabsRuntime = getEnvDefault("LABS_RUNTIME", "docker")
 	cfg.LabsK8sNamespace = getEnvDefault("LABS_K8S_NAMESPACE", "mindforge-labs")
 	cfg.LabsWarmPoolGlobalMax = getEnvInt("LABS_WARM_POOL_GLOBAL_MAX", 20)
+	cfg.LabsNestedDockerImages = getEnvList("LABS_NESTED_DOCKER_IMAGES")
+	cfg.LabsNestedDockerRuntime = os.Getenv("LABS_NESTED_DOCKER_RUNTIME")
+	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
 
 	cfg.MinioEndpoint = getEnvDefault("MINIO_ENDPOINT", "localhost:9000")
 	cfg.MinioAccessKey = os.Getenv("MINIO_ACCESS_KEY")
@@ -303,4 +335,22 @@ func getEnvInt(key string, fallback int) int {
 		os.Exit(1)
 	}
 	return v
+}
+
+// getEnvList parses a comma-separated env var into a trimmed, non-empty
+// string slice. Unset or empty returns nil, not an empty-but-non-nil slice —
+// callers that check len(...) > 0 to gate a feature behave identically
+// either way, but nil more honestly represents "not configured".
+func getEnvList(key string) []string {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
 }

@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	idb "github.com/mindforge/backend/internal/db"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -38,17 +38,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := idb.Connect(ctx, dbURL)
 	if err != nil {
 		slog.Error("labproxy: connect postgres", "error", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
-
-	if err := pool.Ping(ctx); err != nil {
-		slog.Error("labproxy: ping postgres", "error", err)
-		os.Exit(1)
-	}
 	slog.Info("labproxy: postgres connected")
 
 	redisOpts, err := redis.ParseURL(redisURL)

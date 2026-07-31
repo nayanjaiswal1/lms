@@ -94,6 +94,13 @@ enforces):
 | `submit_interview_prep_round_answer` | `interview_prep:manage` | `interviewprep.Service.SubmitRoundAnswer` → `practice.Service.SubmitAnswer` |
 | `submit_interview_prep_coding_item` | `interview_prep:manage` | `interviewprep.Service.SubmitCodingItem` — round 2 (technical targeted plans only) |
 | `get_interview_prep_report` | `interview_prep:manage` | `interviewprep.Service.GetReport` |
+| `list_system_design_attempts` | `system_design:manage` | `systemdesign.Service.ListAttempts` |
+| `create_system_design_attempt` | `system_design:manage` | `systemdesign.Service.CreateAttempt` — blank-canvas attempt; earlier attempts are kept, not overwritten |
+| `get_system_design_attempt` | `system_design:manage` | `systemdesign.Service.GetAttempt` — scene (Excalidraw elements/appState) plus any saved feedback |
+| `save_system_design_scene` | `system_design:manage` | `systemdesign.Service.SaveScene` — replaces the whole scene; the connected AI can draw/edit the whiteboard directly |
+| `generate_system_design_feedback` | `system_design:manage` | `systemdesign.Service.GenerateFeedback` |
+| `list_system_design_chat` | `system_design:manage` | `systemdesign.Service.ListChat` |
+| `send_system_design_chat_message` | `system_design:manage` | `systemdesign.Service.SendChatMessage` |
 
 ### `interview_prep:manage` — one combined scope, no revert on generation
 
@@ -106,9 +113,13 @@ Every other write scope (`notes:write`, `signals:write`, `calendar:manage`) only
 - `create_self_course`/`add_self_course_module`/`update_self_course_module` only ever read/write a `kind='self'` course whose `owner_id` is the connection's own `user_id` — enforced by `courses.Repo.GetOwnedSelfCourse` on every call, the same choke point the in-app self-course endpoints use. There is no tool that edits a `kind='org'` course's modules.
 - `propose_module_to_org_course` never writes to an org course either — it only inserts a `pending` `course_content_proposals` row. An org course only gains a new module when that course's own instructor/admin approves it through the ordinary web app (`docs/courses.md`'s proposal review queue), a plain session-authenticated, RBAC-gated endpoint — never reachable via `/mcp`.
 
+### `system_design:manage` — the whiteboard tool, not the (unbuilt) canvas doc describes
+
+This scope covers `internal/systemdesign`, the actual system-design feature: an Excalidraw whiteboard a student fills in against one `course_modules` row of `type='system_design'`, with AI feedback and a clarifying-question chat (`system_design_attempts`, `system_design_chat_messages`). It is unrelated to the standalone React-Flow canvas / `system_designs` table `docs/design.md` describes — that feature was never built; `docs/design.md` is stale. `save_system_design_scene` is the "update the design" tool: it takes a full Excalidraw scene (`{elements, appState}`) and replaces the attempt's canvas wholesale, the same as `SaveScene` does for the in-app autosave. One combined scope rather than a read/write split, same reasoning as `interview_prep:manage` — every call is already scoped to the connection's own attempts.
+
 ## Database Schema
 
-Migration `015_add_lesson_notes_and_mcp_connections.sql`:
+Introduced by migration `015_add_lesson_notes_and_mcp_connections.sql` (now folded into `001_baseline.sql` — migrations `002`–`027` were squashed 2026-07-30):
 
 ```sql
 lesson_notes (id, org_id, user_id, module_id, content, source, created_at, updated_at)

@@ -19,10 +19,10 @@ interface RevisionPlanCardProps {
 export function RevisionPlanCard({ courseId, plan }: RevisionPlanCardProps) {
   if (!plan) {
     return (
-      <div className="card-base flex flex-col gap-3 p-6">
+      <div className="ai-surface flex flex-col gap-3 rounded-lg p-6">
         <div className="flex items-center gap-2">
           <Sparkles aria-hidden className="h-4 w-4 text-ai" />
-          <span className="font-medium">Revision plan</span>
+          <span className="font-medium text-ai">Revision plan</span>
         </div>
         <p className="text-sm text-muted-foreground">
           Get an AI-built revision plan based on your actual knowledge-check accuracy and lesson
@@ -34,16 +34,16 @@ export function RevisionPlanCard({ courseId, plan }: RevisionPlanCardProps) {
   }
 
   return (
-    <div className="card-base flex flex-col gap-4 p-6">
+    <div className="ai-surface flex flex-col gap-4 rounded-lg p-6">
       {plan.status === "generating" && <meta content="3" httpEquiv="refresh" />}
 
       <div className="flex items-center gap-2">
         <Sparkles aria-hidden className="h-4 w-4 text-ai" />
-        <span className="font-medium">Revision plan</span>
+        <span className="font-medium text-ai">Revision plan</span>
       </div>
 
       {plan.status === "generating" && (
-        <div className="ai-surface flex items-center gap-3 p-4">
+        <div className="flex items-center gap-3 rounded-md border border-ai/20 bg-background/50 p-4">
           <Sparkles aria-hidden className="h-5 w-5 shrink-0 text-ai" />
           <p className="text-sm">
             AI is analyzing your performance across this course. This page refreshes automatically.

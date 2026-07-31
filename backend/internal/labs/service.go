@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -98,6 +99,20 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 	orgCfg, err := s.repo.GetOrgConfig(ctx, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("labs.Service.StartSession: get org config: %w", err)
+	}
+
+	// 4b. Image allowlist. A nested-Docker image (see ContainerRuntime.
+	// IsNestedImage) is never a platform default — it requires an explicit
+	// allowed_images entry regardless of how large that list otherwise is.
+	// For an ordinary image, an empty allowed_images list means "no
+	// restriction" (today's existing behavior, now actually enforced rather
+	// than merely loaded and ignored); a non-empty list restricts to it.
+	if s.container.IsNestedImage(lab.Environment) {
+		if !slices.Contains(orgCfg.AllowedImages, lab.Environment) {
+			return nil, ErrImageNotAllowed
+		}
+	} else if len(orgCfg.AllowedImages) > 0 && !slices.Contains(orgCfg.AllowedImages, lab.Environment) {
+		return nil, ErrImageNotAllowed
 	}
 
 	// 5. Advisory lock + concurrency checks + insert — all in one transaction.
@@ -223,12 +238,11 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 			slog.Error("labs.Service.provisionContainer: claim warm", "session_id", session.ID, "error", err)
 		} else if warm != nil {
 			if s.container.IsRunning(ctx, warm.ContainerID) {
-				bgCtx := context.Background()
-				if err := s.repo.UpdateSessionRunning(bgCtx, session.ID, warm.ContainerID, warm.ContainerHost); err != nil {
+				if err := s.repo.UpdateSessionRunning(ctx, session.ID, warm.ContainerID, warm.ContainerHost); err != nil {
 					slog.Error("labs.Service.provisionContainer: update running (warm)", "session_id", session.ID, "error", err)
 				}
-				s.runRepoClone(bgCtx, session, warm.ContainerID)
-				if err := s.rdb.Publish(bgCtx, "lab:events:"+session.ID, "ready").Err(); err != nil {
+				s.runRepoClone(ctx, session, warm.ContainerID)
+				if err := s.rdb.Publish(ctx, "lab:events:"+session.ID, "ready").Err(); err != nil {
 					slog.Error("labs.Service.provisionContainer: publish ready (warm)", "session_id", session.ID, "error", err)
 				}
 				return
@@ -249,22 +263,20 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 	containerID, containerHost, err := s.container.Start(ctx, session.ID, session.ResetCount, lab.Environment, setupScript)
 	if err != nil {
 		slog.Error("labs.Service.provisionContainer: start container", "session_id", session.ID, "error", err)
-		bgCtx := context.Background()
-		if updateErr := s.repo.UpdateSessionStatus(bgCtx, session.ID, SessionStatusFailed); updateErr != nil {
+		if updateErr := s.repo.UpdateSessionStatus(ctx, session.ID, SessionStatusFailed); updateErr != nil {
 			slog.Error("labs.Service.provisionContainer: mark failed", "session_id", session.ID, "error", updateErr)
 		}
-		if pubErr := s.rdb.Publish(bgCtx, "lab:events:"+session.ID, "failed").Err(); pubErr != nil {
+		if pubErr := s.rdb.Publish(ctx, "lab:events:"+session.ID, "failed").Err(); pubErr != nil {
 			slog.Error("labs.Service.provisionContainer: publish failed", "session_id", session.ID, "error", pubErr)
 		}
 		return
 	}
 
-	bgCtx := context.Background()
-	if err := s.repo.UpdateSessionRunning(bgCtx, session.ID, containerID, containerHost); err != nil {
+	if err := s.repo.UpdateSessionRunning(ctx, session.ID, containerID, containerHost); err != nil {
 		slog.Error("labs.Service.provisionContainer: update running", "session_id", session.ID, "error", err)
 	}
-	s.runRepoClone(bgCtx, session, containerID)
-	if err := s.rdb.Publish(bgCtx, "lab:events:"+session.ID, "ready").Err(); err != nil {
+	s.runRepoClone(ctx, session, containerID)
+	if err := s.rdb.Publish(ctx, "lab:events:"+session.ID, "ready").Err(); err != nil {
 		slog.Error("labs.Service.provisionContainer: publish ready", "session_id", session.ID, "error", err)
 	}
 }

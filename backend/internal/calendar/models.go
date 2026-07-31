@@ -110,6 +110,29 @@ func IsValidVisibility(v string) bool {
 	return ok
 }
 
+// Priority values — mirrors calendar_events.priority. Meaningful only on
+// EventTypeTask rows (mirrors CompletedAt's doc comment), left unenforced
+// at the DB layer and validated in normalizeAndValidateEvent instead.
+const (
+	PriorityLow    = "low"
+	PriorityMedium = "medium"
+	PriorityHigh   = "high"
+	PriorityUrgent = "urgent"
+)
+
+var validPriorities = map[string]struct{}{
+	PriorityLow:    {},
+	PriorityMedium: {},
+	PriorityHigh:   {},
+	PriorityUrgent: {},
+}
+
+// IsValidPriority reports whether p is a valid calendar_events.priority value.
+func IsValidPriority(p string) bool {
+	_, ok := validPriorities[p]
+	return ok
+}
+
 // Event status values — mirrors calendar_events.status.
 const (
 	EventStatusScheduled = "scheduled"
@@ -165,8 +188,11 @@ type Event struct {
 	// CompletedAt is set only on EventTypeTask rows — when non-nil, the task
 	// is checked off. Meaningless on every other event type.
 	CompletedAt *time.Time `json:"completed_at"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	// Priority is set only on EventTypeTask rows — drives sort order in the
+	// task list view. Meaningless on every other event type.
+	Priority  *string   `json:"priority"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 
 	// IsVirtual marks a synthesized, read-only entry that has no
 	// calendar_events row backing it (currently: an org assessment window).

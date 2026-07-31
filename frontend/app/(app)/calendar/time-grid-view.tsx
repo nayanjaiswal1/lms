@@ -12,7 +12,7 @@ import {
 import { EventBlock, primaryLayerFor } from "@/app/(app)/calendar/event-block";
 import { QuickCreateAdapter } from "@/app/(app)/calendar/quick-create-adapter";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import type { CalendarEvent } from "@/lib/calendar/types";
+import type { CalendarEvent, CalendarEventPriority } from "@/lib/calendar/types";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
@@ -38,7 +38,14 @@ interface TimeGridViewProps {
   onResizeStart: (eventId: string) => void;
   onResizeMove: (deltaMinutes: number) => void;
   onResizeCommit: (eventId: string, newEnd: Date) => void;
-  onCreateSubmit: (title: string, start: Date, end: Date, isTask: boolean) => void;
+  onCreateSubmit: (
+    title: string,
+    start: Date,
+    end: Date,
+    isTask: boolean,
+    notes?: string,
+    priority?: CalendarEventPriority,
+  ) => void;
   onCreateCancel: () => void;
 }
 

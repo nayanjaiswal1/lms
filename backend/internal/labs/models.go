@@ -18,11 +18,35 @@ const (
 	// via their entrypoint's app-runner before the probe passes — Vite cold
 	// starts alone can take >15s under the 1-CPU/512MB container limits, so
 	// the old 30s budget hard-failed sessions that were about to succeed.
-	ProvisionTimeoutSeconds = 90
+	// Nested-Docker images additionally need room for startNamed's full
+	// scoped-then-privileged retry on a proxied-socket host: the scoped
+	// attempt runs its entrypoint's own ~70s dockerd-readiness loop to
+	// completion before failing, then the privileged retry needs another
+	// ~20-30s to boot dockerd for real — comfortably under this budget with
+	// margin. A real Linux Docker Engine host never hits the retry at all,
+	// so this larger ceiling costs it nothing.
+	ProvisionTimeoutSeconds = 180
 	IdleTimeoutMinutes      = 15
 	ContainerCPU            = "1.0"
 	ContainerMemoryMB       = 512
 	ContainerDiskGB         = 3
+	// NestedContainerCPU/NestedContainerMemoryMB apply only to labs whose
+	// image is in config.LabsNestedDockerImages (nested Docker-in-Docker
+	// labs) — a nested dockerd plus a student `docker build` cannot fit in
+	// the default 1 CPU / 512MB; without this override those sessions OOM
+	// silently under any real load even though they work fine on an
+	// otherwise-idle dev machine.
+	NestedContainerCPU      = "2.0"
+	NestedContainerMemoryMB = 1536
+	// nestedLabNetwork isolates nested-Docker (elevated, SYS_ADMIN-holding)
+	// containers onto their own bridge, separate from the shared
+	// "mindforge-labs" network every ordinary (--cap-drop ALL, no added
+	// capabilities) lab container runs on — see docs/labs.md "Nested Docker
+	// labs" for why L2 adjacency to unelevated containers is the risk this
+	// avoids. Must exist (docker-compose.*.yml creates it) and must also be
+	// attached to the labproxy service so the terminal proxy can still reach
+	// these containers' ttyd port.
+	nestedLabNetwork = "mindforge-labs-dind"
 	// WarmContainerNamePrefix names pre-provisioned pool sandboxes
 	// ("mindforge-warm-{warmID}"), keeping them out of LabCleanupHandler's
 	// "mindforge-lab-" orphan scan — the warm-pool reconciler owns their

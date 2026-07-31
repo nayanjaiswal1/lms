@@ -27,10 +27,16 @@ type Common struct {
 // ModuleType optionally overrides the default 'notes' type — currently only
 // 'system_design' is allowed, for lessons that pair a design question's
 // guidance markdown with the whiteboard practice board.
+// Lab is optional: when present, renderLesson emits this lesson's notes
+// module AND the full lab row-set (lab_definitions/lab_tasks/
+// lab_task_versions/lab_task_version_items), with lab_definitions.module_id
+// pointing at this lesson's own module id — a hands-on lesson with inline
+// [[lab-task:N]] markers instead of a separate lab module in the section.
 type Lesson struct {
 	Common     `yaml:",inline"`
-	ModuleType string `yaml:"type,omitempty"`
-	Body       string `yaml:"-"` // markdown body — not part of frontmatter, set by the parser after splitting
+	ModuleType string   `yaml:"type,omitempty"`
+	Lab        *LabSpec `yaml:"lab,omitempty"`
+	Body       string   `yaml:"-"` // markdown body — not part of frontmatter, set by the parser after splitting
 }
 
 // QuizOption is one answer choice on an mcq Question.
@@ -103,10 +109,13 @@ type Task struct {
 	SolutionScript string `yaml:"solution_script"`
 }
 
-// Lab maps to lab_definitions + lab_tasks + lab_task_versions + publish +
-// course_modules(type='lab').
-type Lab struct {
-	Common      `yaml:",inline"`
+// LabSpec is every lab field that isn't document identity (id_key/course/
+// section/title/position/... — those live on Common). Shared verbatim
+// between a standalone `kind: lab` doc (Lab, below) and a `kind: lesson`
+// doc's optional nested `lab:` block (Lesson.Lab) — a hands-on lesson
+// attaches a lab directly to its own notes module instead of adding a
+// separate lab module to the section.
+type LabSpec struct {
 	LabType     string `yaml:"lab_type"` // must be one of terminal|code|playground|guided|sandbox
 	Environment string `yaml:"environment"`
 	PreviewPort int    `yaml:"preview_port"` // container port of the lab's running app; 0 = no live preview pane
@@ -121,4 +130,11 @@ type Lab struct {
 	SetupScript    string    `yaml:"setup_script"`
 	Files          []LabFile `yaml:"files"`
 	Tasks          []Task    `yaml:"tasks"`
+}
+
+// Lab maps to lab_definitions + lab_tasks + lab_task_versions + publish +
+// course_modules(type='lab').
+type Lab struct {
+	Common  `yaml:",inline"`
+	LabSpec `yaml:",inline"`
 }

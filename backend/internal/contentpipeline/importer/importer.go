@@ -246,15 +246,17 @@ func buildLabStub(vendorDir string, sec Section, labMeta LabMeta, position int) 
 			EstimatedMinutes: 30,
 			Source:           source,
 		},
-		LabType:        "terminal",
-		Environment:    "mindforge/lab-k8s:1.31",
-		MaxDuration:    60,
-		MaxResets:      3,
-		HintPenaltyPct: 10,
-		IsRequired:     true,
-		SetupScript:    defaultLabSetupScript,
-		Files:          files,
-		Tasks:          []canonical.Task{},
+		LabSpec: canonical.LabSpec{
+			LabType:        "terminal",
+			Environment:    "mindforge/lab-k8s:1.31",
+			MaxDuration:    60,
+			MaxResets:      3,
+			HintPenaltyPct: 10,
+			IsRequired:     true,
+			SetupScript:    defaultLabSetupScript,
+			Files:          files,
+			Tasks:          []canonical.Task{},
+		},
 	}, nil
 }
 

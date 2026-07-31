@@ -28,6 +28,7 @@ spec:
       containers:
         - name: frontend
           image: mindforge-frontend:latest # replaced by the overlay's images: transformer
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           envFrom:

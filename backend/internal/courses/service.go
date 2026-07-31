@@ -38,7 +38,7 @@ func NewService(repo *Repo, store storage.StorageClient, aiProvider ai.LLMProvid
 // passed), so a client can never fabricate completion of verified work.
 func (s *Service) CompleteModule(ctx context.Context, userID, orgID, moduleID, courseID string) (ModuleProgress, *rewards.AwardResult, error) {
 	now := time.Now()
-	updated, err := s.repo.UpsertProgress(ctx, ModuleProgress{
+	updated, wasAlreadyCompleted, err := s.repo.UpsertProgressCompleted(ctx, ModuleProgress{
 		UserID:      userID,
 		ModuleID:    moduleID,
 		CourseID:    courseID,
@@ -49,7 +49,10 @@ func (s *Service) CompleteModule(ctx context.Context, userID, orgID, moduleID, c
 		return ModuleProgress{}, nil, err
 	}
 
-	if s.rewardsSvc == nil {
+	// A module already marked completed (student unmarked it, then remarked
+	// it complete) must not re-award XP/streak/badges — those are one-time
+	// per module, not per completion event.
+	if wasAlreadyCompleted || s.rewardsSvc == nil {
 		return updated, nil, nil
 	}
 

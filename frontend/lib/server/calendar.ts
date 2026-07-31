@@ -24,6 +24,7 @@ import ROUTES from "@/lib/routes";
 // backend/internal/calendar/models.go). Never send "assessment" when creating
 // or updating an event; check is_virtual to gate the UI instead.
 export type CalendarEventType = "mentor_session" | "live_class" | "deadline" | "custom" | "task" | "assessment";
+export type CalendarEventPriority = "low" | "medium" | "high" | "urgent";
 export type CalendarVisibility = "private" | "shared" | "public";
 export type AttendeeRole = "owner" | "editor" | "viewer";
 export type RsvpStatus = "pending" | "accepted" | "declined";
@@ -71,6 +72,8 @@ export interface CalendarEvent {
   status: CalendarEventStatus;
   // Meaningful only when event_type === "task": non-null once checked off.
   completed_at: string | null;
+  // Meaningful only when event_type === "task".
+  priority: CalendarEventPriority | null;
   is_virtual: boolean;
 }
 
@@ -93,6 +96,8 @@ export interface CreateCalendarEventInput {
   batch_id?: string;
   course_id?: string;
   recurrence_rule?: string;
+  // Only meaningful when event_type is "task".
+  priority?: CalendarEventPriority;
   // Existing org members only — the backend's create/update endpoints only
   // accept attendee_user_ids (default role 'viewer'); to add a non-member by
   // email, or to grant 'owner'/'editor', call inviteAction after creation.

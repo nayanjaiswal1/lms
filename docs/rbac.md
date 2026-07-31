@@ -43,8 +43,8 @@ A user's effective permissions are the union of all permissions granted through 
 
 ## 2. Database Schema
 
-**Migration file:** `mindforge/backend/db/migrations/001_schema.sql`
-**Down file:** `mindforge/backend/db/migrations/001_schema.down.sql`
+**Migration file:** `mindforge/backend/db/migrations/001_baseline.sql`
+**Down file:** `mindforge/backend/db/migrations/001_baseline.down.sql`
 
 ### `permissions`
 
@@ -110,8 +110,7 @@ Indexes:
 
 ### `user_permission_overrides`
 
-**Migration file:** `mindforge/backend/db/migrations/026_add_user_permission_overrides.sql`
-**Down file:** `mindforge/backend/db/migrations/026_add_user_permission_overrides.down.sql`
+**Introduced by:** migration `026_add_user_permission_overrides.sql` (now folded into `001_baseline.sql` — migrations `002`–`027` were squashed 2026-07-30).
 
 Direct per-user permission grants that bypass roles entirely — see the design-principle callout in §1 for why this exists.
 
@@ -149,8 +148,8 @@ Indexes:
 
 ## 3. Seed Data — Permissions & System Roles
 
-**Migration file:** `mindforge/backend/db/migrations/001_schema.sql`
-**Down file:** `mindforge/backend/db/migrations/001_schema.down.sql`
+**Migration file:** `mindforge/backend/db/migrations/001_baseline.sql`
+**Down file:** `mindforge/backend/db/migrations/001_baseline.down.sql`
 
 All inserts use `ON CONFLICT DO NOTHING` — safe to re-run.
 
@@ -626,7 +625,7 @@ The pub/sub channel `rbac:invalidate` exists for future L1 in-process cache supp
 
 ### Add a new permission code
 
-1. Add a row to the consolidated schema: `mindforge/backend/db/migrations/001_schema.sql`
+1. Add a row to the consolidated schema: `mindforge/backend/db/migrations/001_baseline.sql`
    ```sql
    INSERT INTO permissions (code, name, description, module) VALUES
      ('content.new_tool', 'New Tool', 'Access the new tool', 'content')
@@ -641,7 +640,7 @@ The pub/sub channel `rbac:invalidate` exists for future L1 in-process cache supp
 
 ### Add a new system role
 
-1. Pick a new stable UUID and add to `001_schema.sql`:
+1. Pick a new stable UUID and add to `001_baseline.sql`:
    ```sql
    INSERT INTO roles (id, name, description, is_system, is_editable, tenant_id) VALUES
      ('<new-uuid>', 'reviewer', 'Content reviewer role', true, false, NULL)

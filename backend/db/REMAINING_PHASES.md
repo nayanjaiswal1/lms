@@ -1,13 +1,21 @@
 # Schema Review — Status & Remaining Work
 
-Re-audited 2026-07-21 directly against `backend/db/migrations/001_baseline.sql`
-(114 tables). The migration history was squashed into a single baseline at
-some point — the old `002`–`010` numbering this file used to track no longer
-exists. **Next migration is `002_*`.** `SCHEMA_REVIEW.md` (the original
-40-issue audit this file was extracted from) has been deleted — its
-actionable items are folded in below with verified current status; anything
-below marked "fixed" or "open" was checked against the live baseline, not
-assumed.
+Re-audited 2026-07-21 directly against the then-current `001_baseline.sql`
+(114 tables). `SCHEMA_REVIEW.md` (the original 40-issue audit this file was
+extracted from) has been deleted — its actionable items are folded in below
+with verified current status; anything below marked "fixed" or "open" was
+checked against the live baseline at that time, not assumed.
+
+**Re-squashed 2026-07-30:** migrations `002`–`027` (accumulated since the
+2026-07-21 audit) have been folded into `001_baseline.sql`, which now covers
+156 tables. **Next migration is still `002_*`.** None of migrations `002`–`027`
+touched the specific columns/tables the line items below call out (they were
+additive: cohort groups, final-test certificates, practice/interview-prep
+merge, sheet revision settings, lesson notes + MCP connections, self-courses,
+highlight notes, interview experiences, GitLab integration, user permission
+overrides, AI connector config) — so the statuses below are still accurate,
+but they have **not been re-verified** against the new baseline. Re-check
+before relying on any specific item.
 
 No `BEGIN;`/`COMMIT;` inside migration files — the runner wraps each file in
 its own transaction (see `db/migrate.go`). Each phase = one migration number,
@@ -164,4 +172,5 @@ Deferred (documented, not migrating now — unchanged from original review, not 
 4. `internal/assessment` may have unrelated in-flight work — check `git diff`
    / `git status` there before editing.
 5. Re-verify against `001_baseline.sql` before starting — this file reflects a
-   point-in-time audit (2026-07-21), not a live query.
+   point-in-time audit (2026-07-21, table statuses unchanged by the 2026-07-30
+   re-squash), not a live query.

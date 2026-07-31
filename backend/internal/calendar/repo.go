@@ -45,13 +45,13 @@ type rowScanner interface {
 
 const eventColumns = `id, org_id, created_by, event_type, title, notes, meeting_url,
 	starts_at, ends_at, all_day, visibility, batch_id, course_id, entity_type, entity_id,
-	recurrence_rule, recurrence_parent_id, excluded_occurrences, status, completed_at, created_at, updated_at`
+	recurrence_rule, recurrence_parent_id, excluded_occurrences, status, completed_at, priority, created_at, updated_at`
 
 func scanEvent(row rowScanner) (Event, error) {
 	var e Event
 	err := row.Scan(&e.ID, &e.OrgID, &e.CreatedBy, &e.EventType, &e.Title, &e.Notes, &e.MeetingURL,
 		&e.StartsAt, &e.EndsAt, &e.AllDay, &e.Visibility, &e.BatchID, &e.CourseID, &e.EntityType, &e.EntityID,
-		&e.RecurrenceRule, &e.RecurrenceParentID, &e.ExcludedOccurrences, &e.Status, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
+		&e.RecurrenceRule, &e.RecurrenceParentID, &e.ExcludedOccurrences, &e.Status, &e.CompletedAt, &e.Priority, &e.CreatedAt, &e.UpdatedAt)
 	return e, err
 }
 
@@ -60,12 +60,12 @@ func (r *Repo) CreateTx(ctx context.Context, tx pgx.Tx, e Event) (Event, error) 
 	row := tx.QueryRow(ctx,
 		`INSERT INTO calendar_events (org_id, created_by, event_type, title, notes, meeting_url,
 		   starts_at, ends_at, all_day, visibility, batch_id, course_id, entity_type, entity_id,
-		   recurrence_rule, recurrence_parent_id)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		   recurrence_rule, recurrence_parent_id, priority)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
 		 RETURNING `+eventColumns,
 		e.OrgID, e.CreatedBy, e.EventType, e.Title, e.Notes, e.MeetingURL,
 		e.StartsAt, e.EndsAt, e.AllDay, e.Visibility, e.BatchID, e.CourseID, e.EntityType, e.EntityID,
-		e.RecurrenceRule, e.RecurrenceParentID)
+		e.RecurrenceRule, e.RecurrenceParentID, e.Priority)
 	created, err := scanEvent(row)
 	if err != nil {
 		return Event{}, fmt.Errorf("calendar: create event: %w", err)
@@ -166,11 +166,11 @@ func (r *Repo) Update(ctx context.Context, orgID string, e Event) (Event, error)
 		`UPDATE calendar_events
 		 SET title = $1, notes = $2, meeting_url = $3, starts_at = $4, ends_at = $5,
 		     all_day = $6, visibility = $7, batch_id = $8, course_id = $9,
-		     entity_type = $10, entity_id = $11, recurrence_rule = $12, updated_at = now()
-		 WHERE id = $13 AND org_id = $14
+		     entity_type = $10, entity_id = $11, recurrence_rule = $12, priority = $13, updated_at = now()
+		 WHERE id = $14 AND org_id = $15
 		 RETURNING `+eventColumns,
 		e.Title, e.Notes, e.MeetingURL, e.StartsAt, e.EndsAt, e.AllDay, e.Visibility,
-		e.BatchID, e.CourseID, e.EntityType, e.EntityID, e.RecurrenceRule, e.ID, orgID)
+		e.BatchID, e.CourseID, e.EntityType, e.EntityID, e.RecurrenceRule, e.Priority, e.ID, orgID)
 	updated, err := scanEvent(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -188,12 +188,12 @@ func (r *Repo) CreateDetachedTx(ctx context.Context, tx pgx.Tx, e Event) (Event,
 	row := tx.QueryRow(ctx,
 		`INSERT INTO calendar_events (org_id, created_by, event_type, title, notes, meeting_url,
 		   starts_at, ends_at, all_day, visibility, batch_id, course_id, entity_type, entity_id,
-		   recurrence_parent_id)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+		   recurrence_parent_id, priority)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
 		 RETURNING `+eventColumns,
 		e.OrgID, e.CreatedBy, e.EventType, e.Title, e.Notes, e.MeetingURL,
 		e.StartsAt, e.EndsAt, e.AllDay, e.Visibility, e.BatchID, e.CourseID, e.EntityType, e.EntityID,
-		e.RecurrenceParentID)
+		e.RecurrenceParentID, e.Priority)
 	created, err := scanEvent(row)
 	if err != nil {
 		return Event{}, fmt.Errorf("calendar: create detached occurrence: %w", err)

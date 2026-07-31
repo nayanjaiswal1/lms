@@ -93,6 +93,7 @@ export function SchedulePage({
           visibility: "private",
           all_day: false,
           completed_at: null,
+          priority: null,
           is_virtual: false,
           org_id: "",
         } satisfies CalendarEvent,

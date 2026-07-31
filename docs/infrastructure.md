@@ -6,171 +6,23 @@ Project file structure, all environment variables, AI rules, payments, and secur
 
 ## Project Structure
 
-```
-mindforge/
-├── CLAUDE.md
-├── .env.example
-├── docker-compose.yml
-├── Makefile
-│
-├── backend/                         ← Go 1.26.4
-│   ├── go.mod
-│   ├── cmd/server/main.go
-│   └── internal/
-│       ├── config/config.go
-│       ├── llm/
-│       │   ├── llm.go               ← Provider interface
-│       │   ├── openai.go
-│       │   └── anthropic.go
-│       ├── db/
-│       │   ├── db.go                ← pgxpool
-│       │   ├── migrate.go
-│       │   ├── migrations/001_schema.sql
-│       │   ├── models.go
-│       │   ├── users.go
-│       │   ├── auth.go
-│       │   ├── orgs.go
-│       │   ├── courses.go
-│       │   ├── modules.go
-│       │   ├── enrollments.go
-│       │   ├── progress.go
-│       │   ├── coding.go
-│       │   ├── quiz.go
-│       │   ├── cards.go
-│       │   ├── mentors.go
-│       │   ├── revision.go
-│       │   ├── certificates.go
-│       │   ├── wiki.go
-│       │   ├── designs.go
-│       │   ├── interviews.go
-│       │   └── load_tests.go
-│       ├── srs/sm2.go               ← pure SM-2, no DB
-│       ├── ws/
-│       │   └── interview.go         ← WebSocket hub (Yjs relay)
-│       ├── loadtest/
-│       │   └── runner.go            ← async HTTP load generator
-│       ├── executor/
-│       │   ├── executor.go          ← interface: Execute(code, lang, tests) → Result
-│       │   └── docker.go            ← server-side sandbox for Go/Java/C++
-│       ├── middleware/
-│       │   ├── auth.go              ← JWT parse → jti_blocklist → session_version → set context
-│       │   ├── role.go              ← RequireRole(roles...) middleware
-│       │   └── tenant.go            ← resolve org context from JWT claims
-│       └── api/
-│           ├── router.go
-│           ├── respond.go
-│           ├── auth.go
-│           ├── oauth.go
-│           ├── password.go
-│           ├── orgs.go
-│           ├── courses.go
-│           ├── modules.go
-│           ├── enrollments.go
-│           ├── progress.go
-│           ├── code.go
-│           ├── quiz.go
-│           ├── cards.go
-│           ├── mentors.go
-│           ├── revision.go
-│           ├── certificates.go
-│           ├── wiki.go
-│           ├── designs.go
-│           ├── interviews.go
-│           └── load_tests.go
-│
-└── frontend/                        ← Next.js 16.2.9
-    ├── package.json
-    ├── tsconfig.json
-    ├── next.config.ts
-    ├── middleware.ts                 ← UX-only route protection (see note below)
-    ├── app/
-    │   ├── globals.css
-    │   ├── layout.tsx
-    │   ├── page.tsx
-    │   ├── (auth)/login/page.tsx
-    │   ├── (auth)/register/page.tsx
-    │   ├── (auth)/forgot-password/page.tsx
-    │   ├── (auth)/reset-password/page.tsx
-    │   ├── (auth)/verify-email/page.tsx
-    │   ├── (auth)/org-select/page.tsx
-    │   ├── dashboard/page.tsx
-    │   ├── courses/
-    │   ├── review/page.tsx
-    │   ├── certificates/[uuid]/page.tsx
-    │   ├── sheets/
-    │   ├── mentor/
-    │   ├── instructor/
-    │   ├── interview/
-    │   ├── load-test/page.tsx
-    │   ├── design/
-    │   └── wiki/
-    ├── lib/
-    │   ├── types.ts
-    │   ├── api.ts
-    │   ├── auth.ts
-    │   ├── routes.ts
-    │   └── utils.ts
-    └── components/
-        ├── ui/                      ← shadcn primitives
-        ├── shared/
-        ├── auth/
-        ├── layout/
-        ├── course/
-        ├── editor/
-        ├── sheets/
-        ├── quiz/
-        ├── review/
-        ├── mentor/
-        ├── interview/
-        ├── load-test/
-        ├── design/
-        └── wiki/
-```
+See [README.md](../README.md)'s "Project Structure" section for the current, authoritative file tree — 37 domain packages under `backend/internal/`, generated fixtures, k8s manifests, and scripts. (An older single-package layout — `internal/db/*.go`, `internal/executor/`, `internal/ws/` — used to be documented here; it no longer matches the codebase and has been removed rather than left to drift further.)
 
-**Next.js middleware note:** `middleware.ts` is UX-only — it redirects unauthenticated browsers to prevent a flash of protected content. It is NOT a security boundary. All role and permission enforcement happens in Go middleware (`middleware/auth.go`, `middleware/role.go`).
+**Next.js middleware note:** `frontend/middleware.ts` is UX-only — it redirects unauthenticated browsers to prevent a flash of protected content. It is NOT a security boundary. All role and permission enforcement happens in Go middleware (`internal/auth`, `internal/authz`).
 
 ---
 
 ## Environment Variables
 
+The full reference lives in [README.md](../README.md)'s "Environment Variables" section (database, Redis, JWT/session, OAuth, email, server, frontend) and [auth.md](auth.md)'s (auth-specific TTLs and secrets). Variables below are infra-specific and not covered there:
+
 ```env
-# Server
-PORT=8080
-WS_PORT=8081
-DATABASE_URL=postgres://mindforge:mindforge@localhost:5432/mindforge?sslmode=disable
-FRONTEND_URL=http://localhost:3000
-
-# Auth secrets — app exits on startup if unset, matches 'change-me' default, or under 32 bytes
-JWT_SECRET=change-me-to-a-long-random-string
-COOKIE_SECRET=change-me-to-a-long-random-string
-ENCRYPTION_KEY=change-me-32-byte-key
-
-# Auth token TTLs
-ACCESS_TOKEN_TTL=15m
-REFRESH_TOKEN_TTL=720h              # 30 days
-PASSWORD_RESET_TTL=30m
-EMAIL_VERIFICATION_TTL=24h
-MAGIC_LINK_TTL=10m
-INVITE_TTL=168h                     # 7 days
-
-# Social OAuth (optional; enable per-provider)
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-MICROSOFT_CLIENT_ID=
-MICROSOFT_CLIENT_SECRET=
-
-# Geo / impossible-travel (optional)
-MAXMIND_DB_PATH=./GeoLite2-City.mmdb
-
 # LLM
-LLM_PROVIDER=openai                 # openai | anthropic
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_API_KEY=sk-...
-LLM_MODEL_SMART=gpt-4o             # revision plans, course outlines
-LLM_MODEL_CHEAP=gpt-4o-mini        # quizzes, flashcards, error hints
-LLM_RATE_LIMIT_PER_HOUR=10         # per user
+LLM_PROVIDER=anthropic               # anthropic | gemini | noop — see internal/ai/
+LLM_API_KEY=
+LLM_MODEL_SMART=                     # revision plans, course outlines, roadmaps
+LLM_MODEL_CHEAP=                     # quizzes, flashcards, error hints
+LLM_RATE_LIMIT_PER_HOUR=10           # per user
 
 # Code Execution — Piston takes priority when both are set
 # Self-host Piston: https://github.com/engineer-man/piston
@@ -184,11 +36,6 @@ JUDGE0_TIMEOUT=30s                   # Optional — default 30s
 PAYMENT_PROVIDER=stripe             # stripe | razorpay
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-
-# Frontend
-NEXT_PUBLIC_API_URL=http://localhost:8080   # used in browser; for server-to-server use API_URL
-API_URL=http://localhost:8080               # server-only; internal hostname in prod
-NEXT_PUBLIC_ENABLE_PAYMENTS=false
 ```
 
 ---

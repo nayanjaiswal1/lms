@@ -78,13 +78,23 @@
      DialogContent, not a DOM descendant — CSS stacking context nesting
      doesn't apply, only the numeric z-index does. They must always
      out-rank a modal, since any of them can be triggered from inside one
-     (e.g. the "Assign role" Select in manage-roles-dialog.tsx). */
-  --z-raised:   10;
-  --z-sticky:   200;
-  --z-overlay:  300;
-  --z-modal:    400;
-  --z-dropdown: 450;
-  --z-toast:    500;
+     (e.g. the "Assign role" Select in manage-roles-dialog.tsx).
+
+     MUST be namespaced `--z-index-*`, not `--z-*` — Tailwind v4 only
+     generates `z-<name>` utilities (e.g. `z-modal`) from theme keys under
+     the `--z-index-*` namespace. `--z-modal: 400` alone compiles as an
+     inert CSS custom property: every `z-modal`/`z-raised`/etc. class in
+     the app silently resolved to `z-index: auto`, so `fixed` overlays
+     (Sheet/Dialog) lost stacking order to any sibling that happened to
+     have a real explicit z-index (e.g. a `position: sticky` rail) —
+     verified via computed style: `z-modal` → `auto`, `z-10` (Tailwind
+     built-in) → `10`. */
+  --z-index-raised:   10;
+  --z-index-sticky:   200;
+  --z-index-overlay:  300;
+  --z-index-modal:    400;
+  --z-index-dropdown: 450;
+  --z-index-toast:    500;
 
   /* ── Layout metrics — reuse instead of re-deriving in components ─── */
   --header-height: 3.5rem;
@@ -92,6 +102,19 @@
   /* ── Typography ──────────────────────────────────────────────────── */
   --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+/* `position: sticky` unconditionally creates its own stacking context in
+   Chrome — a sticky element with no explicit z-index (z-index: auto) does
+   NOT get compared against a `fixed` sibling's z-index at all; it paints on
+   top regardless of how high the fixed element's z-index is set (verified:
+   raising the fixed overlay to z-index 9999 did not fix it, only giving the
+   sticky element its own explicit z-index did). Any sticky rail/column must
+   use this utility instead of bare `sticky` — never pair `sticky` with a
+   z-index class by hand, the two are easy to separate in a future edit. */
+@utility sticky-rail {
+  position: sticky;
+  z-index: var(--z-index-raised);
 }
 
 /* ─────────────────────────────────────────────
@@ -551,7 +574,7 @@
   .app-header {
     @apply sticky top-0 flex items-center gap-3
            border-b border-border bg-background/95 px-4 lg:px-6;
-    z-index: var(--z-sticky);
+    z-index: var(--z-index-sticky);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     /* Height adapts to notch — base 56px + whatever the notch adds */
@@ -568,7 +591,7 @@
      menu button once the page scrolls past it. */
   .app-subheader {
     @apply sticky;
-    z-index: var(--z-sticky);
+    z-index: var(--z-index-sticky);
     top: calc(var(--header-height) + env(safe-area-inset-top));
   }
 
@@ -592,14 +615,14 @@
      Never set to flex on lg+ — app-sidebar handles desktop. */
   .sidebar-drawer-backdrop {
     @apply fixed inset-0 lg:hidden;
-    z-index: var(--z-overlay);
+    z-index: var(--z-index-overlay);
     background: hsl(var(--foreground) / 0.4);
     backdrop-filter: blur(2px);
   }
   .sidebar-drawer {
     @apply fixed inset-y-0 left-0 flex flex-col w-72
            bg-sidebar border-r border-sidebar-border lg:hidden;
-    z-index: var(--z-modal);
+    z-index: var(--z-index-modal);
     transition: transform var(--duration-normal) var(--ease-smooth);
     /* Landscape notch on left side — push content clear of it */
     padding-left:  env(safe-area-inset-left);
@@ -617,7 +640,7 @@
            flex items-center justify-around
            border-t border-border bg-background
            lg:hidden;
-    z-index: var(--z-sticky);
+    z-index: var(--z-index-sticky);
     height: calc(4rem + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
   }

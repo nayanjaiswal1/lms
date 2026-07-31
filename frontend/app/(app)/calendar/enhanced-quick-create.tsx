@@ -7,11 +7,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { TimeBlockPresets } from "@/app/(app)/calendar/time-block-presets";
 import { Badge } from "@/components/ui/badge";
 import { Clock, AlertCircle, CheckCircle2, Zap } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
+import type { CalendarEventPriority } from "@/lib/calendar/types";
 
 interface EnhancedQuickCreateProps {
   defaultStart: Date;
   defaultEnd: Date;
-  onCreate: (title: string, start: Date, end: Date, isTask: boolean, notes?: string) => void;
+  onCreate: (
+    title: string,
+    start: Date,
+    end: Date,
+    isTask: boolean,
+    notes?: string,
+    priority?: CalendarEventPriority,
+  ) => void;
   onCancel: () => void;
 }
 
@@ -47,6 +57,7 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
   const [title, setTitle] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [isTask, setIsTask] = React.useState(false);
+  const [priority, setPriority] = React.useState<CalendarEventPriority>("medium");
   const [startTime, setStartTime] = React.useState(toTimeInputValue(defaultStart));
   const [endTime, setEndTime] = React.useState(toTimeInputValue(defaultEnd));
   const [usePreset, setUsePreset] = React.useState(false);
@@ -69,7 +80,8 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
       calculatedStart,
       isTask ? calculatedStart : calculatedEnd,
       isTask,
-      notes.trim() || undefined
+      notes.trim() || undefined,
+      isTask ? priority : undefined,
     );
   }
 
@@ -169,16 +181,33 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         </div>
       )}
 
-      {/* Task due time */}
+      {/* Task due time + priority */}
       {isTask && (
-        <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">Due time</label>
-          <Input
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className="text-sm"
-          />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Due time</label>
+            <Input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Priority</label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as CalendarEventPriority)}>
+              <SelectTrigger aria-label="Task priority" className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CALENDAR_PRIORITY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
 

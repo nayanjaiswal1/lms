@@ -62,8 +62,12 @@ export function ActiveLabsBar() {
     <div className="above-bottom-nav fixed inset-x-4 z-sticky mx-auto flex max-w-sm justify-end lg:inset-x-auto lg:right-4">
       <div
         className={cn(
-          "flex h-12 items-center overflow-hidden rounded-full border shadow-raised transition-[max-width,gap,padding-right] duration-normal ease-smooth",
-          isRunning ? "border-success/30 bg-success/10" : "border-warning/30 bg-warning/10",
+          // Floating fixed pill, not an inline card — needs its own opaque
+          // backdrop (bg-card) or whatever's on the page behind it (lesson
+          // text, code) shows straight through a translucent .../10 fill.
+          // Status color lives in the border/icon/dot instead.
+          "flex h-12 items-center overflow-hidden rounded-full border bg-card shadow-raised transition-[max-width,gap,padding-right] duration-normal ease-smooth",
+          isRunning ? "border-success/30" : "border-warning/30",
           isExpanded ? "max-w-xs gap-3 px-2 pr-3" : "max-w-12 gap-0 px-2",
         )}
       >

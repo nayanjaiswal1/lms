@@ -1,7 +1,8 @@
 import { Fragment } from "react";
 import type { Segment } from "@/lib/courses/markdown";
-import type { GetSessionResponse, Lab } from "@/lib/labs";
+import { isLabSessionActive, type GetSessionResponse, type Lab } from "@/lib/labs";
 import type { Highlight } from "@/lib/server/highlights";
+import { cn } from "@/lib/utils";
 import { markHighlightsInHtml } from "@/lib/highlights/mark-html";
 import { LessonCodeRunner } from "@/components/courses/lesson-code-runner";
 import { LessonSqlRunner } from "@/components/courses/lesson-sql-runner";
@@ -9,9 +10,6 @@ import { LessonSqlChallenge } from "@/components/courses/lesson-sql-challenge";
 import { LessonKnowledgeCheck } from "@/components/courses/lesson-knowledge-check";
 import { LessonReflection } from "@/components/courses/lesson-reflection";
 import { LessonNotes } from "@/components/courses/lesson-notes";
-import { LessonAIConnect } from "@/components/courses/lesson-ai-connect";
-import { AccessGate } from "@/components/shared/access-gate";
-import { FEATURES } from "@/lib/features";
 import { LessonFigure } from "@/components/courses/lesson-figure";
 import { LessonHtml } from "@/components/courses/lesson-html";
 import { ModuleCompleteButton } from "@/components/courses/module-complete-button";
@@ -19,6 +17,7 @@ import { isRunnableLanguage } from "@/lib/courses/runnable-languages";
 import { LessonLabProvider } from "@/components/courses/lesson-lab-provider";
 import { LessonLabHero } from "@/components/courses/lesson-lab-hero";
 import { LessonLabTaskCard } from "@/components/courses/lesson-lab-task-card";
+import { LessonLabWorkspacePane } from "@/components/courses/lesson-lab-workspace-pane";
 
 interface ModuleNotesProps {
   moduleId: string;
@@ -30,8 +29,6 @@ interface ModuleNotesProps {
   lab?: Lab | null;
   initialSession?: GetSessionResponse | null;
   highlights?: Highlight[];
-  lessonUrl: string;
-  hasAIConnection: boolean;
 }
 
 export function ModuleNotes({
@@ -44,10 +41,12 @@ export function ModuleNotes({
   lab = null,
   initialSession = null,
   highlights = [],
-  lessonUrl,
-  hasAIConnection,
 }: ModuleNotesProps) {
   const firstLabTaskIndex = segments.findIndex((s) => s.type === "lab-task");
+  // True once the linked lab is actually running — ModuleNotes then puts the
+  // notes and the live workspace side by side instead of stacking the
+  // workspace inline where the [[lab-task:N]] marker happens to fall.
+  const isLabOpen = Boolean(lab && initialSession && isLabSessionActive(initialSession.session.status));
 
   const body = (
     <div className="card-base flex flex-col gap-4 p-6">
@@ -120,21 +119,22 @@ export function ModuleNotes({
           and document outline. */}
       <h2 className="sr-only">{title}</h2>
       <div className="flex justify-end gap-2">
-        <AccessGate feature={FEATURES.AI_CONNECTOR} mode="hide">
-          <LessonAIConnect
-            hasConnection={hasAIConnection}
-            lessonUrl={lessonUrl}
-            moduleId={moduleId}
-            moduleTitle={title}
-          />
-        </AccessGate>
         <LessonNotes initialContent={initialNote} moduleId={moduleId} />
-        {/* At xl+ this button moves into the ModuleProgressRail instead. */}
-        <ModuleCompleteButton className="xl:hidden" initialCompleted={initialCompleted} moduleId={moduleId} />
+        {/* At xl+ this button moves into the ModuleProgressRail instead —
+            except while the lab split is open, since that rail is hidden
+            in favor of the workspace pane, so this stays the only copy. */}
+        <ModuleCompleteButton className={cn(!isLabOpen && "xl:hidden")} initialCompleted={initialCompleted} moduleId={moduleId} />
       </div>
       {lab ? (
         <LessonLabProvider initialSession={initialSession} lab={lab}>
-          {body}
+          {isLabOpen ? (
+            <div className="grid items-start gap-6 lg:grid-cols-2">
+              {body}
+              <LessonLabWorkspacePane />
+            </div>
+          ) : (
+            body
+          )}
         </LessonLabProvider>
       ) : (
         body

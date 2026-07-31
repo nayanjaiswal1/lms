@@ -101,15 +101,18 @@ func main() {
 	var labsRuntime labs.ContainerRuntime
 	switch cfg.LabsRuntime {
 	case "kubernetes":
-		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace)
+		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace, cfg.LabsNestedDockerImages, cfg.LabsNestedDockerRuntimeClass)
 		if err != nil {
 			slog.Error("labs: kubernetes runtime init failed", "error", err)
 			os.Exit(1)
 		}
 		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace)
 	default:
-		labsRuntime = labs.NewDockerContainerService()
+		labsRuntime = labs.NewDockerContainerService(cfg.LabsNestedDockerImages, cfg.LabsNestedDockerRuntime)
 		slog.Info("labs: docker runtime ready")
+	}
+	if len(cfg.LabsNestedDockerImages) > 0 {
+		slog.Info("labs: nested-docker images enabled", "images", cfg.LabsNestedDockerImages)
 	}
 
 	// ─── Instance ID ─────────────────────────────────────────────────────────
@@ -193,7 +196,14 @@ func main() {
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
 		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
-		{Handler: handlers.HandlerLabWarmPool, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 55000},
+		// TimeoutMS must clear nested-Docker warm starts: lab-images/lab-docker's
+		// entrypoint allows rootless dockerd up to 70s to become ready before
+		// giving up, so a shorter job timeout here made every nested-Docker warm
+		// attempt fail right as dockerd was about to succeed, every single
+		// minute, forever (verified via docker stats: 3 warm containers stuck
+		// mid-bootstrap on a continuous loop, contending with real session
+		// provisioning for the same host Docker daemon).
+		{Handler: handlers.HandlerLabWarmPool, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 100000},
 		{Handler: handlers.HandlerAssessmentExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
 		{Handler: handlers.HandlerMentorEscalate, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerCalendarReminder, Schedule: "*/5 * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
@@ -227,11 +237,15 @@ func main() {
 	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc, labsRuntime)
 
 	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:        ":" + cfg.Port,
+		Handler:     router,
+		ReadTimeout: 15 * time.Second,
+		// No WriteTimeout: it's a hard deadline on the whole response, which
+		// kills long-lived SSE streams (labs.Service.WaitForReadiness) after
+		// 30s even when the client is still legitimately waiting — every
+		// handler that can run long already bounds itself via request context
+		// (see ProvisionTimeoutSeconds).
+		IdleTimeout: 60 * time.Second,
 	}
 
 	// ─── Graceful shutdown ────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import (
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/srs"
+	"github.com/mindforge/backend/internal/systemdesign"
 )
 
 var errMissingScope = errors.New("mcpconnect: connection is missing a required scope")
@@ -81,6 +82,39 @@ func optTime(args map[string]any, key string) (*time.Time, error) {
 		return nil, fmt.Errorf("%q must be an RFC3339 timestamp (e.g. 2026-08-01T15:00:00Z): %w", key, err)
 	}
 	return &t, nil
+}
+
+// argScene decodes args[key] (a JSON-RPC object) into a systemdesign.Scene —
+// the MCP wire format for a scene arg is already the same shape Scene
+// marshals to, so round-tripping through json is simpler than hand-mapping
+// each field.
+func argScene(args map[string]any, key string) (systemdesign.Scene, error) {
+	raw, ok := args[key]
+	if !ok {
+		return systemdesign.Scene{}, fmt.Errorf("missing required argument %q", key)
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return systemdesign.Scene{}, fmt.Errorf("%q: %w", key, err)
+	}
+	var scene systemdesign.Scene
+	if err := json.Unmarshal(b, &scene); err != nil {
+		return systemdesign.Scene{}, fmt.Errorf("%q must be an Excalidraw scene object ({\"elements\": [...], \"appState\": {...}}): %w", key, err)
+	}
+	return scene, nil
+}
+
+// entryArgString reads a string field back out of a logged ActionLogEntry's
+// Args — which decodes from jsonb as map[string]any, not the original
+// map[string]any the tool call received, so this is a plain type assertion
+// rather than a second argString-style validator.
+func entryArgString(entry ActionLogEntry, key string) (string, bool) {
+	m, ok := entry.Args.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	v, ok := m[key].(string)
+	return v, ok
 }
 
 var tools = []mcpTool{
@@ -265,6 +299,7 @@ var tools = []mcpTool{
 				"ends_at":    map[string]any{"type": "string", "description": "Optional RFC3339 timestamp"},
 				"notes":      map[string]any{"type": "string"},
 				"event_type": map[string]any{"type": "string", "description": "One of: custom, task, deadline. Defaults to custom."},
+				"priority":   map[string]any{"type": "string", "description": "Task priority, one of: low, medium, high, urgent. Only meaningful when event_type is task."},
 			},
 			"required": []string{"title", "starts_at"},
 		},
@@ -294,6 +329,7 @@ var tools = []mcpTool{
 				Notes:     optString(args, "notes"),
 				StartsAt:  startsAt,
 				EndsAt:    endsAt,
+				Priority:  optString(args, "priority"),
 			}, nil)
 		},
 		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
@@ -312,6 +348,7 @@ var tools = []mcpTool{
 				"starts_at": map[string]any{"type": "string", "description": "RFC3339 timestamp"},
 				"ends_at":   map[string]any{"type": "string", "description": "Optional RFC3339 timestamp"},
 				"notes":     map[string]any{"type": "string"},
+				"priority":  map[string]any{"type": "string", "description": "Task priority, one of: low, medium, high, urgent. Only meaningful when event_type is task."},
 			},
 			"required": []string{"event_id", "title", "starts_at"},
 		},
@@ -357,6 +394,9 @@ var tools = []mcpTool{
 			patch.EndsAt = endsAt
 			if notes := optString(args, "notes"); notes != nil {
 				patch.Notes = notes
+			}
+			if priority := optString(args, "priority"); priority != nil {
+				patch.Priority = priority
 			}
 			return rt.calendarSvc.UpdateEvent(ctx, id.OrgID, eventID, id.UserID, calendar.ScopeSeries, nil, patch)
 		},
@@ -904,6 +944,204 @@ var tools = []mcpTool{
 			}
 			return rt.interviewPrepSvc.GetReport(ctx, planID, id.UserID)
 		},
+	},
+	{
+		Name:        "list_system_design_attempts",
+		Description: "List the student's whiteboard attempts at a system-design question (a course module of type system_design), newest first — use this to see whether they've already started before creating a new attempt.",
+		Scope:       ScopeSystemDesign,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
+			"required":   []string{"module_id"},
+		},
+		TargetType: "course_module",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.ListAttempts(ctx, id.OrgID, id.UserID, moduleID)
+		},
+	},
+	{
+		Name:        "create_system_design_attempt",
+		Description: "Start a fresh, blank-canvas attempt at a system-design question. Earlier attempts (and their feedback) are kept, not overwritten — call list_system_design_attempts first if the student may already have one in progress.",
+		Scope:       ScopeSystemDesign,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
+			"required":   []string{"module_id"},
+		},
+		TargetType: "system_design_attempt",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.CreateAttempt(ctx, id.OrgID, id.UserID, moduleID)
+		},
+		// ponytail: no Revert — systemdesign.Repo has no attempt-delete method
+		// (the in-app UI never deletes an attempt either, only supersedes it
+		// with a new one), so there's nothing to undo it into.
+	},
+	{
+		Name:        "get_system_design_attempt",
+		Description: "Read one system-design attempt — its current Excalidraw scene (elements/appState) and any AI feedback already generated for it.",
+		Scope:       ScopeSystemDesign,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"module_id":  map[string]any{"type": "string"},
+				"attempt_id": map[string]any{"type": "string"},
+			},
+			"required": []string{"module_id", "attempt_id"},
+		},
+		TargetType: "system_design_attempt",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			attemptID, err := argString(args, "attempt_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.GetAttempt(ctx, id.OrgID, id.UserID, moduleID, attemptID)
+		},
+	},
+	{
+		Name:        "save_system_design_scene",
+		Description: "Replace an attempt's whole Excalidraw canvas with a new scene — use this to draw or edit the diagram on the student's behalf (e.g. add a component, connect two boxes, label an edge). scene must be the full canvas content, not a partial patch: {\"elements\": [...], \"appState\": {...}}. Call get_system_design_attempt first to see the current scene's exact element shape before editing it, so existing elements aren't dropped.",
+		Scope:       ScopeSystemDesign,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"module_id":  map[string]any{"type": "string"},
+				"attempt_id": map[string]any{"type": "string"},
+				"scene": map[string]any{
+					"type":        "object",
+					"description": "Full Excalidraw scene, replacing what's currently on the canvas. Each element needs at least id/type/x/y/width/height (plus type-specific fields like text for a text element, or startBinding/endBinding for an arrow).",
+					"properties": map[string]any{
+						"elements": map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
+						"appState": map[string]any{"type": "object"},
+					},
+					"required": []string{"elements"},
+				},
+			},
+			"required": []string{"module_id", "attempt_id", "scene"},
+		},
+		TargetType: "system_design_attempt",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			attemptID, err := argString(args, "attempt_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.GetAttempt(ctx, id.OrgID, id.UserID, moduleID, attemptID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			attemptID, err := argString(args, "attempt_id")
+			if err != nil {
+				return nil, err
+			}
+			scene, err := argScene(args, "scene")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.SaveScene(ctx, id.UserID, moduleID, attemptID, scene)
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			var before systemdesign.Attempt
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			moduleID, ok := entryArgString(entry, "module_id")
+			if !ok {
+				return fmt.Errorf("mcpconnect: revert save_system_design_scene: missing module_id in logged args")
+			}
+			_, err := rt.systemDesignSvc.SaveScene(ctx, id.UserID, moduleID, entry.TargetID, before.Scene)
+			return err
+		},
+	},
+	{
+		Name:        "generate_system_design_feedback",
+		Description: "Ask MindForge's AI to critique this attempt's current whiteboard against the question's guidance — reads back any text/labels already on the canvas and returns feedback, which is also saved on the attempt.",
+		Scope:       ScopeSystemDesign,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"module_id":  map[string]any{"type": "string"},
+				"attempt_id": map[string]any{"type": "string"},
+			},
+			"required": []string{"module_id", "attempt_id"},
+		},
+		TargetType: "system_design_attempt",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			attemptID, err := argString(args, "attempt_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.GenerateFeedback(ctx, id.OrgID, id.UserID, moduleID, attemptID)
+		},
+		// ponytail: no Revert — the AI feedback has already been generated (and
+		// billed) by the time this returns, same as submit_interview_prep_coding_item;
+		// there's no meaningful undo for feedback that was already produced.
+	},
+	{
+		Name:        "list_system_design_chat",
+		Description: "List the clarifying-question thread for a system-design question, oldest first.",
+		Scope:       ScopeSystemDesign,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
+			"required":   []string{"module_id"},
+		},
+		TargetType: "course_module",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.ListChat(ctx, id.OrgID, id.UserID, moduleID)
+		},
+	},
+	{
+		Name:        "send_system_design_chat_message",
+		Description: "Ask a clarifying question about a system-design question on the student's behalf — answered with the question's guidance as grounding context plus recent thread history, the same as the in-app chat panel. Returns both the sent message and the AI's reply.",
+		Scope:       ScopeSystemDesign,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"module_id": map[string]any{"type": "string"},
+				"content":   map[string]any{"type": "string"},
+			},
+			"required": []string{"module_id", "content"},
+		},
+		TargetType: "course_module",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			content, err := argString(args, "content")
+			if err != nil {
+				return nil, err
+			}
+			return rt.systemDesignSvc.SendChatMessage(ctx, id.OrgID, id.UserID, moduleID, content)
+		},
+		// ponytail: no Revert — like send-message tools elsewhere in this file,
+		// the AI reply has already been generated by the time this returns.
 	},
 }
 

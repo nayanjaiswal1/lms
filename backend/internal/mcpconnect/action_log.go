@@ -47,15 +47,19 @@ type ActionLogPage struct {
 }
 
 // extractTargetID identifies the row a tool call acted on. For tools whose
-// arguments name the target directly (module_id/event_id), that's
-// authoritative. Every other mutating tool creates something new with no id
-// to pass in — its target only exists in the call's own result, so we fall
-// back to that result's own "id" field (every Course/CourseModule/Event/
-// CourseContentProposal JSON-tags one). Deliberately does NOT check
-// course_id/target_course_id: those args name a *parent* or *destination*
-// course, never the thing a revert would actually act on.
+// arguments name the target directly (attempt_id/module_id/event_id), that's
+// authoritative — attempt_id is checked first since the system-design scene
+// tools carry both a module_id (the parent question) and an attempt_id (the
+// actual row being written); every other tool only ever has one of these
+// keys, so the ordering doesn't change their behavior. Every other mutating
+// tool creates something new with no id to pass in — its target only exists
+// in the call's own result, so we fall back to that result's own "id" field
+// (every Course/CourseModule/Event/CourseContentProposal JSON-tags one).
+// Deliberately does NOT check course_id/target_course_id: those args name a
+// *parent* or *destination* course, never the thing a revert would actually
+// act on.
 func extractTargetID(args map[string]any, result any) string {
-	for _, key := range []string{"module_id", "event_id"} {
+	for _, key := range []string{"attempt_id", "module_id", "event_id"} {
 		if v, ok := args[key].(string); ok && v != "" {
 			return v
 		}

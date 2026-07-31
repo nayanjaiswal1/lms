@@ -1,5 +1,6 @@
 "use client"
 
+import { useQueryState } from "nuqs"
 import { useHighlightFlow } from "@/hooks/use-highlight-flow"
 import { captureContextFromSelection } from "@/lib/highlights/context"
 import { HighlightPopup } from "./highlight-popup"
@@ -13,6 +14,11 @@ interface HighlightProviderProps {
   // Pre-fetched server-side so re-selecting already-highlighted text shows
   // its saved state immediately instead of only after a round-trip.
   initialHighlights?: Highlight[]
+  // Passed through to the Explanation panel's "Copy prompt" button, which
+  // copies a context blob for the student's own connected AI — same context
+  // the old standalone "Ask your AI" button used to provide.
+  moduleTitle: string
+  lessonUrl: string
 }
 
 // Finds which lesson segment a selection landed in (nearest ancestor with
@@ -56,12 +62,24 @@ function findSegmentAnchor(range: Range, text: string): { segmentIndex: number; 
 //   <HighlightProvider sourceType="lesson" sourceId={lesson.id}>
 //     <LessonContent html={lesson.body} />
 //   </HighlightProvider>
+//
+// Lesson notes and this highlight explain popup/panel are independent
+// floating overlays rendered over the same lesson content. Neither used to
+// know about the other, so opening one while the other was already open just
+// stacked them on screen. They now share the `lessonPanel` URL param (read
+// here via nuqs, written by LessonNotes) as a single slot: the popup/panel
+// below only renders while Notes isn't open, matching this codebase's
+// URL-driven-modal-state convention instead of a one-off React state/context
+// just for this.
 export function HighlightProvider({
   children,
   sourceType,
   sourceId,
   initialHighlights = [],
+  moduleTitle,
+  lessonUrl,
 }: HighlightProviderProps) {
+  const [lessonPanel] = useQueryState("lessonPanel")
   const {
     selection,
     existing,
@@ -97,6 +115,14 @@ export function HighlightProvider({
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    // Only relevant when this wrapper div itself is the focused element
+    // (role="button" for a11y linting, since it has onMouseUp) — Enter/Space
+    // there would otherwise scroll the page like a native button press.
+    // Keydown events bubble from every descendant, including any <textarea>
+    // in the lesson body or in the notes/ask-AI/explanation panels rendered
+    // below; without this check, typing a space in any of them bubbled up
+    // here and got preventDefault()-ed before the textarea could insert it.
+    if (e.target !== e.currentTarget) return
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault()
       // Text selection is only triggered by mouseUp; keyboard selection support would require
@@ -108,7 +134,7 @@ export function HighlightProvider({
     <div role="button" tabIndex={0} onKeyDown={handleKeyDown} onMouseUp={handleMouseUp}>
       {children}
 
-      {selection && !response && (
+      {selection && !response && !lessonPanel && (
         <HighlightPopup
           alreadySaved={existing?.saved_for_revision ?? false}
           anchor={selection}
@@ -124,11 +150,13 @@ export function HighlightProvider({
         />
       )}
 
-      {response && (
+      {response && !lessonPanel && (
         <ExplanationPanel
           initialNote={note}
           isLoading={isLoading}
           key={response.highlight_id}
+          lessonUrl={lessonUrl}
+          moduleTitle={moduleTitle}
           response={response}
           savedForRevision={savedForRevision}
           onClose={onClose}

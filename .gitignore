@@ -9,6 +9,7 @@ k8s/overlays/*/secrets.env
 backend/bin/
 backend/server
 backend/coursegen
+backend/tmp/
 *.exe
 *.test
 *.out

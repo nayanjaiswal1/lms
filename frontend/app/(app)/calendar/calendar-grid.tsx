@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { parseAsArrayOf, parseAsString, parseAsStringEnum, useQueryState } from "nuqs";
+import { parseAsArrayOf, parseAsBoolean, parseAsString, parseAsStringEnum, useQueryState } from "nuqs";
 
 import { createEventAction, getEventAction, getIcsFeedUrlAction, listEventsAction, setEventCompletedAction, updateEventAction } from "@/lib/server/calendar";
 import { CALENDAR_LAYER, CALENDAR_VIEW } from "@/lib/calendar/types";
-import type { Attendee, CalendarEvent, CalendarEventDetail, CalendarLayer, CalendarView, EventInvite } from "@/lib/calendar/types";
+import type { Attendee, CalendarEvent, CalendarEventDetail, CalendarEventPriority, CalendarLayer, CalendarView, EventInvite } from "@/lib/calendar/types";
 import {
   formatRangeLabel,
   getWeekDays,
@@ -148,6 +148,7 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
     parseAsArrayOf(parseAsStringEnum<CalendarLayer>(ALL_LAYERS)).withDefault(ALL_LAYERS),
   );
   const [selectedEventId, setSelectedEventId] = useQueryState("event", parseAsString);
+  const [tasksOnly, setTasksOnly] = useQueryState("tasks", parseAsBoolean.withDefault(false));
 
   const [state, dispatch] = React.useReducer(gridReducer, {
     events: initialEvents,
@@ -205,6 +206,15 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
     void setActiveLayers(next);
   }
 
+  // The task list only renders in agenda view (see AgendaView's tasksOnly
+  // prop below) — turning the filter on also switches there so the toggle
+  // always shows something.
+  function handleToggleTasksOnly() {
+    const next = !tasksOnly;
+    void setTasksOnly(next);
+    if (next && view !== CALENDAR_VIEW.AGENDA) handleViewChange(CALENDAR_VIEW.AGENDA);
+  }
+
   function handleNewEvent() {
     if (view === "day" || view === "week") {
       const now = new Date();
@@ -215,13 +225,22 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
     dispatch({ type: "startCreateDay", day: startOfDay(anchor).toISOString() });
   }
 
-  async function commitCreate(title: string, start: Date, end: Date, isTask: boolean) {
+  async function commitCreate(
+    title: string,
+    start: Date,
+    end: Date,
+    isTask: boolean,
+    notes?: string,
+    priority?: CalendarEventPriority,
+  ) {
     const result = await createEventAction({
       event_type: isTask ? "task" : "custom",
       title,
+      notes,
       starts_at: start.toISOString(),
       ends_at: end.toISOString(),
       visibility: "private",
+      priority: isTask ? priority : undefined,
     });
     dispatch({ type: "clearInteraction" });
     if (!result.ok || !result.data) {
@@ -330,6 +349,7 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
         activeLayers={activeLayers}
         rangeLabel={formatRangeLabel(view, anchor)}
         search={search}
+        tasksOnly={tasksOnly}
         view={view}
         onExportIcs={() => void handleExportIcs()}
         onNavigate={handleNavigate}
@@ -337,6 +357,7 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
         onSearchChange={(value) => void setSearch(value || null)}
         onToday={handleToday}
         onToggleLayer={handleToggleLayer}
+        onToggleTasksOnly={handleToggleTasksOnly}
         onViewChange={handleViewChange}
       />
 
@@ -347,7 +368,7 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
           currentUserId={currentUserId}
           events={visibleEvents}
           onCreateCancel={() => dispatch({ type: "clearInteraction" })}
-          onCreateSubmit={(title, start, end, isTask) => void commitCreate(title, start, end, isTask)}
+          onCreateSubmit={(title, start, end, isTask, notes, priority) => void commitCreate(title, start, end, isTask, notes, priority)}
           onDayClick={(day) => dispatch({ type: "startCreateDay", day: day.toISOString() })}
           onEventClick={handleEventClick}
           onEventDropOnDay={(eventId, day) => void handleEventDropOnDay(eventId, day)}
@@ -362,7 +383,7 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
           events={visibleEvents}
           resizePreview={resizePreview}
           onCreateCancel={() => dispatch({ type: "clearInteraction" })}
-          onCreateSubmit={(title, start, end, isTask) => void commitCreate(title, start, end, isTask)}
+          onCreateSubmit={(title, start, end, isTask, notes, priority) => void commitCreate(title, start, end, isTask, notes, priority)}
           onEventClick={handleEventClick}
           onEventDropOnSlot={(eventId, start) => void handleEventDropOnSlot(eventId, start)}
           onResizeCommit={(eventId, newEnd) => void handleResizeCommit(eventId, newEnd)}
@@ -377,6 +398,7 @@ export function CalendarGrid({ currentUserId, initialAnchor, initialEvents, init
           anchor={anchor}
           currentUserId={currentUserId}
           events={visibleEvents}
+          tasksOnly={tasksOnly}
           onEventClick={(id) => void setSelectedEventId(id)}
           onToggleComplete={(id, completed) => void handleToggleComplete(id, completed)}
         />

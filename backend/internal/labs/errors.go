@@ -68,4 +68,13 @@ var (
 	// ErrInvalidPath is returned when a file-ops request path is empty,
 	// absolute, or attempts to traverse outside the lab container's workdir.
 	ErrInvalidPath = errors.New("labs: invalid file path")
+
+	// ErrImageNotAllowed is returned when a lab's environment image is not in
+	// the requesting org's lab_org_config.allowed_images. A nested-Docker
+	// image (see ContainerRuntime.IsNestedImage) is NEVER a platform default
+	// and always requires an explicit allowlist entry, even for an org whose
+	// allowed_images is otherwise empty (empty historically meant "no
+	// restriction" for ordinary images — it must not also mean "elevated
+	// images allowed").
+	ErrImageNotAllowed = errors.New("labs: this lab's environment image is not allowed for your organization")
 )

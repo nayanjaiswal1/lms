@@ -15,26 +15,12 @@ const (
 	labFileWorkdir     = "/home/labuser/work"
 )
 
-// renderLab emits, in FK-safe order: the linking course_modules(type='lab')
-// row (lab_definitions.module_id references it and is NOT NULL for
-// scope='module' labs, so it must exist first), the lab_definitions row
-// (unpublished), the lab_tasks rows, the lab_task_versions snapshot, and
-// finally the publish UPDATE. Mirrors the 4-step shape of
+// renderLab emits the linking course_modules(type='lab') row, then delegates
+// to renderLabRows for the rest. Mirrors the 4-step shape of
 // backend/db/fixtures/k8s_08_lab1.sql exactly, with canonical.ID-derived
 // UUIDs in place of the old ad-hoc hex ones.
 func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.Lab) error {
 	moduleID := canonical.ID(lab.IDKey, "module")
-	labID := canonical.ID(lab.IDKey, "lab")
-	versionID := canonical.ID(lab.IDKey, "version")
-
-	maxDuration := lab.MaxDuration
-	if maxDuration <= 0 {
-		maxDuration = defaultMaxDuration
-	}
-	maxResets := lab.MaxResets
-	if maxResets <= 0 {
-		maxResets = defaultMaxResets
-	}
 	estMinutes := lab.EstimatedMinutes
 	if estMinutes <= 0 {
 		estMinutes = 30
@@ -47,29 +33,54 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 		sqlString(moduleID), sqlString(courseID), sqlString(sectionID), sqlString(lab.Title), sqlInt(lab.Position), sqlInt(estMinutes),
 	)
 
+	return renderLabRows(out, courseID, moduleID, lab.IDKey, lab.Title, &lab.LabSpec)
+}
+
+// renderLabRows emits, in FK-safe order, everything a lab needs once its
+// linking course_modules row already exists: the lab_definitions row
+// (unpublished), the lab_tasks rows, the lab_task_versions snapshot, the
+// lab_task_version_items rows, and finally the publish UPDATE.
+//
+// moduleID may belong to a course_modules row of ANY type — lab_definitions
+// has no type constraint on module_id — which is what lets a `kind: lesson`
+// doc attach a lab directly to its own notes module (see renderLesson) rather
+// than requiring a separate `kind: lab` module in the section.
+func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string, spec *canonical.LabSpec) error {
+	labID := canonical.ID(idKey, "lab")
+	versionID := canonical.ID(idKey, "version")
+
+	maxDuration := spec.MaxDuration
+	if maxDuration <= 0 {
+		maxDuration = defaultMaxDuration
+	}
+	maxResets := spec.MaxResets
+	if maxResets <= 0 {
+		maxResets = defaultMaxResets
+	}
+
 	// 1. lab_definitions (unpublished; published_version_id set by the
 	//    UPDATE at the end once lab_task_versions exists).
-	setupScript := buildSetupScript(lab)
+	setupScript := buildSetupScript(spec)
 	runScript := "NULL"
-	if strings.TrimSpace(lab.RunScript) != "" {
-		runScript = dollarQuote("script", lab.RunScript)
+	if strings.TrimSpace(spec.RunScript) != "" {
+		runScript = dollarQuote("script", spec.RunScript)
 	}
 	fmt.Fprintf(out,
 		"INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)\nVALUES (%s, %s, %s, %s, 'module', %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, false, NULL, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();\n\n",
 		sqlString(labID), sqlString(seededOrgID), sqlString(courseID), sqlString(moduleID),
-		sqlString(lab.Title),
-		sqlString(lab.LabType), sqlString(lab.Environment), sqlInt(lab.PreviewPort), dollarQuote("script", setupScript), runScript,
-		sqlInt(maxDuration), sqlInt(maxResets), sqlInt(lab.HintPenaltyPct), sqlBool(lab.IsRequired),
+		sqlString(title),
+		sqlString(spec.LabType), sqlString(spec.Environment), sqlInt(spec.PreviewPort), dollarQuote("script", setupScript), runScript,
+		sqlInt(maxDuration), sqlInt(maxResets), sqlInt(spec.HintPenaltyPct), sqlBool(spec.IsRequired),
 		sqlString(seededInstructorID),
 	)
 
 	// 2. lab_tasks (live editable copy).
-	snapshots := make([]taskSnapshotJSON, 0, len(lab.Tasks))
-	if len(lab.Tasks) > 0 {
+	snapshots := make([]taskSnapshotJSON, 0, len(spec.Tasks))
+	if len(spec.Tasks) > 0 {
 		out.WriteString("INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)\nVALUES\n")
-		rows := make([]string, 0, len(lab.Tasks))
-		for i, task := range lab.Tasks {
-			taskID := canonical.ID(lab.IDKey, "task:"+task.IDKey)
+		rows := make([]string, 0, len(spec.Tasks))
+		for i, task := range spec.Tasks {
+			taskID := canonical.ID(idKey, "task:"+task.IDKey)
 			position := i + 1
 			rows = append(rows, fmt.Sprintf(
 				"(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -105,7 +116,7 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 	//    which correctly cuts a new immutable version per docs/labs.md.
 	tasksJSON, err := json.Marshal(snapshots)
 	if err != nil {
-		return fmt.Errorf("renderLab: marshaling task snapshots for %q: %w", lab.IDKey, err)
+		return fmt.Errorf("renderLabRows: marshaling task snapshots for %q: %w", idKey, err)
 	}
 	fmt.Fprintf(out,
 		"INSERT INTO lab_task_versions (id, lab_id, version, tasks, published_by)\nVALUES (%s, %s, 1, %s::jsonb, %s)\nON CONFLICT (lab_id, version) DO UPDATE SET tasks=EXCLUDED.tasks, published_by=EXCLUDED.published_by;\n\n",
@@ -117,12 +128,12 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 	//     above is legacy), and it returns ErrNotFound on zero rows, which
 	//     404s every student-facing lab endpoint. A generated lab without
 	//     these rows is invisible in the app even though it "loaded fine".
-	if len(lab.Tasks) > 0 {
+	if len(spec.Tasks) > 0 {
 		out.WriteString("INSERT INTO lab_task_version_items (id, task_version_id, source_task_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)\nVALUES\n")
-		rows := make([]string, 0, len(lab.Tasks))
-		for i, task := range lab.Tasks {
-			taskID := canonical.ID(lab.IDKey, "task:"+task.IDKey)
-			itemID := canonical.ID(lab.IDKey, "version-item:"+task.IDKey)
+		rows := make([]string, 0, len(spec.Tasks))
+		for i, task := range spec.Tasks {
+			taskID := canonical.ID(idKey, "task:"+task.IDKey)
+			itemID := canonical.ID(idKey, "version-item:"+task.IDKey)
 			rows = append(rows, fmt.Sprintf(
 				"(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
 				sqlString(itemID), sqlString(versionID), sqlString(taskID), sqlInt(i+1),
@@ -139,10 +150,10 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 	// 4. Publish. Guard matches k8s_08_lab1.sql exactly: only fires while
 	//    published_version_id is still NULL (first generate). Once set, the
 	//    id is stable across regenerates anyway (both are deterministic
-	//    derivations of lab.IDKey), and the guard also means a real
-	//    instructor publish that later points published_version_id at a
-	//    genuinely newer version is never clobbered back to v1 by a
-	//    subsequent `coursegen generate` run.
+	//    derivations of idKey), and the guard also means a real instructor
+	//    publish that later points published_version_id at a genuinely newer
+	//    version is never clobbered back to v1 by a subsequent
+	//    `coursegen generate` run.
 	fmt.Fprintf(out,
 		"UPDATE lab_definitions\nSET is_published = true, published_version_id = %s, updated_at = now()\nWHERE id = %s AND published_version_id IS NULL;\n\n",
 		sqlString(versionID), sqlString(labID),
@@ -151,7 +162,7 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 	return nil
 }
 
-// buildSetupScript prepends one heredoc write per lab.Files entry (so
+// buildSetupScript prepends one heredoc write per spec.Files entry (so
 // multi-file starter projects exist in the container workdir at session
 // start) to the author's own setup_script.
 //
@@ -162,12 +173,12 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 // plain-ownership chmod needs no capability) and every directory this script
 // creates gets chmod 777 — otherwise starter files are read-only to the
 // student in the terminal and the file-explorer PUT endpoint alike.
-func buildSetupScript(lab *canonical.Lab) string {
+func buildSetupScript(spec *canonical.LabSpec) string {
 	var b strings.Builder
-	if len(lab.Files) > 0 {
+	if len(spec.Files) > 0 {
 		fmt.Fprintf(&b, "mkdir -p %s\n", labFileWorkdir)
 		seenDirs := map[string]bool{}
-		for _, f := range lab.Files {
+		for _, f := range spec.Files {
 			for _, dir := range parentDirs(f.Path) {
 				if seenDirs[dir] {
 					continue
@@ -179,7 +190,7 @@ func buildSetupScript(lab *canonical.Lab) string {
 			fmt.Fprintf(&b, "chmod 666 %s/%s\n", labFileWorkdir, f.Path)
 		}
 	}
-	b.WriteString(lab.SetupScript)
+	b.WriteString(spec.SetupScript)
 	return b.String()
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, ListChecks, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,11 +18,13 @@ interface CalendarToolbarProps {
   rangeLabel: string;
   search: string;
   activeLayers: CalendarLayer[];
+  tasksOnly: boolean;
   onViewChange: (view: CalendarView) => void;
   onNavigate: (direction: 1 | -1) => void;
   onToday: () => void;
   onSearchChange: (value: string) => void;
   onToggleLayer: (layer: CalendarLayer) => void;
+  onToggleTasksOnly: () => void;
   onNewEvent: () => void;
   onExportIcs: () => void;
 }
@@ -32,11 +34,13 @@ export function CalendarToolbar({
   rangeLabel,
   search,
   activeLayers,
+  tasksOnly,
   onViewChange,
   onNavigate,
   onToday,
   onSearchChange,
   onToggleLayer,
+  onToggleTasksOnly,
   onNewEvent,
   onExportIcs,
 }: CalendarToolbarProps) {
@@ -100,6 +104,23 @@ export function CalendarToolbar({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label="Show only my tasks, sorted by priority"
+              aria-pressed={tasksOnly}
+              className="touch-target gap-2"
+              size="sm"
+              variant={tasksOnly ? "default" : "outline"}
+              onClick={onToggleTasksOnly}
+            >
+              <ListChecks aria-hidden className="h-4 w-4" />
+              My Tasks
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Filter to tasks, sorted by priority</TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>

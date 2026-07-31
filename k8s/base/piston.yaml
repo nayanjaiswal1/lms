@@ -49,6 +49,7 @@ spec:
       containers:
         - name: piston
           image: ghcr.io/engineer-man/piston
+          imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
           ports:

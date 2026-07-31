@@ -32,6 +32,10 @@ type Action =
   | { kind: "goto"; index: number }
   | { kind: "submitting"; value: boolean };
 
+// Exported so components split out of TestRunner (question-panel, etc.) can
+// type the `dispatch` prop they receive without redeclaring the Action union.
+export type AnswersDispatch = React.Dispatch<Action>;
+
 function reducer(state: AnswersState, action: Action): AnswersState {
   switch (action.kind) {
     case "toggleOption": {
