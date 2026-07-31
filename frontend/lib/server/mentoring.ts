@@ -32,6 +32,9 @@ export interface MentorDirectoryEntry {
   mentee_count: number;
   avg_rating: number | null;
   rating_count: number;
+  bio: string | null;
+  current_role: string | null;
+  years_of_experience: number | null;
 }
 
 export interface CoursePurchase {

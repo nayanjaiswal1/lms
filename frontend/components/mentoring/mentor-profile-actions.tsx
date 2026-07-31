@@ -16,9 +16,10 @@ import { closeTicketAction } from "@/lib/mentoring/actions"
 
 interface Props {
   ticketId?: string
+  canReport?: boolean
 }
 
-export function MentorProfileActions({ ticketId }: Props) {
+export function MentorProfileActions({ ticketId, canReport = false }: Props) {
   const [, setReportOpen] = useQueryState("report", parseAsBoolean.withDefault(false))
   const [, setRequestOpen] = useQueryState("request-change", parseAsBoolean.withDefault(false))
   const [, setHistoryOpen] = useQueryState("history", parseAsBoolean.withDefault(false))
@@ -37,6 +38,9 @@ export function MentorProfileActions({ ticketId }: Props) {
     toast.success("Mentorship ended.")
     router.refresh()
   }
+
+  // Nothing to act on: no active ticket, and no past mentorship to report on.
+  if (!ticketId && !canReport) return null
 
   return (
     <DropdownMenu>
@@ -57,7 +61,9 @@ export function MentorProfileActions({ ticketId }: Props) {
             </DropdownMenuItem>
           </>
         )}
-        <DropdownMenuItem onSelect={() => void setReportOpen(true)}>Report this mentor</DropdownMenuItem>
+        {canReport && (
+          <DropdownMenuItem onSelect={() => void setReportOpen(true)}>Report this mentor</DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
