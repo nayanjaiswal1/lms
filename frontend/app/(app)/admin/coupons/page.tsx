@@ -35,7 +35,7 @@ export default async function CouponsPage() {
         </div>
       ) : (
         <div className="mt-6">
-          <CouponTable coupons={coupons} courseTitleById={courseTitleById} />
+          <CouponTable coupons={coupons} courseOptions={courseOptions} courseTitleById={courseTitleById} />
         </div>
       )}
     </div>

@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { ChecklistOption } from "@/components/shared/checklist-grid";
 import type { Coupon } from "@/lib/server/coupons";
 import { deactivateCouponAction } from "./actions";
+import { EditCouponDialog } from "./edit-coupon-dialog";
 
 function formatDiscount(c: Coupon): string {
   const base = c.discount_type === "percent" ? `${c.discount_value}% off` : `$${(c.discount_value / 100).toFixed(2)} off`;
@@ -28,9 +30,10 @@ function formatScope(c: Coupon, courseTitleById: Map<string, string>): string {
 interface CouponTableProps {
   coupons: Coupon[];
   courseTitleById: Map<string, string>;
+  courseOptions: ChecklistOption[];
 }
 
-export function CouponTable({ coupons, courseTitleById }: CouponTableProps) {
+export function CouponTable({ coupons, courseTitleById, courseOptions }: CouponTableProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -76,16 +79,19 @@ export function CouponTable({ coupons, courseTitleById }: CouponTableProps) {
                 {c.is_active ? <Badge variant="default">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
               </td>
               <td className="py-3 text-right">
-                {c.is_active && (
-                  <Button
-                    disabled={pendingId === c.id}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDeactivate(c.id)}
-                  >
-                    Deactivate
-                  </Button>
-                )}
+                <div className="flex justify-end gap-2">
+                  <EditCouponDialog coupon={c} courseOptions={courseOptions} />
+                  {c.is_active && (
+                    <Button
+                      disabled={pendingId === c.id}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeactivate(c.id)}
+                    >
+                      Deactivate
+                    </Button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
