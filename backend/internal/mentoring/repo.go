@@ -559,10 +559,11 @@ func (r *Repo) ListTickets(ctx context.Context, orgID string, status *string, me
 // used by assessment.Repo.GetBatchProgress: subquery joins, one round-trip.
 func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorDirectoryEntry, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT u.id, u.name, u.email, u.avatar_url,
+		`SELECT u.id, u.name, u.email, u.avatar_url, u.created_at,
 		        COALESCE(mt.mentee_count, 0) AS mentee_count,
 		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count,
-		        p.bio, p.current_role, p.years_of_experience
+		        p.bio, p.current_role, p.years_of_experience,
+		        COALESCE(sk.skills, '{}') AS skills
 		 FROM org_members om
 		 JOIN users u ON u.id = om.user_id
 		 LEFT JOIN user_profiles p ON p.user_id = u.id
@@ -578,6 +579,11 @@ func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorD
 		   WHERE subject_type = 'mentor' AND rating IS NOT NULL
 		   GROUP BY subject_id
 		 ) fb ON fb.subject_id = u.id
+		 LEFT JOIN (
+		   SELECT user_id, array_agg(skill_name ORDER BY created_at) AS skills
+		   FROM user_skills
+		   GROUP BY user_id
+		 ) sk ON sk.user_id = u.id
 		 WHERE om.org_id = $1 AND om.role = 'mentor'
 		 ORDER BY u.name`, orgID)
 	if err != nil {
@@ -589,8 +595,8 @@ func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorD
 	for rows.Next() {
 		var m MentorDirectoryEntry
 		if err := rows.Scan(
-			&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.MenteeCount, &m.AvgRating, &m.RatingCount,
-			&m.Bio, &m.CurrentRole, &m.YearsOfExperience,
+			&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.JoinedAt, &m.MenteeCount, &m.AvgRating, &m.RatingCount,
+			&m.Bio, &m.CurrentRole, &m.YearsOfExperience, &m.Skills,
 		); err != nil {
 			return nil, fmt.Errorf("mentoring: scan mentor directory entry: %w", err)
 		}

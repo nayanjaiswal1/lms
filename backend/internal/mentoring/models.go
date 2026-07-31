@@ -212,14 +212,16 @@ type TicketDetail struct {
 // profile are trusted context, so this is shown regardless of that row's
 // public_enabled flag — public_enabled only gates the external /u/{slug} page).
 type MentorDirectoryEntry struct {
-	UserID            string   `json:"user_id"`
-	Name              string   `json:"name"`
-	Email             string   `json:"email"`
-	AvatarURL         *string  `json:"avatar_url"`
-	MenteeCount       int      `json:"mentee_count"`
-	AvgRating         *float64 `json:"avg_rating"`
-	RatingCount       int      `json:"rating_count"`
-	Bio               *string  `json:"bio"`
-	CurrentRole       *string  `json:"current_role"`
-	YearsOfExperience *int16   `json:"years_of_experience"`
+	UserID            string    `json:"user_id"`
+	Name              string    `json:"name"`
+	Email             string    `json:"email"`
+	AvatarURL         *string   `json:"avatar_url"`
+	MenteeCount       int       `json:"mentee_count"`
+	AvgRating         *float64  `json:"avg_rating"`
+	RatingCount       int       `json:"rating_count"`
+	Bio               *string   `json:"bio"`
+	CurrentRole       *string   `json:"current_role"`
+	YearsOfExperience *int16    `json:"years_of_experience"`
+	Skills            []string  `json:"skills"`
+	JoinedAt          time.Time `json:"joined_at"`
 }
