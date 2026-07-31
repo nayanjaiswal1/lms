@@ -76,19 +76,27 @@ func IsValidReportResolution(status string) bool {
 	return ok
 }
 
-// Purchase is a single completed (or failed) course purchase, recorded via a
-// payments.Provider. Matches course_purchases (018_payments_stub.sql).
+// Purchase is a single course purchase attempt, recorded via a
+// payments.Provider. Matches course_purchases (018_payments_stub.sql,
+// coupon/webhook columns added in 007_payments_coupons.sql). A row is
+// created 'pending' at checkout-start and only ever transitions to
+// 'completed' or 'failed' via a confirmed webhook (see
+// service_purchase.go) — it is never marked complete synchronously.
 type Purchase struct {
-	ID          string    `json:"id"`
-	OrgID       string    `json:"org_id"`
-	UserID      string    `json:"user_id"`
-	CourseID    string    `json:"course_id"`
-	AmountCents int       `json:"amount_cents"`
-	Currency    string    `json:"currency"`
-	Provider    string    `json:"provider"`
-	ProviderRef string    `json:"provider_ref"`
-	Status      string    `json:"status"`
-	PurchasedAt time.Time `json:"purchased_at"`
+	ID            string    `json:"id"`
+	OrgID         string    `json:"org_id"`
+	UserID        string    `json:"user_id"`
+	CourseID      string    `json:"course_id"`
+	AmountCents   int       `json:"amount_cents"`
+	DiscountCents int       `json:"discount_cents"`
+	Currency      string    `json:"currency"`
+	Provider      string    `json:"provider"`
+	ProviderRef   string    `json:"provider_ref"`
+	PaymentRef    *string   `json:"payment_ref"`
+	CouponID      *string   `json:"coupon_id"`
+	Status        string    `json:"status"`
+	PurchasedAt   time.Time `json:"purchased_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // Ticket is a per-student "needs a mentor" record. Matches mentor_tickets
@@ -199,13 +207,19 @@ type TicketDetail struct {
 
 // MentorDirectoryEntry is one row of the org-wide mentor directory: a
 // mentor's live assigned-mentee count and aggregated rating pulled from the
-// generic feedback table (subject_type = 'mentor').
+// generic feedback table (subject_type = 'mentor'), plus the bio/title a
+// mentor set on their own user_profiles row (org members viewing a mentor's
+// profile are trusted context, so this is shown regardless of that row's
+// public_enabled flag — public_enabled only gates the external /u/{slug} page).
 type MentorDirectoryEntry struct {
-	UserID      string   `json:"user_id"`
-	Name        string   `json:"name"`
-	Email       string   `json:"email"`
-	AvatarURL   *string  `json:"avatar_url"`
-	MenteeCount int      `json:"mentee_count"`
-	AvgRating   *float64 `json:"avg_rating"`
-	RatingCount int      `json:"rating_count"`
+	UserID            string   `json:"user_id"`
+	Name              string   `json:"name"`
+	Email             string   `json:"email"`
+	AvatarURL         *string  `json:"avatar_url"`
+	MenteeCount       int      `json:"mentee_count"`
+	AvgRating         *float64 `json:"avg_rating"`
+	RatingCount       int      `json:"rating_count"`
+	Bio               *string  `json:"bio"`
+	CurrentRole       *string  `json:"current_role"`
+	YearsOfExperience *int16   `json:"years_of_experience"`
 }

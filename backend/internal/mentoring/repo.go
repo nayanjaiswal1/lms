@@ -79,22 +79,205 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-// CreatePurchase inserts a completed course purchase record within tx.
-// Returns ErrAlreadyPurchased if the user already purchased this course
-// (UNIQUE (user_id, course_id)).
-func (r *Repo) CreatePurchase(ctx context.Context, tx pgx.Tx, p Purchase) (Purchase, error) {
-	err := tx.QueryRow(ctx,
-		`INSERT INTO course_purchases (org_id, user_id, course_id, amount_cents, currency, provider, provider_ref, status)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		 RETURNING id, purchased_at`,
-		p.OrgID, p.UserID, p.CourseID, p.AmountCents, p.Currency, p.Provider, p.ProviderRef, p.Status,
-	).Scan(&p.ID, &p.PurchasedAt)
+const purchaseColumns = `id, org_id, user_id, course_id, amount_cents, discount_cents, currency,
+	provider, provider_ref, payment_ref, coupon_id, status, purchased_at, updated_at`
+
+func scanPurchase(row rowScanner) (Purchase, error) {
+	var p Purchase
+	err := row.Scan(&p.ID, &p.OrgID, &p.UserID, &p.CourseID, &p.AmountCents, &p.DiscountCents, &p.Currency,
+		&p.Provider, &p.ProviderRef, &p.PaymentRef, &p.CouponID, &p.Status, &p.PurchasedAt, &p.UpdatedAt)
+	return p, err
+}
+
+// CreatePurchase inserts a new 'pending' course_purchases row — the record
+// checkout-start creates before ever contacting the gateway, so a charge can
+// never exist without a row to confirm/fail it against. ProviderRef must
+// already be a unique placeholder (see mentoring.newPendingProviderRef); the
+// real gateway reference overwrites it once CreateCheckout returns (see
+// SetProviderRef).
+func (r *Repo) CreatePurchase(ctx context.Context, p Purchase) (Purchase, error) {
+	p.Status = PurchaseStatusPending
+	created, err := scanPurchase(r.pool.QueryRow(ctx,
+		`INSERT INTO course_purchases (org_id, user_id, course_id, amount_cents, discount_cents, currency, provider, provider_ref, coupon_id, status)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		 RETURNING `+purchaseColumns,
+		p.OrgID, p.UserID, p.CourseID, p.AmountCents, p.DiscountCents, p.Currency, p.Provider, p.ProviderRef, p.CouponID, p.Status,
+	))
 	if err != nil {
+		return Purchase{}, fmt.Errorf("mentoring: create purchase: %w", err)
+	}
+	return created, nil
+}
+
+// GetLivePendingPurchase returns a still-fresh (younger than 30 minutes)
+// pending purchase for userID+courseID+provider+coupon, if one exists — used
+// to make double-click/retry on StartCheckout reuse the same gateway
+// session instead of creating a second one. Returns ErrNotFound if none.
+func (r *Repo) GetLivePendingPurchase(ctx context.Context, userID, courseID, provider string, couponID *string) (Purchase, error) {
+	p, err := scanPurchase(r.pool.QueryRow(ctx,
+		`SELECT `+purchaseColumns+` FROM course_purchases
+		 WHERE user_id = $1 AND course_id = $2 AND provider = $3 AND status = $4
+		   AND (coupon_id = $5 OR (coupon_id IS NULL AND $5 IS NULL))
+		   AND purchased_at > now() - interval '30 minutes'
+		 ORDER BY purchased_at DESC LIMIT 1`,
+		userID, courseID, provider, PurchaseStatusPending, couponID,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Purchase{}, ErrNotFound
+		}
+		return Purchase{}, fmt.Errorf("mentoring: get live pending purchase: %w", err)
+	}
+	return p, nil
+}
+
+// SetProviderRef overwrites a pending purchase's placeholder provider_ref
+// with the gateway's real session/order id, once CreateCheckout returns it.
+func (r *Repo) SetProviderRef(ctx context.Context, id, providerRef string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE course_purchases SET provider_ref = $2, updated_at = now() WHERE id = $1`, id, providerRef)
+	if err != nil {
+		return fmt.Errorf("mentoring: set provider ref: %w", err)
+	}
+	return nil
+}
+
+// GetPurchaseByProviderRef looks up the purchase a webhook event's
+// ProviderRef confirms or fails — the gateway has no notion of our purchase
+// id until CreateCheckout hands it the session/order id, so this is the only
+// lookup key a webhook can use.
+func (r *Repo) GetPurchaseByProviderRef(ctx context.Context, provider, providerRef string) (Purchase, error) {
+	p, err := scanPurchase(r.pool.QueryRow(ctx,
+		`SELECT `+purchaseColumns+` FROM course_purchases WHERE provider = $1 AND provider_ref = $2`,
+		provider, providerRef,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Purchase{}, ErrNotFound
+		}
+		return Purchase{}, fmt.Errorf("mentoring: get purchase by provider ref: %w", err)
+	}
+	return p, nil
+}
+
+// MarkPurchaseCompletedTx transitions a purchase from 'pending' to
+// 'completed' within tx. Zero rows updated means the purchase was already
+// completed by an earlier webhook delivery (or isn't pending for some other
+// reason) — the caller treats that as a safe no-op, since this guarded
+// transition (not payment_events dedup alone) is the real idempotency
+// backstop against a duplicated webhook. A unique violation on
+// ux_course_purchases_completed means the user somehow completed two
+// separate purchases for the same course concurrently — surfaced to the
+// caller to log loudly rather than silently picking one.
+func (r *Repo) MarkPurchaseCompletedTx(ctx context.Context, tx pgx.Tx, id, paymentRef string) (Purchase, bool, error) {
+	p, err := scanPurchase(tx.QueryRow(ctx,
+		`UPDATE course_purchases SET status = $2, payment_ref = $3, purchased_at = now(), updated_at = now()
+		 WHERE id = $1 AND status = $4
+		 RETURNING `+purchaseColumns,
+		id, PurchaseStatusCompleted, paymentRef, PurchaseStatusPending,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Purchase{}, false, nil
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return Purchase{}, ErrAlreadyPurchased
+			return Purchase{}, false, ErrAlreadyPurchased
 		}
-		return Purchase{}, fmt.Errorf("mentoring: create purchase: %w", err)
+		return Purchase{}, false, fmt.Errorf("mentoring: mark purchase completed: %w", err)
+	}
+	return p, true, nil
+}
+
+// MarkPurchaseFailed transitions a purchase from 'pending' to 'failed' — a
+// no-op if it's already left 'pending' (e.g. a failure event delivered after
+// a success event already completed it, which must never downgrade a
+// completed purchase).
+func (r *Repo) MarkPurchaseFailed(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE course_purchases SET status = $2, updated_at = now() WHERE id = $1 AND status = $3`,
+		id, PurchaseStatusFailed, PurchaseStatusPending)
+	if err != nil {
+		return fmt.Errorf("mentoring: mark purchase failed: %w", err)
+	}
+	return nil
+}
+
+// InsertPaymentEvent records a webhook delivery for dedup + audit.
+// UNIQUE(provider, event_id) makes this the actual replay guard: inserted
+// reports false when a gateway redelivers an event we've already seen
+// (Stripe retries for up to 72h; both gateways may redeliver), which the
+// caller treats as a no-op, not an error.
+func (r *Repo) InsertPaymentEvent(ctx context.Context, provider, eventID, eventType, providerRef string, purchaseID *string, payload []byte) (id string, inserted bool, err error) {
+	err = r.pool.QueryRow(ctx,
+		`INSERT INTO payment_events (provider, event_id, event_type, provider_ref, purchase_id, payload)
+		 VALUES ($1,$2,$3,$4,$5,$6)
+		 ON CONFLICT (provider, event_id) DO NOTHING
+		 RETURNING id`,
+		provider, eventID, eventType, providerRef, purchaseID, payload,
+	).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("mentoring: insert payment event: %w", err)
+	}
+	return id, true, nil
+}
+
+// MarkPaymentEventProcessedTx marks a payment_events row processed within
+// tx, atomically with the purchase-state transition it caused.
+func (r *Repo) MarkPaymentEventProcessedTx(ctx context.Context, tx pgx.Tx, eventRowID, purchaseID string) error {
+	_, err := tx.Exec(ctx,
+		`UPDATE payment_events SET processed_at = now(), purchase_id = $2 WHERE id = $1`, eventRowID, purchaseID)
+	if err != nil {
+		return fmt.Errorf("mentoring: mark payment event processed: %w", err)
+	}
+	return nil
+}
+
+// MarkPaymentEventError records why a payment_events row couldn't be applied
+// (no matching purchase, amount mismatch) without failing the webhook
+// request — the delivery is still acked 200 so the gateway doesn't retry a
+// condition retrying will never fix; the error is left for an operator to
+// investigate.
+func (r *Repo) MarkPaymentEventError(ctx context.Context, eventRowID, msg string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE payment_events SET processed_at = now(), error = $2 WHERE id = $1`, eventRowID, msg)
+	if err != nil {
+		return fmt.Errorf("mentoring: mark payment event error: %w", err)
+	}
+	return nil
+}
+
+// MarkPaymentEventProcessed marks a payment_events row processed with no
+// purchase to associate it with — used for events that authenticated fine
+// but had nothing to act on (StatusIgnored, or a failure event whose
+// purchase was already handled).
+func (r *Repo) MarkPaymentEventProcessed(ctx context.Context, eventRowID string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE payment_events SET processed_at = now() WHERE id = $1`, eventRowID)
+	if err != nil {
+		return fmt.Errorf("mentoring: mark payment event processed: %w", err)
+	}
+	return nil
+}
+
+// GetLatestPurchase returns the most recent purchase attempt (any status)
+// for userID+courseID, scoped to orgID — the row the frontend's checkout
+// return page polls via PurchaseStatus. Returns ErrNotFound if the student
+// has never attempted to purchase this course.
+func (r *Repo) GetLatestPurchase(ctx context.Context, orgID, userID, courseID string) (Purchase, error) {
+	p, err := scanPurchase(r.pool.QueryRow(ctx,
+		`SELECT `+purchaseColumns+` FROM course_purchases
+		 WHERE org_id = $1 AND user_id = $2 AND course_id = $3
+		 ORDER BY purchased_at DESC LIMIT 1`,
+		orgID, userID, courseID,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Purchase{}, ErrNotFound
+		}
+		return Purchase{}, fmt.Errorf("mentoring: get latest purchase: %w", err)
 	}
 	return p, nil
 }
@@ -378,9 +561,11 @@ func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorD
 	rows, err := r.pool.Query(ctx,
 		`SELECT u.id, u.name, u.email, u.avatar_url,
 		        COALESCE(mt.mentee_count, 0) AS mentee_count,
-		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count
+		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count,
+		        p.bio, p.current_role, p.years_of_experience
 		 FROM org_members om
 		 JOIN users u ON u.id = om.user_id
+		 LEFT JOIN user_profiles p ON p.user_id = u.id
 		 LEFT JOIN (
 		   SELECT assigned_mentor_id, COUNT(*) AS mentee_count
 		   FROM mentor_tickets
@@ -403,7 +588,10 @@ func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorD
 	out := []MentorDirectoryEntry{}
 	for rows.Next() {
 		var m MentorDirectoryEntry
-		if err := rows.Scan(&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.MenteeCount, &m.AvgRating, &m.RatingCount); err != nil {
+		if err := rows.Scan(
+			&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.MenteeCount, &m.AvgRating, &m.RatingCount,
+			&m.Bio, &m.CurrentRole, &m.YearsOfExperience,
+		); err != nil {
 			return nil, fmt.Errorf("mentoring: scan mentor directory entry: %w", err)
 		}
 		out = append(out, m)
