@@ -11,8 +11,10 @@ require (
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1
 	github.com/minio/minio-go/v7 v7.0.80
+	github.com/razorpay/razorpay-go v1.4.1
 	github.com/redis/go-redis/v9 v9.7.3
 	github.com/stretchr/testify v1.11.1
+	github.com/stripe/stripe-go/v82 v82.5.1
 	github.com/xuri/excelize/v2 v2.11.0
 	golang.org/x/crypto v0.53.0
 	golang.org/x/oauth2 v0.36.0

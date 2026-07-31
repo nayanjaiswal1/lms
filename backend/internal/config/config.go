@@ -167,6 +167,28 @@ type Config struct {
 	// Calendar reminder job — how far ahead of an event's starts_at the
 	// reminder email fires. No per-event/per-user override yet.
 	CalendarReminderLeadMinutes int
+
+	// Payments (course purchases). Each gateway is independently optional —
+	// payments.Registry.FromConfig registers only the ones with a secret
+	// key set, falling back to payments.StubProvider in non-production when
+	// neither is configured. A gateway's webhook secret is required the
+	// moment its secret key is set (enforced below) since a checkout that
+	// can charge but never confirm is worse than one that's simply absent.
+	StripeSecretKey       string
+	StripePublishableKey  string
+	StripeWebhookSecret   string
+	RazorpayKeyID         string
+	RazorpayKeySecret     string
+	RazorpayWebhookSecret string
+	// PaymentsDefaultProvider selects which registered provider StartCheckout
+	// uses when a request doesn't name one explicitly. Empty = whichever
+	// provider happens to be registered first (fine when only one is
+	// configured; set explicitly once both are).
+	PaymentsDefaultProvider string
+	// PaymentsCurrency is the single platform currency course prices are
+	// charged in — course_purchases carries a currency column per row, but
+	// nothing today lets a course price a currency other than this.
+	PaymentsCurrency string
 }
 
 // Load reads all env vars, validates required/secure fields, and returns Config.
@@ -278,6 +300,26 @@ func Load() *Config {
 	cfg.CalendarReminderLeadMinutes = getEnvInt("CALENDAR_REMINDER_LEAD_MINUTES", 30)
 
 	cfg.MCPPublicURL = getEnvDefault("MCP_PUBLIC_URL", cfg.BackendURL)
+
+	cfg.StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
+	cfg.StripePublishableKey = os.Getenv("STRIPE_PUBLISHABLE_KEY")
+	cfg.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
+	cfg.RazorpayKeyID = os.Getenv("RAZORPAY_KEY_ID")
+	cfg.RazorpayKeySecret = os.Getenv("RAZORPAY_KEY_SECRET")
+	cfg.RazorpayWebhookSecret = os.Getenv("RAZORPAY_WEBHOOK_SECRET")
+	cfg.PaymentsDefaultProvider = os.Getenv("PAYMENTS_DEFAULT_PROVIDER")
+	cfg.PaymentsCurrency = getEnvDefault("PAYMENTS_CURRENCY", "USD")
+
+	// A gateway that can take money but never confirm it is worse than one
+	// that's simply not configured — fail startup rather than let that ship.
+	if cfg.StripeSecretKey != "" && cfg.StripeWebhookSecret == "" {
+		slog.Error("STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set")
+		os.Exit(1)
+	}
+	if cfg.RazorpayKeyID != "" && cfg.RazorpayWebhookSecret == "" {
+		slog.Error("RAZORPAY_WEBHOOK_SECRET is required when RAZORPAY_KEY_ID is set")
+		os.Exit(1)
+	}
 
 	return cfg
 }
