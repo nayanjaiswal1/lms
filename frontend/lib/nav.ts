@@ -21,6 +21,7 @@ import {
   FolderGit2,
   Bot,
   Presentation,
+  TicketPercent,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -255,6 +256,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:                Users,
     requiredPermission:  "admin.view_members",
   },
+  admin_coupons: {
+    label:               "Coupons",
+    href:                ROUTES.ADMIN_COUPONS,
+    icon:                TicketPercent,
+    requiredPermission:  "payments.manage_coupons",
+  },
 
   teach_hub: {
     label:               "Instructor",
@@ -423,6 +430,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.admin_rbac,
       ALL_NAV_ITEMS.admin_users,
+      ALL_NAV_ITEMS.admin_coupons,
     ],
   },
 ];

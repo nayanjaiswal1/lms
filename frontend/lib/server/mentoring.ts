@@ -1,7 +1,6 @@
 import "server-only";
 
 import { apiGet } from "@/lib/server/api";
-import type { Enrollment } from "@/lib/server/courses";
 import type {
   MentorTicketStatus,
   MentorChangeRequestStatus,
@@ -37,23 +36,39 @@ export interface MentorDirectoryEntry {
   years_of_experience: number | null;
 }
 
-export interface CoursePurchase {
-  id: string;
-  org_id: string;
-  user_id: string;
-  course_id: string;
-  amount_cents: number;
-  currency: string;
+// CheckoutSession mirrors courses.CheckoutSession (backend/internal/courses/handler.go)
+// — what POST /api/courses/{id}/checkout returns. Exactly one of
+// redirect_url (Stripe hosted Checkout) or client_params (Razorpay
+// Checkout.js) is set, unless status is already "completed" (a 100%-off
+// coupon), in which case neither is.
+export interface CheckoutSession {
+  purchase_id: string;
   provider: string;
-  provider_ref: string;
-  status: string;
-  purchased_at: string;
+  status: "pending" | "completed";
+  redirect_url?: string;
+  client_params?: Record<string, string>;
+  amount_cents: number;
+  discount_cents: number;
+  currency: string;
 }
 
-export interface CoursePurchaseResult {
-  purchase: CoursePurchase;
-  enrollment: Enrollment;
-  ticket: MentorTicket | null;
+// PurchaseStatusResult mirrors courses.PurchaseStatus — polled by the
+// checkout return page. The gateway redirect itself never grants access;
+// only enrolled: true (set once a webhook confirms the purchase) does.
+export interface PurchaseStatusResult {
+  purchase_id: string;
+  status: string;
+  enrolled: boolean;
+  ticket_id?: string;
+}
+
+// CouponPreview mirrors coupons.Preview — advisory only, the backend always
+// recomputes the discount again server-side at checkout confirmation.
+export interface CouponPreview {
+  code: string;
+  discount_cents: number;
+  final_amount_cents: number;
+  original_amount_cents: number;
 }
 
 export interface MentorTicketFilter {

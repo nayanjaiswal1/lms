@@ -49,6 +49,9 @@ export const PERMISSIONS = {
     VIEW_JOBS:          "admin.view_jobs",
     MANAGE_JOBS:        "admin.manage_jobs",
   },
+  PAYMENTS: {
+    MANAGE_COUPONS: "payments.manage_coupons",
+  },
 } as const
 
 export type PermissionCode = string

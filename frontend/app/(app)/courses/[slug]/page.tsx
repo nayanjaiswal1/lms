@@ -343,7 +343,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                       <Button className="w-full" size="lg" type="submit">Enroll for free</Button>
                     </form>
                   ) : (
-                    <PurchaseCourseButton courseId={courseId} priceCents={course.price_cents} />
+                    <PurchaseCourseButton courseId={courseId} courseSlug={course.slug} priceCents={course.price_cents} />
                   )}
                 </>
               )}

@@ -103,6 +103,9 @@ const ROUTES = {
   // Admin — Labs
   ADMIN_LABS_WARM_POOLS:   "/admin/labs/warm-pools",
 
+  // Admin — Payments
+  ADMIN_COUPONS:           "/admin/coupons",
+
   // Platform Admin (super_admin console — cross-tenant)
   PLATFORM_JOBS:           "/platform/jobs",
   PLATFORM_JOBS_WORKERS:   "/platform/jobs/workers",
@@ -161,6 +164,7 @@ const ROUTES = {
   assessmentResult:         (attemptId: string)                 => `/assessments/result/${attemptId}`,
   attemptProctoring:        (attemptId: string)                 => `/assessments/attempts/${attemptId}/proctoring`,
   courseFinalTest:          (slug: string)                     => `/courses/${slug}/final-test`,
+  courseCheckoutReturn:     (slug: string)                     => `/courses/${slug}/checkout/return`,
   wikiSpace:                (spaceSlug: string)                 => `/wiki/${spaceSlug}`,
   wikiPage:                 (spaceSlug: string, ...path: string[]) => `/wiki/${spaceSlug}/${path.join("/")}`,
   interviewExpPost:         (id: string)                        => `/interview-exp/${id}`,

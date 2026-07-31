@@ -3,13 +3,33 @@
 import { revalidatePath } from "next/cache";
 import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { MentorReportReason } from "@/lib/constants";
-import type { CoursePurchaseResult, MentorTicket, MentorChatMessage } from "@/lib/server/mentoring";
+import type { CheckoutSession, PurchaseStatusResult, CouponPreview, MentorTicket, MentorChatMessage } from "@/lib/server/mentoring";
 import type { Certificate } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
-export async function purchaseCourseAction(courseId: string): Promise<ActionResult<CoursePurchaseResult>> {
-  const result = await apiAction<CoursePurchaseResult>("POST", `/api/courses/${courseId}/purchase`);
-  if (result.ok) {
+// Starts a paid-course checkout. Does NOT grant access by itself — the
+// caller follows redirect_url or opens client_params, then the checkout
+// return page polls purchaseStatusAction until a webhook confirms it.
+export async function startCheckoutAction(
+  courseId: string,
+  opts?: { provider?: string; couponCode?: string },
+): Promise<ActionResult<CheckoutSession>> {
+  return apiAction<CheckoutSession>("POST", `/api/courses/${courseId}/checkout`, {
+    provider: opts?.provider,
+    coupon_code: opts?.couponCode,
+  });
+}
+
+export async function previewCouponAction(courseId: string, code: string): Promise<ActionResult<CouponPreview>> {
+  return apiAction<CouponPreview>("POST", `/api/courses/${courseId}/coupon/preview`, { code });
+}
+
+// Polled by the checkout return page. Revalidates course/enrollment pages
+// only once the purchase is actually confirmed — a still-pending poll must
+// not make the UI look like anything succeeded yet.
+export async function purchaseStatusAction(courseId: string): Promise<ActionResult<PurchaseStatusResult>> {
+  const result = await apiAction<PurchaseStatusResult>("GET", `/api/courses/${courseId}/purchase-status`);
+  if (result.ok && result.data?.status === "completed") {
     revalidatePath(ROUTES.COURSES);
     revalidatePath(ROUTES.course(courseId));
     revalidatePath(ROUTES.MENTORING_TICKETS);
