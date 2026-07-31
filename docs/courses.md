@@ -181,7 +181,7 @@ CREATE TABLE coupons (
   description      TEXT        NOT NULL DEFAULT '',
   discount_type    TEXT        NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
   discount_value   INT         NOT NULL, -- percent 1-100, or fixed minor units
-  course_id        UUID        REFERENCES courses(id) ON DELETE CASCADE, -- NULL = any paid course in the org
+  max_discount_cents INT,               -- caps the absolute discount a percent-off coupon can give; NULL = uncapped; no-op for fixed-type (added in 005)
   max_redemptions  INT,                  -- NULL = unlimited
   redeemed_count   INT         NOT NULL DEFAULT 0 CHECK (redeemed_count <= max_redemptions OR max_redemptions IS NULL),
   starts_at        TIMESTAMPTZ,
@@ -190,6 +190,15 @@ CREATE TABLE coupons (
   created_by       UUID        REFERENCES users(id) ON DELETE SET NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Course scope — zero rows for a coupon_id = valid for any paid course in
+-- the org (the default); one or more rows = restricted to exactly those
+-- courses. Replaces a single nullable coupons.course_id (added in 005).
+CREATE TABLE coupon_courses (
+  coupon_id UUID NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  PRIMARY KEY (coupon_id, course_id)
 );
 
 CREATE TABLE coupon_redemptions (
