@@ -8,14 +8,29 @@ import type { Coupon } from "@/lib/server/coupons";
 import { deactivateCouponAction } from "./actions";
 
 function formatDiscount(c: Coupon): string {
-  return c.discount_type === "percent" ? `${c.discount_value}% off` : `$${(c.discount_value / 100).toFixed(2)} off`;
+  const base = c.discount_type === "percent" ? `${c.discount_value}% off` : `$${(c.discount_value / 100).toFixed(2)} off`;
+  if (c.discount_type === "percent" && c.max_discount_cents) {
+    return `${base} (up to $${(c.max_discount_cents / 100).toFixed(2)})`;
+  }
+  return base;
 }
 
 function formatRedemptions(c: Coupon): string {
   return c.max_redemptions ? `${c.redeemed_count} / ${c.max_redemptions}` : `${c.redeemed_count} / ∞`;
 }
 
-export function CouponTable({ coupons }: { coupons: Coupon[] }) {
+function formatScope(c: Coupon, courseTitleById: Map<string, string>): string {
+  if (c.course_ids.length === 0) return "All courses";
+  const titles = c.course_ids.map((id) => courseTitleById.get(id) ?? "Unknown course");
+  return titles.length <= 2 ? titles.join(", ") : `${titles.slice(0, 2).join(", ")} +${titles.length - 2} more`;
+}
+
+interface CouponTableProps {
+  coupons: Coupon[];
+  courseTitleById: Map<string, string>;
+}
+
+export function CouponTable({ coupons, courseTitleById }: CouponTableProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -39,6 +54,7 @@ export function CouponTable({ coupons }: { coupons: Coupon[] }) {
           <tr className="border-b border-border text-left text-muted-foreground">
             <th className="pb-2 pr-6 font-medium">Code</th>
             <th className="pb-2 pr-6 font-medium">Discount</th>
+            <th className="pb-2 pr-6 font-medium">Courses</th>
             <th className="pb-2 pr-6 font-medium">Redemptions</th>
             <th className="pb-2 pr-6 font-medium">Status</th>
             <th className="pb-2 font-medium" />
@@ -52,6 +68,9 @@ export function CouponTable({ coupons }: { coupons: Coupon[] }) {
                 {c.description && <p className="truncate text-xs text-muted-foreground">{c.description}</p>}
               </td>
               <td className="py-3 pr-6 text-muted-foreground">{formatDiscount(c)}</td>
+              <td className="min-w-0 max-w-64 truncate py-3 pr-6 text-muted-foreground">
+                {formatScope(c, courseTitleById)}
+              </td>
               <td className="py-3 pr-6 text-muted-foreground">{formatRedemptions(c)}</td>
               <td className="py-3 pr-6">
                 {c.is_active ? <Badge variant="default">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}

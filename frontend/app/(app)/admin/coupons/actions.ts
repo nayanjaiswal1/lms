@@ -10,7 +10,8 @@ export interface CreateCouponInput {
   description?: string;
   discount_type: "percent" | "fixed";
   discount_value: number;
-  course_id?: string;
+  max_discount_cents?: number;
+  course_ids?: string[];
   max_redemptions?: number;
   expires_at?: string;
 }

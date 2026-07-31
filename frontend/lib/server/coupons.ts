@@ -10,7 +10,10 @@ export interface Coupon {
   description: string;
   discount_type: "percent" | "fixed";
   discount_value: number;
-  course_id?: string;
+  max_discount_cents?: number;
+  // Empty array = valid for any paid course in the org; one or more =
+  // restricted to exactly those courses.
+  course_ids: string[];
   max_redemptions?: number;
   redeemed_count: number;
   starts_at?: string;
