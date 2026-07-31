@@ -23,6 +23,17 @@ const TICKET_STATUS_COPY: Record<string, string> = {
   assigned: "You have an assigned mentor.",
 };
 
+// A mentor only has a chat thread once they're the *assigned* mentor on one
+// of the student's tickets — batch/directory listings have no ticket of
+// their own, so this is the only way to know whether "Chat" is offered.
+function ticketIdByMentor(tickets: MentorTicket[]): Map<string, string> {
+  return new Map(
+    tickets
+      .filter((t) => t.status === "assigned" && t.assigned_mentor_id)
+      .map((t) => [t.assigned_mentor_id as string, t.id]),
+  );
+}
+
 function MentorTicketCard({
   ticket,
   courseTitle,
@@ -69,25 +80,39 @@ function BatchMentorCard({
   batchName,
   mentorId,
   mentor,
+  ticketId,
 }: {
   batchName: string;
   mentorId: string;
   mentor: MentorDirectoryEntry | undefined;
+  ticketId: string | undefined;
 }) {
   return (
-    <Link className="card-base card-interactive flex items-center gap-3 p-6" href={ROUTES.mentor(mentorId)}>
-      <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="sm" />
-      <div className="min-w-0">
-        <h3 className="truncate font-semibold text-foreground">{batchName}</h3>
-        <p className="truncate text-sm text-muted-foreground">Cohort mentor: {mentor?.name ?? "—"}</p>
+    <div className="card-base flex flex-col gap-4 p-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="sm" />
+        <div className="min-w-0">
+          <h3 className="truncate font-semibold text-foreground">{batchName}</h3>
+          <p className="truncate text-sm text-muted-foreground">Cohort mentor: {mentor?.name ?? "—"}</p>
+        </div>
       </div>
-    </Link>
+      <div className="flex items-center gap-3">
+        {ticketId && (
+          <Link href={ROUTES.mentoringTicketChat(ticketId)}>
+            <Button size="sm">Chat</Button>
+          </Link>
+        )}
+        <Link className="text-sm text-primary hover:underline" href={ROUTES.mentor(mentorId)}>
+          View profile
+        </Link>
+      </div>
+    </div>
   );
 }
 
-function MentorDirectoryCard({ mentor }: { mentor: MentorDirectoryEntry }) {
+function MentorDirectoryCard({ mentor, ticketId }: { mentor: MentorDirectoryEntry; ticketId: string | undefined }) {
   return (
-    <Link className="card-base card-interactive flex flex-col gap-4 p-6" href={ROUTES.mentor(mentor.user_id)}>
+    <div className="card-base flex flex-col gap-4 p-6">
       <div className="flex items-center gap-3">
         <ProfileAvatar avatarUrl={mentor.avatar_url} name={mentor.name} size="md" />
         <div className="min-w-0">
@@ -113,11 +138,24 @@ function MentorDirectoryCard({ mentor }: { mentor: MentorDirectoryEntry }) {
           {mentor.mentee_count} mentee{mentor.mentee_count === 1 ? "" : "s"}
         </span>
       </div>
-    </Link>
+      <div className="flex items-center gap-3">
+        {ticketId && (
+          <Link href={ROUTES.mentoringTicketChat(ticketId)}>
+            <Button size="sm">Chat</Button>
+          </Link>
+        )}
+        <Link className="text-sm text-primary hover:underline" href={ROUTES.mentor(mentor.user_id)}>
+          View profile
+        </Link>
+      </div>
+    </div>
   );
 }
 
-function MentorDirectorySection({ mentors }: { mentors: MentorDirectoryEntry[] }) {
+async function MentorDirectorySection({ mentors }: { mentors: MentorDirectoryEntry[] }) {
+  const tickets = await getMyMentorTickets().catch(() => []);
+  const ticketByMentor = ticketIdByMentor(tickets);
+
   return (
     <section className="flex flex-col gap-4">
       <h2 className="section-title">All mentors</h2>
@@ -129,7 +167,7 @@ function MentorDirectorySection({ mentors }: { mentors: MentorDirectoryEntry[] }
       ) : (
         <div className="card-grid">
           {mentors.map((mentor) => (
-            <MentorDirectoryCard key={mentor.user_id} mentor={mentor} />
+            <MentorDirectoryCard key={mentor.user_id} mentor={mentor} ticketId={ticketByMentor.get(mentor.user_id)} />
           ))}
         </div>
       )}
@@ -138,9 +176,10 @@ function MentorDirectorySection({ mentors }: { mentors: MentorDirectoryEntry[] }
 }
 
 async function YourBatchMentorsSection() {
-  const [batches, mentors] = await Promise.all([
+  const [batches, mentors, tickets] = await Promise.all([
     getMyBatches().catch(() => []),
     getMentors().catch(() => []),
+    getMyMentorTickets().catch(() => []),
   ]);
   const mentored = batches
     .filter((b) => b.mentor_id !== null)
@@ -148,13 +187,20 @@ async function YourBatchMentorsSection() {
   if (mentored.length === 0) return null;
 
   const mentorFor = (mentorId: string) => mentors.find((m) => m.user_id === mentorId);
+  const ticketByMentor = ticketIdByMentor(tickets);
 
   return (
     <section className="flex flex-col gap-4">
       <h2 className="section-title">{mentored.length > 1 ? "Your cohort mentors" : "Your cohort mentor"}</h2>
       <div className="card-grid">
         {mentored.map((b) => (
-          <BatchMentorCard batchName={b.name} key={b.id} mentor={mentorFor(b.mentor_id)} mentorId={b.mentor_id} />
+          <BatchMentorCard
+            batchName={b.name}
+            key={b.id}
+            mentor={mentorFor(b.mentor_id)}
+            mentorId={b.mentor_id}
+            ticketId={ticketByMentor.get(b.mentor_id)}
+          />
         ))}
       </div>
     </section>
