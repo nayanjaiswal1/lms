@@ -2,7 +2,16 @@
 
 import { useRef, useState, type PointerEvent, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { ChevronDown, ChevronUp, PanelBottom, PanelRight, TerminalSquare } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  PanelBottom,
+  PanelRight,
+  TerminalSquare,
+  X,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -26,6 +35,8 @@ interface LabFixedConsoleProps {
    * FEATURES.LESSON_COMPILER_BOTTOM_DOCK is off for the org).
    */
   positions?: Position[]
+  /** Shows a close button in the header when the panel has an owning open/close toggle (e.g. LessonCompilerToggle). Omit for panels that are always mounted, like the main lab workspace console. */
+  onClose?: () => void
 }
 
 // Google Cloud Shell style: a full-viewport panel pinned to an edge of the
@@ -33,7 +44,13 @@ interface LabFixedConsoleProps {
 // Rendered via a portal to <body> so it escapes the article/sidebar layout
 // instead of being boxed into the page's own scroll column. The free edge is
 // drag-resizable; the chevron collapses it to just its header bar.
-export function LabFixedConsole({ title, children, onHeightChange, positions = ["bottom", "right"] }: LabFixedConsoleProps) {
+export function LabFixedConsole({
+  title,
+  children,
+  onHeightChange,
+  positions = ["bottom", "right"],
+  onClose,
+}: LabFixedConsoleProps) {
   const [size, setSize] = useState(LAB_CONSOLE_DEFAULT_HEIGHT)
   const [layout, setLayout] = useState<{ position: Position; collapsed: boolean }>(() => ({
     position: positions[0] ?? "bottom",
@@ -82,12 +99,12 @@ export function LabFixedConsole({ title, children, onHeightChange, positions = [
   // session is running, so the null-then-portal swap on hydration is safe.
   if (typeof document === "undefined") return null
 
-  // Collapsing shrinks to a slim bar only in bottom mode, where the header
-  // is already a horizontal row that fits at any height. Right-docked, that
-  // same row can't fit inside a 44px-wide vertical strip — collapsing there
-  // hides the body but keeps the panel's current width, so its own controls
-  // (title, move-to-bottom, expand) stay legible instead of overlapping.
-  const resolvedSize = layout.collapsed && !isRight ? LAB_CONSOLE_COLLAPSED_HEIGHT : size
+  // Collapsing always shrinks to a slim bar on whichever edge the panel is
+  // docked to (bottom -> short bar, right -> narrow bar). The header can't
+  // fit its horizontal title row inside a 44px-wide strip, so the collapsed
+  // header drops the title and stacks just the icon buttons vertically.
+  const resolvedSize = layout.collapsed ? LAB_CONSOLE_COLLAPSED_HEIGHT : size
+  const collapsedRight = layout.collapsed && isRight
 
   return createPortal(
     <div
@@ -104,7 +121,7 @@ export function LabFixedConsole({ title, children, onHeightChange, positions = [
           aria-label={isRight ? "Resize panel" : "Resize console"}
           className={cn(
             "shrink-0 touch-none bg-transparent transition-colors duration-fast hover:bg-primary/30",
-            isRight ? "h-full w-1.5 cursor-ew-resize" : "h-1.5 w-full cursor-ns-resize",
+            isRight ? "h-full w-1 cursor-ew-resize" : "h-1 w-full cursor-ns-resize",
           )}
           role="separator"
           onPointerDown={onDragStart}
@@ -113,10 +130,24 @@ export function LabFixedConsole({ title, children, onHeightChange, positions = [
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex h-11 shrink-0 items-center gap-2 px-3">
-          <TerminalSquare aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate text-xs font-medium text-foreground">{title}</span>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-2 px-3",
+            collapsedRight ? "h-full w-11 flex-col justify-center px-0 py-3" : "h-11",
+          )}
+        >
+          {!collapsedRight && (
+            <>
+              <TerminalSquare aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate text-xs font-medium text-foreground">{title}</span>
+            </>
+          )}
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-1",
+              collapsedRight ? "flex-col" : "ml-auto",
+            )}
+          >
             {canTogglePosition && (
               <Button
                 aria-label={isRight ? "Move to bottom" : "Move to right side"}
@@ -139,12 +170,23 @@ export function LabFixedConsole({ title, children, onHeightChange, positions = [
               variant="ghost"
               onClick={toggleCollapsed}
             >
-              {layout.collapsed ? (
+              {isRight ? (
+                layout.collapsed ? (
+                  <ChevronLeft aria-hidden className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRight aria-hidden className="h-3.5 w-3.5" />
+                )
+              ) : layout.collapsed ? (
                 <ChevronUp aria-hidden className="h-3.5 w-3.5" />
               ) : (
                 <ChevronDown aria-hidden className="h-3.5 w-3.5" />
               )}
             </Button>
+            {onClose && (
+              <Button aria-label="Close panel" className="touch-target" size="icon" variant="ghost" onClick={onClose}>
+                <X aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
         <div className={cn("min-h-0 flex-1", layout.collapsed && "hidden")}>{children}</div>

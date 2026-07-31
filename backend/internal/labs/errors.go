@@ -70,11 +70,20 @@ var (
 	ErrInvalidPath = errors.New("labs: invalid file path")
 
 	// ErrImageNotAllowed is returned when a lab's environment image is not in
-	// the requesting org's lab_org_config.allowed_images. A nested-Docker
-	// image (see ContainerRuntime.IsNestedImage) is NEVER a platform default
-	// and always requires an explicit allowlist entry, even for an org whose
+	// the requesting org's lab_org_config.allowed_images. An image whose
+	// ImageProfile.RequiresOrgAllowlist is true (see ContainerRuntime.
+	// Classify — nested-Docker images today) is NEVER a platform default and
+	// always requires an explicit allowlist entry, even for an org whose
 	// allowed_images is otherwise empty (empty historically meant "no
 	// restriction" for ordinary images — it must not also mean "elevated
 	// images allowed").
 	ErrImageNotAllowed = errors.New("labs: this lab's environment image is not allowed for your organization")
+
+	// ErrLabProvisioningUnstable is returned when a lab has failed to
+	// provision ProvisionFailureCircuitBreakerThreshold times within
+	// ProvisionFailureCircuitBreakerWindow — a broken image or setup_script
+	// otherwise lets every retry burn another doomed container on the Docker
+	// host ("bombing" it) until an instructor fixes the lab. StartSession
+	// refuses new sessions for the lab until the window rolls off.
+	ErrLabProvisioningUnstable = errors.New("labs: lab has failed to provision repeatedly and is temporarily unavailable")
 )

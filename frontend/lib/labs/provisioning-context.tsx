@@ -8,6 +8,16 @@ interface LabProvisioningContextValue {
   track: (session: ActiveLabSession) => void
   updateStatus: (sessionId: string, status: SessionStatus) => void
   clear: (sessionId: string) => void
+  // currentPageLabId is the lab_id of whatever lesson-embedded lab is
+  // mounted on the page right now (LessonLabProvider registers/unregisters
+  // it on mount/unmount) — null on every page without one. Lets
+  // LabProvisioningWatcher tell "this page owns the provisioning session I'm
+  // tracking, its own inline UI has it covered" apart from "I'm just on some
+  // course learn page that happens to have a different lab embedded,"
+  // which a pathname-shape check alone can't distinguish.
+  currentPageLabId: string | null
+  registerCurrentPageLab: (labId: string) => void
+  unregisterCurrentPageLab: (labId: string) => void
 }
 
 const LabProvisioningContext = createContext<LabProvisioningContextValue | null>(null)
@@ -24,6 +34,7 @@ interface LabProvisioningProviderProps {
 // (see labs.Service.StartSession), so this holds at most one entry.
 export function LabProvisioningProvider({ children, initialSession }: LabProvisioningProviderProps) {
   const [session, setSession] = useState<ActiveLabSession | null>(initialSession)
+  const [currentPageLabId, setCurrentPageLabId] = useState<string | null>(null)
 
   const track = useCallback((next: ActiveLabSession) => setSession(next), [])
 
@@ -35,9 +46,15 @@ export function LabProvisioningProvider({ children, initialSession }: LabProvisi
     setSession((prev) => (prev && prev.session_id === sessionId ? null : prev))
   }, [])
 
+  const registerCurrentPageLab = useCallback((labId: string) => setCurrentPageLabId(labId), [])
+
+  const unregisterCurrentPageLab = useCallback((labId: string) => {
+    setCurrentPageLabId((prev) => (prev === labId ? null : prev))
+  }, [])
+
   const value = useMemo(
-    () => ({ session, track, updateStatus, clear }),
-    [session, track, updateStatus, clear],
+    () => ({ session, track, updateStatus, clear, currentPageLabId, registerCurrentPageLab, unregisterCurrentPageLab }),
+    [session, track, updateStatus, clear, currentPageLabId, registerCurrentPageLab, unregisterCurrentPageLab],
   )
 
   return (

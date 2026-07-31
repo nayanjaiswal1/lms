@@ -4,8 +4,8 @@
 # --cap-drop ALL and no added capabilities; this one is the deliberate,
 # narrowly-scoped, operator+org-gated exception described in
 # docs/labs.md "Nested Docker labs" — it only ever gets its elevated
-# container config when its image is in BOTH the operator's
-# LABS_NESTED_DOCKER_IMAGES allowlist and the requesting org's
+# container config when its image is mapped to the "nested-docker" profile
+# in BOTH the operator's LABS_IMAGE_PROFILES and the requesting org's
 # lab_org_config.allowed_images (backend/internal/labs/container.go,
 # backend/internal/labs/service.go StartSession).
 #

@@ -36,6 +36,21 @@ JUDGE0_TIMEOUT=30s                   # Optional — default 30s
 PAYMENT_PROVIDER=stripe             # stripe | razorpay
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Lab sandbox runtime
+LABS_RUNTIME=docker                  # docker | kubernetes
+LABS_K8S_NAMESPACE=mindforge-labs    # kubernetes runtime only
+LABS_WARM_POOL_GLOBAL_MAX=20         # total warm containers allowed across all labs (0 disables warming)
+# LABS_IMAGE_PROFILES maps a lab environment image to a named ImageProfile
+# (see internal/labs/profile.go) from the small in-code catalog built in
+# cmd/server/main.go — today just "nested-docker" (Docker-in-Docker labs,
+# see docs/labs.md "Nested Docker labs"). Comma-separated image:profileName
+# pairs; the image itself may contain its own ":" tag — only the LAST colon
+# in each entry separates the profile name. Empty/unset = no image is
+# classified, every lab runs the platform's normal unelevated container.
+LABS_IMAGE_PROFILES=mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:nested-docker
+LABS_NESTED_DOCKER_RUNTIME=          # Optional — "sysbox-runc" switches the "nested-docker" profile's Docker mechanism (default: scoped rootless-dind)
+LABS_NESTED_DOCKER_RUNTIME_CLASS=    # Kubernetes only — RuntimeClassName (e.g. "sysbox-runc"/"kata-containers") REQUIRED for any image mapped to "nested-docker" under LABS_RUNTIME=kubernetes
 ```
 
 ---

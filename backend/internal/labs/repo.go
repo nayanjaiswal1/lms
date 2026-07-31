@@ -173,14 +173,14 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (*LabSe
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
-		       completed_at, last_active_at, end_reason
+		       completed_at, last_active_at, end_reason, provision_error
 		FROM lab_sessions WHERE id=$1 AND user_id=$2`,
 		sessionID, userID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -198,13 +198,13 @@ func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSessio
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
-		       completed_at, last_active_at, end_reason
+		       completed_at, last_active_at, end_reason, provision_error
 		FROM lab_sessions WHERE id=$1`, sessionID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -335,6 +335,65 @@ func (r *Repo) UpdateSessionExpired(ctx context.Context, sessionID string) error
 		return fmt.Errorf("labs.Repo.UpdateSessionExpired: %w", err)
 	}
 	return nil
+}
+
+// UpdateSessionFailed marks a session 'failed' with the reason it ended and,
+// when known, the underlying error text — persisted so the cause survives
+// past the ephemeral slog line that first reported it (mirrors
+// UpdateSessionRepoClone's *string-error shape).
+func (r *Repo) UpdateSessionFailed(ctx context.Context, sessionID, endReason string, provisionErr *string) error {
+	if _, err := r.pool.Exec(ctx,
+		"UPDATE lab_sessions SET status='failed', end_reason=$2, provision_error=$3 WHERE id=$1",
+		sessionID, endReason, provisionErr,
+	); err != nil {
+		return fmt.Errorf("labs.Repo.UpdateSessionFailed: %w", err)
+	}
+	return nil
+}
+
+// OrgOwnersAndAdmins returns the user IDs of every 'owner'/'admin' member of
+// orgID — the recipients for a lab-provisioning-circuit-breaker notification
+// (mirrors mentor_escalation.go's orgMentors query shape, scoped to the two
+// roles who can actually act on a broken lab image/setup_script).
+func (r *Repo) OrgOwnersAndAdmins(ctx context.Context, orgID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT user_id FROM org_members WHERE org_id=$1 AND role IN ('owner', 'admin')`,
+		orgID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.OrgOwnersAndAdmins: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("labs.Repo.OrgOwnersAndAdmins: scan: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("labs.Repo.OrgOwnersAndAdmins: rows: %w", err)
+	}
+	return ids, nil
+}
+
+// CountRecentProvisionFailures counts how many sessions for labID have
+// failed to provision (end_reason IN provision_timeout/provision_failed)
+// within the given window — the signal behind ErrLabProvisioningUnstable.
+func (r *Repo) CountRecentProvisionFailures(ctx context.Context, labID string, window time.Duration) (int, error) {
+	var n int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM lab_sessions
+		 WHERE lab_id=$1
+		   AND end_reason IN ('provision_timeout', 'provision_failed')
+		   AND started_at > now() - $2::interval`,
+		labID, fmt.Sprintf("%d seconds", int(window.Seconds())),
+	).Scan(&n); err != nil {
+		return 0, fmt.Errorf("labs.Repo.CountRecentProvisionFailures: %w", err)
+	}
+	return n, nil
 }
 
 // UpdateLastActiveAt bumps the last_active_at heartbeat timestamp.

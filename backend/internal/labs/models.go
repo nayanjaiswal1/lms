@@ -26,27 +26,42 @@ const (
 	// margin. A real Linux Docker Engine host never hits the retry at all,
 	// so this larger ceiling costs it nothing.
 	ProvisionTimeoutSeconds = 180
-	IdleTimeoutMinutes      = 15
+	// ProvisionReapGraceSeconds is added on top of ProvisionTimeoutSeconds
+	// before lab.expire_sessions reaps a 'provisioning' row — the in-process
+	// goroutine's own context timeout is the normal path (it marks the
+	// session 'failed' itself well before this fires); this is only a
+	// backstop for when that goroutine never got to run at all (e.g. the
+	// backend restarted mid-provision), so it must stay comfortably above
+	// ProvisionTimeoutSeconds to never race the normal path.
+	ProvisionReapGraceSeconds = 60
+	// ProvisionFailureCircuitBreakerThreshold/Window: if a lab fails to
+	// provision this many times within this window (across all users),
+	// StartSession stops accepting new sessions for it — see
+	// ErrLabProvisioningUnstable. Protects the Docker host from a broken
+	// image/setup_script getting hammered by every student's retry.
+	ProvisionFailureCircuitBreakerThreshold = 3
+	ProvisionFailureCircuitBreakerWindow    = 10 * time.Minute
+	IdleTimeoutMinutes                      = 15
 	ContainerCPU            = "1.0"
 	ContainerMemoryMB       = 512
 	ContainerDiskGB         = 3
-	// NestedContainerCPU/NestedContainerMemoryMB apply only to labs whose
-	// image is in config.LabsNestedDockerImages (nested Docker-in-Docker
-	// labs) — a nested dockerd plus a student `docker build` cannot fit in
-	// the default 1 CPU / 512MB; without this override those sessions OOM
-	// silently under any real load even though they work fine on an
-	// otherwise-idle dev machine.
+	// NestedContainerCPU/NestedContainerMemoryMB size the "nested-docker"
+	// ImageProfile (see profile.go) — a nested dockerd plus a student
+	// `docker build` cannot fit in the default 1 CPU / 512MB; without this
+	// override those sessions OOM silently under any real load even though
+	// they work fine on an otherwise-idle dev machine.
 	NestedContainerCPU      = "2.0"
 	NestedContainerMemoryMB = 1536
-	// nestedLabNetwork isolates nested-Docker (elevated, SYS_ADMIN-holding)
+	// NestedLabNetwork isolates nested-Docker (elevated, SYS_ADMIN-holding)
 	// containers onto their own bridge, separate from the shared
 	// "mindforge-labs" network every ordinary (--cap-drop ALL, no added
 	// capabilities) lab container runs on — see docs/labs.md "Nested Docker
 	// labs" for why L2 adjacency to unelevated containers is the risk this
 	// avoids. Must exist (docker-compose.*.yml creates it) and must also be
 	// attached to the labproxy service so the terminal proxy can still reach
-	// these containers' ttyd port.
-	nestedLabNetwork = "mindforge-labs-dind"
+	// these containers' ttyd port. Used as the "nested-docker" ImageProfile's
+	// Network field (see profile.go / main.go's profile catalog).
+	NestedLabNetwork = "mindforge-labs-dind"
 	// WarmContainerNamePrefix names pre-provisioned pool sandboxes
 	// ("mindforge-warm-{warmID}"), keeping them out of LabCleanupHandler's
 	// "mindforge-lab-" orphan scan — the warm-pool reconciler owns their
@@ -85,6 +100,17 @@ const (
 	SessionStatusExpired         = "expired"
 	SessionStatusFailed          = "failed"
 	SessionStatusTerminatedAbuse = "terminated_abuse"
+
+	// End reasons — mirrors the lab_sessions_end_reason_check CHECK
+	// constraint. time_limit/idle_timeout come from lab.expire_sessions
+	// reaping a running/paused session; provision_timeout is the same job
+	// reaping a session stuck in 'provisioning' past ProvisionReapGraceSeconds;
+	// provision_failed is provisionContainer's own immediate-failure path
+	// (container.Start returned an error before the timeout ever mattered).
+	EndReasonTimeLimit        = "time_limit"
+	EndReasonIdleTimeout      = "idle_timeout"
+	EndReasonProvisionTimeout = "provision_timeout"
+	EndReasonProvisionFailed  = "provision_failed"
 
 	// Task completion statuses
 	TaskStatusPending = "pending"
@@ -245,10 +271,14 @@ type LabSession struct {
 	PausedSeconds int        `json:"paused_seconds"`
 	CompletedAt   *time.Time `json:"completed_at"`
 	LastActiveAt  time.Time  `json:"last_active_at"`
-	// EndReason distinguishes an automatic reaper termination ("time_limit" or
-	// "idle_timeout") from a normal user-driven end/completion, which leaves
-	// this nil. Set only by the lab.expire_sessions background job.
+	// EndReason distinguishes an automatic reaper termination (see the
+	// EndReasonXxx constants above) from a normal user-driven end/completion,
+	// which leaves this nil. Set only by lab.expire_sessions and
+	// provisionContainer's own immediate-failure path.
 	EndReason *string `json:"end_reason"`
+	// ProvisionError holds the underlying failure detail when EndReason is
+	// provision_timeout/provision_failed — nil otherwise.
+	ProvisionError *string `json:"provision_error,omitempty"`
 }
 
 // ActiveLabSession is a lab_sessions row enriched with the lab's title and

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labs"
+	"github.com/mindforge/backend/internal/notifications"
 )
 
 const (
@@ -21,13 +22,16 @@ const (
 
 // LabExpireHandler marks stale lab sessions as expired and removes their containers.
 type LabExpireHandler struct {
-	pool    *pgxpool.Pool
-	runtime labs.ContainerRuntime
+	pool          *pgxpool.Pool
+	runtime       labs.ContainerRuntime
+	notifications *notifications.Service
 }
 
-// NewLabExpireHandler constructs a LabExpireHandler.
-func NewLabExpireHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime) *LabExpireHandler {
-	return &LabExpireHandler{pool: pool, runtime: runtime}
+// NewLabExpireHandler constructs a LabExpireHandler. notifSvc backs the
+// repeated-provisioning-failure admin alert reapStuckProvisioning fires —
+// see that method's own doc comment.
+func NewLabExpireHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime, notifSvc *notifications.Service) *LabExpireHandler {
+	return &LabExpireHandler{pool: pool, runtime: runtime, notifications: notifSvc}
 }
 
 // Handle finds all running/paused sessions that have either hit their hard
@@ -38,6 +42,12 @@ func NewLabExpireHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime) *Lab
 // gets its container removed and is marked expired with the reason that
 // triggered it, so the result page can tell the user why their lab ended.
 func (h *LabExpireHandler) Handle(ctx context.Context, job jobs.Job) error {
+	if err := h.reapStuckProvisioning(ctx); err != nil {
+		// Logged, not returned: a failure here must not stop the
+		// running/paused sweep below from also running this tick.
+		slog.Error("lab.expire_sessions: reap stuck provisioning failed", "error", err)
+	}
+
 	rows, err := h.pool.Query(ctx,
 		`SELECT id, container_id,
 		        CASE WHEN expires_at < now() THEN 'time_limit' ELSE 'idle_timeout' END AS reason
@@ -112,6 +122,171 @@ func (h *LabExpireHandler) Handle(ctx context.Context, job jobs.Job) error {
 	slog.Info("lab.expire_sessions: expired sessions",
 		"time_limit", timeLimitCount, "idle_timeout", idleCount)
 	return nil
+}
+
+// reapStuckProvisioning is the durable backstop for labs.Service.provisionContainer's
+// in-process timeout: that function runs as a fire-and-forget goroutine on
+// context.Background(), so if the backend process restarts (deploy, crash)
+// while a session is mid-provision, the goroutine — and its
+// labs.ProvisionTimeoutSeconds context timeout — dies with it, leaving the
+// row in 'provisioning' forever. lab_sessions_one_active only excludes
+// terminal statuses, so an orphaned row permanently blocks that user from
+// starting any other lab (see docs/labs.md "Session stuck in provisioning"
+// edge case — this is what actually implements it). Runs every tick
+// alongside the running/paused sweep since both are "find stale sessions and
+// close them out"; still marks the session 'failed', not 'expired', since
+// nothing ever ran here.
+func (h *LabExpireHandler) reapStuckProvisioning(ctx context.Context) error {
+	thresholdSeconds := labs.ProvisionTimeoutSeconds + labs.ProvisionReapGraceSeconds
+
+	rows, err := h.pool.Query(ctx,
+		`SELECT id, lab_id, org_id, container_id
+		 FROM lab_sessions
+		 WHERE status = $1
+		   AND started_at < now() - make_interval(secs => $2)
+		 LIMIT 100`,
+		labs.SessionStatusProvisioning, thresholdSeconds,
+	)
+	if err != nil {
+		return fmt.Errorf("query stuck provisioning sessions: %w", err)
+	}
+
+	type stuckSession struct {
+		id, labID, orgID string
+		containerID      *string
+	}
+	var stuck []stuckSession
+	for rows.Next() {
+		var s stuckSession
+		if err := rows.Scan(&s.id, &s.labID, &s.orgID, &s.containerID); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan stuck provisioning session: %w", err)
+		}
+		stuck = append(stuck, s)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("stuck provisioning rows: %w", err)
+	}
+	rows.Close()
+	if len(stuck) == 0 {
+		return nil
+	}
+
+	reason := fmt.Sprintf("Provisioning did not complete within %ds; session reaped by lab.expire_sessions.", thresholdSeconds)
+	affectedLabs := map[string]string{} // labID -> orgID, deduped for the notify pass below
+
+	for _, s := range stuck {
+		if s.containerID != nil && *s.containerID != "" {
+			if rmErr := h.runtime.Kill(ctx, *s.containerID); rmErr != nil {
+				slog.Error("lab.expire_sessions: kill stuck-provisioning sandbox failed",
+					"container", *s.containerID, "error", rmErr)
+			}
+		}
+		if _, err := h.pool.Exec(ctx,
+			`UPDATE lab_sessions SET status=$2, end_reason=$3, provision_error=$4 WHERE id=$1`,
+			s.id, labs.SessionStatusFailed, labs.EndReasonProvisionTimeout, reason,
+		); err != nil {
+			slog.Error("lab.expire_sessions: mark stuck provisioning failed",
+				"session_id", s.id, "error", err)
+			continue
+		}
+		affectedLabs[s.labID] = s.orgID
+	}
+
+	slog.Info("lab.expire_sessions: reaped stuck provisioning sessions", "count", len(stuck))
+
+	for labID, orgID := range affectedLabs {
+		h.notifyRepeatedProvisionFailures(ctx, labID, orgID)
+	}
+	return nil
+}
+
+// notifyRepeatedProvisionFailures mirrors labs.Service's own method of the
+// same name (duplicated rather than shared — this handler intentionally
+// holds only pool+runtime+notifications, not a full *labs.Service, matching
+// every other handler in this file; see labs.Service.StartSession's
+// circuit-breaker gate for the other caller of this same threshold). Both
+// must stay in sync with labs.ProvisionFailureCircuitBreakerThreshold/Window.
+func (h *LabExpireHandler) notifyRepeatedProvisionFailures(ctx context.Context, labID, orgID string) {
+	if h.notifications == nil {
+		return
+	}
+
+	var failures int
+	if err := h.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM lab_sessions
+		 WHERE lab_id=$1
+		   AND end_reason IN ('provision_timeout', 'provision_failed')
+		   AND started_at > now() - $2::interval`,
+		labID, fmt.Sprintf("%d seconds", int(labs.ProvisionFailureCircuitBreakerWindow.Seconds())),
+	).Scan(&failures); err != nil {
+		slog.Error("lab.expire_sessions: count recent provision failures", "lab_id", labID, "error", err)
+		return
+	}
+	if failures < labs.ProvisionFailureCircuitBreakerThreshold {
+		return
+	}
+
+	var labTitle string
+	if err := h.pool.QueryRow(ctx, `SELECT title FROM lab_definitions WHERE id=$1`, labID).Scan(&labTitle); err != nil {
+		slog.Error("lab.expire_sessions: get lab title", "lab_id", labID, "error", err)
+		return
+	}
+
+	rows, err := h.pool.Query(ctx,
+		`SELECT user_id FROM org_members WHERE org_id=$1 AND role IN ('owner', 'admin')`, orgID,
+	)
+	if err != nil {
+		slog.Error("lab.expire_sessions: get org admins", "org_id", orgID, "error", err)
+		return
+	}
+	var recipients []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			slog.Error("lab.expire_sessions: scan org admin", "error", err)
+			return
+		}
+		recipients = append(recipients, id)
+	}
+	rows.Close()
+	if len(recipients) == 0 {
+		return
+	}
+
+	windowBucket := time.Now().UTC().Truncate(labs.ProvisionFailureCircuitBreakerWindow).Unix()
+	body := fmt.Sprintf(
+		"\"%s\" has failed to provision %d times in the last %s and is temporarily blocked from starting new sessions until fixed. Check the lab's image and setup_script.",
+		labTitle, failures, labs.ProvisionFailureCircuitBreakerWindow,
+	)
+	entityType := "lab_definition"
+
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		slog.Error("lab.expire_sessions: begin notify tx", "error", err)
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := h.notifications.NotifyMany(ctx, tx, notifications.New{
+		OrgID:      orgID,
+		Type:       "lab_provisioning_unstable",
+		Title:      fmt.Sprintf("Lab \"%s\" is repeatedly failing to start", labTitle),
+		Body:       &body,
+		EntityType: &entityType,
+		EntityID:   &labID,
+		Priority:   notifications.PriorityHigh,
+		DedupeKey:  fmt.Sprintf("lab-provision-incident:%s:%d", labID, windowBucket),
+		AlsoEmail:  true,
+	}, recipients); err != nil {
+		slog.Error("lab.expire_sessions: notify repeated provision failures", "lab_id", labID, "error", err)
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		slog.Error("lab.expire_sessions: commit notify tx", "error", err)
+	}
 }
 
 // LabCleanupHandler removes orphaned lab sandboxes that have no active session row.

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useTransition, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { startLabSessionAction, endLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
@@ -46,10 +46,20 @@ interface LessonLabProviderProps {
 // inline task cards always agree.
 export function LessonLabProvider({ lab, initialSession, children }: LessonLabProviderProps) {
   const router = useRouter()
-  const { session: activeSession, track, clear } = useLabProvisioning()
+  const { session: activeSession, track, clear, registerCurrentPageLab, unregisterCurrentPageLab } = useLabProvisioning()
   const [isStarting, startStarting] = useTransition()
   const [isEnding, startEnding] = useTransition()
   const [verifyBridge, setVerifyBridge] = useState<LabVerifyBridge | null>(null)
+
+  // Tells LabProvisioningWatcher "this page's own inline UI covers lab.id" —
+  // otherwise it can't distinguish that from "I'm on some *other* course
+  // learn page that happens to embed a different lab," and would wrongly
+  // suppress its toast for a session provisioning elsewhere. See that
+  // component's isInlineHosted for the read side.
+  useEffect(() => {
+    registerCurrentPageLab(lab.id)
+    return () => unregisterCurrentPageLab(lab.id)
+  }, [lab.id, registerCurrentPageLab, unregisterCurrentPageLab])
 
   const isOtherLabActive = activeSession !== null && activeSession.lab_id !== lab.id
 

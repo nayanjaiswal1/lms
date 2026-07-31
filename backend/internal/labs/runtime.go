@@ -55,12 +55,16 @@ type ContainerRuntime interface {
 	// to find and remove sandboxes with no corresponding active session row.
 	List(ctx context.Context, namePrefix string) ([]ContainerInfo, error)
 
-	// IsNestedImage reports whether image is on this runtime's operator-
-	// configured nested-Docker allowlist (config.LabsNestedDockerImages) —
-	// the ONLY thing that decides elevated container config, never the
-	// image string's own content. Service.StartSession uses this to also
-	// require the image be in the requesting org's lab_org_config.
+	// Classify resolves image to its ImageProfile via this runtime's
+	// operator-configured mapping (config.LabsImageProfiles) — the ONLY
+	// thing that decides elevated container config, never the image
+	// string's own content or any instructor-authored field. An image with
+	// no mapping resolves to the zero-value ImageProfile (standard: default
+	// CPU/mem, no elevation, no org-allowlist requirement, pre-warm
+	// eligible). Service.StartSession uses ImageProfile.RequiresOrgAllowlist
+	// to also require the image be in the requesting org's lab_org_config.
 	// allowed_images before a session for it is allowed to start, and the
-	// warm-pool planner uses it to never pre-provision one unclaimed.
-	IsNestedImage(image string) bool
+	// warm-pool planner uses ImageProfile.SkipPreWarm to decide whether to
+	// ever pre-provision one unclaimed.
+	Classify(image string) ImageProfile
 }

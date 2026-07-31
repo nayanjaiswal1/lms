@@ -98,21 +98,55 @@ func main() {
 	// Built once and shared by the labs HTTP handler (api.NewRouter) and the
 	// reaper job handlers below, so a Kubernetes deploy constructs exactly one
 	// in-cluster client rather than one per consumer.
+	//
+	// labsImageProfileCatalog is the small in-code catalog of named
+	// ImageProfiles LABS_IMAGE_PROFILES entries resolve against — today just
+	// "nested-docker" (see labs.ImageProfileNestedDocker / docs/labs.md
+	// "Nested Docker labs"). Adding a second real profile means adding one
+	// more entry here.
+	labsImageProfileCatalog := map[string]labs.ImageProfile{
+		labs.ImageProfileNestedDocker: {
+			Name:                 labs.ImageProfileNestedDocker,
+			CPU:                  labs.NestedContainerCPU,
+			MemoryMB:             labs.NestedContainerMemoryMB,
+			Network:              labs.NestedLabNetwork,
+			SkipPreWarm:          true,
+			RequiresOrgAllowlist: true,
+			DockerMechanism: func() string {
+				if cfg.LabsNestedDockerRuntime == "sysbox-runc" {
+					return "sysbox-runc"
+				}
+				return "rootless-dind"
+			}(),
+			K8sRuntimeClass: cfg.LabsNestedDockerRuntimeClass,
+			K8sExtraVolume:  true,
+		},
+	}
+	labsImageProfiles := make(map[string]labs.ImageProfile, len(cfg.LabsImageProfiles))
+	for image, profileName := range cfg.LabsImageProfiles {
+		profile, ok := labsImageProfileCatalog[profileName]
+		if !ok {
+			slog.Error("labs: LABS_IMAGE_PROFILES references unknown profile name", "image", image, "profile", profileName)
+			os.Exit(1)
+		}
+		labsImageProfiles[image] = profile
+	}
+
 	var labsRuntime labs.ContainerRuntime
 	switch cfg.LabsRuntime {
 	case "kubernetes":
-		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace, cfg.LabsNestedDockerImages, cfg.LabsNestedDockerRuntimeClass)
+		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace, labsImageProfiles)
 		if err != nil {
 			slog.Error("labs: kubernetes runtime init failed", "error", err)
 			os.Exit(1)
 		}
 		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace)
 	default:
-		labsRuntime = labs.NewDockerContainerService(cfg.LabsNestedDockerImages, cfg.LabsNestedDockerRuntime)
+		labsRuntime = labs.NewDockerContainerService(labsImageProfiles)
 		slog.Info("labs: docker runtime ready")
 	}
-	if len(cfg.LabsNestedDockerImages) > 0 {
-		slog.Info("labs: nested-docker images enabled", "images", cfg.LabsNestedDockerImages)
+	if len(labsImageProfiles) > 0 {
+		slog.Info("labs: image profiles enabled", "images", cfg.LabsImageProfiles)
 	}
 
 	// ─── Instance ID ─────────────────────────────────────────────────────────
@@ -172,7 +206,7 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
 	jobsRegistry.Register(handlers.HandlerSRSReminder, handlers.NewSRSHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
-	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime))
+	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime, notificationsSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
 	jobsRegistry.Register(handlers.HandlerLabWarmPool, handlers.NewLabWarmPoolHandler(pool, labsRuntime, cfg.LabsWarmPoolGlobalMax))
 	jobsRegistry.Register(handlers.HandlerAssessmentExpire, handlers.NewAssessmentExpireHandler(assessmentHandlerForJobs))

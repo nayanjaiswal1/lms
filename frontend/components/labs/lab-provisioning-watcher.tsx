@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { endLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
 import { useLabProvisioning } from "@/lib/labs/provisioning-context"
+import { isLabSessionAlreadyEnded } from "@/lib/labs"
 import ROUTES from "@/lib/routes"
 
 const REDIRECT_COUNTDOWN_SECONDS = 3
@@ -20,14 +22,20 @@ type ReadinessEvent = { type: "ready" | "failed" }
 // user can keep browsing until the lab container is ready. Once running or
 // paused, ActiveLabsBar takes over — this component has nothing left to watch.
 export function LabProvisioningWatcher() {
-  const { session, updateStatus, clear } = useLabProvisioning()
+  const { session, updateStatus, clear, currentPageLabId } = useLabProvisioning()
   const router = useRouter()
-  const pathname = usePathname()
   // Course learn pages host their own inline LabReadinessWait + router.refresh()
-  // flow (see ModuleLabClient) — this watcher must still sync context status
-  // via SSE there, but must never toast/redirect on top of it, or "ready"
-  // yanks the user off the course page into the standalone session route.
-  const isInlineHosted = pathname.startsWith("/courses/") && pathname.includes("/learn/")
+  // flow (see ModuleLabClient / LessonLabProvider) — this watcher must still
+  // sync context status via SSE there, but must never toast/redirect on top
+  // of it, or "ready" yanks the user off the course page into the standalone
+  // session route. Keyed on currentPageLabId (registered by whichever
+  // lesson's own lab component is mounted right now), not just the URL
+  // shape — a generic "/courses/*/learn/*" pathname check can't tell "this
+  // page's inline UI owns this exact session" apart from "I'm on some
+  // *other* lesson page that happens to embed a different lab," and would
+  // wrongly suppress the toast (and this component's only Stop control)
+  // for a session provisioning elsewhere entirely.
+  const isInlineHosted = currentPageLabId !== null && currentPageLabId === session?.lab_id
 
   // Keyed on session_id alone — NOT on session.status. This effect's own
   // updateStatus() call (provisioning -> running) below would otherwise
@@ -53,6 +61,10 @@ export function LabProvisioningWatcher() {
       if (safetyTimer) clearTimeout(safetyTimer)
     }
 
+    const es = new EventSource(`${apiUrl}/api/labs/sessions/${sessionId}/events`, {
+      withCredentials: true,
+    })
+
     const openSession = () => {
       stopTimers()
       toast.dismiss(toastId)
@@ -68,6 +80,25 @@ export function LabProvisioningWatcher() {
         action: { label: "Try again", onClick: () => router.push(ROUTES.lab(labId)) },
       })
       clear(sessionId)
+    }
+
+    // Self-service escape hatch: a provisioning session can only ever be
+    // ended, never resumed (there's nothing running yet), so this is the
+    // one place a user stuck behind a hung provision — or one that's simply
+    // not theirs to wait on right now — can free themselves up to start a
+    // different lab instead of waiting out PROVISION_SAFETY_TIMEOUT_MS.
+    const handleStop = () => {
+      stopTimers()
+      es.close()
+      toast.dismiss(toastId)
+      void endLabSessionAction(sessionId).then((result) => {
+        if (result.error && !isLabSessionAlreadyEnded(result.error)) {
+          toast.error(result.error)
+          return
+        }
+        clear(sessionId)
+        toast.success("Lab session ended.")
+      })
     }
 
     const startCountdown = () => {
@@ -118,12 +149,9 @@ export function LabProvisioningWatcher() {
             router.push(ROUTES.labSession(sessionId))
           },
         },
+        cancel: { label: "Stop", onClick: handleStop },
       })
     }
-
-    const es = new EventSource(`${apiUrl}/api/labs/sessions/${sessionId}/events`, {
-      withCredentials: true,
-    })
 
     es.onmessage = (e: MessageEvent) => {
       const data = JSON.parse(e.data as string) as ReadinessEvent

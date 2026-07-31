@@ -40,25 +40,24 @@ type KubernetesContainerService struct {
 	clientset  *kubernetes.Clientset
 	restConfig *rest.Config
 	namespace  string
-	// nestedImages/nestedRuntimeClass mirror DockerContainerService's fields
-	// (see container.go) — the Kubernetes runtime's equivalent of the
-	// nested-Docker-in-Docker gate. Unlike Docker there is no --cap-add
-	// escape hatch here: startPod requires nestedRuntimeClass to be set for
-	// any allowlisted image, and fails the session rather than approximate
-	// elevated capabilities on a shared node pool with no RuntimeClass
-	// isolation.
-	nestedImages       map[string]bool
-	nestedRuntimeClass string
+	// profiles mirrors DockerContainerService's field (see container.go) —
+	// the Kubernetes runtime's equivalent operator-configured image ->
+	// ImageProfile mapping. Unlike Docker there is no --cap-add escape
+	// hatch here: startPod requires ImageProfile.K8sRuntimeClass to be set
+	// for any profile with a non-empty Name, and fails the session rather
+	// than approximate elevated capabilities on a shared node pool with no
+	// RuntimeClass isolation.
+	profiles map[string]ImageProfile
 }
 
 // NewKubernetesContainerService returns a KubernetesContainerService using
 // the Pod's own in-cluster service account credentials. namespace is where
 // lab sandbox Pods are created — must match the Role/RoleBinding granting
 // this service account pods (create/get/list/watch/delete) and pods/exec
-// (create) in that namespace. nestedImages/nestedRuntimeClass come from
-// config.LabsNestedDockerImages / config.LabsNestedDockerRuntimeClass — see
-// docs/labs.md "Nested Docker labs".
-func NewKubernetesContainerService(namespace string, nestedImages []string, nestedRuntimeClass string) (*KubernetesContainerService, error) {
+// (create) in that namespace. profiles maps an environment image to the
+// ImageProfile deciding its Pod config — see profile.go and docs/labs.md
+// "Nested Docker labs".
+func NewKubernetesContainerService(namespace string, profiles map[string]ImageProfile) (*KubernetesContainerService, error) {
 	restConfig, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, fmt.Errorf("labs.NewKubernetesContainerService: in-cluster config: %w", err)
@@ -67,25 +66,21 @@ func NewKubernetesContainerService(namespace string, nestedImages []string, nest
 	if err != nil {
 		return nil, fmt.Errorf("labs.NewKubernetesContainerService: build clientset: %w", err)
 	}
-	set := make(map[string]bool, len(nestedImages))
-	for _, img := range nestedImages {
-		set[img] = true
+	if profiles == nil {
+		profiles = map[string]ImageProfile{}
 	}
 	return &KubernetesContainerService{
 		clientset: clientset, restConfig: restConfig, namespace: namespace,
-		nestedImages: set, nestedRuntimeClass: nestedRuntimeClass,
+		profiles: profiles,
 	}, nil
 }
 
-// isNested reports whether image is on the operator's nested-Docker
-// allowlist — see DockerContainerService.isNested for why this, and never
-// the environment string's contents, is the security boundary.
-func (k *KubernetesContainerService) isNested(image string) bool {
-	return k.nestedImages[image]
+// Classify implements ContainerRuntime — see DockerContainerService.Classify
+// for why this, and never the environment string's contents, is the
+// security boundary.
+func (k *KubernetesContainerService) Classify(image string) ImageProfile {
+	return k.profiles[image]
 }
-
-// IsNestedImage implements ContainerRuntime.
-func (k *KubernetesContainerService) IsNestedImage(image string) bool { return k.isNested(image) }
 
 // Start creates a Pod for the given lab session and runs the optional setup
 // script inside it as the image's default user. On setup failure the Pod is
@@ -101,14 +96,22 @@ func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID strin
 }
 
 func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image, setupScript string) (containerID, containerHost string, err error) {
-	nested := k.isNested(image)
-	if nested && k.nestedRuntimeClass == "" {
-		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: image %q requires nested Docker but LABS_NESTED_DOCKER_RUNTIME_CLASS is unset on the kubernetes runtime", image)
+	profile := k.Classify(image)
+	// Any non-standard profile (Name != "") is, by definition, elevated —
+	// the standard (zero-value) profile is the only one that ever runs
+	// without a RuntimeClass. Kubernetes has no --cap-add escape hatch, so
+	// an elevated profile with no configured RuntimeClass must hard-fail
+	// rather than silently run unisolated on a shared node pool.
+	if profile.Name != "" && profile.K8sRuntimeClass == "" {
+		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: image %q uses profile %q which requires a Kubernetes RuntimeClassName but none is configured (LABS_NESTED_DOCKER_RUNTIME_CLASS unset?)", image, profile.Name)
 	}
 
 	cpuStr, memMB := ContainerCPU, ContainerMemoryMB
-	if nested {
-		cpuStr, memMB = NestedContainerCPU, NestedContainerMemoryMB
+	if profile.CPU != "" {
+		cpuStr = profile.CPU
+	}
+	if profile.MemoryMB != 0 {
+		memMB = profile.MemoryMB
 	}
 	cpuQty, err := resource.ParseQuantity(cpuStr)
 	if err != nil {
@@ -149,7 +152,7 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 			}},
 		},
 	}
-	if nested {
+	if profile.K8sRuntimeClass != "" {
 		// The RuntimeClass (sysbox-runc/kata-containers) is the entire
 		// isolation story here — SecurityContext stays exactly as it is for
 		// every other lab. Do not attempt to reproduce the Docker runtime's
@@ -157,7 +160,9 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 		// seccomp with no RuntimeClass sandbox is strictly worse than on the
 		// single-host Docker deploy where it's at least the sole tenant of
 		// the elevated network segment (see docs/labs.md).
-		pod.Spec.RuntimeClassName = &k.nestedRuntimeClass
+		pod.Spec.RuntimeClassName = &profile.K8sRuntimeClass
+	}
+	if profile.K8sExtraVolume {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name:         "docker-lib",
 			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},

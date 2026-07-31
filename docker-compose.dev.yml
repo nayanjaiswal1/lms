@@ -19,8 +19,9 @@ networks:
   # never L2-adjacent to every other student's unprivileged one, and so a
   # nested dockerd's own docker0/iptables rules can't collide with the
   # platform bridge. Same external lifecycle reasoning as mindforge-labs
-  # above. Only created/used when LABS_NESTED_DOCKER_IMAGES is set — inert
-  # otherwise. Create once with: docker network create mindforge-labs-dind
+  # above. Only created/used when LABS_IMAGE_PROFILES maps an image to the
+  # "nested-docker" profile — inert otherwise. Create once with:
+  # docker network create mindforge-labs-dind
   mindforge-labs-dind:
     name: mindforge-labs-dind
     external: true

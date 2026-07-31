@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/notifications"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -19,10 +20,11 @@ import (
 // is the Batch 3 lab-container auto-clone hook's optional dependency — pass
 // nil when GitLab isn't configured (see RepoPreparer's own doc comment in
 // service.go); internal/api/router.go passes gitlabRouter.Service() here.
-func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer) *Handler {
+// notifSvc backs notifyRepeatedProvisionFailures (see service.go).
+func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service) *Handler {
 	repo := NewRepo(pool)
 	piston := newLabPiston(pistonURL, pistonTimeout)
-	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer)
+	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer, notifSvc)
 	return NewHandler(repo, service, pool, rdb, jwtSecret, jwtIssuer, piston)
 }
 

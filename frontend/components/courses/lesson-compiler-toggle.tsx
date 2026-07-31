@@ -32,11 +32,12 @@ export function LessonCompilerToggle({ language }: LessonCompilerToggleProps) {
       </Button>
       {open && (
         <LabFixedConsole
-          positions={bottomDockAllowed ? ["bottom", "right"] : ["right"]}
+          positions={bottomDockAllowed ? ["right", "bottom"] : ["right"]}
           title={`${label} compiler`}
+          onClose={() => setOpen(false)}
         >
-          <div className="h-full overflow-y-auto p-3">
-            <LessonCodeRunner initialCode="" language={language} />
+          <div className="flex h-full flex-col">
+            <LessonCodeRunner fill initialCode="" language={language} />
           </div>
         </LabFixedConsole>
       )}

@@ -87,6 +87,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid file path.")
 	case errors.Is(err, ErrImageNotAllowed):
 		httputil.WriteError(w, http.StatusForbidden, "This lab is not available for your organization.")
+	case errors.Is(err, ErrLabProvisioningUnstable):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

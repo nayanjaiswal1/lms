@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/notifications"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -42,21 +43,24 @@ type RepoPreparer interface {
 
 // Service holds the business logic for the labs domain.
 type Service struct {
-	repo         *Repo
-	container    ContainerRuntime
-	rdb          *redis.Client
-	pool         *pgxpool.Pool
-	piston       *labPiston
-	coursesSvc   *courses.Service
-	repoPreparer RepoPreparer
+	repo          *Repo
+	container     ContainerRuntime
+	rdb           *redis.Client
+	pool          *pgxpool.Pool
+	piston        *labPiston
+	coursesSvc    *courses.Service
+	repoPreparer  RepoPreparer
+	notifications *notifications.Service
 }
 
 // NewService wires up the labs service. coursesSvc completes the course module
 // wrapping a lab (if any) once its session finishes — see VerifyTask.
 // repoPreparer may be nil (GitLab integration not configured for this
-// deploy) — see RepoPreparer's own doc comment.
-func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer}
+// deploy) — see RepoPreparer's own doc comment. notifSvc backs
+// notifyRepeatedProvisionFailures (org owners/admins, in-app + email on a
+// lab's provisioning circuit breaker tripping).
+func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service) *Service {
+	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc}
 }
 
 // wsTokenClaims is the JWT payload issued by MintWSToken.
@@ -101,18 +105,35 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		return nil, fmt.Errorf("labs.Service.StartSession: get org config: %w", err)
 	}
 
-	// 4b. Image allowlist. A nested-Docker image (see ContainerRuntime.
-	// IsNestedImage) is never a platform default — it requires an explicit
-	// allowed_images entry regardless of how large that list otherwise is.
-	// For an ordinary image, an empty allowed_images list means "no
-	// restriction" (today's existing behavior, now actually enforced rather
-	// than merely loaded and ignored); a non-empty list restricts to it.
-	if s.container.IsNestedImage(lab.Environment) {
+	// 4b. Image allowlist. An image whose ImageProfile.RequiresOrgAllowlist
+	// is true (see ContainerRuntime.Classify — nested-Docker images today)
+	// is never a platform default — it requires an explicit allowed_images
+	// entry regardless of how large that list otherwise is. For an ordinary
+	// image, an empty allowed_images list means "no restriction" (today's
+	// existing behavior, now actually enforced rather than merely loaded and
+	// ignored); a non-empty list restricts to it.
+	if s.container.Classify(lab.Environment).RequiresOrgAllowlist {
 		if !slices.Contains(orgCfg.AllowedImages, lab.Environment) {
 			return nil, ErrImageNotAllowed
 		}
 	} else if len(orgCfg.AllowedImages) > 0 && !slices.Contains(orgCfg.AllowedImages, lab.Environment) {
 		return nil, ErrImageNotAllowed
+	}
+
+	// 4c. Circuit breaker: refuse new sessions for a lab that's been failing
+	// to provision repeatedly (broken image/setup_script) instead of letting
+	// every student's retry burn another doomed container on the Docker
+	// host. Instructor test sessions bypass this — that's exactly how the
+	// instructor is expected to diagnose and fix the lab.
+	if !isTest {
+		failures, err := s.repo.CountRecentProvisionFailures(ctx, labID, ProvisionFailureCircuitBreakerWindow)
+		if err != nil {
+			return nil, fmt.Errorf("labs.Service.StartSession: count recent provision failures: %w", err)
+		}
+		if failures >= ProvisionFailureCircuitBreakerThreshold {
+			s.notifyRepeatedProvisionFailures(context.Background(), labID, orgID)
+			return nil, ErrLabProvisioningUnstable
+		}
 	}
 
 	// 5. Advisory lock + concurrency checks + insert — all in one transaction.
@@ -263,9 +284,11 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 	containerID, containerHost, err := s.container.Start(ctx, session.ID, session.ResetCount, lab.Environment, setupScript)
 	if err != nil {
 		slog.Error("labs.Service.provisionContainer: start container", "session_id", session.ID, "error", err)
-		if updateErr := s.repo.UpdateSessionStatus(ctx, session.ID, SessionStatusFailed); updateErr != nil {
+		errText := err.Error()
+		if updateErr := s.repo.UpdateSessionFailed(ctx, session.ID, EndReasonProvisionFailed, &errText); updateErr != nil {
 			slog.Error("labs.Service.provisionContainer: mark failed", "session_id", session.ID, "error", updateErr)
 		}
+		s.notifyRepeatedProvisionFailures(context.Background(), session.LabID, session.OrgID)
 		if pubErr := s.rdb.Publish(ctx, "lab:events:"+session.ID, "failed").Err(); pubErr != nil {
 			slog.Error("labs.Service.provisionContainer: publish failed", "session_id", session.ID, "error", pubErr)
 		}
@@ -280,6 +303,83 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 		slog.Error("labs.Service.provisionContainer: publish ready", "session_id", session.ID, "error", err)
 	}
 }
+
+// notifyRepeatedProvisionFailures checks whether labID has crossed
+// ProvisionFailureCircuitBreakerThreshold failures within
+// ProvisionFailureCircuitBreakerWindow and, if so, notifies the org's
+// owners/admins (in-app + email) so a broken lab image or setup_script gets
+// human attention instead of silently eating every student's attempt.
+// Called from two places — StartSession's circuit-breaker gate (a session
+// was just refused) and provisionContainer's failure path (a session just
+// failed) — both pass context.Background() since neither wants the
+// notification's own success to depend on (or block) the caller's request
+// lifecycle. DedupeKey is bucketed to one email per admin per window, so a
+// lab hammered by retries for hours doesn't re-notify on every single
+// failure — notifications.Service's UNIQUE(user_id, dedupe_key) does the
+// collapsing, no extra state needed here.
+func (s *Service) notifyRepeatedProvisionFailures(ctx context.Context, labID, orgID string) {
+	if s.notifications == nil {
+		return
+	}
+
+	failures, err := s.repo.CountRecentProvisionFailures(ctx, labID, ProvisionFailureCircuitBreakerWindow)
+	if err != nil {
+		slog.Error("labs.Service.notifyRepeatedProvisionFailures: count failures", "lab_id", labID, "error", err)
+		return
+	}
+	if failures < ProvisionFailureCircuitBreakerThreshold {
+		return
+	}
+
+	lab, err := s.repo.GetLab(ctx, labID, orgID)
+	if err != nil {
+		slog.Error("labs.Service.notifyRepeatedProvisionFailures: get lab", "lab_id", labID, "error", err)
+		return
+	}
+
+	recipients, err := s.repo.OrgOwnersAndAdmins(ctx, orgID)
+	if err != nil {
+		slog.Error("labs.Service.notifyRepeatedProvisionFailures: get recipients", "org_id", orgID, "error", err)
+		return
+	}
+	if len(recipients) == 0 {
+		return
+	}
+
+	windowBucket := time.Now().UTC().Truncate(ProvisionFailureCircuitBreakerWindow).Unix()
+	body := fmt.Sprintf(
+		"\"%s\" has failed to provision %d times in the last %s and is temporarily blocked from starting new sessions until fixed. Check the lab's image and setup_script.",
+		lab.Title, failures, ProvisionFailureCircuitBreakerWindow,
+	)
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		slog.Error("labs.Service.notifyRepeatedProvisionFailures: begin tx", "error", err)
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	err = s.notifications.NotifyMany(ctx, tx, notifications.New{
+		OrgID:      orgID,
+		Type:       "lab_provisioning_unstable",
+		Title:      fmt.Sprintf("Lab \"%s\" is repeatedly failing to start", lab.Title),
+		Body:       &body,
+		EntityType: strPtr("lab_definition"),
+		EntityID:   &labID,
+		Priority:   notifications.PriorityHigh,
+		DedupeKey:  fmt.Sprintf("lab-provision-incident:%s:%d", labID, windowBucket),
+		AlsoEmail:  true,
+	}, recipients)
+	if err != nil {
+		slog.Error("labs.Service.notifyRepeatedProvisionFailures: notify", "lab_id", labID, "error", err)
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		slog.Error("labs.Service.notifyRepeatedProvisionFailures: commit", "error", err)
+	}
+}
+
+func strPtr(s string) *string { return &s }
 
 // repoCloneTimeoutSec bounds how long the auto-clone script may run inside
 // the container before runRepoClone gives up and marks the session

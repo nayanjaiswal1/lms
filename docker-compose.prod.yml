@@ -15,9 +15,10 @@ networks:
   # mindforge-labs bridge so an elevated (SYS_ADMIN-holding) container is
   # never L2-adjacent to every other student's unprivileged one, and so a
   # nested dockerd's own docker0/iptables rules can't collide with the
-  # platform bridge. Only created/used when LABS_NESTED_DOCKER_IMAGES is set
-  # on a deploy — inert otherwise, and per docs/labs.md must only be enabled
-  # on a lab host that does NOT also run this compose file's other services.
+  # platform bridge. Only created/used when LABS_IMAGE_PROFILES maps an
+  # image to the "nested-docker" profile on a deploy — inert otherwise, and
+  # per docs/labs.md must only be enabled on a lab host that does NOT also
+  # run this compose file's other services.
   # Create once, before first deploy: docker network create mindforge-labs-dind
   mindforge-labs-dind:
     name: mindforge-labs-dind

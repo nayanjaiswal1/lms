@@ -1,6 +1,7 @@
 package labs
 
 import (
+	"container/heap"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -42,14 +43,30 @@ const (
 	// warmPoolStuckAfter retires warming rows that never became ready.
 	warmPoolStuckAfter = 10 * time.Minute
 	// warmPoolHeartbeat forces a decision row even when the target is
-	// unchanged, so the admin page always shows a recent "why".
+	// unchanged, so the admin page always shows a recent "why" for any lab
+	// with active or wanted pool state. A lab that is stably idle (target 0,
+	// previous target 0 — nothing warm, nothing wanted) skips even this
+	// heartbeat: see recordDecision's idle-skip.
 	warmPoolHeartbeat = 15 * time.Minute
 	// warmPoolDecisionRetention bounds the audit log.
 	warmPoolDecisionRetention = 14 * 24 * time.Hour
-	// warmPoolMaxStartsPerTick bounds provisioning burst per tick — a big
-	// scale-up spreads over a few minutes instead of hammering the host.
-	warmPoolMaxStartsPerTick = 3
 )
+
+// startBudget bounds how many warm containers a single reconciler run may
+// provision, so a fleet-wide deficit ramps up gradually instead of
+// saturating the host in one tick. Proportional to the global cap rather
+// than a flat constant: a small deployment (globalMax=20) still gets the
+// same 3/tick as before, but a large one (globalMax=500) gets ~50/tick
+// instead of the same 3 — convergence time no longer scales linearly with
+// catalog size. Floor of 3 keeps a tiny/unset deployment from being left
+// with 0 budget.
+func startBudget(globalMax int) int {
+	b := globalMax / 10
+	if b < 3 {
+		return 3
+	}
+	return b
+}
 
 // WarmPoolPlanner owns the reconcile tick. Constructed once in main.go and
 // shared by the cron job handler.
@@ -101,14 +118,15 @@ func (p *WarmPoolPlanner) Tick(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
-	// Nested-Docker (Docker-in-Docker) labs are never pre-warmed: an idle
-	// elevated container sitting unclaimed is pure risk with no student
-	// waiting on it, and its ~30s+ dockerd boot means the pool can't verify
-	// "ready" the way it does for an ordinary lab anyway. These sessions
-	// always cold-start via Service.StartSession instead.
+	// Any image whose ImageProfile.SkipPreWarm is true is never pre-warmed —
+	// e.g. today's nested-Docker (Docker-in-Docker) labs: an idle elevated
+	// container sitting unclaimed is pure risk with no student waiting on
+	// it, and its ~30s+ dockerd boot means the pool can't verify "ready" the
+	// way it does for an ordinary lab anyway. These sessions always
+	// cold-start via Service.StartSession instead.
 	poolLabs := make([]WarmPoolLab, 0, len(allPoolLabs))
 	for _, lab := range allPoolLabs {
-		if p.runtime.IsNestedImage(lab.Image) {
+		if p.runtime.Classify(lab.Image).SkipPreWarm {
 			continue
 		}
 		poolLabs = append(poolLabs, lab)
@@ -234,9 +252,34 @@ func computeWarmTarget(lab WarmPoolLab, in warmPoolInputs) (int, string) {
 	return t, reason
 }
 
+// warmPoolCapHeap is a max-heap (by current target) of indices into a shared
+// plans slice — lets applyGlobalCap always trim the single largest pool
+// without rescanning the whole list on every decrement.
+type warmPoolCapHeap struct {
+	idx   []int
+	plans []warmPoolPlan
+}
+
+func (h warmPoolCapHeap) Len() int { return len(h.idx) }
+func (h warmPoolCapHeap) Less(a, b int) bool {
+	return h.plans[h.idx[a]].target > h.plans[h.idx[b]].target // max-heap: largest target first
+}
+func (h warmPoolCapHeap) Swap(a, b int) { h.idx[a], h.idx[b] = h.idx[b], h.idx[a] }
+func (h *warmPoolCapHeap) Push(x any)   { h.idx = append(h.idx, x.(int)) }
+func (h *warmPoolCapHeap) Pop() any {
+	old := h.idx
+	n := len(old)
+	v := old[n-1]
+	h.idx = old[:n-1]
+	return v
+}
+
 // applyGlobalCap trims targets so their sum never exceeds the global
 // container budget. Largest pools shrink first (they hurt least per unit),
-// and every trimmed plan's reason records the cap.
+// and every trimmed plan's reason records the cap. Uses a max-heap so each
+// of the (sum - globalMax) single-container trims is an O(log labs) pop +
+// push instead of an O(labs) rescan of the whole plan list — O(excess log
+// labs) overall rather than O(excess × labs).
 func applyGlobalCap(plans []warmPoolPlan, globalMax int) {
 	sum := 0
 	for _, pl := range plans {
@@ -245,39 +288,53 @@ func applyGlobalCap(plans []warmPoolPlan, globalMax int) {
 	if globalMax <= 0 || sum <= globalMax {
 		return
 	}
-	idx := make([]int, len(plans))
-	for i := range idx {
-		idx[i] = i
-	}
-	sort.SliceStable(idx, func(a, b int) bool { return plans[idx[a]].target > plans[idx[b]].target })
-	for sum > globalMax {
-		trimmed := false
-		for _, i := range idx {
-			if plans[i].target > 0 {
-				plans[i].target--
-				plans[i].reason += fmt.Sprintf(" (−1 by global cap %d)", globalMax)
-				sum--
-				trimmed = true
-				if sum <= globalMax {
-					break
-				}
-			}
+
+	h := &warmPoolCapHeap{plans: plans}
+	for i := range plans {
+		if plans[i].target > 0 {
+			h.idx = append(h.idx, i)
 		}
-		if !trimmed {
-			break
+	}
+	heap.Init(h)
+
+	for sum > globalMax && h.Len() > 0 {
+		i := heap.Pop(h).(int)
+		plans[i].target--
+		plans[i].reason += fmt.Sprintf(" (−1 by global cap %d)", globalMax)
+		sum--
+		if plans[i].target > 0 {
+			heap.Push(h, i)
 		}
 	}
 }
 
 // recordDecision writes an audit row when the target changed, or as a
-// heartbeat when the last row is older than warmPoolHeartbeat.
+// heartbeat when the last row is older than warmPoolHeartbeat — except when
+// the lab is in a stable idle state (target 0, previous target 0: nothing
+// warm, nothing wanted, nothing changed), which skips the write regardless
+// of how long it has been since the last row, since there is nothing new
+// for an admin to see either way. A lab with a nonzero target still gets
+// the heartbeat, and any target change to/from zero is still written
+// immediately (it fails the idle check on whichever side is nonzero).
+// skipDecisionWrite reports whether recordDecision should skip writing an
+// audit row: either the target is unchanged and still within the heartbeat
+// window, or the lab is in a stable idle state (target 0, previous target
+// 0 — nothing warm, nothing wanted, nothing changed) regardless of how long
+// it has been since the last row.
+func skipDecisionWrite(target, prevTarget int, hasPrev bool, prevDecidedAt time.Time) bool {
+	if hasPrev && prevTarget == target && time.Since(prevDecidedAt) < warmPoolHeartbeat {
+		return true
+	}
+	return target == 0 && prevTarget == 0
+}
+
 func (p *WarmPoolPlanner) recordDecision(ctx context.Context, pl *warmPoolPlan, last map[string]WarmPoolDecision) {
 	prev, hasPrev := last[pl.lab.LabID]
 	prevTarget := 0
 	if hasPrev {
 		prevTarget = prev.Target
 	}
-	if hasPrev && prev.Target == pl.target && time.Since(prev.DecidedAt) < warmPoolHeartbeat {
+	if skipDecisionWrite(pl.target, prevTarget, hasPrev, prev.DecidedAt) {
 		return
 	}
 	inputsJSON, err := json.Marshal(pl.inputs)
@@ -297,34 +354,60 @@ func (p *WarmPoolPlanner) recordDecision(ctx context.Context, pl *warmPoolPlan, 
 	}
 }
 
-// converge starts missing containers (bounded per tick) and trims excess.
-func (p *WarmPoolPlanner) converge(ctx context.Context, plans []warmPoolPlan) {
-	budget := warmPoolMaxStartsPerTick
-	var wg sync.WaitGroup
-	for _, pl := range plans {
-		have := pl.lab.Ready + pl.lab.Warming
+// scaleUpOrder returns the indices of plans that still need scale-up (have <
+// target), sorted by demand deficit (target - have) descending — largest
+// gap first — so converge's shared per-tick budget goes to the labs with
+// the strongest demand signal instead of whichever lab happens to come
+// first in plans' arbitrary DB order.
+func scaleUpOrder(plans []warmPoolPlan) []int {
+	deficit := func(i int) int {
+		return plans[i].target - (plans[i].lab.Ready + plans[i].lab.Warming)
+	}
+	idx := make([]int, 0, len(plans))
+	for i := range plans {
+		if deficit(i) > 0 {
+			idx = append(idx, i)
+		}
+	}
+	sort.SliceStable(idx, func(a, b int) bool { return deficit(idx[a]) > deficit(idx[b]) })
+	return idx
+}
 
-		// Scale down: trim oldest ready sandboxes beyond target.
-		if pl.lab.Ready > pl.target {
-			excess, err := p.repo.ListExcessReadyWarmContainers(ctx, pl.lab.LabID, pl.lab.TaskVersionID, pl.target)
-			if err != nil {
-				slog.Error("labs.WarmPoolPlanner: list excess", "lab_id", pl.lab.LabID, "error", err)
-			} else {
-				for _, e := range excess {
-					if e.ContainerID != nil {
-						if err := p.runtime.Kill(ctx, *e.ContainerID); err != nil {
-							slog.Error("labs.WarmPoolPlanner: kill excess", "container", *e.ContainerID, "error", err)
-						}
-					}
-					if err := p.repo.DeleteWarmContainer(ctx, e.ID); err != nil {
-						slog.Error("labs.WarmPoolPlanner: delete excess row", "warm_id", e.ID, "error", err)
-					}
-				}
-			}
+// converge starts missing containers (bounded per tick) and trims excess.
+// Scale-down runs first for every lab unconditionally (no budget contention,
+// order doesn't matter); scale-up then spends the shared per-tick budget on
+// labs in descending order of demand deficit (target - have), so a lab
+// early in plans' arbitrary DB order wanting many containers can no longer
+// starve every other lab's scale-up in the same tick.
+func (p *WarmPoolPlanner) converge(ctx context.Context, plans []warmPoolPlan) {
+	budget := startBudget(p.globalMax)
+	var wg sync.WaitGroup
+
+	for i := range plans {
+		pl := &plans[i]
+		if pl.lab.Ready <= pl.target {
 			continue
 		}
+		excess, err := p.repo.ListExcessReadyWarmContainers(ctx, pl.lab.LabID, pl.lab.TaskVersionID, pl.target)
+		if err != nil {
+			slog.Error("labs.WarmPoolPlanner: list excess", "lab_id", pl.lab.LabID, "error", err)
+			continue
+		}
+		for _, e := range excess {
+			if e.ContainerID != nil {
+				if err := p.runtime.Kill(ctx, *e.ContainerID); err != nil {
+					slog.Error("labs.WarmPoolPlanner: kill excess", "container", *e.ContainerID, "error", err)
+				}
+			}
+			if err := p.repo.DeleteWarmContainer(ctx, e.ID); err != nil {
+				slog.Error("labs.WarmPoolPlanner: delete excess row", "warm_id", e.ID, "error", err)
+			}
+		}
+	}
 
-		// Scale up: provision missing sandboxes in parallel, bounded per tick.
+	for _, i := range scaleUpOrder(plans) {
+		pl := &plans[i]
+		have := pl.lab.Ready + pl.lab.Warming
 		for have < pl.target && budget > 0 {
 			have++
 			budget--

@@ -90,20 +90,27 @@ type Config struct {
 	// Per-lab targets come from the metrics-driven planner, capped by this.
 	LabsWarmPoolGlobalMax int
 
-	// Nested-Docker (Docker-in-Docker) lab support — off by default. A lab
-	// whose environment image is NOT in this list runs with the platform's
+	// LabsImageProfiles maps a lab environment image to the name of the
+	// ImageProfile (labs.ImageProfile) it should be classified as — parsed
+	// from LABS_IMAGE_PROFILES, a comma-separated "image:profileName" list
+	// (e.g. "mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:
+	// nested-docker" — the image itself may contain its own ":" tag; only
+	// the LAST colon in each entry separates the profile name). Unset/empty
+	// means no image is classified: every lab runs with the platform's
 	// normal --cap-drop ALL, no-new-privileges, no-added-capabilities
-	// container; nothing about existing labs changes when this is unset.
-	// Only images explicitly listed here get the elevated container config
-	// (see labs.DockerContainerService.startNamed / KubernetesContainerService
-	// .startPod), and even then only for an org whose lab_org_config.
-	// allowed_images explicitly includes that image (see labs.Service.
-	// StartSession) — operator config and org-plan gating both have to agree.
-	// See docs/labs.md "Nested Docker labs" before setting this on a host
-	// that also runs Postgres/Redis/MinIO/the backend (which already holds
-	// docker.sock) — a nested-Docker container must be treated as
-	// potentially host-root and belongs on an isolated lab host/node pool.
-	LabsNestedDockerImages []string
+	// container; nothing about existing labs changes. Profile names are
+	// resolved against a small in-code catalog (main.go) when the runtimes
+	// are constructed — an unknown name is a fatal startup error there. Even
+	// for a classified image, an elevated profile (e.g. "nested-docker")
+	// only takes effect for an org whose lab_org_config.allowed_images
+	// explicitly includes that image (see labs.Service.StartSession) —
+	// operator config and org-plan gating both have to agree. See
+	// docs/labs.md "Nested Docker labs" before mapping any image to the
+	// "nested-docker" profile on a host that also runs Postgres/Redis/MinIO/
+	// the backend (which already holds docker.sock) — a nested-Docker
+	// container must be treated as potentially host-root and belongs on an
+	// isolated lab host/node pool.
+	LabsImageProfiles map[string]string
 	// LabsNestedDockerRuntime, when set to "sysbox-runc", switches the Docker
 	// runtime's nested-image containers to `--runtime sysbox-runc` (no added
 	// capabilities at all) instead of the rootless-dind capability set. Only
@@ -228,7 +235,7 @@ func Load() *Config {
 	cfg.LabsRuntime = getEnvDefault("LABS_RUNTIME", "docker")
 	cfg.LabsK8sNamespace = getEnvDefault("LABS_K8S_NAMESPACE", "mindforge-labs")
 	cfg.LabsWarmPoolGlobalMax = getEnvInt("LABS_WARM_POOL_GLOBAL_MAX", 20)
-	cfg.LabsNestedDockerImages = getEnvList("LABS_NESTED_DOCKER_IMAGES")
+	cfg.LabsImageProfiles = getEnvImageProfiles("LABS_IMAGE_PROFILES")
 	cfg.LabsNestedDockerRuntime = os.Getenv("LABS_NESTED_DOCKER_RUNTIME")
 	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
 
@@ -337,20 +344,33 @@ func getEnvInt(key string, fallback int) int {
 	return v
 }
 
-// getEnvList parses a comma-separated env var into a trimmed, non-empty
-// string slice. Unset or empty returns nil, not an empty-but-non-nil slice —
-// callers that check len(...) > 0 to gate a feature behave identically
-// either way, but nil more honestly represents "not configured".
-func getEnvList(key string) []string {
+// getEnvImageProfiles parses a comma-separated "image:profileName" list
+// (LABS_IMAGE_PROFILES) into image -> profile name. Each entry is split on
+// its LAST colon, not the first, since the image itself commonly contains
+// its own ":" tag (e.g. "mindforge/lab-docker:27:nested-docker" splits into
+// image "mindforge/lab-docker:27" and profile name "nested-docker"). Unset
+// or empty returns nil — callers that check len(...) > 0 to gate a feature
+// behave identically either way, but nil more honestly represents "not
+// configured". Fatal on a malformed entry (no colon, or a colon at either
+// edge) so a typo'd env var fails loudly at startup instead of silently
+// leaving an image unclassified.
+func getEnvImageProfiles(key string) map[string]string {
 	raw := os.Getenv(key)
 	if raw == "" {
 		return nil
 	}
-	var out []string
+	out := make(map[string]string)
 	for _, part := range strings.Split(raw, ",") {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			out = append(out, trimmed)
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
 		}
+		i := strings.LastIndex(part, ":")
+		if i <= 0 || i == len(part)-1 {
+			slog.Error("invalid entry in env var — expected image:profileName", "key", key, "entry", part)
+			os.Exit(1)
+		}
+		out[part[:i]] = part[i+1:]
 	}
 	return out
 }

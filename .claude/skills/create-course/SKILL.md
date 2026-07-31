@@ -204,8 +204,9 @@ both: knowledge-check for comprehension, lab tasks for doing.
 This is the one lab image that runs a real Docker daemon *inside* the student's own
 sandbox (teaching Docker itself needs Docker inside the lab container). It is
 operator- and org-gated and **off by default** — see `docs/labs.md` "Nested Docker
-labs" for the security model (`LABS_NESTED_DOCKER_IMAGES`, `lab_org_config.
-allowed_images`, the isolated `mindforge-labs-dind` network). What follows is the
+labs" for the security model (`LABS_IMAGE_PROFILES` mapping the image to the
+"nested-docker" profile, `lab_org_config.allowed_images`, the isolated
+`mindforge-labs-dind` network). What follows is the
 **content-authoring** side, learned by actually building and running the image and
 its tasks end to end against the real flags `container.go` emits — not theoretical:
 
