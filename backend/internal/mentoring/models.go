@@ -78,7 +78,7 @@ func IsValidReportResolution(status string) bool {
 
 // Purchase is a single course purchase attempt, recorded via a
 // payments.Provider. Matches course_purchases (018_payments_stub.sql,
-// coupon/webhook columns added in 007_payments_coupons.sql). A row is
+// coupon/webhook columns added in 004_payments_coupons.sql). A row is
 // created 'pending' at checkout-start and only ever transitions to
 // 'completed' or 'failed' via a confirmed webhook (see
 // service_purchase.go) — it is never marked complete synchronously.
