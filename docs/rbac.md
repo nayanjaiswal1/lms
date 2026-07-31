@@ -190,6 +190,7 @@ All inserts use `ON CONFLICT DO NOTHING` — safe to re-run.
 | admin | `admin.manage_permissions` | Manage Permissions |
 | admin | `admin.view_audit_log` | View Audit Log |
 | admin | `admin.manage_org` | Manage Organisation |
+| payments | `payments.manage_coupons` | Manage Coupons |
 
 ### System Roles (fixed UUIDs — never change these)
 
@@ -211,7 +212,7 @@ All inserts use `ON CONFLICT DO NOTHING` — safe to re-run.
 
 **mentor (17):** all member permissions + `assessments.view_results`, `mentoring.manage_batches`, `mentoring.view_students`, `admin.view_members`
 
-**tenant_admin:** all 33 permissions
+**tenant_admin:** all permissions, including `payments.manage_coupons` (granted only to tenant_admin by default — see backend/db/migrations/004_payments_coupons.sql; the RBAC admin UI can grant it to instructor at runtime with no migration needed)
 
 ---
 

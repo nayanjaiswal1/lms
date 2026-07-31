@@ -32,10 +32,21 @@ JUDGE0_URL=                          # Optional — Judge0 CE endpoint (fallback
 JUDGE0_TOKEN=                        # Optional — X-Auth-Token for Judge0 cloud
 JUDGE0_TIMEOUT=30s                   # Optional — default 30s
 
-# Payments (optional)
-PAYMENT_PROVIDER=stripe             # stripe | razorpay
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# Payments (optional) — Stripe and Razorpay can both be configured at once;
+# payments.Registry (internal/payments/registry.go) registers whichever have
+# a secret key set. PAYMENTS_DEFAULT_PROVIDER picks which one a checkout uses
+# when the request doesn't name one explicitly (empty = whichever registers
+# first). Falls back to a local stub provider when neither is configured, but
+# only outside production. Each gateway's webhook secret is required the
+# moment its secret key is set (fatal at startup otherwise).
+STRIPE_SECRET_KEY=                  # sk_test_... / sk_live_...
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=              # whsec_...
+RAZORPAY_KEY_ID=                    # rzp_test_... / rzp_live_...
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
+PAYMENTS_DEFAULT_PROVIDER=          # stripe | razorpay
+PAYMENTS_CURRENCY=USD               # single platform currency for all course prices
 
 # Lab sandbox runtime
 LABS_RUNTIME=docker                  # docker | kubernetes
@@ -147,10 +158,25 @@ All URLs submitted to `POST /api/load-tests` are validated server-side:
 ## Payments
 
 ```
-POST /api/courses/:id/enroll    free: immediate enrollment
-                                paid: creates payment intent → returns client_secret to frontend
-                                frontend completes payment with Stripe/Razorpay SDK
-                                webhook: on payment success → update payment status + enroll user
+POST /api/courses/:id/enroll             free courses only — immediate enrollment, 402 if paid
+POST /api/courses/:id/checkout           paid courses — creates a pending course_purchases row,
+                                          opens a checkout with the requested (or default) gateway,
+                                          returns a redirect URL (Stripe) or client params (Razorpay)
+GET  /api/courses/:id/purchase-status    polled by the frontend return page — reflects the
+                                          webhook-confirmed status, never the redirect itself
+POST /api/courses/:id/coupon/preview     read-only discount preview for a coupon code
+POST /api/payments/webhooks/:provider    public route, gateway-signed — the only path that ever
+                                          transitions a purchase to 'completed' and enrolls the student
 ```
 
-See `courses.md` for the `payments` table schema.
+Coupons: `GET/POST /api/coupons`, `GET/PATCH/DELETE /api/coupons/:id`, gated by the
+`payments.manage_coupons` permission (see [rbac.md](rbac.md)).
+
+Access to paid course content is enforced independently of all this —
+`courses.GetModuleContent` blocks non-enrolled users regardless of purchase
+status, so a webhook that never arrives simply means "never enrolled," not an
+access-control gap.
+
+See [courses.md](courses.md) for the `course_purchases`/`coupons`/
+`coupon_redemptions`/`payment_events` table schemas and the full
+checkout → webhook → enrollment flow.

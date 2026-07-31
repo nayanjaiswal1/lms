@@ -149,7 +149,91 @@ CREATE TABLE course_reviews (
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE (course_id, user_id) -- one review per user per course; resubmitting updates it
 );
+
+-- Purchases & coupons — added in 004_payments_coupons.sql. A row starts
+-- 'pending' at checkout-creation and only ever transitions to 'completed' or
+-- 'failed' via a confirmed gateway webhook (see "Purchases & Coupons" below).
+CREATE TABLE course_purchases (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id         UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id        UUID        NOT NULL REFERENCES users(id)         ON DELETE CASCADE,
+  course_id      UUID        NOT NULL REFERENCES courses(id)       ON DELETE CASCADE,
+  amount_cents   INT         NOT NULL CHECK (amount_cents >= 0), -- final, post-discount
+  discount_cents INT         NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
+  currency       TEXT        NOT NULL DEFAULT 'USD',
+  provider       TEXT        NOT NULL DEFAULT 'stub' CHECK (provider IN ('stub', 'stripe', 'razorpay')),
+  provider_ref   TEXT        NOT NULL, -- the gateway's session/order id; "checkout_<uuid>" placeholder until CreateCheckout returns
+  payment_ref    TEXT,                 -- the underlying charge/payment id (refund handle)
+  coupon_id      UUID        REFERENCES coupons(id) ON DELETE SET NULL,
+  status         TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
+  purchased_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (provider, provider_ref) -- webhook lookup key
+  -- plus a partial UNIQUE (user_id, course_id) WHERE status = 'completed' —
+  -- only one completed purchase per user+course may ever exist, but a
+  -- pending/failed attempt must not block retrying a new checkout
+);
+
+CREATE TABLE coupons (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id           UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  code             TEXT        NOT NULL, -- matched case-insensitively; UNIQUE (org_id, upper(code))
+  description      TEXT        NOT NULL DEFAULT '',
+  discount_type    TEXT        NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
+  discount_value   INT         NOT NULL, -- percent 1-100, or fixed minor units
+  course_id        UUID        REFERENCES courses(id) ON DELETE CASCADE, -- NULL = any paid course in the org
+  max_redemptions  INT,                  -- NULL = unlimited
+  redeemed_count   INT         NOT NULL DEFAULT 0 CHECK (redeemed_count <= max_redemptions OR max_redemptions IS NULL),
+  starts_at        TIMESTAMPTZ,
+  expires_at       TIMESTAMPTZ,
+  is_active        BOOLEAN     NOT NULL DEFAULT true, -- deactivated, never hard-deleted once redeemed
+  created_by       UUID        REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE coupon_redemptions (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  coupon_id      UUID        NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+  user_id        UUID        NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  purchase_id    UUID        NOT NULL REFERENCES course_purchases(id) ON DELETE CASCADE,
+  discount_cents INT         NOT NULL CHECK (discount_cents >= 0),
+  redeemed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (coupon_id, user_id), -- one redemption per user per coupon, enforced by Postgres
+  UNIQUE (purchase_id)
+);
+
+-- Webhook delivery dedup + audit trail — a duplicate delivery of the same
+-- gateway event id (Stripe retries up to 72h) is a no-op, not an error.
+CREATE TABLE payment_events (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider     TEXT        NOT NULL CHECK (provider IN ('stub', 'stripe', 'razorpay')),
+  event_id     TEXT        NOT NULL,
+  event_type   TEXT        NOT NULL,
+  provider_ref TEXT,
+  purchase_id  UUID        REFERENCES course_purchases(id) ON DELETE SET NULL,
+  payload      JSONB       NOT NULL,
+  received_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  processed_at TIMESTAMPTZ,
+  error        TEXT,
+  UNIQUE (provider, event_id)
+);
 ```
+
+---
+
+## Purchases & Coupons
+
+A paid course (`is_free=false`, `price_cents > 0`) is purchased through `backend/internal/mentoring` (checkout/webhook orchestration) + `backend/internal/payments` (the Stripe/Razorpay/stub provider seam) + `backend/internal/coupons` (discount codes) — `courses` itself only defines the `CoursePurchaser` interface these packages implement, to avoid an import cycle.
+
+**Flow:**
+1. `POST /api/courses/{courseID}/checkout` (optionally with `provider` and `coupon_code`) — validates the course and coupon, inserts a `pending` `course_purchases` row, and asks the gateway to start a real checkout. Returns a `redirect_url` (Stripe hosted Checkout) or `client_params` (Razorpay Checkout.js modal). **Grants no access** — a real gateway confirms asynchronously (3DS, bank debit clearing), so this call only starts that process.
+2. The student completes payment on the gateway's own UI, then lands back on the frontend's checkout return page, which polls `GET /api/courses/{courseID}/purchase-status` — the redirect itself never grants access, only a webhook-confirmed `"completed"` status does, which may arrive slightly after the redirect.
+3. The gateway calls `POST /api/payments/webhooks/{provider}` (public, authenticated by the gateway's own signature scheme). After de-duplicating the event (`payment_events.(provider, event_id)` UNIQUE) and cross-checking its amount/currency against what was stored at checkout-creation, one transaction: marks the purchase `completed`, atomically consumes the coupon redemption (if any), enrolls the student (`courses.Repo.CreateEnrollmentTx` — identical to the free-course enrollment path), and opens a mentor ticket unless the student already has one.
+
+A coupon's redemption is only ever consumed at step 3 (payment confirmed), never at step 1 — an abandoned or failed checkout never burns a redemption slot. Redemption caps and per-user reuse are enforced by Postgres (`coupons.redeemed_count` guarded `UPDATE ... RETURNING`, `coupon_redemptions` `UNIQUE(coupon_id, user_id)`), not application-level check-then-write, since that has a race under concurrent redemption attempts.
+
+Coupon management (`POST/GET/PATCH/DELETE /api/coupons`) is gated by the `payments.manage_coupons` permission (see [rbac.md](rbac.md)) — granted to `tenant_admin` by default.
 
 ---
 
@@ -227,7 +311,10 @@ No `RequireOrgRole` gate — ownership (not org role) is what these enforce.
 | `GET` | `/api/courses` | List/browse courses |
 | `GET` | `/api/courses/random-topic` | "Surprise me" — one published course not yet enrolled in, weighted toward `topics_interest` |
 | `GET` | `/api/courses/{courseID}` | Course detail (tree of sections + modules) |
-| `POST` | `/api/courses/{courseID}/enroll` | Enroll |
+| `POST` | `/api/courses/{courseID}/enroll` | Enroll in a free course (402 if the course is paid) |
+| `POST` | `/api/courses/{courseID}/checkout` | Start a paid-course checkout — see "Purchases & Coupons" below |
+| `GET` | `/api/courses/{courseID}/purchase-status` | Poll purchase status after a gateway redirect |
+| `POST` | `/api/courses/{courseID}/coupon/preview` | Validate a coupon code and preview its discount |
 | `GET` | `/api/enrollments/me` | My enrollments |
 | `POST` | `/api/courses/{courseID}/reviews` | Submit/update my star rating |
 | `GET` | `/api/courses/{courseID}/reviews/me` | My review for this course |
