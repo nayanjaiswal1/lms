@@ -60,8 +60,10 @@ func (s *Service) Preview(ctx context.Context, orgID, userID, courseID, code str
 	}, nil
 }
 
-// Create validates and inserts a new coupon.
-func (s *Service) Create(ctx context.Context, c Coupon) (Coupon, error) {
+// Create validates and inserts a new coupon. courseIDs is the coupon's
+// course scope — empty means valid for any paid course in the org, one or
+// more restricts it to exactly those courses.
+func (s *Service) Create(ctx context.Context, c Coupon, courseIDs []string) (Coupon, error) {
 	c.Code = NormalizeCode(c.Code)
 	if !codePattern.MatchString(c.Code) {
 		return Coupon{}, fmt.Errorf("%w: code must be 3-32 characters, uppercase letters/digits/-/_ only", ErrInvalid)
@@ -75,13 +77,16 @@ func (s *Service) Create(ctx context.Context, c Coupon) (Coupon, error) {
 	if c.DiscountType == DiscountTypeFixed && c.DiscountValue <= 0 {
 		return Coupon{}, fmt.Errorf("%w: a fixed discount must be greater than 0", ErrInvalid)
 	}
+	if c.MaxDiscountCents != nil && *c.MaxDiscountCents <= 0 {
+		return Coupon{}, fmt.Errorf("%w: max_discount_cents must be positive when set", ErrInvalid)
+	}
 	if c.MaxRedemptions != nil && *c.MaxRedemptions <= 0 {
 		return Coupon{}, fmt.Errorf("%w: max_redemptions must be positive when set", ErrInvalid)
 	}
 	if c.StartsAt != nil && c.ExpiresAt != nil && !c.ExpiresAt.After(*c.StartsAt) {
 		return Coupon{}, fmt.Errorf("%w: expires_at must be after starts_at", ErrInvalid)
 	}
-	return s.repo.Create(ctx, c)
+	return s.repo.Create(ctx, c, courseIDs)
 }
 
 func (s *Service) List(ctx context.Context, orgID string, includeInactive bool) ([]Coupon, error) {
@@ -92,11 +97,16 @@ func (s *Service) Get(ctx context.Context, orgID, id string) (Coupon, error) {
 	return s.repo.Get(ctx, orgID, id)
 }
 
-func (s *Service) Update(ctx context.Context, orgID, id, description string, isActive bool, expiresAt *time.Time, maxRedemptions *int) (Coupon, error) {
+// Update changes description/is_active/expiry/redemption-cap/discount-cap/
+// course scope — never the discount itself (see Repo.Update's own comment).
+func (s *Service) Update(ctx context.Context, orgID, id, description string, isActive bool, expiresAt *time.Time, maxRedemptions, maxDiscountCents *int, courseIDs []string) (Coupon, error) {
 	if maxRedemptions != nil && *maxRedemptions <= 0 {
 		return Coupon{}, fmt.Errorf("%w: max_redemptions must be positive when set", ErrInvalid)
 	}
-	return s.repo.Update(ctx, orgID, id, description, isActive, expiresAt, maxRedemptions)
+	if maxDiscountCents != nil && *maxDiscountCents <= 0 {
+		return Coupon{}, fmt.Errorf("%w: max_discount_cents must be positive when set", ErrInvalid)
+	}
+	return s.repo.Update(ctx, orgID, id, description, isActive, expiresAt, maxRedemptions, maxDiscountCents, courseIDs)
 }
 
 func (s *Service) Deactivate(ctx context.Context, orgID, id string) error {

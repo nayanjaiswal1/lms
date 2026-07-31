@@ -31,15 +31,19 @@ var (
 	ErrExpired     = errors.New("coupons: expired or not yet active")
 )
 
-// Coupon mirrors the coupons table.
+// Coupon mirrors the coupons table plus its coupon_courses association.
 type Coupon struct {
-	ID             string
-	OrgID          string
-	Code           string
-	Description    string
-	DiscountType   string
-	DiscountValue  int
-	CourseID       *string // nil = valid for any paid course in the org
+	ID               string
+	OrgID            string
+	Code             string
+	Description      string
+	DiscountType     string
+	DiscountValue    int
+	MaxDiscountCents *int // caps the absolute discount a percent-off coupon can give; nil = uncapped
+	// CourseIDs is populated from the coupon_courses join table, not a
+	// column on coupons itself. Empty = valid for any paid course in the
+	// org; one or more entries = restricted to exactly those courses.
+	CourseIDs      []string
 	MaxRedemptions *int
 	RedeemedCount  int
 	StartsAt       *time.Time

@@ -24,7 +24,14 @@ func DiscountCents(c Coupon, amountCents int) int {
 		return 0
 	}
 	if discount > amountCents {
-		return amountCents
+		discount = amountCents
+	}
+	// Caps the absolute discount a percent-off coupon can give — "30% off"
+	// on an expensive course can otherwise discount far more than intended.
+	// A no-op for a fixed-amount coupon: its DiscountValue already IS the
+	// cap, so MaxDiscountCents (if set on one anyway) never binds tighter.
+	if c.MaxDiscountCents != nil && discount > *c.MaxDiscountCents {
+		discount = *c.MaxDiscountCents
 	}
 	return discount
 }

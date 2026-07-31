@@ -2,6 +2,11 @@ package coupons
 
 import "testing"
 
+func capCoupon(c Coupon, maxDiscountCents int) Coupon {
+	c.MaxDiscountCents = &maxDiscountCents
+	return c
+}
+
 func TestDiscountCents(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -14,6 +19,8 @@ func TestDiscountCents(t *testing.T) {
 		{"fixed under price", Coupon{DiscountType: DiscountTypeFixed, DiscountValue: 200}, 999, 200},
 		{"fixed exceeds price clamps", Coupon{DiscountType: DiscountTypeFixed, DiscountValue: 5000}, 999, 999},
 		{"zero amount never negative", Coupon{DiscountType: DiscountTypeFixed, DiscountValue: 500}, 0, 0},
+		{"percent capped by max_discount_cents", capCoupon(Coupon{DiscountType: DiscountTypePercent, DiscountValue: 50}, 100), 999, 100},
+		{"fixed unaffected by a looser max_discount_cents", capCoupon(Coupon{DiscountType: DiscountTypeFixed, DiscountValue: 200}, 500), 999, 200},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

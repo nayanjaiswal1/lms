@@ -216,3 +216,42 @@ func TestConsumeTx_SameUserTwiceIsRejected(t *testing.T) {
 		t.Fatalf("expected ErrAlreadyUsed on second redemption by the same user, got %v", err)
 	}
 }
+
+// TestValidate_CourseScope proves a coupon restricted to specific courses
+// (coupon_courses has rows) is rejected for any course not in that set, and
+// that an org-wide coupon (no coupon_courses rows) is valid for any of them.
+func TestValidate_CourseScope(t *testing.T) {
+	pool := testPool(t)
+	repo := NewRepo(pool)
+	ctx := context.Background()
+
+	orgID := seedTestOrg(t, pool)
+	userID := seedTestUser(t, pool)
+	scopedCourse := seedTestCourse(t, pool, orgID, userID)
+	otherCourse := seedTestCourse(t, pool, orgID, userID)
+
+	scopedCouponID := seedTestCoupon(t, pool, orgID, nil)
+	if _, err := pool.Exec(ctx, `INSERT INTO coupon_courses (coupon_id, course_id) VALUES ($1, $2)`, scopedCouponID, scopedCourse); err != nil {
+		t.Fatalf("scope coupon to course: %v", err)
+	}
+	var scopedCode string
+	if err := pool.QueryRow(ctx, `SELECT code FROM coupons WHERE id = $1`, scopedCouponID).Scan(&scopedCode); err != nil {
+		t.Fatalf("read coupon code: %v", err)
+	}
+
+	if _, err := repo.Validate(ctx, orgID, userID, scopedCourse, scopedCode); err != nil {
+		t.Fatalf("expected coupon valid for its scoped course, got %v", err)
+	}
+	if _, err := repo.Validate(ctx, orgID, userID, otherCourse, scopedCode); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for a course outside the coupon's scope, got %v", err)
+	}
+
+	orgWideCouponID := seedTestCoupon(t, pool, orgID, nil)
+	var orgWideCode string
+	if err := pool.QueryRow(ctx, `SELECT code FROM coupons WHERE id = $1`, orgWideCouponID).Scan(&orgWideCode); err != nil {
+		t.Fatalf("read coupon code: %v", err)
+	}
+	if _, err := repo.Validate(ctx, orgID, userID, otherCourse, orgWideCode); err != nil {
+		t.Fatalf("expected an org-wide (no coupon_courses rows) coupon to be valid for any course, got %v", err)
+	}
+}

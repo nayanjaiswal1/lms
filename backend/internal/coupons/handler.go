@@ -44,40 +44,46 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 }
 
 type couponResponse struct {
-	ID             string     `json:"id"`
-	Code           string     `json:"code"`
-	Description    string     `json:"description"`
-	DiscountType   string     `json:"discount_type"`
-	DiscountValue  int        `json:"discount_value"`
-	CourseID       *string    `json:"course_id,omitempty"`
-	MaxRedemptions *int       `json:"max_redemptions,omitempty"`
-	RedeemedCount  int        `json:"redeemed_count"`
-	StartsAt       *time.Time `json:"starts_at,omitempty"`
-	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
-	IsActive       bool       `json:"is_active"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID               string     `json:"id"`
+	Code             string     `json:"code"`
+	Description      string     `json:"description"`
+	DiscountType     string     `json:"discount_type"`
+	DiscountValue    int        `json:"discount_value"`
+	MaxDiscountCents *int       `json:"max_discount_cents,omitempty"`
+	CourseIDs        []string   `json:"course_ids"`
+	MaxRedemptions   *int       `json:"max_redemptions,omitempty"`
+	RedeemedCount    int        `json:"redeemed_count"`
+	StartsAt         *time.Time `json:"starts_at,omitempty"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	IsActive         bool       `json:"is_active"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 func toCouponResponse(c Coupon) couponResponse {
+	courseIDs := c.CourseIDs
+	if courseIDs == nil {
+		courseIDs = []string{}
+	}
 	return couponResponse{
 		ID: c.ID, Code: c.Code, Description: c.Description,
-		DiscountType: c.DiscountType, DiscountValue: c.DiscountValue,
-		CourseID: c.CourseID, MaxRedemptions: c.MaxRedemptions, RedeemedCount: c.RedeemedCount,
+		DiscountType: c.DiscountType, DiscountValue: c.DiscountValue, MaxDiscountCents: c.MaxDiscountCents,
+		CourseIDs: courseIDs, MaxRedemptions: c.MaxRedemptions, RedeemedCount: c.RedeemedCount,
 		StartsAt: c.StartsAt, ExpiresAt: c.ExpiresAt, IsActive: c.IsActive,
 		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
 }
 
 type createCouponRequest struct {
-	Code           string     `json:"code"`
-	Description    string     `json:"description"`
-	DiscountType   string     `json:"discount_type"`
-	DiscountValue  int        `json:"discount_value"`
-	CourseID       *string    `json:"course_id"`
-	MaxRedemptions *int       `json:"max_redemptions"`
-	StartsAt       *time.Time `json:"starts_at"`
-	ExpiresAt      *time.Time `json:"expires_at"`
+	Code             string     `json:"code"`
+	Description      string     `json:"description"`
+	DiscountType     string     `json:"discount_type"`
+	DiscountValue    int        `json:"discount_value"`
+	MaxDiscountCents *int       `json:"max_discount_cents"`
+	CourseIDs        []string   `json:"course_ids"`
+	MaxRedemptions   *int       `json:"max_redemptions"`
+	StartsAt         *time.Time `json:"starts_at"`
+	ExpiresAt        *time.Time `json:"expires_at"`
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +98,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	createdBy := claims.UserID
 	c, err := h.service.Create(r.Context(), Coupon{
 		OrgID: claims.OrgID, Code: req.Code, Description: req.Description,
-		DiscountType: req.DiscountType, DiscountValue: req.DiscountValue,
-		CourseID: req.CourseID, MaxRedemptions: req.MaxRedemptions,
-		StartsAt: req.StartsAt, ExpiresAt: req.ExpiresAt, CreatedBy: &createdBy,
-	})
+		DiscountType: req.DiscountType, DiscountValue: req.DiscountValue, MaxDiscountCents: req.MaxDiscountCents,
+		MaxRedemptions: req.MaxRedemptions, StartsAt: req.StartsAt, ExpiresAt: req.ExpiresAt, CreatedBy: &createdBy,
+	}, req.CourseIDs)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -135,10 +140,12 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateCouponRequest struct {
-	Description    string     `json:"description"`
-	IsActive       bool       `json:"is_active"`
-	ExpiresAt      *time.Time `json:"expires_at"`
-	MaxRedemptions *int       `json:"max_redemptions"`
+	Description      string     `json:"description"`
+	IsActive         bool       `json:"is_active"`
+	ExpiresAt        *time.Time `json:"expires_at"`
+	MaxRedemptions   *int       `json:"max_redemptions"`
+	MaxDiscountCents *int       `json:"max_discount_cents"`
+	CourseIDs        []string   `json:"course_ids"`
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +158,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c, err := h.service.Update(r.Context(), claims.OrgID, chi.URLParam(r, "couponID"),
-		req.Description, req.IsActive, req.ExpiresAt, req.MaxRedemptions)
+		req.Description, req.IsActive, req.ExpiresAt, req.MaxRedemptions, req.MaxDiscountCents, req.CourseIDs)
 	if err != nil {
 		writeDomainError(w, err)
 		return
