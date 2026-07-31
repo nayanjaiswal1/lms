@@ -10,20 +10,61 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 const maxUploadSize = 500 << 20 // 500 MB
 
-// MentorTicketOpener is the narrow capability the courses package needs from
-// mentoring.Service to fulfill a paid-course purchase. It is defined here
-// (rather than importing the concrete mentoring package) to avoid an import
-// cycle: mentoring imports courses for the Enrollment type and
-// CreateEnrollmentTx. Purchase/enrollment/ticket results are returned as
-// `any` for the same reason — the handler only needs to marshal them as
-// JSON, never inspect their fields.
-type MentorTicketOpener interface {
-	PurchaseCourse(ctx context.Context, orgID, userID, courseID string, amountCents int) (purchase any, enrollment any, ticket any, err error)
+// CheckoutRequest is what the courses handler asks a CoursePurchaser to
+// start. Provider selects which registered payments.Provider handles the
+// checkout ("" = the registry's default); CouponCode is optional and
+// re-validated/recomputed server-side regardless of what a client displayed.
+type CheckoutRequest struct {
+	OrgID      string
+	UserID     string
+	CourseID   string
+	Provider   string
+	CouponCode string
+}
+
+// CheckoutSession is the result of starting a checkout. Exactly one of
+// RedirectURL (a hosted checkout page, e.g. Stripe) or ClientParams (fields a
+// client-side SDK needs, e.g. Razorpay Checkout.js) is populated — unless
+// Status is already "completed" (a zero-total, fully-coupon-covered
+// purchase), in which case neither is, since there was nothing to redirect
+// the student to.
+type CheckoutSession struct {
+	PurchaseID    string            `json:"purchase_id"`
+	Provider      string            `json:"provider"`
+	Status        string            `json:"status"` // "pending" | "completed"
+	RedirectURL   string            `json:"redirect_url,omitempty"`
+	ClientParams  map[string]string `json:"client_params,omitempty"`
+	AmountCents   int               `json:"amount_cents"`
+	DiscountCents int               `json:"discount_cents"`
+	Currency      string            `json:"currency"`
+}
+
+// PurchaseStatus is polled by the frontend's checkout return page — the
+// gateway redirect itself never grants access; only a webhook-confirmed
+// "completed" status (reflected here) does.
+type PurchaseStatus struct {
+	PurchaseID string  `json:"purchase_id"`
+	Status     string  `json:"status"`
+	Enrolled   bool    `json:"enrolled"`
+	TicketID   *string `json:"ticket_id,omitempty"`
+}
+
+// CoursePurchaser is the narrow capability the courses package needs from
+// mentoring.Service to run a paid-course purchase end to end. It is defined
+// here (rather than importing the concrete mentoring package) to avoid an
+// import cycle: mentoring imports courses for the Enrollment type and
+// CreateEnrollmentTx. Unlike the interface this replaced, the DTOs above are
+// concrete types owned by this package, so mentoring.Service (which already
+// imports courses) can implement this without any `any`-boxing.
+type CoursePurchaser interface {
+	StartCheckout(ctx context.Context, req CheckoutRequest) (CheckoutSession, error)
+	PurchaseStatus(ctx context.Context, orgID, userID, courseID string) (PurchaseStatus, error)
 }
 
 // conflictError is satisfied by mentoring's ErrAlreadyPurchased (and any
@@ -34,13 +75,18 @@ type conflictError interface {
 }
 
 type Handler struct {
-	repo          *Repo
-	service       *Service
-	mentorTickets MentorTicketOpener
+	repo      *Repo
+	service   *Service
+	purchaser CoursePurchaser
+	coupons   *coupons.Service
 }
 
-func NewHandler(repo *Repo, service *Service, mentorTickets MentorTicketOpener) *Handler {
-	return &Handler{repo: repo, service: service, mentorTickets: mentorTickets}
+// NewHandler wires the courses handler. coupons is imported directly (unlike
+// mentoring) since coupons is a leaf package — it depends on neither courses
+// nor mentoring, so courses -> coupons introduces no cycle, and PreviewCoupon
+// can call it without any interface-boxing indirection.
+func NewHandler(repo *Repo, service *Service, purchaser CoursePurchaser, couponsSvc *coupons.Service) *Handler {
+	return &Handler{repo: repo, service: service, purchaser: purchaser, coupons: couponsSvc}
 }
 
 func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/payments"
 )
 
 // clientCompletableModuleTypes are module types whose "completed" status may
@@ -61,13 +63,16 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, created)
 }
 
-// Purchase charges the authenticated student for a paid course via the
-// mentoring package's charge -> purchase -> enrollment -> mentor-ticket flow,
-// then returns the resulting purchase (and mentor ticket, if one was opened).
+// StartCheckout begins a paid-course purchase: validates the course and any
+// coupon code, opens a checkout with the requested (or default) payments
+// provider, and returns what the frontend needs to send the student to
+// finish paying. It does NOT grant access — only a webhook-confirmed
+// purchase (see PurchaseStatus) does, since a real gateway confirms
+// asynchronously and the request/response here only starts that process.
 // Free courses must go through Enroll instead — that endpoint stays
 // 402-blocked for paid courses, and this one is 400-blocked for free
 // courses, so each course only ever has one valid path to access.
-func (h *Handler) Purchase(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {
 		return
@@ -82,17 +87,93 @@ func (h *Handler) Purchase(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusBadRequest, "This course is free — use /enroll instead.")
 		return
 	}
-	purchase, enrollment, ticket, err := h.mentorTickets.PurchaseCourse(r.Context(), claims.OrgID, claims.UserID, courseID, course.PriceCents)
+	var req struct {
+		Provider   string `json:"provider"`
+		CouponCode string `json:"coupon_code"`
+	}
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return
+	}
+
+	session, err := h.purchaser.StartCheckout(r.Context(), CheckoutRequest{
+		OrgID: claims.OrgID, UserID: claims.UserID, CourseID: courseID,
+		Provider: req.Provider, CouponCode: req.CouponCode,
+	})
 	if err != nil {
 		var ce conflictError
 		if errors.As(err, &ce) && ce.IsConflict() {
 			httputil.WriteError(w, http.StatusConflict, "You have already purchased this course.")
 			return
 		}
-		httputil.WriteError(w, http.StatusInternalServerError, "Purchase failed.")
+		if errors.Is(err, payments.ErrUnknownProvider) {
+			httputil.WriteError(w, http.StatusUnprocessableEntity, "Unknown payment provider.")
+			return
+		}
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not start checkout.")
 		return
 	}
-	httputil.WriteJSON(w, http.StatusCreated, map[string]any{"purchase": purchase, "enrollment": enrollment, "ticket": ticket})
+	httputil.WriteJSON(w, http.StatusCreated, session)
+}
+
+// PurchaseStatus is polled by the frontend's checkout return page after a
+// gateway redirect (or Checkout.js modal close) — the redirect itself never
+// grants access, only a webhook-confirmed "completed" status does, which may
+// arrive slightly after the redirect.
+func (h *Handler) PurchaseStatus(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	status, err := h.purchaser.PurchaseStatus(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "courseID"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, status)
+}
+
+// PreviewCoupon validates a coupon code against a paid course and returns the
+// discount it would apply — advisory only, re-validated and recomputed
+// server-side again at webhook confirmation, so a client can never trust
+// (or forge) the discount shown here into a lower actual charge.
+func (h *Handler) PreviewCoupon(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := urlParam(r, "courseID")
+	course, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if course.IsFree || course.PriceCents <= 0 {
+		httputil.WriteError(w, http.StatusBadRequest, "This course is free — no coupon needed.")
+		return
+	}
+	var req struct {
+		Code string `json:"code"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	preview, err := h.coupons.Preview(r.Context(), claims.OrgID, claims.UserID, courseID, req.Code, course.PriceCents)
+	if err != nil {
+		switch {
+		case errors.Is(err, coupons.ErrNotFound):
+			httputil.WriteError(w, http.StatusNotFound, "Invalid coupon code.")
+		case errors.Is(err, coupons.ErrExpired):
+			httputil.WriteError(w, http.StatusUnprocessableEntity, "This coupon is expired or not yet active.")
+		case errors.Is(err, coupons.ErrExhausted):
+			httputil.WriteError(w, http.StatusUnprocessableEntity, "This coupon has reached its redemption limit.")
+		case errors.Is(err, coupons.ErrAlreadyUsed):
+			httputil.WriteError(w, http.StatusUnprocessableEntity, "You've already used this coupon.")
+		default:
+			httputil.WriteError(w, http.StatusInternalServerError, "Could not apply coupon.")
+		}
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, preview)
 }
 
 // MyEnrollments returns all courses the authenticated student is enrolled in.

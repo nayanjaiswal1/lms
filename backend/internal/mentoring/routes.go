@@ -4,6 +4,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/authz"
+	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/payments"
@@ -11,7 +13,7 @@ import (
 
 // Router mounts the mentoring HTTP API. Service is exported so the courses
 // package's purchase handler (which must not import this package directly,
-// see courses.MentorTicketOpener) can be handed the concrete *Service by
+// see courses.CoursePurchaser) can be handed the concrete *Service by
 // backend/internal/api/router.go at construction time.
 type Router struct {
 	handler *Handler
@@ -20,17 +22,27 @@ type Router struct {
 
 // New wires the mentoring package's repo/service/handler dependency graph.
 // coursesRepo is used only for its CreateEnrollmentTx capability inside
-// Service.PurchaseCourse, so the paid-course enrollment insert stays
+// Service.confirmPurchase, so the paid-course enrollment insert stays
 // identical to the one courses.Repo.CreateEnrollment issues for free
 // enrollment. authzSvc backs the mentoring.assign_tickets /
-// mentoring.manage_reports permission checks.
-func New(pool *pgxpool.Pool, paymentsProvider payments.Provider, coursesRepo *courses.Repo, authzSvc *authz.Service) *Router {
+// mentoring.manage_reports permission checks. providers is the payments
+// registry built by payments.FromConfig; couponsSvc backs coupon
+// validation/redemption during checkout.
+func New(pool *pgxpool.Pool, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, authzSvc *authz.Service, cfg *config.Config) *Router {
 	repo := NewRepo(pool)
-	service := NewService(repo, paymentsProvider, coursesRepo)
+	service := NewService(repo, providers, couponsSvc, coursesRepo, cfg)
 	return &Router{
 		handler: &Handler{service: service, authzSvc: authzSvc},
 		Service: service,
 	}
+}
+
+// RegisterPublicRoutes mounts the payment-gateway webhook receiver — public
+// because the gateway itself is the caller (authenticated by its own
+// signature scheme, not a session cookie), outside the RequireAuth/
+// RequireCSRF group RegisterRoutes assumes.
+func (rt *Router) RegisterPublicRoutes(r chi.Router) {
+	r.Post("/api/payments/webhooks/{provider}", rt.handler.Webhook)
 }
 
 // RegisterRoutes mounts the mentoring API onto the given router.

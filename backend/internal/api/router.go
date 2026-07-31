@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/calendar"
 	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/experience"
 	"github.com/mindforge/backend/internal/features"
@@ -92,14 +93,24 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// mentoring.assign_tickets / mentoring.manage_reports permission guards.
 	authzHandler := authz.New(pool, rdb)
 
+	// coupons is a leaf package (no dependency on courses or mentoring) —
+	// built before both so its *coupons.Service can be handed to each
+	// directly, no interface indirection needed on this edge.
+	couponsRouter := coupons.New(pool)
+
+	// paymentProviders registers whichever gateways have credentials
+	// configured (Stripe/Razorpay), falling back to the local stub outside
+	// production — see payments.FromConfig.
+	paymentProviders := payments.FromConfig(cfg)
+
 	// mentoring is built before the courses handler so mentoringRouter.Service
-	// (satisfying courses.MentorTicketOpener) can be injected into it. mentoring
+	// (satisfying courses.CoursePurchaser) can be injected into it. mentoring
 	// only needs *courses.Repo (for CreateEnrollmentTx), not the courses
 	// handler, so there is no import cycle: mentoring -> courses, courses ->
 	// (local interface only, no mentoring import).
-	mentoringRouter := mentoring.New(pool, payments.NewStubProvider(), coursesRepo, authzHandler.Service())
+	mentoringRouter := mentoring.New(pool, paymentProviders, couponsRouter.Service, coursesRepo, authzHandler.Service(), cfg)
 
-	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service)
+	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service, couponsRouter.Service)
 
 	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc, store, labsRuntime)
 	rewardsHandler := rewards.New(pool, rdb)
@@ -216,6 +227,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// cert_uuid itself.
 	certificatesRouter.RegisterPublicRoutes(r)
 
+	// Payment gateway webhooks — the gateway itself is the caller,
+	// authenticated by its own signature scheme (see mentoring/handler_webhook.go),
+	// never a session cookie.
+	mentoringRouter.RegisterPublicRoutes(r)
+
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache)
 
@@ -259,6 +275,9 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Mentoring — mentor tickets (claim/assign/close), mentor directory, mentor reports.
 		mentoringRouter.RegisterRoutes(r)
+
+		// Coupons — admin CRUD, gated by payments.manage_coupons.
+		couponsRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Practice — AI interview prep sessions and answer review.
 		practiceRouter.RegisterRoutes(r)

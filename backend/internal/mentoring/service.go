@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/payments"
 )
@@ -14,120 +16,38 @@ import (
 // database.
 var ErrInvalid = errors.New("mentoring: invalid input")
 
-// Service orchestrates the paid-course purchase flow (charge -> purchase
-// record -> enrollment -> mentor-ticket dedup) plus the mentor
+// Service orchestrates the paid-course purchase flow (checkout -> webhook
+// confirm -> purchase record -> coupon redemption -> enrollment ->
+// mentor-ticket dedup, see service_purchase.go) plus the mentor
 // ticket/report/directory workflows.
 type Service struct {
 	repo        *Repo
-	provider    payments.Provider
+	providers   *payments.Registry
+	coupons     *coupons.Service
 	coursesRepo *courses.Repo
+	frontendURL string
+	currency    string
 }
 
 // NewService wires a Service. coursesRepo is used only for its
 // CreateEnrollmentTx capability, so the paid-course enrollment insert stays
 // byte-identical to courses.Repo.CreateEnrollment's free-course path instead
 // of being duplicated here.
-func NewService(repo *Repo, provider payments.Provider, coursesRepo *courses.Repo) *Service {
-	return &Service{repo: repo, provider: provider, coursesRepo: coursesRepo}
-}
-
-// purchaseCourse charges the student for a paid course, records the
-// purchase, enrolls them, and opens a mentor ticket unless they already have
-// an active mentor in this org. The charge itself happens before the
-// transaction opens (it is an external call, not a DB write, and there is no
-// reason to hold a DB connection while waiting on it); the purchase record,
-// enrollment, dedup check, and ticket creation all commit atomically.
-func (s *Service) purchaseCourse(ctx context.Context, orgID, userID, courseID string, amountCents int) (Purchase, courses.Enrollment, *Ticket, error) {
-	if amountCents <= 0 {
-		return Purchase{}, courses.Enrollment{}, nil, fmt.Errorf("%w: amount_cents must be positive", ErrInvalid)
+func NewService(repo *Repo, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, cfg *config.Config) *Service {
+	return &Service{
+		repo: repo, providers: providers, coupons: couponsSvc, coursesRepo: coursesRepo,
+		frontendURL: cfg.FrontendURL, currency: cfg.PaymentsCurrency,
 	}
-
-	chargeResult, err := s.provider.Charge(ctx, payments.ChargeParams{
-		OrgID:       orgID,
-		UserID:      userID,
-		CourseID:    courseID,
-		AmountCents: amountCents,
-		Currency:    "USD",
-	})
-	if err != nil {
-		return Purchase{}, courses.Enrollment{}, nil, fmt.Errorf("mentoring: charge: %w", err)
-	}
-
-	var purchase Purchase
-	var enrollment courses.Enrollment
-	var ticket *Ticket
-	err = s.repo.tx(ctx, func(tx pgx.Tx) error {
-		var txErr error
-		purchase, txErr = s.repo.CreatePurchase(ctx, tx, Purchase{
-			OrgID:       orgID,
-			UserID:      userID,
-			CourseID:    courseID,
-			AmountCents: amountCents,
-			Currency:    "USD",
-			Provider:    ProviderStub,
-			ProviderRef: chargeResult.ProviderRef,
-			Status:      PurchaseStatusCompleted,
-		})
-		if txErr != nil {
-			return txErr
-		}
-
-		enrolledBy := userID
-		enrollment, txErr = s.coursesRepo.CreateEnrollmentTx(ctx, tx, courses.Enrollment{
-			UserID:     userID,
-			CourseID:   courseID,
-			EnrolledBy: &enrolledBy,
-		})
-		if txErr != nil {
-			return txErr
-		}
-
-		hasMentor, txErr := s.repo.HasActiveMentor(ctx, tx, orgID, userID)
-		if txErr != nil {
-			return txErr
-		}
-		if !hasMentor {
-			purchaseID := purchase.ID
-			created, txErr := s.repo.CreateTicket(ctx, tx, Ticket{
-				OrgID:      orgID,
-				StudentID:  userID,
-				CourseID:   courseID,
-				PurchaseID: &purchaseID,
-			})
-			if txErr != nil {
-				return txErr
-			}
-			ticket = &created
-		}
-		return nil
-	})
-	if err != nil {
-		return Purchase{}, courses.Enrollment{}, nil, err
-	}
-	return purchase, enrollment, ticket, nil
-}
-
-// PurchaseCourse implements courses.MentorTicketOpener. It returns the
-// concrete Purchase/Enrollment/*Ticket boxed as `any` because the courses
-// package cannot import mentoring's concrete types without creating an
-// import cycle (mentoring already imports courses for
-// Enrollment/CreateEnrollmentTx) — see the MentorTicketOpener interface
-// defined in courses/handler.go.
-func (s *Service) PurchaseCourse(ctx context.Context, orgID, userID, courseID string, amountCents int) (any, any, any, error) {
-	purchase, enrollment, ticket, err := s.purchaseCourse(ctx, orgID, userID, courseID, amountCents)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return purchase, enrollment, ticket, nil
 }
 
 // RequestMentor lets a student who does not currently have an active mentor
 // ticket open one for a course they are enrolled in. This is the
-// student-initiated counterpart to the auto-opened ticket in purchaseCourse
-// — it covers free courses and any other case where no ticket was opened
-// automatically. Returns ErrInvalid if the student isn't enrolled in
-// courseID, ErrAlreadyHasMentor if they already have an open or assigned
-// ticket anywhere in the org (mirrors purchaseCourse's HasActiveMentor dedup).
+// student-initiated counterpart to the auto-opened ticket in confirmPurchase
+// (service_purchase.go) — it covers free courses and any other case where no
+// ticket was opened automatically. Returns ErrInvalid if the student isn't
+// enrolled in courseID, ErrAlreadyHasMentor if they already have an open or
+// assigned ticket anywhere in the org (mirrors confirmPurchase's
+// HasActiveMentor dedup).
 func (s *Service) RequestMentor(ctx context.Context, orgID, userID, courseID string) (Ticket, error) {
 	enrolled, err := s.coursesRepo.IsEnrolled(ctx, userID, courseID)
 	if err != nil {
