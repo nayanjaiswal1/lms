@@ -492,18 +492,14 @@ export type MentorChangeRequestStatus =
 
 // ─────────────────────────────────────────────
 
+// Reported by the backend's warm-pool reconciler, never selected by a user:
+// pool sizing is automatic, with `fixed`/`off` reachable only through the
+// operator's LABS_WARM_POOL_OVERRIDES. No options list here for that reason.
 export const WARM_POOL_MODE = {
   AUTO:  "auto",
   FIXED: "fixed",
   OFF:   "off",
 } as const;
-export type WarmPoolMode = (typeof WARM_POOL_MODE)[keyof typeof WARM_POOL_MODE];
-
-export const WARM_POOL_MODE_OPTIONS = [
-  { label: "Auto (demand-driven)", value: WARM_POOL_MODE.AUTO },
-  { label: "Fixed size",           value: WARM_POOL_MODE.FIXED },
-  { label: "Off",                  value: WARM_POOL_MODE.OFF },
-] as const;
 
 // ─────────────────────────────────────────────
 

@@ -10,22 +10,6 @@ import (
 	"time"
 )
 
-// setupScriptRetryAttempts and setupScriptRetryDelay bound how long Start
-// retries a failing setup_script before giving up. docker run -d returns as
-// soon as the container's PID 1 starts, but an image's own background
-// services (e.g. lab-k8s's etcd/kube-apiserver, started by entrypoint.sh)
-// take a moment to come up — a setup_script whose own readiness check (e.g.
-// "kubectl cluster-info || exit 1") runs before that moment fails with no
-// useful stderr. Retrying is image-agnostic: each image defines its own
-// readiness check inside setup_script; Start just gives it a few chances
-// rather than baking any one image's specific check in here. Mirrors the
-// same "retry a moment" reasoning as entrypoint.sh's own apply_retry helper
-// for kwok's CRD race.
-const (
-	setupScriptRetryAttempts = 10
-	setupScriptRetryDelay    = 500 * time.Millisecond
-)
-
 // DockerContainerService implements ContainerRuntime via the Docker CLI —
 // used for VPS/Docker Compose deploys. See runtime_kubernetes.go for the
 // cluster-deploy implementation.
@@ -59,16 +43,16 @@ func (c *DockerContainerService) Classify(image string) ImageProfile {
 	return c.profiles[image]
 }
 
-// Start provisions a new Docker container for the given lab session and runs the
-// optional setup script inside it as root. On setup failure the container is
-// force-removed before the error is returned.
-func (c *DockerContainerService) Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error) {
-	return c.startNamed(ctx, fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount), image, setupScript)
+// Start provisions a new Docker container for the given lab session. See
+// ContainerRuntime.Start — readiness waiting and lab setup are the caller's,
+// not this method's.
+func (c *DockerContainerService) Start(ctx context.Context, sessionID string, resetCount int, image string) (containerID, containerHost string, err error) {
+	return c.startNamed(ctx, fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount), image)
 }
 
 // StartWarm provisions an unbound warm-pool sandbox. See ContainerRuntime.
-func (c *DockerContainerService) StartWarm(ctx context.Context, warmID string, image, setupScript string) (containerID, containerHost string, err error) {
-	return c.startNamed(ctx, "mindforge-warm-"+warmID, image, setupScript)
+func (c *DockerContainerService) StartWarm(ctx context.Context, warmID string, image string) (containerID, containerHost string, err error) {
+	return c.startNamed(ctx, WarmContainerNamePrefix+warmID, image)
 }
 
 // buildRunArgs is the pure "what flags does this container get" decision,
@@ -160,10 +144,10 @@ func (c *DockerContainerService) buildRunArgs(name, image string, privileged boo
 // proxy does forward correctly, so it's a safe, self-detecting fallback
 // rather than a config flag someone has to remember to set per host.
 // "sysbox-runc" and the standard profile never retry.
-func (c *DockerContainerService) startNamed(ctx context.Context, name, image, setupScript string) (containerID, containerHost string, err error) {
-	containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, setupScript, false)
+func (c *DockerContainerService) startNamed(ctx context.Context, name, image string) (containerID, containerHost string, err error) {
+	containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, false)
 	if shouldRetryPrivileged(ctx, err, c.Classify(image).DockerMechanism) {
-		containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, setupScript, true)
+		containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, true)
 	}
 	return containerID, containerHost, err
 }
@@ -178,12 +162,12 @@ func (c *DockerContainerService) startNamed(ctx context.Context, name, image, se
 // then just re-runs `docker run` against a dead context, which fails
 // instantly and REPLACES the real diagnosis with a misleading
 // "docker run: context deadline exceeded". That masking cost an afternoon
-// once: the true failure was the setup script, three layers down.
+// once, on a lab whose true failure was its setup script.
 func shouldRetryPrivileged(ctx context.Context, err error, mechanism string) bool {
 	return err != nil && ctx.Err() == nil && mechanism == "rootless-dind"
 }
 
-func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, image, setupScript string, privileged bool) (containerID, containerHost string, err error) {
+func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, image string, privileged bool) (containerID, containerHost string, err error) {
 	args := c.buildRunArgs(name, image, privileged)
 
 	out, err := runCmd(ctx, "docker", args...)
@@ -191,32 +175,6 @@ func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, i
 		return "", "", fmt.Errorf("labs.DockerContainerService.Start: docker run: %w", err)
 	}
 	containerID = strings.TrimSpace(out)
-
-	if setupScript != "" {
-		escaped := strings.ReplaceAll(setupScript, "'", "'\\''")
-		cmd := fmt.Sprintf("timeout 120 bash -c '%s'", escaped)
-
-		var setupErr error
-	retryLoop:
-		for attempt := 1; attempt <= setupScriptRetryAttempts; attempt++ {
-			_, setupErr = runCmd(ctx, "docker", "exec", "--user", "root", containerID, "bash", "-c", cmd)
-			if setupErr == nil {
-				break
-			}
-			if attempt < setupScriptRetryAttempts {
-				select {
-				case <-time.After(setupScriptRetryDelay):
-				case <-ctx.Done():
-					setupErr = ctx.Err()
-					break retryLoop
-				}
-			}
-		}
-		if setupErr != nil {
-			_ = c.Kill(context.Background(), containerID)
-			return "", "", fmt.Errorf("labs.DockerContainerService.Start: setup script (after %d attempts): %w", setupScriptRetryAttempts, setupErr)
-		}
-	}
 
 	// `docker run -d` prints the full 64-char ID and nothing else, but this
 	// runs inside a fire-and-forget provisioning goroutine — a slice on a
@@ -274,13 +232,23 @@ func (c *DockerContainerService) ExecStdin(ctx context.Context, containerID, scr
 	return c.execWithStdin(ctx, containerID, script, stdin, timeoutSec)
 }
 
+// ExecSetup runs a lab's setup_script as root. See ContainerRuntime.ExecSetup
+// for why this is a separate method from Exec rather than a flag on it.
+func (c *DockerContainerService) ExecSetup(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	return c.execAs(ctx, "root", containerID, script, nil, timeoutSec)
+}
+
 func (c *DockerContainerService) execWithStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	return c.execAs(ctx, "labuser", containerID, script, stdin, timeoutSec)
+}
+
+func (c *DockerContainerService) execAs(ctx context.Context, user, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
 	escaped := strings.ReplaceAll(script, "'", "'\\''")
 	args := []string{"exec"}
 	if stdin != nil {
 		args = append(args, "-i")
 	}
-	args = append(args, "--user", "labuser", containerID,
+	args = append(args, "--user", user, containerID,
 		"bash", "-c", fmt.Sprintf("timeout %d bash -c '%s'", timeoutSec, escaped))
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	if stdin != nil {

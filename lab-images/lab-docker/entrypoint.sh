@@ -71,6 +71,14 @@ log "starting in-sandbox registry on :5000"
 docker run -d --name registry --restart=no --network host registry:2 >/dev/null \
   || log "warning: registry failed to start — offline registry exercises won't work this session, terminal still will"
 
+# Everything a lab can depend on is now up: dockerd, the preloaded base
+# images, and the in-sandbox registry. The marker is what
+# /usr/local/bin/lab-ready reports on, and what the backend's warm pool and
+# cold start both block on before running a lab's setup script — see
+# labs.WaitContainerReady. Probing `docker info` from outside would report
+# ready before the preload finished, which is exactly the race this avoids.
+touch /tmp/lab-ready
+
 log "starting ttyd"
 # ttyd's shell inherits this cwd, and lessons refer to starter files as if the
 # student is already in the workdir. The Dockerfile's WORKDIR would cover it,
