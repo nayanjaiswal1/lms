@@ -83,20 +83,26 @@ func (k *KubernetesContainerService) Classify(image string) ImageProfile {
 	return k.profiles[image]
 }
 
-// Start creates a Pod for the given lab session and runs the optional setup
-// script inside it as the image's default user. On setup failure the Pod is
-// force-deleted before the error is returned.
-func (k *KubernetesContainerService) Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error) {
+// Start creates a Pod for the given lab session. See ContainerRuntime.Start —
+// readiness waiting and lab setup are the caller's, not this method's.
+func (k *KubernetesContainerService) Start(ctx context.Context, sessionID string, resetCount int, image string) (containerID, containerHost string, err error) {
 	name := fmt.Sprintf("mindforge-lab-%s-%d", sessionID, resetCount)
-	return k.startPod(ctx, name, map[string]string{"app": "mindforge-lab", "session-id": sessionID}, image, setupScript)
+	return k.startPod(ctx, name, map[string]string{"app": "mindforge-lab", "session-id": sessionID}, image)
 }
 
 // StartWarm creates an unbound warm-pool Pod. See ContainerRuntime.
-func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID string, image, setupScript string) (containerID, containerHost string, err error) {
-	return k.startPod(ctx, "mindforge-warm-"+warmID, map[string]string{"app": "mindforge-lab-warm", "warm-id": warmID}, image, setupScript)
+func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID string, image string) (containerID, containerHost string, err error) {
+	return k.startPod(ctx, WarmContainerNamePrefix+warmID, map[string]string{"app": "mindforge-lab-warm", "warm-id": warmID}, image)
 }
 
-func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image, setupScript string) (containerID, containerHost string, err error) {
+// ExecSetup runs a lab's setup_script. Kubernetes Pod exec cannot override the
+// container's user, so unlike Docker this is NOT privileged — see
+// ContainerRuntime.ExecSetup and this type's own doc comment.
+func (k *KubernetesContainerService) ExecSetup(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	return k.execWithStdin(ctx, containerID, script, nil, timeoutSec)
+}
+
+func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image string) (containerID, containerHost string, err error) {
 	profile := k.Classify(image)
 	// Any non-standard profile (Name != "") is, by definition, elevated —
 	// the standard (zero-value) profile is the only one that ever runs
@@ -183,32 +189,6 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 	if err != nil {
 		_ = k.Kill(context.Background(), containerID)
 		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: wait for running: %w", err)
-	}
-
-	if setupScript != "" {
-		escaped := strings.ReplaceAll(setupScript, "'", "'\\''")
-		cmd := fmt.Sprintf("timeout 120 bash -c '%s'", escaped)
-
-		var setupErr error
-	retryLoop:
-		for attempt := 1; attempt <= setupScriptRetryAttempts; attempt++ {
-			_, _, _, setupErr = k.execPod(ctx, containerID, []string{"bash", "-c", cmd}, nil)
-			if setupErr == nil {
-				break
-			}
-			if attempt < setupScriptRetryAttempts {
-				select {
-				case <-time.After(setupScriptRetryDelay):
-				case <-ctx.Done():
-					setupErr = ctx.Err()
-					break retryLoop
-				}
-			}
-		}
-		if setupErr != nil {
-			_ = k.Kill(context.Background(), containerID)
-			return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: setup script (after %d attempts): %w", setupScriptRetryAttempts, setupErr)
-		}
 	}
 
 	containerHost = fmt.Sprintf("%s:7681", podIP)

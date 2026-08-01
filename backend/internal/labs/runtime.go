@@ -2,6 +2,7 @@ package labs
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -20,10 +21,15 @@ type ContainerInfo struct {
 // Kubernetes API for cluster deploys. Selected once at startup based on
 // config.LabsRuntime — see internal/api/router.go.
 type ContainerRuntime interface {
-	// Start provisions a new sandbox for the given session and, if setupScript
-	// is non-empty, runs it before returning. containerHost is "<host>:7681",
-	// dialed directly by labproxy for the in-browser terminal.
-	Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error)
+	// Start provisions a new sandbox for the given session. It returns as soon
+	// as the sandbox exists — it does NOT wait for the image's background
+	// services to come up and does NOT run any lab setup. Callers pair it with
+	// WaitContainerReady (the image's own readiness contract) and then
+	// Service.prepareLabEnvironment (the lab's starter files + setup_script),
+	// which is exactly what makes a warm sandbox interchangeable between every
+	// lab sharing its image. containerHost is "<host>:7681", dialed directly by
+	// labproxy for the in-browser terminal.
+	Start(ctx context.Context, sessionID string, resetCount int, image string) (containerID, containerHost string, err error)
 
 	// StartWarm provisions a pool sandbox that is not yet bound to any
 	// session — identical to Start except it is named after the
@@ -31,7 +37,7 @@ type ContainerRuntime interface {
 	// can reconcile warm sandboxes against the pool table instead of
 	// lab_sessions. When a session later claims it, the container keeps its
 	// warm name; the session row carries the coordinates.
-	StartWarm(ctx context.Context, warmID string, image, setupScript string) (containerID, containerHost string, err error)
+	StartWarm(ctx context.Context, warmID string, image string) (containerID, containerHost string, err error)
 
 	// Kill force-removes a sandbox by ID.
 	Kill(ctx context.Context, containerID string) error
@@ -55,6 +61,20 @@ type ContainerRuntime interface {
 	// string at MAX_ARG_STRLEN, ~128KB — comfortably smaller than a single
 	// source file) since stdin is a stream, not part of argv.
 	ExecStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error)
+
+	// ExecSetup runs a lab's setup_script — the one exec that is privileged
+	// (Docker: --user root) rather than running as the sandbox's ordinary
+	// student user. Kept as its own method rather than a bool on Exec so that
+	// "which call sites can run as root" stays answerable by grep: exactly one
+	// caller, Service.prepareLabEnvironment, with an instructor-authored
+	// script. Everything student-reachable goes through Exec/ExecStdin and can
+	// never escalate.
+	//
+	// The Kubernetes runtime cannot grant this — a Pod's securityContext is
+	// fixed at creation — so there it runs as the image's default user. Lab
+	// images are built so setup does not require root (world-writable workdir,
+	// traversable home); see lab-images/*/entrypoint.sh.
+	ExecSetup(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error)
 
 	// IsRunning reports whether the sandbox is currently up.
 	IsRunning(ctx context.Context, containerID string) bool
@@ -89,4 +109,80 @@ type ContainerRuntime interface {
 	// warm-pool planner uses ImageProfile.SkipPreWarm to decide whether to
 	// ever pre-provision one unclaimed.
 	Classify(image string) ImageProfile
+}
+
+// ─── Image readiness contract ────────────────────────────────────────────────
+//
+// A sandbox is "ready" when the background services its image starts (lab-k8s:
+// etcd + kube-apiserver + kube-controller-manager + kube-scheduler + kwok;
+// lab-docker: rootless dockerd) are actually serving. That is knowledge the
+// IMAGE owns, so the image ships the check as an executable at
+// ReadinessProbePath and the platform just polls it. Two things follow:
+//
+//   - Warm containers can be pooled per image. "Ready" no longer means "some
+//     lab's setup_script happened to pass", it means "this image's services
+//     are up" — the same statement for every lab that shares the image.
+//   - Lab authors stop hand-writing readiness loops in setup_script. The
+//     previous design had every k8s lab open with `kubectl cluster-info ||
+//     exit 1` and every Docker lab with a 70-iteration `docker info` poll,
+//     re-deriving one image-level fact in 20 places, and container.go
+//     compensated by blindly retrying setup_script 10 times because it could
+//     not tell "not ready yet" from "genuinely broken".
+//
+// An image with no probe (lab-node-web, lab-python-web — nothing to wait for
+// beyond the shell) is ready the moment it starts, which is what the
+// `[ -x ... ] || exit 0` prefix encodes.
+const (
+	// ReadinessProbePath is where a lab image places its own readiness check.
+	// Must exit 0 when the sandbox is serving, non-zero while it is still
+	// coming up. Absent or non-executable = ready immediately.
+	ReadinessProbePath = "/usr/local/bin/lab-ready"
+	// ReadinessProbeTimeoutSeconds bounds a single probe invocation, so a
+	// wedged probe costs one interval instead of the whole budget.
+	ReadinessProbeTimeoutSeconds = 10
+	// ReadinessPollInterval is the gap between probe attempts.
+	ReadinessPollInterval = 1 * time.Second
+)
+
+// readinessProbeScript runs the image's probe, treating "no probe shipped" as
+// ready. Kept as one string constant so both runtimes issue byte-identical
+// checks — a readiness definition that drifted between Docker and Kubernetes
+// would make pool behaviour depend on the deploy target.
+const readinessProbeScript = `[ -x ` + ReadinessProbePath + ` ] || exit 0; exec ` + ReadinessProbePath
+
+// ProbeContainerReady runs the image's readiness check exactly once. Used on
+// its own when claiming a warm sandbox: that container already passed the probe
+// when the planner published it, so this is a liveness re-check, and a single
+// failed probe means "this one is spoiled, cold-start instead" rather than
+// "wait longer" — blocking there would hand the student the very delay the pool
+// was holding the container to avoid.
+func ProbeContainerReady(ctx context.Context, rt ContainerRuntime, containerID string) bool {
+	_, _, exitCode, err := rt.Exec(ctx, containerID, readinessProbeScript, ReadinessProbeTimeoutSeconds)
+	return err == nil && exitCode == 0
+}
+
+// WaitContainerReady blocks until the sandbox's image reports ready, ctx
+// expires, or the sandbox dies. Returns the time waited, which the warm-pool
+// planner feeds into its measured per-image warmup average (Little's Law
+// sizing needs a real number, not a guess).
+//
+// A dead container short-circuits: without that check a sandbox whose
+// entrypoint exited (lab-k8s's `exit 1` when kube-apiserver never came up)
+// would be polled uselessly until the caller's whole provisioning budget
+// drained, turning a 5-second failure into a 3-minute one.
+func WaitContainerReady(ctx context.Context, rt ContainerRuntime, containerID string) (time.Duration, error) {
+	start := time.Now()
+	for {
+		if ProbeContainerReady(ctx, rt, containerID) {
+			return time.Since(start), nil
+		}
+		if !rt.IsRunning(ctx, containerID) {
+			return time.Since(start), fmt.Errorf("labs.WaitContainerReady: sandbox %s exited before becoming ready", containerID)
+		}
+		select {
+		case <-time.After(ReadinessPollInterval):
+		case <-ctx.Done():
+			return time.Since(start), fmt.Errorf("labs.WaitContainerReady: sandbox %s not ready after %s: %w", containerID, time.Since(start).Round(time.Second), ctx.Err())
+		}
+	}
 }

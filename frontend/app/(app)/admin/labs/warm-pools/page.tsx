@@ -10,11 +10,11 @@ export default async function WarmPoolsPage() {
     notFound();
   }
 
-  const { labs } = await apiGet<{ labs: WarmPoolRowData[] }>("/api/admin/labs/warm-pools");
+  const { images } = await apiGet<{ images: WarmPoolRowData[] }>("/api/admin/labs/warm-pools");
 
   return (
     <div className="page-container">
-      <WarmPoolTable labs={labs} />
+      <WarmPoolTable images={images} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -279,48 +280,24 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 	return session, nil
 }
 
-// provisionContainer runs in a goroutine. It first tries to claim a
-// pre-warmed sandbox from the pool (near-instant); on a miss it cold-starts a
-// container, records the coordinates in the DB, and publishes a readiness
-// event via Redis.
+// provisionContainer runs in a goroutine. It acquires a sandbox — pre-warmed
+// from the pool when one is available, cold-started otherwise — applies the
+// lab's own layer to it, records the coordinates in the DB, and publishes a
+// readiness event via Redis.
+//
+// Both acquisition paths converge on the SAME preparation step. That is the
+// point of the design: a warm sandbox and a freshly started one are the same
+// generic container by the time prepareLabEnvironment sees them, differing only
+// in who already paid the image's boot cost. Keeping one preparation path is
+// what stops warm-claimed and cold-started sessions from drifting into subtly
+// different environments — the failure mode that makes a pool bug reproduce for
+// one student in twenty and nobody else.
 func (s *Service) provisionContainer(ctx context.Context, session *LabSession, lab *LabDefinition) {
 	ctx, cancel := context.WithTimeout(ctx, ProvisionTimeoutSeconds*time.Second)
 	defer cancel()
 
-	// Warm-pool fast path. Only first provisions (reset_count 0) qualify:
-	// resets must rebuild from the original image anyway, and a reset user
-	// already waited once. A claimed-but-dead container falls through to a
-	// normal cold start; its row is deleted so the reconciler re-provisions.
-	if session.ResetCount == 0 {
-		if warm, err := s.repo.ClaimWarmContainer(ctx, session.LabID, session.TaskVersionID, session.ID); err != nil {
-			slog.Error("labs.Service.provisionContainer: claim warm", "session_id", session.ID, "error", err)
-		} else if warm != nil {
-			if s.container.IsRunning(ctx, warm.ContainerID) {
-				if err := s.repo.UpdateSessionRunning(ctx, session.ID, warm.ContainerID, warm.ContainerHost); err != nil {
-					slog.Error("labs.Service.provisionContainer: update running (warm)", "session_id", session.ID, "error", err)
-				}
-				s.runRepoClone(ctx, session, warm.ContainerID)
-				if err := s.rdb.Publish(ctx, "lab:events:"+session.ID, "ready").Err(); err != nil {
-					slog.Error("labs.Service.provisionContainer: publish ready (warm)", "session_id", session.ID, "error", err)
-				}
-				return
-			}
-			slog.Warn("labs.Service.provisionContainer: warm container dead at claim, cold-starting", "session_id", session.ID, "warm_id", warm.ID)
-			if err := s.repo.DeleteWarmContainer(ctx, warm.ID); err != nil {
-				slog.Error("labs.Service.provisionContainer: delete dead warm row", "warm_id", warm.ID, "error", err)
-			}
-			_ = s.container.Kill(ctx, warm.ContainerID)
-		}
-	}
-
-	var setupScript string
-	if lab.SetupScript != nil {
-		setupScript = *lab.SetupScript
-	}
-
-	containerID, containerHost, err := s.container.Start(ctx, session.ID, session.ResetCount, lab.Environment, setupScript)
-	if err != nil {
-		slog.Error("labs.Service.provisionContainer: start container", "session_id", session.ID, "error", err)
+	fail := func(stage string, err error) {
+		slog.Error("labs.Service.provisionContainer: "+stage, "session_id", session.ID, "error", err)
 		errText := err.Error()
 		if updateErr := s.repo.UpdateSessionFailed(ctx, session.ID, EndReasonProvisionFailed, &errText); updateErr != nil {
 			slog.Error("labs.Service.provisionContainer: mark failed", "session_id", session.ID, "error", updateErr)
@@ -329,6 +306,20 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 		if pubErr := s.rdb.Publish(ctx, "lab:events:"+session.ID, "failed").Err(); pubErr != nil {
 			slog.Error("labs.Service.provisionContainer: publish failed", "session_id", session.ID, "error", pubErr)
 		}
+	}
+
+	containerID, containerHost, err := s.acquireSandbox(ctx, session, lab)
+	if err != nil {
+		fail("acquire sandbox", err)
+		return
+	}
+
+	if err := s.prepareLabEnvironment(ctx, containerID, lab); err != nil {
+		// The sandbox is unusable and unclaimable by anyone else — it is
+		// already bound to this session's row — so remove it rather than leave
+		// it for the orphan sweep.
+		_ = s.container.Kill(context.Background(), containerID)
+		fail("prepare lab environment", err)
 		return
 	}
 
@@ -339,6 +330,81 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 	if err := s.rdb.Publish(ctx, "lab:events:"+session.ID, "ready").Err(); err != nil {
 		slog.Error("labs.Service.provisionContainer: publish ready", "session_id", session.ID, "error", err)
 	}
+}
+
+// acquireSandbox returns a running, image-ready sandbox for the session: a
+// claimed warm one when the pool has a live container of this image, otherwise
+// a freshly started one waited through its readiness probe.
+//
+// It does NOT apply anything lab-specific — see prepareLabEnvironment.
+func (s *Service) acquireSandbox(ctx context.Context, session *LabSession, lab *LabDefinition) (containerID, containerHost string, err error) {
+	// Warm-pool fast path. Only first provisions (reset_count 0) qualify: a
+	// reset means "give me a clean sandbox", and a reset user already waited
+	// once. Images flagged SkipPreWarm are never in the pool at all, so asking
+	// is pure latency.
+	if session.ResetCount == 0 && !s.container.Classify(lab.Environment).SkipPreWarm {
+		warm, claimErr := s.repo.ClaimWarmContainer(ctx, lab.Environment, session.ID)
+		if claimErr != nil {
+			// A pool read failing must not fail the session — cold start is
+			// always a correct fallback, just slower.
+			slog.Error("labs.Service.acquireSandbox: claim warm", "session_id", session.ID, "error", claimErr)
+		} else if warm != nil {
+			if s.container.IsRunning(ctx, warm.ContainerID) && ProbeContainerReady(ctx, s.container, warm.ContainerID) {
+				return warm.ContainerID, warm.ContainerHost, nil
+			}
+			// Alive-but-not-ready counts as spoiled too: something inside died
+			// while the container idled in the pool, and waiting on it would
+			// cost the student more than the cold start they were spared.
+			slog.Warn("labs.Service.acquireSandbox: warm container unusable at claim, cold-starting",
+				"session_id", session.ID, "warm_id", warm.ID)
+			if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
+				slog.Error("labs.Service.acquireSandbox: delete dead warm row", "warm_id", warm.ID, "error", delErr)
+			}
+			_ = s.container.Kill(ctx, warm.ContainerID)
+		}
+	}
+
+	containerID, containerHost, err = s.container.Start(ctx, session.ID, session.ResetCount, lab.Environment)
+	if err != nil {
+		return "", "", fmt.Errorf("labs.Service.acquireSandbox: start container: %w", err)
+	}
+	if _, err := WaitContainerReady(ctx, s.container, containerID); err != nil {
+		_ = s.container.Kill(context.Background(), containerID)
+		return "", "", fmt.Errorf("labs.Service.acquireSandbox: %w", err)
+	}
+	return containerID, containerHost, nil
+}
+
+// prepareLabEnvironment applies the one thing that makes a generic sandbox this
+// lab's sandbox: its setup_script, which the content pipeline has already
+// prefixed with a heredoc write per starter file (see
+// contentpipeline/generator.buildSetupScript).
+//
+// This runs at CLAIM time, not at warm time. That single move is what lets one
+// pool serve every lab sharing an image: what a warm container pre-pays is the
+// image's boot, which is identical for all of them, while the lab's own layer
+// is cheap (file writes and an assertion or two) and belongs to whichever
+// session actually turns up.
+//
+// A setup failure is fatal to the session by design — a lab whose starter files
+// did not land is a broken lab, and handing the student a terminal into a
+// half-prepared sandbox wastes their attempt on a problem that is not theirs.
+func (s *Service) prepareLabEnvironment(ctx context.Context, containerID string, lab *LabDefinition) error {
+	if lab.SetupScript == nil || strings.TrimSpace(*lab.SetupScript) == "" {
+		return nil
+	}
+	stdout, stderr, exitCode, err := s.container.ExecSetup(ctx, containerID, *lab.SetupScript, SetupScriptTimeoutSeconds)
+	if err != nil {
+		return fmt.Errorf("labs.Service.prepareLabEnvironment: exec setup_script: %w", err)
+	}
+	if exitCode != 0 {
+		detail := strings.TrimSpace(stderr)
+		if detail == "" {
+			detail = strings.TrimSpace(stdout)
+		}
+		return fmt.Errorf("labs.Service.prepareLabEnvironment: setup_script exited %d: %s", exitCode, detail)
+	}
+	return nil
 }
 
 // notifyRepeatedProvisionFailures checks whether labID has crossed
@@ -728,17 +794,27 @@ func (s *Service) resetCodeSession(ctx context.Context, session *LabSession, use
 // coordinates; the old container is killed only after that swap is durable.
 func (s *Service) resetContainerSession(ctx context.Context, session *LabSession, lab *LabDefinition, userID string) (*LabSession, []LabTaskCompletion, error) {
 	newResetCount := session.ResetCount + 1
-	var setupScript string
-	if lab.SetupScript != nil {
-		setupScript = *lab.SetupScript
-	}
 
 	// Named "mindforge-lab-{sessionID}-{newResetCount}" — distinct from the
 	// current container's "-{session.ResetCount}" name, exactly the
 	// collision this suffix scheme exists to avoid (docs/labs.md).
-	newContainerID, newContainerHost, startErr := s.container.Start(ctx, session.ID, newResetCount, lab.Environment, setupScript)
+	newContainerID, newContainerHost, startErr := s.container.Start(ctx, session.ID, newResetCount, lab.Environment)
 	if startErr != nil {
 		slog.Error("labs.Service.resetContainerSession: start replacement container", "session_id", session.ID, "error", startErr)
+		return nil, nil, ErrResetFailed
+	}
+
+	// Same two-step every other provisioning path uses: wait for the image,
+	// then apply the lab. A reset that skipped either would hand the student a
+	// sandbox subtly unlike the one they started with.
+	if _, err := WaitContainerReady(ctx, s.container, newContainerID); err != nil {
+		slog.Error("labs.Service.resetContainerSession: replacement never became ready", "session_id", session.ID, "error", err)
+		_ = s.container.Kill(context.Background(), newContainerID)
+		return nil, nil, ErrResetFailed
+	}
+	if err := s.prepareLabEnvironment(ctx, newContainerID, lab); err != nil {
+		slog.Error("labs.Service.resetContainerSession: prepare replacement", "session_id", session.ID, "error", err)
+		_ = s.container.Kill(context.Background(), newContainerID)
 		return nil, nil, ErrResetFailed
 	}
 

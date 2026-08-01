@@ -536,7 +536,7 @@ Terminal uses `xterm.js` + `@xterm/addon-fit` + `@xterm/addon-web-links`. Loaded
 | `idle_pause_sessions` | Every 5 min | Find `status='running'`, `container_id IS NOT NULL` sessions with `last_active_at < now() - 15min` and no active WS in the proxy's Redis connection registry → `docker pause`; status → `paused`; record pause start |
 | `resume_on_connect` | On WS connect / verify | If session is `paused`, `docker unpause`, add the just-ended pause duration to `paused_seconds` (cost metric — `expires_at` is NOT moved), status → `running`, before serving the request |
 | `cleanup_dead_containers` | Every 10 min | Find containers named `mindforge-lab-*` with no matching `provisioning/running/paused` session → `docker rm -f`. Includes `provisioning` so a container mid-startup is never reaped as an orphan; only reaps containers whose session reached a terminal state or never existed. A 2-min grace on container age guards the provisioning window. |
-| `lab.warm_pool_reconcile` | Every 60s | Metrics-driven warm pool planner (`labs/warmpool.go`). Each tick, per lab: gather the signal matrix (platform-active users, enrolled-active, starts in last 60m, historical expected starts for this hour/day-of-week, scheduled cohort starts in next 60m, current ready/warming/claimed counts) → compute a target warm count (mode `auto`, or `fixed`/`off` override from `lab_warm_pool_configs`) capped by `LABS_WARM_POOL_GLOBAL_MAX` → start/stop `mindforge-warm-*` containers to converge. Every tick writes a `lab_warm_pool_decisions` row whose `inputs` jsonb is the exact metrics snapshot the decision used — the admin UI renders this matrix. |
+| `lab.warm_pool_reconcile` | Every 60s | Metrics-driven warm pool planner (`labs/warmpool.go`). Each tick, **per image**: gather the signal matrix (platform-active users, enrolled-active, starts in last 60m, historical expected starts for this hour/day-of-week, scheduled cohort starts in next 60m, EWMA measured warm-up seconds, current ready/warming/claimed counts) → compute a target warm count by Little's Law (`ceil(λ×W×safety)`; mode `auto`, or `fixed`/`off` from the operator's `LABS_WARM_POOL_OVERRIDES`) capped by `LABS_WARM_POOL_GLOBAL_MAX` → start/stop `mindforge-warm-*` containers to converge. Each warm start is timed to real readiness (`lab-ready` probe) and folded into `lab_image_warmup_stats`, so W is measured rather than assumed. Every tick writes a `lab_warm_pool_decisions` row whose `inputs` jsonb is the exact metrics snapshot the decision used — the admin UI renders this matrix. |
 | `test_session_cleanup` | Hourly | Delete `is_test=true` sessions older than 2 hours; kill their containers |
 | `monitor_container_resources` | Every 60s | Over all non-terminal sessions **with `container_id IS NOT NULL`** (incl. playground; excludes container-less `code` labs): `docker stats` for CPU, `docker exec df` for disk. >90% CPU for >5 min with no WS activity → kill + `terminated_abuse`. Disk ≥95% → flag session, surface "disk full" on next interaction. Covers labs that never call verify. |
 | `lab_analytics_rollup` | Daily 02:00 | Aggregate pass rates, avg time, hint usage per lab into `lab_analytics` table (UPSERT on `(lab_id, day)`) |
@@ -690,7 +690,7 @@ One lab image class, `mindforge/lab-docker:27`, needs to run a real `docker buil
 - **The one `--privileged` exception, and why it's still the tightest option available**: on a host where `/var/run/docker.sock` is a real daemon socket (any bare-metal or VM Linux Docker Engine — production, CI, most self-hosted deploys), the scoped grant above always succeeds and `--privileged` is never touched. On a host where that socket is itself a proxy rather than the real daemon (Docker Desktop for Windows/Mac route container-originated `docker run` requests through their own `docker.proxy.sock`), the proxy silently fails to forward this specific device/capability combination — confirmed interactively: the identical `docker run` succeeds every time issued from the real host CLI, and fails identically every time issued through the proxied socket, against the same daemon. `startNamed` detects this the only reliable way available (the scoped attempt provably failed to produce a running container) and retries once with `--privileged` — a strict superset of the scoped grant that the proxy does forward correctly. This is not a config flag an operator sets per host; it is self-detecting so the same binary behaves correctly (tightest grant that works) on every platform without needing platform-specific tuning. `ProvisionTimeoutSeconds` (180s) budgets for the worst case: the scoped attempt runs its entrypoint's own ~70s dockerd-readiness loop to completion before failing, then the privileged retry needs another ~20-30s.
 - **Kubernetes runtime has no `--cap-add` equivalent** — a nested-image Pod requires `LABS_NESTED_DOCKER_RUNTIME_CLASS` (e.g. `sysbox-runc`, `kata-containers`) to be set, or the session fails immediately rather than approximating elevated capabilities on a shared node pool with no RuntimeClass sandbox.
 - **Isolated network**: nested-image containers run on `mindforge-labs-dind`, a bridge separate from the shared `mindforge-labs` every ordinary lab container is on — an elevated container is never L2-adjacent to an unelevated one, and a nested dockerd's own `docker0`/iptables rules can't collide with the platform bridge.
-- **Never pre-warmed**: the warm-pool planner (`WarmPoolPlanner.Tick`) filters out any lab whose image is nested — an idle elevated container with no student waiting on it is pure risk, and the pool can't verify a ~30s+ dockerd boot the way it checks readiness for an ordinary image.
+- **Never pre-warmed**: the warm-pool planner (`WarmPoolPlanner.Tick`) skips any image whose `ImageProfile.SkipPreWarm` is set, which is how the nested profile is classified — an idle elevated container with no student waiting on it is pure risk. These sessions always cold-start (the `lab-ready` probe still gates the handover, so readiness is not weaker, only the pooling is declined).
 - **Offline**: the lab network has no internet (see Path 1 in the `create-course` skill), so every base image the student's `docker build`/`docker run` needs must be preloaded into `mindforge/lab-docker` at image-build time (`crane pull` + `docker load` in the entrypoint) — registry exercises target an in-sandbox `localhost:5000` registry, never Docker Hub.
 - **Residual risk — not eliminated, only bounded**: `SYS_ADMIN` + unconfined seccomp is a real attack surface on a shared kernel. Treat any nested-Docker container as potentially host-root. Consequently: **this feature must only be enabled on a lab host/node pool that does not also run Postgres, Redis, MinIO, or the backend** (which already holds a docker.sock mount to the *host* daemon, not to any lab container). Shipping the feature default-off, and requiring both an operator env var and an org allowlist entry, is meant to make "someone turned this on without thinking about where" hard to do by accident — it does not make the underlying kernel attack surface smaller.
 
@@ -1196,31 +1196,72 @@ Cold start is the single biggest UX problem for lab platforms. Users clicking "S
 
 **Strategy — Layer 2+3: Metrics-driven warm pool (IMPLEMENTED)**
 
-Warm containers are per **lab** (image + setup), named `mindforge-warm-{uuid}`, tracked in
-`lab_warm_containers` (`warming` → `ready` → `claimed`). The pool is not a fixed size —
-every minute `lab.warm_pool_reconcile` computes a per-lab target from a signal matrix:
+The pool is keyed by **image**, not by lab. This is the load-bearing decision, and it is
+the same one every serverless platform lands on: what is expensive to create is the
+sandbox (image pull, dockerd/control-plane boot, package tree), and that cost is a
+property of the image. What is lab-specific — starter files, per-task fixtures — is
+cheap and is applied at claim time (late binding). Keying by lab instead multiplies the
+pool by the catalog: 23 labs on 4 images meant 23 pools competing for one global cap,
+each one retired wholesale on every content republish. Same images, keyed correctly,
+is 4 pools that get *more* useful as the catalog grows.
+
+Warm containers are named `mindforge-warm-{uuid}` and tracked in `lab_warm_containers`
+(`warming` → `ready` → `claimed`). Every minute `lab.warm_pool_reconcile` computes a
+per-image target from a signal matrix:
 
 ```
-Signal matrix (per lab, captured every tick into lab_warm_pool_decisions.inputs):
+Signal matrix (per image, captured every tick into lab_warm_pool_decisions.inputs):
   platform_active_users   users active anywhere on the platform right now
-  enrolled_active         active users enrolled in a course containing this lab
+  enrolled_active         active users enrolled in a course containing a lab on this image
   recent_starts_60m       real session starts in the last 60 minutes
   hist_expected_starts    avg starts for this hour + day-of-week (4-week history)
   scheduled_starts_60m    cohort/schedule entries starting within 60 minutes
+  warmup_seconds          EWMA of MEASURED warm-start time for this image
   ready / warming / claimed  current pool state
 
-target = f(matrix), clamped by per-lab max_size and LABS_WARM_POOL_GLOBAL_MAX.
-Per-lab lab_warm_pool_configs.mode: auto (default) | fixed(fixed_size) | off.
+Sizing is Little's Law, not a hand-tuned heuristic:
 
-On session start:
-  1. Atomically claim a ready warm container (single UPDATE … RETURNING) → sub-500ms
-  2. Miss → provision normally (3–8s); the miss shows up in the next tick's matrix
-  3. setup_script runs per-assignment, so pooled containers hand over clean environments
+  target = ceil(λ × W × safety),  λ = arrivals/sec, W = measured warm-up seconds
+
+  A pool exists to cover the window in which a request would otherwise wait. Hold
+  exactly the number of sandboxes expected to arrive during one warm-up window, times
+  a safety factor. This is why W must be measured rather than assumed: at identical
+  traffic, a 30s image warrants a pool and a 2s image does not, and no amount of
+  traffic-only tuning can express that difference.
+
+  Floors and clamps: a scheduled cohort is a dated spike, not a rate, so it sets the
+  target directly. Zero platform activity scales to zero. History-only demand hedges
+  with exactly one. Everything is clamped by LABS_WARM_POOL_GLOBAL_MAX.
 ```
 
-The admin page (`/admin/labs/warm-pools`) renders the same matrix the planner used —
-what you see is literally what the engine decided from, so operators can audit and
-override (mode/fixed/max) based on the numbers, not narrative logs.
+**Readiness is an image contract, not a guess.** Each image may ship an executable at
+`/usr/local/bin/lab-ready` that exits 0 once the sandbox is genuinely usable — the same
+idiom as a Kubernetes `readinessProbe`. An image without one is ready immediately, so
+only images with background services need it. `lab-k8s` and `lab-docker` write their
+marker as the last act of their entrypoint, after the control plane / dockerd + image
+preload + registry are all up; both the warm path and the cold path block on
+`labs.WaitContainerReady` before running any setup. This replaced a blind fixed-attempt
+retry loop around `setup_script`, and it is also what makes measured `warmup_seconds`
+meaningful — the timer stops at real readiness, not at `docker run` returning.
+
+```
+On session start:
+  1. Atomically claim a ready warm container for the lab's image
+     (FOR UPDATE SKIP LOCKED) → sub-500ms
+  2. Miss → cold start (3–8s), then WaitContainerReady; the miss shows up in the
+     next tick's matrix
+  3. Either way, setup_script then runs against a container already proven ready,
+     so pooled and cold sessions hand over identical environments
+```
+
+**Sizing is operator config, never tenant config.** A per-image pool is one shared
+platform resource — the same `mindforge/lab-k8s` containers back every tenant's k8s
+labs — so there is no per-org write that could be correct. `LABS_WARM_POOL_OVERRIDES`
+lets the operator pin or disable a specific image; there is no write endpoint.
+The admin page (`/admin/labs/warm-pools`) is read-only and renders the same matrix the
+planner used, including the human-readable reason for each target, so an org admin can
+answer "is the platform holding sandboxes ready for my students, and if not, why"
+without being able to resize infrastructure other tenants depend on.
 `cleanup_dead_containers` reaps any `mindforge-warm-*` container older than 2 minutes
 with no `lab_warm_containers` row (see Background Jobs).
 
@@ -1401,6 +1442,9 @@ client-retry storms safe (no orphan containers from rapid re-submits).
 **Pool-assignment readiness.** When a session is served from the pre-warm pool, `setup_script`
 still runs per-assignment, so the session goes `provisioning → running` only after setup
 completes. Pool hits skip the image pull/boot, not the setup — readiness semantics are identical.
+A claimed container is re-verified (`IsRunning` + `lab-ready` probe) before it is handed over;
+one that has died or regressed since being pooled is killed, its row deleted, and the session
+falls through to a cold start rather than being served a broken sandbox.
 
 ---
 
@@ -1566,7 +1610,7 @@ security-sensitive — their change history must be reconstructable.
 
 ### Phase 5 — Scale & Polish
 - [ ] K8s Jobs as container backend (replaces raw Docker, multi-host)
-- [ ] Pre-warmed container pool (configurable size per image)
+- [x] Pre-warmed container pool, keyed per image, auto-sized from measured warm-up time
 - [ ] Sticky-session WS load balancer (NGINX consistent-hash upstream)
 - [ ] Redis pub/sub for multi-proxy-node session coordination
 - [ ] Per-org concurrency enforcement + queue (instead of hard 429)

@@ -112,6 +112,23 @@ type Config struct {
 	// Per-lab targets come from the metrics-driven planner, capped by this.
 	LabsWarmPoolGlobalMax int
 
+	// LabsWarmPoolOverrides is the raw LABS_WARM_POOL_OVERRIDES value: a
+	// comma-separated "image=mode[:size]" list overriding the warm-pool
+	// planner's automatic sizing for specific images (e.g.
+	// "mindforge/lab-k8s:1.31=fixed:2,mindforge/lab-docker:27=off"). Parsed by
+	// labs.ParseWarmPoolOverrides, which owns the semantics; config only
+	// carries the string so the parsing rules live next to the type that
+	// defines them.
+	//
+	// Unset means every image is sized automatically, which is the intended
+	// steady state — the planner sizes from measured demand and measured
+	// warm-start latency, so these overrides are for incidents ("stop warming
+	// this image") and load tests, not routine tuning. Deliberately operator
+	// config rather than a per-org admin setting: the pool is one shared
+	// resource across every tenant, so an org-level write would let one
+	// customer's admin resize infrastructure the rest depend on.
+	LabsWarmPoolOverrides string
+
 	// LabsImageProfiles maps a lab environment image to the name of the
 	// ImageProfile (labs.ImageProfile) it should be classified as — parsed
 	// from LABS_IMAGE_PROFILES, a comma-separated "image:profileName" list
@@ -301,6 +318,7 @@ func Load() *Config {
 	cfg.LabsRuntime = getEnvDefault("LABS_RUNTIME", "docker")
 	cfg.LabsK8sNamespace = getEnvDefault("LABS_K8S_NAMESPACE", "mindforge-labs")
 	cfg.LabsWarmPoolGlobalMax = getEnvInt("LABS_WARM_POOL_GLOBAL_MAX", 20)
+	cfg.LabsWarmPoolOverrides = os.Getenv("LABS_WARM_POOL_OVERRIDES")
 	cfg.LabsImageProfiles = getEnvImageProfiles("LABS_IMAGE_PROFILES")
 	cfg.LabsNestedDockerRuntime = os.Getenv("LABS_NESTED_DOCKER_RUNTIME")
 	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
