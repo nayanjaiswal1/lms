@@ -81,6 +81,13 @@ type GrantPermissionRequest struct {
 	PermissionID string `json:"permission_id"`
 }
 
+// SetUserStatusRequest locks or restores a platform account.
+// Status is one of "active", "suspended", "deactivated" (users.status).
+type SetUserStatusRequest struct {
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
 // ListPermissionsParams filters the permissions list.
 type ListPermissionsParams struct {
 	Module string
@@ -119,8 +126,13 @@ type UserSummary struct {
 	Email     string    `json:"email"`
 	AvatarURL *string   `json:"avatar_url"`
 	RoleNames []string  `json:"role_names"`
-	Status    string    `json:"status"`
-	JoinedAt  time.Time `json:"joined_at"`
+	// Status is the caller's org-membership status (org_members.status) — scoped
+	// to this organization. AccountStatus is the platform account status
+	// (users.status), which governs whether they can sign in at all. The two are
+	// independent: an active member of this org may still hold a locked account.
+	Status        string    `json:"status"`
+	AccountStatus string    `json:"account_status"`
+	JoinedAt      time.Time `json:"joined_at"`
 }
 
 // ListAuditParams filters the audit_logs list.

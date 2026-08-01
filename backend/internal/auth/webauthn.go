@@ -641,13 +641,21 @@ func (h *Handler) HandleWebAuthnLoginFinish(w http.ResponseWriter, r *http.Reque
 		Email          string
 		AvatarURL      *string
 		SessionVersion int
+		Status         string
 	}
 	var ur userRow
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT id, name, email, avatar_url, session_version FROM users WHERE id = $1`, u.userID,
-	).Scan(&ur.ID, &ur.Name, &ur.Email, &ur.AvatarURL, &ur.SessionVersion); err != nil {
+		`SELECT id, name, email, avatar_url, session_version, status FROM users WHERE id = $1`, u.userID,
+	).Scan(&ur.ID, &ur.Name, &ur.Email, &ur.AvatarURL, &ur.SessionVersion, &ur.Status); err != nil {
 		slog.Error("auth: webauthn login finish get user", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Sign-in failed.")
+		return
+	}
+
+	// Checked only after the authenticator response verified, so the passkey
+	// ceremony cannot be used to probe which accounts are locked.
+	if msg := accountLockedMessage(ur.Status); msg != "" {
+		httputil.WriteError(w, http.StatusForbidden, msg)
 		return
 	}
 

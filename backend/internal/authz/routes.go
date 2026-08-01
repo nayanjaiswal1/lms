@@ -90,6 +90,13 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.With(RequirePermission(h.svc, "admin.manage_members", "admin.manage_permissions")).
 			Delete("/users/{userID}/permission-overrides/{permissionID}", h.HandleRevokeUserPermission)
 
+		// ── Account status ────────────────────────────────────────────────────
+		// Locking an account cuts off every sign-in path and kills live
+		// sessions, so it is gated on manage_members rather than the softer
+		// view_members that the read endpoints accept.
+		r.With(RequirePermission(h.svc, "admin.manage_members")).
+			Patch("/users/{userID}/status", h.HandleSetUserStatus)
+
 		// ── Audit log ─────────────────────────────────────────────────────────
 		r.With(RequirePermission(h.svc, "admin.view_audit_log")).
 			Get("/audit", h.HandleListAudit)

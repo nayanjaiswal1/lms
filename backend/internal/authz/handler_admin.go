@@ -493,6 +493,54 @@ func (h *Handler) HandleRevokeUserPermission(w http.ResponseWriter, r *http.Requ
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Permission revoked."})
 }
 
+// ─── Account status ───────────────────────────────────────────────────────────
+
+// HandleSetUserStatus locks or restores a platform account.
+//
+// This is the only writer of users.status, and the lock is real rather than
+// cosmetic: every sign-in path refuses a non-active account and the
+// session_version bump retires tokens already issued.
+//
+// PATCH /api/admin/rbac/users/{userID}/status
+func (h *Handler) HandleSetUserStatus(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.getClaims(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+
+	userID := chi.URLParam(r, "userID")
+	var req SetUserStatusRequest
+	if err := h.decodeJSON(r, &req); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !ValidUserStatus(req.Status) {
+		httputil.WriteError(w, http.StatusUnprocessableEntity,
+			"status must be one of: active, suspended, deactivated.")
+		return
+	}
+	if len(req.Reason) > 500 {
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "reason must be 500 characters or fewer.")
+		return
+	}
+
+	if err := h.adminSvc.SetUserStatus(r.Context(), claims.UserID, claims.OrgID, userID, req.Status, req.Reason); err != nil {
+		if isNotFound(err) {
+			httputil.WriteError(w, http.StatusNotFound, "User not found.")
+			return
+		}
+		if isForbidden(err) {
+			httputil.WriteError(w, http.StatusForbidden, err.Error())
+			return
+		}
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to update account status.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"message": "Account status updated."})
+}
+
 // ─── Audit log ────────────────────────────────────────────────────────────────
 
 // HandleListAudit returns a paginated audit log scoped to the caller's tenant.

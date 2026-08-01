@@ -95,7 +95,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	// authz is built before mentoring so its *authz.Service can back the
 	// mentoring.assign_tickets / mentoring.manage_reports permission guards.
-	authzHandler := authz.New(pool, rdb)
+	authzHandler := authz.New(pool, rdb, cache)
 
 	// coupons is a leaf package (no dependency on courses or mentoring) —
 	// built before both so its *coupons.Service can be handed to each

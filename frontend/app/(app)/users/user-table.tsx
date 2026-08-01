@@ -17,7 +17,10 @@ export interface UserSummary {
   email: string;
   avatar_url: string | null;
   role_names: string[];
+  /** Org-membership status, scoped to this org. */
   status: string;
+  /** Platform account status — whether they can sign in at all. */
+  account_status: string;
   joined_at: string;
 }
 
@@ -112,6 +115,7 @@ export function UserTable({ users, orgId }: Props) {
                   </td>
                   <td className="py-3 text-right">
                     <UserActionsMenu
+                      accountStatus={user.account_status}
                       email={user.email}
                       memberId={user.member_id}
                       name={user.name}

@@ -421,7 +421,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 
 	args = append(args, params.TenantID, limit, params.Offset)
 	listQ := fmt.Sprintf(`
-		SELECT u.id, m.id, u.name, u.email, u.avatar_url, m.created_at, m.status,
+		SELECT u.id, m.id, u.name, u.email, u.avatar_url, m.created_at, m.status, u.status,
 		       COALESCE(ur.role_names, '{}'::text[]) AS role_names
 		FROM org_members m
 		JOIN users u ON u.id = m.user_id
@@ -445,7 +445,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 	var users []UserSummary
 	for rows.Next() {
 		var u UserSummary
-		if err := rows.Scan(&u.ID, &u.MemberID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.Status, &u.RoleNames); err != nil {
+		if err := rows.Scan(&u.ID, &u.MemberID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.Status, &u.AccountStatus, &u.RoleNames); err != nil {
 			return nil, 0, fmt.Errorf("admin: list users: scan: %w", err)
 		}
 		users = append(users, u)
@@ -698,4 +698,72 @@ func isValidUUID(s string) bool {
 // violation (SQLSTATE 23505).
 func isUniqueViolation(err error) bool {
 	return strings.Contains(err.Error(), "23505")
+}
+
+// ─── Account status ───────────────────────────────────────────────────────────
+
+// SetUserStatus locks or restores a platform account, returning the status it
+// held before the change.
+//
+// The session_version bump is what makes a lock take effect immediately: every
+// access token the user holds asserts the old version, so RequireAuth rejects
+// them on their next request rather than at token expiry. Sign-in and refresh
+// read status directly and refuse a locked account, so no new token can be
+// minted either. Both writes are one statement so an account can never be left
+// locked with live sessions.
+//
+// reason is stored only for a lock; restoring to active clears it.
+func (r *AdminRepo) SetUserStatus(ctx context.Context, userID, status, reason string) (previous string, err error) {
+	if status == "active" {
+		reason = ""
+	}
+	var reasonArg *string
+	if reason != "" {
+		reasonArg = &reason
+	}
+
+	// Read-then-write inside one transaction, rather than a single statement that
+	// leans on PostgreSQL's rule that SET right-hand sides see pre-update values.
+	// The one-liner works, but "did session_version go up?" then depends on
+	// evaluation-order trivia; here it is answerable by reading the code. The
+	// SELECT ... FOR UPDATE serialises two admins acting on the same account.
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("admin: set user status: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if err = tx.QueryRow(ctx,
+		`SELECT status FROM users WHERE id = $1 FOR UPDATE`, userID,
+	).Scan(&previous); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", fmt.Errorf("admin: set user status: user not found")
+		}
+		return "", fmt.Errorf("admin: set user status: lookup: %w", err)
+	}
+
+	// session_version only moves on a real change, so re-applying the status a
+	// user already has does not sign them out for nothing.
+	bump := 0
+	if previous != status {
+		bump = 1
+	}
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE users
+		 SET status = $2,
+		     status_reason = $3,
+		     status_changed_at = now(),
+		     updated_at = now(),
+		     session_version = session_version + $4
+		 WHERE id = $1`,
+		userID, status, reasonArg, bump,
+	); err != nil {
+		return "", fmt.Errorf("admin: set user status: update: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("admin: set user status: commit: %w", err)
+	}
+	return previous, nil
 }

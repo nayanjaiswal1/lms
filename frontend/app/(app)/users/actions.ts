@@ -50,6 +50,23 @@ export async function bulkRemoveUsersAction(
   return { ok: true, data: { failed: 0 } };
 }
 
+// Locks or restores the platform ACCOUNT, which is a different thing from the
+// org-membership suspend above: updateUserStatusAction only removes access to
+// this organization, while this refuses every sign-in path platform-wide and
+// kills the user's live sessions. Distinct endpoint, distinct wording in the UI.
+export async function setAccountStatusAction(
+  userId: string,
+  status: "active" | "suspended" | "deactivated",
+  reason?: string,
+): Promise<ActionResult> {
+  const result = await apiAction("PATCH", `/api/admin/rbac/users/${userId}/status`, {
+    status,
+    reason: reason ?? "",
+  });
+  if (result.ok) revalidatePath(ROUTES.USERS);
+  return result;
+}
+
 // Re-triggers the same self-service "forgot password" email flow on the
 // user's behalf — the admin never sees or sets the password itself.
 export async function resetUserPasswordAction(email: string): Promise<ActionResult> {

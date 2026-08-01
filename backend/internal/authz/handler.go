@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/session"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -20,14 +21,14 @@ type Handler struct {
 }
 
 // New wires up the complete RBAC dependency graph from a pool and Redis client.
-func New(pool *pgxpool.Pool, rdb *redis.Client) *Handler {
+func New(pool *pgxpool.Pool, rdb *redis.Client, sessions *session.Cache) *Handler {
 	repo := NewRepo(pool)
 	cache := NewCache(rdb)
 	svc := NewService(repo, cache)
 
 	adminRepo := NewAdminRepo(pool)
 	auditRepo := NewAuditRepo(pool)
-	adminSvc := NewAdminService(adminRepo, auditRepo, svc)
+	adminSvc := NewAdminService(adminRepo, auditRepo, svc, sessions)
 
 	return &Handler{
 		svc:       svc,

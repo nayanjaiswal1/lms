@@ -33,6 +33,14 @@ type Config struct {
 	CookieSecret  string
 	EncryptionKey string
 
+	// Password policy. The breach check is a k-anonymity lookup against the
+	// Pwned Passwords range API (see auth.checkBreachCorpus) — the password
+	// never leaves the process. It fails open, so disabling it only removes a
+	// strengthening layer; it is not load-bearing.
+	PasswordBreachCheckEnabled bool
+	PasswordBreachAPIURL       string
+	PasswordBreachTimeout      time.Duration
+
 	// Token TTLs
 	AccessTokenTTL       time.Duration
 	RefreshTokenTTL      time.Duration
@@ -257,6 +265,10 @@ func Load() *Config {
 	cfg.EmailVerificationTTL = parseDuration("EMAIL_VERIFICATION_TTL", "24h")
 	cfg.PasswordResetTTL = parseDuration("PASSWORD_RESET_TTL", "30m")
 
+	cfg.PasswordBreachCheckEnabled = getEnvBool("PASSWORD_BREACH_CHECK_ENABLED", true)
+	cfg.PasswordBreachAPIURL = getEnvDefault("PASSWORD_BREACH_API_URL", "https://api.pwnedpasswords.com/range/")
+	cfg.PasswordBreachTimeout = parseDuration("PASSWORD_BREACH_TIMEOUT", "3s")
+
 	// Parse rate limit config
 	cfg.AuthRateLimitMax = getEnvInt("AUTH_RATE_LIMIT_MAX", 10)
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
@@ -399,6 +411,19 @@ func getEnvCIDRs(key string, defaults ...string) []string {
 		out = append(out, part)
 	}
 	return out
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		slog.Error("invalid bool env var", "key", key, "value", raw, "error", err)
+		os.Exit(1)
+	}
+	return v
 }
 
 func requireEnum(key, value string, allowed ...string) {

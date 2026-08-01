@@ -84,6 +84,27 @@ func (h *Handler) limitByAccount(w http.ResponseWriter, r *http.Request, action,
 	return true
 }
 
+// Account statuses, mirrored from the users.status CHECK constraint.
+const (
+	StatusActive      = "active"
+	StatusSuspended   = "suspended"
+	StatusDeactivated = "deactivated"
+)
+
+// accountLockedMessage returns the message to show for a non-active account, or
+// "" when the account may sign in.
+//
+// Deliberately vague about which of the two locked states applies. The
+// distinction matters to operators, not to whoever is at the keyboard, and
+// spelling it out would tell an attacker probing an address whether the account
+// was banned or closed by its owner.
+func accountLockedMessage(status string) string {
+	if status == StatusActive {
+		return ""
+	}
+	return "This account is not available. Contact support if you think this is a mistake."
+}
+
 // ─── request / response types ─────────────────────────────────────────────────
 
 type registerRequest struct {
@@ -157,6 +178,16 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.limitByAccount(w, r, "register", req.Email) {
+		return
+	}
+
+	// Runs after the length/format checks so an obviously-invalid request never
+	// reaches the breach lookup, and after the rate limit so the endpoint cannot
+	// be used to drive traffic at a third party.
+	if rej := ValidatePassword(r.Context(), h.cfg, req.Password, req.Email, req.Name); rej != nil {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"password": rej.Reason,
+		})
 		return
 	}
 
@@ -282,14 +313,15 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		PasswordHash   *string
 		EmailVerified  bool
 		SessionVersion int
+		Status         string
 	}
 
 	var u userRow
 	err := h.pool.QueryRow(r.Context(),
-		`SELECT id, name, email, avatar_url, password_hash, email_verified, session_version
+		`SELECT id, name, email, avatar_url, password_hash, email_verified, session_version, status
 		 FROM users WHERE email = $1`,
 		req.Email,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PasswordHash, &u.EmailVerified, &u.SessionVersion)
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PasswordHash, &u.EmailVerified, &u.SessionVersion, &u.Status)
 
 	if err != nil {
 		_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte(req.Password))
@@ -305,6 +337,13 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if err := bcrypt.CompareHashAndPassword([]byte(*u.PasswordHash), []byte(req.Password)); err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "Invalid email or password.")
+		return
+	}
+
+	// Checked only after the password matched: an unauthenticated caller must
+	// not be able to probe which addresses are locked.
+	if msg := accountLockedMessage(u.Status); msg != "" {
+		httputil.WriteError(w, http.StatusForbidden, msg)
 		return
 	}
 
@@ -517,13 +556,23 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		Email          string
 		AvatarURL      *string
 		SessionVersion int
+		Status         string
 	}
 	var u userRow
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT id, name, email, avatar_url, session_version FROM users WHERE id = $1`,
+		`SELECT id, name, email, avatar_url, session_version, status FROM users WHERE id = $1`,
 		tok.UserID,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.SessionVersion); err != nil {
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.SessionVersion, &u.Status); err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "User not found.")
+		return
+	}
+
+	// A locked account must not be able to extend its session. The status
+	// writer also bumps session_version, so live access tokens are already
+	// dead; this closes the refresh path behind them.
+	if msg := accountLockedMessage(u.Status); msg != "" {
+		clearCookies(w, h.cfg)
+		httputil.WriteError(w, http.StatusForbidden, msg)
 		return
 	}
 
@@ -845,14 +894,24 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	tokenHash := HashToken(req.Token)
 
-	var userID string
+	var userID, userEmail, userName string
 	err := h.pool.QueryRow(r.Context(),
-		`SELECT user_id FROM password_reset_tokens
-		 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+		`SELECT prt.user_id, u.email, u.name
+		 FROM password_reset_tokens prt
+		 JOIN users u ON u.id = prt.user_id
+		 WHERE prt.token_hash = $1 AND prt.used_at IS NULL AND prt.expires_at > now()`,
 		tokenHash,
-	).Scan(&userID)
+	).Scan(&userID, &userEmail, &userName)
 	if err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid or expired reset token.")
+		return
+	}
+
+	// The same policy registration applies — a reset must not be a way around it.
+	if rej := ValidatePassword(r.Context(), h.cfg, req.NewPassword, userEmail, userName); rej != nil {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"new_password": rej.Reason,
+		})
 		return
 	}
 

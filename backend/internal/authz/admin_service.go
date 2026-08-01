@@ -3,6 +3,8 @@ package authz
 import (
 	"context"
 	"fmt"
+
+	"github.com/mindforge/backend/internal/session"
 )
 
 // AdminService wraps AdminRepo with audit logging and cache invalidation.
@@ -12,11 +14,14 @@ type AdminService struct {
 	adminRepo *AdminRepo
 	auditRepo *AuditRepo
 	svc       *Service
+	sessions  *session.Cache
 }
 
-// NewAdminService constructs an AdminService.
-func NewAdminService(adminRepo *AdminRepo, auditRepo *AuditRepo, svc *Service) *AdminService {
-	return &AdminService{adminRepo: adminRepo, auditRepo: auditRepo, svc: svc}
+// NewAdminService constructs an AdminService. sessions is used to drop a user's
+// cached session_version the moment their account status changes, so a lock
+// takes effect on the next request instead of at the end of the cache TTL.
+func NewAdminService(adminRepo *AdminRepo, auditRepo *AuditRepo, svc *Service, sessions *session.Cache) *AdminService {
+	return &AdminService{adminRepo: adminRepo, auditRepo: auditRepo, svc: svc, sessions: sessions}
 }
 
 // ─── Role management ──────────────────────────────────────────────────────────
@@ -222,6 +227,48 @@ func (s *AdminService) RevokeUserPermission(ctx context.Context, actorID, tenant
 			"permission_id": permissionID,
 			"tenant_id":     tenantID,
 		}})
+	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
+	return nil
+}
+
+// ─── Account status ───────────────────────────────────────────────────────────
+
+// ValidUserStatus reports whether s is one of the statuses users.status accepts.
+func ValidUserStatus(s string) bool {
+	return s == "active" || s == "suspended" || s == "deactivated"
+}
+
+// SetUserStatus locks or restores a platform account, audits the change, and
+// drops the caller's cached session_version so live tokens are rejected on the
+// next request rather than at the end of the cache TTL.
+//
+// Refuses to act on the actor's own account: an admin locking themselves out
+// mid-session is never the intent, and undoing it needs another admin.
+func (s *AdminService) SetUserStatus(ctx context.Context, actorID, tenantID, targetUserID, status, reason string) error {
+	if !ValidUserStatus(status) {
+		return fmt.Errorf("admin svc: set user status: invalid status %q", status)
+	}
+	if actorID == targetUserID {
+		return fmt.Errorf("forbidden: you cannot change your own account status")
+	}
+
+	previous, err := s.adminRepo.SetUserStatus(ctx, targetUserID, status, reason)
+	if err != nil {
+		return fmt.Errorf("admin svc: set user status: %w", err)
+	}
+	if previous == status {
+		return nil // no-op; nothing to audit or invalidate
+	}
+
+	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.status.set", "user",
+		targetUserID, &AuditDiff{
+			Before: map[string]string{"status": previous},
+			After:  map[string]string{"status": status, "reason": reason},
+		})
+
+	if s.sessions != nil {
+		s.sessions.InvalidateVersionCache(ctx, targetUserID)
+	}
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil
 }

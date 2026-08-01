@@ -213,13 +213,20 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 		Email          string
 		AvatarURL      *string
 		SessionVersion int
+		Status         string
 	}
 	var u userRow
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT id, name, email, avatar_url, session_version FROM users WHERE id = $1`, userID,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.SessionVersion); err != nil {
+		`SELECT id, name, email, avatar_url, session_version, status FROM users WHERE id = $1`, userID,
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.SessionVersion, &u.Status); err != nil {
 		slog.Error("auth: social exchange get user", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
+		return
+	}
+
+	// A locked account cannot sign in, whichever provider vouched for it.
+	if msg := accountLockedMessage(u.Status); msg != "" {
+		httputil.WriteError(w, http.StatusForbidden, msg)
 		return
 	}
 
