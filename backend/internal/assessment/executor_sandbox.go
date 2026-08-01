@@ -18,8 +18,12 @@ import (
 // interface is narrow enough that *labs.DockerContainerService (and the
 // Kubernetes runtime behind the same labs.ContainerRuntime interface) already
 // satisfy it structurally with no wrapper needed.
+// Grading images are plain language runtimes with no background services to
+// come up, so unlike a lab sandbox there is nothing to wait for between Start
+// and the first Exec — which is why this interface needs neither
+// labs.ContainerRuntime's readiness probe nor its setup step.
 type SandboxRuntime interface {
-	Start(ctx context.Context, sessionID string, resetCount int, image, setupScript string) (containerID, containerHost string, err error)
+	Start(ctx context.Context, sessionID string, resetCount int, image string) (containerID, containerHost string, err error)
 	Kill(ctx context.Context, containerID string) error
 	Exec(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error)
 }
@@ -71,7 +75,7 @@ func (e *sandboxExecutor) Run(ctx context.Context, lang, source string, content 
 	runCtx, cancel := runDeadline(ctx, timeout+15*time.Second) // container start/write overhead on top of the verify budget
 	defer cancel()
 
-	containerID, _, err := e.rt.Start(runCtx, "grade-"+id, 0, content.SandboxImage, "")
+	containerID, _, err := e.rt.Start(runCtx, "grade-"+id, 0, content.SandboxImage)
 	if err != nil {
 		return RunResult{Status: "error"}, fmt.Errorf("assessment: start sandbox container: %w", err)
 	}

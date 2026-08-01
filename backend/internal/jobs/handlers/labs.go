@@ -530,9 +530,11 @@ type LabWarmPoolHandler struct {
 }
 
 // NewLabWarmPoolHandler constructs the handler. globalMax is
-// LABS_WARM_POOL_GLOBAL_MAX — the total warm container budget across labs.
-func NewLabWarmPoolHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime, globalMax int) *LabWarmPoolHandler {
-	return &LabWarmPoolHandler{planner: labs.NewWarmPoolPlanner(pool, runtime, globalMax)}
+// LABS_WARM_POOL_GLOBAL_MAX — the total warm container budget across images;
+// overrides is the parsed LABS_WARM_POOL_OVERRIDES map (nil = size every image
+// automatically).
+func NewLabWarmPoolHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime, globalMax int, overrides map[string]labs.WarmPoolOverride) *LabWarmPoolHandler {
+	return &LabWarmPoolHandler{planner: labs.NewWarmPoolPlanner(pool, runtime, globalMax, overrides)}
 }
 
 // Handle runs one reconcile tick.

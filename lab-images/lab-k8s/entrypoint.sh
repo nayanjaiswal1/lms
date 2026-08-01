@@ -131,5 +131,12 @@ kwok \
   --cidr=10.0.0.1/24 \
   >$LOG_DIR/kwok.log 2>&1 &
 
+# Everything a lab can depend on is now up. The marker is what
+# /usr/local/bin/lab-ready reports on, and what the backend's warm pool and
+# cold start both block on before running a lab's setup script — see
+# labs.WaitContainerReady. Written here, at the one point in this script that
+# knows the whole control plane came up, rather than re-probed from outside.
+touch /tmp/lab-ready
+
 log "starting ttyd"
 exec ttyd -W -p 7681 bash

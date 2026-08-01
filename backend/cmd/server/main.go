@@ -149,6 +149,18 @@ func main() {
 		slog.Info("labs: image profiles enabled", "images", cfg.LabsImageProfiles)
 	}
 
+	// Fatal rather than "log and carry on": an operator who typo'd an override
+	// they set to stop warming a misbehaving image must not be left believing
+	// it took effect while the planner keeps warming it.
+	labsWarmPoolOverrides, err := labs.ParseWarmPoolOverrides(cfg.LabsWarmPoolOverrides)
+	if err != nil {
+		slog.Error("labs: invalid LABS_WARM_POOL_OVERRIDES", "error", err)
+		os.Exit(1)
+	}
+	if len(labsWarmPoolOverrides) > 0 {
+		slog.Info("labs: warm pool overrides active", "overrides", cfg.LabsWarmPoolOverrides)
+	}
+
 	// ─── Instance ID ─────────────────────────────────────────────────────────
 	instanceID := os.Getenv("INSTANCE_ID")
 	if instanceID == "" {
@@ -208,7 +220,7 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
 	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime, notificationsSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
-	jobsRegistry.Register(handlers.HandlerLabWarmPool, handlers.NewLabWarmPoolHandler(pool, labsRuntime, cfg.LabsWarmPoolGlobalMax))
+	jobsRegistry.Register(handlers.HandlerLabWarmPool, handlers.NewLabWarmPoolHandler(pool, labsRuntime, cfg.LabsWarmPoolGlobalMax, labsWarmPoolOverrides))
 	jobsRegistry.Register(handlers.HandlerAssessmentExpire, handlers.NewAssessmentExpireHandler(assessmentHandlerForJobs))
 	jobsRegistry.Register(handlers.HandlerMentorEscalate, handlers.NewMentorEscalationHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerCalendarReminder, handlers.NewCalendarReminderHandler(pool, cfg))

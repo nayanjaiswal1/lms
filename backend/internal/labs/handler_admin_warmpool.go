@@ -5,35 +5,41 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// warmPoolMatrixRow is one lab's row in the admin warm-pool metrics matrix:
-// current pool state + config, alongside the exact signal snapshot and
-// resulting target the most recent reconciler tick computed.
+// warmPoolMatrixRow is one image's row in the admin warm-pool metrics matrix:
+// current pool state and measured warm-start latency, alongside the exact
+// signal snapshot and resulting target the most recent reconciler tick
+// computed.
 type warmPoolMatrixRow struct {
-	WarmPoolLab
+	WarmPoolImage
+	Mode      string          `json:"mode"`
 	Target    int             `json:"target"`
+	Reason    string          `json:"reason"`
 	DecidedAt *time.Time      `json:"decided_at"`
 	Inputs    json.RawMessage `json:"inputs"`
 }
 
 // HandleListWarmPools returns the metrics matrix for every warm-pool-eligible
-// lab IN THE CALLER'S ORG: pool state, config, and the raw signal inputs +
-// target from the most recent reconciler tick. This is the data
-// /admin/labs/warm-pools renders — a matrix of numbers, not a narrative
-// decision history. Scoped via ListWarmPoolLabsForOrg — the unscoped
-// ListWarmPoolLabs (used only by the planner) previously served here leaked
-// every org's lab catalog and pool state to any org's admin.
+// IMAGE used by the caller's org: pool state, measured warm-start latency, and
+// the raw signal inputs + target + reasoning from the most recent reconciler
+// tick.
+//
+// Read-only by design. The pool is one shared platform resource — the same
+// mindforge/lab-k8s containers back every tenant's k8s labs — so there is no
+// per-org write that could be correct here; sizing is either automatic (the
+// normal case) or an operator's LABS_WARM_POOL_OVERRIDES. What an org admin
+// legitimately needs from this page is the answer to "is the platform holding
+// sandboxes ready for my students, and if not, why", which is exactly what the
+// target + reason columns say.
 func (h *Handler) HandleListWarmPools(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {
 		return
 	}
 
-	labsList, err := h.repo.ListWarmPoolLabsForOrg(r.Context(), claims.OrgID)
+	images, err := h.repo.ListWarmPoolImagesForOrg(r.Context(), claims.OrgID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -44,62 +50,22 @@ func (h *Handler) HandleListWarmPools(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows := make([]warmPoolMatrixRow, 0, len(labsList))
-	for _, lab := range labsList {
-		row := warmPoolMatrixRow{WarmPoolLab: lab, Inputs: json.RawMessage("{}")}
-		if d, ok := decisions[lab.LabID]; ok {
+	rows := make([]warmPoolMatrixRow, 0, len(images))
+	for _, img := range images {
+		row := warmPoolMatrixRow{
+			WarmPoolImage: img,
+			Mode:          WarmPoolModeAuto,
+			Inputs:        json.RawMessage("{}"),
+		}
+		if d, ok := decisions[img.Image]; ok {
+			row.Mode = d.Mode
 			row.Target = d.Target
+			row.Reason = d.Reason
 			decidedAt := d.DecidedAt
 			row.DecidedAt = &decidedAt
 			row.Inputs = json.RawMessage(d.Inputs)
 		}
 		rows = append(rows, row)
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"labs": rows})
-}
-
-// warmPoolConfigUpdate is the admin override payload for one lab's pool.
-type warmPoolConfigUpdate struct {
-	Mode      string `json:"mode"`
-	FixedSize int    `json:"fixed_size"`
-	MaxSize   int    `json:"max_size"`
-}
-
-// HandleUpdateWarmPoolConfig lets an admin override a lab's pool mode/sizing;
-// the reconciler picks it up on its next tick. Ownership is verified via
-// GetLab(labID, claims.OrgID) before any write — labID arrives from the URL
-// with no other org check, so skipping this let an admin of any org retarget
-// or disable another org's warm pool by ID.
-func (h *Handler) HandleUpdateWarmPoolConfig(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
-	if !ok {
-		return
-	}
-	labID := chi.URLParam(r, "labId")
-
-	if _, err := h.repo.GetLab(r.Context(), labID, claims.OrgID); err != nil {
-		writeDomainError(w, err)
-		return
-	}
-
-	var req warmPoolConfigUpdate
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	switch req.Mode {
-	case "auto", "fixed", "off":
-	default:
-		httputil.WriteError(w, http.StatusBadRequest, "mode must be auto, fixed, or off.")
-		return
-	}
-	if req.FixedSize < 0 || req.FixedSize > 20 || req.MaxSize < 0 || req.MaxSize > 20 {
-		httputil.WriteError(w, http.StatusBadRequest, "fixed_size and max_size must be between 0 and 20.")
-		return
-	}
-
-	if err := h.repo.UpsertWarmPoolConfig(r.Context(), labID, req.Mode, req.FixedSize, req.MaxSize, claims.UserID); err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"images": rows})
 }

@@ -90,10 +90,59 @@ const (
 	// "mindforge-lab-" orphan scan — the warm-pool reconciler owns their
 	// lifecycle instead.
 	WarmContainerNamePrefix = "mindforge-warm-"
-	// WarmPoolMaxStartsPerTick bounds how many warm containers a single
-	// reconciler run may provision, so a fleet-wide deficit ramps up
-	// gradually instead of saturating the host in one tick.
-	WarmPoolMaxStartsPerTick = 4
+	// SetupScriptTimeoutSeconds bounds a lab's setup_script. It runs at CLAIM
+	// time now (Service.prepareLabEnvironment), so it is on the student's
+	// critical path — a lab whose setup genuinely needs minutes is a lab
+	// authoring problem, not something to widen this for.
+	SetupScriptTimeoutSeconds = 120
+)
+
+// ─── Warm pool sizing ────────────────────────────────────────────────────────
+//
+// The pool is sized per IMAGE from Little's Law — see computeWarmTarget in
+// warmpool.go for the derivation and for what this replaced.
+
+const (
+	// Warm pool modes (WarmPoolOverride.Mode / lab_warm_pool_decisions.mode).
+	WarmPoolModeAuto  = "auto"
+	WarmPoolModeFixed = "fixed"
+	WarmPoolModeOff   = "off"
+
+	// WarmPoolDefaultMaxSize ceilings any single image's pool when the operator
+	// has set no LABS_WARM_POOL_OVERRIDES size for it. A backstop against a
+	// runaway demand signal, not a tuning knob.
+	WarmPoolDefaultMaxSize = 5
+
+	// WarmPoolDefaultWarmupSeconds is the assumed warm-start latency for an
+	// image the pool has never successfully started. Deliberately pessimistic:
+	// over-estimating costs one extra idle container, under-estimating hands a
+	// student the cold start the pool exists to prevent. Replaced by the
+	// measured EWMA (lab_image_warmup_stats) after the first sample.
+	WarmPoolDefaultWarmupSeconds = 20.0
+
+	// WarmPoolSafetyFactor multiplies the Little's Law target to absorb arrival
+	// burstiness — real lab starts are not Poisson-smooth, a class clicks
+	// together. 2 means "hold twice the average-case need".
+	WarmPoolSafetyFactor = 2.0
+
+	// WarmPoolMinExpectedArrivals is the floor below which warming is not worth
+	// the RAM: if fewer than this many students are expected to ask for an
+	// image during one of its own warmup windows, the pool holds nothing. This
+	// is what makes a fast image (short W) correctly pool nothing under light
+	// traffic while a slow image at the same traffic still pools — the
+	// distinction the old lab-keyed, W-less formula could not express.
+	WarmPoolMinExpectedArrivals = 0.1
+
+	// WarmPoolMaxOverrideSize bounds any single LABS_WARM_POOL_OVERRIDES size,
+	// so a mistyped extra zero cannot ask the reconciler to hold 200
+	// containers of one image. The global cap would eventually stop it, but
+	// only after starving every other image's pool first.
+	WarmPoolMaxOverrideSize = 20
+
+	// WarmupEWMAAlpha weights the newest warm-start measurement in the
+	// per-image moving average. 0.2 tracks a permanent change in start cost
+	// within ~20 samples without letting one slow start move the target.
+	WarmupEWMAAlpha = 0.2
 )
 
 // ─── Enumerations (mirror the DB CHECK constraints) ──────────────────────────

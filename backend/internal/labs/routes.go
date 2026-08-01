@@ -61,13 +61,18 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 // RegisterAdminRoutes mounts the /admin/labs/warm-pools and /admin/labs/usage
 // APIs. Gated on admin.manage_org, the same permission that already governs
-// org-wide operational settings — warm-pool sizing and compute-usage
-// reporting are org-scoped operational knobs, not a distinct permission
+// org-wide operational settings — compute-usage reporting and warm-pool
+// observability are org-scoped operational reads, not a distinct permission
 // domain.
+//
+// Warm-pool sizing has no write endpoint: the pool is keyed by image and shared
+// across every tenant, so a per-org write would let one org's admin resize
+// infrastructure the others depend on. Sizing is automatic, with
+// LABS_WARM_POOL_OVERRIDES as the operator-level escape hatch — see
+// HandleListWarmPools.
 func (h *Handler) RegisterAdminRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(authz.RequirePermission(authzSvc, "admin.manage_org")).Group(func(r chi.Router) {
 		r.Get("/api/admin/labs/warm-pools", h.HandleListWarmPools)
-		r.Put("/api/admin/labs/{labId}/warm-pool", h.HandleUpdateWarmPoolConfig)
 		r.Get("/api/admin/labs/usage", h.HandleGetLabUsage)
 	})
 }

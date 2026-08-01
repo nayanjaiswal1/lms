@@ -16,12 +16,13 @@ import (
 
 // ─── Warm pool planner ───────────────────────────────────────────────────────
 //
-// Demand-driven sizing of the pre-warmed sandbox pool. Every tick (cron,
-// 1 min) the planner:
+// Demand-driven sizing of the pre-warmed sandbox pool, one pool per IMAGE.
+// Every tick (cron, 1 min) the planner:
 //
-//  1. retires stale rows (version bumps, ended sessions, stuck warming)
+//  1. retires stale rows (image left the catalog, ended sessions, stuck warming)
 //  2. gathers live demand signals in a handful of aggregate queries
-//  3. computes a per-lab target (conservative: 0 whenever nobody is around)
+//  3. computes a per-image target from Little's Law against the image's own
+//     MEASURED warm-start latency
 //  4. applies the global container cap
 //  5. records every decision — target, previous target, the exact input
 //     snapshot, and a human-readable reason — in lab_warm_pool_decisions,
@@ -31,20 +32,22 @@ import (
 //     trims excess ready ones
 //
 // Scale-up is deliberately slower than scale-down: an idle warm container
-// costs RAM every minute, while a cold start costs one student ~30s once.
+// costs RAM every minute, while a cold start costs one student one warmup
+// window, once.
 
 const (
 	// warmPoolActiveWindow defines "someone is on the platform right now".
 	warmPoolActiveWindow = 15 * time.Minute
-	// warmPoolStartsWindow is the recent-demand lookback.
+	// warmPoolStartsWindow is the recent-demand lookback, and the denominator
+	// of the measured arrival rate.
 	warmPoolStartsWindow = 60 * time.Minute
 	// warmPoolScheduleHorizon is how far ahead batch/module schedules count.
 	warmPoolScheduleHorizon = 60 * time.Minute
 	// warmPoolStuckAfter retires warming rows that never became ready.
 	warmPoolStuckAfter = 10 * time.Minute
 	// warmPoolHeartbeat forces a decision row even when the target is
-	// unchanged, so the admin page always shows a recent "why" for any lab
-	// with active or wanted pool state. A lab that is stably idle (target 0,
+	// unchanged, so the admin page always shows a recent "why" for any image
+	// with active or wanted pool state. An image that is stably idle (target 0,
 	// previous target 0 — nothing warm, nothing wanted) skips even this
 	// heartbeat: see recordDecision's idle-skip.
 	warmPoolHeartbeat = 15 * time.Minute
@@ -68,18 +71,37 @@ func startBudget(globalMax int) int {
 	return b
 }
 
+// WarmPoolOverride is an operator's manual override for one image's pool,
+// parsed from LABS_WARM_POOL_OVERRIDES. Absent = mode "auto" with the default
+// ceiling, which is the intended steady state — the overrides exist for
+// incidents ("stop warming this image now") and for load tests, not for
+// routine tuning, because the auto policy sizes from measured demand and
+// measured warmup and has nothing a human would hand-tune better.
+type WarmPoolOverride struct {
+	// Mode is WarmPoolModeAuto, WarmPoolModeFixed, or WarmPoolModeOff.
+	Mode string
+	// Size is the pinned pool size when Mode is "fixed"; it is also the
+	// ceiling for "auto" when non-zero, replacing WarmPoolDefaultMaxSize.
+	Size int
+}
+
 // WarmPoolPlanner owns the reconcile tick. Constructed once in main.go and
 // shared by the cron job handler.
 type WarmPoolPlanner struct {
 	repo      *Repo
 	runtime   ContainerRuntime
 	globalMax int
+	overrides map[string]WarmPoolOverride
 }
 
 // NewWarmPoolPlanner returns a planner. globalMax caps total warm containers
-// across all labs (LABS_WARM_POOL_GLOBAL_MAX).
-func NewWarmPoolPlanner(pool *pgxpool.Pool, runtime ContainerRuntime, globalMax int) *WarmPoolPlanner {
-	return &WarmPoolPlanner{repo: NewRepo(pool), runtime: runtime, globalMax: globalMax}
+// across all images (LABS_WARM_POOL_GLOBAL_MAX); overrides is the parsed
+// LABS_WARM_POOL_OVERRIDES map (may be nil).
+func NewWarmPoolPlanner(pool *pgxpool.Pool, runtime ContainerRuntime, globalMax int, overrides map[string]WarmPoolOverride) *WarmPoolPlanner {
+	if overrides == nil {
+		overrides = map[string]WarmPoolOverride{}
+	}
+	return &WarmPoolPlanner{repo: NewRepo(pool), runtime: runtime, globalMax: globalMax, overrides: overrides}
 }
 
 // warmPoolInputs is the exact signal snapshot a decision was computed from;
@@ -90,6 +112,8 @@ type warmPoolInputs struct {
 	RecentStarts60m    int     `json:"recent_starts_60m"`
 	HistExpectedStarts float64 `json:"hist_expected_starts"`
 	ScheduledStarts60m int     `json:"scheduled_starts_60m"`
+	WarmupSeconds      float64 `json:"warmup_seconds"`
+	WarmupSamples      int64   `json:"warmup_samples"`
 	Ready              int     `json:"ready"`
 	Warming            int     `json:"warming"`
 	MaxSize            int     `json:"max_size"`
@@ -98,14 +122,14 @@ type warmPoolInputs struct {
 }
 
 type warmPoolPlan struct {
-	lab    WarmPoolLab
+	img    WarmPoolImage
 	inputs warmPoolInputs
 	target int
 	reason string
 }
 
-// Tick runs one reconcile pass. Errors on individual labs are logged and
-// skipped so one bad lab cannot stall the whole pool.
+// Tick runs one reconcile pass. Errors on individual images are logged and
+// skipped so one bad image cannot stall the whole pool.
 func (p *WarmPoolPlanner) Tick(ctx context.Context) error {
 	if err := p.retireStale(ctx); err != nil {
 		slog.Error("labs.WarmPoolPlanner: retire stale", "error", err)
@@ -114,24 +138,22 @@ func (p *WarmPoolPlanner) Tick(ctx context.Context) error {
 		slog.Error("labs.WarmPoolPlanner: prune decisions", "error", err)
 	}
 
-	allPoolLabs, err := p.repo.ListWarmPoolLabs(ctx)
+	allImages, err := p.repo.ListWarmPoolImages(ctx)
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
 	// Any image whose ImageProfile.SkipPreWarm is true is never pre-warmed —
 	// e.g. today's nested-Docker (Docker-in-Docker) labs: an idle elevated
-	// container sitting unclaimed is pure risk with no student waiting on
-	// it, and its ~30s+ dockerd boot means the pool can't verify "ready" the
-	// way it does for an ordinary lab anyway. These sessions always
-	// cold-start via Service.StartSession instead.
-	poolLabs := make([]WarmPoolLab, 0, len(allPoolLabs))
-	for _, lab := range allPoolLabs {
-		if p.runtime.Classify(lab.Image).SkipPreWarm {
+	// container sitting unclaimed is pure risk with no student waiting on it.
+	// These sessions always cold-start via Service.StartSession instead.
+	images := make([]WarmPoolImage, 0, len(allImages))
+	for _, img := range allImages {
+		if p.runtime.Classify(img.Image).SkipPreWarm {
 			continue
 		}
-		poolLabs = append(poolLabs, lab)
+		images = append(images, img)
 	}
-	if len(poolLabs) == 0 {
+	if len(images) == 0 {
 		return nil
 	}
 
@@ -139,19 +161,19 @@ func (p *WarmPoolPlanner) Tick(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
-	starts, err := p.repo.CountRecentStartsByLab(ctx, warmPoolStartsWindow)
+	starts, err := p.repo.CountRecentStartsByImage(ctx, warmPoolStartsWindow)
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
-	enrolled, err := p.repo.CountEnrolledActiveByLab(ctx, warmPoolActiveWindow)
+	enrolled, err := p.repo.CountEnrolledActiveByImage(ctx, warmPoolActiveWindow)
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
-	hist, err := p.repo.HistExpectedStartsByLab(ctx)
+	hist, err := p.repo.HistExpectedStartsByImage(ctx)
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
-	scheduled, err := p.repo.CountScheduledStartsByLab(ctx, warmPoolScheduleHorizon)
+	scheduled, err := p.repo.CountScheduledStartsByImage(ctx, warmPoolScheduleHorizon)
 	if err != nil {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
@@ -160,22 +182,25 @@ func (p *WarmPoolPlanner) Tick(ctx context.Context) error {
 		return fmt.Errorf("labs.WarmPoolPlanner.Tick: %w", err)
 	}
 
-	plans := make([]warmPoolPlan, 0, len(poolLabs))
-	for _, lab := range poolLabs {
+	plans := make([]warmPoolPlan, 0, len(images))
+	for _, img := range images {
+		override := p.overrides[img.Image]
 		in := warmPoolInputs{
 			PlatformActive15m:  platformActive,
-			EnrolledActive:     enrolled[lab.LabID],
-			RecentStarts60m:    starts[lab.LabID],
-			HistExpectedStarts: hist[lab.LabID],
-			ScheduledStarts60m: scheduled[lab.LabID],
-			Ready:              lab.Ready,
-			Warming:            lab.Warming,
-			MaxSize:            lab.MaxSize,
+			EnrolledActive:     enrolled[img.Image],
+			RecentStarts60m:    starts[img.Image],
+			HistExpectedStarts: hist[img.Image],
+			ScheduledStarts60m: scheduled[img.Image],
+			WarmupSeconds:      effectiveWarmupSeconds(img),
+			WarmupSamples:      img.WarmupSamples,
+			Ready:              img.Ready,
+			Warming:            img.Warming,
+			MaxSize:            effectiveMaxSize(override),
 			GlobalCap:          p.globalMax,
-			Mode:               lab.Mode,
+			Mode:               effectiveMode(override),
 		}
-		target, reason := computeWarmTarget(lab, in)
-		plans = append(plans, warmPoolPlan{lab: lab, inputs: in, target: target, reason: reason})
+		target, reason := computeWarmTarget(override, in)
+		plans = append(plans, warmPoolPlan{img: img, inputs: in, target: target, reason: reason})
 	}
 
 	applyGlobalCap(plans, p.globalMax)
@@ -188,27 +213,70 @@ func (p *WarmPoolPlanner) Tick(ctx context.Context) error {
 	return nil
 }
 
-// computeWarmTarget is the sizing policy. Conservative by design: any
-// "nobody is around" signal zeroes the pool, and history alone never warms
-// more than one sandbox. Every branch states its reasoning — this string is
-// what admins see, verbatim.
-func computeWarmTarget(lab WarmPoolLab, in warmPoolInputs) (int, string) {
+// effectiveWarmupSeconds is the image's measured warm-start latency, falling
+// back to WarmPoolDefaultWarmupSeconds until the pool has actually started one.
+// The fallback is deliberately on the high side: over-estimating warmup warms
+// one container too many, under-estimating hands a student the cold start the
+// pool exists to prevent.
+func effectiveWarmupSeconds(img WarmPoolImage) float64 {
+	if img.WarmupSamples == 0 || img.WarmupSeconds <= 0 {
+		return WarmPoolDefaultWarmupSeconds
+	}
+	return img.WarmupSeconds
+}
+
+func effectiveMode(o WarmPoolOverride) string {
+	if o.Mode == "" {
+		return WarmPoolModeAuto
+	}
+	return o.Mode
+}
+
+func effectiveMaxSize(o WarmPoolOverride) int {
+	if o.Size > 0 {
+		return o.Size
+	}
+	return WarmPoolDefaultMaxSize
+}
+
+// computeWarmTarget is the sizing policy: Little's Law against the image's own
+// measured warm-start latency.
+//
+//	N = λ × W × safety
+//	λ = arrivals per second (measured, or predicted from the same hour last month)
+//	W = seconds this image takes to become ready (measured)
+//
+// λ×W is the expected number of students who will ask for this image during one
+// warmup window — precisely the number of containers that need to already exist
+// for nobody to wait. The safety factor covers arrival burstiness (real traffic
+// is not Poisson-smooth; a class of students clicks together).
+//
+// The predecessor policy was `ceil(starts_60m / 2)` with no W term at all,
+// which sized a 2-second image and a 30-second image identically. That is
+// backwards twice over: it over-warmed cheap images (holding RAM to save
+// nobody anything) and under-warmed expensive ones (the only case where a warm
+// pool pays for itself). WarmPoolMinExpectedArrivals is the other half of that
+// fix — below it, warming is not worth the RAM, and the pool correctly holds
+// nothing at all for a fast image with light traffic.
+//
+// Every branch states its reasoning — this string is what admins see, verbatim.
+func computeWarmTarget(override WarmPoolOverride, in warmPoolInputs) (int, string) {
 	clamp := func(v int) int {
 		if v < 0 {
 			return 0
 		}
-		if v > lab.MaxSize {
-			return lab.MaxSize
+		if v > in.MaxSize {
+			return in.MaxSize
 		}
 		return v
 	}
 
-	switch lab.Mode {
-	case "off":
-		return 0, "mode=off: pre-warming disabled by operator"
-	case "fixed":
-		t := clamp(lab.FixedSize)
-		return t, fmt.Sprintf("mode=fixed: operator pinned pool at %d (max %d)", t, lab.MaxSize)
+	switch effectiveMode(override) {
+	case WarmPoolModeOff:
+		return 0, "mode=off: pre-warming disabled by operator (LABS_WARM_POOL_OVERRIDES)"
+	case WarmPoolModeFixed:
+		t := clamp(override.Size)
+		return t, fmt.Sprintf("mode=fixed: operator pinned pool at %d (LABS_WARM_POOL_OVERRIDES)", t)
 	}
 
 	// mode=auto
@@ -216,26 +284,37 @@ func computeWarmTarget(lab WarmPoolLab, in warmPoolInputs) (int, string) {
 		return 0, "auto: 0 users active on the platform in the last 15m → scale to zero"
 	}
 
-	fromStarts := int(math.Ceil(float64(in.RecentStarts60m) / 2.0))
-	fromHist := int(math.Ceil(in.HistExpectedStarts * 0.75))
-	fromSched := in.ScheduledStarts60m
-	if fromSched > lab.MaxSize {
-		fromSched = lab.MaxSize
+	// Arrival rate per second. History is a prediction of the hour ahead, so it
+	// competes with (rather than adds to) the measured trailing hour.
+	lambdaNow := float64(in.RecentStarts60m) / warmPoolStartsWindow.Seconds()
+	lambdaHist := in.HistExpectedStarts / warmPoolStartsWindow.Seconds()
+	lambda, source := lambdaNow, fmt.Sprintf("%d starts in last 60m", in.RecentStarts60m)
+	if lambdaHist > lambda {
+		lambda, source = lambdaHist, fmt.Sprintf("history predicts ~%.1f starts this hour (4-week same-hour avg)", in.HistExpectedStarts)
 	}
 
-	target := fromStarts
-	dominant := fmt.Sprintf("%d starts in last 60m → ceil(%d/2)=%d", in.RecentStarts60m, in.RecentStarts60m, fromStarts)
-	if fromHist > target {
-		target = fromHist
-		dominant = fmt.Sprintf("history: ~%.1f starts expected this hour (4-week same-hour avg) → ceil(%.1f×0.75)=%d", in.HistExpectedStarts, in.HistExpectedStarts, fromHist)
+	expected := lambda * in.WarmupSeconds * WarmPoolSafetyFactor
+	target := 0
+	dominant := ""
+	if expected >= WarmPoolMinExpectedArrivals {
+		target = int(math.Ceil(expected))
+		dominant = fmt.Sprintf("%s; warm start measured at %.0fs → λ×W×%.0f = %.2f → %d",
+			source, in.WarmupSeconds, WarmPoolSafetyFactor, expected, target)
 	}
-	if fromSched > target {
+
+	// A scheduled cohort is a known, dated spike rather than a rate — it sets a
+	// floor directly, without going through the arrival-rate model.
+	if fromSched := min(in.ScheduledStarts60m, in.MaxSize); fromSched > target {
 		target = fromSched
-		dominant = fmt.Sprintf("schedule: %d students due within 60m", fromSched)
+		// Report the real cohort size, not the clamped one — an operator
+		// reading "40 students due, pool 5" knows to raise the ceiling.
+		dominant = fmt.Sprintf("schedule: %d students due within 60m", in.ScheduledStarts60m)
 	}
 
 	if target == 0 {
-		return 0, fmt.Sprintf("auto: no demand (0 recent starts, ~%.1f expected from history, 0 scheduled; %d enrolled users active) → scale to zero", in.HistExpectedStarts, in.EnrolledActive)
+		return 0, fmt.Sprintf(
+			"auto: demand below the warming threshold (%s, warm start %.0fs → expected %.2f arrivals per warmup window, need %.2f) → scale to zero",
+			source, in.WarmupSeconds, expected, WarmPoolMinExpectedArrivals)
 	}
 
 	// History alone (nobody enrolled-active, nothing scheduled, no recent
@@ -247,7 +326,7 @@ func computeWarmTarget(lab WarmPoolLab, in warmPoolInputs) (int, string) {
 	t := clamp(target)
 	reason := fmt.Sprintf("auto: %s; %d enrolled users active, %d on platform", dominant, in.EnrolledActive, in.PlatformActive15m)
 	if t < target {
-		reason += fmt.Sprintf(" (capped at max_size %d)", lab.MaxSize)
+		reason += fmt.Sprintf(" (capped at max_size %d)", in.MaxSize)
 	}
 	return t, reason
 }
@@ -277,9 +356,8 @@ func (h *warmPoolCapHeap) Pop() any {
 // applyGlobalCap trims targets so their sum never exceeds the global
 // container budget. Largest pools shrink first (they hurt least per unit),
 // and every trimmed plan's reason records the cap. Uses a max-heap so each
-// of the (sum - globalMax) single-container trims is an O(log labs) pop +
-// push instead of an O(labs) rescan of the whole plan list — O(excess log
-// labs) overall rather than O(excess × labs).
+// of the (sum - globalMax) single-container trims is an O(log images) pop +
+// push instead of an O(images) rescan of the whole plan list.
 func applyGlobalCap(plans []warmPoolPlan, globalMax int) {
 	sum := 0
 	for _, pl := range plans {
@@ -308,17 +386,9 @@ func applyGlobalCap(plans []warmPoolPlan, globalMax int) {
 	}
 }
 
-// recordDecision writes an audit row when the target changed, or as a
-// heartbeat when the last row is older than warmPoolHeartbeat — except when
-// the lab is in a stable idle state (target 0, previous target 0: nothing
-// warm, nothing wanted, nothing changed), which skips the write regardless
-// of how long it has been since the last row, since there is nothing new
-// for an admin to see either way. A lab with a nonzero target still gets
-// the heartbeat, and any target change to/from zero is still written
-// immediately (it fails the idle check on whichever side is nonzero).
 // skipDecisionWrite reports whether recordDecision should skip writing an
 // audit row: either the target is unchanged and still within the heartbeat
-// window, or the lab is in a stable idle state (target 0, previous target
+// window, or the image is in a stable idle state (target 0, previous target
 // 0 — nothing warm, nothing wanted, nothing changed) regardless of how long
 // it has been since the last row.
 func skipDecisionWrite(target, prevTarget int, hasPrev bool, prevDecidedAt time.Time) bool {
@@ -329,7 +399,7 @@ func skipDecisionWrite(target, prevTarget int, hasPrev bool, prevDecidedAt time.
 }
 
 func (p *WarmPoolPlanner) recordDecision(ctx context.Context, pl *warmPoolPlan, last map[string]WarmPoolDecision) {
-	prev, hasPrev := last[pl.lab.LabID]
+	prev, hasPrev := last[pl.img.Image]
 	prevTarget := 0
 	if hasPrev {
 		prevTarget = prev.Target
@@ -339,29 +409,29 @@ func (p *WarmPoolPlanner) recordDecision(ctx context.Context, pl *warmPoolPlan, 
 	}
 	inputsJSON, err := json.Marshal(pl.inputs)
 	if err != nil {
-		slog.Error("labs.WarmPoolPlanner: marshal inputs", "lab_id", pl.lab.LabID, "error", err)
+		slog.Error("labs.WarmPoolPlanner: marshal inputs", "image", pl.img.Image, "error", err)
 		return
 	}
 	if err := p.repo.InsertWarmPoolDecision(ctx, WarmPoolDecision{
-		LabID:          pl.lab.LabID,
-		Mode:           pl.lab.Mode,
+		Image:          pl.img.Image,
+		Mode:           pl.inputs.Mode,
 		Target:         pl.target,
 		PreviousTarget: prevTarget,
 		Inputs:         inputsJSON,
 		Reason:         pl.reason,
 	}); err != nil {
-		slog.Error("labs.WarmPoolPlanner: record decision", "lab_id", pl.lab.LabID, "error", err)
+		slog.Error("labs.WarmPoolPlanner: record decision", "image", pl.img.Image, "error", err)
 	}
 }
 
 // scaleUpOrder returns the indices of plans that still need scale-up (have <
 // target), sorted by demand deficit (target - have) descending — largest
-// gap first — so converge's shared per-tick budget goes to the labs with
-// the strongest demand signal instead of whichever lab happens to come
+// gap first — so converge's shared per-tick budget goes to the images with
+// the strongest demand signal instead of whichever image happens to come
 // first in plans' arbitrary DB order.
 func scaleUpOrder(plans []warmPoolPlan) []int {
 	deficit := func(i int) int {
-		return plans[i].target - (plans[i].lab.Ready + plans[i].lab.Warming)
+		return plans[i].target - (plans[i].img.Ready + plans[i].img.Warming)
 	}
 	idx := make([]int, 0, len(plans))
 	for i := range plans {
@@ -374,23 +444,21 @@ func scaleUpOrder(plans []warmPoolPlan) []int {
 }
 
 // converge starts missing containers (bounded per tick) and trims excess.
-// Scale-down runs first for every lab unconditionally (no budget contention,
+// Scale-down runs first for every image unconditionally (no budget contention,
 // order doesn't matter); scale-up then spends the shared per-tick budget on
-// labs in descending order of demand deficit (target - have), so a lab
-// early in plans' arbitrary DB order wanting many containers can no longer
-// starve every other lab's scale-up in the same tick.
+// images in descending order of demand deficit (target - have).
 func (p *WarmPoolPlanner) converge(ctx context.Context, plans []warmPoolPlan) {
 	budget := startBudget(p.globalMax)
 	var wg sync.WaitGroup
 
 	for i := range plans {
 		pl := &plans[i]
-		if pl.lab.Ready <= pl.target {
+		if pl.img.Ready <= pl.target {
 			continue
 		}
-		excess, err := p.repo.ListExcessReadyWarmContainers(ctx, pl.lab.LabID, pl.lab.TaskVersionID, pl.lab.Ready-pl.target)
+		excess, err := p.repo.ListExcessReadyWarmContainers(ctx, pl.img.Image, pl.img.Ready-pl.target)
 		if err != nil {
-			slog.Error("labs.WarmPoolPlanner: list excess", "lab_id", pl.lab.LabID, "error", err)
+			slog.Error("labs.WarmPoolPlanner: list excess", "image", pl.img.Image, "error", err)
 			continue
 		}
 		for _, e := range excess {
@@ -417,52 +485,74 @@ func (p *WarmPoolPlanner) converge(ctx context.Context, plans []warmPoolPlan) {
 
 	for _, i := range scaleUpOrder(plans) {
 		pl := &plans[i]
-		have := pl.lab.Ready + pl.lab.Warming
+		have := pl.img.Ready + pl.img.Warming
 		for have < pl.target && budget > 0 {
 			have++
 			budget--
-			warmID, err := p.repo.InsertWarmContainer(ctx, pl.lab.LabID, pl.lab.TaskVersionID, pl.lab.Image)
+			warmID, err := p.repo.InsertWarmContainer(ctx, pl.img.Image)
 			if err != nil {
-				slog.Error("labs.WarmPoolPlanner: insert warming row", "lab_id", pl.lab.LabID, "error", err)
+				slog.Error("labs.WarmPoolPlanner: insert warming row", "image", pl.img.Image, "error", err)
 				continue
 			}
-			setup := ""
-			if pl.lab.SetupScript != nil {
-				setup = *pl.lab.SetupScript
-			}
 			wg.Add(1)
-			go func(warmID, image, setup, labID string) {
+			go func(warmID, image string) {
 				defer wg.Done()
-				// A container slow to boot (image pull, a slow setup_script)
-				// can legitimately take up to ProvisionTimeoutSeconds — the
-				// same budget an ordinary cold-started session gets. Using
-				// the tick's own ctx here instead would tie that budget to
-				// the reconciler job's scheduler-level timeout, which
-				// defends against a different failure mode (the job hanging)
-				// and is set well below ProvisionTimeoutSeconds; inheriting
-				// it would abort every warm start for any image slow enough
-				// to legitimately need the full cold-start budget, which
-				// converge would then never successfully pre-warm no matter
-				// how many ticks it tried.
-				startCtx, cancel := context.WithTimeout(context.Background(), ProvisionTimeoutSeconds*time.Second)
-				defer cancel()
-				cid, host, err := p.runtime.StartWarm(startCtx, warmID, image, setup)
-				if err != nil {
-					slog.Error("labs.WarmPoolPlanner: start warm", "lab_id", labID, "warm_id", warmID, "error", err)
-					if delErr := p.repo.DeleteWarmContainer(context.Background(), warmID); delErr != nil {
-						slog.Error("labs.WarmPoolPlanner: delete failed warming row", "warm_id", warmID, "error", delErr)
-					}
-					return
-				}
-				if err := p.repo.MarkWarmContainerReady(context.Background(), warmID, cid, host); err != nil {
-					slog.Error("labs.WarmPoolPlanner: mark ready", "warm_id", warmID, "error", err)
-					_ = p.runtime.Kill(context.Background(), cid)
-					_ = p.repo.DeleteWarmContainer(context.Background(), warmID)
-				}
-			}(warmID, pl.lab.Image, setup, pl.lab.LabID)
+				p.startWarmContainer(warmID, image)
+			}(warmID, pl.img.Image)
 		}
 	}
 	wg.Wait()
+}
+
+// startWarmContainer provisions one pool sandbox end to end: start it, wait for
+// the image's own readiness probe, record how long that took, and publish the
+// row as claimable. On any failure the row is removed so the next tick retries
+// from a clean state.
+//
+// It runs on context.Background() with its own ProvisionTimeoutSeconds budget
+// rather than the tick's ctx: a container slow to boot can legitimately take
+// the same budget an ordinary cold-started session gets, while the reconciler
+// job's scheduler-level timeout defends against a different failure mode (the
+// job hanging) and is set well below it. Inheriting the tick's deadline would
+// abort every warm start for any image slow enough to need the full cold-start
+// budget — exactly the images a warm pool exists for.
+func (p *WarmPoolPlanner) startWarmContainer(warmID, image string) {
+	ctx, cancel := context.WithTimeout(context.Background(), ProvisionTimeoutSeconds*time.Second)
+	defer cancel()
+
+	drop := func() {
+		if err := p.repo.DeleteWarmContainer(context.Background(), warmID); err != nil {
+			slog.Error("labs.WarmPoolPlanner: delete failed warming row", "warm_id", warmID, "error", err)
+		}
+	}
+
+	started := time.Now()
+	cid, host, err := p.runtime.StartWarm(ctx, warmID, image)
+	if err != nil {
+		slog.Error("labs.WarmPoolPlanner: start warm", "image", image, "warm_id", warmID, "error", err)
+		drop()
+		return
+	}
+
+	if _, err := WaitContainerReady(ctx, p.runtime, cid); err != nil {
+		slog.Error("labs.WarmPoolPlanner: warm container never became ready", "image", image, "warm_id", warmID, "error", err)
+		_ = p.runtime.Kill(context.Background(), cid)
+		drop()
+		return
+	}
+
+	// Measure the whole start-to-ready span, not just the probe wait — that is
+	// what a student cold-starting this image actually pays, and therefore the
+	// W that belongs in Little's Law.
+	if err := p.repo.RecordWarmupSample(context.Background(), image, time.Since(started).Seconds()); err != nil {
+		slog.Error("labs.WarmPoolPlanner: record warmup sample", "image", image, "error", err)
+	}
+
+	if err := p.repo.MarkWarmContainerReady(context.Background(), warmID, cid, host); err != nil {
+		slog.Error("labs.WarmPoolPlanner: mark ready", "warm_id", warmID, "error", err)
+		_ = p.runtime.Kill(context.Background(), cid)
+		drop()
+	}
 }
 
 // retireStale kills/deletes rows that no longer serve any purpose.
