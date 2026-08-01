@@ -63,7 +63,10 @@ export function OnboardingWizard() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <div className="relative flex flex-1 flex-col items-center overflow-y-auto px-4 pb-4 pt-6 sm:px-6">
+      {/* overflow-x-hidden is required: overflow-y-auto forces overflow-x from
+          `visible` to `auto`, so the bleeding decorative flame below would
+          otherwise open a horizontal scrollbar on every viewport. */}
+      <div className="relative flex flex-1 flex-col items-center overflow-y-auto overflow-x-hidden px-4 pb-4 pt-6 sm:px-6">
         {/* Decorative forge flame — same signature mark used on the auth pages */}
         <Flame aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 text-primary/5 sm:h-72 sm:w-72" />
 
