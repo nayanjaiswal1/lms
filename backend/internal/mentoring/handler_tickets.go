@@ -3,13 +3,14 @@ package mentoring
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // ListTickets returns mentor tickets for the caller's org, optionally
 // filtered by ?status= and, for a mentor's own queue, ?mine=true.
 func (h *Handler) ListTickets(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -29,7 +30,7 @@ func (h *Handler) ListTickets(w http.ResponseWriter, r *http.Request) {
 // ListMyTickets returns the authenticated student's own mentor tickets —
 // the student-facing counterpart to ListTickets (which is staff-only).
 func (h *Handler) ListMyTickets(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -45,7 +46,7 @@ func (h *Handler) ListMyTickets(w http.ResponseWriter, r *http.Request) {
 // course they're enrolled in, when they don't already have an active one.
 // Body: {"course_id": "..."}.
 func (h *Handler) RequestMentor(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -70,7 +71,7 @@ func (h *Handler) RequestMentor(w http.ResponseWriter, r *http.Request) {
 // GetTicketHistory returns a ticket plus its full mentor-assignment history —
 // allowed only for that ticket's student or currently assigned mentor.
 func (h *Handler) GetTicketHistory(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -89,7 +90,7 @@ func (h *Handler) GetTicketHistory(w http.ResponseWriter, r *http.Request) {
 // (see routes.go); the report section is additionally gated inline here
 // since it's a stricter, separately-grantable permission.
 func (h *Handler) GetTicketDetail(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -108,7 +109,7 @@ func (h *Handler) GetTicketDetail(w http.ResponseWriter, r *http.Request) {
 
 // ClaimTicket lets the authenticated mentor self-assign an open ticket.
 func (h *Handler) ClaimTicket(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -123,7 +124,7 @@ func (h *Handler) ClaimTicket(w http.ResponseWriter, r *http.Request) {
 // AssignTicket lets a permitted staff member hand-assign a mentor to an open
 // ticket. Body: {"mentor_id": "..."}.
 func (h *Handler) AssignTicket(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -150,7 +151,7 @@ func (h *Handler) AssignTicket(w http.ResponseWriter, r *http.Request) {
 // mentoring.assign_tickets — enforced here (not via middleware) since it's an
 // either/or condition rather than a single role/permission gate.
 func (h *Handler) CloseTicket(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

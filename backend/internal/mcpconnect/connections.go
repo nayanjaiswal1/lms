@@ -5,13 +5,15 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // ListMyConnections handles GET /api/mcp-connections — the settings page's
 // list of currently-approved external clients.
 func (rt *Router) ListMyConnections(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -29,7 +31,7 @@ func (rt *Router) ListMyConnections(w http.ResponseWriter, r *http.Request) {
 // so a revoked connection's in-flight access token stops authorizing /mcp
 // requests right away rather than lingering for the rest of its 1h TTL.
 func (rt *Router) RevokeConnection(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

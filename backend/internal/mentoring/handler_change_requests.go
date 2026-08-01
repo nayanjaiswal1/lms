@@ -3,13 +3,14 @@ package mentoring
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // RequestMentorChange lets the authenticated student (who must be the
 // ticket's own student) ask for a different mentor. Body: {"reason": "..."}.
 func (h *Handler) RequestMentorChange(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -30,7 +31,7 @@ func (h *Handler) RequestMentorChange(w http.ResponseWriter, r *http.Request) {
 // ListChangeRequests returns mentor change requests for the caller's org,
 // optionally filtered by ?status=.
 func (h *Handler) ListChangeRequests(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -45,7 +46,7 @@ func (h *Handler) ListChangeRequests(w http.ResponseWriter, r *http.Request) {
 // ApproveChangeRequest approves a pending change request and reopens its
 // ticket. Body: {"note"?: "..."}.
 func (h *Handler) ApproveChangeRequest(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -65,7 +66,7 @@ func (h *Handler) ApproveChangeRequest(w http.ResponseWriter, r *http.Request) {
 
 // DenyChangeRequest denies a pending change request. Body: {"note"?: "..."}.
 func (h *Handler) DenyChangeRequest(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

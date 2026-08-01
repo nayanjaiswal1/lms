@@ -2,27 +2,18 @@ package sessions
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 type Handler struct {
 	service *Service
-}
-
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -33,25 +24,18 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:            {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden:           {Status: http.StatusForbidden, Message: "You do not have permission to do that."},
+	ErrBookingDisabled:     {Status: http.StatusForbidden, Message: "Session booking is turned off for your organization."},
+	ErrSlotTaken:           {Status: http.StatusConflict, Message: "That slot was just booked by someone else. Pick another time."},
+	ErrInsufficientCredits: {Status: http.StatusPaymentRequired, Message: "You have no session credits left. Buy a pack to book another session."},
+	ErrTooManyUpcoming:     {Status: http.StatusConflict, Message: "You have reached the limit of upcoming sessions. Complete or cancel one first."},
+	ErrInvalid:             {Status: http.StatusUnprocessableEntity},
+}
+
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, "You do not have permission to do that.")
-	case errors.Is(err, ErrBookingDisabled):
-		httputil.WriteError(w, http.StatusForbidden, "Session booking is turned off for your organization.")
-	case errors.Is(err, ErrSlotTaken):
-		httputil.WriteError(w, http.StatusConflict, "That slot was just booked by someone else. Pick another time.")
-	case errors.Is(err, ErrInsufficientCredits):
-		httputil.WriteError(w, http.StatusPaymentRequired, "You have no session credits left. Buy a pack to book another session.")
-	case errors.Is(err, ErrTooManyUpcoming):
-		httputil.WriteError(w, http.StatusConflict, "You have reached the limit of upcoming sessions. Complete or cancel one first.")
-	case errors.Is(err, ErrInvalid):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 // parseRange reads ?from=&to= as RFC3339, defaulting to the next 14 days —
@@ -82,7 +66,7 @@ func parseRange(r *http.Request) (time.Time, time.Time, error) {
 // balance — one round trip for everything the booking UI needs before it can
 // render a single button.
 func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -105,7 +89,7 @@ func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 // UpdateConfig writes the org's booking policy. Route-gated by
 // PermissionManageBooking.
 func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -126,7 +110,7 @@ func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 // GetMyAvailability returns the calling mentor's own weekly pattern.
 func (h *Handler) GetMyAvailability(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -140,7 +124,7 @@ func (h *Handler) GetMyAvailability(w http.ResponseWriter, r *http.Request) {
 
 // ReplaceMyAvailability swaps the calling mentor's whole weekly pattern.
 func (h *Handler) ReplaceMyAvailability(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -160,7 +144,7 @@ func (h *Handler) ReplaceMyAvailability(w http.ResponseWriter, r *http.Request) 
 
 // AddException records a one-off block or extra opening.
 func (h *Handler) AddException(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -180,7 +164,7 @@ func (h *Handler) AddException(w http.ResponseWriter, r *http.Request) {
 
 // DeleteException removes one of the calling mentor's overrides.
 func (h *Handler) DeleteException(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -193,7 +177,7 @@ func (h *Handler) DeleteException(w http.ResponseWriter, r *http.Request) {
 
 // GetSlots returns a mentor's bookable grid, taken windows included.
 func (h *Handler) GetSlots(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -215,7 +199,7 @@ func (h *Handler) GetSlots(w http.ResponseWriter, r *http.Request) {
 // Book creates a 1:1 session. A student booking themselves may omit
 // student_id; a mentor booking a mentee must supply it.
 func (h *Handler) Book(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -252,7 +236,7 @@ func (h *Handler) Book(w http.ResponseWriter, r *http.Request) {
 // BookForBatch schedules one session for a whole cohort. Route-gated by
 // PermissionManageBooking — no credits are charged (see Book).
 func (h *Handler) BookForBatch(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -281,7 +265,7 @@ func (h *Handler) BookForBatch(w http.ResponseWriter, r *http.Request) {
 
 // ListSessions returns the caller's sessions for ?scope=upcoming|past|all.
 func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -296,7 +280,7 @@ func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
 
 // GetSession returns one session with its feedback and (mentor only) notes.
 func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -310,7 +294,7 @@ func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
 
 // Cancel cancels a session and reports whether the credit came back.
 func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -330,7 +314,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 
 // Reschedule moves a session to a new window.
 func (h *Handler) Reschedule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -351,7 +335,7 @@ func (h *Handler) Reschedule(w http.ResponseWriter, r *http.Request) {
 
 // SetOutcome marks a session completed or no_show (mentor only).
 func (h *Handler) SetOutcome(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -371,7 +355,7 @@ func (h *Handler) SetOutcome(w http.ResponseWriter, r *http.Request) {
 
 // SubmitFeedback records the caller's rating of a session.
 func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -392,7 +376,7 @@ func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 
 // SaveNotes writes the mentor's write-up of a session.
 func (h *Handler) SaveNotes(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -413,7 +397,7 @@ func (h *Handler) SaveNotes(w http.ResponseWriter, r *http.Request) {
 
 // GetMenteeProgress returns one mentee's full history with the calling mentor.
 func (h *Handler) GetMenteeProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -429,7 +413,7 @@ func (h *Handler) GetMenteeProgress(w http.ResponseWriter, r *http.Request) {
 
 // GetCredits returns the caller's balance and recent ledger movements.
 func (h *Handler) GetCredits(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -444,7 +428,7 @@ func (h *Handler) GetCredits(w http.ResponseWriter, r *http.Request) {
 // ListPacks returns the packs on sale. ?all=true (admin surface) includes
 // archived ones.
 func (h *Handler) ListPacks(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -459,7 +443,7 @@ func (h *Handler) ListPacks(w http.ResponseWriter, r *http.Request) {
 // SavePack creates or updates a credit pack. Route-gated by
 // PermissionManageBooking.
 func (h *Handler) SavePack(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -479,7 +463,7 @@ func (h *Handler) SavePack(w http.ResponseWriter, r *http.Request) {
 
 // BuyPack opens a gateway checkout for a credit pack.
 func (h *Handler) BuyPack(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -499,7 +483,7 @@ func (h *Handler) BuyPack(w http.ResponseWriter, r *http.Request) {
 // GrantCredits adds or removes a user's credits by admin action.
 // Route-gated by PermissionManageBooking.
 func (h *Handler) GrantCredits(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

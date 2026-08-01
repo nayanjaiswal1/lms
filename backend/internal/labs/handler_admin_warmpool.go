@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -34,7 +35,7 @@ type warmPoolMatrixRow struct {
 // sandboxes ready for my students, and if not, why", which is exactly what the
 // target + reason columns say.
 func (h *Handler) HandleListWarmPools(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

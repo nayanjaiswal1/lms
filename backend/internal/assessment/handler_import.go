@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 )
@@ -14,7 +16,7 @@ const maxImportBytes = 10 << 20 // 10MB
 // HandleImportParse handles POST /api/batches/{batchID}/import/parse — a
 // multipart Excel upload. Parses and validates only; nothing is persisted.
 func (h *Handler) HandleImportParse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -49,7 +51,7 @@ func (h *Handler) HandleImportParse(w http.ResponseWriter, r *http.Request) {
 // HandleImportValidate handles POST /api/batches/{batchID}/import/validate —
 // re-runs validation/status-detection on admin-edited rows (JSON body).
 func (h *Handler) HandleImportValidate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -83,7 +85,7 @@ type batchImportConfirmRequest struct {
 // rows as pending import work, and enqueues the background job that creates
 // invitations / adds existing members.
 func (h *Handler) HandleImportConfirm(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -150,7 +152,7 @@ func (h *Handler) HandleImportConfirm(w http.ResponseWriter, r *http.Request) {
 
 // HandleImportReport handles GET /api/batches/{batchID}/import/report.
 func (h *Handler) HandleImportReport(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

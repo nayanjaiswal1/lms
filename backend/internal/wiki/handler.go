@@ -2,11 +2,11 @@ package wiki
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -21,15 +21,6 @@ func newHandler(service *Service) *Handler {
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
-
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
@@ -38,17 +29,16 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:        {Status: http.StatusNotFound, Message: "Not found."},
+	ErrCourseNotFound:  {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden:       {Status: http.StatusForbidden, Message: "You do not have permission to perform this action."},
+	ErrTemplateInvalid: {Status: http.StatusForbidden, Message: "You do not have permission to perform this action."},
+	ErrValidation:      {Status: http.StatusUnprocessableEntity, Message: "Invalid request."},
+}
+
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound), errors.Is(err, ErrCourseNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden), errors.Is(err, ErrTemplateInvalid):
-		httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
-	case errors.Is(err, ErrValidation):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "Invalid request.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func optionalQueryParam(r *http.Request, key string) *string {
@@ -62,7 +52,7 @@ func optionalQueryParam(r *http.Request, key string) *string {
 // ─── Spaces ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListSpaces(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -75,7 +65,7 @@ func (h *Handler) ListSpaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -92,7 +82,7 @@ func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -106,7 +96,7 @@ func (h *Handler) GetSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -123,7 +113,7 @@ func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -137,7 +127,7 @@ func (h *Handler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
 // ─── Page tree ────────────────────────────────────────────────────────────────
 
 func (h *Handler) GetPageTree(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -152,7 +142,7 @@ func (h *Handler) GetPageTree(w http.ResponseWriter, r *http.Request) {
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -169,7 +159,7 @@ func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -182,7 +172,7 @@ func (h *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -199,7 +189,7 @@ func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeletePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -211,7 +201,7 @@ func (h *Handler) DeletePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) MovePage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -230,7 +220,7 @@ func (h *Handler) MovePage(w http.ResponseWriter, r *http.Request) {
 // ─── Version history ─────────────────────────────────────────────────────────
 
 func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -243,7 +233,7 @@ func (h *Handler) ListVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -261,7 +251,7 @@ func (h *Handler) GetVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -281,7 +271,7 @@ func (h *Handler) RestoreVersion(w http.ResponseWriter, r *http.Request) {
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -294,7 +284,7 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -311,7 +301,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -328,7 +318,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -342,7 +332,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 // ─── Templates ────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -355,7 +345,7 @@ func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -372,7 +362,7 @@ func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -386,7 +376,7 @@ func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

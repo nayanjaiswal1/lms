@@ -3,13 +3,14 @@ package mentoring
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // ReportMentor lets any authenticated user file a complaint against a mentor.
 // Body: {"reason", "description", "ticket_id"?}.
 func (h *Handler) ReportMentor(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -32,7 +33,7 @@ func (h *Handler) ReportMentor(w http.ResponseWriter, r *http.Request) {
 // ListReports returns mentor complaint reports for the caller's org,
 // optionally filtered by ?status=.
 func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -47,7 +48,7 @@ func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
 // ResolveReport marks a report resolved or dismissed.
 // Body: {"status": "resolved"|"dismissed", "resolution_note"?: "..."}.
 func (h *Handler) ResolveReport(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

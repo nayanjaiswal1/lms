@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/rewards"
@@ -18,7 +19,7 @@ import (
 // ListMyAssessments returns assessments assigned to the authenticated student
 // with their attempt progress.
 func (h *Handler) ListMyAssessments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -33,7 +34,7 @@ func (h *Handler) ListMyAssessments(w http.ResponseWriter, r *http.Request) {
 // ListMyBatches returns the batches (cohorts/bootcamps) the authenticated
 // student is a member of.
 func (h *Handler) ListMyBatches(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -70,7 +71,7 @@ type attemptMeta struct {
 // StartAttempt creates or resumes the student's attempt and returns the
 // sanitized question set plus proctoring policy.
 func (h *Handler) StartAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -101,7 +102,7 @@ func (h *Handler) StartAttempt(w http.ResponseWriter, r *http.Request) {
 
 // ResumeAttempt returns the current state of an owned in-flight attempt.
 func (h *Handler) ResumeAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -141,7 +142,7 @@ type saveAnswerRequest struct {
 // SaveAnswer stores a draft answer mid-attempt. For subjective questions the
 // client sends transcript; for MCQ/coding it sends the answer JSON payload.
 func (h *Handler) SaveAnswer(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -169,7 +170,7 @@ type submitAttemptRequest struct {
 // SubmitAttempt grades and finalizes the attempt. Returns 202 when the attempt
 // contains subjective questions that require AI evaluation.
 func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -208,7 +209,7 @@ type overrideAnswerScoreRequest struct {
 // quality, or a borderline failure deserves partial credit. Recomputes the
 // attempt's aggregate score/percentage/passed from the answers table.
 func (h *Handler) OverrideAnswerScore(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -327,7 +328,7 @@ type runCodeRequest struct {
 // sample (non-hidden) test cases for pre-submit feedback. It never touches
 // grading — final scoring only happens in SubmitAttempt.
 func (h *Handler) RunCode(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -368,7 +369,7 @@ var validEventTypes = map[string]bool{
 // RecordEvent ingests a proctoring signal. If a hard cap is breached and
 // auto-submit is on, the attempt is force-submitted and the response signals it.
 func (h *Handler) RecordEvent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -396,7 +397,7 @@ func (h *Handler) RecordEvent(w http.ResponseWriter, r *http.Request) {
 // review (correct answers, explanations) is included only when the assessment
 // permits showing results.
 func (h *Handler) GetAttemptResult(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

@@ -2,7 +2,6 @@ package assessment
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/httputil"
@@ -39,54 +39,28 @@ func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, jobRegistry *j
 
 // ─── shared helpers ──────────────────────────────────────────────────────────
 
-// ctxClaims pulls the authenticated claims or writes 401 and returns false.
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:            {Status: http.StatusNotFound, Message: "Not found."},
+	ErrNotDraft:            {Status: http.StatusConflict, Message: "Only draft assessments can be edited."},
+	ErrConflict:            {Status: http.StatusConflict, Message: "This action conflicts with the current state."},
+	ErrInvalidScore:        {Status: http.StatusUnprocessableEntity, Message: "Score must be between 0 and the test's max score."},
+	ErrNotAssigned:         {Status: http.StatusForbidden, Message: "This assessment is not assigned to you."},
+	ErrNotAttemptOwner:     {Status: http.StatusForbidden, Message: "This attempt belongs to another user."},
+	ErrNotOpen:             {Status: http.StatusConflict, Message: "This assessment is not open for attempts."},
+	ErrNoAttemptsLeft:      {Status: http.StatusConflict, Message: "You have no attempts remaining."},
+	ErrAttemptClosed:       {Status: http.StatusConflict, Message: "This attempt has already been submitted."},
+	ErrAttemptExpired:      {Status: http.StatusConflict, Message: "Your time for this attempt has expired."},
+	ErrNoQuestions:         {Status: http.StatusUnprocessableEntity, Message: "Add at least one question first."},
+	ErrNotCodingQuestion:   {Status: http.StatusUnprocessableEntity, Message: "This question does not support running code."},
+	ErrExecutorUnavailable: {Status: http.StatusServiceUnavailable, Message: "Code execution is not available right now."},
+	ErrSessionSuperseded:   {Status: http.StatusConflict, Message: "Your session moved to another device or tab. This window is no longer active."},
+	ErrInvalidParent:       {Status: http.StatusUnprocessableEntity, Message: "Parent group not found in this organization."},
+	ErrCyclicParent:        {Status: http.StatusConflict, Message: "Cannot move a group under its own descendant."},
 }
 
 // writeDomainError maps domain/service errors to HTTP responses.
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrNotDraft):
-		httputil.WriteError(w, http.StatusConflict, "Only draft assessments can be edited.")
-	case errors.Is(err, ErrConflict):
-		httputil.WriteError(w, http.StatusConflict, "This action conflicts with the current state.")
-	case errors.Is(err, ErrInvalidScore):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "Score must be between 0 and the test's max score.")
-	case errors.Is(err, ErrNotAssigned):
-		httputil.WriteError(w, http.StatusForbidden, "This assessment is not assigned to you.")
-	case errors.Is(err, ErrNotAttemptOwner):
-		httputil.WriteError(w, http.StatusForbidden, "This attempt belongs to another user.")
-	case errors.Is(err, ErrNotOpen):
-		httputil.WriteError(w, http.StatusConflict, "This assessment is not open for attempts.")
-	case errors.Is(err, ErrNoAttemptsLeft):
-		httputil.WriteError(w, http.StatusConflict, "You have no attempts remaining.")
-	case errors.Is(err, ErrAttemptClosed):
-		httputil.WriteError(w, http.StatusConflict, "This attempt has already been submitted.")
-	case errors.Is(err, ErrAttemptExpired):
-		httputil.WriteError(w, http.StatusConflict, "Your time for this attempt has expired.")
-	case errors.Is(err, ErrNoQuestions):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "Add at least one question first.")
-	case errors.Is(err, ErrNotCodingQuestion):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "This question does not support running code.")
-	case errors.Is(err, ErrExecutorUnavailable):
-		httputil.WriteError(w, http.StatusServiceUnavailable, "Code execution is not available right now.")
-	case errors.Is(err, ErrSessionSuperseded):
-		httputil.WriteError(w, http.StatusConflict, "Your session moved to another device or tab. This window is no longer active.")
-	case errors.Is(err, ErrInvalidParent):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "Parent group not found in this organization.")
-	case errors.Is(err, ErrCyclicParent):
-		httputil.WriteError(w, http.StatusConflict, "Cannot move a group under its own descendant.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong. Please try again.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -144,7 +118,7 @@ type categoryRequest struct {
 }
 
 func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -165,7 +139,7 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -181,7 +155,7 @@ func (h *Handler) ListCategories(w http.ResponseWriter, r *http.Request) {
 // question bank UI can group questions by the test/course they're actually
 // used in.
 func (h *Handler) ListQuestionUsage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -313,7 +287,7 @@ func (req *questionRequest) validate() (json.RawMessage, map[string]string) {
 }
 
 func (h *Handler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -346,7 +320,7 @@ func (h *Handler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -390,7 +364,7 @@ func (h *Handler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -403,7 +377,7 @@ func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -432,7 +406,7 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListQuestionTags(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -445,7 +419,7 @@ func (h *Handler) ListQuestionTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ArchiveQuestion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

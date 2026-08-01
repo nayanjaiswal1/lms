@@ -3,6 +3,7 @@ package assessment
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -10,7 +11,7 @@ import (
 // this every few seconds after a 202 response from SubmitAttempt until
 // has_result is true, then fetches the full evaluation.
 func (h *Handler) HandleGetEvaluationStatus(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -35,7 +36,7 @@ func (h *Handler) HandleGetEvaluationStatus(w http.ResponseWriter, r *http.Reque
 // HandleGetEvaluation returns the complete AI evaluation for an owned attempt.
 // Only available once status is 'evaluated'.
 func (h *Handler) HandleGetEvaluation(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -60,7 +61,7 @@ func (h *Handler) HandleGetEvaluation(w http.ResponseWriter, r *http.Request) {
 // HandleCompareEvaluations returns two evaluations side-by-side for the owner.
 // Used by the frontend attempt comparison view.
 func (h *Handler) HandleCompareEvaluations(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -105,7 +106,7 @@ func (h *Handler) HandleCompareEvaluations(w http.ResponseWriter, r *http.Reques
 // HandleStudentProgress returns the student's readiness trend and skill
 // breakdown for the interview progress dashboard.
 func (h *Handler) HandleStudentProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -120,7 +121,7 @@ func (h *Handler) HandleStudentProgress(w http.ResponseWriter, r *http.Request) 
 // HandleSkillTrends returns the rolling average and latest score per skill for
 // the authenticated student.
 func (h *Handler) HandleSkillTrends(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -135,7 +136,7 @@ func (h *Handler) HandleSkillTrends(w http.ResponseWriter, r *http.Request) {
 // HandleReviewQueue returns the paginated list of flagged attempts for staff.
 // Requires admin/instructor/mentor role (enforced by the staff router group).
 func (h *Handler) HandleReviewQueue(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -155,7 +156,7 @@ func (h *Handler) HandleReviewQueue(w http.ResponseWriter, r *http.Request) {
 // HandleEvalQueueHealth returns the number of queued and in-flight eval.subjective jobs.
 // Intended for ops dashboards and alerting; requires staff role.
 func (h *Handler) HandleEvalQueueHealth(w http.ResponseWriter, r *http.Request) {
-	_, ok := ctxClaims(w, r)
+	_, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

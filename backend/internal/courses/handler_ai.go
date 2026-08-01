@@ -9,13 +9,14 @@ import (
 	"strings"
 
 	"github.com/mindforge/backend/internal/ai"
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // GenerateOutline calls the AI provider to produce a course outline JSON.
 // Returns the outline to the instructor for review; no DB rows are created.
 func (h *Handler) GenerateOutline(w http.ResponseWriter, r *http.Request) {
-	_, ok := ctxClaims(w, r)
+	_, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

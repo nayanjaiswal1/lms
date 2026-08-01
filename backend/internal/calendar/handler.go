@@ -2,11 +2,11 @@ package calendar
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
@@ -17,28 +17,15 @@ type Handler struct {
 	cfg     *config.Config
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:        {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden:       {Status: http.StatusForbidden, Message: "You do not have permission to do that."},
+	ErrFeedTokenExists: {Status: http.StatusConflict, Message: "A feed URL has already been issued. Pass rotate=true to reissue it."},
+	ErrInvalid:         {Status: http.StatusUnprocessableEntity},
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, "You do not have permission to do that.")
-	case errors.Is(err, ErrFeedTokenExists):
-		httputil.WriteError(w, http.StatusConflict, "A feed URL has already been issued. Pass rotate=true to reissue it.")
-	case errors.Is(err, ErrInvalid):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -175,7 +162,7 @@ func (e *invalidErr) Unwrap() error { return ErrInvalid }
 // ─── GET /api/calendar/events ───────────────────────────────────────────────
 
 func (h *Handler) ListEvents(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -200,7 +187,7 @@ func (h *Handler) ListEvents(w http.ResponseWriter, r *http.Request) {
 // ─── POST /api/calendar/events ──────────────────────────────────────────────
 
 func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -233,7 +220,7 @@ type eventDetail struct {
 }
 
 func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -248,7 +235,7 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 // ─── PATCH /api/calendar/events/{id}?scope=single|series ────────────────────
 
 func (h *Handler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -300,7 +287,7 @@ func (h *Handler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 // ─── DELETE /api/calendar/events/{id}?scope=single|series ───────────────────
 
 func (h *Handler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -335,7 +322,7 @@ func (h *Handler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 // ─── PATCH /api/calendar/events/{id}/notes ──────────────────────────────────
 
 func (h *Handler) UpdateNotes(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -356,7 +343,7 @@ func (h *Handler) UpdateNotes(w http.ResponseWriter, r *http.Request) {
 // ─── PATCH /api/calendar/events/{id}/complete ───────────────────────────────
 
 func (h *Handler) SetCompleted(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -377,7 +364,7 @@ func (h *Handler) SetCompleted(w http.ResponseWriter, r *http.Request) {
 // ─── POST /api/calendar/events/{id}/rsvp ────────────────────────────────────
 
 func (h *Handler) RSVP(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -398,7 +385,7 @@ func (h *Handler) RSVP(w http.ResponseWriter, r *http.Request) {
 // ─── POST /api/calendar/events/{id}/invite ──────────────────────────────────
 
 func (h *Handler) InviteExternal(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -474,7 +461,7 @@ func (h *Handler) EventsICS(w http.ResponseWriter, r *http.Request) {
 // personal feed URL. See Service.GetOrCreateFeedURL / ErrFeedTokenExists.
 
 func (h *Handler) MintFeedToken(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

@@ -7,8 +7,9 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mindforge/backend/internal/db"
 )
 
 // Repo is the data-access layer for the profile domain.
@@ -58,12 +59,6 @@ func (r *Repo) GetLockedFields(ctx context.Context, userID string) ([]string, er
 		out = append(out, field)
 	}
 	return out, rows.Err()
-}
-
-// isUniqueViolation returns true when err is a PostgreSQL unique-constraint error.
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 // ─── GetProfile ───────────────────────────────────────────────────────────────
@@ -333,7 +328,7 @@ func (r *Repo) UpsertProfile(ctx context.Context, tx pgx.Tx, userID string, inpu
 		input.ShowActivity,
 	)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return ErrConflict
 		}
 		return fmt.Errorf("profile: upsert profile: %w", err)
@@ -352,7 +347,7 @@ func (r *Repo) UpsertProfileSlug(ctx context.Context, userID, slug string) error
 			updated_at   = now()`
 	_, err := r.pool.Exec(ctx, q, userID, slug)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return ErrConflict
 		}
 		return fmt.Errorf("profile: upsert slug: %w", err)
@@ -410,7 +405,7 @@ func (r *Repo) AddSkill(ctx context.Context, userID string, input AddSkillInput)
 	err := r.pool.QueryRow(ctx, q, userID, input.SkillName, input.SkillLevel).
 		Scan(&s.ID, &s.SkillName, &s.SkillLevel, &s.CreatedAt)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return nil, ErrConflict
 		}
 		return nil, fmt.Errorf("profile: add skill: %w", err)
@@ -586,7 +581,7 @@ func (r *Repo) txUpdateWithLinks(ctx context.Context, userID string, input Updat
 				UPDATE user_profiles SET profile_slug = $1, updated_at = now()
 				WHERE user_id = $2`
 			if _, err := tx.Exec(ctx, slugQ, slug, userID); err != nil {
-				if isUniqueViolation(err) {
+				if db.IsUniqueViolation(err) {
 					return ErrConflict
 				}
 				return fmt.Errorf("profile: set slug in tx: %w", err)

@@ -2,10 +2,10 @@ package certificates
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -18,15 +18,6 @@ func newHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
-
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
@@ -35,36 +26,28 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:            {Status: http.StatusNotFound, Message: "Not found."},
+	ErrCourseNotFound:      {Status: http.StatusNotFound, Message: "Not found."},
+	ErrNoFinalTest:         {Status: http.StatusNotFound, Message: "Not found."},
+	ErrNotEnrolled:         {Status: http.StatusForbidden, Message: "You are not enrolled in this course."},
+	ErrNotAssignedMentor:   {Status: http.StatusForbidden, Message: "You are not this student's assigned mentor."},
+	ErrCourseNotComplete:   {Status: http.StatusUnprocessableEntity, Message: "Complete every module in this course before taking the final test."},
+	ErrAttemptsExhausted:   {Status: http.StatusUnprocessableEntity, Message: "You have used all of your attempts for this final test."},
+	ErrInvalidQuestions:    {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"questions": "must have at least one question"}},
+	ErrInvalidTimeLimit:    {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"time_limit_minutes": "must be positive"}},
+	ErrInvalidPassingScore: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"passing_score_percent": "must be between 1 and 100"}},
+	ErrInvalidMaxAttempts:  {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"max_attempts": "must be positive"}},
+	ErrInvalidThreshold:    {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"threshold_percent": "must be between 1 and 100"}},
+}
+
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound), errors.Is(err, ErrCourseNotFound), errors.Is(err, ErrNoFinalTest):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrNotEnrolled):
-		httputil.WriteError(w, http.StatusForbidden, "You are not enrolled in this course.")
-	case errors.Is(err, ErrNotAssignedMentor):
-		httputil.WriteError(w, http.StatusForbidden, "You are not this student's assigned mentor.")
-	case errors.Is(err, ErrCourseNotComplete):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "Complete every module in this course before taking the final test.")
-	case errors.Is(err, ErrAttemptsExhausted):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "You have used all of your attempts for this final test.")
-	case errors.Is(err, ErrInvalidQuestions):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"questions": "must have at least one question"})
-	case errors.Is(err, ErrInvalidTimeLimit):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"time_limit_minutes": "must be positive"})
-	case errors.Is(err, ErrInvalidPassingScore):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"passing_score_percent": "must be between 1 and 100"})
-	case errors.Is(err, ErrInvalidMaxAttempts):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"max_attempts": "must be positive"})
-	case errors.Is(err, ErrInvalidThreshold):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"threshold_percent": "must be between 1 and 100"})
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 // UpsertFinalTest handles PUT /api/courses/{courseID}/final-test
 func (h *Handler) UpsertFinalTest(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -83,7 +66,7 @@ func (h *Handler) UpsertFinalTest(w http.ResponseWriter, r *http.Request) {
 
 // GetFinalTestForEdit handles GET /api/courses/{courseID}/final-test/edit
 func (h *Handler) GetFinalTestForEdit(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -98,7 +81,7 @@ func (h *Handler) GetFinalTestForEdit(w http.ResponseWriter, r *http.Request) {
 
 // GetFinalTestForStudent handles GET /api/courses/{courseID}/final-test
 func (h *Handler) GetFinalTestForStudent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -113,7 +96,7 @@ func (h *Handler) GetFinalTestForStudent(w http.ResponseWriter, r *http.Request)
 
 // SubmitAttempt handles POST /api/courses/{courseID}/final-test/attempt
 func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -132,7 +115,7 @@ func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
 
 // ListMyCertificates handles GET /api/certificates/me
 func (h *Handler) ListMyCertificates(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -158,7 +141,7 @@ func (h *Handler) VerifyCertificate(w http.ResponseWriter, r *http.Request) {
 // IssueCertificate handles POST /api/courses/{courseID}/certificates/issue —
 // mentor/instructor/admin manual award for a specific student.
 func (h *Handler) IssueCertificate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -184,7 +167,7 @@ func (h *Handler) IssueCertificate(w http.ResponseWriter, r *http.Request) {
 // eligible, issues the caller's own threshold-based certificate. Called by
 // the course page on every load; idempotent no-op once issued.
 func (h *Handler) CheckThresholdCertificate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -200,7 +183,7 @@ func (h *Handler) CheckThresholdCertificate(w http.ResponseWriter, r *http.Reque
 // UpsertCertificateRule handles PUT /api/courses/{courseID}/certificate-rule
 // — instructor authoring of the threshold-based auto-issue rule.
 func (h *Handler) UpsertCertificateRule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -220,7 +203,7 @@ func (h *Handler) UpsertCertificateRule(w http.ResponseWriter, r *http.Request) 
 // GetCertificateRule handles GET /api/courses/{courseID}/certificate-rule —
 // instructor authoring read.
 func (h *Handler) GetCertificateRule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

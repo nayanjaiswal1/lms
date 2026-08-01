@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/redis/go-redis/v9"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/ratelimit"
-	"github.com/redis/go-redis/v9"
 )
 
 const maxUploadSize = 500 << 20 // 500 MB
@@ -100,29 +101,19 @@ func NewHandler(repo *Repo, service *Service, purchaser CoursePurchaser, coupons
 	}
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:  {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden: {Status: http.StatusForbidden, Message: "Access denied."},
+	ErrConflict:  {Status: http.StatusConflict, Message: "Conflict."},
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	var ve ValidationError
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, "Access denied.")
-	case errors.Is(err, ErrConflict):
-		httputil.WriteError(w, http.StatusConflict, "Conflict.")
-	case errors.As(err, &ve):
+	if errors.As(err, &ve) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{ve.Field: ve.Message})
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+		return
 	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -174,7 +165,7 @@ func validateSchedule(startsAt, endsAt *time.Time, fields map[string]string) {
 }
 
 func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -230,7 +221,7 @@ func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -243,7 +234,7 @@ func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -288,7 +279,7 @@ type courseUpdateReq struct {
 }
 
 func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -328,7 +319,7 @@ func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) PublishCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -340,7 +331,7 @@ func (h *Handler) PublishCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -352,7 +343,7 @@ func (h *Handler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ForkCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -376,7 +367,7 @@ func (h *Handler) ForkCourse(w http.ResponseWriter, r *http.Request) {
 // ─── Sections ─────────────────────────────────────────────────────────────────
 
 func (h *Handler) CreateSection(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -405,7 +396,7 @@ func (h *Handler) CreateSection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateSection(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -425,7 +416,7 @@ func (h *Handler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteSection(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -437,7 +428,7 @@ func (h *Handler) DeleteSection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ReorderSections(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -471,7 +462,7 @@ type moduleCreateReq struct {
 }
 
 func (h *Handler) CreateModule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -521,7 +512,7 @@ func (h *Handler) CreateModule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -569,7 +560,7 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteModule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -581,7 +572,7 @@ func (h *Handler) DeleteModule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ReorderModules(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -601,7 +592,7 @@ func (h *Handler) ReorderModules(w http.ResponseWriter, r *http.Request) {
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -628,7 +619,7 @@ func (h *Handler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
 // UploadAsset accepts a multipart/form-data upload ("file" field), stores it, and
 // returns { url, storage_key }. Used by the course-creation wizard for direct uploads.
 func (h *Handler) UploadAsset(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

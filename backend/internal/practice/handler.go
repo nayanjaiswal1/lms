@@ -2,11 +2,11 @@ package practice
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -16,21 +16,12 @@ type Handler struct {
 	repo    *Repo
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
 }
 
-func writeError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrNotFound) {
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-		return
-	}
-	httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+func writeDomainError(w http.ResponseWriter, err error) {
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -49,21 +40,21 @@ var suggestedTechnologies = []string{
 }
 
 func (h *Handler) GetSession(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	sessionID := chi.URLParam(r, "sessionID")
 	session, err := h.repo.GetSession(r.Context(), sessionID, claims.UserID)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, session)
 }
 
 func (h *Handler) UpdateSessionStatus(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -79,14 +70,14 @@ func (h *Handler) UpdateSessionStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.repo.UpdateSessionStatus(r.Context(), sessionID, claims.UserID, body.Status); err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (h *Handler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -109,7 +100,7 @@ func (h *Handler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 	item, err := h.service.SubmitAnswer(r.Context(), sessionID, claims.UserID, position, body.AnswerText)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, item)

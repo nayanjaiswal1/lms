@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -11,7 +12,7 @@ import (
 // for a course. Only enrolled students may rate — this keeps the aggregate
 // shown on course cards tied to verified course access.
 func (h *Handler) SubmitReview(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -50,7 +51,7 @@ func (h *Handler) SubmitReview(w http.ResponseWriter, r *http.Request) {
 // GetMyReview returns the authenticated user's existing rating for a course,
 // so the client can pre-select their star choice. 404 if they haven't rated yet.
 func (h *Handler) GetMyReview(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

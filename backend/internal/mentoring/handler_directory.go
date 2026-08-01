@@ -3,13 +3,14 @@ package mentoring
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // ListMentorDirectory returns every mentor in the caller's org with a live
 // mentee count and aggregated rating.
 func (h *Handler) ListMentorDirectory(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -36,7 +37,7 @@ type labUsageResponse struct {
 //
 //	GET /api/admin/labs/usage?days=30&student_limit=50
 func (h *Handler) HandleGetLabUsage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

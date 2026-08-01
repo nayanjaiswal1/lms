@@ -3,13 +3,14 @@ package mentoring
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // ListChatMessages returns the authenticated caller's chat thread for a
 // ticket — allowed only for that ticket's student or currently assigned mentor.
 func (h *Handler) ListChatMessages(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -23,7 +24,7 @@ func (h *Handler) ListChatMessages(w http.ResponseWriter, r *http.Request) {
 
 // SendChatMessage posts a message on a ticket's chat thread. Body: {"body": "..."}.
 func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

@@ -2,10 +2,10 @@ package srs
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -20,29 +20,19 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{repo: NewRepo(pool)}
 }
 
-// ctxClaims pulls authenticated claims or writes 401 and returns false.
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
 }
 
 // writeDomainError maps domain errors to HTTP responses.
 func writeDomainError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrNotFound) {
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-		return
-	}
-	httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 // GetDueCards handles GET /api/srs/due.
 // Returns up to 20 cards due for review today.
 func (h *Handler) GetDueCards(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -58,7 +48,7 @@ func (h *Handler) GetDueCards(w http.ResponseWriter, r *http.Request) {
 // Accepts a ReviewRequest, runs the SM-2 algorithm, persists the new schedule,
 // and returns the updated ReviewResult.
 func (h *Handler) ReviewCard(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -90,7 +80,7 @@ func (h *Handler) ReviewCard(w http.ResponseWriter, r *http.Request) {
 // CreateCard handles POST /api/srs/cards.
 // Allows a student to create a card manually.
 func (h *Handler) CreateCard(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

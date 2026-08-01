@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -91,7 +92,7 @@ func generateShortCode() (string, error) {
 }
 
 func (h *Handler) CreateAssessment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -142,7 +143,7 @@ func (h *Handler) CreateAssessment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -193,7 +194,7 @@ func (h *Handler) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListAssessments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -217,7 +218,7 @@ func (h *Handler) ListAssessments(w http.ResponseWriter, r *http.Request) {
 
 // GetAssessment returns the full staff view including answer keys (server side).
 func (h *Handler) GetAssessment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -252,7 +253,7 @@ type addQuestionRequest struct {
 }
 
 func (h *Handler) AddAssessmentQuestion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -285,7 +286,7 @@ type autoSelectQuestionsRequest struct {
 // them one at a time via AddAssessmentQuestion — e.g. "3 intermediate React
 // questions" or "2 DSA questions from the Algorithms category".
 func (h *Handler) AutoSelectAssessmentQuestions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -312,7 +313,7 @@ func (h *Handler) AutoSelectAssessmentQuestions(w http.ResponseWriter, r *http.R
 }
 
 func (h *Handler) RemoveAssessmentQuestion(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -326,7 +327,7 @@ func (h *Handler) RemoveAssessmentQuestion(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) PublishAssessment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -345,7 +346,7 @@ type statusRequest struct {
 // SetAssessmentStatus performs lifecycle transitions other than publish
 // (active, completed, archived). Draft→published goes through PublishAssessment.
 func (h *Handler) SetAssessmentStatus(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -374,7 +375,7 @@ type assignmentRequest struct {
 }
 
 func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -400,7 +401,7 @@ func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListAssignments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -413,7 +414,7 @@ func (h *Handler) ListAssignments(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -445,7 +446,7 @@ func validateBatchSchedule(req batchRequest, fields map[string]string) {
 }
 
 func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -481,7 +482,7 @@ func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateBatch(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -515,7 +516,7 @@ func (h *Handler) UpdateBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListBatches(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -528,7 +529,7 @@ func (h *Handler) ListBatches(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetBatch(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -551,7 +552,7 @@ type batchMembersRequest struct {
 }
 
 func (h *Handler) AddBatchMembers(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -571,7 +572,7 @@ func (h *Handler) AddBatchMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RemoveBatchMember(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

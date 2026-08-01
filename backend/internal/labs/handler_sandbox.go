@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -13,7 +14,7 @@ import (
 //
 //	GET /api/labs/sessions/{sessionId}/ports
 func (h *Handler) HandleListPorts(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -32,7 +33,7 @@ func (h *Handler) HandleListPorts(w http.ResponseWriter, r *http.Request) {
 //
 //	POST /api/labs/sessions/{sessionId}/run
 func (h *Handler) HandleRunScript(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -51,7 +52,7 @@ func (h *Handler) HandleRunScript(w http.ResponseWriter, r *http.Request) {
 //
 //	POST /api/labs/sessions/{sessionId}/submit
 func (h *Handler) HandleSubmitAll(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

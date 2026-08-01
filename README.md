@@ -164,7 +164,6 @@ mindforge/
 │
 ├── scripts/
 │   ├── dev-setup.sh           One-shot dev environment setup
-│   ├── start-dev.ps1          One-click Windows dev launcher (Docker services + frontend)
 │   ├── deploy-prod.sh         Build and (re)start the production stack
 │   ├── deploy-k8s.sh          Apply k8s manifests, wait for rollout
 │   ├── build-push-k8s-images.sh Build, push, pin image tags for k8s

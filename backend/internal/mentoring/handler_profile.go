@@ -3,13 +3,14 @@ package mentoring
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // GetMentorProfile returns the single-mentor profile view (directory fields
 // plus verified/response-time/hours/percentile) for the mentor profile page.
 func (h *Handler) GetMentorProfile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -25,7 +26,7 @@ func (h *Handler) GetMentorProfile(w http.ResponseWriter, r *http.Request) {
 // Body: {"verified": bool}. Gated by the mentoring.verify_mentors permission
 // at the route level.
 func (h *Handler) VerifyMentor(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
