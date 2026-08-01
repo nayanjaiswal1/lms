@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/session"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
 
@@ -33,14 +34,14 @@ type Handler struct {
 	jobsRegistry *jobs.Registry
 }
 
-func NewHandler(cfg *config.Config, pool *pgxpool.Pool, jobsRegistry *jobs.Registry) *Handler {
+func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, jobsRegistry *jobs.Registry) *Handler {
 	return &Handler{
 		cfg:          cfg,
 		pool:         pool,
 		orgSvc:       NewOrgService(pool, cfg),
 		onboSvc:      NewOrgOnboardingService(pool),
 		invSvc:       NewInviteService(pool, cfg),
-		memSvc:       NewMemberService(pool),
+		memSvc:       NewMemberService(pool, cache),
 		domSvc:       NewDomainService(pool),
 		jobsRegistry: jobsRegistry,
 	}

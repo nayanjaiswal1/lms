@@ -41,6 +41,12 @@ type Repo struct {
 	pool *pgxpool.Pool
 }
 
+// Pool exposes the underlying connection pool for callers that need to build
+// middleware over the same database (RequireOrgRole resolves the caller's live
+// org role). Kept read-only by convention: use the Repo's own methods for
+// queries that belong to this domain.
+func (r *Repo) Pool() *pgxpool.Pool { return r.pool }
+
 func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }

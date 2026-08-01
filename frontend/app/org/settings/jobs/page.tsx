@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -9,26 +8,12 @@ import type { Job, JobStatus, JobPriority } from "@/lib/jobs/types";
 import { cancelJobAction, retryJobAction } from "@/app/org/settings/jobs/[id]/actions";
 import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { getCurrentOrgId } from "@/lib/server/claims";
 
 export const metadata: Metadata = {
   title: "Jobs — Organisation Settings",
 };
 
-async function getCurrentOrgId(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_id?: string };
-    return payload.org_id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 const STATUS_TABS = [
   { label: "All",       value: undefined },

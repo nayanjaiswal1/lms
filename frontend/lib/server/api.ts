@@ -1,10 +1,34 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 export interface ActionResult<T = undefined> {
   ok?: boolean;
   data?: T;
   error?: string;
+}
+
+/**
+ * Forwards the browser's IP to the Go API.
+ *
+ * Every call in this file is server-to-server, so without this the backend sees
+ * the Next.js server's own address on every request and its per-IP auth rate
+ * limiter buckets the entire user base together — ten bad passwords from one
+ * person would lock everyone out of login, while a password list run against a
+ * single account would never stand out. The backend only believes this header
+ * from TRUSTED_PROXY_CIDRS, so it cannot be used to forge a bucket from
+ * outside.
+ *
+ * Returns an empty object when there is no request context (build-time
+ * rendering) or no upstream address to report, so callers can always spread it.
+ */
+export async function clientIpHeaders(): Promise<Record<string, string>> {
+  try {
+    const h = await headers();
+    const forwarded = h.get("x-forwarded-for") ?? h.get("x-real-ip");
+    return forwarded ? { "X-Forwarded-For": forwarded } : {};
+  } catch {
+    return {};
+  }
 }
 
 export function baseURL(): string {
@@ -22,6 +46,7 @@ export async function authHeaders(): Promise<Record<string, string>> {
     // eslint-disable-next-line no-restricted-syntax -- this is the one place allowed to build the Cookie header; everyone else must call authHeaders()/apiGet/apiAction.
     Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
     "X-CSRF-Token": csrfToken,
+    ...(await clientIpHeaders()),
   };
 }
 

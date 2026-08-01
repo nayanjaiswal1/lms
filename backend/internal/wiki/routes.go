@@ -11,6 +11,7 @@ import (
 // Router wires the wiki domain into the main chi router.
 type Router struct {
 	handler *Handler
+	pool    *pgxpool.Pool
 }
 
 // New builds the wiki Router with its full dependency graph. coursesRepo is
@@ -19,7 +20,7 @@ type Router struct {
 func New(pool *pgxpool.Pool, coursesRepo *courses.Repo) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo, coursesRepo)
-	return &Router{handler: newHandler(service)}
+	return &Router{handler: newHandler(service), pool: pool}
 }
 
 // RegisterRoutes mounts wiki endpoints under the caller's authenticated
@@ -33,7 +34,7 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Post("/api/wiki/spaces", rt.handler.CreateSpace)
 		r.Get("/api/wiki/spaces/{slug}", rt.handler.GetSpace)
 		r.Patch("/api/wiki/spaces/{id}", rt.handler.UpdateSpace)
-		r.With(middleware.RequireOrgRole(middleware.RoleAdmin)).Delete("/api/wiki/spaces/{id}", rt.handler.DeleteSpace)
+		r.With(middleware.RequireOrgRole(rt.pool, middleware.RoleAdmin)).Delete("/api/wiki/spaces/{id}", rt.handler.DeleteSpace)
 
 		r.Get("/api/wiki/spaces/{spaceId}/pages", rt.handler.GetPageTree)
 		r.Post("/api/wiki/spaces/{spaceId}/pages", rt.handler.CreatePage)

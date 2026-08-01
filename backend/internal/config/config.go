@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -16,6 +17,12 @@ type Config struct {
 	// Server
 	Port string
 	Env  string
+
+	// TrustedProxyCIDRs lists the networks whose X-Forwarded-For / X-Real-IP
+	// headers may be believed. Any other peer's forwarding headers are ignored
+	// and RemoteAddr is used instead — otherwise a client could mint an
+	// unlimited number of rate-limit buckets just by varying the header.
+	TrustedProxyCIDRs []string
 
 	// Database / Redis
 	DatabaseURL string
@@ -216,6 +223,13 @@ func Load() *Config {
 		EmailFrom:          getEnvDefault("EMAIL_FROM", "noreply@mindforge.dev"),
 	}
 
+	// ENV is whitelisted rather than free-form. Every production safeguard —
+	// the Secure cookie flag, sending real email instead of logging tokens,
+	// suppressing account-enumeration detail — keys off IsProd(), so a typo
+	// ("prod", "Production") silently ran the server in development mode with
+	// verification and reset tokens exposed. Fail at startup instead.
+	requireEnum("ENV", cfg.Env, "development", "staging", "production")
+
 	// Required non-empty string fields
 	requireNonEmpty("DATABASE_URL", cfg.DatabaseURL)
 	requireNonEmpty("REDIS_URL", cfg.RedisURL)
@@ -246,6 +260,12 @@ func Load() *Config {
 	// Parse rate limit config
 	cfg.AuthRateLimitMax = getEnvInt("AUTH_RATE_LIMIT_MAX", 10)
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
+
+	// Defaults to the RFC 1918 / loopback ranges, which covers the normal
+	// deployment where the Next.js server and an ingress proxy share a private
+	// network with this service. Set explicitly when the proxy is elsewhere.
+	cfg.TrustedProxyCIDRs = getEnvCIDRs("TRUSTED_PROXY_CIDRS",
+		"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
 
 	// Code execution (optional — coding grading degrades gracefully when unset)
 	cfg.PistonURL = strings.TrimRight(os.Getenv("PISTON_URL"), "/")
@@ -324,9 +344,22 @@ func Load() *Config {
 	return cfg
 }
 
-// IsProd returns true when ENV=production.
+// IsProd returns true for every deployed environment — that is, anything other
+// than a developer's local stack. It is deliberately written as "not
+// development" rather than "== production" so that an environment name this
+// build does not recognise fails *closed* (secure cookies on, real email, no
+// token echoing). Load() already whitelists ENV, so the only way to reach here
+// with an unexpected value is a new environment name added without updating
+// requireEnum — and that must not silently disable the production safeguards.
 func (c *Config) IsProd() bool {
-	return c.Env == "production"
+	return c.Env != "development"
+}
+
+// IsLocalDev reports whether this is a local developer stack, where auth tokens
+// may be logged to stdout in place of sending mail. Distinct from !IsProd() so
+// the two concerns cannot drift apart again.
+func (c *Config) IsLocalDev() bool {
+	return c.Env == "development"
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -343,6 +376,40 @@ func requireNonEmpty(key, value string) {
 		slog.Error("required env var is not set", "key", key)
 		os.Exit(1)
 	}
+}
+
+// getEnvCIDRs parses a comma-separated CIDR list, falling back to defaults when
+// unset. Fatal on a malformed entry so a typo cannot silently shrink the set of
+// proxies whose forwarding headers are trusted.
+func getEnvCIDRs(key string, defaults ...string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaults
+	}
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(part); err != nil {
+			slog.Error("invalid CIDR in env var", "key", key, "entry", part, "error", err)
+			os.Exit(1)
+		}
+		out = append(out, part)
+	}
+	return out
+}
+
+func requireEnum(key, value string, allowed ...string) {
+	for _, a := range allowed {
+		if value == a {
+			return
+		}
+	}
+	slog.Error("env var has an unrecognised value",
+		"key", key, "value", value, "allowed", strings.Join(allowed, ", "))
+	os.Exit(1)
 }
 
 func requireSecret(key, value string) {

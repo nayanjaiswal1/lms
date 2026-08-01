@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Building2, Users, Globe, Shield } from "lucide-react";
@@ -9,42 +8,13 @@ import type { Org } from "@/lib/orgs/types";
 import { OrgTypeCard } from "@/app/org/settings/org-type-card";
 import { apiGet } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
+import { getCurrentOrgId, getCurrentOrgRole } from "@/lib/server/claims";
 
 export const metadata: Metadata = {
   title: "Overview — Organisation Settings",
 };
 
-async function getCurrentOrgId(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_id?: string; role?: string };
-    return payload.org_id ?? null;
-  } catch {
-    return null;
-  }
-}
 
-async function getOrgRole(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_role?: string };
-    return payload.org_role ?? null;
-  } catch {
-    return null;
-  }
-}
 
 async function fetchOrg(orgId: string): Promise<Org | null> {
   try {
@@ -78,7 +48,7 @@ export default async function OrgSettingsPage() {
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 
-  const [org, role] = await Promise.all([fetchOrg(orgId), getOrgRole()]);
+  const [org, role] = await Promise.all([fetchOrg(orgId), getCurrentOrgRole()]);
   if (!org) notFound();
 
   const seatPct =

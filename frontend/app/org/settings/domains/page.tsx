@@ -1,30 +1,15 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getOrgDomains } from "@/lib/orgs/server";
 import { DomainList } from "@/app/org/settings/domains/domain-list";
 import { AddDomainForm } from "@/app/org/settings/domains/add-domain-form";
 import ROUTES from "@/lib/routes";
+import { getCurrentOrgId } from "@/lib/server/claims";
 
 export const metadata: Metadata = {
   title: "Domains — Organisation Settings",
 };
 
-async function getCurrentOrgId(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_id?: string };
-    return payload.org_id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function DomainsPage() {
   const orgId = await getCurrentOrgId();

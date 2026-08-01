@@ -33,7 +33,7 @@ func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
 	// ── Org admin routes ─────────────────────────────────────────────────────
 	r.Route("/api/orgs/{orgID}/jobs", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(h.pool))
-		r.Use(apimiddleware.RequireOrgRole(apimiddleware.RoleAdmin, apimiddleware.RoleInstructor))
+		r.Use(apimiddleware.RequireOrgRole(h.pool, apimiddleware.RoleAdmin, apimiddleware.RoleInstructor))
 
 		r.Get("/", h.handleOrgListJobs)
 		r.Get("/stats", h.handleOrgStats)

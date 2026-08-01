@@ -1,24 +1,9 @@
 import type { ReactNode } from "react";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { OrgSettingsMobileNav, OrgSettingsDesktopNav } from "@/app/org/settings/settings-nav";
 import ROUTES from "@/lib/routes";
+import { getCurrentOrgId } from "@/lib/server/claims";
 
-async function getCurrentOrgId(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_id?: string };
-    return payload.org_id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function OrgSettingsLayout({
   children,

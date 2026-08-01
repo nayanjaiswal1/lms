@@ -24,7 +24,12 @@ export async function GET(req: NextRequest) {
   try {
     res = await fetch(`${apiUrl}/api/auth/social/exchange`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(req.headers.get("x-forwarded-for")
+          ? { "X-Forwarded-For": req.headers.get("x-forwarded-for") as string }
+          : {}),
+      },
       body: JSON.stringify({ token }),
       cache: "no-store",
     });

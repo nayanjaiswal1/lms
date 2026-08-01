@@ -9,15 +9,27 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/session"
 )
 
 // MemberService manages org membership records.
 type MemberService struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	cache *session.Cache
 }
 
-func NewMemberService(pool *pgxpool.Pool) *MemberService {
-	return &MemberService{pool: pool}
+func NewMemberService(pool *pgxpool.Pool, cache *session.Cache) *MemberService {
+	return &MemberService{pool: pool, cache: cache}
+}
+
+// invalidateSession drops the cached session_version for a user so a role or
+// status change is picked up on the next request rather than up to the cache
+// TTL later.
+func (s *MemberService) invalidateSession(ctx context.Context, userID string) {
+	if s.cache == nil {
+		return
+	}
+	s.cache.InvalidateVersionCache(ctx, userID)
 }
 
 // List returns cursor-paginated members with user info joined.
@@ -155,6 +167,27 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 		return nil, fmt.Errorf("orgs: update member: %w", err)
 	}
 
+	// A role or status change alters what the member may do, but every access
+	// token they already hold still carries the old org_role claim and whatever
+	// the frontend gated on it. Bumping session_version retires those tokens on
+	// the next request instead of letting them run out the clock.
+	//
+	// RequireOrgRole reads the live role from the database, so this is not what
+	// keeps the API safe — it is what stops the member from seeing a UI built
+	// for privileges they no longer have, and what makes a suspension take
+	// effect immediately rather than at token expiry.
+	roleChanged := req.Role != nil && *req.Role != target.Role
+	statusChanged := req.Status != nil && *req.Status != target.Status
+	if roleChanged || statusChanged {
+		if _, err := s.pool.Exec(ctx,
+			`UPDATE users SET session_version = session_version + 1 WHERE id = $1`,
+			updated.UserID,
+		); err != nil {
+			return nil, fmt.Errorf("orgs: update member: bump session_version: %w", err)
+		}
+		s.invalidateSession(ctx, updated.UserID)
+	}
+
 	// Re-fetch with user info for full response.
 	result, err := s.fetchMember(ctx, orgID, memberID)
 	if err != nil {
@@ -178,9 +211,9 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRole, memberID string) error {
 	var target Member
 	err := s.pool.QueryRow(ctx,
-		`SELECT m.id, m.role, m.status FROM org_members m WHERE m.id = $1 AND m.org_id = $2`,
+		`SELECT m.id, m.user_id, m.role, m.status FROM org_members m WHERE m.id = $1 AND m.org_id = $2`,
 		memberID, orgID,
-	).Scan(&target.ID, &target.Role, &target.Status)
+	).Scan(&target.ID, &target.UserID, &target.Role, &target.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -201,6 +234,19 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 		}
 		return fmt.Errorf("orgs: remove member: %w", err)
 	}
+
+	// Retire the removed member's outstanding access tokens rather than letting
+	// them keep a working session until expiry. RequireOrgMember rejects them on
+	// org-scoped routes immediately (it checks status='active'), but the tokens
+	// still assert an org_role that the frontend and any non-org-scoped route
+	// would otherwise honour.
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE users SET session_version = session_version + 1 WHERE id = $1`,
+		target.UserID,
+	); err != nil {
+		return fmt.Errorf("orgs: remove member: bump session_version: %w", err)
+	}
+	s.invalidateSession(ctx, target.UserID)
 
 	writeAuditLog(ctx, s.pool, auditEntry{
 		OrgID:      orgID,

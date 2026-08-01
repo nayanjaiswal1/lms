@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/ratelimit"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -31,15 +32,17 @@ const dummyBcryptHash = "$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL1
 
 // Handler holds dependencies for all auth HTTP handlers.
 type Handler struct {
-	cfg   *config.Config
-	pool  *pgxpool.Pool
-	cache *session.Cache
-	rdb   *redis.Client
-	wa    *webauthn.WebAuthn
+	cfg     *config.Config
+	pool    *pgxpool.Pool
+	cache   *session.Cache
+	rdb     *redis.Client
+	wa      *webauthn.WebAuthn
+	limiter *ratelimit.Limiter
 }
 
 // NewHandler constructs a Handler with the given config, DB pool, session cache,
-// and Redis client (used for passkey in-flight challenge storage).
+// and Redis client (used for passkey in-flight challenge storage and for the
+// account-scoped rate limiter).
 func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client) *Handler {
 	wa, err := webauthn.New(&webauthn.Config{
 		RPID:          cfg.WebAuthnRPID,
@@ -52,7 +55,33 @@ func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rd
 		// endpoints degrade to a clear 503 rather than panicking the server.
 		slog.Error("auth: webauthn config invalid — passkey endpoints will 503", "error", err)
 	}
-	return &Handler{cfg: cfg, pool: pool, cache: cache, rdb: rdb, wa: wa}
+	return &Handler{cfg: cfg, pool: pool, cache: cache, rdb: rdb, wa: wa, limiter: ratelimit.New(rdb)}
+}
+
+// limitByAccount applies a rate limit keyed on the account being acted upon,
+// independent of the per-IP limit the RateLimit middleware already applied.
+//
+// The IP limit cannot carry this load on its own: every browser-facing auth
+// call reaches this service from the Next.js server rather than from the user's
+// browser, so one address fronts the entire user base. Keyed on IP alone, ten
+// bad passwords from one person would lock every user out of login, while an
+// attacker working through a password list against a single account would never
+// be singled out. Keying on the account fixes both directions.
+//
+// action namespaces the key so login attempts and password-reset requests do
+// not consume each other's budget. Returns true when the caller should stop.
+func (h *Handler) limitByAccount(w http.ResponseWriter, r *http.Request, action, account string) bool {
+	if account == "" {
+		return false
+	}
+	// Hashed so the key does not put a plaintext email address into Redis.
+	key := "rl:acct:" + action + ":" + HashToken(account)
+	if h.limiter.Allow(r.Context(), key, h.cfg.AuthRateLimitMax, h.cfg.AuthRateLimitWindow) {
+		return false
+	}
+	w.Header().Set("Retry-After", fmt.Sprintf("%d", int(h.cfg.AuthRateLimitWindow.Seconds())))
+	httputil.WriteError(w, http.StatusTooManyRequests, "Too many requests. Please try again later.")
+	return true
 }
 
 // ─── request / response types ─────────────────────────────────────────────────
@@ -127,6 +156,10 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.limitByAccount(w, r, "register", req.Email) {
+		return
+	}
+
 	var exists bool
 	if err := h.pool.QueryRow(r.Context(),
 		`SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`, req.Email,
@@ -136,20 +169,17 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if exists {
-		// Anti-enumeration: in production never reveal that the email is registered.
+		// Anti-enumeration: never reveal that the email is already registered.
 		// Respond exactly as a fresh registration would and notify the existing
-		// account holder out-of-band. In development surface the conflict plainly
-		// for developer clarity (enumeration is not a concern on a local stack).
-		if h.cfg.IsProd() {
-			if err := SendDuplicateRegistration(h.cfg, req.Email); err != nil {
-				slog.Error("auth: register notify existing account", "error", err)
-			}
-			httputil.WriteJSON(w, http.StatusCreated, map[string]string{
-				"message": "Check your email to verify your account.",
-			})
-			return
+		// account holder out-of-band. This is unconditional — the previous
+		// version returned a plain 409 outside production, which turned a
+		// mis-set ENV into an account-enumeration oracle.
+		if err := SendDuplicateRegistration(h.cfg, req.Email); err != nil {
+			slog.Error("auth: register notify existing account", "error", err)
 		}
-		httputil.WriteError(w, http.StatusConflict, "An account with that email already exists.")
+		httputil.WriteJSON(w, http.StatusCreated, map[string]string{
+			"message": "Check your email to verify your account.",
+		})
 		return
 	}
 
@@ -214,19 +244,18 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.cfg.IsProd() {
-		if err := SendVerification(h.cfg, req.Email, emailToken); err != nil {
-			slog.Error("auth: register send verification email", "error", err)
-		}
-		httputil.WriteJSON(w, http.StatusCreated, map[string]string{
-			"message": "Check your email to verify your account.",
-		})
-		return
+	// SendVerification itself decides between SMTP and a stdout log based on the
+	// environment. The token is never returned in the response body: it used to
+	// be echoed as "dev_token" outside production, which meant a mis-set ENV
+	// handed anyone a verification token for an address they do not own — i.e.
+	// account takeover by registering as someone else. On a local stack the
+	// token is in the server log, which is where a developer already looks.
+	if err := SendVerification(h.cfg, req.Email, emailToken); err != nil {
+		slog.Error("auth: register send verification email", "error", err)
 	}
 
 	httputil.WriteJSON(w, http.StatusCreated, map[string]string{
-		"message":   "Registration successful. Verify your email to sign in.",
-		"dev_token": emailToken,
+		"message": "Check your email to verify your account.",
 	})
 }
 
@@ -240,6 +269,10 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+
+	if h.limitByAccount(w, r, "login", req.Email) {
+		return
+	}
 
 	type userRow struct {
 		ID             string
@@ -381,44 +414,100 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 
 	tokenHash := HashToken(cookie.Value)
 
-	type tokenRow struct {
-		ID        string
-		UserID    string
-		FamilyID  string
-		RotatedAt *time.Time
-		RevokedAt *time.Time
-		ExpiresAt time.Time
-	}
-	var tok tokenRow
-	err = h.pool.QueryRow(r.Context(),
-		`SELECT id, user_id, family_id, rotated_at, revoked_at, expires_at
-		 FROM refresh_tokens
-		 WHERE token_hash = $1`,
-		tokenHash,
-	).Scan(&tok.ID, &tok.UserID, &tok.FamilyID, &tok.RotatedAt, &tok.RevokedAt, &tok.ExpiresAt)
+	// Claim the token and rotate it in a single statement. Splitting this into a
+	// SELECT that checks rotated_at/revoked_at followed by a later UPDATE let two
+	// concurrent refreshes both pass the check and both rotate; the loser then
+	// issued a token descending from an already-rotated parent, whose next use
+	// tripped the theft detection below and revoked the entire family — signing
+	// the user out of everything. That race is not theoretical: the Next.js edge
+	// middleware fires this endpoint on any protected navigation with an expired
+	// access token, and parallel navigations and prefetches overlap by design.
+	//
+	// Because the UPDATE carries the predicates, only one caller can ever match.
+	// It runs in the same transaction as the replacement INSERT so that a failure
+	// to issue the new token rolls the rotation back, rather than burning the
+	// user's only refresh token; a concurrent caller blocks on the row lock and
+	// then matches zero rows, which is exactly the intended outcome.
+	rawRefresh, refreshHash, err := CreateRefreshToken()
 	if err != nil {
-		httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired refresh token.")
+		slog.Error("auth: refresh create refresh token", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
 		return
 	}
 
-	if !tok.ExpiresAt.After(time.Now()) {
-		httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired refresh token.")
+	rotateTx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		slog.Error("auth: refresh begin tx", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
 		return
 	}
+	defer rotateTx.Rollback(r.Context()) //nolint:errcheck
 
-	// Theft detection: a token that has already been rotated or revoked must never
-	// be accepted again. Any reuse means the token was captured — revoke the whole
-	// family so neither the legitimate user nor the attacker keeps a live session.
-	if tok.RotatedAt != nil || tok.RevokedAt != nil {
-		if _, err := h.pool.Exec(r.Context(),
+	var tok struct {
+		ID         string
+		UserID     string
+		FamilyID   string
+		DeviceHint *string
+		IP         *string
+	}
+	err = rotateTx.QueryRow(r.Context(),
+		`UPDATE refresh_tokens
+		 SET rotated_at = now(), revoked_at = now()
+		 WHERE token_hash = $1
+		   AND rotated_at IS NULL
+		   AND revoked_at IS NULL
+		   AND expires_at > now()
+		 RETURNING id, user_id, family_id, device_hint, ip`,
+		tokenHash,
+	).Scan(&tok.ID, &tok.UserID, &tok.FamilyID, &tok.DeviceHint, &tok.IP)
+	if err != nil {
+		// No row claimed. Either the token never existed or simply aged out —
+		// both unremarkable — or it was already consumed, which is the theft
+		// signal. Only the consumed case may revoke the family; letting a
+		// naturally expired token trigger revocation would punish a user who
+		// left a tab open past REFRESH_TOKEN_TTL.
+		var familyID string
+		if lookupErr := h.pool.QueryRow(r.Context(),
+			`SELECT family_id FROM refresh_tokens
+			 WHERE token_hash = $1 AND (rotated_at IS NOT NULL OR revoked_at IS NOT NULL)`,
+			tokenHash,
+		).Scan(&familyID); lookupErr != nil {
+			httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired refresh token.")
+			return
+		}
+
+		// Theft detection: a token that has already been rotated or revoked must
+		// never be accepted again. Any reuse means the token was captured —
+		// revoke the whole family so neither the legitimate user nor the attacker
+		// keeps a live session.
+		if _, revokeErr := h.pool.Exec(r.Context(),
 			`UPDATE refresh_tokens SET revoked_at = now()
 			 WHERE family_id = $1 AND revoked_at IS NULL`,
-			tok.FamilyID,
-		); err != nil {
-			slog.Error("auth: refresh revoke family", "error", err)
+			familyID,
+		); revokeErr != nil {
+			slog.Error("auth: refresh revoke family", "error", revokeErr)
 		}
-		clearCookies(w)
+		clearCookies(w, h.cfg)
 		httputil.WriteError(w, http.StatusUnauthorized, "Session reuse detected. All sessions revoked.")
+		return
+	}
+
+	// The replacement token inherits the family and the device/network hints of
+	// the token it succeeds, so a family stays traceable to where it started.
+	if _, err := rotateTx.Exec(r.Context(),
+		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		tok.UserID, refreshHash, time.Now().Add(h.cfg.RefreshTokenTTL),
+		tok.FamilyID, tok.DeviceHint, tok.IP,
+	); err != nil {
+		slog.Error("auth: refresh insert new token", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
+		return
+	}
+
+	if err := rotateTx.Commit(r.Context()); err != nil {
+		slog.Error("auth: refresh commit tx", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
 		return
 	}
 
@@ -455,49 +544,6 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("auth: refresh create access token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-
-	rawRefresh, refreshHash, err := CreateRefreshToken()
-	if err != nil {
-		slog.Error("auth: refresh create refresh token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-
-	tx, err := h.pool.Begin(r.Context())
-	if err != nil {
-		slog.Error("auth: refresh begin tx", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-	defer tx.Rollback(r.Context()) //nolint:errcheck
-
-	if _, err := tx.Exec(r.Context(),
-		`UPDATE refresh_tokens SET rotated_at = now(), revoked_at = now() WHERE id = $1`,
-		tok.ID,
-	); err != nil {
-		slog.Error("auth: refresh update rotated_at", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-
-	if _, err := tx.Exec(r.Context(),
-		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
-		 SELECT user_id, $1, $2, family_id, device_hint, ip
-		 FROM refresh_tokens WHERE id = $3`,
-		refreshHash,
-		time.Now().Add(h.cfg.RefreshTokenTTL),
-		tok.ID,
-	); err != nil {
-		slog.Error("auth: refresh insert new token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-
-	if err := tx.Commit(r.Context()); err != nil {
-		slog.Error("auth: refresh commit tx", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
 		return
 	}
@@ -552,7 +598,7 @@ func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	clearCookies(w)
+	clearCookies(w, h.cfg)
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Signed out."})
 }
 
@@ -585,7 +631,7 @@ func (h *Handler) HandleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.cache.InvalidateVersionCache(r.Context(), claims.UserID)
-	clearCookies(w)
+	clearCookies(w, h.cfg)
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "All sessions revoked."})
 }
 
@@ -659,6 +705,13 @@ func (h *Handler) HandleResendVerification(w http.ResponseWriter, r *http.Reques
 
 	const msg = "If that email exists, a new verification link was sent."
 
+	// Account-scoped so this endpoint cannot be used to mail-bomb one address,
+	// nor to keep re-issuing verification links for an account someone else
+	// registered under a victim's address.
+	if h.limitByAccount(w, r, "resend-verification", req.Email) {
+		return
+	}
+
 	var userID string
 	var verified bool
 	err := h.pool.QueryRow(r.Context(),
@@ -688,12 +741,11 @@ func (h *Handler) HandleResendVerification(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if !h.cfg.IsProd() {
-		slog.Info("DEV EMAIL: Resend verification token", "email", req.Email, "token", emailToken)
-	} else {
-		if err := SendVerification(h.cfg, req.Email, emailToken); err != nil {
-			slog.Error("auth: resend-verification send email", "error", err)
-		}
+	// SendVerification already logs instead of mailing on a local stack; the
+	// duplicate branch here logged the token a second time and, more to the
+	// point, decided that with its own copy of the environment check.
+	if err := SendVerification(h.cfg, req.Email, emailToken); err != nil {
+		slog.Error("auth: resend-verification send email", "error", err)
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
@@ -710,19 +762,37 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 
-	defer func() {
-		_ = bcrypt.CompareHashAndPassword(
-			[]byte(dummyBcryptHash),
-			[]byte("dummy"),
-		)
-	}()
-
 	const msg = "If that email exists, a reset link was sent."
+
+	// Account-scoped so one address cannot be mail-bombed with reset links.
+	if h.limitByAccount(w, r, "forgot-password", req.Email) {
+		return
+	}
+
+	// Burn a fixed bcrypt's worth of time on every path so the response time does
+	// not distinguish a known address from an unknown one. This was previously a
+	// deferred call, which ran *after* the response had already been written and
+	// so equalized nothing.
+	_ = bcrypt.CompareHashAndPassword([]byte(dummyBcryptHash), []byte("dummy"))
 
 	var userID string
 	if err := h.pool.QueryRow(r.Context(),
 		`SELECT id FROM users WHERE email = $1`, req.Email,
 	).Scan(&userID); err != nil {
+		httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
+		return
+	}
+
+	// Supersede any reset token still outstanding for this account. Without
+	// this, every unused link ever requested stays live until it ages out, so a
+	// link that leaked from an inbox or a proxy log keeps working even after the
+	// user has requested a fresh one.
+	if _, err := h.pool.Exec(r.Context(),
+		`UPDATE password_reset_tokens SET used_at = now()
+		 WHERE user_id = $1 AND used_at IS NULL`,
+		userID,
+	); err != nil {
+		slog.Error("auth: forgot-password supersede outstanding tokens", "error", err)
 		httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
 		return
 	}
@@ -745,12 +815,8 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.cfg.IsProd() {
-		slog.Info("DEV EMAIL: Password reset token", "email", req.Email, "token", rawToken)
-	} else {
-		if err := SendPasswordReset(h.cfg, req.Email, rawToken); err != nil {
-			slog.Error("auth: forgot-password send email", "error", err)
-		}
+	if err := SendPasswordReset(h.cfg, req.Email, rawToken); err != nil {
+		slog.Error("auth: forgot-password send email", "error", err)
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
@@ -779,12 +845,12 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	tokenHash := HashToken(req.Token)
 
-	var prtID, userID string
+	var userID string
 	err := h.pool.QueryRow(r.Context(),
-		`SELECT id, user_id FROM password_reset_tokens
+		`SELECT user_id FROM password_reset_tokens
 		 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
 		tokenHash,
-	).Scan(&prtID, &userID)
+	).Scan(&userID)
 	if err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid or expired reset token.")
 		return
@@ -805,9 +871,15 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
 
+	// email_verified is set here too. Following a reset link proves control of
+	// the mailbox just as the signup verification link does, so leaving the flag
+	// alone stranded anyone who reset before verifying: they held a valid
+	// password and still got "Please verify your email" at login, with the
+	// verification mail sitting in the same inbox they had just proven they own.
 	if _, err := tx.Exec(r.Context(),
 		`UPDATE users SET password_hash = $1, updated_at = now(),
-		                  session_version = session_version + 1
+		                  session_version = session_version + 1,
+		                  email_verified = true
 		 WHERE id = $2`,
 		string(newHash), userID,
 	); err != nil {
@@ -816,8 +888,11 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Consume every outstanding reset token for the account, not just the one
+	// presented, so a second link mailed earlier cannot be redeemed afterwards.
 	if _, err := tx.Exec(r.Context(),
-		`UPDATE password_reset_tokens SET used_at = now() WHERE id = $1`, prtID,
+		`UPDATE password_reset_tokens SET used_at = now()
+		 WHERE user_id = $1 AND used_at IS NULL`, userID,
 	); err != nil {
 		slog.Error("auth: reset-password mark token used", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Password reset failed.")
@@ -922,36 +997,34 @@ func (h *Handler) HandleCSRFToken(w http.ResponseWriter, r *http.Request) {
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 
+// enforceMaxSessions revokes the user's oldest session families until at most
+// max_sessions-1 remain, leaving room for the session the caller is about to
+// create.
+//
+// A single statement replaces the previous count-then-revoke pair. The old
+// version revoked exactly one family however far over the limit the user was,
+// so a count that had drifted above max_sessions — which two concurrent logins
+// could cause, since the count and the subsequent insert were not serialised —
+// stayed above it forever.
 func (h *Handler) enforceMaxSessions(ctx context.Context, userID string) error {
-	var activeFamilies, maxSessions int
-	if err := h.pool.QueryRow(ctx,
-		`SELECT COUNT(DISTINCT family_id) FROM refresh_tokens
-		 WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()`,
+	_, err := h.pool.Exec(ctx,
+		`WITH active AS (
+		   SELECT family_id, MIN(created_at) AS started_at
+		   FROM refresh_tokens
+		   WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()
+		   GROUP BY family_id
+		 ), keep AS (
+		   SELECT family_id FROM active
+		   ORDER BY started_at DESC
+		   LIMIT GREATEST((SELECT max_sessions FROM users WHERE id = $1) - 1, 0)
+		 )
+		 UPDATE refresh_tokens SET revoked_at = now()
+		 WHERE user_id = $1
+		   AND revoked_at IS NULL
+		   AND family_id IN (SELECT family_id FROM active EXCEPT SELECT family_id FROM keep)`,
 		userID,
-	).Scan(&activeFamilies); err != nil {
-		return err
-	}
-
-	if err := h.pool.QueryRow(ctx,
-		`SELECT max_sessions FROM users WHERE id = $1`, userID,
-	).Scan(&maxSessions); err != nil {
-		return err
-	}
-
-	if activeFamilies >= maxSessions {
-		if _, err := h.pool.Exec(ctx,
-			`UPDATE refresh_tokens SET revoked_at = now()
-			 WHERE family_id = (
-			   SELECT family_id FROM refresh_tokens
-			   WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()
-			   ORDER BY created_at ASC LIMIT 1
-			 )`,
-			userID,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
+	)
+	return err
 }
 
 func (h *Handler) queryUserOrgs(ctx context.Context, userID string) ([]orgResponse, error) {
@@ -999,12 +1072,17 @@ func (h *Handler) checkOnboardingCompleted(ctx context.Context, userID string) (
 
 // ─── cookie helpers ───────────────────────────────────────────────────────────
 
+// Cookie lifetimes derive from the configured token TTLs rather than being
+// written out as literals. They used to be hardcoded at 15m and 30d, so raising
+// ACCESS_TOKEN_TTL left the browser discarding a cookie whose JWT was still
+// valid, and lowering it left the browser sending a JWT that had already
+// expired — the two only agreed at their default values.
 func setAccessCookie(w http.ResponseWriter, cfg *config.Config, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
 		Value:    token,
 		Path:     "/",
-		MaxAge:   15 * 60,
+		MaxAge:   int(cfg.AccessTokenTTL.Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   cfg.IsProd(),
@@ -1016,7 +1094,7 @@ func setRefreshCookie(w http.ResponseWriter, cfg *config.Config, token string) {
 		Name:     "refresh_token",
 		Value:    token,
 		Path:     "/",
-		MaxAge:   30 * 24 * 3600,
+		MaxAge:   int(cfg.RefreshTokenTTL.Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   cfg.IsProd(),
@@ -1025,19 +1103,30 @@ func setRefreshCookie(w http.ResponseWriter, cfg *config.Config, token string) {
 
 // setCSRFCookie sets a readable (non-HttpOnly) cookie so the browser can read
 // the value and echo it back via the X-CSRF-Token header on each mutation.
+//
+// It is scoped to the refresh TTL, not the access TTL: /api/auth/refresh now
+// requires a CSRF token, and that call happens precisely when the access token
+// has expired. A CSRF cookie that died alongside the access token would make
+// every silent refresh fail and force a fresh login every ACCESS_TOKEN_TTL.
+// The value is a signed random nonce, not a credential — its lifetime carries
+// no secrecy requirement of its own.
 func setCSRFCookie(w http.ResponseWriter, cfg *config.Config, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "csrf_token",
 		Value:    token,
 		Path:     "/",
-		MaxAge:   15 * 60,
+		MaxAge:   int(cfg.RefreshTokenTTL.Seconds()),
 		HttpOnly: false,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   cfg.IsProd(),
 	})
 }
 
-func clearCookies(w http.ResponseWriter) {
+// clearCookies expires all three auth cookies. Secure must match the attribute
+// they were set with: browsers key a cookie on (name, domain, path) and ignore
+// Secure when matching, so deletion worked either way, but an intermediary that
+// does inspect the attribute should see a consistent pair.
+func clearCookies(w http.ResponseWriter, cfg *config.Config) {
 	for _, name := range []string{"access_token", "refresh_token", "csrf_token"} {
 		http.SetCookie(w, &http.Cookie{
 			Name:     name,
@@ -1046,6 +1135,7 @@ func clearCookies(w http.ResponseWriter) {
 			MaxAge:   -1,
 			HttpOnly: name != "csrf_token",
 			SameSite: http.SameSiteLaxMode,
+			Secure:   cfg.IsProd(),
 		})
 	}
 }

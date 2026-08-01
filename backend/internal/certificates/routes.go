@@ -12,6 +12,7 @@ import (
 // Router wires the certificates domain into the main chi router.
 type Router struct {
 	handler *Handler
+	pool    *pgxpool.Pool
 }
 
 // New builds the certificates Router. coursesRepo backs the enrollment/
@@ -23,7 +24,7 @@ type Router struct {
 func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, executor assessment.CodeExecutor, mentorAuth MentorAuthChecker, purchases PurchaseChecker) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo, coursesRepo, executor, mentorAuth, purchases)
-	return &Router{handler: newHandler(service)}
+	return &Router{handler: newHandler(service), pool: pool}
 }
 
 // RegisterRoutes mounts the authenticated routes under the caller's group.
@@ -32,7 +33,7 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, executor assessment.Code
 // are gated on content.certificates — the same permission code the
 // frontend's nav entry and <AccessGate> already check.
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
-	instructor := middleware.RequireOrgRole(middleware.RoleAdmin, middleware.RoleInstructor)
+	instructor := middleware.RequireOrgRole(rt.pool, middleware.RoleAdmin, middleware.RoleInstructor)
 	r.With(instructor).Group(func(r chi.Router) {
 		r.Get("/api/courses/{courseID}/final-test/edit", rt.handler.GetFinalTestForEdit)
 		r.Put("/api/courses/{courseID}/final-test", rt.handler.UpsertFinalTest)
@@ -43,7 +44,7 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	// Manual award — a mentor may only issue for their own assigned student
 	// (enforced in the service, since middleware can't see the mentor/student
 	// pairing); instructor/admin may issue for anyone enrolled.
-	mentorOrStaff := middleware.RequireOrgRole(middleware.RoleMentor, middleware.RoleInstructor, middleware.RoleAdmin)
+	mentorOrStaff := middleware.RequireOrgRole(rt.pool, middleware.RoleMentor, middleware.RoleInstructor, middleware.RoleAdmin)
 	r.With(mentorOrStaff).Group(func(r chi.Router) {
 		r.Post("/api/courses/{courseID}/certificates/issue", rt.handler.IssueCertificate)
 	})

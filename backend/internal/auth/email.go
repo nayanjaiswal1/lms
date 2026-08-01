@@ -12,7 +12,7 @@ import (
 // SendVerification sends the email-verification link to the given address.
 // In development it logs to stdout instead of using SMTP.
 func SendVerification(cfg *config.Config, to, token string) error {
-	if !cfg.IsProd() {
+	if cfg.IsLocalDev() {
 		slog.Info("DEV EMAIL: Verification token", "to", to, "token", token)
 		return nil
 	}
@@ -26,7 +26,7 @@ func SendVerification(cfg *config.Config, to, token string) error {
 // SendPasswordReset sends the password-reset link to the given address.
 // In development it logs to stdout instead of using SMTP.
 func SendPasswordReset(cfg *config.Config, to, token string) error {
-	if !cfg.IsProd() {
+	if cfg.IsLocalDev() {
 		slog.Info("DEV EMAIL: Password reset token", "to", to, "token", token)
 		return nil
 	}
@@ -42,7 +42,7 @@ func SendPasswordReset(cfg *config.Config, to, token string) error {
 // account's existence in the registration API response (anti-enumeration).
 // In development it logs to stdout instead of using SMTP.
 func SendDuplicateRegistration(cfg *config.Config, to string) error {
-	if !cfg.IsProd() {
+	if cfg.IsLocalDev() {
 		slog.Info("DEV EMAIL: Duplicate registration attempt", "to", to)
 		return nil
 	}
@@ -61,7 +61,7 @@ func SendDuplicateRegistration(cfg *config.Config, to string) error {
 // impossible-travel posture. In development it logs to stdout instead of
 // using SMTP.
 func SendPasskeyCloneAlert(cfg *config.Config, to string) error {
-	if !cfg.IsProd() {
+	if cfg.IsLocalDev() {
 		slog.Info("DEV EMAIL: Passkey clone warning", "to", to)
 		return nil
 	}

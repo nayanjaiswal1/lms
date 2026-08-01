@@ -58,6 +58,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   const accessToken  = request.cookies.get("access_token")?.value
   const refreshToken = request.cookies.get("refresh_token")?.value
+  const csrfToken    = request.cookies.get("csrf_token")?.value
 
   // Token present and not expired — let through immediately.
   if (accessToken && !jwtExpired(accessToken)) return NextResponse.next()
@@ -68,14 +69,28 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   // Access token missing or expired — attempt a silent refresh.
-  try {
-    const backendUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL
-    if (!backendUrl) return NextResponse.next()
+  const backendUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL
+  if (!backendUrl) {
+    // Misconfiguration must not open the gate. Letting the request through
+    // rendered a protected page for a caller whose session could not be
+    // established — the server components behind it re-check, but this gate
+    // should not be the thing relying on that.
+    return loginRedirect(request)
+  }
 
+  try {
     const refreshRes = await fetch(`${backendUrl}/api/auth/refresh`, {
       method: "POST",
-      // eslint-disable-next-line no-restricted-syntax -- middleware runs on the Edge runtime; lib/server/api.ts is server-only and can't be imported here, and this refreshes off refresh_token, not access_token.
-      headers: { Cookie: `refresh_token=${refreshToken}` },
+      headers: {
+        // eslint-disable-next-line no-restricted-syntax -- middleware runs on the Edge runtime; lib/server/api.ts is server-only and can't be imported here. Both cookies are needed: refresh_token authenticates the rotation, csrf_token satisfies the CSRF guard now applied to /api/auth/refresh.
+        Cookie: `refresh_token=${refreshToken}; csrf_token=${csrfToken ?? ""}`,
+        "X-CSRF-Token": csrfToken ?? "",
+        // Preserve the browser's address so the backend's auth rate limiter
+        // does not bucket every user behind this server's own IP.
+        ...(request.headers.get("x-forwarded-for")
+          ? { "X-Forwarded-For": request.headers.get("x-forwarded-for") as string }
+          : {}),
+      },
       cache: "no-store",
     })
 
@@ -92,8 +107,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
     return response
   } catch {
-    // Backend unreachable — let the request through and let error.tsx handle it.
-    return NextResponse.next()
+    // Backend unreachable. Send the user to /login rather than through: the
+    // session could not be refreshed, so there is nothing to let through, and
+    // an auth gate that opens when its dependency is down is not a gate.
+    return loginRedirect(request)
   }
 }
 

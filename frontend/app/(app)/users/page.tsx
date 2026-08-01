@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { apiGet } from "@/lib/server/api"
@@ -8,22 +7,8 @@ import { RoleLegend } from "@/app/(app)/users/role-legend"
 import { UserFilters } from "@/app/(app)/users/user-filters"
 import { UserSearchInput } from "@/app/(app)/users/user-search-input"
 import { UserTable, type RoleOption, type UserSummary } from "@/app/(app)/users/user-table"
+import { getCurrentOrgId } from "@/lib/server/claims";
 
-async function getCurrentOrgId(): Promise<string | null> {
-  const store = await cookies()
-  const token = store.get("access_token")?.value
-  if (!token) return null
-  try {
-    const parts = token.split(".")
-    if (parts.length !== 3) return null
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString()) as {
-      org_id?: string
-    }
-    return payload.org_id ?? null
-  } catch {
-    return null
-  }
-}
 
 export default async function UsersPage({
   searchParams,

@@ -36,7 +36,7 @@ func New(pool *pgxpool.Pool, cfg *config.Config, jobRegistry *jobs.Registry, rew
 // Staff group  — admin / instructor / mentor: authoring, assignment, analytics.
 // Student group — any authenticated org member: take tests, view own results.
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	staff := middleware.RequireOrgRole(middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
+	staff := middleware.RequireOrgRole(h.pool, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
 
 	// ─── Staff: management ────────────────────────────────────────────────────
 	r.Group(func(r chi.Router) {

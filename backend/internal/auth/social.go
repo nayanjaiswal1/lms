@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,12 @@ import (
 	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
 )
+
+// oauthStateCookie namespaces the CSRF state cookie per provider. A single
+// shared "oauth_state" cookie meant a state issued by /api/auth/google was
+// accepted by /api/auth/github/callback and vice versa, so the state no longer
+// pinned the callback to the flow that started it.
+func oauthStateCookie(provider string) string { return "oauth_state_" + provider }
 
 type providerUser struct {
 	ProviderUID   string
@@ -61,8 +68,10 @@ func (h *Handler) HandleOAuthRedirect(provider string) http.HandlerFunc {
 			return
 		}
 
+		// The cookie name carries the provider so a state minted by one
+		// provider's redirect cannot satisfy another provider's callback.
 		http.SetCookie(w, &http.Cookie{
-			Name:     "oauth_state",
+			Name:     oauthStateCookie(provider),
 			Value:    state,
 			Path:     "/",
 			MaxAge:   300,
@@ -89,19 +98,21 @@ func (h *Handler) HandleOAuthCallback(provider string) http.HandlerFunc {
 			http.Redirect(w, r, h.cfg.FrontendURL+"/login?error="+code, http.StatusTemporaryRedirect)
 		}
 
-		stateCookie, err := r.Cookie("oauth_state")
-		if err != nil || stateCookie.Value == "" || stateCookie.Value != r.URL.Query().Get("state") {
+		stateCookie, err := r.Cookie(oauthStateCookie(provider))
+		if err != nil || stateCookie.Value == "" ||
+			subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(r.URL.Query().Get("state"))) != 1 {
 			errRedirect("state_mismatch")
 			return
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:     "oauth_state",
+			Name:     oauthStateCookie(provider),
 			Value:    "",
 			Path:     "/",
 			MaxAge:   -1,
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
+			Secure:   h.cfg.IsProd(),
 		})
 
 		code := r.URL.Query().Get("code")
@@ -173,24 +184,19 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var exID, userID string
+	// Claim the one-time token in the same statement that checks it. Selecting on
+	// used_at IS NULL and marking it used afterwards let two concurrent posts of
+	// the same token both pass the check and both mint a session.
+	var userID string
 	var onboardingCompleted bool
 	err := h.pool.QueryRow(r.Context(),
-		`SELECT id, user_id, onboarding_completed
-		 FROM oauth_exchanges
-		 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+		`UPDATE oauth_exchanges SET used_at = now()
+		 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+		 RETURNING user_id, onboarding_completed`,
 		HashToken(req.Token),
-	).Scan(&exID, &userID, &onboardingCompleted)
+	).Scan(&userID, &onboardingCompleted)
 	if err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired exchange token.")
-		return
-	}
-
-	if _, err := h.pool.Exec(r.Context(),
-		`UPDATE oauth_exchanges SET used_at = now() WHERE id = $1`, exID,
-	); err != nil {
-		slog.Error("auth: social exchange mark used", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
 		return
 	}
 
@@ -375,12 +381,16 @@ func getGitHubUser(ctx context.Context, client *http.Client) (*providerUser, err
 		name = g.Login
 	}
 
-	// GitHub only exposes verified addresses: the public-profile email must be a
-	// verified address, and getGitHubPrimaryEmail filters on Primary && Verified.
-	// A non-empty resolved email is therefore always verified.
-	email := g.Email
-	if email == "" {
-		email, _ = getGitHubPrimaryEmail(ctx, client)
+	// Always resolve through /user/emails, which states verified explicitly, and
+	// ignore the public-profile email entirely. The profile field was previously
+	// preferred and its verified-ness inferred from being non-empty — an
+	// assumption about GitHub's behaviour that the response itself never
+	// asserts. Since a verified address is what authorises linking into an
+	// existing account (findOrCreateSocialUser), it has to be read from the
+	// field that actually says so.
+	email, err := getGitHubPrimaryEmail(ctx, client)
+	if err != nil {
+		return nil, err
 	}
 
 	return &providerUser{
@@ -436,14 +446,57 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 	}
 
 	// Email match → link social account to existing user.
-	// Only auto-link on a provider-verified email; trusting an unverified address
-	// would let an attacker take over an existing account by asserting its email.
+	//
+	// Two verification checks are required here, not one. The provider's
+	// email_verified proves the person in front of the provider owns the
+	// address. The *local* row's email_verified proves the MindForge account
+	// claiming that address was ever confirmed to belong to it.
+	//
+	// Checking only the provider side allowed account pre-hijacking: an attacker
+	// registers victim@example.com with a password and never verifies it — no
+	// mailbox access needed — and when the victim later signs in with the
+	// provider, they are linked into the attacker's row, which still carries the
+	// attacker's password_hash. The attacker then triggers a verification mail
+	// the victim has every reason to click, and the password becomes live.
+	//
+	// So an unverified local row is not treated as belonging to the same person.
+	// The social identity is the stronger claim on the address, so it takes the
+	// row over: the unverified password is cleared, any sessions minted under it
+	// are invalidated, and the address is marked verified on the provider's word.
 	if p.Email != "" && p.EmailVerified {
+		var localVerified bool
 		err = h.pool.QueryRow(ctx,
-			`SELECT id FROM users WHERE email = $1`, p.Email,
-		).Scan(&userID)
+			`SELECT id, email_verified FROM users WHERE email = $1`, p.Email,
+		).Scan(&userID, &localVerified)
 		if err == nil {
-			if _, err = h.pool.Exec(ctx,
+			tx, txErr := h.pool.Begin(ctx)
+			if txErr != nil {
+				return "", false, fmt.Errorf("link social account: begin tx: %w", txErr)
+			}
+			defer tx.Rollback(ctx) //nolint:errcheck
+
+			if !localVerified {
+				if _, err = tx.Exec(ctx,
+					`UPDATE users
+					 SET password_hash = NULL,
+					     email_verified = true,
+					     session_version = session_version + 1,
+					     updated_at = now()
+					 WHERE id = $1`,
+					userID,
+				); err != nil {
+					return "", false, fmt.Errorf("reclaim unverified account: %w", err)
+				}
+				if _, err = tx.Exec(ctx,
+					`UPDATE refresh_tokens SET revoked_at = now()
+					 WHERE user_id = $1 AND revoked_at IS NULL`,
+					userID,
+				); err != nil {
+					return "", false, fmt.Errorf("revoke unverified account sessions: %w", err)
+				}
+			}
+
+			if _, err = tx.Exec(ctx,
 				`INSERT INTO social_accounts (user_id, provider, provider_uid, email)
 				 VALUES ($1, $2, $3, $4)
 				 ON CONFLICT (provider, provider_uid) DO NOTHING`,
@@ -451,6 +504,15 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 			); err != nil {
 				return "", false, fmt.Errorf("link social account: %w", err)
 			}
+
+			if err = tx.Commit(ctx); err != nil {
+				return "", false, fmt.Errorf("link social account: commit: %w", err)
+			}
+
+			if !localVerified {
+				h.cache.InvalidateVersionCache(ctx, userID)
+			}
+
 			onboardingCompleted, err = h.checkOnboardingCompleted(ctx, userID)
 			return
 		}

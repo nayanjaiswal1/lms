@@ -1,7 +1,7 @@
 import "server-only";
 
-import { cookies } from "next/headers";
 import { apiGet, authHeaders, baseURL } from "@/lib/server/api";
+import { getCurrentOrgId } from "@/lib/server/claims";
 
 export interface Batch {
   id: string;
@@ -259,20 +259,10 @@ export interface OrgMemberSummary {
 
 // getOrgId decodes the current user's JWT to extract the org_id claim.
 // Returns null when the token is absent or malformed.
+
+/** @deprecated Prefer getCurrentOrgId from @/lib/server/claims directly. */
 export async function getOrgId(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_id?: string };
-    return payload.org_id ?? null;
-  } catch {
-    return null;
-  }
+  return getCurrentOrgId();
 }
 
 export async function getOrgMembersAll(orgId: string): Promise<OrgMemberSummary[]> {

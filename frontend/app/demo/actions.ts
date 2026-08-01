@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
 import ROUTES from "@/lib/routes";
+import { clientIpHeaders } from "@/lib/server/api";
 
 function getField(source: unknown, key: string): unknown {
   return source && typeof source === "object"
@@ -32,7 +33,7 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
   try {
     response = await fetch(`${apiUrl}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
       body: JSON.stringify({ email, password }),
       cache: "no-store",
     });

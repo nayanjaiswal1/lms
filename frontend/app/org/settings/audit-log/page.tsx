@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -7,26 +6,12 @@ import { Button } from "@/components/ui/button";
 import { getAuditLogs } from "@/lib/orgs/server";
 import type { AuditLog } from "@/lib/orgs/types";
 import ROUTES from "@/lib/routes";
+import { getCurrentOrgId } from "@/lib/server/claims";
 
 export const metadata: Metadata = {
   title: "Audit Log — Organisation Settings",
 };
 
-async function getCurrentOrgId(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_id?: string };
-    return payload.org_id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 function actionBadgeVariant(action: string): "default" | "secondary" | "destructive" | "outline" {
   if (action.startsWith("create") || action.startsWith("invite")) return "default";

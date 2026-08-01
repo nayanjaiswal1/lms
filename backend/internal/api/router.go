@@ -56,7 +56,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	// ─── Global middleware ────────────────────────────────────────────────────
 	r.Use(chimiddleware.Recoverer)
-	r.Use(chimiddleware.RealIP)
+	// Not chimiddleware.RealIP: that one believes X-Forwarded-For from any
+	// caller, which lets a client directly reaching this service forge a fresh
+	// rate-limit bucket per request. Ours honours forwarding headers only from
+	// TRUSTED_PROXY_CIDRS.
+	r.Use(apimiddleware.RealIP(cfg))
 	r.Use(chimiddleware.Logger)
 	// No global chimiddleware.Timeout: it force-writes a 504 the instant its
 	// deadline passes (see its own doc comment), which cut off
@@ -119,7 +123,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	experienceRouter := experience.New(pool)
 	practiceRouter := practice.New(pool, aiProvider)
 	interviewPrepRouter := interviewprep.New(pool, cfg, aiProvider, practiceRouter.Service)
-	orgsHandler := orgs.NewHandler(cfg, pool, jobsRegistry)
+	orgsHandler := orgs.NewHandler(cfg, pool, cache, jobsRegistry)
 	srsRouter := srs.New(pool)
 	// A second *srs.Repo wrapping the same pool (NewRepo holds no state of its
 	// own beyond the pool reference) so mistakes.Service and mcpconnect can
@@ -176,8 +180,18 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		r.Post("/register", authHandler.HandleRegister)
 		r.Post("/login", authHandler.HandleLogin)
-		r.Post("/refresh", authHandler.HandleRefresh)
-		r.Post("/logout", authHandler.HandleLogout)
+
+		// /refresh and /logout act on an existing session identified purely by
+		// cookie, so they are exactly the shape a cross-site request forgery
+		// targets — one to force a token rotation, the other to sign the user
+		// out. SameSite=Lax already blocks the cross-site POST, but that leaves
+		// the whole defence resting on a single cookie attribute; the CSRF token
+		// makes it explicit. They stay outside the RequireAuth group because
+		// both must work with an access token that has already expired.
+		csrf := apimiddleware.RequireCSRF(cfg)
+		r.With(csrf).Post("/refresh", authHandler.HandleRefresh)
+		r.With(csrf).Post("/logout", authHandler.HandleLogout)
+
 		r.Post("/verify-email", authHandler.HandleVerifyEmail)
 		r.Post("/resend-verification", authHandler.HandleResendVerification)
 		r.Post("/forgot-password", authHandler.HandleForgotPassword)

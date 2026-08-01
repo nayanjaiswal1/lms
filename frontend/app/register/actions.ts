@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { AUTH_COPY, registerSchema } from "@/lib/validation/auth";
 import ROUTES from "@/lib/routes";
+import { clientIpHeaders } from "@/lib/server/api";
 
 export interface RegisterState {
   error?: string;
@@ -51,7 +52,7 @@ export async function registerAction(
   try {
     response = await fetch(`${apiUrl}/api/auth/register`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
       body: JSON.stringify({
         name: parsed.data.name,
         email: parsed.data.email,

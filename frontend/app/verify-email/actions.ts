@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import ROUTES from "@/lib/routes";
+import { clientIpHeaders } from "@/lib/server/api";
 
 export interface VerifyEmailState {
   error?: string;
@@ -21,7 +22,7 @@ export async function verifyEmailAction(
   try {
     response = await fetch(`${apiUrl}/api/auth/verify-email`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
       body: JSON.stringify({ token }),
       cache: "no-store",
     });

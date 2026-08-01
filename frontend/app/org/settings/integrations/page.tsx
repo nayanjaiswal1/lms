@@ -1,31 +1,16 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/server/api";
 import { GitlabInstallationManager, type GitlabInstallationStatus, type GitlabOrgConfig } from "@/components/settings/gitlab-installation-manager";
 import { getOrgAIConnectorConfig } from "@/lib/orgs/server";
 import { AIConnectorToggleForm } from "@/app/org/settings/integrations/ai-connector-toggle-form";
 import ROUTES from "@/lib/routes";
+import { getCurrentOrgId } from "@/lib/server/claims";
 
 export const metadata: Metadata = {
   title: "Integrations — Organisation Settings",
 };
 
-async function getCurrentOrgId(): Promise<string | null> {
-  const store = await cookies();
-  const token = store.get("access_token")?.value;
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString(),
-    ) as { org_id?: string };
-    return payload.org_id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 // GET /api/gitlab/org-config 404s (ErrNotFound) for an org that's never set
 // a policy — normalized to the column's own default here rather than

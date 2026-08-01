@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { AUTH_COPY, loginSchema } from "@/lib/validation/auth";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
-import { apiAction, type ActionResult } from "@/lib/server/api";
+import { apiAction, type ActionResult, clientIpHeaders } from "@/lib/server/api";
 import type { WebAuthnRequestOptions } from "@/lib/webauthn";
 import ROUTES from "@/lib/routes";
 import { safeNextPath } from "@/lib/utils";
@@ -78,7 +78,7 @@ export async function loginAction(
   try {
     response = await fetch(`${apiUrl}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
       body: JSON.stringify(parsed.data),
       cache: "no-store",
     });
@@ -147,7 +147,7 @@ export async function loginPasskeyFinishAction(
   try {
     response = await fetch(`${apiUrl}/api/auth/webauthn/login/finish`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
       body: JSON.stringify({ handle, response: credentialResponse }),
       cache: "no-store",
     });

@@ -275,6 +275,26 @@ export default tseslint.config(
             'middleware), disable this line with a comment explaining why.',
         },
 
+        // ── Ban: hand-rolled JWT payload decode ────────────────────────────
+        // Decoding the access token without verifying its signature was
+        // copy-pasted into a dozen server components to read org_id/org_role.
+        // It is acceptable for UI scoping — the Go API re-derives both on every
+        // request and rejects anything the caller is not entitled to — but as a
+        // loose pattern it reads like an ordinary way to get a claim, which is
+        // one careless server action away from an authorization decision made
+        // on an unverified token. It now lives in lib/server/claims.ts, which
+        // states that caveat once, in one place.
+        {
+          selector:
+            'CallExpression[callee.object.name="Buffer"][callee.property.name="from"]' +
+            '[arguments.1.value="base64url"]',
+          message:
+            '[Security] Do not hand-decode a JWT payload. ' +
+            'Use getUnverifiedClaims/getCurrentOrgId/getCurrentOrgRole from lib/server/claims.ts, ' +
+            'which documents why reading an unverified token is safe for UI scoping only. ' +
+            'Never branch on these values for authorization — ask the API instead.',
+        },
+
         // ── Responsive: ban w-screen ─────────────────────────────────────
         // w-screen = 100vw which causes horizontal overflow on iOS when the
         // page has a scrollbar (scrollbar width is included in vw).
