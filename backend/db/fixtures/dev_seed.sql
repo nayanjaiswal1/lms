@@ -113,6 +113,30 @@ VALUES (
 )
 ON CONFLICT (org_id, user_id) DO NOTHING;
 
+-- ─── Lab org config ─────────────────────────────────────────────────────────
+-- Without this row the dev org's allowed_images is empty, and labs.Service.
+-- StartSession refuses every lab whose image is mapped to the "nested-docker"
+-- profile in LABS_IMAGE_PROFILES ("This lab is not available for your
+-- organization") — such an image is never a platform default and always needs
+-- an explicit allowlist entry.
+--
+-- allowed_images is all-or-nothing: once non-empty it also restricts ordinary
+-- images, so this list must name EVERY image the dev course fixtures use, not
+-- just the nested-Docker ones. Adding a lab on a new image means adding it
+-- here too.
+INSERT INTO lab_org_config (org_id, allowed_images)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  ARRAY[
+    'mindforge/lab-docker:27',
+    'mindforge/lab-k8s:1.31',
+    'mindforge/lab-node-web:22',
+    'mindforge/lab-python-web:3.12',
+    'node:18-alpine'
+  ]
+)
+ON CONFLICT (org_id) DO UPDATE SET allowed_images = EXCLUDED.allowed_images;
+
 -- ══════════════════════════════════════════════════════════════════════════
 -- Assessment fixture — "React Fundamentals" test (MCQ + coding)
 -- Authored by the dev instructor, assigned to a batch that contains the dev

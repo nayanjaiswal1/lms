@@ -59,4 +59,9 @@ docker run -d --name registry --restart=no --network host registry:2 >/dev/null 
   || log "warning: registry failed to start — offline registry exercises won't work this session, terminal still will"
 
 log "starting ttyd"
+# ttyd's shell inherits this cwd, and lessons refer to starter files as if the
+# student is already in the workdir. The Dockerfile's WORKDIR would cover it,
+# but every lab image sets it here explicitly so the terminal's landing
+# directory has exactly one source across all of them.
+cd /home/labuser/work
 exec ttyd -W -p 7681 bash

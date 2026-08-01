@@ -15,21 +15,34 @@ ARG ETCD_VERSION=v3.5.31
 ARG KWOK_VERSION=v0.8.0
 ARG TARGETARCH=amd64
 
+# The ~90MB control-plane binaries do not survive a single clean GET from
+# dl.k8s.io here: over HTTP/2 the stream dies mid-transfer ("curl: (92) ...
+# PROTOCOL_ERROR"), and over HTTP/1.1 the connection truncates instead
+# ("curl: (18)" partial file). Both fail the build reproducibly, so:
+#   --http1.1        avoids the HTTP/2 stream error
+#   -C -             resumes at the byte offset already fetched, so a
+#                    truncated transfer continues instead of restarting and
+#                    truncating again — without it --retry alone never wins
+#   --retry-all-errors  makes --retry cover partial-file (18), not just the
+#                    errors curl considers transient by default
+# ARG, not ENV, so the flags stay out of the runtime image environment.
+ARG CURL_OPTS="--http1.1 --retry 10 --retry-delay 2 --retry-all-errors -C -"
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
       bash curl ca-certificates ttyd openssl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL -o /usr/local/bin/kubectl \
+RUN curl -fsSL ${CURL_OPTS} -o /usr/local/bin/kubectl \
       "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
-    && curl -fsSL -o /usr/local/bin/kube-apiserver \
+    && curl -fsSL ${CURL_OPTS} -o /usr/local/bin/kube-apiserver \
       "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${TARGETARCH}/kube-apiserver" \
-    && curl -fsSL -o /usr/local/bin/kube-controller-manager \
+    && curl -fsSL ${CURL_OPTS} -o /usr/local/bin/kube-controller-manager \
       "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${TARGETARCH}/kube-controller-manager" \
-    && curl -fsSL -o /usr/local/bin/kube-scheduler \
+    && curl -fsSL ${CURL_OPTS} -o /usr/local/bin/kube-scheduler \
       "https://dl.k8s.io/release/${KUBE_VERSION}/bin/linux/${TARGETARCH}/kube-scheduler" \
-    && curl -fsSL -o /usr/local/bin/kwok \
+    && curl -fsSL ${CURL_OPTS} -o /usr/local/bin/kwok \
       "https://github.com/kubernetes-sigs/kwok/releases/download/${KWOK_VERSION}/kwok-linux-${TARGETARCH}" \
-    && curl -fsSL "https://github.com/etcd-io/etcd/releases/download/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-${TARGETARCH}.tar.gz" \
+    && curl -fsSL ${CURL_OPTS} "https://github.com/etcd-io/etcd/releases/download/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-${TARGETARCH}.tar.gz" \
       -o /tmp/etcd.tar.gz \
     && tar xzf /tmp/etcd.tar.gz -C /tmp \
     && mv "/tmp/etcd-${ETCD_VERSION}-linux-${TARGETARCH}/etcd" /usr/local/bin/ \
@@ -44,13 +57,13 @@ RUN curl -fsSL -o /usr/local/bin/kubectl \
 # config files via --config. These are kwok's own upstream default "fast"
 # stage manifests — the same ones kwokctl applies for a standard kwok cluster.
 RUN mkdir -p /etc/kubernetes/kwok-stages \
-    && curl -fsSL -o /etc/kubernetes/kwok-stages/node-initialize.yaml \
+    && curl -fsSL ${CURL_OPTS} -o /etc/kubernetes/kwok-stages/node-initialize.yaml \
       "https://raw.githubusercontent.com/kubernetes-sigs/kwok/${KWOK_VERSION}/kustomize/stage/node/fast/node-initialize.yaml" \
-    && curl -fsSL -o /etc/kubernetes/kwok-stages/pod-ready.yaml \
+    && curl -fsSL ${CURL_OPTS} -o /etc/kubernetes/kwok-stages/pod-ready.yaml \
       "https://raw.githubusercontent.com/kubernetes-sigs/kwok/${KWOK_VERSION}/kustomize/stage/pod/fast/pod-ready.yaml" \
-    && curl -fsSL -o /etc/kubernetes/kwok-stages/pod-complete.yaml \
+    && curl -fsSL ${CURL_OPTS} -o /etc/kubernetes/kwok-stages/pod-complete.yaml \
       "https://raw.githubusercontent.com/kubernetes-sigs/kwok/${KWOK_VERSION}/kustomize/stage/pod/fast/pod-complete.yaml" \
-    && curl -fsSL -o /etc/kubernetes/kwok-stages/pod-delete.yaml \
+    && curl -fsSL ${CURL_OPTS} -o /etc/kubernetes/kwok-stages/pod-delete.yaml \
       "https://raw.githubusercontent.com/kubernetes-sigs/kwok/${KWOK_VERSION}/kustomize/stage/pod/fast/pod-delete.yaml"
 
 RUN useradd --create-home --shell /bin/bash labuser \

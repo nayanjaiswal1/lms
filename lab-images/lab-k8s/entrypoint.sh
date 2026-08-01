@@ -132,4 +132,8 @@ kwok \
   >$LOG_DIR/kwok.log 2>&1 &
 
 log "starting ttyd"
+# ttyd's shell inherits this cwd, and lessons refer to starter files as if the
+# student is already in the workdir ("apply pod1.yaml") — without this the
+# terminal opens at /.
+cd /home/labuser/work
 exec ttyd -W -p 7681 bash
