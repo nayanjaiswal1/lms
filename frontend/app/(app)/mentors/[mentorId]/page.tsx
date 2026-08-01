@@ -1,22 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, ShieldCheck, Star, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
-import { ProfileAvatar } from "@/components/shared/profile-avatar";
-import { MentorRatingForm } from "@/components/mentoring/mentor-rating-form";
+import { MentorHero } from "@/components/mentoring/mentor-hero";
 import { ReportMentorDialog } from "@/components/mentoring/report-mentor-dialog";
 import { RequestMentorChangeDialog } from "@/components/mentoring/request-mentor-change-dialog";
-import { MentorProfileActions } from "@/components/mentoring/mentor-profile-actions";
 import { TicketHistoryDialog } from "@/components/mentoring/ticket-history-dialog";
 import { ScheduleSessionButton } from "@/components/mentoring/schedule-session-button";
-import { ShareProfileButton } from "@/components/mentoring/share-profile-button";
 import { MessageMentorButton } from "@/components/mentoring/message-mentor-button";
 import { MentorInsightsPanel } from "@/components/mentoring/mentor-insights-panel";
+import { MentorMetadataCard } from "@/components/mentoring/mentor-metadata-card";
+import { MentorFeedbackSection } from "@/components/mentoring/mentor-feedback-section";
+import { MentorReviewsList } from "@/components/mentoring/mentor-reviews-list";
 import { getMentorProfile, getMyMentorTickets, getTicketHistory } from "@/lib/server/mentoring";
 import { getEnrollments } from "@/lib/server/courses";
-import { getMyFeedback } from "@/lib/server/feedback";
-import { formatDate, formatDuration } from "@/lib/mentoring/format";
+import { getMyFeedback, getPublicFeedback } from "@/lib/server/feedback";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -28,31 +26,15 @@ export async function generateMetadata({ params }: Props) {
   return { title: "Mentor", alternates: { canonical: `/mentors/${mentorId}` } };
 }
 
-function RatingStars({ rating, count }: { rating: number; count: number }) {
-  const rounded = Math.round(rating);
-  return (
-    <p className="flex items-center gap-1.5 text-sm">
-      <span aria-hidden className="flex items-center gap-0.5 text-primary">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <Star className="h-4 w-4" fill={n <= rounded ? "currentColor" : "none"} key={n} />
-        ))}
-      </span>
-      <span className="font-semibold text-foreground">{rating.toFixed(1)}</span>
-      <span className="text-muted-foreground">
-        ({count} rating{count === 1 ? "" : "s"})
-      </span>
-    </p>
-  );
-}
-
 export default async function MentorProfilePage({ params }: Props) {
   const { mentorId } = await params;
 
-  const [mentor, myFeedback, myTickets, enrollments] = await Promise.all([
+  const [mentor, myFeedback, myTickets, enrollments, reviews] = await Promise.all([
     getMentorProfile(mentorId),
     getMyFeedback("mentor", mentorId).catch(() => null),
     getMyMentorTickets().catch(() => []),
     getEnrollments().catch(() => []),
+    getPublicFeedback("mentor", mentorId, 5).catch(() => []),
   ]);
 
   if (!mentor) notFound();
@@ -78,80 +60,33 @@ export default async function MentorProfilePage({ params }: Props) {
 
   const history = assignedTicket ? await getTicketHistory(assignedTicket.id).catch(() => null) : null;
 
-  const totalHoursLabel = formatDuration(mentor.total_mentorship_hours);
-
   return (
     <main className="page-container">
       <Breadcrumb items={[{ label: "Mentors", href: ROUTES.MENTORS }, { label: mentor.name }]} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="flex flex-col gap-6 lg:col-span-8">
-          <div className="card-raised relative flex flex-col gap-4 p-8 sm:flex-row sm:items-center">
-            <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
-              <MentorProfileActions
-                canReport={hasMentorshipHistory}
-                mentorId={mentor.user_id}
-                ticketId={assignedTicket?.id}
-                verified={mentor.verified}
-              />
-            </div>
-
-            <ProfileAvatar avatarUrl={mentor.avatar_url} name={mentor.name} size="lg" />
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2 pr-10 sm:pr-0">
-                {mentor.verified && (
-                  <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                    <ShieldCheck aria-hidden className="h-3.5 w-3.5" />
-                    Verified expert
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="page-title">{mentor.name}</h1>
-                {assignedTicket && <Badge>Your mentor</Badge>}
-              </div>
-              {mentor.current_role && (
-                <p className="text-sm font-medium text-foreground">
-                  {mentor.current_role}
-                  {mentor.years_of_experience !== null &&
-                    ` · ${mentor.years_of_experience} yr${mentor.years_of_experience === 1 ? "" : "s"} experience`}
-                </p>
-              )}
-              <p className="truncate text-sm text-muted-foreground">{mentor.email}</p>
-              {mentor.avg_rating !== null && <RatingStars count={mentor.rating_count} rating={mentor.avg_rating} />}
-              {assignedTicket && assignedCourse && (
-                <p className="text-sm text-muted-foreground">
-                  Mentoring you in{" "}
-                  <Link className="text-primary hover:underline" href={ROUTES.course(assignedCourse.slug)}>
-                    {assignedCourse.title}
-                  </Link>
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                <ScheduleSessionButton
-                  attendeeId={mentor.user_id}
-                  size="sm"
-                  triggerLabel="Book a session"
-                  variant="default"
-                />
-                <ShareProfileButton mentorName={mentor.name} path={ROUTES.mentor(mentor.user_id)} />
-              </div>
-            </div>
-          </div>
+          <MentorHero
+            assignedCourse={assignedCourse}
+            canReport={hasMentorshipHistory}
+            isYourMentor={Boolean(assignedTicket)}
+            mentor={mentor}
+            ticketId={assignedTicket?.id}
+          />
 
           {mentor.bio && (
-            <section className="card-base flex flex-col gap-2 p-6">
-              <h2 className="subsection-title">Professional biography</h2>
+            <section className="rounded-xl border border-border bg-card p-6">
+              <h2 className="section-title mb-3">Professional biography</h2>
               <p className="prose-content whitespace-pre-line">{mentor.bio}</p>
             </section>
           )}
 
           {mentor.skills.length > 0 && (
-            <section className="card-base flex flex-col gap-3 p-6">
-              <h2 className="subsection-title">Core competencies</h2>
+            <section className="rounded-xl border border-border bg-card p-6">
+              <h2 className="section-title mb-4">Core competencies</h2>
               <div className="flex flex-wrap gap-2">
                 {mentor.skills.map((skill) => (
-                  <Badge key={skill} variant="secondary">
+                  <Badge className="badge-info rounded-pill px-3 py-1 text-sm" key={skill} variant="outline">
                     {skill}
                   </Badge>
                 ))}
@@ -159,13 +94,16 @@ export default async function MentorProfilePage({ params }: Props) {
             </section>
           )}
 
-          {hasMentorshipHistory && (
-            <MentorRatingForm
-              initialComment={myFeedback?.comment ?? null}
-              initialRating={myFeedback?.rating ?? null}
-              mentorId={mentor.user_id}
-            />
-          )}
+          <MentorFeedbackSection
+            avgRating={mentor.avg_rating}
+            canReview={hasMentorshipHistory}
+            initialComment={myFeedback?.comment ?? null}
+            initialRating={myFeedback?.rating ?? null}
+            mentorId={mentor.user_id}
+            ratingCount={mentor.rating_count}
+          />
+
+          <MentorReviewsList reviews={reviews} />
         </div>
 
         <aside className="flex flex-col gap-6 lg:col-span-4">
@@ -177,18 +115,11 @@ export default async function MentorProfilePage({ params }: Props) {
             ratingCount={mentor.rating_count}
           />
 
-          <section className="card-base flex flex-col gap-2 p-6 text-sm text-muted-foreground">
-            {totalHoursLabel && (
-              <p className="flex items-center gap-2">
-                <Timer aria-hidden className="h-4 w-4 shrink-0" />
-                {totalHoursLabel} of mentorship delivered
-              </p>
-            )}
-            <p className="flex items-center gap-2">
-              <Calendar aria-hidden className="h-4 w-4 shrink-0" />
-              Joined {formatDate(mentor.joined_at)}
-            </p>
-          </section>
+          <MentorMetadataCard
+            joinedAt={mentor.joined_at}
+            lastActiveAt={mentor.last_active_at}
+            totalMentorshipHours={mentor.total_mentorship_hours}
+          />
 
           <div className="flex flex-col gap-2">
             <ScheduleSessionButton

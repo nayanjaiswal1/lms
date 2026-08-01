@@ -22,4 +22,5 @@ func New(pool *pgxpool.Pool, mentorship MentorshipVerifier) *Router {
 func (rt *Router) RegisterRoutes(r chi.Router) {
 	r.Post("/api/feedback", rt.handler.SubmitFeedback)
 	r.Get("/api/feedback/{subjectType}/{subjectID}/me", rt.handler.GetMyFeedback)
+	r.Get("/api/feedback/{subjectType}/{subjectID}", rt.handler.ListFeedback)
 }

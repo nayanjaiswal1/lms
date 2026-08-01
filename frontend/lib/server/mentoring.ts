@@ -119,6 +119,10 @@ export interface MentorProfile {
   avg_response_minutes: number | null;
   total_mentorship_hours: number | null;
   percentile_rank: number | null;
+  last_active_at: string | null;
+  linkedin: string | null;
+  github: string | null;
+  portfolio: string | null;
 }
 
 export async function getMentorProfile(mentorId: string): Promise<MentorProfile | null> {

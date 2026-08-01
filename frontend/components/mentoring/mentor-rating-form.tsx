@@ -26,7 +26,7 @@ export function MentorRatingForm({ mentorId, initialRating, initialComment }: Me
   const [state, action, isPending] = useActionState<ActionResult, FormData>(submit, {});
 
   return (
-    <form action={action} className="card-base flex flex-col gap-3 p-6">
+    <form action={action} className="flex flex-col gap-3">
       <input name="mentor_id" type="hidden" value={mentorId} />
       <input name="rating" type="hidden" value={rating} />
 

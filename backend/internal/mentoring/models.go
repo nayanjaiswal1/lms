@@ -268,6 +268,10 @@ type MentorProfile struct {
 	AvgResponseMinutes   *float64   `json:"avg_response_minutes"`
 	TotalMentorshipHours *float64   `json:"total_mentorship_hours"`
 	PercentileRank       *float64   `json:"percentile_rank"`
+	LastActiveAt         *time.Time `json:"last_active_at"`
+	LinkedIn             *string    `json:"linkedin"`
+	GitHub               *string    `json:"github"`
+	Portfolio            *string    `json:"portfolio"`
 }
 
 // MentorConversation is a ticket-independent 1:1 DM thread between a student

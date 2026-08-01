@@ -42,6 +42,37 @@ func (r *Repo) Upsert(ctx context.Context, orgID string, subjectType SubjectType
 	return f, nil
 }
 
+// ListPublic returns the most recent written reviews (rating + comment, both
+// required) for a subject, newest first — the reviewer's current name and
+// role at read time, not as of when they wrote it.
+func (r *Repo) ListPublic(ctx context.Context, orgID string, subjectType SubjectType, subjectID string, limit int) ([]PublicReview, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT f.id, u.name, p.current_role, f.rating, f.comment, f.created_at
+		 FROM feedback f
+		 JOIN users u ON u.id = f.user_id
+		 LEFT JOIN user_profiles p ON p.user_id = u.id
+		 WHERE f.org_id = $1 AND f.subject_type = $2 AND f.subject_id = $3
+		   AND f.rating IS NOT NULL AND f.comment IS NOT NULL AND f.comment != ''
+		 ORDER BY f.created_at DESC
+		 LIMIT $4`,
+		orgID, subjectType, subjectID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("feedback: list public reviews: %w", err)
+	}
+	defer rows.Close()
+
+	out := []PublicReview{}
+	for rows.Next() {
+		var rv PublicReview
+		if err := rows.Scan(&rv.ID, &rv.ReviewerName, &rv.ReviewerRole, &rv.Rating, &rv.Comment, &rv.CreatedAt); err != nil {
+			return nil, fmt.Errorf("feedback: scan public review: %w", err)
+		}
+		out = append(out, rv)
+	}
+	return out, rows.Err()
+}
+
 // GetMine returns the authenticated user's existing feedback for a subject.
 // Returns ErrNotFound if the user has neither rated nor skipped it yet.
 func (r *Repo) GetMine(ctx context.Context, subjectType SubjectType, subjectID, userID string) (Feedback, error) {

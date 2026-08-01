@@ -42,3 +42,18 @@ type Feedback struct {
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
+
+// PublicReview is one written review of a subject, shown to any org member
+// browsing that subject (e.g. the "Recent feedback" list on a mentor
+// profile) — reviewer identity included, since feedback here is always
+// within-org (an org member's own colleagues/mentors), never a public
+// stranger-facing listing. Only feedback with both a rating and a comment
+// qualifies; a bare star rating with no text isn't a "review".
+type PublicReview struct {
+	ID           string    `json:"id"`
+	ReviewerName string    `json:"reviewer_name"`
+	ReviewerRole *string   `json:"reviewer_role"`
+	Rating       int       `json:"rating"`
+	Comment      string    `json:"comment"`
+	CreatedAt    time.Time `json:"created_at"`
+}

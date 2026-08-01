@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
@@ -67,6 +68,30 @@ func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, f)
+}
+
+// ListFeedback returns recent public reviews (rating + comment) for a
+// subject — e.g. the "Recent feedback" list on a mentor profile page.
+// Optional ?limit= query param, clamped server-side.
+func (h *Handler) ListFeedback(w http.ResponseWriter, r *http.Request) {
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+	subjectType := SubjectType(chi.URLParam(r, "subjectType"))
+	subjectID := chi.URLParam(r, "subjectID")
+	limit := 0
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			limit = n
+		}
+	}
+	reviews, err := h.service.ListPublic(r.Context(), claims.OrgID, subjectType, subjectID, limit)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"reviews": reviews})
 }
 
 // GetMyFeedback returns the authenticated user's existing feedback for a

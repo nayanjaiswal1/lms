@@ -26,3 +26,24 @@ export async function getMyFeedback(
   );
   return data.feedback;
 }
+
+export interface PublicReview {
+  id: string;
+  reviewer_name: string;
+  reviewer_role: string | null;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export async function getPublicFeedback(
+  subjectType: FeedbackSubjectType,
+  subjectId: string,
+  limit?: number,
+): Promise<PublicReview[]> {
+  const query = limit ? `?limit=${limit}` : "";
+  const data = await apiGet<{ reviews: PublicReview[] }>(
+    `/api/feedback/${subjectType}/${subjectId}${query}`,
+  );
+  return data.reviews ?? [];
+}

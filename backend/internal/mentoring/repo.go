@@ -674,10 +674,12 @@ func (r *Repo) GetMentorProfile(ctx context.Context, orgID, mentorID string) (Me
 		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count,
 		        p.bio, p.current_role, p.years_of_experience,
 		        COALESCE(sk.skills, '{}') AS skills,
-		        COALESCE(p.mentor_verified, false) AS mentor_verified, p.mentor_verified_at
+		        COALESCE(p.mentor_verified, false) AS mentor_verified, p.mentor_verified_at,
+		        u.last_active_at, sl.linkedin, sl.github, sl.portfolio
 		 FROM org_members om
 		 JOIN users u ON u.id = om.user_id
 		 LEFT JOIN user_profiles p ON p.user_id = u.id
+		 LEFT JOIN user_social_links sl ON sl.user_id = u.id
 		 LEFT JOIN (
 		   SELECT assigned_mentor_id, COUNT(*) AS mentee_count
 		   FROM mentor_tickets
@@ -702,6 +704,7 @@ func (r *Repo) GetMentorProfile(ctx context.Context, orgID, mentorID string) (Me
 	if err := row.Scan(
 		&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.JoinedAt, &m.MenteeCount, &m.AvgRating, &m.RatingCount,
 		&m.Bio, &m.CurrentRole, &m.YearsOfExperience, &m.Skills, &m.Verified, &m.VerifiedAt,
+		&m.LastActiveAt, &m.LinkedIn, &m.GitHub, &m.Portfolio,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return MentorProfile{}, ErrNotFound

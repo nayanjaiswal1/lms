@@ -251,7 +251,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	payments.RegisterPublicRoutes(r, cfg)
 
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
-	requireAuth := apimiddleware.RequireAuth(cfg, cache)
+	requireAuth := apimiddleware.RequireAuth(cfg, cache, pool)
 
 	r.Group(func(r chi.Router) {
 		r.Use(requireAuth)

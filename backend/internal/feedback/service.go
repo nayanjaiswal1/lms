@@ -75,3 +75,26 @@ func (s *Service) GetMine(ctx context.Context, subjectType SubjectType, subjectI
 	}
 	return s.repo.GetMine(ctx, subjectType, subjectID, userID)
 }
+
+// defaultReviewLimit/maxReviewLimit bound the ?limit= query param on
+// ListPublic — a caller passing 0 or omitting it gets the default; anything
+// above the max is clamped rather than rejected, since there's no harm in a
+// caller asking for "too many" reviews.
+const (
+	defaultReviewLimit = 10
+	maxReviewLimit     = 50
+)
+
+// ListPublic returns the most recent written reviews for a subject, visible
+// to any authenticated org member (same no-extra-gate policy as Submit/GetMine).
+func (s *Service) ListPublic(ctx context.Context, orgID string, subjectType SubjectType, subjectID string, limit int) ([]PublicReview, error) {
+	if !IsValidSubjectType(subjectType) {
+		return nil, fmt.Errorf("%w: subject_type must be one of course, assessment, lab, mentor", ErrInvalid)
+	}
+	if limit <= 0 {
+		limit = defaultReviewLimit
+	} else if limit > maxReviewLimit {
+		limit = maxReviewLimit
+	}
+	return s.repo.ListPublic(ctx, orgID, subjectType, subjectID, limit)
+}
