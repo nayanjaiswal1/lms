@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Globe, ShieldCheck, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MentorProfileActions } from "@/components/mentoring/mentor-profile-actions";
-import { ScheduleSessionButton } from "@/components/mentoring/schedule-session-button";
 import { ShareProfileButton } from "@/components/mentoring/share-profile-button";
 import type { MentorProfile } from "@/lib/server/mentoring";
 import ROUTES from "@/lib/routes";
@@ -31,6 +30,12 @@ interface Props {
   assignedCourse?: { slug: string; title: string };
   canReport: boolean;
   ticketId?: string;
+  // The booking control, injected by the page rather than imported here.
+  // Session booking lives in the `sessions` feature, and a feature-component
+  // may not import another feature's components (eslint-plugin-boundaries) —
+  // taking it as a slot keeps the primary "Book a session" CTA in the hero
+  // where it belongs without opening a cross-feature edge for one button.
+  bookingAction?: React.ReactNode;
 }
 
 function initials(name: string): string {
@@ -63,7 +68,7 @@ function RatingStars({ rating, count }: { rating: number; count: number }) {
 // verified badge, headline name, and the CTA row. Kept as its own component
 // since it's a materially different avatar/layout treatment than the shared
 // ProfileAvatar (circular) used everywhere else in the app.
-export function MentorHero({ mentor, isYourMentor, assignedCourse, canReport, ticketId }: Props) {
+export function MentorHero({ mentor, isYourMentor, assignedCourse, canReport, ticketId, bookingAction }: Props) {
   return (
     <section className="relative flex flex-col items-center gap-6 rounded-xl border border-border bg-card/60 p-6 backdrop-blur-xl sm:p-8 md:flex-row md:items-end">
       <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
@@ -114,7 +119,7 @@ export function MentorHero({ mentor, isYourMentor, assignedCourse, canReport, ti
         )}
 
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2 md:justify-start">
-          <ScheduleSessionButton attendeeId={mentor.user_id} size="default" triggerLabel="Book a session" variant="default" />
+          {bookingAction}
           <ShareProfileButton mentorName={mentor.name} path={ROUTES.mentor(mentor.user_id)} />
           {(mentor.linkedin || mentor.github || mentor.portfolio) && (
             <div className="ml-1 flex items-center gap-3">

@@ -39,6 +39,12 @@ const ROUTES = {
   // Mentor directory
   MENTORS:             "/mentors",
 
+  // Mentor session booking
+  SESSIONS:                 "/sessions",
+  SESSION_CREDITS:          "/sessions/credits",
+  SESSION_AVAILABILITY:     "/mentoring/availability",
+  SESSION_BOOKING_SETTINGS: "/settings/session-booking",
+
   // Courses — "/courses" already serves both students and staff, branching
   // by permission (see app/(app)/courses/page.tsx)
   COURSE_NEW:              "/courses/new",
@@ -154,6 +160,8 @@ const ROUTES = {
   mentoringTicketDetail:    (id: string)                        => `/mentoring/tickets/${id}`,
   mentoringTicketChat:      (id: string)                        => `/mentoring/tickets/${id}/chat`,
   mentor:                   (id: string)                        => `/mentors/${id}`,
+  session:                  (id: string)                        => `/sessions/${id}`,
+  menteeProgress:           (studentId: string)                 => `/mentoring/mentees/${studentId}`,
   mentorConversation:       (id: string)                        => `/mentoring/conversations/${id}/chat`,
   practiceSession:          (id: string)                        => `/practice/${id}`,
   interviewPrepPlan:        (id: string)                        => `/interview-prep/${id}`,

@@ -28,10 +28,12 @@ type Router struct {
 // enrollment. authzSvc backs the mentoring.assign_tickets /
 // mentoring.manage_reports permission checks. providers is the payments
 // registry built by payments.FromConfig; couponsSvc backs coupon
-// validation/redemption during checkout.
-func New(pool *pgxpool.Pool, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, authzSvc *authz.Service, cfg *config.Config) *Router {
+// validation/redemption during checkout. packs receives payment webhooks
+// whose provider_ref belongs to a mentor-session credit pack rather than a
+// course — see PackConfirmer; it may be nil.
+func New(pool *pgxpool.Pool, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, packs PackConfirmer, authzSvc *authz.Service, cfg *config.Config) *Router {
 	repo := NewRepo(pool)
-	service := NewService(repo, providers, couponsSvc, coursesRepo, cfg)
+	service := NewService(repo, providers, couponsSvc, coursesRepo, packs, cfg)
 	return &Router{
 		handler: &Handler{service: service, authzSvc: authzSvc},
 		Service: service,

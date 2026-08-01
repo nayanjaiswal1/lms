@@ -6,15 +6,18 @@ import { MentorHero } from "@/components/mentoring/mentor-hero";
 import { ReportMentorDialog } from "@/components/mentoring/report-mentor-dialog";
 import { RequestMentorChangeDialog } from "@/components/mentoring/request-mentor-change-dialog";
 import { TicketHistoryDialog } from "@/components/mentoring/ticket-history-dialog";
-import { ScheduleSessionButton } from "@/components/mentoring/schedule-session-button";
 import { MessageMentorButton } from "@/components/mentoring/message-mentor-button";
 import { MentorInsightsPanel } from "@/components/mentoring/mentor-insights-panel";
 import { MentorMetadataCard } from "@/components/mentoring/mentor-metadata-card";
 import { MentorFeedbackSection } from "@/components/mentoring/mentor-feedback-section";
 import { MentorReviewsList } from "@/components/mentoring/mentor-reviews-list";
+import { BookSessionDialog } from "@/components/sessions/book-session-dialog";
+import { AccessGate } from "@/components/shared/access-gate";
+import { FEATURES } from "@/lib/features";
 import { getMentorProfile, getMyMentorTickets, getTicketHistory } from "@/lib/server/mentoring";
 import { getEnrollments } from "@/lib/server/courses";
 import { getMyFeedback, getPublicFeedback } from "@/lib/server/feedback";
+import { getBookingConfig } from "@/lib/server/sessions";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -29,12 +32,13 @@ export async function generateMetadata({ params }: Props) {
 export default async function MentorProfilePage({ params }: Props) {
   const { mentorId } = await params;
 
-  const [mentor, myFeedback, myTickets, enrollments, reviews] = await Promise.all([
+  const [mentor, myFeedback, myTickets, enrollments, reviews, bookingConfig] = await Promise.all([
     getMentorProfile(mentorId),
     getMyFeedback("mentor", mentorId).catch(() => null),
     getMyMentorTickets().catch(() => []),
     getEnrollments().catch(() => []),
     getPublicFeedback("mentor", mentorId, 5).catch(() => []),
+    getBookingConfig().catch(() => null),
   ]);
 
   if (!mentor) notFound();
@@ -68,6 +72,18 @@ export default async function MentorProfilePage({ params }: Props) {
         <div className="flex flex-col gap-6 lg:col-span-8">
           <MentorHero
             assignedCourse={assignedCourse}
+            bookingAction={
+              <AccessGate feature={FEATURES.SESSION_BOOKING} mode="hide">
+                <BookSessionDialog
+                  balance={bookingConfig?.balance ?? 0}
+                  defaultDurationMinutes={bookingConfig?.config.default_duration_minutes ?? 30}
+                  mentorId={mentor.user_id}
+                  mentorName={mentor.name}
+                  requireCredits={bookingConfig?.config.require_credits ?? false}
+                  triggerLabel="Book a session"
+                />
+              </AccessGate>
+            }
             canReport={hasMentorshipHistory}
             isYourMentor={Boolean(assignedTicket)}
             mentor={mentor}
@@ -121,14 +137,9 @@ export default async function MentorProfilePage({ params }: Props) {
             totalMentorshipHours={mentor.total_mentorship_hours}
           />
 
+          {/* Booking lives in the hero's primary CTA row — a second copy here
+              was two entry points to the same dialog on one page. */}
           <div className="flex flex-col gap-2">
-            <ScheduleSessionButton
-              attendeeId={mentor.user_id}
-              className="w-full"
-              size="default"
-              triggerLabel="Book a session"
-              variant="default"
-            />
             <MessageMentorButton className="w-full" mentorId={mentor.user_id} />
             {assignedTicket && (
               <Link

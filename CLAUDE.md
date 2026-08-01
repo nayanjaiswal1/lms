@@ -74,6 +74,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/courses.md](docs/courses.md) | Course structure, lifecycle, fork, enrollment, progress, API, DB schema |
 | [docs/learning.md](docs/learning.md) | Coding challenges, in-browser compiler, quiz, SM-2 cards, revision, certificates, API, DB schema |
 | [docs/labs.md](docs/labs.md) | Lab feature — terminal/code/guided sandboxed environments, AI hints, DB schema, edge cases, build phases |
+| [docs/session-booking.md](docs/session-booking.md) | Mentor session booking — org toggle, availability/slots, session credits, cancellation policy, feedback + notes, batch sessions, calendar projection, API, DB schema |
 | [docs/orgs.md](docs/orgs.md) | Organizations, members, roles, API, DB schema |
 | [docs/wiki.md](docs/wiki.md) | Wiki spaces, pages, TipTap editor, versioning, comments, templates, search, API, DB schema |
 | [docs/design.md](docs/design.md) | System design canvas, palette, interactions, versioning, embed, API, DB schema |

@@ -25,18 +25,35 @@ type Service struct {
 	providers   *payments.Registry
 	coupons     *coupons.Service
 	coursesRepo *courses.Repo
+	packs       PackConfirmer
 	frontendURL string
 	currency    string
+}
+
+// PackConfirmer is the seam for products that check out through the same
+// payment gateway as a course but are not a course — currently only
+// sessions.Service and its mentor-session credit packs.
+//
+// There is exactly one webhook URL per gateway (see RegisterPublicRoutes), so
+// something has to fan a delivery out to whichever product it belongs to.
+// This package owns that endpoint for historical reasons, so it does the
+// fan-out; matched=false means "not mine either", which is what turns an
+// unmatched delivery into a logged no-op instead of a 72-hour gateway retry
+// storm. A bool rather than a sentinel error so neither package has to
+// import the other's error values to interpret the answer.
+type PackConfirmer interface {
+	ConfirmPackPurchase(ctx context.Context, providerName, providerRef, paymentRef string, amountCents int, currency string, succeeded bool) (matched bool, err error)
 }
 
 // NewService wires a Service. coursesRepo is used only for its
 // CreateEnrollmentTx capability, so the paid-course enrollment insert stays
 // byte-identical to courses.Repo.CreateEnrollment's free-course path instead
-// of being duplicated here.
-func NewService(repo *Repo, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, cfg *config.Config) *Service {
+// of being duplicated here. packs may be nil — a deployment with no session
+// booking simply has no second product to fan webhooks out to.
+func NewService(repo *Repo, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, packs PackConfirmer, cfg *config.Config) *Service {
 	return &Service{
 		repo: repo, providers: providers, coupons: couponsSvc, coursesRepo: coursesRepo,
-		frontendURL: cfg.FrontendURL, currency: cfg.PaymentsCurrency,
+		packs: packs, frontendURL: cfg.FrontendURL, currency: cfg.PaymentsCurrency,
 	}
 }
 

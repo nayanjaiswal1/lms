@@ -48,6 +48,11 @@ export const FEATURES = {
   // AI Connector (MCP) — org-admin togglable, defaults on
   AI_CONNECTOR: 'ai_connector',
 
+  // Mentor session booking — org-admin togglable, defaults on. What a
+  // student may do with it is bounded by their credit balance and the org's
+  // booking policy, not by an entitlement.
+  SESSION_BOOKING: 'session_booking',
+
   // Lesson compiler bottom-dock — code-level toggle (see alwaysOrgEnabled in
   // backend/internal/features/service.go), no admin UI yet
   LESSON_COMPILER_BOTTOM_DOCK: 'lesson_compiler_bottom_dock',
@@ -166,5 +171,6 @@ export const FEATURE_META: Record<Feature, { label: string; description: string 
   what_now:         { label: 'What Now?',           description: 'A single-question room for deciding what to work on next' },
   gitlab_integration: { label: 'GitLab Integration', description: 'Connect your GitLab account and your organization\'s GitLab instance' },
   ai_connector:     { label: 'AI Connector',        description: 'Connect your own Claude or ChatGPT to read lessons, save notes, and manage your calendar via MCP' },
+  session_booking:  { label: 'Session Booking',     description: 'Book 1:1 and cohort mentor sessions against published availability, with session credits and cancellation rules' },
   lesson_compiler_bottom_dock: { label: 'Lesson Compiler Bottom Dock', description: 'Allow the lesson scratch compiler to dock to the bottom of the screen, not just the right side' },
 };

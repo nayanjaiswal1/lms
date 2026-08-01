@@ -15,6 +15,7 @@ import {
   Ticket,
   BookmarkCheck,
   Calendar,
+  CalendarClock,
   Compass,
   Map,
   FolderTree,
@@ -141,6 +142,16 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:               ROUTES.MENTORS,
     icon:               UserCheck,
     hideForPermission:  "admin.view_members",
+  },
+  sessions: {
+    label:   "My Sessions",
+    href:    ROUTES.SESSIONS,
+    icon:    CalendarClock,
+    feature: FEATURES.SESSION_BOOKING,
+    // "hide", not "badge": org-off means the org does not run 1:1 booking at
+    // all, and there is no plan or add-on to upsell them onto — a badge would
+    // advertise an unlock path that does not exist.
+    mode:    "hide",
   },
   learn_hub: {
     label: "Learn",
@@ -413,6 +424,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,
+      ALL_NAV_ITEMS.sessions,
       ALL_NAV_ITEMS.calendar,
       ALL_NAV_ITEMS.projects,
     ],
