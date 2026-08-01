@@ -90,7 +90,7 @@ export function MentorHero({ mentor, isYourMentor, assignedCourse, canReport, ti
         )}
 
         <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
-          <h1 className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl">{mentor.name}</h1>
+          <h1>{mentor.name}</h1>
           {isYourMentor && <Badge>Your mentor</Badge>}
         </div>
 
