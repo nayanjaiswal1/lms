@@ -284,7 +284,17 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 // container, records the coordinates in the DB, and publishes a readiness
 // event via Redis.
 func (s *Service) provisionContainer(ctx context.Context, session *LabSession, lab *LabDefinition) {
-	ctx, cancel := context.WithTimeout(ctx, ProvisionTimeoutSeconds*time.Second)
+	// ProvisionTimeoutSeconds bounds the container work only. The bookkeeping
+	// that follows it — marking the session failed/running and publishing the
+	// event WaitForReadiness is streaming to the browser — must run on the
+	// caller's (uncancelled) ctx instead: doing it on the expired provisionCtx
+	// meant that whenever provisioning ran out its budget, the "failed" write
+	// and the "failed" publish BOTH failed with "context deadline exceeded",
+	// so the row stayed 'provisioning' and the student's lab-launch spinner
+	// hung with no signal at all until the reaper flipped it a further
+	// ProvisionReapGraceSeconds later. The timeout must never be able to
+	// suppress the report of its own expiry.
+	provisionCtx, cancel := context.WithTimeout(ctx, ProvisionTimeoutSeconds*time.Second)
 	defer cancel()
 
 	// Warm-pool fast path. Only first provisions (reset_count 0) qualify:
@@ -292,10 +302,10 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 	// already waited once. A claimed-but-dead container falls through to a
 	// normal cold start; its row is deleted so the reconciler re-provisions.
 	if session.ResetCount == 0 {
-		if warm, err := s.repo.ClaimWarmContainer(ctx, session.LabID, session.TaskVersionID, session.ID); err != nil {
+		if warm, err := s.repo.ClaimWarmContainer(provisionCtx, session.LabID, session.TaskVersionID, session.ID); err != nil {
 			slog.Error("labs.Service.provisionContainer: claim warm", "session_id", session.ID, "error", err)
 		} else if warm != nil {
-			if s.container.IsRunning(ctx, warm.ContainerID) {
+			if s.container.IsRunning(provisionCtx, warm.ContainerID) {
 				if err := s.repo.UpdateSessionRunning(ctx, session.ID, warm.ContainerID, warm.ContainerHost); err != nil {
 					slog.Error("labs.Service.provisionContainer: update running (warm)", "session_id", session.ID, "error", err)
 				}
@@ -309,7 +319,7 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 			if err := s.repo.DeleteWarmContainer(ctx, warm.ID); err != nil {
 				slog.Error("labs.Service.provisionContainer: delete dead warm row", "warm_id", warm.ID, "error", err)
 			}
-			_ = s.container.Kill(ctx, warm.ContainerID)
+			_ = s.container.Kill(provisionCtx, warm.ContainerID)
 		}
 	}
 
@@ -318,7 +328,7 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 		setupScript = *lab.SetupScript
 	}
 
-	containerID, containerHost, err := s.container.Start(ctx, session.ID, session.ResetCount, lab.Environment, setupScript)
+	containerID, containerHost, err := s.container.Start(provisionCtx, session.ID, session.ResetCount, lab.Environment, setupScript)
 	if err != nil {
 		slog.Error("labs.Service.provisionContainer: start container", "session_id", session.ID, "error", err)
 		errText := err.Error()
@@ -458,7 +468,15 @@ func (s *Service) runRepoClone(ctx context.Context, session *LabSession, contain
 		return
 	}
 
-	_, stderr, exitCode, execErr := s.container.Exec(ctx, containerID, script, repoCloneTimeoutSec)
+	// Bound the exec itself here rather than inheriting whatever budget the
+	// caller had left: repoCloneTimeoutSec is enforced by a `timeout` inside
+	// the container, which does nothing if the docker exec never returns at
+	// the CLI level. The surrounding status writes deliberately stay on ctx
+	// so a clone that does blow this budget still records why.
+	execCtx, cancel := context.WithTimeout(ctx, (repoCloneTimeoutSec+15)*time.Second)
+	defer cancel()
+
+	_, stderr, exitCode, execErr := s.container.Exec(execCtx, containerID, script, repoCloneTimeoutSec)
 	if execErr != nil {
 		msg := execErr.Error()
 		if updErr := s.repo.UpdateSessionRepoClone(ctx, session.ID, RepoCloneStatusFailed, &msg); updErr != nil {

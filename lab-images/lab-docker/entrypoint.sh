@@ -35,6 +35,19 @@ if [ -z "$ready" ]; then
 fi
 log "dockerd ready"
 
+# rootlesskit creates the socket 0660 labuser:labuser. The platform runs a
+# lab's setup_script and verification_script as root (`docker exec --user
+# root`, container.go), and this container's profile is --cap-drop ALL plus
+# only SYS_ADMIN/SETUID/SETGID — no CAP_DAC_OVERRIDE — so root has no way
+# past those 0660 bits and every `docker` command it runs fails with
+# "permission denied while trying to connect to the Docker daemon socket".
+# That is what made this image's setup_script (a `docker info` readiness
+# poll) spin until the provisioning deadline while the container itself was
+# perfectly healthy. Widening the socket grants nothing new: root here
+# already holds SYS_ADMIN over the sandbox, labuser already owns the socket,
+# and the socket is reachable only inside this container's own namespaces.
+chmod 0666 "${XDG_RUNTIME_DIR:-/run/user/1000}/docker.sock"
+
 log "loading preloaded base images"
 for tarball in /opt/preload/*.tar; do
   docker load -i "$tarball" >/dev/null

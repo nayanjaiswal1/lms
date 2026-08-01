@@ -162,10 +162,25 @@ func (c *DockerContainerService) buildRunArgs(name, image string, privileged boo
 // "sysbox-runc" and the standard profile never retry.
 func (c *DockerContainerService) startNamed(ctx context.Context, name, image, setupScript string) (containerID, containerHost string, err error) {
 	containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, setupScript, false)
-	if err != nil && c.Classify(image).DockerMechanism == "rootless-dind" {
+	if shouldRetryPrivileged(ctx, err, c.Classify(image).DockerMechanism) {
 		containerID, containerHost, err = c.startNamedWithMode(ctx, name, image, setupScript, true)
 	}
 	return containerID, containerHost, err
+}
+
+// shouldRetryPrivileged decides whether a failed scoped start earns the
+// --privileged retry described on startNamed.
+//
+// The ctx.Err() clause is the non-obvious one: a live context means the
+// scoped attempt failed on its own merits (the capability set), which is
+// exactly what the retry exists for. An already-expired context instead
+// means the attempt ran out of the caller's provisioning budget — retrying
+// then just re-runs `docker run` against a dead context, which fails
+// instantly and REPLACES the real diagnosis with a misleading
+// "docker run: context deadline exceeded". That masking cost an afternoon
+// once: the true failure was the setup script, three layers down.
+func shouldRetryPrivileged(ctx context.Context, err error, mechanism string) bool {
+	return err != nil && ctx.Err() == nil && mechanism == "rootless-dind"
 }
 
 func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, image, setupScript string, privileged bool) (containerID, containerHost string, err error) {

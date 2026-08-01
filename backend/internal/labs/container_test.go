@@ -1,6 +1,8 @@
 package labs
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -124,4 +126,20 @@ func TestBuildRunArgs_SysboxIgnoresPrivilegedFallback(t *testing.T) {
 	args := svc.buildRunArgs("mindforge-lab-abc-0", "mindforge/lab-docker:27", true)
 	assert.NotContains(t, args, "--privileged")
 	assert.Contains(t, args, "sysbox-runc")
+}
+
+func TestShouldRetryPrivileged(t *testing.T) {
+	live := context.Background()
+	dead, cancel := context.WithCancel(context.Background())
+	cancel()
+	boom := errors.New("scoped attempt failed")
+
+	assert.True(t, shouldRetryPrivileged(live, boom, "rootless-dind"),
+		"a scoped failure on its own merits is exactly what the retry is for")
+	assert.False(t, shouldRetryPrivileged(dead, boom, "rootless-dind"),
+		"an expired budget must not be retried — the retry masks the real error")
+	assert.False(t, shouldRetryPrivileged(live, nil, "rootless-dind"),
+		"nothing to retry when the scoped attempt succeeded")
+	assert.False(t, shouldRetryPrivileged(live, boom, "sysbox-runc"))
+	assert.False(t, shouldRetryPrivileged(live, boom, ""), "standard profile never retries")
 }
