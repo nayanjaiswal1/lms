@@ -4,6 +4,7 @@ import { BatchAvatar } from "@/components/batches/batch-avatar";
 import { BatchBreadcrumb } from "@/app/(app)/batches/[id]/batch-breadcrumb";
 import { BatchNameProvider } from "@/app/(app)/batches/[id]/batch-name-context";
 import { BatchTabs } from "@/app/(app)/batches/[id]/batch-tabs";
+import { ScheduleBatchSession } from "@/app/(app)/batches/[id]/schedule-batch-session";
 import { getBatch, getOrgId } from "@/lib/server/batches";
 import { getCurrentOrgType } from "@/lib/orgs/server";
 import { resolveTerminology } from "@/lib/terminology";
@@ -57,6 +58,7 @@ export default async function BatchLayout({ params, children }: Props) {
             )}
           </div>
         </div>
+        <ScheduleBatchSession batchId={id} />
       </div>
 
       <BatchTabs batchId={id} testsLabel={testsLabel} />

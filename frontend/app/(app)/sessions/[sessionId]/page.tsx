@@ -5,6 +5,7 @@ import { ExternalLink } from "lucide-react";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { SessionStatusBadge } from "@/components/sessions/session-status-badge";
 import { CancelSessionDialog } from "@/components/sessions/cancel-session-dialog";
+import { RescheduleSessionDialog } from "@/components/sessions/reschedule-session-dialog";
 import { SessionOutcomeControl } from "@/components/sessions/session-outcome-control";
 import { SessionFeedbackForm } from "@/components/sessions/session-feedback-form";
 import { SessionFeedbackList } from "@/components/sessions/session-feedback-list";
@@ -77,11 +78,18 @@ export default async function SessionDetailPage({ params }: Props) {
 
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {session.status === "scheduled" && (
-              <CancelSessionDialog
-                cancelCutoffHours={config.cancel_cutoff_hours}
-                sessionId={session.id}
-                startsAt={session.starts_at}
-              />
+              <>
+                <CancelSessionDialog
+                  cancelCutoffHours={config.cancel_cutoff_hours}
+                  sessionId={session.id}
+                  startsAt={session.starts_at}
+                />
+                <RescheduleSessionDialog
+                  mentorId={session.mentor_id}
+                  minNoticeHours={config.min_notice_hours}
+                  sessionId={session.id}
+                />
+              </>
             )}
             {viewerIsMentor && (
               <SessionOutcomeControl sessionId={session.id} startsAt={session.starts_at} status={session.status} />

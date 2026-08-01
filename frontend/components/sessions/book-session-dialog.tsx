@@ -21,13 +21,16 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
-import { bookSessionAction, getMentorSlotsAction, type Slot } from "@/lib/server/sessions";
-import { SlotGrid } from "./slot-grid";
-
-const DAYS_AHEAD = 14;
+import {
+  bookBatchSessionAction,
+  bookSessionAction,
+  type Slot,
+} from "@/lib/server/sessions";
+import { SlotPicker } from "./slot-picker";
 
 const BookSchema = z.object({
   title: z.string().max(200, "Keep the title under 200 characters.").optional(),
@@ -35,56 +38,31 @@ const BookSchema = z.object({
 });
 type BookFormData = z.infer<typeof BookSchema>;
 
-interface DayOption {
-  key: string;
-  weekday: string;
-  dayLabel: string;
-}
-
-/** Local-calendar-day key (yyyy-mm-dd) — avoids the UTC date shift that
- * `toISOString().slice(0, 10)` would introduce for timezones behind UTC. */
-function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function buildDayOptions(): DayOption[] {
-  const today = new Date();
-  return Array.from({ length: DAYS_AHEAD }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-    return {
-      key: dateKey(d),
-      weekday: d.toLocaleDateString(undefined, { weekday: "short" }),
-      dayLabel: d.toLocaleDateString(undefined, { day: "numeric", month: "short" }),
-    };
-  });
-}
-
-function dayBounds(key: string): { from: string; to: string } {
-  const [y, m, d] = key.split("-").map(Number);
-  return {
-    from: new Date(y, m - 1, d, 0, 0, 0, 0).toISOString(),
-    to: new Date(y, m - 1, d, 23, 59, 59, 999).toISOString(),
-  };
-}
-
 interface BookSessionDialogProps {
-  mentorId: string;
-  mentorName: string;
+  /** The mentor being booked. Omit only in batch mode, where `mentors` lets
+   * the scheduler choose which mentor runs the session. */
+  mentorId?: string;
+  mentorName?: string;
   requireCredits: boolean;
   balance: number;
   defaultDurationMinutes: number;
   /** Set when a mentor is booking a session with a mentee — omit when a
    * student is booking a session with a mentor for themselves. */
   studentId?: string;
+  /** Set to schedule for a whole cohort instead of one student. Batch
+   * sessions are permission-gated server-side and cost no credits, so the
+   * credit gate below is skipped for them. */
+  batchId?: string;
+  /** Mentor choices, batch mode only — the scheduler is an admin/instructor
+   * who is not necessarily the mentor running the session. */
+  mentors?: { value: string; label: string }[];
   triggerLabel?: string;
   className?: string;
 }
 
-interface DayView {
-  day: string;
-  slots: Slot[];
-  loading: boolean;
-  selectedSlot: Slot | null;
+interface Selection {
+  mentorId: string;
+  slot: Slot | null;
 }
 
 export function BookSessionDialog({
@@ -94,22 +72,20 @@ export function BookSessionDialog({
   balance,
   defaultDurationMinutes,
   studentId,
+  batchId,
+  mentors,
   triggerLabel = "Book a session",
   className,
 }: BookSessionDialogProps) {
-  const days = React.useMemo(buildDayOptions, []);
   const router = useRouter();
 
   // Budget: exactly the 2 useState calls this component gets. `open` is the
-  // dialog's own visibility; `view` bundles the selected day, its fetched
-  // slots, the in-flight flag, and the chosen slot into one unit, since they
-  // always change together (picking a day clears the old slots + selection).
+  // dialog's own visibility; `pick` bundles the chosen mentor and slot, which
+  // always change together (switching mentor invalidates the slot).
   const [open, setOpen] = React.useState(false);
-  const [view, setView] = React.useState<DayView>({
-    day: days[0].key,
-    slots: [],
-    loading: false,
-    selectedSlot: null,
+  const [pick, setPick] = React.useState<Selection>({
+    mentorId: mentorId ?? mentors?.[0]?.value ?? "",
+    slot: null,
   });
 
   const form = useForm<BookFormData>({
@@ -117,37 +93,21 @@ export function BookSessionDialog({
     defaultValues: { title: "", agenda: "" },
   });
 
-  async function loadDay(day: string) {
-    setView((v) => ({ ...v, day, loading: true, selectedSlot: null }));
-    const { from, to } = dayBounds(day);
-    const result = await getMentorSlotsAction(mentorId, from, to);
-    if (!result.ok || !result.data) {
-      toast.error(result.error ?? "Couldn't load times for that day.");
-      setView((v) => ({ ...v, loading: false, slots: [] }));
-      return;
-    }
-    const { slots } = result.data;
-    setView((v) => ({ ...v, loading: false, slots }));
-  }
-
-  function handleOpenChange(next: boolean) {
-    setOpen(next);
-    if (next) void loadDay(view.day);
-  }
-
   async function onSubmit(data: BookFormData) {
-    if (!view.selectedSlot) {
+    if (!pick.slot) {
       toast.error("Pick a time first.");
       return;
     }
-    const result = await bookSessionAction({
-      mentor_id: mentorId,
-      student_id: studentId,
-      starts_at: view.selectedSlot.starts_at,
-      ends_at: view.selectedSlot.ends_at,
+    const slotPayload = {
+      starts_at: pick.slot.starts_at,
+      ends_at: pick.slot.ends_at,
       title: data.title || undefined,
       agenda: data.agenda || undefined,
-    });
+    };
+    const result = batchId
+      ? await bookBatchSessionAction(batchId, { mentor_id: pick.mentorId, ...slotPayload })
+      : await bookSessionAction({ mentor_id: pick.mentorId, student_id: studentId, ...slotPayload });
+
     if (!result.ok) {
       const message = result.error ?? "Could not book the session.";
       // The backend has no machine-readable error code on this action result
@@ -163,13 +123,17 @@ export function BookSessionDialog({
       }
       return;
     }
-    toast.success(`Session booked with ${mentorName}.`);
+
+    const bookedWith = mentors?.find((m) => m.value === pick.mentorId)?.label ?? mentorName;
+    toast.success(batchId ? "Session scheduled for the whole batch." : `Session booked with ${bookedWith}.`);
     form.reset({ title: "", agenda: "" });
-    setView((v) => ({ ...v, selectedSlot: null }));
+    setPick((p) => ({ ...p, slot: null }));
     setOpen(false);
   }
 
-  if (requireCredits && balance <= 0) {
+  // Batch sessions are scheduled by staff and charge no student credits, so
+  // the buy-credits gate applies to 1:1 booking only.
+  if (!batchId && requireCredits && balance <= 0) {
     return (
       <Button asChild className={className} size="default">
         <Link href={ROUTES.SESSION_CREDITS}>Buy credits to book a session</Link>
@@ -178,7 +142,7 @@ export function BookSessionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className={className} size="default">
           <CalendarPlus aria-hidden className="mr-1.5 h-4 w-4" />
@@ -187,42 +151,38 @@ export function BookSessionDialog({
       </DialogTrigger>
       <DialogContent className="modal-responsive">
         <DialogHeader>
-          <DialogTitle>Book a session with {mentorName}</DialogTitle>
+          <DialogTitle>
+            {batchId ? "Schedule a session for this batch" : `Book a session with ${mentorName}`}
+          </DialogTitle>
           <DialogDescription>
-            Pick a day, then an open time slot (~{defaultDurationMinutes} min each).
+            {batchId
+              ? `Every member of the batch is invited and the session lands on their calendar. Pick a day, then an open slot (~${defaultDurationMinutes} min each).`
+              : `Pick a day, then an open time slot (~${defaultDurationMinutes} min each).`}
           </DialogDescription>
         </DialogHeader>
 
-        <div aria-label="Choose a day" className="flex gap-2 overflow-x-auto pb-2" role="tablist">
-          {days.map((d) => (
-            <button
-              aria-selected={view.day === d.key}
-              className={cn(
-                "flex min-w-16 shrink-0 flex-col items-center gap-0.5 rounded-md border border-border px-3 py-2 text-sm transition-colors duration-fast touch-target",
-                view.day === d.key
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "bg-background hover:bg-accent hover:text-accent-foreground",
-              )}
-              key={d.key}
-              role="tab"
-              type="button"
-              onClick={() => void loadDay(d.key)}
+        {mentors && mentors.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="batch-session-mentor">Mentor</Label>
+            <Select
+              value={pick.mentorId}
+              onValueChange={(next) => setPick({ mentorId: next, slot: null })}
             >
-              <span className="text-xs uppercase tracking-wide opacity-80">{d.weekday}</span>
-              <span className="font-semibold">{d.dayLabel}</span>
-            </button>
-          ))}
-        </div>
+              <SelectTrigger id="batch-session-mentor">
+                <SelectValue placeholder="Choose a mentor" />
+              </SelectTrigger>
+              <SelectContent>
+                {mentors.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-        <SlotGrid
-          loading={view.loading}
-          selected={view.selectedSlot?.starts_at ?? null}
-          slots={view.slots}
-          onSelect={(startsAt) => {
-            const slot = view.slots.find((s) => s.starts_at === startsAt) ?? null;
-            setView((v) => ({ ...v, selectedSlot: slot }));
-          }}
-        />
+        <SlotPicker mentorId={pick.mentorId} onSelect={(slot) => setPick((p) => ({ ...p, slot }))} />
 
         <Form {...form}>
           <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
@@ -241,8 +201,11 @@ export function BookSessionDialog({
               )}
             />
             <DialogFooter>
-              <Button disabled={form.formState.isSubmitting || !view.selectedSlot} type="submit">
-                {form.formState.isSubmitting ? "Booking…" : "Book session"}
+              <Button
+                disabled={form.formState.isSubmitting || !pick.slot || !pick.mentorId}
+                type="submit"
+              >
+                {form.formState.isSubmitting ? "Booking…" : batchId ? "Schedule session" : "Book session"}
               </Button>
             </DialogFooter>
           </form>
