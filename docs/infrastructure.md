@@ -57,7 +57,18 @@ COUPON_RATE_LIMIT_WINDOW=1m
 # Lab sandbox runtime
 LABS_RUNTIME=docker                  # docker | kubernetes
 LABS_K8S_NAMESPACE=mindforge-labs    # kubernetes runtime only
-LABS_WARM_POOL_GLOBAL_MAX=20         # total warm containers allowed across all labs (0 disables warming)
+LABS_WARM_POOL_GLOBAL_MAX=20         # total warm containers allowed across all images (0 disables warming)
+# LABS_WARM_POOL_OVERRIDES pins or disables the warm pool for a specific
+# image, overriding the automatic Little's Law sizing. The pool is shared
+# platform infrastructure, so this is the ONLY way to set mode/size — there
+# is deliberately no per-org write endpoint (see docs/labs.md). Format:
+# comma-separated image=mode[:size], where mode is auto | fixed | off, and
+# size is required for "fixed" (0..20). The image may contain its own ":"
+# tag — the FIRST "=" separates image from mode. Unset = every image sizes
+# automatically, which is the intended steady state. An unparseable value is
+# fatal at boot rather than silently ignored.
+# e.g. LABS_WARM_POOL_OVERRIDES=mindforge/lab-k8s:1.31=fixed:3,mindforge/lab-docker:27=off
+LABS_WARM_POOL_OVERRIDES=
 # LABS_IMAGE_PROFILES maps a lab environment image to a named ImageProfile
 # (see internal/labs/profile.go) from the small in-code catalog built in
 # cmd/server/main.go — today just "nested-docker" (Docker-in-Docker labs,

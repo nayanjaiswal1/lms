@@ -75,6 +75,14 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 644 /etc/kubernetes/fake-node.yaml /etc/kubernetes/kwok-stages/*.yaml \
     && chmod +x /usr/local/bin/entrypoint.sh
 
+# The readiness contract the backend polls (labs.ReadinessProbePath): exit 0
+# once this sandbox is usable, non-zero while it is still booting. An image
+# without this file is treated as ready immediately, so only images with
+# background services need one. entrypoint.sh writes the marker as its last
+# act before handing off to ttyd.
+RUN printf '#!/bin/sh\n[ -f /tmp/lab-ready ]\n' > /usr/local/bin/lab-ready \
+    && chmod +x /usr/local/bin/lab-ready
+
 ENV KUBECONFIG=/etc/kubernetes/admin.kubeconfig
 EXPOSE 7681
 

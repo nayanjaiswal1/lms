@@ -66,6 +66,15 @@ RUN chmod +x /usr/local/bin/mindforge-entrypoint.sh \
     && mkdir -p /home/labuser/work \
     && chown -R labuser:labuser /home/labuser/work
 
+# The readiness contract the backend polls (labs.ReadinessProbePath): exit 0
+# once this sandbox is usable, non-zero while it is still booting. An image
+# without this file is treated as ready immediately, so only images with
+# background services need one. entrypoint.sh writes the marker only after
+# dockerd, the preloaded base images, and the registry are all up — a
+# `docker info` probe would go green well before that.
+RUN printf '#!/bin/sh\n[ -f /tmp/lab-ready ]\n' > /usr/local/bin/lab-ready \
+    && chmod +x /usr/local/bin/lab-ready
+
 USER labuser
 WORKDIR /home/labuser/work
 
