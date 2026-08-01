@@ -36,7 +36,10 @@ func webhookTestService(pool *pgxpool.Pool) *Service {
 	coursesRepo := courses.NewRepo(pool)
 	registry := payments.NewRegistry("stub", payments.NewStubProvider())
 	cfg := &config.Config{FrontendURL: "http://localhost:3000", PaymentsCurrency: "USD"}
-	return NewService(repo, registry, couponsSvc, coursesRepo, cfg)
+	// nil PackConfirmer: these tests only exercise course purchases, and a nil
+	// confirmer is the supported "this deployment has no second product"
+	// case HandleWebhook already guards for.
+	return NewService(repo, registry, couponsSvc, coursesRepo, nil, cfg)
 }
 
 func seedWebhookOrg(t *testing.T, pool *pgxpool.Pool) string {

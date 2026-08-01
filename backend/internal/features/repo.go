@@ -60,3 +60,24 @@ func (r *Repo) OrgAIConnectorEnabled(ctx context.Context, orgID string) (bool, e
 	}
 	return enabled, nil
 }
+
+// OrgSessionBookingEnabled reports whether orgID has mentor session booking
+// turned on. Like the AI connector above, no row means "never toggled" and
+// defaults to true — ad-hoc session scheduling already worked for every org
+// before the booking domain existed, so shipping it off would silently
+// withdraw a capability people are already using. The org admin turns it off
+// explicitly. Mirrors sessions.DefaultConfig().Enabled.
+func (r *Repo) OrgSessionBookingEnabled(ctx context.Context, orgID string) (bool, error) {
+	var enabled bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT enabled FROM org_session_booking_config WHERE org_id = $1`,
+		orgID,
+	).Scan(&enabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("features: org session booking enabled: %w", err)
+	}
+	return enabled, nil
+}

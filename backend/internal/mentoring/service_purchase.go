@@ -244,11 +244,27 @@ func (s *Service) HandleWebhook(ctx context.Context, providerName string, rawBod
 
 	p, err := s.repo.GetPurchaseByProviderRef(ctx, provider.Name(), ev.ProviderRef)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			slog.Error("mentoring: webhook for unknown purchase", "provider", provider.Name(), "provider_ref", ev.ProviderRef, "event_type", ev.Type)
-			return s.repo.MarkPaymentEventError(ctx, eventRowID, "no matching purchase for provider_ref")
+		if !errors.Is(err, ErrNotFound) {
+			return err
 		}
-		return err
+		// Not a course purchase. Before writing this delivery off, offer it to
+		// the other product that checks out through this same gateway — a
+		// mentor session credit pack (see PackConfirmer). Its own amount /
+		// currency cross-check runs on its side, against its own row.
+		if s.packs != nil {
+			matched, packErr := s.packs.ConfirmPackPurchase(ctx, provider.Name(), ev.ProviderRef,
+				ev.PaymentRef, ev.AmountCents, ev.Currency, ev.Status == payments.StatusSucceeded)
+			if packErr != nil {
+				slog.Error("mentoring: session pack confirmation failed",
+					"provider", provider.Name(), "provider_ref", ev.ProviderRef, "err", packErr)
+				return s.repo.MarkPaymentEventError(ctx, eventRowID, "session pack confirmation failed: "+packErr.Error())
+			}
+			if matched {
+				return s.repo.MarkPaymentEventProcessed(ctx, eventRowID)
+			}
+		}
+		slog.Error("mentoring: webhook for unknown purchase", "provider", provider.Name(), "provider_ref", ev.ProviderRef, "event_type", ev.Type)
+		return s.repo.MarkPaymentEventError(ctx, eventRowID, "no matching purchase for provider_ref")
 	}
 
 	if ev.Status == payments.StatusFailed {

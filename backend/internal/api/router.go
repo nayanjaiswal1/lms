@@ -42,6 +42,7 @@ import (
 	"github.com/mindforge/backend/internal/roadmap"
 	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
+	"github.com/mindforge/backend/internal/sessions"
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/storage"
@@ -107,12 +108,25 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// production — see payments.FromConfig.
 	paymentProviders := payments.FromConfig(cfg)
 
+	// calendar is built before sessions (below) because a booked mentor
+	// session is projected onto the org calendar through this exact
+	// *calendar.Service instance — same sharing rule its own Router doc
+	// comment describes for mcpconnect.
+	calendarRouter := calendar.New(pool, authzHandler.Service(), cfg)
+
+	// sessions is built before mentoring so sessionsRouter.Service (satisfying
+	// mentoring.PackConfirmer) can be injected into it: mentoring owns the one
+	// payment-webhook endpoint and fans a delivery out to whichever product it
+	// belongs to. The dependency is one-way — sessions imports calendar,
+	// payments, and authz, never mentoring.
+	sessionsRouter := sessions.New(pool, calendarRouter.Service, paymentProviders, cfg)
+
 	// mentoring is built before the courses handler so mentoringRouter.Service
 	// (satisfying courses.CoursePurchaser) can be injected into it. mentoring
 	// only needs *courses.Repo (for CreateEnrollmentTx), not the courses
 	// handler, so there is no import cycle: mentoring -> courses, courses ->
 	// (local interface only, no mentoring import).
-	mentoringRouter := mentoring.New(pool, paymentProviders, couponsRouter.Service, coursesRepo, authzHandler.Service(), cfg)
+	mentoringRouter := mentoring.New(pool, paymentProviders, couponsRouter.Service, coursesRepo, sessionsRouter.Service, authzHandler.Service(), cfg)
 
 	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service, couponsRouter.Service, rdb, cfg)
 
@@ -142,7 +156,6 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// (PurchaseChecker) — it already sits above coursesRepo, so no new import
 	// cycle is introduced.
 	certificatesRouter := certificates.New(pool, coursesRepo, assessment.NewExecutor(cfg), mentoringRouter.Service, mentoringRouter.Service)
-	calendarRouter := calendar.New(pool, authzHandler.Service(), cfg)
 	whatnowRouter := whatnow.New(pool)
 	featuresRouter := features.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
@@ -368,6 +381,13 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Calendar — events, RSVPs, recurring series, external invites, personal ICS feed.
 		calendarRouter.RegisterRoutes(r)
+
+		// Mentor session booking — mentor availability, the bookable slot
+		// grid, booking/cancel/reschedule with credit accounting, post-session
+		// feedback and mentor notes, and the org's booking policy. Only the
+		// admin surface is permission-gated; booking your own session is
+		// authorized per-row inside the service.
+		sessionsRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Roadmap — AI personalized learning paths: state a goal, get an AI
 		// generated phase -> milestone -> module roadmap linked into the real

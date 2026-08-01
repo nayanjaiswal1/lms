@@ -3,7 +3,10 @@ import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { MentorChatComposer } from "@/components/mentoring/mentor-chat-composer";
-import { ScheduleSessionButton } from "@/components/mentoring/schedule-session-button";
+import { BookSessionDialog } from "@/components/sessions/book-session-dialog";
+import { AccessGate } from "@/components/shared/access-gate";
+import { FEATURES } from "@/lib/features";
+import { getBookingConfig } from "@/lib/server/sessions";
 import { getMentorChatMessages, getMentorTicketById } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
 import { truncateId } from "@/lib/mentoring/format";
@@ -18,10 +21,13 @@ interface Props {
 export default async function MentorTicketChatPage({ params }: Props) {
   const { ticketId } = await params;
 
-  const [messages, currentUser, ticket] = await Promise.all([
+  const [messages, currentUser, ticket, bookingConfig] = await Promise.all([
     getMentorChatMessages(ticketId).catch(() => null),
     getCurrentUser(),
     getMentorTicketById(ticketId),
+    // Booking may be off for this org, in which case the CTA simply doesn't
+    // render — a failed config read must not take the chat page down with it.
+    getBookingConfig().catch(() => null),
   ]);
 
   if (messages === null) notFound();
@@ -38,7 +44,23 @@ export default async function MentorTicketChatPage({ params }: Props) {
 
       <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="section-title">Mentor chat</h1>
-        {ticket && <ScheduleSessionButton attendeeId={ticket.student_id} />}
+        {/* Only the assigned mentor schedules from here, and only through the
+            booking flow — the old ad-hoc dialog wrote a calendar event
+            directly, skipping availability, the upcoming-session cap, and
+            credits entirely. */}
+        {ticket?.assigned_mentor_id && currentUser?.id === ticket.assigned_mentor_id && (
+          <AccessGate feature={FEATURES.SESSION_BOOKING} mode="hide">
+            <BookSessionDialog
+              balance={bookingConfig?.balance ?? 0}
+              defaultDurationMinutes={bookingConfig?.config.default_duration_minutes ?? 30}
+              mentorId={ticket.assigned_mentor_id}
+              mentorName="you"
+              requireCredits={false}
+              studentId={ticket.student_id}
+              triggerLabel="Schedule session"
+            />
+          </AccessGate>
+        )}
       </div>
 
       {messages.length === 0 ? (

@@ -21,3 +21,20 @@ export function formatMoney(minorUnits: number, currency: string, locale?: strin
   const fmt = new Intl.NumberFormat(locale, { style: "currency", currency });
   return fmt.format(minorUnits / minorUnitFactor(fmt));
 }
+
+/**
+ * Converts a major-unit amount an admin typed (₹499, not 49900) into the
+ * minor-unit integer the API stores — the input-side inverse of formatMoney.
+ * Never hand-roll `* 100`: JPY/KRW have no minor unit, so the exponent must
+ * come from Intl the same way formatMoney derives it.
+ */
+export function toMinorUnits(majorUnits: number, currency: string, locale?: string): number {
+  const fmt = new Intl.NumberFormat(locale, { style: "currency", currency });
+  return Math.round(majorUnits * minorUnitFactor(fmt));
+}
+
+/** The inverse convenience — pre-fills an edit form with the major-unit value. */
+export function toMajorUnits(minorUnits: number, currency: string, locale?: string): number {
+  const fmt = new Intl.NumberFormat(locale, { style: "currency", currency });
+  return minorUnits / minorUnitFactor(fmt);
+}

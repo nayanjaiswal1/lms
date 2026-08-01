@@ -754,3 +754,26 @@ export const MISTAKE_TREND_LABEL: Record<string, string> = {
   stable:    "Stable",
   improving: "Improving",
 };
+
+// ─────────────────────────────────────────────
+// Mentor session booking — weekday labels (0 = Sunday … 6 = Saturday,
+// matching Go's time.Weekday and AvailabilityRule.weekday) + the slot-length
+// choices offered on both the weekly editor and one-off overrides.
+// ─────────────────────────────────────────────
+
+export const WEEKDAY_OPTIONS = [
+  { label: "Sunday",    value: 0 },
+  { label: "Monday",    value: 1 },
+  { label: "Tuesday",   value: 2 },
+  { label: "Wednesday", value: 3 },
+  { label: "Thursday",  value: 4 },
+  { label: "Friday",    value: 5 },
+  { label: "Saturday",  value: 6 },
+] as const;
+
+export const SESSION_SLOT_LENGTH_OPTIONS = [
+  { label: "15 minutes", value: "15" },
+  { label: "30 minutes", value: "30" },
+  { label: "45 minutes", value: "45" },
+  { label: "60 minutes", value: "60" },
+] as const;

@@ -66,6 +66,12 @@ var alwaysEntitled = []string{
 	// ai_connector: org-gated only (see Resolve), no per-user plan/seat
 	// concept — once an org has it on, every member is entitled.
 	"ai_connector",
+	// session_booking: org-gated only, same as ai_connector. What a student
+	// may actually do with it is bounded by their credit balance and the
+	// org's booking policy (org_session_booking_config), not by an
+	// entitlement — so gating it per-user here would be a second, weaker
+	// copy of a limit the sessions package already enforces properly.
+	"session_booking",
 	"lesson_compiler_bottom_dock",
 }
 
@@ -98,6 +104,13 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 	}
 	if aiConnectorOn {
 		orgFeatures = append(orgFeatures, "ai_connector")
+	}
+	sessionBookingOn, err := s.repo.OrgSessionBookingEnabled(ctx, orgID)
+	if err != nil {
+		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+	}
+	if sessionBookingOn {
+		orgFeatures = append(orgFeatures, "session_booking")
 	}
 
 	entitlements := slices.Clone(alwaysEntitled)
