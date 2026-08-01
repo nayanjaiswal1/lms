@@ -14,6 +14,7 @@ import { FormInputField } from "@/components/ui/form-input-field";
 import { MultiSelectDropdown } from "@/components/shared/multi-select-dropdown";
 import type { ChecklistOption } from "@/components/shared/checklist-grid";
 import type { Coupon } from "@/lib/server/coupons";
+import { useCurrency, useMoney } from "@/lib/currency-context";
 import { updateCouponAction } from "./actions";
 
 const Schema = z.object({
@@ -37,6 +38,8 @@ export function EditCouponDialog({ coupon, courseOptions }: EditCouponDialogProp
   const [openId, setOpenId] = useQueryState("edit-coupon", parseAsString);
   const isOpen = openId === coupon.id;
   const [courseIDs, setCourseIDs] = useState<Set<string>>(new Set(coupon.course_ids));
+  const currency = useCurrency();
+  const money = useMoney();
 
   const form = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(Schema),
@@ -101,9 +104,9 @@ export function EditCouponDialog({ coupon, courseOptions }: EditCouponDialogProp
             {coupon.discount_type === "percent" && (
               <FormInputField
                 control={form.control}
-                label="Max discount cap in cents (optional)"
+                label={`Max discount cap (smallest ${currency} unit, optional)`}
                 name="max_discount_cents"
-                placeholder="e.g. 2000 caps it at $20 off"
+                placeholder={`e.g. 2000 caps it at ${money(2000)} off`}
                 type="number"
               />
             )}

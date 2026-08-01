@@ -14,6 +14,7 @@ import { FormInputField } from "@/components/ui/form-input-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectDropdown } from "@/components/shared/multi-select-dropdown";
 import type { ChecklistOption } from "@/components/shared/checklist-grid";
+import { useCurrency, useMoney } from "@/lib/currency-context";
 import { createCouponAction } from "./actions";
 
 const Schema = z.object({
@@ -37,6 +38,11 @@ interface CreateCouponDialogProps {
 export function CreateCouponDialog({ courseOptions }: CreateCouponDialogProps) {
   const [open, setOpen] = useQueryState("modal", parseAsBoolean.withDefault(false));
   const [courseIDs, setCourseIDs] = useState<Set<string>>(new Set());
+  // Amounts are stored in the deployment currency's smallest unit, so both the
+  // label and the worked example have to follow PAYMENTS_CURRENCY rather than
+  // assume dollars and cents.
+  const currency = useCurrency();
+  const money = useMoney();
   const form = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(Schema),
     defaultValues: { code: "", description: "", discount_type: "percent", discount_value: 10 },
@@ -110,16 +116,16 @@ export function CreateCouponDialog({ courseOptions }: CreateCouponDialogProps) {
             />
             <FormInputField
               control={form.control}
-              label={discountType === "percent" ? "Discount (%)" : "Discount (cents)"}
+              label={discountType === "percent" ? "Discount (%)" : `Discount (smallest ${currency} unit)`}
               name="discount_value"
               type="number"
             />
             {discountType === "percent" && (
               <FormInputField
                 control={form.control}
-                label="Max discount cap in cents (optional)"
+                label={`Max discount cap (smallest ${currency} unit, optional)`}
                 name="max_discount_cents"
-                placeholder="e.g. 2000 caps it at $20 off, however large the % is"
+                placeholder={`e.g. 2000 caps it at ${money(2000)} off, however large the % is`}
                 type="number"
               />
             )}

@@ -114,7 +114,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// (local interface only, no mentoring import).
 	mentoringRouter := mentoring.New(pool, paymentProviders, couponsRouter.Service, coursesRepo, authzHandler.Service(), cfg)
 
-	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service, couponsRouter.Service)
+	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service, couponsRouter.Service, rdb, cfg)
 
 	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc, store, labsRuntime)
 	rewardsHandler := rewards.New(pool, rdb)
@@ -245,6 +245,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// authenticated by its own signature scheme (see mentoring/handler_webhook.go),
 	// never a session cookie.
 	mentoringRouter.RegisterPublicRoutes(r)
+
+	// Payments config — the currency every *_cents amount is denominated in.
+	// Public: the anonymous catalog renders prices before any session exists.
+	payments.RegisterPublicRoutes(r, cfg)
 
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache)

@@ -158,9 +158,9 @@ CREATE TABLE course_purchases (
   org_id         UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   user_id        UUID        NOT NULL REFERENCES users(id)         ON DELETE CASCADE,
   course_id      UUID        NOT NULL REFERENCES courses(id)       ON DELETE CASCADE,
-  amount_cents   INT         NOT NULL CHECK (amount_cents >= 0), -- final, post-discount
+  amount_cents   INT         NOT NULL CHECK (amount_cents >= 0), -- final, post-discount, in the currency's SMALLEST unit (paise for INR)
   discount_cents INT         NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
-  currency       TEXT        NOT NULL DEFAULT 'USD',
+  currency       TEXT        NOT NULL, -- always supplied from PAYMENTS_CURRENCY (default INR); no column default, so a missing value fails loudly instead of stamping the wrong currency (010_purchase_currency_no_default.sql)
   provider       TEXT        NOT NULL DEFAULT 'stub' CHECK (provider IN ('stub', 'stripe', 'razorpay')),
   provider_ref   TEXT        NOT NULL, -- the gateway's session/order id; "checkout_<uuid>" placeholder until CreateCheckout returns
   payment_ref    TEXT,                 -- the underlying charge/payment id (refund handle)

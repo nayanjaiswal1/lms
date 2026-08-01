@@ -25,6 +25,8 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { FAQPanel } from "@/components/shared/faq-panel";
 import { AskQuestion } from "@/components/messaging/ask-question";
 import { findCourseBySlug, getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview, getFinalTest, getMyCertificates, checkThresholdCertificate } from "@/lib/server/courses";
+import { getPaymentsCurrency } from "@/lib/server/payments";
+import { formatMoney } from "@/lib/money";
 import { getRevisionPlan } from "@/lib/server/revision-plan";
 import { getWikiSpaces } from "@/lib/server/wiki";
 import { getCourseFAQs } from "@/lib/server/messaging";
@@ -78,7 +80,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
     await checkThresholdCertificate(courseId);
   }
 
-  const [tree, progressSummary, myRating, faqs, wikiSpaces, finalTest, myCertificates] = await Promise.all([
+  const [tree, progressSummary, myRating, faqs, wikiSpaces, finalTest, myCertificates, currency] = await Promise.all([
     getCourseTree(courseId).catch(() => null),
     isEnrolled ? getCourseProgress(courseId).catch(() => null) : Promise.resolve(null),
     isEnrolled ? getMyReview(courseId).catch(() => null) : Promise.resolve(null),
@@ -86,6 +88,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
     isEnrolled ? getWikiSpaces().catch(() => []) : Promise.resolve([]),
     isEnrolled ? getFinalTest(courseId) : Promise.resolve(null),
     isEnrolled ? getMyCertificates().catch(() => []) : Promise.resolve([]),
+    getPaymentsCurrency(),
   ]);
   const docsSpace = wikiSpaces.find((s) => s.course_id === courseId) ?? null;
   // Certificates can be earned via final test, mentor award, or completion
@@ -159,7 +162,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                 course.is_free ? (
                   <Badge variant="secondary">Free</Badge>
                 ) : (
-                  <Badge variant="outline">${(course.price_cents / 100).toFixed(2)}</Badge>
+                  <Badge variant="outline">{formatMoney(course.price_cents, currency)}</Badge>
                 )
               )}
               {course.tags.length > 0 && (
@@ -336,7 +339,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
               ) : (
                 <>
                   <p className="text-2xl font-bold">
-                    {course.is_free ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
+                    {course.is_free ? "Free" : formatMoney(course.price_cents, currency)}
                   </p>
                   {course.is_free ? (
                     <form action={handleEnroll}>

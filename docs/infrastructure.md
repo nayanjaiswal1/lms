@@ -46,7 +46,13 @@ RAZORPAY_KEY_ID=                    # rzp_test_... / rzp_live_...
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
 PAYMENTS_DEFAULT_PROVIDER=          # stripe | razorpay
-PAYMENTS_CURRENCY=USD               # single platform currency for all course prices
+PAYMENTS_CURRENCY=INR               # single platform currency for all course prices (default INR).
+                                    # Served to the frontend by GET /api/public/payments/config
+                                    # (never mirrored into a NEXT_PUBLIC_ build var) — every
+                                    # *_cents amount the API returns is in this currency's
+                                    # smallest unit, and lib/money.ts formats it via Intl.
+COUPON_RATE_LIMIT_MAX=10            # coupon-code attempts per user per window
+COUPON_RATE_LIMIT_WINDOW=1m
 
 # Lab sandbox runtime
 LABS_RUNTIME=docker                  # docker | kubernetes
@@ -112,6 +118,10 @@ Spaced repetition (SM-2): pure math — no AI.
 **Current limits** (configured via env):
 - `AUTH_RATE_LIMIT_MAX` — max requests per window on `/api/auth/*` (default 10)
 - `AUTH_RATE_LIMIT_WINDOW` — window duration (default 1m)
+- `COUPON_RATE_LIMIT_MAX` / `COUPON_RATE_LIMIT_WINDOW` — coupon-code attempts on
+  `/coupon/preview` and `/checkout` (default 10 / 1m). Keyed **per user**, not per IP:
+  browser-facing calls all arrive from the Next.js server on one address, so an IP-keyed
+  limit would let one attacker exhaust the budget for the entire user base.
 
 ---
 

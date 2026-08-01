@@ -6,13 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ChecklistOption } from "@/components/shared/checklist-grid";
 import type { Coupon } from "@/lib/server/coupons";
+import { useMoney } from "@/lib/currency-context";
 import { deactivateCouponAction } from "./actions";
 import { EditCouponDialog } from "./edit-coupon-dialog";
 
-function formatDiscount(c: Coupon): string {
-  const base = c.discount_type === "percent" ? `${c.discount_value}% off` : `$${(c.discount_value / 100).toFixed(2)} off`;
+// money is the deployment-currency formatter from useMoney() — a coupon's
+// fixed discount_value and max_discount_cents are minor units of the same
+// currency course prices are in, not dollars.
+function formatDiscount(c: Coupon, money: (minorUnits: number) => string): string {
+  const base = c.discount_type === "percent" ? `${c.discount_value}% off` : `${money(c.discount_value)} off`;
   if (c.discount_type === "percent" && c.max_discount_cents) {
-    return `${base} (up to $${(c.max_discount_cents / 100).toFixed(2)})`;
+    return `${base} (up to ${money(c.max_discount_cents)})`;
   }
   return base;
 }
@@ -36,6 +40,7 @@ interface CouponTableProps {
 export function CouponTable({ coupons, courseTitleById, courseOptions }: CouponTableProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const money = useMoney();
 
   function handleDeactivate(couponId: string) {
     setPendingId(couponId);
@@ -70,7 +75,7 @@ export function CouponTable({ coupons, courseTitleById, courseOptions }: CouponT
                 <p className="font-mono font-medium">{c.code}</p>
                 {c.description && <p className="truncate text-xs text-muted-foreground">{c.description}</p>}
               </td>
-              <td className="py-3 pr-6 text-muted-foreground">{formatDiscount(c)}</td>
+              <td className="py-3 pr-6 text-muted-foreground">{formatDiscount(c, money)}</td>
               <td className="min-w-0 max-w-64 truncate py-3 pr-6 text-muted-foreground">
                 {formatScope(c, courseTitleById)}
               </td>

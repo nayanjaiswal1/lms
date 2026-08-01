@@ -10,8 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/ratelimit"
+	"github.com/redis/go-redis/v9"
 )
 
 const maxUploadSize = 500 << 20 // 500 MB
@@ -79,14 +82,22 @@ type Handler struct {
 	service   *Service
 	purchaser CoursePurchaser
 	coupons   *coupons.Service
+	limiter   *ratelimit.Limiter
+	cfg       *config.Config
 }
 
 // NewHandler wires the courses handler. coupons is imported directly (unlike
 // mentoring) since coupons is a leaf package — it depends on neither courses
 // nor mentoring, so courses -> coupons introduces no cycle, and PreviewCoupon
-// can call it without any interface-boxing indirection.
-func NewHandler(repo *Repo, service *Service, purchaser CoursePurchaser, couponsSvc *coupons.Service) *Handler {
-	return &Handler{repo: repo, service: service, purchaser: purchaser, coupons: couponsSvc}
+// can call it without any interface-boxing indirection. rdb backs the
+// per-user coupon-attempt limit (see limitCouponAttempts) — the IP-keyed
+// RateLimit middleware cannot carry that, since every browser-facing call
+// arrives from the Next.js server on one shared address.
+func NewHandler(repo *Repo, service *Service, purchaser CoursePurchaser, couponsSvc *coupons.Service, rdb *redis.Client, cfg *config.Config) *Handler {
+	return &Handler{
+		repo: repo, service: service, purchaser: purchaser, coupons: couponsSvc,
+		limiter: ratelimit.New(rdb), cfg: cfg,
+	}
 }
 
 func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {

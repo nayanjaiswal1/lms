@@ -2,6 +2,7 @@ package mentoring
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -39,6 +40,15 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 	if course.IsFree || course.PriceCents <= 0 {
 		return courses.CheckoutSession{}, fmt.Errorf("%w: course is free", ErrInvalid)
 	}
+	// GetCourse is org-scoped but status-agnostic (it also backs the author's
+	// own draft views), so a student who knows a course id could otherwise pay
+	// for a draft or archived course that has no catalog entry to consume.
+	// Reported as courses.ErrNotFound, not a distinct error: an unpublished
+	// course simply doesn't exist to a buyer, the same way GetCourseTree hides
+	// someone else's self-course.
+	if course.Status != courses.StatusPublished {
+		return courses.CheckoutSession{}, courses.ErrNotFound
+	}
 
 	hasCompleted, err := s.repo.HasCompletedPurchase(ctx, req.UserID, req.CourseID)
 	if err != nil {
@@ -62,6 +72,34 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 		}
 		discountCents = coupons.DiscountCents(c, course.PriceCents)
 		couponID = &c.ID
+
+		// Retire this student's own abandoned holds first, so a walked-away
+		// checkout doesn't keep the coupon locked (see ExpireStaleCouponHolds).
+		if err := s.repo.ExpireStaleCouponHolds(ctx, req.UserID, c.ID); err != nil {
+			return courses.CheckoutSession{}, err
+		}
+		// c.RedeemedCount only counts webhook-confirmed redemptions; the live
+		// holds are checkouts already opened at the discounted price whose
+		// webhooks simply haven't landed yet. Both must count against the cap,
+		// or a "first 10 customers" coupon can be handed to any number of
+		// concurrent buyers, every one of whom then gets enrolled anyway once
+		// their payment captures (see confirmPurchase's lost-race branch).
+		//
+		// ponytail: this is a soft cap — two simultaneous requests can both
+		// read the same count and slip past. The hard, atomic guarantee is the
+		// per-user one (ux_course_purchases_coupon_user_open); overshooting a
+		// global cap by a couple of concurrent buyers costs the discount, not
+		// correctness. Lock the coupon row FOR UPDATE here if an exact cap
+		// ever has to hold.
+		if c.MaxRedemptions != nil {
+			held, err := s.repo.CountLiveCouponHolds(ctx, c.ID)
+			if err != nil {
+				return courses.CheckoutSession{}, err
+			}
+			if c.RedeemedCount+held >= *c.MaxRedemptions {
+				return courses.CheckoutSession{}, coupons.ErrExhausted
+			}
+		}
 	}
 	finalAmount := course.PriceCents - discountCents
 	if finalAmount < 0 {
@@ -85,6 +123,12 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 			Provider: provider.Name(), ProviderRef: newPendingProviderRef(), CouponID: couponID,
 		})
 		if err != nil {
+			// The coupon-hold index fired: this student already has an open
+			// checkout (or a completed purchase) using this coupon. Same
+			// meaning the API already has a message for.
+			if errors.Is(err, ErrCouponHeld) {
+				return courses.CheckoutSession{}, coupons.ErrAlreadyUsed
+			}
 			return courses.CheckoutSession{}, err
 		}
 	}
@@ -127,7 +171,16 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 // gateway confirmation.
 func (s *Service) completeZeroTotalCheckout(ctx context.Context, purchase Purchase, discountCents int) (courses.CheckoutSession, error) {
 	eventID := "zero_total_" + purchase.ID
-	eventRowID, inserted, err := s.repo.InsertPaymentEvent(ctx, purchase.Provider, eventID, "zero_total", purchase.ProviderRef, &purchase.ID, nil)
+	// payment_events.payload is jsonb NOT NULL — a nil []byte encodes as SQL
+	// NULL, so this branch needs a real (synthetic) payload rather than the
+	// gateway body a webhook-driven event carries.
+	payload, err := json.Marshal(map[string]string{
+		"kind": "zero_total", "purchase_id": purchase.ID, "provider_ref": purchase.ProviderRef,
+	})
+	if err != nil {
+		return courses.CheckoutSession{}, fmt.Errorf("mentoring: zero-total payload: %w", err)
+	}
+	eventRowID, inserted, err := s.repo.InsertPaymentEvent(ctx, purchase.Provider, eventID, "zero_total", purchase.ProviderRef, &purchase.ID, payload)
 	if err != nil {
 		return courses.CheckoutSession{}, err
 	}
@@ -218,8 +271,20 @@ func (s *Service) HandleWebhook(ctx context.Context, providerName string, rawBod
 		return s.repo.MarkPaymentEventError(ctx, eventRowID, "amount/currency mismatch")
 	}
 
-	_, _, err = s.confirmPurchase(ctx, p, ev.PaymentRef, eventRowID)
-	return err
+	if _, _, err = s.confirmPurchase(ctx, p, ev.PaymentRef, eventRowID); err != nil {
+		// The student ended up with two separately-paid checkouts for one
+		// course (ux_course_purchases_completed rejected the second). Retrying
+		// will never resolve that, so ack the delivery and leave the event
+		// flagged for an operator to refund — returning the error would make
+		// the gateway redeliver for 72h against a condition it cannot fix.
+		if errors.Is(err, ErrAlreadyPurchased) {
+			slog.Error("mentoring: second paid purchase for an already-owned course, refund required",
+				"purchase_id", p.ID, "user_id", p.UserID, "course_id", p.CourseID, "payment_ref", ev.PaymentRef)
+			return s.repo.MarkPaymentEventError(ctx, eventRowID, "duplicate completed purchase for this user+course — refund required")
+		}
+		return err
+	}
+	return nil
 }
 
 // confirmPurchase runs every side effect of a confirmed payment in one

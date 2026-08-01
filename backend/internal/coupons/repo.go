@@ -368,9 +368,20 @@ func (r *Repo) Update(ctx context.Context, orgID, id, description string, isActi
 			if errors.Is(txErr, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
+			// coupons_redeemed_count_check (lowering max_redemptions below what
+			// has already been redeemed) and coupons_window_check (expires_at
+			// moved to or before starts_at) both land here — named explicitly
+			// so the client is told which rule it actually broke.
 			var pgErr *pgconn.PgError
 			if errors.As(txErr, &pgErr) && pgErr.Code == "23514" {
-				return fmt.Errorf("%w: max_redemptions cannot be set below the current redeemed count", ErrInvalid)
+				switch pgErr.ConstraintName {
+				case "coupons_redeemed_count_check":
+					return fmt.Errorf("%w: max_redemptions cannot be set below the current redeemed count", ErrInvalid)
+				case "coupons_window_check":
+					return fmt.Errorf("%w: expires_at must be after starts_at", ErrInvalid)
+				default:
+					return fmt.Errorf("%w: %s", ErrInvalid, pgErr.ConstraintName)
+				}
 			}
 			return fmt.Errorf("coupons: update: %w", txErr)
 		}

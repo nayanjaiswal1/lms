@@ -4,6 +4,8 @@ import { BookOpen, Clock, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ManageCourseMenu } from "@/components/courses/manage-course-menu";
 import type { Course } from "@/lib/server/courses";
+import { getPaymentsCurrency } from "@/lib/server/payments";
+import { formatMoney } from "@/lib/money";
 import ROUTES from "@/lib/routes";
 
 interface CourseCardProps {
@@ -16,7 +18,10 @@ interface CourseCardProps {
   href?: string;
 }
 
-export function CourseCard({ course, enrolled, owned, canEdit, canViewAnalytics, progressPct, href }: CourseCardProps) {
+// Async only to read the deployment's currency — getPaymentsCurrency is
+// React-cached, so a grid of cards still resolves it once per render.
+export async function CourseCard({ course, enrolled, owned, canEdit, canViewAnalytics, progressPct, href }: CourseCardProps) {
+  const currency = await getPaymentsCurrency();
   const showProgress = enrolled && progressPct !== undefined;
 
   return (
@@ -90,7 +95,7 @@ export function CourseCard({ course, enrolled, owned, canEdit, canViewAnalytics,
           ) : (
             !enrolled && (
               <span className="ml-auto text-sm font-bold text-foreground">
-                {course.is_free ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
+                {course.is_free ? "Free" : formatMoney(course.price_cents, currency)}
               </span>
             )
           )}

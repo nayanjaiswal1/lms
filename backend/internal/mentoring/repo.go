@@ -38,6 +38,13 @@ var (
 	// already has an open or assigned ticket in this org — the handler maps
 	// this to HTTP 409.
 	ErrAlreadyHasMentor = &conflictErr{msg: "mentoring: you already have an active mentor request"}
+
+	// ErrCouponHeld is returned by CreatePurchase on a
+	// ux_course_purchases_coupon_user_open violation: this student already has
+	// an open (pending or completed) purchase using this coupon, so a second
+	// discounted checkout must not be opened. StartCheckout translates it to
+	// coupons.ErrAlreadyUsed, which is what the API surfaces.
+	ErrCouponHeld = errors.New("mentoring: coupon already held by an open purchase")
 )
 
 // conflictErr is a sentinel error type that signals "this is a conflict, not
@@ -104,9 +111,60 @@ func (r *Repo) CreatePurchase(ctx context.Context, p Purchase) (Purchase, error)
 		p.OrgID, p.UserID, p.CourseID, p.AmountCents, p.DiscountCents, p.Currency, p.Provider, p.ProviderRef, p.CouponID, p.Status,
 	))
 	if err != nil {
+		// ux_course_purchases_coupon_user_open (009_coupon_hold_guard.sql) is
+		// what actually makes "one open checkout per user per coupon" atomic —
+		// a check-then-insert here would still let two concurrent requests
+		// both open a discounted checkout with a one-per-customer coupon.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "ux_course_purchases_coupon_user_open" {
+			return Purchase{}, ErrCouponHeld
+		}
 		return Purchase{}, fmt.Errorf("mentoring: create purchase: %w", err)
 	}
 	return created, nil
+}
+
+// purchaseHoldWindow is how long a 'pending' course_purchases row is treated
+// as a live checkout — both for reusing it on a retry (GetLivePendingPurchase)
+// and for how long it holds a coupon against its per-user/redemption caps
+// (ExpireStaleCouponHolds, CountLiveCouponHolds). After this it is an
+// abandoned checkout that must never keep blocking a new one.
+const purchaseHoldWindow = "30 minutes"
+
+// ExpireStaleCouponHolds fails userID's abandoned coupon-backed checkouts so
+// ux_course_purchases_coupon_user_open stops treating them as a live hold —
+// without this, walking away from a coupon checkout would lock that student
+// out of the coupon until the gateway got around to expiring the session
+// (24h on Stripe, never on Razorpay).
+func (r *Repo) ExpireStaleCouponHolds(ctx context.Context, userID, couponID string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE course_purchases SET status = $3, updated_at = now()
+		 WHERE user_id = $1 AND coupon_id = $2 AND status = $4
+		   AND purchased_at < now() - interval '`+purchaseHoldWindow+`'`,
+		userID, couponID, PurchaseStatusFailed, PurchaseStatusPending)
+	if err != nil {
+		return fmt.Errorf("mentoring: expire stale coupon holds: %w", err)
+	}
+	return nil
+}
+
+// CountLiveCouponHolds counts the still-live checkouts holding couponID but
+// not yet confirmed — added to coupons.redeemed_count, this is what a
+// max_redemptions check at checkout-start must compare against, so a capped
+// coupon can't be handed to far more paying students than it allows just
+// because none of their webhooks have landed yet.
+func (r *Repo) CountLiveCouponHolds(ctx context.Context, couponID string) (int, error) {
+	var n int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM course_purchases
+		  WHERE coupon_id = $1 AND status = $2
+		    AND purchased_at > now() - interval '`+purchaseHoldWindow+`'`,
+		couponID, PurchaseStatusPending,
+	).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("mentoring: count live coupon holds: %w", err)
+	}
+	return n, nil
 }
 
 // GetLivePendingPurchase returns a still-fresh (younger than 30 minutes)
@@ -118,7 +176,7 @@ func (r *Repo) GetLivePendingPurchase(ctx context.Context, userID, courseID, pro
 		`SELECT `+purchaseColumns+` FROM course_purchases
 		 WHERE user_id = $1 AND course_id = $2 AND provider = $3 AND status = $4
 		   AND (coupon_id = $5 OR (coupon_id IS NULL AND $5 IS NULL))
-		   AND purchased_at > now() - interval '30 minutes'
+		   AND purchased_at > now() - interval '`+purchaseHoldWindow+`'
 		 ORDER BY purchased_at DESC LIMIT 1`,
 		userID, courseID, provider, PurchaseStatusPending, couponID,
 	))

@@ -83,6 +83,13 @@ type Config struct {
 	// Rate limiting
 	AuthRateLimitMax    int
 	AuthRateLimitWindow time.Duration
+	// Coupon-code attempts per user per window. A coupon code is a
+	// guessable secret worth money ("LAUNCH25"), and both the preview and
+	// checkout endpoints tell the caller whether one exists, so an
+	// authenticated student can otherwise brute-force the org's discounts at
+	// request speed.
+	CouponRateLimitMax    int
+	CouponRateLimitWindow time.Duration
 
 	// Code execution (coding-question auto-grading).
 	// Piston takes priority when both are set; Judge0 is the fallback.
@@ -202,7 +209,10 @@ type Config struct {
 	PaymentsDefaultProvider string
 	// PaymentsCurrency is the single platform currency course prices are
 	// charged in — course_purchases carries a currency column per row, but
-	// nothing today lets a course price a currency other than this.
+	// nothing today lets a course price a currency other than this. Defaults
+	// to INR. Every *_cents amount in the API is this currency's smallest
+	// unit (paise for INR), which is also what both Stripe and Razorpay
+	// expect on the wire, so amounts pass through to either gateway unscaled.
 	PaymentsCurrency string
 }
 
@@ -272,6 +282,8 @@ func Load() *Config {
 	// Parse rate limit config
 	cfg.AuthRateLimitMax = getEnvInt("AUTH_RATE_LIMIT_MAX", 10)
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
+	cfg.CouponRateLimitMax = getEnvInt("COUPON_RATE_LIMIT_MAX", 10)
+	cfg.CouponRateLimitWindow = parseDuration("COUPON_RATE_LIMIT_WINDOW", "1m")
 
 	// Defaults to the RFC 1918 / loopback ranges, which covers the normal
 	// deployment where the Next.js server and an ingress proxy share a private
@@ -340,7 +352,7 @@ func Load() *Config {
 	cfg.RazorpayKeySecret = os.Getenv("RAZORPAY_KEY_SECRET")
 	cfg.RazorpayWebhookSecret = os.Getenv("RAZORPAY_WEBHOOK_SECRET")
 	cfg.PaymentsDefaultProvider = os.Getenv("PAYMENTS_DEFAULT_PROVIDER")
-	cfg.PaymentsCurrency = getEnvDefault("PAYMENTS_CURRENCY", "USD")
+	cfg.PaymentsCurrency = getEnvDefault("PAYMENTS_CURRENCY", "INR")
 
 	// A gateway that can take money but never confirm it is worse than one
 	// that's simply not configured — fail startup rather than let that ship.

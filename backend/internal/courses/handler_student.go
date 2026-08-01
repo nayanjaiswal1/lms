@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
@@ -94,6 +95,11 @@ func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
 	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
 		return
 	}
+	// Checkout is a coupon oracle too — it answers "is this code real?" just
+	// as PreviewCoupon does, so it shares the same per-user attempt budget.
+	if req.CouponCode != "" && h.limitCouponAttempts(w, r, claims.UserID) {
+		return
+	}
 
 	session, err := h.purchaser.StartCheckout(r.Context(), CheckoutRequest{
 		OrgID: claims.OrgID, UserID: claims.UserID, CourseID: courseID,
@@ -109,10 +115,52 @@ func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
 			httputil.WriteError(w, http.StatusUnprocessableEntity, "Unknown payment provider.")
 			return
 		}
-		httputil.WriteError(w, http.StatusInternalServerError, "Could not start checkout.")
+		// A coupon rejected at checkout-start is the client's problem to fix,
+		// not a server fault — the code may have expired, been exhausted, or
+		// been redeemed by this student between preview and purchase.
+		if writeCouponError(w, err) {
+			return
+		}
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusCreated, session)
+}
+
+// limitCouponAttempts enforces a per-user budget on coupon-code guesses and
+// reports whether the caller should stop. Keyed on the user, not the client
+// IP: every browser-facing call reaches this service from the Next.js server,
+// so an IP-keyed limit would let one attacker exhaust the budget for the
+// entire user base while never singling themselves out (the same reasoning
+// behind auth.Handler.limitByAccount).
+func (h *Handler) limitCouponAttempts(w http.ResponseWriter, r *http.Request, userID string) bool {
+	key := "rl:coupon:" + userID
+	if h.limiter.Allow(r.Context(), key, h.cfg.CouponRateLimitMax, h.cfg.CouponRateLimitWindow) {
+		return false
+	}
+	w.Header().Set("Retry-After", strconv.Itoa(int(h.cfg.CouponRateLimitWindow.Seconds())))
+	httputil.WriteError(w, http.StatusTooManyRequests, "Too many coupon attempts. Please try again later.")
+	return true
+}
+
+// writeCouponError maps the coupons package's sentinel errors to their HTTP
+// response and reports whether it recognized err — shared by PreviewCoupon
+// and StartCheckout so the two can never disagree about what "this coupon is
+// expired" looks like to a client.
+func writeCouponError(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, coupons.ErrNotFound):
+		httputil.WriteError(w, http.StatusNotFound, "Invalid coupon code.")
+	case errors.Is(err, coupons.ErrExpired):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "This coupon is expired or not yet active.")
+	case errors.Is(err, coupons.ErrExhausted):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "This coupon has reached its redemption limit.")
+	case errors.Is(err, coupons.ErrAlreadyUsed):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "You've already used this coupon.")
+	default:
+		return false
+	}
+	return true
 }
 
 // PurchaseStatus is polled by the frontend's checkout return page after a
@@ -157,18 +205,12 @@ func (h *Handler) PreviewCoupon(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	if h.limitCouponAttempts(w, r, claims.UserID) {
+		return
+	}
 	preview, err := h.coupons.Preview(r.Context(), claims.OrgID, claims.UserID, courseID, req.Code, course.PriceCents)
 	if err != nil {
-		switch {
-		case errors.Is(err, coupons.ErrNotFound):
-			httputil.WriteError(w, http.StatusNotFound, "Invalid coupon code.")
-		case errors.Is(err, coupons.ErrExpired):
-			httputil.WriteError(w, http.StatusUnprocessableEntity, "This coupon is expired or not yet active.")
-		case errors.Is(err, coupons.ErrExhausted):
-			httputil.WriteError(w, http.StatusUnprocessableEntity, "This coupon has reached its redemption limit.")
-		case errors.Is(err, coupons.ErrAlreadyUsed):
-			httputil.WriteError(w, http.StatusUnprocessableEntity, "You've already used this coupon.")
-		default:
+		if !writeCouponError(w, err) {
 			httputil.WriteError(w, http.StatusInternalServerError, "Could not apply coupon.")
 		}
 		return

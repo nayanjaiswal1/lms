@@ -31,7 +31,6 @@ func (p *StripeProvider) CreateCheckout(ctx context.Context, cp CheckoutParams) 
 	params := &stripe.CheckoutSessionCreateParams{
 		Mode:              stripe.String(string(stripe.CheckoutSessionModePayment)),
 		ClientReferenceID: stripe.String(cp.PurchaseID),
-		CustomerEmail:     stripe.String(cp.CustomerEmail),
 		SuccessURL:        stripe.String(cp.SuccessURL),
 		CancelURL:         stripe.String(cp.CancelURL),
 		Metadata: map[string]string{
@@ -61,6 +60,14 @@ func (p *StripeProvider) CreateCheckout(ctx context.Context, cp CheckoutParams) 
 			},
 		},
 	}
+	// Stripe rejects an explicitly-empty string for an optional param
+	// ("You passed an empty string for 'customer_email'…"), so this is set
+	// only when the caller actually knows the address — otherwise Checkout
+	// collects it on its own hosted page.
+	if cp.CustomerEmail != "" {
+		params.CustomerEmail = stripe.String(cp.CustomerEmail)
+	}
+
 	// Our own retries (network timeout, redeploy mid-request) must not
 	// create a second Stripe session for the same purchase — PurchaseID is
 	// stable per pending course_purchases row, so it's a correct idempotency

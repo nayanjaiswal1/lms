@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { startCheckoutAction, previewCouponAction } from "@/lib/mentoring/actions";
 import type { CouponPreview } from "@/lib/server/mentoring";
+import { useMoney } from "@/lib/currency-context";
 import ROUTES from "@/lib/routes";
 import { RazorpayScript, openRazorpayCheckout } from "./razorpay-checkout";
 
@@ -35,6 +36,7 @@ export function PurchaseCourseButton({ courseId, courseSlug, priceCents }: Purch
   const [pending, setPending] = useState(false);
   const [coupon, setCoupon] = useState<{ code: string; preview: CouponPreview | null }>({ code: "", preview: null });
   const router = useRouter();
+  const money = useMoney();
 
   async function handleApplyCoupon() {
     if (!coupon.code.trim()) return;
@@ -48,13 +50,16 @@ export function PurchaseCourseButton({ courseId, courseSlug, priceCents }: Purch
     }
     const preview = result.data;
     setCoupon((c) => ({ ...c, preview }));
-    toast.success(`Coupon applied — $${(preview.final_amount_cents / 100).toFixed(2)}`);
+    toast.success(`Coupon applied — ${money(preview.final_amount_cents)}`);
   }
 
   async function handlePurchase() {
     setPending(true);
+    // Any code left in the box is sent, applied or not — dropping an unapplied
+    // one would silently charge full price for a code the student did enter.
+    // The server re-validates it regardless of what Apply previewed.
     const result = await startCheckoutAction(courseId, {
-      couponCode: coupon.preview ? coupon.code.trim() : undefined,
+      couponCode: coupon.code.trim() || undefined,
     });
     setPending(false);
     if (result.error || !result.data) {
@@ -103,7 +108,7 @@ export function PurchaseCourseButton({ courseId, courseSlug, priceCents }: Purch
         </Button>
       </div>
       <Button className="w-full" disabled={pending} size="lg" onClick={handlePurchase}>
-        {pending ? "Processing…" : `Buy for $${(finalCents / 100).toFixed(2)}`}
+        {pending ? "Processing…" : `Buy for ${money(finalCents)}`}
       </Button>
     </div>
   );
