@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -18,7 +19,7 @@ const maxLessonNoteLength = 20000
 // module. This is always source="manual" — the AI-written path is the
 // save_my_lesson_note MCP tool, which calls Service.SaveLessonNote directly.
 func (h *Handler) SaveLessonNote(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -50,7 +51,7 @@ func (h *Handler) SaveLessonNote(w http.ResponseWriter, r *http.Request) {
 // used to prefill the notes panel so revisiting a lesson shows what was
 // already written instead of a blank box.
 func (h *Handler) GetMyLessonNote(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

@@ -2,12 +2,12 @@ package sheets
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -22,21 +22,12 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{repo: NewRepo(pool)}
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrNotFound) {
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-		return
-	}
-	httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -59,7 +50,7 @@ func (h *Handler) ListPublicSheets(w http.ResponseWriter, r *http.Request) {
 
 // GetSheetItems handles GET /api/sheets/:slug/items.
 func (h *Handler) GetSheetItems(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -90,7 +81,7 @@ func (h *Handler) GetSheetItems(w http.ResponseWriter, r *http.Request) {
 
 // ListUserSheets handles GET /api/user/sheets.
 func (h *Handler) ListUserSheets(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -104,7 +95,7 @@ func (h *Handler) ListUserSheets(w http.ResponseWriter, r *http.Request) {
 
 // CreateSheet handles POST /api/sheets.
 func (h *Handler) CreateSheet(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -130,7 +121,7 @@ func (h *Handler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 // GetSheetPreview handles GET /api/sheets/:slug — minimal metadata for the
 // share/join flow, visible to any authenticated user.
 func (h *Handler) GetSheetPreview(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -146,7 +137,7 @@ func (h *Handler) GetSheetPreview(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSheet handles PATCH /api/sheets/:id.
 func (h *Handler) UpdateSheet(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -183,7 +174,7 @@ func (h *Handler) UpdateSheet(w http.ResponseWriter, r *http.Request) {
 
 // DeleteSheet handles DELETE /api/sheets/:id.
 func (h *Handler) DeleteSheet(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -208,7 +199,7 @@ func (h *Handler) DeleteSheet(w http.ResponseWriter, r *http.Request) {
 
 // CombineSheets handles POST /api/sheets/combine.
 func (h *Handler) CombineSheets(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -251,7 +242,7 @@ func (h *Handler) CombineSheets(w http.ResponseWriter, r *http.Request) {
 
 // AddItem handles POST /api/sheets/:id/items.
 func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -288,7 +279,7 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 
 // UpdateItem handles PATCH /api/sheets/:id/items/:itemId.
 func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -320,7 +311,7 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 
 // DeleteItem handles DELETE /api/sheets/:id/items/:itemId.
 func (h *Handler) DeleteItem(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -346,7 +337,7 @@ func (h *Handler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 
 // Subscribe handles POST /api/sheets/:id/subscribe.
 func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -361,7 +352,7 @@ func (h *Handler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 // Unsubscribe handles DELETE /api/sheets/:id/subscribe.
 func (h *Handler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -380,7 +371,7 @@ const maxImportBytes = 10 << 20 // 10MB
 // upload. Parses only; nothing is persisted until the client later submits
 // the sheet with these rows as custom items.
 func (h *Handler) ImportExcel(w http.ResponseWriter, r *http.Request) {
-	if _, ok := ctxClaims(w, r); !ok {
+	if _, ok := auth.RequireClaims(w, r); !ok {
 		return
 	}
 
@@ -406,7 +397,7 @@ func (h *Handler) ImportExcel(w http.ResponseWriter, r *http.Request) {
 
 // UpdateProgress handles PATCH /api/progress/:topic_tag.
 func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -452,7 +443,7 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 // "I still remember this" action, advancing an already-"done" item to its
 // next, longer interval per the given sheet's growth scheme.
 func (h *Handler) UpdateProgressReview(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -481,7 +472,7 @@ func (h *Handler) UpdateProgressReview(w http.ResponseWriter, r *http.Request) {
 // directly reschedules an already-solved item's revision date, distinct from
 // the interval picker shown when first marking it solved.
 func (h *Handler) UpdateProgressRevision(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -510,7 +501,7 @@ var validGrowthSchemes = map[string]bool{"doubling": true, "ladder": true, "line
 
 // GetSheetSettings handles GET /api/sheets/settings?sheet_id=...
 func (h *Handler) GetSheetSettings(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -532,7 +523,7 @@ func (h *Handler) GetSheetSettings(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSheetSettings handles PUT /api/sheets/settings.
 func (h *Handler) UpdateSheetSettings(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -566,7 +557,7 @@ func (h *Handler) UpdateSheetSettings(w http.ResponseWriter, r *http.Request) {
 
 // UpdateProgressNotes handles PATCH /api/progress/:topic_tag/notes.
 func (h *Handler) UpdateProgressNotes(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -593,7 +584,7 @@ func (h *Handler) UpdateProgressNotes(w http.ResponseWriter, r *http.Request) {
 
 // UpdateProgressStarred handles PATCH /api/progress/:topic_tag/star.
 func (h *Handler) UpdateProgressStarred(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

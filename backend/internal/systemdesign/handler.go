@@ -2,10 +2,10 @@ package systemdesign
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -20,15 +20,6 @@ func newHandler(service *Service) *Handler {
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
-
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
@@ -37,30 +28,25 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:       {Status: http.StatusNotFound, Message: "System design question not found."},
+	ErrNotQuestion:    {Status: http.StatusNotFound, Message: "System design question not found."},
+	ErrNotOwner:       {Status: http.StatusForbidden, Message: "This attempt belongs to another user."},
+	ErrAIUnavailable:  {Status: http.StatusServiceUnavailable, Message: "AI provider is not configured."},
+	ErrEmptyMessage:   {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"content": "must not be empty"}},
+	ErrMessageTooLong: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"content": "must not exceed 2000 characters"}},
+	ErrEmptyScene:     {Status: http.StatusUnprocessableEntity, Message: "Add something to the canvas before requesting feedback."},
+}
+
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound), errors.Is(err, ErrNotQuestion):
-		httputil.WriteError(w, http.StatusNotFound, "System design question not found.")
-	case errors.Is(err, ErrNotOwner):
-		httputil.WriteError(w, http.StatusForbidden, "This attempt belongs to another user.")
-	case errors.Is(err, ErrAIUnavailable):
-		httputil.WriteError(w, http.StatusServiceUnavailable, "AI provider is not configured.")
-	case errors.Is(err, ErrEmptyMessage):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"content": "must not be empty"})
-	case errors.Is(err, ErrMessageTooLong):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"content": "must not exceed 2000 characters"})
-	case errors.Is(err, ErrEmptyScene):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "Add something to the canvas before requesting feedback.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 // ─── Attempts ─────────────────────────────────────────────────────────────────
 
 // ListAttempts handles GET /api/modules/{moduleId}/design/attempts
 func (h *Handler) ListAttempts(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -75,7 +61,7 @@ func (h *Handler) ListAttempts(w http.ResponseWriter, r *http.Request) {
 
 // CreateAttempt handles POST /api/modules/{moduleId}/design/attempts
 func (h *Handler) CreateAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -90,7 +76,7 @@ func (h *Handler) CreateAttempt(w http.ResponseWriter, r *http.Request) {
 
 // GetAttempt handles GET /api/modules/{moduleId}/design/attempts/{attemptId}
 func (h *Handler) GetAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -106,7 +92,7 @@ func (h *Handler) GetAttempt(w http.ResponseWriter, r *http.Request) {
 
 // SaveScene handles PUT /api/modules/{moduleId}/design/attempts/{attemptId}/scene
 func (h *Handler) SaveScene(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -126,7 +112,7 @@ func (h *Handler) SaveScene(w http.ResponseWriter, r *http.Request) {
 
 // GenerateFeedback handles POST /api/modules/{moduleId}/design/attempts/{attemptId}/feedback
 func (h *Handler) GenerateFeedback(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -144,7 +130,7 @@ func (h *Handler) GenerateFeedback(w http.ResponseWriter, r *http.Request) {
 
 // ListChat handles GET /api/modules/{moduleId}/design/chat
 func (h *Handler) ListChat(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -159,7 +145,7 @@ func (h *Handler) ListChat(w http.ResponseWriter, r *http.Request) {
 
 // SendChatMessage handles POST /api/modules/{moduleId}/design/chat
 func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

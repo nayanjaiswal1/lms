@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -13,19 +14,10 @@ type Handler struct {
 	service *Service
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
-
 // Generate requests a fresh (or regenerated) revision plan for the
 // authenticated student's completed course.
 func (h *Handler) Generate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -44,7 +36,7 @@ func (h *Handler) Generate(w http.ResponseWriter, r *http.Request) {
 // GetMine returns the authenticated student's revision plan for a course, or
 // null if they haven't requested one yet.
 func (h *Handler) GetMine(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

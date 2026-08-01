@@ -8,12 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-)
 
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
+	"github.com/mindforge/backend/internal/db"
+)
 
 // ─── project_assignments ───────────────────────────────────────────────────
 
@@ -57,7 +54,7 @@ func (r *Repo) CreateAssignment(ctx context.Context, a ProjectAssignment) (*Proj
 	)
 	assignment, err := scanAssignment(row)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return nil, ErrConflict
 		}
 		return nil, fmt.Errorf("gitlab: create assignment: %w", err)
@@ -259,7 +256,7 @@ func (r *Repo) CreateTeam(ctx context.Context, t ProjectTeam) (*ProjectTeam, err
 	)
 	team, err := scanTeam(row)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return nil, ErrConflict
 		}
 		return nil, fmt.Errorf("gitlab: create team: %w", err)
@@ -410,7 +407,7 @@ func (r *Repo) UpdateTeam(ctx context.Context, orgID, teamID string, p TeamPatch
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNotFound
 		}
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return nil, ErrConflict
 		}
 		return nil, fmt.Errorf("gitlab: update team: %w", err)

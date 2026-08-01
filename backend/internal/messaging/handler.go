@@ -2,11 +2,11 @@ package messaging
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -21,26 +21,14 @@ type Handler struct {
 	repo    *Repo
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:         {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden:        {Status: http.StatusForbidden, Message: "Forbidden."},
+	ErrEditWindowClosed: {Status: http.StatusConflict, Message: "Messages can only be edited within 15 minutes of posting."},
 }
 
-func writeError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, "Forbidden.")
-	case errors.Is(err, ErrEditWindowClosed):
-		httputil.WriteError(w, http.StatusConflict, "Messages can only be edited within 15 minutes of posting.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+func writeDomainError(w http.ResponseWriter, err error) {
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -84,7 +72,7 @@ func queryFloat(r *http.Request, key string, def float64) float64 {
 }
 
 func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -98,14 +86,14 @@ func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	msgs, err := h.repo.ListMessages(r.Context(), claims.OrgID, batchID, claims.UserID, f)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"messages": msgs})
 }
 
 func (h *Handler) PostMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -120,14 +108,14 @@ func (h *Handler) PostMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	msg, err := h.service.PostMessage(r.Context(), claims.OrgID, batchID, claims.UserID, body.Body, body.Type, body.ParentID)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusCreated, msg)
 }
 
 func (h *Handler) EditMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -140,27 +128,27 @@ func (h *Handler) EditMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	msg, err := h.service.EditMessage(r.Context(), claims.OrgID, msgID, claims.UserID, body.Body)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, msg)
 }
 
 func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	msgID := chi.URLParam(r, "msgID")
 	if err := h.service.DeleteMessage(r.Context(), claims.OrgID, msgID, claims.UserID, claims.OrgRole); err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) React(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -173,40 +161,40 @@ func (h *Handler) React(w http.ResponseWriter, r *http.Request) {
 	}
 	added, err := h.service.React(r.Context(), msgID, claims.UserID, body.Reaction)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"added": added})
 }
 
 func (h *Handler) ResolveMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	msgID := chi.URLParam(r, "msgID")
 	if err := h.service.Resolve(r.Context(), claims.OrgID, msgID); err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (h *Handler) PinMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	msgID := chi.URLParam(r, "msgID")
 	if err := h.service.Pin(r.Context(), claims.OrgID, msgID); err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (h *Handler) PromoteToFAQ(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -225,28 +213,28 @@ func (h *Handler) PromoteToFAQ(w http.ResponseWriter, r *http.Request) {
 	}
 	faq, err := h.service.PromoteToFAQ(r.Context(), claims.OrgID, body.CourseID, msgID, claims.UserID, body.Question, body.Answer)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusCreated, faq)
 }
 
 func (h *Handler) ListFAQs(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
 	faqs, err := h.repo.ListFAQs(r.Context(), claims.OrgID, courseID)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"faqs": faqs})
 }
 
 func (h *Handler) GetSimilarFAQs(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -256,14 +244,14 @@ func (h *Handler) GetSimilarFAQs(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit", defaultSimilarFAQLimit)
 	faqs, err := h.service.SimilarFAQs(r.Context(), claims.OrgID, courseID, question, threshold, limit)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"faqs": faqs})
 }
 
 func (h *Handler) CreateFAQ(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -277,14 +265,14 @@ func (h *Handler) CreateFAQ(w http.ResponseWriter, r *http.Request) {
 	}
 	faq, err := h.repo.CreateFAQ(r.Context(), claims.OrgID, courseID, claims.UserID, body.Question, body.Answer)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusCreated, faq)
 }
 
 func (h *Handler) UpdateFAQ(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -298,27 +286,27 @@ func (h *Handler) UpdateFAQ(w http.ResponseWriter, r *http.Request) {
 	}
 	faq, err := h.repo.UpdateFAQ(r.Context(), claims.OrgID, faqID, body.Question, body.Answer)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, faq)
 }
 
 func (h *Handler) DeleteFAQ(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	faqID := chi.URLParam(r, "faqID")
 	if err := h.repo.DeleteFAQ(r.Context(), claims.OrgID, faqID); err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ReorderFAQs(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -330,7 +318,7 @@ func (h *Handler) ReorderFAQs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.repo.ReorderFAQs(r.Context(), claims.OrgID, courseID, body.FAQIDs); err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})

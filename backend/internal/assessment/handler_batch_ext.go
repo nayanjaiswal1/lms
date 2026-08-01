@@ -7,6 +7,8 @@ import (
 	"regexp"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -30,7 +32,7 @@ func writeBatchExtError(w http.ResponseWriter, err error) {
 }
 
 func (h *Handler) AddBatchMentor(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -53,7 +55,7 @@ func (h *Handler) AddBatchMentor(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RemoveBatchMentor(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -67,7 +69,7 @@ func (h *Handler) RemoveBatchMentor(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListBatchMentors(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -81,7 +83,7 @@ func (h *Handler) ListBatchMentors(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AssignBatchCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -104,7 +106,7 @@ func (h *Handler) AssignBatchCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UnassignBatchCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -118,7 +120,7 @@ func (h *Handler) UnassignBatchCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListBatchCourses(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -132,7 +134,7 @@ func (h *Handler) ListBatchCourses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) BulkInvite(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -173,7 +175,7 @@ func (h *Handler) BulkInvite(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListInvitations(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -188,7 +190,7 @@ func (h *Handler) ListInvitations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -201,7 +203,7 @@ func (h *Handler) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ResendInvitation(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -215,7 +217,7 @@ func (h *Handler) ResendInvitation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -273,7 +275,7 @@ func (h *Handler) PreviewInvitation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetBatchProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

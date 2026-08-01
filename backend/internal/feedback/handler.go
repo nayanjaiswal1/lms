@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -15,26 +16,14 @@ type Handler struct {
 	service *Service
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:  {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden: {Status: http.StatusForbidden},
+	ErrInvalid:   {Status: http.StatusUnprocessableEntity},
 }
 
-func writeError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, err.Error())
-	case errors.Is(err, ErrInvalid):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+func writeDomainError(w http.ResponseWriter, err error) {
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -48,7 +37,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 // SubmitFeedback creates or updates the authenticated user's feedback
 // (rating/comment, or an explicit skip) for a course, assessment, or lab.
 func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -64,7 +53,7 @@ func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := h.service.Submit(r.Context(), claims.OrgID, body.SubjectType, body.SubjectID, claims.UserID, body.Rating, body.Comment, body.Skip)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, f)
@@ -74,7 +63,7 @@ func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 // subject — e.g. the "Recent feedback" list on a mentor profile page.
 // Optional ?limit= query param, clamped server-side.
 func (h *Handler) ListFeedback(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -88,7 +77,7 @@ func (h *Handler) ListFeedback(w http.ResponseWriter, r *http.Request) {
 	}
 	reviews, err := h.service.ListPublic(r.Context(), claims.OrgID, subjectType, subjectID, limit)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"reviews": reviews})
@@ -99,7 +88,7 @@ func (h *Handler) ListFeedback(w http.ResponseWriter, r *http.Request) {
 // hasn't rated or skipped it yet, so the frontend can treat "null" as the
 // signal to show the completion prompt.
 func (h *Handler) GetMyFeedback(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +100,7 @@ func (h *Handler) GetMyFeedback(w http.ResponseWriter, r *http.Request) {
 			httputil.WriteJSON(w, http.StatusOK, map[string]any{"feedback": nil})
 			return
 		}
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"feedback": f})

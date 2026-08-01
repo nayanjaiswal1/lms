@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -21,7 +22,7 @@ const maxReflectionLength = 4000
 // raw signal for a future revision-plan / concept-dependency-graph feature —
 // the module-complete gate does not depend on it.
 func (h *Handler) SubmitReflection(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -57,7 +58,7 @@ func (h *Handler) SubmitReflection(w http.ResponseWriter, r *http.Request) {
 // a module (or null if they haven't written one yet), used to prefill the
 // textarea on page load.
 func (h *Handler) GetMyReflection(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

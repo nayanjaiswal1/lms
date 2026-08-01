@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -43,7 +45,7 @@ func validateBaseURL(raw string) bool {
 // InstallationsList handles GET /api/gitlab/installations — admin-only list
 // backing the settings page's connection pool section.
 func (h *Handler) InstallationsList(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -87,7 +89,7 @@ func validateInstallationRequest(req installationRequest, requireName bool) map[
 // synchronously; an "oauth" request returns an authorize_url for the
 // frontend to redirect the admin's browser to next.
 func (h *Handler) InstallationsCreate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -122,7 +124,7 @@ func (h *Handler) InstallationsCreate(w http.ResponseWriter, r *http.Request) {
 // replaces an existing pool entry's credentials (re-verified against
 // GitLab). Name and default status are untouched — see InstallationsSetDefault.
 func (h *Handler) InstallationUpdate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -159,7 +161,7 @@ func (h *Handler) InstallationUpdate(w http.ResponseWriter, r *http.Request) {
 // removes one connection from the org's pool. See
 // Repo.DeleteInstallationByID's own doc comment for the default/in-use guards.
 func (h *Handler) InstallationDelete(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -173,7 +175,7 @@ func (h *Handler) InstallationDelete(w http.ResponseWriter, r *http.Request) {
 // InstallationVerify handles POST /api/gitlab/installations/{id}/verify —
 // re-checks that connection's stored token against GitLab and records the result.
 func (h *Handler) InstallationVerify(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -188,7 +190,7 @@ func (h *Handler) InstallationVerify(w http.ResponseWriter, r *http.Request) {
 // InstallationSetDefault handles POST /api/gitlab/installations/{id}/set-default —
 // moves the org's default flag onto this connection.
 func (h *Handler) InstallationSetDefault(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -204,7 +206,7 @@ func (h *Handler) InstallationSetDefault(w http.ResponseWriter, r *http.Request)
 // allow_project_override policy the assignment form reads to decide whether
 // to show its GitLab-connection override field at all.
 func (h *Handler) OrgConfigGet(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -222,7 +224,7 @@ type orgConfigRequest struct {
 
 // OrgConfigPut handles PUT /api/gitlab/org-config.
 func (h *Handler) OrgConfigPut(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -243,7 +245,7 @@ func (h *Handler) OrgConfigPut(w http.ResponseWriter, r *http.Request) {
 // (like auth.HandleOAuthRedirect for Google/GitHub) rather than a JSON
 // response, since the frontend link is a real page navigation, not a fetch.
 func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -258,7 +260,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 // Status handles GET /api/gitlab/status — any authenticated org member gets
 // the combined installation + personal-connection picture for the settings page.
 func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -273,7 +275,7 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 // Disconnect handles POST /api/gitlab/disconnect — any authenticated org
 // member disconnects their own personal GitLab connection.
 func (h *Handler) Disconnect(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

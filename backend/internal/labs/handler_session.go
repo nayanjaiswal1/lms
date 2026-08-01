@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -76,7 +77,7 @@ func newLabStudentResponse(lab *LabDefinition) labStudentResponse {
 //
 //	GET /api/labs/{labId}
 func (h *Handler) HandleGetLab(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -117,7 +118,7 @@ func (h *Handler) HandleGetLab(w http.ResponseWriter, r *http.Request) {
 //
 //	GET /api/modules/{moduleId}/lab
 func (h *Handler) HandleGetLabByModule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -168,7 +169,7 @@ func (h *Handler) HandleGetLabByModule(w http.ResponseWriter, r *http.Request) {
 // active-session lookup and the DB's own unique index — the header exists
 // for genuine client-retry idempotency, not as an implicit key.
 func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -190,7 +191,7 @@ func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
 //
 //	GET /api/labs/sessions/active
 func (h *Handler) HandleListActiveSessions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -208,7 +209,7 @@ func (h *Handler) HandleListActiveSessions(w http.ResponseWriter, r *http.Reques
 //
 //	GET /api/labs/sessions/{sessionId}
 func (h *Handler) HandleGetSession(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -230,7 +231,7 @@ func (h *Handler) HandleGetSession(w http.ResponseWriter, r *http.Request) {
 //
 //	GET /api/labs/sessions/{sessionId}/events
 func (h *Handler) HandleSessionEvents(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -249,7 +250,7 @@ func (h *Handler) HandleSessionEvents(w http.ResponseWriter, r *http.Request) {
 //
 //	POST /api/labs/sessions/{sessionId}/ws-token
 func (h *Handler) HandleMintWSToken(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -274,7 +275,7 @@ func (h *Handler) HandleMintWSToken(w http.ResponseWriter, r *http.Request) {
 //
 //	POST /api/labs/sessions/{sessionId}/tasks/{taskId}/verify
 func (h *Handler) HandleVerifyTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -320,7 +321,7 @@ func (h *Handler) HandleVerifyTask(w http.ResponseWriter, r *http.Request) {
 //
 //	POST /api/labs/sessions/{sessionId}/reset
 func (h *Handler) HandleResetSession(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -342,7 +343,7 @@ func (h *Handler) HandleResetSession(w http.ResponseWriter, r *http.Request) {
 //
 //	POST /api/labs/sessions/{sessionId}/end
 func (h *Handler) HandleEndSession(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

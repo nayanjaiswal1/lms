@@ -3,12 +3,13 @@ package assessment
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // AssessmentAnalytics returns aggregate performance for one assessment (staff).
 func (h *Handler) AssessmentAnalytics(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -22,7 +23,7 @@ func (h *Handler) AssessmentAnalytics(w http.ResponseWriter, r *http.Request) {
 
 // ListAssessmentAttempts returns the staff result table for an assessment.
 func (h *Handler) ListAssessmentAttempts(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -37,7 +38,7 @@ func (h *Handler) ListAssessmentAttempts(w http.ResponseWriter, r *http.Request)
 // AttemptProctoringLog returns the full anti-cheat event log for an attempt
 // (staff review). Scoped to the caller's org via the attempt's assessment.
 func (h *Handler) AttemptProctoringLog(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -68,7 +69,7 @@ func (h *Handler) AttemptProctoringLog(w http.ResponseWriter, r *http.Request) {
 
 // MyAnalytics returns the authenticated learner's personal performance summary.
 func (h *Handler) MyAnalytics(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -82,7 +83,7 @@ func (h *Handler) MyAnalytics(w http.ResponseWriter, r *http.Request) {
 
 // OrgAnalytics returns the organisation-wide assessment overview (staff).
 func (h *Handler) OrgAnalytics(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

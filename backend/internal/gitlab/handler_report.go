@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -11,7 +13,7 @@ import (
 // — creates a pending scan report and enqueues gitlab.originality_scan to
 // run it.
 func (h *Handler) RequestOriginalityScan(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -25,7 +27,7 @@ func (h *Handler) RequestOriginalityScan(w http.ResponseWriter, r *http.Request)
 
 // ListOriginalityReports handles GET /api/projects/assignments/{assignmentID}/originality.
 func (h *Handler) ListOriginalityReports(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -41,7 +43,7 @@ func (h *Handler) ListOriginalityReports(w http.ResponseWriter, r *http.Request)
 // (or resets) a capstone handoff request and enqueues gitlab.handoff to run
 // it, fork or transfer per the request's mode (§0.5).
 func (h *Handler) RequestHandoff(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

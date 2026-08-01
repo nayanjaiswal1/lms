@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -37,16 +36,6 @@ func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, rdb *redis.Cli
 }
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
-
-// ctxClaims extracts the authenticated claims or writes 401 and returns false.
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
 
 // writeDomainError maps labs domain errors to appropriate HTTP responses.
 func writeDomainError(w http.ResponseWriter, err error) {

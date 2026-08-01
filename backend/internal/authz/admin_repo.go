@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mindforge/backend/internal/db"
 )
 
 // AdminRepo handles RBAC administration queries: permissions, roles, and
@@ -178,7 +180,7 @@ func (r *AdminRepo) CreateRole(ctx context.Context, tenantID, name, description 
 	row := r.pool.QueryRow(ctx, q, tenantID, name, description)
 	role, err := scanRole(row)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return nil, fmt.Errorf("admin: create role: a role with that name already exists in this org")
 		}
 		return nil, fmt.Errorf("admin: create role: %w", err)
@@ -505,7 +507,7 @@ func (r *AdminRepo) AssignRole(ctx context.Context, userID, roleID, tenantID str
 		userID, roleID, tenantID,
 	)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return fmt.Errorf("admin: assign role: role already assigned to this user")
 		}
 		return fmt.Errorf("admin: assign role: %w", err)
@@ -692,12 +694,6 @@ func isValidUUID(s string) bool {
 		}
 	}
 	return true
-}
-
-// isUniqueViolation reports whether err is a PostgreSQL unique-constraint
-// violation (SQLSTATE 23505).
-func isUniqueViolation(err error) bool {
-	return strings.Contains(err.Error(), "23505")
 }
 
 // ─── Account status ───────────────────────────────────────────────────────────

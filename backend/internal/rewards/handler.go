@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -35,7 +36,7 @@ func (h *Handler) ListDefinitions(w http.ResponseWriter, r *http.Request) {
 // ─── GET /api/rewards/me ─────────────────────────────────────────────────────
 
 func (h *Handler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -58,7 +59,7 @@ func (h *Handler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
 //	offset       — (default 0)
 
 func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -103,7 +104,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 // ─── GET /api/rewards/leaderboard/me ─────────────────────────────────────────
 
 func (h *Handler) GetMyRank(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -166,15 +167,6 @@ func buildLBKey(scope, scopeID, featureType, defaultOrgID string) (string, bool)
 		return "leaderboard:feature:org:" + id + ":" + featureType, true
 	}
 	return "", false
-}
-
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
 }
 
 func queryInt(r *http.Request, key string, def int) int {

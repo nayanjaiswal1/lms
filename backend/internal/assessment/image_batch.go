@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -28,7 +30,7 @@ const (
 // UploadBatchImage handles POST /api/batches/{batchID}/image — a square-cropped,
 // resized cover image replacing the generated initials avatar on the frontend.
 func (h *Handler) UploadBatchImage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -125,7 +127,7 @@ func (h *Handler) UploadBatchImage(w http.ResponseWriter, r *http.Request) {
 // DeleteBatchImage handles DELETE /api/batches/{batchID}/image — reverts the
 // batch to its generated initials avatar.
 func (h *Handler) DeleteBatchImage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

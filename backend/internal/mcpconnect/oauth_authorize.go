@@ -89,7 +89,7 @@ func (rt *Router) HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 // own consent page (authenticated, same-origin fetch) to render the client
 // name and a human-readable scope list before the user approves.
 func (rt *Router) HandleAuthorizeDetails(w http.ResponseWriter, r *http.Request) {
-	if _, ok := ctxClaims(w, r); !ok {
+	if _, ok := auth.RequireClaims(w, r); !ok {
 		return
 	}
 	q := r.URL.Query()
@@ -103,8 +103,8 @@ func (rt *Router) HandleAuthorizeDetails(w http.ResponseWriter, r *http.Request)
 		descriptions = append(descriptions, ScopeDescriptions[s])
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{
-		"client_name":       client.ClientName,
-		"scopes":            scopes,
+		"client_name":        client.ClientName,
+		"scopes":             scopes,
 		"scope_descriptions": descriptions,
 	})
 }
@@ -122,7 +122,7 @@ type authorizeDecisionRequest struct {
 // and returns the URL the frontend should navigate the browser to next
 // (the external client's own redirect_uri, carrying the code).
 func (rt *Router) HandleAuthorizeApprove(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -204,7 +204,7 @@ func appendRedirectParams(rawURL string, params map[string]string) (string, erro
 // Deny; returns the redirect_url carrying the standard access_denied error
 // instead of a code, so the external client's own UI shows the rejection.
 func (rt *Router) HandleAuthorizeDeny(w http.ResponseWriter, r *http.Request) {
-	if _, ok := ctxClaims(w, r); !ok {
+	if _, ok := auth.RequireClaims(w, r); !ok {
 		return
 	}
 	var req authorizeDecisionRequest
@@ -227,15 +227,6 @@ func (rt *Router) HandleAuthorizeDeny(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"redirect_url": redirectURL})
-}
-
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {

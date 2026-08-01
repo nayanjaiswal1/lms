@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -14,7 +15,7 @@ import (
 //
 // Response: {"data": [{"path": "deployment.yaml", "type": "file"}, ...]}
 func (h *Handler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -34,7 +35,7 @@ func (h *Handler) HandleListFiles(w http.ResponseWriter, r *http.Request) {
 //
 // Response: {"data": {"content": "..."}}
 func (h *Handler) HandleReadFile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -56,7 +57,7 @@ func (h *Handler) HandleReadFile(w http.ResponseWriter, r *http.Request) {
 //
 // Response: {"data": {"ok": true}}
 func (h *Handler) HandleWriteFile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -91,7 +92,7 @@ func (h *Handler) HandleWriteFile(w http.ResponseWriter, r *http.Request) {
 //
 // Response: {"data": {"ok": true}}
 func (h *Handler) HandleCreateDirectory(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -118,7 +119,7 @@ func (h *Handler) HandleCreateDirectory(w http.ResponseWriter, r *http.Request) 
 //
 // Response: {"data": {"ok": true}}
 func (h *Handler) HandleRenameFile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -145,7 +146,7 @@ func (h *Handler) HandleRenameFile(w http.ResponseWriter, r *http.Request) {
 //
 // Response: {"data": {"ok": true}}
 func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -167,7 +168,7 @@ func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 //
 // Response: {"data": {"valid": bool, "stdout": "...", "stderr": "..."}}
 func (h *Handler) HandleValidateFile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -195,7 +196,7 @@ func (h *Handler) HandleValidateFile(w http.ResponseWriter, r *http.Request) {
 //
 // Response: {"data": <raw kubectl List JSON as returned by the apiserver>}
 func (h *Handler) HandleGetResources(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

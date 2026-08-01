@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -135,10 +136,10 @@ func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{
-		"score":       att.Score,
-		"max_score":   att.MaxScore,
-		"percentage":  att.Percentage,
-		"passed":      att.Passed,
+		"score":        att.Score,
+		"max_score":    att.MaxScore,
+		"percentage":   att.Percentage,
+		"passed":       att.Passed,
 		"duration_sec": att.DurationSec,
 	})
 }
@@ -176,7 +177,7 @@ type overridePublicAttemptRequest struct {
 // total score — e.g. spot-checking a sandbox-graded FastAPI/React submission's
 // code quality on top of its pass/fail result. PATCH /api/assessments/{assessmentID}/candidates/{candidateID}/override
 func (h *Handler) OverridePublicCandidateScore(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -200,7 +201,7 @@ func (h *Handler) OverridePublicCandidateScore(w http.ResponseWriter, r *http.Re
 // GetPublicCandidates returns all candidate attempts for a hiring assessment (staff).
 // GET /api/assessments/{assessmentID}/candidates
 func (h *Handler) GetPublicCandidates(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

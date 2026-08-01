@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/mindforge/backend/internal/db"
 )
 
 // ─── project_checkpoints ────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ func (r *Repo) CreateCheckpoint(ctx context.Context, cp ProjectCheckpoint) (*Pro
 	)
 	created, err := scanCheckpoint(row)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return nil, ErrConflict
 		}
 		return nil, fmt.Errorf("gitlab: create checkpoint: %w", err)

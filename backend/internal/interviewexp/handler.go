@@ -2,10 +2,10 @@ package interviewexp
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -18,15 +18,6 @@ func newHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
-
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
@@ -35,17 +26,14 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:   {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden:  {Status: http.StatusForbidden, Message: "You do not have permission to perform this action."},
+	ErrValidation: {Status: http.StatusUnprocessableEntity, Message: "Invalid request."},
+}
+
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
-	case errors.Is(err, ErrValidation):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, "Invalid request.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func optionalQueryParam(r *http.Request, key string) *string {
@@ -59,7 +47,7 @@ func optionalQueryParam(r *http.Request, key string) *string {
 // ─── Posts ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListPosts(w http.ResponseWriter, r *http.Request) {
-	if _, ok := ctxClaims(w, r); !ok {
+	if _, ok := auth.RequireClaims(w, r); !ok {
 		return
 	}
 	f := ListFilter{
@@ -77,7 +65,7 @@ func (h *Handler) ListPosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -94,7 +82,7 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -109,7 +97,7 @@ func (h *Handler) GetPost(w http.ResponseWriter, r *http.Request) {
 // ─── Entries ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) CreateEntry(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -128,7 +116,7 @@ func (h *Handler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 // ─── Qna ──────────────────────────────────────────────────────────────────────
 
 func (h *Handler) CreateStandaloneQna(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -145,7 +133,7 @@ func (h *Handler) CreateStandaloneQna(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateEntryQna(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -162,7 +150,7 @@ func (h *Handler) CreateEntryQna(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateQna(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -179,7 +167,7 @@ func (h *Handler) UpdateQna(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteQna(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -193,7 +181,7 @@ func (h *Handler) DeleteQna(w http.ResponseWriter, r *http.Request) {
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
 func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -210,7 +198,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -227,7 +215,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -241,7 +229,7 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 // ─── Votes ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) Vote(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -259,7 +247,7 @@ func (h *Handler) Vote(w http.ResponseWriter, r *http.Request) {
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 
 func (h *Handler) GetFaq(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -277,7 +265,7 @@ func (h *Handler) GetFaq(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateFaqStatus(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -293,7 +281,7 @@ func (h *Handler) UpdateFaqStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateFaqStarred(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

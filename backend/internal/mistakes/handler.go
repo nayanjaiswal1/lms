@@ -2,11 +2,11 @@ package mistakes
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -20,27 +20,18 @@ func NewHandler(repo *Repo, svc *Service) *Handler {
 	return &Handler{repo: repo, svc: svc}
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrNotFound) {
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-		return
-	}
-	httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 // HandleList handles GET /api/mistakes?category=&context_tag=&from=&to=
 // (from/to are RFC3339 timestamps).
 func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -73,7 +64,7 @@ func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // HandleCreate handles POST /api/mistakes.
 func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +102,7 @@ func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 
 // HandleSummary handles GET /api/mistakes/summary.
 func (h *Handler) HandleSummary(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -125,7 +116,7 @@ func (h *Handler) HandleSummary(w http.ResponseWriter, r *http.Request) {
 
 // HandleResolve handles POST /api/mistakes/{id}/resolve.
 func (h *Handler) HandleResolve(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

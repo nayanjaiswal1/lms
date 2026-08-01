@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -11,7 +13,7 @@ import (
 
 // GetAssignmentDashboard handles GET /api/projects/assignments/{assignmentID}/dashboard.
 func (h *Handler) GetAssignmentDashboard(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -25,7 +27,7 @@ func (h *Handler) GetAssignmentDashboard(w http.ResponseWriter, r *http.Request)
 
 // GetTeamContributions handles GET /api/projects/teams/{teamID}/contributions.
 func (h *Handler) GetTeamContributions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -39,7 +41,7 @@ func (h *Handler) GetTeamContributions(w http.ResponseWriter, r *http.Request) {
 
 // GetAssignmentBurndown handles GET /api/projects/assignments/{assignmentID}/burndown.
 func (h *Handler) GetAssignmentBurndown(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -53,7 +55,7 @@ func (h *Handler) GetAssignmentBurndown(w http.ResponseWriter, r *http.Request) 
 
 // GetAssignmentLeaderboard handles GET /api/projects/assignments/{assignmentID}/leaderboard.
 func (h *Handler) GetAssignmentLeaderboard(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -70,7 +72,7 @@ func (h *Handler) GetAssignmentLeaderboard(w http.ResponseWriter, r *http.Reques
 // ListMyProjects handles GET /api/my/projects — the authenticated user's own
 // team memberships only (see Service.ListMyProjects).
 func (h *Handler) ListMyProjects(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -86,7 +88,7 @@ func (h *Handler) ListMyProjects(w http.ResponseWriter, r *http.Request) {
 // (rather than "forbidden") for a team the caller doesn't belong to, so no
 // information about a team's existence leaks to a non-member.
 func (h *Handler) GetMyProject(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -100,7 +102,7 @@ func (h *Handler) GetMyProject(w http.ResponseWriter, r *http.Request) {
 
 // GetMyProjectContributions handles GET /api/my/projects/{teamID}/contributions.
 func (h *Handler) GetMyProjectContributions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -116,7 +118,7 @@ func (h *Handler) GetMyProjectContributions(w http.ResponseWriter, r *http.Reque
 // the student-scoped counterpart to ListCheckpoints+ListSubmissions, row
 // scoped via Service.GetMyProjectCheckpoints's membership check.
 func (h *Handler) GetMyProjectCheckpoints(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

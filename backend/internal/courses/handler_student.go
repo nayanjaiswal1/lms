@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/payments"
@@ -26,7 +27,7 @@ var clientCompletableModuleTypes = map[string]bool{
 
 // GetModuleContent serves module content to enrolled students (or free-preview viewers).
 func (h *Handler) GetModuleContent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -40,7 +41,7 @@ func (h *Handler) GetModuleContent(w http.ResponseWriter, r *http.Request) {
 
 // Enroll enrolls the authenticated student in a free course.
 func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -74,7 +75,7 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 // 402-blocked for paid courses, and this one is 400-blocked for free
 // courses, so each course only ever has one valid path to access.
 func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -168,7 +169,7 @@ func writeCouponError(w http.ResponseWriter, err error) bool {
 // grants access, only a webhook-confirmed "completed" status does, which may
 // arrive slightly after the redirect.
 func (h *Handler) PurchaseStatus(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -185,7 +186,7 @@ func (h *Handler) PurchaseStatus(w http.ResponseWriter, r *http.Request) {
 // server-side again at webhook confirmation, so a client can never trust
 // (or forge) the discount shown here into a lower actual charge.
 func (h *Handler) PreviewCoupon(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -220,7 +221,7 @@ func (h *Handler) PreviewCoupon(w http.ResponseWriter, r *http.Request) {
 
 // MyEnrollments returns all courses the authenticated student is enrolled in.
 func (h *Handler) MyEnrollments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -239,7 +240,7 @@ func (h *Handler) MyEnrollments(w http.ResponseWriter, r *http.Request) {
 // — those only complete through server-verified events (see
 // clientCompletableModuleTypes).
 func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -320,7 +321,7 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 // GetMyProgress returns the authenticated student's aggregate and per-module
 // progress in a course.
 func (h *Handler) GetMyProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -352,7 +353,7 @@ func (h *Handler) GetMyProgress(w http.ResponseWriter, r *http.Request) {
 // that type, the same trust level the pre-existing sql-challenge lesson
 // segment already ships for SQL grading.
 func (h *Handler) RecordCheckAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -422,7 +423,7 @@ func (h *Handler) RecordCheckAttempt(w http.ResponseWriter, r *http.Request) {
 // seed the frontend's Mark-Complete gate on page load without re-asking
 // already-passed questions.
 func (h *Handler) GetMyCheckProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -438,7 +439,7 @@ func (h *Handler) GetMyCheckProgress(w http.ResponseWriter, r *http.Request) {
 // course from the student's org catalog they haven't tried yet, weighted
 // toward their stated topic interests when possible.
 func (h *Handler) GetRandomTopic(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -452,7 +453,7 @@ func (h *Handler) GetRandomTopic(w http.ResponseWriter, r *http.Request) {
 
 // GetAllProgress returns all student progress for a course (instructor/mentor view).
 func (h *Handler) GetAllProgress(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

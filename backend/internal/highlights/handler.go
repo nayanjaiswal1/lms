@@ -2,11 +2,11 @@ package highlights
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -22,15 +22,6 @@ func newHandler(service *Service) *Handler {
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
-
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
@@ -39,33 +30,18 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:      {Status: http.StatusNotFound, Message: "Highlight not found."},
+	ErrNotOwner:      {Status: http.StatusForbidden, Message: "This highlight belongs to another user."},
+	ErrInvalidSource: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"source_type": "must be one of: wiki_page, lesson, problem"}},
+	ErrTextTooShort:  {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"selected_text": "must be at least 3 characters"}},
+	ErrTextTooLong:   {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"selected_text": "must not exceed 2000 characters"}},
+	ErrNoteTooLong:   {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"note": "must not exceed 1000 characters"}},
+	ErrAIUnavailable: {Status: http.StatusServiceUnavailable, Message: "AI provider is not configured."},
+}
+
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Highlight not found.")
-	case errors.Is(err, ErrNotOwner):
-		httputil.WriteError(w, http.StatusForbidden, "This highlight belongs to another user.")
-	case errors.Is(err, ErrInvalidSource):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
-			"source_type": "must be one of: wiki_page, lesson, problem",
-		})
-	case errors.Is(err, ErrTextTooShort):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
-			"selected_text": "must be at least 3 characters",
-		})
-	case errors.Is(err, ErrTextTooLong):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
-			"selected_text": "must not exceed 2000 characters",
-		})
-	case errors.Is(err, ErrNoteTooLong):
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
-			"note": "must not exceed 1000 characters",
-		})
-	case errors.Is(err, ErrAIUnavailable):
-		httputil.WriteError(w, http.StatusServiceUnavailable, "AI provider is not configured.")
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -74,7 +50,7 @@ func writeDomainError(w http.ResponseWriter, err error) {
 // Saves a text selection without explaining it — used when the user clicks
 // "Save for revision" without wanting an AI explanation.
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -95,7 +71,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 // explanation for the selected text. from_cache in the response indicates
 // whether an LLM call was made.
 func (h *Handler) Explain(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -114,7 +90,7 @@ func (h *Handler) Explain(w http.ResponseWriter, r *http.Request) {
 // ToggleRevision handles PATCH /api/highlights/{highlightID}/revision
 // Marks or unmarks a highlight as saved for spaced-repetition review.
 func (h *Handler) ToggleRevision(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -135,7 +111,7 @@ func (h *Handler) ToggleRevision(w http.ResponseWriter, r *http.Request) {
 // Returns the caller's highlights for a specific content resource with
 // explanations joined in — used by the page-level "see all highlights" panel.
 func (h *Handler) ListBySource(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -159,7 +135,7 @@ func (h *Handler) ListBySource(w http.ResponseWriter, r *http.Request) {
 // Returns the caller's highlights, newest first.
 // Query param: ?saved_only=true filters to revision-saved highlights only.
 func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

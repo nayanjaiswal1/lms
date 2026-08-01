@@ -3,13 +3,14 @@ package mentoring
 import (
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // CreateOrGetConversation starts (or resumes) a ticket-independent DM thread
 // between the caller and a mentor. Body: {"mentor_id": "..."}.
 func (h *Handler) CreateOrGetConversation(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -29,7 +30,7 @@ func (h *Handler) CreateOrGetConversation(w http.ResponseWriter, r *http.Request
 
 // ListMyConversations returns every DM conversation the caller is a party to.
 func (h *Handler) ListMyConversations(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -44,7 +45,7 @@ func (h *Handler) ListMyConversations(w http.ResponseWriter, r *http.Request) {
 // ListConversationMessages returns the caller's DM thread for a conversation
 // — allowed only for that conversation's student or mentor.
 func (h *Handler) ListConversationMessages(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -58,7 +59,7 @@ func (h *Handler) ListConversationMessages(w http.ResponseWriter, r *http.Reques
 
 // SendConversationMessage posts a message on a DM thread. Body: {"body": "..."}.
 func (h *Handler) SendConversationMessage(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

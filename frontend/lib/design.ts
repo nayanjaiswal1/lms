@@ -37,4 +37,3 @@ export interface DesignChatMessage {
   created_at: string;
 }
 
-export const EMPTY_SCENE: DesignScene = { elements: [], appState: {} };

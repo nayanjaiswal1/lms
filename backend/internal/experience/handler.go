@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -14,24 +15,13 @@ type Handler struct {
 	service *Service
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
+	ErrInvalid:  {Status: http.StatusUnprocessableEntity},
 }
 
-func writeError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrInvalid):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+func writeDomainError(w http.ResponseWriter, err error) {
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -46,7 +36,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 // experience report (smooth/issue/complaint + optional description, or an
 // explicit skip) for a subject.
 func (h *Handler) SubmitReport(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -62,7 +52,7 @@ func (h *Handler) SubmitReport(w http.ResponseWriter, r *http.Request) {
 	}
 	rep, err := h.service.Submit(r.Context(), claims.OrgID, body.SubjectType, body.SubjectID, claims.UserID, body.Experience, body.Description, body.Skip)
 	if err != nil {
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, rep)
@@ -73,7 +63,7 @@ func (h *Handler) SubmitReport(w http.ResponseWriter, r *http.Request) {
 // hasn't reported or skipped yet, so the frontend can treat "null" as the
 // signal to show the prompt.
 func (h *Handler) GetMyReport(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -85,7 +75,7 @@ func (h *Handler) GetMyReport(w http.ResponseWriter, r *http.Request) {
 			httputil.WriteJSON(w, http.StatusOK, map[string]any{"report": nil})
 			return
 		}
-		writeError(w, err)
+		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"report": rep})

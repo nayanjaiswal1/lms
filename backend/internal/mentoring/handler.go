@@ -2,11 +2,10 @@ package mentoring
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mindforge/backend/internal/auth"
+
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -25,34 +24,18 @@ type Handler struct {
 	authzSvc *authz.Service
 }
 
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:             {Status: http.StatusNotFound, Message: "Not found."},
+	ErrForbidden:            {Status: http.StatusForbidden, Message: "You do not have permission to do that."},
+	ErrTicketAlreadyClaimed: {Status: http.StatusConflict, Message: "This ticket has already been claimed."},
+	ErrAlreadyPurchased:     {Status: http.StatusConflict, Message: "You have already purchased this course."},
+	ErrAlreadyHasMentor:     {Status: http.StatusConflict, Message: "You already have an active mentor request."},
+	ErrChangeRequestPending: {Status: http.StatusConflict, Message: "A mentor change request is already pending for this ticket."},
+	ErrInvalid:              {Status: http.StatusUnprocessableEntity},
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-	case errors.Is(err, ErrForbidden):
-		httputil.WriteError(w, http.StatusForbidden, "You do not have permission to do that.")
-	case errors.Is(err, ErrTicketAlreadyClaimed):
-		httputil.WriteError(w, http.StatusConflict, "This ticket has already been claimed.")
-	case errors.Is(err, ErrAlreadyPurchased):
-		httputil.WriteError(w, http.StatusConflict, "You have already purchased this course.")
-	case errors.Is(err, ErrAlreadyHasMentor):
-		httputil.WriteError(w, http.StatusConflict, "You already have an active mentor request.")
-	case errors.Is(err, ErrChangeRequestPending):
-		httputil.WriteError(w, http.StatusConflict, "A mentor change request is already pending for this ticket.")
-	case errors.Is(err, ErrInvalid):
-		httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
-	default:
-		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
-	}
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {

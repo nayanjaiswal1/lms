@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -21,7 +23,7 @@ type createCheckpointRequest struct {
 
 // CreateCheckpoint handles POST /api/projects/assignments/{assignmentID}/checkpoints.
 func (h *Handler) CreateCheckpoint(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -61,7 +63,7 @@ func (h *Handler) CreateCheckpoint(w http.ResponseWriter, r *http.Request) {
 
 // ListCheckpoints handles GET /api/projects/assignments/{assignmentID}/checkpoints.
 func (h *Handler) ListCheckpoints(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -75,7 +77,7 @@ func (h *Handler) ListCheckpoints(w http.ResponseWriter, r *http.Request) {
 
 // UpdateCheckpoint handles PATCH /api/projects/checkpoints/{checkpointID}.
 func (h *Handler) UpdateCheckpoint(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -93,7 +95,7 @@ func (h *Handler) UpdateCheckpoint(w http.ResponseWriter, r *http.Request) {
 
 // DeleteCheckpoint handles DELETE /api/projects/checkpoints/{checkpointID}.
 func (h *Handler) DeleteCheckpoint(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -106,7 +108,7 @@ func (h *Handler) DeleteCheckpoint(w http.ResponseWriter, r *http.Request) {
 
 // ListSubmissions handles GET /api/projects/checkpoints/{checkpointID}/submissions.
 func (h *Handler) ListSubmissions(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -120,7 +122,7 @@ func (h *Handler) ListSubmissions(w http.ResponseWriter, r *http.Request) {
 
 // GradeSubmission handles PATCH /api/projects/checkpoints/{checkpointID}/submissions/{teamID}/grade.
 func (h *Handler) GradeSubmission(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -144,7 +146,7 @@ func (h *Handler) GradeSubmission(w http.ResponseWriter, r *http.Request) {
 // — calls Service.TryMergeCheckpoint, the merge gate that never merges below
 // the assignment's required_approvals.
 func (h *Handler) MergeSubmission(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -163,7 +165,7 @@ type commentRequest struct {
 // CommentOnSubmission handles POST /api/projects/checkpoints/{checkpointID}/submissions/{teamID}/comment
 // — posts a staff comment directly onto the team's bound merge request.
 func (h *Handler) CommentOnSubmission(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

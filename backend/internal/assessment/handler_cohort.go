@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -16,7 +17,7 @@ type cohortGroupRequest struct {
 }
 
 func (h *Handler) CreateCohortGroup(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -45,7 +46,7 @@ func (h *Handler) CreateCohortGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListCohortGroups(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -58,7 +59,7 @@ func (h *Handler) ListCohortGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetCohortGroup(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -71,7 +72,7 @@ func (h *Handler) GetCohortGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateCohortGroup(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -98,7 +99,7 @@ func (h *Handler) UpdateCohortGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ArchiveCohortGroup(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -114,7 +115,7 @@ type moveBatchToGroupRequest struct {
 }
 
 func (h *Handler) MoveBatchToGroup(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

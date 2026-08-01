@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/mindforge/backend/internal/db"
 )
 
 // ─── gitlab_installations ─────────────────────────────────────────────────
@@ -97,7 +99,7 @@ func (r *Repo) CreateInstallationPAT(ctx context.Context, orgID, name, baseURL, 
 	)
 	inst, err := scanInstallation(row)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if db.IsUniqueViolation(err) {
 			return nil, ErrConflict
 		}
 		return nil, fmt.Errorf("gitlab: create installation: %w", err)

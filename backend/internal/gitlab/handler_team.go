@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -15,7 +17,7 @@ type createTeamRequest struct {
 
 // CreateTeam handles POST /api/projects/assignments/{assignmentID}/teams.
 func (h *Handler) CreateTeam(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -45,7 +47,7 @@ func (h *Handler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 
 // ListTeams handles GET /api/projects/assignments/{assignmentID}/teams.
 func (h *Handler) ListTeams(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -59,7 +61,7 @@ func (h *Handler) ListTeams(w http.ResponseWriter, r *http.Request) {
 
 // UpdateTeam handles PATCH /api/projects/teams/{teamID}.
 func (h *Handler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -79,7 +81,7 @@ func (h *Handler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 // MindForge's own rows — see Repo.DeleteTeam's own doc comment for why the
 // underlying GitLab project is left untouched.
 func (h *Handler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -93,7 +95,7 @@ func (h *Handler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
 // ReprovisionTeam handles POST /api/projects/teams/{teamID}/reprovision —
 // force-enqueues a fresh gitlab.provision_team job, e.g. after a failure.
 func (h *Handler) ReprovisionTeam(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +113,7 @@ type addMemberRequest struct {
 
 // AddTeamMember handles POST /api/projects/teams/{teamID}/members/{userID}.
 func (h *Handler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -144,7 +146,7 @@ func (h *Handler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 
 // RemoveTeamMember handles DELETE /api/projects/teams/{teamID}/members/{userID}.
 func (h *Handler) RemoveTeamMember(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -157,7 +159,7 @@ func (h *Handler) RemoveTeamMember(w http.ResponseWriter, r *http.Request) {
 
 // ListTeamMembers handles GET /api/projects/teams/{teamID}/members.
 func (h *Handler) ListTeamMembers(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -174,7 +176,7 @@ func (h *Handler) ListTeamMembers(w http.ResponseWriter, r *http.Request) {
 // read-only activity feed (see Service.GetTeamActivity's own doc comment for
 // why this stays unaggregated).
 func (h *Handler) GetTeamActivity(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -190,7 +192,7 @@ func (h *Handler) GetTeamActivity(w http.ResponseWriter, r *http.Request) {
 // roster reconciliation, the same job the 30-min cron sweep and every
 // add/remove-member call already enqueue automatically.
 func (h *Handler) SyncTeam(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

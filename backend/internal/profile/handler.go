@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -24,21 +25,11 @@ func newHandler(svc *Service) *Handler {
 
 // ─── shared helpers ──────────────────────────────────────────────────────────
 
-// ctxClaims pulls the authenticated claims or writes 401 and returns false.
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
-}
-
 // ─── HandleGetMyProfile ───────────────────────────────────────────────────────
 
 // HandleGetMyProfile handles GET /api/profile/me.
 func (h *Handler) HandleGetMyProfile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -60,7 +51,7 @@ func (h *Handler) HandleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetMyOverview handles GET /api/profile/me/overview.
 func (h *Handler) HandleGetMyOverview(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -79,7 +70,7 @@ func (h *Handler) HandleGetMyOverview(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdateProfile handles PATCH /api/profile/me.
 func (h *Handler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -111,7 +102,7 @@ func (h *Handler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 // HandleUploadAvatar handles POST /api/profile/me/avatar.
 func (h *Handler) HandleUploadAvatar(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -151,7 +142,7 @@ func (h *Handler) HandleUploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeleteAvatar handles DELETE /api/profile/me/avatar.
 func (h *Handler) HandleDeleteAvatar(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -168,7 +159,7 @@ func (h *Handler) HandleDeleteAvatar(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetMySkills handles GET /api/profile/me/skills.
 func (h *Handler) HandleGetMySkills(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -186,7 +177,7 @@ func (h *Handler) HandleGetMySkills(w http.ResponseWriter, r *http.Request) {
 
 // HandleAddSkill handles POST /api/profile/me/skills.
 func (h *Handler) HandleAddSkill(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -214,7 +205,7 @@ func (h *Handler) HandleAddSkill(w http.ResponseWriter, r *http.Request) {
 
 // HandleRemoveSkill handles DELETE /api/profile/me/skills/{skillID}.
 func (h *Handler) HandleRemoveSkill(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -243,7 +234,7 @@ func (h *Handler) HandleRemoveSkill(w http.ResponseWriter, r *http.Request) {
 // Requires authentication. Admins and super_admins can view any user's profile;
 // regular users can only view their own.
 func (h *Handler) HandleGetUserProfile(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

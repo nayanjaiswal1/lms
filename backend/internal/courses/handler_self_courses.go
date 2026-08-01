@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -30,7 +31,7 @@ type selfCourseCreateReq struct {
 
 // CreateSelfCourse starts a new private course from scratch, owned by the caller.
 func (h *Handler) CreateSelfCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -52,7 +53,7 @@ func (h *Handler) CreateSelfCourse(w http.ResponseWriter, r *http.Request) {
 
 // ForkSelfCourse forks a published org course into the caller's own private copy.
 func (h *Handler) ForkSelfCourse(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -86,7 +87,7 @@ type selfCourseModuleReq struct {
 
 // AddSelfCourseModule adds a notes module to one of the caller's own self-courses.
 func (h *Handler) AddSelfCourseModule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -108,7 +109,7 @@ func (h *Handler) AddSelfCourseModule(w http.ResponseWriter, r *http.Request) {
 
 // UpdateSelfCourseModule replaces a module's title/content in one of the caller's own self-courses.
 func (h *Handler) UpdateSelfCourseModule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -134,7 +135,7 @@ func (h *Handler) UpdateSelfCourseModule(w http.ResponseWriter, r *http.Request)
 // GetLearningContext returns the caller's pre-aggregated learning snapshot —
 // enrolled course progress, recent reflections, recent self-course activity.
 func (h *Handler) GetLearningContext(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -161,7 +162,7 @@ type proposeModuleReq struct {
 // caller's own self-courses, whose content is copied server-side) or both
 // title and content_body must be given.
 func (h *Handler) ProposeModule(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -184,7 +185,7 @@ func (h *Handler) ProposeModule(w http.ResponseWriter, r *http.Request) {
 // ListProposals is the instructor/admin review queue for a course's pending
 // (or, with ?status=, any-status) contribution proposals.
 func (h *Handler) ListProposals(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -203,7 +204,7 @@ func (h *Handler) ListProposals(w http.ResponseWriter, r *http.Request) {
 // ApproveProposal merges a pending proposal into the target org course as a
 // real module, inside one transaction (see Repo.ApproveProposal).
 func (h *Handler) ApproveProposal(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -221,7 +222,7 @@ func (h *Handler) ApproveProposal(w http.ResponseWriter, r *http.Request) {
 
 // RejectProposal marks a pending proposal rejected without creating a module.
 func (h *Handler) RejectProposal(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

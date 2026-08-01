@@ -6,18 +6,20 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 type createAssignmentRequest struct {
-	BatchID              string     `json:"batch_id"`
-	CourseID             *string    `json:"course_id"`
-	LabID                *string    `json:"lab_id"`
-	Title                string     `json:"title"`
-	Slug                 string     `json:"slug"`
-	Description          *string    `json:"description"`
-	TemplateProjectID    *int64     `json:"template_project_id"`
-	TemplateProjectPath  *string    `json:"template_project_path"`
+	BatchID             string  `json:"batch_id"`
+	CourseID            *string `json:"course_id"`
+	LabID               *string `json:"lab_id"`
+	Title               string  `json:"title"`
+	Slug                string  `json:"slug"`
+	Description         *string `json:"description"`
+	TemplateProjectID   *int64  `json:"template_project_id"`
+	TemplateProjectPath *string `json:"template_project_path"`
 	// InstallationID pins this assignment to one of the org's GitLab pool
 	// entries instead of following the org default — rejected by the service
 	// (ErrOverrideNotAllowed, surfaced as 403) unless the org's
@@ -33,7 +35,7 @@ type createAssignmentRequest struct {
 
 // CreateAssignment handles POST /api/projects/assignments.
 func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -109,7 +111,7 @@ func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 
 // ListAssignments handles GET /api/projects/assignments?batch_id=...
 func (h *Handler) ListAssignments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -127,7 +129,7 @@ func (h *Handler) ListAssignments(w http.ResponseWriter, r *http.Request) {
 
 // GetAssignment handles GET /api/projects/assignments/{assignmentID}.
 func (h *Handler) GetAssignment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -141,7 +143,7 @@ func (h *Handler) GetAssignment(w http.ResponseWriter, r *http.Request) {
 
 // UpdateAssignment handles PATCH /api/projects/assignments/{assignmentID}.
 func (h *Handler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -173,7 +175,7 @@ type setAssignmentInstallationRequest struct {
 // generic PATCH above — see ProjectAssignment.InstallationID's own doc
 // comment for why.
 func (h *Handler) SetAssignmentInstallation(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -193,7 +195,7 @@ func (h *Handler) SetAssignmentInstallation(w http.ResponseWriter, r *http.Reque
 // Only draft assignments can be deleted this way — see Repo.DeleteAssignment's
 // own doc comment for why a published one returns 409 instead.
 func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -208,7 +210,7 @@ func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
 // — transitions draft -> active and kicks off real GitLab provisioning for
 // every team already created under it.
 func (h *Handler) PublishAssignment(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -224,7 +226,7 @@ func (h *Handler) PublishAssignment(w http.ResponseWriter, r *http.Request) {
 // — instructor-triggered (Batch 6), opens a cross-fork merge request from
 // the template's default branch into every ready team's fork.
 func (h *Handler) TemplateSync(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

@@ -2,12 +2,12 @@ package whatnow
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -22,23 +22,13 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 	return &Handler{service: NewService(NewRepo(pool))}
 }
 
-// ctxClaims pulls authenticated claims or writes 401 and returns false.
-func ctxClaims(w http.ResponseWriter, r *http.Request) (*auth.Claims, bool) {
-	claims, ok := auth.GetClaims(r.Context())
-	if !ok {
-		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
-		return nil, false
-	}
-	return claims, true
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
 }
 
 // writeDomainError maps domain errors to HTTP responses.
 func writeDomainError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrNotFound) {
-		httputil.WriteError(w, http.StatusNotFound, "Not found.")
-		return
-	}
-	httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong.")
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
 // decodeJSON decodes r.Body into dst. Writes 400 and returns false on error.
@@ -52,7 +42,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 
 // GetNow handles GET /api/whatnow/tasks/now.
 func (h *Handler) GetNow(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -75,7 +65,7 @@ func (h *Handler) GetNow(w http.ResponseWriter, r *http.Request) {
 
 // GetInbox handles GET /api/whatnow/tasks/inbox.
 func (h *Handler) GetInbox(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -89,7 +79,7 @@ func (h *Handler) GetInbox(w http.ResponseWriter, r *http.Request) {
 
 // GetPlanToday handles GET /api/whatnow/plan/today.
 func (h *Handler) GetPlanToday(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -103,7 +93,7 @@ func (h *Handler) GetPlanToday(w http.ResponseWriter, r *http.Request) {
 
 // GetDecayed handles GET /api/whatnow/archive/decayed.
 func (h *Handler) GetDecayed(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -117,7 +107,7 @@ func (h *Handler) GetDecayed(w http.ResponseWriter, r *http.Request) {
 
 // GetWeeklyRecap handles GET /api/whatnow/recap/weekly.
 func (h *Handler) GetWeeklyRecap(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -131,7 +121,7 @@ func (h *Handler) GetWeeklyRecap(w http.ResponseWriter, r *http.Request) {
 
 // GetDayPlan handles GET /api/whatnow/plan/day.
 func (h *Handler) GetDayPlan(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -151,7 +141,7 @@ func (h *Handler) GetDayPlan(w http.ResponseWriter, r *http.Request) {
 
 // CaptureTask handles POST /api/whatnow/tasks.
 func (h *Handler) CaptureTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -175,7 +165,7 @@ func (h *Handler) CaptureTask(w http.ResponseWriter, r *http.Request) {
 
 // PostPlanToday handles POST /api/whatnow/plan/today.
 func (h *Handler) PostPlanToday(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -193,7 +183,7 @@ func (h *Handler) PostPlanToday(w http.ResponseWriter, r *http.Request) {
 
 // CompleteTask handles POST /api/whatnow/tasks/{id}/complete.
 func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -208,7 +198,7 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 
 // PauseTask handles POST /api/whatnow/tasks/{id}/pause.
 func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -227,7 +217,7 @@ func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
 
 // StuckTask handles POST /api/whatnow/tasks/{id}/stuck.
 func (h *Handler) StuckTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -254,7 +244,7 @@ func (h *Handler) StuckTask(w http.ResponseWriter, r *http.Request) {
 
 // ReviveTask handles POST /api/whatnow/tasks/{id}/revive.
 func (h *Handler) ReviveTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -269,7 +259,7 @@ func (h *Handler) ReviveTask(w http.ResponseWriter, r *http.Request) {
 
 // ProposeBreakdown handles POST /api/whatnow/tasks/{id}/breakdown.
 func (h *Handler) ProposeBreakdown(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -284,7 +274,7 @@ func (h *Handler) ProposeBreakdown(w http.ResponseWriter, r *http.Request) {
 
 // ConfirmBreakdown handles POST /api/whatnow/tasks/{id}/breakdown/confirm.
 func (h *Handler) ConfirmBreakdown(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -303,7 +293,7 @@ func (h *Handler) ConfirmBreakdown(w http.ResponseWriter, r *http.Request) {
 
 // PatchTask handles PATCH /api/whatnow/tasks/{id}.
 func (h *Handler) PatchTask(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -322,7 +312,7 @@ func (h *Handler) PatchTask(w http.ResponseWriter, r *http.Request) {
 
 // PutEnergy handles PUT /api/whatnow/me/energy.
 func (h *Handler) PutEnergy(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

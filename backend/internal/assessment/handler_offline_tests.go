@@ -5,13 +5,15 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
 // CreateOfflineTestScores handles the "Enter Scores" submission — a test
 // name, date, max score, and one score per student.
 func (h *Handler) CreateOfflineTestScores(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -60,7 +62,7 @@ func (h *Handler) CreateOfflineTestScores(w http.ResponseWriter, r *http.Request
 
 // ListOfflineTests returns every classroom test entered for this batch.
 func (h *Handler) ListOfflineTests(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -75,7 +77,7 @@ func (h *Handler) ListOfflineTests(w http.ResponseWriter, r *http.Request) {
 
 // GetOfflineTest returns one test's metadata and every student's score.
 func (h *Handler) GetOfflineTest(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -91,7 +93,7 @@ func (h *Handler) GetOfflineTest(w http.ResponseWriter, r *http.Request) {
 
 // UpdateOfflineTestScore edits a single student's score within a test.
 func (h *Handler) UpdateOfflineTestScore(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}

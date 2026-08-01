@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -178,7 +180,7 @@ func decodeActionLogCursor(cursor string) (time.Time, string, error) {
 // org-wide: every query is scoped to claims.UserID, so one user can never
 // see another's AI activity.
 func (rt *Router) ListMyActionLog(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
@@ -217,7 +219,7 @@ func (rt *Router) ListMyActionLog(w http.ResponseWriter, r *http.Request) {
 // bearer token — this endpoint is only ever called by our own frontend, on
 // the connected student's behalf, never by an external MCP client.
 func (rt *Router) RevertActionLogEntry(w http.ResponseWriter, r *http.Request) {
-	claims, ok := ctxClaims(w, r)
+	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
