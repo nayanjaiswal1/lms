@@ -69,7 +69,7 @@ export function LabContainerWorkspace({
   // open can search files before the Files tab is ever visited.
   const filesState = useLabFiles(sessionId, true)
   const resourcesState = useLabResources(sessionId)
-  const { containerRef, isConnected, reconnectManually, sendText } = useLabTerminal({ sessionId })
+  const { containerRef, isConnected, hasGivenUp, reconnectManually, sendText } = useLabTerminal({ sessionId })
   const tabs = TABS.filter((t) => t.id !== "preview" || previewPort > 0)
 
   function selectPanel(panel: Panel) {
@@ -156,6 +156,7 @@ export function LabContainerWorkspace({
         >
           <LabTerminal
             containerRef={containerRef}
+            hasGivenUp={hasGivenUp}
             isConnected={isConnected}
             reconnectManually={reconnectManually}
             sendText={sendText}

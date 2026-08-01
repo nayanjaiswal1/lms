@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -191,7 +192,7 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 		var setupErr error
 	retryLoop:
 		for attempt := 1; attempt <= setupScriptRetryAttempts; attempt++ {
-			_, _, _, setupErr = k.execPod(ctx, containerID, []string{"bash", "-c", cmd})
+			_, _, _, setupErr = k.execPod(ctx, containerID, []string{"bash", "-c", cmd}, nil)
 			if setupErr == nil {
 				break
 			}
@@ -247,25 +248,50 @@ func (k *KubernetesContainerService) Kill(ctx context.Context, containerID strin
 	return nil
 }
 
-// Unpause is a no-op: Kubernetes Pods have no pause/suspend primitive, and no
-// code path currently transitions a lab session to "paused" — see
-// ContainerRuntime.Unpause.
+// Pause reports ErrPauseUnsupported: a Kubernetes Pod has no freezer-cgroup
+// equivalent exposed through the API, and the alternatives (deleting the Pod,
+// scaling to zero) all destroy exactly the container state pausing exists to
+// preserve. lab.expire_sessions treats this as "leave it running" and lets
+// IdleReapMinutes/expires_at close the session out instead — see
+// ContainerRuntime.Pause.
+func (k *KubernetesContainerService) Pause(ctx context.Context, containerID string) error {
+	return ErrPauseUnsupported
+}
+
+// Unpause is a no-op: this runtime never pauses (see Pause above), so there
+// is never anything to resume.
 func (k *KubernetesContainerService) Unpause(ctx context.Context, containerID string) error {
 	return nil
 }
 
-// Exec runs a script inside the Pod as its default (non-root) user. exitCode
-// is 0 on success; a remote command exit error yields the real exit code
-// without propagating an error value.
+// Exec runs a script inside the Pod as its default (non-root) user. Output is
+// bounded at MaxExecOutputBytes per stream (see boundedBuffer). exitCode is 0
+// on success; a remote command exit error yields the real exit code without
+// propagating an error value.
 func (k *KubernetesContainerService) Exec(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	return k.execWithStdin(ctx, containerID, script, nil, timeoutSec)
+}
+
+// ExecStdin is Exec plus a piped stdin payload — see ContainerRuntime's doc
+// comment for why WriteFile uses this instead of embedding content in the
+// script string.
+func (k *KubernetesContainerService) ExecStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	return k.execWithStdin(ctx, containerID, script, stdin, timeoutSec)
+}
+
+func (k *KubernetesContainerService) execWithStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
 	escaped := strings.ReplaceAll(script, "'", "'\\''")
 	cmd := fmt.Sprintf("timeout %d bash -c '%s'", timeoutSec, escaped)
-	return k.execPod(ctx, containerID, []string{"bash", "-c", cmd})
+	var stdinReader io.Reader
+	if stdin != nil {
+		stdinReader = bytes.NewReader(stdin)
+	}
+	return k.execPod(ctx, containerID, []string{"bash", "-c", cmd}, stdinReader)
 }
 
 // execPod runs command inside the named Pod's sole container via the
-// Kubernetes exec subresource.
-func (k *KubernetesContainerService) execPod(ctx context.Context, podName string, command []string) (stdout, stderr string, exitCode int, err error) {
+// Kubernetes exec subresource. stdin may be nil.
+func (k *KubernetesContainerService) execPod(ctx context.Context, podName string, command []string, stdin io.Reader) (stdout, stderr string, exitCode int, err error) {
 	req := k.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -274,6 +300,7 @@ func (k *KubernetesContainerService) execPod(ctx context.Context, podName string
 		VersionedParams(&corev1.PodExecOptions{
 			Container: "sandbox",
 			Command:   command,
+			Stdin:     stdin != nil,
 			Stdout:    true,
 			Stderr:    true,
 		}, scheme.ParameterCodec)
@@ -283,10 +310,11 @@ func (k *KubernetesContainerService) execPod(ctx context.Context, podName string
 		return "", "", -1, fmt.Errorf("labs.KubernetesContainerService.execPod: build executor: %w", err)
 	}
 
-	var outBuf, errBuf bytes.Buffer
+	outBuf, errBuf := newBoundedBuffer(), newBoundedBuffer()
 	streamErr := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdout: &outBuf,
-		Stderr: &errBuf,
+		Stdin:  stdin,
+		Stdout: outBuf,
+		Stderr: errBuf,
 	})
 	stdout = outBuf.String()
 	stderr = errBuf.String()

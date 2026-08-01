@@ -62,6 +62,13 @@ func (h *Handler) HandleWriteFile(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionID := chi.URLParam(r, "sessionId")
 
+	// Bound the request body before it's ever decoded — WriteFile itself
+	// rejects content over MaxWriteFileBytes too, but that check only runs
+	// after json.Decoder has already buffered the whole body into memory.
+	// The +1KB headroom covers the {"path":...,"content":...} JSON envelope
+	// around the content itself.
+	r.Body = http.MaxBytesReader(w, r.Body, MaxWriteFileBytes+1024)
+
 	var body struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`

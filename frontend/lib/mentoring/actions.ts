@@ -3,7 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { MentorReportReason } from "@/lib/constants";
-import type { CheckoutSession, PurchaseStatusResult, CouponPreview, MentorTicket, MentorChatMessage } from "@/lib/server/mentoring";
+import type {
+  CheckoutSession,
+  PurchaseStatusResult,
+  CouponPreview,
+  MentorTicket,
+  MentorChatMessage,
+  MentorConversation,
+  DirectMessage,
+} from "@/lib/server/mentoring";
 import type { Certificate } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
@@ -128,6 +136,31 @@ export async function sendMentorChatMessageAction(
 ): Promise<ActionResult<MentorChatMessage>> {
   const result = await apiAction<MentorChatMessage>("POST", `/api/mentor-tickets/${ticketId}/messages`, { body });
   if (result.ok) revalidatePath(ROUTES.mentoringTicketChat(ticketId));
+  return result;
+}
+
+export async function verifyMentorAction(mentorId: string, verified: boolean): Promise<ActionResult> {
+  const result = await apiAction("PATCH", `/api/mentors/${mentorId}/verify`, { verified });
+  if (result.ok) revalidatePath(ROUTES.mentor(mentorId));
+  return result;
+}
+
+// Starts (or resumes) a ticket-independent DM thread with a mentor. Returns
+// the conversation so the caller can route to its chat page.
+export async function createOrGetConversationAction(
+  mentorId: string,
+): Promise<ActionResult<MentorConversation>> {
+  return apiAction<MentorConversation>("POST", "/api/mentor-conversations", { mentor_id: mentorId });
+}
+
+export async function sendConversationMessageAction(
+  conversationId: string,
+  body: string,
+): Promise<ActionResult<DirectMessage>> {
+  const result = await apiAction<DirectMessage>("POST", `/api/mentor-conversations/${conversationId}/messages`, {
+    body,
+  });
+  if (result.ok) revalidatePath(ROUTES.mentorConversation(conversationId));
   return result;
 }
 

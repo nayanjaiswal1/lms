@@ -225,3 +225,73 @@ type MentorDirectoryEntry struct {
 	Skills            []string  `json:"skills"`
 	JoinedAt          time.Time `json:"joined_at"`
 }
+
+// MentorProfile is the single-mentor superset of MentorDirectoryEntry shown
+// on a mentor's profile page: the same live directory fields plus the
+// verified-expert flag (a stored admin attestation, see 006_mentor_verification.sql)
+// and three additional live-computed stats. These are deliberately not added
+// to MentorDirectoryEntry/ListMentorDirectory — that query backs the mentor
+// list page and is called once per mentor shown there, so it stays cheap;
+// the extra aggregates here only run for the one mentor a profile page loads.
+//
+// AvgResponseMinutes is the mean, across this mentor's tickets, of (first
+// mentor message timestamp - first student message timestamp) for tickets
+// where both exist — a "time to first reply" proxy, not full per-message
+// response analytics. Nil if the mentor has no ticket with both a student
+// and a mentor message yet.
+//
+// TotalMentorshipHours sums ends_at-starts_at over this mentor's past,
+// non-cancelled calendar_events of type 'mentor_session'. There is no
+// "session actually happened" signal in the calendar domain (status only
+// distinguishes scheduled/cancelled), so "in the past and not cancelled" is
+// the completion proxy.
+//
+// PercentileRank is this mentor's PERCENT_RANK() among the org's mentors
+// with at least one rating or session in the current calendar month, or nil
+// if the mentor isn't part of that active set — the UI omits the ranking
+// line entirely rather than showing a meaningless 0.
+type MentorProfile struct {
+	UserID               string     `json:"user_id"`
+	Name                 string     `json:"name"`
+	Email                string     `json:"email"`
+	AvatarURL            *string    `json:"avatar_url"`
+	MenteeCount          int        `json:"mentee_count"`
+	AvgRating            *float64   `json:"avg_rating"`
+	RatingCount          int        `json:"rating_count"`
+	Bio                  *string    `json:"bio"`
+	CurrentRole          *string    `json:"current_role"`
+	YearsOfExperience    *int16     `json:"years_of_experience"`
+	Skills               []string   `json:"skills"`
+	JoinedAt             time.Time  `json:"joined_at"`
+	Verified             bool       `json:"verified"`
+	VerifiedAt           *time.Time `json:"verified_at"`
+	AvgResponseMinutes   *float64   `json:"avg_response_minutes"`
+	TotalMentorshipHours *float64   `json:"total_mentorship_hours"`
+	PercentileRank       *float64   `json:"percentile_rank"`
+}
+
+// MentorConversation is a ticket-independent 1:1 DM thread between a student
+// and a mentor. Matches mentor_conversations (007_mentor_conversations.sql).
+type MentorConversation struct {
+	ID        string    `json:"id"`
+	OrgID     string    `json:"org_id"`
+	StudentID string    `json:"student_id"`
+	MentorID  string    `json:"mentor_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// DirectMessage is a single message on a MentorConversation's thread.
+// Matches mentor_direct_messages (007_mentor_conversations.sql). Kept
+// distinct from ChatMessage rather than shared — the two tables differ
+// structurally (conversation_id vs ticket_id) and have independent access
+// rules, so a shared type would just be a coincidence of shape, not a real
+// abstraction.
+type DirectMessage struct {
+	ID             string    `json:"id"`
+	OrgID          string    `json:"org_id"`
+	ConversationID string    `json:"conversation_id"`
+	SenderID       string    `json:"sender_id"`
+	Body           string    `json:"body"`
+	CreatedAt      time.Time `json:"created_at"`
+}

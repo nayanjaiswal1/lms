@@ -19,6 +19,14 @@ const (
 	runRateLimitSeconds    = 3
 	submitRateLimitSeconds = 10
 	runScriptTimeoutSec    = 30
+	// maxSubmitAllDuration hard-bounds one SubmitAll request. Each task's own
+	// verifyContainerTask exec is independently capped at 10s by the
+	// `timeout 10` wrapper inside ContainerRuntime.Exec, but that guards each
+	// docker/kubectl exec call, not the request as a whole — without an
+	// aggregate deadline a lab with many tasks (or a daemon-level hang that
+	// exec's own in-container `timeout` can't reach) ties up the request
+	// goroutine for an unbounded time.
+	maxSubmitAllDuration = 5 * time.Minute
 )
 
 // RunScriptResult is the response body for POST /sessions/:id/run.
@@ -68,6 +76,16 @@ func (s *Service) RunScript(ctx context.Context, sessionID, userID string) (*Run
 	if err != nil {
 		return nil, fmt.Errorf("labs.Service.RunScript: get lab: %w", err)
 	}
+	// Run/Submit are sandbox-workspace-only actions (docs/labs.md: "playground
+	// labs also render the IDE shell, just with no Run/Submit"; terminal/
+	// guided use the per-task Check flow instead). Checking lab_type
+	// explicitly here — rather than relying on ErrNoRunScript's nil check
+	// alone — means a terminal/guided lab can never expose this endpoint even
+	// if a run_script were somehow set on it, and gives a correct 409 instead
+	// of piggybacking on "no run script configured".
+	if lab.LabType != LabTypeSandbox {
+		return nil, ErrLabTypeUnsupported
+	}
 	if lab.RunScript == nil || *lab.RunScript == "" {
 		return nil, ErrNoRunScript
 	}
@@ -103,11 +121,20 @@ func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*Sub
 	if err != nil {
 		return nil, fmt.Errorf("labs.Service.SubmitAll: get lab: %w", err)
 	}
-	// Code labs verify per task with the student's editor code — a batch
-	// submit has no code to run, so the endpoint does not exist for them.
-	if lab.LabType == LabTypeCode {
-		return nil, ErrNotFound
+	// Run/Submit are sandbox-workspace-only actions — see RunScript's doc
+	// comment. This used to only exclude LabTypeCode, which meant a
+	// terminal/guided lab could reach this endpoint and batch-run every
+	// task's verification script through a single 10s rate limit, bypassing
+	// the per-task 3s VerifyRateLimitSeconds those lab types are meant to
+	// use.
+	if lab.LabType != LabTypeSandbox {
+		return nil, ErrLabTypeUnsupported
 	}
+
+	// Bounds the whole batch, not just each task's own exec — see
+	// maxSubmitAllDuration's doc comment.
+	ctx, cancel := context.WithTimeout(ctx, maxSubmitAllDuration)
+	defer cancel()
 
 	tasks, err := s.repo.GetPublishedVersion(ctx, session.TaskVersionID)
 	if err != nil {

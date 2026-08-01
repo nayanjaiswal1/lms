@@ -47,8 +47,12 @@ psql_exec() {
 # ─── Create schema_migrations table if it does not exist ────────────────────
 info "Ensuring schema_migrations table exists..."
 psql_exec -c "
+-- Column MUST stay 'version' to match the embedded Go runner in
+-- backend/db/migrate.go, which runs on every backend boot against the same
+-- table. If this script creates it as anything else, the backend crashes on
+-- startup with 'column version does not exist'.
 CREATE TABLE IF NOT EXISTS schema_migrations (
-  filename   TEXT PRIMARY KEY,
+  version    TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ DEFAULT now()
 );
 " > /dev/null
@@ -65,7 +69,7 @@ while IFS= read -r -d '' filepath; do
   [[ "$filename" == *.down.sql ]] && continue
 
   # Check if already applied
-  is_applied=$(psql_exec -t -c "SELECT COUNT(*) FROM schema_migrations WHERE filename = '${filename}';" 2>/dev/null | tr -d '[:space:]')
+  is_applied=$(psql_exec -t -c "SELECT COUNT(*) FROM schema_migrations WHERE version = '${filename}';" 2>/dev/null | tr -d '[:space:]')
 
   if [[ "$is_applied" == "1" ]]; then
     info "Skipping (already applied): $filename"
@@ -75,13 +79,17 @@ while IFS= read -r -d '' filepath; do
 
   info "Applying: $filename"
 
-  # Copy the migration file into the container and execute it
-  docker cp "$filepath" "${CONTAINER}:/tmp/${filename}"
-  psql_exec -f "/tmp/${filename}" > /dev/null
-  docker exec "$CONTAINER" rm -f "/tmp/${filename}"
+  # Stream the migration in over stdin rather than `docker cp` + `-f <in-container
+  # path>` — Git Bash on Windows rewrites the /tmp/... argument into a host path
+  # before docker sees it. Same pattern as db-seed.sh / db-seed-courses.sh.
+  docker exec -i "$CONTAINER" psql \
+    -U "$POSTGRES_USER" \
+    -d "$POSTGRES_DB" \
+    -v ON_ERROR_STOP=1 \
+    < "$filepath" > /dev/null
 
   # Record it as applied
-  psql_exec -c "INSERT INTO schema_migrations (filename) VALUES ('${filename}') ON CONFLICT DO NOTHING;" > /dev/null
+  psql_exec -c "INSERT INTO schema_migrations (version) VALUES ('${filename}') ON CONFLICT DO NOTHING;" > /dev/null
 
   success "Applied: $filename"
   applied=$((applied + 1))

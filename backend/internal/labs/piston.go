@@ -42,8 +42,8 @@ var pistonLabLanguages = map[string]string{
 }
 
 type pistonLabRequest struct {
-	Language string         `json:"language"`
-	Version  string         `json:"version"`
+	Language string          `json:"language"`
+	Version  string          `json:"version"`
 	Files    []pistonLabFile `json:"files"`
 }
 

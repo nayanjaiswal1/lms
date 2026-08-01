@@ -388,19 +388,29 @@ func (p *WarmPoolPlanner) converge(ctx context.Context, plans []warmPoolPlan) {
 		if pl.lab.Ready <= pl.target {
 			continue
 		}
-		excess, err := p.repo.ListExcessReadyWarmContainers(ctx, pl.lab.LabID, pl.lab.TaskVersionID, pl.target)
+		excess, err := p.repo.ListExcessReadyWarmContainers(ctx, pl.lab.LabID, pl.lab.TaskVersionID, pl.lab.Ready-pl.target)
 		if err != nil {
 			slog.Error("labs.WarmPoolPlanner: list excess", "lab_id", pl.lab.LabID, "error", err)
 			continue
 		}
 		for _, e := range excess {
-			if e.ContainerID != nil {
-				if err := p.runtime.Kill(ctx, *e.ContainerID); err != nil {
-					slog.Error("labs.WarmPoolPlanner: kill excess", "container", *e.ContainerID, "error", err)
-				}
-			}
-			if err := p.repo.DeleteWarmContainer(ctx, e.ID); err != nil {
+			// Atomic delete-if-still-ready: a container listed here a moment
+			// ago may have been claimed by a student's StartSession in the
+			// meantime. deleted=false means exactly that happened — the
+			// container now belongs to a live session and must not be
+			// killed (see DeleteReadyWarmContainer's own doc comment).
+			containerID, deleted, err := p.repo.DeleteReadyWarmContainer(ctx, e.ID)
+			if err != nil {
 				slog.Error("labs.WarmPoolPlanner: delete excess row", "warm_id", e.ID, "error", err)
+				continue
+			}
+			if !deleted {
+				continue
+			}
+			if containerID != nil {
+				if err := p.runtime.Kill(ctx, *containerID); err != nil {
+					slog.Error("labs.WarmPoolPlanner: kill excess", "container", *containerID, "error", err)
+				}
 			}
 		}
 	}
@@ -423,7 +433,20 @@ func (p *WarmPoolPlanner) converge(ctx context.Context, plans []warmPoolPlan) {
 			wg.Add(1)
 			go func(warmID, image, setup, labID string) {
 				defer wg.Done()
-				cid, host, err := p.runtime.StartWarm(ctx, warmID, image, setup)
+				// A container slow to boot (image pull, a slow setup_script)
+				// can legitimately take up to ProvisionTimeoutSeconds — the
+				// same budget an ordinary cold-started session gets. Using
+				// the tick's own ctx here instead would tie that budget to
+				// the reconciler job's scheduler-level timeout, which
+				// defends against a different failure mode (the job hanging)
+				// and is set well below ProvisionTimeoutSeconds; inheriting
+				// it would abort every warm start for any image slow enough
+				// to legitimately need the full cold-start budget, which
+				// converge would then never successfully pre-warm no matter
+				// how many ticks it tried.
+				startCtx, cancel := context.WithTimeout(context.Background(), ProvisionTimeoutSeconds*time.Second)
+				defer cancel()
+				cid, host, err := p.runtime.StartWarm(startCtx, warmID, image, setup)
 				if err != nil {
 					slog.Error("labs.WarmPoolPlanner: start warm", "lab_id", labID, "warm_id", warmID, "error", err)
 					if delErr := p.repo.DeleteWarmContainer(context.Background(), warmID); delErr != nil {

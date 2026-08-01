@@ -42,3 +42,15 @@ export function formatDate(iso: string): string {
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
+
+// "38m" under an hour, "2.5h" otherwise — matches the profile insights panel.
+export function formatResponseTime(minutes: number | null): string | null {
+  if (minutes === null) return null;
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  return `${(minutes / 60).toFixed(1)}h`;
+}
+
+export function formatDuration(hours: number | null): string | null {
+  if (hours === null) return null;
+  return `${hours.toFixed(hours < 10 ? 1 : 0)}h`;
+}

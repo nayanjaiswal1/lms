@@ -1,7 +1,6 @@
 package labs
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -25,30 +24,30 @@ type studentTaskView struct {
 
 // labStudentResponse is the shape returned by HandleGetLab.
 type labStudentResponse struct {
-	ID             string            `json:"id"`
-	Title          string            `json:"title"`
-	LabType        string            `json:"lab_type"`
-	Description    *string           `json:"description,omitempty"`
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	LabType     string  `json:"lab_type"`
+	Description *string `json:"description,omitempty"`
 	// Language is the authoritative language for "code" type labs; nil for
 	// other lab types. The frontend locks its editor/dropdown to this value
 	// instead of letting the student pick a language independent of what the
 	// task's verification script actually expects.
-	Language       *string           `json:"language"`
-	MaxDuration    int               `json:"max_duration"`
-	MaxResets      int               `json:"max_resets"`
-	HintPenaltyPct int               `json:"hint_penalty_pct"`
-	IsRequired     bool              `json:"is_required"`
+	Language       *string `json:"language"`
+	MaxDuration    int     `json:"max_duration"`
+	MaxResets      int     `json:"max_resets"`
+	HintPenaltyPct int     `json:"hint_penalty_pct"`
+	IsRequired     bool    `json:"is_required"`
 	// Layout selects the student workspace arrangement: "split" or "console".
 	// See LabDefinition.WorkspaceLayout.
-	Layout         string            `json:"layout"`
+	Layout string `json:"layout"`
 	// PreviewPort is the container port of the lab's running app; 0 = the
 	// workspace shows no live preview pane. See LabDefinition.PreviewPort.
-	PreviewPort    int               `json:"preview_port"`
+	PreviewPort int `json:"preview_port"`
 	// HasRunScript tells the workspace whether to show a Run button (sandbox
 	// labs). The script body itself never crosses the wire — students only
 	// ever see its output via POST /sessions/:id/run.
-	HasRunScript   bool              `json:"has_run_script"`
-	Tasks          []studentTaskView `json:"tasks"`
+	HasRunScript bool              `json:"has_run_script"`
+	Tasks        []studentTaskView `json:"tasks"`
 }
 
 // newLabStudentResponse builds the student-safe lab view shared by
@@ -158,6 +157,16 @@ func (h *Handler) HandleGetLabByModule(w http.ResponseWriter, r *http.Request) {
 // HandleStartSession starts (or resumes) a lab session for the authenticated user.
 //
 //	POST /api/labs/{labId}/sessions
+//
+// Idempotency-Key is optional and passed through verbatim — StartSession only
+// treats it as a cache hit while the cached session is still non-terminal
+// (see StartSession's own doc comment). No default key is synthesized here:
+// a synthesized userID-labID key previously meant ANY repeat start click
+// within 10 minutes of a session ending would resurrect the dead, terminal
+// session instead of starting a fresh one. Real double-submit protection
+// against a still-active session is already handled by StartSession's
+// active-session lookup and the DB's own unique index — the header exists
+// for genuine client-retry idempotency, not as an implicit key.
 func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {
@@ -166,9 +175,6 @@ func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
 	labID := chi.URLParam(r, "labId")
 
 	idempotencyKey := r.Header.Get("Idempotency-Key")
-	if idempotencyKey == "" {
-		idempotencyKey = fmt.Sprintf("%s-%s", claims.UserID, labID)
-	}
 
 	session, err := h.service.StartSession(r.Context(), labID, claims.UserID, claims.OrgID, false, idempotencyKey)
 	if err != nil {

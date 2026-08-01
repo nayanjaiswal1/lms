@@ -21,11 +21,19 @@ type warmPoolMatrixRow struct {
 }
 
 // HandleListWarmPools returns the metrics matrix for every warm-pool-eligible
-// lab: pool state, config, and the raw signal inputs + target from the most
-// recent reconciler tick. This is the data /admin/labs/warm-pools renders —
-// a matrix of numbers, not a narrative decision history.
+// lab IN THE CALLER'S ORG: pool state, config, and the raw signal inputs +
+// target from the most recent reconciler tick. This is the data
+// /admin/labs/warm-pools renders — a matrix of numbers, not a narrative
+// decision history. Scoped via ListWarmPoolLabsForOrg — the unscoped
+// ListWarmPoolLabs (used only by the planner) previously served here leaked
+// every org's lab catalog and pool state to any org's admin.
 func (h *Handler) HandleListWarmPools(w http.ResponseWriter, r *http.Request) {
-	labsList, err := h.repo.ListWarmPoolLabs(r.Context())
+	claims, ok := ctxClaims(w, r)
+	if !ok {
+		return
+	}
+
+	labsList, err := h.repo.ListWarmPoolLabsForOrg(r.Context(), claims.OrgID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -58,13 +66,21 @@ type warmPoolConfigUpdate struct {
 }
 
 // HandleUpdateWarmPoolConfig lets an admin override a lab's pool mode/sizing;
-// the reconciler picks it up on its next tick.
+// the reconciler picks it up on its next tick. Ownership is verified via
+// GetLab(labID, claims.OrgID) before any write — labID arrives from the URL
+// with no other org check, so skipping this let an admin of any org retarget
+// or disable another org's warm pool by ID.
 func (h *Handler) HandleUpdateWarmPoolConfig(w http.ResponseWriter, r *http.Request) {
 	claims, ok := ctxClaims(w, r)
 	if !ok {
 		return
 	}
 	labID := chi.URLParam(r, "labId")
+
+	if _, err := h.repo.GetLab(r.Context(), labID, claims.OrgID); err != nil {
+		writeDomainError(w, err)
+		return
+	}
 
 	var req warmPoolConfigUpdate
 	if !decodeJSON(w, r, &req) {

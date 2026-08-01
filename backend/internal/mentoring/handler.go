@@ -16,6 +16,8 @@ import (
 const (
 	PermissionAssignTickets = "mentoring.assign_tickets"
 	PermissionManageReports = "mentoring.manage_reports"
+	// PermissionVerifyMentors mirrors 006_mentor_verification.sql.
+	PermissionVerifyMentors = "mentoring.verify_mentors"
 )
 
 type Handler struct {

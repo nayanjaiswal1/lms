@@ -203,6 +203,15 @@ func (c *DockerContainerService) startNamedWithMode(ctx context.Context, name, i
 		}
 	}
 
+	// `docker run -d` prints the full 64-char ID and nothing else, but this
+	// runs inside a fire-and-forget provisioning goroutine — a slice on a
+	// short/garbled value would panic the whole API process rather than fail
+	// one session. Validate instead of slicing blind.
+	if len(containerID) < 12 {
+		_ = c.Kill(context.Background(), containerID)
+		return "", "", fmt.Errorf("labs.DockerContainerService.Start: docker run returned an unusable container id %q", containerID)
+	}
+
 	containerHost = fmt.Sprintf("%s:7681", containerID[:12])
 	return containerID, containerHost, nil
 }
@@ -215,7 +224,10 @@ func (c *DockerContainerService) Kill(ctx context.Context, containerID string) e
 	return nil
 }
 
-// Pause suspends a running container.
+// Pause suspends a running container (SIGSTOP on the whole process tree via
+// the freezer cgroup), freeing CPU while keeping memory, disk and process
+// state intact. This is what lab.expire_sessions does to an idle session
+// instead of destroying it.
 func (c *DockerContainerService) Pause(ctx context.Context, containerID string) error {
 	if _, err := runCmd(ctx, "docker", "pause", containerID); err != nil {
 		return fmt.Errorf("labs.DockerContainerService.Pause: %w", err)
@@ -232,15 +244,36 @@ func (c *DockerContainerService) Unpause(ctx context.Context, containerID string
 }
 
 // Exec runs a script inside the container as labuser. stdout and stderr are
-// captured separately. exitCode is 0 on success; a process exit error yields
-// the real exit code without propagating an error value.
+// captured separately and each bounded at MaxExecOutputBytes — see
+// boundedBuffer for why silently truncating beats erroring here.
+// exitCode is 0 on success; a process exit error yields the real exit code
+// without propagating an error value.
 func (c *DockerContainerService) Exec(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	return c.execWithStdin(ctx, containerID, script, nil, timeoutSec)
+}
+
+// ExecStdin is Exec plus a piped stdin payload — see ContainerRuntime's doc
+// comment for why WriteFile uses this instead of embedding content in the
+// script string.
+func (c *DockerContainerService) ExecStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
+	return c.execWithStdin(ctx, containerID, script, stdin, timeoutSec)
+}
+
+func (c *DockerContainerService) execWithStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
 	escaped := strings.ReplaceAll(script, "'", "'\\''")
-	cmd := exec.CommandContext(ctx, "docker", "exec", "--user", "labuser", containerID,
+	args := []string{"exec"}
+	if stdin != nil {
+		args = append(args, "-i")
+	}
+	args = append(args, "--user", "labuser", containerID,
 		"bash", "-c", fmt.Sprintf("timeout %d bash -c '%s'", timeoutSec, escaped))
-	var outBuf, errBuf bytes.Buffer
-	cmd.Stdout = &outBuf
-	cmd.Stderr = &errBuf
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	if stdin != nil {
+		cmd.Stdin = bytes.NewReader(stdin)
+	}
+	outBuf, errBuf := newBoundedBuffer(), newBoundedBuffer()
+	cmd.Stdout = outBuf
+	cmd.Stderr = errBuf
 	err = cmd.Run()
 	stdout = outBuf.String()
 	stderr = errBuf.String()
@@ -254,6 +287,43 @@ func (c *DockerContainerService) Exec(ctx context.Context, containerID, script s
 	return stdout, stderr, 0, nil
 }
 
+// boundedBuffer accumulates at most MaxExecOutputBytes and silently discards
+// the rest, appending a truncation marker when it does.
+//
+// Discarding rather than erroring is deliberate: os/exec and the Kubernetes
+// SPDY executor both copy the child's output through this Writer, and a Write
+// that returns an error aborts that copy — which leaves the child blocked on
+// a full pipe until its `timeout` kills it, turning a large-output script
+// into a guaranteed 10-second stall. Absorbing everything and keeping only
+// the head lets the command finish immediately and still yields the part a
+// human would actually read.
+type boundedBuffer struct {
+	buf       bytes.Buffer
+	truncated bool
+}
+
+func newBoundedBuffer() *boundedBuffer { return &boundedBuffer{} }
+
+func (b *boundedBuffer) Write(p []byte) (int, error) {
+	if room := MaxExecOutputBytes - b.buf.Len(); room > 0 {
+		if len(p) <= room {
+			return b.buf.Write(p)
+		}
+		if _, err := b.buf.Write(p[:room]); err != nil {
+			return 0, err
+		}
+	}
+	b.truncated = true
+	return len(p), nil
+}
+
+func (b *boundedBuffer) String() string {
+	if b.truncated {
+		return b.buf.String() + "\n…(output truncated)"
+	}
+	return b.buf.String()
+}
+
 // IsRunning reports whether the container is currently in the running state.
 func (c *DockerContainerService) IsRunning(ctx context.Context, containerID string) bool {
 	out, err := runCmd(ctx, "docker", "inspect", "--format", "{{.State.Running}}", containerID)
@@ -261,6 +331,33 @@ func (c *DockerContainerService) IsRunning(ctx context.Context, containerID stri
 		return false
 	}
 	return strings.TrimSpace(out) == "true"
+}
+
+// dockerPSCreatedAtLayouts are the layouts `docker ps --format {{.CreatedAt}}`
+// is known to emit: `T.Format("2006-01-02 15:04:05 -0700 MST")` — Go's
+// default time.Time string layout without the sub-second component most
+// builds omit, but a couple of nearby variants are included defensively
+// since the exact precision has drifted across Docker CLI versions. This is
+// NOT RFC3339 (no "T" separator, space before the zone) — parsing it as
+// RFC3339 (the previous code) always failed, silently zeroing CreatedAt to
+// the Go zero value on every container, which made every "is this container
+// too young to touch yet" guard in jobs/handlers/labs.go permanently false
+// (a zero-value timestamp is always "more than 2 minutes old").
+var dockerPSCreatedAtLayouts = []string{
+	"2006-01-02 15:04:05 -0700 MST",
+	"2006-01-02 15:04:05.999999999 -0700 MST",
+}
+
+func parseDockerPSCreatedAt(s string) (time.Time, error) {
+	var lastErr error
+	for _, layout := range dockerPSCreatedAtLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		} else {
+			lastErr = err
+		}
+	}
+	return time.Time{}, fmt.Errorf("unrecognized docker ps CreatedAt format %q: %w", s, lastErr)
 }
 
 // List returns every container (running or stopped) whose name starts with
@@ -282,9 +379,15 @@ func (c *DockerContainerService) List(ctx context.Context, namePrefix string) ([
 		if len(parts) != 3 {
 			continue
 		}
-		createdAt, parseErr := time.Parse(time.RFC3339, parts[2])
+		createdAt, parseErr := parseDockerPSCreatedAt(parts[2])
 		if parseErr != nil {
-			createdAt = time.Time{}
+			// Fail toward "just created" rather than "ancient": the only
+			// consumer of CreatedAt is a young-container skip-removal guard,
+			// so treating an unparseable timestamp as now() means this tick
+			// leaves the container alone instead of risking removal of one
+			// that's actually still mid-creation. It will be re-evaluated
+			// (and, if genuinely orphaned, removed) on the next tick.
+			createdAt = time.Now()
 		}
 		infos = append(infos, ContainerInfo{Name: parts[0], ID: parts[1], CreatedAt: createdAt})
 	}

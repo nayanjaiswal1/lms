@@ -41,13 +41,14 @@ if [[ ! -f "$SEED_FILE" ]]; then
 fi
 
 info "Loading seed file: backend/db/fixtures/dev_seed.sql"
-docker cp "$SEED_FILE" "${CONTAINER}:/tmp/dev_seed.sql"
-docker exec "$CONTAINER" psql \
+# Pipe over stdin instead of `docker cp` + `-f <in-container path>` — see the
+# same note in db-seed-courses.sh: Git Bash on Windows rewrites the
+# in-container /tmp/... argument into a host path before docker sees it.
+docker exec -i "$CONTAINER" psql \
   -U "$POSTGRES_USER" \
   -d "$POSTGRES_DB" \
   -v ON_ERROR_STOP=1 \
-  -f /tmp/dev_seed.sql > /dev/null
-docker exec "$CONTAINER" rm -f /tmp/dev_seed.sql
+  < "$SEED_FILE" > /dev/null
 
 success "Seed data loaded successfully."
 info "Dev users (password: Admin123!):"

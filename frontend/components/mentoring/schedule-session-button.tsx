@@ -30,10 +30,20 @@ const ScheduleSchema = z.object({
 type ScheduleFormData = z.infer<typeof ScheduleSchema>;
 
 interface ScheduleSessionButtonProps {
-  studentId: string;
+  attendeeId: string;
+  triggerLabel?: string;
+  size?: "sm" | "default";
+  variant?: "outline" | "default";
+  className?: string;
 }
 
-export function ScheduleSessionButton({ studentId }: ScheduleSessionButtonProps) {
+export function ScheduleSessionButton({
+  attendeeId,
+  triggerLabel = "Schedule session",
+  size = "sm",
+  variant = "outline",
+  className,
+}: ScheduleSessionButtonProps) {
   const [open, setOpen] = React.useState(false);
 
   const form = useForm<ScheduleFormData>({
@@ -53,7 +63,7 @@ export function ScheduleSessionButton({ studentId }: ScheduleSessionButtonProps)
       starts_at: start.toISOString(),
       ends_at: end.toISOString(),
       visibility: "shared",
-      attendee_user_ids: [studentId],
+      attendee_user_ids: [attendeeId],
     });
 
     if (!result.ok) {
@@ -67,9 +77,9 @@ export function ScheduleSessionButton({ studentId }: ScheduleSessionButtonProps)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <Button className={className} size={size} variant={variant} onClick={() => setOpen(true)}>
         <CalendarPlus aria-hidden className="mr-1.5 h-4 w-4" />
-        Schedule session
+        {triggerLabel}
       </Button>
       <DialogContent className="modal-responsive">
         <DialogHeader>

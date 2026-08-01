@@ -133,6 +133,81 @@ func (s *Service) ListMentorDirectory(ctx context.Context, orgID string) ([]Ment
 	return s.repo.ListMentorDirectory(ctx, orgID)
 }
 
+// GetMentorProfile returns the single-mentor profile view (directory fields
+// plus verified/response-time/hours/percentile) for mentorID within orgID.
+func (s *Service) GetMentorProfile(ctx context.Context, orgID, mentorID string) (MentorProfile, error) {
+	return s.repo.GetMentorProfile(ctx, orgID, mentorID)
+}
+
+// SetMentorVerified toggles mentorID's verified-expert badge. The caller's
+// permission to do this (mentoring.verify_mentors) is already checked by
+// route middleware; this only validates that mentorID is actually a mentor
+// in this org before writing.
+func (s *Service) SetMentorVerified(ctx context.Context, orgID, mentorID string, verified bool, callerID string) error {
+	isMentor, err := s.repo.IsMentor(ctx, orgID, mentorID)
+	if err != nil {
+		return err
+	}
+	if !isMentor {
+		return fmt.Errorf("%w: mentor_id must be a mentor in this organization", ErrInvalid)
+	}
+	return s.repo.SetMentorVerified(ctx, mentorID, verified, callerID)
+}
+
+// GetOrCreateConversation returns (creating if needed) the ticket-independent
+// DM thread between studentID and mentorID. mentorID must actually hold the
+// mentor role in orgID — this is a student-initiates-contact-with-a-mentor
+// flow, not a general "message anyone" feature.
+func (s *Service) GetOrCreateConversation(ctx context.Context, orgID, studentID, mentorID string) (MentorConversation, error) {
+	if studentID == mentorID {
+		return MentorConversation{}, fmt.Errorf("%w: cannot start a conversation with yourself", ErrInvalid)
+	}
+	isMentor, err := s.repo.IsMentor(ctx, orgID, mentorID)
+	if err != nil {
+		return MentorConversation{}, err
+	}
+	if !isMentor {
+		return MentorConversation{}, fmt.Errorf("%w: mentor_id must be a mentor in this organization", ErrInvalid)
+	}
+	return s.repo.GetOrCreateConversation(ctx, orgID, studentID, mentorID)
+}
+
+// ListMyConversations returns every DM conversation callerID is a party to,
+// most recently active first.
+func (s *Service) ListMyConversations(ctx context.Context, orgID, callerID string) ([]MentorConversation, error) {
+	return s.repo.ListMyConversations(ctx, orgID, callerID)
+}
+
+// SendConversationMessage posts a message on conversationID's DM thread.
+// Only the conversation's student or mentor may post — same access shape as
+// SendChatMessage, against mentor_conversations instead of mentor_tickets.
+func (s *Service) SendConversationMessage(ctx context.Context, orgID, conversationID, senderID, body string) (DirectMessage, error) {
+	if len(body) < 1 || len(body) > 4000 {
+		return DirectMessage{}, fmt.Errorf("%w: message must be between 1 and 4000 characters", ErrInvalid)
+	}
+	conv, err := s.repo.GetConversation(ctx, orgID, conversationID)
+	if err != nil {
+		return DirectMessage{}, err
+	}
+	if senderID != conv.StudentID && senderID != conv.MentorID {
+		return DirectMessage{}, ErrForbidden
+	}
+	return s.repo.CreateDirectMessage(ctx, orgID, conversationID, senderID, body)
+}
+
+// ListConversationMessages returns the full DM thread for conversationID.
+// Only the conversation's student or mentor may read it.
+func (s *Service) ListConversationMessages(ctx context.Context, orgID, conversationID, callerID string) ([]DirectMessage, error) {
+	conv, err := s.repo.GetConversation(ctx, orgID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	if callerID != conv.StudentID && callerID != conv.MentorID {
+		return nil, ErrForbidden
+	}
+	return s.repo.ListDirectMessages(ctx, orgID, conversationID)
+}
+
 // SendChatMessage posts a message on ticketID's 1:1 chat thread. Only the
 // ticket's student or its currently assigned mentor may post, and only
 // while the ticket is 'assigned' (there's no one to talk to on an open or

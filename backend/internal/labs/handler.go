@@ -56,8 +56,12 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrForbidden):
 		httputil.WriteError(w, http.StatusForbidden, "Forbidden.")
 	case errors.Is(err, ErrSessionActive):
-		// Resolved internally by StartSession; this branch is a safety net.
-		httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+		// StartSession resolves this internally on the normal path (returns
+		// the existing session instead of the error); reaching here means the
+		// race-resolution lookup itself failed, so surface a real error
+		// rather than a silent empty 200 the client would misread as "session
+		// started".
+		httputil.WriteError(w, http.StatusConflict, "A session for this lab is already active.")
 	case errors.Is(err, ErrCapacityReached):
 		httputil.WriteError(w, http.StatusTooManyRequests, "Lab capacity reached, try again shortly.")
 	case errors.Is(err, ErrUserHasActiveSession):
@@ -73,8 +77,12 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrMaxResetsReached):
 		httputil.WriteError(w, http.StatusConflict, "Maximum resets reached.")
 	case errors.Is(err, ErrTaskAlreadyPassed):
-		// Idempotent — the handler returns the cached result; this is a safety net.
-		httputil.WriteJSON(w, http.StatusOK, map[string]any{})
+		// finalizeTaskPass already handles the common idempotent-retry case
+		// inline (returns Passed:true with the cached attempt count); reaching
+		// here is the rarer concurrent-duplicate-pass race. Still succeeded
+		// from the caller's point of view — the task IS passed — so 200 with
+		// an explicit shape rather than an empty object the client can't use.
+		httputil.WriteJSON(w, http.StatusOK, map[string]any{"passed": true})
 	case errors.Is(err, ErrMaxHintsReached):
 		httputil.WriteError(w, http.StatusTooManyRequests, "Maximum hints reached for this task.")
 	case errors.Is(err, ErrTaskNotOptional):
@@ -89,6 +97,14 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusForbidden, "This lab is not available for your organization.")
 	case errors.Is(err, ErrLabProvisioningUnstable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified.")
+	case errors.Is(err, ErrSessionExpired):
+		httputil.WriteError(w, http.StatusConflict, "This lab session has expired.")
+	case errors.Is(err, ErrResetFailed):
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not reset this lab — the session has been ended. Please start a new one.")
+	case errors.Is(err, ErrLabTypeUnsupported):
+		httputil.WriteError(w, http.StatusConflict, "This action is not available for this lab type.")
+	case errors.Is(err, ErrContentTooLarge):
+		httputil.WriteError(w, http.StatusRequestEntityTooLarge, "File is too large.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

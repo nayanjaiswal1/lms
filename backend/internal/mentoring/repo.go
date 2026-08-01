@@ -663,6 +663,131 @@ func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorD
 	return out, rows.Err()
 }
 
+// GetMentorProfile returns the single-mentor superset of ListMentorDirectory
+// shown on a mentor's profile page. Deliberately four small queries instead
+// of one large CTE — each is independently easy to read/verify, and this
+// only runs once per profile-page view (not once per row in a list).
+func (r *Repo) GetMentorProfile(ctx context.Context, orgID, mentorID string) (MentorProfile, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT u.id, u.name, u.email, u.avatar_url, u.created_at,
+		        COALESCE(mt.mentee_count, 0) AS mentee_count,
+		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count,
+		        p.bio, p.current_role, p.years_of_experience,
+		        COALESCE(sk.skills, '{}') AS skills,
+		        COALESCE(p.mentor_verified, false) AS mentor_verified, p.mentor_verified_at
+		 FROM org_members om
+		 JOIN users u ON u.id = om.user_id
+		 LEFT JOIN user_profiles p ON p.user_id = u.id
+		 LEFT JOIN (
+		   SELECT assigned_mentor_id, COUNT(*) AS mentee_count
+		   FROM mentor_tickets
+		   WHERE status = 'assigned'
+		   GROUP BY assigned_mentor_id
+		 ) mt ON mt.assigned_mentor_id = u.id
+		 LEFT JOIN (
+		   SELECT subject_id, AVG(rating) AS avg_rating, COUNT(rating) AS rating_count
+		   FROM feedback
+		   WHERE subject_type = 'mentor' AND rating IS NOT NULL
+		   GROUP BY subject_id
+		 ) fb ON fb.subject_id = u.id
+		 LEFT JOIN (
+		   SELECT user_id, array_agg(skill_name ORDER BY created_at) AS skills
+		   FROM user_skills
+		   GROUP BY user_id
+		 ) sk ON sk.user_id = u.id
+		 WHERE om.org_id = $1 AND om.role = 'mentor' AND u.id = $2`,
+		orgID, mentorID)
+
+	var m MentorProfile
+	if err := row.Scan(
+		&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.JoinedAt, &m.MenteeCount, &m.AvgRating, &m.RatingCount,
+		&m.Bio, &m.CurrentRole, &m.YearsOfExperience, &m.Skills, &m.Verified, &m.VerifiedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return MentorProfile{}, ErrNotFound
+		}
+		return MentorProfile{}, fmt.Errorf("mentoring: get mentor profile: %w", err)
+	}
+
+	respErr := r.pool.QueryRow(ctx,
+		`WITH thread AS (
+		   SELECT m.ticket_id,
+		          MIN(m.created_at) FILTER (WHERE m.sender_id = t.student_id) AS student_first,
+		          MIN(m.created_at) FILTER (WHERE m.sender_id = t.assigned_mentor_id) AS mentor_first
+		   FROM mentor_chat_messages m
+		   JOIN mentor_tickets t ON t.id = m.ticket_id
+		   WHERE t.org_id = $1 AND t.assigned_mentor_id = $2
+		   GROUP BY m.ticket_id
+		 )
+		 SELECT AVG(EXTRACT(EPOCH FROM (mentor_first - student_first)) / 60)
+		 FROM thread
+		 WHERE student_first IS NOT NULL AND mentor_first IS NOT NULL AND mentor_first > student_first`,
+		orgID, mentorID).Scan(&m.AvgResponseMinutes)
+	if respErr != nil {
+		return MentorProfile{}, fmt.Errorf("mentoring: get mentor avg response time: %w", respErr)
+	}
+
+	hoursErr := r.pool.QueryRow(ctx,
+		`SELECT SUM(EXTRACT(EPOCH FROM (ce.ends_at - ce.starts_at)) / 3600)
+		 FROM calendar_events ce
+		 JOIN calendar_event_attendees cea ON cea.event_id = ce.id
+		 WHERE ce.org_id = $1 AND cea.user_id = $2 AND ce.event_type = 'mentor_session'
+		   AND ce.status != 'cancelled' AND ce.ends_at IS NOT NULL AND ce.starts_at < now()`,
+		orgID, mentorID).Scan(&m.TotalMentorshipHours)
+	if hoursErr != nil {
+		return MentorProfile{}, fmt.Errorf("mentoring: get mentor total hours: %w", hoursErr)
+	}
+
+	rankErr := r.pool.QueryRow(ctx,
+		`WITH monthly AS (
+		   SELECT om.user_id,
+		     (SELECT COUNT(DISTINCT ce.id) FROM calendar_events ce
+		        JOIN calendar_event_attendees cea ON cea.event_id = ce.id
+		        WHERE cea.user_id = om.user_id AND ce.org_id = om.org_id AND ce.event_type = 'mentor_session'
+		          AND ce.status != 'cancelled'
+		          AND ce.starts_at >= date_trunc('month', now())
+		          AND ce.starts_at < date_trunc('month', now()) + interval '1 month'
+		     ) AS session_count,
+		     (SELECT COUNT(*) FROM feedback fb
+		        WHERE fb.subject_id = om.user_id AND fb.subject_type = 'mentor' AND fb.rating IS NOT NULL
+		          AND fb.created_at >= date_trunc('month', now())
+		          AND fb.created_at < date_trunc('month', now()) + interval '1 month'
+		     ) AS rating_count
+		   FROM org_members om
+		   WHERE om.org_id = $1 AND om.role = 'mentor'
+		 ),
+		 active AS (
+		   SELECT user_id, PERCENT_RANK() OVER (ORDER BY session_count DESC, rating_count DESC) AS pct_rank
+		   FROM monthly
+		   WHERE session_count > 0 OR rating_count > 0
+		 )
+		 SELECT pct_rank FROM active WHERE user_id = $2`,
+		orgID, mentorID).Scan(&m.PercentileRank)
+	if rankErr != nil && !errors.Is(rankErr, pgx.ErrNoRows) {
+		return MentorProfile{}, fmt.Errorf("mentoring: get mentor percentile rank: %w", rankErr)
+	}
+
+	return m, nil
+}
+
+// SetMentorVerified toggles the verified-expert badge on mentorID's profile,
+// upserting user_profiles since a mentor may not have completed onboarding
+// (and so may not have a row there yet).
+func (r *Repo) SetMentorVerified(ctx context.Context, mentorID string, verified bool, verifiedBy string) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO user_profiles (user_id, mentor_verified, mentor_verified_at, mentor_verified_by)
+		 VALUES ($1, $2, CASE WHEN $2 THEN now() ELSE NULL END, $3)
+		 ON CONFLICT (user_id) DO UPDATE SET
+		   mentor_verified = EXCLUDED.mentor_verified,
+		   mentor_verified_at = EXCLUDED.mentor_verified_at,
+		   mentor_verified_by = EXCLUDED.mentor_verified_by`,
+		mentorID, verified, verifiedBy)
+	if err != nil {
+		return fmt.Errorf("mentoring: set mentor verified: %w", err)
+	}
+	return nil
+}
+
 const reportColumns = `id, org_id, mentor_id, reporter_id, ticket_id, reason, description, status,
 	resolved_by, resolution_note, resolved_at, created_at`
 
@@ -791,6 +916,120 @@ func (r *Repo) ListChatMessages(ctx context.Context, orgID, ticketID string) ([]
 		m, err := scanChatMessage(rows)
 		if err != nil {
 			return nil, fmt.Errorf("mentoring: scan chat message: %w", err)
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+const mentorConversationColumns = `id, org_id, student_id, mentor_id, created_at, updated_at`
+
+func scanMentorConversation(row rowScanner) (MentorConversation, error) {
+	var c MentorConversation
+	err := row.Scan(&c.ID, &c.OrgID, &c.StudentID, &c.MentorID, &c.CreatedAt, &c.UpdatedAt)
+	return c, err
+}
+
+// GetOrCreateConversation returns the existing DM thread between studentID
+// and mentorID within orgID, creating it (and bumping updated_at) if it
+// doesn't exist yet — the get-or-create idiom for a UNIQUE(org_id,
+// student_id, mentor_id) row.
+func (r *Repo) GetOrCreateConversation(ctx context.Context, orgID, studentID, mentorID string) (MentorConversation, error) {
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO mentor_conversations (org_id, student_id, mentor_id)
+		 VALUES ($1,$2,$3)
+		 ON CONFLICT (org_id, student_id, mentor_id) DO UPDATE SET updated_at = now()
+		 RETURNING `+mentorConversationColumns,
+		orgID, studentID, mentorID)
+	c, err := scanMentorConversation(row)
+	if err != nil {
+		return MentorConversation{}, fmt.Errorf("mentoring: get or create conversation: %w", err)
+	}
+	return c, nil
+}
+
+// GetConversation returns a single conversation by ID, scoped to orgID.
+func (r *Repo) GetConversation(ctx context.Context, orgID, conversationID string) (MentorConversation, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT `+mentorConversationColumns+` FROM mentor_conversations WHERE id = $1 AND org_id = $2`,
+		conversationID, orgID)
+	c, err := scanMentorConversation(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return MentorConversation{}, ErrNotFound
+		}
+		return MentorConversation{}, fmt.Errorf("mentoring: get conversation: %w", err)
+	}
+	return c, nil
+}
+
+// ListMyConversations returns every conversation userID is a party to
+// (as either student or mentor) within orgID, most recently active first.
+func (r *Repo) ListMyConversations(ctx context.Context, orgID, userID string) ([]MentorConversation, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+mentorConversationColumns+` FROM mentor_conversations
+		 WHERE org_id = $1 AND (student_id = $2 OR mentor_id = $2)
+		 ORDER BY updated_at DESC`,
+		orgID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("mentoring: list my conversations: %w", err)
+	}
+	defer rows.Close()
+	out := []MentorConversation{}
+	for rows.Next() {
+		c, err := scanMentorConversation(rows)
+		if err != nil {
+			return nil, fmt.Errorf("mentoring: scan conversation: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+const directMessageColumns = `id, org_id, conversation_id, sender_id, body, created_at`
+
+func scanDirectMessage(row rowScanner) (DirectMessage, error) {
+	var m DirectMessage
+	err := row.Scan(&m.ID, &m.OrgID, &m.ConversationID, &m.SenderID, &m.Body, &m.CreatedAt)
+	return m, err
+}
+
+// CreateDirectMessage posts a new message on conversationID's DM thread, and
+// bumps the conversation's updated_at so ListMyConversations sorts it to the top.
+func (r *Repo) CreateDirectMessage(ctx context.Context, orgID, conversationID, senderID, body string) (DirectMessage, error) {
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO mentor_direct_messages (org_id, conversation_id, sender_id, body)
+		 VALUES ($1,$2,$3,$4)
+		 RETURNING `+directMessageColumns,
+		orgID, conversationID, senderID, body)
+	m, err := scanDirectMessage(row)
+	if err != nil {
+		return DirectMessage{}, fmt.Errorf("mentoring: create direct message: %w", err)
+	}
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE mentor_conversations SET updated_at = now() WHERE id = $1`, conversationID,
+	); err != nil {
+		return DirectMessage{}, fmt.Errorf("mentoring: touch conversation: %w", err)
+	}
+	return m, nil
+}
+
+// ListDirectMessages returns every message on conversationID's thread, oldest first.
+func (r *Repo) ListDirectMessages(ctx context.Context, orgID, conversationID string) ([]DirectMessage, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+directMessageColumns+` FROM mentor_direct_messages
+		 WHERE org_id = $1 AND conversation_id = $2
+		 ORDER BY created_at ASC`,
+		orgID, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("mentoring: list direct messages: %w", err)
+	}
+	defer rows.Close()
+	out := []DirectMessage{}
+	for rows.Next() {
+		m, err := scanDirectMessage(rows)
+		if err != nil {
+			return nil, fmt.Errorf("mentoring: scan direct message: %w", err)
 		}
 		out = append(out, m)
 	}

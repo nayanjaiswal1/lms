@@ -64,14 +64,22 @@ func shellQuote(s string) string {
 }
 
 // loadRunnableSession is the shared precondition for every file-ops method:
-// IDOR-checked session lookup, running/paused status check, and
-// paused-container auto-resume — the same sequence VerifyTask's dispatcher
-// and verifyContainerTask already apply to verification.
+// IDOR-checked session lookup, expiry/status check + idle-heartbeat bump
+// (requireSessionLive), and paused-container auto-resume — the same
+// sequence VerifyTask's dispatcher and verifyContainerTask already apply to
+// verification.
 func (s *Service) loadRunnableSession(ctx context.Context, sessionID, userID string) (*LabSession, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
 		return nil, err
 	}
+	if err := s.requireSessionLive(ctx, session); err != nil {
+		return nil, err
+	}
+	// requireSessionLive alone would also accept 'provisioning' (no container
+	// yet) — file ops need a container to exec into, so narrow further here
+	// rather than let a nil-container case surface as a generic 500 out of
+	// ensureContainerResumed's guard.
 	if session.Status != SessionStatusRunning && session.Status != SessionStatusPaused {
 		return nil, ErrSessionNotRunning
 	}
@@ -146,6 +154,10 @@ func (s *Service) ReadFile(ctx context.Context, sessionID, userID, relPath strin
 // WriteFile creates or overwrites a file under the session's workdir with
 // content, creating any missing parent directories.
 func (s *Service) WriteFile(ctx context.Context, sessionID, userID, relPath, content string) error {
+	if len(content) > MaxWriteFileBytes {
+		return ErrContentTooLarge
+	}
+
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
 		return err
@@ -157,11 +169,21 @@ func (s *Service) WriteFile(ctx context.Context, sessionID, userID, relPath, con
 
 	full := containerPath(rel)
 	dir := path.Dir(full)
-	// A quoted heredoc delimiter disables all shell expansion inside the
-	// body, so student-supplied content ($VARS, `cmd`, backticks, etc.)
-	// is written byte-for-byte rather than interpreted.
-	script := fmt.Sprintf("mkdir -p %s && cat > %s <<'MF_LABFILE_EOF'\n%s\nMF_LABFILE_EOF\n", shellQuote(dir), shellQuote(full), content)
-	_, stderr, exitCode, err := s.container.Exec(ctx, *session.ContainerID, script, fileExecTimeoutSec)
+	// Content travels over stdin, never embedded in the command string. The
+	// old heredoc body (`cat > FILE <<'EOF' ... EOF`) put student content
+	// directly into the script text: a quoted heredoc delimiter disables
+	// shell *expansion* ($VARS, backticks) but not the delimiter itself — a
+	// file containing a line reading exactly "MF_LABFILE_EOF" closed the
+	// heredoc early, truncating the file and running the remainder of that
+	// line as a shell command. Piping via ExecStdin has no delimiter to
+	// collide with (script itself contains only the already-shellQuote'd
+	// dir/file paths, never content) and no host execve() argument-length
+	// ceiling to hit either — content this size would already have exceeded
+	// Linux's ~128KB single-argv-string limit if embedded, which a base64-
+	// in-argv version of this fix would still have hit for any file above
+	// roughly 90KB.
+	script := fmt.Sprintf("mkdir -p %s && cat > %s", shellQuote(dir), shellQuote(full))
+	_, stderr, exitCode, err := s.container.ExecStdin(ctx, *session.ContainerID, script, []byte(content), fileExecTimeoutSec)
 	if err != nil {
 		return fmt.Errorf("labs.Service.WriteFile: exec: %w", err)
 	}

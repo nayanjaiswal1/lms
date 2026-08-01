@@ -96,9 +96,15 @@ func (r *Repo) GetPublishedVersion(ctx context.Context, versionID string) ([]Tas
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("labs.Repo.GetPublishedVersion: rows: %w", err)
 	}
-	if len(tasks) == 0 {
-		return nil, ErrNotFound
-	}
+	// An empty result is a legitimate, expected snapshot — `playground` labs
+	// are task-free by design (docs/labs.md), and publish cuts them an empty
+	// version. Returning ErrNotFound here previously made every caller that
+	// loads the snapshot fail closed for those labs, which is why a
+	// playground session could never be ended: EndSession 404'd before it
+	// could compute a terminal status, leaving the row 'running' until the
+	// reaper took it. There is no "version missing" case to distinguish —
+	// versionID always arrives via a NOT NULL FK (lab_sessions.task_version_id
+	// or lab_definitions.published_version_id).
 	return tasks, nil
 }
 
@@ -147,14 +153,14 @@ func (r *Repo) CreateSession(ctx context.Context, tx pgx.Tx, params CreateSessio
 		INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, expires_at, is_test)
 		VALUES ($1,$2,$3,$4,$5,$6)
 		RETURNING id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		          status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
+		          status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
 		          completed_at, last_active_at, end_reason`,
 		params.LabID, params.TaskVersionID, params.UserID, params.OrgID,
 		params.ExpiresAt, params.IsTest,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
+		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
 		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
 	)
 	if err != nil {
@@ -172,14 +178,14 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (*LabSe
 	var s LabSession
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
+		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
 		       completed_at, last_active_at, end_reason, provision_error
 		FROM lab_sessions WHERE id=$1 AND user_id=$2`,
 		sessionID, userID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
+		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
 		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
 	)
 	if err != nil {
@@ -197,13 +203,13 @@ func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSessio
 	var s LabSession
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
+		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
 		       completed_at, last_active_at, end_reason, provision_error
 		FROM lab_sessions WHERE id=$1`, sessionID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
+		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
 		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
 	)
 	if err != nil {
@@ -257,7 +263,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 	var s LabSession
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
-		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds,
+		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
 		       completed_at, last_active_at, end_reason
 		FROM lab_sessions
 		WHERE user_id=$1 AND lab_id=$2 AND status IN ('provisioning','running','paused')
@@ -266,7 +272,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
-		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds,
+		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
 		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
 	)
 	if err != nil {
@@ -285,6 +291,26 @@ func (r *Repo) UpdateSessionRunning(ctx context.Context, sessionID, containerID,
 		sessionID, containerID, containerHost,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.UpdateSessionRunning: %w", err)
+	}
+	return nil
+}
+
+// SwapSessionContainer records a staged reset's replacement container
+// coordinates: bumps reset_count, points container_id/container_host at the
+// new sandbox, and clears any pause state (a reset always yields a running
+// session regardless of what the old one's status was). Runs inside the same
+// transaction as the completions wipe / score zero, so a reset is atomic:
+// the student never observes a session pointed at the new container with the
+// old score, or vice versa.
+func (r *Repo) SwapSessionContainer(ctx context.Context, tx pgx.Tx, sessionID, containerID, containerHost string, resetCount int) error {
+	if _, err := tx.Exec(ctx, `
+		UPDATE lab_sessions
+		SET container_id = $2, container_host = $3, reset_count = $4,
+		    status = 'running', paused_at = NULL, last_active_at = now()
+		WHERE id = $1`,
+		sessionID, containerID, containerHost, resetCount,
+	); err != nil {
+		return fmt.Errorf("labs.Repo.SwapSessionContainer: %w", err)
 	}
 	return nil
 }
@@ -315,22 +341,71 @@ func (r *Repo) UpdateSessionStatus(ctx context.Context, sessionID, status string
 	return nil
 }
 
-// UpdateSessionCompleted marks a session as completed inside a transaction,
-// recording the final score and completion timestamp.
-func (r *Repo) UpdateSessionCompleted(ctx context.Context, tx pgx.Tx, sessionID string, score int) error {
-	if _, err := tx.Exec(ctx,
-		"UPDATE lab_sessions SET status='completed', completed_at=now(), score=$2 WHERE id=$1",
-		sessionID, score,
+// PauseSession flips a running session to paused and records when the pause
+// began, so ResumeFromPause knows how much idle time to bill into
+// paused_seconds. Guarded to only fire from 'running' — a session already
+// paused, or one that raced to a terminal state, must not be touched.
+func (r *Repo) PauseSession(ctx context.Context, sessionID string) error {
+	if _, err := r.pool.Exec(ctx,
+		"UPDATE lab_sessions SET status='paused', paused_at=now() WHERE id=$1 AND status='running'",
+		sessionID,
 	); err != nil {
-		return fmt.Errorf("labs.Repo.UpdateSessionCompleted: %w", err)
+		return fmt.Errorf("labs.Repo.PauseSession: %w", err)
 	}
 	return nil
 }
 
-// UpdateSessionExpired marks a session as expired.
-func (r *Repo) UpdateSessionExpired(ctx context.Context, sessionID string) error {
+// ResumeFromPause flips a paused session back to running, folding the
+// just-ended pause into the cumulative paused_seconds cost counter. Guarded
+// to only fire from 'paused' so an already-running session (a benign
+// double-resume race) is a no-op rather than double-crediting the counter.
+func (r *Repo) ResumeFromPause(ctx context.Context, sessionID string) error {
+	if _, err := r.pool.Exec(ctx, `
+		UPDATE lab_sessions
+		SET status='running',
+		    paused_seconds = paused_seconds + GREATEST(0, EXTRACT(EPOCH FROM (now() - paused_at))::int),
+		    paused_at = NULL,
+		    last_active_at = now()
+		WHERE id=$1 AND status='paused'`,
+		sessionID,
+	); err != nil {
+		return fmt.Errorf("labs.Repo.ResumeFromPause: %w", err)
+	}
+	return nil
+}
+
+// UpdateSessionCompleted marks a session as completed inside a transaction,
+// recording the completion timestamp. Score is deliberately NOT written here
+// — it is already correct in the DB from MarkTaskPassed's atomic
+// `score = score + $2`, which ran (in this same transaction) just before the
+// caller decided the session is now complete. Accepting a score parameter
+// and overwriting it with an in-memory value was the exact bug: the caller's
+// copy of session.Score is a snapshot from whenever it was first loaded, so
+// two concurrent verifies completing different tasks would both compute
+// their own "final" total and the second write would silently erase the
+// first task's points. Returns the authoritative post-write score so the
+// caller doesn't need to guess it.
+func (r *Repo) UpdateSessionCompleted(ctx context.Context, tx pgx.Tx, sessionID string) (score int, err error) {
+	err = tx.QueryRow(ctx,
+		"UPDATE lab_sessions SET status='completed', completed_at=now() WHERE id=$1 RETURNING score",
+		sessionID,
+	).Scan(&score)
+	if err != nil {
+		return 0, fmt.Errorf("labs.Repo.UpdateSessionCompleted: %w", err)
+	}
+	return score, nil
+}
+
+// UpdateSessionExpired marks a session as expired with the given end_reason
+// — used by requireSessionLive's request-time deadline check. Guarded by
+// "AND status <> 'expired'" purely to keep repeated calls (a session hit by
+// several requests after its deadline before the reaper's next tick) from
+// generating redundant writes; it is not a correctness requirement, since
+// the update is idempotent either way.
+func (r *Repo) UpdateSessionExpired(ctx context.Context, sessionID, endReason string) error {
 	if _, err := r.pool.Exec(ctx,
-		"UPDATE lab_sessions SET status='expired' WHERE id=$1", sessionID,
+		"UPDATE lab_sessions SET status='expired', end_reason=$2 WHERE id=$1 AND status <> 'expired'",
+		sessionID, endReason,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.UpdateSessionExpired: %w", err)
 	}
@@ -406,16 +481,6 @@ func (r *Repo) UpdateLastActiveAt(ctx context.Context, sessionID string) error {
 	return nil
 }
 
-// IncrementResetCount atomically increments the reset counter for a session.
-func (r *Repo) IncrementResetCount(ctx context.Context, sessionID string) error {
-	if _, err := r.pool.Exec(ctx,
-		"UPDATE lab_sessions SET reset_count = reset_count + 1 WHERE id=$1", sessionID,
-	); err != nil {
-		return fmt.Errorf("labs.Repo.IncrementResetCount: %w", err)
-	}
-	return nil
-}
-
 // ResetTaskCompletions deletes all task completion rows for a session within a tx.
 func (r *Repo) ResetTaskCompletions(ctx context.Context, tx pgx.Tx, sessionID string) error {
 	if _, err := tx.Exec(ctx,
@@ -434,33 +499,6 @@ func (r *Repo) ZeroSessionScore(ctx context.Context, tx pgx.Tx, sessionID string
 		return fmt.Errorf("labs.Repo.ZeroSessionScore: %w", err)
 	}
 	return nil
-}
-
-// ─── Concurrency helpers ─────────────────────────────────────────────────────
-
-// CountActiveSessions returns the number of active sessions for an org.
-func (r *Repo) CountActiveSessions(ctx context.Context, orgID string) (int, error) {
-	var count int
-	if err := r.pool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM lab_sessions WHERE org_id=$1 AND status IN ('provisioning','running','paused')",
-		orgID,
-	).Scan(&count); err != nil {
-		return 0, fmt.Errorf("labs.Repo.CountActiveSessions: %w", err)
-	}
-	return count, nil
-}
-
-// CountActiveSessionsForUser returns the number of active sessions a user has
-// across all labs.
-func (r *Repo) CountActiveSessionsForUser(ctx context.Context, userID string) (int, error) {
-	var count int
-	if err := r.pool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM lab_sessions WHERE user_id=$1 AND status IN ('provisioning','running','paused')",
-		userID,
-	).Scan(&count); err != nil {
-		return 0, fmt.Errorf("labs.Repo.CountActiveSessionsForUser: %w", err)
-	}
-	return count, nil
 }
 
 // ─── Task completions ────────────────────────────────────────────────────────

@@ -34,6 +34,8 @@ export interface MentorDirectoryEntry {
   bio: string | null;
   current_role: string | null;
   years_of_experience: number | null;
+  skills: string[];
+  joined_at: string;
 }
 
 // CheckoutSession mirrors courses.CheckoutSession (backend/internal/courses/handler.go)
@@ -92,6 +94,70 @@ export interface MentorChangeRequest {
 export async function getMentors(): Promise<MentorDirectoryEntry[]> {
   const body = await apiGet<{ mentors: MentorDirectoryEntry[] }>("/api/mentors");
   return body.mentors ?? [];
+}
+
+// MentorProfile is the single-mentor superset of MentorDirectoryEntry shown
+// on the profile page — adds the verified badge and three live-computed
+// stats (see backend/internal/mentoring/models.go for exact definitions).
+// The three stat fields are null when there isn't enough data yet (a new
+// mentor with no tickets/sessions), never a fabricated placeholder.
+export interface MentorProfile {
+  user_id: string;
+  name: string;
+  email: string;
+  avatar_url: string | null;
+  mentee_count: number;
+  avg_rating: number | null;
+  rating_count: number;
+  bio: string | null;
+  current_role: string | null;
+  years_of_experience: number | null;
+  skills: string[];
+  joined_at: string;
+  verified: boolean;
+  verified_at: string | null;
+  avg_response_minutes: number | null;
+  total_mentorship_hours: number | null;
+  percentile_rank: number | null;
+}
+
+export async function getMentorProfile(mentorId: string): Promise<MentorProfile | null> {
+  try {
+    return await apiGet<MentorProfile>(`/api/mentors/${mentorId}/profile`);
+  } catch {
+    return null;
+  }
+}
+
+// MentorConversation is a ticket-independent DM thread between a student
+// and a mentor — separate from MentorTicket/MentorChatMessage, which are
+// scoped to a course-enrollment mentorship assignment.
+export interface MentorConversation {
+  id: string;
+  org_id: string;
+  student_id: string;
+  mentor_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  org_id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+}
+
+export async function getMyConversations(): Promise<MentorConversation[]> {
+  const body = await apiGet<{ conversations: MentorConversation[] }>("/api/mentor-conversations");
+  return body.conversations ?? [];
+}
+
+export async function getConversationMessages(conversationId: string): Promise<DirectMessage[]> {
+  const body = await apiGet<{ messages: DirectMessage[] }>(`/api/mentor-conversations/${conversationId}/messages`);
+  return body.messages ?? [];
 }
 
 export async function getMentorTickets(filter: MentorTicketFilter = {}): Promise<MentorTicket[]> {

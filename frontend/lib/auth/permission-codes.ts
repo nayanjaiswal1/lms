@@ -28,6 +28,7 @@ export const PERMISSIONS = {
     VIEW_STUDENTS:   "mentoring.view_students",
     ASSIGN_TICKETS:  "mentoring.assign_tickets",
     MANAGE_REPORTS:  "mentoring.manage_reports",
+    VERIFY_MENTORS:  "mentoring.verify_mentors",
   },
   CONTENT: {
     WIKI:            "content.wiki",

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os/exec"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,9 +15,21 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// wsTokenType must match labs.WSTokenType (internal/labs/service.go) — the
+// value MintWSToken stamps on every token it issues. Checked in addition to
+// Issuer so that a future config accident pointing this process's issuer
+// string at the same value the main API's ordinary login tokens use still
+// can't be mistaken for a lab WS token: nothing else in the codebase ever
+// sets `typ` to this value. Duplicated as a literal instead of imported
+// because cmd/labproxy is a separate deploy unit deliberately kept free of
+// the main backend's dependency graph (no Docker/K8s client, no business
+// logic) — see NewProxyHandler's doc comment.
+const wsTokenType = "lab_ws"
+
 type wsClaims struct {
 	SessionID string `json:"session_id"`
 	UserID    string `json:"user_id"`
+	Type      string `json:"typ"`
 	jwt.RegisteredClaims
 }
 
@@ -35,27 +46,24 @@ type labSession struct {
 // main.go can wait for a clean drain on shutdown.
 type ProxyHandler struct {
 	pool      *pgxpool.Pool
-	rdb       *redis.Client // reserved for heartbeat pub/sub in a future phase
+	rdb       *redis.Client
 	jwtSecret string
 	jwtIssuer string
-	// labsRuntime mirrors the backend's LABS_RUNTIME. Only "docker" shells out
-	// to `docker unpause` below — under "kubernetes" that path is a no-op
-	// (Pods have no pause primitive; see labs.ContainerRuntime.Unpause), and
-	// this process is never given docker or K8s API access to begin with.
-	labsRuntime string
-	upgrader    websocket.Upgrader
-	wg          sync.WaitGroup
-	draining    atomic.Bool
+	upgrader  websocket.Upgrader
+	wg        sync.WaitGroup
+	draining  atomic.Bool
 }
 
 // NewProxyHandler constructs a ProxyHandler with all dependencies injected.
-func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, labsRuntime string) *ProxyHandler {
+// This process never touches Docker or the Kubernetes API — resuming a
+// paused container is the main API's job (labs.Service.MintWSToken), done
+// before it ever hands out the token requests here are authenticated with.
+func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer string) *ProxyHandler {
 	return &ProxyHandler{
-		pool:        pool,
-		rdb:         rdb,
-		jwtSecret:   jwtSecret,
-		jwtIssuer:   jwtIssuer,
-		labsRuntime: labsRuntime,
+		pool:      pool,
+		rdb:       rdb,
+		jwtSecret: jwtSecret,
+		jwtIssuer: jwtIssuer,
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: 10 * time.Second,
 			CheckOrigin:      func(r *http.Request) bool { return true },
@@ -83,6 +91,10 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if !h.tokenIsLive(r.Context(), tokenStr) {
+		http.Error(w, "token revoked or expired", http.StatusUnauthorized)
+		return
+	}
 
 	var sess labSession
 	err = h.pool.QueryRow(r.Context(),
@@ -101,26 +113,16 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sess.Status == "paused" {
-		if h.labsRuntime != "kubernetes" && sess.ContainerID != nil && *sess.ContainerID != "" {
-			if unpauseErr := exec.CommandContext(r.Context(),
-				"docker", "unpause", *sess.ContainerID).Run(); unpauseErr != nil {
-				slog.Warn("labproxy: docker unpause failed",
-					"container", *sess.ContainerID, "error", unpauseErr)
-			}
-		}
-		if _, execErr := h.pool.Exec(r.Context(),
-			`UPDATE lab_sessions SET status='running', last_active_at=now() WHERE id=$1`,
-			sess.ID); execErr != nil {
-			slog.Error("labproxy: unpause status update", "session", sess.ID, "error", execErr)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-		sess.Status = "running"
-	}
-
+	// labproxy has no Docker/Kubernetes API access — resuming a paused
+	// container is the main API's job, done synchronously inside
+	// labs.Service.MintWSToken before it ever hands out the token this
+	// request is authenticated with (see that method's own doc comment).
+	// The client always mints a fresh token before connecting, so reaching
+	// here with status still "paused" means the token is stale (session got
+	// idle-paused again after minting) rather than something this process
+	// can fix — reject and let the client re-mint, which resumes it.
 	if sess.Status != "running" {
-		http.Error(w, "session not running", http.StatusConflict)
+		http.Error(w, "session not running — mint a fresh session_token and reconnect", http.StatusConflict)
 		return
 	}
 
@@ -233,5 +235,28 @@ func validateWSToken(tokenStr, secret, issuer string) (*wsClaims, error) {
 		return nil, fmt.Errorf("labproxy: issuer mismatch: got %q, want %q",
 			claims.Issuer, issuer)
 	}
+	if claims.Type != wsTokenType {
+		return nil, fmt.Errorf("labproxy: unexpected token type: got %q, want %q",
+			claims.Type, wsTokenType)
+	}
 	return claims, nil
+}
+
+// tokenIsLive checks the Redis registry MintWSToken writes every token into
+// (labs.Service.MintWSToken's doc comment) — a second factor alongside the
+// JWT signature/expiry that lets a specific token be revoked (DEL) without
+// needing to end the session it belongs to. Fails OPEN on a Redis error: a
+// Redis outage must not lock every student out of every running lab, and the
+// JWT's own signature/expiry/issuer/type checks already ran before this is
+// reached — this registry is defense-in-depth on top of that, not the sole
+// gate.
+func (h *ProxyHandler) tokenIsLive(ctx context.Context, tokenStr string) bool {
+	_, err := h.rdb.Get(ctx, "lab:wstoken:"+tokenStr).Result()
+	if err == redis.Nil {
+		return false
+	}
+	if err != nil {
+		slog.Warn("labproxy: token registry check failed, failing open", "error", err)
+	}
+	return true
 }

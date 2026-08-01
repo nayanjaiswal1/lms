@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -64,6 +63,9 @@ func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort i
 	if err != nil {
 		return nil, http.StatusUnauthorized, "unauthorized"
 	}
+	if !h.tokenIsLive(r.Context(), tokenStr) {
+		return nil, http.StatusUnauthorized, "token revoked or expired"
+	}
 
 	var sess labSession
 	var previewPort int
@@ -92,25 +94,14 @@ func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort i
 		return nil, http.StatusNotFound, "lab has no app preview"
 	}
 
-	// Same unpause-on-access behavior as the terminal WS path.
-	if sess.Status == "paused" {
-		if h.labsRuntime != "kubernetes" && sess.ContainerID != nil && *sess.ContainerID != "" {
-			if unpauseErr := exec.CommandContext(r.Context(),
-				"docker", "unpause", *sess.ContainerID).Run(); unpauseErr != nil {
-				slog.Warn("labproxy: preview docker unpause failed",
-					"container", *sess.ContainerID, "error", unpauseErr)
-			}
-		}
-		if _, execErr := h.pool.Exec(r.Context(),
-			`UPDATE lab_sessions SET status='running', last_active_at=now() WHERE id=$1`,
-			sess.ID); execErr != nil {
-			slog.Error("labproxy: preview unpause status update", "session", sess.ID, "error", execErr)
-			return nil, http.StatusInternalServerError, "internal error"
-		}
-		sess.Status = "running"
-	}
+	// Resuming a paused container is the main API's job (labs.Service.
+	// MintWSToken, done before this token was ever handed out) — see
+	// proxy.go's ServeHTTP for the same reasoning. A still-paused session
+	// here means the token is stale; the client re-mints (use-lab-preview.ts
+	// always fetches a fresh token before setting the iframe src) rather than
+	// this process attempting a resume it has no credentials to perform.
 	if sess.Status != "running" {
-		return nil, http.StatusConflict, "session not running"
+		return nil, http.StatusConflict, "session not running — mint a fresh preview token"
 	}
 	if sess.ContainerHost == nil || *sess.ContainerHost == "" {
 		return nil, http.StatusServiceUnavailable, "container not ready"
@@ -227,10 +218,15 @@ func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 		// Session cookie on purpose: the token inside expires on its own
 		// (5-minute JWT); the frontend re-mints and reloads the iframe with
-		// a fresh token, which re-sets this cookie.
+		// a fresh token, which re-sets this cookie. Secure: true is safe even
+		// in local dev — browsers treat http://localhost as a secure context
+		// — and mandatory in prod: this cookie carries a live session
+		// credential, and without Secure it would ride along with any
+		// plaintext HTTP request to the same host.
 	})
 	// Port cookie mirrors the document's explicit port (cleared when the lab's
 	// configured preview_port is in use) so ServePreviewAsset routes this
@@ -244,6 +240,7 @@ func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 		Value:    portValue,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
 

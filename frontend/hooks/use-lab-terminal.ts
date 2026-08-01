@@ -13,6 +13,12 @@ interface UseLabTerminalOptions {
 interface UseLabTerminalReturn {
   containerRef: (node: HTMLDivElement | null) => void
   isConnected: boolean
+  /** True once every automatic reconnect attempt (RECONNECT_DELAYS) has been
+   *  used up and the hook has stopped retrying on its own — reconnectManually
+   *  resets the count and tries again. Lets the UI tell "still auto-retrying"
+   *  apart from "gave up, needs a click" instead of showing the same generic
+   *  message throughout. */
+  hasGivenUp: boolean
   reconnectManually: () => void
   /** Types `text` into the shell as if the user had typed it (no newline). */
   sendText: (text: string) => void
@@ -34,7 +40,11 @@ const TTYD_OUTPUT_BYTE = TTYD_OUTPUT.charCodeAt(0)
 export function useLabTerminal({
   sessionId,
 }: UseLabTerminalOptions): UseLabTerminalReturn {
-  const [isConnected, setIsConnected] = useState(false)
+  // Combined into one state value (not two useState calls) — connected and
+  // gaveUp are read together by every consumer and only ever change at the
+  // same handful of call sites, so there is no independent-update case that
+  // would need them split.
+  const [connState, setConnState] = useState({ connected: false, gaveUp: false })
   // `LabTerminal` is loaded via next/dynamic({ ssr: false }), so its ref-bearing
   // div doesn't exist on this hook's first render — a plain useRef would capture
   // `current === null` once and never re-run since the ref object's identity
@@ -51,6 +61,7 @@ export function useLabTerminal({
 
   const reconnectManually = useCallback(() => {
     reconnectCountRef.current = 0
+    setConnState((prev) => ({ connected: prev.connected, gaveUp: false }))
     reconnectFnRef.current?.()
   }, [])
 
@@ -89,7 +100,10 @@ export function useLabTerminal({
     const scheduleReconnect = () => {
       if (disposed) return
       const delay = RECONNECT_DELAYS[reconnectCountRef.current]
-      if (delay === undefined) return
+      if (delay === undefined) {
+        setConnState({ connected: false, gaveUp: true })
+        return
+      }
       reconnectCountRef.current += 1
       reconnectTimeout = setTimeout(connectWS, delay)
     }
@@ -126,7 +140,7 @@ export function useLabTerminal({
           return
         }
         reconnectCountRef.current = 0
-        setIsConnected(true)
+        setConnState({ connected: true, gaveUp: false })
 
         // ttyd only spawns the pty after receiving this unprefixed init frame.
         ws.send(
@@ -172,7 +186,9 @@ export function useLabTerminal({
       }
 
       ws.onclose = () => {
-        setIsConnected(false)
+        // Preserves the current gaveUp value — scheduleReconnect below is
+        // what decides whether THIS close was the last attempt.
+        setConnState((prev) => ({ connected: false, gaveUp: prev.gaveUp }))
         if (heartbeatInterval) {
           clearInterval(heartbeatInterval)
           heartbeatInterval = null
@@ -290,9 +306,15 @@ export function useLabTerminal({
       wsRef.current?.close()
       termRef.current?.dispose()
       termRef.current = null
-      setIsConnected(false)
+      setConnState({ connected: false, gaveUp: false })
     }
   }, [sessionId, containerNode])
 
-  return { containerRef, isConnected, reconnectManually, sendText }
+  return {
+    containerRef,
+    isConnected: connState.connected,
+    hasGivenUp: connState.gaveUp,
+    reconnectManually,
+    sendText,
+  }
 }

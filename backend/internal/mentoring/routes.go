@@ -54,6 +54,7 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	mentorOnly := middleware.RequireOrgRole(rt.pool, middleware.RoleMentor)
 	assignTickets := authz.RequirePermission(rt.handler.authzSvc, PermissionAssignTickets)
 	manageReports := authz.RequirePermission(rt.handler.authzSvc, PermissionManageReports)
+	verifyMentors := authz.RequirePermission(rt.handler.authzSvc, PermissionVerifyMentors)
 
 	// Ticket queue — mentor/instructor/admin can view.
 	r.Group(func(r chi.Router) {
@@ -115,7 +116,23 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 
 	// Directory + reporting — any authenticated org member.
 	r.Get("/api/mentors", rt.handler.ListMentorDirectory)
+	r.Get("/api/mentors/{mentorID}/profile", rt.handler.GetMentorProfile)
 	r.Post("/api/mentors/{mentorID}/report", rt.handler.ReportMentor)
+
+	// Verified-expert badge toggle — gated by the DB-configurable
+	// mentoring.verify_mentors permission (default: instructor + tenant_admin).
+	r.Group(func(r chi.Router) {
+		r.Use(verifyMentors)
+		r.Patch("/api/mentors/{mentorID}/verify", rt.handler.VerifyMentor)
+	})
+
+	// Ticket-independent mentor DMs — any authenticated org member; the
+	// service verifies the caller is the conversation's student or mentor,
+	// and that a new conversation's target actually holds the mentor role.
+	r.Post("/api/mentor-conversations", rt.handler.CreateOrGetConversation)
+	r.Get("/api/mentor-conversations", rt.handler.ListMyConversations)
+	r.Get("/api/mentor-conversations/{conversationID}/messages", rt.handler.ListConversationMessages)
+	r.Post("/api/mentor-conversations/{conversationID}/messages", rt.handler.SendConversationMessage)
 
 	// Report moderation — gated by mentoring.manage_reports.
 	r.Group(func(r chi.Router) {

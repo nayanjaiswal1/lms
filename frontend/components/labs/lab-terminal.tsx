@@ -14,6 +14,8 @@ import "@xterm/xterm/css/xterm.css"
 interface LabTerminalProps {
   containerRef: (node: HTMLDivElement | null) => void
   isConnected: boolean
+  /** True once automatic reconnect attempts are exhausted — see useLabTerminal. */
+  hasGivenUp?: boolean
   reconnectManually: () => void
   /** Types text into the shell — used to insert a file path dropped from the tree. */
   sendText: (text: string) => void
@@ -22,7 +24,7 @@ interface LabTerminalProps {
 // Presentational only — the WebSocket connection (useLabTerminal) is owned by
 // LabContainerWorkspace so its connection status can be shown in that
 // component's persistent tab-bar header instead of a second header here.
-export function LabTerminal({ containerRef, isConnected, reconnectManually, sendText }: LabTerminalProps) {
+export function LabTerminal({ containerRef, isConnected, hasGivenUp, reconnectManually, sendText }: LabTerminalProps) {
   return (
     <div
       className="relative h-full bg-terminal"
@@ -45,10 +47,13 @@ export function LabTerminal({ containerRef, isConnected, reconnectManually, send
       {!isConnected && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-terminal/90 backdrop-blur-sm z-raised">
           <WifiOff aria-hidden className="h-8 w-8 text-terminal-muted-foreground" />
-          <p className="text-sm font-medium text-terminal-foreground">Connection lost</p>
+          <p className="text-sm font-medium text-terminal-foreground">
+            {hasGivenUp ? "Couldn't reconnect" : "Connection lost"}
+          </p>
           <p className="text-xs text-terminal-muted-foreground text-center max-w-xs">
-            The terminal connection was interrupted. You can reconnect or end
-            the session.
+            {hasGivenUp
+              ? "Automatic reconnect attempts ran out. Try again, or end the session."
+              : "The terminal connection was interrupted. Reconnecting automatically…"}
           </p>
           <Button
             aria-label="Reconnect to terminal"

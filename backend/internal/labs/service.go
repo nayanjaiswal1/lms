@@ -63,10 +63,21 @@ func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool 
 	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc}
 }
 
+// WSTokenType is the wsTokenClaims.Type value labproxy requires. labproxy
+// and the main API share one JWT signing secret (LABPROXY_JWT_SECRET =
+// JWT_SECRET) with only the Issuer string distinguishing a lab WS token from
+// a main-app access token — a config slip that points both processes at the
+// same issuer string would otherwise make an ordinary login token pass
+// validateWSToken. A dedicated `typ` claim, checked in addition to Issuer,
+// closes that gap: it's a value that only ever appears on a token minted by
+// MintWSToken, never on any other token type this codebase issues.
+const WSTokenType = "lab_ws"
+
 // wsTokenClaims is the JWT payload issued by MintWSToken.
 type wsTokenClaims struct {
 	SessionID string `json:"session_id"`
 	UserID    string `json:"user_id"`
+	Type      string `json:"typ"`
 	jwt.RegisteredClaims
 }
 
@@ -74,8 +85,11 @@ type wsTokenClaims struct {
 
 // StartSession provisions a new lab session for the given user. Idempotent: a
 // non-empty idempotencyKey causes a duplicate request to return the original
-// session unchanged. When an active session already exists for the same
-// user+lab, the existing session is returned rather than an error.
+// session, but ONLY while that session is still non-terminal — see the
+// idempotency-key check below for why a terminal hit falls through to a
+// fresh start instead of being returned. When an active session already
+// exists for the same user+lab, the existing session is returned rather than
+// an error.
 func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string, isTest bool, idempotencyKey string) (*LabSession, error) {
 	// 1. Load lab and verify it exists in this org.
 	lab, err := s.repo.GetLab(ctx, labID, orgID)
@@ -88,14 +102,30 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		return nil, ErrLabNotPublished
 	}
 
-	// 3. Check idempotency key — return the existing session if present.
+	// 3. Check idempotency key — return the existing session if present AND
+	// still non-terminal. The cached session ID lives for 10 minutes
+	// (matching typical client retry/backoff windows), but a session's own
+	// lifecycle is usually much shorter than that: it's entirely possible to
+	// start, finish, and end a short lab well within the same 10-minute
+	// window. Returning a completed/expired/failed session here would hand
+	// the caller a dead container_id it can never reconnect to — the
+	// idempotency cache exists to dedupe an in-flight start, not to resurrect
+	// one that already ran its course. A terminal hit clears the stale key
+	// and falls through to provisioning a genuinely new session instead.
 	if idempotencyKey != "" {
 		if val, redisErr := s.rdb.Get(ctx, "lab:idem:"+idempotencyKey).Result(); redisErr == nil && val != "" {
 			existing, err := s.repo.GetSessionByID(ctx, val)
-			if err != nil {
+			if err != nil && !errors.Is(err, ErrNotFound) {
 				return nil, fmt.Errorf("labs.Service.StartSession: resolve idempotency: %w", err)
 			}
-			return existing, nil
+			if err == nil && isNonTerminalStatus(existing.Status) {
+				return existing, nil
+			}
+			// Session is terminal, or the row is simply gone — either way the
+			// cached ID no longer points at anything worth returning.
+			if delErr := s.rdb.Del(ctx, "lab:idem:"+idempotencyKey).Err(); delErr != nil {
+				slog.Warn("labs.Service.StartSession: clear stale idempotency key", "error", delErr)
+			}
 		}
 	}
 
@@ -196,7 +226,14 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		return nil, fmt.Errorf("labs.Service.StartSession: check active session: %w", scanErr)
 	}
 
-	expiresAt := time.Now().Add(time.Duration(orgCfg.MaxSessionDuration) * time.Minute)
+	// expires_at is the HARD wall-clock deadline described in docs/labs.md:
+	// min(lab.max_duration, org.max_session_duration). Using the org cap
+	// alone (the previous behavior) let every lab run for up to the org's
+	// full 120-minute ceiling regardless of what the instructor actually
+	// configured — a 30-minute lab silently held its container 4x longer
+	// than intended.
+	sessionMinutes := min(lab.MaxDuration, orgCfg.MaxSessionDuration)
+	expiresAt := time.Now().Add(time.Duration(sessionMinutes) * time.Minute)
 	session, err := s.repo.CreateSession(ctx, tx, CreateSessionParams{
 		LabID:         labID,
 		TaskVersionID: *lab.PublishedVersionID,
@@ -482,6 +519,28 @@ func (s *Service) MintWSToken(ctx context.Context, sessionID, userID, jwtSecret,
 	if err != nil {
 		return "", err
 	}
+	if err := s.requireSessionLive(ctx, session); err != nil {
+		return "", err
+	}
+	// Minting a WS token is the one action guaranteed to happen before every
+	// terminal (re)connect and every preview (re)load — the frontend always
+	// calls this to get a fresh token first (tokens are 5-minute JWTs; see
+	// use-lab-terminal.ts / use-lab-preview.ts). That makes it the natural,
+	// single place to resume a paused container: by the time the client
+	// dials labproxy, the session is already 'running' and the container is
+	// already unpaused, so labproxy itself never needs Docker/K8s API access
+	// to do this — see cmd/labproxy's proxy.go/preview.go, which now just
+	// reject a still-paused session rather than attempting their own resume.
+	if session.Status == SessionStatusPaused {
+		if err := s.ensureContainerResumed(ctx, session); err != nil {
+			return "", fmt.Errorf("labs.Service.MintWSToken: resume: %w", err)
+		}
+	}
+	// requireSessionLive alone also accepts 'provisioning' (no container yet
+	// — nothing for the proxy to dial); the pause branch above only advances
+	// 'paused' to 'running', so anything still not 'running' at this point
+	// (i.e. 'provisioning') is rejected explicitly rather than handed a token
+	// for a container that doesn't exist.
 	if session.Status != SessionStatusRunning {
 		return "", ErrSessionNotRunning
 	}
@@ -490,6 +549,7 @@ func (s *Service) MintWSToken(ctx context.Context, sessionID, userID, jwtSecret,
 	claims := wsTokenClaims{
 		SessionID: sessionID,
 		UserID:    userID,
+		Type:      WSTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -502,6 +562,14 @@ func (s *Service) MintWSToken(ctx context.Context, sessionID, userID, jwtSecret,
 		return "", fmt.Errorf("labs.Service.MintWSToken: sign: %w", err)
 	}
 
+	// Stored so labproxy can verify the token independently — a second
+	// factor alongside the JWT signature, checked on every WS upgrade and
+	// preview request (see cmd/labproxy's validateWSToken callers). The
+	// session's DB status is still the authoritative revocation source (an
+	// ended session's WS connections and preview requests are rejected the
+	// moment status leaves 'running', regardless of token validity) — this
+	// registry additionally lets a single leaked token be revoked with one
+	// DEL, without waiting on or affecting the session it belongs to.
 	if err := s.rdb.Set(ctx, "lab:wstoken:"+tokenStr, sessionID, 5*time.Minute).Err(); err != nil {
 		slog.Error("labs.Service.MintWSToken: store token", "session_id", sessionID, "error", err)
 	}
@@ -555,7 +623,7 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if terminalStatus == SessionStatusCompleted {
-		if err := s.repo.UpdateSessionCompleted(ctx, tx, sessionID, session.Score); err != nil {
+		if _, err := s.repo.UpdateSessionCompleted(ctx, tx, sessionID); err != nil {
 			return fmt.Errorf("labs.Service.EndSession: update completed: %w", err)
 		}
 	} else {
@@ -568,6 +636,14 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 		return fmt.Errorf("labs.Service.EndSession: commit: %w", err)
 	}
 
+	// completed_at is now committed (for the completed branch; the expired
+	// branch has none, so the usage query falls back to now() — see
+	// RecordSessionContainerUsage), so the billed duration is accurate as of
+	// this point.
+	if err := s.repo.RecordSessionContainerUsage(ctx, sessionID); err != nil {
+		slog.Error("labs.Service.EndSession: record usage", "session_id", sessionID, "error", err)
+	}
+
 	if session.ContainerID != nil {
 		go s.container.Kill(context.Background(), *session.ContainerID)
 	}
@@ -578,13 +654,21 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 // ─── ResetSession ─────────────────────────────────────────────────────────────
 
 // ResetSession clears all task completions and zeroes the session score,
-// consuming one of the lab's allowed resets.
+// consuming one of the lab's allowed resets. For container-backed lab types
+// this ALSO re-provisions the container (docs/labs.md: "staged: new
+// container healthy before old is killed") — a student's polluted
+// filesystem/services otherwise survive a "reset" untouched, since every
+// task's verification_script checks real container state. Code labs have no
+// container to touch and only reset the scoreboard.
 func (s *Service) ResetSession(ctx context.Context, sessionID, userID string) (*LabSession, []LabTaskCompletion, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
 		return nil, nil, err
 	}
-	if session.Status != SessionStatusRunning {
+	if err := s.requireSessionLive(ctx, session); err != nil {
+		return nil, nil, err
+	}
+	if session.Status != SessionStatusRunning && session.Status != SessionStatusPaused {
 		return nil, nil, ErrSessionNotRunning
 	}
 
@@ -596,33 +680,115 @@ func (s *Service) ResetSession(ctx context.Context, sessionID, userID string) (*
 		return nil, nil, ErrMaxResetsReached
 	}
 
+	if lab.LabType == LabTypeCode {
+		return s.resetCodeSession(ctx, session, userID)
+	}
+	return s.resetContainerSession(ctx, session, lab, userID)
+}
+
+// resetCodeSession is ResetSession's path for code labs: no container
+// exists, so only the scoreboard resets.
+func (s *Service) resetCodeSession(ctx context.Context, session *LabSession, userID string) (*LabSession, []LabTaskCompletion, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("labs.Service.ResetSession: begin tx: %w", err)
+		return nil, nil, fmt.Errorf("labs.Service.resetCodeSession: begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := s.repo.ResetTaskCompletions(ctx, tx, sessionID); err != nil {
+	if err := s.repo.ResetTaskCompletions(ctx, tx, session.ID); err != nil {
 		return nil, nil, err
 	}
-	if err := s.repo.ZeroSessionScore(ctx, tx, sessionID); err != nil {
+	if err := s.repo.ZeroSessionScore(ctx, tx, session.ID); err != nil {
 		return nil, nil, err
 	}
 	if _, err := tx.Exec(ctx,
-		"UPDATE lab_sessions SET reset_count = reset_count + 1 WHERE id=$1", sessionID,
+		"UPDATE lab_sessions SET reset_count = reset_count + 1 WHERE id=$1", session.ID,
 	); err != nil {
-		return nil, nil, fmt.Errorf("labs.Service.ResetSession: increment reset: %w", err)
+		return nil, nil, fmt.Errorf("labs.Service.resetCodeSession: increment reset: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, nil, fmt.Errorf("labs.Service.ResetSession: commit: %w", err)
+		return nil, nil, fmt.Errorf("labs.Service.resetCodeSession: commit: %w", err)
 	}
 
-	refreshed, err := s.repo.GetSession(ctx, sessionID, userID)
+	refreshed, err := s.repo.GetSession(ctx, session.ID, userID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("labs.Service.ResetSession: reload: %w", err)
+		return nil, nil, fmt.Errorf("labs.Service.resetCodeSession: reload: %w", err)
 	}
 	return refreshed, []LabTaskCompletion{}, nil
+}
+
+// resetContainerSession is ResetSession's path for terminal/guided/
+// playground/sandbox labs. Staged: the replacement container is started and
+// confirmed BEFORE any DB state changes — a start failure here leaves the
+// student's existing container, progress, and score completely untouched
+// (returns ErrResetFailed; the reset attempt simply didn't consume anything).
+// Only once the replacement is healthy does one transaction atomically wipe
+// task completions/score and swap the session onto the new container's
+// coordinates; the old container is killed only after that swap is durable.
+func (s *Service) resetContainerSession(ctx context.Context, session *LabSession, lab *LabDefinition, userID string) (*LabSession, []LabTaskCompletion, error) {
+	newResetCount := session.ResetCount + 1
+	var setupScript string
+	if lab.SetupScript != nil {
+		setupScript = *lab.SetupScript
+	}
+
+	// Named "mindforge-lab-{sessionID}-{newResetCount}" — distinct from the
+	// current container's "-{session.ResetCount}" name, exactly the
+	// collision this suffix scheme exists to avoid (docs/labs.md).
+	newContainerID, newContainerHost, startErr := s.container.Start(ctx, session.ID, newResetCount, lab.Environment, setupScript)
+	if startErr != nil {
+		slog.Error("labs.Service.resetContainerSession: start replacement container", "session_id", session.ID, "error", startErr)
+		return nil, nil, ErrResetFailed
+	}
+
+	if err := s.swapResetContainer(ctx, session, newContainerID, newContainerHost, newResetCount); err != nil {
+		_ = s.container.Kill(context.Background(), newContainerID)
+		return nil, nil, err
+	}
+
+	// The new container is authoritative in the DB from this point — only
+	// now is it safe to remove the old one.
+	if session.ContainerID != nil {
+		go s.container.Kill(context.Background(), *session.ContainerID)
+	}
+
+	// Fresh container, fresh clone — the same auto-clone hook StartSession
+	// runs, so a reset student's repo starter state matches a first-time
+	// session's instead of staying permanently empty after their first reset.
+	s.runRepoClone(ctx, session, newContainerID)
+
+	refreshed, err := s.repo.GetSession(ctx, session.ID, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("labs.Service.resetContainerSession: reload: %w", err)
+	}
+	return refreshed, []LabTaskCompletion{}, nil
+}
+
+// swapResetContainer runs the DB half of a staged reset in one transaction:
+// wipe task completions, zero the score, and point the session at the new
+// container's coordinates (incrementing reset_count, clearing any pause).
+func (s *Service) swapResetContainer(ctx context.Context, session *LabSession, containerID, containerHost string, resetCount int) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("labs.Service.swapResetContainer: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := s.repo.ResetTaskCompletions(ctx, tx, session.ID); err != nil {
+		return err
+	}
+	if err := s.repo.ZeroSessionScore(ctx, tx, session.ID); err != nil {
+		return err
+	}
+	if err := s.repo.SwapSessionContainer(ctx, tx, session.ID, containerID, containerHost, resetCount); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("labs.Service.swapResetContainer: commit: %w", err)
+	}
+	return nil
 }
 
 // ─── WaitForReadiness ────────────────────────────────────────────────────────
@@ -645,6 +811,12 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 	if err != nil {
 		return nil, err
 	}
+	if err := s.requireSessionLive(ctx, session); err != nil {
+		return nil, err
+	}
+	// requireSessionLive alone also accepts 'provisioning' (no container/
+	// executor ready yet); verification needs one of the two live-and-ready
+	// states.
 	if session.Status != SessionStatusRunning && session.Status != SessionStatusPaused {
 		return nil, ErrSessionNotRunning
 	}
@@ -759,6 +931,47 @@ func (s *Service) verifyContainerTask(ctx context.Context, session *LabSession, 
 	return s.finalizeTaskPass(ctx, session, lab, tasks, task.ID, task.Points, attempts, stdout, stderr)
 }
 
+// requireSessionLive is the shared precondition for every session-touching
+// endpoint: the session must be non-terminal AND still within its hard
+// expires_at deadline. Checking status alone (the previous behavior) left a
+// window of up to one minute — the lab.expire_sessions cron interval —
+// during which a session past its deadline still looked "running" to every
+// request-time check, so verify/exec/terminal traffic kept working well
+// past the wall-clock cap docs/labs.md calls HARD. A session found expired
+// here is closed out immediately (container killed, status flipped, exactly
+// what the reaper would have done) so this and every subsequent request see
+// consistent state right away instead of waiting for the next tick.
+func (s *Service) requireSessionLive(ctx context.Context, session *LabSession) error {
+	if !isNonTerminalStatus(session.Status) {
+		return ErrSessionNotRunning
+	}
+	if time.Now().Before(session.ExpiresAt) {
+		// This is the one call site every session-touching endpoint funnels
+		// through (verify, file ops, run/submit, ws-token mint, reset) — the
+		// natural single place to bump the idle heartbeat. The lab proxy's
+		// own 5s WS heartbeat previously was the ONLY writer of
+		// last_active_at, so a student editing files in the sandbox IDE with
+		// the terminal tab closed, or any code-type lab (no WS at all), read
+		// as idle and got paused/reaped mid-work. Best-effort: a failed
+		// heartbeat write must never fail the request it's riding along with.
+		if err := s.repo.UpdateLastActiveAt(ctx, session.ID); err != nil {
+			slog.Error("labs.Service.requireSessionLive: update heartbeat", "session_id", session.ID, "error", err)
+		}
+		return nil
+	}
+	if err := s.repo.UpdateSessionExpired(ctx, session.ID, EndReasonTimeLimit); err != nil {
+		slog.Error("labs.Service.requireSessionLive: mark expired", "session_id", session.ID, "error", err)
+	}
+	if err := s.repo.RecordSessionContainerUsage(ctx, session.ID); err != nil {
+		slog.Error("labs.Service.requireSessionLive: record usage", "session_id", session.ID, "error", err)
+	}
+	if session.ContainerID != nil {
+		go s.container.Kill(context.Background(), *session.ContainerID)
+	}
+	session.Status = SessionStatusExpired
+	return ErrSessionExpired
+}
+
 // ensureContainerResumed guards every container-touching session operation
 // (verify, file read/write/rename/delete, validate, resources) against a
 // nil container and a paused container. A paused container can't be exec'd
@@ -775,10 +988,13 @@ func (s *Service) ensureContainerResumed(ctx context.Context, session *LabSessio
 		if err := s.container.Unpause(ctx, *session.ContainerID); err != nil {
 			return fmt.Errorf("unpause: %w", err)
 		}
-		if err := s.repo.UpdateSessionStatus(ctx, session.ID, SessionStatusRunning); err != nil {
+		// Folds the just-ended pause into the cumulative paused_seconds cost
+		// counter and clears paused_at — see migration 011's column comment.
+		if err := s.repo.ResumeFromPause(ctx, session.ID); err != nil {
 			return fmt.Errorf("update status: %w", err)
 		}
 		session.Status = SessionStatusRunning
+		session.PausedAt = nil
 	}
 	return nil
 }
@@ -841,14 +1057,27 @@ func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab
 
 	sessionCompleted := len(nonOptionalIDs) > 0 && passedCount >= len(nonOptionalIDs)
 	if sessionCompleted {
-		newScore := session.Score + scoreAdded
-		if err := s.repo.UpdateSessionCompleted(ctx, tx, session.ID, newScore); err != nil {
+		// UpdateSessionCompleted no longer takes a score to write — it
+		// RETURNs the row's current value instead. MarkTaskPassed above
+		// already did `score = score + scoreAdded` atomically in this same
+		// transaction; writing session.Score+scoreAdded here (the caller's
+		// in-memory snapshot, taken whenever the request started) used to
+		// silently clobber whatever a concurrent verify for a different task
+		// had just added, since the FOR UPDATE lock above is taken AFTER
+		// MarkTaskPassed's write, not before it.
+		if _, err := s.repo.UpdateSessionCompleted(ctx, tx, session.ID); err != nil {
 			return nil, fmt.Errorf("labs.Service.finalizeTaskPass: complete session: %w", err)
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: commit: %w", err)
+	}
+
+	if sessionCompleted {
+		if err := s.repo.RecordSessionContainerUsage(ctx, session.ID); err != nil {
+			slog.Error("labs.Service.finalizeTaskPass: record usage", "session_id", session.ID, "error", err)
+		}
 	}
 
 	// Complete the embedding course module (non-fatal: the lab session itself
@@ -871,10 +1100,28 @@ func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab
 
 // ─── WaitForReadiness ────────────────────────────────────────────────────────
 
-// WaitForReadiness streams Server-Sent Events until the session container is
-// ready or has failed. It subscribes to a Redis channel published by the
-// provisioning goroutine and polls the DB every 2 s as a fallback in case the
-// pub/sub message was missed.
+// waitForReadinessDeadline hard-bounds one SSE connection. Provisioning
+// itself is bounded by ProvisionTimeoutSeconds and the stuck-provisioning
+// reaper by that plus ProvisionReapGraceSeconds — this adds its own margin on
+// top so a client that's still connected genuinely gets an answer (or a
+// clean disconnect) rather than the handler goroutine running forever on a
+// status this loop never learns has gone terminal.
+const waitForReadinessDeadline = time.Duration(ProvisionTimeoutSeconds+ProvisionReapGraceSeconds+30) * time.Second
+
+// WaitForReadiness streams Server-Sent Events until the session leaves
+// 'provisioning' — for any reason. It subscribes to a Redis channel
+// published by the provisioning goroutine and polls the DB every 2 s as a
+// fallback in case the pub/sub message was missed. Terminating only on
+// 'running' or 'failed' (the previous behavior) left every OTHER terminal
+// status — 'completed'/'expired'/'terminated_abuse', reachable if a session
+// is reaped or ended while still being waited on — stuck polling the DB and
+// holding a Redis subscription open for as long as the client stayed
+// connected; waitForReadinessDeadline below is the hard backstop for that
+// same reason. Every non-'running' terminal status reports "failed" to the
+// client: the wire protocol (and every current frontend listener) only
+// distinguishes ready/failed, and "session ended without ever becoming
+// ready" is accurately a failure to become ready from the waiting client's
+// point of view.
 func (s *Service) WaitForReadiness(ctx context.Context, w http.ResponseWriter, sessionID string) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -882,20 +1129,34 @@ func (s *Service) WaitForReadiness(ctx context.Context, w http.ResponseWriter, s
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, waitForReadinessDeadline)
+	defer cancel()
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// Fast path: session may already be running or failed before we even subscribe.
-	if session, err := s.repo.GetSessionByID(ctx, sessionID); err == nil {
-		switch session.Status {
+	emit := func(eventType string) {
+		fmt.Fprintf(w, "data: {\"type\":%q}\n\n", eventType)
+		flusher.Flush()
+	}
+	// terminalEvent reports the SSE event for a session status, and whether
+	// the wait is over. Non-terminal ('provisioning') keeps the loop going.
+	terminalEvent := func(status string) (event string, done bool) {
+		switch status {
 		case SessionStatusRunning:
-			fmt.Fprintf(w, "data: {\"type\":\"ready\"}\n\n")
-			flusher.Flush()
-			return
-		case SessionStatusFailed:
-			fmt.Fprintf(w, "data: {\"type\":\"failed\"}\n\n")
-			flusher.Flush()
+			return "ready", true
+		case SessionStatusProvisioning:
+			return "", false
+		default:
+			return "failed", true
+		}
+	}
+
+	// Fast path: session may already be terminal before we even subscribe.
+	if session, err := s.repo.GetSessionByID(ctx, sessionID); err == nil {
+		if event, done := terminalEvent(session.Status); done {
+			emit(event)
 			return
 		}
 	}
@@ -916,12 +1177,10 @@ func (s *Service) WaitForReadiness(ctx context.Context, w http.ResponseWriter, s
 			}
 			switch msg.Payload {
 			case "ready":
-				fmt.Fprintf(w, "data: {\"type\":\"ready\"}\n\n")
-				flusher.Flush()
+				emit("ready")
 				return
 			case "failed":
-				fmt.Fprintf(w, "data: {\"type\":\"failed\"}\n\n")
-				flusher.Flush()
+				emit("failed")
 				return
 			}
 		case <-ticker.C:
@@ -930,14 +1189,8 @@ func (s *Service) WaitForReadiness(ctx context.Context, w http.ResponseWriter, s
 				slog.Error("labs.Service.WaitForReadiness: poll session", "session_id", sessionID, "error", err)
 				return
 			}
-			switch session.Status {
-			case SessionStatusRunning:
-				fmt.Fprintf(w, "data: {\"type\":\"ready\"}\n\n")
-				flusher.Flush()
-				return
-			case SessionStatusFailed:
-				fmt.Fprintf(w, "data: {\"type\":\"failed\"}\n\n")
-				flusher.Flush()
+			if event, done := terminalEvent(session.Status); done {
+				emit(event)
 				return
 			}
 		}

@@ -70,6 +70,15 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 			return fmt.Errorf("migrate: apply %s: %w", name, err)
 		}
 
+		// A pg_dump-generated migration (001_baseline.sql) sets search_path to
+		// '' with is_local=false, which is session-scoped: it outlives this
+		// statement and would poison the pooled connection for every later
+		// query, starting with the tracking INSERT below.
+		if _, err := tx.Exec(ctx, `RESET search_path`); err != nil {
+			_ = tx.Rollback(ctx)
+			return fmt.Errorf("migrate: reset search_path after %s: %w", name, err)
+		}
+
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO schema_migrations (version) VALUES ($1)`, name,
 		); err != nil {

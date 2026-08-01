@@ -230,14 +230,18 @@ func main() {
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
 		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
-		// TimeoutMS must clear nested-Docker warm starts: lab-images/lab-docker's
-		// entrypoint allows rootless dockerd up to 70s to become ready before
-		// giving up, so a shorter job timeout here made every nested-Docker warm
-		// attempt fail right as dockerd was about to succeed, every single
-		// minute, forever (verified via docker stats: 3 warm containers stuck
-		// mid-bootstrap on a continuous loop, contending with real session
-		// provisioning for the same host Docker daemon).
-		{Handler: handlers.HandlerLabWarmPool, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 100000},
+		// TimeoutMS must clear labs.ProvisionTimeoutSeconds (180s): converge's
+		// scale-up goroutines give each warm start that same budget a cold-
+		// started session gets (a slow image pull or setup_script — e.g. a
+		// web-app lab's dev-server cold start — can legitimately need most of
+		// it), and Tick's wg.Wait() blocks the whole job until every
+		// outstanding goroutine returns. A shorter job timeout than that
+		// budget doesn't stop the goroutine (Go has no forced-cancel), but it
+		// does make the scheduler log every slow-but-successful warm attempt
+		// as a job timeout and can trigger an overlapping next-minute tick.
+		// (Nested-Docker images are excluded from the warm pool entirely —
+		// ImageProfile.SkipPreWarm — so they are not what this margin is for.)
+		{Handler: handlers.HandlerLabWarmPool, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 210000},
 		{Handler: handlers.HandlerAssessmentExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},
 		{Handler: handlers.HandlerMentorEscalate, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerCalendarReminder, Schedule: "*/5 * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 60000},

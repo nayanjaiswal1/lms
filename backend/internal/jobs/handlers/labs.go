@@ -34,59 +34,60 @@ func NewLabExpireHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime, noti
 	return &LabExpireHandler{pool: pool, runtime: runtime, notifications: notifSvc}
 }
 
-// Handle finds all running/paused sessions that have either hit their hard
-// expires_at cap or gone quiet for longer than labs.IdleTimeoutMinutes (no
-// last_active_at heartbeat — the lab proxy bumps that every 5s while a
-// terminal WebSocket is connected, so a stale timestamp means the user
-// closed the tab or lost connection without ending the session). Each match
-// gets its container removed and is marked expired with the reason that
-// triggered it, so the result page can tell the user why their lab ended.
+// Handle runs three passes every tick, in order:
+//
+//  1. hardExpireOverdue — ANY running or paused session past its hard
+//     expires_at deadline is closed out immediately, regardless of pause
+//     state. This is the wall-clock cap docs/labs.md calls HARD; nothing
+//     below is allowed to extend it.
+//  2. pauseIdleRunning — a running session gone quiet for
+//     labs.IdleTimeoutMinutes (no last_active_at heartbeat — bumped by every
+//     session-touching request, not just the terminal WS) is PAUSED, not
+//     killed: this stops CPU billing while preserving the student's
+//     filesystem/process state exactly as docs/labs.md's "Idle-pause" design
+//     describes. A runtime that can't pause (Kubernetes — see
+//     ContainerRuntime.Pause) falls back to the old kill+expire behavior,
+//     since there is no cheaper way to reclaim that Pod.
+//  3. reapLongPaused — a paused session that has sat untouched for
+//     labs.IdleReapMinutes (much longer than the pause threshold) is finally
+//     closed out. A paused container still holds memory and disk, so it
+//     cannot be held forever, but this gives the student a wide window to
+//     come back to it — the old behavior destroyed their work at 15 minutes
+//     flat.
 func (h *LabExpireHandler) Handle(ctx context.Context, job jobs.Job) error {
 	if err := h.reapStuckProvisioning(ctx); err != nil {
-		// Logged, not returned: a failure here must not stop the
-		// running/paused sweep below from also running this tick.
+		// Logged, not returned: a failure here must not stop the passes below.
 		slog.Error("lab.expire_sessions: reap stuck provisioning failed", "error", err)
 	}
+	if err := h.hardExpireOverdue(ctx); err != nil {
+		slog.Error("lab.expire_sessions: hard expire failed", "error", err)
+	}
+	if err := h.pauseIdleRunning(ctx); err != nil {
+		slog.Error("lab.expire_sessions: pause idle running failed", "error", err)
+	}
+	if err := h.reapLongPaused(ctx); err != nil {
+		slog.Error("lab.expire_sessions: reap long-paused failed", "error", err)
+	}
+	return nil
+}
 
-	rows, err := h.pool.Query(ctx,
-		`SELECT id, container_id,
-		        CASE WHEN expires_at < now() THEN 'time_limit' ELSE 'idle_timeout' END AS reason
-		 FROM lab_sessions
-		 WHERE status IN ($1, $2)
-		   AND (expires_at < now() OR last_active_at < now() - make_interval(mins => $3))
-		 LIMIT 100`,
-		labs.SessionStatusRunning, labs.SessionStatusPaused, labs.IdleTimeoutMinutes,
-	)
-	if err != nil {
-		return fmt.Errorf("lab.expire_sessions: query sessions: %w", err)
-	}
-	defer rows.Close()
+// sessionRow is the (id, container_id) shape every pass below queries and
+// acts on.
+type sessionRow struct {
+	id          string
+	containerID *string
+}
 
-	type sessionRow struct {
-		id          string
-		containerID *string
-		reason      string
-	}
-
-	var sessions []sessionRow
-	for rows.Next() {
-		var r sessionRow
-		if err := rows.Scan(&r.id, &r.containerID, &r.reason); err != nil {
-			return fmt.Errorf("lab.expire_sessions: scan row: %w", err)
-		}
-		sessions = append(sessions, r)
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("lab.expire_sessions: iterate rows: %w", err)
-	}
+// closeSessions kills each session's container (best-effort, per-session —
+// Kill is a runtime call and can't be batched), then in one round trip marks
+// every row expired with endReason and records its billed container_seconds.
+// Shared by hardExpireOverdue and reapLongPaused, which differ only in which
+// rows they select and which end_reason applies.
+func (h *LabExpireHandler) closeSessions(ctx context.Context, sessions []sessionRow, endReason string) error {
 	if len(sessions) == 0 {
 		return nil
 	}
-
-	// Removing a sandbox is a per-session runtime call — can't be batched.
-	// The DB update below is a single statement for the API responses.
 	ids := make([]string, len(sessions))
-	timeLimitCount, idleCount := 0, 0
 	for i, s := range sessions {
 		ids[i] = s.id
 		if s.containerID != nil && *s.containerID != "" {
@@ -95,33 +96,137 @@ func (h *LabExpireHandler) Handle(ctx context.Context, job jobs.Job) error {
 					"container", *s.containerID, "error", rmErr)
 			}
 		}
-		if s.reason == "idle_timeout" {
-			idleCount++
-		} else {
-			timeLimitCount++
+	}
+	if _, err := h.pool.Exec(ctx,
+		`UPDATE lab_sessions SET status=$2, end_reason=$3, paused_at=NULL WHERE id = ANY($1)`,
+		ids, labs.SessionStatusExpired, endReason,
+	); err != nil {
+		// The job retries next tick — the same rows still match their
+		// originating SELECT (status hasn't changed), so this is not lost.
+		return fmt.Errorf("batch update status: %w", err)
+	}
+	if err := labs.NewRepo(h.pool).RecordSessionContainerUsageBatch(ctx, ids); err != nil {
+		slog.Error("lab.expire_sessions: record usage batch", "error", err)
+	}
+	slog.Info("lab.expire_sessions: closed sessions", "count", len(sessions), "reason", endReason)
+	return nil
+}
+
+// hardExpireOverdue closes out every running/paused session whose
+// expires_at has passed, unconditionally — see Handle's doc comment.
+func (h *LabExpireHandler) hardExpireOverdue(ctx context.Context) error {
+	rows, err := h.pool.Query(ctx,
+		`SELECT id, container_id FROM lab_sessions
+		 WHERE status IN ($1, $2) AND expires_at < now()
+		 LIMIT 100`,
+		labs.SessionStatusRunning, labs.SessionStatusPaused,
+	)
+	if err != nil {
+		return fmt.Errorf("query overdue sessions: %w", err)
+	}
+	sessions, err := scanIDContainerRows(rows)
+	if err != nil {
+		return err
+	}
+	return h.closeSessions(ctx, sessions, labs.EndReasonTimeLimit)
+}
+
+// pauseIdleRunning pauses every running session that has gone quiet for
+// labs.IdleTimeoutMinutes but is not yet past its hard deadline (that case
+// is hardExpireOverdue's, and runs first every tick). Sessions with no
+// container (code labs — nothing to pause, nothing costs CPU while idle) are
+// excluded and simply ride until expires_at.
+func (h *LabExpireHandler) pauseIdleRunning(ctx context.Context) error {
+	rows, err := h.pool.Query(ctx,
+		`SELECT id, container_id FROM lab_sessions
+		 WHERE status = $1
+		   AND container_id IS NOT NULL
+		   AND expires_at >= now()
+		   AND last_active_at < now() - make_interval(mins => $2)
+		 LIMIT 100`,
+		labs.SessionStatusRunning, labs.IdleTimeoutMinutes,
+	)
+	if err != nil {
+		return fmt.Errorf("query idle running sessions: %w", err)
+	}
+	sessions, err := scanIDContainerRows(rows)
+	if err != nil {
+		return err
+	}
+	if len(sessions) == 0 {
+		return nil
+	}
+
+	var paused []sessionRow
+	var fallbackKill []sessionRow
+	for _, s := range sessions {
+		pauseErr := h.runtime.Pause(ctx, *s.containerID)
+		switch {
+		case pauseErr == nil:
+			paused = append(paused, s)
+		case errors.Is(pauseErr, labs.ErrPauseUnsupported):
+			// Expected on Kubernetes — not an error worth logging every tick.
+			fallbackKill = append(fallbackKill, s)
+		default:
+			slog.Error("lab.expire_sessions: pause failed, falling back to kill",
+				"session_id", s.id, "container", *s.containerID, "error", pauseErr)
+			fallbackKill = append(fallbackKill, s)
 		}
 	}
 
-	// One round trip for up to 100 rows instead of one per row. The reason is
-	// recomputed here with the same CASE expression as the SELECT above —
-	// safe, since now() only moves forward: any row that matched
-	// expires_at < now() there still matches it a few milliseconds later here.
-	if _, err := h.pool.Exec(ctx,
-		`UPDATE lab_sessions
-		 SET status = $2,
-		     end_reason = CASE WHEN expires_at < now() THEN 'time_limit' ELSE 'idle_timeout' END
-		 WHERE id = ANY($1)`,
-		ids, labs.SessionStatusExpired,
-	); err != nil {
-		// The job retries next minute — the same stale sessions will still
-		// match the SELECT above (their status hasn't changed), so a failed
-		// batch here is not silently lost.
-		return fmt.Errorf("lab.expire_sessions: batch update status: %w", err)
+	if len(paused) > 0 {
+		ids := make([]string, len(paused))
+		for i, s := range paused {
+			ids[i] = s.id
+		}
+		if _, err := h.pool.Exec(ctx,
+			`UPDATE lab_sessions SET status=$2, paused_at=now() WHERE id = ANY($1)`,
+			ids, labs.SessionStatusPaused,
+		); err != nil {
+			return fmt.Errorf("batch update paused: %w", err)
+		}
+	}
+	if err := h.closeSessions(ctx, fallbackKill, labs.EndReasonIdleTimeout); err != nil {
+		return fmt.Errorf("fallback kill: %w", err)
 	}
 
-	slog.Info("lab.expire_sessions: expired sessions",
-		"time_limit", timeLimitCount, "idle_timeout", idleCount)
+	slog.Info("lab.expire_sessions: paused idle sessions", "paused", len(paused), "fallback_killed", len(fallbackKill))
 	return nil
+}
+
+// reapLongPaused closes out every session that has sat paused for
+// labs.IdleReapMinutes — see Handle's doc comment.
+func (h *LabExpireHandler) reapLongPaused(ctx context.Context) error {
+	rows, err := h.pool.Query(ctx,
+		`SELECT id, container_id FROM lab_sessions
+		 WHERE status = $1 AND paused_at < now() - make_interval(mins => $2)
+		 LIMIT 100`,
+		labs.SessionStatusPaused, labs.IdleReapMinutes,
+	)
+	if err != nil {
+		return fmt.Errorf("query long-paused sessions: %w", err)
+	}
+	sessions, err := scanIDContainerRows(rows)
+	if err != nil {
+		return err
+	}
+	return h.closeSessions(ctx, sessions, labs.EndReasonIdleTimeout)
+}
+
+// scanIDContainerRows drains a (id, container_id) result set into a slice.
+// Shared by every pass above — they differ only in the WHERE clause feeding
+// this same two-column shape.
+func scanIDContainerRows(rows pgx.Rows) ([]sessionRow, error) {
+	defer rows.Close()
+	var out []sessionRow
+	for rows.Next() {
+		var s sessionRow
+		if err := rows.Scan(&s.id, &s.containerID); err != nil {
+			return nil, fmt.Errorf("scan row: %w", err)
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 // reapStuckProvisioning is the durable backstop for labs.Service.provisionContainer's

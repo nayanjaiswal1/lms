@@ -3,7 +3,7 @@ import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { MentorChatComposer } from "@/components/mentoring/mentor-chat-composer";
-import { ScheduleSessionButton } from "@/app/(app)/mentoring/tickets/[ticketId]/chat/schedule-session-button";
+import { ScheduleSessionButton } from "@/components/mentoring/schedule-session-button";
 import { getMentorChatMessages, getMentorTicketById } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
 import { truncateId } from "@/lib/mentoring/format";
@@ -38,7 +38,7 @@ export default async function MentorTicketChatPage({ params }: Props) {
 
       <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="section-title">Mentor chat</h1>
-        {ticket && <ScheduleSessionButton studentId={ticket.student_id} />}
+        {ticket && <ScheduleSessionButton attendeeId={ticket.student_id} />}
       </div>
 
       {messages.length === 0 ? (

@@ -32,8 +32,9 @@ const ROUTES = {
   SHEETS_COMPARE:      "/sheets/compare",
 
   // Mentoring
-  MENTORING:           "/mentoring",
-  MENTORING_TICKETS:   "/mentoring/tickets",
+  MENTORING:               "/mentoring",
+  MENTORING_TICKETS:       "/mentoring/tickets",
+  MENTORING_CONVERSATIONS: "/mentoring/conversations",
 
   // Mentor directory
   MENTORS:             "/mentors",
@@ -102,6 +103,7 @@ const ROUTES = {
 
   // Admin — Labs
   ADMIN_LABS_WARM_POOLS:   "/admin/labs/warm-pools",
+  ADMIN_LABS_USAGE:        "/admin/labs/usage",
 
   // Admin — Payments
   ADMIN_COUPONS:           "/admin/coupons",
@@ -152,6 +154,7 @@ const ROUTES = {
   mentoringTicketDetail:    (id: string)                        => `/mentoring/tickets/${id}`,
   mentoringTicketChat:      (id: string)                        => `/mentoring/tickets/${id}/chat`,
   mentor:                   (id: string)                        => `/mentors/${id}`,
+  mentorConversation:       (id: string)                        => `/mentoring/conversations/${id}/chat`,
   practiceSession:          (id: string)                        => `/practice/${id}`,
   interviewPrepPlan:        (id: string)                        => `/interview-prep/${id}`,
   interviewPrepCoding:      (id: string)                        => `/interview-prep/${id}/coding`,

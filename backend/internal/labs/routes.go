@@ -59,14 +59,15 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/labs/sessions/{sessionId}/submit", h.HandleSubmitAll)
 }
 
-// RegisterAdminRoutes mounts the /admin/labs/warm-pools API: the metrics
-// matrix (signal inputs + target per lab) and the mode/size override. Gated
-// on admin.manage_org, the same permission that already governs org-wide
-// operational settings — warm-pool sizing is one more org-scoped operational
-// knob, not a distinct permission domain.
+// RegisterAdminRoutes mounts the /admin/labs/warm-pools and /admin/labs/usage
+// APIs. Gated on admin.manage_org, the same permission that already governs
+// org-wide operational settings — warm-pool sizing and compute-usage
+// reporting are org-scoped operational knobs, not a distinct permission
+// domain.
 func (h *Handler) RegisterAdminRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(authz.RequirePermission(authzSvc, "admin.manage_org")).Group(func(r chi.Router) {
 		r.Get("/api/admin/labs/warm-pools", h.HandleListWarmPools)
 		r.Put("/api/admin/labs/{labId}/warm-pool", h.HandleUpdateWarmPoolConfig)
+		r.Get("/api/admin/labs/usage", h.HandleGetLabUsage)
 	})
 }

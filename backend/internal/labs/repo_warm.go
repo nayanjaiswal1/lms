@@ -112,43 +112,79 @@ type WarmPoolLab struct {
 	Claimed       int     `json:"claimed"`
 }
 
-// ListWarmPoolLabs returns every lab the warm pool can serve: published,
-// container-backed (code labs never get containers), with a published task
-// version. Absent config row = mode 'auto', max 5.
-func (r *Repo) ListWarmPoolLabs(ctx context.Context) ([]WarmPoolLab, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT l.id, l.title, l.lab_type, l.environment, l.setup_script, l.published_version_id,
-		       COALESCE(c.mode, 'auto'), COALESCE(c.fixed_size, 0), COALESCE(c.max_size, 5),
-		       COALESCE(w.ready, 0), COALESCE(w.warming, 0), COALESCE(w.claimed, 0)
-		FROM lab_definitions l
-		LEFT JOIN lab_warm_pool_configs c ON c.lab_id = l.id
-		LEFT JOIN LATERAL (
-			SELECT count(*) FILTER (WHERE wc.status='ready'   AND wc.task_version_id = l.published_version_id) AS ready,
-			       count(*) FILTER (WHERE wc.status='warming' AND wc.task_version_id = l.published_version_id) AS warming,
-			       count(*) FILTER (WHERE wc.status='claimed') AS claimed
-			FROM lab_warm_containers wc WHERE wc.lab_id = l.id
-		) w ON true
-		WHERE l.is_published = true
-		  AND l.lab_type <> $1
-		  AND l.published_version_id IS NOT NULL
-		ORDER BY l.title`,
-		LabTypeCode,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("labs.Repo.ListWarmPoolLabs: %w", err)
-	}
-	defer rows.Close()
+// warmPoolLabsQuery is shared by ListWarmPoolLabs (planner, platform-wide)
+// and ListWarmPoolLabsForOrg (admin API, org-scoped) — identical column list
+// and joins, differing only in whether an org_id filter is appended.
+const warmPoolLabsQuery = `
+	SELECT l.id, l.title, l.lab_type, l.environment, l.setup_script, l.published_version_id,
+	       COALESCE(c.mode, 'auto'), COALESCE(c.fixed_size, 0), COALESCE(c.max_size, 5),
+	       COALESCE(w.ready, 0), COALESCE(w.warming, 0), COALESCE(w.claimed, 0)
+	FROM lab_definitions l
+	LEFT JOIN lab_warm_pool_configs c ON c.lab_id = l.id
+	LEFT JOIN LATERAL (
+		SELECT count(*) FILTER (WHERE wc.status='ready'   AND wc.task_version_id = l.published_version_id) AS ready,
+		       count(*) FILTER (WHERE wc.status='warming' AND wc.task_version_id = l.published_version_id) AS warming,
+		       -- Deliberately NOT filtered by task_version_id like ready/warming
+		       -- above: a claimed row belongs to a live session that may have
+		       -- pinned an older version before the lab's last republish, and
+		       -- it stays "claimed" (still real capacity in use) regardless of
+		       -- which version it pinned. ready/warming ARE version-filtered
+		       -- because an unclaimed leftover from a stale version is dead
+		       -- weight the planner should replace, not count as available.
+		       count(*) FILTER (WHERE wc.status='claimed') AS claimed
+		FROM lab_warm_containers wc WHERE wc.lab_id = l.id
+	) w ON true
+	WHERE l.is_published = true
+	  AND l.lab_type <> $1
+	  AND l.published_version_id IS NOT NULL`
 
+func scanWarmPoolLabRows(rows pgx.Rows) ([]WarmPoolLab, error) {
+	defer rows.Close()
 	var out []WarmPoolLab
 	for rows.Next() {
 		var l WarmPoolLab
 		if err := rows.Scan(&l.LabID, &l.Title, &l.LabType, &l.Image, &l.SetupScript, &l.TaskVersionID,
 			&l.Mode, &l.FixedSize, &l.MaxSize, &l.Ready, &l.Warming, &l.Claimed); err != nil {
-			return nil, fmt.Errorf("labs.Repo.ListWarmPoolLabs: scan: %w", err)
+			return nil, fmt.Errorf("scan: %w", err)
 		}
 		out = append(out, l)
 	}
 	return out, rows.Err()
+}
+
+// ListWarmPoolLabs returns every pool-eligible lab across ALL orgs — the
+// planner's view, since warm containers are a shared infrastructure resource
+// the reconciler sizes platform-wide. NOT org-scoped: only call this from
+// WarmPoolPlanner.Tick (internal, no HTTP caller). Any endpoint reachable by
+// an org admin must use ListWarmPoolLabsForOrg instead — see that method's
+// doc comment for why unscoped access here was a cross-tenant data leak.
+func (r *Repo) ListWarmPoolLabs(ctx context.Context) ([]WarmPoolLab, error) {
+	rows, err := r.pool.Query(ctx, warmPoolLabsQuery+" ORDER BY l.title", LabTypeCode)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListWarmPoolLabs: %w", err)
+	}
+	out, err := scanWarmPoolLabRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListWarmPoolLabs: %w", err)
+	}
+	return out, nil
+}
+
+// ListWarmPoolLabsForOrg is ListWarmPoolLabs scoped to one org — the
+// admin-API view (HandleListWarmPools). The unscoped query previously served
+// here returned every published lab on the platform (title, image, pool
+// occupancy) to any caller holding admin.manage_org in ANY org — a
+// cross-tenant read of every other org's lab catalog and live pool state.
+func (r *Repo) ListWarmPoolLabsForOrg(ctx context.Context, orgID string) ([]WarmPoolLab, error) {
+	rows, err := r.pool.Query(ctx, warmPoolLabsQuery+" AND l.org_id = $2 ORDER BY l.title", LabTypeCode, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListWarmPoolLabsForOrg: %w", err)
+	}
+	out, err := scanWarmPoolLabRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Repo.ListWarmPoolLabsForOrg: %w", err)
+	}
+	return out, nil
 }
 
 // ─── Demand signals ──────────────────────────────────────────────────────────
@@ -343,16 +379,27 @@ func (r *Repo) ListStaleWarmContainers(ctx context.Context, stuckAfter time.Dura
 	return out, rows.Err()
 }
 
-// ListExcessReadyWarmContainers returns the oldest ready containers beyond
-// keep for a lab+version, for scale-down.
-func (r *Repo) ListExcessReadyWarmContainers(ctx context.Context, labID, taskVersionID string, keep int) ([]StaleWarmContainer, error) {
+// ListExcessReadyWarmContainers returns up to limit of the OLDEST ready
+// containers for a lab+version — scale-down candidates. Pool members are
+// fungible (identical image/setup for the same lab+version), so "oldest
+// first" is only a recycling preference (clear out containers that have sat
+// idle longest), never a correctness requirement. The caller computes limit
+// as Ready-target; a non-positive limit returns no rows. Selection here is
+// NOT the removal itself — see DeleteReadyWarmContainer, which re-checks
+// status='ready' atomically at delete time so a container a student claims
+// between this SELECT and that DELETE is never destroyed out from under
+// their session.
+func (r *Repo) ListExcessReadyWarmContainers(ctx context.Context, labID, taskVersionID string, limit int) ([]StaleWarmContainer, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, container_id, status, true AS kill
 		FROM lab_warm_containers
 		WHERE lab_id=$1 AND task_version_id=$2 AND status='ready'
-		ORDER BY created_at DESC
-		OFFSET $3`,
-		labID, taskVersionID, keep,
+		ORDER BY created_at ASC
+		LIMIT $3`,
+		labID, taskVersionID, limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("labs.Repo.ListExcessReadyWarmContainers: %w", err)
@@ -368,6 +415,29 @@ func (r *Repo) ListExcessReadyWarmContainers(ctx context.Context, labID, taskVer
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+// DeleteReadyWarmContainer atomically deletes a warm-pool row ONLY if it is
+// still 'ready' — the scale-down counterpart to ClaimWarmContainer's
+// FOR UPDATE SKIP LOCKED claim. Without this atomicity, a container listed
+// by ListExcessReadyWarmContainers could be claimed by a student's
+// StartSession in the window between that SELECT and this DELETE, and the
+// reconciler would then kill a container a live session now depends on.
+// deleted=false means exactly that race happened: the row is already gone
+// (or already claimed) and the caller must NOT call runtime.Kill on the
+// container it looked up before this call.
+func (r *Repo) DeleteReadyWarmContainer(ctx context.Context, id string) (containerID *string, deleted bool, err error) {
+	err = r.pool.QueryRow(ctx,
+		`DELETE FROM lab_warm_containers WHERE id=$1 AND status='ready' RETURNING container_id`,
+		id,
+	).Scan(&containerID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("labs.Repo.DeleteReadyWarmContainer: %w", err)
+	}
+	return containerID, true, nil
 }
 
 // WarmContainerExists reports whether a pool row with this id exists — used

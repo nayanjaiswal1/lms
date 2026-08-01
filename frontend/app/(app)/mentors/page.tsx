@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { RequestMentorChangeDialog } from "@/components/mentoring/request-mentor-change-dialog";
 import { RequestMentorDialog } from "@/components/mentoring/request-mentor-dialog";
+import { MessageMentorButton } from "@/components/mentoring/message-mentor-button";
 import { getMentors, getMyMentorTickets, type MentorDirectoryEntry, type MentorTicket } from "@/lib/server/mentoring";
 import { getEnrollments } from "@/lib/server/courses";
 import { getMyBatches } from "@/lib/server/batches";
@@ -139,10 +140,12 @@ function MentorDirectoryCard({ mentor, ticketId }: { mentor: MentorDirectoryEntr
         </span>
       </div>
       <div className="flex items-center gap-3">
-        {ticketId && (
+        {ticketId ? (
           <Link href={ROUTES.mentoringTicketChat(ticketId)}>
             <Button size="sm">Chat</Button>
           </Link>
+        ) : (
+          <MessageMentorButton mentorId={mentor.user_id} size="sm" />
         )}
         <Link className="text-sm text-primary hover:underline" href={ROUTES.mentor(mentor.user_id)}>
           View profile
@@ -271,6 +274,9 @@ export default async function MentorsDirectoryPage() {
             Your assigned mentor, and everyone else available in your organization.
           </p>
         </div>
+        <Link className="text-sm text-primary hover:underline" href={ROUTES.MENTORING_CONVERSATIONS}>
+          Your conversations
+        </Link>
       </div>
 
       <div className="flex flex-col gap-8">

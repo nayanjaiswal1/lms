@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { WARM_POOL_MODE, WARM_POOL_MODE_OPTIONS } from "@/lib/constants";
+import ROUTES from "@/lib/routes";
 import { updateWarmPoolConfigAction } from "./actions";
 
 export interface WarmPoolRowData {
@@ -106,6 +108,12 @@ export function WarmPoolTable({ labs }: { labs: WarmPoolRowData[] }) {
               Container-backed labs only — code labs run through Piston and never need a
               sandbox. Idle rows (nothing warm, nothing targeted) are dimmed.
             </p>
+            <Link
+              className="text-sm text-primary underline underline-offset-2 mt-2 inline-block"
+              href={ROUTES.ADMIN_LABS_USAGE}
+            >
+              View compute usage →
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <Badge className="badge-muted" variant="outline">{labs.length} labs</Badge>

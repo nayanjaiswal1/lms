@@ -41,10 +41,33 @@ const (
 	// image/setup_script getting hammered by every student's retry.
 	ProvisionFailureCircuitBreakerThreshold = 3
 	ProvisionFailureCircuitBreakerWindow    = 10 * time.Minute
-	IdleTimeoutMinutes                      = 15
-	ContainerCPU            = "1.0"
-	ContainerMemoryMB       = 512
-	ContainerDiskGB         = 3
+	// IdleTimeoutMinutes is how long a session may go without any activity
+	// (terminal keystroke, verify, file edit, run/submit, ws-token mint —
+	// every one of those bumps last_active_at) before lab.expire_sessions
+	// PAUSES its container. Pausing stops CPU billing without destroying the
+	// student's work; the session is resumed on the next ws-token mint.
+	IdleTimeoutMinutes = 15
+	// IdleReapMinutes is how long a session may stay paused-and-untouched
+	// before it is genuinely closed out and its container destroyed. A paused
+	// container still holds its memory and disk, so it cannot be held forever
+	// — but the student gets a wide window to come back to it, which the old
+	// "kill at 15 minutes" behavior did not give them. expires_at still caps
+	// the whole thing regardless.
+	IdleReapMinutes = 120
+	// MaxExecOutputBytes caps how much stdout (and, separately, stderr) is
+	// captured from a single sandbox exec. Without a cap, a student can point
+	// any exec-backed endpoint (file read, resources, verify, run) at a
+	// multi-gigabyte file they created in their own container and force the
+	// API process to buffer all of it in memory. Output past the cap is
+	// discarded and the payload is marked truncated.
+	MaxExecOutputBytes = 256 * 1024
+	// MaxWriteFileBytes bounds a single lab file write. The workdir is a
+	// 3 GB container disk; the API has no business relaying anything close to
+	// that through a JSON request body.
+	MaxWriteFileBytes = 2 * 1024 * 1024
+	ContainerCPU      = "1.0"
+	ContainerMemoryMB = 512
+	ContainerDiskGB   = 3
 	// NestedContainerCPU/NestedContainerMemoryMB size the "nested-docker"
 	// ImageProfile (see profile.go) — a nested dockerd plus a student
 	// `docker build` cannot fit in the default 1 CPU / 512MB; without this
@@ -100,7 +123,23 @@ const (
 	SessionStatusExpired         = "expired"
 	SessionStatusFailed          = "failed"
 	SessionStatusTerminatedAbuse = "terminated_abuse"
+)
 
+// isNonTerminalStatus reports whether a session status is still "alive" —
+// provisioning, running, or paused. Used wherever code must decide if a
+// session row is still worth acting on (idempotency-key resolution, resume
+// paths) rather than duplicating the four terminal statuses at each call
+// site.
+func isNonTerminalStatus(status string) bool {
+	switch status {
+	case SessionStatusProvisioning, SessionStatusRunning, SessionStatusPaused:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	// End reasons — mirrors the lab_sessions_end_reason_check CHECK
 	// constraint. time_limit/idle_timeout come from lab.expire_sessions
 	// reaping a running/paused session; provision_timeout is the same job
@@ -111,6 +150,11 @@ const (
 	EndReasonIdleTimeout      = "idle_timeout"
 	EndReasonProvisionTimeout = "provision_timeout"
 	EndReasonProvisionFailed  = "provision_failed"
+	// EndReasonResetFailed marks a session terminated because its staged
+	// reset could not bring up a replacement container. The old container is
+	// already gone at that point, so leaving the session "running" would hand
+	// the student a terminal wired to nothing.
+	EndReasonResetFailed = "reset_failed"
 
 	// Task completion statuses
 	TaskStatusPending = "pending"
@@ -143,23 +187,6 @@ const (
 	RepoCloneStatusFailed  = "failed"
 	RepoCloneStatusSkipped = "skipped"
 )
-
-// ─── Org-level defaults ───────────────────────────────────────────────────────
-
-// LabOrgConfigDefaults holds the platform-wide default values applied when an
-// org has no explicit lab_org_config row.
-type LabOrgConfigDefaults struct {
-	MaxConcurrentSessions int
-	MaxSessionDuration    int // minutes
-}
-
-// DefaultLabOrgConfig returns the platform defaults for org-level lab config.
-func DefaultLabOrgConfig() LabOrgConfigDefaults {
-	return LabOrgConfigDefaults{
-		MaxConcurrentSessions: MaxConcurrentSessionsDefault,
-		MaxSessionDuration:    MaxSessionDurationDefault,
-	}
-}
 
 // ─── JSONB payload types ──────────────────────────────────────────────────────
 
@@ -255,22 +282,25 @@ type LabTaskVersion struct {
 }
 
 type LabSession struct {
-	ID            string     `json:"id"`
-	LabID         string     `json:"lab_id"`
-	TaskVersionID string     `json:"task_version_id"`
-	UserID        string     `json:"user_id"`
-	OrgID         string     `json:"org_id"`
-	ContainerID   *string    `json:"container_id"`
-	ContainerHost *string    `json:"container_host"`
-	Status        string     `json:"status"`
-	ResetCount    int        `json:"reset_count"`
-	Score         int        `json:"score"`
-	IsTest        bool       `json:"is_test"`
-	StartedAt     time.Time  `json:"started_at"`
-	ExpiresAt     time.Time  `json:"expires_at"`
-	PausedSeconds int        `json:"paused_seconds"`
-	CompletedAt   *time.Time `json:"completed_at"`
-	LastActiveAt  time.Time  `json:"last_active_at"`
+	ID            string    `json:"id"`
+	LabID         string    `json:"lab_id"`
+	TaskVersionID string    `json:"task_version_id"`
+	UserID        string    `json:"user_id"`
+	OrgID         string    `json:"org_id"`
+	ContainerID   *string   `json:"container_id"`
+	ContainerHost *string   `json:"container_host"`
+	Status        string    `json:"status"`
+	ResetCount    int       `json:"reset_count"`
+	Score         int       `json:"score"`
+	IsTest        bool      `json:"is_test"`
+	StartedAt     time.Time `json:"started_at"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	PausedSeconds int       `json:"paused_seconds"`
+	// PausedAt is when the current pause began; nil unless Status is
+	// "paused". Resume folds now()-PausedAt into PausedSeconds and clears it.
+	PausedAt     *time.Time `json:"paused_at,omitempty"`
+	CompletedAt  *time.Time `json:"completed_at"`
+	LastActiveAt time.Time  `json:"last_active_at"`
 	// EndReason distinguishes an automatic reaper termination (see the
 	// EndReasonXxx constants above) from a normal user-driven end/completion,
 	// which leaves this nil. Set only by lab.expire_sessions and

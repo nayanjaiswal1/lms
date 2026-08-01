@@ -32,6 +32,31 @@ var (
 	// that is in a terminal state (completed, expired, failed, terminated_abuse).
 	ErrSessionTerminal = errors.New("labs: session is in a terminal state")
 
+	// ErrSessionExpired is returned when a session's hard expires_at deadline
+	// has passed but the reaper has not closed it out yet. Checked at request
+	// time by every session-touching path so the wall-clock cap is real,
+	// rather than "real within one cron tick".
+	ErrSessionExpired = errors.New("labs: session has passed its expiry deadline")
+
+	// ErrPauseUnsupported is returned by a ContainerRuntime whose backing
+	// technology has no pause primitive (Kubernetes Pods). Callers treat it
+	// as "leave the sandbox running", never as a failure.
+	ErrPauseUnsupported = errors.New("labs: this runtime cannot pause sandboxes")
+
+	// ErrResetFailed is returned when a staged reset could not bring up a
+	// replacement container. The session is closed out rather than left
+	// pointing at a container that no longer exists.
+	ErrResetFailed = errors.New("labs: could not provision a replacement container for this reset")
+
+	// ErrLabTypeUnsupported is returned when an endpoint is called for a lab
+	// type it does not apply to (e.g. /run or /submit on a code lab, which
+	// grades per task through the editor instead).
+	ErrLabTypeUnsupported = errors.New("labs: this action does not apply to this lab type")
+
+	// ErrContentTooLarge is returned when a file write exceeds
+	// MaxWriteFileBytes.
+	ErrContentTooLarge = errors.New("labs: file content is too large")
+
 	// ErrNoRunScript is returned when POST /sessions/:id/run is called for a
 	// lab that has no run_script authored.
 	ErrNoRunScript = errors.New("labs: lab has no run script")

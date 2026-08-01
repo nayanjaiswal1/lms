@@ -38,16 +38,38 @@ type ContainerRuntime interface {
 
 	// Exec runs a script inside the sandbox as its default non-root user.
 	// exitCode is 0 on success; a process exit error yields the real exit
-	// code without propagating an error value.
+	// code without propagating an error value. Implementations MUST bound
+	// captured output at MaxExecOutputBytes per stream — the script is
+	// effectively student-controlled (it can cat any file in their own
+	// container), so unbounded capture is an API-process OOM waiting to
+	// happen.
 	Exec(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error)
+
+	// ExecStdin is Exec with a byte stream piped to the script's stdin —
+	// used by WriteFile to deliver file content without ever embedding it in
+	// the command string. Two problems that come from embedding student
+	// content directly in a shell command (the pre-fix WriteFile heredoc)
+	// don't exist here even in principle: there is no delimiter or quoting
+	// scheme for arbitrary bytes to break out of, and there is no host
+	// execve() argument-length ceiling to hit (Linux caps a single argv
+	// string at MAX_ARG_STRLEN, ~128KB — comfortably smaller than a single
+	// source file) since stdin is a stream, not part of argv.
+	ExecStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error)
 
 	// IsRunning reports whether the sandbox is currently up.
 	IsRunning(ctx context.Context, containerID string) bool
 
-	// Unpause resumes a paused sandbox. No code path currently transitions a
-	// session to "paused" (see docs/labs.md history) — Kubernetes implements
-	// this as a no-op since Pods have no pause primitive; Docker's real
-	// docker-pause/unpause behavior is preserved for when that path is used.
+	// Pause suspends a sandbox's process tree without destroying it, so an
+	// idle session stops burning CPU while keeping the student's work intact
+	// (lab.expire_sessions pauses at IdleTimeoutMinutes). Kubernetes has no
+	// Pod-level pause primitive, so its implementation reports
+	// ErrPauseUnsupported and the reaper leaves the session running until the
+	// harder IdleReapMinutes / expires_at deadlines close it out.
+	Pause(ctx context.Context, containerID string) error
+
+	// Unpause resumes a paused sandbox — the counterpart to Pause, called
+	// from Service.ensureContainerResumed before any exec or terminal
+	// attach. A no-op on runtimes that never pause.
 	Unpause(ctx context.Context, containerID string) error
 
 	// List returns every live sandbox whose name starts with namePrefix (e.g.

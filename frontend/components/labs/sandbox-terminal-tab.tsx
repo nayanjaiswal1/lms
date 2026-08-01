@@ -21,10 +21,11 @@ interface SandboxTerminalTabProps {
  * its connection (and shell) dies with it.
  */
 export function SandboxTerminalTab({ sessionId }: SandboxTerminalTabProps) {
-  const { containerRef, isConnected, reconnectManually, sendText } = useLabTerminal({ sessionId })
+  const { containerRef, isConnected, hasGivenUp, reconnectManually, sendText } = useLabTerminal({ sessionId })
   return (
     <LabTerminal
       containerRef={containerRef}
+      hasGivenUp={hasGivenUp}
       isConnected={isConnected}
       reconnectManually={reconnectManually}
       sendText={sendText}

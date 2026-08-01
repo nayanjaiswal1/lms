@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { ArrowRight, CheckCircle2, Circle, Flame } from "lucide-react";
 
 import { saveOnboardingAction } from "@/app/onboarding/actions";
@@ -50,14 +51,14 @@ export function OnboardingWizard() {
   function handleFinish(data: FormData) {
     startTransition(async () => {
       const result = await saveOnboardingAction({ ...data, completed: true });
-      if (result?.error) form.setError("root", { message: result.error });
+      if (result?.error) toast.error(result.error);
     });
   }
 
   function handleSkip() {
     startTransition(async () => {
       const result = await saveOnboardingAction({ completed: true });
-      if (result?.error) form.setError("root", { message: result.error });
+      if (result?.error) toast.error(result.error);
     });
   }
 
@@ -125,9 +126,6 @@ export function OnboardingWizard() {
               </div>
               {form.formState.errors.skill_level && (
                 <p className="text-sm text-destructive">{form.formState.errors.skill_level.message}</p>
-              )}
-              {form.formState.errors.root && (
-                <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
               )}
             </div>
           </div>
