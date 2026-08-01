@@ -255,3 +255,44 @@ func TestValidate_CourseScope(t *testing.T) {
 		t.Fatalf("expected an org-wide (no coupon_courses rows) coupon to be valid for any course, got %v", err)
 	}
 }
+
+// TestCreate_RejectsCrossOrgCourseID proves an org cannot scope its coupon to
+// another org's course_id — coupon_courses.course_id only has a bare FK to
+// courses(id), with no org column of its own, so this has to be enforced at
+// the repo boundary rather than left to the database to silently allow.
+func TestCreate_RejectsCrossOrgCourseID(t *testing.T) {
+	pool := testPool(t)
+	repo := NewRepo(pool)
+	ctx := context.Background()
+
+	orgA := seedTestOrg(t, pool)
+	orgB := seedTestOrg(t, pool)
+	userB := seedTestUser(t, pool)
+	courseInOrgB := seedTestCourse(t, pool, orgB, userB)
+
+	_, err := repo.Create(ctx, Coupon{
+		OrgID: orgA, Code: fmt.Sprintf("CROSSORG%d", time.Now().UnixNano()),
+		DiscountType: DiscountTypePercent, DiscountValue: 10,
+	}, []string{courseInOrgB})
+	if !errors.Is(err, ErrInvalid) {
+		t.Fatalf("expected ErrInvalid when scoping org A's coupon to org B's course, got %v", err)
+	}
+
+	var courseCount int
+	if scanErr := pool.QueryRow(ctx, `SELECT COUNT(*) FROM coupon_courses WHERE course_id = $1`, courseInOrgB).Scan(&courseCount); scanErr != nil {
+		t.Fatalf("count coupon_courses: %v", scanErr)
+	}
+	if courseCount != 0 {
+		t.Fatalf("expected no coupon_courses row to have been written, got %d", courseCount)
+	}
+
+	// The whole Create call must roll back on the invalid course scope — no
+	// orphaned coupon row left behind either.
+	var couponCount int
+	if scanErr := pool.QueryRow(ctx, `SELECT COUNT(*) FROM coupons WHERE org_id = $1`, orgA).Scan(&couponCount); scanErr != nil {
+		t.Fatalf("count coupons: %v", scanErr)
+	}
+	if couponCount != 0 {
+		t.Fatalf("expected the coupon insert to have rolled back, got %d coupons for org A", couponCount)
+	}
+}

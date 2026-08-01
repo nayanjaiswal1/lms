@@ -94,18 +94,54 @@ func (r *Repo) courseIDsForMany(ctx context.Context, couponIDs []string) (map[st
 // setCourseIDsTx replaces couponID's course scope within tx — a full
 // delete-then-insert since callers always supply the complete desired set,
 // never a delta. Empty courseIDs leaves the coupon org-wide.
-func setCourseIDsTx(ctx context.Context, tx pgx.Tx, couponID string, courseIDs []string) error {
+//
+// orgID is required and checked against every courseID before anything is
+// written: coupon_courses.course_id only has a bare FK to courses(id), with
+// no org column of its own to constrain at the database level, so an org
+// admin could otherwise scope their own coupon to another org's course_id
+// (never itself exploitable — the checkout path independently org-scopes
+// its own course lookup before ever consulting a coupon — but it's a
+// tenant-isolation gap worth closing at the boundary rather than leaving
+// for the DB to allow silently).
+func setCourseIDsTx(ctx context.Context, tx pgx.Tx, orgID, couponID string, courseIDs []string) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM coupon_courses WHERE coupon_id = $1`, couponID); err != nil {
 		return fmt.Errorf("coupons: clear course scope: %w", err)
 	}
+	if len(courseIDs) == 0 {
+		return nil
+	}
+
+	var validCount int
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM courses WHERE id = ANY($1) AND org_id = $2`, courseIDs, orgID,
+	).Scan(&validCount); err != nil {
+		return fmt.Errorf("coupons: verify course scope: %w", err)
+	}
+	if validCount != len(uniqueStrings(courseIDs)) {
+		return fmt.Errorf("%w: one or more course_ids do not belong to this organization", ErrInvalid)
+	}
+
 	for _, courseID := range courseIDs {
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO coupon_courses (coupon_id, course_id) VALUES ($1, $2)`, couponID, courseID,
+			`INSERT INTO coupon_courses (coupon_id, course_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, couponID, courseID,
 		); err != nil {
 			return fmt.Errorf("coupons: set course scope: %w", err)
 		}
 	}
 	return nil
+}
+
+func uniqueStrings(ss []string) []string {
+	seen := make(map[string]struct{}, len(ss))
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 // getByCode fetches a coupon by org+code with no eligibility filtering — the
@@ -243,7 +279,7 @@ func (r *Repo) Create(ctx context.Context, c Coupon, courseIDs []string) (Coupon
 			}
 			return fmt.Errorf("coupons: create: %w", txErr)
 		}
-		return setCourseIDsTx(ctx, tx, created.ID, courseIDs)
+		return setCourseIDsTx(ctx, tx, c.OrgID, created.ID, courseIDs)
 	})
 	if err != nil {
 		return Coupon{}, err
@@ -338,7 +374,7 @@ func (r *Repo) Update(ctx context.Context, orgID, id, description string, isActi
 			}
 			return fmt.Errorf("coupons: update: %w", txErr)
 		}
-		return setCourseIDsTx(ctx, tx, updated.ID, courseIDs)
+		return setCourseIDsTx(ctx, tx, orgID, updated.ID, courseIDs)
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid) {
