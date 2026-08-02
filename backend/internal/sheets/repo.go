@@ -460,11 +460,13 @@ func (r *Repo) Unsubscribe(ctx context.Context, userID, sheetID string) error {
 // holds at the last step once review_count runs past it.
 var revisionLadder = []int{1, 3, 7, 14, 30, 90}
 
-// nextRevisionDays returns how many days until the next revision, given how
+// NextRevisionDays returns how many days until the next revision, given how
 // many times this item has already been successfully reviewed (reviewCount)
 // and the tracking sheet's chosen growth scheme. reviewCount 0 is the first
-// scheduling (right after marking an item done).
-func nextRevisionDays(scheme string, base, reviewCount int) int {
+// scheduling (right after marking an item done). Exported so mcpconnect's
+// update_problem_progress tool can resolve the same interval the HTTP handler
+// does, instead of duplicating the growth-scheme math.
+func NextRevisionDays(scheme string, base, reviewCount int) int {
 	switch scheme {
 	case "ladder":
 		step := reviewCount
@@ -562,7 +564,7 @@ func (r *Repo) MarkReviewed(ctx context.Context, userID, topicTag, sheetID strin
 	}
 
 	nextCount := reviewCount + 1
-	revisionAt := time.Now().AddDate(0, 0, nextRevisionDays(settings.GrowthScheme, settings.BaseRevisionDays, nextCount))
+	revisionAt := time.Now().AddDate(0, 0, NextRevisionDays(settings.GrowthScheme, settings.BaseRevisionDays, nextCount))
 
 	var it SheetItem
 	err = tx.QueryRow(ctx,

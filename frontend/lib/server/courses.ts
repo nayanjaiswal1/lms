@@ -21,6 +21,8 @@ export interface Course {
   instructor_name: string;
   avg_rating: number | null;
   review_count: number;
+  kind: "org" | "self";
+  owner_id: string | null;
   created_at: string;
   updated_at: string;
 }

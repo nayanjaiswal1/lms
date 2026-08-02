@@ -32,6 +32,7 @@ import { ModuleNotes } from "@/components/courses/module-notes";
 import { ModuleAssessment } from "@/components/courses/module-assessment";
 import { ModuleLab } from "@/components/courses/module-lab";
 import { ModuleSystemDesign } from "@/components/courses/module-system-design";
+import { DeleteSelfCourseModuleButton } from "@/components/courses/delete-self-course-module-button";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -248,6 +249,14 @@ export default async function ModuleLearnPage({ params }: Props) {
                 <ModuleCompleteButton
                   initialCompleted={moduleProgress?.status === "completed"}
                   moduleId={moduleId}
+                />
+              )}
+              {course.kind === "self" && (
+                <DeleteSelfCourseModuleButton
+                  courseSlug={slug}
+                  fallbackModuleId={(prevModule ?? nextModule)?.id ?? null}
+                  moduleId={moduleId}
+                  moduleTitle={currentModule.title}
                 />
               )}
               {/* Next-module navigation lives once, in <ModuleNavFooter> at the

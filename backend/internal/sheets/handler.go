@@ -110,7 +110,7 @@ func (h *Handler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sheet, err := h.repo.CreateSheet(r.Context(), claims.UserID, slugify(req.Name), req)
+	sheet, err := h.repo.CreateSheet(r.Context(), claims.UserID, Slugify(req.Name), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -232,7 +232,7 @@ func (h *Handler) CombineSheets(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sheet, err := h.repo.CombineSheets(r.Context(), claims.UserID, slugify(req.Name), req)
+	sheet, err := h.repo.CombineSheets(r.Context(), claims.UserID, Slugify(req.Name), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -269,7 +269,7 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := h.repo.AddItem(r.Context(), sheetID, slugify(req.Title), req)
+	item, err := h.repo.AddItem(r.Context(), sheetID, Slugify(req.Title), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -427,7 +427,7 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 			writeDomainError(w, err)
 			return
 		}
-		at := time.Now().AddDate(0, 0, nextRevisionDays(settings.GrowthScheme, settings.BaseRevisionDays, 0))
+		at := time.Now().AddDate(0, 0, NextRevisionDays(settings.GrowthScheme, settings.BaseRevisionDays, 0))
 		revisionAt = &at
 	}
 
@@ -497,7 +497,10 @@ func (h *Handler) UpdateProgressRevision(w http.ResponseWriter, r *http.Request)
 	httputil.WriteJSON(w, http.StatusOK, item)
 }
 
-var validGrowthSchemes = map[string]bool{"doubling": true, "ladder": true, "linear": true}
+// ValidGrowthSchemes is the accepted set for UpdateSheetSettingsRequest.GrowthScheme —
+// exported so mcpconnect's update_sheet_settings tool validates against the
+// same set the HTTP handler does.
+var ValidGrowthSchemes = map[string]bool{"doubling": true, "ladder": true, "linear": true}
 
 // GetSheetSettings handles GET /api/sheets/settings?sheet_id=...
 func (h *Handler) GetSheetSettings(w http.ResponseWriter, r *http.Request) {
@@ -539,7 +542,7 @@ func (h *Handler) UpdateSheetSettings(w http.ResponseWriter, r *http.Request) {
 	if req.BaseRevisionDays < 1 || req.BaseRevisionDays > 365 {
 		fieldErrors["base_revision_days"] = "base_revision_days must be between 1 and 365."
 	}
-	if !validGrowthSchemes[req.GrowthScheme] {
+	if !ValidGrowthSchemes[req.GrowthScheme] {
 		fieldErrors["growth_scheme"] = "growth_scheme must be one of: doubling, ladder, linear."
 	}
 	if len(fieldErrors) > 0 {

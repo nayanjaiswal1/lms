@@ -132,6 +132,39 @@ func (h *Handler) UpdateSelfCourseModule(w http.ResponseWriter, r *http.Request)
 	httputil.WriteJSON(w, http.StatusOK, updated)
 }
 
+// DeleteSelfCourseModule soft-deletes one module from one of the caller's
+// own self-courses — the in-app counterpart to removing a module the
+// connected AI added, without needing the instructor role DELETE
+// /api/modules/{moduleID} requires.
+func (h *Handler) DeleteSelfCourseModule(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteSelfCourseModule(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "moduleID")); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DeleteSelfCourse permanently removes one of the caller's own self-courses
+// (and everything under it, via cascade) — the in-app counterpart to the
+// create_self_course MCP action's Revert, exposed here so the owner can
+// remove a private course from the UI whenever they want, not just via an
+// action-log undo.
+func (h *Handler) DeleteSelfCourse(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	if err := h.repo.DeleteOwnedSelfCourse(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "courseID")); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // GetLearningContext returns the caller's pre-aggregated learning snapshot —
 // enrolled course progress, recent reflections, recent self-course activity.
 func (h *Handler) GetLearningContext(w http.ResponseWriter, r *http.Request) {

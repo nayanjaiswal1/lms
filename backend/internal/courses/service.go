@@ -281,6 +281,21 @@ func (s *Service) AddSelfCourseModule(ctx context.Context, orgID, ownerID, cours
 	})
 }
 
+// AddSelfCourseSection creates a new section in the caller's own self-course
+// — lets a connected AI (or the owner) organize a private course into more
+// than the single default "Introduction" section AddSelfCourseModule falls
+// back to when no section_id is given.
+func (s *Service) AddSelfCourseSection(ctx context.Context, orgID, ownerID, courseID, title string) (CourseSection, error) {
+	if len(title) < 1 || len(title) > 200 {
+		return CourseSection{}, ValidationError{Field: "title", Message: "Title must be 1–200 characters."}
+	}
+	course, err := s.repo.GetOwnedSelfCourse(ctx, orgID, ownerID, courseID)
+	if err != nil {
+		return CourseSection{}, err
+	}
+	return s.repo.CreateSection(ctx, CourseSection{CourseID: course.ID, Title: title})
+}
+
 // UpdateSelfCourseModule replaces a module's title/content in the caller's
 // own self-course, after checking the module actually belongs to a course
 // they own — reusing GetModule's org scope plus an explicit ownership check
@@ -299,6 +314,19 @@ func (s *Service) UpdateSelfCourseModule(ctx context.Context, orgID, ownerID, mo
 	m.Title = title
 	m.ContentBody = &contentBody
 	return s.repo.UpdateModule(ctx, orgID, m)
+}
+
+// DeleteSelfCourseModule soft-deletes a module in the caller's own
+// self-course, after the same ownership check as UpdateSelfCourseModule.
+func (s *Service) DeleteSelfCourseModule(ctx context.Context, orgID, ownerID, moduleID string) error {
+	m, err := s.repo.GetModule(ctx, orgID, moduleID)
+	if err != nil {
+		return err
+	}
+	if _, err := s.repo.GetOwnedSelfCourse(ctx, orgID, ownerID, m.CourseID); err != nil {
+		return err
+	}
+	return s.repo.SoftDeleteModule(ctx, orgID, moduleID)
 }
 
 // GetLearningContext builds the single pre-aggregated snapshot behind the

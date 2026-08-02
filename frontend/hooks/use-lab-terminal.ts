@@ -133,9 +133,18 @@ export function useLabTerminal({
     }
 
     const attachWSHandlers = (ws: WebSocket) => {
+      // A reconnect (manual or automatic) closes the outgoing socket and
+      // opens a new one without waiting for the close to complete — close()
+      // is async, so the outgoing socket's handlers are still armed when it
+      // finally fires. Without this identity check, that stale onclose runs
+      // unconditionally: it flips isConnected back to false right after the
+      // new socket connects, and calls scheduleReconnect() a second time,
+      // opening a duplicate WebSocket to the same session (duplicated output,
+      // input landing on a socket that's already being torn down).
+      const isCurrent = () => !disposed && wsRef.current === ws
 
       ws.onopen = () => {
-        if (disposed) {
+        if (!isCurrent()) {
           ws.close()
           return
         }
@@ -172,6 +181,7 @@ export function useLabTerminal({
       }
 
       ws.onmessage = (e: MessageEvent) => {
+        if (!isCurrent()) return
         if (e.data instanceof ArrayBuffer) {
           const bytes = new Uint8Array(e.data)
           if (bytes.length > 0 && bytes[0] === TTYD_OUTPUT_BYTE) {
@@ -186,6 +196,7 @@ export function useLabTerminal({
       }
 
       ws.onclose = () => {
+        if (!isCurrent()) return
         // Preserves the current gaveUp value — scheduleReconnect below is
         // what decides whether THIS close was the last attempt.
         setConnState((prev) => ({ connected: false, gaveUp: prev.gaveUp }))
@@ -272,6 +283,19 @@ export function useLabTerminal({
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(TTYD_INPUT + data)
         }
+      })
+
+      // xterm.js treats Ctrl/Cmd+V as the raw ^V control byte (shell
+      // "quoted-insert") by default and preventDefaults the keydown itself —
+      // which cancels the browser's native paste before it can fire, so
+      // xterm's own built-in paste listener (bound to the DOM "paste" event)
+      // never gets a chance to run. Returning false here skips xterm's own
+      // handling for just that combo and lets the native paste through.
+      term.attachCustomKeyEventHandler((e) => {
+        if (e.type === "keydown" && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+          return false
+        }
+        return true
       })
 
       resizeObserver = new ResizeObserver(() => {

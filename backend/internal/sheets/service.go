@@ -9,10 +9,12 @@ import (
 
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
 
-// slugify produces a URL-safe, collision-resistant slug from arbitrary text —
+// Slugify produces a URL-safe, collision-resistant slug from arbitrary text —
 // used for both sheet slugs and item topic_tags created by users (system
-// seed data ships its own hand-picked topic_tags/slugs).
-func slugify(s string) string {
+// seed data ships its own hand-picked topic_tags/slugs). Exported so
+// mcpconnect's sheet-tracker tools can mint the same slug shape the HTTP
+// handlers do instead of duplicating this.
+func Slugify(s string) string {
 	base := slugRe.ReplaceAllString(strings.ToLower(strings.TrimSpace(s)), "-")
 	base = strings.Trim(base, "-")
 	if base == "" {

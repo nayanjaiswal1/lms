@@ -26,7 +26,11 @@ import (
 // ARGV[3]  = max requests per window
 // ARGV[4]  = unique member (nanosecond timestamp) — prevents score collisions
 //
-// Returns 0 if allowed, 1 if rate-limited.
+// Returns 0 if allowed. If rejected, returns the number of milliseconds until
+// the oldest entry in the window ages out and frees a slot — the caller's true
+// retry-after, which is frequently well under the full window size (a client
+// that has been making occasional requests for the last minute may only need
+// to wait a second or two, not the full window, for its next slot).
 const slidingWindowScript = `
 local key    = KEYS[1]
 local now    = tonumber(ARGV[1])
@@ -41,7 +45,8 @@ if count < max then
     redis.call('PEXPIRE', key, window)
     return 0
 end
-return 1
+local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+return (tonumber(oldest[2]) + window) - now
 `
 
 // Limiter enforces a sliding-window request limit, backed by Redis for atomic,
@@ -64,8 +69,10 @@ func New(rdb *redis.Client) *Limiter {
 }
 
 // Allow reports whether the request identified by key may proceed, consuming
-// one slot from its window when it may.
-func (l *Limiter) Allow(ctx context.Context, key string, max int, window time.Duration) bool {
+// one slot from its window when it may. When it may not, the returned
+// duration is how long the caller should actually wait before its next slot
+// frees up — not the full window, since a slot can free sooner than that.
+func (l *Limiter) Allow(ctx context.Context, key string, max int, window time.Duration) (bool, time.Duration) {
 	now := time.Now()
 	windowMs := window.Milliseconds()
 	// Nanosecond precision as member prevents score collisions under bursts.
@@ -77,7 +84,24 @@ func (l *Limiter) Allow(ctx context.Context, key string, max int, window time.Du
 	if err != nil {
 		return l.fallback.allow(key, max, windowMs)
 	}
-	return result == 0
+	if result == 0 {
+		return true, 0
+	}
+	return false, time.Duration(result) * time.Millisecond
+}
+
+// RetryAfterSeconds converts a wait duration from Allow into a whole-second
+// value suitable for the Retry-After header, rounding up so the advertised
+// wait is never shorter than what the limiter will actually honor.
+func RetryAfterSeconds(wait time.Duration) int {
+	if wait <= 0 {
+		return 1
+	}
+	secs := int(wait / time.Second)
+	if wait%time.Second != 0 {
+		secs++
+	}
+	return secs
 }
 
 // inMemorySlidingWindow is a goroutine-safe in-process sliding window used as
@@ -92,7 +116,7 @@ func newInMemorySlidingWindow() *inMemorySlidingWindow {
 	return &inMemorySlidingWindow{buckets: make(map[string][]int64), lastGC: time.Now()}
 }
 
-func (s *inMemorySlidingWindow) allow(key string, max int, windowMs int64) bool {
+func (s *inMemorySlidingWindow) allow(key string, max int, windowMs int64) (bool, time.Duration) {
 	now := time.Now().UnixMilli()
 	cutoff := now - windowMs
 	s.mu.Lock()
@@ -109,10 +133,11 @@ func (s *inMemorySlidingWindow) allow(key string, max int, windowMs int64) bool 
 	ts = ts[i:]
 	if len(ts) >= max {
 		s.buckets[key] = ts
-		return false
+		waitMs := ts[0] + windowMs - now
+		return false, time.Duration(waitMs) * time.Millisecond
 	}
 	s.buckets[key] = append(ts, now)
-	return true
+	return true, 0
 }
 
 // gcLocked drops fully-expired buckets. Without it the map grows without bound

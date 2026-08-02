@@ -32,10 +32,18 @@ async function CourseGrid({ canManage, canEdit, canViewAnalytics }: CourseGridPr
 
   const enrolledMap = new Map(enrollments.map((e) => [e.course_id, e]));
   const ownedIds = new Set(ownCourses.map((c) => c.id));
+  // Self-courses (kind='self') never appear in the published catalog `courses`
+  // covers — they're private to their owner and only ever surfaced via
+  // auto-enrollment, so pull them from `enrollments` instead.
+  const selfCourses = enrollments.map((e) => e.course).filter((c) => c.kind === "self");
 
   // Own drafts don't appear in the published catalog `courses` already covers
   // — append any owned course not already listed there.
-  const merged = [...courses, ...ownCourses.filter((c) => !courses.some((pc) => pc.id === c.id))];
+  const merged = [
+    ...courses,
+    ...ownCourses.filter((c) => !courses.some((pc) => pc.id === c.id)),
+    ...selfCourses.filter((c) => !courses.some((pc) => pc.id === c.id) && !ownCourses.some((oc) => oc.id === c.id)),
+  ];
 
   if (merged.length === 0) {
     return (

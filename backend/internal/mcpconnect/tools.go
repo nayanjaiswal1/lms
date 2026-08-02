@@ -11,6 +11,7 @@ import (
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/mistakes"
+	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/systemdesign"
 )
@@ -102,6 +103,92 @@ func argScene(args map[string]any, key string) (systemdesign.Scene, error) {
 		return systemdesign.Scene{}, fmt.Errorf("%q must be an Excalidraw scene object ({\"elements\": [...], \"appState\": {...}}): %w", key, err)
 	}
 	return scene, nil
+}
+
+// argStringSlice reads args[key] as a []string, skipping non-string/empty
+// entries — JSON-RPC array arguments decode as []any, so this is the array
+// counterpart to argString (e.g. combine_sheets' sheet_ids/exclude_topic_tags).
+func argStringSlice(args map[string]any, key string) []string {
+	raw, ok := args[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok && s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// argIntRequired returns args[key] as an int, erroring if absent — the
+// required counterpart to optInt (e.g. update_sheet_settings' base_revision_days).
+func argIntRequired(args map[string]any, key string) (int, error) {
+	v, ok := args[key].(float64)
+	if !ok {
+		return 0, fmt.Errorf("missing required argument %q", key)
+	}
+	return int(v), nil
+}
+
+// argRawJSON re-marshals args[key] (already JSON-RPC-decoded) back into raw
+// JSON bytes, for arguments the callee stores as opaque jsonb rather than a
+// typed struct — the same round-trip argScene uses for an Excalidraw scene
+// (e.g. update_problem_notes' TipTap notes document).
+func argRawJSON(args map[string]any, key string) (json.RawMessage, error) {
+	raw, ok := args[key]
+	if !ok {
+		return nil, fmt.Errorf("missing required argument %q", key)
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%q: %w", key, err)
+	}
+	return b, nil
+}
+
+// requireSheetOwner errors unless userID owns sheetID — the same ownership
+// check every mutating sheets HTTP handler (UpdateSheet, DeleteSheet, AddItem,
+// UpdateItem, DeleteItem) makes before writing.
+func requireSheetOwner(ctx context.Context, rt *Router, userID, sheetID string) error {
+	isOwner, err := rt.sheetsRepo.IsOwner(ctx, userID, sheetID)
+	if err != nil {
+		return err
+	}
+	if !isOwner {
+		return fmt.Errorf("mcpconnect: you don't own this sheet")
+	}
+	return nil
+}
+
+// requireSheetAccess errors unless userID may read sheetID's items — either
+// it's system-seeded or userID owns/subscribes to it. Mirrors GetSheetItems.
+func requireSheetAccess(ctx context.Context, rt *Router, userID, sheetID string) error {
+	hasAccess, err := rt.sheetsRepo.UserHasAccess(ctx, userID, sheetID)
+	if err != nil {
+		return err
+	}
+	if !hasAccess {
+		return fmt.Errorf("mcpconnect: you don't have access to this sheet")
+	}
+	return nil
+}
+
+// findSheetItem locates one item within sheetID's items-with-progress list —
+// sheets.Repo has no get-item-by-id lookup, so update_sheet_item's BeforeState
+// snapshot reuses the same listing ListItemsWithProgress already provides.
+func findSheetItem(ctx context.Context, rt *Router, sheetID, itemID, userID string) (sheets.SheetItem, error) {
+	items, err := rt.sheetsRepo.ListItemsWithProgress(ctx, sheetID, userID)
+	if err != nil {
+		return sheets.SheetItem{}, err
+	}
+	for _, it := range items {
+		if it.ID == itemID {
+			return it, nil
+		}
+	}
+	return sheets.SheetItem{}, fmt.Errorf("mcpconnect: item %q not found in sheet %q", itemID, sheetID)
 }
 
 // entryArgString reads a string field back out of a logged ActionLogEntry's
@@ -512,6 +599,34 @@ var tools = []mcpTool{
 		},
 	},
 	{
+		Name:        "add_self_course_section",
+		Description: "Create a new section (a named grouping of lessons, e.g. \"System Design Roadmap\") in one of the student's own self-courses. Use this before add_self_course_module when the new lessons belong under their own heading rather than the course's default first section — call this first to get a section_id, then pass it to add_self_course_module.",
+		Scope:       ScopeCoursesWrite,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"course_id": map[string]any{"type": "string"},
+				"title":     map[string]any{"type": "string"},
+			},
+			"required": []string{"course_id", "title"},
+		},
+		TargetType: "course_section",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			courseID, err := argString(args, "course_id")
+			if err != nil {
+				return nil, err
+			}
+			title, err := argString(args, "title")
+			if err != nil {
+				return nil, err
+			}
+			return rt.coursesSvc.AddSelfCourseSection(ctx, id.OrgID, id.UserID, courseID, title)
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			return rt.coursesRepo.DeleteSection(ctx, id.OrgID, entry.TargetID)
+		},
+	},
+	{
 		Name:        "add_self_course_module",
 		Description: "Add a new lesson (as markdown notes) to one of the student's own self-courses — use this to record something new the student just learned, so their private course grows as they study. section_id is optional; omitted, it goes into the course's first section. If a closely-titled module already exists in this course, the content is appended to it instead of creating a duplicate lesson (matched_existing: true). If a similar module exists in a DIFFERENT self-course, it's returned as similar_elsewhere instead of being touched — mention it to the student rather than writing the same notes again.",
 		Scope:       ScopeCoursesWrite,
@@ -621,6 +736,37 @@ var tools = []mcpTool{
 			}
 			_, err := rt.coursesSvc.UpdateSelfCourseModule(ctx, id.OrgID, id.UserID, entry.TargetID, before.Module.Title, *before.Module.ContentBody)
 			return err
+		},
+	},
+	{
+		Name:        "delete_self_course_module",
+		Description: "Remove a lesson from one of the student's own self-courses — e.g. cleaning up a duplicate left behind after moving its content into a new section via add_self_course_section. Soft-deleted, not visible anywhere in the app afterward; the student can undo it from the Action Log in Settings if it was a mistake.",
+		Scope:       ScopeCoursesWrite,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"module_id": map[string]any{"type": "string"}},
+			"required":   []string{"module_id"},
+		},
+		TargetType: "course_module",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.coursesSvc.GetModuleContent(ctx, id.OrgID, id.UserID, moduleID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			moduleID, err := argString(args, "module_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := rt.coursesSvc.DeleteSelfCourseModule(ctx, id.OrgID, id.UserID, moduleID); err != nil {
+				return nil, err
+			}
+			return map[string]any{"deleted": true}, nil
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			return rt.coursesRepo.RestoreModule(ctx, id.OrgID, entry.TargetID)
 		},
 	},
 	{
@@ -1142,6 +1288,598 @@ var tools = []mcpTool{
 		},
 		// ponytail: no Revert — like send-message tools elsewhere in this file,
 		// the AI reply has already been generated by the time this returns.
+	},
+
+	{
+		Name:        "list_public_sheets",
+		Description: "List MindForge's system-seeded problem sheets (Striver's A2Z, NeetCode 150, Blind 75, Grind 169) — the starting catalog a student can subscribe to or fork.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
+			return rt.sheetsRepo.ListPublicSheets(ctx)
+		},
+	},
+	{
+		Name:        "list_my_sheets",
+		Description: "List every sheet the student owns or subscribes to — their tab bar — with item counts and how many they've solved in each. Call this before create_sheet/subscribe_to_sheet if unsure whether the student is already tracking a given sheet.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
+			return rt.sheetsRepo.ListUserSheets(ctx, id.UserID)
+		},
+	},
+	{
+		Name:        "get_sheet_preview",
+		Description: "Look up a sheet's metadata by slug (name, description, item count, whether the student already tracks it) — use this before subscribing, or to resolve a slug to a sheet_id for the other sheet tools.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"slug": map[string]any{"type": "string"}},
+			"required":   []string{"slug"},
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			slug, err := argString(args, "slug")
+			if err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.GetSheetPreview(ctx, id.UserID, slug)
+		},
+	},
+	{
+		Name:        "get_sheet_items",
+		Description: "Read every item in a sheet the student has access to (system-seeded, owned, or subscribed), joined with their own solve status/revision schedule/notes/star for each. Fails if the student hasn't subscribed to or forked a non-system sheet yet.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"slug": map[string]any{"type": "string"}},
+			"required":   []string{"slug"},
+		},
+		TargetType: "sheet",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			slug, err := argString(args, "slug")
+			if err != nil {
+				return nil, err
+			}
+			sheet, err := rt.sheetsRepo.GetSheetBySlug(ctx, slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := requireSheetAccess(ctx, rt, id.UserID, sheet.ID); err != nil {
+				return nil, err
+			}
+			items, err := rt.sheetsRepo.ListItemsWithProgress(ctx, sheet.ID, id.UserID)
+			if err != nil {
+				return nil, err
+			}
+			return sheets.SheetItemsResponse{Sheet: sheet, Items: items}, nil
+		},
+	},
+	{
+		Name:        "create_sheet",
+		Description: "Create a new, empty problem sheet owned by the student — a private tracker for a custom problem list. Use add_sheet_item afterward to populate it, or combine_sheets to build one from existing sheets instead.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name":        map[string]any{"type": "string"},
+				"description": map[string]any{"type": "string"},
+				"category":    map[string]any{"type": "string"},
+			},
+			"required": []string{"name"},
+		},
+		TargetType: "sheet",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			name, err := argString(args, "name")
+			if err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.CreateSheet(ctx, id.UserID, sheets.Slugify(name), sheets.CreateSheetRequest{
+				Name: name, Description: optString(args, "description"), Category: optString(args, "category"),
+			})
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			return rt.sheetsRepo.DeleteSheet(ctx, entry.TargetID)
+		},
+	},
+	{
+		Name:        "update_sheet",
+		Description: "Rename or redescribe a sheet the student owns. Only the given fields change.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"sheet_id":    map[string]any{"type": "string"},
+				"name":        map[string]any{"type": "string"},
+				"description": map[string]any{"type": "string"},
+			},
+			"required": []string{"sheet_id"},
+		},
+		TargetType: "sheet",
+		// ponytail: no Revert — sheets.Repo has no get-sheet-by-id lookup to
+		// snapshot the prior name/description from before overwriting them.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := requireSheetOwner(ctx, rt, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.UpdateSheet(ctx, sheetID, sheets.UpdateSheetRequest{
+				Name: optString(args, "name"), Description: optString(args, "description"),
+			})
+		},
+	},
+	{
+		Name:        "delete_sheet",
+		Description: "Permanently delete a sheet the student owns, along with its items and everyone's subscriptions to it. Cannot delete a system-seeded sheet.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
+			"required":   []string{"sheet_id"},
+		},
+		TargetType: "sheet",
+		// ponytail: no Revert — DeleteSheet cascades to sheet_items and every
+		// user_sheets row; nothing left to reconstruct it from.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := requireSheetOwner(ctx, rt, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			if err := rt.sheetsRepo.DeleteSheet(ctx, sheetID); err != nil {
+				return nil, err
+			}
+			return map[string]any{"deleted": true, "id": sheetID}, nil
+		},
+	},
+	{
+		Name:        "combine_sheets",
+		Description: "Create a new owned sheet whose items are the union of two or more sheets the student has access to, deduped by topic_tag (first occurrence wins). A snapshot at combine time — later changes to the source sheets don't flow in. exclude_topic_tags optionally drops specific problems from the result.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name":               map[string]any{"type": "string"},
+				"sheet_ids":          map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"exclude_topic_tags": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+			},
+			"required": []string{"name", "sheet_ids"},
+		},
+		TargetType: "sheet",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			name, err := argString(args, "name")
+			if err != nil {
+				return nil, err
+			}
+			sheetIDs := argStringSlice(args, "sheet_ids")
+			if len(sheetIDs) == 0 {
+				return nil, fmt.Errorf("missing required argument %q", "sheet_ids")
+			}
+			for _, sheetID := range sheetIDs {
+				if err := requireSheetAccess(ctx, rt, id.UserID, sheetID); err != nil {
+					return nil, err
+				}
+			}
+			return rt.sheetsRepo.CombineSheets(ctx, id.UserID, sheets.Slugify(name), sheets.CombineSheetsRequest{
+				Name: name, SheetIDs: sheetIDs, ExcludeTopicTags: argStringSlice(args, "exclude_topic_tags"),
+			})
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			return rt.sheetsRepo.DeleteSheet(ctx, entry.TargetID)
+		},
+	},
+	{
+		Name:        "add_sheet_item",
+		Description: "Add a new problem/topic to a sheet the student owns.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"sheet_id":     map[string]any{"type": "string"},
+				"title":        map[string]any{"type": "string"},
+				"category":     map[string]any{"type": "string"},
+				"difficulty":   map[string]any{"type": "string", "description": "One of: easy, medium, hard."},
+				"external_url": map[string]any{"type": "string"},
+			},
+			"required": []string{"sheet_id", "title"},
+		},
+		TargetType: "sheet_item",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			title, err := argString(args, "title")
+			if err != nil {
+				return nil, err
+			}
+			if err := requireSheetOwner(ctx, rt, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.AddItem(ctx, sheetID, sheets.Slugify(title), sheets.AddItemRequest{
+				Title: title, Category: optString(args, "category"), Difficulty: optString(args, "difficulty"), ExternalURL: optString(args, "external_url"),
+			})
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			sheetID, ok := entryArgString(entry, "sheet_id")
+			if !ok {
+				return fmt.Errorf("mcpconnect: revert add_sheet_item: missing sheet_id in logged args")
+			}
+			return rt.sheetsRepo.DeleteItem(ctx, sheetID, entry.TargetID)
+		},
+	},
+	{
+		Name:        "update_sheet_item",
+		Description: "Edit the title/category/difficulty/external_url of an item in a sheet the student owns.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"sheet_id":     map[string]any{"type": "string"},
+				"item_id":      map[string]any{"type": "string"},
+				"title":        map[string]any{"type": "string"},
+				"category":     map[string]any{"type": "string"},
+				"difficulty":   map[string]any{"type": "string", "description": "One of: easy, medium, hard."},
+				"external_url": map[string]any{"type": "string"},
+			},
+			"required": []string{"sheet_id", "item_id"},
+		},
+		TargetType: "sheet_item",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			itemID, err := argString(args, "item_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := requireSheetOwner(ctx, rt, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			return findSheetItem(ctx, rt, sheetID, itemID, id.UserID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			itemID, err := argString(args, "item_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := requireSheetOwner(ctx, rt, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.UpdateItem(ctx, sheetID, itemID, sheets.UpdateItemRequest{
+				Title: optString(args, "title"), Category: optString(args, "category"),
+				Difficulty: optString(args, "difficulty"), ExternalURL: optString(args, "external_url"),
+			})
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			sheetID, ok := entryArgString(entry, "sheet_id")
+			if !ok {
+				return fmt.Errorf("mcpconnect: revert update_sheet_item: missing sheet_id in logged args")
+			}
+			var before sheets.SheetItem
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			_, err := rt.sheetsRepo.UpdateItem(ctx, sheetID, entry.TargetID, sheets.UpdateItemRequest{
+				Title: &before.Title, Category: before.Category, Difficulty: before.Difficulty, ExternalURL: before.ExternalURL,
+			})
+			return err
+		},
+	},
+	{
+		Name:        "delete_sheet_item",
+		Description: "Remove an item from a sheet the student owns.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"sheet_id": map[string]any{"type": "string"},
+				"item_id":  map[string]any{"type": "string"},
+			},
+			"required": []string{"sheet_id", "item_id"},
+		},
+		TargetType: "sheet_item",
+		// ponytail: no Revert — re-adding the item would mint a fresh topic_tag
+		// (Slugify appends a random suffix), orphaning any solve progress/notes
+		// still tied to the deleted item's original topic_tag.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			itemID, err := argString(args, "item_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := requireSheetOwner(ctx, rt, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			if err := rt.sheetsRepo.DeleteItem(ctx, sheetID, itemID); err != nil {
+				return nil, err
+			}
+			return map[string]any{"deleted": true, "id": itemID}, nil
+		},
+	},
+	{
+		Name:        "subscribe_to_sheet",
+		Description: "Pin a sheet (typically a system sheet) as one the student tracks, adding it to their tab bar.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
+			"required":   []string{"sheet_id"},
+		},
+		TargetType: "sheet",
+		// ponytail: no Revert — Subscribe is idempotent (ON CONFLICT DO NOTHING),
+		// so there's no cheap way to tell whether this call created the
+		// subscription or no-opped on one that already existed; the student's
+		// AI can call unsubscribe_from_sheet directly if it needs to undo this.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := rt.sheetsRepo.Subscribe(ctx, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			return map[string]any{"subscribed": true, "id": sheetID}, nil
+		},
+	},
+	{
+		Name:        "unsubscribe_from_sheet",
+		Description: "Stop tracking a sheet the student subscribes to. Does not affect sheets the student owns.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
+			"required":   []string{"sheet_id"},
+		},
+		TargetType: "sheet",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := rt.sheetsRepo.Unsubscribe(ctx, id.UserID, sheetID); err != nil {
+				return nil, err
+			}
+			return map[string]any{"unsubscribed": true, "id": sheetID}, nil
+		},
+	},
+	{
+		Name:        "get_sheet_settings",
+		Description: "Get the student's spaced-repetition settings (base interval, growth scheme) for one sheet — defaults to a 7-day doubling schedule if never customized.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"sheet_id": map[string]any{"type": "string"}},
+			"required":   []string{"sheet_id"},
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.GetSheetSettings(ctx, id.UserID, sheetID)
+		},
+	},
+	{
+		Name:        "update_sheet_settings",
+		Description: "Set the student's revision-scheduling settings for one sheet: base_revision_days is the interval (1-365 days) used after first marking an item done, and growth_scheme controls how the interval grows on each successful review — 'doubling' (default, doubles each time), 'ladder' (fixed 1/3/7/14/30/90-day steps), or 'linear' (base × review count).",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"sheet_id":           map[string]any{"type": "string"},
+				"base_revision_days": map[string]any{"type": "integer"},
+				"growth_scheme":      map[string]any{"type": "string", "description": "One of: doubling, ladder, linear."},
+			},
+			"required": []string{"sheet_id", "base_revision_days", "growth_scheme"},
+		},
+		TargetType: "sheet",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.GetSheetSettings(ctx, id.UserID, sheetID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			baseRevisionDays, err := argIntRequired(args, "base_revision_days")
+			if err != nil {
+				return nil, err
+			}
+			if baseRevisionDays < 1 || baseRevisionDays > 365 {
+				return nil, fmt.Errorf("mcpconnect: base_revision_days must be between 1 and 365")
+			}
+			growthScheme, err := argString(args, "growth_scheme")
+			if err != nil {
+				return nil, err
+			}
+			if !sheets.ValidGrowthSchemes[growthScheme] {
+				return nil, fmt.Errorf("mcpconnect: growth_scheme must be one of: doubling, ladder, linear")
+			}
+			settings, err := rt.sheetsRepo.UpsertSheetSettings(ctx, id.UserID, sheetID, baseRevisionDays, growthScheme)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"id": sheetID, "base_revision_days": settings.BaseRevisionDays, "growth_scheme": settings.GrowthScheme}, nil
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			sheetID, ok := entryArgString(entry, "sheet_id")
+			if !ok {
+				return fmt.Errorf("mcpconnect: revert update_sheet_settings: missing sheet_id in logged args")
+			}
+			var before sheets.UserSheetSettings
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			_, err := rt.sheetsRepo.UpsertSheetSettings(ctx, id.UserID, sheetID, before.BaseRevisionDays, before.GrowthScheme)
+			return err
+		},
+	},
+	{
+		Name:        "update_problem_progress",
+		Description: "Set a problem's solve status by topic_tag — shared across every sheet containing it, so marking \"two-sum\" done updates it everywhere it appears. status is one of: todo, done, revisit. sheet_id is required when status is \"done\", to resolve which sheet's revision schedule sets the next review date.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"topic_tag": map[string]any{"type": "string"},
+				"status":    map[string]any{"type": "string", "description": "One of: todo, done, revisit."},
+				"sheet_id":  map[string]any{"type": "string", "description": "Required when status is \"done\"."},
+			},
+			"required": []string{"topic_tag", "status"},
+		},
+		TargetType: "problem_progress",
+		// ponytail: no Revert — sheets.Repo has no get-progress-by-topic_tag
+		// read, so there's no prior status/solved_at/revision_at/review_count
+		// snapshot to restore.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			topicTag, err := argString(args, "topic_tag")
+			if err != nil {
+				return nil, err
+			}
+			status, err := argString(args, "status")
+			if err != nil {
+				return nil, err
+			}
+			if status != "todo" && status != "done" && status != "revisit" {
+				return nil, fmt.Errorf("mcpconnect: status must be one of: todo, done, revisit")
+			}
+			var revisionAt *time.Time
+			if status == "done" {
+				sheetID, err := argString(args, "sheet_id")
+				if err != nil {
+					return nil, fmt.Errorf("sheet_id is required when status is \"done\"")
+				}
+				settings, err := rt.sheetsRepo.GetSheetSettings(ctx, id.UserID, sheetID)
+				if err != nil {
+					return nil, err
+				}
+				at := time.Now().AddDate(0, 0, sheets.NextRevisionDays(settings.GrowthScheme, settings.BaseRevisionDays, 0))
+				revisionAt = &at
+			}
+			return rt.sheetsRepo.UpsertProgress(ctx, id.UserID, topicTag, status, revisionAt)
+		},
+	},
+	{
+		Name:        "mark_problem_reviewed",
+		Description: "Record \"I still remember this\" for an already-solved problem — keeps it marked done but advances its revision date to the next, longer interval per the given sheet's growth scheme. No-ops if the problem isn't currently marked done.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"topic_tag": map[string]any{"type": "string"},
+				"sheet_id":  map[string]any{"type": "string"},
+			},
+			"required": []string{"topic_tag", "sheet_id"},
+		},
+		TargetType: "problem_progress",
+		// ponytail: no Revert — the review interval has already advanced by the
+		// time this returns, same reasoning as submit_interview_prep_round_answer.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			topicTag, err := argString(args, "topic_tag")
+			if err != nil {
+				return nil, err
+			}
+			sheetID, err := argString(args, "sheet_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.MarkReviewed(ctx, id.UserID, topicTag, sheetID)
+		},
+	},
+	{
+		Name:        "update_problem_revision",
+		Description: "Directly reschedule an already-solved or revisit problem's next revision date, bypassing the growth scheme. No-ops on a \"todo\" problem.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"topic_tag":   map[string]any{"type": "string"},
+				"revision_at": map[string]any{"type": "string", "description": "RFC3339 timestamp, e.g. 2026-08-09T00:00:00Z"},
+			},
+			"required": []string{"topic_tag", "revision_at"},
+		},
+		TargetType: "problem_progress",
+		// ponytail: no Revert — no by-topic_tag read to snapshot the prior
+		// revision_at from.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			topicTag, err := argString(args, "topic_tag")
+			if err != nil {
+				return nil, err
+			}
+			revisionAt, err := argTime(args, "revision_at")
+			if err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.UpdateRevision(ctx, id.UserID, topicTag, revisionAt)
+		},
+	},
+	{
+		Name:        "update_problem_notes",
+		Description: "Write the student's free-form note for a problem by topic_tag, independent of solve status. notes must be a TipTap rich-text document object (e.g. {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"...\"}]}]}), the same shape the in-app note editor saves.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"topic_tag": map[string]any{"type": "string"},
+				"notes":     map[string]any{"type": "object", "description": "TipTap document JSON."},
+			},
+			"required": []string{"topic_tag", "notes"},
+		},
+		TargetType: "problem_progress",
+		// ponytail: no Revert — no by-topic_tag read to snapshot the prior
+		// notes document from.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			topicTag, err := argString(args, "topic_tag")
+			if err != nil {
+				return nil, err
+			}
+			notes, err := argRawJSON(args, "notes")
+			if err != nil {
+				return nil, err
+			}
+			return rt.sheetsRepo.UpsertNotes(ctx, id.UserID, topicTag, notes)
+		},
+	},
+	{
+		Name:        "toggle_problem_starred",
+		Description: "Set or clear the student's personal bookmark on a problem by topic_tag, independent of solve status.",
+		Scope:       ScopeSheets,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"topic_tag": map[string]any{"type": "string"},
+				"starred":   map[string]any{"type": "boolean"},
+			},
+			"required": []string{"topic_tag", "starred"},
+		},
+		TargetType: "problem_progress",
+		// ponytail: no Revert — no by-topic_tag read to snapshot the prior
+		// starred flag from.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			topicTag, err := argString(args, "topic_tag")
+			if err != nil {
+				return nil, err
+			}
+			starred, _ := args["starred"].(bool)
+			return rt.sheetsRepo.SetStarred(ctx, id.UserID, topicTag, starred)
+		},
 	},
 }
 

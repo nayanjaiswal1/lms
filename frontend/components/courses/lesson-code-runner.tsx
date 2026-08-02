@@ -7,6 +7,7 @@ import { runSnippetAction } from "@/app/(app)/courses/actions";
 import type { SnippetResult } from "@/app/(app)/courses/actions";
 import { CodeEditor } from "@/components/shared/code-editor";
 import { Button } from "@/components/ui/button";
+import { isRunCombo, useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { RUNNABLE_LANGUAGES } from "@/lib/courses/runnable-languages";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +84,9 @@ export function LessonCodeRunner({ language, initialCode, minLines = 4, fill = f
     outputDrag.current = null;
   }
 
+  useKeyboardShortcut(!isRunning, isRunCombo, run);
+  useKeyboardShortcut(!!(error ?? result), (e) => e.key === "Escape", closeOutput);
+
   return (
     <div className={cn("overflow-hidden rounded-lg border border-border bg-card", fill && "flex h-full flex-col")}>
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
@@ -110,7 +114,13 @@ export function LessonCodeRunner({ language, initialCode, minLines = 4, fill = f
               <RotateCcw aria-hidden className="h-3.5 w-3.5" />
             </Button>
           )}
-          <Button disabled={isRunning} size="sm" variant="secondary" onClick={run}>
+          <Button
+            disabled={isRunning}
+            size="sm"
+            title="Run (Ctrl+Enter)"
+            variant="secondary"
+            onClick={run}
+          >
             {isRunning ? (
               <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
             ) : (
@@ -160,6 +170,7 @@ export function LessonCodeRunner({ language, initialCode, minLines = 4, fill = f
                 aria-label="Close output"
                 className="touch-target ml-auto text-muted-foreground"
                 size="icon"
+                title="Close output (Esc)"
                 variant="ghost"
                 onClick={closeOutput}
               >

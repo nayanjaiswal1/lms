@@ -47,8 +47,14 @@ type labStudentResponse struct {
 	// HasRunScript tells the workspace whether to show a Run button (sandbox
 	// labs). The script body itself never crosses the wire — students only
 	// ever see its output via POST /sessions/:id/run.
-	HasRunScript bool              `json:"has_run_script"`
-	Tasks        []studentTaskView `json:"tasks"`
+	HasRunScript bool `json:"has_run_script"`
+	// HasCluster tells the workspace whether this lab's environment image
+	// bundles kubectl/a cluster (see hasKubectl) — gates the Resources tab
+	// and the file editor's Validate button, both meaningless on a plain
+	// container. The environment image string itself is never exposed to
+	// students (see LabDefinition.Environment), only this derived boolean.
+	HasCluster bool              `json:"has_cluster"`
+	Tasks      []studentTaskView `json:"tasks"`
 }
 
 // newLabStudentResponse builds the student-safe lab view shared by
@@ -67,6 +73,7 @@ func newLabStudentResponse(lab *LabDefinition) labStudentResponse {
 		Layout:         lab.WorkspaceLayout,
 		PreviewPort:    lab.PreviewPort,
 		HasRunScript:   lab.RunScript != nil && strings.TrimSpace(*lab.RunScript) != "",
+		HasCluster:     hasKubectl(lab.Environment),
 		Tasks:          []studentTaskView{},
 	}
 }

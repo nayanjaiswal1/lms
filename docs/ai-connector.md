@@ -78,8 +78,10 @@ enforces):
 | `save_my_lesson_note` | `notes:write` | `courses.Service.SaveLessonNote` (source="ai") |
 | `log_understanding` | `signals:write` | `courses.Service.LogUnderstanding` → `lesson_reflections` (source="ai") |
 | `create_self_course` | `courses:write` | `courses.Service.CreateSelfCourse` / `ForkSelfCourseFromOrgCourse` — first checks `Repo.FindSimilarSelfCourse` (pg_trgm title match against the owner's own self-courses, same `> 0.3` threshold `internal/roadmap/matcher.go` uses); a match returns the existing course (`matched_existing: true`) instead of creating a duplicate |
+| `add_self_course_section` | `courses:write` | `courses.Service.AddSelfCourseSection` — creates a new section in the caller's own self-course; returns its `id` so a follow-up `add_self_course_module` call can target it instead of falling back to the course's default first section |
 | `add_self_course_module` | `courses:write` | `courses.Service.AddSelfCourseModule` — first checks `Repo.FindSimilarModuleInCourse`; a same-course match appends the new content to the existing module (`matched_existing: true`) instead of a duplicate lesson. Also checks `Repo.FindSimilarModuleElsewhere` (other self-courses the owner has); a match is returned as `similar_elsewhere` without touching either module — cross-course overlap is only ever surfaced, never auto-merged |
 | `update_self_course_module` | `courses:write` | `courses.Service.UpdateSelfCourseModule` |
+| `delete_self_course_module` | `courses:write` | `courses.Service.DeleteSelfCourseModule` → `Repo.SoftDeleteModule`; reverts via `Repo.RestoreModule` (clears `deleted_at`) |
 | `propose_module_to_org_course` | `courses:write` | `courses.Service.ProposeModuleToOrgCourse` → `course_content_proposals` (`status='pending'`); given `source_module_id`, copies that self-course lesson's title/content server-side and records `source_course_id`/`source_module_id` for traceability instead of trusting retyped text |
 | `get_learning_context` | `courses:read` | `courses.Service.GetLearningContext` — enrolled courses + progress, recent reflections, recent self-course activity, all in one call |
 | `get_random_topic` | `courses:read` | `courses.Service.GetRandomTopic` — one published course the student hasn't tried yet, weighted toward `user_profiles.topics_interest` |
@@ -101,6 +103,26 @@ enforces):
 | `generate_system_design_feedback` | `system_design:manage` | `systemdesign.Service.GenerateFeedback` |
 | `list_system_design_chat` | `system_design:manage` | `systemdesign.Service.ListChat` |
 | `send_system_design_chat_message` | `system_design:manage` | `systemdesign.Service.SendChatMessage` |
+| `list_public_sheets` | `sheets:manage` | `sheets.Repo.ListPublicSheets` — the system-seeded catalog (Striver's A2Z, NeetCode 150, Blind 75, Grind 169) |
+| `list_my_sheets` | `sheets:manage` | `sheets.Repo.ListUserSheets` — the connection's tab bar (owned + subscribed), with per-sheet solved counts |
+| `get_sheet_preview` | `sheets:manage` | `sheets.Repo.GetSheetPreview` — metadata by slug, plus whether the connection already tracks it |
+| `get_sheet_items` | `sheets:manage` | `sheets.Repo.GetSheetBySlug` + `UserHasAccess` + `ListItemsWithProgress` — same access check `GetSheetItems` enforces |
+| `create_sheet` | `sheets:manage` | `sheets.Repo.CreateSheet` |
+| `update_sheet` | `sheets:manage` | `sheets.Repo.UpdateSheet` — ownership checked via `IsOwner` first, same as the HTTP handler |
+| `delete_sheet` | `sheets:manage` | `sheets.Repo.DeleteSheet` — cascades to the sheet's items and every subscriber's `user_sheets` row |
+| `combine_sheets` | `sheets:manage` | `sheets.Repo.CombineSheets` — every source sheet id is access-checked first; the new sheet is a snapshot, not linked back to its sources |
+| `add_sheet_item` | `sheets:manage` | `sheets.Repo.AddItem` |
+| `update_sheet_item` | `sheets:manage` | `sheets.Repo.UpdateItem` |
+| `delete_sheet_item` | `sheets:manage` | `sheets.Repo.DeleteItem` |
+| `subscribe_to_sheet` | `sheets:manage` | `sheets.Repo.Subscribe` |
+| `unsubscribe_from_sheet` | `sheets:manage` | `sheets.Repo.Unsubscribe` |
+| `get_sheet_settings` | `sheets:manage` | `sheets.Repo.GetSheetSettings` — the connection's per-sheet spaced-repetition config |
+| `update_sheet_settings` | `sheets:manage` | `sheets.Repo.UpsertSheetSettings` |
+| `update_problem_progress` | `sheets:manage` | `sheets.Repo.UpsertProgress` — keyed by `topic_tag`, shared across every sheet containing it; `sheet_id` resolves the revision schedule when marking `done` |
+| `mark_problem_reviewed` | `sheets:manage` | `sheets.Repo.MarkReviewed` — the "I still remember this" action, advances to the next interval |
+| `update_problem_revision` | `sheets:manage` | `sheets.Repo.UpdateRevision` — direct reschedule, bypassing the growth scheme |
+| `update_problem_notes` | `sheets:manage` | `sheets.Repo.UpsertNotes` — TipTap doc JSON, same shape as `lesson_notes`/`wiki_pages.content` |
+| `toggle_problem_starred` | `sheets:manage` | `sheets.Repo.SetStarred` |
 
 ### `interview_prep:manage` — one combined scope, no revert on generation
 
@@ -110,12 +132,16 @@ Every interview-prep tool shares one scope rather than splitting read/write, mir
 
 Every other write scope (`notes:write`, `signals:write`, `calendar:manage`) only ever touches a table scoped 1:1 to the connecting user. `courses:write` is different — it can create/edit **courses**. The non-negotiable boundary (see `docs/courses.md`'s "Kind: org vs. self"):
 
-- `create_self_course`/`add_self_course_module`/`update_self_course_module` only ever read/write a `kind='self'` course whose `owner_id` is the connection's own `user_id` — enforced by `courses.Repo.GetOwnedSelfCourse` on every call, the same choke point the in-app self-course endpoints use. There is no tool that edits a `kind='org'` course's modules.
+- `create_self_course`/`add_self_course_section`/`add_self_course_module`/`update_self_course_module`/`delete_self_course_module` only ever read/write a `kind='self'` course whose `owner_id` is the connection's own `user_id` — enforced by `courses.Repo.GetOwnedSelfCourse` on every call, the same choke point the in-app self-course endpoints use. There is no tool that edits a `kind='org'` course's modules.
 - `propose_module_to_org_course` never writes to an org course either — it only inserts a `pending` `course_content_proposals` row. An org course only gains a new module when that course's own instructor/admin approves it through the ordinary web app (`docs/courses.md`'s proposal review queue), a plain session-authenticated, RBAC-gated endpoint — never reachable via `/mcp`.
 
 ### `system_design:manage` — the whiteboard tool, not the (unbuilt) canvas doc describes
 
 This scope covers `internal/systemdesign`, the actual system-design feature: an Excalidraw whiteboard a student fills in against one `course_modules` row of `type='system_design'`, with AI feedback and a clarifying-question chat (`system_design_attempts`, `system_design_chat_messages`). It is unrelated to the standalone React-Flow canvas / `system_designs` table `docs/design.md` describes — that feature was never built; `docs/design.md` is stale. `save_system_design_scene` is the "update the design" tool: it takes a full Excalidraw scene (`{elements, appState}`) and replaces the attempt's canvas wholesale, the same as `SaveScene` does for the in-app autosave. One combined scope rather than a read/write split, same reasoning as `interview_prep:manage` — every call is already scoped to the connection's own attempts.
+
+### `sheets:manage` — the problem-sheet tracker, one scope like `calendar:manage`
+
+Covers `internal/sheets` end to end: browsing/creating/combining sheets, adding/editing/removing items, subscribe/unsubscribe, spaced-repetition settings, and cross-sheet problem progress (status, revision date, notes, star) keyed by `topic_tag` — see `docs/sheets.md`. One combined scope rather than a read/write split, same reasoning as `calendar:manage`/`interview_prep:manage`: every tool is already scoped to the connection's own sheets (owned or subscribed) and the connection's own `user_problem_progress` rows, enforced the same way the HTTP handlers do (`sheets.Repo.IsOwner`/`UserHasAccess` before any write or cross-sheet read). `POST /api/sheets/import/excel` has no MCP tool — it's a multipart `.xlsx` upload with no sensible JSON-RPC shape; a student importing a spreadsheet still does that step in the web app, then the connected AI can pick up from `add_sheet_item` onward. Most sheets mutations have no `Revert`: `sheets.Repo` has no get-by-id/get-by-topic_tag read to snapshot a prior name, item field, progress state, or settings from (unlike `courses`/`calendar`, which expose one), and `delete_sheet_item`'s revert is unsafe for a different reason — `Slugify` mints a fresh random `topic_tag` on every insert, so recreating a deleted item would orphan any progress/notes still tied to the original tag. `create_sheet`, `combine_sheets`, and `add_sheet_item` are the exceptions: reverting a create is just deleting the row it made.
 
 ## Database Schema
 

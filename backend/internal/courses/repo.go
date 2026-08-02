@@ -587,6 +587,22 @@ func (r *Repo) SoftDeleteModule(ctx context.Context, orgID, moduleID string) err
 	return nil
 }
 
+// RestoreModule clears deleted_at — the undo half of SoftDeleteModule, used
+// by the MCP delete_self_course_module tool's Revert.
+func (r *Repo) RestoreModule(ctx context.Context, orgID, moduleID string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE course_modules cm SET deleted_at=NULL
+		 FROM courses c WHERE cm.id=$1 AND cm.course_id=c.id AND c.org_id=$2 AND cm.deleted_at IS NOT NULL`,
+		moduleID, orgID)
+	if err != nil {
+		return fmt.Errorf("courses: restore module: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ReorderModules sets positions for modules in a section in a single query.
 func (r *Repo) ReorderModules(ctx context.Context, orgID, sectionID string, moduleIDs []string) error {
 	if len(moduleIDs) == 0 {

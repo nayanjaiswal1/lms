@@ -21,6 +21,7 @@ const (
 	ScopeCalendarManage = "calendar:manage"
 	ScopeInterviewPrep  = "interview_prep:manage"
 	ScopeSystemDesign   = "system_design:manage"
+	ScopeSheets         = "sheets:manage"
 )
 
 // AllScopes is the full set offered on the consent screen — this MVP grants
@@ -31,8 +32,11 @@ const (
 // never a direct write to a course the student doesn't own. ScopeInterviewPrep
 // covers both reading and creating prep plans/rounds — like ScopeCalendarManage,
 // one combined scope rather than a read/write split, since every interview-prep
-// tool call is scoped to the connection's own plans only.
-var AllScopes = []string{ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign}
+// tool call is scoped to the connection's own plans only. ScopeSheets is the
+// same one-combined-scope shape again: every sheets tool only ever reads/writes
+// sheets the connection's own user owns or subscribes to, or that user's own
+// cross-sheet problem progress.
+var AllScopes = []string{ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets}
 
 // ScopeDescriptions is shown on the consent screen, keyed by scope.
 var ScopeDescriptions = map[string]string{
@@ -43,11 +47,12 @@ var ScopeDescriptions = map[string]string{
 	ScopeCalendarManage: "View, create, update, and delete events on your calendar",
 	ScopeInterviewPrep:  "Create and run interview-prep practice plans, submit coding answers, and view your readiness report",
 	ScopeSystemDesign:   "Create and edit your system design whiteboard attempts, and get AI feedback",
+	ScopeSheets:         "View and manage your problem-sheet trackers, items, and cross-sheet solve progress",
 }
 
 func validScope(s string) bool {
 	switch s {
-	case ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign:
+	case ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets:
 		return true
 	default:
 		return false

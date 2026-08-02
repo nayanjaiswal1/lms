@@ -223,6 +223,7 @@ export function LabWorkspaceContent({
     />
   ) : (
     <LabContainerWorkspace
+      hasCluster={lab.has_cluster}
       isTaskPassed={isTaskPassed}
       isVerifying={isVerifying}
       previewPort={lab.preview_port}

@@ -10,6 +10,7 @@ import (
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/payments"
+	"github.com/mindforge/backend/internal/ratelimit"
 )
 
 // clientCompletableModuleTypes are module types whose "completed" status may
@@ -49,6 +50,17 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	course, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
+		return
+	}
+	// kind='self' courses (roadmap/practice courses) are private to their
+	// owner and auto-enrolled at creation (repo.CreateSelfCourse) — they have
+	// no listing or discovery path, but GetCourse doesn't filter by kind, so
+	// without this check a courseID guessed or leaked from elsewhere would
+	// let a stranger enroll while GetCourseTree's owner check (repo.go:308)
+	// permanently locks them out afterward. Treat it as not found, same as
+	// ListCourses already hides it from everyone but the owner.
+	if course.Kind == KindSelf {
+		writeDomainError(w, ErrNotFound)
 		return
 	}
 	if !course.IsFree {
@@ -136,10 +148,11 @@ func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
 // behind auth.Handler.limitByAccount).
 func (h *Handler) limitCouponAttempts(w http.ResponseWriter, r *http.Request, userID string) bool {
 	key := "rl:coupon:" + userID
-	if h.limiter.Allow(r.Context(), key, h.cfg.CouponRateLimitMax, h.cfg.CouponRateLimitWindow) {
+	allowed, retryAfter := h.limiter.Allow(r.Context(), key, h.cfg.CouponRateLimitMax, h.cfg.CouponRateLimitWindow)
+	if allowed {
 		return false
 	}
-	w.Header().Set("Retry-After", strconv.Itoa(int(h.cfg.CouponRateLimitWindow.Seconds())))
+	w.Header().Set("Retry-After", strconv.Itoa(ratelimit.RetryAfterSeconds(retryAfter)))
 	httputil.WriteError(w, http.StatusTooManyRequests, "Too many coupon attempts. Please try again later.")
 	return true
 }

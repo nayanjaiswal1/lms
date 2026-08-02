@@ -56,6 +56,16 @@ func containerPath(rel string) string {
 	return labWorkdir + "/" + rel
 }
 
+// hasKubectl reports whether a lab's environment image bundles kubectl and a
+// local cluster (see docs/labs.md: "mindforge/lab-k8s — kubectl, minikube").
+// Every other environment (mindforge/lab-docker, lab-node-web, lab-linux,
+// piston:*, ...) is a plain container with no cluster to query — ValidateFile
+// and GetResources are meaningless there and must be gated on this rather
+// than attempted unconditionally.
+func hasKubectl(environment string) bool {
+	return strings.Contains(environment, "k8s")
+}
+
 // shellQuote wraps s in single quotes for safe embedding as one shell
 // argument, matching the escaping ContainerService.Start/Exec already use
 // for setup_script/verification_script bodies.
@@ -98,7 +108,14 @@ func (s *Service) ListFiles(ctx context.Context, sessionID, userID string) ([]La
 		return nil, err
 	}
 
-	script := fmt.Sprintf("mkdir -p %s && find %s -mindepth 1 -printf '%%y %%P\\n'", shellQuote(labWorkdir), shellQuote(labWorkdir))
+	// `find -printf` is GNU-only — lab images built on Alpine/BusyBox (e.g.
+	// mindforge/lab-docker) reject the flag outright ("unrecognized: -printf"),
+	// so every call failed on those images. `-mindepth` and a `while read`
+	// loop are POSIX/BusyBox-safe and work identically on GNU find.
+	script := fmt.Sprintf(
+		`cd %s && mkdir -p %s && find . -mindepth 1 | while IFS= read -r f; do rel=${f#./}; if [ -d "$f" ]; then echo "d $rel"; else echo "f $rel"; fi; done`,
+		shellQuote(labWorkdir), shellQuote(labWorkdir),
+	)
 	stdout, stderr, exitCode, err := s.container.Exec(ctx, *session.ContainerID, script, fileExecTimeoutSec)
 	if err != nil {
 		return nil, fmt.Errorf("labs.Service.ListFiles: exec: %w", err)
@@ -284,6 +301,13 @@ func (s *Service) ValidateFile(ctx context.Context, sessionID, userID, relPath s
 	if err != nil {
 		return nil, err
 	}
+	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Service.ValidateFile: get lab: %w", err)
+	}
+	if !hasKubectl(lab.Environment) {
+		return nil, ErrLabTypeUnsupported
+	}
 	rel, err := resolveWorkdirPath(relPath)
 	if err != nil {
 		return nil, err
@@ -307,6 +331,13 @@ func (s *Service) GetResources(ctx context.Context, sessionID, userID string) (j
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
 	if err != nil {
 		return nil, err
+	}
+	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
+	if err != nil {
+		return nil, fmt.Errorf("labs.Service.GetResources: get lab: %w", err)
+	}
+	if !hasKubectl(lab.Environment) {
+		return nil, ErrLabTypeUnsupported
 	}
 
 	script := "kubectl get all,ns,pv,pvc,cm,secret -A -o json"

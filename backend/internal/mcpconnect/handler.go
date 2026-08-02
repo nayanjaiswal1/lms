@@ -7,6 +7,7 @@ import (
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/mistakes"
+	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/systemdesign"
 )
@@ -27,6 +28,7 @@ type Router struct {
 	srsRepo          *srs.Repo
 	interviewPrepSvc *interviewprep.Service
 	systemDesignSvc  *systemdesign.Service
+	sheetsRepo       *sheets.Repo
 }
 
 // New builds the mcpconnect Router with its full dependency graph.
@@ -34,12 +36,17 @@ type Router struct {
 // interviewPrepSvc/systemDesignSvc are the exact same instances the rest of
 // the API router shares, so MCP tool calls are authorized by the identical
 // rules — and enforce the identical daily rate limit, in interviewPrepSvc's
-// case — as the student-facing API.
+// case — as the student-facing API. sheetsRepo is a fresh *sheets.Repo over
+// the same pool rather than the shared sheets.Handler's instance — sheets.Repo
+// is a stateless pool wrapper (no service-layer state to diverge from), the
+// same choice cmd/server/main.go already makes for its own standalone
+// assessment.Handler and secrets vault instances.
 func New(cfg *config.Config, pool *pgxpool.Pool, coursesRepo *courses.Repo, coursesSvc *courses.Service, calendarSvc *calendar.Service, mistakesRepo *mistakes.Repo, mistakesSvc *mistakes.Service, srsRepo *srs.Repo, interviewPrepSvc *interviewprep.Service, systemDesignSvc *systemdesign.Service) *Router {
 	return &Router{
 		cfg: cfg, repo: NewRepo(pool),
 		coursesRepo: coursesRepo, coursesSvc: coursesSvc, calendarSvc: calendarSvc,
 		mistakesRepo: mistakesRepo, mistakesSvc: mistakesSvc, srsRepo: srsRepo,
 		interviewPrepSvc: interviewPrepSvc, systemDesignSvc: systemDesignSvc,
+		sheetsRepo: sheets.NewRepo(pool),
 	}
 }

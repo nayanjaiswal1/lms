@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { TerminalSquare, FolderTree, Boxes, AppWindow, Loader2, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -41,6 +41,10 @@ interface LabContainerWorkspaceProps {
   isVerifying: boolean
   /** Container port of the lab's running app; 0 hides all preview UI. */
   previewPort: number
+  /** Whether the lab's environment has kubectl/a cluster — hides the
+   *  Resources tab and the file editor's Validate button when false, since
+   *  both endpoints 500 on a plain container (see backend hasKubectl). */
+  hasCluster: boolean
   onCheck: (taskId: string) => void
 }
 
@@ -57,6 +61,7 @@ export function LabContainerWorkspace({
   isTaskPassed,
   isVerifying,
   previewPort,
+  hasCluster,
   onCheck,
 }: LabContainerWorkspaceProps) {
   // Web labs (previewPort > 0) open on the IDE view — editor + live app —
@@ -70,12 +75,30 @@ export function LabContainerWorkspace({
   const filesState = useLabFiles(sessionId, true)
   const resourcesState = useLabResources(sessionId)
   const { containerRef, isConnected, hasGivenUp, reconnectManually, sendText } = useLabTerminal({ sessionId })
-  const tabs = TABS.filter((t) => t.id !== "preview" || previewPort > 0)
+  const tabs = TABS.filter(
+    (t) => (t.id !== "preview" || previewPort > 0) && (t.id !== "resources" || hasCluster),
+  )
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   function selectPanel(panel: Panel) {
     setActivePanel(panel)
     if (panel === "files" && filesState.files.length === 0) filesState.loadFiles()
     if (panel === "resources" && !resourcesState.hasLoaded) resourcesState.refresh()
+  }
+
+  // WAI-ARIA tablist pattern: arrow keys move focus and selection between
+  // tabs, Home/End jump to the ends — Tab key alone only stops once at
+  // whichever tab is currently selected (roving tabindex below).
+  function onTabKeyDown(e: React.KeyboardEvent, index: number) {
+    let next: number | null = null
+    if (e.key === "ArrowRight") next = (index + 1) % tabs.length
+    else if (e.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length
+    else if (e.key === "Home") next = 0
+    else if (e.key === "End") next = tabs.length - 1
+    if (next === null) return
+    e.preventDefault()
+    selectPanel(tabs[next].id)
+    tabRefs.current[next]?.focus()
   }
 
   return (
@@ -89,7 +112,7 @@ export function LabContainerWorkspace({
         }}
       />
       <div aria-label="Lab workspace view" className="flex items-center gap-1 border-b border-border px-2 shrink-0 bg-card" role="tablist">
-        {tabs.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }, index) => (
           <button
             aria-selected={activePanel === id}
             className={cn(
@@ -100,8 +123,13 @@ export function LabContainerWorkspace({
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
             key={id}
+            ref={(el) => {
+              tabRefs.current[index] = el
+            }}
             role="tab"
+            tabIndex={activePanel === id ? 0 : -1}
             onClick={() => selectPanel(id)}
+            onKeyDown={(e) => onTabKeyDown(e, index)}
           >
             <Icon aria-hidden className="h-3.5 w-3.5" />
             {label}
@@ -149,10 +177,12 @@ export function LabContainerWorkspace({
 
       <div className="flex-1 min-h-0 relative">
         <div
-          className={cn(
-            "absolute inset-0",
-            activePanel !== "terminal" && "invisible pointer-events-none",
-          )}
+          className={cn("absolute inset-0", activePanel !== "terminal" && "invisible")}
+          // Terminal stays mounted under the other tabs (see comment above) —
+          // inert keeps its focusable xterm.js input out of the tab order and
+          // off pointer events while hidden, instead of leaving a keyboard
+          // trap a Tab press could land in without any visible focus ring.
+          inert={activePanel !== "terminal"}
         >
           <LabTerminal
             containerRef={containerRef}
@@ -190,7 +220,7 @@ export function LabContainerWorkspace({
                       onCloseTab={filesState.closeFile}
                       onSave={filesState.save}
                       onSelectTab={filesState.openFile}
-                      onValidate={filesState.validate}
+                      onValidate={hasCluster ? filesState.validate : undefined}
                     />
                   </ResizablePanel>
                   <ResizableHandle withHandle orientation="horizontal" />
@@ -208,7 +238,7 @@ export function LabContainerWorkspace({
                   onCloseTab={filesState.closeFile}
                   onSave={filesState.save}
                   onSelectTab={filesState.openFile}
-                  onValidate={filesState.validate}
+                  onValidate={hasCluster ? filesState.validate : undefined}
                 />
               )}
             </div>

@@ -63,6 +63,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/self-courses/fork", h.ForkSelfCourse)
 	r.Post("/api/self-courses/{courseID}/modules", h.AddSelfCourseModule)
 	r.Patch("/api/self-course-modules/{moduleID}", h.UpdateSelfCourseModule)
+	r.Delete("/api/self-course-modules/{moduleID}", h.DeleteSelfCourseModule)
+	r.Delete("/api/self-courses/{courseID}", h.DeleteSelfCourse)
 	r.Post("/api/courses/{courseID}/proposals", h.ProposeModule)
 
 	// ─── All authenticated users: browse, enroll, learn ──────────────────────

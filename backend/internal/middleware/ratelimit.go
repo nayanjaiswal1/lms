@@ -25,13 +25,12 @@ import (
 // A Retry-After header is always included on 429 responses.
 func RateLimit(rdb *redis.Client, max int, window time.Duration) func(http.Handler) http.Handler {
 	limiter := ratelimit.New(rdb)
-	retryAfter := fmt.Sprintf("%d", int(window.Seconds()))
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			key := "rl:" + r.URL.Path + ":" + clientIP(r)
-			if !limiter.Allow(r.Context(), key, max, window) {
-				w.Header().Set("Retry-After", retryAfter)
+			if allowed, retryAfter := limiter.Allow(r.Context(), key, max, window); !allowed {
+				w.Header().Set("Retry-After", fmt.Sprintf("%d", ratelimit.RetryAfterSeconds(retryAfter)))
 				httputil.WriteError(w, http.StatusTooManyRequests, "Too many requests. Please try again later.")
 				return
 			}

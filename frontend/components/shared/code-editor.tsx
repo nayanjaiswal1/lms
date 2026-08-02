@@ -113,6 +113,11 @@ export function CodeEditor({
             padding: { top: 12, bottom: 12 },
             renderLineHighlight: "all",
             smoothScrolling: true,
+            // Suggest/hover widgets render inside the editor's own DOM by
+            // default, so any ancestor with overflow-hidden (e.g. the
+            // rounded-lg panel this sits in) clips them to invisible. This
+            // makes Monaco attach them to <body> with fixed positioning instead.
+            fixedOverflowWidgets: true,
           }}
           theme={resolvedTheme === "light" ? "light" : "vs-dark"}
           value={value}

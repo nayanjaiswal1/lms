@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { CodeEditor } from "@/components/shared/code-editor"
 import { LabFileTabs } from "@/components/labs/lab-file-tabs"
 import { EditorSettingsMenu } from "@/components/labs/editor-settings-menu"
-import { useLabSaveShortcut } from "@/hooks/use-lab-save-shortcut"
+import { isSaveCombo, useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut"
 import { useEditorSettings } from "@/hooks/use-editor-settings"
 import { cn } from "@/lib/utils"
 import type { ValidateResult } from "@/lib/labs/files"
@@ -51,7 +51,7 @@ export function LabFileEditor({
   const active = openFiles.find((f) => f.path === activePath) ?? null
   const { settings } = useEditorSettings()
 
-  useLabSaveShortcut(!!active, onSave)
+  useKeyboardShortcut(!!active, isSaveCombo, onSave)
 
   return (
     <div className="flex flex-col h-full">

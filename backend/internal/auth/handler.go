@@ -76,10 +76,11 @@ func (h *Handler) limitByAccount(w http.ResponseWriter, r *http.Request, action,
 	}
 	// Hashed so the key does not put a plaintext email address into Redis.
 	key := "rl:acct:" + action + ":" + HashToken(account)
-	if h.limiter.Allow(r.Context(), key, h.cfg.AuthRateLimitMax, h.cfg.AuthRateLimitWindow) {
+	allowed, retryAfter := h.limiter.Allow(r.Context(), key, h.cfg.AuthRateLimitMax, h.cfg.AuthRateLimitWindow)
+	if allowed {
 		return false
 	}
-	w.Header().Set("Retry-After", fmt.Sprintf("%d", int(h.cfg.AuthRateLimitWindow.Seconds())))
+	w.Header().Set("Retry-After", fmt.Sprintf("%d", ratelimit.RetryAfterSeconds(retryAfter)))
 	httputil.WriteError(w, http.StatusTooManyRequests, "Too many requests. Please try again later.")
 	return true
 }

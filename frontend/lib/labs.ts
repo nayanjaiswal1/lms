@@ -56,6 +56,10 @@ export interface Lab {
   // Whether the lab has an instructor-authored sample-test script (sandbox
   // Run button). The script body itself never reaches the client.
   has_run_script: boolean
+  // Whether the lab's environment image bundles kubectl/a cluster — gates
+  // the Resources tab and the file editor's Validate button, both
+  // meaningless on a plain container (e.g. mindforge/lab-docker).
+  has_cluster: boolean
   tasks: LabTask[]
 }
 
