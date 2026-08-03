@@ -795,13 +795,6 @@ export const NOTE_COLOR_OPTIONS = [
   NOTE_COLOR.GREEN,
 ] as const;
 
-export const NOTE_COLOR_CLASS: Record<string, string> = {
-  yellow: "bg-note-yellow",
-  blue:   "bg-note-blue",
-  pink:   "bg-note-pink",
-  green:  "bg-note-green",
-};
-
 export const NOTE_CATEGORY = {
   ALL:      "all",
   PERSONAL: "personal",
@@ -815,4 +808,32 @@ export const NOTE_CATEGORY_FILTER_OPTIONS = [
   { label: "Personal", value: NOTE_CATEGORY.PERSONAL },
   { label: "Study",    value: NOTE_CATEGORY.STUDY },
   { label: "Urgent",   value: NOTE_CATEGORY.URGENT },
+] as const;
+
+// Habit tracker's per-habit color. Fixed 8-hue categorical set (not free-form
+// hex) so every combination stays CVD-safe — see the `--habit-*` tokens and
+// `bg-habit-*`/`fill-habit-*` utilities in globals.css. Order matches the
+// backend's ColorPalette (habit/models.go), which is also the default
+// rotation a new habit is assigned.
+export const HABIT_COLOR = {
+  BLUE:    "blue",
+  ORANGE:  "orange",
+  AQUA:    "aqua",
+  YELLOW:  "yellow",
+  MAGENTA: "magenta",
+  GREEN:   "green",
+  VIOLET:  "violet",
+  RED:     "red",
+} as const;
+export type HabitColorValue = (typeof HABIT_COLOR)[keyof typeof HABIT_COLOR];
+
+export const HABIT_COLOR_OPTIONS = [
+  { label: "Blue",    value: HABIT_COLOR.BLUE },
+  { label: "Orange",  value: HABIT_COLOR.ORANGE },
+  { label: "Aqua",    value: HABIT_COLOR.AQUA },
+  { label: "Yellow",  value: HABIT_COLOR.YELLOW },
+  { label: "Magenta", value: HABIT_COLOR.MAGENTA },
+  { label: "Green",   value: HABIT_COLOR.GREEN },
+  { label: "Violet",  value: HABIT_COLOR.VIOLET },
+  { label: "Red",     value: HABIT_COLOR.RED },
 ] as const;

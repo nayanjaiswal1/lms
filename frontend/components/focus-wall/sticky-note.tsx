@@ -1,12 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, FlaskConical, Heart, X, type LucideIcon } from "lucide-react";
+import { AlertTriangle, FlaskConical, Heart, Tag, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { NOTE_COLOR_CLASS } from "@/lib/constants";
 import type { FocusNote } from "@/lib/server/focus-wall";
 import { cn } from "@/lib/utils";
+import styles from "./focus-wall.module.css";
 
 interface StickyNoteProps {
   note: FocusNote;
@@ -20,13 +20,23 @@ const LEAVE_DURATION_MS = 350;
 
 // Decorative background icon per category — matches the mockup's science-flask
 // mark on study notes. Faint and pointer-events-none, purely tactile flourish.
-const CATEGORY_ICON: Record<FocusNote["category"], LucideIcon> = {
+// Custom (user-created) categories fall back to a generic tag icon below.
+const CATEGORY_ICON: Record<string, LucideIcon> = {
   study: FlaskConical,
   personal: Heart,
   urgent: AlertTriangle,
 };
 
 const ICON_CORNER_CLASS = ["bottom-3 right-3", "bottom-3 left-3", "top-9 right-3", "top-9 left-3"];
+
+// Card "material" per note color — kept as static literal classes (not
+// string-templated) so Tailwind/CSS-modules can see them at build time.
+const CARD_CLASS: Record<string, string> = {
+  yellow: styles.cardYellow,
+  blue: styles.cardBlue,
+  pink: styles.cardPink,
+  green: styles.cardGreen,
+};
 
 // Deterministic per-note "randomness" (stable across re-renders) for the
 // background icon's corner + tilt, derived from the note's own id.
@@ -42,8 +52,9 @@ export function StickyNote({ note, zoom, onMove, onDelete, onSaveDraft }: Sticky
   const dragRef = useRef<{ startClientX: number; startClientY: number; startX: number; startY: number } | null>(null);
 
   const isDraft = note.id.startsWith("draft-");
+  const isUrgent = note.category === "urgent";
   const hash = hashCode(note.id);
-  const CategoryIcon = CATEGORY_ICON[note.category];
+  const CategoryIcon = CATEGORY_ICON[note.category] ?? Tag;
   const iconCornerClass = ICON_CORNER_CLASS[hash % ICON_CORNER_CLASS.length];
   const iconRotation = (hash % 40) - 20;
 
@@ -94,8 +105,9 @@ export function StickyNote({ note, zoom, onMove, onDelete, onSaveDraft }: Sticky
     <div
       aria-label={`Sticky note${note.text ? `: ${note.text.slice(0, 40)}` : ", empty, being written"}`}
       className={cn(
-        "absolute w-64 min-h-40 touch-none select-none rounded-lg p-5 shadow-float transition-opacity duration-slow ease-in-out cursor-grab active:cursor-grabbing",
-        NOTE_COLOR_CLASS[note.color],
+        "absolute w-64 min-h-40 touch-none select-none rounded-sm p-5 pt-6 transition-opacity duration-slow ease-in-out cursor-grab active:cursor-grabbing",
+        styles.card,
+        CARD_CLASS[note.color],
         isLeaving && "opacity-0 pointer-events-none",
       )}
       ref={elRef}
@@ -110,9 +122,12 @@ export function StickyNote({ note, zoom, onMove, onDelete, onSaveDraft }: Sticky
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
+      <span aria-hidden className={cn(styles.pin, isUrgent && styles.pinUrgent)} />
+      <span aria-hidden className={styles.tornEdge} />
+
       <Button
         aria-label="Remove note"
-        className="touch-target absolute right-1 top-1 z-raised text-foreground/40 hover:text-destructive"
+        className={cn("touch-target absolute right-1 top-1 z-raised", styles.deleteBtn)}
         size="icon"
         variant="ghost"
         onClick={handleDelete}
@@ -122,25 +137,26 @@ export function StickyNote({ note, zoom, onMove, onDelete, onSaveDraft }: Sticky
 
       <CategoryIcon
         aria-hidden
-        className={cn("absolute size-10 text-foreground/20 pointer-events-none", iconCornerClass)}
+        className={cn("absolute size-10 pointer-events-none", styles.categoryIcon, iconCornerClass)}
         // eslint-disable-next-line no-restricted-syntax -- per-note deterministic tilt, not expressible as a static class
         style={{ transform: `rotate(${iconRotation}deg)` }}
       />
 
-      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-foreground/50">
-        {note.category}
-      </span>
+      <span className={cn("mb-2 block text-xs font-bold uppercase", styles.categoryLabel)}>{note.category}</span>
 
       {isDraft ? (
         <Textarea
           autoFocus
-          className="relative h-40 resize-none border-none bg-transparent p-0 font-handwritten text-xl leading-relaxed text-foreground shadow-none"
+          className={cn(
+            "relative h-40 resize-none border-none bg-transparent p-0 font-handwritten text-xl leading-relaxed shadow-none",
+            styles.draftInput,
+          )}
           defaultValue=""
           placeholder="Write something…"
           onBlur={handleDraftBlur}
         />
       ) : (
-        <p className="relative whitespace-pre-wrap font-handwritten text-xl leading-relaxed text-foreground">
+        <p className={cn("relative whitespace-pre-wrap font-handwritten text-xl leading-relaxed", styles.noteText)}>
           {note.text}
         </p>
       )}

@@ -29,26 +29,40 @@ const (
 	CategoryUrgent   Category = "urgent"
 )
 
-func validCategory(c Category) bool {
-	switch c {
-	case CategoryPersonal, CategoryStudy, CategoryUrgent:
-		return true
-	}
-	return false
+var builtInCategories = map[Category]bool{
+	CategoryPersonal: true,
+	CategoryStudy:    true,
+	CategoryUrgent:   true,
+}
+
+func isBuiltInCategory(c Category) bool {
+	return builtInCategories[c]
+}
+
+// FocusCategory is a user-defined category beyond the three built-ins.
+type FocusCategory struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type CreateCategoryRequest struct {
+	Name string `json:"name"`
 }
 
 // Note is one sticky note on a user's personal Focus Wall.
 type Note struct {
-	ID         string    `json:"id"`
-	UserID     string    `json:"user_id"`
-	Text       string    `json:"text"`
-	Color      Color     `json:"color"`
-	Category   Category  `json:"category"`
-	PositionX  float64   `json:"position_x"`
-	PositionY  float64   `json:"position_y"`
-	Rotation   float64   `json:"rotation"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Text      string    `json:"text"`
+	Color     Color     `json:"color"`
+	Category  Category  `json:"category"`
+	PositionX float64   `json:"position_x"`
+	PositionY float64   `json:"position_y"`
+	Rotation  float64   `json:"rotation"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ─── Request / Response ───────────────────────────────────────────────────────

@@ -29,11 +29,11 @@ func TestValidColorAndCategory(t *testing.T) {
 	}
 
 	for _, c := range []Category{CategoryPersonal, CategoryStudy, CategoryUrgent} {
-		if !validCategory(c) {
-			t.Fatalf("category %q: want valid", c)
+		if !isBuiltInCategory(c) {
+			t.Fatalf("category %q: want built-in", c)
 		}
 	}
-	if validCategory("random") {
-		t.Fatal("category \"random\": want invalid")
+	if isBuiltInCategory("random") {
+		t.Fatal("category \"random\": want not built-in")
 	}
 }

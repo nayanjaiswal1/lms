@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Wheel calibration</title>
+<style>
+  body { margin: 0; font-family: sans-serif; background: #333; }
+  #stage { position: relative; width: 868px; height: 602px; }
+  #stage img { position: absolute; top: 0; left: 0; width: 868px; height: 602px; }
+  #stage svg { position: absolute; top: 0; left: 0; }
+  #panel {
+    position: fixed; top: 0; right: 0; width: 260px; height: 100vh; overflow-y: auto;
+    background: #111; color: #eee; padding: 12px; font-size: 12px; z-index: 10;
+  }
+  #panel label { display: block; margin-top: 8px; }
+  #panel input[type="range"] { width: 100%; }
+  #panel .val { float: right; }
+  #wrap { margin-right: 260px; }
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <img src="/calibration-ref2.png" />
+  <svg height="602" id="overlay" width="868"></svg>
+</div></div>
+
+<div id="panel">
+  <h3 style="margin-top:0">Calibration</h3>
+  <div id="controls"></div>
+</div>
+
+<script>
+const params = {
+  centerX: { min: 300, max: 800, value: 555, step: 1 },
+  centerY: { min: 100, max: 600, value: 350, step: 1 },
+  holeRadius: { min: 20, max: 300, value: 160, step: 1 },
+  outerRadius: { min: 100, max: 900, value: 500, step: 1 },
+  gapAngle: { min: 0, max: 240, value: 100, step: 1 },
+  gapCenterAngle: { min: 0, max: 360, value: 270, step: 1 },
+  ringCount: { min: 1, max: 20, value: 10, step: 1 },
+  opacity: { min: 0, max: 1, value: 0.6, step: 0.05 },
+};
+
+const controlsEl = document.getElementById("controls");
+for (const [key, cfg] of Object.entries(params)) {
+  const wrap = document.createElement("label");
+  wrap.innerHTML = `${key} <span class="val" id="${key}-val">${cfg.value}</span>
+    <input type="range" id="${key}" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${cfg.value}">`;
+  controlsEl.appendChild(wrap);
+}
+
+function getVal(key) { return Number(document.getElementById(key).value); }
+
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function ringArcPath(cx, cy, r, startAngle, endAngle) {
+  const p1 = polarToCartesian(cx, cy, r, startAngle);
+  const p2 = polarToCartesian(cx, cy, r, endAngle);
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${p1.x} ${p1.y} A ${r} ${r} 0 ${largeArc} 1 ${p2.x} ${p2.y}`;
+}
+
+function redraw() {
+  const cx = getVal("centerX");
+  const cy = getVal("centerY");
+  const holeR = getVal("holeRadius");
+  const outerR = getVal("outerRadius");
+  const gapAngle = getVal("gapAngle");
+  const gapCenter = getVal("gapCenterAngle");
+  const ringCount = getVal("ringCount");
+  const opacity = getVal("opacity");
+
+  for (const key of Object.keys(params)) {
+    document.getElementById(key + "-val").textContent = getVal(key);
+  }
+
+  const sweepStart = gapCenter + gapAngle / 2;
+  const sweepAngle = 360 - gapAngle;
+  const days = 31;
+  const dayAngle = sweepAngle / days;
+  const ringThickness = (outerR - holeR) / ringCount;
+
+  const svg = document.getElementById("overlay");
+  svg.innerHTML = "";
+  svg.style.opacity = opacity;
+  const ns = "http://www.w3.org/2000/svg";
+
+  // ring arcs
+  for (let i = 0; i <= ringCount; i++) {
+    const r = holeR + i * ringThickness;
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", ringArcPath(cx, cy, r, sweepStart, sweepStart + sweepAngle));
+    path.setAttribute("stroke", "red");
+    path.setAttribute("stroke-width", "1.5");
+    path.setAttribute("fill", "none");
+    svg.appendChild(path);
+  }
+
+  // day spokes
+  for (let i = 0; i <= days; i++) {
+    const angle = sweepStart + i * dayAngle;
+    const inner = polarToCartesian(cx, cy, holeR, angle);
+    const outer = polarToCartesian(cx, cy, holeR + ringCount * ringThickness, angle);
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", inner.x);
+    line.setAttribute("y1", inner.y);
+    line.setAttribute("x2", outer.x);
+    line.setAttribute("y2", outer.y);
+    line.setAttribute("stroke", "red");
+    line.setAttribute("stroke-width", "1");
+    svg.appendChild(line);
+  }
+
+  // center crosshair for reference
+  const cross = document.createElementNS(ns, "circle");
+  cross.setAttribute("cx", cx);
+  cross.setAttribute("cy", cy);
+  cross.setAttribute("r", 3);
+  cross.setAttribute("fill", "lime");
+  svg.appendChild(cross);
+}
+
+for (const key of Object.keys(params)) {
+  document.getElementById(key).addEventListener("input", redraw);
+}
+redraw();
+</script>
+</body>
+</html>

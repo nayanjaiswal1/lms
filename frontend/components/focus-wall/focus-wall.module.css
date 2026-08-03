@@ -1,0 +1,329 @@
+/*
+ * Focus Wall has two states:
+ *   - Windowed (default): a plain, light corkboard using MindForge's own
+ *     design tokens — nothing here should stand out from the rest of the app.
+ *   - Full screen: "The Wall" — an isolated design system (dim study room,
+ *     one corkboard, index cards on brass pins, red thread on urgent ones).
+ *     Scoped entirely under `.wall:fullscreen` so it never leaks into the
+ *     windowed view or any other page. wallRef IS the fullscreen element
+ *     (see use-fullscreen.ts), so the native :fullscreen pseudo-class is the
+ *     only state this needs — no extra React state or query param.
+ */
+
+.wall {
+  --brass: #c9a24e;
+  --brass-bright: #e8cc86;
+  --kraft: #ede1c7;
+  --ink: #2b2118;
+  --paper-blue: #ccd9e2;
+  --paper-blush: #e9cac4;
+  --paper-mint: #cee0cd;
+  --alert: #a6362b;
+  --alert-bright: #d1594c;
+
+  background: hsl(var(--background));
+}
+
+.wall:fullscreen {
+  background: radial-gradient(ellipse 70% 55% at 50% 38%, #241a10 0%, #15110d 65%);
+}
+
+/* ── Header (wordmark + note count) ──────────────────────────────────────── */
+
+.headerBacking {
+  background: linear-gradient(to bottom, hsl(var(--background)) 0%, hsl(var(--background) / 0.85) 60%, transparent 100%);
+}
+.wall:fullscreen .headerBacking {
+  background: linear-gradient(to bottom, #15110d 0%, rgba(21, 17, 13, 0.85) 60%, transparent 100%);
+}
+
+.wordmarkIcon {
+  color: hsl(var(--primary));
+}
+.wall:fullscreen .wordmarkIcon {
+  color: var(--brass);
+}
+
+.wordmark {
+  color: hsl(var(--foreground));
+}
+.wall:fullscreen .wordmark {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--kraft);
+  text-shadow: 1px 0 0 var(--alert), 0 0 24px rgba(201, 162, 78, 0.25);
+}
+
+.caseLabel {
+  color: hsl(var(--muted-foreground));
+}
+.wall:fullscreen .caseLabel {
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  color: var(--brass);
+}
+
+/* ── Category filter ─────────────────────────────────────────────────────── */
+
+.tabGroup {
+  background: hsl(var(--card) / 0.9);
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(8px);
+  border-radius: 9999px;
+  padding: 0.25rem;
+}
+.wall:fullscreen .tabGroup {
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  border-radius: 0;
+  padding: 0;
+  gap: 0.25rem;
+}
+
+.tab {
+  color: hsl(var(--foreground));
+  border-radius: 9999px;
+  transition: transform 200ms ease-smooth, background-color 200ms ease-smooth;
+}
+.tab[data-active="true"] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.wall:fullscreen .tab {
+  clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--ink);
+  background: var(--kraft);
+}
+.wall:fullscreen .tab:hover {
+  transform: translateY(-2px);
+}
+.wall:fullscreen .tab[data-active="true"] {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+.wall:fullscreen .tabPersonal { background: var(--paper-blush); }
+.wall:fullscreen .tabStudy { background: var(--paper-mint); }
+.wall:fullscreen .tabUrgent { background: var(--alert-bright); color: var(--kraft); }
+
+/* ── Frame + board ────────────────────────────────────────────────────────── */
+
+.frame {
+  position: absolute;
+  inset: 0;
+}
+.wall:fullscreen .frame {
+  /* Full-bleed, same as the windowed view — no picture-frame margin. The
+     wood tone still shows through the board's own 0.5rem inset (see
+     .board below), so the frame reads without needing a void gutter. */
+  inset: 0;
+  background: linear-gradient(155deg, #8a6238, #2e1c0e 70%);
+}
+
+.screw {
+  display: none;
+}
+.wall:fullscreen .screw {
+  display: block;
+  position: absolute;
+  z-index: 2;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 55%, #5c4520 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.board {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+.wall:fullscreen .board {
+  inset: 0.5rem;
+  background-color: #4a3323;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(0, 0, 0, 0.16) 0, transparent 3px),
+    radial-gradient(circle at 42% 62%, rgba(255, 255, 255, 0.05) 0, transparent 2px),
+    radial-gradient(circle at 78% 24%, rgba(0, 0, 0, 0.16) 0, transparent 3px),
+    radial-gradient(circle at 88% 82%, rgba(255, 255, 255, 0.05) 0, transparent 2px),
+    radial-gradient(circle at 24% 88%, rgba(0, 0, 0, 0.16) 0, transparent 3px),
+    radial-gradient(circle at 60% 8%, rgba(255, 255, 255, 0.05) 0, transparent 2px);
+  background-size: 130px 130px, 90px 90px, 150px 150px, 110px 110px, 140px 140px, 100px 100px;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.55);
+  border-radius: calc(var(--radius-md) - 4px);
+}
+
+.emptyLabel {
+  color: hsl(var(--muted-foreground));
+}
+.wall:fullscreen .emptyLabel {
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--brass);
+}
+
+/* Red thread from the master pin to every urgent note — hidden outside
+   full screen so it never reads as a stray SVG on the plain windowed view. */
+.thread {
+  display: none;
+}
+.wall:fullscreen .thread {
+  /* `contents`, not `block` — the SVG and anchor pin inside are already
+     position:absolute against the scaled canvas; a boxed wrapper here
+     would become their containing block instead and misplace both. */
+  display: contents;
+}
+
+/* ── Index cards ──────────────────────────────────────────────────────── */
+
+.card {
+  color: hsl(var(--foreground));
+}
+.wall:fullscreen .card {
+  color: var(--ink);
+  box-shadow: 0 10px 20px -6px rgba(0, 0, 0, 0.55);
+  background-image: linear-gradient(165deg, rgba(255, 255, 255, 0.35), transparent 40%);
+}
+
+.cardYellow { background-color: hsl(var(--note-yellow)); }
+.cardBlue { background-color: hsl(var(--note-blue)); }
+.cardPink { background-color: hsl(var(--note-pink)); }
+.cardGreen { background-color: hsl(var(--note-green)); }
+
+.wall:fullscreen .cardYellow { background-color: var(--kraft); }
+.wall:fullscreen .cardBlue { background-color: var(--paper-blue); }
+.wall:fullscreen .cardPink { background-color: var(--paper-blush); }
+.wall:fullscreen .cardGreen { background-color: var(--paper-mint); }
+
+/* Perforated tear strip + pin — only meaningful once the card reads as a
+   physical index card, i.e. full screen only. */
+.tornEdge,
+.pin {
+  display: none;
+}
+.wall:fullscreen .tornEdge {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 7px;
+  background-image: inherit;
+  background-color: inherit;
+  filter: brightness(0.85);
+  clip-path: polygon(
+    0% 100%, 3% 40%, 7% 100%, 11% 40%, 15% 100%, 19% 40%, 23% 100%, 27% 40%,
+    31% 100%, 35% 40%, 39% 100%, 43% 40%, 47% 100%, 51% 40%, 55% 100%, 59% 40%,
+    63% 100%, 67% 40%, 71% 100%, 75% 40%, 79% 100%, 83% 40%, 87% 100%, 91% 40%,
+    95% 100%, 99% 40%, 100% 100%
+  );
+}
+.wall:fullscreen .pin {
+  display: block;
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 55%, #5c4520 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.wall:fullscreen .pinUrgent {
+  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 55%, #4a1712 100%);
+}
+
+.categoryLabel {
+  color: hsl(var(--muted-foreground));
+}
+.wall:fullscreen .categoryLabel {
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  opacity: 0.55;
+}
+
+.categoryIcon {
+  color: hsl(var(--foreground));
+  opacity: 0.2;
+}
+.wall:fullscreen .categoryIcon {
+  color: var(--ink);
+  opacity: 0.14;
+}
+
+.deleteBtn {
+  color: hsl(var(--foreground) / 0.4);
+}
+.deleteBtn:hover {
+  color: hsl(var(--destructive));
+}
+.wall:fullscreen .deleteBtn {
+  color: var(--ink);
+  opacity: 0.35;
+}
+.wall:fullscreen .deleteBtn:hover {
+  color: var(--alert);
+  opacity: 1;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────── */
+
+.controlPlate {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-card);
+}
+.wall:fullscreen .controlPlate {
+  background: linear-gradient(155deg, #8a6238, #2e1c0e 80%);
+  border: none;
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.wall:fullscreen .controlBtn {
+  color: var(--kraft);
+}
+.wall:fullscreen .controlBtn:hover {
+  color: var(--brass-bright);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.divider {
+  background: hsl(var(--border));
+}
+.wall:fullscreen .divider {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.addPin {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.addPin:hover {
+  background: hsl(var(--primary) / 0.9);
+}
+.wall:fullscreen .addPin {
+  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 60%, #4a1712 100%);
+  box-shadow: 0 10px 24px -6px rgba(166, 54, 43, 0.6);
+  color: var(--kraft);
+}
+.wall:fullscreen .addPin:hover {
+  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 45%, #4a1712 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab, .wall:fullscreen .tab:hover {
+    transition: none;
+    transform: none;
+  }
+}

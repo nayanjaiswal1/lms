@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -1536,8 +1537,11 @@ func (r *Repo) RejectProposal(ctx context.Context, orgID, proposalID, reviewerID
 // RandomTopicFilter narrows the candidate pool GetRandomPublishedCourse picks
 // from. A zero-value filter means "no filter" for that dimension.
 type RandomTopicFilter struct {
-	// Tags, when non-empty, requires overlap with the course's own tags
-	// (courses_tags_gin makes this an index scan, not a sequential one).
+	// Tags, when non-empty, requires case-insensitive overlap with the
+	// course's own tags. Course tags are freeform instructor-typed text while
+	// Tags here comes from the fixed topics_interest vocabulary, so this
+	// can't be a plain `&&` array-overlap (misses on casing, loses the
+	// courses_tags_gin index either way) — matched via unnest+lower instead.
 	Tags []string
 	// ExcludeCourseIDs, when non-empty, excludes those courses from the pool
 	// — used to keep a "surprise me" pick from resurfacing something the
@@ -1545,17 +1549,23 @@ type RandomTopicFilter struct {
 	ExcludeCourseIDs []string
 }
 
-// GetRandomPublishedCourse picks one published, org-kind course at random
-// from orgID's own catalog (the same visibility rule ListCourses uses),
-// narrowed by filter. Returns ErrNotFound when the filtered pool is empty —
-// callers decide whether/how to widen the filter and retry.
+// GetRandomPublishedCourse picks one published, org-kind, free course at
+// random from orgID's own catalog (the same visibility rule ListCourses
+// uses), narrowed by filter. Paid courses are excluded — "surprise me" must
+// never route an unpurchased course into a checkout flow. Returns
+// ErrNotFound when the filtered pool is empty — callers decide whether/how
+// to widen the filter and retry.
 func (r *Repo) GetRandomPublishedCourse(ctx context.Context, orgID string, filter RandomTopicFilter) (Course, error) {
 	args := []any{orgID}
-	where := "WHERE c.org_id = $1 AND c.kind = 'org' AND c.status = 'published'"
+	where := "WHERE c.org_id = $1 AND c.kind = 'org' AND c.status = 'published' AND c.is_free = true"
 	n := 2
 	if len(filter.Tags) > 0 {
-		where += fmt.Sprintf(" AND c.tags && $%d::text[]", n)
-		args = append(args, filter.Tags)
+		lowered := make([]string, len(filter.Tags))
+		for i, t := range filter.Tags {
+			lowered[i] = strings.ToLower(t)
+		}
+		where += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM unnest(c.tags) AS ct WHERE lower(ct) = ANY($%d::text[]))", n)
+		args = append(args, lowered)
 		n++
 	}
 	if len(filter.ExcludeCourseIDs) > 0 {

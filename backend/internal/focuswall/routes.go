@@ -24,4 +24,8 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	r.Get("/api/focus-wall/notes", rt.handler.ListMine)
 	r.Patch("/api/focus-wall/notes/{noteID}", rt.handler.Update)
 	r.Delete("/api/focus-wall/notes/{noteID}", rt.handler.Delete)
+
+	r.Post("/api/focus-wall/categories", rt.handler.CreateCategory)
+	r.Get("/api/focus-wall/categories", rt.handler.ListCategories)
+	r.Delete("/api/focus-wall/categories/{categoryID}", rt.handler.DeleteCategory)
 }
