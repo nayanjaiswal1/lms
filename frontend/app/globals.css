@@ -39,6 +39,14 @@
   --color-sidebar-foreground:     hsl(var(--sidebar-foreground));
   --color-sidebar-border:         hsl(var(--sidebar-border));
 
+  /* Focus Wall sticky-note tints — text on these always uses the ambient
+     --foreground token (dark ink in light mode, light ink in dark mode),
+     same contrast pattern as the page background itself. */
+  --color-note-yellow: hsl(var(--note-yellow));
+  --color-note-blue:   hsl(var(--note-blue));
+  --color-note-pink:   hsl(var(--note-pink));
+  --color-note-green:  hsl(var(--note-green));
+
   /* Terminal chrome — always dark, independent of app theme (like an IDE terminal) */
   --color-terminal:                  hsl(var(--terminal-bg));
   --color-terminal-chrome:           hsl(var(--terminal-chrome));
@@ -102,6 +110,8 @@
   /* ── Typography ──────────────────────────────────────────────────── */
   --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  /* Focus Wall sticky notes only — everywhere else uses --font-sans */
+  --font-handwritten: var(--font-gochi-hand), cursive;
 }
 
 /* `position: sticky` unconditionally creates its own stacking context in
@@ -186,6 +196,12 @@
 
   /* Shared */
   --radius: 0.625rem;  /* 10px card base */
+
+  /* Focus Wall sticky notes — pale paper tints */
+  --note-yellow: 54 100% 88%;
+  --note-blue:   205 87% 94%;
+  --note-pink:   340 80% 94%;
+  --note-green:  125 39% 94%;
 }
 
 /* ─────────────────────────────────────────────
@@ -253,6 +269,12 @@
   --terminal-border:             0 0% 18%;
   --terminal-foreground:         220 13% 91%;
   --terminal-muted-foreground:   220 9% 60%;
+
+  /* Focus Wall sticky notes — deep muted tints, same hues as light mode */
+  --note-yellow: 54 45% 22%;
+  --note-blue:   205 45% 20%;
+  --note-pink:   340 40% 22%;
+  --note-green:  125 30% 20%;
 }
 
 /* ─────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
+import { Plus_Jakarta_Sans, JetBrains_Mono, Gochi_Hand } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { NuqsAdapter } from 'nuqs/adapters/next'
 import { FeatureFlagProvider } from '@/lib/feature-context'
@@ -33,6 +33,15 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
   display: 'swap',
   weight: ['400', '500'],
+})
+
+// Focus Wall sticky notes only — handwritten feel for personal note text,
+// referenced in globals.css as --font-handwritten / Tailwind's `font-handwritten`.
+const gochiHand = Gochi_Hand({
+  subsets: ['latin'],
+  variable: '--font-gochi-hand',
+  display: 'swap',
+  weight: '400',
 })
 
 // ── Metadata ───────────────────────────────────────────────────────────────
@@ -112,7 +121,7 @@ export default async function RootLayout({
   return (
     <html
       suppressHydrationWarning
-      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
+      className={`${plusJakarta.variable} ${jetbrainsMono.variable} ${gochiHand.variable}`}
       lang="en"
     >
       <body>

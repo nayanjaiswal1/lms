@@ -1,0 +1,104 @@
+package focuswall
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/httputil"
+)
+
+type Handler struct {
+	service *Service
+}
+
+func newHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		return false
+	}
+	return true
+}
+
+var domainErrors = map[error]httputil.ErrSpec{
+	ErrNotFound:     {Status: http.StatusNotFound, Message: "Note not found."},
+	ErrTextEmpty:    {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"text": "is required"}},
+	ErrTextTooLong:  {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"text": "must not exceed 500 characters"}},
+	ErrInvalidColor: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"color": "must be one of: yellow, blue, pink, green"}},
+	ErrInvalidCat:   {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"category": "must be one of: personal, study, urgent"}},
+}
+
+func writeDomainError(w http.ResponseWriter, err error) {
+	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
+}
+
+// Create handles POST /api/focus-wall/notes
+func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	var req CreateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	note, err := h.service.Create(r.Context(), claims.UserID, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, note)
+}
+
+// Update handles PATCH /api/focus-wall/notes/{noteID}
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	noteID := chi.URLParam(r, "noteID")
+	var req UpdateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	note, err := h.service.Update(r.Context(), claims.UserID, noteID, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, note)
+}
+
+// Delete handles DELETE /api/focus-wall/notes/{noteID}
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	noteID := chi.URLParam(r, "noteID")
+	if err := h.service.Delete(r.Context(), claims.UserID, noteID); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListMine handles GET /api/focus-wall/notes
+func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	notes, err := h.service.ListMine(r.Context(), claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, notes)
+}

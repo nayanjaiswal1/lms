@@ -1,27 +1,40 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-const PROTECTED_PREFIXES = [
-  "/dashboard",
-  "/now",
-  "/courses",
-  // Lab pages mint short-lived terminal/preview tokens continuously — without
-  // the silent refresh here, every lab dies 15 minutes in (ACCESS_TOKEN_TTL)
-  // with "connection lost" / "session expired" while the refresh token is
-  // still perfectly valid.
-  "/labs",
-  "/assessments",
-  "/question-bank",
-  "/batches",
-  "/mentoring",
-  "/practice",
-  "/settings",
-  "/admin",
-  "/users",
-  "/sheets",
-  "/platform",
-  "/plan",
+// Deny-by-default: every route requires a session unless it's listed here.
+// Getting this list wrong in the "too short" direction just makes an
+// unauthenticated visit to that one page bounce to /login when it shouldn't —
+// annoying but obvious and easy to fix. Getting it wrong the other way (an
+// entry too broad) is the direction that actually matters, so keep entries as
+// narrow/exact as the route allows. Real authorization is still enforced by
+// the Go backend regardless of this list; this middleware only decides
+// whether the friendly silent-refresh-then-redirect flow applies before a
+// server component would otherwise hit a raw 401.
+const PUBLIC_EXACT_PATHS = new Set([
+  "/",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+  "/demo",
+  "/demo/tour",
+])
+
+// Prefix matches — for route segments with dynamic children ([token], [uuid],
+// [code], [...path]) or where nested auth is out of scope for this gate.
+const PUBLIC_PREFIXES = [
+  "/auth/callback", // OAuth redirect target — fires before any session cookie exists
+  "/calendar/invite/", // (public) route group — public calendar-invite acceptance link
+  "/certificates/", // (public) route group — public certificate verification link
+  "/hire/", // (public) route group — public hiring-code landing link
+  "/api/", // Route handlers do their own auth + return JSON 401s; a redirect here would break fetch() callers expecting JSON
 ]
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_EXACT_PATHS.has(pathname)) return true
+  return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+}
 
 // Decode JWT expiry from the payload without verifying the signature.
 // Returns true if the token is expired or unparseable.
@@ -53,8 +66,7 @@ function loginRedirect(request: NextRequest): NextResponse {
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
-  const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
-  if (!isProtected) return NextResponse.next()
+  if (isPublicPath(pathname)) return NextResponse.next()
 
   const accessToken  = request.cookies.get("access_token")?.value
   const refreshToken = request.cookies.get("refresh_token")?.value

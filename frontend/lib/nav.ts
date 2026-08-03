@@ -24,6 +24,7 @@ import {
   Presentation,
   TicketPercent,
   History,
+  StickyNote,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -106,6 +107,11 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:  ROUTES.ACTIVITY,
     icon:  History,
     exact: true,
+  },
+  focus_wall: {
+    label: "Focus Wall",
+    href:  ROUTES.FOCUS_WALL,
+    icon:  StickyNote,
   },
   what_now: {
     label:   "What Now?",
@@ -429,6 +435,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.dashboard,
       ALL_NAV_ITEMS.activity,
+      ALL_NAV_ITEMS.focus_wall,
       ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,

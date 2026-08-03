@@ -773,3 +773,46 @@ export const SESSION_SLOT_LENGTH_OPTIONS = [
   { label: "45 minutes", value: "45" },
   { label: "60 minutes", value: "60" },
 ] as const;
+
+// ─────────────────────────────────────────────
+// Focus Wall — sticky-note color + category (mirrors backend/internal/
+// focuswall/models.go's Color/Category constants and the focus_wall_notes
+// CHECK constraints; keep all three in sync).
+// ─────────────────────────────────────────────
+
+export const NOTE_COLOR = {
+  YELLOW: "yellow",
+  BLUE:   "blue",
+  PINK:   "pink",
+  GREEN:  "green",
+} as const;
+export type NoteColorConst = (typeof NOTE_COLOR)[keyof typeof NOTE_COLOR];
+
+export const NOTE_COLOR_OPTIONS = [
+  NOTE_COLOR.YELLOW,
+  NOTE_COLOR.BLUE,
+  NOTE_COLOR.PINK,
+  NOTE_COLOR.GREEN,
+] as const;
+
+export const NOTE_COLOR_CLASS: Record<string, string> = {
+  yellow: "bg-note-yellow",
+  blue:   "bg-note-blue",
+  pink:   "bg-note-pink",
+  green:  "bg-note-green",
+};
+
+export const NOTE_CATEGORY = {
+  ALL:      "all",
+  PERSONAL: "personal",
+  STUDY:    "study",
+  URGENT:   "urgent",
+} as const;
+export type NoteCategoryFilter = (typeof NOTE_CATEGORY)[keyof typeof NOTE_CATEGORY];
+
+export const NOTE_CATEGORY_FILTER_OPTIONS = [
+  { label: "All",      value: NOTE_CATEGORY.ALL },
+  { label: "Personal", value: NOTE_CATEGORY.PERSONAL },
+  { label: "Study",    value: NOTE_CATEGORY.STUDY },
+  { label: "Urgent",   value: NOTE_CATEGORY.URGENT },
+] as const;

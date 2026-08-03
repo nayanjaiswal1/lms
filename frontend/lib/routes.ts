@@ -96,6 +96,9 @@ const ROUTES = {
   // Highlights (AI-assisted text selection + saved revision)
   HIGHLIGHTS:          "/highlights",
 
+  // Focus Wall — personal sticky-note corkboard
+  FOCUS_WALL:          "/focus-wall",
+
   // Settings
   SETTINGS_PROFILE:               "/settings/profile",
   SETTINGS_SECURITY:              "/settings/security",

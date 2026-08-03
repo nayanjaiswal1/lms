@@ -20,6 +20,7 @@ import (
 	"github.com/mindforge/backend/internal/experience"
 	"github.com/mindforge/backend/internal/features"
 	"github.com/mindforge/backend/internal/feedback"
+	"github.com/mindforge/backend/internal/focuswall"
 	"github.com/mindforge/backend/internal/gitlab"
 	"github.com/mindforge/backend/internal/highlights"
 	"github.com/mindforge/backend/internal/httputil"
@@ -151,6 +152,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	sheetsRouter := sheets.New(pool)
 	interviewExpRouter := interviewexp.New(pool)
 	highlightsRouter := highlights.New(pool, aiProvider)
+	focusWallRouter := focuswall.New(pool)
 	systemDesignRouter := systemdesign.New(pool, coursesRepo, aiProvider)
 	// mentoringRouter.Service backs both the mentor-manual-issue authorization
 	// check (MentorAuthChecker) and the paid-course threshold-auto-issue check
@@ -365,6 +367,9 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Highlights — in-content text selection, AI explain, revision saves, analytics.
 		highlightsRouter.RegisterRoutes(r)
+
+		// Focus Wall — personal sticky-note corkboard.
+		focusWallRouter.RegisterRoutes(r)
 
 		// System Design — per-question Excalidraw whiteboard attempts, AI
 		// clarifying-question chat, and AI feedback on course modules of
