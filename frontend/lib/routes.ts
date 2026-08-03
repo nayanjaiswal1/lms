@@ -19,6 +19,7 @@ const ROUTES = {
 
   // Student
   DASHBOARD:           "/dashboard",
+  ACTIVITY:            "/activity",
   LEARN:               "/learn",
   TEACH:               "/teach",
   NOW:                 "/now",

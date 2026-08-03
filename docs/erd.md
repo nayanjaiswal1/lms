@@ -1683,6 +1683,15 @@ erDiagram
         timestamp_with_time_zone created_at 
         uuid mistake_entry_id 
     }
+    srs_reviews {
+        uuid id PK
+        uuid card_id 
+        uuid user_id 
+        smallint quality 
+        integer interval_days 
+        double_precision ease_factor 
+        timestamp_with_time_zone reviewed_at 
+    }
     system_design_attempts {
         uuid id PK
         uuid module_id 
@@ -2228,6 +2237,8 @@ erDiagram
     mistake_entries ||--o{ srs_cards : "mistake_entry_id"
     questions ||--o{ srs_cards : "question_id"
     users ||--o{ srs_cards : "user_id"
+    users ||--o{ srs_reviews : "user_id"
+    srs_cards ||--o{ srs_reviews : "card_id"
     course_modules ||--o{ system_design_attempts : "module_id"
     users ||--o{ system_design_attempts : "user_id"
     course_modules ||--o{ system_design_chat_messages : "module_id"

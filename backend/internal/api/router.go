@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/activity"
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/auth"
@@ -157,6 +158,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// cycle is introduced.
 	certificatesRouter := certificates.New(pool, coursesRepo, assessment.NewExecutor(cfg), mentoringRouter.Service, mentoringRouter.Service)
 	whatnowRouter := whatnow.New(pool)
+	activityRouter := activity.New(pool)
 	featuresRouter := features.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
@@ -340,6 +342,12 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// What Now? — deterministic task-triage: capture, pick-now scoring,
 		// plan-today, breakdown, stuck resolution, weekly recap.
 		whatnowRouter.RegisterRoutes(r)
+
+		// Activity — read-only cross-domain timeline (module/course
+		// completions, quiz attempts, MCP reflections, sheet problems solved,
+		// lab completions, SM-2 card reviews) for the dashboard widget and
+		// the /activity page.
+		activityRouter.RegisterRoutes(r)
 
 		// Feature flags — resolves org-enabled features + per-user entitlements
 		// for the current session (frontend's <AccessGate>/<FeatureFlagProvider>).

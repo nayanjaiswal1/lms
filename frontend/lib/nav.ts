@@ -23,6 +23,7 @@ import {
   Bot,
   Presentation,
   TicketPercent,
+  History,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -98,6 +99,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label: "Dashboard",
     href:  ROUTES.DASHBOARD,
     icon:  LayoutDashboard,
+    exact: true,
+  },
+  activity: {
+    label: "Activity",
+    href:  ROUTES.ACTIVITY,
+    icon:  History,
     exact: true,
   },
   what_now: {
@@ -421,6 +428,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     // the rest.
     items: [
       ALL_NAV_ITEMS.dashboard,
+      ALL_NAV_ITEMS.activity,
       ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,

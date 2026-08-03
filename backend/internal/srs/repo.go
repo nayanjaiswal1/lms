@@ -108,18 +108,26 @@ func (r *Repo) CreateCard(ctx context.Context, userID string, req CreateCardRequ
 	return c, nil
 }
 
-// UpdateCardAfterReview writes the new SM-2 scheduling values after a review.
-// nextDue is a YYYY-MM-DD string.
-func (r *Repo) UpdateCardAfterReview(ctx context.Context, cardID string, newInterval, newReps int, newEF float64, nextDue string) error {
+// UpdateCardAfterReview writes the new SM-2 scheduling values after a review
+// and logs the review to srs_reviews (backs the /api/activity timeline) in
+// the same statement — a separate INSERT after this UPDATE could commit the
+// scheduling change while losing the history row on failure. nextDue is a
+// YYYY-MM-DD string; quality is the raw SM-2 grade in [0, 3].
+func (r *Repo) UpdateCardAfterReview(ctx context.Context, cardID string, newInterval, newReps int, newEF float64, nextDue string, quality int) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE srs_cards
-		 SET interval_days    = $2,
-		     repetitions      = $3,
-		     ease_factor      = $4,
-		     due_date         = $5::date,
-		     last_reviewed_at = now()
-		 WHERE id = $1`,
-		cardID, newInterval, newReps, newEF, nextDue)
+		`WITH upd AS (
+		   UPDATE srs_cards
+		      SET interval_days    = $2,
+		          repetitions      = $3,
+		          ease_factor      = $4,
+		          due_date         = $5::date,
+		          last_reviewed_at = now()
+		    WHERE id = $1
+		   RETURNING id, user_id
+		 )
+		 INSERT INTO srs_reviews (card_id, user_id, quality, interval_days, ease_factor)
+		 SELECT id, user_id, $6, $2, $4 FROM upd`,
+		cardID, newInterval, newReps, newEF, nextDue, quality)
 	if err != nil {
 		return fmt.Errorf("srs: update card after review: %w", err)
 	}

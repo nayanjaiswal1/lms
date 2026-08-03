@@ -86,6 +86,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/ai-connector.md](docs/ai-connector.md) | AI Connector (MCP) — connect the student's own Claude/ChatGPT via OAuth 2.1+PKCE, course/notes/calendar tools, DB schema, API |
 | [docs/entity-schedules-and-calendar-sync.md](docs/entity-schedules-and-calendar-sync.md) | starts_at/ends_at on batches/courses/lessons, auto-synced read-only into the in-app calendar |
 | [docs/infrastructure.md](docs/infrastructure.md) | Project file structure, all env vars, AI rules, payments, SSRF denylist |
+| [docs/activity.md](docs/activity.md) | Activity tracker — day-by-day timeline aggregating module/course completions, quiz attempts, MCP reflections, sheet progress, lab sessions, SM-2 reviews, API, DB schema |
 | [docs/frontend-gotchas.md](docs/frontend-gotchas.md) | Non-obvious frontend bugs and regressions worth not repeating (e.g. Popover-in-Dialog scroll lock) |
 
 ---

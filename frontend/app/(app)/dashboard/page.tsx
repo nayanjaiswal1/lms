@@ -14,6 +14,7 @@ import { ScopeTabs } from "@/components/rewards/scope-tabs";
 import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
 import { CourseCard } from "@/components/courses/course-card";
 import { AIConnectorNudge } from "@/components/settings/ai-connector-nudge";
+import { RecentActivity } from "@/components/activity/recent-activity";
 import ROUTES from "@/lib/routes";
 import { getCurrentUser } from "@/lib/server/auth";
 import { getEnrollments, getCourseProgress } from "@/lib/server/courses";
@@ -21,10 +22,13 @@ import { getMyAssessments } from "@/lib/assessments/server";
 import { getMyRewardProfile, getLeaderboard, getMyRank } from "@/lib/server/rewards";
 import { listEventsAction } from "@/lib/server/calendar";
 import { getMyBatches } from "@/lib/server/batches";
+import { getActivity } from "@/lib/server/activity";
 import { apiGet } from "@/lib/server/api";
 import type { Enrollment, CourseProgressSummary } from "@/lib/server/courses";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 import type { CalendarEvent } from "@/lib/calendar/types";
+
+const RECENT_ACTIVITY_LIMIT = 5;
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -208,12 +212,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const firstName = user.name.split(" ")[0];
   const params = await searchParams;
 
-  const [coursesWithProgress, upcomingItems, rewardProfile, myBatches, hasAIConnection] = await Promise.all([
+  const [coursesWithProgress, upcomingItems, rewardProfile, myBatches, hasAIConnection, recentActivity] = await Promise.all([
     fetchEnrolledCoursesWithProgress(),
     fetchUpcomingItems(),
     getMyRewardProfile(),
     getMyBatches(),
     apiGet<{ id: string }[] | null>("/api/mcp-connections").then((c) => Boolean(c?.length)).catch(() => false),
+    getActivity({ limit: RECENT_ACTIVITY_LIMIT }).then((p) => p.entries).catch(() => []),
   ]);
 
   // "Your standing" scope: global by default, one of the user's batches, or —
@@ -368,6 +373,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               )}
             </section>
           )}
+
+          <RecentActivity entries={recentActivity} />
         </aside>
       </div>
     </main>

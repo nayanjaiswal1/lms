@@ -82,7 +82,7 @@ func ReviewCard(ctx context.Context, repo *Repo, userID, cardID string, quality 
 	newInterval, newReps, newEF := SM2(card.IntervalDays, card.Repetitions, card.EaseFactor, quality)
 	nextDue := time.Now().AddDate(0, 0, newInterval).Format("2006-01-02")
 
-	if err := repo.UpdateCardAfterReview(ctx, card.ID, newInterval, newReps, newEF, nextDue); err != nil {
+	if err := repo.UpdateCardAfterReview(ctx, card.ID, newInterval, newReps, newEF, nextDue, quality); err != nil {
 		return ReviewResult{}, fmt.Errorf("srs: review card: %w", err)
 	}
 
