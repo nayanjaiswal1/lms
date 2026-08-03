@@ -1,0 +1,39 @@
+# mindforge/lab-docker-sysbox — same lab as Dockerfile (docker/lab-docker:27),
+# built for hosts that run the nested-docker profile via LABS_NESTED_DOCKER_RUNTIME=
+# sysbox-runc instead of the default rootless-dind mechanism. Not interchangeable
+# with the rootless image: sysbox-runc already gives this container's root user a
+# real (safely virtualized) root, so it needs a PLAIN dockerd (docker:27-dind, not
+# docker:27-dind-rootless) — nesting rootlesskit's own user-namespace creation on
+# top of sysbox's fails with "newuidmap: ... Operation not permitted" (confirmed
+# interactively). See docs/labs.md "Nested Docker labs" for the full mechanism
+# writeup and why this is a second image rather than a runtime-detected branch in
+# the same one.
+#
+# Regenerate preload/*.tar the same way as the rootless image (shared directory,
+# see Dockerfile's own comment) — this image reuses those tarballs as-is.
+FROM docker:27-dind
+
+RUN apk add --no-cache bash ttyd shadow curl su-exec
+
+# Every other lab image's setup_script/verification_script and the backend's
+# hardcoded `docker exec --user labuser` (container.go, render_lab.go) expect
+# this exact username — see Dockerfile's own comment for why it must match.
+RUN adduser -D -u 1000 -h /home/labuser labuser
+
+COPY preload/ /opt/preload/
+COPY entrypoint-sysbox.sh /usr/local/bin/mindforge-entrypoint.sh
+RUN chmod +x /usr/local/bin/mindforge-entrypoint.sh \
+    && mkdir -p /home/labuser/work \
+    && chown -R labuser:labuser /home/labuser/work
+
+# Same readiness contract as the rootless image — see Dockerfile's own comment.
+RUN printf '#!/bin/sh\n[ -f /tmp/lab-ready ]\n' > /usr/local/bin/lab-ready \
+    && chmod +x /usr/local/bin/lab-ready
+
+# Stays root (not `USER labuser`): dockerd needs it. entrypoint-sysbox.sh drops
+# to labuser via su-exec for ttyd only.
+WORKDIR /home/labuser/work
+
+EXPOSE 7681
+
+ENTRYPOINT ["/usr/local/bin/mindforge-entrypoint.sh"]

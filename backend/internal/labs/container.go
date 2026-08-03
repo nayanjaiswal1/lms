@@ -111,12 +111,19 @@ func (c *DockerContainerService) buildRunArgs(name, image string, privileged boo
 			// rootlesskit's default vpnkit network driver creates a tap
 			// interface at startup, which needs /dev/net/tun — without it
 			// dockerd never reaches a running state (fails in rootlesskit's
-			// child setup, not a dockerd-level error).
+			// child setup, not a dockerd-level error). NET_ADMIN is separate
+			// from all of that: it's not needed to start the nested dockerd,
+			// only for the containers *it* then creates — libnetwork needs
+			// it to configure a new container's veth/sysctls (e.g. disabling
+			// IPv6 on eth0), and without it every `docker run` a student
+			// issues inside the lab fails at that step, not at dockerd
+			// startup.
 			args = append(args,
 				"--cap-drop", "ALL",
 				"--cap-add", "SYS_ADMIN",
 				"--cap-add", "SETUID",
 				"--cap-add", "SETGID",
+				"--cap-add", "NET_ADMIN",
 				"--device", "/dev/fuse",
 				"--device", "/dev/net/tun",
 				"--security-opt", "seccomp=unconfined",

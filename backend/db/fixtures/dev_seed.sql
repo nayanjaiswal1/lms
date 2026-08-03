@@ -129,6 +129,7 @@ VALUES (
   '00000000-0000-0000-0000-000000000001',
   ARRAY[
     'mindforge/lab-docker:27',
+    'mindforge/lab-docker-sysbox:27',
     'mindforge/lab-k8s:1.31',
     'mindforge/lab-node-web:22',
     'mindforge/lab-python-web:3.12',

@@ -69,6 +69,7 @@ func TestBuildRunArgs_NestedImageRootlessDind(t *testing.T) {
 		"--cap-add", "SYS_ADMIN",
 		"--cap-add", "SETUID",
 		"--cap-add", "SETGID",
+		"--cap-add", "NET_ADMIN",
 		"--device", "/dev/fuse",
 		"--device", "/dev/net/tun",
 		"--security-opt", "seccomp=unconfined",
