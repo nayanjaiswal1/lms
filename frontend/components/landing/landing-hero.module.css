@@ -1,0 +1,10 @@
+/* Bespoke dot-grid texture — one-off hero background, not a reusable
+   pattern, so it stays out of globals.css per the "component-specific
+   selectors don't belong in the global layer" rule. Tailwind can't express
+   a repeating radial-gradient without arbitrary values, which the linter
+   flags, so a colocated module is the correct escape hatch. */
+.dotGrid {
+  background-image: radial-gradient(hsl(var(--foreground) / 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 40%, transparent 100%);
+}

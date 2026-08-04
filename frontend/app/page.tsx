@@ -20,7 +20,7 @@ export default async function RootPage() {
     redirect(ROUTES.DASHBOARD);
   }
 
-  const { courses, total } = await getPublicCourses(12);
+  const { total } = await getPublicCourses(1);
 
-  return <LandingPage courses={courses} total={total} />;
+  return <LandingPage total={total} />;
 }

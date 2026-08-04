@@ -1,0 +1,7 @@
+/* Drop-shadow for the hero illustration's card groups — SVG has no
+   box-shadow, and Tailwind's drop-shadow-* scale doesn't reference our
+   --shadow-raised token, so this stays a one-off colocated module rather
+   than a repeated inline style. */
+.cardShadow {
+  filter: drop-shadow(0 8px 20px hsl(var(--foreground) / 0.1));
+}
