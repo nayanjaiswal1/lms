@@ -98,6 +98,18 @@ Platform role (`users.platform_role`): `super_admin` · `user`
 | Async job queue | Background queue for AI calls, email, code execution | MindForge AI calls are sync — prevents request timeouts on heavy AI work → added to Phase 3 |
 | Per-IP rate limiting on AI endpoints | In-memory (dev) → Redis sliding window (prod) per IP | MindForge has no rate limiting on AI endpoints — needed before launch → added to Phase 3 |
 
+### From Teachyst (white-label course-selling LMS) — not yet scheduled
+
+| Feature | What it does | MindForge fit |
+|---|---|---|
+| White-labeling + custom domains | Org hosts its course catalog under its own branded domain, no platform branding | Natural extension of the multi-org model — orgs already get their own tenant, but no white-label/custom-domain support exists yet |
+| SAML / OpenID Connect SSO | Enterprise identity-provider login for org members | `auth.md` covers social OAuth + magic link only — SAML/OIDC is what a college or company's IT team actually asks for before rolling out org accounts |
+| DRM / video content protection | Encrypted video delivery that resists downloading of paid course video | Courses already support video lessons, no DRM — matters once paid video courses are common |
+| Purchase-power-parity pricing | Auto-adjusts a course's price by the buyer's country purchasing power | Payments (Phase 11) is Stripe/Razorpay checkout only, no regional pricing logic |
+| Built-in course SEO | Meta tags, sitemap entries, structured data per public course page | Public course pages exist (`getPublicCourses`) but have no SEO tooling beyond page `<title>`/description |
+| Zapier / webhook automation | Lets an org admin pipe platform events (new enrollment, certificate issued) into external tools | MindForge has no outbound webhook/automation layer — GitLab integration is the only external connector today |
+| Community / discussion space | Cross-course discussion forum or persistent community chat, distinct from per-course mentor chat | Wiki, batch chat, and mentor messaging exist, but there's no open community/discussion feature |
+
 ### Useful Patterns / Practices
 
 | Pattern | Status | Notes |
