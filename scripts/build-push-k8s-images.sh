@@ -45,6 +45,10 @@ NEXT_PUBLIC_API_URL="$(read_configmap_value NEXT_PUBLIC_API_URL)"
 NEXT_PUBLIC_APP_URL="$(read_configmap_value NEXT_PUBLIC_APP_URL)"
 NEXT_PUBLIC_MEDIA_URL="$(read_configmap_value NEXT_PUBLIC_MEDIA_URL)"
 NEXT_PUBLIC_LAB_PROXY_URL="$(read_configmap_value NEXT_PUBLIC_LAB_PROXY_URL)"
+# These two live in k8s/base/configmap.yaml (not the domain patch) since
+# they're not domain-dependent — read from there instead of the patch file.
+NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED="$(grep -E '^\s*NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED:' k8s/base/configmap.yaml | head -1 | sed -E 's/^[^:]+:\s*"?([^"]*)"?\s*$/\1/')"
+NEXT_PUBLIC_GITHUB_OAUTH_ENABLED="$(grep -E '^\s*NEXT_PUBLIC_GITHUB_OAUTH_ENABLED:' k8s/base/configmap.yaml | head -1 | sed -E 's/^[^:]+:\s*"?([^"]*)"?\s*$/\1/')"
 
 if [[ "$NEXT_PUBLIC_API_URL" == *yourdomain.com* ]]; then
   error "$CONFIGMAP_PATCH still has placeholder yourdomain.com values — fill in your real domain first."
@@ -60,6 +64,8 @@ docker build -t "${REGISTRY}/mindforge-frontend:${TAG}" \
   --build-arg NEXT_PUBLIC_APP_URL="$NEXT_PUBLIC_APP_URL" \
   --build-arg NEXT_PUBLIC_MEDIA_URL="$NEXT_PUBLIC_MEDIA_URL" \
   --build-arg NEXT_PUBLIC_LAB_PROXY_URL="$NEXT_PUBLIC_LAB_PROXY_URL" \
+  --build-arg NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED="$NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED" \
+  --build-arg NEXT_PUBLIC_GITHUB_OAUTH_ENABLED="$NEXT_PUBLIC_GITHUB_OAUTH_ENABLED" \
   -f frontend/Dockerfile frontend
 success "Images built."
 
