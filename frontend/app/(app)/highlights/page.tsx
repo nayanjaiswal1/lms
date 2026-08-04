@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/lib/server/auth"
 import ROUTES from "@/lib/routes"
 import { cn } from "@/lib/utils"
 
-export const metadata = { title: "Saved Highlights — MindForge" }
+export const metadata = { title: "Saved Highlights" }
 
 const SOURCE_LABEL: Record<string, string> = {
   wiki_page: "Wiki",

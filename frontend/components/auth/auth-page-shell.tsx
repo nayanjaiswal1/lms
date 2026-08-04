@@ -31,7 +31,7 @@ export function AuthPageShell({
         <header className="flex-between">
           <Link
             href={ROUTES.HOME}
-            aria-label="MindForge home"
+            aria-label="Home"
             className="text-foreground hover:no-underline lg:invisible"
           >
             <BrandMark />

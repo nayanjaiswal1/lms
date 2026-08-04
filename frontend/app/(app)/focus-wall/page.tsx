@@ -1,7 +1,7 @@
 import { FocusWallCanvas } from "@/components/focus-wall/focus-wall-canvas";
 import { getMyFocusCategories, getMyFocusNotes } from "@/lib/server/focus-wall";
 
-export const metadata = { title: "Focus Wall — MindForge" };
+export const metadata = { title: "Focus Wall" };
 
 export default async function FocusWallPage() {
   const [notes, categories] = await Promise.all([getMyFocusNotes(), getMyFocusCategories()]);

@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/server/auth";
 import { truncateId, formatDateTime } from "@/lib/mentoring/format";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Conversations — MindForge" };
+export const metadata = { title: "Conversations" };
 
 export default async function MentorConversationsPage() {
   const [conversations, mentors, currentUser] = await Promise.all([

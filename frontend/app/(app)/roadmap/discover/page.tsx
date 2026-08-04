@@ -7,7 +7,7 @@ import { listPublicRoadmaps } from "@/lib/server/roadmap";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Discover Roadmaps — MindForge" };
+export const metadata = { title: "Discover Roadmaps" };
 
 async function PublicRoadmapList() {
   const roadmaps = await listPublicRoadmaps();

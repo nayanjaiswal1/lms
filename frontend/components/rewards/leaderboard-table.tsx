@@ -35,7 +35,7 @@ function Avatar({ name, avatarUrl, isMe }: { name: string; avatarUrl?: string; i
     >
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img alt={name} className="h-full w-full object-cover" src={avatarUrl} />
+        <img alt={name} className="h-full w-full object-cover" loading="lazy" src={avatarUrl} />
       ) : (
         <span className={cn("flex h-full w-full items-center justify-center", isMe ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
           {initials || "?"}

@@ -4,7 +4,7 @@ import { MistakeTrendChart } from "@/components/mistakes/mistake-trend-chart";
 import { MistakeTimeline } from "@/components/mistakes/mistake-timeline";
 import { MISTAKE_CATEGORY_OPTIONS } from "@/lib/constants";
 
-export const metadata = { title: "My Mistakes — MindForge" };
+export const metadata = { title: "My Mistakes" };
 
 export default async function MistakesPage() {
   const [entries, summary] = await Promise.all([getMistakes(), getMistakeSummary()]);

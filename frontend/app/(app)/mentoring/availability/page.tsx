@@ -4,7 +4,7 @@ import { getMyAvailability } from "@/lib/server/sessions";
 import { WeeklyAvailabilityEditor } from "@/components/sessions/weekly-availability-editor";
 import { AvailabilityExceptions } from "@/components/sessions/availability-exceptions";
 
-export const metadata = { title: "My Availability — MindForge" };
+export const metadata = { title: "My Availability" };
 
 export default async function MentorAvailabilityPage() {
   await requireAccess(FEATURES.SESSION_BOOKING);

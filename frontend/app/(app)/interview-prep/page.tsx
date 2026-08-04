@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { listPrepPlans } from "@/lib/server/interview-prep";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Interview Prep — MindForge" };
+export const metadata = { title: "Interview Prep" };
 
 const STATUS_BADGE: Record<string, string> = {
   generating:  "border border-border text-muted-foreground",

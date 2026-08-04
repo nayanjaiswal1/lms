@@ -4,7 +4,7 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 import { InviteManager } from "./invite-manager";
 
-export const metadata: Metadata = { title: "Invite Members — MindForge" };
+export const metadata: Metadata = { title: "Invite Members" };
 
 interface OrgRef {
   id: string;

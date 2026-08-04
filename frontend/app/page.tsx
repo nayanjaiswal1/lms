@@ -7,7 +7,7 @@ import { getPublicCourses } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "MindForge — Courses, labs, and mentoring in one place",
+  title: "Courses, labs, and mentoring in one place",
   description:
     "Browse ready-to-enroll courses with hands-on labs, assessments, and mentoring. Free to sign up.",
 };

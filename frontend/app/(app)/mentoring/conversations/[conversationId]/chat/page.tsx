@@ -7,7 +7,7 @@ import { getConversationMessages } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Conversation — MindForge" };
+export const metadata = { title: "Conversation" };
 
 interface Props {
   params: Promise<{ conversationId: string }>;

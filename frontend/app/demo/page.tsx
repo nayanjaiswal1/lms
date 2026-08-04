@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "Try MindForge",
+  title: "Live demo",
   description: "Explore MindForge with realistic mock data — no account needed.",
 };
 
@@ -22,7 +22,7 @@ export default function DemoPage() {
   return (
     <main className="flex min-h-dvh flex-col">
       <header className="flex items-center justify-between px-6 py-5 sm:px-8">
-        <Link href={ROUTES.HOME} aria-label="MindForge home" className="hover:no-underline">
+        <Link href={ROUTES.HOME} aria-label="Home" className="hover:no-underline">
           <BrandMark />
         </Link>
         <ThemeToggle />

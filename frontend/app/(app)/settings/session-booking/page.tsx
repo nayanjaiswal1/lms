@@ -8,7 +8,7 @@ import { BookingPolicyForm } from "@/components/sessions/booking-policy-form";
 import { CreditPackManager } from "@/components/sessions/credit-pack-manager";
 import { GrantCreditsDialog } from "@/components/sessions/grant-credits-dialog";
 
-export const metadata = { title: "Session Booking — MindForge" };
+export const metadata = { title: "Session Booking" };
 
 export default async function SessionBookingSettingsPage() {
   await requireOrgFeature(FEATURES.SESSION_BOOKING);

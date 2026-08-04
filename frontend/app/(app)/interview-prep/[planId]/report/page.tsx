@@ -10,7 +10,7 @@ interface Props {
   params: Promise<{ planId: string }>;
 }
 
-export const metadata = { title: "Readiness Report — MindForge" };
+export const metadata = { title: "Readiness Report" };
 
 export default async function InterviewPrepReportPage({ params }: Props) {
   const { planId } = await params;

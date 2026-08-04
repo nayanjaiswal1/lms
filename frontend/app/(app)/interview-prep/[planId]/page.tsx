@@ -11,8 +11,8 @@ interface Props {
 export async function generateMetadata({ params }: Props) {
   const { planId } = await params;
   const plan = await getPrepPlan(planId).catch(() => null);
-  if (!plan) return { title: "Interview Prep — MindForge" };
-  return { title: `${plan.job_title} prep — MindForge` };
+  if (!plan) return { title: "Interview Prep" };
+  return { title: `${plan.job_title} prep` };
 }
 
 export default async function InterviewPrepPlanPage({ params }: Props) {

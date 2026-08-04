@@ -12,7 +12,7 @@ interface Props {
   searchParams: Promise<{ item?: string }>;
 }
 
-export const metadata = { title: "Coding round — MindForge" };
+export const metadata = { title: "Coding round" };
 
 export default async function InterviewPrepCodingPage({ params, searchParams }: Props) {
   const { planId } = await params;

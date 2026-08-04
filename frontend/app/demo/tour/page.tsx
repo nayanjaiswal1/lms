@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { DemoShell } from "@/app/demo/tour/demo-shell";
 
 export const metadata: Metadata = {
-  title: "Demo · MindForge",
+  title: "Demo",
   description: "Explore MindForge as a learner or team admin — no account needed.",
 };
 

@@ -11,10 +11,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params
   const profile = await fetchPublicProfile(slug)
   if (!profile) {
-    return { title: 'Profile Not Found | MindForge' }
+    return { title: 'Profile Not Found' }
   }
   return {
-    title: `${profile.name} | MindForge`,
+    title: profile.name,
     description: profile.bio ?? `${profile.name}'s learning profile on MindForge`,
   }
 }

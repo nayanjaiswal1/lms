@@ -46,41 +46,49 @@ const gochiHand = Gochi_Hand({
 })
 
 // ── Metadata ───────────────────────────────────────────────────────────────
-export const metadata: Metadata = {
-  title: {
-    template: '%s | MindForge',
-    default: 'MindForge — Forge your knowledge',
-  },
-  description: 'AI-powered learning platform. Curriculum, spaced repetition, quizzes, and projects — end to end.',
-  applicationName: 'MindForge',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+// Async so the title template/siteName can pick up the current org's
+// white-label branding — a plain `export const metadata` object can't read
+// cookies, so it could never vary per org. Every page below sets a plain
+// `title: "X"` string (no manual "— MindForge" suffix) and relies on the
+// `%s | {name}` template here to append the brand once, in one place.
+export async function generateMetadata(): Promise<Metadata> {
+  const { name } = await getCurrentOrgBranding()
+  return {
+    title: {
+      template: `%s | ${name}`,
+      default: `${name} — Forge your knowledge`,
+    },
+    description: 'AI-powered learning platform. Curriculum, spaced repetition, quizzes, and projects — end to end.',
+    applicationName: name,
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
 
-  // Apple PWA — standalone mode with translucent status bar so our
-  // app-header colour shows through (pairs with viewport-fit: cover)
-  appleWebApp: {
-    capable: true,
-    title: 'MindForge',
-    statusBarStyle: 'black-translucent',
-  },
+    // Apple PWA — standalone mode with translucent status bar so our
+    // app-header colour shows through (pairs with viewport-fit: cover)
+    appleWebApp: {
+      capable: true,
+      title: name,
+      statusBarStyle: 'black-translucent',
+    },
 
-  // Prevent iOS from auto-linking phone numbers / addresses in content
-  formatDetection: {
-    telephone: false,
-    email: false,
-    address: false,
-  },
+    // Prevent iOS from auto-linking phone numbers / addresses in content
+    formatDetection: {
+      telephone: false,
+      email: false,
+      address: false,
+    },
 
-  openGraph: {
-    type: 'website',
-    siteName: 'MindForge',
-    title: 'MindForge',
-    description: 'AI-powered learning platform — forge your knowledge end to end.',
-  },
+    openGraph: {
+      type: 'website',
+      siteName: name,
+      title: name,
+      description: 'AI-powered learning platform — forge your knowledge end to end.',
+    },
 
-  robots: {
-    index: process.env.NODE_ENV === 'production',
-    follow: process.env.NODE_ENV === 'production',
-  },
+    robots: {
+      index: process.env.NODE_ENV === 'production',
+      follow: process.env.NODE_ENV === 'production',
+    },
+  }
 }
 
 // ── Viewport ───────────────────────────────────────────────────────────────

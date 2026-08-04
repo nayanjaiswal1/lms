@@ -8,7 +8,7 @@ import { getBatches, getBatchMembers, type Batch } from "@/lib/server/batches";
 import { getBatchMessages } from "@/lib/server/messaging";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Mentoring Overview — MindForge" };
+export const metadata = { title: "Mentoring Overview" };
 
 interface BatchSummary {
   batch: Batch;

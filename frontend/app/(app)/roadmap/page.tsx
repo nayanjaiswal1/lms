@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { listRoadmaps } from "@/lib/server/roadmap";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Roadmap — MindForge" };
+export const metadata = { title: "Roadmap" };
 
 const STATUS_BADGE: Record<string, string> = {
   generating: "border border-border text-muted-foreground",

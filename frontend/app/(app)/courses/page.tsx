@@ -10,7 +10,7 @@ import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Courses — MindForge" };
+export const metadata = { title: "Courses" };
 
 async function RandomTopic() {
   const topic = await getRandomTopic();

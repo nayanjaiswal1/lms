@@ -18,7 +18,7 @@ interface Props {
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const batch = await getBatch(id).catch(() => null);
-  return { title: batch ? `${batch.name} — MindForge` : "Batch — MindForge" };
+  return { title: batch ? batch.name : "Batch" };
 }
 
 export default async function BatchLayout({ params, children }: Props) {

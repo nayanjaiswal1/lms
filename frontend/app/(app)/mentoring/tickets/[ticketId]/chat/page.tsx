@@ -12,7 +12,7 @@ import { getCurrentUser } from "@/lib/server/auth";
 import { truncateId } from "@/lib/mentoring/format";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Mentor Chat — MindForge" };
+export const metadata = { title: "Mentor Chat" };
 
 interface Props {
   params: Promise<{ ticketId: string }>;

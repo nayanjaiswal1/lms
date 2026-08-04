@@ -3,7 +3,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { SessionCard } from "@/components/sessions/session-card";
 import { getMenteeProgress } from "@/lib/server/sessions";
 
-export const metadata = { title: "Mentee Progress — MindForge" };
+export const metadata = { title: "Mentee Progress" };
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";

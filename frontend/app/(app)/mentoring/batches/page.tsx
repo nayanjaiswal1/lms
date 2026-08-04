@@ -8,7 +8,7 @@ import { getBatches } from "@/lib/server/batches";
 import { BatchAvatar } from "@/components/batches/batch-avatar";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "My Batches — MindForge" };
+export const metadata = { title: "My Batches" };
 
 async function BatchList() {
   const batches = await getBatches();

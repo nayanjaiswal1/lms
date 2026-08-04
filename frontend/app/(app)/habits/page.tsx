@@ -1,7 +1,7 @@
 import { HabitBoard } from "@/components/habits/habit-board";
 import { getHabitMonth } from "@/lib/server/habits";
 
-export const metadata = { title: "Habit Tracker — MindForge" };
+export const metadata = { title: "Habit Tracker" };
 
 function currentMonth(): string {
   const now = new Date();

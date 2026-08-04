@@ -15,7 +15,7 @@ import { getCurrentUser } from "@/lib/server/auth";
 import { TICKET_STATUS_VARIANT, ESCALATION_LABEL, truncateId, formatDate } from "@/lib/mentoring/format";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "Mentor Ticket Queue — MindForge" };
+export const metadata = { title: "Mentor Ticket Queue" };
 
 async function TicketQueueContent() {
   const [tickets, mentors, currentUser] = await Promise.all([

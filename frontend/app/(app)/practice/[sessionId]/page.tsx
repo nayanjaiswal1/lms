@@ -11,8 +11,8 @@ interface Props {
 export async function generateMetadata({ params }: Props) {
   const { sessionId } = await params;
   const session = await getPracticeSession(sessionId).catch(() => null);
-  if (!session) return { title: "Practice — MindForge" };
-  return { title: `${session.technology} practice — MindForge` };
+  if (!session) return { title: "Practice" };
+  return { title: `${session.technology} practice` };
 }
 
 export default async function PracticeSessionPage({ params, searchParams }: Props) {

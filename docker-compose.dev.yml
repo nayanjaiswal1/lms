@@ -229,6 +229,13 @@ services:
       # silent if bind-mounted straight through — isolate it same as node_modules.
       - mindforge_frontend_next_cache:/app/.next
     env_file: ./frontend/.env.local
+    environment:
+      # Docker Desktop's Windows bind mount doesn't forward inotify events into
+      # the Linux container, so Turbopack's file watcher never fires on host
+      # edits and silently serves stale output until the container restarts —
+      # fall back to polling so it actually notices file changes.
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     # No published port — only Caddy reaches this, over mindforge_dev.
     networks:
       - mindforge_dev
@@ -243,4 +250,7 @@ services:
       timeout: 5s
       retries: 18
       start_period: 30s
-    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm exec next dev -H 0.0.0.0"
+    # --webpack: Turbopack's watcher doesn't see edits through Docker Desktop's
+    # Windows bind mount (no inotify passthrough) and silently serves stale
+    # output until restarted. webpack's watcher honors WATCHPACK_POLLING above.
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm exec next dev -H 0.0.0.0 --webpack"

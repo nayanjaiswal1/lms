@@ -17,8 +17,8 @@ interface Props {
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const roadmap = await getRoadmap(id).catch(() => null);
-  if (!roadmap) return { title: "Roadmap — MindForge" };
-  return { title: `${roadmap.title} — MindForge` };
+  if (!roadmap) return { title: "Roadmap" };
+  return { title: roadmap.title };
 }
 
 export default async function RoadmapDetailPage({ params }: Props) {

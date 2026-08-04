@@ -2,7 +2,7 @@ import { NewPlanForm } from "@/components/interview-prep/new-plan-form";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "New Interview Prep Plan — MindForge" };
+export const metadata = { title: "New Interview Prep Plan" };
 
 export default function NewInterviewPrepPage() {
   return (

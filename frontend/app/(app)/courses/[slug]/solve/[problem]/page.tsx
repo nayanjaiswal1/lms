@@ -21,7 +21,7 @@ function prettify(problemSlug: string): string {
 
 export async function generateMetadata({ params, searchParams }: Props) {
   const [{ problem }, { title }] = await Promise.all([params, searchParams]);
-  return { title: `${title ?? prettify(problem)} — MindForge` };
+  return { title: title ?? prettify(problem) };
 }
 
 // LeetCode-style solve page for a problem linked from lesson content:

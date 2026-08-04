@@ -2,7 +2,7 @@ import { CourseWizard } from "@/components/courses/course-wizard";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";
 
-export const metadata = { title: "New Course — MindForge" };
+export const metadata = { title: "New Course" };
 
 export default function NewCoursePage() {
   return (

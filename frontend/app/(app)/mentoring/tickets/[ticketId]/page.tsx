@@ -29,7 +29,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const { ticketId } = await params;
-  return { title: "Ticket detail — MindForge", alternates: { canonical: `/mentoring/tickets/${ticketId}` } };
+  return { title: "Ticket detail", alternates: { canonical: `/mentoring/tickets/${ticketId}` } };
 }
 
 // One event, one ordering rule — the single timeline the whole lifecycle
