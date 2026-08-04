@@ -52,7 +52,8 @@ const gochiHand = Gochi_Hand({
 // `title: "X"` string (no manual "— MindForge" suffix) and relies on the
 // `%s | {name}` template here to append the brand once, in one place.
 export async function generateMetadata(): Promise<Metadata> {
-  const { name } = await getCurrentOrgBranding()
+  const branding = await getCurrentOrgBranding()
+  const name = branding.name || 'MindForge'
   return {
     title: {
       template: `%s | ${name}`,

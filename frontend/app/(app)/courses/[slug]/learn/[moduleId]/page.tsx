@@ -55,7 +55,7 @@ async function getModuleContent(moduleId: string): Promise<ModuleContent | null>
 
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
-  return { title: `Learn ${slug} — MindForge` };
+  return { title: `Learn ${slug}` };
 }
 
 export default async function ModuleLearnPage({ params }: Props) {

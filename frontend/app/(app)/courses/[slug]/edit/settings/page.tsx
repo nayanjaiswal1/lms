@@ -11,7 +11,7 @@ interface Props {
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const course = await getInstructorCourseBySlug(slug).catch(() => undefined);
-  return { title: course ? `Edit "${course.title}" — MindForge` : "Edit Course — MindForge" };
+  return { title: course ? `Edit "${course.title}"` : "Edit Course" };
 }
 
 export default async function CourseSettingsPage({ params }: Props) {

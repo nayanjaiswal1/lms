@@ -43,7 +43,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
-  return { title: `${slug} — MindForge` };
+  return { title: slug };
 }
 
 const DIFFICULTY_TEXT_CLASS: Record<string, string> = {
