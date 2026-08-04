@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Org } from "@/lib/orgs/types";
 import { OrgTypeCard } from "@/app/org/settings/org-type-card";
+import { OrgBrandingCard } from "@/app/org/settings/org-branding-card";
 import { apiGet } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import { getCurrentOrgId, getCurrentOrgRole } from "@/lib/server/claims";
@@ -122,7 +123,10 @@ export default async function OrgSettingsPage() {
       </div>
 
       {(role === "owner" || role === "admin") && (
-        <OrgTypeCard orgId={org.id} orgType={org.org_type} />
+        <>
+          <OrgBrandingCard logoUrl={org.logo_url} orgId={org.id} orgName={org.name} />
+          <OrgTypeCard orgId={org.id} orgType={org.org_type} />
+        </>
       )}
 
       {/* Quick links */}

@@ -4,6 +4,9 @@ const ROUTES = {
   COURSES:             "/courses",
   DEMO:                "/demo",
   DEMO_TOUR:           "/demo/tour",
+  LEGAL_TERMS:         "/legal/terms",
+  LEGAL_PRIVACY:       "/legal/privacy",
+  LEGAL_REFUND_POLICY: "/legal/refund-policy",
 
   // Auth
   LOGIN:               "/login",
@@ -19,11 +22,11 @@ const ROUTES = {
 
   // Student
   DASHBOARD:           "/dashboard",
-  ACTIVITY:            "/activity",
   LEARN:               "/learn",
   TEACH:               "/teach",
   NOW:                 "/now",
   PLAN:                "/plan",
+  HABITS:              "/habits",
   CALENDAR:            "/calendar",
   LEADERBOARD:         "/leaderboard",
   REVIEW:              "/review",
@@ -96,14 +99,22 @@ const ROUTES = {
   // Highlights (AI-assisted text selection + saved revision)
   HIGHLIGHTS:          "/highlights",
 
+  // Support — general-purpose helpdesk tickets
+  SUPPORT:             "/support",
+  SUPPORT_QUEUE:       "/support/queue",
+
   // Focus Wall — personal sticky-note corkboard
   FOCUS_WALL:          "/focus-wall",
 
   // Settings
   SETTINGS_PROFILE:               "/settings/profile",
   SETTINGS_SECURITY:              "/settings/security",
+  SETTINGS_PRIVACY:               "/settings/privacy",
   SETTINGS_INTEGRATIONS:          "/settings/integrations",
   SETTINGS_INTEGRATIONS_ACTIVITY: "/settings/integrations/activity",
+
+  // Legal — consent holding page shown when a policy version changes
+  LEGAL_ACCEPT:        "/legal/accept",
 
   // Admin — RBAC
   ADMIN_RBAC_ROLES:        "/admin/rbac/roles",
@@ -117,6 +128,9 @@ const ROUTES = {
 
   // Admin — Payments
   ADMIN_COUPONS:           "/admin/coupons",
+
+  // Admin — Moderation
+  ADMIN_CONTENT_REPORTS:   "/admin/content-reports",
 
   // Platform Admin (super_admin console — cross-tenant)
   PLATFORM_JOBS:           "/platform/jobs",
@@ -146,6 +160,7 @@ const ROUTES = {
   courseLearn:              (slug: string)                      => `/courses/${slug}/learn`,
   courseLearnModule:        (slug: string, moduleId: string)    => `/courses/${slug}/learn/${moduleId}`,
   courseSolve:              (slug: string, problem: string)     => `/courses/${slug}/solve/${problem}`,
+  courseReceipt:            (slug: string, purchaseId: string)  => `/courses/${slug}/checkout/receipt/${purchaseId}`,
   module:                   (slug: string, moduleId: string)    => `/courses/${slug}/${moduleId}`,
   courseEdit:               (slug: string)                      => `/courses/${slug}/edit`,
   courseEditSettings:       (slug: string)                      => `/courses/${slug}/edit/settings`,

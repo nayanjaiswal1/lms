@@ -29,16 +29,19 @@ import (
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labs"
+	"github.com/mindforge/backend/internal/legal"
 	"github.com/mindforge/backend/internal/mcpconnect"
 	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/messaging"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/mistakes"
+	"github.com/mindforge/backend/internal/moderation"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/onboarding"
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
 	"github.com/mindforge/backend/internal/practice"
+	"github.com/mindforge/backend/internal/privacy"
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/revisionplan"
 	"github.com/mindforge/backend/internal/rewards"
@@ -49,6 +52,7 @@ import (
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/storage"
+	"github.com/mindforge/backend/internal/support"
 	"github.com/mindforge/backend/internal/systemdesign"
 	"github.com/mindforge/backend/internal/whatnow"
 	"github.com/redis/go-redis/v9"
@@ -131,7 +135,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// (local interface only, no mentoring import).
 	mentoringRouter := mentoring.New(pool, paymentProviders, couponsRouter.Service, coursesRepo, sessionsRouter.Service, authzHandler.Service(), cfg)
 
-	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service, couponsRouter.Service, rdb, cfg)
+	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service, couponsRouter.Service, rdb, cfg, authzHandler.Service())
 
 	assessmentHandler := assessment.New(pool, cfg, jobsRegistry, rewardsSvc, coursesSvc, store, labsRuntime)
 	rewardsHandler := rewards.New(pool, rdb)
@@ -166,6 +170,25 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	featuresRouter := features.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
+	// Support — general-purpose helpdesk tickets, gated on the
+	// support.manage permission for the staff queue (authzHandler already
+	// built above for mentoringRouter's own permission checks).
+	supportRouter := support.New(pool, authzHandler.Service())
+
+	// Legal — Terms/Privacy consent tracking, no permission gating (every
+	// authenticated user manages only their own acceptance record).
+	legalRouter := legal.New(pool)
+
+	// Moderation — content-report queue, gated on content.moderate for the
+	// staff side (authzHandler already built above).
+	moderationRouter := moderation.New(pool, authzHandler.Service())
+
+	// Privacy — self-service data export/account deletion. Constructs its own
+	// authz.AdminRepo (stateless over pool) rather than threading authzHandler's
+	// private one through, since account deletion calls AdminRepo.SetUserStatus
+	// directly (bypassing AdminService's self-action guard — see
+	// internal/privacy/service.go).
+	privacyRouter := privacy.New(pool, authz.NewAdminRepo(pool))
 
 	// AI Connector (MCP) — lets a student connect their own Claude/ChatGPT to
 	// their account via OAuth 2.1+PKCE. Built with coursesRepo/coursesSvc (not
@@ -428,6 +451,19 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// mark read/read-all. Any authenticated member, row-scoped to their
 		// own notifications.
 		notificationsRouter.RegisterRoutes(r)
+
+		// Support — raise/list a helpdesk ticket (any member), plus the
+		// support.manage-gated staff queue (view all, reply, change status).
+		supportRouter.RegisterRoutes(r)
+
+		// Legal — check/record Terms/Privacy consent.
+		legalRouter.RegisterRoutes(r)
+
+		// Privacy — export/delete-account.
+		privacyRouter.RegisterRoutes(r)
+
+		// Moderation — file/list/resolve content reports.
+		moderationRouter.RegisterRoutes(r)
 	})
 
 	return r

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { toggleRevisionAction } from "@/app/(app)/highlights/actions"
+import { MermaidDiagram } from "@/components/highlights/mermaid-diagram"
 import type { Highlight } from "@/lib/server/highlights"
 
 interface HighlightsSheetProps {
@@ -87,6 +88,11 @@ function HighlightRow({
           <p className="text-xs leading-relaxed text-foreground">
             {highlight.explanation.explanation}
           </p>
+          {highlight.explanation.diagram && (
+            <div className="mt-2">
+              <MermaidDiagram chart={highlight.explanation.diagram} />
+            </div>
+          )}
         </div>
       )}
 

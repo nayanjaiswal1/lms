@@ -45,6 +45,14 @@ export async function purchaseStatusAction(courseId: string): Promise<ActionResu
   return result;
 }
 
+// Admin-triggered only (payments.manage_refunds) — never self-serve, so a
+// human always reviews the request before money moves back out.
+export async function refundPurchaseAction(courseId: string, purchaseId: string): Promise<ActionResult> {
+  const result = await apiAction("POST", `/api/courses/${courseId}/purchases/${purchaseId}/refund`);
+  if (result.ok) revalidatePath(ROUTES.course(courseId));
+  return result;
+}
+
 export async function requestMentorAction(courseId: string): Promise<ActionResult<MentorTicket>> {
   const result = await apiAction<MentorTicket>("POST", "/api/mentor-tickets/request", { course_id: courseId });
   if (result.ok) revalidatePath(ROUTES.MENTORS);

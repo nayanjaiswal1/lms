@@ -53,6 +53,13 @@ export const PERMISSIONS = {
   },
   PAYMENTS: {
     MANAGE_COUPONS: "payments.manage_coupons",
+    MANAGE_REFUNDS: "payments.manage_refunds",
+  },
+  SUPPORT: {
+    MANAGE: "support.manage",
+  },
+  MODERATION: {
+    MANAGE: "content.moderate",
   },
 } as const
 

@@ -19,6 +19,9 @@ const PUBLIC_EXACT_PATHS = new Set([
   "/verify-email",
   "/demo",
   "/demo/tour",
+  "/legal/terms",
+  "/legal/privacy",
+  "/legal/refund-policy",
 ])
 
 // Prefix matches — for route segments with dynamic children ([token], [uuid],

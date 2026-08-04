@@ -1,14 +1,24 @@
-# Caddyfile.dev — dev-only, disposable. Puts the frontend (host.docker.internal:3000)
-# and backend (backend:8080, including the AI Connector's /oauth, /.well-known,
-# /mcp routes — not just /api/*) behind one origin, so a single tunnel URL
-# reaches the whole app from another device. Mirrors the routing shape of the
-# production Caddyfile; not itself used in production.
+# Caddyfile.dev — dev-only, disposable. Puts every dev service (frontend:3000,
+# backend:8080 including the AI Connector's /oauth, /.well-known, /mcp routes,
+# minio:9000, labproxy:8081) behind one origin/port, so only Caddy needs a
+# published host port — see docker-compose.dev.yml. Mirrors the routing shape
+# of the production Caddyfile (including the /lab-ws/* prefix-strip trick for
+# labproxy) except this listens on plain :80, not a real domain.
 :80 {
 	reverse_proxy /api/* backend:8080
 	reverse_proxy /oauth/* backend:8080
 	reverse_proxy /.well-known/* backend:8080
 	reverse_proxy /mcp backend:8080
+
+	# Terminal WebSocket + live-preview relay (frontend connects to
+	# NEXT_PUBLIC_LAB_PROXY_URL=ws://localhost/lab-ws). labproxy only serves
+	# "/ws", "/health", and "/preview/*", so the "/lab-ws" prefix is stripped
+	# before proxying — same as the production Caddyfile.
+	handle_path /lab-ws/* {
+		reverse_proxy labproxy:8081
+	}
+
 	reverse_proxy /mindforge/* minio:9000
 
-	reverse_proxy host.docker.internal:3000
+	reverse_proxy frontend:3000
 }

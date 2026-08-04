@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useBranding } from "@/lib/branding-context";
 
 interface BrandMarkProps {
   className?: string;
@@ -19,16 +22,27 @@ function FlameGlyph({ className }: { className?: string }) {
   );
 }
 
-// The MindForge wordmark — flame glyph beside the name, unboxed to match the
-// brand mark. Reused across auth pages (and anywhere the brand needs to
-// appear) so the lockup is defined once.
+// The product wordmark — glyph beside the name, unboxed to match the brand
+// mark. Reused across auth pages (and anywhere the brand needs to appear) so
+// the lockup is defined once. Renders the MindForge flame + "MindForge" by
+// default, or an org's own logo/name when that org has set one (white-label).
 export function BrandMark({ className, showName = true, iconClassName }: BrandMarkProps) {
+  const { name, logoUrl } = useBranding();
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <FlameGlyph className={cn("h-8 w-8 shrink-0 text-brand", iconClassName)} />
+      {logoUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- org-uploaded logo from an arbitrary media host, same pattern as app/org/settings/page.tsx */
+        <img
+          alt={`${name} logo`}
+          className={cn("h-8 w-8 shrink-0 rounded-sm object-contain", iconClassName)}
+          src={logoUrl}
+        />
+      ) : (
+        <FlameGlyph className={cn("h-8 w-8 shrink-0 text-brand", iconClassName)} />
+      )}
       {showName && (
         <span className="text-lg font-bold tracking-tight text-brand">
-          MindForge
+          {name}
         </span>
       )}
     </span>

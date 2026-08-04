@@ -41,6 +41,12 @@ type stubWebhookBody struct {
 	Currency    string `json:"currency"`
 }
 
+// Refund is a no-op — there is no external gateway to call, matching how
+// CreateCheckout/ParseWebhook simulate the flow without a real charge.
+func (p *StubProvider) Refund(ctx context.Context, paymentRef string, amountCents int) error {
+	return nil
+}
+
 func (p *StubProvider) ParseWebhook(rawBody []byte, h http.Header) (Event, error) {
 	var body stubWebhookBody
 	if err := json.Unmarshal(rawBody, &body); err != nil {

@@ -130,6 +130,17 @@ func (p *StripeProvider) ParseWebhook(rawBody []byte, h http.Header) (Event, err
 	}
 }
 
+// Refund reverses paymentRef (a PaymentIntent id) in full. amountCents is
+// unused — Stripe refunds the PaymentIntent's whole captured amount when
+// Amount is left nil, which is exactly what an admin-triggered refund means.
+func (p *StripeProvider) Refund(ctx context.Context, paymentRef string, _ int) error {
+	params := &stripe.RefundCreateParams{PaymentIntent: stripe.String(paymentRef)}
+	if _, err := p.client.V1Refunds.Create(ctx, params); err != nil {
+		return fmt.Errorf("payments: stripe refund: %w", err)
+	}
+	return nil
+}
+
 // decodeCheckoutSession re-marshals the generic event.Data.Object map into a
 // typed CheckoutSession — stripe-go's Event type deliberately keeps this
 // field untyped since its shape depends on event.Type.

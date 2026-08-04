@@ -11,6 +11,7 @@ import { AuthFormError } from "@/components/auth/auth-form-error";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
+import { FormCheckboxField } from "@/components/ui/form-checkbox-field";
 import ROUTES from "@/lib/routes";
 import { registerSchema, type RegisterInput } from "@/lib/validation/auth";
 
@@ -29,13 +30,18 @@ export function RegisterForm() {
       email: "",
       password: "",
       confirmPassword: "",
+      acceptTerms: false,
     },
     mode: "onTouched",
   });
 
   const onSubmit = form.handleSubmit((values) => {
     const data = new FormData();
-    Object.entries(values).forEach(([key, value]) => data.set(key, value));
+    data.set("name", values.name);
+    data.set("email", values.email);
+    data.set("password", values.password);
+    data.set("confirmPassword", values.confirmPassword);
+    data.set("acceptTerms", String(values.acceptTerms));
     startTransition(() => formAction(data));
   });
 
@@ -89,17 +95,25 @@ export function RegisterForm() {
           serverError={state.fieldErrors?.confirmPassword}
         />
 
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          By creating an account, you agree to our{" "}
-          <Link href={ROUTES.HOME} className="font-medium">
-            Terms
-          </Link>{" "}
-          and{" "}
-          <Link href={ROUTES.HOME} className="font-medium">
-            Privacy Policy
-          </Link>
-          .
-        </p>
+        <FormCheckboxField
+          control={form.control}
+          name="acceptTerms"
+          disabled={isPending}
+          serverError={state.fieldErrors?.acceptTerms}
+          label={
+            <>
+              I agree to the{" "}
+              <Link href={ROUTES.LEGAL_TERMS} target="_blank" className="font-medium">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href={ROUTES.LEGAL_PRIVACY} target="_blank" className="font-medium">
+                Privacy Policy
+              </Link>
+              .
+            </>
+          }
+        />
 
         <Button type="submit" size="lg" disabled={isPending} className="w-full">
           {isPending ? (

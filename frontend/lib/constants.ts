@@ -8,6 +8,40 @@
 // doesn't go through FEATURES/<AccessGate>. Restricted to one email instead.
 export const NOW_FEATURE_ALLOWED_EMAIL = "jaiswal2062@gmail.com";
 
+// ─────────────────────────────────────────────
+
+export const CONTENT_REPORT_REASON = {
+  ILLEGAL:     "illegal",
+  COPYRIGHT:   "copyright",
+  SPAM:        "spam",
+  HARASSMENT:  "harassment",
+  OTHER:       "other",
+} as const;
+export type ContentReportReason = (typeof CONTENT_REPORT_REASON)[keyof typeof CONTENT_REPORT_REASON];
+
+export const CONTENT_REPORT_REASON_OPTIONS = [
+  { label: "Illegal content",  value: CONTENT_REPORT_REASON.ILLEGAL },
+  { label: "Copyright infringement", value: CONTENT_REPORT_REASON.COPYRIGHT },
+  { label: "Spam",             value: CONTENT_REPORT_REASON.SPAM },
+  { label: "Harassment",       value: CONTENT_REPORT_REASON.HARASSMENT },
+  { label: "Other",            value: CONTENT_REPORT_REASON.OTHER },
+] as const;
+
+export const CONTENT_REPORT_STATUS = {
+  PENDING:   "pending",
+  REVIEWING: "reviewing",
+  REMOVED:   "removed",
+  DISMISSED: "dismissed",
+} as const;
+export type ContentReportStatus = (typeof CONTENT_REPORT_STATUS)[keyof typeof CONTENT_REPORT_STATUS];
+
+export const CONTENT_REPORT_STATUS_OPTIONS = [
+  { label: "Pending",   value: CONTENT_REPORT_STATUS.PENDING },
+  { label: "Reviewing", value: CONTENT_REPORT_STATUS.REVIEWING },
+  { label: "Removed",   value: CONTENT_REPORT_STATUS.REMOVED },
+  { label: "Dismissed", value: CONTENT_REPORT_STATUS.DISMISSED },
+] as const;
+
 export const DIFFICULTY = {
   EASY:   "easy",
   MEDIUM: "medium",
@@ -836,4 +870,53 @@ export const HABIT_COLOR_OPTIONS = [
   { label: "Green",   value: HABIT_COLOR.GREEN },
   { label: "Violet",  value: HABIT_COLOR.VIOLET },
   { label: "Red",     value: HABIT_COLOR.RED },
+] as const;
+
+// ─────────────────────────────────────────────
+// Support — helpdesk tickets
+// ─────────────────────────────────────────────
+
+export const SUPPORT_TICKET_STATUS = {
+  OPEN:        "open",
+  IN_PROGRESS: "in_progress",
+  RESOLVED:    "resolved",
+  CLOSED:      "closed",
+} as const;
+export type SupportTicketStatus = (typeof SUPPORT_TICKET_STATUS)[keyof typeof SUPPORT_TICKET_STATUS];
+
+export const SUPPORT_TICKET_STATUS_OPTIONS = [
+  { label: "Open",        value: SUPPORT_TICKET_STATUS.OPEN },
+  { label: "In progress", value: SUPPORT_TICKET_STATUS.IN_PROGRESS },
+  { label: "Resolved",    value: SUPPORT_TICKET_STATUS.RESOLVED },
+  { label: "Closed",      value: SUPPORT_TICKET_STATUS.CLOSED },
+] as const;
+
+export const SUPPORT_TICKET_CATEGORY = {
+  TECHNICAL:      "technical",
+  BILLING:        "billing",
+  ACCOUNT:        "account",
+  COURSE_CONTENT: "course_content",
+  OTHER:          "other",
+} as const;
+export type SupportTicketCategory = (typeof SUPPORT_TICKET_CATEGORY)[keyof typeof SUPPORT_TICKET_CATEGORY];
+
+export const SUPPORT_TICKET_CATEGORY_OPTIONS = [
+  { label: "Technical issue", value: SUPPORT_TICKET_CATEGORY.TECHNICAL },
+  { label: "Billing",         value: SUPPORT_TICKET_CATEGORY.BILLING },
+  { label: "Account",         value: SUPPORT_TICKET_CATEGORY.ACCOUNT },
+  { label: "Course content",  value: SUPPORT_TICKET_CATEGORY.COURSE_CONTENT },
+  { label: "Other",           value: SUPPORT_TICKET_CATEGORY.OTHER },
+] as const;
+
+export const SUPPORT_TICKET_PRIORITY = {
+  LOW:    "low",
+  NORMAL: "normal",
+  HIGH:   "high",
+} as const;
+export type SupportTicketPriority = (typeof SUPPORT_TICKET_PRIORITY)[keyof typeof SUPPORT_TICKET_PRIORITY];
+
+export const SUPPORT_TICKET_PRIORITY_OPTIONS = [
+  { label: "Low",    value: SUPPORT_TICKET_PRIORITY.LOW },
+  { label: "Normal", value: SUPPORT_TICKET_PRIORITY.NORMAL },
+  { label: "High",   value: SUPPORT_TICKET_PRIORITY.HIGH },
 ] as const;

@@ -2,6 +2,7 @@ package courses
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/middleware"
 )
 
@@ -42,6 +43,14 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/api/courses/{courseID}/progress", h.GetAllProgress)
 	})
 
+	// ─── Permission-gated: issue a refund ─────────────────────────────────────
+	// payments.manage_refunds, not an org role — admin-triggered only, never
+	// self-serve (see mentoring.Service.Refund).
+	r.Group(func(r chi.Router) {
+		r.Use(authz.RequirePermission(h.authzSvc, PermissionManageRefunds))
+		r.Post("/api/courses/{courseID}/purchases/{purchaseID}/refund", h.RefundPurchase)
+	})
+
 	// ─── Instructor: content-proposal review queue ────────────────────────────
 	// A proposal always targets an org course, so this reuses the same
 	// instructor/admin gate as authoring that course directly — approving a
@@ -74,6 +83,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/courses/{courseID}/enroll", h.Enroll)
 	r.Post("/api/courses/{courseID}/checkout", h.StartCheckout)
 	r.Get("/api/courses/{courseID}/purchase-status", h.PurchaseStatus)
+	r.Get("/api/courses/{courseID}/purchases/{purchaseID}/receipt", h.GetReceipt)
 	r.Post("/api/courses/{courseID}/coupon/preview", h.PreviewCoupon)
 	r.Get("/api/enrollments/me", h.MyEnrollments)
 	r.Post("/api/courses/{courseID}/reviews", h.SubmitReview)

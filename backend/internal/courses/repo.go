@@ -662,6 +662,20 @@ func (r *Repo) CreateEnrollmentTx(ctx context.Context, tx pgx.Tx, e Enrollment) 
 	return e, nil
 }
 
+// RevokeEnrollmentTx removes a course enrollment within tx — the mirror of
+// CreateEnrollmentTx, used by mentoring.Service.Refund so a refunded
+// purchase also revokes the access it granted. A no-op if the student was
+// never enrolled (e.g. the enrollment was already removed by an admin).
+func (r *Repo) RevokeEnrollmentTx(ctx context.Context, tx pgx.Tx, userID, courseID string) error {
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM enrollments WHERE user_id = $1 AND course_id = $2`,
+		userID, courseID,
+	); err != nil {
+		return fmt.Errorf("courses: revoke enrollment (tx): %w", err)
+	}
+	return nil
+}
+
 // IsEnrolled checks if a user is enrolled in a course.
 func (r *Repo) IsEnrolled(ctx context.Context, userID, courseID string) (bool, error) {
 	var ok bool

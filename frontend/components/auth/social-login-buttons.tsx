@@ -1,9 +1,17 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface SocialLoginButtonsProps {
   disabled?: boolean;
+  // Fired the instant a provider link is followed, so the caller can lock
+  // the rest of the form (email/password submit, the other provider button)
+  // for the moment before the full-page OAuth redirect takes over — an <a>
+  // has no native "disabled" behavior, so without this a second click can
+  // fire before navigation unloads the page.
+  onProviderSelect?: () => void;
 }
 
 // eslint-disable-next-line no-restricted-syntax -- SVG viewBox/xmlns are SVG attributes, not Tailwind
@@ -51,18 +59,34 @@ function GoogleIcon() {
   );
 }
 
-export function SocialLoginButtons({ disabled }: SocialLoginButtonsProps) {
+export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginButtonsProps) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  const isDisabled = disabled || !apiUrl;
+
+  // <a> ignores the "disabled" attribute and the disabled: Tailwind variant
+  // (it only matches real form controls), so locking a provider link takes
+  // pointer-events-none + aria-disabled + a click guard, not just a prop.
+  function handleClick(e: MouseEvent) {
+    if (isDisabled) {
+      e.preventDefault();
+      return;
+    }
+    onProviderSelect?.();
+  }
 
   return (
     <div className="grid grid-cols-2 gap-3">
       <Button
         variant="outline"
-        disabled={disabled || !apiUrl}
         asChild
-        className="gap-2"
+        className={cn("gap-2", isDisabled && "pointer-events-none opacity-50")}
       >
-        <a href={`${apiUrl}/api/auth/google`}>
+        <a
+          aria-disabled={isDisabled}
+          href={`${apiUrl}/api/auth/google`}
+          onClick={handleClick}
+          tabIndex={isDisabled ? -1 : undefined}
+        >
           <GoogleIcon />
           Google
         </a>
@@ -70,11 +94,15 @@ export function SocialLoginButtons({ disabled }: SocialLoginButtonsProps) {
 
       <Button
         variant="outline"
-        disabled={disabled || !apiUrl}
         asChild
-        className="gap-2"
+        className={cn("gap-2", isDisabled && "pointer-events-none opacity-50")}
       >
-        <a href={`${apiUrl}/api/auth/github`}>
+        <a
+          aria-disabled={isDisabled}
+          href={`${apiUrl}/api/auth/github`}
+          onClick={handleClick}
+          tabIndex={isDisabled ? -1 : undefined}
+        >
           <GithubIcon />
           GitHub
         </a>

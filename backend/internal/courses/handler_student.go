@@ -194,6 +194,42 @@ func (h *Handler) PurchaseStatus(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, status)
 }
 
+// GetReceipt returns a completed purchase's receipt — the caller's own
+// purchase only (see mentoring.Service.GetReceipt), regardless of course.
+func (h *Handler) GetReceipt(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	receipt, err := h.purchaser.GetReceipt(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "purchaseID"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, receipt)
+}
+
+// RefundPurchase reverses a completed purchase via the gateway and revokes
+// the enrollment it granted. Staff-only — gated by payments.manage_refunds
+// in routes.go; never self-serve, so a human always reviews the request
+// before money moves.
+func (h *Handler) RefundPurchase(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	if err := h.purchaser.Refund(r.Context(), claims.OrgID, urlParam(r, "purchaseID")); err != nil {
+		var ce refundClientError
+		if errors.As(err, &ce) && ce.IsClientError() {
+			httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": "Purchase refunded."})
+}
+
 // PreviewCoupon validates a coupon code against a paid course and returns the
 // discount it would apply — advisory only, re-validated and recomputed
 // server-side again at webhook confirmation, so a client can never trust

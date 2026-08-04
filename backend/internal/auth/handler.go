@@ -92,6 +92,12 @@ const (
 	StatusDeactivated = "deactivated"
 )
 
+// registrationLegalVersion is the Terms/Privacy version stamped on the
+// acceptance rows written at registration. Must match
+// legal.CurrentVersion(legal.DocTerms) / (legal.DocPrivacy) — kept as a
+// literal here rather than imported to avoid an auth<->legal import cycle.
+const registrationLegalVersion = "2026-08-04"
+
 // accountLockedMessage returns the message to show for a non-active account, or
 // "" when the account may sign in.
 //
@@ -109,9 +115,10 @@ func accountLockedMessage(status string) string {
 // ─── request / response types ─────────────────────────────────────────────────
 
 type registerRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	AcceptTerms bool   `json:"accept_terms"`
 }
 
 type loginRequest struct {
@@ -172,6 +179,9 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Password) < 8 || len(req.Password) > 72 {
 		fields["password"] = "Password must be between 8 and 72 characters."
+	}
+	if !req.AcceptTerms {
+		fields["accept_terms"] = "You must agree to the Terms of Service and Privacy Policy."
 	}
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
@@ -255,6 +265,21 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		h.cfg.DefaultOrgID, userID,
 	); err != nil {
 		slog.Error("auth: register insert org_member", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Registration failed.")
+		return
+	}
+
+	// Records consent to both documents at once, since the registration form
+	// has a single "I agree to the Terms and Privacy Policy" checkbox.
+	// Version literals must match legal.CurrentVersion(legal.DocTerms) /
+	// (legal.DocPrivacy) — duplicated here rather than imported to avoid an
+	// auth<->legal import cycle (legal's handler imports auth for RequireClaims).
+	if _, err := tx.Exec(r.Context(),
+		`INSERT INTO legal_acceptances (user_id, doc_type, version, ip)
+		 VALUES ($1, 'terms', $2, $3), ($1, 'privacy', $2, $3)`,
+		userID, registrationLegalVersion, firstThreeOctets(r.RemoteAddr),
+	); err != nil {
+		slog.Error("auth: register insert legal_acceptances", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Registration failed.")
 		return
 	}

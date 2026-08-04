@@ -18,13 +18,18 @@ interface Props {
   courseTitle: string;
 }
 
+interface Result {
+  status: Status;
+  purchaseId: string | null;
+}
+
 // The gateway redirect that lands here never grants access by itself — only
 // a webhook-confirmed purchase (courses.PurchaseStatus.status === "completed")
 // does, which can arrive slightly after the redirect. This polls until that
 // confirmation lands (or a well-past-typical-latency timeout), closing the
 // redirect-vs-webhook race a naive "redirect = success" page would have.
 export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Props) {
-  const [status, setStatus] = useState<Status>("polling");
+  const [result, setResult] = useState<Result>({ status: "polling", purchaseId: null });
 
   useEffect(() => {
     let attempts = 0;
@@ -33,19 +38,19 @@ export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Prop
 
     const poll = async () => {
       attempts += 1;
-      const result = await purchaseStatusAction(courseId);
+      const res = await purchaseStatusAction(courseId);
       if (cancelled) return;
 
-      if (result.data?.status === "completed") {
-        setStatus("completed");
+      if (res.data?.status === "completed") {
+        setResult({ status: "completed", purchaseId: res.data.purchase_id });
         return;
       }
-      if (result.data?.status === "failed") {
-        setStatus("failed");
+      if (res.data?.status === "failed") {
+        setResult({ status: "failed", purchaseId: null });
         return;
       }
       if (attempts >= MAX_ATTEMPTS) {
-        setStatus("pending_timeout");
+        setResult({ status: "pending_timeout", purchaseId: null });
         return;
       }
       timer = setTimeout(poll, POLL_INTERVAL_MS);
@@ -59,6 +64,8 @@ export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Prop
     };
   }, [courseId]);
 
+  const { status, purchaseId } = result;
+
   if (status === "completed") {
     return (
       <div className="card-base flex flex-col items-center gap-4 p-8 text-center">
@@ -67,9 +74,16 @@ export function CheckoutStatusPoller({ courseId, courseSlug, courseTitle }: Prop
           <h1 className="section-title">You&apos;re enrolled!</h1>
           <p className="mt-1 text-muted-foreground">Payment confirmed for {courseTitle}.</p>
         </div>
-        <Button asChild size="lg">
-          <Link href={ROUTES.courseLearn(courseSlug)}>Start learning</Link>
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button asChild size="lg">
+            <Link href={ROUTES.courseLearn(courseSlug)}>Start learning</Link>
+          </Button>
+          {purchaseId && (
+            <Button asChild size="lg" variant="outline">
+              <Link href={ROUTES.courseReceipt(courseSlug, purchaseId)}>View receipt</Link>
+            </Button>
+          )}
+        </div>
       </div>
     );
   }

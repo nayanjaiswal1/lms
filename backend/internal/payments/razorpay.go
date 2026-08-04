@@ -76,6 +76,18 @@ func (p *RazorpayProvider) CreateCheckout(ctx context.Context, cp CheckoutParams
 	}, nil
 }
 
+// Refund reverses paymentRef (a Razorpay payment id, "pay_...") in full. The
+// Go SDK always sends "amount" in the refund request body (there is no
+// "omit for full refund" option like Stripe's), so amountCents — the
+// purchase's original AmountCents — must be passed through explicitly for
+// a full refund to actually be a full refund rather than a zero-amount one.
+func (p *RazorpayProvider) Refund(ctx context.Context, paymentRef string, amountCents int) error {
+	if _, err := p.client.Payment.Refund(paymentRef, amountCents, nil, nil); err != nil {
+		return fmt.Errorf("payments: razorpay refund: %w", err)
+	}
+	return nil
+}
+
 // razorpayWebhookTolerance bounds how old a signed webhook delivery may be
 // before it's rejected — mirrors Stripe's own DefaultTolerance (5 minutes).
 // A validly-signed payload has no expiry of its own otherwise, so without

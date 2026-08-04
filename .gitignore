@@ -18,6 +18,7 @@ backend/tmp/
 frontend/.next/
 frontend/out/
 frontend/node_modules/
+frontend/.pnpm-store/
 
 # ─── MaxMind GeoIP database ───────────────────────────────────────────────────
 *.mmdb

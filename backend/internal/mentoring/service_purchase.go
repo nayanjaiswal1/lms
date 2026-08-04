@@ -211,6 +211,69 @@ func (s *Service) PurchaseStatus(ctx context.Context, orgID, userID, courseID st
 	return courses.PurchaseStatus{PurchaseID: p.ID, Status: p.Status, Enrolled: enrolled}, nil
 }
 
+// GetReceipt returns purchaseID's receipt data, scoped to orgID and to
+// userID owning the purchase — a student can only ever see their own
+// receipt, there is no staff bypass here (staff work purchases through the
+// refund action instead, which is org-scoped, not user-scoped).
+func (s *Service) GetReceipt(ctx context.Context, orgID, userID, purchaseID string) (courses.Receipt, error) {
+	p, err := s.repo.GetPurchase(ctx, orgID, purchaseID)
+	if err != nil {
+		return courses.Receipt{}, err
+	}
+	if p.UserID != userID {
+		return courses.Receipt{}, ErrNotFound
+	}
+	return courses.Receipt{
+		PurchaseID: p.ID, ReceiptNumber: p.ReceiptNumber, CourseID: p.CourseID,
+		AmountCents: p.AmountCents, DiscountCents: p.DiscountCents, Currency: p.Currency,
+		Provider: p.Provider, Status: p.Status, PurchasedAt: p.PurchasedAt,
+	}, nil
+}
+
+// Refund reverses a completed purchase: calls the gateway's refund API,
+// then in one transaction marks the purchase 'refunded' and revokes the
+// enrollment it granted. Callers must already hold payments.manage_refunds
+// (checked by route middleware) — this is never self-serve.
+//
+// The gateway call happens before the transaction, not inside it: a DB
+// transaction must not hold open while waiting on an external HTTP call,
+// and if the gateway call fails, nothing in our own data should have
+// changed anyway.
+func (s *Service) Refund(ctx context.Context, orgID, purchaseID string) error {
+	p, err := s.repo.GetPurchase(ctx, orgID, purchaseID)
+	if err != nil {
+		return err
+	}
+	if p.Status != PurchaseStatusCompleted {
+		return &clientErr{msg: "only a completed purchase can be refunded"}
+	}
+	if p.PaymentRef == nil || *p.PaymentRef == "" {
+		return &clientErr{msg: "purchase has no payment reference to refund"}
+	}
+
+	provider, err := s.providers.Get(p.Provider)
+	if err != nil {
+		return err
+	}
+	if err := provider.Refund(ctx, *p.PaymentRef, p.AmountCents); err != nil {
+		return err
+	}
+
+	return s.repo.tx(ctx, func(tx pgx.Tx) error {
+		_, transitioned, err := s.repo.MarkPurchaseRefundedTx(ctx, tx, p.ID)
+		if err != nil {
+			return err
+		}
+		if !transitioned {
+			// Lost a race with another refund attempt on the same purchase —
+			// the gateway call above already succeeded (or the gateway itself
+			// will report the duplicate), so this is a safe no-op, not an error.
+			return nil
+		}
+		return s.coursesRepo.RevokeEnrollmentTx(ctx, tx, p.UserID, p.CourseID)
+	})
+}
+
 // HandleWebhook authenticates and processes a single gateway delivery for
 // providerName. Every code path other than an unknown provider or an invalid
 // signature acks the request (returns nil) — a webhook is never "failed"

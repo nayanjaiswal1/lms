@@ -1,9 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import { BookmarkPlus, BookmarkCheck, Sparkles, X, Loader2, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { useClickOutside } from "@/hooks/use-click-outside"
 
 interface Anchor {
   top: number
@@ -26,7 +28,10 @@ interface HighlightPopupProps {
   onClose: () => void
 }
 
-// Positioned fixed relative to the viewport, centered above the selection.
+// Portaled to <body> and positioned absolute (not fixed) using document-
+// relative coordinates (anchor.top/left already include scrollY/scrollX —
+// see HighlightProvider) — so the popup scrolls along with the selected text
+// instead of staying pinned to the viewport while the page moves under it.
 // translate-x-[-50%] centres the popup on the anchor midpoint.
 // translate-y-[calc(-100%-8px)] lifts it fully above the selection with 8px gap.
 export function HighlightPopup({
@@ -40,10 +45,12 @@ export function HighlightPopup({
 }: HighlightPopupProps) {
   const [note, setNote] = useState(initialNote)
   const midX = anchor.left + anchor.width / 2
+  const ref = useClickOutside<HTMLDivElement>(onClose)
 
-  return (
+  return createPortal(
     <div
-      className="fixed z-dropdown"
+      className="absolute z-dropdown"
+      ref={ref}
       style={
         {
           "--popup-top": `${anchor.top}px`,
@@ -124,6 +131,7 @@ export function HighlightPopup({
         aria-hidden
         className="absolute left-1/2 top-full size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-border bg-card"
       />
-    </div>
+    </div>,
+    document.body,
   )
 }

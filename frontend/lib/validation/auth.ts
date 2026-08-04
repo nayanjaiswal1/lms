@@ -40,10 +40,15 @@ export const registerSchema = z
       .min(8, "Use at least 8 characters")
       .max(72, "Password must be 72 characters or fewer"),
     confirmPassword: z.string().min(1, "Confirm your password"),
+    acceptTerms: z.boolean(),
   })
   .refine(({ password, confirmPassword }) => password === confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+  })
+  .refine(({ acceptTerms }) => acceptTerms === true, {
+    message: "You must agree to the Terms of Service and Privacy Policy.",
+    path: ["acceptTerms"],
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

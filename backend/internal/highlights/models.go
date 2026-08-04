@@ -49,6 +49,7 @@ type Explanation struct {
 	SelectedText string    `json:"selected_text"`
 	SourceType   string    `json:"source_type"`
 	Explanation  string    `json:"explanation"`
+	Diagram      *string   `json:"diagram,omitempty"`
 	ModelUsed    string    `json:"model_used"`
 	ServeCount   int       `json:"serve_count"`
 	FromCache    bool      `json:"from_cache"`

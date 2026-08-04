@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, History } from 'lucide-react'
 import { fetchMyOverview, fetchMyProfile } from '@/lib/profile/server'
 import { getMyRank, getMyRewardProfile } from '@/lib/server/rewards'
 import { getMyBatches } from '@/lib/server/batches'
+import { getActivity } from '@/lib/server/activity'
+import { ActivityTimeline } from '@/components/activity/activity-timeline'
 import type { Profile } from '@/lib/profile/types'
 import ROUTES from '@/lib/routes'
 import { ProfileHeader } from '@/components/profile/profile-header'
@@ -38,6 +40,7 @@ const EDIT_TABS = [
   { key: 'skills',       label: 'Skills' },
   { key: 'learning',     label: 'Learning' },
   { key: 'achievements', label: 'Achievements' },
+  { key: 'activity',     label: 'Activity' },
   { key: 'preferences',  label: 'Preferences' },
 ] as const
 
@@ -48,12 +51,12 @@ type TabKey = typeof TABS[number]['key']
 export default async function SettingsProfilePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; cursor?: string }>
 }) {
   const profile = await fetchMyProfile()
   if (!profile) redirect(ROUTES.LOGIN)
 
-  const { tab: rawTab } = await searchParams
+  const { tab: rawTab, cursor } = await searchParams
   const activeTab: TabKey =
     TABS.find((t) => t.key === rawTab)?.key ?? 'overview'
 
@@ -62,6 +65,8 @@ export default async function SettingsProfilePage({
   const [overview, rank, batches] = activeTab === 'overview'
     ? await Promise.all([fetchMyOverview(), getMyRank('global'), getMyBatches()])
     : [null, null, []]
+
+  const activityPage = activeTab === 'activity' ? await getActivity({ cursor }) : null
 
   const breakdown = {
     avatar: profile.avatar_url !== null,
@@ -171,6 +176,27 @@ export default async function SettingsProfilePage({
               <AchievementsCard achievements={rewardProfile?.achievements ?? null} stats={profile.stats} />
               <ProfileStats stats={profile.stats} />
             </>
+          )}
+
+          {activeTab === 'activity' && activityPage && (
+            activityPage.entries.length === 0 ? (
+              <div className="empty-state">
+                <History aria-hidden className="h-10 w-10 text-muted-foreground" />
+                <p className="text-muted-foreground">Nothing tracked yet — complete a module or review a card to see it here.</p>
+              </div>
+            ) : (
+              <>
+                <ActivityTimeline entries={activityPage.entries} />
+
+                {activityPage.next_cursor && (
+                  <div className="flex justify-center pt-4">
+                    <Button asChild variant="secondary">
+                      <Link href={`?tab=activity&cursor=${encodeURIComponent(activityPage.next_cursor)}`}>Load more</Link>
+                    </Button>
+                  </div>
+                )}
+              </>
+            )
           )}
 
           {activeTab === 'preferences' && (

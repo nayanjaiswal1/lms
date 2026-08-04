@@ -3,6 +3,7 @@ package highlights
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -89,14 +90,28 @@ func (s *Service) Explain(ctx context.Context, userID string, req ExplainRequest
 	resp, err := s.provider.Complete(ctx, ai.CompletionRequest{
 		SystemPrompt: ai.HighlightExplainSystemPrompt,
 		UserPrompt:   userPrompt,
-		MaxTokens:    300,
+		MaxTokens:    700,
 		Temperature:  0.3,
+		JSONMode:     true,
 	})
 	if err != nil {
 		return ExplainResponse{}, fmt.Errorf("highlights: call AI: %w", err)
 	}
 
-	explanation, err := s.repo.InsertExplanation(ctx, textHash, req.SelectedText, string(req.SourceType), resp.Content, resp.Model)
+	var parsed struct {
+		Explanation string `json:"explanation"`
+		Diagram     string `json:"diagram"`
+	}
+	if err := json.Unmarshal([]byte(resp.Content), &parsed); err != nil {
+		return ExplainResponse{}, fmt.Errorf("highlights: parse explanation: %w", err)
+	}
+
+	var diagram *string
+	if trimmed := strings.TrimSpace(parsed.Diagram); trimmed != "" {
+		diagram = &trimmed
+	}
+
+	explanation, err := s.repo.InsertExplanation(ctx, textHash, req.SelectedText, string(req.SourceType), parsed.Explanation, resp.Model, diagram)
 	if err != nil {
 		return ExplainResponse{}, err
 	}
@@ -175,7 +190,7 @@ func buildExplainUserPrompt(req ExplainRequest) string {
 	fmt.Fprintf(&sb, "Context: this text appears in a %s.\n", sourceLabel(req.SourceType))
 	if req.ContextSnippet != nil {
 		if snippet := ai.SanitizeTopic(*req.ContextSnippet, 600); snippet != "" {
-			fmt.Fprintf(&sb, "Surrounding text where it was highlighted:\n%s\n", snippet)
+			fmt.Fprintf(&sb, "Surrounding text (use this to determine what the highlighted text actually means here, before falling back to its generic meaning):\n%s\n", snippet)
 		}
 	}
 	fmt.Fprintf(&sb, "\nHighlighted text:\n%s", ai.SanitizeTopic(req.SelectedText, 2000))

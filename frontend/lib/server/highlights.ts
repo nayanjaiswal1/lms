@@ -27,6 +27,7 @@ export interface Explanation {
   selected_text: string
   source_type: string
   explanation: string
+  diagram?: string
   model_used: string
   serve_count: number
   from_cache: boolean

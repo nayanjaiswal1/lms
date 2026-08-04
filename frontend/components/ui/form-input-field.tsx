@@ -41,7 +41,7 @@ export function FormInputField<TValues extends FieldValues>({
           <FormLabel>{label}</FormLabel>
           <FormControl>
             {type === "password" ? (
-              <PasswordInput type={type} {...inputProps} {...field} />
+              <PasswordInput {...inputProps} {...field} />
             ) : (
               <Input type={type} {...inputProps} {...field} />
             )}

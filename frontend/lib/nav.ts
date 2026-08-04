@@ -23,8 +23,8 @@ import {
   Bot,
   Presentation,
   TicketPercent,
-  History,
-  StickyNote,
+  Lock,
+  Flag,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -81,6 +81,7 @@ export const SETTINGS_NAV: NavGroup[] = [
     items: [
       { label: "Profile",      href: ROUTES.SETTINGS_PROFILE,      icon: User,   exact: true },
       { label: "Security",     href: ROUTES.SETTINGS_SECURITY,     icon: Shield, exact: true },
+      { label: "Privacy",      href: ROUTES.SETTINGS_PRIVACY,      icon: Lock,   exact: true },
       { label: "Integrations", href: ROUTES.SETTINGS_INTEGRATIONS, icon: Bot,    exact: true },
     ],
   },
@@ -101,17 +102,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:  ROUTES.DASHBOARD,
     icon:  LayoutDashboard,
     exact: true,
-  },
-  activity: {
-    label: "Activity",
-    href:  ROUTES.ACTIVITY,
-    icon:  History,
-    exact: true,
-  },
-  focus_wall: {
-    label: "Focus Wall",
-    href:  ROUTES.FOCUS_WALL,
-    icon:  StickyNote,
   },
   what_now: {
     label:   "What Now?",
@@ -180,6 +170,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label: "Saved Highlights",
     href:  ROUTES.HIGHLIGHTS,
     icon:  BookmarkCheck,
+  },
+  support_queue: {
+    label:               "Support Queue",
+    href:                ROUTES.SUPPORT_QUEUE,
+    icon:                Ticket,
+    requiredPermission:  "support.manage",
   },
   flashcards: {
     label:               "Review Cards",
@@ -286,6 +282,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:                TicketPercent,
     requiredPermission:  "payments.manage_coupons",
   },
+  admin_content_reports: {
+    label:               "Content Reports",
+    href:                ROUTES.ADMIN_CONTENT_REPORTS,
+    icon:                Flag,
+    requiredPermission:  "content.moderate",
+  },
 
   teach_hub: {
     label:               "Instructor",
@@ -378,6 +380,7 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.roadmap,
       ALL_NAV_ITEMS.interview_prep,
       ALL_NAV_ITEMS.assessments,
+      ALL_NAV_ITEMS.projects,
     ],
   },
   {
@@ -434,14 +437,11 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     // the rest.
     items: [
       ALL_NAV_ITEMS.dashboard,
-      ALL_NAV_ITEMS.activity,
-      ALL_NAV_ITEMS.focus_wall,
       ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.sessions,
       ALL_NAV_ITEMS.calendar,
-      ALL_NAV_ITEMS.projects,
     ],
   },
   {
@@ -450,6 +450,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.teach_hub,
       ALL_NAV_ITEMS.cohort_groups,
+      ALL_NAV_ITEMS.support_queue,
     ],
   },
   {

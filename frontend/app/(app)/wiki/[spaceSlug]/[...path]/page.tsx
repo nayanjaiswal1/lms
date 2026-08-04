@@ -13,6 +13,7 @@ import { WikiVersionHistory } from "@/components/wiki/wiki-version-history";
 import { WikiCommentsPanel } from "@/components/wiki/wiki-comments-panel";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/shared/breadcrumb";
+import { ReportContentButton } from "@/components/shared/report-content-button";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -69,6 +70,7 @@ export default async function WikiPagePage({ params }: Props) {
 
         <article className="min-w-0 flex-1">
           <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+            <ReportContentButton contentId={page.id} contentType="wiki_page" />
             <WikiVersionHistory canRestore={canManage} pageId={page.id} />
             {canManage && (
               <Button asChild size="sm">

@@ -32,6 +32,8 @@ volumes:
   mindforge_go_cache:
   mindforge_minio_dev:
   mindforge_piston_dev:
+  mindforge_frontend_node_modules:
+  mindforge_frontend_next_cache:
 
 services:
   postgres:
@@ -43,8 +45,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
+    # No published port — only Caddy is host-exposed. Reach this from the host
+    # with `docker compose -f docker-compose.dev.yml exec postgres psql -U ... `.
     volumes:
       - mindforge_pg_dev:/var/lib/postgresql/data
     networks:
@@ -61,8 +63,7 @@ services:
     container_name: mindforge_redis_dev
     restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379"
+    # No published port — internal-only, same as postgres above.
     volumes:
       - mindforge_redis_dev:/data
     networks:
@@ -83,9 +84,10 @@ services:
       MINIO_ROOT_USER: mindforge
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address :9001
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    # No published port — S3 API is reached by the browser through Caddy's
+    # /mindforge/* proxy (see Caddyfile.dev); the 9001 console is dev-only and
+    # now reachable only via `docker compose -f docker-compose.dev.yml port minio 9001`
+    # or a temporary port-forward, not directly.
     volumes:
       - mindforge_minio_dev:/data
     networks:
@@ -111,8 +113,9 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
-    ports:
-      - "8080:8080"
+    # No published port — reached through Caddy's /api, /oauth, /.well-known,
+    # /mcp routes (Caddyfile.dev), and by labproxy/frontend over the internal
+    # network directly.
     networks:
       - mindforge_dev
     depends_on:
@@ -139,8 +142,7 @@ services:
     privileged: true
     volumes:
       - mindforge_piston_dev:/piston
-    ports:
-      - "2000:2000"
+    # No published port — only the backend calls this, over the internal network.
     networks:
       - mindforge_dev
     healthcheck:
@@ -166,8 +168,9 @@ services:
       LABPROXY_REDIS_URL: redis://redis:6379/0
       LABPROXY_JWT_SECRET: ${JWT_SECRET}
       LABPROXY_JWT_ISSUER: mindforge-labproxy
-    ports:
-      - "8081:8081"
+    # No published port — matches docker-compose.prod.yml/Caddyfile: the
+    # terminal WebSocket and live-preview asset routes are reached through
+    # Caddy's /lab-ws/* prefix-stripped proxy (Caddyfile.dev), not a raw port.
     networks:
       - mindforge_dev
       - mindforge-labs
@@ -191,18 +194,20 @@ services:
       - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
     networks:
       - mindforge_dev
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       backend:
+        condition: service_healthy
+      frontend:
         condition: service_healthy
 
   adminer:
     image: adminer:latest
     container_name: mindforge_adminer_dev
     restart: unless-stopped
-    ports:
-      - "8082:8080"
+    # No published port — dev-only DB GUI, not worth a Caddy route (its
+    # generated pages assume they own the origin root). Use
+    # `docker compose -f docker-compose.dev.yml port adminer 8080` and a
+    # temporary port-forward, or `docker compose exec postgres psql`, when needed.
     networks:
       - mindforge_dev
     depends_on:
@@ -210,3 +215,32 @@ services:
         condition: service_healthy
     environment:
       ADMINER_DEFAULT_SERVER: postgres
+
+  frontend:
+    image: node:22-alpine
+    container_name: mindforge_frontend_dev
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - mindforge_frontend_node_modules:/app/node_modules
+      # A .next left behind by earlier host-side `pnpm dev` runs (native
+      # cache-DB bindings built for Windows) hangs the Linux container dead
+      # silent if bind-mounted straight through — isolate it same as node_modules.
+      - mindforge_frontend_next_cache:/app/.next
+    env_file: ./frontend/.env.local
+    # No published port — only Caddy reaches this, over mindforge_dev.
+    networks:
+      - mindforge_dev
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # wget's request against Next's dev server was unreliable here (refused/
+      # hung depending on address form); node's http client works cleanly.
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000',{headers:{Host:'localhost'}},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm exec next dev -H 0.0.0.0"

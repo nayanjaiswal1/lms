@@ -33,6 +33,7 @@ import { ModuleAssessment } from "@/components/courses/module-assessment";
 import { ModuleLab } from "@/components/courses/module-lab";
 import { ModuleSystemDesign } from "@/components/courses/module-system-design";
 import { DeleteSelfCourseModuleButton } from "@/components/courses/delete-self-course-module-button";
+import { ReportContentButton } from "@/components/shared/report-content-button";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -259,6 +260,7 @@ export default async function ModuleLearnPage({ params }: Props) {
                   moduleTitle={currentModule.title}
                 />
               )}
+              <ReportContentButton contentId={moduleId} contentType="course_module" />
               {/* Next-module navigation lives once, in <ModuleNavFooter> at the
                   bottom of the article (alongside Previous) — do not duplicate
                   it here in the rail. */}

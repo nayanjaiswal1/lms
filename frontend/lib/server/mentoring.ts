@@ -64,6 +64,25 @@ export interface PurchaseStatusResult {
   ticket_id?: string;
 }
 
+// Receipt mirrors courses.Receipt — GET /api/courses/{id}/purchases/{purchaseId}/receipt.
+// No tax breakdown/GSTIN fields: a plain payment receipt, not a GST invoice
+// (see docs/infrastructure.md Payments section — the platform isn't GST-registered).
+export interface Receipt {
+  purchase_id: string;
+  receipt_number: string | null;
+  course_id: string;
+  amount_cents: number;
+  discount_cents: number;
+  currency: string;
+  provider: string;
+  status: string;
+  purchased_at: string;
+}
+
+export async function getReceipt(courseId: string, purchaseId: string): Promise<Receipt> {
+  return apiGet<Receipt>(`/api/courses/${courseId}/purchases/${purchaseId}/receipt`);
+}
+
 // CouponPreview mirrors coupons.Preview — advisory only, the backend always
 // recomputes the discount again server-side at checkout confirmation.
 export interface CouponPreview {

@@ -95,6 +95,7 @@ type Purchase struct {
 	PaymentRef    *string   `json:"payment_ref"`
 	CouponID      *string   `json:"coupon_id"`
 	Status        string    `json:"status"`
+	ReceiptNumber *string   `json:"receipt_number"` // stamped once, when status first transitions to 'completed' (see MarkPurchaseCompletedTx)
 	PurchasedAt   time.Time `json:"purchased_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

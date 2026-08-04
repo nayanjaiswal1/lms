@@ -12,11 +12,16 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/ratelimit"
 )
+
+// PermissionManageRefunds gates POST .../refund — mirrors
+// backend/db/migrations/024_receipts_refunds.sql.
+const PermissionManageRefunds = "payments.manage_refunds"
 
 const maxUploadSize = 500 << 20 // 500 MB
 
@@ -59,6 +64,23 @@ type PurchaseStatus struct {
 	TicketID   *string `json:"ticket_id,omitempty"`
 }
 
+// Receipt is a completed purchase's receipt data. No tax breakdown or GSTIN
+// fields — the platform has no GST registration yet, so this is a plain
+// payment receipt, not a tax invoice (see docs/infrastructure.md Payments).
+// CourseTitle is deliberately absent: the page rendering a receipt already
+// has the course loaded from its own fetch, so this doesn't duplicate it.
+type Receipt struct {
+	PurchaseID    string    `json:"purchase_id"`
+	ReceiptNumber *string   `json:"receipt_number"`
+	CourseID      string    `json:"course_id"`
+	AmountCents   int       `json:"amount_cents"`
+	DiscountCents int       `json:"discount_cents"`
+	Currency      string    `json:"currency"`
+	Provider      string    `json:"provider"`
+	Status        string    `json:"status"`
+	PurchasedAt   time.Time `json:"purchased_at"`
+}
+
 // CoursePurchaser is the narrow capability the courses package needs from
 // mentoring.Service to run a paid-course purchase end to end. It is defined
 // here (rather than importing the concrete mentoring package) to avoid an
@@ -69,6 +91,8 @@ type PurchaseStatus struct {
 type CoursePurchaser interface {
 	StartCheckout(ctx context.Context, req CheckoutRequest) (CheckoutSession, error)
 	PurchaseStatus(ctx context.Context, orgID, userID, courseID string) (PurchaseStatus, error)
+	GetReceipt(ctx context.Context, orgID, userID, purchaseID string) (Receipt, error)
+	Refund(ctx context.Context, orgID, purchaseID string) error
 }
 
 // conflictError is satisfied by mentoring's ErrAlreadyPurchased (and any
@@ -78,6 +102,14 @@ type conflictError interface {
 	IsConflict() bool
 }
 
+// refundClientError is satisfied by mentoring's clientErr (via errors.As) —
+// a refund request the client can fix (e.g. the purchase isn't completed
+// yet), not a server fault — without courses needing to import mentoring's
+// concrete error type.
+type refundClientError interface {
+	IsClientError() bool
+}
+
 type Handler struct {
 	repo      *Repo
 	service   *Service
@@ -85,6 +117,7 @@ type Handler struct {
 	coupons   *coupons.Service
 	limiter   *ratelimit.Limiter
 	cfg       *config.Config
+	authzSvc  *authz.Service
 }
 
 // NewHandler wires the courses handler. coupons is imported directly (unlike
@@ -93,11 +126,12 @@ type Handler struct {
 // can call it without any interface-boxing indirection. rdb backs the
 // per-user coupon-attempt limit (see limitCouponAttempts) — the IP-keyed
 // RateLimit middleware cannot carry that, since every browser-facing call
-// arrives from the Next.js server on one shared address.
-func NewHandler(repo *Repo, service *Service, purchaser CoursePurchaser, couponsSvc *coupons.Service, rdb *redis.Client, cfg *config.Config) *Handler {
+// arrives from the Next.js server on one shared address. authzSvc backs the
+// payments.manage_refunds gate on the refund route only (see routes.go).
+func NewHandler(repo *Repo, service *Service, purchaser CoursePurchaser, couponsSvc *coupons.Service, rdb *redis.Client, cfg *config.Config, authzSvc *authz.Service) *Handler {
 	return &Handler{
 		repo: repo, service: service, purchaser: purchaser, coupons: couponsSvc,
-		limiter: ratelimit.New(rdb), cfg: cfg,
+		limiter: ratelimit.New(rdb), cfg: cfg, authzSvc: authzSvc,
 	}
 }
 

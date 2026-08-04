@@ -67,10 +67,10 @@ func (r *Repo) OrphanBySource(ctx context.Context, sourceType, sourceID string) 
 func (r *Repo) GetExplanationByHash(ctx context.Context, textHash string) (Explanation, bool, error) {
 	var e Explanation
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, text_hash, selected_text, source_type, explanation, model_used, serve_count, created_at, updated_at
+		`SELECT id, text_hash, selected_text, source_type, explanation, diagram, model_used, serve_count, created_at, updated_at
 		 FROM highlight_explanations WHERE text_hash = $1`, textHash,
 	).Scan(
-		&e.ID, &e.TextHash, &e.SelectedText, &e.SourceType, &e.Explanation,
+		&e.ID, &e.TextHash, &e.SelectedText, &e.SourceType, &e.Explanation, &e.Diagram,
 		&e.ModelUsed, &e.ServeCount, &e.CreatedAt, &e.UpdatedAt,
 	)
 	if err != nil {
@@ -95,22 +95,23 @@ func (r *Repo) IncrementServeCount(ctx context.Context, textHash string) error {
 	return nil
 }
 
-// InsertExplanation stores a freshly generated explanation.
+// InsertExplanation stores a freshly generated explanation. diagram is nil when
+// the AI decided a flowchart wouldn't add anything for this particular text.
 // ON CONFLICT handles the race where two simultaneous cache misses both call the LLM;
 // the loser's INSERT updates serve_count instead of creating a duplicate row.
-func (r *Repo) InsertExplanation(ctx context.Context, textHash, selectedText, sourceType, explanation, modelUsed string) (Explanation, error) {
+func (r *Repo) InsertExplanation(ctx context.Context, textHash, selectedText, sourceType, explanation, modelUsed string, diagram *string) (Explanation, error) {
 	var e Explanation
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO highlight_explanations
-		   (text_hash, selected_text, source_type, explanation, model_used, serve_count)
-		 VALUES ($1, $2, $3, $4, $5, 1)
+		   (text_hash, selected_text, source_type, explanation, diagram, model_used, serve_count)
+		 VALUES ($1, $2, $3, $4, $5, $6, 1)
 		 ON CONFLICT (text_hash) DO UPDATE
 		   SET serve_count = highlight_explanations.serve_count + 1,
 		       updated_at  = now()
-		 RETURNING id, text_hash, selected_text, source_type, explanation, model_used, serve_count, created_at, updated_at`,
-		textHash, selectedText, sourceType, explanation, modelUsed,
+		 RETURNING id, text_hash, selected_text, source_type, explanation, diagram, model_used, serve_count, created_at, updated_at`,
+		textHash, selectedText, sourceType, explanation, diagram, modelUsed,
 	).Scan(
-		&e.ID, &e.TextHash, &e.SelectedText, &e.SourceType, &e.Explanation,
+		&e.ID, &e.TextHash, &e.SelectedText, &e.SourceType, &e.Explanation, &e.Diagram,
 		&e.ModelUsed, &e.ServeCount, &e.CreatedAt, &e.UpdatedAt,
 	)
 	if err != nil {
@@ -188,7 +189,7 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 		`SELECT h.id, h.user_id, h.source_type, h.source_id, h.selected_text, h.text_hash,
 		        h.position_start, h.position_end, h.context_snippet, h.source_url,
 		        h.source_orphaned, h.saved_for_revision, h.note, h.created_at, h.updated_at,
-		        he.id, he.text_hash, he.selected_text, he.source_type, he.explanation,
+		        he.id, he.text_hash, he.selected_text, he.source_type, he.explanation, he.diagram,
 		        he.model_used, he.serve_count, he.created_at, he.updated_at
 		 FROM highlights h
 		 LEFT JOIN highlight_explanations he ON he.text_hash = h.text_hash
@@ -205,15 +206,15 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 		var h Highlight
 		var e Explanation
 		var (
-			eID, eHash, eText, eSrcType, eExpl, eModel *string
-			eServe                                      *int
-			eCreatedAt, eUpdatedAt                      *time.Time
+			eID, eHash, eText, eSrcType, eExpl, eDiagram, eModel *string
+			eServe                                                *int
+			eCreatedAt, eUpdatedAt                                *time.Time
 		)
 		if err := rows.Scan(
 			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
 			&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
 			&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
-			&eID, &eHash, &eText, &eSrcType, &eExpl, &eModel, &eServe, &eCreatedAt, &eUpdatedAt,
+			&eID, &eHash, &eText, &eSrcType, &eExpl, &eDiagram, &eModel, &eServe, &eCreatedAt, &eUpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("highlights: scan list by source: %w", err)
 		}
@@ -223,6 +224,7 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 			e.SelectedText = *eText
 			e.SourceType = *eSrcType
 			e.Explanation = *eExpl
+			e.Diagram = eDiagram
 			e.ModelUsed = *eModel
 			e.ServeCount = *eServe
 			e.CreatedAt = *eCreatedAt

@@ -94,7 +94,14 @@ export function HighlightProvider({
     onClose,
   } = useHighlightFlow(sourceType, sourceId, initialHighlights)
 
-  function handleMouseUp() {
+  function handleMouseUp(e: React.MouseEvent) {
+    // Selecting the AI's own answer text (e.g. to copy a phrase) fires this same
+    // mouseup, since the floating panels render as descendants of this wrapper —
+    // without this guard it would swap the open explanation for a new selection
+    // popup instead of leaving the panel alone. LessonFloatingPanel's root marks
+    // itself role="dialog" for exactly this check.
+    if ((e.target as HTMLElement).closest('[role="dialog"]')) return
+
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
 
@@ -102,7 +109,15 @@ export function HighlightProvider({
     if (text.trim().length < 3) return
 
     const range = sel.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
+    const viewportRect = range.getBoundingClientRect()
+    // Stored as document-relative (not viewport-relative) coordinates so the
+    // popup — positioned absolute, not fixed — stays glued to the selected
+    // text as the page scrolls instead of staying put in the viewport.
+    const rect = {
+      top: viewportRect.top + window.scrollY,
+      left: viewportRect.left + window.scrollX,
+      width: viewportRect.width,
+    }
 
     // Capture the surrounding paragraph text and the current page path at
     // selection time — stored with the highlight so the saved-highlights page

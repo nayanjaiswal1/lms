@@ -12,11 +12,11 @@ export const metadata: Metadata = {
 export default function RegisterPage() {
   return (
     <AuthPageShell
-      title="Start forging your path"
-      description="Create an account and turn what you learn into lasting skill."
-      alternatePrompt="Already have an account?"
-      alternateLabel="Sign in"
       alternateHref={ROUTES.LOGIN}
+      alternateLabel="Sign in"
+      alternatePrompt="Already have an account?"
+      description="Create an account and turn what you learn into lasting skill."
+      title="Start forging your path"
     >
       <RegisterForm />
     </AuthPageShell>

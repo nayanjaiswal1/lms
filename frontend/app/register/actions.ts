@@ -13,6 +13,7 @@ export interface RegisterState {
     email?: string;
     password?: string;
     confirmPassword?: string;
+    acceptTerms?: string;
   };
 }
 
@@ -31,6 +32,7 @@ export async function registerAction(
     email: (formData.get("email") ?? "").toString(),
     password: (formData.get("password") ?? "").toString(),
     confirmPassword: (formData.get("confirmPassword") ?? "").toString(),
+    acceptTerms: formData.get("acceptTerms") === "true",
   });
 
   if (!parsed.success) {
@@ -41,6 +43,7 @@ export async function registerAction(
         email: fields.email?.[0],
         password: fields.password?.[0],
         confirmPassword: fields.confirmPassword?.[0],
+        acceptTerms: fields.acceptTerms?.[0],
       },
     };
   }
@@ -57,6 +60,7 @@ export async function registerAction(
         name: parsed.data.name,
         email: parsed.data.email,
         password: parsed.data.password,
+        accept_terms: parsed.data.acceptTerms,
       }),
       cache: "no-store",
     });

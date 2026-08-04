@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { ChevronsUpDown, LogOut, Settings } from "lucide-react";
+import { ChevronsUpDown, LifeBuoy, LogOut, Settings } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +67,12 @@ export function SidebarUserMenu({ user, onNavigate, collapsed = false }: Props) 
             <Link className="flex items-center gap-2" href={ROUTES.SETTINGS_PROFILE} onClick={onNavigate}>
               <Settings aria-hidden className="h-4 w-4" />
               Profile settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link className="flex items-center gap-2" href={ROUTES.SUPPORT} onClick={onNavigate}>
+              <LifeBuoy aria-hidden className="h-4 w-4" />
+              Support
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />

@@ -82,6 +82,13 @@ type Provider interface {
 	// body does not reproduce the exact bytes the signature was computed
 	// over. Returns ErrInvalidSignature if authentication fails.
 	ParseWebhook(rawBody []byte, h http.Header) (Event, error)
+
+	// Refund reverses a completed payment identified by paymentRef (the
+	// Event.PaymentRef captured at confirmation, not the checkout
+	// session/order id). amountCents is the full original amount — always a
+	// full refund, never partial, since admin-triggered refunds only ever
+	// undo a whole purchase (see mentoring.Service.Refund).
+	Refund(ctx context.Context, paymentRef string, amountCents int) error
 }
 
 var (

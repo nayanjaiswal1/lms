@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, startTransition } from "react";
+import { useActionState, startTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -38,6 +38,11 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 
 export function LoginForm({ oauthError, next }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(loginAction, INITIAL_STATE);
+  // Set the instant a provider link is followed — the OAuth redirect takes
+  // over the page shortly after, but until it does every other control
+  // (submit, the other provider, the fields) should be locked too.
+  const [socialPending, setSocialPending] = useState(false);
+  const locked = isPending || socialPending;
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -60,7 +65,7 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
   return (
     <div className="form-stack">
       <PasskeyAutofill next={next} />
-      <SocialLoginButtons disabled={isPending} />
+      <SocialLoginButtons disabled={locked} onProviderSelect={() => setSocialPending(true)} />
 
       <div className="divider-label">or continue with email</div>
 
@@ -79,7 +84,7 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
             // autofill dropdown (see components/auth/passkey-autofill.tsx).
             autoComplete="email webauthn"
             placeholder="you@example.com"
-            disabled={isPending}
+            disabled={locked}
             serverError={state.fieldErrors?.email}
           />
 
@@ -90,7 +95,7 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
             type="password"
             autoComplete="current-password"
             placeholder="Enter your password"
-            disabled={isPending}
+            disabled={locked}
             serverError={state.fieldErrors?.password}
           />
 
@@ -101,7 +106,7 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
             Forgot password?
           </Link>
 
-          <Button type="submit" size="lg" disabled={isPending} className="mt-1 w-full">
+          <Button type="submit" size="lg" disabled={locked} className="mt-1 w-full">
             {isPending ? (
               <>
                 <Loader2 aria-hidden className="animate-spin" />

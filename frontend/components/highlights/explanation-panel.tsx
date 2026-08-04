@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { LessonFloatingPanel } from "@/components/shared/lesson-floating-panel"
+import { MermaidDiagram } from "@/components/highlights/mermaid-diagram"
 import type { ExplainResponse } from "@/lib/server/highlights"
 
 interface ExplanationPanelProps {
@@ -125,8 +126,9 @@ export function ExplanationPanel({
           </p>
         </div>
 
-        <div className="px-4 py-3">
+        <div className="px-4 py-3 flex flex-col gap-3">
           <p className="text-sm leading-relaxed text-foreground">{explanation.explanation}</p>
+          {explanation.diagram && <MermaidDiagram chart={explanation.diagram} />}
         </div>
       </div>
 

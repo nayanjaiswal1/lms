@@ -55,6 +55,17 @@ type conflictErr struct{ msg string }
 func (e *conflictErr) Error() string    { return e.msg }
 func (e *conflictErr) IsConflict() bool { return true }
 
+// clientErr mirrors conflictErr for "the client can fix this by sending
+// something different" errors (bad state, missing precondition) — see
+// Service.Refund. Kept distinct from ErrInvalid (a plain sentinel checked
+// via errors.Is within this package) because courses.Handler needs to
+// detect it through a local interface without importing mentoring's
+// concrete error value.
+type clientErr struct{ msg string }
+
+func (e *clientErr) Error() string      { return e.msg }
+func (e *clientErr) IsClientError() bool { return true }
+
 type Repo struct {
 	pool *pgxpool.Pool
 }
@@ -87,12 +98,12 @@ type rowScanner interface {
 }
 
 const purchaseColumns = `id, org_id, user_id, course_id, amount_cents, discount_cents, currency,
-	provider, provider_ref, payment_ref, coupon_id, status, purchased_at, updated_at`
+	provider, provider_ref, payment_ref, coupon_id, status, receipt_number, purchased_at, updated_at`
 
 func scanPurchase(row rowScanner) (Purchase, error) {
 	var p Purchase
 	err := row.Scan(&p.ID, &p.OrgID, &p.UserID, &p.CourseID, &p.AmountCents, &p.DiscountCents, &p.Currency,
-		&p.Provider, &p.ProviderRef, &p.PaymentRef, &p.CouponID, &p.Status, &p.PurchasedAt, &p.UpdatedAt)
+		&p.Provider, &p.ProviderRef, &p.PaymentRef, &p.CouponID, &p.Status, &p.ReceiptNumber, &p.PurchasedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -229,7 +240,9 @@ func (r *Repo) GetPurchaseByProviderRef(ctx context.Context, provider, providerR
 // caller to log loudly rather than silently picking one.
 func (r *Repo) MarkPurchaseCompletedTx(ctx context.Context, tx pgx.Tx, id, paymentRef string) (Purchase, bool, error) {
 	p, err := scanPurchase(tx.QueryRow(ctx,
-		`UPDATE course_purchases SET status = $2, payment_ref = $3, purchased_at = now(), updated_at = now()
+		`UPDATE course_purchases
+		 SET status = $2, payment_ref = $3, purchased_at = now(), updated_at = now(),
+		     receipt_number = 'MF-' || extract(year from now())::text || '-' || lpad(nextval('receipt_number_seq')::text, 6, '0')
 		 WHERE id = $1 AND status = $4
 		 RETURNING `+purchaseColumns,
 		id, PurchaseStatusCompleted, paymentRef, PurchaseStatusPending,
@@ -259,6 +272,44 @@ func (r *Repo) MarkPurchaseFailed(ctx context.Context, id string) error {
 		return fmt.Errorf("mentoring: mark purchase failed: %w", err)
 	}
 	return nil
+}
+
+// GetPurchase returns a single purchase by id, scoped to orgID — used by the
+// student-facing receipt page and the staff-facing refund action, both of
+// which need one specific purchase rather than "the latest for this course".
+func (r *Repo) GetPurchase(ctx context.Context, orgID, id string) (Purchase, error) {
+	p, err := scanPurchase(r.pool.QueryRow(ctx,
+		`SELECT `+purchaseColumns+` FROM course_purchases WHERE id = $1 AND org_id = $2`,
+		id, orgID,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Purchase{}, ErrNotFound
+		}
+		return Purchase{}, fmt.Errorf("mentoring: get purchase: %w", err)
+	}
+	return p, nil
+}
+
+// MarkPurchaseRefundedTx transitions a purchase from 'completed' to
+// 'refunded' within tx. Zero rows updated means it wasn't 'completed'
+// (already refunded, or never completed) — the caller must not have already
+// called the gateway's refund API in that case, so this is checked before
+// the gateway call, not just guarded here (see Service.Refund).
+func (r *Repo) MarkPurchaseRefundedTx(ctx context.Context, tx pgx.Tx, id string) (Purchase, bool, error) {
+	p, err := scanPurchase(tx.QueryRow(ctx,
+		`UPDATE course_purchases SET status = $2, updated_at = now()
+		 WHERE id = $1 AND status = $3
+		 RETURNING `+purchaseColumns,
+		id, PurchaseStatusRefunded, PurchaseStatusCompleted,
+	))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Purchase{}, false, nil
+		}
+		return Purchase{}, false, fmt.Errorf("mentoring: mark purchase refunded: %w", err)
+	}
+	return p, true, nil
 }
 
 // InsertPaymentEvent records a webhook delivery for dedup + audit.
