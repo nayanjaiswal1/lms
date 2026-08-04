@@ -127,6 +127,24 @@ func (h *Handler) ListMyCertificates(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, certs)
 }
 
+// GetMyCertificateForCourse handles GET /api/courses/{courseID}/certificates/me
+// — the caller's own certificate for one course, if any. Scoped to (user,
+// course) rather than ListMyCertificates' full-list-then-filter, for callers
+// (the course detail page) that only need one course's certificate.
+func (h *Handler) GetMyCertificateForCourse(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	courseID := chi.URLParam(r, "courseID")
+	cert, err := h.service.GetMyCertificateForCourse(r.Context(), claims.UserID, courseID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, cert)
+}
+
 // VerifyCertificate handles GET /api/certificates/{uuid} — public, no auth.
 func (h *Handler) VerifyCertificate(w http.ResponseWriter, r *http.Request) {
 	certUUID := chi.URLParam(r, "uuid")

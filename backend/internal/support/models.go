@@ -102,3 +102,11 @@ type Message struct {
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// TicketDetail is a ticket plus its full reply thread — the shape returned by
+// GetTicket, so a caller opening a ticket gets both in one round trip instead
+// of a second request to ListMessages.
+type TicketDetail struct {
+	Ticket
+	Messages []Message `json:"messages"`
+}

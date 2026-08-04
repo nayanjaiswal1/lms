@@ -544,7 +544,15 @@ func (h *Handler) GetBatch(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"batch": b, "members": members})
+	// Mentors are embedded here (rather than left to the separate
+	// GET /mentors endpoint) so the batch detail page's people roster comes
+	// from one backend call instead of two client-merged requests.
+	mentors, err := h.repo.ListBatchMentors(r.Context(), claims.OrgID, id)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"batch": b, "members": members, "mentors": mentors})
 }
 
 type batchMembersRequest struct {

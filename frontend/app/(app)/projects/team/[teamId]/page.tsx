@@ -5,13 +5,12 @@ import { ExternalLink, FolderGit2 } from "lucide-react";
 import ROUTES from "@/lib/routes";
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
-import { getMyProject, getMyProjectCheckpoints, getMyProjectContributions, listMyProjects } from "@/lib/projects/server";
+import { getMyProjectDetail } from "@/lib/projects/server";
 import { PROVISION_STATUS_LABEL, PROVISION_VARIANT } from "@/lib/constants";
 import { ContributionBreakdown } from "@/components/projects/contribution-breakdown";
 import { MyCheckpointList } from "@/components/projects/my-checkpoint-list";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
-import type { ProjectTeam } from "@/lib/projects/types";
 
 export const metadata: Metadata = { title: "My Project" };
 
@@ -23,19 +22,15 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
   await requireAccess(FEATURES.GITLAB_INTEGRATION);
   const { teamId } = await params;
 
-  // GetMyProject 404s (not 403) for a team the caller doesn't belong to, so
-  // a non-member gets the same "not found" as a team that doesn't exist —
-  // see the handler's own doc comment in handler_dashboard.go.
-  let team: ProjectTeam;
-  let myProjects: Awaited<ReturnType<typeof listMyProjects>>;
+  // GetMyProjectDetail 404s (not 403) for a team the caller doesn't belong
+  // to, so a non-member gets the same "not found" as a team that doesn't
+  // exist — see the handler's own doc comment in handler_my_project.go.
+  let team: Awaited<ReturnType<typeof getMyProjectDetail>>;
   try {
-    [team, myProjects] = await Promise.all([getMyProject(teamId), listMyProjects()]);
+    team = await getMyProjectDetail(teamId);
   } catch {
     notFound();
   }
-
-  const summary = myProjects.find((p) => p.team_id === teamId);
-  const [contributions, checkpoints] = await Promise.all([getMyProjectContributions(teamId), getMyProjectCheckpoints(teamId)]);
 
   return (
     <main className="page-container">
@@ -48,11 +43,9 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
               {PROVISION_STATUS_LABEL[team.provision_status] ?? team.provision_status}
             </Badge>
           </div>
-          {summary && (
-            <p className="text-muted-foreground">
-              {summary.assignment_title} · <span className="capitalize">{summary.role}</span>
-            </p>
-          )}
+          <p className="text-muted-foreground">
+            {team.assignment_title} · <span className="capitalize">{team.role}</span>
+          </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           {team.gitlab_web_url && (
@@ -85,12 +78,12 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
 
       <section className="card-base mt-6 flex flex-col gap-4 p-6">
         <h2 className="section-title">Checkpoints</h2>
-        <MyCheckpointList checkpoints={checkpoints.checkpoints} />
+        <MyCheckpointList checkpoints={team.checkpoints} />
       </section>
 
       <section className="card-base mt-6 flex flex-col gap-4 p-6">
         <h2 className="section-title">Team contributions</h2>
-        <ContributionBreakdown contributions={contributions.contributions} />
+        <ContributionBreakdown contributions={team.contributions} />
       </section>
     </main>
   );

@@ -142,3 +142,49 @@ func TestTryMergeCheckpoint_EnoughApprovalsProceedsPastTheGate(t *testing.T) {
 		t.Fatalf("expected the failure past the gate to be ErrNotFound (no installation configured), got: %v", err)
 	}
 }
+
+// TestListCheckpoints_EmbedsSubmissions proves Repo.ListCheckpoints' LATERAL
+// json_agg query embeds each team's submission row directly onto its
+// checkpoint (CheckpointWithSubmissions) — the shape the assignment detail
+// page now reads instead of a separate GetCheckpointSubmissions call per
+// checkpoint — and that the embedded row round-trips through JSON with the
+// same values UpsertTeamCheckpointMR wrote (mr_iid, mr_state, approvals_count).
+func TestListCheckpoints_EmbedsSubmissions(t *testing.T) {
+	pool := testPool(t)
+	repo := NewRepo(pool)
+	ctx := context.Background()
+
+	orgID, teamID, checkpointID := seedCheckpointTest(t, pool, repo, 2, 1)
+	cp, err := repo.GetCheckpoint(ctx, orgID, checkpointID)
+	if err != nil {
+		t.Fatalf("get checkpoint: %v", err)
+	}
+
+	list, err := repo.ListCheckpoints(ctx, orgID, cp.AssignmentID)
+	if err != nil {
+		t.Fatalf("list checkpoints: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 checkpoint, got %d", len(list))
+	}
+	got := list[0]
+	if got.ID != checkpointID {
+		t.Fatalf("expected checkpoint id %q, got %q", checkpointID, got.ID)
+	}
+	if len(got.Submissions) != 1 {
+		t.Fatalf("expected 1 embedded submission, got %d: %+v", len(got.Submissions), got.Submissions)
+	}
+	sub := got.Submissions[0]
+	if sub.TeamID != teamID {
+		t.Fatalf("expected submission team_id %q, got %q", teamID, sub.TeamID)
+	}
+	if sub.MRIID == nil || *sub.MRIID != 1 {
+		t.Fatalf("expected submission mr_iid 1, got %v", sub.MRIID)
+	}
+	if sub.ApprovalsCount != 1 {
+		t.Fatalf("expected submission approvals_count 1, got %d", sub.ApprovalsCount)
+	}
+	if sub.MRState == nil || *sub.MRState != MRStateOpened {
+		t.Fatalf("expected submission mr_state %q, got %v", MRStateOpened, sub.MRState)
+	}
+}

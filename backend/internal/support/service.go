@@ -64,18 +64,23 @@ func (s *Service) ListTickets(ctx context.Context, orgID string, status *string)
 	return s.repo.ListTickets(ctx, orgID, status, nil)
 }
 
-// GetTicket returns ticketID within orgID, if callerID is allowed to see it —
-// its own reporter, or a caller who holds support.manage. Returns
-// ErrForbidden otherwise, ErrNotFound if the ticket doesn't exist in orgID.
-func (s *Service) GetTicket(ctx context.Context, orgID, ticketID, callerID string, canManage bool) (Ticket, error) {
+// GetTicket returns ticketID within orgID, plus its full reply thread, if
+// callerID is allowed to see it — its own reporter, or a caller who holds
+// support.manage. Returns ErrForbidden otherwise, ErrNotFound if the ticket
+// doesn't exist in orgID.
+func (s *Service) GetTicket(ctx context.Context, orgID, ticketID, callerID string, canManage bool) (TicketDetail, error) {
 	t, err := s.repo.GetTicket(ctx, orgID, ticketID)
 	if err != nil {
-		return Ticket{}, err
+		return TicketDetail{}, err
 	}
 	if t.UserID != callerID && !canManage {
-		return Ticket{}, ErrForbidden
+		return TicketDetail{}, ErrForbidden
 	}
-	return t, nil
+	msgs, err := s.repo.ListMessages(ctx, orgID, ticketID)
+	if err != nil {
+		return TicketDetail{}, fmt.Errorf("support: get ticket detail: %w", err)
+	}
+	return TicketDetail{Ticket: t, Messages: msgs}, nil
 }
 
 // UpdateStatus transitions ticketID's status within orgID. Callers must

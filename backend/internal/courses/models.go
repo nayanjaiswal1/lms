@@ -205,11 +205,11 @@ type LessonCheckAttempt struct {
 // understanding matters to a future revision-plan / concept-dependency-graph
 // reader, which does not exist yet — this table only captures the raw input.
 type LessonReflection struct {
-	ID        string    `json:"id"`
-	OrgID     string    `json:"-"`
-	UserID    string    `json:"-"`
-	ModuleID  string    `json:"module_id"`
-	Response  string    `json:"response"`
+	ID       string `json:"id"`
+	OrgID    string `json:"-"`
+	UserID   string `json:"-"`
+	ModuleID string `json:"module_id"`
+	Response string `json:"response"`
 	// Source distinguishes a student-typed reflection ("manual", the default)
 	// from one written by their connected AI client via the log_understanding
 	// MCP tool ("ai") — revisionplan can weight the two differently.
@@ -239,20 +239,49 @@ type CourseTree struct {
 	Sections []SectionWithModules `json:"sections"`
 }
 
+// CourseDetailForViewer is CourseTree plus the caller's own relationship to
+// the course — enrollment status, progress, and star rating — folded into
+// one response. Backs GET /api/courses/by-slug/{slug}, so the course detail
+// page doesn't need to fetch the whole catalog + full enrollment list just
+// to resolve one course by slug, nor issue separate round trips for data
+// that's already scoped to (user, course). Progress and MyRating stay nil
+// when the viewer isn't enrolled, since neither concept applies yet.
+type CourseDetailForViewer struct {
+	CourseTree
+	IsEnrolled bool                   `json:"is_enrolled"`
+	Progress   *CourseProgressSummary `json:"progress"`
+	MyRating   *int                   `json:"my_rating"`
+}
+
 type SectionWithModules struct {
 	CourseSection
 	Modules []CourseModule `json:"modules"`
 }
 
 type Enrollment struct {
-	ID          string     `json:"id"`
-	UserID      string     `json:"user_id"`
-	CourseID    string     `json:"course_id"`
-	BatchID     *string    `json:"batch_id"`
-	EnrolledBy  *string    `json:"enrolled_by"`
-	EnrolledAt  time.Time  `json:"enrolled_at"`
-	CompletedAt *time.Time `json:"completed_at"`
-	Course      Course     `json:"course"`
+	ID          string             `json:"id"`
+	UserID      string             `json:"user_id"`
+	CourseID    string             `json:"course_id"`
+	BatchID     *string            `json:"batch_id"`
+	EnrolledBy  *string            `json:"enrolled_by"`
+	EnrolledAt  time.Time          `json:"enrolled_at"`
+	CompletedAt *time.Time         `json:"completed_at"`
+	Course      Course             `json:"course"`
+	Progress    EnrollmentProgress `json:"progress"`
+}
+
+// EnrollmentProgress is one enrolled course's completion snapshot, embedded
+// directly on Enrollment so GET /api/enrollments/me returns everything the
+// dashboard needs in a single call instead of a per-course progress fetch
+// (see Repo.GetMyEnrollments's LATERAL join). LastActivityAt is the most
+// recent module_progress.updated_at for this user in this course — nil when
+// no module has been touched yet, in which case callers fall back to
+// EnrolledAt.
+type EnrollmentProgress struct {
+	Completed      int        `json:"completed"`
+	Total          int        `json:"total"`
+	Pct            float64    `json:"pct"`
+	LastActivityAt *time.Time `json:"last_activity_at"`
 }
 
 type ModuleProgress struct {

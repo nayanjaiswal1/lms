@@ -6,7 +6,7 @@ import { Pencil } from "lucide-react";
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
 import { getOrgRole, getCurrentUser } from "@/lib/server/auth";
-import { getWikiSpace, getWikiPage, getWikiComments, getWikiTemplates, resolvePageIdFromPath } from "@/lib/server/wiki";
+import { getWikiSpace, getWikiPage, getWikiTemplates, resolvePageIdFromPath } from "@/lib/server/wiki";
 import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiVersionHistory } from "@/components/wiki/wiki-version-history";
@@ -40,10 +40,7 @@ export default async function WikiPagePage({ params }: Props) {
   const pageId = resolvePageIdFromPath(space.tree, path);
   if (!pageId) notFound();
 
-  const [page, comments] = await Promise.all([
-    getWikiPage(pageId),
-    getWikiComments(pageId),
-  ]);
+  const page = await getWikiPage(pageId);
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Wiki", href: ROUTES.WIKI },
@@ -87,7 +84,7 @@ export default async function WikiPagePage({ params }: Props) {
           <WikiCommentsPanel
             canModerate={orgRole === "admin"}
             currentUserId={currentUser?.id ?? ""}
-            initialThreads={comments}
+            initialThreads={page.comments}
             pageId={page.id}
           />
         </article>

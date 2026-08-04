@@ -267,6 +267,23 @@ func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, tree)
 }
 
+// GetCourseBySlug resolves a course by its URL slug for the current viewer,
+// folding in enrollment/progress/review — the single call the course detail
+// page needs instead of fetching the whole catalog to find one course by
+// slug plus several more per-course round trips.
+func (h *Handler) GetCourseBySlug(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	detail, err := h.service.GetCourseDetailForViewer(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "slug"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, detail)
+}
+
 func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {

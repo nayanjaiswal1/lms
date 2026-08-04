@@ -266,6 +266,22 @@ func (s *Service) ListMyCertificates(ctx context.Context, userID string) ([]Cert
 	return s.repo.ListMyCertificates(ctx, userID)
 }
 
+// GetMyCertificateForCourse returns the caller's own certificate for one
+// course, or nil if none has been issued yet — a normal state, not an error.
+// Scoped to (user, course) via the repo's existing GetCertificateForCourse
+// query, for callers (the course detail page) that only need to know about a
+// single course instead of ListMyCertificates' full list filtered client-side.
+func (s *Service) GetMyCertificateForCourse(ctx context.Context, userID, courseID string) (*Certificate, error) {
+	cert, err := s.repo.GetCertificateForCourse(ctx, userID, courseID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &cert, nil
+}
+
 func (s *Service) VerifyCertificate(ctx context.Context, certUUID string) (CertificateView, error) {
 	return s.repo.GetByUUID(ctx, certUUID)
 }

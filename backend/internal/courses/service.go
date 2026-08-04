@@ -113,6 +113,49 @@ func (s *Service) CompleteModuleForAssessment(ctx context.Context, orgID, userID
 	return result, err
 }
 
+// GetCourseDetailForViewer resolves a course by its URL slug and folds in
+// the caller's own relationship to it — enrollment, progress, and star
+// rating — into one response. Replaces the old frontend pattern of fetching
+// the whole catalog + full enrollment list just to find one course by slug,
+// then issuing two more separate per-course round trips for data that's
+// already scoped to (user, course).
+func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, slug string) (CourseDetailForViewer, error) {
+	tree, err := s.repo.GetCourseTreeBySlug(ctx, orgID, userID, slug)
+	if err != nil {
+		return CourseDetailForViewer{}, err
+	}
+	detail := CourseDetailForViewer{CourseTree: tree}
+
+	enrolled, err := s.repo.IsEnrolled(ctx, userID, tree.ID)
+	if err != nil {
+		return CourseDetailForViewer{}, fmt.Errorf("courses: check enrollment: %w", err)
+	}
+	detail.IsEnrolled = enrolled
+	if !enrolled {
+		return detail, nil
+	}
+
+	cp, err := s.repo.GetCourseProgress(ctx, userID, tree.ID)
+	if err != nil {
+		return CourseDetailForViewer{}, err
+	}
+	modules, err := s.repo.GetModuleProgressForCourse(ctx, userID, tree.ID)
+	if err != nil {
+		return CourseDetailForViewer{}, err
+	}
+	detail.Progress = &CourseProgressSummary{Completed: cp.Completed, Total: cp.Total, Pct: cp.Pct, Modules: modules}
+
+	rev, err := s.repo.GetMyReview(ctx, userID, tree.ID)
+	if err != nil {
+		if !errors.Is(err, ErrNotFound) {
+			return CourseDetailForViewer{}, err
+		}
+	} else {
+		detail.MyRating = &rev.Rating
+	}
+	return detail, nil
+}
+
 // GetModuleContent verifies access and returns module content + presigned URL when needed.
 func (s *Service) GetModuleContent(ctx context.Context, orgID, userID, moduleID string) (ModuleContent, error) {
 	m, err := s.repo.GetModule(ctx, orgID, moduleID)
@@ -342,15 +385,13 @@ func (s *Service) GetLearningContext(ctx context.Context, orgID, userID string) 
 	if err != nil {
 		return LearningContext{}, err
 	}
+	// GetMyEnrollments already joins per-course progress in one query, so no
+	// need for a per-enrollment GetCourseProgress round trip here.
 	courses := make([]CourseProgressBrief, 0, len(enrollments))
 	for _, e := range enrollments {
-		cp, err := s.repo.GetCourseProgress(ctx, userID, e.CourseID)
-		if err != nil {
-			return LearningContext{}, err
-		}
 		courses = append(courses, CourseProgressBrief{
 			CourseID: e.Course.ID, Title: e.Course.Title, Kind: e.Course.Kind,
-			Completed: cp.Completed, Total: cp.Total, Pct: cp.Pct,
+			Completed: e.Progress.Completed, Total: e.Progress.Total, Pct: e.Progress.Pct,
 		})
 	}
 

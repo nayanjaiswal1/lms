@@ -243,7 +243,11 @@ func (s *Service) GetPage(ctx context.Context, orgID, userID, orgRole, id string
 	if err != nil {
 		return PageDetail{}, err
 	}
-	return PageDetail{Page: p, SpaceSlug: sp.Slug, SpaceName: sp.Name, Breadcrumb: breadcrumb}, nil
+	comments, err := s.repo.ListComments(ctx, id)
+	if err != nil {
+		return PageDetail{}, err
+	}
+	return PageDetail{Page: p, SpaceSlug: sp.Slug, SpaceName: sp.Name, Breadcrumb: breadcrumb, Comments: comments}, nil
 }
 
 func (s *Service) UpdatePage(ctx context.Context, orgID, userID, orgRole, id string, req UpdatePageRequest) (Page, error) {

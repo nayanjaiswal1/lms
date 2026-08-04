@@ -174,3 +174,86 @@ func TestGetAssignmentLeaderboard_RanksByCommitCount(t *testing.T) {
 		t.Fatalf("expected the zero-commit student to appear last with 0 commits, got %+v", leaderboard[len(leaderboard)-1])
 	}
 }
+
+// TestGetTeamMembersByAssignment_GroupsByTeam proves the batched
+// (one-query-for-the-whole-assignment) member lookup returns the same
+// roster ListTeamMembers would for the team, keyed under the right team_id —
+// the query the assignment detail page's dashboard now uses instead of a
+// per-team ListTeamMembers/getProjectTeamMembers round trip.
+func TestGetTeamMembersByAssignment_GroupsByTeam(t *testing.T) {
+	pool := testPool(t)
+	repo := NewRepo(pool)
+	ctx := context.Background()
+
+	teamID, students := seedDashboardTestTeam(t, pool, repo)
+	team, err := repo.GetTeamByID(ctx, teamID)
+	if err != nil {
+		t.Fatalf("get team: %v", err)
+	}
+
+	byTeam, err := repo.GetTeamMembersByAssignment(ctx, team.AssignmentID)
+	if err != nil {
+		t.Fatalf("get team members by assignment: %v", err)
+	}
+	members := byTeam[teamID]
+	if len(members) != 3 {
+		t.Fatalf("expected 3 members for the seeded team, got %d", len(members))
+	}
+	seen := map[string]bool{}
+	for _, m := range members {
+		if m.TeamID != teamID {
+			t.Fatalf("expected every row to be keyed under the seeded team, got team_id %q", m.TeamID)
+		}
+		seen[m.UserID] = true
+	}
+	for _, s := range students {
+		if !seen[s] {
+			t.Fatalf("expected student %q in the assignment-wide member map, got %+v", s, members)
+		}
+	}
+}
+
+// TestGetTeamActivityByAssignment_ReturnsCommitsAndLatestPipeline proves the
+// batched LATERAL json_agg activity query returns the same per-team shape
+// GetTeamActivity does — recent commits newest-first and the latest
+// pipeline — for the whole assignment in one query, and that a team with no
+// pipeline yet gets a nil Pipeline (not a zero-valued struct).
+func TestGetTeamActivityByAssignment_ReturnsCommitsAndLatestPipeline(t *testing.T) {
+	pool := testPool(t)
+	repo := NewRepo(pool)
+	ctx := context.Background()
+
+	teamID, students := seedDashboardTestTeam(t, pool, repo)
+	team, err := repo.GetTeamByID(ctx, teamID)
+	if err != nil {
+		t.Fatalf("get team: %v", err)
+	}
+
+	suffix := time.Now().UnixNano()
+	seedCommit(t, pool, repo, team.OrgID, teamID, students[0], fmt.Sprintf("sha-%d-act1", suffix), 4, 1)
+	seedCommit(t, pool, repo, team.OrgID, teamID, students[1], fmt.Sprintf("sha-%d-act2", suffix), 2, 0)
+
+	if err := repo.UpsertPipeline(ctx, GitlabPipeline{
+		OrgID: team.OrgID, TeamID: teamID, PipelineID: suffix, Status: CIStatusSuccess,
+	}); err != nil {
+		t.Fatalf("upsert pipeline: %v", err)
+	}
+
+	byTeam, err := repo.GetTeamActivityByAssignment(ctx, team.AssignmentID)
+	if err != nil {
+		t.Fatalf("get team activity by assignment: %v", err)
+	}
+	activity, ok := byTeam[teamID]
+	if !ok {
+		t.Fatalf("expected an activity entry for the seeded team, got %+v", byTeam)
+	}
+	if len(activity.Commits) != 2 {
+		t.Fatalf("expected 2 commits, got %d: %+v", len(activity.Commits), activity.Commits)
+	}
+	if activity.Pipeline == nil {
+		t.Fatal("expected a non-nil latest pipeline after UpsertPipeline")
+	}
+	if activity.Pipeline.Status != CIStatusSuccess {
+		t.Fatalf("expected latest pipeline status %q, got %q", CIStatusSuccess, activity.Pipeline.Status)
+	}
+}

@@ -88,8 +88,9 @@ func (h *Handler) ListTickets(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"tickets": tickets})
 }
 
-// GetTicket returns a single ticket's detail — allowed for its own reporter
-// or a caller holding support.manage.
+// GetTicket returns a single ticket's detail plus its full reply thread in
+// one response — allowed for its own reporter or a caller holding
+// support.manage.
 func (h *Handler) GetTicket(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {

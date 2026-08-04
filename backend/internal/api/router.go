@@ -29,6 +29,7 @@ import (
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/labs"
+	"github.com/mindforge/backend/internal/learnhub"
 	"github.com/mindforge/backend/internal/legal"
 	"github.com/mindforge/backend/internal/mcpconnect"
 	"github.com/mindforge/backend/internal/mentoring"
@@ -167,6 +168,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	certificatesRouter := certificates.New(pool, coursesRepo, assessment.NewExecutor(cfg), mentoringRouter.Service, mentoringRouter.Service)
 	whatnowRouter := whatnow.New(pool)
 	activityRouter := activity.New(pool)
+	learnHubHandler := learnhub.New(pool)
 	featuresRouter := features.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
@@ -375,6 +377,12 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// lab completions, SM-2 card reviews) for the dashboard widget and
 		// the /activity page.
 		activityRouter.RegisterRoutes(r)
+
+		// Learn hub — one cheap count per hub card (enrollments, roadmap
+		// progress, prep plans, pending assessments, saved highlights, due
+		// SRS cards, sheet progress, wiki spaces, interview-exp posts),
+		// replacing 9 separate full-list fetches the /learn page used to make.
+		learnHubHandler.RegisterRoutes(r)
 
 		// Feature flags — resolves org-enabled features + per-user entitlements
 		// for the current session (frontend's <AccessGate>/<FeatureFlagProvider>).

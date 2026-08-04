@@ -4,41 +4,20 @@ import { Users, MessageSquare, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/shared/stat-card";
-import { getBatches, getBatchMembers, type Batch } from "@/lib/server/batches";
-import { getBatchMessages } from "@/lib/server/messaging";
+import { getBatches } from "@/lib/server/batches";
 import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "Mentoring Overview" };
 
-interface BatchSummary {
-  batch: Batch;
-  memberCount: number;
-  unresolvedCount: number;
-}
-
-async function loadBatchSummaries(): Promise<BatchSummary[]> {
-  const batches = await getBatches();
-
-  return Promise.all(
-    batches.map(async (batch) => {
-      const [members, unresolved] = await Promise.all([
-        getBatchMembers(batch.id).catch(() => []),
-        getBatchMessages(batch.id, { type: "question", unresolved: true, limit: 50 }).catch(() => []),
-      ]);
-      return { batch, memberCount: members.length, unresolvedCount: unresolved.length };
-    }),
-  );
-}
-
 async function MentoringOverviewContent() {
-  const summaries = await loadBatchSummaries();
-  const totalStudents = summaries.reduce((sum, s) => sum + s.memberCount, 0);
-  const totalUnresolved = summaries.reduce((sum, s) => sum + s.unresolvedCount, 0);
+  const batches = await getBatches();
+  const totalStudents = batches.reduce((sum, b) => sum + b.member_count, 0);
+  const totalUnresolved = batches.reduce((sum, b) => sum + b.unresolved_count, 0);
 
   return (
     <>
       <div className="grid-stats mb-8">
-        <StatCard icon={Users} label="Batches" value={String(summaries.length)} unit="total" />
+        <StatCard icon={Users} label="Batches" value={String(batches.length)} unit="total" />
         <StatCard icon={Users} label="Students" value={String(totalStudents)} unit="total" />
         <StatCard
           icon={MessageSquare}
@@ -60,14 +39,14 @@ async function MentoringOverviewContent() {
         </Link>
       </div>
 
-      {summaries.length === 0 ? (
+      {batches.length === 0 ? (
         <div className="empty-state py-16">
           <Users aria-hidden className="h-12 w-12 text-muted-foreground" />
           <p className="mt-3 text-sm text-muted-foreground">You are not assigned to any batches yet.</p>
         </div>
       ) : (
         <ol className="flex flex-col gap-3" aria-label="Batches">
-          {summaries.map(({ batch, memberCount, unresolvedCount }) => (
+          {batches.map((batch) => (
             <li key={batch.id}>
               <Link href={ROUTES.batch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
                 <div className="flex flex-1 flex-col gap-1">
@@ -78,9 +57,9 @@ async function MentoringOverviewContent() {
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {memberCount} student{memberCount !== 1 ? "s" : ""}
-                    {unresolvedCount > 0 &&
-                      ` · ${unresolvedCount} unresolved question${unresolvedCount !== 1 ? "s" : ""}`}
+                    {batch.member_count} student{batch.member_count !== 1 ? "s" : ""}
+                    {batch.unresolved_count > 0 &&
+                      ` · ${batch.unresolved_count} unresolved question${batch.unresolved_count !== 1 ? "s" : ""}`}
                   </p>
                 </div>
               </Link>

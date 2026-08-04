@@ -28,6 +28,12 @@ export interface SupportMessage {
   created_at: string;
 }
 
+// SupportTicketDetail mirrors support.TicketDetail (backend/internal/support/models.go) —
+// the ticket plus its full reply thread, returned by GetTicket in one round trip.
+export interface SupportTicketDetail extends SupportTicket {
+  messages: SupportMessage[];
+}
+
 export async function getMySupportTickets(): Promise<SupportTicket[]> {
   const body = await apiGet<{ tickets: SupportTicket[] }>("/api/support/tickets/me");
   return body.tickets ?? [];
@@ -44,11 +50,8 @@ export async function getAllSupportTickets(status?: SupportTicketStatus): Promis
 // Allowed for the ticket's own reporter or a caller holding support.manage —
 // the backend enforces this, so a caller lacking access simply gets a 403,
 // which apiGet turns into a thrown error for the page's error.tsx boundary.
-export async function getSupportTicket(ticketId: string): Promise<SupportTicket> {
-  return apiGet<SupportTicket>(`/api/support/tickets/${ticketId}`);
-}
-
-export async function getSupportTicketMessages(ticketId: string): Promise<SupportMessage[]> {
-  const body = await apiGet<{ messages: SupportMessage[] }>(`/api/support/tickets/${ticketId}/messages`);
-  return body.messages ?? [];
+// Returns the ticket with its full message thread embedded, so callers never
+// need a second request to /messages just to render the ticket panel.
+export async function getSupportTicket(ticketId: string): Promise<SupportTicketDetail> {
+  return apiGet<SupportTicketDetail>(`/api/support/tickets/${ticketId}`);
 }

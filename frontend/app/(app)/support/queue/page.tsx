@@ -8,7 +8,7 @@ import { TicketChatPanel } from "@/components/support/ticket-chat-panel";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { getCurrentUser } from "@/lib/server/auth";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { getAllSupportTickets, getSupportTicket, getSupportTicketMessages } from "@/lib/server/support";
+import { getAllSupportTickets, getSupportTicket } from "@/lib/server/support";
 import { SUPPORT_TICKET_STATUS_OPTIONS } from "@/lib/constants";
 import type { SupportTicketStatus } from "@/lib/constants";
 import { SUPPORT_STATUS_VARIANT, SUPPORT_PRIORITY_VARIANT, categoryLabel, formatDate } from "@/lib/support/format";
@@ -30,11 +30,10 @@ export default async function SupportQueuePage({ searchParams }: Props) {
   const status = FILTERS.some((f) => f.value === rawStatus) ? rawStatus : undefined;
   const basePath = status ? `${ROUTES.SUPPORT_QUEUE}?status=${status}` : ROUTES.SUPPORT_QUEUE;
 
-  const [tickets, currentUser, ticket, messages] = await Promise.all([
+  const [tickets, currentUser, ticket] = await Promise.all([
     getAllSupportTickets(status as SupportTicketStatus | undefined),
     getCurrentUser(),
     ticketId ? getSupportTicket(ticketId).catch(() => null) : Promise.resolve(null),
-    ticketId ? getSupportTicketMessages(ticketId).catch(() => null) : Promise.resolve(null),
   ]);
 
   function rowHref(id: string): string {
@@ -110,7 +109,7 @@ export default async function SupportQueuePage({ searchParams }: Props) {
         canManage
         basePath={basePath}
         currentUserId={currentUser?.id}
-        messages={messages ?? []}
+        messages={ticket?.messages ?? []}
         ticket={ticket}
       />
     </main>

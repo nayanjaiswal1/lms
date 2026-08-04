@@ -6,7 +6,7 @@ import { Can } from "@/components/auth/can";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { CreateTicketDialog } from "@/components/support/create-ticket-dialog";
 import { TicketChatPanel } from "@/components/support/ticket-chat-panel";
-import { getMySupportTickets, getSupportTicket, getSupportTicketMessages } from "@/lib/server/support";
+import { getMySupportTickets, getSupportTicket } from "@/lib/server/support";
 import { getCurrentUser } from "@/lib/server/auth";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { SUPPORT_STATUS_VARIANT, categoryLabel, formatDate } from "@/lib/support/format";
@@ -24,12 +24,11 @@ interface SupportPageProps {
 export default async function SupportPage({ searchParams }: SupportPageProps) {
   const { ticket: ticketId } = await searchParams;
 
-  const [tickets, currentUser, permissions, ticket, messages] = await Promise.all([
+  const [tickets, currentUser, permissions, ticket] = await Promise.all([
     getMySupportTickets(),
     getCurrentUser(),
     getMyPermissions(),
     ticketId ? getSupportTicket(ticketId).catch(() => null) : Promise.resolve(null),
-    ticketId ? getSupportTicketMessages(ticketId).catch(() => null) : Promise.resolve(null),
   ]);
 
   const canManage = permissions.includes(PERMISSIONS.SUPPORT.MANAGE);
@@ -78,7 +77,7 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
         basePath={ROUTES.SUPPORT}
         canManage={canManage}
         currentUserId={currentUser?.id}
-        messages={messages ?? []}
+        messages={ticket?.messages ?? []}
         ticket={ticket}
       />
     </main>

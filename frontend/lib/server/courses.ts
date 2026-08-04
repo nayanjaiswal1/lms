@@ -54,6 +54,18 @@ export interface CourseTree extends Course {
   sections: CourseSection[];
 }
 
+// EnrollmentProgress is the enrolled course's completion snapshot, embedded
+// directly in each Enrollment by GET /api/enrollments/me — no per-course
+// getCourseProgress call needed to render enrolled-course cards.
+// last_activity_at is the most recent module touched, or null when the
+// student hasn't started any module yet (fall back to enrolled_at).
+export interface EnrollmentProgress {
+  completed: number;
+  total: number;
+  pct: number;
+  last_activity_at: string | null;
+}
+
 export interface Enrollment {
   id: string;
   user_id: string;
@@ -61,6 +73,7 @@ export interface Enrollment {
   enrolled_at: string;
   completed_at: string | null;
   course: Course;
+  progress: EnrollmentProgress;
 }
 
 export interface ModuleProgress {
@@ -106,6 +119,21 @@ export async function getCourses(query = ""): Promise<Course[]> {
 
 export async function getCourseTree(courseID: string): Promise<CourseTree> {
   return apiGet<CourseTree>(`/api/courses/${courseID}`);
+}
+
+export interface CourseDetailForViewer extends CourseTree {
+  is_enrolled: boolean;
+  progress: CourseProgressSummary | null;
+  my_rating: number | null;
+}
+
+// Resolves a course by its URL slug for the current viewer in a single call
+// — enrollment status, progress, and star rating are folded into the
+// response server-side, instead of fetching the whole catalog + full
+// enrollment list just to find one course by slug, plus separate per-course
+// round trips for viewer-specific data.
+export async function getCourseDetailBySlug(slug: string): Promise<CourseDetailForViewer> {
+  return apiGet<CourseDetailForViewer>(`/api/courses/by-slug/${slug}`);
 }
 
 export async function getEnrollments(): Promise<Enrollment[]> {
@@ -310,6 +338,18 @@ export async function getFinalTestForEdit(courseID: string): Promise<FinalTestCo
 export async function getMyCertificates(): Promise<CertificateView[]> {
   const data = await apiGet<CertificateView[]>("/api/certificates/me");
   return data ?? [];
+}
+
+// The caller's own certificate for one course, if any — scoped to (user,
+// course) rather than fetching every certificate the learner has ever earned
+// and filtering client-side. Never throws: no certificate yet is a normal
+// state, not an error the course page should crash on.
+export async function getMyCertificateForCourse(courseID: string): Promise<Certificate | null> {
+  try {
+    return await apiGet<Certificate | null>(`/api/courses/${courseID}/certificates/me`);
+  } catch {
+    return null;
+  }
 }
 
 // Instructor-only — returns null when the course has no threshold rule

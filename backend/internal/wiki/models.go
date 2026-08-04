@@ -68,12 +68,17 @@ type BreadcrumbItem struct {
 	Slug  string `json:"slug"`
 }
 
-// PageDetail is what GET /api/wiki/pages/:id returns.
+// PageDetail is what GET /api/wiki/pages/:id returns. Comments are embedded
+// here (rather than left to a separate GET .../comments call) so a page view
+// costs one HTTP round trip from the Next.js server to the Go API instead of
+// two — the comments list itself is still a second, cheap same-network SQL
+// query inside GetPage.
 type PageDetail struct {
 	Page
 	SpaceSlug  string           `json:"space_slug"`
 	SpaceName  string           `json:"space_name"`
 	Breadcrumb []BreadcrumbItem `json:"breadcrumb"`
+	Comments   []CommentThread  `json:"comments"`
 }
 
 // PageVersionSummary is one row in the version history list — no content.

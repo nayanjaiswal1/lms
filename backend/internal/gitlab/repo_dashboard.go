@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -187,6 +188,116 @@ func (r *Repo) GetAssignmentDashboard(ctx context.Context, assignmentID string) 
 			return nil, fmt.Errorf("gitlab: scan team dashboard summary: %w", err)
 		}
 		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// GetTeamMembersByAssignment returns every team member under assignmentID,
+// grouped by team_id — one query for the whole assignment (via the
+// denormalized project_team_members.assignment_id column, the same one the
+// UNIQUE(assignment_id, user_id) constraint relies on) instead of the
+// per-team ListTeamMembers round trip the assignment detail page used to
+// make once per team (Promise.all(teams.map(getProjectTeamMembers))).
+func (r *Repo) GetTeamMembersByAssignment(ctx context.Context, assignmentID string) (map[string][]ProjectTeamMember, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT m.team_id, m.user_id, m.assignment_id, m.role, m.gitlab_access_level,
+		        m.sync_status, m.sync_error, m.synced_at, m.added_by, m.added_at,
+		        u.name, u.email
+		 FROM project_team_members m
+		 JOIN users u ON u.id = m.user_id
+		 WHERE m.assignment_id = $1
+		 ORDER BY m.team_id, m.added_at`,
+		assignmentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: get team members by assignment: %w", err)
+	}
+	defer rows.Close()
+
+	out := map[string][]ProjectTeamMember{}
+	for rows.Next() {
+		var m ProjectTeamMember
+		if err := rows.Scan(
+			&m.TeamID, &m.UserID, &m.AssignmentID, &m.Role, &m.GitlabAccessLevel,
+			&m.SyncStatus, &m.SyncError, &m.SyncedAt, &m.AddedBy, &m.AddedAt,
+			&m.Name, &m.Email,
+		); err != nil {
+			return nil, fmt.Errorf("gitlab: scan team member by assignment: %w", err)
+		}
+		out[m.TeamID] = append(out[m.TeamID], m)
+	}
+	return out, rows.Err()
+}
+
+// GetTeamActivityByAssignment returns every team's recent-activity feed
+// (same shape GetTeamActivity/TeamActivityView returns per-team) under
+// assignmentID in one query — a LATERAL json_agg per team for its most
+// recent commits/merge requests (capped at teamActivityLimit, the same cap
+// service_roster.go's GetTeamActivity uses) plus its latest pipeline,
+// instead of the per-team activity round trip the assignment detail page
+// used to make once per team (Promise.all(teams.map(getTeamActivity))).
+// row_to_json's column aliases match TeamActivityCommit/TeamActivityMergeRequest's
+// own json tags exactly, so each aggregated array unmarshals straight into
+// them below with no field-by-field mapping.
+func (r *Repo) GetTeamActivityByAssignment(ctx context.Context, assignmentID string) (map[string]TeamActivityView, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT t.id,
+		        COALESCE(c.commits, '[]'::json),
+		        COALESCE(mrj.merge_requests, '[]'::json),
+		        lp.status, lp.web_url
+		 FROM project_teams t
+		 LEFT JOIN LATERAL (
+		   SELECT json_agg(row_to_json(x)) AS commits
+		   FROM (
+		     SELECT sha, message, author_name, committed_at
+		     FROM gitlab_commits gc
+		     WHERE gc.team_id = t.id
+		     ORDER BY committed_at DESC NULLS LAST, recorded_at DESC
+		     LIMIT $2
+		   ) x
+		 ) c ON true
+		 LEFT JOIN LATERAL (
+		   SELECT json_agg(row_to_json(y)) AS merge_requests
+		   FROM (
+		     SELECT title, state, web_url, approvals_count
+		     FROM gitlab_merge_requests gm
+		     WHERE gm.team_id = t.id
+		     ORDER BY updated_at DESC
+		     LIMIT $2
+		   ) y
+		 ) mrj ON true
+		 LEFT JOIN LATERAL (
+		   SELECT status, web_url FROM gitlab_pipelines gp WHERE gp.team_id = t.id ORDER BY gp.updated_at DESC LIMIT 1
+		 ) lp ON true
+		 WHERE t.assignment_id = $1`,
+		assignmentID, teamActivityLimit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: get team activity by assignment: %w", err)
+	}
+	defer rows.Close()
+
+	out := map[string]TeamActivityView{}
+	for rows.Next() {
+		var teamID string
+		var commitsRaw, mergeRequestsRaw []byte
+		var pipelineStatus, pipelineWebURL *string
+		if err := rows.Scan(&teamID, &commitsRaw, &mergeRequestsRaw, &pipelineStatus, &pipelineWebURL); err != nil {
+			return nil, fmt.Errorf("gitlab: scan team activity by assignment: %w", err)
+		}
+		var commits []TeamActivityCommit
+		if err := json.Unmarshal(commitsRaw, &commits); err != nil {
+			return nil, fmt.Errorf("gitlab: unmarshal team activity commits: %w", err)
+		}
+		var mergeRequests []TeamActivityMergeRequest
+		if err := json.Unmarshal(mergeRequestsRaw, &mergeRequests); err != nil {
+			return nil, fmt.Errorf("gitlab: unmarshal team activity merge requests: %w", err)
+		}
+		var pipeline *TeamActivityPipeline
+		if pipelineStatus != nil {
+			pipeline = &TeamActivityPipeline{Status: *pipelineStatus, WebURL: pipelineWebURL}
+		}
+		out[teamID] = TeamActivityView{Commits: commits, MergeRequests: mergeRequests, Pipeline: pipeline}
 	}
 	return out, rows.Err()
 }

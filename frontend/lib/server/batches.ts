@@ -12,6 +12,7 @@ export interface Batch {
   mentor_id: string | null;
   status: string;
   member_count: number;
+  unresolved_count: number;
   starts_at: string | null;
   ends_at: string | null;
   image_url: string | null;
@@ -196,6 +197,22 @@ export async function getBatchMembers(batchId: string): Promise<BatchMember[]> {
 export async function getBatchMentors(batchId: string): Promise<BatchMentor[]> {
   const data = await apiGet<{ mentors: BatchMentor[] }>(`/api/batches/${batchId}/mentors`);
   return data.mentors ?? [];
+}
+
+export interface BatchRoster {
+  members: BatchMember[];
+  mentors: BatchMentor[];
+}
+
+// getBatchRoster fetches members and mentors in a single call — GET
+// /api/batches/{id} already returns both, so callers that need the combined
+// people list (e.g. the batch detail page) should use this instead of
+// calling getBatchMembers + getBatchMentors separately and merging client-side.
+export async function getBatchRoster(batchId: string): Promise<BatchRoster> {
+  const data = await apiGet<{ batch: Batch; members: BatchMember[]; mentors: BatchMentor[] }>(
+    `/api/batches/${batchId}`,
+  );
+  return { members: data.members ?? [], mentors: data.mentors ?? [] };
 }
 
 export async function getBatchInvitations(batchId: string): Promise<BatchInvitation[]> {

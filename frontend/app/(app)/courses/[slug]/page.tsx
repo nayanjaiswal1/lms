@@ -24,7 +24,7 @@ import { RevisionPlanCard } from "@/components/revision-plan/revision-plan-card"
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { FAQPanel } from "@/components/shared/faq-panel";
 import { AskQuestion } from "@/components/messaging/ask-question";
-import { findCourseBySlug, getCourses, getEnrollments, getCourseTree, getCourseProgress, getMyReview, getFinalTest, getMyCertificates, checkThresholdCertificate } from "@/lib/server/courses";
+import { getCourseDetailBySlug, getFinalTest, getMyCertificateForCourse, checkThresholdCertificate } from "@/lib/server/courses";
 import { getPaymentsCurrency } from "@/lib/server/payments";
 import { formatMoney } from "@/lib/money";
 import { getRevisionPlan } from "@/lib/server/revision-plan";
@@ -65,40 +65,31 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
   const { slug } = await params;
   const { batchId } = await searchParams;
 
-  const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments()]);
-  const course = findCourseBySlug(courses, enrollments, slug);
+  const course = await getCourseDetailBySlug(slug).catch(() => null);
   if (!course) notFound();
 
   const courseId = course.id;
-  const enrollment = enrollments.find((e) => e.course_id === courseId);
-  const isEnrolled = Boolean(enrollment);
+  const isEnrolled = course.is_enrolled;
 
-  // Best-effort auto-issue check, run before the certificate list below is
-  // fetched (not in the Promise.all — it must land before the read so a
-  // certificate issued just now shows up in this same render).
+  // Best-effort auto-issue check, run before the certificate read below — it
+  // must land before that read so a certificate issued just now shows up in
+  // this same render.
   if (isEnrolled) {
     await checkThresholdCertificate(courseId);
   }
 
-  const [tree, progressSummary, myRating, faqs, wikiSpaces, finalTest, myCertificates, currency] = await Promise.all([
-    getCourseTree(courseId).catch(() => null),
-    isEnrolled ? getCourseProgress(courseId).catch(() => null) : Promise.resolve(null),
-    isEnrolled ? getMyReview(courseId).catch(() => null) : Promise.resolve(null),
+  const [faqs, wikiSpaces, finalTest, myCertificate, currency] = await Promise.all([
     getCourseFAQs(courseId).catch(() => []),
     isEnrolled ? getWikiSpaces().catch(() => []) : Promise.resolve([]),
     isEnrolled ? getFinalTest(courseId) : Promise.resolve(null),
-    isEnrolled ? getMyCertificates().catch(() => []) : Promise.resolve([]),
+    isEnrolled ? getMyCertificateForCourse(courseId) : Promise.resolve(null),
     getPaymentsCurrency(),
   ]);
   const docsSpace = wikiSpaces.find((s) => s.course_id === courseId) ?? null;
-  // Certificates can be earned via final test, mentor award, or completion
-  // threshold — never gate "does this learner have a certificate" on
-  // whether the course happens to have a final test configured.
-  const myCertificate = myCertificates.find((c) => c.course_id === courseId) ?? null;
 
-  const sections = tree?.sections ?? [];
+  const sections = course.sections ?? [];
   const allModules = sections.flatMap((s) => s.modules);
-  const progress = progressSummary?.modules ?? [];
+  const progress = course.progress?.modules ?? [];
   const { completed, total } = computeCompletion(allModules.map((m) => m.id), progress);
   const courseComplete = isEnrolled && total > 0 && completed === total;
   const revisionPlan = courseComplete ? await getRevisionPlan(courseId).catch(() => null) : null;
@@ -334,7 +325,7 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
                       Course Docs
                     </Link>
                   )}
-                  <ReviewForm courseId={courseId} initialRating={myRating} />
+                  <ReviewForm courseId={courseId} initialRating={course.my_rating} />
                 </>
               ) : (
                 <>

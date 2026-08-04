@@ -1,57 +1,50 @@
 import type { Metadata } from "next";
 import { NavHubGrid } from "@/components/shared/nav-hub-grid";
 import ROUTES from "@/lib/routes";
-import { getEnrollments, type Enrollment } from "@/lib/server/courses";
-import { listRoadmaps, type Roadmap } from "@/lib/server/roadmap";
-import { listPrepPlans, type PrepPlan } from "@/lib/server/interview-prep";
-import { getMyAssessments } from "@/lib/assessments/server";
-import type { AssignedAssessment } from "@/lib/assessments/types";
-import { getMyHighlights, type Highlight } from "@/lib/server/highlights";
-import { getDueCards, type DueCardsResponse } from "@/lib/server/srs";
-import { getUserSheets, type UserSheetSummary } from "@/lib/server/sheets";
-import { getWikiSpaces, type WikiSpace } from "@/lib/server/wiki";
-import { listPosts, type Post } from "@/lib/server/interview-exp";
+import { getLearnHubStats, type HubStats } from "@/lib/server/learn-hub";
 
 export const metadata: Metadata = { title: "Learn" };
 
-// Each source backs one Learn hub card. A viewer without access to that
-// feature gets a rejected fetch (403/404) here, not a broken page — so every
-// source falls back independently instead of failing the whole hub.
+// One aggregator call backs every Learn hub card (see
+// backend/internal/learnhub) instead of 9 separate full-list fetches across
+// 9 domains. A viewer without access to a feature still gets a whole-hub
+// fallback (all cards show their empty state) rather than a broken page —
+// same "never fail the whole hub" intent as before, just one failure surface
+// instead of nine independent ones.
 async function getHubStats(): Promise<Record<string, string>> {
-  const [enrollments, roadmaps, prepPlans, assessments, highlights, dueCards, sheets, wikiSpaces, expPosts] =
-    await Promise.all([
-      getEnrollments().catch((): Enrollment[] => []),
-      listRoadmaps().catch((): Roadmap[] => []),
-      listPrepPlans().catch((): PrepPlan[] => []),
-      getMyAssessments().catch((): AssignedAssessment[] => []),
-      getMyHighlights(true).catch((): Highlight[] => []),
-      getDueCards().catch((): DueCardsResponse => ({ cards: [], total: 0 })),
-      getUserSheets().catch((): UserSheetSummary[] => []),
-      getWikiSpaces().catch((): WikiSpace[] => []),
-      listPosts({}).catch((): Post[] => []),
-    ]);
-
-  const activeRoadmap = roadmaps.find((r) => r.status === "active") ?? roadmaps[0];
-  const pendingAssessments = assessments.filter(
-    (a) => a.status !== "archived" && a.status !== "completed" && !(a.attempts_used >= a.max_attempts && a.best_passed),
-  );
-  const sheetProgress = sheets.reduce(
-    (acc, s) => ({ solved: acc.solved + s.solved_count, total: acc.total + s.item_count }),
-    { solved: 0, total: 0 },
+  const stats = await getLearnHubStats().catch(
+    (): HubStats => ({
+      enrollment_count: 0,
+      has_roadmap: false,
+      roadmap_module_count: 0,
+      roadmap_completed_count: 0,
+      prep_plan_count: 0,
+      pending_assessment_count: 0,
+      saved_highlight_count: 0,
+      due_card_count: 0,
+      sheet_total_count: 0,
+      sheet_solved_count: 0,
+      wiki_space_count: 0,
+      interview_exp_post_count: 0,
+    }),
   );
 
   return {
-    [ROUTES.COURSES]: enrollments.length ? `${enrollments.length} enrolled` : "Browse courses",
-    [ROUTES.ROADMAP]: activeRoadmap
-      ? `${activeRoadmap.completed_count}/${activeRoadmap.module_count} steps done`
+    [ROUTES.COURSES]: stats.enrollment_count ? `${stats.enrollment_count} enrolled` : "Browse courses",
+    [ROUTES.ROADMAP]: stats.has_roadmap
+      ? `${stats.roadmap_completed_count}/${stats.roadmap_module_count} steps done`
       : "Start a roadmap",
-    [ROUTES.INTERVIEW_PREP]: prepPlans.length ? `${prepPlans.length} plan${prepPlans.length === 1 ? "" : "s"}` : "No plans yet",
-    [ROUTES.ASSESSMENTS]: pendingAssessments.length ? `${pendingAssessments.length} pending` : "All caught up",
-    [ROUTES.HIGHLIGHTS]: highlights.length ? `${highlights.length} saved` : "Nothing saved yet",
-    [ROUTES.REVIEW]: dueCards.total ? `${dueCards.total} due` : "Nothing due",
-    [ROUTES.SHEETS]: sheetProgress.total ? `${sheetProgress.solved}/${sheetProgress.total} solved` : "No sheets yet",
-    [ROUTES.WIKI]: wikiSpaces.length ? `${wikiSpaces.length} space${wikiSpaces.length === 1 ? "" : "s"}` : "No spaces yet",
-    [ROUTES.INTERVIEW_EXP]: expPosts.length ? `${expPosts.length} posts` : "No posts yet",
+    [ROUTES.INTERVIEW_PREP]: stats.prep_plan_count
+      ? `${stats.prep_plan_count} plan${stats.prep_plan_count === 1 ? "" : "s"}`
+      : "No plans yet",
+    [ROUTES.ASSESSMENTS]: stats.pending_assessment_count ? `${stats.pending_assessment_count} pending` : "All caught up",
+    [ROUTES.HIGHLIGHTS]: stats.saved_highlight_count ? `${stats.saved_highlight_count} saved` : "Nothing saved yet",
+    [ROUTES.REVIEW]: stats.due_card_count ? `${stats.due_card_count} due` : "Nothing due",
+    [ROUTES.SHEETS]: stats.sheet_total_count
+      ? `${stats.sheet_solved_count}/${stats.sheet_total_count} solved`
+      : "No sheets yet",
+    [ROUTES.WIKI]: stats.wiki_space_count ? `${stats.wiki_space_count} space${stats.wiki_space_count === 1 ? "" : "s"}` : "No spaces yet",
+    [ROUTES.INTERVIEW_EXP]: stats.interview_exp_post_count ? `${stats.interview_exp_post_count} posts` : "No posts yet",
   };
 }
 

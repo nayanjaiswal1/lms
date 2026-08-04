@@ -171,6 +171,12 @@ export interface AssignmentBurndownView {
 // One team's rolled-up commit/MR/pipeline/free-rider summary — the
 // assignment-wide, aggregated counterpart to TeamActivityView above (which
 // stays unaggregated recent-activity, on purpose).
+//
+// members/activity are embedded by the backend (Service.GetAssignmentDashboard,
+// backed by one extra assignment-wide query each — never per-team) so the
+// assignment detail page can render every team's roster and activity feed
+// straight from this one dashboard response instead of fanning out
+// getProjectTeamMembers/getTeamActivity across every team itself.
 export interface TeamDashboardSummary {
   team_id: string;
   team_name: string;
@@ -180,6 +186,8 @@ export interface TeamDashboardSummary {
   merged_mr_count: number;
   latest_pipeline_status: string | null;
   free_rider_count: number;
+  members: ProjectTeamMember[];
+  activity: TeamActivityView;
 }
 
 export interface AssignmentDashboardView {
@@ -200,6 +208,16 @@ export interface MyProjectSummary {
   provision_status: TeamProvisionStatus;
   gitlab_web_url: string | null;
   pages_url: string | null;
+}
+
+// GET /api/my/projects/{teamID}/detail — the full ProjectTeam row plus
+// assignment_title/role (normally only on MyProjectSummary) and the team's
+// contributions + checkpoints, all in one response for the team detail page.
+export interface MyProjectDetailView extends ProjectTeam {
+  assignment_title: string;
+  role: TeamMemberRole;
+  contributions: ContributionRow[];
+  checkpoints: MyCheckpointRow[];
 }
 
 // ─── Batch 5: checkpoints & peer review ────────────────────────────────────
@@ -252,6 +270,16 @@ export interface ProjectTeamCheckpoint {
   status: CheckpointStatus;
   created_at: string;
   updated_at: string;
+}
+
+// GET /api/projects/assignments/{assignmentID}/checkpoints' response row —
+// Go embeds ProjectCheckpoint's fields directly (untagged struct embedding,
+// same pattern OriginalityReportView below uses), so this flattens the same
+// way on the wire; submissions is the only field added on top. Replaces the
+// assignment detail page's former per-checkpoint GetCheckpointSubmissions
+// call (Promise.all(checkpoints.map(getCheckpointSubmissions))).
+export interface ProjectCheckpointWithSubmissions extends ProjectCheckpoint {
+  submissions: ProjectTeamCheckpoint[];
 }
 
 // ─── Batch 5 (gap fix): student-facing "my checkpoints" ────────────────────

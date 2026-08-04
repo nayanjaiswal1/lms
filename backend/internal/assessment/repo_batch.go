@@ -50,7 +50,10 @@ func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT b.id, b.org_id, b.name, b.slug, b.description, b.mentor_id, b.status,
 		        b.created_by, b.starts_at, b.ends_at, b.image_url, b.cohort_group_id, b.created_at, b.updated_at,
-		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id) AS member_count
+		        (SELECT count(*) FROM batch_members m WHERE m.batch_id = b.id) AS member_count,
+		        (SELECT count(*) FROM batch_messages bm
+		          WHERE bm.batch_id = b.id AND bm.type = 'question' AND bm.is_resolved = false
+		            AND bm.deleted_at IS NULL AND bm.parent_id IS NULL) AS unresolved_count
 		 FROM batches b
 		 WHERE b.org_id = $1 AND b.status = 'active'
 		 ORDER BY b.created_at DESC`, orgID)
@@ -64,7 +67,7 @@ func (r *Repo) ListBatches(ctx context.Context, orgID string) ([]Batch, error) {
 		var b Batch
 		if err := rows.Scan(&b.ID, &b.OrgID, &b.Name, &b.Slug, &b.Description, &b.MentorID,
 			&b.Status, &b.CreatedBy, &b.StartsAt, &b.EndsAt, &b.ImageURL, &b.CohortGroupID, &b.CreatedAt, &b.UpdatedAt,
-			&b.MemberCount); err != nil {
+			&b.MemberCount, &b.UnresolvedCount); err != nil {
 			return nil, fmt.Errorf("assessment: scan batch: %w", err)
 		}
 		out = append(out, b)

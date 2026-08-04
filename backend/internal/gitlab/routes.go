@@ -129,6 +129,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// (applied by the caller — see internal/api/router.go) is the only gate.
 	r.Get("/api/my/projects", h.ListMyProjects)
 	r.Get("/api/my/projects/{teamID}", h.GetMyProject)
+	r.Get("/api/my/projects/{teamID}/detail", h.GetMyProjectDetail)
 	r.Get("/api/my/projects/{teamID}/contributions", h.GetMyProjectContributions)
 	r.Get("/api/my/projects/{teamID}/checkpoints", h.GetMyProjectCheckpoints)
 }

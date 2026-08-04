@@ -6,14 +6,12 @@ import type {
   AssignmentDashboardView,
   AssignmentLeaderboardView,
   MyProjectCheckpointsView,
+  MyProjectDetailView,
   MyProjectSummary,
   OriginalityReportView,
   ProjectAssignment,
-  ProjectCheckpoint,
+  ProjectCheckpointWithSubmissions,
   ProjectTeam,
-  ProjectTeamCheckpoint,
-  ProjectTeamMember,
-  TeamActivityView,
   TeamContributionsView,
 } from "@/lib/projects/types";
 
@@ -34,16 +32,14 @@ export async function getProjectTeams(assignmentId: string): Promise<ProjectTeam
   return apiGet<ProjectTeam[]>(`/api/projects/assignments/${assignmentId}/teams`);
 }
 
-export async function getProjectTeamMembers(teamId: string): Promise<ProjectTeamMember[]> {
-  return apiGet<ProjectTeamMember[]>(`/api/projects/teams/${teamId}/members`);
-}
-
-export async function getTeamActivity(teamId: string): Promise<TeamActivityView> {
-  return apiGet<TeamActivityView>(`/api/projects/teams/${teamId}/activity`);
-}
-
 // ─── Batch 4: staff+mentor dashboards ──────────────────────────────────────
 
+// Each team row embeds its own member roster and activity feed (see
+// TeamDashboardSummary in lib/projects/types.ts) — the assignment detail
+// page reads members/activity straight off this response instead of a
+// getProjectTeamMembers/getTeamActivity call per team (the N+1 those two
+// single-team endpoints used to require; both endpoints still exist on the
+// backend for any other single-team caller, just unused by this page now).
 export async function getAssignmentDashboard(assignmentId: string): Promise<AssignmentDashboardView> {
   return apiGet<AssignmentDashboardView>(`/api/projects/assignments/${assignmentId}/dashboard`);
 }
@@ -73,6 +69,15 @@ export async function getMyProject(teamId: string): Promise<ProjectTeam> {
   return apiGet<ProjectTeam>(`/api/my/projects/${teamId}`);
 }
 
+// Returns the team plus its assignment_title/role, contributions, and
+// checkpoints in one response — the team detail page's full data need
+// (see handler_my_project.go), instead of getMyProject + listMyProjects +
+// getMyProjectContributions + getMyProjectCheckpoints. Same 404-not-403
+// membership scoping as getMyProject.
+export async function getMyProjectDetail(teamId: string): Promise<MyProjectDetailView> {
+  return apiGet<MyProjectDetailView>(`/api/my/projects/${teamId}/detail`);
+}
+
 export async function getMyProjectContributions(teamId: string): Promise<TeamContributionsView> {
   return apiGet<TeamContributionsView>(`/api/my/projects/${teamId}/contributions`);
 }
@@ -88,12 +93,13 @@ export async function getMyProjectCheckpoints(teamId: string): Promise<MyProject
 // ListCheckpoints/ListSubmissions return their arrays directly under "data",
 // same convention as getProjectAssignments/getProjectTeams above.
 
-export async function getAssignmentCheckpoints(assignmentId: string): Promise<ProjectCheckpoint[]> {
-  return apiGet<ProjectCheckpoint[]>(`/api/projects/assignments/${assignmentId}/checkpoints`);
-}
-
-export async function getCheckpointSubmissions(checkpointId: string): Promise<ProjectTeamCheckpoint[]> {
-  return apiGet<ProjectTeamCheckpoint[]>(`/api/projects/checkpoints/${checkpointId}/submissions`);
+// Each checkpoint row embeds every team's submission against it
+// (ProjectCheckpointWithSubmissions — see lib/projects/types.ts) — the
+// assignment detail page reads submissions straight off this response
+// instead of a getCheckpointSubmissions call per checkpoint (the N+1
+// Promise.all(checkpoints.map(getCheckpointSubmissions)) used to make).
+export async function getAssignmentCheckpoints(assignmentId: string): Promise<ProjectCheckpointWithSubmissions[]> {
+  return apiGet<ProjectCheckpointWithSubmissions[]>(`/api/projects/assignments/${assignmentId}/checkpoints`);
 }
 
 // ─── Batch 6: originality scans (staff) ─────────────────────────────────────

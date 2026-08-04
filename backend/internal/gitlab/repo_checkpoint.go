@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -80,10 +81,34 @@ func (r *Repo) GetCheckpointByID(ctx context.Context, id string) (*ProjectCheckp
 	return scanCheckpoint(row)
 }
 
-// ListCheckpoints lists every checkpoint under an assignment, in Position order.
-func (r *Repo) ListCheckpoints(ctx context.Context, orgID, assignmentID string) ([]ProjectCheckpoint, error) {
+// ListCheckpoints lists every checkpoint under an assignment, in Position
+// order, with every team's submission row against it embedded via a
+// LATERAL json_agg subquery — one query for the whole assignment rather than
+// this method's former plain checkpoint list plus a
+// ListTeamCheckpointsByCheckpoint round trip per checkpoint the frontend
+// detail page used to make (GetCheckpointSubmissions called once per
+// checkpoint in a Promise.all). row_to_json's column aliases are written to
+// match ProjectTeamCheckpoint's own json tags exactly, so the aggregated
+// JSON unmarshals straight into it below with no field-by-field mapping.
+func (r *Repo) ListCheckpoints(ctx context.Context, orgID, assignmentID string) ([]CheckpointWithSubmissions, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+checkpointColumns+` FROM project_checkpoints WHERE org_id = $1 AND assignment_id = $2 ORDER BY position`,
+		`SELECT pc.id, pc.org_id, pc.assignment_id, pc.title, pc.description, pc.position, pc.due_at, pc.weight,
+		        pc.requires_mr, pc.requires_ci_pass, pc.gitlab_milestone_id, pc.created_at, pc.updated_at,
+		        COALESCE(s.submissions, '[]'::json)
+		 FROM project_checkpoints pc
+		 LEFT JOIN LATERAL (
+		   SELECT json_agg(row_to_json(z) ORDER BY z.created_at) AS submissions
+		   FROM (
+		     SELECT id, org_id, team_id, checkpoint_id, mr_iid, mr_id, mr_web_url, mr_state,
+		            approvals_count, ci_status, ci_pipeline_id, snapshot_sha, snapshot_at,
+		            is_late, late_commit_count, score, feedback, graded_by, graded_at, status,
+		            created_at, updated_at
+		     FROM project_team_checkpoints ptc
+		     WHERE ptc.checkpoint_id = pc.id
+		   ) z
+		 ) s ON true
+		 WHERE pc.org_id = $1 AND pc.assignment_id = $2
+		 ORDER BY pc.position`,
 		orgID, assignmentID,
 	)
 	if err != nil {
@@ -91,13 +116,22 @@ func (r *Repo) ListCheckpoints(ctx context.Context, orgID, assignmentID string) 
 	}
 	defer rows.Close()
 
-	out := []ProjectCheckpoint{}
+	out := []CheckpointWithSubmissions{}
 	for rows.Next() {
-		cp, err := scanCheckpoint(rows)
-		if err != nil {
-			return nil, err
+		var cp ProjectCheckpoint
+		var submissionsRaw []byte
+		if err := rows.Scan(
+			&cp.ID, &cp.OrgID, &cp.AssignmentID, &cp.Title, &cp.Description, &cp.Position, &cp.DueAt, &cp.Weight,
+			&cp.RequiresMR, &cp.RequiresCIPass, &cp.GitlabMilestoneID, &cp.CreatedAt, &cp.UpdatedAt,
+			&submissionsRaw,
+		); err != nil {
+			return nil, fmt.Errorf("gitlab: scan checkpoint: %w", err)
 		}
-		out = append(out, *cp)
+		var submissions []ProjectTeamCheckpoint
+		if err := json.Unmarshal(submissionsRaw, &submissions); err != nil {
+			return nil, fmt.Errorf("gitlab: unmarshal checkpoint submissions: %w", err)
+		}
+		out = append(out, CheckpointWithSubmissions{ProjectCheckpoint: cp, Submissions: submissions})
 	}
 	return out, rows.Err()
 }

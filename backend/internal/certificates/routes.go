@@ -53,6 +53,7 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Get("/api/courses/{courseID}/final-test", rt.handler.GetFinalTestForStudent)
 		r.Post("/api/courses/{courseID}/final-test/attempt", rt.handler.SubmitAttempt)
 		r.Get("/api/certificates/me", rt.handler.ListMyCertificates)
+		r.Get("/api/courses/{courseID}/certificates/me", rt.handler.GetMyCertificateForCourse)
 		r.Post("/api/courses/{courseID}/certificates/check-threshold", rt.handler.CheckThresholdCertificate)
 	})
 }

@@ -79,6 +79,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// ─── All authenticated users: browse, enroll, learn ──────────────────────
 	r.Get("/api/courses", h.ListCourses)
 	r.Get("/api/courses/random-topic", h.GetRandomTopic)
+	r.Get("/api/courses/by-slug/{slug}", h.GetCourseBySlug)
 	r.Get("/api/courses/{courseID}", h.GetCourse)
 	r.Post("/api/courses/{courseID}/enroll", h.Enroll)
 	r.Post("/api/courses/{courseID}/checkout", h.StartCheckout)

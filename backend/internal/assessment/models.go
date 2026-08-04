@@ -198,19 +198,25 @@ type QuestionUsage struct {
 }
 
 type Batch struct {
-	ID            string     `json:"id"`
-	OrgID         string     `json:"org_id"`
-	Name          string     `json:"name"`
-	Slug          string     `json:"slug"`
-	Description   *string    `json:"description"`
-	MentorID      *string    `json:"mentor_id"`
-	Status        string     `json:"status"`
-	MemberCount   int        `json:"member_count"`
-	CreatedBy     string     `json:"created_by"`
-	StartsAt      *time.Time `json:"starts_at"`
-	EndsAt        *time.Time `json:"ends_at"`
-	ImageURL      *string    `json:"image_url"`
-	CohortGroupID *string    `json:"cohort_group_id"`
+	ID          string  `json:"id"`
+	OrgID       string  `json:"org_id"`
+	Name        string  `json:"name"`
+	Slug        string  `json:"slug"`
+	Description *string `json:"description"`
+	MentorID    *string `json:"mentor_id"`
+	Status      string  `json:"status"`
+	MemberCount int     `json:"member_count"`
+	// UnresolvedCount is the count of open (unresolved, non-deleted, top-level)
+	// student questions posted to this batch's Q&A channel. Only populated by
+	// ListBatches — computed via a single aggregate subquery there so the batch
+	// list view (mentoring overview, batch list) never needs a per-batch N+1
+	// fan-out to the messaging domain just to show a badge count.
+	UnresolvedCount int        `json:"unresolved_count"`
+	CreatedBy       string     `json:"created_by"`
+	StartsAt        *time.Time `json:"starts_at"`
+	EndsAt          *time.Time `json:"ends_at"`
+	ImageURL        *string    `json:"image_url"`
+	CohortGroupID   *string    `json:"cohort_group_id"`
 	// CohortGroupName is denormalized in from cohort_groups only by
 	// ListBatchesForUser (the student-facing "/api/my/batches" query) — group
 	// CRUD/listing is staff-only, so a student's own dashboard has no other way

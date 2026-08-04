@@ -9,12 +9,9 @@ import {
   getAssignmentCheckpoints,
   getAssignmentDashboard,
   getAssignmentLeaderboard,
-  getCheckpointSubmissions,
   getOriginalityReports,
   getProjectAssignment,
-  getProjectTeamMembers,
   getProjectTeams,
-  getTeamActivity,
 } from "@/lib/projects/server";
 import { getBatch, getBatchMembers } from "@/lib/server/batches";
 import { PublishAssignmentButton } from "@/components/projects/publish-assignment-button";
@@ -57,24 +54,28 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
     notFound();
   }
 
-  const [batch, batchMembers, membersByTeam, activityByTeam, dashboard, leaderboard, burndown, checkpoints, originalityReports] = await Promise.all([
+  // Team member rosters, team activity feeds, and checkpoint submissions all
+  // come embedded in getAssignmentDashboard/getAssignmentCheckpoints below —
+  // one request each for the whole assignment — rather than a
+  // getProjectTeamMembers/getTeamActivity/getCheckpointSubmissions call per
+  // team/checkpoint (the N+1 fan-out this page used to do).
+  const [batch, batchMembers, dashboard, leaderboard, burndown, checkpoints, originalityReports] = await Promise.all([
     getBatch(assignment.batch_id),
     getBatchMembers(assignment.batch_id),
-    Promise.all(teams.map((t) => getProjectTeamMembers(t.id))),
-    Promise.all(teams.map((t) => getTeamActivity(t.id))),
     getAssignmentDashboard(assignment.id),
     getAssignmentLeaderboard(assignment.id),
     getAssignmentBurndown(assignment.id),
     getAssignmentCheckpoints(assignment.id),
     getOriginalityReports(assignment.id),
   ]);
-  const submissionsByCheckpoint = Object.fromEntries(
-    await Promise.all(checkpoints.map(async (cp) => [cp.id, await getCheckpointSubmissions(cp.id)] as const)),
-  );
 
-  const assignedUserIds = new Set(membersByTeam.flat().map((m) => m.user_id));
-  const availableStudents = batchMembers.filter((m) => !assignedUserIds.has(m.user_id));
   const dashboardByTeam = Object.fromEntries(dashboard.teams.map((t) => [t.team_id, t]));
+  const membersByTeam = Object.fromEntries(dashboard.teams.map((t) => [t.team_id, t.members]));
+  const activityByTeam = Object.fromEntries(dashboard.teams.map((t) => [t.team_id, t.activity]));
+  const submissionsByCheckpoint = Object.fromEntries(checkpoints.map((cp) => [cp.id, cp.submissions]));
+
+  const assignedUserIds = new Set(dashboard.teams.flatMap((t) => t.members).map((m) => m.user_id));
+  const availableStudents = batchMembers.filter((m) => !assignedUserIds.has(m.user_id));
   const teamsById = Object.fromEntries(teams.map((t) => [t.id, t]));
 
   return (
@@ -110,11 +111,11 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
           <CreateTeamPanel assignmentId={assignment.id} />
         </div>
         <TeamList
-          activityByTeam={Object.fromEntries(teams.map((t, i) => [t.id, activityByTeam[i]]))}
+          activityByTeam={activityByTeam}
           assignmentId={assignment.id}
           availableStudents={availableStudents}
           dashboardByTeam={dashboardByTeam}
-          membersByTeam={Object.fromEntries(teams.map((t, i) => [t.id, membersByTeam[i]]))}
+          membersByTeam={membersByTeam}
           teams={teams}
         />
       </div>

@@ -16,13 +16,13 @@ import { CourseCard } from "@/components/courses/course-card";
 import { AIConnectorNudge } from "@/components/settings/ai-connector-nudge";
 import ROUTES from "@/lib/routes";
 import { getCurrentUser } from "@/lib/server/auth";
-import { getEnrollments, getCourseProgress } from "@/lib/server/courses";
+import { getEnrollments } from "@/lib/server/courses";
 import { getMyAssessments } from "@/lib/assessments/server";
-import { getMyRewardProfile, getLeaderboard, getMyRank } from "@/lib/server/rewards";
+import { getMyRewardProfile, getLeaderboard } from "@/lib/server/rewards";
 import { listEventsAction } from "@/lib/server/calendar";
 import { getMyBatches } from "@/lib/server/batches";
 import { apiGet } from "@/lib/server/api";
-import type { Enrollment, CourseProgressSummary } from "@/lib/server/courses";
+import type { Enrollment } from "@/lib/server/courses";
 import type { AssignedAssessment } from "@/lib/assessments/types";
 import type { CalendarEvent } from "@/lib/calendar/types";
 
@@ -31,35 +31,21 @@ export const metadata: Metadata = {
   description: "Your MindForge learning dashboard.",
 };
 
-interface EnrolledCourseWithProgress {
-  enrollment: Enrollment;
-  progress: CourseProgressSummary | null;
+// progress.last_activity_at (the most recent module_progress.updated_at,
+// joined server-side by GET /api/enrollments/me) is the last time the
+// student actually touched the course; enrolled_at is the only fallback for
+// a course with no progress rows yet.
+function lastActivity(enrollment: Enrollment): number {
+  const lastTouched = enrollment.progress.last_activity_at
+    ? new Date(enrollment.progress.last_activity_at).getTime()
+    : 0;
+  return Math.max(new Date(enrollment.enrolled_at).getTime(), lastTouched);
 }
 
-// Most recent module_progress.updated_at is the last time the student actually
-// touched the course; enrolled_at is the only fallback for a course with no
-// progress rows yet.
-function lastActivity({ enrollment, progress }: EnrolledCourseWithProgress): number {
-  const moduleTimestamps = progress?.modules.map((m) => new Date(m.updated_at).getTime()) ?? [];
-  return Math.max(new Date(enrollment.enrolled_at).getTime(), ...moduleTimestamps);
-}
-
-async function fetchEnrolledCoursesWithProgress(): Promise<EnrolledCourseWithProgress[]> {
+async function fetchEnrolledCoursesWithProgress(): Promise<Enrollment[]> {
   try {
     const enrollments = await getEnrollments();
-
-    const withProgress = await Promise.all(
-      enrollments.map(async (enrollment) => {
-        try {
-          const progress = await getCourseProgress(enrollment.course_id);
-          return { enrollment, progress };
-        } catch {
-          return { enrollment, progress: null };
-        }
-      }),
-    );
-
-    return withProgress.sort((a, b) => lastActivity(b) - lastActivity(a)).slice(0, 3);
+    return enrollments.sort((a, b) => lastActivity(b) - lastActivity(a)).slice(0, 3);
   } catch {
     return [];
   }
@@ -138,15 +124,14 @@ async function fetchUpcomingItems(): Promise<UpcomingItem[]> {
 
 const DASHBOARD_LEADERBOARD_SIZE = 5;
 
+// getLeaderboard's response already embeds the caller's own rank (`me`) —
+// no separate getMyRank call needed just to show it alongside the preview.
 async function fetchLeaderboardPreview(scope: LeaderboardScope, scopeId?: string) {
-  const [leaderboard, myRank] = await Promise.all([
-    getLeaderboard(scope, scopeId, undefined, DASHBOARD_LEADERBOARD_SIZE, 0),
-    getMyRank(scope, scopeId),
-  ]);
+  const leaderboard = await getLeaderboard(scope, scopeId, undefined, DASHBOARD_LEADERBOARD_SIZE, 0);
 
   return {
     entries: leaderboard?.entries ?? [],
-    myRank: myRank && myRank.rank > 0 ? myRank.rank : undefined,
+    myRank: leaderboard?.me && leaderboard.me.rank > 0 ? leaderboard.me.rank : undefined,
   };
 }
 
@@ -279,13 +264,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {coursesWithProgress.map(({ enrollment, progress }) => (
+                {coursesWithProgress.map((enrollment) => (
                   <CourseCard
                     enrolled
                     course={enrollment.course}
                     href={ROUTES.courseLearn(enrollment.course.slug)}
                     key={enrollment.id}
-                    progressPct={Math.round(progress?.pct ?? 0)}
+                    progressPct={Math.round(enrollment.progress.pct)}
                   />
                 ))}
               </div>

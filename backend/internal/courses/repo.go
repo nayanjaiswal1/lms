@@ -296,6 +296,33 @@ func (r *Repo) ArchiveCourse(ctx context.Context, orgID, id string) error {
 	return nil
 }
 
+// GetCourseBySlug returns a single course by slug with org scope — mirrors
+// GetCourse, letting a caller that only has a URL slug (the course detail
+// page) resolve it directly in SQL instead of fetching the whole catalog to
+// find the one matching row.
+func (r *Repo) GetCourseBySlug(ctx context.Context, orgID, slug string) (Course, error) {
+	var c Course
+	err := r.pool.QueryRow(ctx,
+		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
+		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
+		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
+		        c.kind, c.owner_id, c.created_at, c.updated_at
+		 FROM courses c
+		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
+		 WHERE c.slug = $1 AND c.org_id = $2`, slug, orgID,
+	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
+		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
+		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
+		&c.Kind, &c.OwnerID, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Course{}, ErrNotFound
+		}
+		return Course{}, fmt.Errorf("courses: get by slug: %w", err)
+	}
+	return c, nil
+}
+
 // GetCourseTree loads a course with all its sections and modules in a single
 // query. userID gates visibility: a kind='self' course is only ever visible
 // to its own owner — anyone else gets ErrNotFound (never ErrForbidden, so a
@@ -309,10 +336,30 @@ func (r *Repo) GetCourseTree(ctx context.Context, orgID, userID, courseID string
 	if c.Kind == KindSelf && (c.OwnerID == nil || *c.OwnerID != userID) {
 		return CourseTree{}, ErrNotFound
 	}
+	return r.buildCourseTree(ctx, c)
+}
 
+// GetCourseTreeBySlug is GetCourseTree's slug-keyed counterpart, used by the
+// course detail page's slug-resolution endpoint — same visibility rule,
+// different lookup key.
+func (r *Repo) GetCourseTreeBySlug(ctx context.Context, orgID, userID, slug string) (CourseTree, error) {
+	c, err := r.GetCourseBySlug(ctx, orgID, slug)
+	if err != nil {
+		return CourseTree{}, err
+	}
+	if c.Kind == KindSelf && (c.OwnerID == nil || *c.OwnerID != userID) {
+		return CourseTree{}, ErrNotFound
+	}
+	return r.buildCourseTree(ctx, c)
+}
+
+// buildCourseTree loads c's sections and modules — the shared body of
+// GetCourseTree and GetCourseTreeBySlug, which differ only in how c itself
+// was resolved (by id vs. by slug).
+func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error) {
 	sectionRows, err := r.pool.Query(ctx,
 		`SELECT id, course_id, title, position, created_at FROM course_sections
-		 WHERE course_id = $1 ORDER BY position`, courseID)
+		 WHERE course_id = $1 ORDER BY position`, c.ID)
 	if err != nil {
 		return CourseTree{}, fmt.Errorf("courses: get sections: %w", err)
 	}
@@ -334,7 +381,7 @@ func (r *Repo) GetCourseTree(ctx context.Context, orgID, userID, courseID string
 		`SELECT id, course_id, section_id, title, type, position, is_free_preview,
 		        storage_key, duration_seconds, content_body, assessment_id, estimated_minutes,
 		        starts_at, ends_at, created_at, updated_at
-		 FROM course_modules WHERE course_id = $1 AND deleted_at IS NULL ORDER BY section_id, position`, courseID)
+		 FROM course_modules WHERE course_id = $1 AND deleted_at IS NULL ORDER BY section_id, position`, c.ID)
 	if err != nil {
 		return CourseTree{}, fmt.Errorf("courses: get modules: %w", err)
 	}
@@ -847,17 +894,32 @@ func (r *Repo) DeleteOwnedSelfCourse(ctx context.Context, orgID, ownerID, course
 	return nil
 }
 
-// GetMyEnrollments returns all courses a student is enrolled in within an org, with course data joined.
+// GetMyEnrollments returns all courses a student is enrolled in within an
+// org, with course data and per-course progress joined in a single query
+// (via a LATERAL subquery over course_modules/module_progress) — callers
+// that need progress alongside enrollments (e.g. the dashboard) get it in
+// one round trip instead of one GetCourseProgress call per enrollment.
 func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]Enrollment, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT e.id, e.user_id, e.course_id, e.batch_id, e.enrolled_by, e.enrolled_at, e.completed_at,
 		        c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url,
 		        c.difficulty, c.tags, c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public,
 		        c.estimated_hours, u.name, cr.avg_rating, COALESCE(cr.review_count, 0),
-		        c.kind, c.owner_id, c.created_at, c.updated_at
+		        c.kind, c.owner_id, c.created_at, c.updated_at,
+		        COALESCE(mp.completed, 0), COALESCE(mp.total, 0), COALESCE(mp.pct, 0), mp.last_activity_at
 		 FROM enrollments e
 		 JOIN courses c ON c.id = e.course_id
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
+		 LEFT JOIN LATERAL (
+		   SELECT
+		     COUNT(*) FILTER (WHERE cmp.status = 'completed') AS completed,
+		     COUNT(*) AS total,
+		     ROUND(100.0 * COUNT(*) FILTER (WHERE cmp.status = 'completed') / NULLIF(COUNT(*), 0), 1) AS pct,
+		     MAX(cmp.updated_at) AS last_activity_at
+		   FROM course_modules cm
+		   LEFT JOIN module_progress cmp ON cmp.module_id = cm.id AND cmp.user_id = e.user_id
+		   WHERE cm.course_id = c.id AND cm.deleted_at IS NULL
+		 ) mp ON true
 		 WHERE e.user_id = $1 AND c.org_id = $2
 		 ORDER BY e.enrolled_at DESC`, userID, orgID)
 	if err != nil {
@@ -874,6 +936,7 @@ func (r *Repo) GetMyEnrollments(ctx context.Context, userID, orgID string) ([]En
 			&e.Course.Status, &e.Course.ForkedFromID, &e.Course.PriceCents, &e.Course.IsFree, &e.Course.IsPublic,
 			&e.Course.EstimatedHours, &e.Course.InstructorName, &e.Course.AvgRating, &e.Course.ReviewCount,
 			&e.Course.Kind, &e.Course.OwnerID, &e.Course.CreatedAt, &e.Course.UpdatedAt,
+			&e.Progress.Completed, &e.Progress.Total, &e.Progress.Pct, &e.Progress.LastActivityAt,
 		); err != nil {
 			return nil, fmt.Errorf("courses: scan enrollment: %w", err)
 		}

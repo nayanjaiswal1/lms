@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
-import { getBatchInvitations, getBatchMembers, getBatchMentors, getOrgId, getOrgMembersAll } from "@/lib/server/batches";
+import { getBatchInvitations, getBatchRoster, getOrgId, getOrgMembersAll } from "@/lib/server/batches";
 import { getCourses } from "@/lib/server/courses";
 import { getImportJobStatusAction } from "@/app/(app)/batches/actions";
 import { AddPeoplePanel } from "@/app/(app)/batches/[id]/add-people-panel";
@@ -20,14 +20,14 @@ export default async function BatchPeoplePage({ params, searchParams }: Props) {
 
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 
-  const [members, mentors, orgMembers, invitations, courses, jobStatusResult] = await Promise.all([
-    getBatchMembers(id).catch(() => []),
-    getBatchMentors(id).catch(() => []),
+  const [roster, orgMembers, invitations, courses, jobStatusResult] = await Promise.all([
+    getBatchRoster(id).catch(() => ({ members: [], mentors: [] })),
     getOrgMembersAll(orgId).catch(() => []),
     getBatchInvitations(id).catch(() => []),
     getCourses().catch(() => []),
     jobId ? getImportJobStatusAction(id, jobId) : Promise.resolve(null),
   ]);
+  const { members, mentors } = roster;
   const initialJobStatus = jobStatusResult?.data ?? null;
 
   const people: Person[] = [

@@ -59,6 +59,7 @@ export interface WikiPageDetail extends WikiPage {
   space_slug: string;
   space_name: string;
   breadcrumb: WikiBreadcrumbItem[];
+  comments: WikiCommentThread[];
 }
 
 export interface WikiPageVersionSummary {
@@ -128,10 +129,6 @@ export async function getWikiPageVersions(pageId: string): Promise<WikiPageVersi
 
 export async function getWikiPageVersion(pageId: string, version: number): Promise<WikiPageVersionDetail> {
   return apiGet<WikiPageVersionDetail>(`/api/wiki/pages/${pageId}/versions/${version}`);
-}
-
-export async function getWikiComments(pageId: string): Promise<WikiCommentThread[]> {
-  return apiGet<WikiCommentThread[]>(`/api/wiki/pages/${pageId}/comments`);
 }
 
 export async function getWikiTemplates(): Promise<WikiTemplate[]> {

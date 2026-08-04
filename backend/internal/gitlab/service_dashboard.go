@@ -1,6 +1,9 @@
 package gitlab
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // Batch 4: contribution tracking & dashboards. Every method here is a thin,
 // org-scoped (or membership-scoped, for the student-facing ones) wrapper
@@ -8,7 +11,12 @@ import "context"
 // GetTeamActivity's own org-scope-then-read shape from service_roster.go.
 
 // GetAssignmentDashboard returns the assignment-wide, per-team
-// commit/MR/pipeline/free-rider summary for the staff+mentor dashboard.
+// commit/MR/pipeline/free-rider summary for the staff+mentor dashboard,
+// with each team's member roster and recent-activity feed embedded (see
+// Repo.GetTeamMembersByAssignment/GetTeamActivityByAssignment's own doc
+// comments) — two extra queries for the whole assignment, never one per
+// team, so the frontend detail page no longer needs to fan out
+// getProjectTeamMembers/getTeamActivity across every team itself.
 func (s *Service) GetAssignmentDashboard(ctx context.Context, orgID, assignmentID string) (*AssignmentDashboardView, error) {
 	if _, err := s.repo.GetAssignment(ctx, orgID, assignmentID); err != nil {
 		return nil, err
@@ -16,6 +24,22 @@ func (s *Service) GetAssignmentDashboard(ctx context.Context, orgID, assignmentI
 	teams, err := s.repo.GetAssignmentDashboard(ctx, assignmentID)
 	if err != nil {
 		return nil, err
+	}
+	membersByTeam, err := s.repo.GetTeamMembersByAssignment(ctx, assignmentID)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: get assignment dashboard: %w", err)
+	}
+	activityByTeam, err := s.repo.GetTeamActivityByAssignment(ctx, assignmentID)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: get assignment dashboard: %w", err)
+	}
+	for i := range teams {
+		members := membersByTeam[teams[i].TeamID]
+		if members == nil {
+			members = []ProjectTeamMember{}
+		}
+		teams[i].Members = members
+		teams[i].Activity = activityByTeam[teams[i].TeamID]
 	}
 	return &AssignmentDashboardView{AssignmentID: assignmentID, Teams: teams}, nil
 }

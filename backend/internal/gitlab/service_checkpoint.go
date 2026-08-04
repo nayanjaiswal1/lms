@@ -75,8 +75,10 @@ func (s *Service) maybeCreateGitlabMilestone(ctx context.Context, orgID string, 
 	cp.GitlabMilestoneID = &milestone.ID
 }
 
-// ListCheckpoints lists an assignment's checkpoints in position order.
-func (s *Service) ListCheckpoints(ctx context.Context, orgID, assignmentID string) ([]ProjectCheckpoint, error) {
+// ListCheckpoints lists an assignment's checkpoints in position order, each
+// with every team's submission row against it embedded (see
+// Repo.ListCheckpoints's own doc comment).
+func (s *Service) ListCheckpoints(ctx context.Context, orgID, assignmentID string) ([]CheckpointWithSubmissions, error) {
 	list, err := s.repo.ListCheckpoints(ctx, orgID, assignmentID)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab: list checkpoints: %w", err)

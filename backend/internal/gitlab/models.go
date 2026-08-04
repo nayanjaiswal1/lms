@@ -597,15 +597,25 @@ type AssignmentBurndownView struct {
 // summary for the assignment-wide instructor dashboard — the
 // assignment-wide, aggregated counterpart to Batch 3's per-team
 // TeamActivityView (which stays unaggregated recent-activity, on purpose).
+//
+// Members and Activity are populated by Service.GetAssignmentDashboard from
+// Repo.GetTeamMembersByAssignment/GetTeamActivityByAssignment — one extra
+// query each for the whole assignment (never per-team) — so the assignment
+// detail page can render every team's roster and activity feed from this one
+// response instead of a getProjectTeamMembers/getTeamActivity round trip per
+// team (the N+1 kind-herding-cookie.md never called out because Batch 4
+// shipped before the frontend detail page did).
 type TeamDashboardSummary struct {
-	TeamID               string  `json:"team_id"`
-	TeamName             string  `json:"team_name"`
-	MemberCount          int     `json:"member_count"`
-	CommitCount          int     `json:"commit_count"`
-	OpenMRCount          int     `json:"open_mr_count"`
-	MergedMRCount        int     `json:"merged_mr_count"`
-	LatestPipelineStatus *string `json:"latest_pipeline_status,omitempty"`
-	FreeRiderCount       int     `json:"free_rider_count"`
+	TeamID               string              `json:"team_id"`
+	TeamName             string              `json:"team_name"`
+	MemberCount          int                 `json:"member_count"`
+	CommitCount          int                 `json:"commit_count"`
+	OpenMRCount          int                 `json:"open_mr_count"`
+	MergedMRCount        int                 `json:"merged_mr_count"`
+	LatestPipelineStatus *string             `json:"latest_pipeline_status,omitempty"`
+	FreeRiderCount       int                 `json:"free_rider_count"`
+	Members              []ProjectTeamMember `json:"members"`
+	Activity             TeamActivityView    `json:"activity"`
 }
 
 // AssignmentDashboardView is GET /api/projects/assignments/{assignmentID}/dashboard's response body.
@@ -717,6 +727,15 @@ type ProjectTeamCheckpoint struct {
 type GradePatch struct {
 	Score    float64 `json:"score"`
 	Feedback *string `json:"feedback"`
+}
+
+// CheckpointWithSubmissions is one row of GET .../checkpoints — a checkpoint
+// plus every team's submission row against it, embedded the same way
+// OriginalityReportView embeds its matches below, so the assignment detail
+// page doesn't need a GetCheckpointSubmissions round trip per checkpoint.
+type CheckpointWithSubmissions struct {
+	ProjectCheckpoint
+	Submissions []ProjectTeamCheckpoint `json:"submissions"`
 }
 
 // ─── Batch 5 (gap fix): student-facing "my checkpoints" ────────────────────
