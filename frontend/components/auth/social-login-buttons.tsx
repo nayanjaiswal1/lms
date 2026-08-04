@@ -61,17 +61,27 @@ function GoogleIcon() {
 
 export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginButtonsProps) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-  const isDisabled = disabled || !apiUrl;
+  // NEXT_PUBLIC_API_URL is intentionally empty in the Caddy same-origin setup
+  // (see frontend/.env.local) — that is not "unconfigured," so it must not
+  // gate these buttons. Whether a provider is actually usable depends on
+  // whether the backend has that provider's OAuth app credentials, which
+  // these two flags mirror (the client ID itself isn't secret — it rides in
+  // the redirect URL — but a plain enabled/disabled flag avoids keeping a
+  // duplicate copy of the ID in sync between backend/.env and here).
+  const googleDisabled = disabled || process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED !== "true";
+  const githubDisabled = disabled || process.env.NEXT_PUBLIC_GITHUB_OAUTH_ENABLED !== "true";
 
   // <a> ignores the "disabled" attribute and the disabled: Tailwind variant
   // (it only matches real form controls), so locking a provider link takes
   // pointer-events-none + aria-disabled + a click guard, not just a prop.
-  function handleClick(e: MouseEvent) {
-    if (isDisabled) {
-      e.preventDefault();
-      return;
-    }
-    onProviderSelect?.();
+  function handleClick(providerDisabled: boolean) {
+    return (e: MouseEvent) => {
+      if (providerDisabled) {
+        e.preventDefault();
+        return;
+      }
+      onProviderSelect?.();
+    };
   }
 
   return (
@@ -79,13 +89,13 @@ export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginBu
       <Button
         variant="outline"
         asChild
-        className={cn("gap-2", isDisabled && "pointer-events-none opacity-50")}
+        className={cn("gap-2", googleDisabled && "pointer-events-none opacity-50")}
       >
         <a
-          aria-disabled={isDisabled}
+          aria-disabled={googleDisabled}
           href={`${apiUrl}/api/auth/google`}
-          onClick={handleClick}
-          tabIndex={isDisabled ? -1 : undefined}
+          onClick={handleClick(googleDisabled)}
+          tabIndex={googleDisabled ? -1 : undefined}
         >
           <GoogleIcon />
           Google
@@ -95,13 +105,13 @@ export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginBu
       <Button
         variant="outline"
         asChild
-        className={cn("gap-2", isDisabled && "pointer-events-none opacity-50")}
+        className={cn("gap-2", githubDisabled && "pointer-events-none opacity-50")}
       >
         <a
-          aria-disabled={isDisabled}
+          aria-disabled={githubDisabled}
           href={`${apiUrl}/api/auth/github`}
-          onClick={handleClick}
-          tabIndex={isDisabled ? -1 : undefined}
+          onClick={handleClick(githubDisabled)}
+          tabIndex={githubDisabled ? -1 : undefined}
         >
           <GithubIcon />
           GitHub

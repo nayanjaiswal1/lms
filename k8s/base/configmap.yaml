@@ -28,6 +28,11 @@ data:
   NEXT_PUBLIC_MEDIA_URL: "https://app.yourdomain.com"
   NEXT_PUBLIC_LAB_PROXY_URL: "wss://app.yourdomain.com/lab-ws"
 
+  # Social login button visibility — flip to "true" only once the matching
+  # GOOGLE_CLIENT_ID/GITHUB_CLIENT_ID secret is set (see secret.example.yaml).
+  NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: "false"
+  NEXT_PUBLIC_GITHUB_OAUTH_ENABLED: "false"
+
   # Object storage (MinIO) — internal endpoint is the in-cluster Service name;
   # public endpoint must match DOMAIN so presigned URL signatures verify once
   # proxied through the Ingress (see ingress.yaml's bucket-path rule).
