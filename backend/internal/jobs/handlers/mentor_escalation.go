@@ -23,17 +23,17 @@ type mentorEscalationStep struct {
 var mentorEscalationSteps = []mentorEscalationStep{
 	{Level: 1, Days: 1}, // 1 day open  -> org mentors notified
 	{Level: 2, Days: 3}, // 3 days open -> staff holding mentoring.assign_tickets notified
-	{Level: 3, Days: 7}, // 7 days open -> staff notified again + the student notified
+	{Level: 3, Days: 7}, // 7 days open -> staff notified again, urgently
 }
 
-// staleMentorTicket is one 'open' ticket that has crossed an escalation threshold.
+// staleMentorTicket is one 'open' ticket that has crossed an escalation
+// threshold. Deliberately carries no student contact info — escalation
+// emails are an internal staff/mentor signal only, never sent to the
+// student who filed the ticket.
 type staleMentorTicket struct {
-	ID           string
-	OrgID        string
-	StudentID    string
-	StudentEmail string
-	StudentName  string
-	CourseTitle  string
+	ID          string
+	OrgID       string
+	CourseTitle string
 }
 
 // contact is an email recipient resolved for an org.
@@ -84,9 +84,8 @@ func (h *MentorEscalationHandler) Handle(ctx context.Context, _ jobs.Job) error 
 // same org only resolves mentors/staff once.
 func (h *MentorEscalationHandler) escalateStep(ctx context.Context, step mentorEscalationStep) (int, error) {
 	rows, err := h.pool.Query(ctx,
-		`SELECT conv.id, conv.org_id, conv.requester_id, u.email, u.name, co.title
+		`SELECT conv.id, conv.org_id, co.title
 		 FROM conversations conv
-		 JOIN users u ON u.id = conv.requester_id
 		 JOIN courses co ON co.id = conv.course_id
 		 WHERE conv.kind = 'mentorship'
 		   AND conv.status = 'open'
@@ -101,7 +100,7 @@ func (h *MentorEscalationHandler) escalateStep(ctx context.Context, step mentorE
 	var tickets []staleMentorTicket
 	for rows.Next() {
 		var t staleMentorTicket
-		if err := rows.Scan(&t.ID, &t.OrgID, &t.StudentID, &t.StudentEmail, &t.StudentName, &t.CourseTitle); err != nil {
+		if err := rows.Scan(&t.ID, &t.OrgID, &t.CourseTitle); err != nil {
 			rows.Close()
 			return 0, fmt.Errorf("scan stale ticket: %w", err)
 		}
@@ -134,15 +133,6 @@ func (h *MentorEscalationHandler) escalateStep(ctx context.Context, step mentorE
 			if err := h.enqueueEmail(ctx,
 				fmt.Sprintf("mentor_escalation:%s:%d:%s", t.ID, step.Level, r.ID),
 				r.Email, r.Name, staffSubject(step.Level, t.CourseTitle), staffBody(step.Level, t.CourseTitle, h.cfg.FrontendURL),
-			); err != nil {
-				return escalated, err
-			}
-		}
-
-		if step.Level == 3 {
-			if err := h.enqueueEmail(ctx,
-				fmt.Sprintf("mentor_escalation:%s:%d:student", t.ID, step.Level),
-				t.StudentEmail, t.StudentName, studentSubject(t.CourseTitle), studentBody(t.CourseTitle),
 			); err != nil {
 				return escalated, err
 			}
@@ -283,16 +273,4 @@ func staffBody(level int, courseTitle, frontendURL string) string {
 	default:
 		return fmt.Sprintf("A mentor ticket for \"%s\" has been open for a full week with no mentor assigned. This needs immediate attention.\n\n%s", courseTitle, link)
 	}
-}
-
-func studentSubject(courseTitle string) string {
-	return fmt.Sprintf("An update on your mentor request for %s", courseTitle)
-}
-
-func studentBody(courseTitle string) string {
-	return fmt.Sprintf(
-		"Hi,\n\nWe're still working on finding you a mentor for \"%s\". "+
-			"We're sorry for the delay — our team has been notified and is prioritizing your request.\n\nThe MindForge Team",
-		courseTitle,
-	)
 }
