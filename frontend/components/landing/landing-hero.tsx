@@ -1,21 +1,37 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ArrowRight, Flame } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Float, Reveal } from "@/components/landing/landing-motion";
 import { LandingIllustration } from "@/components/landing/landing-illustration";
-import { FEATURE_META } from "@/lib/features";
-import ROUTES from "@/lib/routes";
 import styles from "./landing-hero.module.css";
 
-interface LandingHeroProps {
-  courseTotal: number;
+interface HeroCta {
+  label: string;
+  href: string;
 }
 
-const featureCount = Object.keys(FEATURE_META).length;
+interface LandingHeroProps {
+  badge: string;
+  heading: ReactNode;
+  description: string;
+  primaryCta: HeroCta;
+  secondaryCta?: HeroCta;
+  footline: string;
+  illustration?: ReactNode;
+}
 
-export function LandingHero({ courseTotal }: LandingHeroProps) {
+export function LandingHero({
+  badge,
+  heading,
+  description,
+  primaryCta,
+  secondaryCta,
+  footline,
+  illustration,
+}: LandingHeroProps) {
   return (
     <section
       aria-labelledby="hero-heading"
@@ -31,7 +47,7 @@ export function LandingHero({ courseTotal }: LandingHeroProps) {
         <div className="text-center lg:text-left">
           <Reveal>
             <Badge className="mb-4" variant="outline">
-              Self-hosted · No vendor lock-in
+              {badge}
             </Badge>
           </Reveal>
 
@@ -40,44 +56,42 @@ export function LandingHero({ courseTotal }: LandingHeroProps) {
               className="mx-auto max-w-xl text-balance text-4xl font-bold leading-tight sm:text-5xl lg:mx-0"
               id="hero-heading"
             >
-              Structured learning, forged for learners{" "}
-              <span className="text-primary">and</span> the teams who train them
+              {heading}
             </h1>
           </Reveal>
 
           <Reveal delay={0.12}>
             <p className="mx-auto mt-5 max-w-xl text-pretty text-base text-muted-foreground sm:text-lg lg:mx-0">
-              MindForge is a multi-tenant platform for individual learners and for
-              the colleges, bootcamps, and companies that run them — courses,
-              hands-on labs, mentoring, and a daily plan, all in one place.
+              {description}
             </p>
           </Reveal>
 
           <Reveal delay={0.18}>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
               <Button asChild size="lg">
-                <Link href={ROUTES.REGISTER}>
-                  Start learning free
+                <Link href={primaryCta.href}>
+                  {primaryCta.label}
                   <ArrowRight aria-hidden className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href={ROUTES.ORG_CREATE}>Set up your organization</Link>
-              </Button>
+              {secondaryCta && (
+                <Button asChild size="lg" variant="outline">
+                  <Link href={secondaryCta.href}>{secondaryCta.label}</Link>
+                </Button>
+              )}
             </div>
           </Reveal>
 
           <Reveal delay={0.24}>
-            <p className="mt-6 text-sm text-muted-foreground">
-              {courseTotal > 0 ? `${courseTotal} published courses` : "New courses shipping weekly"} ·{" "}
-              {featureCount}+ built-in tools · Free while in beta
-            </p>
+            <p className="mt-6 text-sm text-muted-foreground">{footline}</p>
           </Reveal>
         </div>
 
         <Reveal delay={0.15} direction="right">
           <Float>
-            <LandingIllustration className="mx-auto w-full max-w-xs sm:max-w-sm lg:mx-0 lg:max-w-md" />
+            {illustration ?? (
+              <LandingIllustration className="mx-auto w-full max-w-xs sm:max-w-sm lg:mx-0 lg:max-w-md" />
+            )}
           </Float>
         </Reveal>
       </div>

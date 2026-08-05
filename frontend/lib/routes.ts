@@ -1,6 +1,7 @@
 const ROUTES = {
   // Public
   HOME:                "/",
+  ORG_LANDING:         "/org",
   COURSES:             "/courses",
   DEMO:                "/demo",
   DEMO_TOUR:           "/demo/tour",
@@ -140,6 +141,7 @@ const ROUTES = {
   PLATFORM_HIGHLIGHTS_BY_SOURCE:  "/platform/highlights/by-source",
   PLATFORM_HIGHLIGHTS_BY_MODEL:   "/platform/highlights/by-model",
   PLATFORM_FEATURES:       "/platform/features",
+  PLATFORM_PRICING:        "/platform/pricing",
   platformJob:             (id: string) => `/platform/jobs/${id}`,
   platformOrgQuotas:       (orgID: string) => `/platform/orgs/${orgID}/quotas`,
   platformOrgFeatures:     (orgID: string) => `/platform/features/${orgID}`,

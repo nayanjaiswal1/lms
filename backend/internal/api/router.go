@@ -41,6 +41,7 @@ import (
 	"github.com/mindforge/backend/internal/orgs"
 	"github.com/mindforge/backend/internal/payments"
 	"github.com/mindforge/backend/internal/practice"
+	"github.com/mindforge/backend/internal/pricing"
 	"github.com/mindforge/backend/internal/privacy"
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/revisionplan"
@@ -184,6 +185,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	activityRouter := activity.New(pool)
 	learnHubHandler := learnhub.New(pool)
 	featuresRouter := features.New(pool)
+	pricingRouter := pricing.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
 
@@ -273,6 +275,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 	// Public course catalog — anonymous marketplace listing for the landing page.
 	coursesRouter.RegisterPublicRoutes(r)
+
+	// Public pricing — the / and /org landing pages' pricing sections, editable
+	// by a platform admin at /platform/pricing without a redeploy.
+	pricingRouter.RegisterPublicRoutes(r)
 
 	// AI Connector (MCP) — discovery, dynamic client registration, the
 	// authorize/token endpoints, and /mcp itself. None of these are
@@ -400,6 +406,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// whole org.
 		featuresRouter.RegisterOrgAdminRoutes(r)
 		featuresRouter.RegisterPlatformRoutes(r)
+
+		// Pricing — platform admin (super_admin) edits the marketing pricing
+		// tiers shown on the / and /org landing pages.
+		pricingRouter.RegisterPlatformRoutes(r)
 
 		// RBAC — permission catalogue, role CRUD, user-role assignment, audit log.
 		authzHandler.RegisterRoutes(r)

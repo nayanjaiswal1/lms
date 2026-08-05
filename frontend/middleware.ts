@@ -12,6 +12,7 @@ import type { NextRequest } from "next/server"
 // server component would otherwise hit a raw 401.
 const PUBLIC_EXACT_PATHS = new Set([
   "/",
+  "/org", // org marketing landing — distinct from the authenticated /org/create, /org/settings, /org/setup routes below
   "/login",
   "/register",
   "/forgot-password",

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { LandingPage } from "@/components/landing/landing-page";
 import { getPublicCourses } from "@/lib/server/courses";
+import { getPublicPricingTiers } from "@/lib/server/pricing";
 import { getCurrentOrgBranding } from "@/lib/orgs/server";
 import ROUTES from "@/lib/routes";
 
@@ -29,7 +30,7 @@ export default async function RootPage() {
     redirect(ROUTES.DASHBOARD);
   }
 
-  const { total } = await getPublicCourses(1);
+  const [{ total }, tiers] = await Promise.all([getPublicCourses(1), getPublicPricingTiers("individual")]);
 
-  return <LandingPage total={total} />;
+  return <LandingPage tiers={tiers} total={total} />;
 }

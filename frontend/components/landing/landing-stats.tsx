@@ -1,21 +1,15 @@
 import { Reveal } from "@/components/landing/landing-motion";
-import { FEATURE_META, PLAN_TIERS } from "@/lib/features";
 
-interface LandingStatsProps {
-  courseTotal: number;
+interface Stat {
+  value: string;
+  label: string;
 }
 
-const featureCount = Object.keys(FEATURE_META).length;
-const freeTier = PLAN_TIERS.find((tier) => tier.id === "free");
+interface LandingStatsProps {
+  stats: Stat[];
+}
 
-export function LandingStats({ courseTotal }: LandingStatsProps) {
-  const stats = [
-    { value: String(courseTotal), label: "Published courses" },
-    { value: `${featureCount}+`, label: "Built-in tools" },
-    { value: "4", label: "Roles per organization" },
-    { value: freeTier?.price ?? "$0", label: freeTier?.tagline ?? "To get started" },
-  ];
-
+export function LandingStats({ stats }: LandingStatsProps) {
   return (
     <section aria-label="Platform stats" className="border-b border-border bg-muted/30 py-10">
       <Reveal className="page-container grid-stats">
