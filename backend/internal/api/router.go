@@ -134,7 +134,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// (kind=mentorship) — built before mentoring so mentoringRouter can be
 	// handed its repo and build mentorship-ticket creation on top of it
 	// instead of duplicating the CRUD.
-	ticketsRouter := tickets.New(pool, authzHandler.Service())
+	ticketsRouter := tickets.New(pool, authzHandler.Service(), cfg)
 
 	// mentoring is built before the courses handler so mentoringRouter.Service
 	// (satisfying courses.CoursePurchaser) can be injected into it. mentoring

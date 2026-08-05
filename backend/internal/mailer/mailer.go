@@ -14,7 +14,9 @@ import "context"
 
 // Sender delivers one plain-text email. Implementations own their own
 // transport config (SMTP host/port/auth, an API key, etc.) — callers only
-// ever see this interface.
+// ever see this interface. headers carries additional RFC 5322 headers
+// (e.g. Message-Id/In-Reply-To/References for threading a reply into an
+// existing conversation) — nil for a standalone email.
 type Sender interface {
-	Send(ctx context.Context, to, subject, body string) error
+	Send(ctx context.Context, to, subject, body string, headers map[string]string) error
 }

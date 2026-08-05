@@ -2,11 +2,14 @@ package tickets
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/mindforge/backend/internal/jobs"
 )
 
 var (
@@ -272,6 +275,89 @@ func (r *Repo) CreateMessage(ctx context.Context, orgID, ticketID, kind, senderI
 		return Message{}, fmt.Errorf("tickets: create message: %w", err)
 	}
 	return m, nil
+}
+
+// contact is an email notification recipient resolved from users/org_roles.
+type contact struct {
+	ID    string
+	Email string
+	Name  string
+}
+
+// userContact resolves userID's email/name for notification purposes.
+func (r *Repo) userContact(ctx context.Context, userID string) (contact, error) {
+	c := contact{ID: userID}
+	if err := r.pool.QueryRow(ctx, `SELECT email, name FROM users WHERE id = $1`, userID).
+		Scan(&c.Email, &c.Name); err != nil {
+		return contact{}, fmt.Errorf("tickets: user contact: %w", err)
+	}
+	return c, nil
+}
+
+// manageContacts returns every user in orgID holding permission code perm —
+// mirrors jobs/handlers/mentor_escalation.go's orgAssignStaff query (kept
+// separate rather than shared: that one is scheduler-only and caches across a
+// whole run, this one is a single per-request lookup).
+func (r *Repo) manageContacts(ctx context.Context, orgID, perm string) ([]contact, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT u.id, u.email, u.name
+		 FROM user_roles ur
+		 JOIN role_permissions rp ON rp.role_id = ur.role_id
+		 JOIN permissions p ON p.id = rp.permission_id
+		 JOIN users u ON u.id = ur.user_id
+		 WHERE ur.org_id = $1 AND p.code = $2 AND u.email <> ''`,
+		orgID, perm,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("tickets: manage contacts: %w", err)
+	}
+	defer rows.Close()
+	var contacts []contact
+	for rows.Next() {
+		var c contact
+		if err := rows.Scan(&c.ID, &c.Email, &c.Name); err != nil {
+			return nil, fmt.Errorf("tickets: scan manage contact: %w", err)
+		}
+		contacts = append(contacts, c)
+	}
+	return contacts, rows.Err()
+}
+
+// emailSendHandler mirrors handlers.HandlerEmailSend (internal/jobs/handlers)
+// — duplicated as a literal rather than importing that package, same
+// reasoning mentor_escalation.go gives for mentoringAssignTicketsPermission:
+// a cross-domain import for one constant isn't worth it, and jobs/handlers
+// doesn't (and shouldn't) depend back on tickets.
+const emailSendHandler = "email.send"
+
+// enqueueEmail inserts an email.send notification job, deduplicated by
+// idempKey so a retried request never double-sends. messageID/inReplyTo are
+// RFC 5322 header values (already wrapped in "<...>") threading this email
+// into the ticket's conversation — see rootMessageID/childMessageID.
+func (r *Repo) enqueueEmail(ctx context.Context, idempKey, to, toName, subject, body, messageID, inReplyTo string) error {
+	payload, err := json.Marshal(map[string]any{
+		"type":        "notification",
+		"to":          to,
+		"to_name":     toName,
+		"message_id":  messageID,
+		"in_reply_to": inReplyTo,
+		"template_data": map[string]any{
+			"subject": subject,
+			"body":    body,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("tickets: marshal notification email payload: %w", err)
+	}
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO jobs (handler, status, priority, payload, idempotency_key)
+		 VALUES ($1, 'queued', $2, $3, $4)
+		 ON CONFLICT (idempotency_key) DO NOTHING`,
+		emailSendHandler, jobs.PriorityNormal, payload, idempKey,
+	); err != nil {
+		return fmt.Errorf("tickets: insert notification email job (to=%s): %w", to, err)
+	}
+	return nil
 }
 
 // ListMessages returns every message on ticketID's thread, oldest first.

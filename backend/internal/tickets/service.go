@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
+
+	"github.com/mindforge/backend/internal/config"
 )
 
 // ErrInvalid signals a request that failed validation before reaching the
@@ -12,10 +16,11 @@ var ErrInvalid = errors.New("tickets: invalid input")
 
 type Service struct {
 	repo *Repo
+	cfg  *config.Config
 }
 
-func NewService(repo *Repo) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repo, cfg *config.Config) *Service {
+	return &Service{repo: repo, cfg: cfg}
 }
 
 // canAccess reports whether callerID may view/reply to t: its own
@@ -55,10 +60,15 @@ func (s *Service) CreateSupportTicket(ctx context.Context, orgID, userID, subjec
 		return Ticket{}, fmt.Errorf("%w: message must be between 1 and 4000 characters", ErrInvalid)
 	}
 	category, priority := CategoryOther, PriorityNormal
-	return s.repo.CreateWithMessage(ctx, Ticket{
+	ticket, err := s.repo.CreateWithMessage(ctx, Ticket{
 		OrgID: orgID, Kind: KindSupport, RequesterID: userID,
 		Subject: &subject, Category: &category, Priority: &priority,
 	}, body)
+	if err != nil {
+		return Ticket{}, err
+	}
+	s.notifyCreated(ctx, ticket)
+	return ticket, nil
 }
 
 // Get returns ticketID within orgID, plus its full reply thread, if callerID
@@ -112,7 +122,12 @@ func (s *Service) SendMessage(ctx context.Context, orgID, ticketID, senderID, bo
 	if t.Status == StatusClosed {
 		return Message{}, fmt.Errorf("%w: this ticket is closed", ErrInvalid)
 	}
-	return s.repo.CreateMessage(ctx, orgID, ticketID, t.Kind, senderID, body)
+	msg, err := s.repo.CreateMessage(ctx, orgID, ticketID, t.Kind, senderID, body)
+	if err != nil {
+		return Message{}, err
+	}
+	s.notifyReply(ctx, t, msg, senderID)
+	return msg, nil
 }
 
 // ListMessages returns the full reply thread for ticketID. Only the
@@ -167,4 +182,127 @@ func (s *Service) SetProperties(ctx context.Context, orgID, ticketID, category, 
 		return Ticket{}, fmt.Errorf("%w: priority must be one of low, normal, high", ErrInvalid)
 	}
 	return s.repo.UpdateProperties(ctx, orgID, ticketID, category, priority)
+}
+
+// ─── email notifications ────────────────────────────────────────────────────
+//
+// Every email below goes out through the same email.send job path
+// jobs/handlers/mentor_escalation.go already uses (type "notification"), and
+// every one carries In-Reply-To/References back to rootMessageID(ticket) —
+// a synthetic id, never itself the Message-Id of a sent email — so a mail
+// client threads the confirmation, every staff alert, and every reply
+// notification for one ticket into a single conversation. Enqueue failures
+// are logged, never returned: a notification problem must never fail the
+// ticket write that triggered it.
+
+// threadDomain returns the domain portion of emailFrom ("mindforge.com" from
+// "noreply@mindforge.com"), used to build Message-Id values.
+func threadDomain(emailFrom string) string {
+	if i := strings.LastIndex(emailFrom, "@"); i >= 0 {
+		return emailFrom[i+1:]
+	}
+	return "mindforge.local"
+}
+
+func rootMessageID(domain, ticketID string) string {
+	return fmt.Sprintf("<ticket-%s@%s>", ticketID, domain)
+}
+
+// childMessageID is a real, unique Message-Id for one email about ticketID —
+// suffix distinguishes concurrent recipients of the same event (e.g. two
+// staff alerts sent for the same new ticket).
+func childMessageID(domain, ticketID, suffix string) string {
+	return fmt.Sprintf("<ticket-%s-%s@%s>", ticketID, suffix, domain)
+}
+
+// notifyCreated emails the reporter a confirmation and every support.manage
+// holder an alert, for a just-created support ticket.
+func (s *Service) notifyCreated(ctx context.Context, t Ticket) {
+	domain := threadDomain(s.cfg.EmailFrom)
+	root := rootMessageID(domain, t.ID)
+	link := s.cfg.FrontendURL + "/support?ticket=" + t.ID
+	subject := *t.Subject
+
+	if requester, err := s.repo.userContact(ctx, t.RequesterID); err != nil {
+		slog.ErrorContext(ctx, "tickets: resolve requester contact", "ticket_id", t.ID, "error", err)
+	} else if requester.Email != "" {
+		greeting := "Hi"
+		if requester.Name != "" {
+			greeting = "Hi " + requester.Name
+		}
+		body := fmt.Sprintf("%s,\n\nWe've received your support ticket \"%s\" and will get back to you soon.\n\nView it here:\n%s\n\nThe MindForge Team",
+			greeting, subject, link)
+		if err := s.repo.enqueueEmail(ctx, "ticket-created-requester:"+t.ID, requester.Email, requester.Name,
+			"We've received your ticket: "+subject, body,
+			childMessageID(domain, t.ID, "created-requester"), root,
+		); err != nil {
+			slog.ErrorContext(ctx, "tickets: enqueue requester confirmation", "ticket_id", t.ID, "error", err)
+		}
+	}
+
+	staff, err := s.repo.manageContacts(ctx, t.OrgID, ManagePermission[KindSupport])
+	if err != nil {
+		slog.ErrorContext(ctx, "tickets: resolve support staff contacts", "ticket_id", t.ID, "error", err)
+		return
+	}
+	body := fmt.Sprintf("A new support ticket was raised.\n\nSubject: %s\n\nView it here:\n%s", subject, link)
+	for _, staffer := range staff {
+		if err := s.repo.enqueueEmail(ctx, fmt.Sprintf("ticket-created-staff:%s:%s", t.ID, staffer.ID), staffer.Email, staffer.Name,
+			"New support ticket: "+subject, body,
+			childMessageID(domain, t.ID, "created-staff-"+staffer.ID), root,
+		); err != nil {
+			slog.ErrorContext(ctx, "tickets: enqueue staff alert", "ticket_id", t.ID, "staff_id", staffer.ID, "error", err)
+		}
+	}
+}
+
+// notifyReply emails the "other side" of a support ticket's conversation
+// after senderID posts msg: the requester if staff/the assignee replied, or
+// the assignee — falling back to every support.manage holder if the ticket
+// is still unclaimed — if the requester replied. Mentorship tickets are
+// deliberately excluded: their notifications are already owned end-to-end by
+// jobs/handlers/mentor_escalation.go, and having two systems separately
+// decide who to email about the same ticket would drift out of sync.
+func (s *Service) notifyReply(ctx context.Context, t Ticket, msg Message, senderID string) {
+	if t.Kind != KindSupport {
+		return
+	}
+	domain := threadDomain(s.cfg.EmailFrom)
+	root := rootMessageID(domain, t.ID)
+	link := s.cfg.FrontendURL + "/support?ticket=" + t.ID
+	subject := *t.Subject
+	body := fmt.Sprintf("There's a new reply on ticket \"%s\":\n\n%s\n\nView the full conversation:\n%s", subject, msg.Body, link)
+
+	var recipients []contact
+	var err error
+	switch {
+	case senderID == t.RequesterID && t.AssignedTo != nil:
+		var c contact
+		if c, err = s.repo.userContact(ctx, *t.AssignedTo); err == nil {
+			recipients = []contact{c}
+		}
+	case senderID == t.RequesterID:
+		recipients, err = s.repo.manageContacts(ctx, t.OrgID, ManagePermission[KindSupport])
+	default:
+		var c contact
+		if c, err = s.repo.userContact(ctx, t.RequesterID); err == nil {
+			recipients = []contact{c}
+		}
+	}
+	if err != nil {
+		slog.ErrorContext(ctx, "tickets: resolve reply-notification recipients", "ticket_id", t.ID, "error", err)
+		return
+	}
+
+	for _, r := range recipients {
+		if r.Email == "" {
+			continue
+		}
+		if err := s.repo.enqueueEmail(ctx, fmt.Sprintf("ticket-reply:%s:%s", msg.ID, r.ID), r.Email, r.Name,
+			"New reply on your ticket: "+subject, body,
+			childMessageID(domain, t.ID, "reply-"+msg.ID+"-"+r.ID), root,
+		); err != nil {
+			slog.ErrorContext(ctx, "tickets: enqueue reply notification", "ticket_id", t.ID, "recipient_id", r.ID, "error", err)
+		}
+	}
 }

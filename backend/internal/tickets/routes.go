@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/authz"
+	"github.com/mindforge/backend/internal/config"
 )
 
 // Router wires the ticket HTTP API.
@@ -19,10 +20,12 @@ type Router struct {
 
 // New wires the tickets package's repo/service/handler dependency graph.
 // authzSvc backs the per-kind manage/queue permission checks (support.manage,
-// mentoring.assign_tickets, mentoring.view_tickets).
-func New(pool *pgxpool.Pool, authzSvc *authz.Service) *Router {
+// mentoring.assign_tickets, mentoring.view_tickets). cfg backs the
+// created/reply email notifications (FrontendURL for ticket links,
+// EmailFrom's domain for Message-Id threading).
+func New(pool *pgxpool.Pool, authzSvc *authz.Service, cfg *config.Config) *Router {
 	repo := NewRepo(pool)
-	service := NewService(repo)
+	service := NewService(repo, cfg)
 	return &Router{
 		handler: &Handler{service: service, authzSvc: authzSvc},
 		Service: service,

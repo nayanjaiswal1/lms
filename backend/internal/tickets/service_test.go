@@ -1,6 +1,9 @@
 package tickets
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCanAccess(t *testing.T) {
 	requester := "user-1"
@@ -27,6 +30,29 @@ func TestCanAccess(t *testing.T) {
 				t.Errorf("canAccess() = %v, want %v", got, c.want)
 			}
 		})
+	}
+}
+
+func TestMessageThreading(t *testing.T) {
+	domain := threadDomain("noreply@mindforge.com")
+	if domain != "mindforge.com" {
+		t.Fatalf("threadDomain() = %q, want mindforge.com", domain)
+	}
+	if got := threadDomain("no-at-sign"); got != "mindforge.local" {
+		t.Fatalf("threadDomain() fallback = %q, want mindforge.local", got)
+	}
+
+	root := rootMessageID(domain, "t1")
+	child := childMessageID(domain, "t1", "created-requester")
+	if root == child {
+		t.Fatalf("root and child message ids must differ, both = %q", root)
+	}
+	if !strings.HasPrefix(root, "<") || !strings.HasSuffix(root, ">") {
+		t.Fatalf("rootMessageID() = %q, want angle-bracket wrapped", root)
+	}
+	// Two recipients of the same event get distinct ids.
+	if a, b := childMessageID(domain, "t1", "staff-1"), childMessageID(domain, "t1", "staff-2"); a == b {
+		t.Fatalf("expected distinct child ids per recipient, both = %q", a)
 	}
 }
 

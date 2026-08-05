@@ -33,8 +33,8 @@ type Router struct {
 // whose provider_ref belongs to a mentor-session credit pack rather than a
 // course — see PackConfirmer; it may be nil. ticketsRepo is the shared
 // internal/tickets repo this package builds mentorship-ticket creation on
-// top of — callers must construct it via tickets.New(pool, authzSvc) before
-// this, so both packages share the same *pgxpool.Pool.
+// top of — callers must construct it via tickets.New(pool, authzSvc, cfg)
+// before this, so both packages share the same *pgxpool.Pool.
 func New(pool *pgxpool.Pool, ticketsRepo *tickets.Repo, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, packs PackConfirmer, authzSvc *authz.Service, cfg *config.Config) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo, ticketsRepo, providers, couponsSvc, coursesRepo, packs, cfg)

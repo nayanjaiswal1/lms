@@ -18,6 +18,13 @@ type EmailPayload struct {
 	To           string         `json:"to"`
 	ToName       string         `json:"to_name"`
 	TemplateData map[string]any `json:"template_data"`
+	// MessageID/InReplyTo thread a "notification" email into an existing
+	// conversation (e.g. a ticket) — set by the enqueuing package (see
+	// internal/tickets), consumed only by the "notification" case below.
+	// InReplyTo doubles as References since MindForge threads are flat
+	// (every message replies to the same root, never to another reply).
+	MessageID string `json:"message_id,omitempty"`
+	InReplyTo string `json:"in_reply_to,omitempty"`
 }
 
 // EmailHandler implements jobs.Handler for HandlerEmailSend jobs.
@@ -80,7 +87,18 @@ func (h *EmailHandler) Handle(ctx context.Context, job jobs.Job) error {
 				"to", p.To)
 			return nil
 		}
-		if err := h.sender.Send(ctx, p.To, subject, body); err != nil {
+		var headers map[string]string
+		if p.MessageID != "" || p.InReplyTo != "" {
+			headers = map[string]string{}
+			if p.MessageID != "" {
+				headers["Message-Id"] = p.MessageID
+			}
+			if p.InReplyTo != "" {
+				headers["In-Reply-To"] = p.InReplyTo
+				headers["References"] = p.InReplyTo
+			}
+		}
+		if err := h.sender.Send(ctx, p.To, subject, body, headers); err != nil {
 			return fmt.Errorf("handlers.email: send notification (to=%s): %w", p.To, err)
 		}
 
@@ -111,5 +129,5 @@ func (h *EmailHandler) sendEvalComplete(ctx context.Context, to, toName, assessm
 		"Your submission for \"" + assessmentTitle + "\" has been evaluated.\n\n" +
 		"View your results here:\n" + link + "\n\n" +
 		"The MindForge Team"
-	return h.sender.Send(ctx, to, subject, body)
+	return h.sender.Send(ctx, to, subject, body, nil)
 }
