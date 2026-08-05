@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -84,45 +85,90 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 
 // ─── config ────────────────────────────────────────────────────────────────
 
-// GetConfig returns the org's booking policy, falling back to DefaultConfig
-// when no row exists. See DefaultConfig for why a missing row is not an error.
+// GetConfig returns the org's booking policy by reading org_settings.session_booking jsonb,
+// falling back to DefaultConfig when no row exists or the jsonb is empty.
 func (r *Repo) GetConfig(ctx context.Context, orgID string) (Config, error) {
 	cfg := DefaultConfig(orgID)
+
+	var raw []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT enabled, require_credits, cancel_cutoff_hours, min_notice_hours,
-		        booking_horizon_days, max_upcoming_per_student, default_duration_minutes, updated_at
-		   FROM org_session_booking_config WHERE org_id = $1`,
+		`SELECT COALESCE(session_booking, '{}'::jsonb) FROM org_settings WHERE org_id = $1`,
 		orgID,
-	).Scan(&cfg.Enabled, &cfg.RequireCredits, &cfg.CancelCutoffHours, &cfg.MinNoticeHours,
-		&cfg.BookingHorizonDays, &cfg.MaxUpcomingPerStudent, &cfg.DefaultDuration, &cfg.UpdatedAt)
+	).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return cfg, nil
 	}
 	if err != nil {
 		return Config{}, fmt.Errorf("sessions: get config: %w", err)
 	}
+
+	// Unmarshal the jsonb into the config struct. If jsonb is empty ({}),
+	// json.Unmarshal leaves all fields at their zero values, so we fall back
+	// to DefaultConfig's filled-in values via COALESCE-like logic below.
+	type sessionBookingJSON struct {
+		Enabled               *bool   `json:"enabled"`
+		RequireCredits        *bool   `json:"require_credits"`
+		CancelCutoffHours     *int    `json:"cancel_cutoff_hours"`
+		MinNoticeHours        *int    `json:"min_notice_hours"`
+		BookingHorizonDays    *int    `json:"booking_horizon_days"`
+		MaxUpcomingPerStudent *int    `json:"max_upcoming_per_student"`
+		DefaultDuration       *int    `json:"default_duration_minutes"`
+	}
+
+	var parsed sessionBookingJSON
+	if len(raw) > 2 { // Skip empty {}
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return Config{}, fmt.Errorf("sessions: unmarshal session booking config: %w", err)
+		}
+	}
+
+	// Apply parsed values, falling back to defaults if nil
+	if parsed.Enabled != nil {
+		cfg.Enabled = *parsed.Enabled
+	}
+	if parsed.RequireCredits != nil {
+		cfg.RequireCredits = *parsed.RequireCredits
+	}
+	if parsed.CancelCutoffHours != nil {
+		cfg.CancelCutoffHours = *parsed.CancelCutoffHours
+	}
+	if parsed.MinNoticeHours != nil {
+		cfg.MinNoticeHours = *parsed.MinNoticeHours
+	}
+	if parsed.BookingHorizonDays != nil {
+		cfg.BookingHorizonDays = *parsed.BookingHorizonDays
+	}
+	if parsed.MaxUpcomingPerStudent != nil {
+		cfg.MaxUpcomingPerStudent = *parsed.MaxUpcomingPerStudent
+	}
+	if parsed.DefaultDuration != nil {
+		cfg.DefaultDuration = *parsed.DefaultDuration
+	}
+
 	return cfg, nil
 }
 
-// UpsertConfig writes the org's booking policy.
+// UpsertConfig writes the org's booking policy to org_settings.session_booking jsonb.
 func (r *Repo) UpsertConfig(ctx context.Context, c Config) (Config, error) {
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO org_session_booking_config
-		   (org_id, enabled, require_credits, cancel_cutoff_hours, min_notice_hours,
-		    booking_horizon_days, max_upcoming_per_student, default_duration_minutes)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		 ON CONFLICT (org_id) DO UPDATE SET
-		   enabled = EXCLUDED.enabled,
-		   require_credits = EXCLUDED.require_credits,
-		   cancel_cutoff_hours = EXCLUDED.cancel_cutoff_hours,
-		   min_notice_hours = EXCLUDED.min_notice_hours,
-		   booking_horizon_days = EXCLUDED.booking_horizon_days,
-		   max_upcoming_per_student = EXCLUDED.max_upcoming_per_student,
-		   default_duration_minutes = EXCLUDED.default_duration_minutes,
-		   updated_at = now()
+	cfgJSON, err := json.Marshal(map[string]interface{}{
+		"enabled":                    c.Enabled,
+		"require_credits":            c.RequireCredits,
+		"cancel_cutoff_hours":        c.CancelCutoffHours,
+		"min_notice_hours":           c.MinNoticeHours,
+		"booking_horizon_days":       c.BookingHorizonDays,
+		"max_upcoming_per_student":   c.MaxUpcomingPerStudent,
+		"default_duration_minutes":   c.DefaultDuration,
+	})
+	if err != nil {
+		return Config{}, fmt.Errorf("sessions: marshal config: %w", err)
+	}
+
+	err = r.pool.QueryRow(ctx,
+		`INSERT INTO org_settings (org_id, session_booking, updated_at)
+		 VALUES ($1, $2::jsonb, now())
+		 ON CONFLICT (org_id) DO UPDATE SET session_booking = EXCLUDED.session_booking, updated_at = now()
 		 RETURNING updated_at`,
-		c.OrgID, c.Enabled, c.RequireCredits, c.CancelCutoffHours, c.MinNoticeHours,
-		c.BookingHorizonDays, c.MaxUpcomingPerStudent, c.DefaultDuration,
+		c.OrgID, string(cfgJSON),
 	).Scan(&c.UpdatedAt)
 	if err != nil {
 		return Config{}, fmt.Errorf("sessions: upsert config: %w", err)
@@ -478,14 +524,15 @@ func (r *Repo) UpsertPack(ctx context.Context, p CreditPack, actorID string) (Cr
 	return p, nil
 }
 
-// CreatePackPurchase opens a pending purchase row.
+// CreatePackPurchase opens a pending purchase row in the purchases table
+// with product_type='session_pack'.
 func (r *Repo) CreatePackPurchase(ctx context.Context, p PackPurchase) (PackPurchase, error) {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO session_pack_purchases
-		   (org_id, user_id, pack_id, sessions, amount_cents, currency, provider, provider_ref, status)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+		`INSERT INTO purchases
+		   (org_id, user_id, product_type, pack_id, amount_cents, currency, provider, provider_ref, status)
+		 VALUES ($1, $2, 'session_pack', $3, $4, $5, $6, $7, 'pending')
 		 RETURNING id, status`,
-		p.OrgID, p.UserID, p.PackID, p.Sessions, p.AmountCents, p.Currency, p.Provider, p.ProviderRef,
+		p.OrgID, p.UserID, p.PackID, p.AmountCents, p.Currency, p.Provider, p.ProviderRef,
 	).Scan(&p.ID, &p.Status)
 	if err != nil {
 		return PackPurchase{}, fmt.Errorf("sessions: create pack purchase: %w", err)
@@ -497,7 +544,7 @@ func (r *Repo) CreatePackPurchase(ctx context.Context, p PackPurchase) (PackPurc
 // real session/order id once CreateCheckout returns it.
 func (r *Repo) SetPurchaseProviderRef(ctx context.Context, purchaseID, providerRef string) error {
 	if _, err := r.pool.Exec(ctx,
-		`UPDATE session_pack_purchases SET provider_ref = $2 WHERE id = $1`,
+		`UPDATE purchases SET provider_ref = $2 WHERE id = $1 AND product_type = 'session_pack'`,
 		purchaseID, providerRef,
 	); err != nil {
 		return fmt.Errorf("sessions: set provider ref: %w", err)
@@ -509,10 +556,10 @@ func (r *Repo) SetPurchaseProviderRef(ctx context.Context, purchaseID, providerR
 func (r *Repo) GetPurchaseByProviderRef(ctx context.Context, provider, providerRef string) (PackPurchase, error) {
 	var p PackPurchase
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, org_id, user_id, pack_id, sessions, amount_cents, currency, provider, provider_ref, status
-		   FROM session_pack_purchases WHERE provider = $1 AND provider_ref = $2`,
+		`SELECT id, org_id, user_id, pack_id, amount_cents, currency, provider, provider_ref, status
+		   FROM purchases WHERE provider = $1 AND provider_ref = $2 AND product_type = 'session_pack'`,
 		provider, providerRef,
-	).Scan(&p.ID, &p.OrgID, &p.UserID, &p.PackID, &p.Sessions, &p.AmountCents,
+	).Scan(&p.ID, &p.OrgID, &p.UserID, &p.PackID, &p.AmountCents,
 		&p.Currency, &p.Provider, &p.ProviderRef, &p.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PackPurchase{}, ErrNotFound
@@ -526,7 +573,7 @@ func (r *Repo) GetPurchaseByProviderRef(ctx context.Context, provider, providerR
 // MarkPurchaseFailed records a gateway failure.
 func (r *Repo) MarkPurchaseFailed(ctx context.Context, purchaseID string) error {
 	if _, err := r.pool.Exec(ctx,
-		`UPDATE session_pack_purchases SET status = 'failed' WHERE id = $1 AND status = 'pending'`,
+		`UPDATE purchases SET status = 'failed' WHERE id = $1 AND status = 'pending' AND product_type = 'session_pack'`,
 		purchaseID,
 	); err != nil {
 		return fmt.Errorf("sessions: mark purchase failed: %w", err)
@@ -543,10 +590,10 @@ func (r *Repo) CompletePurchase(ctx context.Context, purchaseID, paymentRef stri
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		var p PackPurchase
 		err := tx.QueryRow(ctx,
-			`UPDATE session_pack_purchases
+			`UPDATE purchases
 			    SET status = 'completed', completed_at = now(), payment_ref = NULLIF($2, '')
-			  WHERE id = $1 AND status = 'pending'
-			  RETURNING id, org_id, user_id, sessions`,
+			  WHERE id = $1 AND status = 'pending' AND product_type = 'session_pack'
+			  RETURNING id, org_id, user_id, (granted->>'sessions')::int as sessions`,
 			purchaseID, paymentRef,
 		).Scan(&p.ID, &p.OrgID, &p.UserID, &p.Sessions)
 		if errors.Is(err, pgx.ErrNoRows) {

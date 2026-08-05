@@ -6,6 +6,7 @@ import { CheckCircle2 } from "lucide-react";
 
 import { AuthPageShell } from "@/components/auth/auth-page-shell";
 import { LoginForm } from "@/components/auth/login-form";
+import { IconMessage } from "@/components/shared/icon-message";
 import ROUTES from "@/lib/routes";
 import { safeNextPath } from "@/lib/utils";
 
@@ -38,16 +39,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       title="Welcome back"
     >
       {verified && (
-        <p className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-foreground">
-          <CheckCircle2 aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+        <IconMessage icon={CheckCircle2} tone="success">
           Email verified! Sign in to continue.
-        </p>
+        </IconMessage>
       )}
       {reset && (
-        <p className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-foreground">
-          <CheckCircle2 aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+        <IconMessage icon={CheckCircle2} tone="success">
           Password updated! Sign in with your new password.
-        </p>
+        </IconMessage>
       )}
       <LoginForm next={params.next} oauthError={params.error} />
       <p className="text-center text-sm text-muted-foreground sm:text-left">

@@ -12,9 +12,13 @@ const (
 	QuestionTypeCoding     = "coding"
 	QuestionTypeSubjective = "subjective"
 
-	AssessmentTypeMCQ    = "mcq"
-	AssessmentTypeCoding = "coding"
-	AssessmentTypeMixed  = "mixed"
+	AssessmentTypeMCQ            = "mcq"
+	AssessmentTypeCoding         = "coding"
+	AssessmentTypeMixed          = "mixed"
+	AssessmentTypeFinalTest      = "final_test"
+	AssessmentTypeOffline        = "offline"
+	AssessmentTypePractice       = "practice"
+	AssessmentTypeKnowledgeCheck = "knowledge_check"
 
 	StatusDraft     = "draft"
 	StatusPublished = "published"

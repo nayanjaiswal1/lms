@@ -102,8 +102,8 @@ export function LearnerView() {
         <p className="mb-3 text-sm font-medium text-muted-foreground">Recent activity</p>
         <div className="flex flex-col gap-2">
           {recentActivity.map((item) => (
-            <div key={item.title} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
-              <CheckCircle aria-hidden className="h-4 w-4 shrink-0 text-success" />
+            <div key={item.title} className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3">
+              <CheckCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success" />
               <span className="flex-1 text-sm text-foreground">{item.title}</span>
               <span className="text-xs text-muted-foreground">Completed {item.completedAt}</span>
             </div>

@@ -216,7 +216,7 @@ func scanComment(row pgx.Row) (Comment, error) {
 	return c, nil
 }
 
-const commentSelectCols = `id, qna_id, parent_id, author_id, COALESCE(content, ''), deleted_at IS NOT NULL, created_at, updated_at`
+const commentSelectCols = `id, subject_id, parent_id, author_id, COALESCE(content, ''), deleted_at IS NOT NULL, created_at, updated_at`
 
 // ListCommentsByQnaIDs returns every (non-deleted-forever, soft-deleted ones
 // still render as "[deleted]") comment across the given qna IDs flat — the
@@ -226,8 +226,8 @@ func (r *Repo) ListCommentsByQnaIDs(ctx context.Context, qnaIDs []string) ([]Com
 		return []Comment{}, nil
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+commentSelectCols+` FROM interview_exp_comments
-		 WHERE qna_id = ANY($1) ORDER BY created_at ASC`, qnaIDs)
+		`SELECT `+commentSelectCols+` FROM comments
+		 WHERE subject_type = 'interview_exp_qna' AND subject_id = ANY($1) ORDER BY created_at ASC`, qnaIDs)
 	if err != nil {
 		return nil, fmt.Errorf("interviewexp: list comments: %w", err)
 	}
@@ -249,8 +249,8 @@ func (r *Repo) ListCommentsByQnaIDs(ctx context.Context, qnaIDs []string) ([]Com
 
 func (r *Repo) CreateComment(ctx context.Context, qnaID, authorID, content string, parentID *string) (Comment, error) {
 	c, err := scanComment(r.pool.QueryRow(ctx,
-		`INSERT INTO interview_exp_comments (qna_id, parent_id, author_id, content)
-		 VALUES ($1,$2,$3,$4)
+		`INSERT INTO comments (subject_type, subject_id, parent_id, author_id, content)
+		 VALUES ('interview_exp_qna',$1,$2,$3,$4)
 		 RETURNING `+commentSelectCols,
 		qnaID, parentID, authorID, content))
 	return c, err
@@ -258,19 +258,19 @@ func (r *Repo) CreateComment(ctx context.Context, qnaID, authorID, content strin
 
 func (r *Repo) GetComment(ctx context.Context, id string) (Comment, error) {
 	return scanComment(r.pool.QueryRow(ctx,
-		`SELECT `+commentSelectCols+` FROM interview_exp_comments WHERE id = $1`, id))
+		`SELECT `+commentSelectCols+` FROM comments WHERE subject_type = 'interview_exp_qna' AND id = $1`, id))
 }
 
 func (r *Repo) UpdateComment(ctx context.Context, id, content string) (Comment, error) {
 	return scanComment(r.pool.QueryRow(ctx,
-		`UPDATE interview_exp_comments SET content = $2, updated_at = now()
-		 WHERE id = $1 AND deleted_at IS NULL
+		`UPDATE comments SET content = $2, updated_at = now()
+		 WHERE subject_type = 'interview_exp_qna' AND id = $1 AND deleted_at IS NULL
 		 RETURNING `+commentSelectCols,
 		id, content))
 }
 
 func (r *Repo) DeleteComment(ctx context.Context, id string) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE interview_exp_comments SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id)
+	tag, err := r.pool.Exec(ctx, `UPDATE comments SET deleted_at = now() WHERE subject_type = 'interview_exp_qna' AND id = $1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		return fmt.Errorf("interviewexp: delete comment: %w", err)
 	}
@@ -292,9 +292,9 @@ func (r *Repo) VoteScores(ctx context.Context, targetType string, targetIDs []st
 	}
 	rows, err := r.pool.Query(ctx,
 		`SELECT target_id,
-		        COALESCE(SUM(value), 0),
-		        COALESCE(SUM(value) FILTER (WHERE user_id = $3), 0)
-		 FROM interview_exp_votes
+		        COALESCE(SUM(CASE WHEN reaction = 'up' THEN 1 WHEN reaction = 'down' THEN -1 ELSE 0 END), 0),
+		        COALESCE(SUM(CASE WHEN reaction = 'up' THEN 1 WHEN reaction = 'down' THEN -1 ELSE 0 END) FILTER (WHERE user_id = $3), 0)
+		 FROM content_reactions
 		 WHERE target_type = $1 AND target_id = ANY($2)
 		 GROUP BY target_id`,
 		targetType, targetIDs, userID)
@@ -319,18 +319,22 @@ func (r *Repo) VoteScores(ctx context.Context, targetType string, targetIDs []st
 func (r *Repo) Vote(ctx context.Context, userID, targetType, targetID string, value int) error {
 	if value == 0 {
 		_, err := r.pool.Exec(ctx,
-			`DELETE FROM interview_exp_votes WHERE user_id = $1 AND target_type = $2 AND target_id = $3`,
+			`DELETE FROM content_reactions WHERE user_id = $1 AND target_type = $2 AND target_id = $3`,
 			userID, targetType, targetID)
 		if err != nil {
 			return fmt.Errorf("interviewexp: clear vote: %w", err)
 		}
 		return nil
 	}
+	reaction := "up"
+	if value < 0 {
+		reaction = "down"
+	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO interview_exp_votes (user_id, target_type, target_id, value)
+		`INSERT INTO content_reactions (user_id, target_type, target_id, reaction)
 		 VALUES ($1,$2,$3,$4)
-		 ON CONFLICT (user_id, target_type, target_id) DO UPDATE SET value = EXCLUDED.value`,
-		userID, targetType, targetID, value)
+		 ON CONFLICT (user_id, target_type, target_id, reaction) DO UPDATE SET created_at = EXCLUDED.created_at`,
+		userID, targetType, targetID, reaction)
 	if err != nil {
 		return fmt.Errorf("interviewexp: upsert vote: %w", err)
 	}
@@ -353,8 +357,8 @@ func (r *Repo) ListFaq(ctx context.Context, userID string, f FaqFilter) ([]FaqIt
 		 FROM interview_exp_qna q
 		 JOIN interview_exp_posts p ON p.id = q.post_id AND p.deleted_at IS NULL
 		 LEFT JOIN (
-		   SELECT target_id, SUM(value) AS score FROM interview_exp_votes
-		   WHERE target_type = 'qna' GROUP BY target_id
+		   SELECT target_id, SUM(CASE WHEN reaction = 'up' THEN 1 WHEN reaction = 'down' THEN -1 ELSE 0 END) AS score FROM content_reactions
+		   WHERE target_type = 'interview_exp_qna' GROUP BY target_id
 		 ) v ON v.target_id = q.id
 		 LEFT JOIN interview_exp_qna_progress pr ON pr.qna_id = q.id AND pr.user_id = $1
 		 WHERE q.deleted_at IS NULL

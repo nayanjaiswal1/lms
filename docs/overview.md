@@ -64,7 +64,7 @@ Platform role (`users.platform_role`): `super_admin` · `user`
 | # | Phase | Covers |
 |---|---|---|
 | 1 | Foundation | Docker, go.mod, config, DB pool, full SQL migration |
-| 2 | Auth + Roles | register, email verification, login, refresh tokens, jti blocklist, session_version, logout, password reset, social OAuth, magic-link, per-org auth config, org invites, switch-org, impossible-travel detection, role + tenant middleware |
+| 2 | Auth + Roles | register, email verification, login, refresh tokens, jti blocklist, session_version, logout, password reset, social OAuth, per-org auth config, org invites, switch-org, role + tenant middleware |
 | 3 | LLM Abstraction | Provider interface, OpenAI-compat, Anthropic; async job queue (Go worker pool + Redis) for AI calls; per-IP Redis sliding-window rate limiting on all AI endpoints |
 | 4 | Orgs + Members | org CRUD, invite, role assignment |
 | 5 | Courses + Sections + Modules | CRUD, fork, publish workflow |

@@ -7,8 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/mindforge/backend/internal/db"
 )
 
 var (
@@ -111,92 +109,25 @@ func (r *Repo) ListByUser(ctx context.Context, userID string) ([]Note, error) {
 	return out, rows.Err()
 }
 
-// CategoryExistsByName reports whether userID has a custom category with
-// this exact name — used to validate a note's category beyond the built-ins.
-func (r *Repo) CategoryExistsByName(ctx context.Context, userID, name string) (bool, error) {
-	var exists bool
-	err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM focus_wall_categories WHERE user_id = $1 AND name = $2)`,
-		userID, name,
-	).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("focuswall: category exists: %w", err)
-	}
-	return exists, nil
-}
-
-// CreateCategory adds a custom category for userID. Returns ErrCategoryDuplicate
-// if the user already has one with this name (case-sensitive match).
-func (r *Repo) CreateCategory(ctx context.Context, userID, name string) (FocusCategory, error) {
-	var c FocusCategory
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO focus_wall_categories (user_id, name) VALUES ($1, $2)
-		 RETURNING id, user_id, name, created_at`,
-		userID, name,
-	).Scan(&c.ID, &c.UserID, &c.Name, &c.CreatedAt)
-	if err != nil {
-		if db.IsUniqueViolation(err) {
-			return FocusCategory{}, ErrCategoryDuplicate
-		}
-		return FocusCategory{}, fmt.Errorf("focuswall: create category: %w", err)
-	}
-	return c, nil
-}
-
-// ListCategoriesByUser returns userID's custom categories, oldest first.
-func (r *Repo) ListCategoriesByUser(ctx context.Context, userID string) ([]FocusCategory, error) {
+// ListDistinctCategories returns all distinct categories used by userID in
+// their notes, ordered alphabetically. This includes both built-in categories
+// (personal, study, urgent) and any custom categories assigned to notes.
+func (r *Repo) ListDistinctCategories(ctx context.Context, userID string) ([]string, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, name, created_at FROM focus_wall_categories
-		 WHERE user_id = $1 ORDER BY created_at ASC`, userID)
+		`SELECT DISTINCT category FROM focus_wall_notes WHERE user_id = $1 ORDER BY category ASC`,
+		userID)
 	if err != nil {
-		return nil, fmt.Errorf("focuswall: list categories: %w", err)
+		return nil, fmt.Errorf("focuswall: list distinct categories: %w", err)
 	}
 	defer rows.Close()
 
-	out := []FocusCategory{}
+	var categories []string
 	for rows.Next() {
-		var c FocusCategory
-		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.CreatedAt); err != nil {
+		var cat string
+		if err := rows.Scan(&cat); err != nil {
 			return nil, fmt.Errorf("focuswall: scan category: %w", err)
 		}
-		out = append(out, c)
+		categories = append(categories, cat)
 	}
-	return out, rows.Err()
-}
-
-// DeleteCategory removes a user-owned custom category, reassigning any notes
-// filed under it back to the default "personal" category in the same
-// transaction. Returns ErrNotFound when the category doesn't exist or
-// belongs to another user.
-func (r *Repo) DeleteCategory(ctx context.Context, categoryID, userID string) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("focuswall: begin delete category tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	var name string
-	err = tx.QueryRow(ctx,
-		`DELETE FROM focus_wall_categories WHERE id = $1 AND user_id = $2 RETURNING name`,
-		categoryID, userID,
-	).Scan(&name)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrCategoryNotFound
-		}
-		return fmt.Errorf("focuswall: delete category: %w", err)
-	}
-
-	if _, err := tx.Exec(ctx,
-		`UPDATE focus_wall_notes SET category = $3, updated_at = now()
-		 WHERE user_id = $1 AND category = $2`,
-		userID, name, CategoryPersonal,
-	); err != nil {
-		return fmt.Errorf("focuswall: reassign notes off deleted category: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("focuswall: commit delete category tx: %w", err)
-	}
-	return nil
+	return categories, rows.Err()
 }

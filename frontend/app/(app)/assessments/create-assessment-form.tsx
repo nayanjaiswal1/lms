@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { SectionHeader, ToggleRow } from "@/components/assessments/assessment-form-fields";
+import { ToggleRow } from "@/components/assessments/assessment-form-fields";
+import { SectionHeader } from "@/components/shared/section-header";
 import { createAssessmentAction } from "@/app/(app)/assessments/actions";
 import {
   AssessmentConfigSchema,

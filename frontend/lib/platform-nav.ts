@@ -1,4 +1,4 @@
-import { Briefcase, Cpu, type LucideIcon } from "lucide-react";
+import { Briefcase, Cpu, ToggleLeft, type LucideIcon } from "lucide-react";
 import ROUTES from "@/lib/routes";
 
 export interface PlatformNavItem {
@@ -26,6 +26,7 @@ export const PLATFORM_NAV_GROUPS: PlatformNavGroup[] = [
     items: [
       { label: "Jobs",          href: ROUTES.PLATFORM_JOBS,         icon: Briefcase, exact: true },
       { label: "Worker Health", href: ROUTES.PLATFORM_JOBS_WORKERS, icon: Cpu },
+      { label: "Features",      href: ROUTES.PLATFORM_FEATURES,     icon: ToggleLeft },
     ],
   },
 ];

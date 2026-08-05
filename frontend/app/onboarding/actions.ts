@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { authHeaders } from "@/lib/server/api";
+import { actionErrorMessage, authHeaders } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 type LearningGoal = "get_promotion" | "switch_careers" | "build_project" | "stay_current" | "compliance";
@@ -42,16 +42,8 @@ export async function saveOnboardingAction(data: OnboardingData): Promise<Onboar
 
     if (!response.ok) {
       const body: unknown = await response.json().catch(() => null);
-      const apiError =
-        body && typeof body === "object"
-          ? (body as Record<string, unknown>).error
-          : undefined;
-      return {
-        error:
-          typeof apiError === "string" && apiError.length > 0
-            ? apiError
-            : "Something went wrong saving your preferences. Please try again.",
-      };
+      const json = body && typeof body === "object" ? (body as { error?: string; fields?: Record<string, string> }) : {};
+      return { error: actionErrorMessage(json, "Something went wrong saving your preferences. Please try again.") };
     }
   } catch {
     return { error: "We couldn't reach the server. Check your connection and try again." };

@@ -55,8 +55,8 @@ func (s *AdminService) UpdateRole(ctx context.Context, actorID, tenantID, roleID
 	if before.IsSystem {
 		return nil, fmt.Errorf("admin svc: update role: cannot modify a system role")
 	}
-	if before.TenantID == nil || *before.TenantID != tenantID {
-		return nil, fmt.Errorf("admin svc: update role: role does not belong to this tenant")
+	if before.OrgID == nil || *before.OrgID != tenantID {
+		return nil, fmt.Errorf("admin svc: update role: role does not belong to this org")
 	}
 
 	after, err := s.adminRepo.UpdateRole(ctx, roleID, req)
@@ -82,8 +82,8 @@ func (s *AdminService) DisableRole(ctx context.Context, actorID, tenantID, roleI
 	if before.IsSystem {
 		return fmt.Errorf("admin svc: disable role: cannot disable a system role")
 	}
-	if before.TenantID == nil || *before.TenantID != tenantID {
-		return fmt.Errorf("admin svc: disable role: role does not belong to this tenant")
+	if before.OrgID == nil || *before.OrgID != tenantID {
+		return fmt.Errorf("admin svc: disable role: role does not belong to this org")
 	}
 
 	if err := s.adminRepo.DisableRole(ctx, roleID, tenantID); err != nil {
@@ -108,8 +108,8 @@ func (s *AdminService) EnableRole(ctx context.Context, actorID, tenantID, roleID
 	if before.IsSystem {
 		return fmt.Errorf("admin svc: enable role: cannot enable a system role")
 	}
-	if before.TenantID == nil || *before.TenantID != tenantID {
-		return fmt.Errorf("admin svc: enable role: role does not belong to this tenant")
+	if before.OrgID == nil || *before.OrgID != tenantID {
+		return fmt.Errorf("admin svc: enable role: role does not belong to this org")
 	}
 
 	if err := s.adminRepo.EnableRole(ctx, roleID, tenantID); err != nil {
@@ -134,8 +134,8 @@ func (s *AdminService) SetRolePermissions(ctx context.Context, actorID, tenantID
 	if role.IsSystem {
 		return nil, fmt.Errorf("admin svc: set role permissions: cannot modify a system role")
 	}
-	if role.TenantID == nil || *role.TenantID != tenantID {
-		return nil, fmt.Errorf("admin svc: set role permissions: role does not belong to this tenant")
+	if role.OrgID == nil || *role.OrgID != tenantID {
+		return nil, fmt.Errorf("admin svc: set role permissions: role does not belong to this org")
 	}
 
 	before, err := s.adminRepo.GetRolePermissions(ctx, roleID)
@@ -171,7 +171,7 @@ func (s *AdminService) AssignRole(ctx context.Context, actorID, tenantID, target
 		targetUserID+"/"+roleID, &AuditDiff{After: map[string]string{
 			"user_id":   targetUserID,
 			"role_id":   roleID,
-			"tenant_id": tenantID,
+			"org_id": tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil
@@ -188,7 +188,7 @@ func (s *AdminService) RevokeRole(ctx context.Context, actorID, tenantID, target
 		targetUserID+"/"+roleID, &AuditDiff{Before: map[string]string{
 			"user_id":   targetUserID,
 			"role_id":   roleID,
-			"tenant_id": tenantID,
+			"org_id": tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil
@@ -208,7 +208,7 @@ func (s *AdminService) GrantUserPermission(ctx context.Context, actorID, tenantI
 		targetUserID+"/"+permissionID, &AuditDiff{After: map[string]string{
 			"user_id":       targetUserID,
 			"permission_id": permissionID,
-			"tenant_id":     tenantID,
+			"org_id":     tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil
@@ -225,7 +225,7 @@ func (s *AdminService) RevokeUserPermission(ctx context.Context, actorID, tenant
 		targetUserID+"/"+permissionID, &AuditDiff{Before: map[string]string{
 			"user_id":       targetUserID,
 			"permission_id": permissionID,
-			"tenant_id":     tenantID,
+			"org_id":     tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil

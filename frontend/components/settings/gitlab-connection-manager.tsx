@@ -59,8 +59,8 @@ export function GitlabConnectionManager({ connection, installationConnected }: G
         </p>
       ) : connection.connected ? (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border p-4">
-          <div className="min-w-0 flex items-center gap-3">
-            <GitBranch aria-hidden className="h-8 w-8 flex-shrink-0 text-primary" />
+          <div className="min-w-0 flex items-start gap-3">
+            <GitBranch aria-hidden className="mt-1 h-8 w-8 flex-shrink-0 text-primary" />
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground truncate">@{connection.gitlab_username}</p>
               <p className="text-xs text-muted-foreground">

@@ -32,8 +32,6 @@ volumes:
   mindforge_go_cache:
   mindforge_minio_dev:
   mindforge_piston_dev:
-  mindforge_frontend_node_modules:
-  mindforge_frontend_next_cache:
 
 services:
   postgres:
@@ -217,25 +215,24 @@ services:
       ADMINER_DEFAULT_SERVER: postgres
 
   frontend:
-    image: node:22-alpine
+    # Same production Dockerfile/image as docker-compose.prod.yml — Docker
+    # Desktop's Windows bind mount doesn't forward inotify events, so a live
+    # dev server in the container never sees host edits anyway. Run `pnpm dev`
+    # natively on the host for frontend work; this container just gives the
+    # rest of the stack (backend, labs, etc.) something to hit at frontend:3000.
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_MEDIA_URL: ${NEXT_PUBLIC_MEDIA_URL}
+        NEXT_PUBLIC_LAB_PROXY_URL: ${NEXT_PUBLIC_LAB_PROXY_URL}
+        NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: ${NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED}
+        NEXT_PUBLIC_GITHUB_OAUTH_ENABLED: ${NEXT_PUBLIC_GITHUB_OAUTH_ENABLED}
     container_name: mindforge_frontend_dev
     restart: unless-stopped
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-      - mindforge_frontend_node_modules:/app/node_modules
-      # A .next left behind by earlier host-side `pnpm dev` runs (native
-      # cache-DB bindings built for Windows) hangs the Linux container dead
-      # silent if bind-mounted straight through — isolate it same as node_modules.
-      - mindforge_frontend_next_cache:/app/.next
     env_file: ./frontend/.env.local
-    environment:
-      # Docker Desktop's Windows bind mount doesn't forward inotify events into
-      # the Linux container, so Turbopack's file watcher never fires on host
-      # edits and silently serves stale output until the container restarts —
-      # fall back to polling so it actually notices file changes.
-      WATCHPACK_POLLING: "true"
-      CHOKIDAR_USEPOLLING: "true"
     # No published port — only Caddy reaches this, over mindforge_dev.
     networks:
       - mindforge_dev
@@ -243,14 +240,8 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      # wget's request against Next's dev server was unreliable here (refused/
-      # hung depending on address form); node's http client works cleanly.
       test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000',{headers:{Host:'localhost'}},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
-      retries: 18
-      start_period: 30s
-    # --webpack: Turbopack's watcher doesn't see edits through Docker Desktop's
-    # Windows bind mount (no inotify passthrough) and silently serves stale
-    # output until restarted. webpack's watcher honors WATCHPACK_POLLING above.
-    command: sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm exec next dev -H 0.0.0.0 --webpack"
+      retries: 12
+      start_period: 15s

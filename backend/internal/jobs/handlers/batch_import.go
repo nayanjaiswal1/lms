@@ -191,7 +191,7 @@ func (h *BatchImportHandler) sendImportInviteEmail(to, name, token, batchName st
 		smtpAuth = smtp.PlainAuth("", h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.SMTPHost)
 	}
 
-	msg := buildInviteMessage(h.cfg.EmailFrom, to, subject, body)
+	msg := buildInviteMessage(h.cfg.EmailFromHeader(), to, subject, body)
 	if err := smtp.SendMail(addr, smtpAuth, h.cfg.EmailFrom, []string{to}, []byte(msg)); err != nil {
 		slog.Warn("handlers.batch_import: send invite email", "to", to, "batch", batchName, "error", err)
 	}

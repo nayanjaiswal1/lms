@@ -3,7 +3,7 @@
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { Eye, Star, UserRound } from "lucide-react";
 import type { PublicReview } from "@/lib/server/feedback";
-import { formatDate } from "@/lib/mentoring/format";
+import { formatDate } from "@/lib/tickets/format";
 
 interface Props {
   reviews: PublicReview[];

@@ -82,11 +82,21 @@ export async function createInviteAction(
 
   if (!res.ok) {
     const parsed = await res.json().catch(() => null) as { error?: string } | null;
-    return { error: parsed?.error ?? "Failed to send invite." };
+    return { error: describeInviteError(parsed?.error) };
   }
 
   revalidatePath(ROUTES.ORG_SETTINGS_MEMBERS);
   return {};
+}
+
+// The invite endpoint returns a few bare internal codes (409 conflicts) rather
+// than a human message; every other status already sends readable text.
+function describeInviteError(code: string | undefined): string {
+  switch (code) {
+    case "already_member": return "This person is already a member of the organization.";
+    case "invite_pending": return "An invite has already been sent to this email address.";
+    default: return code ?? "Failed to send invite.";
+  }
 }
 
 export async function revokeInviteAction(

@@ -16,10 +16,8 @@ func validSourceType(s SourceType) bool {
 	return s == SourceTypeWikiPage || s == SourceTypeLesson || s == SourceTypeProblem
 }
 
-// Highlight is a text selection anchored to a content resource by one user.
-// ContextSnippet holds the surrounding paragraph text captured at creation time,
-// so the saved-highlights page can display nearby content without re-fetching the source.
-// SourceURL is the page path at creation time, used as the "go to source" navigation link.
+// Highlight is a text selection anchored to a content resource by one user,
+// stored in learning_annotations with annotation_type='highlight'.
 type Highlight struct {
 	ID               string       `json:"id"`
 	UserID           string       `json:"user_id"`
@@ -27,11 +25,6 @@ type Highlight struct {
 	SourceID         string       `json:"source_id"`
 	SelectedText     string       `json:"selected_text"`
 	TextHash         string       `json:"text_hash"`
-	PositionStart    *int         `json:"position_start,omitempty"`
-	PositionEnd      *int         `json:"position_end,omitempty"`
-	ContextSnippet   *string      `json:"context_snippet,omitempty"`
-	SourceURL        *string      `json:"source_url,omitempty"`
-	SourceOrphaned   bool         `json:"source_orphaned"`
 	SavedForRevision bool         `json:"saved_for_revision"`
 	Note             *string      `json:"note,omitempty"`
 	Explanation      *Explanation `json:"explanation,omitempty"`
@@ -63,22 +56,14 @@ type CreateRequest struct {
 	SourceType      SourceType `json:"source_type"`
 	SourceID        string     `json:"source_id"`
 	SelectedText    string     `json:"selected_text"`
-	PositionStart   *int       `json:"position_start,omitempty"`
-	PositionEnd     *int       `json:"position_end,omitempty"`
-	ContextSnippet  *string    `json:"context_snippet,omitempty"`
-	SourceURL       *string    `json:"source_url,omitempty"`
 	SaveForRevision bool       `json:"save_for_revision"`
 	Note            *string    `json:"note,omitempty"`
 }
 
 type ExplainRequest struct {
-	SelectedText   string     `json:"selected_text"`
-	SourceType     SourceType `json:"source_type"`
-	SourceID       string     `json:"source_id"`
-	PositionStart  *int       `json:"position_start,omitempty"`
-	PositionEnd    *int       `json:"position_end,omitempty"`
-	ContextSnippet *string    `json:"context_snippet,omitempty"`
-	SourceURL      *string    `json:"source_url,omitempty"`
+	SelectedText string     `json:"selected_text"`
+	SourceType   SourceType `json:"source_type"`
+	SourceID     string     `json:"source_id"`
 }
 
 type ExplainResponse struct {

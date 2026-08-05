@@ -26,6 +26,7 @@ export const PERMISSIONS = {
     CHAT:            "mentoring.chat",
     MANAGE_BATCHES:  "mentoring.manage_batches",
     VIEW_STUDENTS:   "mentoring.view_students",
+    VIEW_TICKETS:    "mentoring.view_tickets",
     ASSIGN_TICKETS:  "mentoring.assign_tickets",
     MANAGE_REPORTS:  "mentoring.manage_reports",
     VERIFY_MENTORS:  "mentoring.verify_mentors",

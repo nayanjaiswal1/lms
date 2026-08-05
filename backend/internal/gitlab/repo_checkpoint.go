@@ -352,23 +352,24 @@ func (r *Repo) UpsertTeamCheckpointMR(ctx context.Context, orgID, teamID, checkp
 // RecomputeCheckpointApprovals recounts project_team_checkpoints.approvals_count
 // for whichever checkpoint mrID is currently bound to (matched via
 // team_id+mr_iid — see UpsertTeamCheckpointMR), from distinct non-author
-// approving reviewers on gitlab_mr_reviews (kind-herding-cookie.md §0.4's
-// layer-1 enforcement — active on Free/CE and Premium/Ultimate alike, since
-// it depends only on gitlab_mr_reviews.kind='approval', not GitLab's own
-// approvals API). A no-op when the MR isn't bound to any checkpoint yet, or
-// has no approval notes yet — the caller doesn't need to check first.
+// approving reviewers on gitlab_merge_requests.reviews jsonb array
+// (kind-herding-cookie.md §0.4's layer-1 enforcement — active on Free/CE and
+// Premium/Ultimate alike, since it depends only on the 'approval' kind,
+// not GitLab's own approvals API). A no-op when the MR isn't bound to any
+// checkpoint yet, or has no approval notes yet — the caller doesn't need to
+// check first.
 func (r *Repo) RecomputeCheckpointApprovals(ctx context.Context, mrID string) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE project_team_checkpoints ptc
 		 SET approvals_count = sub.cnt, updated_at = now()
 		 FROM (
-		   SELECT mr.team_id, mr.mr_iid, COUNT(DISTINCT rv.reviewer_gitlab_user_id) AS cnt
+		   SELECT mr.team_id, mr.mr_iid, COUNT(DISTINCT (rv->>'reviewer_gitlab_user_id')::bigint) AS cnt
 		   FROM gitlab_merge_requests mr
-		   JOIN gitlab_mr_reviews rv ON rv.merge_request_id = mr.id
+		   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(mr.reviews, '[]'::jsonb)) rv
 		   WHERE mr.id = $1
-		     AND rv.kind = 'approval'
-		     AND rv.reviewer_gitlab_user_id IS NOT NULL
-		     AND rv.reviewer_gitlab_user_id IS DISTINCT FROM mr.author_gitlab_user_id
+		     AND rv->>'kind' = 'approval'
+		     AND rv->>'reviewer_gitlab_user_id' IS NOT NULL
+		     AND (rv->>'reviewer_gitlab_user_id')::bigint IS DISTINCT FROM mr.author_gitlab_user_id
 		   GROUP BY mr.team_id, mr.mr_iid
 		 ) sub
 		 WHERE ptc.team_id = sub.team_id AND ptc.mr_iid = sub.mr_iid`,

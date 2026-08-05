@@ -17,10 +17,10 @@ type Permission struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// Role is a named set of permissions. tenant_id NULL means a system-wide role.
+// Role is a named set of permissions. org_id NULL means a system-wide role.
 type Role struct {
 	ID          string    `json:"id"`
-	TenantID    *string   `json:"tenant_id"`
+	OrgID       *string   `json:"org_id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	IsSystem    bool      `json:"is_system"`
@@ -33,7 +33,7 @@ type Role struct {
 // AuditEntry is a single row from the audit_logs table.
 type AuditEntry struct {
 	ID         int64           `json:"id"`
-	TenantID   *string         `json:"tenant_id"`
+	OrgID      *string         `json:"org_id"`
 	ActorID    *string         `json:"actor_id"`
 	Action     string          `json:"action"`
 	EntityType string          `json:"entity_type"`
@@ -42,10 +42,10 @@ type AuditEntry struct {
 	CreatedAt  time.Time       `json:"created_at"`
 }
 
-// UserRoleAssignment is a row from user_roles, scoped to a tenant.
+// UserRoleAssignment is a row from user_roles, scoped to an org.
 type UserRoleAssignment struct {
-	UserID   string `json:"user_id"`
-	TenantID string `json:"tenant_id"`
+	UserID string `json:"user_id"`
+	OrgID  string `json:"org_id"`
 }
 
 // AuditDiff captures the before/after state, stored as audit_logs.before_state/after_state.
@@ -98,7 +98,7 @@ type ListPermissionsParams struct {
 
 // ListRolesParams filters the roles list.
 type ListRolesParams struct {
-	TenantID      string
+	OrgID         string
 	IncludeSystem bool
 	Search        string
 	ActiveOnly    bool
@@ -106,12 +106,12 @@ type ListRolesParams struct {
 	Offset        int
 }
 
-// ListUsersParams filters the tenant's user list.
+// ListUsersParams filters the org's user list.
 type ListUsersParams struct {
-	TenantID string
-	Search   string
-	Limit    int
-	Offset   int
+	OrgID  string
+	Search string
+	Limit  int
+	Offset int
 }
 
 // UserSummary is a row in the tenant's user list, joined from org_members +
@@ -137,7 +137,7 @@ type UserSummary struct {
 
 // ListAuditParams filters the audit_logs list.
 type ListAuditParams struct {
-	TenantID   string
+	OrgID      string
 	EntityType string
 	EntityID   string
 	Limit      int

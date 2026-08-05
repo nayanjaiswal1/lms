@@ -1,25 +1,10 @@
 "use client";
 
 import { Controller, type Control } from "react-hook-form";
-import type { LucideIcon } from "lucide-react";
 import type { AssessmentConfigFormData } from "@/lib/assessments/config-schema";
 
 // Shared visual pieces for the assessment config form — used by both the
 // create form and the edit-settings form so the two never drift apart.
-
-export function SectionHeader({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
-  return (
-    <div className="mb-6 flex items-center gap-3">
-      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <Icon aria-hidden className="h-5 w-5 text-primary" />
-      </div>
-      <div>
-        <h2 className="subsection-title text-foreground">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-    </div>
-  );
-}
 
 export function ToggleRow({
   control,

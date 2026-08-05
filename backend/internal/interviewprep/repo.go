@@ -65,6 +65,8 @@ func (r *Repo) CreatePlanWithRounds(ctx context.Context, plan Plan, rounds []Rou
 		if err != nil {
 			return Plan{}, fmt.Errorf("interviewprep: marshal round items: %w", err)
 		}
+		// ponytail: practice_session_id column now stores assessment_attempt_id.
+		// Schema rename deferred to follow-up migration once all callers are updated.
 		err = tx.QueryRow(ctx,
 			`INSERT INTO interview_prep_rounds
 			   (plan_id, round_type, order_index, practice_session_id, items, status)

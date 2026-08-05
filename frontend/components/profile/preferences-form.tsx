@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { AccessGate } from "@/components/shared/access-gate"
+import { FEATURES } from "@/lib/features"
 import type { Profile } from "@/lib/profile/types"
 
 interface Props {
@@ -95,6 +97,22 @@ export function PreferencesForm({ profile, updateAction }: Props) {
               Push notifications
             </Label>
           </div>
+
+          {/* Beta feature — only entitled students ever see this toggle
+              (mode="hide": AccessGate renders nothing for anyone else). */}
+          <AccessGate feature={FEATURES.REVISION_DIGEST} mode="hide">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                defaultChecked={profile.notifications?.revision_digest !== false}
+                id="revision-digest"
+                name="revision_digest"
+                value="true"
+              />
+              <Label className="cursor-pointer" htmlFor="revision-digest">
+                Nightly revision digest email
+              </Label>
+            </div>
+          </AccessGate>
         </fieldset>
 
         <div className="pt-2">

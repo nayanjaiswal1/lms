@@ -72,35 +72,26 @@ func (s *Service) Update(ctx context.Context, userID, noteID string, req UpdateR
 	return s.repo.Update(ctx, noteID, userID, req)
 }
 
-// validCategoryForUser accepts the three built-ins unconditionally, or any
-// custom category userID has already created.
+// validCategoryForUser accepts the three built-ins unconditionally. In the
+// new schema, custom categories are derived from notes directly (no separate
+// category management), so any non-built-in string is allowed.
 func (s *Service) validCategoryForUser(ctx context.Context, userID string, c Category) (bool, error) {
-	if isBuiltInCategory(c) {
-		return true, nil
-	}
-	return s.repo.CategoryExistsByName(ctx, userID, string(c))
+	// All categories are valid — built-ins are always allowed, and custom
+	// categories are inferred from the notes themselves.
+	return true, nil
 }
 
-func (s *Service) CreateCategory(ctx context.Context, userID string, req CreateCategoryRequest) (FocusCategory, error) {
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		return FocusCategory{}, ErrCategoryNameEmpty
-	}
-	if len(name) > maxCategoryNameLength {
-		return FocusCategory{}, ErrCategoryTooLong
-	}
-	if isBuiltInCategory(Category(strings.ToLower(name))) {
-		return FocusCategory{}, ErrCategoryBuiltIn
-	}
-	return s.repo.CreateCategory(ctx, userID, name)
-}
-
+// ListCategories returns distinct categories used in the user's notes.
 func (s *Service) ListCategories(ctx context.Context, userID string) ([]FocusCategory, error) {
-	return s.repo.ListCategoriesByUser(ctx, userID)
-}
-
-func (s *Service) DeleteCategory(ctx context.Context, userID, categoryID string) error {
-	return s.repo.DeleteCategory(ctx, categoryID, userID)
+	categories, err := s.repo.ListDistinctCategories(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FocusCategory, len(categories))
+	for i, cat := range categories {
+		out[i] = FocusCategory{Name: cat}
+	}
+	return out, nil
 }
 
 func (s *Service) Delete(ctx context.Context, userID, noteID string) error {

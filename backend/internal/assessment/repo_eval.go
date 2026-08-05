@@ -429,9 +429,9 @@ func (r *Repo) LoadSubjectiveAnswers(ctx context.Context, attemptID string) ([]e
 	defer cancel()
 
 	rows, err := r.pool.Query(dbCtx,
-		`SELECT aq.position, aq.question_id, aq.version_id, qv.content, aa.transcript
+		`SELECT aq.position, aq.question_id, aq.content_version_id, cv.content, aa.transcript
 		 FROM assessment_questions aq
-		 JOIN question_versions qv ON qv.id = aq.version_id
+		 JOIN content_versions cv ON cv.id = aq.content_version_id
 		 JOIN questions q ON q.id = aq.question_id
 		 JOIN attempt_answers aa
 		   ON aa.attempt_id = $1 AND aa.question_id = aq.question_id

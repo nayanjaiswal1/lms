@@ -10,16 +10,18 @@ import { ClaimTicketButton } from "@/components/mentoring/claim-ticket-button";
 import { CloseTicketButton } from "@/components/mentoring/close-ticket-button";
 import { AssignTicketControl } from "@/components/mentoring/assign-ticket-control";
 import { ChangeRequestReviewControls } from "@/components/mentoring/change-request-review-controls";
-import { getMentorTickets, getMentors, getMentorChangeRequests } from "@/lib/server/mentoring";
+import { getTicketQueue } from "@/lib/server/tickets";
+import { getMentors, getMentorChangeRequests } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
-import { TICKET_STATUS_VARIANT, ESCALATION_LABEL, truncateId, formatDate } from "@/lib/mentoring/format";
+import { TICKET_STATUS_VARIANT, ESCALATION_LABEL, truncateId, formatDate } from "@/lib/tickets/format";
+import { TICKET_KIND } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "Mentor Ticket Queue" };
 
 async function TicketQueueContent() {
   const [tickets, mentors, currentUser] = await Promise.all([
-    getMentorTickets(),
+    getTicketQueue(TICKET_KIND.MENTORSHIP),
     getMentors(),
     getCurrentUser(),
   ]);
@@ -52,15 +54,15 @@ async function TicketQueueContent() {
         </thead>
         <tbody className="divide-y divide-border">
           {openAndAssigned.map((ticket) => {
-            const isOwnTicket = ticket.assigned_mentor_id === currentUser?.id;
+            const isOwnTicket = ticket.assigned_to === currentUser?.id;
 
             return (
               <tr key={ticket.id}>
                 <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
-                  {truncateId(ticket.student_id)}
+                  {truncateId(ticket.requester_id)}
                 </td>
                 <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
-                  {truncateId(ticket.course_id)}
+                  {ticket.course_id ? truncateId(ticket.course_id) : "—"}
                 </td>
                 <td className="py-2.5 pr-4">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -71,8 +73,8 @@ async function TicketQueueContent() {
                   </div>
                 </td>
                 <td className="py-2.5 pr-4 text-muted-foreground">
-                  {ticket.assigned_mentor_id
-                    ? mentorNameById.get(ticket.assigned_mentor_id) ?? truncateId(ticket.assigned_mentor_id)
+                  {ticket.assigned_to
+                    ? mentorNameById.get(ticket.assigned_to) ?? truncateId(ticket.assigned_to)
                     : "—"}
                 </td>
                 <td className="py-2.5 pr-4 text-muted-foreground">

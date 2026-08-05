@@ -42,7 +42,7 @@ func scanReport(row rowScanner) (Report, error) {
 // contentOrgQueries resolves the tenant a piece of content belongs to, and
 // doubles as the existence check — a deleted or nonexistent row returns no
 // org, which the caller treats as "content not found". Each query also
-// requires the row not already be soft-deleted.
+// requires the row not already be soft-deleted (where applicable).
 var contentOrgQueries = map[string]string{
 	ContentWikiPage: `SELECT ws.org_id FROM wiki_pages wp
 	                    JOIN wiki_spaces ws ON ws.id = wp.space_id
@@ -50,6 +50,12 @@ var contentOrgQueries = map[string]string{
 	ContentCourseModule: `SELECT c.org_id FROM course_modules cm
 	                        JOIN courses c ON c.id = cm.course_id
 	                       WHERE cm.id = $1 AND cm.deleted_at IS NULL`,
+	// Mentor content: mentor_id resolves via conversations.assigned_to, which has org_id
+	"mentor": `SELECT DISTINCT c.org_id FROM conversations c
+	           WHERE c.assigned_to = $1 AND c.kind IN ('mentorship','direct')
+	           LIMIT 1`,
+	// User content: user_id resolves via org_members to find their org(s)
+	"user": `SELECT org_id FROM org_members WHERE user_id = $1 LIMIT 1`,
 }
 
 // ContentOrgID returns the org a live piece of content belongs to, or

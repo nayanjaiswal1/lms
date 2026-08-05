@@ -46,11 +46,21 @@ func (r *Repo) GetAssessmentByShortCode(ctx context.Context, code string) (Asses
 
 func (r *Repo) CreatePublicAttempt(ctx context.Context, assessmentID, name, email string, phone *string) (PublicAttempt, error) {
 	var att PublicAttempt
+	// Anonymous attempt: user_id is NULL, anonymous_identity holds name/email/phone as jsonb
+	anonIdentity := map[string]interface{}{
+		"name":  name,
+		"email": email,
+	}
+	if phone != nil {
+		anonIdentity["phone"] = *phone
+	}
+	anonJSON, _ := json.Marshal(anonIdentity)
+
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO public_attempts (assessment_id, name, email, phone)
-		 VALUES ($1, $2, $3, $4)
-		 RETURNING id, session_token, started_at`,
-		assessmentID, name, email, phone,
+		`INSERT INTO assessment_attempts (assessment_id, user_id, anonymous_identity, status, started_at, active_session_token)
+		 VALUES ($1, NULL, $2, 'in_progress', now(), gen_random_uuid()::text)
+		 RETURNING id, active_session_token, started_at`,
+		assessmentID, anonJSON,
 	).Scan(&att.ID, &att.SessionToken, &att.StartedAt)
 	if err != nil {
 		return PublicAttempt{}, fmt.Errorf("assessment: create public attempt: %w", err)
@@ -66,14 +76,15 @@ func (r *Repo) CreatePublicAttempt(ctx context.Context, assessmentID, name, emai
 func (r *Repo) GetPublicAttemptByToken(ctx context.Context, token string) (PublicAttempt, error) {
 	var att PublicAttempt
 	var answers []byte
+	var anonID []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, assessment_id, name, email, phone, session_token,
+		`SELECT id, assessment_id, anonymous_identity, active_session_token,
 		        answers, score, max_score, percentage, passed,
 		        flags, status, started_at, submitted_at, duration_sec
-		 FROM public_attempts
-		 WHERE session_token = $1`, token,
+		 FROM assessment_attempts
+		 WHERE active_session_token = $1 AND user_id IS NULL`, token,
 	).Scan(
-		&att.ID, &att.AssessmentID, &att.Name, &att.Email, &att.Phone, &att.SessionToken,
+		&att.ID, &att.AssessmentID, &anonID, &att.SessionToken,
 		&answers, &att.Score, &att.MaxScore, &att.Percentage, &att.Passed,
 		&att.Flags, &att.Status, &att.StartedAt, &att.SubmittedAt, &att.DurationSec,
 	)
@@ -82,6 +93,22 @@ func (r *Repo) GetPublicAttemptByToken(ctx context.Context, token string) (Publi
 			return PublicAttempt{}, ErrNotFound
 		}
 		return PublicAttempt{}, fmt.Errorf("assessment: get public attempt: %w", err)
+	}
+	// Extract name, email, phone from anonymous_identity jsonb
+	if len(anonID) > 0 {
+		var anonData map[string]interface{}
+		if err := json.Unmarshal(anonID, &anonData); err == nil {
+			if v, ok := anonData["name"]; ok {
+				att.Name = v.(string)
+			}
+			if v, ok := anonData["email"]; ok {
+				att.Email = v.(string)
+			}
+			if v, ok := anonData["phone"]; ok {
+				phone := v.(string)
+				att.Phone = &phone
+			}
+		}
 	}
 	if len(answers) > 0 {
 		att.Answers = answers
@@ -104,10 +131,10 @@ func (r *Repo) FinalizePublicAttempt(ctx context.Context, token string, answersR
 	}
 
 	_, err = r.pool.Exec(ctx,
-		`UPDATE public_attempts
+		`UPDATE assessment_attempts
 		 SET answers = $2, score = $3, max_score = $4, percentage = $5,
 		     passed = $6, status = 'submitted', submitted_at = now(), duration_sec = $7
-		 WHERE session_token = $1 AND status = 'in_progress'`,
+		 WHERE active_session_token = $1 AND status = 'in_progress' AND user_id IS NULL`,
 		token, answersRaw, totalScore, maxScore, pct, passed, durationSec,
 	)
 	if err != nil {
@@ -133,9 +160,9 @@ func (r *Repo) FinalizePublicAttempt(ctx context.Context, token string, answersR
 func (r *Repo) OverridePublicAttemptScore(ctx context.Context, orgID, publicAttemptID, reviewerID string, score float64, note string) (PublicAttempt, error) {
 	var passPercent, maxScore float64
 	if err := r.pool.QueryRow(ctx,
-		`SELECT a.pass_percentage, pa.max_score
-		 FROM public_attempts pa JOIN assessments a ON a.id = pa.assessment_id
-		 WHERE pa.id = $1 AND a.org_id = $2`,
+		`SELECT a.pass_percentage, aa.max_score
+		 FROM assessment_attempts aa JOIN assessments a ON a.id = aa.assessment_id
+		 WHERE aa.id = $1 AND a.org_id = $2 AND aa.user_id IS NULL`,
 		publicAttemptID, orgID).Scan(&passPercent, &maxScore); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PublicAttempt{}, ErrNotFound
@@ -150,10 +177,10 @@ func (r *Repo) OverridePublicAttemptScore(ctx context.Context, orgID, publicAtte
 	passed := pct >= passPercent
 
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE public_attempts
+		`UPDATE assessment_attempts
 		 SET score = $2, percentage = $3, passed = $4,
 		     override_note = $5, overridden_by = $6, overridden_at = now()
-		 WHERE id = $1`,
+		 WHERE id = $1 AND user_id IS NULL`,
 		publicAttemptID, score, pct, passed, note, reviewerID)
 	if err != nil {
 		return PublicAttempt{}, fmt.Errorf("assessment: override public attempt score: %w", err)
@@ -164,17 +191,34 @@ func (r *Repo) OverridePublicAttemptScore(ctx context.Context, orgID, publicAtte
 
 	var att PublicAttempt
 	var answers []byte
+	var anonID []byte
 	if err := r.pool.QueryRow(ctx,
-		`SELECT id, assessment_id, name, email, phone, session_token,
+		`SELECT id, assessment_id, anonymous_identity, active_session_token,
 		        answers, score, max_score, percentage, passed,
 		        flags, status, started_at, submitted_at, duration_sec
-		 FROM public_attempts WHERE id = $1`, publicAttemptID,
+		 FROM assessment_attempts WHERE id = $1 AND user_id IS NULL`, publicAttemptID,
 	).Scan(
-		&att.ID, &att.AssessmentID, &att.Name, &att.Email, &att.Phone, &att.SessionToken,
+		&att.ID, &att.AssessmentID, &anonID, &att.SessionToken,
 		&answers, &att.Score, &att.MaxScore, &att.Percentage, &att.Passed,
 		&att.Flags, &att.Status, &att.StartedAt, &att.SubmittedAt, &att.DurationSec,
 	); err != nil {
 		return PublicAttempt{}, fmt.Errorf("assessment: reload overridden public attempt: %w", err)
+	}
+	// Extract name, email, phone from anonymous_identity jsonb
+	if len(anonID) > 0 {
+		var anonData map[string]interface{}
+		if err := json.Unmarshal(anonID, &anonData); err == nil {
+			if v, ok := anonData["name"]; ok {
+				att.Name = v.(string)
+			}
+			if v, ok := anonData["email"]; ok {
+				att.Email = v.(string)
+			}
+			if v, ok := anonData["phone"]; ok {
+				phone := v.(string)
+				att.Phone = &phone
+			}
+		}
 	}
 	if len(answers) > 0 {
 		att.Answers = answers
@@ -185,11 +229,11 @@ func (r *Repo) OverridePublicAttemptScore(ctx context.Context, orgID, publicAtte
 // ListPublicAttempts returns all candidate attempts for an assessment (staff view).
 func (r *Repo) ListPublicAttempts(ctx context.Context, assessmentID string) ([]PublicAttempt, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, assessment_id, name, email, phone, session_token,
+		`SELECT id, assessment_id, anonymous_identity, active_session_token,
 		        score, max_score, percentage, passed, flags, status,
 		        started_at, submitted_at, duration_sec
-		 FROM public_attempts
-		 WHERE assessment_id = $1
+		 FROM assessment_attempts
+		 WHERE assessment_id = $1 AND user_id IS NULL
 		 ORDER BY started_at DESC`, assessmentID)
 	if err != nil {
 		return nil, fmt.Errorf("assessment: list public attempts: %w", err)
@@ -199,12 +243,29 @@ func (r *Repo) ListPublicAttempts(ctx context.Context, assessmentID string) ([]P
 	var out []PublicAttempt
 	for rows.Next() {
 		var att PublicAttempt
+		var anonID []byte
 		if err := rows.Scan(
-			&att.ID, &att.AssessmentID, &att.Name, &att.Email, &att.Phone, &att.SessionToken,
+			&att.ID, &att.AssessmentID, &anonID, &att.SessionToken,
 			&att.Score, &att.MaxScore, &att.Percentage, &att.Passed,
 			&att.Flags, &att.Status, &att.StartedAt, &att.SubmittedAt, &att.DurationSec,
 		); err != nil {
 			return nil, fmt.Errorf("assessment: scan public attempt: %w", err)
+		}
+		// Extract name, email, phone from anonymous_identity jsonb
+		if len(anonID) > 0 {
+			var anonData map[string]interface{}
+			if err := json.Unmarshal(anonID, &anonData); err == nil {
+				if v, ok := anonData["name"]; ok {
+					att.Name = v.(string)
+				}
+				if v, ok := anonData["email"]; ok {
+					att.Email = v.(string)
+				}
+				if v, ok := anonData["phone"]; ok {
+					phone := v.(string)
+					att.Phone = &phone
+				}
+			}
 		}
 		out = append(out, att)
 	}

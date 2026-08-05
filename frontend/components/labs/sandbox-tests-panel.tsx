@@ -1,6 +1,7 @@
 "use client"
 
 import { CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { IconMessage } from "@/components/shared/icon-message"
 import type { LabRunResult, LabSubmitResult, LabTask } from "@/lib/labs"
 
 interface SandboxTestsPanelProps {
@@ -31,10 +32,9 @@ export function SandboxTestsPanel({ tasks, runResult, submitResult, error }: San
   return (
     <div className="flex flex-col gap-4 p-4">
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2" role="alert">
-          <AlertCircle aria-hidden className="h-4 w-4 text-destructive shrink-0" />
-          <p className="text-sm text-destructive">{error}</p>
-        </div>
+        <IconMessage icon={AlertCircle} role="alert" tone="destructive">
+          {error}
+        </IconMessage>
       )}
 
       {submitResult && (

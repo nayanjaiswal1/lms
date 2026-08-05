@@ -39,6 +39,9 @@ export async function resetPasswordAction(
   });
 
   if (!result.ok) {
+    if (result.fieldErrors?.new_password) {
+      return { fieldErrors: { newPassword: result.fieldErrors.new_password } };
+    }
     return { error: result.error ?? AUTH_COPY.invalidResetToken };
   }
 

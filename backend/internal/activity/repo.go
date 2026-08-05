@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,7 +36,12 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 // (user_id, ts DESC) indexes. If EXPLAIN ever shows a full Sort as a branch
 // grows, push `ORDER BY ... LIMIT $6` into that branch subquery: the global
 // top-N is always a subset of each branch's own top-N.
-const feedQuery = `
+//
+// eventsCTE is shared by feedQuery (cursor-paginated feed, $3/$4 = cursor
+// position) and windowQuery (ListWindow's fixed [from, to) range, $3/$4 =
+// bounds) — same event union, two different WHERE clauses layered on top in
+// each query's own final SELECT, so the source list is defined exactly once.
+const eventsCTE = `
 WITH ev AS (
 	SELECT mp.completed_at AS occurred_at, '` + KindModuleCompleted + `' AS kind,
 	       '` + KindModuleCompleted + `:'||mp.id AS key,
@@ -63,11 +69,11 @@ WITH ev AS (
 
 	UNION ALL
 	SELECT lr.created_at, '` + KindReflection + `', '` + KindReflection + `:'||lr.id,
-	       cm.title, left(lr.response, 200), lr.module_id::text, 'module', c.slug
-	  FROM lesson_reflections lr
-	  JOIN course_modules cm ON cm.id = lr.module_id
+	       cm.title, left(lr.text, 200), lr.source_id::text, 'module', c.slug
+	  FROM learning_annotations lr
+	  JOIN course_modules cm ON cm.id = lr.source_id
 	  JOIN courses c         ON c.id  = cm.course_id
-	 WHERE lr.user_id = $1 AND lr.org_id = $2
+	 WHERE lr.user_id = $1 AND lr.org_id = $2 AND lr.source_type = 'module' AND lr.annotation_type = 'reflection'
 
 	UNION ALL
 	SELECT upp.solved_at, '` + KindSheetSolved + `', '` + KindSheetSolved + `:'||upp.topic_tag,
@@ -86,11 +92,33 @@ WITH ev AS (
 	       sc.front, 'Next review in ' || sr.interval_days || 'd', sr.card_id::text, 'srs_card', NULL
 	  FROM srs_reviews sr JOIN srs_cards sc ON sc.id = sr.card_id
 	 WHERE sr.user_id = $1
+
+	UNION ALL
+	SELECT la.created_at, 'annotation:' || la.annotation_type, 'annotation:' || la.annotation_type || ':' || la.id,
+	       la.text, CASE WHEN la.annotation_type = 'mistake' THEN (la.meta->>'corrected_text')::text ELSE (la.meta->>'note')::text END,
+	       la.source_id::text, la.source_type, NULL
+	  FROM learning_annotations la
+	 WHERE la.user_id = $1 AND la.annotation_type IN ('highlight', 'mistake')
 )
+`
+
+const feedQuery = eventsCTE + `
 SELECT occurred_at, kind, key, title, COALESCE(summary, ''),
        COALESCE(ref_id, ''), COALESCE(ref_type, ''), COALESCE(ref_slug, '')
   FROM ev
  WHERE ($3::timestamptz IS NULL OR (occurred_at, key) < ($3, $4))
+ ORDER BY occurred_at DESC, key DESC
+ LIMIT $5
+`
+
+// windowQuery is eventsCTE filtered to a fixed [$3, $4) time range instead of
+// feedQuery's cursor position — ListWindow's caller (internal/digest) wants
+// "everything that happened in this window", not a page of the infinite feed.
+const windowQuery = eventsCTE + `
+SELECT occurred_at, kind, key, title, COALESCE(summary, ''),
+       COALESCE(ref_id, ''), COALESCE(ref_type, ''), COALESCE(ref_slug, '')
+  FROM ev
+ WHERE occurred_at >= $3 AND occurred_at < $4
  ORDER BY occurred_at DESC, key DESC
  LIMIT $5
 `
@@ -107,13 +135,39 @@ func (r *Repo) List(ctx context.Context, userID, orgID string, tzOffsetMin int, 
 	defer rows.Close()
 
 	loc := time.FixedZone("client", tzOffsetMin*60)
+	out, err := scanEntries(rows)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Day = out[i].OccurredAt.In(loc).Format("2006-01-02")
+	}
+	return out, nil
+}
+
+// ListWindow returns every entry for userID in [from, to), newest first,
+// scoped to orgID exactly like List. Used by internal/digest to gather a
+// student's notes/reflections/mistakes/completions for a revision window
+// (one night, or the last 3/7/30 days) rather than a paginated feed page, so
+// it takes a fixed range instead of a cursor and has no page-size cap beyond
+// limit as a sanity bound. Entry.Day is left unset — callers of ListWindow
+// work from OccurredAt directly.
+func (r *Repo) ListWindow(ctx context.Context, userID, orgID string, from, to time.Time, limit int) ([]Entry, error) {
+	rows, err := r.pool.Query(ctx, windowQuery, userID, orgID, from, to, limit)
+	if err != nil {
+		return nil, fmt.Errorf("activity: list window: %w", err)
+	}
+	defer rows.Close()
+	return scanEntries(rows)
+}
+
+func scanEntries(rows pgx.Rows) ([]Entry, error) {
 	out := []Entry{}
 	for rows.Next() {
 		var e Entry
 		if err := rows.Scan(&e.OccurredAt, &e.Kind, &e.Key, &e.Title, &e.Summary, &e.RefID, &e.RefType, &e.RefSlug); err != nil {
 			return nil, fmt.Errorf("activity: scan entry: %w", err)
 		}
-		e.Day = e.OccurredAt.In(loc).Format("2006-01-02")
 		out = append(out, e)
 	}
 	return out, rows.Err()

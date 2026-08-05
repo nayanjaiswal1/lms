@@ -50,10 +50,10 @@ func (r *Repo) ListAssignedForUser(ctx context.Context, orgID, userID string) ([
 		 WHERE a.org_id = $1
 		   AND a.status IN ('published','scheduled','active')
 		   AND EXISTS (
-		     SELECT 1 FROM assessment_assignments aa
-		     WHERE aa.assessment_id = a.id
-		       AND ((aa.assignee_type = 'student' AND aa.assignee_id = $2)
-		         OR (aa.assignee_type = 'batch' AND aa.assignee_id IN
+		     SELECT 1 FROM content_assignments ca
+		     WHERE ca.content_type = 'assessment' AND ca.content_id = a.id
+		       AND ((ca.assignee_type = 'user' AND ca.assignee_id = $2)
+		         OR (ca.assignee_type = 'batch' AND ca.assignee_id IN
 		             (SELECT batch_id FROM batch_members WHERE user_id = $2)))
 		   )
 		 ORDER BY a.updated_at DESC`, orgID, userID)
@@ -286,11 +286,11 @@ type AnswerRow struct {
 func (r *Repo) ListAnswersForGrading(ctx context.Context, attemptID string) ([]AnswerRow, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT ans.id, ans.assessment_question_id, ans.question_id, q.type, q.title,
-		        ans.answer, ans.transcript, ans.max_points, qv.content
+		        ans.answer, ans.transcript, ans.max_points, cv.content
 		 FROM attempt_answers ans
 		 JOIN assessment_questions aq ON aq.id = ans.assessment_question_id
 		 JOIN questions q ON q.id = ans.question_id
-		 JOIN question_versions qv ON qv.id = aq.version_id
+		 JOIN content_versions cv ON cv.id = aq.content_version_id
 		 WHERE ans.attempt_id = $1
 		 ORDER BY aq.position`, attemptID)
 	if err != nil {
@@ -328,11 +328,11 @@ func (r *Repo) GetAttemptQuestionContent(ctx context.Context, attemptID, assessm
 	var out AttemptQuestionContent
 	var content []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT q.type, qv.content
+		`SELECT q.type, cv.content
 		 FROM attempt_answers ans
 		 JOIN assessment_questions aq ON aq.id = ans.assessment_question_id
 		 JOIN questions q ON q.id = ans.question_id
-		 JOIN question_versions qv ON qv.id = aq.version_id
+		 JOIN content_versions cv ON cv.id = aq.content_version_id
 		 WHERE ans.attempt_id = $1 AND ans.assessment_question_id = $2`,
 		attemptID, assessmentQuestionID).Scan(&out.Type, &content)
 	if err != nil {
@@ -490,11 +490,11 @@ type ReviewItem struct {
 func (r *Repo) AttemptReview(ctx context.Context, attemptID string) ([]ReviewItem, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT q.id, q.title, q.type, aq.position, ans.max_points, ans.points_awarded,
-		        ans.is_correct, ans.answer, qv.content, ans.id
+		        ans.is_correct, ans.answer, cv.content, ans.id
 		 FROM attempt_answers ans
 		 JOIN assessment_questions aq ON aq.id = ans.assessment_question_id
 		 JOIN questions q ON q.id = ans.question_id
-		 JOIN question_versions qv ON qv.id = aq.version_id
+		 JOIN content_versions cv ON cv.id = aq.content_version_id
 		 WHERE ans.attempt_id = $1
 		 ORDER BY aq.position`, attemptID)
 	if err != nil {

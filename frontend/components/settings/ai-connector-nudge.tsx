@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccessGate } from "@/components/shared/access-gate";
+import { IconMessage } from "@/components/shared/icon-message";
 import { FEATURES } from "@/lib/features";
 import ROUTES from "@/lib/routes";
 
@@ -26,19 +27,26 @@ export function AIConnectorNudge({ hasConnection }: AIConnectorNudgeProps) {
 
   return (
     <AccessGate feature={FEATURES.AI_CONNECTOR} mode="hide">
-      <div className="ai-surface mb-6 flex items-center gap-3 p-4">
-        <Sparkles aria-hidden className="h-5 w-5 shrink-0 text-ai" />
-        <p className="flex-1 text-sm text-foreground">
-          Connect your own Claude or ChatGPT to MindForge — it can read your lessons, save notes,
-          and manage your calendar for you.
-        </p>
-        <Button asChild size="sm" variant="outline">
-          <Link href={ROUTES.SETTINGS_INTEGRATIONS}>Connect</Link>
-        </Button>
-        <Button aria-label="Dismiss" size="icon" variant="ghost" onClick={() => setDismissed(true)}>
-          <X aria-hidden className="h-4 w-4" />
-        </Button>
-      </div>
+      <IconMessage
+        action={
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link href={ROUTES.SETTINGS_INTEGRATIONS}>Connect</Link>
+            </Button>
+            <Button aria-label="Dismiss" size="icon" variant="ghost" onClick={() => setDismissed(true)}>
+              <X aria-hidden className="h-4 w-4" />
+            </Button>
+          </div>
+        }
+        className="ai-surface mb-6 gap-3 p-4 text-foreground"
+        icon={Sparkles}
+        size="md"
+        tone="ai"
+        variant="plain"
+      >
+        Connect your own Claude or ChatGPT to MindForge — it can read your lessons, save notes,
+        and manage your calendar for you.
+      </IconMessage>
     </AccessGate>
   );
 }

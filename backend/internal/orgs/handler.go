@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
@@ -34,11 +35,11 @@ type Handler struct {
 	jobsRegistry *jobs.Registry
 }
 
-func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, jobsRegistry *jobs.Registry) *Handler {
+func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, vault *secrets.Vault, jobsRegistry *jobs.Registry) *Handler {
 	return &Handler{
 		cfg:          cfg,
 		pool:         pool,
-		orgSvc:       NewOrgService(pool, cfg),
+		orgSvc:       NewOrgService(pool, cfg, vault),
 		onboSvc:      NewOrgOnboardingService(pool),
 		invSvc:       NewInviteService(pool, cfg),
 		memSvc:       NewMemberService(pool, cache),
@@ -56,6 +57,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/orgs/me", h.handleMe)
 	r.With(idem).Post("/api/orgs/switch", h.handleSwitch)
 	r.With(idem).Post("/api/orgs/join", h.handleJoin)
+
+	r.With(apimiddleware.RequirePlatformRole(h.pool, apimiddleware.PlatformRoleSuperAdmin)).
+		Get("/api/admin/orgs", h.handleAdminListOrgs)
 
 	r.Route("/api/orgs/{id}", func(r chi.Router) {
 		r.Use(apimiddleware.RequireOrgMember(h.pool))
@@ -131,6 +135,18 @@ func (h *Handler) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, orgs)
+}
+
+// handleAdminListOrgs is the platform admin's cross-tenant org picker —
+// ?search= filters by name/slug substring.
+func (h *Handler) handleAdminListOrgs(w http.ResponseWriter, r *http.Request) {
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+	orgs, err := h.orgSvc.ListAllOrgs(r.Context(), search)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to list organizations.")
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"orgs": orgs})
 }
 
 func (h *Handler) handleGet(w http.ResponseWriter, r *http.Request) {
@@ -455,16 +471,17 @@ func (h *Handler) handleGetAIConnectorConfig(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	enabled := true
-	err := h.pool.QueryRow(r.Context(),
-		`SELECT enabled FROM org_ai_connector_config WHERE org_id = $1`,
-		orgCtx.OrgID,
-	).Scan(&enabled)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	repo := NewRepo(h.pool, nil)
+	settings, err := repo.GetAIConnectorSettings(r.Context(), orgCtx.OrgID)
+	if err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to load AI connector configuration.")
 		return
 	}
 
+	enabled := true
+	if settings.Enabled != nil {
+		enabled = *settings.Enabled
+	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"enabled": enabled})
 }
 
@@ -487,14 +504,9 @@ func (h *Handler) handleUpdateAIConnectorConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	_, err := h.pool.Exec(r.Context(),
-		`INSERT INTO org_ai_connector_config (org_id, enabled)
-		 VALUES ($1, $2)
-		 ON CONFLICT (org_id) DO UPDATE
-		   SET enabled = EXCLUDED.enabled, updated_at = now()`,
-		orgCtx.OrgID, req.Enabled,
-	)
-	if err != nil {
+	repo := NewRepo(h.pool, nil)
+	settings := &AIConnectorSettings{Enabled: &req.Enabled}
+	if err := repo.UpsertAIConnectorSettings(r.Context(), orgCtx.OrgID, settings); err != nil {
 		httputil.WriteError(w, http.StatusInternalServerError, "Failed to update AI connector configuration.")
 		return
 	}

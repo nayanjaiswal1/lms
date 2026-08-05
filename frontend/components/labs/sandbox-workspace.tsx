@@ -3,6 +3,7 @@
 import { useReducer } from "react"
 import { Loader2, MonitorOff, Play, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { IconMessage } from "@/components/shared/icon-message"
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -96,12 +97,9 @@ export function SandboxWorkspace({ sessionId, lab, onScoreChange }: SandboxWorks
   return (
     <>
       {/* Mobile: the IDE needs a real screen. */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-muted/50 border-b border-border md:hidden">
-        <MonitorOff aria-hidden className="h-4 w-4 text-muted-foreground shrink-0" />
-        <p className="text-sm text-muted-foreground">
-          The sandbox workspace requires a larger screen.
-        </p>
-      </div>
+      <IconMessage className="bg-muted/50 md:hidden" icon={MonitorOff} variant="strip">
+        The sandbox workspace requires a larger screen.
+      </IconMessage>
 
       <div className="hidden md:flex flex-col flex-1 min-h-0">
         <LabQuickOpen files={filesState.files} onOpen={filesState.openFile} />

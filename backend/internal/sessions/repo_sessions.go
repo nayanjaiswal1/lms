@@ -255,12 +255,12 @@ func (r *Repo) Reschedule(ctx context.Context, orgID, sessionID string, startsAt
 // previous one rather than stacking a second (see the unique index).
 func (r *Repo) UpsertFeedback(ctx context.Context, f Feedback) (Feedback, error) {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO mentor_session_feedback (session_id, author_id, author_role, rating, comment)
-		 VALUES ($1, $2, $3, $4, $5)
-		 ON CONFLICT (session_id, author_id) DO UPDATE
+		`INSERT INTO feedback (subject_type, subject_id, user_id, kind, rating, comment)
+		 VALUES ($1, $2, $3, $4, $5, $6)
+		 ON CONFLICT (subject_type, subject_id, user_id) DO UPDATE
 		   SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, updated_at = now()
 		 RETURNING id, created_at, updated_at`,
-		f.SessionID, f.AuthorID, f.AuthorRole, f.Rating, f.Comment,
+		"mentor_session", f.SessionID, f.AuthorID, "rating", f.Rating, f.Comment,
 	).Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return Feedback{}, fmt.Errorf("sessions: upsert feedback: %w", err)
@@ -271,13 +271,14 @@ func (r *Repo) UpsertFeedback(ctx context.Context, f Feedback) (Feedback, error)
 // ListFeedback returns both sides' feedback for a session.
 func (r *Repo) ListFeedback(ctx context.Context, sessionID string) ([]Feedback, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT f.id, f.session_id, f.author_id, f.author_role, f.rating, f.comment,
-		        u.name, f.created_at, f.updated_at
-		   FROM mentor_session_feedback f
-		   JOIN users u ON u.id = f.author_id
-		  WHERE f.session_id = $1
+		`SELECT f.id, f.subject_id, f.user_id, f.rating, f.comment,
+		        u.name, f.created_at, f.updated_at, s.mentor_id, s.student_id
+		   FROM feedback f
+		   JOIN users u ON u.id = f.user_id
+		   JOIN mentor_sessions s ON s.id = f.subject_id
+		  WHERE f.subject_type = $1 AND f.subject_id = $2
 		  ORDER BY f.created_at`,
-		sessionID,
+		"mentor_session", sessionID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("sessions: list feedback: %w", err)
@@ -287,9 +288,16 @@ func (r *Repo) ListFeedback(ctx context.Context, sessionID string) ([]Feedback, 
 	out := []Feedback{}
 	for rows.Next() {
 		var f Feedback
-		if err := rows.Scan(&f.ID, &f.SessionID, &f.AuthorID, &f.AuthorRole, &f.Rating,
-			&f.Comment, &f.AuthorName, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		var mentorID, studentID *string
+		if err := rows.Scan(&f.ID, &f.SessionID, &f.AuthorID, &f.Rating,
+			&f.Comment, &f.AuthorName, &f.CreatedAt, &f.UpdatedAt, &mentorID, &studentID); err != nil {
 			return nil, fmt.Errorf("sessions: scan feedback: %w", err)
+		}
+		// Derive author_role based on whether they are the mentor or student
+		if mentorID != nil && f.AuthorID == *mentorID {
+			f.AuthorRole = RoleMentor
+		} else if studentID != nil && f.AuthorID == *studentID {
+			f.AuthorRole = RoleStudent
 		}
 		out = append(out, f)
 	}
@@ -301,12 +309,11 @@ func (r *Repo) ListFeedback(ctx context.Context, sessionID string) ([]Feedback, 
 // UpsertNotes writes the mentor's write-up for a session.
 func (r *Repo) UpsertNotes(ctx context.Context, n Notes) (Notes, error) {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO mentor_session_notes (session_id, mentor_id, body, visible_to_student)
-		 VALUES ($1, $2, $3, $4)
-		 ON CONFLICT (session_id) DO UPDATE
-		   SET body = EXCLUDED.body, visible_to_student = EXCLUDED.visible_to_student, updated_at = now()
+		`UPDATE mentor_sessions
+		 SET notes = $2, notes_visible_to_student = $3, updated_at = now()
+		 WHERE id = $1
 		 RETURNING updated_at`,
-		n.SessionID, n.MentorID, n.Body, n.VisibleToStudent,
+		n.SessionID, n.Body, n.VisibleToStudent,
 	).Scan(&n.UpdatedAt)
 	if err != nil {
 		return Notes{}, fmt.Errorf("sessions: upsert notes: %w", err)
@@ -320,9 +327,9 @@ func (r *Repo) UpsertNotes(ctx context.Context, n Notes) (Notes, error) {
 func (r *Repo) GetNotes(ctx context.Context, sessionID string, includePrivate bool) (*Notes, error) {
 	var n Notes
 	err := r.pool.QueryRow(ctx,
-		`SELECT session_id, mentor_id, body, visible_to_student, updated_at
-		   FROM mentor_session_notes
-		  WHERE session_id = $1 AND ($2 OR visible_to_student)`,
+		`SELECT id, mentor_id, notes, notes_visible_to_student, updated_at
+		   FROM mentor_sessions
+		  WHERE id = $1 AND ($2 OR notes_visible_to_student OR notes IS NULL)`,
 		sessionID, includePrivate,
 	).Scan(&n.SessionID, &n.MentorID, &n.Body, &n.VisibleToStudent, &n.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -343,7 +350,7 @@ func (r *Repo) MenteeProgress(ctx context.Context, orgID, mentorID, studentID st
 	p := MenteeProgress{StudentID: studentID}
 
 	// The average rating is a scalar subquery rather than a third JOIN: joining
-	// mentor_session_feedback here fans out one row per rating, so a session
+	// feedback here fans out one row per rating, so a session
 	// rated by BOTH parties would be counted twice in every count below.
 	err := r.pool.QueryRow(ctx,
 		`SELECT u.name,
@@ -353,10 +360,11 @@ func (r *Repo) MenteeProgress(ctx context.Context, orgID, mentorID, studentID st
 		        count(s.id) FILTER (WHERE s.status = 'no_show'),
 		        min(s.starts_at), max(s.starts_at),
 		        (SELECT avg(f.rating)
-		           FROM mentor_session_feedback f
-		           JOIN mentor_sessions fs ON fs.id = f.session_id
-		          WHERE fs.org_id = $1 AND fs.mentor_id = $2 AND fs.student_id = $3
-		            AND f.author_role = 'student')
+		           FROM feedback f
+		           JOIN mentor_sessions fs ON fs.id = f.subject_id
+		          WHERE f.subject_type = 'mentor_session'
+		            AND fs.org_id = $1 AND fs.mentor_id = $2 AND fs.student_id = $3
+		            AND f.user_id = $3)
 		   FROM users u
 		   LEFT JOIN mentor_sessions s
 		          ON s.student_id = u.id AND s.mentor_id = $2 AND s.org_id = $1

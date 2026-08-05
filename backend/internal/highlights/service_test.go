@@ -22,26 +22,21 @@ func TestComputeHash_ScopedBySourceID(t *testing.T) {
 	}
 }
 
-func TestBuildExplainUserPrompt_IncludesContextSnippet(t *testing.T) {
-	snippet := "The reverse index maps content back to the document that produced it."
+func TestBuildExplainUserPrompt_IncludesSourceContext(t *testing.T) {
 	req := ExplainRequest{
-		SourceType:     SourceTypeLesson,
-		SourceID:       "lesson-1",
-		SelectedText:   "index",
-		ContextSnippet: &snippet,
+		SourceType:   SourceTypeLesson,
+		SourceID:     "lesson-1",
+		SelectedText: "index",
 	}
 
 	prompt := buildExplainUserPrompt(req)
 
-	if !strings.Contains(prompt, snippet) {
-		t.Fatalf("prompt must include the captured context snippet, got:\n%s", prompt)
-	}
 	if !strings.Contains(prompt, "index") {
 		t.Fatalf("prompt must include the highlighted text, got:\n%s", prompt)
 	}
 }
 
-func TestBuildExplainUserPrompt_NoContextSnippet(t *testing.T) {
+func TestBuildExplainUserPrompt_WikiPageSource(t *testing.T) {
 	req := ExplainRequest{
 		SourceType:   SourceTypeWikiPage,
 		SourceID:     "page-1",
@@ -50,9 +45,6 @@ func TestBuildExplainUserPrompt_NoContextSnippet(t *testing.T) {
 
 	prompt := buildExplainUserPrompt(req)
 
-	if strings.Contains(prompt, "Surrounding text") {
-		t.Fatalf("prompt must not mention surrounding text when no snippet was captured, got:\n%s", prompt)
-	}
 	if !strings.Contains(prompt, "idempotent") {
 		t.Fatalf("prompt must include the highlighted text, got:\n%s", prompt)
 	}

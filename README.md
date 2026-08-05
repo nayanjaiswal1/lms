@@ -291,12 +291,6 @@ Copy `.env.example` to `.env` for local development.
 | `NEXT_PUBLIC_APP_URL` | Yes | `http://localhost:3000` | Frontend public URL (used for OG/canonical URLs). |
 | `BACKEND_URL` | No | `http://localhost:8080` | Server-to-server backend URL (not exposed to browser). |
 
-### Optional
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `MAXMIND_DB_PATH` | No | — | Path to GeoLite2-City.mmdb. Enables impossible-travel detection on login. |
-
 ---
 
 ## Ports Used in Dev

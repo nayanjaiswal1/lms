@@ -177,7 +177,7 @@ func (s *testService) InvalidateForRoleChange(ctx context.Context, roleID string
 	}
 	var lastErr error
 	for _, a := range assignments {
-		if err := s.cache.Invalidate(ctx, a.TenantID, a.UserID); err != nil {
+		if err := s.cache.Invalidate(ctx, a.OrgID, a.UserID); err != nil {
 			lastErr = err
 		}
 	}
@@ -381,8 +381,8 @@ func TestInvalidateForRoleChange_InvalidatesAllHolders(t *testing.T) {
 
 	repo := &stubRepo{
 		assignments: []UserRoleAssignment{
-			{UserID: "user-1", TenantID: "tenant-1"},
-			{UserID: "user-2", TenantID: "tenant-2"},
+			{UserID: "user-1", OrgID: "tenant-1"},
+			{UserID: "user-2", OrgID: "tenant-2"},
 		},
 	}
 	svc := newTestService(repo, cache)

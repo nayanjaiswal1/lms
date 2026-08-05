@@ -2,6 +2,7 @@ package labs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -110,16 +111,14 @@ func (r *Repo) GetPublishedVersion(ctx context.Context, versionID string) ([]Tas
 
 // ─── Org config ──────────────────────────────────────────────────────────────
 
-// GetOrgConfig loads org-level lab config. Missing rows return platform defaults
-// with nil error.
+// GetOrgConfig loads org-level lab config from org_settings.labs jsonb.
+// Missing rows or empty jsonb return platform defaults with nil error.
 func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (LabOrgConfig, error) {
-	var cfg LabOrgConfig
-	err := r.pool.QueryRow(ctx, `
-		SELECT org_id, max_concurrent_sessions, max_session_duration,
-		       COALESCE(allowed_images, '{}'), egress_proxy_enabled, updated_at
-		FROM lab_org_config WHERE org_id=$1`, orgID,
-	).Scan(&cfg.OrgID, &cfg.MaxConcurrentSessions, &cfg.MaxSessionDuration,
-		&cfg.AllowedImages, &cfg.EgressProxyEnabled, &cfg.UpdatedAt)
+	var raw []byte
+	err := r.pool.QueryRow(ctx,
+		`SELECT COALESCE(labs, '{}'::jsonb) FROM org_settings WHERE org_id=$1`,
+		orgID,
+	).Scan(&raw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return LabOrgConfig{
@@ -130,6 +129,37 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (LabOrgConfig, er
 		}
 		return LabOrgConfig{}, fmt.Errorf("labs.Repo.GetOrgConfig: %w", err)
 	}
+
+	cfg := LabOrgConfig{
+		OrgID:                 orgID,
+		MaxConcurrentSessions: MaxConcurrentSessionsDefault,
+		MaxSessionDuration:    MaxSessionDurationDefault,
+	}
+
+	type labsJSON struct {
+		MaxConcurrentSessions *int      `json:"max_concurrent_sessions"`
+		MaxSessionDuration    *int      `json:"max_session_duration"`
+		AllowedImages         []string  `json:"allowed_images"`
+		EgressProxyEnabled    *bool     `json:"egress_proxy_enabled"`
+	}
+
+	var parsed labsJSON
+	if len(raw) > 2 { // Skip empty {}
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return LabOrgConfig{}, fmt.Errorf("labs.Repo.GetOrgConfig: unmarshal: %w", err)
+		}
+		if parsed.MaxConcurrentSessions != nil {
+			cfg.MaxConcurrentSessions = *parsed.MaxConcurrentSessions
+		}
+		if parsed.MaxSessionDuration != nil {
+			cfg.MaxSessionDuration = *parsed.MaxSessionDuration
+		}
+		cfg.AllowedImages = parsed.AllowedImages
+		if parsed.EgressProxyEnabled != nil {
+			cfg.EgressProxyEnabled = *parsed.EgressProxyEnabled
+		}
+	}
+
 	return cfg, nil
 }
 

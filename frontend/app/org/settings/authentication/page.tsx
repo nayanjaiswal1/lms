@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Shield } from "lucide-react";
 import { getOrgAuthConfig } from "@/lib/orgs/server";
 import { AuthConfigForm } from "@/app/org/settings/authentication/auth-config-form";
+import { SectionHeader } from "@/components/shared/section-header";
 import ROUTES from "@/lib/routes";
 import { getCurrentOrgId } from "@/lib/server/claims";
 
@@ -20,17 +21,11 @@ export default async function AuthenticationPage() {
   return (
     <div className="space-y-6">
       <div className="card-base p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Shield aria-hidden className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="subsection-title text-foreground">Authentication</h2>
-            <p className="text-sm text-muted-foreground">
-              Configure how your organisation members sign in.
-            </p>
-          </div>
-        </div>
+        <SectionHeader
+          description="Configure how your organisation members sign in."
+          icon={Shield}
+          title="Authentication"
+        />
 
         <AuthConfigForm config={config} orgId={orgId} />
       </div>

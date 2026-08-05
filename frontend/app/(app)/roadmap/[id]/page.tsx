@@ -8,6 +8,7 @@ import { PublishRoadmapToggle } from "@/components/roadmap/publish-roadmap-toggl
 import { DeleteRoadmapButton } from "@/components/roadmap/delete-roadmap-button";
 import { getRoadmap } from "@/lib/server/roadmap";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { IconMessage } from "@/components/shared/icon-message";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -48,13 +49,10 @@ export default async function RoadmapDetailPage({ params }: Props) {
       </div>
 
       {roadmap.status === "generating" && (
-        <div className="ai-surface flex items-center gap-3 p-6">
-          <Sparkles aria-hidden className="h-5 w-5 shrink-0 text-ai" />
-          <p className="text-sm">
-            AI is building your personalized roadmap — phases, milestones, and modules tailored to your
-            goal. This page refreshes automatically.
-          </p>
-        </div>
+        <IconMessage className="ai-surface p-6" icon={Sparkles} size="md" tone="ai" variant="plain">
+          AI is building your personalized roadmap — phases, milestones, and modules tailored to your
+          goal. This page refreshes automatically.
+        </IconMessage>
       )}
 
       {roadmap.status === "failed" && (
@@ -78,7 +76,7 @@ export default async function RoadmapDetailPage({ params }: Props) {
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="progress-track w-40">
-                {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+                { }
                 <div className="progress-fill" style={{ "--progress": `${pct}%` } as React.CSSProperties} />
               </div>
               <span className="text-sm text-muted-foreground">

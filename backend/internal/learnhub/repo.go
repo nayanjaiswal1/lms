@@ -65,14 +65,37 @@ SELECT
 	  WHERE e.user_id = $1 AND c.org_id = $2),
 
 	(SELECT COUNT(*) > 0 FROM target_roadmap),
-	COALESCE((SELECT COUNT(*) FROM roadmap_modules mo
-	            JOIN roadmap_milestones m ON m.id = mo.milestone_id
-	            JOIN roadmap_phases p ON p.id = m.phase_id
-	           WHERE p.roadmap_id = (SELECT id FROM target_roadmap)), 0),
-	COALESCE((SELECT COUNT(*) FROM roadmap_modules mo
-	            JOIN roadmap_milestones m ON m.id = mo.milestone_id
-	            JOIN roadmap_phases p ON p.id = m.phase_id
-	           WHERE p.roadmap_id = (SELECT id FROM target_roadmap) AND mo.completed_at IS NOT NULL), 0),
+	COALESCE((SELECT COUNT(DISTINCT (m->>'id'))::int
+	  FROM (
+	    SELECT jsonb_array_elements(
+	      jsonb_array_elements(
+	        jsonb_array_elements(
+	          COALESCE((SELECT structure FROM roadmaps WHERE id = (SELECT id FROM target_roadmap)), '{"phases":[]}'::jsonb)
+	          ->'phases'
+	        )
+	        ->'milestones'
+	      )
+	      ->'modules' AS m
+	    ) mods), 0),
+	COALESCE((SELECT COUNT(DISTINCT (m->>'id'))::int
+	  FROM (
+	    SELECT jsonb_array_elements(
+	      jsonb_array_elements(
+	        jsonb_array_elements(
+	          COALESCE((SELECT structure FROM roadmaps WHERE id = (SELECT id FROM target_roadmap)), '{"phases":[]}'::jsonb)
+	          ->'phases'
+	        )
+	        ->'milestones'
+	      )
+	      ->'modules' AS m
+	    ) mods
+	    WHERE EXISTS (
+	      SELECT 1 FROM roadmap_module_progress rmp
+	      WHERE rmp.roadmap_id = (SELECT id FROM target_roadmap)
+	        AND rmp.module_key = (m->>'id')
+	        AND rmp.completed_at IS NOT NULL
+	    )
+	  ), 0),
 
 	(SELECT COUNT(*) FROM interview_prep_plans WHERE user_id = $1),
 
@@ -80,10 +103,10 @@ SELECT
 	  WHERE a.org_id = $2
 	    AND a.status IN ('published','scheduled','active')
 	    AND EXISTS (
-	      SELECT 1 FROM assessment_assignments aa
-	      WHERE aa.assessment_id = a.id
-	        AND ((aa.assignee_type = 'student' AND aa.assignee_id = $1)
-	          OR (aa.assignee_type = 'batch' AND aa.assignee_id IN
+	      SELECT 1 FROM content_assignments ca
+	      WHERE ca.content_type = 'assessment' AND ca.content_id = a.id
+	        AND ((ca.assignee_type = 'user' AND ca.assignee_id = $1)
+	          OR (ca.assignee_type = 'batch' AND ca.assignee_id IN
 	              (SELECT batch_id FROM batch_members WHERE user_id = $1)))
 	    )
 	    AND NOT (
@@ -95,7 +118,7 @@ SELECT
 	    )
 	),
 
-	(SELECT COUNT(*) FROM highlights WHERE user_id = $1 AND saved_for_revision = TRUE),
+	(SELECT COUNT(*) FROM learning_annotations WHERE user_id = $1 AND annotation_type = 'highlight' AND saved_for_revision = TRUE),
 
 	(SELECT COUNT(*) FROM srs_cards WHERE user_id = $1 AND due_date <= CURRENT_DATE),
 

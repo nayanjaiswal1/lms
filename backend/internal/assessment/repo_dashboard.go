@@ -10,7 +10,7 @@ import (
 // Teacher dashboard analytics — class health, roster (via GetBatchProgress),
 // chapter mastery heatmap, weakest/strongest chapter ranking, an estimated
 // blockers breakdown, and a progress-vs-engagement scatter. All scoped to a
-// batch's assigned courses (batch_courses) so numbers only reflect what this
+// batch's assigned courses (content_assignments) so numbers only reflect what this
 // class is actually working through.
 // ─────────────────────────────────────────────
 
@@ -96,9 +96,9 @@ func (r *Repo) ChapterMastery(ctx context.Context, orgID, batchID string) ([]Cha
 		 JOIN users u ON u.id = bm.user_id
 		 CROSS JOIN (
 		   SELECT DISTINCT cs.id, cs.title, cs."position"
-		   FROM batch_courses bc
-		   JOIN course_sections cs ON cs.course_id = bc.course_id
-		   WHERE bc.batch_id = $1
+		   FROM content_assignments ca
+		   JOIN course_sections cs ON cs.course_id = ca.content_id
+		   WHERE ca.content_type = 'course' AND ca.assignee_type = 'batch' AND ca.assignee_id = $1
 		 ) sec
 		 LEFT JOIN course_modules cm ON cm.section_id = sec.id AND cm.type = 'lab'
 		 LEFT JOIN lab_definitions ld ON ld.module_id = cm.id
@@ -139,14 +139,14 @@ type ChapterHintStat struct {
 func (r *Repo) ChapterHintRanking(ctx context.Context, orgID, batchID string) ([]ChapterHintStat, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT sec.id, sec.title, COALESCE(AVG(ltc.hints_used), 0), COUNT(DISTINCT ls.user_id)
-		 FROM batch_courses bc
-		 JOIN course_sections sec ON sec.course_id = bc.course_id
+		 FROM content_assignments ca
+		 JOIN course_sections sec ON sec.course_id = ca.content_id
 		 LEFT JOIN course_modules cm ON cm.section_id = sec.id AND cm.type = 'lab'
 		 LEFT JOIN lab_definitions ld ON ld.module_id = cm.id
 		 LEFT JOIN lab_sessions ls ON ls.lab_id = ld.id
 		   AND ls.user_id IN (SELECT user_id FROM batch_members WHERE batch_id = $1)
 		 LEFT JOIN lab_task_completions ltc ON ltc.session_id = ls.id
-		 WHERE bc.batch_id = $1
+		 WHERE ca.content_type = 'course' AND ca.assignee_type = 'batch' AND ca.assignee_id = $1
 		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $1 AND b.org_id = $2)
 		 GROUP BY sec.id, sec.title
 		 ORDER BY AVG(ltc.hints_used) DESC NULLS LAST, sec.title`, batchID, orgID)
@@ -239,7 +239,8 @@ func (r *Repo) EngagementScatter(ctx context.Context, orgID, batchID string) ([]
 		     AND ls.lab_id IN (
 		       SELECT ld.id FROM lab_definitions ld
 		       JOIN course_modules cm ON cm.id = ld.module_id
-		       JOIN batch_courses bc ON bc.course_id = cm.course_id AND bc.batch_id = $1
+		       JOIN content_assignments ca ON ca.content_type = 'course' AND ca.content_id = cm.course_id
+		         AND ca.assignee_type = 'batch' AND ca.assignee_id = $1
 		     )
 		 ) lab_passed ON true
 		 LEFT JOIN LATERAL (

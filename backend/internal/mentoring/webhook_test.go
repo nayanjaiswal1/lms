@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/payments"
+	"github.com/mindforge/backend/internal/tickets"
 )
 
 func testPool(t *testing.T) *pgxpool.Pool {
@@ -32,6 +33,7 @@ func testPool(t *testing.T) *pgxpool.Pool {
 
 func webhookTestService(pool *pgxpool.Pool) *Service {
 	repo := NewRepo(pool)
+	ticketsRepo := tickets.NewRepo(pool)
 	couponsSvc := coupons.NewService(coupons.NewRepo(pool))
 	coursesRepo := courses.NewRepo(pool)
 	registry := payments.NewRegistry("stub", payments.NewStubProvider())
@@ -39,7 +41,7 @@ func webhookTestService(pool *pgxpool.Pool) *Service {
 	// nil PackConfirmer: these tests only exercise course purchases, and a nil
 	// confirmer is the supported "this deployment has no second product"
 	// case HandleWebhook already guards for.
-	return NewService(repo, registry, couponsSvc, coursesRepo, nil, cfg)
+	return NewService(repo, ticketsRepo, registry, couponsSvc, coursesRepo, nil, cfg)
 }
 
 func seedWebhookOrg(t *testing.T, pool *pgxpool.Pool) string {
@@ -95,14 +97,14 @@ func seedWebhookPendingPurchase(t *testing.T, pool *pgxpool.Pool, orgID, userID,
 	t.Helper()
 	providerRef = fmt.Sprintf("checkout_%d", time.Now().UnixNano())
 	err := pool.QueryRow(context.Background(),
-		`INSERT INTO course_purchases (org_id, user_id, course_id, amount_cents, currency, provider, provider_ref, coupon_id, status)
-		 VALUES ($1, $2, $3, $4, 'USD', 'stub', $5, $6, 'pending') RETURNING id`,
+		`INSERT INTO purchases (org_id, user_id, course_id, amount_cents, currency, provider, provider_ref, coupon_id, status, product_type)
+		 VALUES ($1, $2, $3, $4, 'USD', 'stub', $5, $6, 'pending', 'course') RETURNING id`,
 		orgID, userID, courseID, amountCents, providerRef, couponID,
 	).Scan(&purchaseID)
 	if err != nil {
 		t.Fatalf("create pending purchase: %v", err)
 	}
-	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM course_purchases WHERE id = $1`, purchaseID) }) //nolint:errcheck
+	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM purchases WHERE id = $1`, purchaseID) }) //nolint:errcheck
 	return purchaseID, providerRef
 }
 
@@ -141,7 +143,7 @@ func TestHandleWebhook_SuccessConfirmsAndDedupsReplay(t *testing.T) {
 	}
 
 	var status string
-	if err := pool.QueryRow(ctx, `SELECT status FROM course_purchases WHERE id = $1`, purchaseID).Scan(&status); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT status FROM purchases WHERE id = $1`, purchaseID).Scan(&status); err != nil {
 		t.Fatalf("check purchase status: %v", err)
 	}
 	if status != PurchaseStatusCompleted {
@@ -157,7 +159,7 @@ func TestHandleWebhook_SuccessConfirmsAndDedupsReplay(t *testing.T) {
 	}
 
 	var ticketCount int
-	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM mentor_tickets WHERE purchase_id = $1`, purchaseID).Scan(&ticketCount); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM conversations WHERE kind='mentorship' AND purchase_id = $1`, purchaseID).Scan(&ticketCount); err != nil {
 		t.Fatalf("count mentor tickets: %v", err)
 	}
 	if ticketCount != 1 {
@@ -169,7 +171,7 @@ func TestHandleWebhook_SuccessConfirmsAndDedupsReplay(t *testing.T) {
 	if err := svc.HandleWebhook(ctx, "stub", body, http.Header{}); err != nil {
 		t.Fatalf("redelivered event: %v", err)
 	}
-	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM mentor_tickets WHERE purchase_id = $1`, purchaseID).Scan(&ticketCount); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM conversations WHERE kind='mentorship' AND purchase_id = $1`, purchaseID).Scan(&ticketCount); err != nil {
 		t.Fatalf("count mentor tickets after redelivery: %v", err)
 	}
 	if ticketCount != 1 {
@@ -198,7 +200,7 @@ func TestHandleWebhook_AmountMismatchLeavesPurchasePending(t *testing.T) {
 	}
 
 	var status string
-	if err := pool.QueryRow(ctx, `SELECT status FROM course_purchases WHERE id = $1`, purchaseID).Scan(&status); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT status FROM purchases WHERE id = $1`, purchaseID).Scan(&status); err != nil {
 		t.Fatalf("check purchase status: %v", err)
 	}
 	if status != PurchaseStatusPending {
@@ -232,7 +234,7 @@ func TestHandleWebhook_FailureMarksPurchaseFailed(t *testing.T) {
 	}
 
 	var status string
-	if err := pool.QueryRow(ctx, `SELECT status FROM course_purchases WHERE id = $1`, purchaseID).Scan(&status); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT status FROM purchases WHERE id = $1`, purchaseID).Scan(&status); err != nil {
 		t.Fatalf("check purchase status: %v", err)
 	}
 	if status != PurchaseStatusFailed {

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { AUTH_COPY, loginSchema } from "@/lib/validation/auth";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
+import { resolveLegalGateRedirect } from "@/lib/server/legal";
 import { apiAction, type ActionResult, clientIpHeaders } from "@/lib/server/api";
 import type { WebAuthnRequestOptions } from "@/lib/webauthn";
 import ROUTES from "@/lib/routes";
@@ -177,30 +178,8 @@ async function resolveLoginDestination(
 ): Promise<string> {
   await forwardSetCookies(response.headers);
 
-  // Terms/Privacy acceptance is a platform-level gate, checked before
-  // onboarding or org-select so a policy-version bump catches every sign-in
-  // path (password, passkey) in one place rather than duplicating the check
-  // per flow.
-  const accessTokenCookie = response.headers.getSetCookie?.()
-    .find((c) => c.startsWith("access_token="));
-  if (accessTokenCookie) {
-    const statusRes = await fetch(`${apiUrl}/api/legal/status`, {
-      headers: {
-        // eslint-disable-next-line no-restricted-syntax -- the token being forwarded isn't in the cookie store yet (this response just set it), so next/headers cookies() can't see it.
-        Cookie: accessTokenCookie.split(";")[0],
-      },
-      cache: "no-store",
-    }).catch(() => null);
-    if (statusRes?.ok) {
-      const statusBody: unknown = await statusRes.json().catch(() => null);
-      const needsAcceptance = getField(getField(statusBody, "data"), "needs_acceptance");
-      if (Array.isArray(needsAcceptance) && needsAcceptance.length > 0) {
-        const target = new URLSearchParams();
-        if (next) target.set("next", next);
-        return `${ROUTES.LEGAL_ACCEPT}${target.size > 0 ? `?${target}` : ""}`;
-      }
-    }
-  }
+  const legalRedirect = await resolveLegalGateRedirect(apiUrl, response.headers, next);
+  if (legalRedirect) return legalRedirect;
 
   const onboardingCompleted = getField(getField(body, "data"), "onboarding_completed");
   if (onboardingCompleted === false) {

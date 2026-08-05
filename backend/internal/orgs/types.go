@@ -113,6 +113,16 @@ type OrgSummary struct {
 	Role string `json:"role"`
 }
 
+// AdminOrgSummary is one row of the platform admin's cross-tenant org
+// picker (GET /api/admin/orgs) — no membership role, since the caller isn't
+// necessarily a member of the org they're looking up.
+type AdminOrgSummary struct {
+	ID     string `json:"id"`
+	Slug   string `json:"slug"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
 type Member struct {
 	ID        string    `json:"id"`
 	UserID    string    `json:"user_id"`

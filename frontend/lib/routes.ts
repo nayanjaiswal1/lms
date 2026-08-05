@@ -99,9 +99,10 @@ const ROUTES = {
   // Highlights (AI-assisted text selection + saved revision)
   HIGHLIGHTS:          "/highlights",
 
-  // Support — general-purpose helpdesk tickets
+  // Support — general-purpose helpdesk tickets. Staff queue is a ?view=queue
+  // tab on the same page (frontend/app/(app)/support/page.tsx), not a
+  // separate route — it and "my tickets" share one page shell.
   SUPPORT:             "/support",
-  SUPPORT_QUEUE:       "/support/queue",
 
   // Focus Wall — personal sticky-note corkboard
   FOCUS_WALL:          "/focus-wall",
@@ -138,8 +139,10 @@ const ROUTES = {
   PLATFORM_HIGHLIGHTS:            "/platform/highlights",
   PLATFORM_HIGHLIGHTS_BY_SOURCE:  "/platform/highlights/by-source",
   PLATFORM_HIGHLIGHTS_BY_MODEL:   "/platform/highlights/by-model",
+  PLATFORM_FEATURES:       "/platform/features",
   platformJob:             (id: string) => `/platform/jobs/${id}`,
   platformOrgQuotas:       (orgID: string) => `/platform/orgs/${orgID}/quotas`,
+  platformOrgFeatures:     (orgID: string) => `/platform/features/${orgID}`,
 
   // Org management
   ORG_CREATE:              "/org/create",

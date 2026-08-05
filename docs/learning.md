@@ -11,13 +11,13 @@ Everything about the student learning experience: coding challenges, in-browser 
 2. Work through sections in order:
    └─ Read lesson / Watch video
    └─ Solve coding problem (in-browser compiler)
-   └─ Take module quiz
+   └─ Take module assessment (practice or knowledge check)
    └─ Complete lab
 3. Mentor interaction (if assigned):
    └─ Ask questions in mentor chat
    └─ Submit code for mentor review
 4. Complete all sections
-   └─ AI generates Revision Plan (based on quiz scores + weak modules)
+   └─ AI generates Revision Plan (based on assessment scores + weak modules)
    └─ Follow revision plan (spaced repetition cards resurface due items)
 5. Take Final Test (when ready)
    └─ Pass → certificate issued
@@ -129,12 +129,13 @@ Self-host Piston: `docker run -p 2000:2000 ghcr.io/engineer-man/piston`
 
 ---
 
-## Quiz
+## Quiz (Module Assessment)
 
-- Module quiz: MCQ and short answer, time-limited, scored immediately on submit
-- Per-module: one quiz per module
-- Attempt recorded with answers + score + pass/fail
+- Module assessment: MCQ and short answer, time-limited, scored immediately on submit
+- Per-module: one knowledge-check assessment per module
+- Attempt recorded with answers + score + pass/fail via `assessment_attempts`
 - Results inform the AI revision plan (low-scoring modules get more revision weight)
+- Assessment type: `knowledge_check` (parent_type='module')
 
 ---
 
@@ -170,12 +171,11 @@ Every review is also logged to `srs_reviews` (card_id, user_id, quality, interva
 
 ```
 POST /api/code/run                   body: {code, language, problem_id} → result
-GET  /api/problems/:id               problem detail + starter code
-GET  /api/problems/:id/submissions/me list my submissions for this problem
 
-GET  /api/modules/:id/quiz           quiz for this module
-POST /api/quiz/:id/attempt           body: {answers} → {score, total, passed}
-GET  /api/quiz/:id/attempts/me       my attempt history
+GET  /api/assessments/:id            assessment detail (type, questions, time limit, etc.)
+POST /api/assessments/:id/attempt/start   start an assessment attempt
+POST /api/assessments/:id/attempt/:attemptId/submit  body: {answers} → {score, passed}
+GET  /api/assessments/:id/attempts/me     my attempt history for this assessment
 
 GET  /api/cards/due                  cards due for review today
 POST /api/cards/review               body: {card_id, grade: 0-5} → updated schedule
@@ -183,15 +183,8 @@ POST /api/cards/review               body: {card_id, grade: 0-5} → updated sch
 POST /api/courses/:id/revision        generate AI revision plan (if not already exists)
 GET  /api/courses/:id/revision        current revision plan
 
-GET  /api/courses/:id/final-test      final test questions
-POST /api/courses/:id/final-test/attempt  body: {answers} → {score, passed}
-
 GET  /api/certificates/me             my certificates
 GET  /api/certificates/:uuid          public verification (no auth)
-
-POST /api/messages                   body: {recipient_id, course_id, content}
-GET  /api/messages/:user_id          conversation thread with a mentor
-GET  /api/mentor/students            (mentor) list assigned students
 
 POST /api/highlights                 body: {source_type, source_id, selected_text, position_start?, position_end?, save_for_revision} → Highlight
 POST /api/highlights/explain         body: {source_type, source_id, selected_text} → {highlight_id, explanation}
@@ -229,52 +222,60 @@ The `HighlightProvider` component must **not** be mounted on assessment attempt 
 
 ## Database Schema
 
+Core assessment structure for all test types (final_test, practice, offline, knowledge_check):
+
 ```sql
-coding_problems (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  module_id       UUID NOT NULL REFERENCES course_modules(id) ON DELETE CASCADE,
-  title           TEXT NOT NULL,
-  description     TEXT NOT NULL,
-  difficulty      TEXT,
-  starter_code    JSONB NOT NULL DEFAULT '{}',  -- {language: code}
-  test_cases      JSONB NOT NULL DEFAULT '[]',
-  time_limit_ms   INT NOT NULL DEFAULT 1000,
-  memory_limit_mb INT NOT NULL DEFAULT 256
-)
-
-coding_submissions (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id),
-  problem_id  UUID NOT NULL REFERENCES coding_problems(id),
-  code        TEXT NOT NULL,
-  language    TEXT NOT NULL,
-  status      TEXT NOT NULL,  -- 'pending' | 'running' | 'passed' | 'failed' | 'error'
-  result      JSONB,
-  runtime_ms  INT,
-  memory_mb   INT,
-  created_at  TIMESTAMPTZ DEFAULT now()
-)
-
-quizzes (
+assessments (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  module_id             UUID NOT NULL REFERENCES course_modules(id) ON DELETE CASCADE,
-  questions             JSONB NOT NULL,
+  org_id                UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  title                 TEXT NOT NULL,
+  description           TEXT,
+  type                  TEXT NOT NULL,  -- 'final_test' | 'offline' | 'practice' | 'knowledge_check'
+  parent_type           TEXT,  -- 'module' | 'course' | NULL (for standalone)
+  parent_id             UUID,  -- course_modules.id or courses.id
   time_limit_minutes    INT,
-  passing_score_percent INT NOT NULL DEFAULT 70
+  passing_score_percent INT NOT NULL DEFAULT 70,
+  max_attempts          INT DEFAULT 3,  -- NULL = unlimited
+  is_draft              BOOLEAN DEFAULT false,
+  created_by            UUID NOT NULL REFERENCES users(id),
+  created_at            TIMESTAMPTZ DEFAULT now(),
+  updated_at            TIMESTAMPTZ DEFAULT now()
 )
 
-quiz_attempts (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      UUID NOT NULL REFERENCES users(id),
-  quiz_id      UUID NOT NULL REFERENCES quizzes(id),
-  answers      JSONB NOT NULL,
-  score        INT NOT NULL,
-  total        INT NOT NULL,
-  passed       BOOLEAN NOT NULL,
-  completed_at TIMESTAMPTZ DEFAULT now()
+assessment_questions (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  assessment_id      UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+  question_type      TEXT NOT NULL,  -- 'multiple_choice' | 'coding' | 'short_answer'
+  question_text      TEXT NOT NULL,
+  options            JSONB,  -- for multiple choice: {a, b, c, d}
+  correct_answer     JSONB NOT NULL,
+  explanation        TEXT,
+  content_version_id UUID,  -- for version tracking
+  order_index        INT NOT NULL DEFAULT 0
 )
 
-cards (
+assessment_attempts (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  assessment_id   UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+  user_id         UUID,  -- NULL for anonymous attempts
+  org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  started_at      TIMESTAMPTZ DEFAULT now(),
+  submitted_at    TIMESTAMPTZ,
+  percentage      INT,
+  passed          BOOLEAN,
+  time_spent_ms   INT
+)
+
+attempt_answers (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  assessment_attempt_id UUID NOT NULL REFERENCES assessment_attempts(id) ON DELETE CASCADE,
+  question_id         UUID NOT NULL REFERENCES assessment_questions(id),
+  user_answer         JSONB,
+  is_correct          BOOLEAN,
+  points              INT
+)
+
+srs_cards (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   module_id     UUID NOT NULL REFERENCES course_modules(id) ON DELETE CASCADE,
@@ -287,6 +288,16 @@ cards (
   created_at    TIMESTAMPTZ DEFAULT now()
 )
 
+srs_reviews (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  card_id       UUID NOT NULL REFERENCES srs_cards(id) ON DELETE CASCADE,
+  user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quality       INT NOT NULL,  -- 0-5 (SM-2 rating)
+  ease_factor   FLOAT NOT NULL,
+  interval_days INT NOT NULL,
+  reviewed_at   TIMESTAMPTZ DEFAULT now()
+)
+
 revision_plans (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID NOT NULL REFERENCES users(id),
@@ -295,59 +306,12 @@ revision_plans (
   generated_at TIMESTAMPTZ DEFAULT now()
 )
 
-final_tests (
-  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  course_id             UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-  questions             JSONB NOT NULL,
-  time_limit_minutes    INT NOT NULL,
-  passing_score_percent INT NOT NULL DEFAULT 70,
-  max_attempts          INT NOT NULL DEFAULT 3
-)
-
-final_test_attempts (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id           UUID NOT NULL REFERENCES users(id),
-  final_test_id     UUID NOT NULL REFERENCES final_tests(id),
-  answers           JSONB NOT NULL,
-  score             INT NOT NULL,
-  total             INT NOT NULL,
-  passed            BOOLEAN NOT NULL,
-  completed_at      TIMESTAMPTZ DEFAULT now()
-)
-
 certificates (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id               UUID NOT NULL REFERENCES users(id),
   course_id             UUID NOT NULL REFERENCES courses(id),
-  final_test_attempt_id UUID NOT NULL REFERENCES final_test_attempts(id),
+  assessment_attempt_id UUID NOT NULL REFERENCES assessment_attempts(id),
   issued_at             TIMESTAMPTZ DEFAULT now(),
   cert_uuid             UUID NOT NULL UNIQUE DEFAULT gen_random_uuid()
-)
-
-mentor_profiles (
-  id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id   UUID NOT NULL UNIQUE REFERENCES users(id),
-  bio       TEXT,
-  expertise TEXT[],
-  available BOOLEAN NOT NULL DEFAULT true
-)
-
-mentor_assignments (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mentor_id   UUID NOT NULL REFERENCES users(id),
-  student_id  UUID NOT NULL REFERENCES users(id),
-  course_id   UUID NOT NULL REFERENCES courses(id),
-  assigned_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (mentor_id, student_id, course_id)
-)
-
-mentor_messages (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  sender_id    UUID NOT NULL REFERENCES users(id),
-  recipient_id UUID NOT NULL REFERENCES users(id),
-  course_id    UUID NOT NULL REFERENCES courses(id),
-  content      TEXT NOT NULL,
-  read_at      TIMESTAMPTZ,
-  created_at   TIMESTAMPTZ DEFAULT now()
 )
 ```

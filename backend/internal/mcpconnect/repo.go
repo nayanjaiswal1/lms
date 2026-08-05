@@ -26,22 +26,34 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 }
 
 // OrgAIConnectorEnabled reports whether orgID has the AI Connector feature
-// turned on — mirrors features.Repo.OrgAIConnectorEnabled's identical query
-// and no-row-means-true default; duplicated here rather than importing the
-// features package for one boolean read, since mcpconnect already treats its
-// authorization checks (scopes, redirect_uri, PKCE) as self-contained rather
-// than reaching into sibling packages for them.
+// turned on by reading org_settings.ai_connector jsonb. Missing row or empty
+// jsonb defaults to enabled=true for backward compatibility.
 func (r *Repo) OrgAIConnectorEnabled(ctx context.Context, orgID string) (bool, error) {
-	var enabled bool
+	var raw []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT enabled FROM org_ai_connector_config WHERE org_id = $1`,
+		`SELECT COALESCE(ai_connector, '{}'::jsonb) FROM org_settings WHERE org_id = $1`,
 		orgID,
-	).Scan(&enabled)
+	).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return true, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("mcpconnect: org ai connector enabled: %w", err)
+	}
+
+	// Default to enabled=true when jsonb is empty or key is missing
+	enabled := true
+	if len(raw) > 2 { // Skip empty {}
+		type aiConnectorJSON struct {
+			Enabled *bool `json:"enabled"`
+		}
+		var parsed aiConnectorJSON
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return false, fmt.Errorf("mcpconnect: unmarshal ai connector config: %w", err)
+		}
+		if parsed.Enabled != nil {
+			enabled = *parsed.Enabled
+		}
 	}
 	return enabled, nil
 }
@@ -76,13 +88,23 @@ func (r *Repo) GetClient(ctx context.Context, clientID string) (Client, error) {
 	return c, nil
 }
 
-// InsertAuthCode stores a single-use authorization code minted after consent.
+// InsertAuthCode stores a single-use authorization code in auth_tokens with
+// purpose='mcp_auth_code' and the auth code details in the payload jsonb.
 func (r *Repo) InsertAuthCode(ctx context.Context, code AuthCode) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO mcp_auth_codes (code, client_id, org_id, user_id, scopes, code_challenge, redirect_uri, expires_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		code.Code, code.ClientID, code.OrgID, code.UserID, code.Scopes,
-		code.CodeChallenge, code.RedirectURI, code.ExpiresAt,
+	payloadJSON, err := json.Marshal(map[string]interface{}{
+		"client_id":      code.ClientID,
+		"scopes":         code.Scopes,
+		"code_challenge": code.CodeChallenge,
+		"redirect_uri":   code.RedirectURI,
+	})
+	if err != nil {
+		return fmt.Errorf("mcpconnect: marshal auth code payload: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO auth_tokens (purpose, token_hash, org_id, user_id, payload, expires_at)
+		 VALUES ('mcp_auth_code', $1, $2, $3, $4::jsonb, $5)`,
+		code.Code, code.OrgID, code.UserID, string(payloadJSON), code.ExpiresAt,
 	)
 	if err != nil {
 		return fmt.Errorf("mcpconnect: insert auth code: %w", err)
@@ -90,16 +112,16 @@ func (r *Repo) InsertAuthCode(ctx context.Context, code AuthCode) error {
 	return nil
 }
 
-// ConsumeAuthCode deletes and returns a code in one statement, so a code can
-// never be exchanged twice even under concurrent requests.
+// ConsumeAuthCode deletes and returns a code from auth_tokens in one statement,
+// so a code can never be exchanged twice even under concurrent requests.
 func (r *Repo) ConsumeAuthCode(ctx context.Context, code string) (AuthCode, error) {
 	var ac AuthCode
+	var payloadRaw []byte
 	err := r.pool.QueryRow(ctx,
-		`DELETE FROM mcp_auth_codes WHERE code = $1
-		 RETURNING code, client_id, org_id, user_id, scopes, code_challenge, redirect_uri, expires_at`,
+		`DELETE FROM auth_tokens WHERE purpose = 'mcp_auth_code' AND token_hash = $1
+		 RETURNING token_hash, org_id, user_id, payload, expires_at`,
 		code,
-	).Scan(&ac.Code, &ac.ClientID, &ac.OrgID, &ac.UserID, &ac.Scopes,
-		&ac.CodeChallenge, &ac.RedirectURI, &ac.ExpiresAt)
+	).Scan(&ac.Code, &ac.OrgID, &ac.UserID, &payloadRaw, &ac.ExpiresAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return AuthCode{}, ErrInvalidGrant
@@ -109,6 +131,24 @@ func (r *Repo) ConsumeAuthCode(ctx context.Context, code string) (AuthCode, erro
 	if time.Now().After(ac.ExpiresAt) {
 		return AuthCode{}, ErrExpired
 	}
+
+	// Unmarshal the payload to extract code details
+	type authCodePayload struct {
+		ClientID      string   `json:"client_id"`
+		Scopes        []string `json:"scopes"`
+		CodeChallenge string   `json:"code_challenge"`
+		RedirectURI   string   `json:"redirect_uri"`
+	}
+	var payload authCodePayload
+	if err := json.Unmarshal(payloadRaw, &payload); err != nil {
+		return AuthCode{}, fmt.Errorf("mcpconnect: unmarshal auth code payload: %w", err)
+	}
+
+	ac.ClientID = payload.ClientID
+	ac.Scopes = payload.Scopes
+	ac.CodeChallenge = payload.CodeChallenge
+	ac.RedirectURI = payload.RedirectURI
+
 	return ac, nil
 }
 
@@ -177,11 +217,20 @@ func (r *Repo) RotateRefreshToken(ctx context.Context, connectionID, newHash str
 	return nil
 }
 
-// InsertAccessToken mints a short-lived bearer token for a connection.
+// InsertAccessToken mints a short-lived bearer token for a connection in auth_tokens
+// with purpose='mcp_access_token' and connection_id in the payload jsonb.
 func (r *Repo) InsertAccessToken(ctx context.Context, connectionID, tokenHash string, expiresAt time.Time) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO mcp_access_tokens (connection_id, token_hash, expires_at) VALUES ($1,$2,$3)`,
-		connectionID, tokenHash, expiresAt,
+	payloadJSON, err := json.Marshal(map[string]interface{}{
+		"connection_id": connectionID,
+	})
+	if err != nil {
+		return fmt.Errorf("mcpconnect: marshal access token payload: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO auth_tokens (purpose, token_hash, payload, expires_at)
+		 VALUES ('mcp_access_token', $1, $2::jsonb, $3)`,
+		tokenHash, string(payloadJSON), expiresAt,
 	)
 	if err != nil {
 		return fmt.Errorf("mcpconnect: insert access token: %w", err)
@@ -189,23 +238,46 @@ func (r *Repo) InsertAccessToken(ctx context.Context, connectionID, tokenHash st
 	return nil
 }
 
-// GetConnectionByAccessHash resolves a presented access token to its
-// connection and touches last_used_at — called on every /mcp request.
+// GetConnectionByAccessHash resolves a presented access token to its connection
+// by looking up the auth_tokens row and extracting the connection_id from its payload.
+// Touches last_used_at on the connection — called on every /mcp request.
 func (r *Repo) GetConnectionByAccessHash(ctx context.Context, hash string) (connectionRow, error) {
-	var c connectionRow
+	var payloadRaw []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT mc.id, mc.org_id, mc.user_id, mc.scopes, mc.status
-		 FROM mcp_access_tokens mat
-		 JOIN mcp_connections mc ON mc.id = mat.connection_id
-		 WHERE mat.token_hash = $1 AND mat.expires_at > now() AND mc.status = 'active'`,
+		`SELECT payload FROM auth_tokens
+		 WHERE purpose = 'mcp_access_token' AND token_hash = $1 AND expires_at > now()`,
 		hash,
-	).Scan(&c.ID, &c.OrgID, &c.UserID, &c.Scopes, &c.Status)
+	).Scan(&payloadRaw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return connectionRow{}, ErrInvalidGrant
 		}
-		return connectionRow{}, fmt.Errorf("mcpconnect: get connection by access hash: %w", err)
+		return connectionRow{}, fmt.Errorf("mcpconnect: get access token: %w", err)
 	}
+
+	// Extract connection_id from payload
+	type accessTokenPayload struct {
+		ConnectionID string `json:"connection_id"`
+	}
+	var payload accessTokenPayload
+	if err := json.Unmarshal(payloadRaw, &payload); err != nil {
+		return connectionRow{}, fmt.Errorf("mcpconnect: unmarshal access token payload: %w", err)
+	}
+
+	// Now fetch the connection details
+	var c connectionRow
+	err = r.pool.QueryRow(ctx,
+		`SELECT id, org_id, user_id, client_id, scopes, status
+		 FROM mcp_connections WHERE id = $1 AND status = 'active'`,
+		payload.ConnectionID,
+	).Scan(&c.ID, &c.OrgID, &c.UserID, &c.ClientID, &c.Scopes, &c.Status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return connectionRow{}, ErrInvalidGrant
+		}
+		return connectionRow{}, fmt.Errorf("mcpconnect: get connection by access token: %w", err)
+	}
+
 	_, _ = r.pool.Exec(ctx, `UPDATE mcp_connections SET last_used_at = now() WHERE id = $1`, c.ID)
 	return c, nil
 }
@@ -256,34 +328,26 @@ func (r *Repo) RevokeConnection(ctx context.Context, userID, connectionID string
 
 // ─── action log ─────────────────────────────────────────────────────────────
 
-// InsertActionLog records one completed tool call. Args/BeforeState/
-// AfterState arrive as raw Go values (whatever the tool call actually
-// produced) and are marshaled to JSON text here — the same manual
-// marshal-then-pass-as-string approach internal/orgs.writeAuditLog uses for
-// audit_logs, rather than relying on pgx's automatic jsonb encoding of an
-// arbitrary Go value.
+// InsertActionLog records one completed tool call in audit_logs table with source='mcp'.
+// BeforeState/AfterState arrive as raw Go values and are marshaled to JSON here,
+// the same approach internal/orgs.writeAuditLog uses for audit_logs.
 func (r *Repo) InsertActionLog(ctx context.Context, e ActionLogEntry) error {
-	argsJSON, err := json.Marshal(e.Args)
-	if err != nil {
-		return fmt.Errorf("mcpconnect: insert action log: marshal args: %w", err)
-	}
-	var beforeJSON, afterJSON *string
+	var beforeJSON, afterJSON []byte
 	if e.BeforeState != nil {
 		b, err := json.Marshal(*e.BeforeState)
 		if err != nil {
 			return fmt.Errorf("mcpconnect: insert action log: marshal before state: %w", err)
 		}
-		s := string(b)
-		beforeJSON = &s
+		beforeJSON = b
 	}
 	if e.AfterState != nil {
 		b, err := json.Marshal(*e.AfterState)
 		if err != nil {
 			return fmt.Errorf("mcpconnect: insert action log: marshal after state: %w", err)
 		}
-		s := string(b)
-		afterJSON = &s
+		afterJSON = b
 	}
+
 	var targetType, targetID *string
 	if e.TargetType != "" {
 		targetType = &e.TargetType
@@ -291,10 +355,11 @@ func (r *Repo) InsertActionLog(ctx context.Context, e ActionLogEntry) error {
 	if e.TargetID != "" {
 		targetID = &e.TargetID
 	}
-	_, err = r.pool.Exec(ctx,
-		`INSERT INTO mcp_action_log (org_id, user_id, connection_id, tool_name, args, target_type, target_id, before_state, after_state, revertible)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		e.OrgID, e.UserID, e.ConnectionID, e.ToolName, string(argsJSON), targetType, targetID, beforeJSON, afterJSON, e.Revertible,
+
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO audit_logs (org_id, user_id, source, action, target_type, target_id, before_state, after_state, connection_id, revertible)
+		 VALUES ($1, $2, 'mcp', $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)`,
+		e.OrgID, e.UserID, e.ToolName, targetType, targetID, beforeJSON, afterJSON, e.ConnectionID, e.Revertible,
 	)
 	if err != nil {
 		return fmt.Errorf("mcpconnect: insert action log: %w", err)
@@ -302,7 +367,7 @@ func (r *Repo) InsertActionLog(ctx context.Context, e ActionLogEntry) error {
 	return nil
 }
 
-const actionLogColumns = `id, tool_name, args, target_type, target_id, before_state, after_state, revertible, reverted_at, reverted_by, connection_id, created_at`
+const actionLogColumns = `id, action as tool_name, target_type, target_id, before_state, after_state, revertible, reverted_at, reverted_by, connection_id, created_at`
 
 // rowScanner is satisfied by both pgx.Row (QueryRow) and pgx.Rows (Query's
 // per-row iterator), so scanActionLogEntry works for both a single-row fetch
@@ -314,7 +379,7 @@ type rowScanner interface {
 func scanActionLogEntry(row rowScanner) (ActionLogEntry, error) {
 	var e ActionLogEntry
 	var targetType, targetID, revertedBy *string
-	if err := row.Scan(&e.ID, &e.ToolName, &e.Args, &targetType, &targetID,
+	if err := row.Scan(&e.ID, &e.ToolName, &targetType, &targetID,
 		&e.BeforeState, &e.AfterState, &e.Revertible, &e.RevertedAt, &revertedBy, &e.ConnectionID, &e.CreatedAt); err != nil {
 		return ActionLogEntry{}, err
 	}
@@ -338,16 +403,16 @@ func (r *Repo) ListActionLog(ctx context.Context, userID string, cursorCreatedAt
 	if cursorID == "" {
 		rows, err = r.pool.Query(ctx,
 			`SELECT `+actionLogColumns+`
-			 FROM mcp_action_log
-			 WHERE user_id = $1
+			 FROM audit_logs
+			 WHERE source = 'mcp' AND actor_user_id = $1
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT $2`,
 			userID, limit)
 	} else {
 		rows, err = r.pool.Query(ctx,
 			`SELECT `+actionLogColumns+`
-			 FROM mcp_action_log
-			 WHERE user_id = $1 AND (created_at, id) < ($2, $3::uuid)
+			 FROM audit_logs
+			 WHERE source = 'mcp' AND actor_user_id = $1 AND (created_at, id) < ($2, $3::uuid)
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT $4`,
 			userID, cursorCreatedAt, cursorID, limit)
@@ -372,7 +437,7 @@ func (r *Repo) ListActionLog(ctx context.Context, userID string, cursorCreatedAt
 // guessed id can never surface or revert another user's AI activity.
 func (r *Repo) GetActionLogEntry(ctx context.Context, userID, entryID string) (ActionLogEntry, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT `+actionLogColumns+` FROM mcp_action_log WHERE id = $1 AND user_id = $2`,
+		`SELECT `+actionLogColumns+` FROM audit_logs WHERE source = 'mcp' AND id = $1 AND actor_user_id = $2`,
 		entryID, userID)
 	e, err := scanActionLogEntry(row)
 	if err != nil {
@@ -390,8 +455,8 @@ func (r *Repo) GetActionLogEntry(ctx context.Context, userID, entryID string) (A
 // race here rather than double-applying whatever the tool's Revert did.
 func (r *Repo) MarkReverted(ctx context.Context, entryID, userID string) (ActionLogEntry, error) {
 	row := r.pool.QueryRow(ctx,
-		`UPDATE mcp_action_log SET reverted_at = now(), reverted_by = $2
-		 WHERE id = $1 AND user_id = $2 AND reverted_at IS NULL
+		`UPDATE audit_logs SET reverted_at = now(), reverted_by = $2
+		 WHERE source = 'mcp' AND id = $1 AND actor_user_id = $2 AND reverted_at IS NULL
 		 RETURNING `+actionLogColumns,
 		entryID, userID)
 	e, err := scanActionLogEntry(row)

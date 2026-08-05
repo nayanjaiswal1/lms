@@ -76,14 +76,14 @@ func seedTestPurchase(t *testing.T, pool *pgxpool.Pool, orgID, userID, courseID 
 	t.Helper()
 	var purchaseID string
 	err := pool.QueryRow(context.Background(),
-		`INSERT INTO course_purchases (org_id, user_id, course_id, amount_cents, currency, provider, provider_ref, status)
-		 VALUES ($1, $2, $3, 1000, 'USD', 'stub', $4, 'completed') RETURNING id`,
+		`INSERT INTO purchases (org_id, user_id, course_id, amount_cents, currency, provider, provider_ref, status, product_type, granted)
+		 VALUES ($1, $2, $3, 1000, 'USD', 'stub', $4, 'completed', 'course', '{}') RETURNING id`,
 		orgID, userID, courseID, fmt.Sprintf("stub_%s_%s", courseID, userID),
 	).Scan(&purchaseID)
 	if err != nil {
 		t.Fatalf("create purchase: %v", err)
 	}
-	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM course_purchases WHERE id = $1`, purchaseID) }) //nolint:errcheck
+	t.Cleanup(func() { pool.Exec(context.Background(), `DELETE FROM purchases WHERE id = $1`, purchaseID) }) //nolint:errcheck
 	return purchaseID
 }
 

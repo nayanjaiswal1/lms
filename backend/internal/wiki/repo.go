@@ -263,8 +263,8 @@ func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, 
 		out = p
 		if contentChanged {
 			_, err := tx.Exec(ctx,
-				`INSERT INTO wiki_page_versions (page_id, version, title, content, saved_by)
-				 VALUES ($1,$2,$3,$4,$5)`,
+				`INSERT INTO content_versions (content_type, content_id, version, title, content, created_by)
+				 VALUES ('wiki_page',$1,$2,$3,$4,$5)`,
 				p.ID, p.Version, p.Title, p.Content, updatedBy)
 			if err != nil {
 				return fmt.Errorf("wiki: insert page version: %w", err)
@@ -313,8 +313,8 @@ func (r *Repo) DeletePage(ctx context.Context, orgID, id string) error {
 
 func (r *Repo) ListVersions(ctx context.Context, pageID string) ([]PageVersionSummary, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT version, title, saved_by, saved_at FROM wiki_page_versions
-		 WHERE page_id = $1 ORDER BY version DESC`, pageID)
+		`SELECT version, title, created_by, created_at FROM content_versions
+		 WHERE content_type = 'wiki_page' AND content_id = $1 ORDER BY version DESC`, pageID)
 	if err != nil {
 		return nil, fmt.Errorf("wiki: list versions: %w", err)
 	}
@@ -334,8 +334,8 @@ func (r *Repo) ListVersions(ctx context.Context, pageID string) ([]PageVersionSu
 func (r *Repo) GetVersion(ctx context.Context, pageID string, version int) (PageVersionDetail, error) {
 	var v PageVersionDetail
 	err := r.pool.QueryRow(ctx,
-		`SELECT version, title, saved_by, saved_at, content FROM wiki_page_versions
-		 WHERE page_id = $1 AND version = $2`, pageID, version,
+		`SELECT version, title, created_by, created_at, content FROM content_versions
+		 WHERE content_type = 'wiki_page' AND content_id = $1 AND version = $2`, pageID, version,
 	).Scan(&v.Version, &v.Title, &v.SavedBy, &v.SavedAt, &v.Content)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -350,8 +350,8 @@ func (r *Repo) GetVersion(ctx context.Context, pageID string, version int) (Page
 
 func (r *Repo) ListComments(ctx context.Context, pageID string) ([]CommentThread, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, page_id, parent_id, author_id, COALESCE(content, ''), deleted_at IS NOT NULL, created_at, updated_at
-		 FROM wiki_comments WHERE page_id = $1 ORDER BY created_at ASC`, pageID)
+		`SELECT id, subject_id, parent_id, author_id, COALESCE(content, ''), deleted_at IS NOT NULL, created_at, updated_at
+		 FROM comments WHERE subject_type = 'wiki_page' AND subject_id = $1 ORDER BY created_at ASC`, pageID)
 	if err != nil {
 		return nil, fmt.Errorf("wiki: list comments: %w", err)
 	}
@@ -393,9 +393,9 @@ func (r *Repo) ListComments(ctx context.Context, pageID string) ([]CommentThread
 func (r *Repo) CreateComment(ctx context.Context, pageID, authorID, content string, parentID *string) (Comment, error) {
 	var c Comment
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO wiki_comments (page_id, parent_id, author_id, content)
-		 VALUES ($1,$2,$3,$4)
-		 RETURNING id, page_id, parent_id, author_id, content, deleted_at IS NOT NULL, created_at, updated_at`,
+		`INSERT INTO comments (subject_type, subject_id, parent_id, author_id, content)
+		 VALUES ('wiki_page',$1,$2,$3,$4)
+		 RETURNING id, subject_id, parent_id, author_id, content, deleted_at IS NOT NULL, created_at, updated_at`,
 		pageID, parentID, authorID, content,
 	).Scan(&c.ID, &c.PageID, &c.ParentID, &c.AuthorID, &c.Content, &c.Deleted, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
@@ -407,8 +407,8 @@ func (r *Repo) CreateComment(ctx context.Context, pageID, authorID, content stri
 func (r *Repo) GetComment(ctx context.Context, id string) (Comment, error) {
 	var c Comment
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, page_id, parent_id, author_id, COALESCE(content, ''), deleted_at IS NOT NULL, created_at, updated_at
-		 FROM wiki_comments WHERE id = $1`, id,
+		`SELECT id, subject_id, parent_id, author_id, COALESCE(content, ''), deleted_at IS NOT NULL, created_at, updated_at
+		 FROM comments WHERE subject_type = 'wiki_page' AND id = $1`, id,
 	).Scan(&c.ID, &c.PageID, &c.ParentID, &c.AuthorID, &c.Content, &c.Deleted, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -422,8 +422,8 @@ func (r *Repo) GetComment(ctx context.Context, id string) (Comment, error) {
 func (r *Repo) UpdateComment(ctx context.Context, id, content string) (Comment, error) {
 	var c Comment
 	err := r.pool.QueryRow(ctx,
-		`UPDATE wiki_comments SET content = $2, updated_at = now() WHERE id = $1 AND deleted_at IS NULL
-		 RETURNING id, page_id, parent_id, author_id, content, deleted_at IS NOT NULL, created_at, updated_at`,
+		`UPDATE comments SET content = $2, updated_at = now() WHERE subject_type = 'wiki_page' AND id = $1 AND deleted_at IS NULL
+		 RETURNING id, subject_id, parent_id, author_id, content, deleted_at IS NOT NULL, created_at, updated_at`,
 		id, content,
 	).Scan(&c.ID, &c.PageID, &c.ParentID, &c.AuthorID, &c.Content, &c.Deleted, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
@@ -436,7 +436,7 @@ func (r *Repo) UpdateComment(ctx context.Context, id, content string) (Comment, 
 }
 
 func (r *Repo) DeleteComment(ctx context.Context, id string) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE wiki_comments SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id)
+	tag, err := r.pool.Exec(ctx, `UPDATE comments SET deleted_at = now() WHERE subject_type = 'wiki_page' AND id = $1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		return fmt.Errorf("wiki: delete comment: %w", err)
 	}
@@ -450,8 +450,8 @@ func (r *Repo) DeleteComment(ctx context.Context, id string) error {
 
 func (r *Repo) ListTemplates(ctx context.Context, orgID string) ([]Template, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, org_id, name, description, content, created_by, created_at
-		 FROM wiki_templates WHERE org_id IS NULL OR org_id = $1 ORDER BY org_id NULLS FIRST, name ASC`, orgID)
+		`SELECT id, NULL, title, NULL, content, created_by, created_at
+		 FROM wiki_pages WHERE is_template = true AND space_id IS NULL ORDER BY title ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("wiki: list templates: %w", err)
 	}
@@ -471,7 +471,7 @@ func (r *Repo) ListTemplates(ctx context.Context, orgID string) ([]Template, err
 func (r *Repo) GetTemplate(ctx context.Context, id string) (Template, error) {
 	var t Template
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, org_id, name, description, content, created_by, created_at FROM wiki_templates WHERE id = $1`, id,
+		`SELECT id, NULL, title, NULL, content, created_by, created_at FROM wiki_pages WHERE is_template = true AND space_id IS NULL AND id = $1`, id,
 	).Scan(&t.ID, &t.OrgID, &t.Name, &t.Description, &t.Content, &t.CreatedBy, &t.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -485,10 +485,10 @@ func (r *Repo) GetTemplate(ctx context.Context, id string) (Template, error) {
 func (r *Repo) CreateTemplate(ctx context.Context, orgID, name string, description *string, content json.RawMessage, createdBy string) (Template, error) {
 	var t Template
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO wiki_templates (org_id, name, description, content, created_by)
-		 VALUES ($1,$2,$3,$4,$5)
-		 RETURNING id, org_id, name, description, content, created_by, created_at`,
-		orgID, name, description, content, createdBy,
+		`INSERT INTO wiki_pages (space_id, title, slug, content, is_template, created_by)
+		 VALUES (NULL,$1,lower(replace($1, ' ', '-')),$2,true,$3)
+		 RETURNING id, NULL, title, NULL, content, created_by, created_at`,
+		name, content, createdBy,
 	).Scan(&t.ID, &t.OrgID, &t.Name, &t.Description, &t.Content, &t.CreatedBy, &t.CreatedAt)
 	if err != nil {
 		return Template{}, fmt.Errorf("wiki: create template: %w", err)
@@ -497,7 +497,7 @@ func (r *Repo) CreateTemplate(ctx context.Context, orgID, name string, descripti
 }
 
 func (r *Repo) DeleteTemplate(ctx context.Context, id string) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM wiki_templates WHERE id = $1`, id)
+	tag, err := r.pool.Exec(ctx, `DELETE FROM wiki_pages WHERE is_template = true AND space_id IS NULL AND id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("wiki: delete template: %w", err)
 	}

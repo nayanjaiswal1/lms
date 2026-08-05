@@ -309,8 +309,8 @@ func (r *Repo) CountScheduledStartsByImage(ctx context.Context, window time.Dura
 		SELECT l.environment, count(DISTINCT bm.user_id)::int
 		FROM lab_definitions l
 		JOIN course_modules m ON m.id = l.module_id
-		JOIN batch_courses bc ON bc.course_id = m.course_id
-		JOIN batches b ON b.id = bc.batch_id AND b.status = 'active'
+		JOIN content_assignments ca ON ca.content_type = 'course' AND ca.content_id = m.course_id AND ca.assignee_type = 'batch'
+		JOIN batches b ON b.id = ca.assignee_id AND b.status = 'active'
 		  AND b.starts_at BETWEEN now() AND $1
 		JOIN batch_members bm ON bm.batch_id = b.id
 		WHERE l.is_published = true

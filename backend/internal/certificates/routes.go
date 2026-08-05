@@ -37,8 +37,8 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 	r.With(instructor).Group(func(r chi.Router) {
 		r.Get("/api/courses/{courseID}/final-test/edit", rt.handler.GetFinalTestForEdit)
 		r.Put("/api/courses/{courseID}/final-test", rt.handler.UpsertFinalTest)
-		r.Get("/api/courses/{courseID}/certificate-rule", rt.handler.GetCertificateRule)
-		r.Put("/api/courses/{courseID}/certificate-rule", rt.handler.UpsertCertificateRule)
+		r.Get("/api/courses/{courseID}/certificate-threshold", rt.handler.GetCertificateThreshold)
+		r.Put("/api/courses/{courseID}/certificate-threshold", rt.handler.UpsertCertificateThreshold)
 	})
 
 	// Manual award — a mentor may only issue for their own assigned student

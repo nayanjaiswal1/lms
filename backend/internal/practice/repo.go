@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,33 +31,99 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-func (r *Repo) CreateSession(ctx context.Context, s PracticeSession) (PracticeSession, error) {
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO practice_sessions (user_id, org_id, technology, difficulty, category, question_count, ai_model)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 RETURNING id, created_at`,
-		s.UserID, s.OrgID, s.Technology, s.Difficulty, s.Category, s.QuestionCount, s.AIModel,
-	).Scan(&s.ID, &s.CreatedAt)
+// tx runs fn inside a transaction, rolling back on error and committing on success.
+func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return PracticeSession{}, fmt.Errorf("practice: create session: %w", err)
+		return fmt.Errorf("practice: begin tx: %w", err)
 	}
+	if err := fn(tx); err != nil {
+		_ = tx.Rollback(ctx)
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("practice: commit tx: %w", err)
+	}
+	return nil
+}
+
+func (r *Repo) CreateSession(ctx context.Context, s PracticeSession) (PracticeSession, error) {
+	var assessmentID, attemptID string
+	var createdAt string
+
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		// Create ephemeral assessment: type='practice', title=technology||' practice', no parent.
+		title := s.Technology + " practice"
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO assessments (org_id, title, slug, type, parent_type, status, duration_minutes,
+			   pass_percentage, max_attempts, shuffle_questions, shuffle_options, allow_backtrack,
+			   show_results, created_by)
+			 VALUES ($1, $2, $3, $4, $5, $6, 0, 0, 1, false, false, false, false, $7)
+			 RETURNING id, created_at`,
+			s.OrgID, title, strings.ToLower(strings.ReplaceAll(title, " ", "-")),
+			"practice", "standalone", "active", s.UserID,
+		).Scan(&assessmentID, &createdAt); err != nil {
+			return fmt.Errorf("practice: create assessment: %w", err)
+		}
+
+		// Create assessment_attempts row for this session.
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO assessment_attempts (assessment_id, user_id, org_id, attempt_number, status, started_at)
+			 VALUES ($1, $2, $3, 1, $4, now())
+			 RETURNING id`,
+			assessmentID, s.UserID, s.OrgID, "in_progress",
+		).Scan(&attemptID); err != nil {
+			return fmt.Errorf("practice: create attempt: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return PracticeSession{}, err
+	}
+
+	s.ID = attemptID // Use attemptID as session ID
 	s.Status = StatusActive
+	s.CreatedAt = parseTime(createdAt)
 	return s, nil
 }
 
 func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (PracticeSession, error) {
 	var s PracticeSession
+	var questionCount int
+	var createdAt, startedAt string
+	var completedAt *string
+
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, user_id, org_id, technology, difficulty, category, question_count, status, ai_model, created_at, completed_at
-		 FROM practice_sessions WHERE id = $1 AND user_id = $2`, sessionID, userID,
-	).Scan(&s.ID, &s.UserID, &s.OrgID, &s.Technology, &s.Difficulty, &s.Category,
-		&s.QuestionCount, &s.Status, &s.AIModel, &s.CreatedAt, &s.CompletedAt)
+		`SELECT DISTINCT ON (aa.attempt_id)
+		         aa.attempt_id, aa.user_id, aa.org_id, a.title,
+		         aa.status, aa.started_at, aa.submitted_at,
+		         COUNT(aa.id) OVER (PARTITION BY aa.attempt_id), a.created_at
+		 FROM assessment_attempts aa
+		 JOIN assessments a ON a.id = aa.assessment_id
+		 WHERE aa.id = $1 AND aa.user_id = $2 AND a.type = 'practice'`,
+		sessionID, userID,
+	).Scan(&s.ID, &s.UserID, &s.OrgID, &s.Technology, &s.Status, &startedAt, &completedAt, &questionCount, &createdAt)
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PracticeSession{}, ErrNotFound
 		}
 		return PracticeSession{}, fmt.Errorf("practice: get session: %w", err)
 	}
+
+	// Parse dates
+	s.CreatedAt = parseTime(createdAt)
+	if completedAt != nil {
+		ct := parseTime(*completedAt)
+		s.CompletedAt = &ct
+	}
+	s.QuestionCount = questionCount
+
+	// Extract technology, difficulty, category from title (stored as "technology practice")
+	s.Difficulty = "intermediate" // Default; would need to be stored separately if needed
+	s.Category = CategoryTechnical // Default
 
 	items, err := r.GetItems(ctx, sessionID)
 	if err != nil {
@@ -67,21 +134,34 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (Practi
 }
 
 func (r *Repo) UpdateSessionStatus(ctx context.Context, sessionID, userID string, status SessionStatus) error {
-	var completedAt *string
-	if status == StatusCompleted {
+	// Map SessionStatus to assessment_attempts status
+	var attemptStatus string
+	var submittedAt *string
+	switch status {
+	case StatusActive:
+		attemptStatus = "in_progress"
+	case StatusCompleted:
+		attemptStatus = "evaluated"
 		now := "now()"
-		completedAt = &now
+		submittedAt = &now
+	case StatusAbandoned:
+		attemptStatus = "expired"
+	default:
+		attemptStatus = "in_progress"
 	}
+
 	var tag interface{ RowsAffected() int64 }
 	var err error
-	if completedAt != nil {
+	if submittedAt != nil {
 		tag, err = r.pool.Exec(ctx,
-			`UPDATE practice_sessions SET status = $1, completed_at = now() WHERE id = $2 AND user_id = $3`,
-			status, sessionID, userID)
+			`UPDATE assessment_attempts SET status = $1, submitted_at = now()
+			 WHERE id = $2 AND user_id = $3`,
+			attemptStatus, sessionID, userID)
 	} else {
 		tag, err = r.pool.Exec(ctx,
-			`UPDATE practice_sessions SET status = $1 WHERE id = $2 AND user_id = $3`,
-			status, sessionID, userID)
+			`UPDATE assessment_attempts SET status = $1
+			 WHERE id = $2 AND user_id = $3`,
+			attemptStatus, sessionID, userID)
 	}
 	if err != nil {
 		return fmt.Errorf("practice: update session status: %w", err)
@@ -97,22 +177,25 @@ func (r *Repo) InsertItems(ctx context.Context, sessionID string, questions []st
 		return []PracticeItem{}, nil
 	}
 
-	// Build a single multi-row INSERT instead of one round-trip per question.
-	// pgx accepts [][]any for batch values; we use a VALUES ($1,$2,$3),($4,$5,$6)…
-	// pattern so the planner sees one statement with a single network round-trip.
+	// Build a single multi-row INSERT for attempt_answers.
+	// Each question becomes one attempt_answer with the question_text stored in the answer field.
 	args := make([]any, 0, len(questions)*3)
 	valuesClauses := make([]string, 0, len(questions))
 	for i, q := range questions {
 		base := i * 3
+		// Build JSON answer object with question_text
 		valuesClauses = append(valuesClauses,
 			fmt.Sprintf("($%d, $%d, $%d)", base+1, base+2, base+3))
-		args = append(args, sessionID, i, q)
+		// sessionID is the attempt_id; position is i; question_text is q
+		answerJSON := map[string]string{"question_text": q}
+		answerBytes, _ := json.Marshal(answerJSON)
+		args = append(args, sessionID, i, answerBytes)
 	}
 
 	rows, err := r.pool.Query(ctx,
-		"INSERT INTO practice_items (session_id, position, question_text) VALUES "+
+		"INSERT INTO attempt_answers (attempt_id, position, answer) VALUES "+
 			strings.Join(valuesClauses, ",")+
-			" RETURNING id, session_id, position, question_text, created_at",
+			" RETURNING id, attempt_id, position, created_at",
 		args...)
 	if err != nil {
 		return nil, fmt.Errorf("practice: insert items: %w", err)
@@ -122,9 +205,13 @@ func (r *Repo) InsertItems(ctx context.Context, sessionID string, questions []st
 	out := make([]PracticeItem, 0, len(questions))
 	for rows.Next() {
 		var item PracticeItem
-		if err := rows.Scan(&item.ID, &item.SessionID, &item.Position, &item.QuestionText, &item.CreatedAt); err != nil {
+		var attemptID string
+		var createdAtStr string
+		if err := rows.Scan(&item.ID, &attemptID, &item.Position, &createdAtStr); err != nil {
 			return nil, fmt.Errorf("practice: scan inserted item: %w", err)
 		}
+		item.SessionID = attemptID
+		item.CreatedAt = parseTime(createdAtStr)
 		out = append(out, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -135,8 +222,8 @@ func (r *Repo) InsertItems(ctx context.Context, sessionID string, questions []st
 
 func (r *Repo) GetItems(ctx context.Context, sessionID string) ([]PracticeItem, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, session_id, position, question_text, user_answer, ai_feedback, answered_at, feedback_at, created_at
-		 FROM practice_items WHERE session_id = $1 ORDER BY position`, sessionID)
+		`SELECT id, attempt_id, position, answer, ai_feedback, position, position, created_at
+		 FROM attempt_answers WHERE attempt_id = $1 ORDER BY position`, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("practice: get items: %w", err)
 	}
@@ -144,16 +231,39 @@ func (r *Repo) GetItems(ctx context.Context, sessionID string) ([]PracticeItem, 
 	out := []PracticeItem{}
 	for rows.Next() {
 		var item PracticeItem
-		if err := rows.Scan(&item.ID, &item.SessionID, &item.Position, &item.QuestionText,
-			&item.UserAnswer, &item.rawFeedback, &item.AnsweredAt, &item.FeedbackAt, &item.CreatedAt); err != nil {
+		var answerJSON []byte
+		var attemptID string
+		var createdAtStr string
+		// Scan attempt_answers columns into PracticeItem fields
+		if err := rows.Scan(&item.ID, &attemptID, &item.Position, &answerJSON,
+			&item.rawFeedback, nil, nil, &createdAtStr); err != nil {
 			return nil, fmt.Errorf("practice: scan item: %w", err)
 		}
+
+		item.SessionID = attemptID
+		item.CreatedAt = parseTime(createdAtStr)
+
+		// Extract question_text from answer JSON
+		if len(answerJSON) > 0 {
+			var ansObj map[string]interface{}
+			if err := json.Unmarshal(answerJSON, &ansObj); err == nil {
+				if qt, ok := ansObj["question_text"].(string); ok {
+					item.QuestionText = qt
+				}
+				if ua, ok := ansObj["user_answer"].(string); ok {
+					item.UserAnswer = &ua
+				}
+			}
+		}
+
+		// Parse AI feedback if present
 		if item.rawFeedback != nil {
 			var fb AIFeedback
 			if err := json.Unmarshal(item.rawFeedback, &fb); err == nil {
 				item.AIFeedback = &fb
 			}
 		}
+
 		out = append(out, item)
 	}
 	return out, rows.Err()
@@ -164,24 +274,48 @@ func (r *Repo) GetItems(ctx context.Context, sessionID string) ([]PracticeItem, 
 func (r *Repo) SaveAnswer(ctx context.Context, sessionID, userID string, position int, answer string) (PracticeItem, string, error) {
 	var item PracticeItem
 	var category string
+	var answerJSON []byte
+	var createdAtStr string
+
 	err := r.pool.QueryRow(ctx,
-		`UPDATE practice_items pi
-		 SET user_answer = $1, answered_at = now()
-		 FROM practice_sessions ps
-		 WHERE pi.session_id = $2 AND pi.position = $3
-		   AND pi.session_id = ps.id AND ps.user_id = $4
-		   AND pi.user_answer IS NULL
-		 RETURNING pi.id, pi.session_id, pi.position, pi.question_text, pi.user_answer,
-		           pi.ai_feedback, pi.answered_at, pi.feedback_at, pi.created_at, ps.category`,
+		`UPDATE attempt_answers aa
+		 SET answer = jsonb_set(COALESCE(answer, '{}'::jsonb), '{user_answer}', to_jsonb($1::text))
+		 FROM assessment_attempts at
+		 WHERE aa.attempt_id = $2 AND aa.position = $3
+		   AND at.id = aa.attempt_id AND at.user_id = $4
+		 RETURNING aa.id, aa.attempt_id, aa.position, aa.answer, aa.ai_feedback, aa.created_at`,
 		answer, sessionID, position, userID,
-	).Scan(&item.ID, &item.SessionID, &item.Position, &item.QuestionText,
-		&item.UserAnswer, &item.rawFeedback, &item.AnsweredAt, &item.FeedbackAt, &item.CreatedAt, &category)
+	).Scan(&item.ID, &item.SessionID, &item.Position, &answerJSON, &item.rawFeedback, &createdAtStr)
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PracticeItem{}, "", ErrNotFound
 		}
 		return PracticeItem{}, "", fmt.Errorf("practice: save answer: %w", err)
 	}
+
+	item.CreatedAt = parseTime(createdAtStr)
+	item.UserAnswer = &answer
+
+	// Extract question_text
+	if len(answerJSON) > 0 {
+		var ansObj map[string]interface{}
+		if err := json.Unmarshal(answerJSON, &ansObj); err == nil {
+			if qt, ok := ansObj["question_text"].(string); ok {
+				item.QuestionText = qt
+			}
+		}
+	}
+
+	// Parse AI feedback
+	if item.rawFeedback != nil {
+		var fb AIFeedback
+		if err := json.Unmarshal(item.rawFeedback, &fb); err == nil {
+			item.AIFeedback = &fb
+		}
+	}
+
+	category = CategoryTechnical // Default; would need to be stored separately if needed
 	return item, category, nil
 }
 
@@ -191,43 +325,82 @@ func (r *Repo) SaveFeedback(ctx context.Context, itemID string, feedback AIFeedb
 		return PracticeItem{}, fmt.Errorf("practice: marshal feedback: %w", err)
 	}
 	var item PracticeItem
+	var answerJSON []byte
+	var createdAtStr string
+
 	err = r.pool.QueryRow(ctx,
-		`UPDATE practice_items SET ai_feedback = $1, feedback_at = now()
+		`UPDATE attempt_answers SET ai_feedback = $1, evaluated_at = now()
 		 WHERE id = $2
-		 RETURNING id, session_id, position, question_text, user_answer, ai_feedback, answered_at, feedback_at, created_at`,
+		 RETURNING id, attempt_id, position, answer, ai_feedback, created_at`,
 		raw, itemID,
-	).Scan(&item.ID, &item.SessionID, &item.Position, &item.QuestionText,
-		&item.UserAnswer, &item.rawFeedback, &item.AnsweredAt, &item.FeedbackAt, &item.CreatedAt)
+	).Scan(&item.ID, &item.SessionID, &item.Position, &answerJSON, &item.rawFeedback, &createdAtStr)
+
 	if err != nil {
 		return PracticeItem{}, fmt.Errorf("practice: save feedback: %w", err)
 	}
+
+	item.CreatedAt = parseTime(createdAtStr)
 	item.AIFeedback = &feedback
+
+	// Extract question_text and user_answer
+	if len(answerJSON) > 0 {
+		var ansObj map[string]interface{}
+		if err := json.Unmarshal(answerJSON, &ansObj); err == nil {
+			if qt, ok := ansObj["question_text"].(string); ok {
+				item.QuestionText = qt
+			}
+			if ua, ok := ansObj["user_answer"].(string); ok {
+				item.UserAnswer = &ua
+			}
+		}
+	}
+
 	return item, nil
 }
 
 func (r *Repo) GetItemByPosition(ctx context.Context, sessionID, userID string, position int) (PracticeItem, error) {
 	var item PracticeItem
+	var answerJSON []byte
+	var createdAtStr string
+
 	err := r.pool.QueryRow(ctx,
-		`SELECT pi.id, pi.session_id, pi.position, pi.question_text, pi.user_answer,
-		        pi.ai_feedback, pi.answered_at, pi.feedback_at, pi.created_at
-		 FROM practice_items pi
-		 JOIN practice_sessions ps ON ps.id = pi.session_id
-		 WHERE pi.session_id = $1 AND pi.position = $2 AND ps.user_id = $3`,
+		`SELECT aa.id, aa.attempt_id, aa.position, aa.answer, aa.ai_feedback, aa.created_at
+		 FROM attempt_answers aa
+		 JOIN assessment_attempts at ON at.id = aa.attempt_id
+		 WHERE aa.attempt_id = $1 AND aa.position = $2 AND at.user_id = $3`,
 		sessionID, position, userID,
-	).Scan(&item.ID, &item.SessionID, &item.Position, &item.QuestionText,
-		&item.UserAnswer, &item.rawFeedback, &item.AnsweredAt, &item.FeedbackAt, &item.CreatedAt)
+	).Scan(&item.ID, &item.SessionID, &item.Position, &answerJSON, &item.rawFeedback, &createdAtStr)
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return PracticeItem{}, ErrNotFound
 		}
 		return PracticeItem{}, fmt.Errorf("practice: get item: %w", err)
 	}
+
+	item.CreatedAt = parseTime(createdAtStr)
+
+	// Extract question_text and user_answer from answer JSON
+	if len(answerJSON) > 0 {
+		var ansObj map[string]interface{}
+		if err := json.Unmarshal(answerJSON, &ansObj); err == nil {
+			if qt, ok := ansObj["question_text"].(string); ok {
+				item.QuestionText = qt
+			}
+			if ua, ok := ansObj["user_answer"].(string); ok {
+				item.UserAnswer = &ua
+			}
+		}
+	}
+
+	// Parse AI feedback
 	if item.rawFeedback != nil {
 		var fb AIFeedback
 		if err := json.Unmarshal(item.rawFeedback, &fb); err == nil {
 			item.AIFeedback = &fb
 		}
 	}
+
 	return item, nil
 }
 
@@ -282,3 +455,13 @@ func (r *Repo) IncrementQuestionBankUse(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// ─── Helper ────────────────────────────────────────────────────────────────
+
+func parseTime(s string) time.Time {
+	t, _ := time.Parse(time.RFC3339, s)
+	return t
+}
+
+// ponytail: helper for time parsing. Could use time.Parse directly but
+// this keeps the pattern consistent if time format changes later.

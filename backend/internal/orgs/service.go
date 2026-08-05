@@ -12,18 +12,20 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/secrets"
 )
 
 var slugRE = regexp.MustCompile(`^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$`)
 
 // OrgService handles org CRUD and lifecycle operations.
 type OrgService struct {
-	pool *pgxpool.Pool
-	cfg  *config.Config
+	pool  *pgxpool.Pool
+	cfg   *config.Config
+	vault *secrets.Vault
 }
 
-func NewOrgService(pool *pgxpool.Pool, cfg *config.Config) *OrgService {
-	return &OrgService{pool: pool, cfg: cfg}
+func NewOrgService(pool *pgxpool.Pool, cfg *config.Config, vault *secrets.Vault) *OrgService {
+	return &OrgService{pool: pool, cfg: cfg, vault: vault}
 }
 
 // Sentinel errors returned by OrgService methods.
@@ -187,6 +189,35 @@ func (s *OrgService) GetMyOrgs(ctx context.Context, userID string) ([]OrgSummary
 		orgs = []OrgSummary{}
 	}
 	return orgs, nil
+}
+
+// ListAllOrgs returns every org on the platform, optionally filtered by a
+// case-insensitive name/slug substring — the picker behind the platform
+// admin's (super_admin) cross-tenant tooling (e.g. the per-org feature-flags
+// page). Capped at 100 rows; there is no cursor pagination yet because the
+// picker is a search-as-you-type box, not a browsable list.
+func (s *OrgService) ListAllOrgs(ctx context.Context, search string) ([]AdminOrgSummary, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, slug, name, status FROM organizations
+		 WHERE $1 = '' OR name ILIKE '%' || $1 || '%' OR slug ILIKE '%' || $1 || '%' OR id::text = $1
+		 ORDER BY name ASC
+		 LIMIT 100`,
+		search,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("orgs: list all orgs: %w", err)
+	}
+	defer rows.Close()
+
+	orgs := []AdminOrgSummary{}
+	for rows.Next() {
+		var o AdminOrgSummary
+		if err := rows.Scan(&o.ID, &o.Slug, &o.Name, &o.Status); err != nil {
+			return nil, fmt.Errorf("orgs: list all orgs: scan: %w", err)
+		}
+		orgs = append(orgs, o)
+	}
+	return orgs, rows.Err()
 }
 
 // Update patches allowed fields on an org. actorRole must be owner or admin.

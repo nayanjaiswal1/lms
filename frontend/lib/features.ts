@@ -42,6 +42,10 @@ export const FEATURES = {
   // Personal — no org/plan concept, gated by direct per-user grant
   WHAT_NOW:          'what_now',
 
+  // Nightly AI revision digest — per-user opt-in beta via direct permission
+  // grant, same shape as WHAT_NOW above (no unlock path to advertise).
+  REVISION_DIGEST:   'revision_digest',
+
   // GitLab integration — inert until an org admin connects an installation
   GITLAB_INTEGRATION: 'gitlab_integration',
 
@@ -169,6 +173,7 @@ export const FEATURE_META: Record<Feature, { label: string; description: string 
   practice_ai:      { label: 'AI Interview Prep',  description: 'AI-generated interview questions with personalised feedback' },
   batch_chat:       { label: 'Batch Chat',          description: 'Mentor–student messaging within cohort batches' },
   what_now:         { label: 'What Now?',           description: 'A single-question room for deciding what to work on next' },
+  revision_digest:  { label: 'Revision Digest',     description: 'Nightly AI-written recap of your notes, mistakes, and sheet progress, emailed once a day' },
   gitlab_integration: { label: 'GitLab Integration', description: 'Connect your GitLab account and your organization\'s GitLab instance' },
   ai_connector:     { label: 'AI Connector',        description: 'Connect your own Claude or ChatGPT to read lessons, save notes, and manage your calendar via MCP' },
   session_booking:  { label: 'Session Booking',     description: 'Book 1:1 and cohort mentor sessions against published availability, with session credits and cancellation rules' },

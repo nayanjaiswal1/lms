@@ -399,7 +399,7 @@ func (r *Repo) Update(ctx context.Context, orgID, id, description string, isActi
 
 // Deactivate soft-deletes a coupon (is_active = false) — a coupon with
 // redemptions is never hard-deleted, since coupon_redemptions and
-// course_purchases both reference it for audit/refund purposes.
+// purchases both reference it for audit/refund purposes.
 func (r *Repo) Deactivate(ctx context.Context, orgID, id string) error {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE coupons SET is_active = false, updated_at = now() WHERE id = $1 AND org_id = $2`, id, orgID,

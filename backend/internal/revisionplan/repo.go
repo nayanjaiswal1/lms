@@ -179,17 +179,20 @@ func (r *Repo) GatherSignals(ctx context.Context, userID, courseID string) (Cour
 	rows, err := r.pool.Query(ctx,
 		`SELECT
 		   cm.id, cm.title, cs.title,
-		   COALESCE(lr.response, ''),
-		   COUNT(DISTINCT lca.question_id),
-		   COUNT(DISTINCT lca.question_id) FILTER (WHERE lca.is_correct),
-		   COUNT(*) FILTER (WHERE lca.is_correct = false)
+		   COALESCE(la.text, ''),
+		   COUNT(DISTINCT aa.id) FILTER (WHERE aq IS NOT NULL),
+		   COUNT(DISTINCT aa.id) FILTER (WHERE aq IS NOT NULL AND aa.is_correct),
+		   COUNT(DISTINCT aa.id) FILTER (WHERE aq IS NOT NULL AND aa.is_correct = false)
 		 FROM course_modules cm
 		 JOIN course_sections cs ON cs.id = cm.section_id
-		 LEFT JOIN lesson_reflections lr ON lr.module_id = cm.id AND lr.user_id = $2
-		 LEFT JOIN lesson_check_attempts lca ON lca.module_id = cm.id AND lca.user_id = $2
+		 LEFT JOIN learning_annotations la ON la.source_id = cm.id AND la.user_id = $2 AND la.source_type='module' AND la.annotation_type='reflection'
+		 LEFT JOIN assessments a ON a.parent_type='module' AND a.parent_id=cm.id AND a.type='knowledge_check'
+		 LEFT JOIN assessment_attempts aat ON aat.assessment_id=a.id AND aat.user_id=$2
+		 LEFT JOIN attempt_answers aa ON aa.attempt_id=aat.id
+		 LEFT JOIN assessment_questions aq ON aq.id=aa.assessment_question_id
 		 WHERE cm.course_id = $1 AND cm.type = 'notes' AND cm.deleted_at IS NULL
-		 GROUP BY cm.id, cm.title, cs.title, lr.response, cs.position, cm.position
-		 HAVING lr.response IS NOT NULL OR COUNT(lca.id) > 0
+		 GROUP BY cm.id, cm.title, cs.title, la.text, cs.position, cm.position
+		 HAVING la.text IS NOT NULL OR COUNT(aa.id) FILTER (WHERE aq IS NOT NULL) > 0
 		 ORDER BY cs.position, cm.position`,
 		courseID, userID,
 	)

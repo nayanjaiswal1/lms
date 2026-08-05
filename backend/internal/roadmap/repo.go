@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -169,121 +170,246 @@ func (r *Repo) GetPublicWithTree(ctx context.Context, id string) (Roadmap, error
 	return rm, nil
 }
 
-// getTree loads every phase/milestone/module for a roadmap in three flat
-// queries and assembles them in memory — simpler and cheaper than a
-// recursive/joined query for the depth-3 tree this always is.
+// getTree loads the nested phase/milestone/module tree from the structure JSONB,
+// then resolves resource titles/slugs via LEFT JOINs against the catalog tables.
 func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
-	phaseRows, err := r.pool.Query(ctx,
-		`SELECT id, roadmap_id, title, description, position, estimated_weeks
-		 FROM roadmap_phases WHERE roadmap_id = $1 ORDER BY position`, roadmapID)
+	var structureRaw []byte
+	err := r.pool.QueryRow(ctx,
+		`SELECT structure FROM roadmaps WHERE id = $1`, roadmapID,
+	).Scan(&structureRaw)
 	if err != nil {
-		return nil, fmt.Errorf("roadmap: get phases: %w", err)
+		return nil, fmt.Errorf("roadmap: get structure: %w", err)
 	}
+
+	// Parse the JSONB structure into phases/milestones/modules
+	type structureJSON struct {
+		Phases []struct {
+			ID             string `json:"id"`
+			Title          string `json:"title"`
+			Description    *string `json:"description"`
+			Position       int    `json:"position"`
+			EstimatedWeeks *int   `json:"estimated_weeks"`
+			Milestones     []struct {
+				ID             string `json:"id"`
+				Title          string `json:"title"`
+				Description    *string `json:"description"`
+				Position       int    `json:"position"`
+				EstimatedHours *int   `json:"estimated_hours"`
+				Modules        []struct {
+					ID               string `json:"id"`
+					Title            string `json:"title"`
+					Description      *string `json:"description"`
+					Position         int    `json:"position"`
+					Type             string `json:"type"`
+					ResourceType     *string `json:"resource_type"`
+					ResourceID       *string `json:"resource_id"`
+					EstimatedMinutes *int   `json:"estimated_minutes"`
+				} `json:"modules"`
+			} `json:"milestones"`
+		} `json:"phases"`
+	}
+
+	var s structureJSON
+	if len(structureRaw) > 0 {
+		if err := json.Unmarshal(structureRaw, &s); err != nil {
+			return nil, fmt.Errorf("roadmap: unmarshal structure: %w", err)
+		}
+	}
+
+	// Collect all module IDs to fetch completion status in one query
+	var moduleKeys []string
+	for _, p := range s.Phases {
+		for _, m := range p.Milestones {
+			for _, mod := range m.Modules {
+				moduleKeys = append(moduleKeys, mod.ID)
+			}
+		}
+	}
+
+	// Fetch completion status for all modules from roadmap_module_progress
+	progressMap := make(map[string]*time.Time)
+	if len(moduleKeys) > 0 {
+		progressRows, err := r.pool.Query(ctx,
+			`SELECT module_key, completed_at FROM roadmap_module_progress
+			 WHERE roadmap_id = $1 AND module_key = ANY($2)`,
+			roadmapID, moduleKeys)
+		if err != nil {
+			return nil, fmt.Errorf("roadmap: get module progress: %w", err)
+		}
+		defer progressRows.Close()
+		for progressRows.Next() {
+			var key string
+			var completedAt *time.Time
+			if err := progressRows.Scan(&key, &completedAt); err != nil {
+				return nil, fmt.Errorf("roadmap: scan progress: %w", err)
+			}
+			progressMap[key] = completedAt
+		}
+		if err := progressRows.Err(); err != nil {
+			return nil, fmt.Errorf("roadmap: iterate progress: %w", err)
+		}
+	}
+
+	// Resolve resource titles/slugs for all resources in one query
+	resourceMap := make(map[string]struct{ title *string; slug *string })
+	if len(moduleKeys) > 0 {
+		// Extract all (resource_type, resource_id) pairs from the structure
+		type resource struct {
+			rType string
+			rID   string
+		}
+		resourceSet := make(map[string]resource)
+		for _, p := range s.Phases {
+			for _, m := range p.Milestones {
+				for _, mod := range m.Modules {
+					if mod.ResourceType != nil && mod.ResourceID != nil {
+						resKey := *mod.ResourceType + ":" + *mod.ResourceID
+						resourceSet[resKey] = resource{rType: *mod.ResourceType, rID: *mod.ResourceID}
+					}
+				}
+			}
+		}
+
+		// Query each resource type
+		if len(resourceSet) > 0 {
+			// Courses
+			courseIDs := []string{}
+			for _, res := range resourceSet {
+				if res.rType == "course" {
+					courseIDs = append(courseIDs, res.rID)
+				}
+			}
+			if len(courseIDs) > 0 {
+				courseRows, err := r.pool.Query(ctx,
+					`SELECT id, title, slug FROM courses WHERE id = ANY($1)`, courseIDs)
+				if err != nil {
+					return nil, fmt.Errorf("roadmap: get courses: %w", err)
+				}
+				for courseRows.Next() {
+					var id, title, slug string
+					if err := courseRows.Scan(&id, &title, &slug); err != nil {
+						courseRows.Close()
+						return nil, fmt.Errorf("roadmap: scan course: %w", err)
+					}
+					resourceMap["course:"+id] = struct{ title *string; slug *string }{
+						title: &title, slug: &slug,
+					}
+				}
+				courseRows.Close()
+			}
+
+			// Labs
+			labIDs := []string{}
+			for _, res := range resourceSet {
+				if res.rType == "lab" {
+					labIDs = append(labIDs, res.rID)
+				}
+			}
+			if len(labIDs) > 0 {
+				labRows, err := r.pool.Query(ctx,
+					`SELECT id, title FROM lab_definitions WHERE id = ANY($1)`, labIDs)
+				if err != nil {
+					return nil, fmt.Errorf("roadmap: get labs: %w", err)
+				}
+				for labRows.Next() {
+					var id, title string
+					if err := labRows.Scan(&id, &title); err != nil {
+						labRows.Close()
+						return nil, fmt.Errorf("roadmap: scan lab: %w", err)
+					}
+					resourceMap["lab:"+id] = struct{ title *string; slug *string }{
+						title: &title, slug: nil,
+					}
+				}
+				labRows.Close()
+			}
+
+			// Questions
+			questionIDs := []string{}
+			for _, res := range resourceSet {
+				if res.rType == "question" {
+					questionIDs = append(questionIDs, res.rID)
+				}
+			}
+			if len(questionIDs) > 0 {
+				questionRows, err := r.pool.Query(ctx,
+					`SELECT id, title FROM questions WHERE id = ANY($1)`, questionIDs)
+				if err != nil {
+					return nil, fmt.Errorf("roadmap: get questions: %w", err)
+				}
+				for questionRows.Next() {
+					var id, title string
+					if err := questionRows.Scan(&id, &title); err != nil {
+						questionRows.Close()
+						return nil, fmt.Errorf("roadmap: scan question: %w", err)
+					}
+					resourceMap["question:"+id] = struct{ title *string; slug *string }{
+						title: &title, slug: nil,
+					}
+				}
+				questionRows.Close()
+			}
+		}
+	}
+
+	// Reconstruct the phases/milestones/modules tree with resolved data
 	phases := []Phase{}
-	phaseIdx := map[string]int{}
-	for phaseRows.Next() {
-		var p Phase
-		if err := phaseRows.Scan(&p.ID, &p.RoadmapID, &p.Title, &p.Description, &p.Position, &p.EstimatedWeeks); err != nil {
-			phaseRows.Close()
-			return nil, fmt.Errorf("roadmap: scan phase: %w", err)
+	for _, sp := range s.Phases {
+		p := Phase{
+			ID:             sp.ID,
+			RoadmapID:      roadmapID,
+			Title:          sp.Title,
+			Description:    sp.Description,
+			Position:       sp.Position,
+			EstimatedWeeks: sp.EstimatedWeeks,
+			Milestones:     []Milestone{},
 		}
-		p.Milestones = []Milestone{}
-		phaseIdx[p.ID] = len(phases)
+		for _, sm := range sp.Milestones {
+			m := Milestone{
+				ID:             sm.ID,
+				PhaseID:        sp.ID,
+				Title:          sm.Title,
+				Description:    sm.Description,
+				Position:       sm.Position,
+				EstimatedHours: sm.EstimatedHours,
+				Modules:        []Module{},
+			}
+			for _, smod := range sm.Modules {
+				mod := Module{
+					ID:               smod.ID,
+					MilestoneID:      sm.ID,
+					Title:            smod.Title,
+					Description:      smod.Description,
+					Position:         smod.Position,
+					ModuleType:       smod.Type,
+					ResourceType:     smod.ResourceType,
+					ResourceID:       smod.ResourceID,
+					EstimatedMinutes: smod.EstimatedMinutes,
+					CompletedAt:      progressMap[smod.ID],
+				}
+				// Resolve resource title/slug
+				if smod.ResourceType != nil && smod.ResourceID != nil {
+					key := *smod.ResourceType + ":" + *smod.ResourceID
+					if res, ok := resourceMap[key]; ok {
+						mod.ResourceTitle = res.title
+						mod.ResourceSlug = res.slug
+					}
+				}
+				m.Modules = append(m.Modules, mod)
+			}
+			p.Milestones = append(p.Milestones, m)
+		}
 		phases = append(phases, p)
-	}
-	phaseRows.Close()
-	if err := phaseRows.Err(); err != nil {
-		return nil, fmt.Errorf("roadmap: iterate phases: %w", err)
-	}
-	if len(phases) == 0 {
-		return phases, nil
-	}
-
-	milestoneRows, err := r.pool.Query(ctx,
-		`SELECT m.id, m.phase_id, m.title, m.description, m.position, m.estimated_hours
-		 FROM roadmap_milestones m
-		 JOIN roadmap_phases p ON p.id = m.phase_id
-		 WHERE p.roadmap_id = $1 ORDER BY m.position`, roadmapID)
-	if err != nil {
-		return nil, fmt.Errorf("roadmap: get milestones: %w", err)
-	}
-	milestoneIdx := map[string]int{}
-	milestoneOwner := map[string]string{} // milestoneID -> phaseID
-	for milestoneRows.Next() {
-		var m Milestone
-		if err := milestoneRows.Scan(&m.ID, &m.PhaseID, &m.Title, &m.Description, &m.Position, &m.EstimatedHours); err != nil {
-			milestoneRows.Close()
-			return nil, fmt.Errorf("roadmap: scan milestone: %w", err)
-		}
-		m.Modules = []Module{}
-		pi, ok := phaseIdx[m.PhaseID]
-		if !ok {
-			continue
-		}
-		milestoneOwner[m.ID] = m.PhaseID
-		milestoneIdx[m.ID] = len(phases[pi].Milestones)
-		phases[pi].Milestones = append(phases[pi].Milestones, m)
-	}
-	milestoneRows.Close()
-	if err := milestoneRows.Err(); err != nil {
-		return nil, fmt.Errorf("roadmap: iterate milestones: %w", err)
-	}
-
-	// Resource title/slug are resolved here via LEFT JOIN rather than stored on
-	// roadmap_modules — resource_type is polymorphic (course|lab|question), so
-	// exactly one of the three joins matches per row, and COALESCE picks it.
-	// This keeps the display title always current instead of a stale copy.
-	moduleRows, err := r.pool.Query(ctx,
-		`SELECT mo.id, mo.milestone_id, mo.title, mo.description, mo.position, mo.module_type,
-		        mo.resource_type, mo.resource_id, mo.estimated_minutes, mo.completed_at,
-		        COALESCE(rc.title, rl.title, rq.title), rc.slug
-		 FROM roadmap_modules mo
-		 JOIN roadmap_milestones m ON m.id = mo.milestone_id
-		 JOIN roadmap_phases p ON p.id = m.phase_id
-		 LEFT JOIN courses rc ON mo.resource_type = 'course' AND mo.resource_id = rc.id
-		 LEFT JOIN lab_definitions rl ON mo.resource_type = 'lab' AND mo.resource_id = rl.id
-		 LEFT JOIN questions rq ON mo.resource_type = 'question' AND mo.resource_id = rq.id
-		 WHERE p.roadmap_id = $1 ORDER BY mo.position`, roadmapID)
-	if err != nil {
-		return nil, fmt.Errorf("roadmap: get modules: %w", err)
-	}
-	defer moduleRows.Close()
-	for moduleRows.Next() {
-		var mod Module
-		if err := moduleRows.Scan(&mod.ID, &mod.MilestoneID, &mod.Title, &mod.Description, &mod.Position,
-			&mod.ModuleType, &mod.ResourceType, &mod.ResourceID, &mod.EstimatedMinutes, &mod.CompletedAt,
-			&mod.ResourceTitle, &mod.ResourceSlug); err != nil {
-			return nil, fmt.Errorf("roadmap: scan module: %w", err)
-		}
-		phaseID, ok := milestoneOwner[mod.MilestoneID]
-		if !ok {
-			continue
-		}
-		pi := phaseIdx[phaseID]
-		mi := milestoneIdx[mod.MilestoneID]
-		phases[pi].Milestones[mi].Modules = append(phases[pi].Milestones[mi].Modules, mod)
-	}
-	if err := moduleRows.Err(); err != nil {
-		return nil, fmt.Errorf("roadmap: iterate modules: %w", err)
 	}
 	return phases, nil
 }
 
 // listWithCounts runs a roadmaps query (any WHERE/ORDER/LIMIT clause) with
 // module/completed counts attached for the list-view progress bar, without
-// the full nested tree. Shared by ListForUser and ListPublic so the counts
-// subqueries exist in exactly one place.
+// the full nested tree. Counts are computed from the structure JSONB and progress table.
 func (r *Repo) listWithCounts(ctx context.Context, whereOrderLimit string, args ...any) ([]Roadmap, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+roadmapColumns+`,
-		        COALESCE((SELECT COUNT(*) FROM roadmap_modules mo
-		                  JOIN roadmap_milestones m ON m.id = mo.milestone_id
-		                  JOIN roadmap_phases p ON p.id = m.phase_id
-		                  WHERE p.roadmap_id = roadmaps.id), 0) AS module_count,
-		        COALESCE((SELECT COUNT(*) FROM roadmap_modules mo
-		                  JOIN roadmap_milestones m ON m.id = mo.milestone_id
-		                  JOIN roadmap_phases p ON p.id = m.phase_id
-		                  WHERE p.roadmap_id = roadmaps.id AND mo.completed_at IS NOT NULL), 0) AS completed_count
+		`SELECT `+roadmapColumns+`
 		 FROM roadmaps `+whereOrderLimit,
 		args...)
 	if err != nil {
@@ -297,7 +423,7 @@ func (r *Repo) listWithCounts(ctx context.Context, whereOrderLimit string, args 
 		var focusRaw []byte
 		if err := rows.Scan(&rm.ID, &rm.UserID, &rm.OrgID, &rm.Title, &rm.Mode, &rm.Status, &rm.IsPublic, &rm.GoalDescription,
 			&rm.TargetRole, &rm.SkillLevel, &rm.TimeframeWeeks, &focusRaw, &rm.GenerationError,
-			&rm.GeneratedAt, &rm.CreatedAt, &rm.UpdatedAt, &rm.ModuleCount, &rm.CompletedCount); err != nil {
+			&rm.GeneratedAt, &rm.CreatedAt, &rm.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("roadmap: scan list row: %w", err)
 		}
 		rm.FocusAreas = []string{}
@@ -308,7 +434,28 @@ func (r *Repo) listWithCounts(ctx context.Context, whereOrderLimit string, args 
 		}
 		out = append(out, rm)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("roadmap: iterate list: %w", err)
+	}
+
+	// For each roadmap, compute module counts from structure JSONB
+	for i := range out {
+		phases, err := r.getTree(ctx, out[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range phases {
+			for _, m := range p.Milestones {
+				out[i].ModuleCount += len(m.Modules)
+				for _, mod := range m.Modules {
+					if mod.CompletedAt != nil {
+						out[i].CompletedCount++
+					}
+				}
+			}
+		}
+	}
+	return out, nil
 }
 
 // ListForUser returns the user's non-deleted roadmaps, most recent first.
@@ -366,60 +513,100 @@ func (r *Repo) SetGenerating(ctx context.Context, id, userID string) error {
 	return nil
 }
 
-// ReplaceGeneratedTree deletes any existing phases (cascading to milestones
-// and modules) and inserts the freshly generated + catalog-matched tree, then
-// flips the roadmap to active. Delete+reinsert makes this naturally safe to
-// re-run (job retries, regenerate) without a separate idempotency check.
+// ReplaceGeneratedTree serializes the tree into structure JSONB, updates the
+// roadmap, and flips it to active. Delete+reinsert makes this naturally safe
+// to re-run (job retries, regenerate) without a separate idempotency check.
 func (r *Repo) ReplaceGeneratedTree(ctx context.Context, roadmapID string, phases []Phase) error {
+	// Serialize the tree into the JSONB structure
+	type structureModule struct {
+		ID               string  `json:"id"`
+		Title            string  `json:"title"`
+		Description      *string `json:"description"`
+		Position         int     `json:"position"`
+		Type             string  `json:"type"`
+		ResourceType     *string `json:"resource_type"`
+		ResourceID       *string `json:"resource_id"`
+		EstimatedMinutes *int    `json:"estimated_minutes"`
+	}
+	type structureMilestone struct {
+		ID             string             `json:"id"`
+		Title          string             `json:"title"`
+		Description    *string            `json:"description"`
+		Position       int                `json:"position"`
+		EstimatedHours *int               `json:"estimated_hours"`
+		Modules        []structureModule  `json:"modules"`
+	}
+	type structurePhase struct {
+		ID             string                 `json:"id"`
+		Title          string                 `json:"title"`
+		Description    *string                `json:"description"`
+		Position       int                    `json:"position"`
+		EstimatedWeeks *int                   `json:"estimated_weeks"`
+		Milestones     []structureMilestone   `json:"milestones"`
+	}
+	type structureJSON struct {
+		Phases []structurePhase `json:"phases"`
+	}
+
+	s := structureJSON{Phases: []structurePhase{}}
+	for _, p := range phases {
+		sp := structurePhase{
+			ID:             p.ID,
+			Title:          p.Title,
+			Description:    p.Description,
+			Position:       p.Position,
+			EstimatedWeeks: p.EstimatedWeeks,
+			Milestones:     []structureMilestone{},
+		}
+		for _, m := range p.Milestones {
+			sm := structureMilestone{
+				ID:             m.ID,
+				Title:          m.Title,
+				Description:    m.Description,
+				Position:       m.Position,
+				EstimatedHours: m.EstimatedHours,
+				Modules:        []structureModule{},
+			}
+			for _, mod := range m.Modules {
+				smod := structureModule{
+					ID:               mod.ID,
+					Title:            mod.Title,
+					Description:      mod.Description,
+					Position:         mod.Position,
+					Type:             mod.ModuleType,
+					ResourceType:     mod.ResourceType,
+					ResourceID:       mod.ResourceID,
+					EstimatedMinutes: mod.EstimatedMinutes,
+				}
+				sm.Modules = append(sm.Modules, smod)
+			}
+			sp.Milestones = append(sp.Milestones, sm)
+		}
+		s.Phases = append(s.Phases, sp)
+	}
+
+	structureRaw, err := json.Marshal(s)
+	if err != nil {
+		return fmt.Errorf("roadmap: marshal structure: %w", err)
+	}
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("roadmap: begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, `DELETE FROM roadmap_phases WHERE roadmap_id = $1`, roadmapID); err != nil {
-		return fmt.Errorf("roadmap: delete existing phases: %w", err)
+	// Clear existing progress entries
+	if _, err := tx.Exec(ctx, `DELETE FROM roadmap_module_progress WHERE roadmap_id = $1`, roadmapID); err != nil {
+		return fmt.Errorf("roadmap: delete existing progress: %w", err)
 	}
 
-	for _, p := range phases {
-		var phaseID string
-		if err := tx.QueryRow(ctx,
-			`INSERT INTO roadmap_phases (roadmap_id, title, description, position, estimated_weeks)
-			 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-			roadmapID, p.Title, p.Description, p.Position, p.EstimatedWeeks,
-		).Scan(&phaseID); err != nil {
-			return fmt.Errorf("roadmap: insert phase %d: %w", p.Position, err)
-		}
-
-		for _, m := range p.Milestones {
-			var milestoneID string
-			if err := tx.QueryRow(ctx,
-				`INSERT INTO roadmap_milestones (phase_id, title, description, position, estimated_hours)
-				 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-				phaseID, m.Title, m.Description, m.Position, m.EstimatedHours,
-			).Scan(&milestoneID); err != nil {
-				return fmt.Errorf("roadmap: insert milestone %d in phase %d: %w", m.Position, p.Position, err)
-			}
-
-			for _, mod := range m.Modules {
-				if _, err := tx.Exec(ctx,
-					`INSERT INTO roadmap_modules
-					   (milestone_id, title, description, position, module_type, resource_type, resource_id, estimated_minutes)
-					 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-					milestoneID, mod.Title, mod.Description, mod.Position, mod.ModuleType,
-					mod.ResourceType, mod.ResourceID, mod.EstimatedMinutes,
-				); err != nil {
-					return fmt.Errorf("roadmap: insert module %d in milestone %d: %w", mod.Position, m.Position, err)
-				}
-			}
-		}
-	}
-
+	// Update the structure JSONB and flip to active
 	if _, err := tx.Exec(ctx,
-		`UPDATE roadmaps SET status = $1, generated_at = now(), generation_error = NULL, updated_at = now() WHERE id = $2`,
-		StatusActive, roadmapID,
+		`UPDATE roadmaps SET structure = $1, status = $2, generated_at = now(), generation_error = NULL, updated_at = now() WHERE id = $3`,
+		structureRaw, StatusActive, roadmapID,
 	); err != nil {
-		return fmt.Errorf("roadmap: activate: %w", err)
+		return fmt.Errorf("roadmap: update roadmap: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -440,34 +627,53 @@ func (r *Repo) MarkFailed(ctx context.Context, roadmapID, reason string) error {
 	return nil
 }
 
-// UpdateModuleProgress toggles a module's completed_at, verifying the module
-// belongs to a roadmap owned by userID via the milestone/phase join.
+// UpdateModuleProgress toggles a module's completion in roadmap_module_progress,
+// verifying the roadmap is owned by userID.
 func (r *Repo) UpdateModuleProgress(ctx context.Context, roadmapID, moduleID, userID string, completed bool) error {
-	var completedAtExpr string
-	if completed {
-		completedAtExpr = "now()"
-	} else {
-		completedAtExpr = "NULL"
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("roadmap: begin tx: %w", err)
 	}
-	tag, err := r.pool.Exec(ctx,
-		`UPDATE roadmap_modules mo
-		 SET completed_at = `+completedAtExpr+`
-		 FROM roadmap_milestones m, roadmap_phases p, roadmaps r
-		 WHERE mo.id = $1
-		   AND mo.milestone_id = m.id AND m.phase_id = p.id AND p.roadmap_id = r.id
-		   AND r.id = $2 AND r.user_id = $3 AND r.deleted_at IS NULL`,
-		moduleID, roadmapID, userID)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Verify ownership
+	var exists bool
+	err = tx.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM roadmaps WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL)`,
+		roadmapID, userID,
+	).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("roadmap: verify ownership: %w", err)
+	}
+	if !exists {
+		return ErrNotFound
+	}
+
+	if completed {
+		// Insert or update the progress record
+		_, err = tx.Exec(ctx,
+			`INSERT INTO roadmap_module_progress (roadmap_id, module_key, completed_at)
+			 VALUES ($1, $2, now())
+			 ON CONFLICT (roadmap_id, module_key) DO UPDATE SET completed_at = now()`,
+			roadmapID, moduleID)
+	} else {
+		// Remove the progress record (mark as incomplete)
+		_, err = tx.Exec(ctx,
+			`DELETE FROM roadmap_module_progress WHERE roadmap_id = $1 AND module_key = $2`,
+			roadmapID, moduleID)
+	}
 	if err != nil {
 		return fmt.Errorf("roadmap: update module progress: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("roadmap: commit tx: %w", err)
 	}
 	return nil
 }
 
-// UpdateModule renames/redescribes a module (DEFINED-mode light edit) and
-// flips the parent roadmap's mode to 'defined'.
+// UpdateModule renames/redescribes a module in the structure JSONB (DEFINED-mode light edit)
+// and flips the parent roadmap's mode to 'defined'.
 func (r *Repo) UpdateModule(ctx context.Context, roadmapID, moduleID, userID string, title, description *string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -475,32 +681,92 @@ func (r *Repo) UpdateModule(ctx context.Context, roadmapID, moduleID, userID str
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	tag, err := tx.Exec(ctx,
-		`UPDATE roadmap_modules mo
-		 SET title = COALESCE($1, mo.title), description = COALESCE($2, mo.description)
-		 FROM roadmap_milestones m, roadmap_phases p, roadmaps r
-		 WHERE mo.id = $3
-		   AND mo.milestone_id = m.id AND m.phase_id = p.id AND p.roadmap_id = r.id
-		   AND r.id = $4 AND r.user_id = $5 AND r.deleted_at IS NULL`,
-		title, description, moduleID, roadmapID, userID)
+	// Fetch current structure
+	var structureRaw []byte
+	err = tx.QueryRow(ctx,
+		`SELECT structure FROM roadmaps WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+		roadmapID, userID,
+	).Scan(&structureRaw)
 	if err != nil {
-		return fmt.Errorf("roadmap: update module: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("roadmap: get structure: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+
+	// Parse and update the structure
+	var data map[string]interface{}
+	if len(structureRaw) > 0 {
+		if err := json.Unmarshal(structureRaw, &data); err != nil {
+			return fmt.Errorf("roadmap: unmarshal structure: %w", err)
+		}
+	}
+	if data == nil {
+		data = make(map[string]interface{})
+	}
+
+	// Generic map-based search and update
+	phases, ok := data["phases"].([]interface{})
+	found := false
+	if ok {
+		for _, p := range phases {
+			phase, ok := p.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			milestones, ok := phase["milestones"].([]interface{})
+			if !ok {
+				continue
+			}
+			for _, m := range milestones {
+				milestone, ok := m.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				modules, ok := milestone["modules"].([]interface{})
+				if !ok {
+					continue
+				}
+				for _, mod := range modules {
+					module, ok := mod.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					if id, ok := module["id"].(string); ok && id == moduleID {
+						if title != nil {
+							module["title"] = *title
+						}
+						if description != nil {
+							module["description"] = *description
+						}
+						found = true
+						break
+					}
+				}
+			}
+		}
+	}
+	if !found {
 		return ErrNotFound
 	}
 
+	// Serialize and update
+	newStructureRaw, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("roadmap: marshal structure: %w", err)
+	}
+
 	if _, err := tx.Exec(ctx,
-		`UPDATE roadmaps SET mode = $1, updated_at = now() WHERE id = $2 AND user_id = $3`,
-		ModeDefined, roadmapID, userID,
+		`UPDATE roadmaps SET structure = $1, mode = $2, updated_at = now() WHERE id = $3`,
+		newStructureRaw, ModeDefined, roadmapID,
 	); err != nil {
-		return fmt.Errorf("roadmap: flip mode to defined: %w", err)
+		return fmt.Errorf("roadmap: update roadmap: %w", err)
 	}
 
 	return tx.Commit(ctx)
 }
 
-// DeleteModule removes a single module (DEFINED-mode light edit).
+// DeleteModule removes a single module from the structure JSONB (DEFINED-mode light edit).
 func (r *Repo) DeleteModule(ctx context.Context, roadmapID, moduleID, userID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -508,25 +774,85 @@ func (r *Repo) DeleteModule(ctx context.Context, roadmapID, moduleID, userID str
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	tag, err := tx.Exec(ctx,
-		`DELETE FROM roadmap_modules mo
-		 USING roadmap_milestones m, roadmap_phases p, roadmaps r
-		 WHERE mo.id = $1
-		   AND mo.milestone_id = m.id AND m.phase_id = p.id AND p.roadmap_id = r.id
-		   AND r.id = $2 AND r.user_id = $3 AND r.deleted_at IS NULL`,
-		moduleID, roadmapID, userID)
+	// Fetch current structure
+	var structureRaw []byte
+	err = tx.QueryRow(ctx,
+		`SELECT structure FROM roadmaps WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+		roadmapID, userID,
+	).Scan(&structureRaw)
 	if err != nil {
-		return fmt.Errorf("roadmap: delete module: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("roadmap: get structure: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
+
+	// Parse and update the structure
+	var data map[string]interface{}
+	if len(structureRaw) > 0 {
+		if err := json.Unmarshal(structureRaw, &data); err != nil {
+			return fmt.Errorf("roadmap: unmarshal structure: %w", err)
+		}
+	}
+	if data == nil {
+		data = make(map[string]interface{})
+	}
+
+	// Generic map-based search and delete
+	phases, ok := data["phases"].([]interface{})
+	found := false
+	if ok {
+		for _, p := range phases {
+			phase, ok := p.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			milestones, ok := phase["milestones"].([]interface{})
+			if !ok {
+				continue
+			}
+			for _, m := range milestones {
+				milestone, ok := m.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				modules, ok := milestone["modules"].([]interface{})
+				if !ok {
+					continue
+				}
+				// Filter out the matching module
+				newModules := []interface{}{}
+				for _, mod := range modules {
+					module, ok := mod.(map[string]interface{})
+					if !ok {
+						newModules = append(newModules, mod)
+						continue
+					}
+					if id, ok := module["id"].(string); ok && id == moduleID {
+						found = true
+						continue // skip this module (delete it)
+					}
+					newModules = append(newModules, mod)
+				}
+				milestone["modules"] = newModules
+			}
+		}
+	}
+	if !found {
 		return ErrNotFound
 	}
 
+	// Serialize and update
+	newStructureRaw, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("roadmap: marshal structure: %w", err)
+	}
+
 	if _, err := tx.Exec(ctx,
-		`UPDATE roadmaps SET mode = $1, updated_at = now() WHERE id = $2 AND user_id = $3`,
-		ModeDefined, roadmapID, userID,
+		`UPDATE roadmaps SET structure = $1, mode = $2, updated_at = now() WHERE id = $3`,
+		newStructureRaw, ModeDefined, roadmapID,
 	); err != nil {
-		return fmt.Errorf("roadmap: flip mode to defined: %w", err)
+		return fmt.Errorf("roadmap: update roadmap: %w", err)
 	}
 
 	return tx.Commit(ctx)

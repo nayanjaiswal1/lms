@@ -489,6 +489,16 @@ export default tseslint.config(
               from: { type: 'feature-components', captured: { family: 'projects' } },
               allow: [['feature-components', { family: 'settings' }]],
             },
+            // Mentor-assignment tickets are one of the two kinds the shared
+            // internal/tickets backend package serves (support tickets are
+            // the other) — mentoring's ticket-adjacent cards reuse the
+            // shared status/priority/date formatting helpers instead of
+            // duplicating them. See components/mentoring/lifecycle-record-card.tsx,
+            // mentor-metadata-card.tsx, mentor-reviews-list.tsx.
+            {
+              from: { type: 'feature-components', captured: { family: 'mentoring' } },
+              allow: [['feature-lib', { family: 'tickets' }]],
+            },
             { from: { type: 'shared-lib' }, allow: ['shared-lib'] },
             {
               from: { type: 'feature-lib' },

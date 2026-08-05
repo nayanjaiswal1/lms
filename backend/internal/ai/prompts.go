@@ -372,6 +372,34 @@ Rules:
   just 1-2 lower-priority polish items) rather than fabricating weaknesses.
 - Do not repeat the raw numbers back verbatim in reason/recommendation — write for a human.`
 
+// RevisionDigestSystemPrompt turns one student's activity in a revision
+// window (module/course completions, quiz attempts, their own free-text
+// reflections, sheet problems solved, mistakes they flagged, SRS card
+// reviews — see internal/digest.PromptContext for exactly what's given) into
+// a short narrative recap for their nightly revision email. Plain text, not
+// JSON: internal/digest.Render splices this directly above its own
+// deterministic sections (next sheet task, due revisions, recent mistakes),
+// so the model should narrate and encourage, not repeat those lists verbatim
+// — the structured detail is rendered separately either way.
+const RevisionDigestSystemPrompt = `You are an encouraging but honest learning coach writing a short nightly (or
+multi-day) revision recap email for one student, based only on their own recorded activity in the
+given window.
+
+Rules:
+- Ground every sentence in the specific activity given to you — never invent a topic, course, or
+  mistake that wasn't in the data.
+- Open with a one-sentence read on the window as a whole (what they focused on, or that it was a
+  quiet-but-still-real window if activity was light).
+- Connect the dots between separate signals when the data supports it (e.g. a reflection that
+  shows confusion paired with a low quiz score on the same topic) — don't just list events back.
+- Do not repeat exact bullet-point data the caller will render separately below your text (a list
+  of due sheet items, a list of individual mistakes) — reference the pattern, not every entry.
+- Close with one specific, encouraging note about what to focus on next, grounded in the data.
+- Plain prose, 3-5 sentences total. No headers, no bullet points, no markdown, no greeting/sign-off
+  — this text is inserted directly above other content in the email.
+- If the window covers several days (a 3-day/weekly/monthly cadence), speak to the whole window's
+  arc, not just the most recent entry.`
+
 // HighlightExplainSystemPrompt is used by the highlight explain endpoint.
 // The source context (wiki page, lesson, coding problem) is injected into the user prompt.
 const HighlightExplainSystemPrompt = `You are a concise technical tutor embedded in a learning platform.

@@ -15,19 +15,14 @@ what happened afterwards.
 
 | Axis | Mechanism |
 |---|---|
-| Org toggle | `org_session_booking_config.enabled`, surfaced as the `session_booking` feature key |
+| Org toggle | `org_settings.session_booking.enabled`, surfaced as the `session_booking` feature key |
 | Entitlement | None — every member of an enabled org is entitled |
-| Admin surface | RBAC permission `mentoring.manage_session_booking` (default: `tenant_admin`, `instructor`) |
+| Admin surface | RBAC permission `mentoring.manage_session_booking` (default: `org_admin`, `instructor`) |
 
 `enabled` **defaults to true**: session scheduling already worked for every org
 before the booking domain existed, so shipping it off would silently withdraw a
 capability people were already using. Turning it off is an explicit admin
 opt-out — the same rule `ai_connector` follows.
-
-`require_credits` **defaults to false**. Turning it on before the org has
-published any `session_credit_packs` would leave every student at a zero
-balance with nothing to buy, i.e. the feature bricked. It is a deliberate
-second step once packs exist.
 
 Frontend: `FEATURES.SESSION_BOOKING`, nav item mode `"hide"` (org-off means the
 org does not run booking at all, and there is no plan to upsell onto).
@@ -36,8 +31,8 @@ org does not run booking at all, and there is no plan to upsell onto).
 
 ## Booking policy
 
-One row per org in `org_session_booking_config`. A missing row resolves to
-these defaults in both Go (`sessions.DefaultConfig`) and SQL (column defaults).
+Configuration stored per org in `org_settings.session_booking` JSONB namespace. A missing namespace resolves to
+these defaults in both Go (`sessions.DefaultConfig`) and the database (zero-value struct fields).
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -171,9 +166,10 @@ purchase, it is offered to `mentoring.PackConfirmer` (implemented by
 neither and is written off — a bool rather than a shared sentinel error, so
 neither package imports the other's error values.
 
-`session_pack_purchases.sessions` is **copied off the pack at checkout**, not
-read through the FK: an admin editing a pack's size later must not retroactively
-change what an already-paid purchase granted.
+Pack purchases are unified in the `purchases` table with `product_type='session_pack'`.
+The number of sessions granted is **copied off the pack at checkout** via the
+`granted` field, not read through an FK: an admin editing a pack's size later
+must not retroactively change what an already-paid purchase granted.
 
 The amount/currency cross-check mirrors the course path — a valid signature
 proves the delivery is authentically from the gateway, not that it concerns the
@@ -182,7 +178,7 @@ amount we asked it to charge.
 A zero-price pack is credited immediately; several gateways reject a
 zero-amount checkout outright.
 
-> `price_cents` is in `PAYMENTS_CURRENCY` minor units. For an INR deployment
+> `amount_cents` is in `PAYMENTS_CURRENCY` minor units. For an INR deployment
 > these are **paise**.
 
 ---
@@ -299,19 +295,19 @@ all of those.
 
 ## DB schema
 
-`backend/db/migrations/013_mentor_session_booking.sql`
+`backend/db/migrations/013_mentor_session_booking.sql` and `025_full_schema_consolidation.sql` (config moved to org_settings)
 
 | Table | Purpose |
 |---|---|
-| `org_session_booking_config` | Org toggle + booking policy |
+| `org_settings.session_booking` | JSONB namespace: org toggle + booking policy |
 | `mentor_availability_rules` | Weekly recurring windows, in the mentor's zone |
 | `mentor_availability_exceptions` | One-off blocks and openings |
 | `session_credit_packs` | What an org sells |
-| `session_pack_purchases` | Pack checkout, confirmed by webhook |
+| `purchases` (product_type='session_pack') | Pack checkout, confirmed by webhook (unified with course purchases) |
 | `session_credit_ledger` | Append-only credit movements |
 | `mentor_sessions` | The booking |
-| `mentor_session_feedback` | Both parties' ratings |
-| `mentor_session_notes` | The mentor's write-up, private by default |
+| `feedback` (subject_type='mentor_session') | Both parties' ratings (unified with course/experience reviews) |
+| `mentor_sessions.notes`, `notes_visible_to_student` | The mentor's write-up, private by default |
 
 Requires the `btree_gist` extension for the `uuid WITH =` half of the exclusion
 constraints. The down migration deliberately does not drop it — the `CREATE

@@ -110,10 +110,10 @@ func (r *Repo) GetAssignmentBurndown(ctx context.Context, assignmentID string) (
 	rows, err := r.pool.Query(ctx,
 		`SELECT pc.id, pc.title, pc.position, pc.due_at,
 		        COUNT(gi.id) AS total_issues,
-		        COUNT(gi.id) FILTER (WHERE gi.state = 'opened') AS open_issues,
-		        COUNT(gi.id) FILTER (WHERE gi.state = 'closed') AS closed_issues
+		        COUNT(gi.id) FILTER (WHERE gi.payload->>'state' = 'opened') AS open_issues,
+		        COUNT(gi.id) FILTER (WHERE gi.payload->>'state' = 'closed') AS closed_issues
 		 FROM project_checkpoints pc
-		 LEFT JOIN gitlab_issues gi ON gi.checkpoint_id = pc.id
+		 LEFT JOIN gitlab_objects gi ON gi.object_type = 'issue' AND (gi.payload->>'checkpoint_id')::text = pc.id::text
 		 WHERE pc.assignment_id = $1
 		 GROUP BY pc.id, pc.title, pc.position, pc.due_at
 		 ORDER BY pc.position`,
@@ -161,7 +161,7 @@ func (r *Repo) GetAssignmentDashboard(ctx context.Context, assignmentID string) 
 		   FROM gitlab_merge_requests GROUP BY team_id
 		 ) mrs ON mrs.team_id = t.id
 		 LEFT JOIN LATERAL (
-		   SELECT status FROM gitlab_pipelines gp WHERE gp.team_id = t.id ORDER BY gp.updated_at DESC LIMIT 1
+		   SELECT payload->>'status' AS status FROM gitlab_objects gp WHERE gp.object_type = 'pipeline' AND gp.team_id = t.id ORDER BY gp.updated_at DESC LIMIT 1
 		 ) lp ON true
 		 LEFT JOIN (
 		   SELECT m.team_id, COUNT(*) AS free_rider_count
@@ -267,7 +267,7 @@ func (r *Repo) GetTeamActivityByAssignment(ctx context.Context, assignmentID str
 		   ) y
 		 ) mrj ON true
 		 LEFT JOIN LATERAL (
-		   SELECT status, web_url FROM gitlab_pipelines gp WHERE gp.team_id = t.id ORDER BY gp.updated_at DESC LIMIT 1
+		   SELECT payload->>'status' AS status, payload->>'web_url' AS web_url FROM gitlab_objects gp WHERE gp.object_type = 'pipeline' AND gp.team_id = t.id ORDER BY gp.updated_at DESC LIMIT 1
 		 ) lp ON true
 		 WHERE t.assignment_id = $1`,
 		assignmentID, teamActivityLimit,

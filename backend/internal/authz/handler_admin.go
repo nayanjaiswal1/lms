@@ -48,7 +48,7 @@ func (h *Handler) HandleListRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := ListRolesParams{
-		TenantID:      claims.OrgID,
+		OrgID:         claims.OrgID,
 		IncludeSystem: true,
 		Search:        h.queryString(r, "search"),
 		ActiveOnly:    h.queryString(r, "active") == "true",
@@ -287,10 +287,10 @@ func (h *Handler) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := ListUsersParams{
-		TenantID: claims.OrgID,
-		Search:   h.queryString(r, "search"),
-		Limit:    h.queryInt(r, "limit", 20),
-		Offset:   h.queryInt(r, "offset", 0),
+		OrgID:  claims.OrgID,
+		Search: h.queryString(r, "search"),
+		Limit:  h.queryInt(r, "limit", 20),
+		Offset: h.queryInt(r, "offset", 0),
 	}
 
 	users, total, err := h.adminRepo.ListUsers(r.Context(), params)
@@ -554,7 +554,7 @@ func (h *Handler) HandleListAudit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := ListAuditParams{
-		TenantID:   claims.OrgID,
+		OrgID:      claims.OrgID,
 		EntityType: h.queryString(r, "entity_type"),
 		EntityID:   h.queryString(r, "entity_id"),
 		Limit:      h.queryInt(r, "limit", 20),
@@ -575,13 +575,13 @@ func (h *Handler) HandleListAudit(w http.ResponseWriter, r *http.Request) {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-// roleAccessible returns true if a role is visible to the given tenant:
-// system roles are always accessible; tenant-owned roles only if they match.
-func roleAccessible(role *Role, tenantID string) bool {
+// roleAccessible returns true if a role is visible to the given org:
+// system roles are always accessible; org-owned roles only if they match.
+func roleAccessible(role *Role, orgID string) bool {
 	if role.IsSystem {
 		return true
 	}
-	return role.TenantID != nil && *role.TenantID == tenantID
+	return role.OrgID != nil && *role.OrgID == orgID
 }
 
 // isNotFound checks whether an AdminService error describes a missing entity.

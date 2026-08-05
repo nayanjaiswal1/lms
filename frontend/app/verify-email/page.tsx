@@ -5,6 +5,7 @@ import { MailOpen } from "lucide-react";
 import { AuthPageShell } from "@/components/auth/auth-page-shell";
 import { VerifyEmailForm } from "@/app/verify-email/verify-form";
 import { VerifyEmailAutoSubmit } from "@/app/verify-email/auto-submit";
+import { IconMessage } from "@/components/shared/icon-message";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -27,22 +28,25 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
 
   return (
     <AuthPageShell
-      title="Verify your email"
-      description={description}
-      alternatePrompt="Already verified?"
-      alternateLabel="Sign in"
       alternateHref={ROUTES.LOGIN}
+      alternateLabel="Sign in"
+      alternatePrompt="Already verified?"
+      description={description}
+      title="Verify your email"
     >
       <div className="flex flex-col gap-6">
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-4">
-          <MailOpen aria-hidden className="h-5 w-5 shrink-0 text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Check your spam folder if you don&apos;t see the email within a minute.
-          </p>
-        </div>
+        <IconMessage
+          className="rounded-lg border border-border bg-muted p-4 text-muted-foreground"
+          icon={MailOpen}
+          iconClassName="text-primary"
+          size="md"
+          variant="plain"
+        >
+          Check your spam folder if you don&apos;t see the email within a minute.
+        </IconMessage>
 
         {token ? (
-          <VerifyEmailAutoSubmit token={token} email={email} />
+          <VerifyEmailAutoSubmit email={email} token={token} />
         ) : (
           <VerifyEmailForm />
         )}
@@ -50,8 +54,8 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
         <p className="text-center text-sm text-muted-foreground sm:text-left">
           Didn&apos;t receive it?{" "}
           <Link
-            href={`${ROUTES.REGISTER}`}
             className="font-medium"
+            href={`${ROUTES.REGISTER}`}
           >
             Resend verification
           </Link>

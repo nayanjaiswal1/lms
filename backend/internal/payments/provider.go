@@ -9,11 +9,11 @@ import (
 	"net/http"
 )
 
-// CheckoutParams describes a single course-purchase checkout request. The
+// CheckoutParams describes a single purchase checkout request. The
 // caller has already computed AmountCents as the final, post-discount price
 // — providers never see or apply a discount themselves.
 type CheckoutParams struct {
-	PurchaseID    string // our course_purchases.id — carried through as gateway metadata/receipt so a webhook can be matched back to this purchase even before ProviderRef is known
+	PurchaseID    string // our purchases.id — carried through as gateway metadata/receipt so a webhook can be matched back to this purchase even before ProviderRef is known
 	OrgID         string
 	UserID        string
 	CourseID      string
@@ -50,7 +50,7 @@ const (
 
 // Event is a single normalized webhook delivery. ProviderRef matches the
 // Checkout.ProviderRef returned by CreateCheckout, letting the caller look up
-// the pending course_purchases row this event confirms or fails.
+// the pending purchases row this event confirms or fails.
 type Event struct {
 	ID          string // the gateway's own event id — the caller's dedup key (see payment_events.event_id)
 	Type        string
@@ -66,8 +66,8 @@ type Event struct {
 // must be safe for concurrent use.
 type Provider interface {
 	// Name identifies the provider ("stripe", "razorpay", "stub") — this is
-	// what's persisted in course_purchases.provider and payment_events.provider,
-	// and what a checkout request's Provider field selects by by.
+	// what's persisted in purchases.provider and payment_events.provider,
+	// and what a checkout request's Provider field selects by.
 	Name() string
 
 	// CreateCheckout starts a real checkout with the gateway. It must be

@@ -112,11 +112,11 @@ func (r *Repo) ListMessages(ctx context.Context, orgID, batchID, userID string, 
 
 	// Load reactions for all returned messages
 	reactionRows, err := r.pool.Query(ctx,
-		`SELECT message_id, reaction, COUNT(*) AS cnt,
+		`SELECT target_id, reaction, COUNT(*) AS cnt,
 		        bool_or(user_id = $1) AS user_reacted
-		 FROM batch_message_reactions
-		 WHERE message_id = ANY($2::uuid[])
-		 GROUP BY message_id, reaction`,
+		 FROM content_reactions
+		 WHERE target_type = 'batch_message' AND target_id = ANY($2::uuid[])
+		 GROUP BY target_id, reaction`,
 		userID, ids)
 	if err != nil {
 		return nil, fmt.Errorf("messaging: load reactions: %w", err)
@@ -255,9 +255,9 @@ func (r *Repo) SoftDeleteMessage(ctx context.Context, orgID, msgID, userID, orgR
 
 func (r *Repo) ToggleReaction(ctx context.Context, msgID, userID string, reaction Reaction) (bool, error) {
 	tag, err := r.pool.Exec(ctx,
-		`INSERT INTO batch_message_reactions (message_id, user_id, reaction)
-		 VALUES ($1, $2, $3)
-		 ON CONFLICT (message_id, user_id, reaction) DO NOTHING`,
+		`INSERT INTO content_reactions (target_type, target_id, user_id, reaction)
+		 VALUES ('batch_message', $1, $2, $3)
+		 ON CONFLICT (target_type, target_id, user_id, reaction) DO NOTHING`,
 		msgID, userID, reaction)
 	if err != nil {
 		return false, fmt.Errorf("messaging: toggle reaction: %w", err)
@@ -266,7 +266,7 @@ func (r *Repo) ToggleReaction(ctx context.Context, msgID, userID string, reactio
 		return true, nil
 	}
 	_, err = r.pool.Exec(ctx,
-		`DELETE FROM batch_message_reactions WHERE message_id = $1 AND user_id = $2 AND reaction = $3`,
+		`DELETE FROM content_reactions WHERE target_type = 'batch_message' AND target_id = $1 AND user_id = $2 AND reaction = $3`,
 		msgID, userID, reaction)
 	if err != nil {
 		return false, fmt.Errorf("messaging: remove reaction: %w", err)

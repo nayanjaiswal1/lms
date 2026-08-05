@@ -76,13 +76,14 @@ type CodingItem struct {
 }
 
 // Round is one stage of a plan. Conceptual rounds delegate to an existing
-// practice_sessions row; coding rounds are self-contained (items JSONB).
+// assessment_attempts row (migrated from practice_sessions); coding rounds are self-contained (items JSONB).
+// ponytail: PracticeSessionID field name retained for schema compatibility; stores assessment_attempt_id for conceptual rounds.
 type Round struct {
 	ID                string       `json:"id"`
 	PlanID            string       `json:"plan_id"`
 	RoundType         string       `json:"round_type"`
 	OrderIndex        int          `json:"order_index"`
-	PracticeSessionID *string      `json:"practice_session_id,omitempty"`
+	PracticeSessionID *string      `json:"practice_session_id,omitempty"` // stores assessment_attempt_id for conceptual rounds
 	Items             []CodingItem `json:"items,omitempty"`
 	Status            string       `json:"status"`
 	Score             *float64     `json:"score,omitempty"`

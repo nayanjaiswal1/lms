@@ -26,7 +26,7 @@ func (s *Service) GetEffectivePermissions(ctx context.Context, userID, tenantID 
 	cached, err := s.cache.Get(ctx, tenantID, userID)
 	if err != nil {
 		slog.Warn("authz service: cache get failed, falling back to db",
-			"user_id", userID, "tenant_id", tenantID, "error", err)
+			"user_id", userID, "org_id", tenantID, "error", err)
 	}
 	if cached != nil {
 		return cached, nil
@@ -39,7 +39,7 @@ func (s *Service) GetEffectivePermissions(ctx context.Context, userID, tenantID 
 
 	if setErr := s.cache.Set(ctx, tenantID, userID, codes); setErr != nil {
 		slog.Warn("authz service: cache set failed",
-			"user_id", userID, "tenant_id", tenantID, "error", setErr)
+			"user_id", userID, "org_id", tenantID, "error", setErr)
 	}
 
 	return codes, nil
@@ -116,9 +116,9 @@ func (s *Service) InvalidateForRoleChange(ctx context.Context, roleID string) er
 
 	var lastErr error
 	for _, a := range assignments {
-		if err := s.cache.Invalidate(ctx, a.TenantID, a.UserID); err != nil {
+		if err := s.cache.Invalidate(ctx, a.OrgID, a.UserID); err != nil {
 			slog.Warn("authz service: invalidate for role change: partial failure",
-				"role_id", roleID, "user_id", a.UserID, "tenant_id", a.TenantID, "error", err)
+				"role_id", roleID, "user_id", a.UserID, "org_id", a.OrgID, "error", err)
 			lastErr = err
 		}
 	}

@@ -6,9 +6,11 @@ import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { RequestMentorChangeDialog } from "@/components/mentoring/request-mentor-change-dialog";
 import { RequestMentorDialog } from "@/components/mentoring/request-mentor-dialog";
 import { MessageMentorButton } from "@/components/mentoring/message-mentor-button";
-import { getMentors, getMyMentorTickets, type MentorDirectoryEntry, type MentorTicket } from "@/lib/server/mentoring";
+import { getMentors, type MentorDirectoryEntry } from "@/lib/server/mentoring";
+import { getMyTickets, type Ticket } from "@/lib/server/tickets";
 import { getEnrollments } from "@/lib/server/courses";
 import { getMyBatches } from "@/lib/server/batches";
+import { TICKET_KIND } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "Mentors" };
@@ -27,11 +29,11 @@ const TICKET_STATUS_COPY: Record<string, string> = {
 // A mentor only has a chat thread once they're the *assigned* mentor on one
 // of the student's tickets — batch/directory listings have no ticket of
 // their own, so this is the only way to know whether "Chat" is offered.
-function ticketIdByMentor(tickets: MentorTicket[]): Map<string, string> {
+function ticketIdByMentor(tickets: Ticket[]): Map<string, string> {
   return new Map(
     tickets
-      .filter((t) => t.status === "assigned" && t.assigned_mentor_id)
-      .map((t) => [t.assigned_mentor_id as string, t.id]),
+      .filter((t) => t.status === "assigned" && t.assigned_to)
+      .map((t) => [t.assigned_to as string, t.id]),
   );
 }
 
@@ -40,7 +42,7 @@ function MentorTicketCard({
   courseTitle,
   mentor,
 }: {
-  ticket: MentorTicket;
+  ticket: Ticket;
   courseTitle: string | undefined;
   mentor: MentorDirectoryEntry | undefined;
 }) {
@@ -51,7 +53,7 @@ function MentorTicketCard({
         <Badge variant={TICKET_STATUS_VARIANT[ticket.status] ?? "outline"}>{ticket.status}</Badge>
       </div>
       <p className="text-sm text-foreground">{TICKET_STATUS_COPY[ticket.status]}</p>
-      {ticket.status === "assigned" && ticket.assigned_mentor_id && (
+      {ticket.status === "assigned" && ticket.assigned_to && (
         <>
           <div className="flex items-center gap-2.5">
             <ProfileAvatar avatarUrl={mentor?.avatar_url ?? null} name={mentor?.name ?? "Mentor"} size="sm" />
@@ -65,7 +67,7 @@ function MentorTicketCard({
             </Link>
             <Link
               className="text-sm text-primary hover:underline"
-              href={ROUTES.mentor(ticket.assigned_mentor_id)}
+              href={ROUTES.mentor(ticket.assigned_to)}
             >
               View profile &amp; rate
             </Link>
@@ -156,7 +158,7 @@ function MentorDirectoryCard({ mentor, ticketId }: { mentor: MentorDirectoryEntr
 }
 
 async function MentorDirectorySection({ mentors }: { mentors: MentorDirectoryEntry[] }) {
-  const tickets = await getMyMentorTickets().catch(() => []);
+  const tickets = await getMyTickets(TICKET_KIND.MENTORSHIP).catch(() => []);
   const ticketByMentor = ticketIdByMentor(tickets);
 
   return (
@@ -182,7 +184,7 @@ async function YourBatchMentorsSection() {
   const [batches, mentors, tickets] = await Promise.all([
     getMyBatches().catch(() => []),
     getMentors().catch(() => []),
-    getMyMentorTickets().catch(() => []),
+    getMyTickets(TICKET_KIND.MENTORSHIP).catch(() => []),
   ]);
   const mentored = batches
     .filter((b) => b.mentor_id !== null)
@@ -212,11 +214,11 @@ async function YourBatchMentorsSection() {
 
 async function YourMentorsSection() {
   const [tickets, enrollments] = await Promise.all([
-    getMyMentorTickets().catch(() => []),
+    getMyTickets(TICKET_KIND.MENTORSHIP).catch(() => []),
     getEnrollments().catch(() => []),
   ]);
   const active = tickets.filter((t) => t.status === "open" || t.status === "assigned");
-  const courseTitle = (courseId: string) => enrollments.find((e) => e.course_id === courseId)?.course.title;
+  const courseTitle = (courseId: string | null) => enrollments.find((e) => e.course_id === courseId)?.course.title;
 
   if (active.length === 0) {
     return (
@@ -253,7 +255,7 @@ async function YourMentorsSection() {
           <MentorTicketCard
             courseTitle={courseTitle(ticket.course_id)}
             key={ticket.id}
-            mentor={mentorFor(ticket.assigned_mentor_id)}
+            mentor={mentorFor(ticket.assigned_to)}
             ticket={ticket}
           />
         ))}

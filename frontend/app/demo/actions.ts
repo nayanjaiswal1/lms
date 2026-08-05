@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
+import { resolveLegalGateRedirect } from "@/lib/server/legal";
 import ROUTES from "@/lib/routes";
 import { clientIpHeaders } from "@/lib/server/api";
 
@@ -48,6 +49,9 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
   const body: unknown = await response.json().catch(() => null);
 
   await forwardSetCookies(response.headers);
+
+  const legalRedirect = await resolveLegalGateRedirect(apiUrl, response.headers);
+  if (legalRedirect) redirect(legalRedirect);
 
   const onboardingCompleted = getField(getField(body, "data"), "onboarding_completed");
   if (onboardingCompleted === false) {

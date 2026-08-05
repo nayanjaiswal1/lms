@@ -8,6 +8,7 @@ import (
 
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/tickets"
 )
 
 // Fine-grained RBAC permission codes for mentor-ticket assignment — mirrors
@@ -32,6 +33,11 @@ var domainErrors = map[error]httputil.ErrSpec{
 	ErrAlreadyHasMentor:     {Status: http.StatusConflict, Message: "You already have an active mentor request."},
 	ErrChangeRequestPending: {Status: http.StatusConflict, Message: "A mentor change request is already pending for this ticket."},
 	ErrInvalid:              {Status: http.StatusUnprocessableEntity},
+	// Ticket lookups (GetTicket, RequestMentorChange, GetTicketDetail) now
+	// delegate to the shared internal/tickets package, which returns its own
+	// sentinel errors rather than this package's.
+	tickets.ErrNotFound:  {Status: http.StatusNotFound, Message: "Not found."},
+	tickets.ErrForbidden: {Status: http.StatusForbidden, Message: "You do not have permission to do that."},
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {

@@ -53,15 +53,15 @@ func createTestOrg(t *testing.T, pool *pgxpool.Pool) string {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		// Cascade on organizations removes jobs and org_job_quotas automatically,
+		// Cascade on organizations removes jobs and org_settings automatically,
 		// but we do it explicitly to keep test isolation clear.
 		pool.Exec(context.Background(), `DELETE FROM organizations WHERE id = $1`, id) //nolint:errcheck
 	})
 	return id
 }
 
-// setQuota upserts an org_job_quotas row and registers no additional cleanup
-// because the row is cascade-deleted when the org is deleted.
+// setQuota upserts the jobs namespace of org_settings and registers no
+// additional cleanup because the row is cascade-deleted when the org is deleted.
 func setQuota(t *testing.T, pool *pgxpool.Pool, orgID string, q jobs.Quota) {
 	t.Helper()
 	err := jobs.UpdateQuota(context.Background(), pool, orgID, q)

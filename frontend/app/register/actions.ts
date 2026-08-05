@@ -23,6 +23,15 @@ function getError(body: unknown): string | undefined {
   return typeof error === "string" && error.length > 0 ? error : undefined;
 }
 
+// The backend wraps every field-validation response in the same literal
+// "validation failed" placeholder — the real reason (e.g. a breached-password
+// rejection from ValidatePassword) lives in `fields`, keyed by backend field name.
+function getFields(body: unknown): Record<string, string> | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const fields = (body as Record<string, unknown>).fields;
+  return fields && typeof fields === "object" ? (fields as Record<string, string>) : undefined;
+}
+
 export async function registerAction(
   _previous: RegisterState,
   formData: FormData,
@@ -72,6 +81,17 @@ export async function registerAction(
     const body: unknown = await response.json().catch(() => null);
     if (response.status === 409) return { error: AUTH_COPY.emailInUse };
     if (response.status === 429) return { error: AUTH_COPY.rateLimited };
+    const fields = getFields(body);
+    if (fields) {
+      return {
+        fieldErrors: {
+          name: fields.name,
+          email: fields.email,
+          password: fields.password,
+          acceptTerms: fields.accept_terms,
+        },
+      };
+    }
     return { error: getError(body) ?? AUTH_COPY.unexpected };
   }
 

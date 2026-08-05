@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useQueryState } from "nuqs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +17,7 @@ import {
   removeMemberAction,
   type MemberActionState,
 } from "@/app/org/settings/members/actions";
+import { ManageFeaturesDialog } from "@/app/org/settings/members/manage-features-dialog";
 
 const ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
   { value: "owner",      label: "Owner" },
@@ -176,6 +178,21 @@ interface MemberRowProps {
   orgId: string;
 }
 
+function ManageFeaturesButton({ member }: { member: Member }) {
+  const [, setOpenId] = useQueryState("manageFeatures");
+  return (
+    <Button
+      aria-label={`Manage features for ${member.name}`}
+      size="sm"
+      type="button"
+      variant="secondary"
+      onClick={() => void setOpenId(member.user_id)}
+    >
+      Features
+    </Button>
+  );
+}
+
 function MemberRow({ member, orgId }: MemberRowProps) {
   return (
     <div className="flex flex-col gap-3 py-4 border-b border-border last:border-0 sm:flex-row sm:items-start">
@@ -213,8 +230,10 @@ function MemberRow({ member, orgId }: MemberRowProps) {
       <div className="flex flex-wrap items-start gap-2">
         <RoleForm member={member} orgId={orgId} />
         <StatusForm member={member} orgId={orgId} />
+        <ManageFeaturesButton member={member} />
         <RemoveForm member={member} orgId={orgId} />
       </div>
+      <ManageFeaturesDialog orgId={orgId} userId={member.user_id} userName={member.name} />
     </div>
   );
 }

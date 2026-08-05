@@ -9,6 +9,7 @@ import (
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/payments"
+	"github.com/mindforge/backend/internal/tickets"
 )
 
 // Router mounts the mentoring HTTP API. Service is exported so the courses
@@ -30,10 +31,13 @@ type Router struct {
 // registry built by payments.FromConfig; couponsSvc backs coupon
 // validation/redemption during checkout. packs receives payment webhooks
 // whose provider_ref belongs to a mentor-session credit pack rather than a
-// course — see PackConfirmer; it may be nil.
-func New(pool *pgxpool.Pool, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, packs PackConfirmer, authzSvc *authz.Service, cfg *config.Config) *Router {
+// course — see PackConfirmer; it may be nil. ticketsRepo is the shared
+// internal/tickets repo this package builds mentorship-ticket creation on
+// top of — callers must construct it via tickets.New(pool, authzSvc) before
+// this, so both packages share the same *pgxpool.Pool.
+func New(pool *pgxpool.Pool, ticketsRepo *tickets.Repo, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, packs PackConfirmer, authzSvc *authz.Service, cfg *config.Config) *Router {
 	repo := NewRepo(pool)
-	service := NewService(repo, providers, couponsSvc, coursesRepo, packs, cfg)
+	service := NewService(repo, ticketsRepo, providers, couponsSvc, coursesRepo, packs, cfg)
 	return &Router{
 		handler: &Handler{service: service, authzSvc: authzSvc},
 		Service: service,
@@ -50,22 +54,16 @@ func (rt *Router) RegisterPublicRoutes(r chi.Router) {
 }
 
 // RegisterRoutes mounts the mentoring API onto the given router.
-// Caller has already applied RequireAuth + RequireCSRF middleware.
+// Caller has already applied RequireAuth + RequireCSRF middleware. Ticket
+// queue/list/detail/messaging routes live under /api/tickets and
+// /api/mentor-tickets/me (see internal/tickets) — this package only mounts
+// the mentor-specific lifecycle verbs (request/claim/assign/close/change-
+// request) plus the directory, reports, and ticket-independent DM routes.
 func (rt *Router) RegisterRoutes(r chi.Router) {
-	mentorOrStaff := middleware.RequireOrgRole(rt.pool, middleware.RoleMentor, middleware.RoleInstructor, middleware.RoleAdmin)
 	mentorOnly := middleware.RequireOrgRole(rt.pool, middleware.RoleMentor)
 	assignTickets := authz.RequirePermission(rt.handler.authzSvc, PermissionAssignTickets)
 	manageReports := authz.RequirePermission(rt.handler.authzSvc, PermissionManageReports)
 	verifyMentors := authz.RequirePermission(rt.handler.authzSvc, PermissionVerifyMentors)
-
-	// Ticket queue — mentor/instructor/admin can view.
-	r.Group(func(r chi.Router) {
-		r.Use(mentorOrStaff)
-		r.Get("/api/mentor-tickets", rt.handler.ListTickets)
-	})
-
-	// A student's own tickets — any authenticated org member.
-	r.Get("/api/mentor-tickets/me", rt.handler.ListMyTickets)
 
 	// Student-initiated mentor request — any authenticated org member; the
 	// service verifies course enrollment and dedupes against an existing
@@ -93,14 +91,6 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	// the service verifies the caller owns the ticket.
 	r.Post("/api/mentor-tickets/{ticketID}/change-request", rt.handler.RequestMentorChange)
 
-	// 1:1 chat thread — any authenticated org member; the service verifies
-	// the caller is the ticket's student or its currently assigned mentor.
-	r.Get("/api/mentor-tickets/{ticketID}/messages", rt.handler.ListChatMessages)
-	r.Post("/api/mentor-tickets/{ticketID}/messages", rt.handler.SendChatMessage)
-
-	// Ticket status + mentor-assignment history — same access rule as chat.
-	r.Get("/api/mentor-tickets/{ticketID}/history", rt.handler.GetTicketHistory)
-
 	// Change-request review — gated by mentoring.assign_tickets, same staff
 	// who can hand-assign a ticket in the first place.
 	r.Group(func(r chi.Router) {
@@ -109,10 +99,9 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 		r.Post("/api/mentor-change-requests/{requestID}/approve", rt.handler.ApproveChangeRequest)
 		r.Post("/api/mentor-change-requests/{requestID}/deny", rt.handler.DenyChangeRequest)
 
-		// Ticket detail — the single-page lifecycle view (assignments +
-		// change requests + reports) for staff. Same permission group as
-		// change-request review since it's the same "manages the ticket
-		// queue" audience.
+		// Ticket detail — the single-page lifecycle view (change requests +
+		// reports) for staff. Same permission group as change-request review
+		// since it's the same "manages the ticket queue" audience.
 		r.Get("/api/mentor-tickets/{ticketID}/detail", rt.handler.GetTicketDetail)
 	})
 

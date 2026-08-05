@@ -237,10 +237,11 @@ func (h *LLMHandler) handleCourseOutline(ctx context.Context, job jobs.Job, p LL
 // from p.Params["position"] (float64 from JSON). If not provided, the first
 // unanswered-but-answered item without feedback is processed.
 func (h *LLMHandler) handleInterviewReview(ctx context.Context, job jobs.Job, p LLMPayload) error {
-	// Fetch the session to verify ownership and org_id for tenant isolation.
+	// Fetch the session (an assessment_attempts row, see practice.Repo.CreateSession)
+	// to verify ownership and org_id for tenant isolation.
 	var sessionOrgID *string
 	err := h.pool.QueryRow(ctx,
-		`SELECT org_id FROM practice_sessions WHERE id = $1`, p.EntityID,
+		`SELECT org_id FROM assessment_attempts WHERE id = $1`, p.EntityID,
 	).Scan(&sessionOrgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -263,18 +264,18 @@ func (h *LLMHandler) handleInterviewReview(ctx context.Context, job jobs.Job, p 
 	if posRaw, ok := p.Params["position"]; ok {
 		pos := int(posRaw.(float64))
 		err = h.pool.QueryRow(ctx,
-			`SELECT id, question_text, user_answer
-			 FROM practice_items
-			 WHERE session_id = $1 AND position = $2
-			   AND user_answer IS NOT NULL AND feedback_at IS NULL`,
+			`SELECT id, answer->>'question_text', answer->>'user_answer'
+			 FROM attempt_answers
+			 WHERE attempt_id = $1 AND position = $2
+			   AND answer ? 'user_answer' AND evaluated_at IS NULL`,
 			p.EntityID, pos,
 		).Scan(&itemID, &questionText, &userAnswer)
 	} else {
 		err = h.pool.QueryRow(ctx,
-			`SELECT id, question_text, user_answer
-			 FROM practice_items
-			 WHERE session_id = $1
-			   AND user_answer IS NOT NULL AND feedback_at IS NULL
+			`SELECT id, answer->>'question_text', answer->>'user_answer'
+			 FROM attempt_answers
+			 WHERE attempt_id = $1
+			   AND answer ? 'user_answer' AND evaluated_at IS NULL
 			 ORDER BY position
 			 LIMIT 1`,
 			p.EntityID,
@@ -329,9 +330,9 @@ func (h *LLMHandler) handleInterviewReview(ctx context.Context, job jobs.Job, p 
 
 	// Store feedback — only if feedback_at is still NULL (guard against concurrent runs).
 	tag, err := h.pool.Exec(ctx,
-		`UPDATE practice_items
-		 SET ai_feedback = $1, feedback_at = now()
-		 WHERE id = $2 AND feedback_at IS NULL`,
+		`UPDATE attempt_answers
+		 SET ai_feedback = $1, evaluated_at = now()
+		 WHERE id = $2 AND evaluated_at IS NULL`,
 		feedbackRaw, itemID,
 	)
 	if err != nil {

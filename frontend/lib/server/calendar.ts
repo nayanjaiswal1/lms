@@ -10,8 +10,8 @@ import ROUTES from "@/lib/routes";
 // Calendar wire-contract types — mirrors the /api/calendar/* backend contract.
 // Declared here (not in lib/calendar/types.ts) because this is a shared-lib
 // module (lib/server/**) and the boundaries lint only allows shared-lib to
-// depend on shared-lib, never on a feature-lib — same reason MentorTicket is
-// declared directly in lib/server/mentoring.ts rather than a feature file.
+// depend on shared-lib, never on a feature-lib — same reason Ticket is
+// declared directly in lib/server/tickets.ts rather than a feature file.
 // These are type-only exports (interfaces/unions), so they don't conflict
 // with Next's "use server" rule that every VALUE export must be an async
 // function — types are erased at compile time and never reach that check.

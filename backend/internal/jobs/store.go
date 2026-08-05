@@ -202,7 +202,7 @@ func ClaimOne(ctx context.Context, pool *pgxpool.Pool, workerID string) (*Claime
 		        SELECT COUNT(*) FROM jobs j2
 		        WHERE j2.org_id = jobs.org_id AND j2.status = 'running'
 		      ) < COALESCE(
-		        (SELECT max_concurrent FROM org_job_quotas WHERE org_id = jobs.org_id), 5
+		        (SELECT (os.jobs->>'max_concurrent')::int FROM org_settings os WHERE os.org_id = jobs.org_id), 5
 		      )
 		    )
 		  ORDER BY priority ASC, run_at ASC
@@ -656,8 +656,10 @@ func PlatformStats(ctx context.Context, pool *pgxpool.Pool) ([]OrgJobStats, erro
 func GetQuota(ctx context.Context, pool *pgxpool.Pool, orgID string) (Quota, error) {
 	var q Quota
 	err := pool.QueryRow(ctx,
-		`SELECT max_concurrent, max_queued, priority_floor
-		 FROM org_job_quotas
+		`SELECT COALESCE((jobs->>'max_concurrent')::int, 5),
+		        COALESCE((jobs->>'max_queued')::int, 200),
+		        COALESCE((jobs->>'priority_floor')::int, 5)
+		 FROM org_settings
 		 WHERE org_id = $1`,
 		orgID,
 	).Scan(&q.MaxConcurrent, &q.MaxQueued, &q.PriorityFloor)
@@ -670,16 +672,14 @@ func GetQuota(ctx context.Context, pool *pgxpool.Pool, orgID string) (Quota, err
 	return q, nil
 }
 
-// UpdateQuota upserts the quota row for an org.
+// UpdateQuota upserts the jobs namespace of org_settings for an org.
 func UpdateQuota(ctx context.Context, pool *pgxpool.Pool, orgID string, q Quota) error {
 	_, err := pool.Exec(ctx,
-		`INSERT INTO org_job_quotas (org_id, max_concurrent, max_queued, priority_floor)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO org_settings (org_id, jobs, updated_at)
+		 VALUES ($1, jsonb_build_object('max_concurrent', $2::int, 'max_queued', $3::int, 'priority_floor', $4::int), NOW())
 		 ON CONFLICT (org_id) DO UPDATE
-		   SET max_concurrent  = EXCLUDED.max_concurrent,
-		       max_queued      = EXCLUDED.max_queued,
-		       priority_floor  = EXCLUDED.priority_floor,
-		       updated_at      = NOW()`,
+		   SET jobs       = org_settings.jobs || EXCLUDED.jobs,
+		       updated_at = NOW()`,
 		orgID, q.MaxConcurrent, q.MaxQueued, q.PriorityFloor,
 	)
 	if err != nil {

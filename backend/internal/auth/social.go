@@ -155,10 +155,16 @@ func (h *Handler) HandleOAuthCallback(provider string) http.HandlerFunc {
 			return
 		}
 
+		payload, err := json.Marshal(map[string]bool{"onboarding_completed": onboardingCompleted})
+		if err != nil {
+			slog.Error("auth: oauth callback marshal payload", "error", err)
+			errRedirect("server_error")
+			return
+		}
 		if _, err := h.pool.Exec(r.Context(),
-			`INSERT INTO oauth_exchanges (token_hash, user_id, onboarding_completed, expires_at)
-			 VALUES ($1, $2, $3, $4)`,
-			HashToken(exchangeToken), userID, onboardingCompleted,
+			`INSERT INTO auth_tokens (purpose, token_hash, user_id, payload, expires_at)
+			 VALUES ('oauth_exchange', $1, $2, $3, $4)`,
+			HashToken(exchangeToken), userID, payload,
 			time.Now().Add(2*time.Minute),
 		); err != nil {
 			slog.Error("auth: oauth callback insert exchange", "error", err)
@@ -188,17 +194,26 @@ func (h *Handler) HandleSocialExchange(w http.ResponseWriter, r *http.Request) {
 	// used_at IS NULL and marking it used afterwards let two concurrent posts of
 	// the same token both pass the check and both mint a session.
 	var userID string
-	var onboardingCompleted bool
+	var payload []byte
 	err := h.pool.QueryRow(r.Context(),
-		`UPDATE oauth_exchanges SET used_at = now()
-		 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
-		 RETURNING user_id, onboarding_completed`,
+		`UPDATE auth_tokens SET consumed_at = now()
+		 WHERE purpose = 'oauth_exchange' AND token_hash = $1 AND consumed_at IS NULL AND expires_at > now()
+		 RETURNING user_id, payload`,
 		HashToken(req.Token),
-	).Scan(&userID, &onboardingCompleted)
+	).Scan(&userID, &payload)
 	if err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired exchange token.")
 		return
 	}
+	var payloadFields struct {
+		OnboardingCompleted bool `json:"onboarding_completed"`
+	}
+	if err := json.Unmarshal(payload, &payloadFields); err != nil {
+		slog.Error("auth: social exchange unmarshal payload", "error", err)
+		httputil.WriteError(w, http.StatusInternalServerError, "Exchange failed.")
+		return
+	}
+	onboardingCompleted := payloadFields.OnboardingCompleted
 
 	if err := h.enforceMaxSessions(r.Context(), userID); err != nil {
 		slog.Error("auth: social exchange enforce max sessions", "error", err)

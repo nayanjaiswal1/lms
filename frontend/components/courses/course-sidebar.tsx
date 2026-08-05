@@ -37,10 +37,10 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
           <Tooltip>
             <TooltipTrigger asChild>
               <Link
-                className="-mx-1.5 flex items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-fast hover:bg-muted"
+                className="-mx-1.5 flex items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-fast hover:bg-muted"
                 href={ROUTES.course(course.slug)}
               >
-                <BookOpen aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <BookOpen aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <h2 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground">{course.title}</h2>
               </Link>
             </TooltipTrigger>

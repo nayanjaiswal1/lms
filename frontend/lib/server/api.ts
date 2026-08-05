@@ -5,6 +5,7 @@ export interface ActionResult<T = undefined> {
   ok?: boolean;
   data?: T;
   error?: string;
+  fieldErrors?: Record<string, string>;
 }
 
 /**
@@ -88,6 +89,17 @@ export async function apiPost<T>(path: string, payload?: unknown): Promise<T> {
   return body.data;
 }
 
+// The backend wraps every field-validation response in the same literal
+// "validation failed" placeholder (see httputil.WriteFieldErrors) — the real
+// reason lives in `fields`. Surfacing the placeholder verbatim as the action's
+// error message shows the user nothing actionable, so fall back to the first
+// field message whenever the top-level error is just that wrapper.
+export function actionErrorMessage(json: { error?: string; fields?: Record<string, string> }, fallback: string): string {
+  if (json.error && json.error !== "validation failed") return json.error;
+  const firstFieldMessage = json.fields ? Object.values(json.fields)[0] : undefined;
+  return firstFieldMessage ?? json.error ?? fallback;
+}
+
 // ── Server actions — return ActionResult, never throw ────────────────────────
 
 // For multipart file uploads. Omits Content-Type so the browser sets the
@@ -112,8 +124,8 @@ export async function apiUpload<T = undefined>(
       const wait = retryAfterSeconds(res);
       return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
     }
-    const json = await res.json().catch(() => ({})) as { data?: T; error?: string };
-    if (!res.ok) return { error: json.error ?? "Upload failed." };
+    const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
+    if (!res.ok) return { error: actionErrorMessage(json, "Upload failed."), fieldErrors: json.fields };
     return { ok: true, data: json.data };
   } catch {
     return { error: "Upload failed. Please try again." };
@@ -139,8 +151,8 @@ export async function apiAction<T = undefined>(
       const wait = retryAfterSeconds(res);
       return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
     }
-    const json = await res.json().catch(() => ({})) as { data?: T; error?: string };
-    if (!res.ok) return { error: json.error ?? "Request failed." };
+    const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
+    if (!res.ok) return { error: actionErrorMessage(json, "Request failed."), fieldErrors: json.fields };
     return { ok: true, data: json.data };
   } catch {
     return { error: "Network error. Please try again." };

@@ -138,8 +138,8 @@ Note: this URL only works from an app running on this same machine (Claude Deskt
         <ul className="divide-y divide-border">
           {connections.map((conn) => (
             <li className="flex items-center justify-between gap-4 py-3" key={conn.id}>
-              <div className="min-w-0 flex items-center gap-3">
-                <Bot aria-hidden className="h-8 w-8 flex-shrink-0 text-ai" />
+              <div className="min-w-0 flex items-start gap-3">
+                <Bot aria-hidden className="mt-1 h-8 w-8 flex-shrink-0 text-ai" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{conn.client_name}</p>
                   <p className="text-xs text-muted-foreground">

@@ -70,7 +70,7 @@ func (p *StripeProvider) CreateCheckout(ctx context.Context, cp CheckoutParams) 
 
 	// Our own retries (network timeout, redeploy mid-request) must not
 	// create a second Stripe session for the same purchase — PurchaseID is
-	// stable per pending course_purchases row, so it's a correct idempotency
+	// stable per pending purchases row, so it's a correct idempotency
 	// key for this call specifically.
 	params.SetIdempotencyKey("checkout_" + cp.PurchaseID)
 

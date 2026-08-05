@@ -328,17 +328,11 @@ ACCESS_TOKEN_TTL=15m
 REFRESH_TOKEN_TTL=720h              # 30 days
 PASSWORD_RESET_TTL=30m
 EMAIL_VERIFICATION_TTL=24h
-MAGIC_LINK_TTL=10m
-INVITE_TTL=168h                     # 7 days
 
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
-MICROSOFT_CLIENT_ID=
-MICROSOFT_CLIENT_SECRET=
-
-MAXMIND_DB_PATH=./GeoLite2-City.mmdb    # optional; enables impossible-travel detection
 
 WEBAUTHN_RP_DISPLAY_NAME=MindForge      # optional, defaults to "MindForge"
                                          # RPID/RPOrigin are NOT separate env vars — derived from FRONTEND_URL

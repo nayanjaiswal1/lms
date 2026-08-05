@@ -94,13 +94,10 @@ export async function createOrgAction(
   const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    if (response.status === 409) {
-      const code = asString(getField(body, "code"));
-      if (code === "slug_taken") {
-        return { fieldErrors: { slug: "This slug is already taken." } };
-      }
-    }
     const msg = asString(getField(body, "error"));
+    if (response.status === 409 && msg === "slug_taken") {
+      return { fieldErrors: { slug: "This slug is already taken." } };
+    }
     return { error: msg ?? "Something went wrong. Please try again." };
   }
 

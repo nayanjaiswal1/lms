@@ -3,6 +3,7 @@ import { Check, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IconMessage } from "@/components/shared/icon-message";
 import { getFeatureConfig } from "@/lib/server/features";
 import { FEATURE_META, PLAN_TIERS, type Feature } from "@/lib/features";
 
@@ -30,12 +31,14 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
       </header>
 
       {highlighted && (
-        <div className="ai-surface mb-6 flex items-center gap-2 rounded-[--radius-md] px-4 py-3">
-          <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-ai" />
-          <p className="text-sm text-ai">
-            <span className="font-medium">{FEATURE_META[highlighted].label}</span> is included in your current plan — see below.
-          </p>
-        </div>
+        <IconMessage
+          className="ai-surface mb-6 rounded-[--radius-md] px-4 py-3 text-ai"
+          icon={Sparkles}
+          tone="ai"
+          variant="plain"
+        >
+          <span className="font-medium">{FEATURE_META[highlighted].label}</span> is included in your current plan — see below.
+        </IconMessage>
       )}
 
       <section className="grid-responsive">

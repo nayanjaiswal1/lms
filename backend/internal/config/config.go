@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
@@ -74,11 +75,18 @@ type Config struct {
 	GitHubClientSecret string
 
 	// SMTP
-	SMTPHost  string
-	SMTPPort  string
-	SMTPUser  string
-	SMTPPass  string
-	EmailFrom string
+	SMTPHost      string
+	SMTPPort      string
+	SMTPUser      string
+	SMTPPass      string
+	EmailFrom     string
+	EmailFromName string
+
+	// DevEmailAllowlist: recipients that receive real email even in local
+	// dev (see ShouldSendRealEmail) — comma-separated via
+	// DEV_EMAIL_ALLOWLIST. Empty means local dev never sends real mail,
+	// the original all-or-nothing behavior.
+	DevEmailAllowlist []string
 
 	// Rate limiting
 	AuthRateLimitMax    int
@@ -188,6 +196,16 @@ type Config struct {
 	LLMBaseURL  string
 	LLMTimeout  time.Duration
 
+	// Nightly AI revision digest (internal/digest) cost control. Per-token
+	// rates default to Gemini 2.5 Flash list pricing; at ~3k input + ~800
+	// output tokens/digest that's ~$0.003/digest, so the budget defaults
+	// below are a runaway guard (~170 digests of headroom per user), not
+	// rationing — raise or lower per-deployment via env, no code change.
+	LLMCostInputPerMTok          float64
+	LLMCostOutputPerMTok         float64
+	DigestUserMonthlyBudgetUSD   float64
+	DigestGlobalMonthlyBudgetUSD float64
+
 	// AI evaluation worker pool (subjective question grading).
 	EvalWorkerCount int
 	EvalMaxRetries  int
@@ -256,6 +274,8 @@ func Load() *Config {
 		SMTPUser:           os.Getenv("SMTP_USER"),
 		SMTPPass:           os.Getenv("SMTP_PASS"),
 		EmailFrom:          getEnvDefault("EMAIL_FROM", "noreply@mindforge.dev"),
+		EmailFromName:      getEnvDefault("EMAIL_FROM_NAME", "MindForge"),
+		DevEmailAllowlist:  getEnvList("DEV_EMAIL_ALLOWLIST"),
 	}
 
 	// ENV is whitelisted rather than free-form. Every production safeguard —
@@ -346,6 +366,11 @@ func Load() *Config {
 		os.Exit(1)
 	}
 
+	cfg.LLMCostInputPerMTok = getEnvFloat("LLM_COST_INPUT_PER_MTOK", 0.30)
+	cfg.LLMCostOutputPerMTok = getEnvFloat("LLM_COST_OUTPUT_PER_MTOK", 2.50)
+	cfg.DigestUserMonthlyBudgetUSD = getEnvFloat("DIGEST_USER_MONTHLY_BUDGET_USD", 0.50)
+	cfg.DigestGlobalMonthlyBudgetUSD = getEnvFloat("DIGEST_GLOBAL_MONTHLY_BUDGET_USD", 50.00)
+
 	cfg.EvalWorkerCount = getEnvInt("EVAL_WORKER_COUNT", 3)
 	cfg.EvalMaxRetries = getEnvInt("EVAL_MAX_RETRIES", 3)
 	cfg.EvalJobTimeout = parseDuration("EVAL_JOB_TIMEOUT", "8m")
@@ -402,6 +427,32 @@ func (c *Config) IsProd() bool {
 // the two concerns cannot drift apart again.
 func (c *Config) IsLocalDev() bool {
 	return c.Env == "development"
+}
+
+// ShouldSendRealEmail reports whether an email to `to` should actually be
+// delivered rather than logged to stdout ("DEV EMAIL: ..."). Always true
+// outside local dev. Inside local dev, true only when `to` is in
+// DevEmailAllowlist — so a developer can verify real delivery against their
+// own inbox (e.g. testing SMTP config) without every seed/fake account's
+// auth email silently attempting delivery to an address nobody reads.
+func (c *Config) ShouldSendRealEmail(to string) bool {
+	if !c.IsLocalDev() {
+		return true
+	}
+	for _, allowed := range c.DevEmailAllowlist {
+		if strings.EqualFold(allowed, to) {
+			return true
+		}
+	}
+	return false
+}
+
+// EmailFromHeader renders the RFC 5322 "From:" header value — display name
+// plus address, properly quoted/escaped. The bare EmailFrom address is used
+// separately as the SMTP envelope sender (MAIL FROM), which does not accept
+// the "Name <addr>" form.
+func (c *Config) EmailFromHeader() string {
+	return (&mail.Address{Name: c.EmailFromName, Address: c.EmailFrom}).String()
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -503,6 +554,38 @@ func getEnvInt(key string, fallback int) int {
 	v, err := strconv.Atoi(raw)
 	if err != nil {
 		slog.Error("invalid int env var", "key", key, "value", raw, "error", err)
+		os.Exit(1)
+	}
+	return v
+}
+
+// getEnvList parses a comma-separated env var into a trimmed, non-empty-entry
+// slice. No entry-shape validation (unlike getEnvCIDRs) — callers like
+// DevEmailAllowlist just need plain strings compared case-insensitively.
+func getEnvList(key string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		out = append(out, part)
+	}
+	return out
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback
+	}
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		slog.Error("invalid float env var", "key", key, "value", raw, "error", err)
 		os.Exit(1)
 	}
 	return v

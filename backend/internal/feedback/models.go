@@ -2,23 +2,47 @@ package feedback
 
 import "time"
 
+// Kind enumerates the kind of feedback. Must stay in sync with the
+// feedback.kind CHECK constraint in backend/db/migrations/025_full_schema_consolidation.sql.
+type Kind string
+
+const (
+	KindRating     Kind = "rating"
+	KindExperience Kind = "experience"
+)
+
+var validKinds = map[Kind]struct{}{
+	KindRating:     {},
+	KindExperience: {},
+}
+
+// IsValidKind reports whether k is a whitelisted feedback kind.
+func IsValidKind(k Kind) bool {
+	_, ok := validKinds[k]
+	return ok
+}
+
 // SubjectType enumerates the kinds of entities a learner can leave feedback
-// on. It must stay in sync with the feedback.subject_type CHECK constraint
-// in backend/db/migrations/016_feedback.sql.
+// on. Must stay in sync with the feedback.subject_type CHECK constraint
+// in backend/db/migrations/025_full_schema_consolidation.sql.
 type SubjectType string
 
 const (
-	SubjectTypeCourse     SubjectType = "course"
-	SubjectTypeAssessment SubjectType = "assessment"
-	SubjectTypeLab        SubjectType = "lab"
-	SubjectTypeMentor     SubjectType = "mentor"
+	SubjectTypeCourse         SubjectType = "course"
+	SubjectTypeAssessment     SubjectType = "assessment"
+	SubjectTypeLab            SubjectType = "lab"
+	SubjectTypeMentor         SubjectType = "mentor"
+	SubjectTypeMentorSession  SubjectType = "mentor_session"
+	SubjectTypeExperienceSubj SubjectType = "experience_subject"
 )
 
 var validSubjectTypes = map[SubjectType]struct{}{
-	SubjectTypeCourse:     {},
-	SubjectTypeAssessment: {},
-	SubjectTypeLab:        {},
-	SubjectTypeMentor:     {},
+	SubjectTypeCourse:         {},
+	SubjectTypeAssessment:     {},
+	SubjectTypeLab:            {},
+	SubjectTypeMentor:         {},
+	SubjectTypeMentorSession:  {},
+	SubjectTypeExperienceSubj: {},
 }
 
 // IsValidSubjectType reports whether st is one of the whitelisted subject
@@ -29,13 +53,14 @@ func IsValidSubjectType(st SubjectType) bool {
 }
 
 // Feedback is a single learner's rating/comment (or explicit skip) for a
-// course, assessment, or lab.
+// course, assessment, lab, mentor, mentor session, or experience subject.
 type Feedback struct {
 	ID          string      `json:"id"`
-	OrgID       string      `json:"org_id"`
+	OrgID       *string     `json:"org_id"`
 	SubjectType SubjectType `json:"subject_type"`
 	SubjectID   string      `json:"subject_id"`
 	UserID      string      `json:"user_id"`
+	Kind        Kind        `json:"kind"`
 	Rating      *int        `json:"rating"`
 	Comment     *string     `json:"comment"`
 	SkippedAt   *time.Time  `json:"skipped_at"`

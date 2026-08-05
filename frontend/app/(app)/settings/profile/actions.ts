@@ -92,6 +92,12 @@ export async function updatePreferencesAction(
     notifications: {
       email: ['on', 'true'].includes(formData.get('email_notifications') as string),
       push: ['on', 'true'].includes(formData.get('push_notifications') as string),
+      // Only rendered (and therefore only ever present in formData) for
+      // features.revision_digest-entitled users — see preferences-form.tsx's
+      // AccessGate. Absent for everyone else, which the nightly digest
+      // handler already treats as "on" (see handlers/digest_nightly.go's
+      // optedOut), so there is nothing to default here for non-entitled users.
+      revision_digest: ['on', 'true'].includes(formData.get('revision_digest') as string),
     },
   })
   if (result.success) revalidatePath('/settings/profile')

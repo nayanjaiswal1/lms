@@ -1,27 +1,8 @@
 import "server-only";
 
 import { apiGet } from "@/lib/server/api";
-import type {
-  MentorTicketStatus,
-  MentorChangeRequestStatus,
-  MentorReportReason,
-  MentorReportStatus,
-} from "@/lib/constants";
-
-export interface MentorTicket {
-  id: string;
-  org_id: string;
-  student_id: string;
-  course_id: string;
-  status: MentorTicketStatus;
-  assigned_mentor_id: string | null;
-  assigned_by: string | null;
-  assigned_at: string | null;
-  closed_at: string | null;
-  escalation_level: number;
-  created_at: string;
-  updated_at: string;
-}
+import type { MentorChangeRequestStatus, MentorReportReason, MentorReportStatus } from "@/lib/constants";
+import type { Ticket } from "@/lib/server/tickets";
 
 export interface MentorDirectoryEntry {
   user_id: string;
@@ -92,11 +73,6 @@ export interface CouponPreview {
   original_amount_cents: number;
 }
 
-export interface MentorTicketFilter {
-  status?: MentorTicketStatus;
-  mine?: boolean;
-}
-
 export interface MentorChangeRequest {
   id: string;
   org_id: string;
@@ -153,8 +129,8 @@ export async function getMentorProfile(mentorId: string): Promise<MentorProfile 
 }
 
 // MentorConversation is a ticket-independent DM thread between a student
-// and a mentor — separate from MentorTicket/MentorChatMessage, which are
-// scoped to a course-enrollment mentorship assignment.
+// and a mentor — separate from a mentorship Ticket (@/lib/server/tickets),
+// which is scoped to a course-enrollment mentorship assignment.
 export interface MentorConversation {
   id: string;
   org_id: string;
@@ -183,67 +159,10 @@ export async function getConversationMessages(conversationId: string): Promise<D
   return body.messages ?? [];
 }
 
-export async function getMentorTickets(filter: MentorTicketFilter = {}): Promise<MentorTicket[]> {
-  const params = new URLSearchParams();
-  if (filter.status) params.set("status", filter.status);
-  if (filter.mine) params.set("mine", "true");
-  const query = params.toString();
-  const body = await apiGet<{ tickets: MentorTicket[] }>(`/api/mentor-tickets${query ? `?${query}` : ""}`);
-  return body.tickets ?? [];
-}
-
-export async function getMyMentorTickets(): Promise<MentorTicket[]> {
-  const body = await apiGet<{ tickets: MentorTicket[] }>("/api/mentor-tickets/me");
-  return body.tickets ?? [];
-}
-
-// Reuses /history rather than getMentorTickets(): that list endpoint is
-// staff-only (mentorOrStaff), but this lookup also has to work for the
-// ticket's own student (e.g. the chat page) — /history is already scoped to
-// exactly that audience (student or the currently assigned mentor).
-export async function getMentorTicketById(ticketId: string): Promise<MentorTicket | null> {
-  try {
-    const { ticket } = await getTicketHistory(ticketId);
-    return ticket;
-  } catch {
-    return null;
-  }
-}
-
 export async function getMentorChangeRequests(status?: MentorChangeRequestStatus): Promise<MentorChangeRequest[]> {
   const query = status ? `?status=${status}` : "";
   const body = await apiGet<{ requests: MentorChangeRequest[] }>(`/api/mentor-change-requests${query}`);
   return body.requests ?? [];
-}
-
-export interface MentorChatMessage {
-  id: string;
-  org_id: string;
-  ticket_id: string;
-  sender_id: string;
-  body: string;
-  created_at: string;
-}
-
-export async function getMentorChatMessages(ticketId: string): Promise<MentorChatMessage[]> {
-  const body = await apiGet<{ messages: MentorChatMessage[] }>(`/api/mentor-tickets/${ticketId}/messages`);
-  return body.messages ?? [];
-}
-
-export interface TicketAssignment {
-  id: string;
-  ticket_id: string;
-  mentor_id: string;
-  assigned_at: string;
-}
-
-export interface TicketHistory {
-  ticket: MentorTicket;
-  assignments: TicketAssignment[];
-}
-
-export async function getTicketHistory(ticketId: string): Promise<TicketHistory> {
-  return apiGet<TicketHistory>(`/api/mentor-tickets/${ticketId}/history`);
 }
 
 export interface MentorReport {
@@ -261,17 +180,20 @@ export interface MentorReport {
   created_at: string;
 }
 
-// The single source of truth for a ticket's full lifecycle — assignments,
-// change requests, and (only when the caller holds
+// The single source of truth for a ticket's full lifecycle — the ticket,
+// its change requests, and (only when the caller holds
 // mentoring.manage_reports) reports. `reports` is undefined, not an empty
-// array, when the backend omitted it for lack of permission.
-export interface TicketDetail {
-  ticket: MentorTicket;
-  assignments: TicketAssignment[];
+// array, when the backend omitted it for lack of permission. Mentor-ticket
+// assignment history was dropped from the backend (it was synthetic — see
+// backend/internal/mentoring/models.go's TicketLifecycle doc comment) — the
+// detail page derives its "assigned" timeline event from ticket.assigned_to
+// directly instead of a separate assignments list.
+export interface TicketLifecycle {
+  ticket: Ticket;
   change_requests: MentorChangeRequest[];
   reports?: MentorReport[];
 }
 
-export async function getMentorTicketDetail(ticketId: string): Promise<TicketDetail> {
-  return apiGet<TicketDetail>(`/api/mentor-tickets/${ticketId}/detail`);
+export async function getMentorTicketDetail(ticketId: string): Promise<TicketLifecycle> {
+  return apiGet<TicketLifecycle>(`/api/mentor-tickets/${ticketId}/detail`);
 }

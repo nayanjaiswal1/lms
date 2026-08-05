@@ -34,7 +34,7 @@ func sendEvalComplete(cfg *config.Config, to, name, assessmentTitle, attemptID s
 	}
 
 	var sb strings.Builder
-	sb.WriteString("From: " + cfg.EmailFrom + "\r\n")
+	sb.WriteString("From: " + cfg.EmailFromHeader() + "\r\n")
 	sb.WriteString("To: " + to + "\r\n")
 	sb.WriteString("Subject: Your interview evaluation is ready\r\n")
 	sb.WriteString("MIME-Version: 1.0\r\n")

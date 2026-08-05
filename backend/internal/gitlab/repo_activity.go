@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -168,21 +169,37 @@ func (r *Repo) GetMergeRequestByTeamAndIID(ctx context.Context, teamID string, m
 
 // ─── gitlab_mr_reviews ──────────────────────────────────────────────────────
 
-// UpsertMRReview inserts (or refreshes) a mirrored MR note, keyed
-// UNIQUE(merge_request_id, note_id) — a redelivered Note Hook for the same
-// note_id upserts rather than duplicates.
+// UpsertMRReview inserts (or refreshes) a mirrored MR note by updating the
+// gitlab_merge_requests.reviews jsonb array (previously stored in gitlab_mr_reviews table).
+// Reviewswith the same note_id replace the existing one in the array.
 func (r *Repo) UpsertMRReview(ctx context.Context, rev GitlabMRReview) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gitlab_mr_reviews
-			(merge_request_id, reviewer_gitlab_user_id, reviewer_user_id, kind, note_id, body, file_path)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)
-		 ON CONFLICT (merge_request_id, note_id) DO UPDATE SET
-			reviewer_gitlab_user_id = EXCLUDED.reviewer_gitlab_user_id,
-			reviewer_user_id = COALESCE(EXCLUDED.reviewer_user_id, gitlab_mr_reviews.reviewer_user_id),
-			kind = EXCLUDED.kind,
-			body = EXCLUDED.body,
-			file_path = EXCLUDED.file_path`,
-		rev.MergeRequestID, rev.ReviewerGitlabUserID, rev.ReviewerUserID, rev.Kind, rev.NoteID, rev.Body, rev.FilePath,
+	reviewJSON, err := json.Marshal(map[string]interface{}{
+		"note_id":                   rev.NoteID,
+		"reviewer_gitlab_user_id":   rev.ReviewerGitlabUserID,
+		"reviewer_user_id":          rev.ReviewerUserID,
+		"kind":                      rev.Kind,
+		"body":                      rev.Body,
+		"file_path":                 rev.FilePath,
+	})
+	if err != nil {
+		return fmt.Errorf("gitlab: marshal mr review: %w", err)
+	}
+
+	// Update the reviews array: remove any existing review with the same note_id,
+	// then append the new one.
+	_, err = r.pool.Exec(ctx,
+		`UPDATE gitlab_merge_requests
+		 SET reviews = (
+		   (COALESCE(reviews, '[]'::jsonb) #- (
+		     SELECT ARRAY[idx::text]
+		     FROM jsonb_array_elements(COALESCE(reviews, '[]'::jsonb)) WITH ORDINALITY AS elem(e, idx)
+		     WHERE elem.e->>'note_id' = $2
+		     LIMIT 1
+		   )) || $3::jsonb
+		 ),
+		 updated_at = now()
+		 WHERE id = $1`,
+		rev.MergeRequestID, rev.NoteID, string(reviewJSON),
 	)
 	if err != nil {
 		return fmt.Errorf("gitlab: upsert mr review: %w", err)
@@ -191,15 +208,14 @@ func (r *Repo) UpsertMRReview(ctx context.Context, rev GitlabMRReview) error {
 }
 
 // RecomputeMRApprovals recounts gitlab_merge_requests.approvals_count from
-// distinct approving reviewers on gitlab_mr_reviews — called after every
-// Note Hook that might have added or changed an approval note.
+// distinct approving reviewers in the reviews jsonb array (previously stored in gitlab_mr_reviews).
 func (r *Repo) RecomputeMRApprovals(ctx context.Context, mrID string) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE gitlab_merge_requests
 		 SET approvals_count = (
-		   SELECT COUNT(DISTINCT reviewer_gitlab_user_id)
-		   FROM gitlab_mr_reviews
-		   WHERE merge_request_id = $1 AND kind = 'approval' AND reviewer_gitlab_user_id IS NOT NULL
+		   SELECT COUNT(DISTINCT (elem->>'reviewer_gitlab_user_id'))
+		   FROM jsonb_array_elements(COALESCE(reviews, '[]'::jsonb)) AS elem
+		   WHERE elem->>'kind' = 'approval' AND elem->>'reviewer_gitlab_user_id' IS NOT NULL
 		 ), updated_at = now()
 		 WHERE id = $1`,
 		mrID,
@@ -212,25 +228,31 @@ func (r *Repo) RecomputeMRApprovals(ctx context.Context, mrID string) error {
 
 // ─── gitlab_pipelines ───────────────────────────────────────────────────────
 
-// UpsertPipeline inserts (or refreshes) a mirrored pipeline, keyed
-// UNIQUE(team_id, pipeline_id). Mirroring ci_status onto
-// project_team_checkpoints is Batch 5's concern (see service_webhook.go's
-// ingestPipelineEvent) — not done here.
+// UpsertPipeline inserts (or refreshes) a mirrored pipeline in gitlab_objects table,
+// keyed UNIQUE(org_id, object_type='pipeline', gitlab_id). The payload jsonb stores
+// all the pipeline details (sha, ref, status, web_url, duration_seconds, started_at, finished_at).
 func (r *Repo) UpsertPipeline(ctx context.Context, p GitlabPipeline) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gitlab_pipelines
-			(org_id, team_id, pipeline_id, sha, ref, status, web_url, duration_seconds, started_at, finished_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
-		 ON CONFLICT (team_id, pipeline_id) DO UPDATE SET
-			sha = EXCLUDED.sha,
-			ref = EXCLUDED.ref,
-			status = EXCLUDED.status,
-			web_url = EXCLUDED.web_url,
-			duration_seconds = COALESCE(EXCLUDED.duration_seconds, gitlab_pipelines.duration_seconds),
-			started_at = COALESCE(gitlab_pipelines.started_at, EXCLUDED.started_at),
-			finished_at = COALESCE(EXCLUDED.finished_at, gitlab_pipelines.finished_at),
+	payloadJSON, err := json.Marshal(map[string]interface{}{
+		"sha":              p.SHA,
+		"ref":              p.Ref,
+		"status":           p.Status,
+		"web_url":          p.WebURL,
+		"duration_seconds": p.DurationSeconds,
+		"started_at":       p.StartedAt,
+		"finished_at":      p.FinishedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("gitlab: marshal pipeline: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO gitlab_objects
+			(org_id, team_id, object_type, gitlab_id, payload, updated_at)
+		 VALUES ($1, $2, 'pipeline', $3, $4::jsonb, now())
+		 ON CONFLICT (org_id, object_type, gitlab_id) DO UPDATE SET
+			payload = EXCLUDED.payload,
 			updated_at = now()`,
-		p.OrgID, p.TeamID, p.PipelineID, p.SHA, p.Ref, p.Status, p.WebURL, p.DurationSeconds, p.StartedAt, p.FinishedAt,
+		p.OrgID, p.TeamID, p.PipelineID, string(payloadJSON),
 	)
 	if err != nil {
 		return fmt.Errorf("gitlab: upsert pipeline: %w", err)
@@ -240,33 +262,37 @@ func (r *Repo) UpsertPipeline(ctx context.Context, p GitlabPipeline) error {
 
 // ─── gitlab_issues ──────────────────────────────────────────────────────────
 
-// UpsertIssue inserts (or refreshes) a mirrored issue, keyed
-// UNIQUE(team_id, issue_iid). checkpoint_id is resolved by the caller
-// (service_webhook.go's ingestIssueEvent, via Repo.FindCheckpointByMilestone)
-// and written here with COALESCE — a later re-ingest of the same issue with
-// no resolvable checkpoint this time (e.g. the milestone lookup found
-// nothing, or the issue no longer carries a milestone) never clobbers an
-// already-resolved checkpoint_id back to NULL.
+// UpsertIssue inserts (or refreshes) a mirrored issue in gitlab_objects table.
+// The payload jsonb stores all issue details. checkpoint_id is resolved by the caller
+// and stored in the payload — a later re-ingest never clobbers an already-resolved
+// checkpoint_id back to NULL due to the COALESCE logic in the payload construction.
 func (r *Repo) UpsertIssue(ctx context.Context, iss GitlabIssue) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gitlab_issues
-			(org_id, team_id, issue_iid, issue_id, title, state, milestone_id, checkpoint_id,
-			 assignee_gitlab_user_id, assignee_user_id, weight, labels, gl_created_at, gl_closed_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now())
-		 ON CONFLICT (team_id, issue_iid) DO UPDATE SET
-			issue_id = EXCLUDED.issue_id,
-			title = EXCLUDED.title,
-			state = EXCLUDED.state,
-			milestone_id = EXCLUDED.milestone_id,
-			checkpoint_id = COALESCE(EXCLUDED.checkpoint_id, gitlab_issues.checkpoint_id),
-			assignee_gitlab_user_id = EXCLUDED.assignee_gitlab_user_id,
-			assignee_user_id = COALESCE(EXCLUDED.assignee_user_id, gitlab_issues.assignee_user_id),
-			weight = EXCLUDED.weight,
-			labels = EXCLUDED.labels,
-			gl_closed_at = COALESCE(EXCLUDED.gl_closed_at, gitlab_issues.gl_closed_at),
+	payloadJSON, err := json.Marshal(map[string]interface{}{
+		"issue_iid":                   iss.IssueIID,
+		"issue_id":                    iss.IssueID,
+		"title":                       iss.Title,
+		"state":                       iss.State,
+		"milestone_id":                iss.MilestoneID,
+		"checkpoint_id":               iss.CheckpointID,
+		"assignee_gitlab_user_id":     iss.AssigneeGitlabUserID,
+		"assignee_user_id":            iss.AssigneeUserID,
+		"weight":                      iss.Weight,
+		"labels":                      iss.Labels,
+		"gl_created_at":               iss.GLCreatedAt,
+		"gl_closed_at":                iss.GLClosedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("gitlab: marshal issue: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO gitlab_objects
+			(org_id, team_id, object_type, gitlab_id, payload, updated_at)
+		 VALUES ($1, $2, 'issue', $3, $4::jsonb, now())
+		 ON CONFLICT (org_id, object_type, gitlab_id) DO UPDATE SET
+			payload = EXCLUDED.payload,
 			updated_at = now()`,
-		iss.OrgID, iss.TeamID, iss.IssueIID, iss.IssueID, iss.Title, iss.State, iss.MilestoneID, iss.CheckpointID,
-		iss.AssigneeGitlabUserID, iss.AssigneeUserID, iss.Weight, iss.Labels, iss.GLCreatedAt, iss.GLClosedAt,
+		iss.OrgID, iss.TeamID, iss.IssueID, string(payloadJSON),
 	)
 	if err != nil {
 		return fmt.Errorf("gitlab: upsert issue: %w", err)
@@ -391,20 +417,33 @@ func (r *Repo) ListRecentMergeRequests(ctx context.Context, teamID string, limit
 	return out, rows.Err()
 }
 
-// GetLatestPipeline returns a team's most recently updated pipeline, or nil
-// (not an error) if the team has none yet — an empty activity feed is a
-// valid state for a freshly provisioned team.
+// GetLatestPipeline returns a team's most recently updated pipeline from gitlab_objects,
+// or nil (not an error) if the team has none yet — an empty activity feed is a valid state
+// for a freshly provisioned team.
 func (r *Repo) GetLatestPipeline(ctx context.Context, teamID string) (*TeamActivityPipeline, error) {
 	var p TeamActivityPipeline
+	var payloadRaw []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT status, web_url FROM gitlab_pipelines WHERE team_id = $1 ORDER BY updated_at DESC LIMIT 1`,
+		`SELECT payload FROM gitlab_objects WHERE team_id = $1 AND object_type = 'pipeline' ORDER BY updated_at DESC LIMIT 1`,
 		teamID,
-	).Scan(&p.Status, &p.WebURL)
+	).Scan(&payloadRaw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("gitlab: get latest pipeline: %w", err)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(payloadRaw, &payload); err != nil {
+		return nil, fmt.Errorf("gitlab: unmarshal pipeline payload: %w", err)
+	}
+
+	if status, ok := payload["status"].(string); ok {
+		p.Status = status
+	}
+	if webURL, ok := payload["web_url"].(string); ok {
+		p.WebURL = &webURL
 	}
 	return &p, nil
 }

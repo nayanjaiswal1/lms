@@ -2,22 +2,27 @@ package features
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 )
 
-// alwaysOrgEnabled lists feature keys with no org-admin toggle or plan/add-on
-// concept — personal utility features that every org "has" unconditionally.
-// Access is gated entirely by RBAC (requiredPermission in frontend/lib/nav.ts)
-// and, where applicable, feature_grants (see Repo.GrantedFeatureKeys).
+// alwaysOrgEnabled lists every feature key a platform admin can toggle on/off
+// per org via org_feature_flags (Service.SetOrgFeatureFlag). A key with no
+// row in org_feature_flags for a given org defaults to enabled — every org
+// behaves exactly as before an admin ever touches this table.
 //
-// Every key below has no org-level toggle UI or plan/billing concept built
-// yet — same situation "assessments" was in (see its own history in this
-// list): without the key here, AccessGate's org check (frontend/components/
-// shared/access-gate.tsx) returns null unconditionally, hiding the nav item
-// and blocking the page for every user regardless of role or permission.
+// ai_connector and session_booking are deliberately absent: they keep their
+// own dedicated org_settings columns (see OrgAIConnectorEnabled/
+// OrgSessionBookingEnabled) because "enabled" there lives alongside other
+// policy fields in the same settings blob — folding just the flag into this
+// generic table would fork that state into two sources of truth. social_auth,
+// magic_link, ai_features, quizzes, payments, anonymous_tests, multi_org,
+// profile, and batch_chat are also absent: Resolve never gates on them today,
+// so there is nothing for a toggle to control yet.
 var alwaysOrgEnabled = []string{
 	"what_now",
+	"revision_digest",
 	"assessments",
 	"courses",
 	"practice_ai",
@@ -30,25 +35,14 @@ var alwaysOrgEnabled = []string{
 	"interview_board",
 	"load_test",
 	"interview_exp",
-	// gitlab_integration: no org-level toggle UI or plan/billing concept —
-	// same situation every other entry here is in. The feature is inert
-	// until an org admin explicitly connects a GitLab installation
-	// (internal/gitlab), so there is nothing unsafe about it being
-	// unconditionally "on" for every org from day one.
 	"gitlab_integration",
-	// lesson_compiler_bottom_dock: code-level toggle, no admin UI. Remove
-	// this entry (and redeploy) to restrict the lesson scratch compiler to
-	// right-dock only; there is no live per-org switch for it yet.
 	"lesson_compiler_bottom_dock",
 }
 
-// alwaysEntitled is alwaysOrgEnabled minus "what_now" — none of these have a
-// plan/add-on to gate behind either, so once the org has a feature, every
-// user is entitled to it too; badging them "Upgrade" (AccessGate's fallback
-// when orgEnabled but not entitled) is a false upsell with no unlock path.
-// "what_now" is deliberately excluded: it's a genuine per-user opt-in via
-// feature_grants (nav.ts sets it to mode: "hide" — invisible until granted),
-// not a base feature, so it must stay entitlement-gated.
+// alwaysEntitled is alwaysOrgEnabled minus "what_now" and "revision_digest":
+// once an org has one of these on, every member is entitled by default (no
+// plan/add-on to gate behind), unless an org admin explicitly revokes it for
+// that member via user_feature_flags (Service.SetUserFeatureFlag).
 var alwaysEntitled = []string{
 	"assessments",
 	"courses",
@@ -63,17 +57,41 @@ var alwaysEntitled = []string{
 	"load_test",
 	"interview_exp",
 	"gitlab_integration",
-	// ai_connector: org-gated only (see Resolve), no per-user plan/seat
-	// concept — once an org has it on, every member is entitled.
 	"ai_connector",
-	// session_booking: org-gated only, same as ai_connector. What a student
-	// may actually do with it is bounded by their credit balance and the
-	// org's booking policy (org_session_booking_config), not by an
-	// entitlement — so gating it per-user here would be a second, weaker
-	// copy of a limit the sessions package already enforces properly.
 	"session_booking",
 	"lesson_compiler_bottom_dock",
 }
+
+// userToggleable is alwaysEntitled minus "ai_connector" and "session_booking"
+// — the set of feature keys an org admin can grant/revoke per member via
+// user_feature_flags. ai_connector/session_booking stay org-gated-only by
+// design (see their doc comments in repo.go): what a member may do with them
+// is bounded by other domain-specific limits, not a per-user entitlement, so
+// exposing a redundant per-user toggle here would just be a second, weaker
+// copy of a limit already enforced elsewhere.
+var userToggleable = []string{
+	"assessments",
+	"courses",
+	"practice_ai",
+	"flashcards",
+	"sheet_tracker",
+	"mentors",
+	"certificates",
+	"wiki",
+	"system_design",
+	"interview_board",
+	"load_test",
+	"interview_exp",
+	"gitlab_integration",
+	"lesson_compiler_bottom_dock",
+}
+
+// Sentinel errors returned by the admin-facing Set/List methods below.
+var (
+	ErrUnknownFeatureKey    = errors.New("features: unknown feature key")
+	ErrFeatureNotOrgEnabled = errors.New("features: org has not enabled this feature")
+	ErrNotOrgMember         = errors.New("features: user is not an active member of this org")
+)
 
 type Service struct {
 	repo *Repo
@@ -83,27 +101,44 @@ func NewService(repo *Repo) *Service {
 	return &Service{repo: repo}
 }
 
-// Resolve builds the full feature config for a user. There is currently no
-// plan/add-on/org-grant entitlement system for anything other than "what_now"
-// above, so LockedInfo is always empty — there is no unlock path to advertise.
-//
-// ai_connector is the first feature key with a real, DB-backed per-org
-// on/off switch (org_ai_connector_config) rather than a static
-// alwaysOrgEnabled entry — everything else in that list is unconditionally
-// "on" for every org today.
+// Resolve builds the full feature config for a user. Every key in
+// alwaysOrgEnabled/alwaysEntitled defaults to on, same as before
+// org_feature_flags/user_feature_flags existed; an explicit override row
+// flips that default for one org or one member. what_now/revision_digest
+// stay on the permission-grant mechanism (GrantedFeatureKeys) for
+// entitlement, gated additionally by the org-level toggle so a platform
+// admin can still kill either org-wide.
 func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureConfig, error) {
 	granted, err := s.repo.GrantedFeatureKeys(ctx, userID)
 	if err != nil {
 		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
 	}
 
-	orgFeatures := slices.Clone(alwaysOrgEnabled)
+	orgOverrides, err := s.repo.OrgFeatureOverrides(ctx, orgID)
+	if err != nil {
+		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+	}
+
+	orgFeatures := []string{}
+	orgFeatureSet := map[string]bool{}
+	for _, key := range alwaysOrgEnabled {
+		enabled := true
+		if v, ok := orgOverrides[key]; ok {
+			enabled = v
+		}
+		if enabled {
+			orgFeatures = append(orgFeatures, key)
+			orgFeatureSet[key] = true
+		}
+	}
+
 	aiConnectorOn, err := s.repo.OrgAIConnectorEnabled(ctx, orgID)
 	if err != nil {
 		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
 	}
 	if aiConnectorOn {
 		orgFeatures = append(orgFeatures, "ai_connector")
+		orgFeatureSet["ai_connector"] = true
 	}
 	sessionBookingOn, err := s.repo.OrgSessionBookingEnabled(ctx, orgID)
 	if err != nil {
@@ -111,11 +146,33 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 	}
 	if sessionBookingOn {
 		orgFeatures = append(orgFeatures, "session_booking")
+		orgFeatureSet["session_booking"] = true
 	}
 
-	entitlements := slices.Clone(alwaysEntitled)
+	userOverrides, err := s.repo.UserFeatureOverrides(ctx, orgID, userID)
+	if err != nil {
+		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+	}
+
+	entitlements := []string{}
+	for _, key := range alwaysEntitled {
+		if !orgFeatureSet[key] {
+			continue
+		}
+		if key == "ai_connector" || key == "session_booking" {
+			entitlements = append(entitlements, key)
+			continue
+		}
+		enabled := true
+		if v, ok := userOverrides[key]; ok {
+			enabled = v
+		}
+		if enabled {
+			entitlements = append(entitlements, key)
+		}
+	}
 	for _, key := range granted {
-		if !slices.Contains(entitlements, key) {
+		if orgFeatureSet[key] && !slices.Contains(entitlements, key) {
 			entitlements = append(entitlements, key)
 		}
 	}
@@ -125,4 +182,129 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 		Entitlements: entitlements,
 		LockedInfo:   map[string]LockedFeatureInfo{},
 	}, nil
+}
+
+// ListOrgFeatureFlags returns the resolved state of every org-toggleable
+// feature for orgID, for the platform admin's per-org feature-flags page.
+func (s *Service) ListOrgFeatureFlags(ctx context.Context, orgID string) ([]OrgFeatureFlag, error) {
+	overrides, err := s.repo.OrgFeatureOverrides(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("features: list org feature flags: %w", err)
+	}
+
+	flags := make([]OrgFeatureFlag, 0, len(alwaysOrgEnabled))
+	for _, key := range alwaysOrgEnabled {
+		v, overridden := overrides[key]
+		enabled := true
+		if overridden {
+			enabled = v
+		}
+		flags = append(flags, OrgFeatureFlag{Key: key, Enabled: enabled, Overridden: overridden})
+	}
+	return flags, nil
+}
+
+// SetOrgFeatureFlag records a platform admin's on/off decision for
+// featureKey within orgID.
+func (s *Service) SetOrgFeatureFlag(ctx context.Context, orgID, featureKey string, enabled bool, updatedBy string) error {
+	if !slices.Contains(alwaysOrgEnabled, featureKey) {
+		return ErrUnknownFeatureKey
+	}
+	return s.repo.SetOrgFeatureFlag(ctx, orgID, featureKey, enabled, updatedBy)
+}
+
+// ClearOrgFeatureFlag reverts featureKey back to its code default for orgID.
+func (s *Service) ClearOrgFeatureFlag(ctx context.Context, orgID, featureKey string) error {
+	if !slices.Contains(alwaysOrgEnabled, featureKey) {
+		return ErrUnknownFeatureKey
+	}
+	return s.repo.ClearOrgFeatureFlag(ctx, orgID, featureKey)
+}
+
+// ListUserFeatureFlags returns the resolved state of every user-toggleable
+// feature the org currently has enabled, for one member — for the org
+// admin's per-user feature-flags dialog. Features the org itself doesn't
+// have are omitted entirely: there is nothing for the org admin to grant.
+func (s *Service) ListUserFeatureFlags(ctx context.Context, orgID, userID string) ([]UserFeatureFlag, error) {
+	isMember, err := s.repo.IsActiveOrgMember(ctx, orgID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("features: list user feature flags: %w", err)
+	}
+	if !isMember {
+		return nil, ErrNotOrgMember
+	}
+
+	orgOverrides, err := s.repo.OrgFeatureOverrides(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("features: list user feature flags: %w", err)
+	}
+	userOverrides, err := s.repo.UserFeatureOverrides(ctx, orgID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("features: list user feature flags: %w", err)
+	}
+
+	flags := []UserFeatureFlag{}
+	for _, key := range userToggleable {
+		orgEnabled := true
+		if v, ok := orgOverrides[key]; ok {
+			orgEnabled = v
+		}
+		if !orgEnabled {
+			continue
+		}
+		v, overridden := userOverrides[key]
+		enabled := true
+		if overridden {
+			enabled = v
+		}
+		flags = append(flags, UserFeatureFlag{Key: key, Enabled: enabled, Overridden: overridden})
+	}
+	return flags, nil
+}
+
+// SetUserFeatureFlag records an org admin's on/off decision for featureKey
+// for one member. Rejects keys the org hasn't enabled — granting a feature
+// the org itself doesn't have would create a dangling override that never
+// takes effect and is confusing to audit later.
+func (s *Service) SetUserFeatureFlag(ctx context.Context, orgID, userID, featureKey string, enabled bool, updatedBy string) error {
+	if !slices.Contains(userToggleable, featureKey) {
+		return ErrUnknownFeatureKey
+	}
+	isMember, err := s.repo.IsActiveOrgMember(ctx, orgID, userID)
+	if err != nil {
+		return fmt.Errorf("features: set user feature flag: %w", err)
+	}
+	if !isMember {
+		return ErrNotOrgMember
+	}
+
+	orgOverrides, err := s.repo.OrgFeatureOverrides(ctx, orgID)
+	if err != nil {
+		return fmt.Errorf("features: set user feature flag: %w", err)
+	}
+	orgEnabled := true
+	if v, ok := orgOverrides[featureKey]; ok {
+		orgEnabled = v
+	}
+	if !orgEnabled {
+		return ErrFeatureNotOrgEnabled
+	}
+
+	return s.repo.SetUserFeatureFlag(ctx, orgID, userID, featureKey, enabled, updatedBy)
+}
+
+// ClearUserFeatureFlag reverts featureKey back to the org's default
+// entitlement for one member.
+func (s *Service) ClearUserFeatureFlag(ctx context.Context, orgID, userID, featureKey string) error {
+	if !slices.Contains(userToggleable, featureKey) {
+		return ErrUnknownFeatureKey
+	}
+	isMember, err := s.repo.IsActiveOrgMember(ctx, orgID, userID)
+	if err != nil {
+		return fmt.Errorf("features: clear user feature flag: %w", err)
+	}
+	if !isMember {
+		return ErrNotOrgMember
+	}
+	return s.repo.ClearUserFeatureFlag(ctx, orgID, userID, featureKey)
 }

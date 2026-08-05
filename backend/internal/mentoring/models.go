@@ -1,13 +1,17 @@
-// Package mentoring owns the per-student mentor-assignment workflow:
-// mentor_tickets (opened automatically on a paid course purchase, claimed by
-// mentors or hand-assigned by staff) and mentor_reports (a moderation
-// complaint workflow, distinct from the star-rating stored generically in
-// the feedback package). It deliberately does not touch batches
+// Package mentoring owns the per-student mentor-assignment lifecycle built
+// on top of internal/tickets' shared ticket CRUD: claim/hand-assign/close,
+// escalation, change-requests, and mentor_reports (a moderation complaint
+// workflow, distinct from the star-rating stored generically in the
+// feedback package). It deliberately does not touch batches
 // (backend/internal/assessment) — batches are cohort containers, tickets are
 // individual 1:1 assignment records.
 package mentoring
 
-import "time"
+import (
+	"time"
+
+	"github.com/mindforge/backend/internal/tickets"
+)
 
 // Purchase provider identifiers — mirrors the course_purchases.provider CHECK
 // constraint in backend/db/migrations/018_payments_stub.sql.
@@ -25,12 +29,11 @@ const (
 	PurchaseStatusRefunded  = "refunded"
 )
 
-// Ticket status values — mirrors mentor_tickets.status
-// (backend/db/migrations/019_mentor_tickets.sql).
+// Ticket status values — mirrors tickets.Status* for kind=mentorship.
 const (
-	TicketStatusOpen     = "open"
-	TicketStatusAssigned = "assigned"
-	TicketStatusClosed   = "closed"
+	TicketStatusOpen     = tickets.StatusOpen
+	TicketStatusAssigned = tickets.StatusAssigned
+	TicketStatusClosed   = tickets.StatusClosed
 )
 
 // Report reason values — mirrors mentor_reports.reason
@@ -100,34 +103,6 @@ type Purchase struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-// Ticket is a per-student "needs a mentor" record. Matches mentor_tickets
-// (019_mentor_tickets.sql, escalation_level added in 023_mentor_ticket_escalation.sql).
-type Ticket struct {
-	ID               string     `json:"id"`
-	OrgID            string     `json:"org_id"`
-	StudentID        string     `json:"student_id"`
-	CourseID         string     `json:"course_id"`
-	PurchaseID       *string    `json:"purchase_id"`
-	Status           string     `json:"status"`
-	AssignedMentorID *string    `json:"assigned_mentor_id"`
-	AssignedBy       *string    `json:"assigned_by"`
-	AssignedAt       *time.Time `json:"assigned_at"`
-	ClosedAt         *time.Time `json:"closed_at"`
-	EscalationLevel  int        `json:"escalation_level"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
-}
-
-// TicketAssignment is a durable row from mentor_ticket_assignments — one per
-// mentor ever assigned to a ticket, so reassignment history survives even
-// after mentor_tickets.assigned_mentor_id moves on to someone else.
-type TicketAssignment struct {
-	ID         string    `json:"id"`
-	TicketID   string    `json:"ticket_id"`
-	MentorID   string    `json:"mentor_id"`
-	AssignedAt time.Time `json:"assigned_at"`
-}
-
 // Report is a student's complaint about a mentor. Matches mentor_reports
 // (020_mentor_reports.sql).
 type Report struct {
@@ -180,30 +155,20 @@ type ChangeRequest struct {
 	CreatedAt  time.Time  `json:"created_at"`
 }
 
-// ChatMessage is a single 1:1 message on a mentor ticket's chat thread.
-// Matches mentor_chat_messages (026_mentor_chat_messages.sql).
-type ChatMessage struct {
-	ID        string    `json:"id"`
-	OrgID     string    `json:"org_id"`
-	TicketID  string    `json:"ticket_id"`
-	SenderID  string    `json:"sender_id"`
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// TicketDetail is the full staff-facing lifecycle view of a ticket —
-// assignments, change requests, and (for callers holding
-// mentoring.manage_reports) complaint reports — the single aggregate the
-// ticket detail page renders instead of piecing history together from
-// separate list endpoints. Reports is nil (omitted from the JSON response)
-// for callers who lack that permission; the frontend independently gates
-// its Reports section on the same permission, so the omission and the UI
-// gate agree without the caller needing an explicit "can view reports" flag.
-type TicketDetail struct {
-	Ticket         Ticket             `json:"ticket"`
-	Assignments    []TicketAssignment `json:"assignments"`
-	ChangeRequests []ChangeRequest    `json:"change_requests"`
-	Reports        []Report           `json:"reports,omitempty"`
+// TicketLifecycle is the full staff-facing lifecycle view of a ticket —
+// change requests and (for callers holding mentoring.manage_reports)
+// complaint reports — the single aggregate the ticket detail page renders
+// instead of piecing history together from separate list endpoints. Reports
+// is nil (omitted from the JSON response) for callers who lack that
+// permission; the frontend independently gates its Reports section on the
+// same permission, so the omission and the UI gate agree without the caller
+// needing an explicit "can view reports" flag. Named TicketLifecycle rather
+// than TicketDetail to avoid ambiguity next to tickets.TicketDetail (ticket
+// + message thread) — this is a different aggregate entirely.
+type TicketLifecycle struct {
+	Ticket         tickets.Ticket  `json:"ticket"`
+	ChangeRequests []ChangeRequest `json:"change_requests"`
+	Reports        []Report        `json:"reports,omitempty"`
 }
 
 // MentorDirectoryEntry is one row of the org-wide mentor directory: a
@@ -286,12 +251,10 @@ type MentorConversation struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// DirectMessage is a single message on a MentorConversation's thread.
-// Matches mentor_direct_messages (007_mentor_conversations.sql). Kept
-// distinct from ChatMessage rather than shared — the two tables differ
-// structurally (conversation_id vs ticket_id) and have independent access
-// rules, so a shared type would just be a coincidence of shape, not a real
-// abstraction.
+// DirectMessage is a single message on a MentorConversation's thread —
+// kind='direct' conversations are owned entirely by this package, not
+// internal/tickets, so this stays a distinct type from tickets.Message even
+// though the two are structurally identical.
 type DirectMessage struct {
 	ID             string    `json:"id"`
 	OrgID          string    `json:"org_id"`

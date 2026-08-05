@@ -3,7 +3,7 @@ import { MessageCircle } from "lucide-react";
 import { ProfileAvatar } from "@/components/shared/profile-avatar";
 import { getMyConversations, getMentors } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
-import { truncateId, formatDateTime } from "@/lib/mentoring/format";
+import { truncateId, formatDateTime } from "@/lib/tickets/format";
 import ROUTES from "@/lib/routes";
 
 export const metadata = { title: "Conversations" };

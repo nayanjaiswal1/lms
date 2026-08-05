@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { authHeaders, apiAction, baseURL } from "@/lib/server/api";
+import { actionErrorMessage, authHeaders, apiAction, baseURL } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import type { Category } from "@/lib/assessments/types";
 import ROUTES from "@/lib/routes";
@@ -70,7 +70,7 @@ export async function createQuestionAction(input: CreateQuestionInput): Promise<
     });
     if (!res.ok) {
       const body: { error?: string; fields?: Record<string, string> } = await res.json().catch(() => ({}));
-      return { error: body.error ?? "Could not create the question.", fieldErrors: body.fields };
+      return { error: actionErrorMessage(body, "Could not create the question."), fieldErrors: body.fields };
     }
   } catch {
     return { error: "Network error. Please try again." };

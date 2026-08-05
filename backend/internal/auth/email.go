@@ -10,28 +10,30 @@ import (
 )
 
 // SendVerification sends the email-verification link to the given address.
-// In development it logs to stdout instead of using SMTP.
+// In local dev, logs to stdout instead of using SMTP unless `to` is in
+// config.Config.DevEmailAllowlist (see Config.ShouldSendRealEmail).
 func SendVerification(cfg *config.Config, to, token string) error {
-	if cfg.IsLocalDev() {
+	if !cfg.ShouldSendRealEmail(to) {
 		slog.Info("DEV EMAIL: Verification token", "to", to, "token", token)
 		return nil
 	}
 	subject := "Verify your MindForge account"
-	link := cfg.FrontendURL + "/auth/verify-email?token=" + token
+	link := cfg.FrontendURL + "/verify-email?token=" + token
 	body := "Click the link below to verify your email address:\n\n" + link +
 		"\n\nThis link expires in 24 hours."
 	return sendSMTP(cfg, to, subject, body)
 }
 
 // SendPasswordReset sends the password-reset link to the given address.
-// In development it logs to stdout instead of using SMTP.
+// In local dev, logs to stdout instead of using SMTP unless `to` is in
+// config.Config.DevEmailAllowlist (see Config.ShouldSendRealEmail).
 func SendPasswordReset(cfg *config.Config, to, token string) error {
-	if cfg.IsLocalDev() {
+	if !cfg.ShouldSendRealEmail(to) {
 		slog.Info("DEV EMAIL: Password reset token", "to", to, "token", token)
 		return nil
 	}
 	subject := "Reset your MindForge password"
-	link := cfg.FrontendURL + "/auth/reset-password?token=" + token
+	link := cfg.FrontendURL + "/reset-password?token=" + token
 	body := "Click the link below to reset your password:\n\n" + link +
 		"\n\nThis link expires in 30 minutes. If you did not request a reset, ignore this email."
 	return sendSMTP(cfg, to, subject, body)
@@ -40,16 +42,17 @@ func SendPasswordReset(cfg *config.Config, to, token string) error {
 // SendDuplicateRegistration notifies an existing account holder that someone
 // attempted to register with their email. It is sent instead of revealing the
 // account's existence in the registration API response (anti-enumeration).
-// In development it logs to stdout instead of using SMTP.
+// In local dev, logs to stdout instead of using SMTP unless `to` is in
+// config.Config.DevEmailAllowlist (see Config.ShouldSendRealEmail).
 func SendDuplicateRegistration(cfg *config.Config, to string) error {
-	if cfg.IsLocalDev() {
+	if !cfg.ShouldSendRealEmail(to) {
 		slog.Info("DEV EMAIL: Duplicate registration attempt", "to", to)
 		return nil
 	}
 	subject := "You already have a MindForge account"
 	body := "Someone just tried to create a MindForge account with this email address.\n\n" +
 		"If this was you, you already have an account — simply sign in, or reset your " +
-		"password at " + cfg.FrontendURL + "/auth/forgot-password if you've forgotten it.\n\n" +
+		"password at " + cfg.FrontendURL + "/forgot-password if you've forgotten it.\n\n" +
 		"If this wasn't you, no action is needed; no new account was created."
 	return sendSMTP(cfg, to, subject, body)
 }
@@ -61,7 +64,7 @@ func SendDuplicateRegistration(cfg *config.Config, to string) error {
 // impossible-travel posture. In development it logs to stdout instead of
 // using SMTP.
 func SendPasskeyCloneAlert(cfg *config.Config, to string) error {
-	if cfg.IsLocalDev() {
+	if !cfg.ShouldSendRealEmail(to) {
 		slog.Info("DEV EMAIL: Passkey clone warning", "to", to)
 		return nil
 	}
@@ -83,7 +86,7 @@ func sendSMTP(cfg *config.Config, to, subject, body string) error {
 		auth = smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPHost)
 	}
 
-	msg := buildMessage(cfg.EmailFrom, to, subject, body)
+	msg := buildMessage(cfg.EmailFromHeader(), to, subject, body)
 
 	if err := smtp.SendMail(addr, auth, cfg.EmailFrom, []string{to}, []byte(msg)); err != nil {
 		return fmt.Errorf("auth: send email to %s: %w", to, err)

@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -192,7 +193,7 @@ func (r *Repo) FinalizeInstallationOAuthUpdate(ctx context.Context, state string
 // consumeOAuthState deletes the state row a callback is completing —
 // returns ErrNotFound if it's already been consumed (double-submit/replay).
 func consumeOAuthState(ctx context.Context, tx pgx.Tx, state string) error {
-	tag, err := tx.Exec(ctx, `DELETE FROM gitlab_oauth_states WHERE state = $1`, state)
+	tag, err := tx.Exec(ctx, `DELETE FROM auth_tokens WHERE purpose = 'gitlab_oauth_state' AND token_hash = $1`, state)
 	if err != nil {
 		return fmt.Errorf("delete consumed oauth state: %w", err)
 	}
@@ -412,7 +413,7 @@ func (r *Repo) GetConnection(ctx context.Context, orgID, userID string) (*Gitlab
 func (r *Repo) FinalizeConnectionOAuth(ctx context.Context, state, orgID, userID string, gitlabUserID int64, gitlabUsername string, gitlabEmail, avatarURL *string, accessTokenEnc []byte, accessTokenExpiresAt time.Time, refreshTokenEnc []byte, scopes []string) (*GitlabConnection, error) {
 	var conn *GitlabConnection
 	err := r.tx(ctx, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `DELETE FROM gitlab_oauth_states WHERE state = $1`, state)
+		tag, err := tx.Exec(ctx, `DELETE FROM auth_tokens WHERE purpose = 'gitlab_oauth_state' AND token_hash = $1`, state)
 		if err != nil {
 			return fmt.Errorf("delete consumed oauth state: %w", err)
 		}
@@ -522,11 +523,25 @@ func (r *Repo) DeleteConnection(ctx context.Context, orgID, userID string) error
 // InsertOAuthState persists a new PKCE flow's server-side state ahead of
 // redirecting the browser to GitLab's /oauth/authorize.
 func (r *Repo) InsertOAuthState(ctx context.Context, st GitlabOAuthState) error {
-	_, err := r.pool.Exec(ctx,
-		`INSERT INTO gitlab_oauth_states
-			(state, org_id, user_id, purpose, code_verifier, base_url, oauth_client_id, oauth_client_secret_enc, redirect_to, name, installation_id, expires_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		st.State, st.OrgID, st.UserID, st.Purpose, st.CodeVerifier, st.BaseURL, st.OAuthClientID, st.OAuthClientSecretEnc, st.RedirectTo, st.Name, st.InstallationID, st.ExpiresAt,
+	payloadJSON, err := json.Marshal(map[string]interface{}{
+		"code_verifier":          st.CodeVerifier,
+		"base_url":               st.BaseURL,
+		"oauth_client_id":        st.OAuthClientID,
+		"oauth_client_secret_enc": st.OAuthClientSecretEnc,
+		"redirect_to":            st.RedirectTo,
+		"name":                   st.Name,
+		"installation_id":        st.InstallationID,
+		"purpose":                st.Purpose,
+	})
+	if err != nil {
+		return fmt.Errorf("gitlab: marshal oauth state payload: %w", err)
+	}
+
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO auth_tokens
+			(purpose, token_hash, org_id, user_id, payload, expires_at)
+		 VALUES ('gitlab_oauth_state', $1, $2, $3, $4::jsonb, $5)`,
+		st.State, st.OrgID, st.UserID, string(payloadJSON), st.ExpiresAt,
 	)
 	if err != nil {
 		return fmt.Errorf("gitlab: insert oauth state: %w", err)
@@ -539,21 +554,48 @@ func (r *Repo) InsertOAuthState(ctx context.Context, st GitlabOAuthState) error 
 // finalize step deletes the row as part of its own transaction.
 func (r *Repo) GetOAuthState(ctx context.Context, state string) (*GitlabOAuthState, error) {
 	var st GitlabOAuthState
+	var payloadRaw []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT state, org_id, user_id, purpose, code_verifier, base_url, oauth_client_id, oauth_client_secret_enc, redirect_to, name, installation_id, expires_at, created_at
-		 FROM gitlab_oauth_states WHERE state = $1`,
+		`SELECT token_hash, org_id, user_id, payload, expires_at, created_at
+		 FROM auth_tokens WHERE purpose = 'gitlab_oauth_state' AND token_hash = $1`,
 		state,
-	).Scan(&st.State, &st.OrgID, &st.UserID, &st.Purpose, &st.CodeVerifier, &st.BaseURL, &st.OAuthClientID, &st.OAuthClientSecretEnc, &st.RedirectTo, &st.Name, &st.InstallationID, &st.ExpiresAt, &st.CreatedAt)
+	).Scan(&st.State, &st.OrgID, &st.UserID, &payloadRaw, &st.ExpiresAt, &st.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("gitlab: get oauth state: %w", err)
 	}
+
+	// Unmarshal payload
+	type oauthStatePayload struct {
+		CodeVerifier         string `json:"code_verifier"`
+		BaseURL              *string `json:"base_url"`
+		OAuthClientID        *string `json:"oauth_client_id"`
+		OAuthClientSecretEnc []byte `json:"oauth_client_secret_enc"`
+		RedirectTo           *string `json:"redirect_to"`
+		Name                 *string `json:"name"`
+		InstallationID       *string `json:"installation_id"`
+		Purpose              string `json:"purpose"`
+	}
+	var payload oauthStatePayload
+	if err := json.Unmarshal(payloadRaw, &payload); err != nil {
+		return nil, fmt.Errorf("gitlab: unmarshal oauth state payload: %w", err)
+	}
+
+	st.CodeVerifier = payload.CodeVerifier
+	st.BaseURL = payload.BaseURL
+	st.OAuthClientID = payload.OAuthClientID
+	st.OAuthClientSecretEnc = payload.OAuthClientSecretEnc
+	st.RedirectTo = payload.RedirectTo
+	st.Name = payload.Name
+	st.InstallationID = payload.InstallationID
+	st.Purpose = payload.Purpose
+
 	if st.ExpiresAt.Before(time.Now()) {
 		// Best-effort cleanup; the row's own TTL sweep (if any is added later)
 		// is not required for correctness — expired states never validate.
-		_, _ = r.pool.Exec(ctx, `DELETE FROM gitlab_oauth_states WHERE state = $1`, state)
+		_, _ = r.pool.Exec(ctx, `DELETE FROM auth_tokens WHERE purpose = 'gitlab_oauth_state' AND token_hash = $1`, state)
 		return nil, ErrStateExpired
 	}
 	return &st, nil
@@ -561,37 +603,65 @@ func (r *Repo) GetOAuthState(ctx context.Context, state string) (*GitlabOAuthSta
 
 // ─── gitlab_org_config ─────────────────────────────────────────────────────
 
-// GetOrgConfig returns the org's GitLab policy row, or ErrNotFound if it's
-// never set one — callers treat that as AllowProjectOverride: true (the
-// column's own default), the same "absence means default" convention
-// GetDefaultInstallation uses for "not connected yet".
+// GetOrgConfig returns the org's GitLab policy by reading org_settings.gitlab jsonb.
+// Returns ErrNotFound if no org_settings row exists; otherwise defaults to
+// AllowProjectOverride: true when the gitlab jsonb is empty or the key is missing.
 func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (*GitlabOrgConfig, error) {
-	var cfg GitlabOrgConfig
+	var raw []byte
 	err := r.pool.QueryRow(ctx,
-		`SELECT org_id, allow_project_override, updated_at FROM gitlab_org_config WHERE org_id = $1`,
+		`SELECT COALESCE(gitlab, '{}'::jsonb) FROM org_settings WHERE org_id = $1`,
 		orgID,
-	).Scan(&cfg.OrgID, &cfg.AllowProjectOverride, &cfg.UpdatedAt)
+	).Scan(&raw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("gitlab: get org config: %w", err)
 	}
+
+	var cfg GitlabOrgConfig
+	cfg.OrgID = orgID
+	cfg.AllowProjectOverride = true // Default when key is missing
+
+	type gitlabJSON struct {
+		AllowProjectOverride *bool `json:"allow_project_override"`
+	}
+	var parsed gitlabJSON
+	if len(raw) > 2 { // Skip empty {}
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return nil, fmt.Errorf("gitlab: unmarshal gitlab config: %w", err)
+		}
+		if parsed.AllowProjectOverride != nil {
+			cfg.AllowProjectOverride = *parsed.AllowProjectOverride
+		}
+	}
+
+	// TODO: populate UpdatedAt from org_settings.updated_at if needed
 	return &cfg, nil
 }
 
-// UpsertOrgConfig sets the org's allow_project_override policy.
+// UpsertOrgConfig sets the org's allow_project_override policy in org_settings.gitlab jsonb.
 func (r *Repo) UpsertOrgConfig(ctx context.Context, orgID string, allowOverride bool) (*GitlabOrgConfig, error) {
+	gitlabJSON, err := json.Marshal(map[string]interface{}{
+		"allow_project_override": allowOverride,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: marshal gitlab config: %w", err)
+	}
+
 	var cfg GitlabOrgConfig
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO gitlab_org_config (org_id, allow_project_override)
-		 VALUES ($1, $2)
-		 ON CONFLICT (org_id) DO UPDATE SET allow_project_override = EXCLUDED.allow_project_override, updated_at = now()
-		 RETURNING org_id, allow_project_override, updated_at`,
-		orgID, allowOverride,
-	).Scan(&cfg.OrgID, &cfg.AllowProjectOverride, &cfg.UpdatedAt)
+	err = r.pool.QueryRow(ctx,
+		`INSERT INTO org_settings (org_id, gitlab, updated_at)
+		 VALUES ($1, $2::jsonb, now())
+		 ON CONFLICT (org_id) DO UPDATE SET gitlab = EXCLUDED.gitlab, updated_at = now()
+		 RETURNING updated_at`,
+		orgID, string(gitlabJSON),
+	).Scan(&cfg.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab: upsert org config: %w", err)
 	}
+
+	cfg.OrgID = orgID
+	cfg.AllowProjectOverride = allowOverride
 	return &cfg, nil
 }

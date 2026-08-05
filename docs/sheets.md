@@ -104,9 +104,9 @@ Select 2+ pinned tabs → "Combine" → name prompt → new sheet that is the un
 
 ## Visibility & Sharing
 
-- `private` (default) · `unlisted` (link-only) · `public` (listed in browser)
-- Public/unlisted sheets: shareable URL at `/sheets/:slug`
-- Public sheets discoverable in sheet browser; sort by subscriber count
+**Not yet implemented:** visibility levels, subscriber count, and per-sheet sharing controls. Current implementation:
+- All system-seeded sheets are discoverable in the browser
+- Custom sheets are personal (owner-only access until sharing implemented)
 
 ---
 
@@ -114,28 +114,28 @@ Select 2+ pinned tabs → "Combine" → name prompt → new sheet that is the un
 
 ```
 -- Browse
-GET    /api/sheets/public                  paginated; filter: category, search; sort: subscribers, newest
-GET    /api/sheets/:slug                   sheet detail (public/unlisted: no auth; private: owner only)
+GET    /api/sheets/public                  paginated; filter: category, search
+GET    /api/sheets/:slug                   sheet detail (owner: full access; others: read-only)
 GET    /api/sheets/:slug/items             items in sheet
 
 -- Manage own sheets
-POST   /api/sheets                         body: {name, description, category, visibility}
-PATCH  /api/sheets/:id                     body: {name?, description?, visibility?}  (owner)
-DELETE /api/sheets/:id                                                                (owner)
+POST   /api/sheets                         body: {name, description, category}
+PATCH  /api/sheets/:id                     body: {name?, description?}  (owner)
+DELETE /api/sheets/:id                                                    (owner)
 POST   /api/sheets/:id/items               body: {title, topic_tag, category, difficulty, external_url, order_index}
 PATCH  /api/sheets/:id/items/:itemId       body: {title?, category?, difficulty?, external_url?, order_index?}
 DELETE /api/sheets/:id/items/:itemId
 
--- Combine + Fork
-POST   /api/sheets/combine                 body: {sheet_ids[], name, description, visibility}
-POST   /api/sheets/:id/fork                creates owned copy; sets forked_from_id
+-- Combine (NOT YET BUILT: forked_from_id not tracked)
+-- POST   /api/sheets/combine                 body: {sheet_ids[], name, description}
+-- POST   /api/sheets/:id/fork                creates owned copy; sets forked_from_id
 
--- Subscribe / Unsubscribe
-POST   /api/sheets/:id/subscribe           pins as tab; increments subscriber_count
-DELETE /api/sheets/:id/subscribe           unpins; decrements subscriber_count
+-- Subscribe / Unsubscribe (NOT YET BUILT: subscriber_count not tracked)
+-- POST   /api/sheets/:id/subscribe           pins as tab
+-- DELETE /api/sheets/:id/subscribe           unpins
 
 -- User's pinned sheets
-GET    /api/user/sheets                    list owned + subscribed + forked
+GET    /api/user/sheets                    list owned sheets + sheet items
 
 -- Combined / overlap view
 GET    /api/sheets/view?ids=a,b,c          union of items from selected sheet IDs, deduped by topic_tag
@@ -145,9 +145,7 @@ GET    /api/sheets/view?ids=a,b,c          union of items from selected sheet ID
 
 -- Progress (upsert by topic_tag — cross-sheet)
 PATCH  /api/progress/:topic_tag            body: {status}
-PATCH  /api/progress/:topic_tag/notes      body: {notes}  -- TipTap JSON, same shape as wiki_pages.content;
-                                                            -- separate endpoint so autosave-while-typing never
-                                                            -- races a status click
+PATCH  /api/progress/:topic_tag/notes      body: {notes}  -- TipTap JSON
 ```
 
 ### Notes View
@@ -186,14 +184,10 @@ sheets (
   name             TEXT NOT NULL,
   slug             TEXT UNIQUE NOT NULL,
   description      TEXT,
-  author           TEXT,
   category         TEXT,
-  visibility       TEXT NOT NULL DEFAULT 'private',  -- 'private' | 'unlisted' | 'public'
   is_system        BOOLEAN DEFAULT false,             -- true = platform-seeded
   created_by       UUID REFERENCES users(id) ON DELETE SET NULL,
-  forked_from_id   UUID REFERENCES sheets(id) ON DELETE SET NULL,
-  source_sheet_ids UUID[],
-  subscriber_count INT NOT NULL DEFAULT 0,
+  source_sheet_ids UUID[],                            -- for combined sheets only
   created_at       TIMESTAMPTZ DEFAULT now(),
   updated_at       TIMESTAMPTZ DEFAULT now()
 )

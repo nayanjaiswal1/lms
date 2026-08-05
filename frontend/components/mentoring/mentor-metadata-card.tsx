@@ -1,5 +1,6 @@
 import { CalendarDays, History, Timer } from "lucide-react";
-import { formatDate, formatDuration, formatLastActive } from "@/lib/mentoring/format";
+import { formatDate } from "@/lib/tickets/format";
+import { formatDuration, formatLastActive } from "@/lib/mentoring/format";
 
 interface Props {
   lastActiveAt: string | null;

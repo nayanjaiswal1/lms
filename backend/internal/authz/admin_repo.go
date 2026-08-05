@@ -105,10 +105,10 @@ func (r *AdminRepo) GetPermissionsByIDs(ctx context.Context, ids []string) ([]Pe
 // ─── Role queries ─────────────────────────────────────────────────────────────
 
 // ListRoles returns a filtered, paginated list of roles visible to the given
-// tenant (own tenant's roles + all system roles) plus the total matching count.
+// org (own org's roles + all system roles) plus the total matching count.
 func (r *AdminRepo) ListRoles(ctx context.Context, params ListRolesParams) ([]Role, int, error) {
-	args := []interface{}{params.TenantID} // $1
-	where := "WHERE (tenant_id = $1 OR is_system = true)"
+	args := []interface{}{params.OrgID} // $1
+	where := "WHERE (org_id = $1 OR is_system = true)"
 
 	if params.Search != "" {
 		args = append(args, "%"+params.Search+"%")
@@ -133,7 +133,7 @@ func (r *AdminRepo) ListRoles(ctx context.Context, params ListRolesParams) ([]Ro
 
 	args = append(args, limit, params.Offset)
 	listQ := fmt.Sprintf(`
-		SELECT id, tenant_id, name, description, is_system, is_editable, is_active, created_at, updated_at
+		SELECT id, org_id, name, description, is_system, is_editable, is_active, created_at, updated_at
 		FROM roles
 		%s
 		ORDER BY is_system DESC, name ASC
@@ -155,7 +155,7 @@ func (r *AdminRepo) ListRoles(ctx context.Context, params ListRolesParams) ([]Ro
 // GetRole fetches a single role by ID. Returns nil, nil when not found.
 func (r *AdminRepo) GetRole(ctx context.Context, id string) (*Role, error) {
 	const q = `
-		SELECT id, tenant_id, name, description, is_system, is_editable, is_active, created_at, updated_at
+		SELECT id, org_id, name, description, is_system, is_editable, is_active, created_at, updated_at
 		FROM roles
 		WHERE id = $1`
 
@@ -170,14 +170,14 @@ func (r *AdminRepo) GetRole(ctx context.Context, id string) (*Role, error) {
 	return role, nil
 }
 
-// CreateRole inserts a new tenant-scoped role and returns it.
-func (r *AdminRepo) CreateRole(ctx context.Context, tenantID, name, description string) (*Role, error) {
+// CreateRole inserts a new org-scoped role and returns it.
+func (r *AdminRepo) CreateRole(ctx context.Context, orgID, name, description string) (*Role, error) {
 	const q = `
-		INSERT INTO roles (id, tenant_id, name, description, is_system, is_editable, is_active, created_at, updated_at)
+		INSERT INTO roles (id, org_id, name, description, is_system, is_editable, is_active, created_at, updated_at)
 		VALUES (gen_random_uuid(), $1, $2, $3, false, true, true, now(), now())
-		RETURNING id, tenant_id, name, description, is_system, is_editable, is_active, created_at, updated_at`
+		RETURNING id, org_id, name, description, is_system, is_editable, is_active, created_at, updated_at`
 
-	row := r.pool.QueryRow(ctx, q, tenantID, name, description)
+	row := r.pool.QueryRow(ctx, q, orgID, name, description)
 	role, err := scanRole(row)
 	if err != nil {
 		if db.IsUniqueViolation(err) {
@@ -229,7 +229,7 @@ func (r *AdminRepo) UpdateRole(ctx context.Context, id string, req UpdateRoleReq
 	args = append(args, id)
 	updateQ := fmt.Sprintf(`
 		UPDATE roles SET %s WHERE id = $%d
-		RETURNING id, tenant_id, name, description, is_system, is_editable, is_active, created_at, updated_at`,
+		RETURNING id, org_id, name, description, is_system, is_editable, is_active, created_at, updated_at`,
 		strings.Join(setClauses, ", "), len(args))
 
 	role, err := scanRole(tx.QueryRow(ctx, updateQ, args...))
@@ -243,8 +243,8 @@ func (r *AdminRepo) UpdateRole(ctx context.Context, id string, req UpdateRoleReq
 	return role, nil
 }
 
-// DisableRole sets is_active=false on a tenant-owned, non-system, editable role.
-func (r *AdminRepo) DisableRole(ctx context.Context, id, tenantID string) error {
+// DisableRole sets is_active=false on an org-owned, non-system, editable role.
+func (r *AdminRepo) DisableRole(ctx context.Context, id, orgID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("admin: disable role: begin tx: %w", err)
@@ -252,10 +252,10 @@ func (r *AdminRepo) DisableRole(ctx context.Context, id, tenantID string) error 
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	var isSystem, isEditable bool
-	var roleTenantID pgtype.UUID
+	var roleOrgID pgtype.UUID
 	if err := tx.QueryRow(ctx,
-		`SELECT is_system, is_editable, tenant_id FROM roles WHERE id = $1 FOR UPDATE`, id,
-	).Scan(&isSystem, &isEditable, &roleTenantID); err != nil {
+		`SELECT is_system, is_editable, org_id FROM roles WHERE id = $1 FOR UPDATE`, id,
+	).Scan(&isSystem, &isEditable, &roleOrgID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("admin: disable role: role not found")
 		}
@@ -267,8 +267,8 @@ func (r *AdminRepo) DisableRole(ctx context.Context, id, tenantID string) error 
 	if !isEditable {
 		return fmt.Errorf("admin: disable role: role is not editable")
 	}
-	if !roleTenantID.Valid || uuidToString(roleTenantID) != tenantID {
-		return fmt.Errorf("admin: disable role: role does not belong to this tenant")
+	if !roleOrgID.Valid || uuidToString(roleOrgID) != orgID {
+		return fmt.Errorf("admin: disable role: role does not belong to this org")
 	}
 
 	if _, err := tx.Exec(ctx,
@@ -283,8 +283,8 @@ func (r *AdminRepo) DisableRole(ctx context.Context, id, tenantID string) error 
 	return nil
 }
 
-// EnableRole sets is_active=true on a tenant-owned, non-system, editable role.
-func (r *AdminRepo) EnableRole(ctx context.Context, id, tenantID string) error {
+// EnableRole sets is_active=true on an org-owned, non-system, editable role.
+func (r *AdminRepo) EnableRole(ctx context.Context, id, orgID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("admin: enable role: begin tx: %w", err)
@@ -292,10 +292,10 @@ func (r *AdminRepo) EnableRole(ctx context.Context, id, tenantID string) error {
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	var isSystem, isEditable bool
-	var roleTenantID pgtype.UUID
+	var roleOrgID pgtype.UUID
 	if err := tx.QueryRow(ctx,
-		`SELECT is_system, is_editable, tenant_id FROM roles WHERE id = $1 FOR UPDATE`, id,
-	).Scan(&isSystem, &isEditable, &roleTenantID); err != nil {
+		`SELECT is_system, is_editable, org_id FROM roles WHERE id = $1 FOR UPDATE`, id,
+	).Scan(&isSystem, &isEditable, &roleOrgID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("admin: enable role: role not found")
 		}
@@ -307,8 +307,8 @@ func (r *AdminRepo) EnableRole(ctx context.Context, id, tenantID string) error {
 	if !isEditable {
 		return fmt.Errorf("admin: enable role: role is not editable")
 	}
-	if !roleTenantID.Valid || uuidToString(roleTenantID) != tenantID {
-		return fmt.Errorf("admin: enable role: role does not belong to this tenant")
+	if !roleOrgID.Valid || uuidToString(roleOrgID) != orgID {
+		return fmt.Errorf("admin: enable role: role does not belong to this org")
 	}
 
 	if _, err := tx.Exec(ctx,
@@ -347,8 +347,8 @@ func (r *AdminRepo) GetRolePermissions(ctx context.Context, roleID string) ([]Pe
 
 // SetRolePermissions replaces the full permission set for a role inside a
 // single transaction. The role must be non-system, editable, and belong to
-// tenantID.
-func (r *AdminRepo) SetRolePermissions(ctx context.Context, roleID, tenantID string, permissionIDs []string) error {
+// orgID.
+func (r *AdminRepo) SetRolePermissions(ctx context.Context, roleID, orgID string, permissionIDs []string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("admin: set role permissions: begin tx: %w", err)
@@ -356,10 +356,10 @@ func (r *AdminRepo) SetRolePermissions(ctx context.Context, roleID, tenantID str
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	var isSystem, isEditable bool
-	var roleTenantID pgtype.UUID
+	var roleOrgID pgtype.UUID
 	if err := tx.QueryRow(ctx,
-		`SELECT is_system, is_editable, tenant_id FROM roles WHERE id = $1 FOR UPDATE`, roleID,
-	).Scan(&isSystem, &isEditable, &roleTenantID); err != nil {
+		`SELECT is_system, is_editable, org_id FROM roles WHERE id = $1 FOR UPDATE`, roleID,
+	).Scan(&isSystem, &isEditable, &roleOrgID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("admin: set role permissions: role not found")
 		}
@@ -371,8 +371,8 @@ func (r *AdminRepo) SetRolePermissions(ctx context.Context, roleID, tenantID str
 	if !isEditable {
 		return fmt.Errorf("admin: set role permissions: role is not editable")
 	}
-	if !roleTenantID.Valid || uuidToString(roleTenantID) != tenantID {
-		return fmt.Errorf("admin: set role permissions: role does not belong to this tenant")
+	if !roleOrgID.Valid || uuidToString(roleOrgID) != orgID {
+		return fmt.Errorf("admin: set role permissions: role does not belong to this org")
 	}
 
 	if _, err := tx.Exec(ctx, `DELETE FROM role_permissions WHERE role_id = $1`, roleID); err != nil {
@@ -396,11 +396,11 @@ func (r *AdminRepo) SetRolePermissions(ctx context.Context, roleID, tenantID str
 
 // ─── User queries ─────────────────────────────────────────────────────────────
 
-// ListUsers returns a filtered, paginated list of the tenant's members (from
+// ListUsers returns a filtered, paginated list of the org's members (from
 // org_members joined with users), each annotated with how many RBAC roles
-// they currently hold within the tenant, plus the total matching count.
+// they currently hold within the org, plus the total matching count.
 func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]UserSummary, int, error) {
-	args := []interface{}{params.TenantID} // $1
+	args := []interface{}{params.OrgID} // $1
 	where := "WHERE m.org_id = $1 AND m.status <> 'removed'"
 
 	if params.Search != "" {
@@ -421,7 +421,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 		limit = 100
 	}
 
-	args = append(args, params.TenantID, limit, params.Offset)
+	args = append(args, params.OrgID, limit, params.Offset)
 	listQ := fmt.Sprintf(`
 		SELECT u.id, m.id, u.name, u.email, u.avatar_url, m.created_at, m.status, u.status,
 		       COALESCE(ur.role_names, '{}'::text[]) AS role_names
@@ -431,7 +431,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 			SELECT ur.user_id, array_agg(r.name ORDER BY r.name) AS role_names
 			FROM user_roles ur
 			JOIN roles r ON r.id = ur.role_id AND r.is_active = true
-			WHERE ur.tenant_id = $%d
+			WHERE ur.org_id = $%d
 			GROUP BY ur.user_id
 		) ur ON ur.user_id = u.id
 		%s
@@ -460,15 +460,15 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 
 // ─── User-role queries ────────────────────────────────────────────────────────
 
-// GetUserRoles returns all active roles held by userID within tenantID.
-func (r *AdminRepo) GetUserRoles(ctx context.Context, userID, tenantID string) ([]Role, error) {
+// GetUserRoles returns all active roles held by userID within orgID.
+func (r *AdminRepo) GetUserRoles(ctx context.Context, userID, orgID string) ([]Role, error) {
 	const q = `
-		SELECT r.id, r.tenant_id, r.name, r.description, r.is_system, r.is_editable, r.is_active, r.created_at, r.updated_at
+		SELECT r.id, r.org_id, r.name, r.description, r.is_system, r.is_editable, r.is_active, r.created_at, r.updated_at
 		FROM user_roles ur
 		JOIN roles r ON r.id = ur.role_id AND r.is_active = true
-		WHERE ur.user_id = $1 AND ur.tenant_id = $2`
+		WHERE ur.user_id = $1 AND ur.org_id = $2`
 
-	rows, err := r.pool.Query(ctx, q, userID, tenantID)
+	rows, err := r.pool.Query(ctx, q, userID, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("admin: get user roles: %w", err)
 	}
@@ -481,15 +481,15 @@ func (r *AdminRepo) GetUserRoles(ctx context.Context, userID, tenantID string) (
 	return roles, nil
 }
 
-// AssignRole grants roleID to userID within tenantID. The role must be a
-// system role or belong to tenantID. Duplicate assignments are silently ignored.
-func (r *AdminRepo) AssignRole(ctx context.Context, userID, roleID, tenantID string) error {
-	// Verify the role is accessible to this tenant.
+// AssignRole grants roleID to userID within orgID. The role must be a
+// system role or belong to orgID. Duplicate assignments are silently ignored.
+func (r *AdminRepo) AssignRole(ctx context.Context, userID, roleID, orgID string) error {
+	// Verify the role is accessible to this org.
 	var isSystem bool
-	var roleTenantID pgtype.UUID
+	var roleOrgID pgtype.UUID
 	if err := r.pool.QueryRow(ctx,
-		`SELECT is_system, tenant_id FROM roles WHERE id = $1 AND is_active = true`, roleID,
-	).Scan(&isSystem, &roleTenantID); err != nil {
+		`SELECT is_system, org_id FROM roles WHERE id = $1 AND is_active = true`, roleID,
+	).Scan(&isSystem, &roleOrgID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("admin: assign role: role not found or inactive")
 		}
@@ -497,14 +497,14 @@ func (r *AdminRepo) AssignRole(ctx context.Context, userID, roleID, tenantID str
 	}
 
 	if !isSystem {
-		if !roleTenantID.Valid || uuidToString(roleTenantID) != tenantID {
-			return fmt.Errorf("admin: assign role: role is not accessible to this tenant")
+		if !roleOrgID.Valid || uuidToString(roleOrgID) != orgID {
+			return fmt.Errorf("admin: assign role: role is not accessible to this org")
 		}
 	}
 
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO user_roles (user_id, role_id, tenant_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-		userID, roleID, tenantID,
+		`INSERT INTO user_roles (user_id, role_id, org_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+		userID, roleID, orgID,
 	)
 	if err != nil {
 		if db.IsUniqueViolation(err) {
@@ -515,12 +515,12 @@ func (r *AdminRepo) AssignRole(ctx context.Context, userID, roleID, tenantID str
 	return nil
 }
 
-// RevokeRole removes roleID from userID within tenantID. Returns a descriptive
+// RevokeRole removes roleID from userID within orgID. Returns a descriptive
 // error when the assignment does not exist.
-func (r *AdminRepo) RevokeRole(ctx context.Context, userID, roleID, tenantID string) error {
+func (r *AdminRepo) RevokeRole(ctx context.Context, userID, roleID, orgID string) error {
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM user_roles WHERE user_id = $1 AND role_id = $2 AND tenant_id = $3`,
-		userID, roleID, tenantID,
+		`DELETE FROM user_roles WHERE user_id = $1 AND role_id = $2 AND org_id = $3`,
+		userID, roleID, orgID,
 	)
 	if err != nil {
 		return fmt.Errorf("admin: revoke role: %w", err)
@@ -534,16 +534,16 @@ func (r *AdminRepo) RevokeRole(ctx context.Context, userID, roleID, tenantID str
 // ─── User-permission-override queries ──────────────────────────────────────────
 
 // GetUserPermissionOverrides returns permissions granted directly to userID
-// within tenantID, bypassing roles.
-func (r *AdminRepo) GetUserPermissionOverrides(ctx context.Context, userID, tenantID string) ([]Permission, error) {
+// within orgID, bypassing roles.
+func (r *AdminRepo) GetUserPermissionOverrides(ctx context.Context, userID, orgID string) ([]Permission, error) {
 	const q = `
 		SELECT p.id, p.code, p.name, p.description, p.module, p.is_active, p.created_at, p.updated_at
 		FROM user_permission_overrides upo
 		JOIN permissions p ON p.id = upo.permission_id AND p.is_active = true
-		WHERE upo.user_id = $1 AND upo.tenant_id = $2
+		WHERE upo.user_id = $1 AND upo.org_id = $2
 		ORDER BY p.module, p.code`
 
-	rows, err := r.pool.Query(ctx, q, userID, tenantID)
+	rows, err := r.pool.Query(ctx, q, userID, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("admin: get user permission overrides: %w", err)
 	}
@@ -556,9 +556,9 @@ func (r *AdminRepo) GetUserPermissionOverrides(ctx context.Context, userID, tena
 	return perms, nil
 }
 
-// GrantUserPermission grants permissionID directly to userID within tenantID,
+// GrantUserPermission grants permissionID directly to userID within orgID,
 // bypassing roles. Duplicate grants are silently ignored.
-func (r *AdminRepo) GrantUserPermission(ctx context.Context, userID, tenantID, permissionID, grantedBy string) error {
+func (r *AdminRepo) GrantUserPermission(ctx context.Context, userID, orgID, permissionID, grantedBy string) error {
 	var isActive bool
 	if err := r.pool.QueryRow(ctx,
 		`SELECT is_active FROM permissions WHERE id = $1`, permissionID,
@@ -573,9 +573,9 @@ func (r *AdminRepo) GrantUserPermission(ctx context.Context, userID, tenantID, p
 	}
 
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO user_permission_overrides (user_id, tenant_id, permission_id, granted_by)
+		`INSERT INTO user_permission_overrides (user_id, org_id, permission_id, granted_by)
 		 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
-		userID, tenantID, permissionID, grantedBy,
+		userID, orgID, permissionID, grantedBy,
 	)
 	if err != nil {
 		return fmt.Errorf("admin: grant user permission: %w", err)
@@ -584,11 +584,11 @@ func (r *AdminRepo) GrantUserPermission(ctx context.Context, userID, tenantID, p
 }
 
 // RevokeUserPermission removes a direct permission grant from userID within
-// tenantID. Returns a descriptive error when the grant does not exist.
-func (r *AdminRepo) RevokeUserPermission(ctx context.Context, userID, tenantID, permissionID string) error {
+// orgID. Returns a descriptive error when the grant does not exist.
+func (r *AdminRepo) RevokeUserPermission(ctx context.Context, userID, orgID, permissionID string) error {
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM user_permission_overrides WHERE user_id = $1 AND tenant_id = $2 AND permission_id = $3`,
-		userID, tenantID, permissionID,
+		`DELETE FROM user_permission_overrides WHERE user_id = $1 AND org_id = $2 AND permission_id = $3`,
+		userID, orgID, permissionID,
 	)
 	if err != nil {
 		return fmt.Errorf("admin: revoke user permission: %w", err)
@@ -643,17 +643,17 @@ func scanRoles(rows pgx.Rows) ([]Role, error) {
 // scanRole scans a single role from a pgx.Row (QueryRow result).
 func scanRole(row pgx.Row) (*Role, error) {
 	var role Role
-	var tenantID pgtype.UUID
+	var orgID pgtype.UUID
 	if err := row.Scan(
-		&role.ID, &tenantID, &role.Name, &role.Description,
+		&role.ID, &orgID, &role.Name, &role.Description,
 		&role.IsSystem, &role.IsEditable, &role.IsActive,
 		&role.CreatedAt, &role.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}
-	if tenantID.Valid {
-		s := uuidToString(tenantID)
-		role.TenantID = &s
+	if orgID.Valid {
+		s := uuidToString(orgID)
+		role.OrgID = &s
 	}
 	return &role, nil
 }
@@ -661,17 +661,17 @@ func scanRole(row pgx.Row) (*Role, error) {
 // scanRoleColumns scans a role from a row in a multi-row result set.
 func scanRoleColumns(rows pgx.Rows) (*Role, error) {
 	var role Role
-	var tenantID pgtype.UUID
+	var orgID pgtype.UUID
 	if err := rows.Scan(
-		&role.ID, &tenantID, &role.Name, &role.Description,
+		&role.ID, &orgID, &role.Name, &role.Description,
 		&role.IsSystem, &role.IsEditable, &role.IsActive,
 		&role.CreatedAt, &role.UpdatedAt,
 	); err != nil {
 		return nil, fmt.Errorf("scan role: %w", err)
 	}
-	if tenantID.Valid {
-		s := uuidToString(tenantID)
-		role.TenantID = &s
+	if orgID.Valid {
+		s := uuidToString(orgID)
+		role.OrgID = &s
 	}
 	return &role, nil
 }

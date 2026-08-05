@@ -5,7 +5,6 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { MentorHero } from "@/components/mentoring/mentor-hero";
 import { ReportMentorDialog } from "@/components/mentoring/report-mentor-dialog";
 import { RequestMentorChangeDialog } from "@/components/mentoring/request-mentor-change-dialog";
-import { TicketHistoryDialog } from "@/components/mentoring/ticket-history-dialog";
 import { MessageMentorButton } from "@/components/mentoring/message-mentor-button";
 import { MentorInsightsPanel } from "@/components/mentoring/mentor-insights-panel";
 import { MentorMetadataCard } from "@/components/mentoring/mentor-metadata-card";
@@ -14,10 +13,12 @@ import { MentorReviewsList } from "@/components/mentoring/mentor-reviews-list";
 import { BookSessionDialog } from "@/components/sessions/book-session-dialog";
 import { AccessGate } from "@/components/shared/access-gate";
 import { FEATURES } from "@/lib/features";
-import { getMentorProfile, getMyMentorTickets, getTicketHistory } from "@/lib/server/mentoring";
+import { getMentorProfile } from "@/lib/server/mentoring";
+import { getMyTickets } from "@/lib/server/tickets";
 import { getEnrollments } from "@/lib/server/courses";
 import { getMyFeedback, getPublicFeedback } from "@/lib/server/feedback";
 import { getBookingConfig } from "@/lib/server/sessions";
+import { TICKET_KIND } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -35,7 +36,7 @@ export default async function MentorProfilePage({ params }: Props) {
   const [mentor, myFeedback, myTickets, enrollments, reviews, bookingConfig] = await Promise.all([
     getMentorProfile(mentorId),
     getMyFeedback("mentor", mentorId).catch(() => null),
-    getMyMentorTickets().catch(() => []),
+    getMyTickets(TICKET_KIND.MENTORSHIP).catch(() => []),
     getEnrollments().catch(() => []),
     getPublicFeedback("mentor", mentorId, 5).catch(() => []),
     getBookingConfig().catch(() => null),
@@ -46,7 +47,7 @@ export default async function MentorProfilePage({ params }: Props) {
   // A student can be enrolled in several courses/batches at once, each with
   // its own mentor ticket — this mentor may be assigned on one of several.
   const assignedTicket = myTickets.find(
-    (t) => t.status === "assigned" && t.assigned_mentor_id === mentorId,
+    (t) => t.status === "assigned" && t.assigned_to === mentorId,
   );
   const assignedCourse = assignedTicket
     ? enrollments.find((e) => e.course_id === assignedTicket.course_id)?.course
@@ -55,14 +56,12 @@ export default async function MentorProfilePage({ params }: Props) {
   // Approximates the backend's HasBeenMentoredBy check (which the feedback
   // service already enforces server-side) so we don't show a rating form or
   // "Report this mentor" to someone browsing a mentor they've never had.
-  // mentor_tickets.assigned_mentor_id is cleared on reassignment rather than
+  // A ticket's assigned_to is overwritten on reassignment rather than
   // preserved (see mentoring.Repo.HasBeenMentoredBy), so this misses the rare
   // case where a mentor was later swapped out — that edge case has no
   // student-facing endpoint to check today, and Submit() still rejects it
   // server-side if this approximation is ever too permissive.
-  const hasMentorshipHistory = myTickets.some((t) => t.assigned_mentor_id === mentorId);
-
-  const history = assignedTicket ? await getTicketHistory(assignedTicket.id).catch(() => null) : null;
+  const hasMentorshipHistory = myTickets.some((t) => t.assigned_to === mentorId);
 
   return (
     <main className="page-container">
@@ -157,7 +156,6 @@ export default async function MentorProfilePage({ params }: Props) {
         <ReportMentorDialog mentorId={mentor.user_id} showTrigger={false} ticketId={assignedTicket?.id} />
       )}
       {assignedTicket && <RequestMentorChangeDialog showTrigger={false} ticketId={assignedTicket.id} />}
-      {history && <TicketHistoryDialog history={history} />}
     </main>
   );
 }

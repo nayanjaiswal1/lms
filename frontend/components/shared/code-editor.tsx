@@ -107,6 +107,10 @@ export function CodeEditor({
             fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
             minimap: { enabled: minimap },
             scrollBeyondLastLine: false,
+            // Monaco captures the wheel event even once its own content is
+            // fully scrolled, so the page never receives it — this lets
+            // scroll hand off to the page at the editor's scroll boundary.
+            scrollbar: { alwaysConsumeMouseWheel: false },
             lineNumbers: "on",
             tabSize,
             wordWrap: wordWrap ? "on" : "off",

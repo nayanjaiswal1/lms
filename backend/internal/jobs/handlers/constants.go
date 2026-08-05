@@ -22,4 +22,9 @@ const (
 	HandlerGitlabTemplateSync     = "gitlab.template_sync"
 	HandlerGitlabOriginalityScan  = "gitlab.originality_scan"
 	HandlerGitlabHandoff          = "gitlab.handoff"
+	HandlerProjectHandoff         = "project.handoff"
+
+	// Nightly AI revision digest (internal/digest).
+	HandlerDigestNightly = "digest.nightly"
+	HandlerDigestUser    = "digest.user"
 )

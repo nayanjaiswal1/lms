@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { MonitorOff, LogIn, AlertCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { IconMessage } from "@/components/shared/icon-message"
 import { cn } from "@/lib/utils"
 import {
   ResizablePanelGroup,
@@ -236,34 +237,35 @@ export function LabWorkspaceContent({
   return (
     <>
       {verifyError && (
-        <div
-          className="flex items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-2 shrink-0"
+        <IconMessage
+          action={
+            <button
+              aria-label="Dismiss error"
+              className="text-destructive hover:text-destructive/80 touch-target"
+              type="button"
+              onClick={dismissVerifyError}
+            >
+              <X aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          }
+          className="shrink-0"
+          icon={AlertCircle}
           role="alert"
+          tone="destructive"
+          variant="strip"
         >
-          <AlertCircle aria-hidden className="h-4 w-4 text-destructive shrink-0" />
-          <p className="text-sm text-destructive flex-1 min-w-0">{verifyError}</p>
-          <button
-            aria-label="Dismiss error"
-            className="text-destructive hover:text-destructive/80 shrink-0 touch-target"
-            type="button"
-            onClick={dismissVerifyError}
-          >
-            <X aria-hidden className="h-3.5 w-3.5" />
-          </button>
-        </div>
+          {verifyError}
+        </IconMessage>
       )}
 
       {/* Mobile layout */}
       <div className="relative flex flex-col flex-1 md:hidden overflow-auto">
         {isAuthExpired && <SessionExpiredOverlay onLogin={onLogin} />}
-        <div className="flex items-center gap-2 px-4 py-3 bg-muted/50 border-b border-border">
-          <MonitorOff aria-hidden className="h-4 w-4 text-muted-foreground shrink-0" />
-          <p className="text-sm text-muted-foreground">
-            {isCodeLab
-              ? "The code editor requires a larger screen. Viewing tasks only."
-              : "The terminal requires a larger screen. Viewing tasks only."}
-          </p>
-        </div>
+        <IconMessage className="bg-muted/50" icon={MonitorOff} variant="strip">
+          {isCodeLab
+            ? "The code editor requires a larger screen. Viewing tasks only."
+            : "The terminal requires a larger screen. Viewing tasks only."}
+        </IconMessage>
         <LabTaskPanel
           completions={completions}
           maxScore={maxScore}

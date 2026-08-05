@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -125,45 +129,49 @@ func (r *Repo) GetProfile(ctx context.Context, userID string) (*Profile, error) 
 
 // ─── GetSkills ────────────────────────────────────────────────────────────────
 
-// GetSkills returns all skills for userID ordered by skill_name ASC.
-func (r *Repo) GetSkills(ctx context.Context, userID string) ([]Skill, error) {
-	const q = `
-		SELECT id, skill_name, skill_level, created_at
-		FROM user_skills
-		WHERE user_id = $1
-		ORDER BY skill_name ASC`
+// skillJSON mirrors one element of user_profiles.skills (jsonb array).
+type skillJSON struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Level     string    `json:"level"`
+	CreatedAt time.Time `json:"created_at"`
+}
 
-	rows, err := r.pool.Query(ctx, q, userID)
-	if err != nil {
+// GetSkills returns all skills for userID (from user_profiles.skills),
+// ordered by skill name ASC. Returns an empty slice when the user has no
+// profile row or an empty skills array.
+func (r *Repo) GetSkills(ctx context.Context, userID string) ([]Skill, error) {
+	const q = `SELECT skills FROM user_profiles WHERE user_id = $1`
+
+	var raw []byte
+	err := r.pool.QueryRow(ctx, q, userID).Scan(&raw)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("profile: get skills: %w", err)
 	}
-	defer rows.Close()
 
-	var skills []Skill
-	for rows.Next() {
-		var s Skill
-		if err := rows.Scan(&s.ID, &s.SkillName, &s.SkillLevel, &s.CreatedAt); err != nil {
-			return nil, fmt.Errorf("profile: scan skill: %w", err)
+	skills := []Skill{}
+	if len(raw) > 0 {
+		var parsed []skillJSON
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return nil, fmt.Errorf("profile: unmarshal skills: %w", err)
 		}
-		skills = append(skills, s)
+		for _, s := range parsed {
+			skills = append(skills, Skill{ID: s.ID, SkillName: s.Name, SkillLevel: s.Level, CreatedAt: s.CreatedAt})
+		}
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("profile: iterate skills: %w", err)
-	}
-	if skills == nil {
-		skills = []Skill{}
-	}
+	sort.Slice(skills, func(i, j int) bool { return skills[i].SkillName < skills[j].SkillName })
 	return skills, nil
 }
 
 // ─── GetSocialLinks ───────────────────────────────────────────────────────────
 
-// GetSocialLinks returns social links for userID. Returns nil (not ErrNotFound)
-// when no row exists so the caller can treat it as "links not yet set".
+// GetSocialLinks returns social links for userID from user_profiles. Returns
+// nil (not ErrNotFound) when no profile row exists, or when it exists but no
+// link has ever been set, so the caller can treat it as "links not yet set".
 func (r *Repo) GetSocialLinks(ctx context.Context, userID string) (*SocialLinks, error) {
 	const q = `
-		SELECT linkedin, github, portfolio, updated_at
-		FROM user_social_links
+		SELECT linkedin_url, github_url, portfolio_url, updated_at
+		FROM user_profiles
 		WHERE user_id = $1`
 
 	var sl SocialLinks
@@ -175,6 +183,9 @@ func (r *Repo) GetSocialLinks(ctx context.Context, userID string) (*SocialLinks,
 	}
 	if err != nil {
 		return nil, fmt.Errorf("profile: get social links: %w", err)
+	}
+	if sl.LinkedIn == nil && sl.GitHub == nil && sl.Portfolio == nil {
+		return nil, nil
 	}
 	return &sl, nil
 }
@@ -393,31 +404,55 @@ func (r *Repo) DeleteAvatar(ctx context.Context, userID string) (string, error) 
 
 // ─── Skills ───────────────────────────────────────────────────────────────────
 
-// AddSkill inserts a new skill for userID.
-// Returns ErrConflict when the skill name already exists (case-insensitive).
+// AddSkill appends a new skill into user_profiles.skills for userID,
+// creating the profile row if none exists yet.
+// Returns ErrConflict when a skill with the same name (case-insensitive)
+// already exists.
 func (r *Repo) AddSkill(ctx context.Context, userID string, input AddSkillInput) (*Skill, error) {
-	const q = `
-		INSERT INTO user_skills (user_id, skill_name, skill_level)
-		VALUES ($1, $2, $3)
-		RETURNING id, skill_name, skill_level, created_at`
-
-	var s Skill
-	err := r.pool.QueryRow(ctx, q, userID, input.SkillName, input.SkillLevel).
-		Scan(&s.ID, &s.SkillName, &s.SkillLevel, &s.CreatedAt)
+	existing, err := r.GetSkills(ctx, userID)
 	if err != nil {
-		if db.IsUniqueViolation(err) {
+		return nil, err
+	}
+	for _, s := range existing {
+		if strings.EqualFold(s.SkillName, input.SkillName) {
 			return nil, ErrConflict
 		}
+	}
+
+	s := Skill{ID: uuid.NewString(), SkillName: input.SkillName, SkillLevel: input.SkillLevel, CreatedAt: time.Now().UTC()}
+	elem, err := json.Marshal(skillJSON{ID: s.ID, Name: s.SkillName, Level: s.SkillLevel, CreatedAt: s.CreatedAt})
+	if err != nil {
+		return nil, fmt.Errorf("profile: marshal skill: %w", err)
+	}
+
+	const q = `
+		INSERT INTO user_profiles (user_id, skills, updated_at)
+		VALUES ($1, jsonb_build_array($2::jsonb), now())
+		ON CONFLICT (user_id) DO UPDATE SET
+			skills     = COALESCE(user_profiles.skills, '[]'::jsonb) || $2::jsonb,
+			updated_at = now()`
+	if _, err := r.pool.Exec(ctx, q, userID, elem); err != nil {
 		return nil, fmt.Errorf("profile: add skill: %w", err)
 	}
 	return &s, nil
 }
 
-// RemoveSkill deletes a skill by id scoped to userID.
-// Returns ErrNotFound when the skill does not exist or belongs to another user.
+// RemoveSkill deletes a skill by id from user_profiles.skills, scoped to
+// userID. Returns ErrNotFound when the skill does not exist.
 func (r *Repo) RemoveSkill(ctx context.Context, userID, skillID string) error {
-	const q = `DELETE FROM user_skills WHERE id = $1 AND user_id = $2`
-	tag, err := r.pool.Exec(ctx, q, skillID, userID)
+	const q = `
+		UPDATE user_profiles SET
+			skills = COALESCE((
+				SELECT jsonb_agg(elem) FROM jsonb_array_elements(skills) elem
+				WHERE elem->>'id' != $2
+			), '[]'::jsonb),
+			updated_at = now()
+		WHERE user_id = $1
+		  AND EXISTS (
+		    SELECT 1 FROM jsonb_array_elements(COALESCE(skills, '[]'::jsonb)) elem
+		    WHERE elem->>'id' = $2
+		  )`
+	tag, err := r.pool.Exec(ctx, q, userID, skillID)
 	if err != nil {
 		return fmt.Errorf("profile: remove skill: %w", err)
 	}
@@ -434,13 +469,13 @@ func (r *Repo) RemoveSkill(ctx context.Context, userID, skillID string) error {
 // The tx parameter is non-nil when operating inside a larger transaction.
 func (r *Repo) UpsertSocialLinks(ctx context.Context, tx pgx.Tx, userID string, linkedin, github, portfolio *string) error {
 	const q = `
-		INSERT INTO user_social_links (user_id, linkedin, github, portfolio, updated_at)
+		INSERT INTO user_profiles (user_id, linkedin_url, github_url, portfolio_url, updated_at)
 		VALUES ($1, $2, $3, $4, now())
 		ON CONFLICT (user_id) DO UPDATE SET
-			linkedin   = EXCLUDED.linkedin,
-			github     = EXCLUDED.github,
-			portfolio  = EXCLUDED.portfolio,
-			updated_at = now()`
+			linkedin_url  = EXCLUDED.linkedin_url,
+			github_url    = EXCLUDED.github_url,
+			portfolio_url = EXCLUDED.portfolio_url,
+			updated_at    = now()`
 
 	var execErr error
 	if tx != nil {

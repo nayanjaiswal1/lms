@@ -3,15 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { apiAction, type ActionResult } from "@/lib/server/api";
 import type { MentorReportReason } from "@/lib/constants";
-import type {
-  CheckoutSession,
-  PurchaseStatusResult,
-  CouponPreview,
-  MentorTicket,
-  MentorChatMessage,
-  MentorConversation,
-  DirectMessage,
-} from "@/lib/server/mentoring";
+import type { CheckoutSession, PurchaseStatusResult, CouponPreview, MentorConversation, DirectMessage } from "@/lib/server/mentoring";
+import type { Ticket } from "@/lib/server/tickets";
 import type { Certificate } from "@/lib/server/courses";
 import ROUTES from "@/lib/routes";
 
@@ -53,28 +46,28 @@ export async function refundPurchaseAction(courseId: string, purchaseId: string)
   return result;
 }
 
-export async function requestMentorAction(courseId: string): Promise<ActionResult<MentorTicket>> {
-  const result = await apiAction<MentorTicket>("POST", "/api/mentor-tickets/request", { course_id: courseId });
+export async function requestMentorAction(courseId: string): Promise<ActionResult<Ticket>> {
+  const result = await apiAction<Ticket>("POST", "/api/mentor-tickets/request", { course_id: courseId });
   if (result.ok) revalidatePath(ROUTES.MENTORS);
   return result;
 }
 
-export async function claimTicketAction(ticketId: string): Promise<ActionResult<MentorTicket>> {
-  const result = await apiAction<MentorTicket>("POST", `/api/mentor-tickets/${ticketId}/claim`);
+export async function claimTicketAction(ticketId: string): Promise<ActionResult<Ticket>> {
+  const result = await apiAction<Ticket>("POST", `/api/mentor-tickets/${ticketId}/claim`);
   if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
   return result;
 }
 
-export async function assignTicketAction(ticketId: string, mentorId: string): Promise<ActionResult<MentorTicket>> {
-  const result = await apiAction<MentorTicket>("POST", `/api/mentor-tickets/${ticketId}/assign`, {
+export async function assignTicketAction(ticketId: string, mentorId: string): Promise<ActionResult<Ticket>> {
+  const result = await apiAction<Ticket>("POST", `/api/mentor-tickets/${ticketId}/assign`, {
     mentor_id: mentorId,
   });
   if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
   return result;
 }
 
-export async function closeTicketAction(ticketId: string): Promise<ActionResult<MentorTicket>> {
-  const result = await apiAction<MentorTicket>("POST", `/api/mentor-tickets/${ticketId}/close`);
+export async function closeTicketAction(ticketId: string): Promise<ActionResult<Ticket>> {
+  const result = await apiAction<Ticket>("POST", `/api/mentor-tickets/${ticketId}/close`);
   if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
   return result;
 }
@@ -135,15 +128,6 @@ export async function resolveReportAction(
     resolution_note: note,
   });
   if (result.ok) revalidatePath(ROUTES.MENTORING_TICKETS);
-  return result;
-}
-
-export async function sendMentorChatMessageAction(
-  ticketId: string,
-  body: string,
-): Promise<ActionResult<MentorChatMessage>> {
-  const result = await apiAction<MentorChatMessage>("POST", `/api/mentor-tickets/${ticketId}/messages`, { body });
-  if (result.ok) revalidatePath(ROUTES.mentoringTicketChat(ticketId));
   return result;
 }
 

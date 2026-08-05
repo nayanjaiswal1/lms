@@ -21,6 +21,7 @@ import (
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/jobs/handlers"
 	"github.com/mindforge/backend/internal/labs"
+	"github.com/mindforge/backend/internal/mailer"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/secrets"
@@ -213,7 +214,8 @@ func main() {
 	// of a separate cron job polling for the same condition after the fact —
 	// see Registry.OnDead / DeadLetterHook.
 	jobsRegistry.OnDead(handlers.HandlerEvalSubjective, handlers.NewEvalDeadHook(pool))
-	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg))
+	emailSender := mailer.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom)
+	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg, emailSender))
 	jobsRegistry.Register(handlers.HandlerBulkInvite, handlers.NewInviteHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
 	jobsRegistry.Register(handlers.HandlerSRSReminder, handlers.NewSRSHandler(pool, cfg))
@@ -235,6 +237,8 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerGitlabTemplateSync, handlers.NewGitlabTemplateSyncHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerGitlabOriginalityScan, handlers.NewGitlabOriginalityScanHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerGitlabHandoff, handlers.NewGitlabHandoffHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerDigestNightly, handlers.NewDigestNightlyHandler(pool))
+	jobsRegistry.Register(handlers.HandlerDigestUser, handlers.NewDigestUserHandler(pool, aiProvider, cfg, jobsRegistry))
 
 	cronDefs := []jobs.CronJobDef{
 		{Handler: handlers.HandlerSRSReminder, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
@@ -272,6 +276,11 @@ func main() {
 		// triggering it. template_sync/originality_scan/handoff are all
 		// instructor/student-triggered actions — no cron entry for them.
 		{Handler: handlers.HandlerGitlabDeadlineSnapshot, Schedule: "*/5 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// Hourly, not a fixed daily time: digestSendHourLocal (handlers/
+		// digest_nightly.go) is evaluated per-user against their own
+		// timezone, so an hourly tick is what actually gives every
+		// timezone its own local 21:00 from one cron entry.
+		{Handler: handlers.HandlerDigestNightly, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
 	}
 
 	workerCtx, workerCancel := context.WithCancel(ctx)

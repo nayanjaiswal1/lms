@@ -2,6 +2,7 @@ package mistakes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,45 +16,54 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 	return &Repo{pool: pool}
 }
 
-// Create inserts a new mistake event.
+// Create inserts a new mistake event into learning_annotations with annotation_type='mistake'.
 func (r *Repo) Create(ctx context.Context, userID string, req LogRequest) (Entry, error) {
 	var e Entry
+	meta := map[string]interface{}{
+		"category":        req.Category,
+		"corrected_text":  req.CorrectedText,
+	}
+	metaBytes, _ := json.Marshal(meta)
+
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO mistake_entries (user_id, category, sub_topic, original_text, corrected_text, context_tag, source_module_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 RETURNING id, user_id, category, sub_topic, original_text, corrected_text, context_tag, source_module_id, resolved_at, created_at`,
-		userID, req.Category, req.SubTopic, req.OriginalText, req.CorrectedText, req.ContextTag, req.SourceModuleID,
-	).Scan(&e.ID, &e.UserID, &e.Category, &e.SubTopic, &e.OriginalText, &e.CorrectedText, &e.ContextTag, &e.SourceModuleID, &e.ResolvedAt, &e.CreatedAt)
+		`INSERT INTO learning_annotations (user_id, source_type, source_id, annotation_type, text, meta, resolved_at)
+		 VALUES ($1, 'module', $2, 'mistake', $3, $4::jsonb, NULL)
+		 RETURNING id, user_id, text, created_at`,
+		userID, req.SourceModuleID, req.OriginalText, metaBytes,
+	).Scan(&e.ID, &e.UserID, &e.OriginalText, &e.CreatedAt)
 	if err != nil {
 		return Entry{}, fmt.Errorf("mistakes: create: %w", err)
 	}
+	e.Category = req.Category
+	e.CorrectedText = req.CorrectedText
+	e.SourceModuleID = req.SourceModuleID
 	e.Status = StatusNew
 	return e, nil
 }
 
 // statusDerivationCTE computes each entry's status without a stored,
 // recompute-on-write column: "resolved" holds unless a newer entry for the
-// same (category, sub_topic) landed after resolved_at (the mistake came
-// back, so the earlier resolution no longer describes the present); the
-// first-ever occurrence of a topic is "new"; the second is "recurring" (it
-// repeated at all, there's no prior gap yet to compare); from the third
-// occurrence on, "recurring" if the newest gap is <= the one before it
-// (happening at least as often as before) else "improving".
+// same category landed after resolved_at (the mistake came back, so the
+// earlier resolution no longer describes the present); the first-ever
+// occurrence of a category is "new"; the second is "recurring"; from the
+// third occurrence on, "recurring" if the newest gap is <= the one before it
+// else "improving". Note: sub_topic is no longer tracked in the new schema.
 const statusDerivationCTE = `
 	WITH ordered AS (
 		SELECT *,
-		       ROW_NUMBER() OVER (PARTITION BY category, sub_topic ORDER BY created_at) AS rn,
-		       LAG(created_at)    OVER (PARTITION BY category, sub_topic ORDER BY created_at) AS prev_created_at,
-		       LAG(created_at, 2) OVER (PARTITION BY category, sub_topic ORDER BY created_at) AS prev_prev_created_at
-		FROM mistake_entries
-		WHERE user_id = $1
+		       (meta->>'category')::text AS category,
+		       ROW_NUMBER() OVER (PARTITION BY (meta->>'category') ORDER BY created_at) AS rn,
+		       LAG(created_at)    OVER (PARTITION BY (meta->>'category') ORDER BY created_at) AS prev_created_at,
+		       LAG(created_at, 2) OVER (PARTITION BY (meta->>'category') ORDER BY created_at) AS prev_prev_created_at
+		FROM learning_annotations
+		WHERE user_id = $1 AND annotation_type = 'mistake'
 	)
-	SELECT id, user_id, category, sub_topic, original_text, corrected_text, context_tag, source_module_id, resolved_at, created_at,
+	SELECT id, user_id, category, text, (meta->>'corrected_text')::text, source_id, resolved_at, created_at,
 	       CASE
 	         WHEN resolved_at IS NOT NULL AND NOT EXISTS (
-	           SELECT 1 FROM mistake_entries newer
-	           WHERE newer.user_id = ordered.user_id AND newer.category = ordered.category
-	             AND newer.sub_topic = ordered.sub_topic AND newer.created_at > ordered.resolved_at
+	           SELECT 1 FROM learning_annotations newer
+	           WHERE newer.user_id = ordered.user_id AND (newer.meta->>'category')::text = ordered.category
+	             AND newer.annotation_type = 'mistake' AND newer.created_at > ordered.resolved_at
 	         ) THEN '` + StatusResolved + `'
 	         WHEN rn = 1 THEN '` + StatusNew + `'
 	         WHEN prev_prev_created_at IS NULL THEN '` + StatusRecurring + `'
@@ -63,7 +73,7 @@ const statusDerivationCTE = `
 	FROM ordered`
 
 // List returns the user's mistake timeline, newest first, optionally
-// filtered by category/context_tag/date range.
+// filtered by category/date range.
 func (r *Repo) List(ctx context.Context, userID string, f ListFilter) ([]Entry, error) {
 	query := statusDerivationCTE
 	args := []any{userID}
@@ -84,9 +94,7 @@ func (r *Repo) List(ctx context.Context, userID string, f ListFilter) ([]Entry, 
 	if f.Category != nil {
 		addFilter("category =", *f.Category)
 	}
-	if f.ContextTag != nil {
-		addFilter("context_tag =", *f.ContextTag)
-	}
+	// Note: ContextTag no longer exists in learning_annotations schema; filter removed
 	if f.From != nil {
 		addFilter("created_at >=", *f.From)
 	}
@@ -104,9 +112,13 @@ func (r *Repo) List(ctx context.Context, userID string, f ListFilter) ([]Entry, 
 	out := []Entry{}
 	for rows.Next() {
 		var e Entry
-		if err := rows.Scan(&e.ID, &e.UserID, &e.Category, &e.SubTopic, &e.OriginalText, &e.CorrectedText,
-			&e.ContextTag, &e.SourceModuleID, &e.ResolvedAt, &e.CreatedAt, &e.Status); err != nil {
+		var correctedText *string
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Category, &e.OriginalText, &correctedText,
+			&e.SourceModuleID, &e.ResolvedAt, &e.CreatedAt, &e.Status); err != nil {
 			return nil, fmt.Errorf("mistakes: scan entry: %w", err)
+		}
+		if correctedText != nil {
+			e.CorrectedText = *correctedText
 		}
 		out = append(out, e)
 	}
@@ -114,21 +126,18 @@ func (r *Repo) List(ctx context.Context, userID string, f ListFilter) ([]Entry, 
 }
 
 // Summary aggregates per-category counts and a trailing-window trend in one
-// round trip — cheap enough to call on every dashboard load without a
-// cached/materialized table, since a single learner's ledger is at most a
-// few thousand rows and idx_mistake_entries_user_created makes this an
-// index-only scan.
+// round trip — cheap enough to call on every dashboard load.
 func (r *Repo) Summary(ctx context.Context, userID string) ([]CategorySummary, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT category,
+		`SELECT (meta->>'category')::text as category,
 		        COUNT(*),
 		        MIN(created_at),
 		        MAX(created_at),
 		        COUNT(*) FILTER (WHERE created_at > now() - interval '7 days') AS recent,
 		        COUNT(*) FILTER (WHERE created_at <= now() - interval '7 days' AND created_at > now() - interval '14 days') AS prior
-		 FROM mistake_entries
-		 WHERE user_id = $1
-		 GROUP BY category
+		 FROM learning_annotations
+		 WHERE user_id = $1 AND annotation_type = 'mistake'
+		 GROUP BY (meta->>'category')::text
 		 ORDER BY COUNT(*) DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("mistakes: summary: %w", err)
@@ -155,14 +164,12 @@ func (r *Repo) Summary(ctx context.Context, userID string) ([]CategorySummary, e
 	return out, rows.Err()
 }
 
-// MarkResolved records that the student (or their AI, on the student's
-// confirmation) considers this mistake fixed. It can flip back to
-// "recurring" automatically — see statusDerivationCTE — if the same
-// category/sub_topic happens again later, so this never needs to be undone
-// manually.
+// MarkResolved records that the student considers this mistake fixed. It can
+// flip back to "recurring" automatically if the same category happens again
+// later (see statusDerivationCTE), so this never needs to be undone manually.
 func (r *Repo) MarkResolved(ctx context.Context, userID, entryID string) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE mistake_entries SET resolved_at = now() WHERE id = $1 AND user_id = $2`,
+		`UPDATE learning_annotations SET resolved_at = now() WHERE id = $1 AND user_id = $2 AND annotation_type = 'mistake'`,
 		entryID, userID)
 	if err != nil {
 		return fmt.Errorf("mistakes: mark resolved: %w", err)
@@ -173,10 +180,11 @@ func (r *Repo) MarkResolved(ctx context.Context, userID, entryID string) error {
 	return nil
 }
 
-// Delete removes a mistake entry (and, via ON DELETE CASCADE, its linked SRS
-// card). Used by the log_mistake MCP tool's Revert.
+// Delete removes a mistake annotation. Used by the log_mistake MCP tool's Revert.
 func (r *Repo) Delete(ctx context.Context, userID, entryID string) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM mistake_entries WHERE id = $1 AND user_id = $2`, entryID, userID)
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM learning_annotations WHERE id = $1 AND user_id = $2 AND annotation_type = 'mistake'`,
+		entryID, userID)
 	if err != nil {
 		return fmt.Errorf("mistakes: delete: %w", err)
 	}

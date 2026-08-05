@@ -192,9 +192,9 @@ func enrollInBatchCourses(ctx context.Context, ex execer, batchID string, userID
 	}
 	if _, err := ex.Exec(ctx,
 		`INSERT INTO enrollments (user_id, course_id, batch_id, enrolled_by)
-		 SELECT u.user_id, bc.course_id, $1, bc.assigned_by
+		 SELECT u.user_id, ca.content_id, $1, ca.assigned_by
 		 FROM unnest($2::uuid[]) AS u(user_id)
-		 JOIN batch_courses bc ON bc.batch_id = $1
+		 JOIN content_assignments ca ON ca.assignee_type = 'batch' AND ca.assignee_id = $1 AND ca.content_type = 'course'
 		 ON CONFLICT (user_id, course_id) DO NOTHING`,
 		batchID, userIDs); err != nil {
 		return fmt.Errorf("assessment: enroll in batch courses: %w", err)
@@ -362,10 +362,10 @@ func hashToken(raw string) string {
 
 func (r *Repo) AddBatchMentor(ctx context.Context, orgID, batchID, userID, addedBy string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO batch_mentors (batch_id, user_id, added_by)
-		 SELECT $1, $2, $3
+		`INSERT INTO batch_members (batch_id, user_id, role, added_by)
+		 SELECT $1, $2, 'mentor', $3
 		 WHERE EXISTS (SELECT 1 FROM batches WHERE id = $1 AND org_id = $4)
-		 ON CONFLICT (batch_id, user_id) DO NOTHING`,
+		 ON CONFLICT (batch_id, user_id) DO UPDATE SET role = 'mentor'`,
 		batchID, userID, addedBy, orgID)
 	if err != nil {
 		return fmt.Errorf("assessment: add batch mentor: %w", err)
@@ -375,8 +375,8 @@ func (r *Repo) AddBatchMentor(ctx context.Context, orgID, batchID, userID, added
 
 func (r *Repo) RemoveBatchMentor(ctx context.Context, orgID, batchID, userID string) error {
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM batch_mentors
-		 WHERE batch_id = $1 AND user_id = $2
+		`DELETE FROM batch_members
+		 WHERE batch_id = $1 AND user_id = $2 AND role = 'mentor'
 		   AND EXISTS (SELECT 1 FROM batches WHERE id = $1 AND org_id = $3)`,
 		batchID, userID, orgID)
 	if err != nil {
@@ -391,9 +391,9 @@ func (r *Repo) RemoveBatchMentor(ctx context.Context, orgID, batchID, userID str
 func (r *Repo) ListBatchMentors(ctx context.Context, orgID, batchID string) ([]BatchMentor, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT bm.user_id, u.name, u.email, bm.added_at
-		 FROM batch_mentors bm
+		 FROM batch_members bm
 		 JOIN users u ON u.id = bm.user_id
-		 WHERE bm.batch_id = $1
+		 WHERE bm.batch_id = $1 AND bm.role = 'mentor'
 		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $1 AND b.org_id = $2)
 		 ORDER BY bm.added_at`, batchID, orgID)
 	if err != nil {
@@ -413,11 +413,11 @@ func (r *Repo) ListBatchMentors(ctx context.Context, orgID, batchID string) ([]B
 
 func (r *Repo) AssignBatchCourse(ctx context.Context, orgID, batchID, courseID, assignedBy string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO batch_courses (batch_id, course_id, assigned_by)
-		 SELECT $1, $2, $3
+		`INSERT INTO content_assignments (content_type, content_id, assignee_type, assignee_id, assigned_by)
+		 SELECT 'course', $2, 'batch', $1, $3
 		 WHERE EXISTS (SELECT 1 FROM batches WHERE id = $1 AND org_id = $4)
 		   AND EXISTS (SELECT 1 FROM courses WHERE id = $2 AND org_id = $4)
-		 ON CONFLICT (batch_id, course_id) DO NOTHING`,
+		 ON CONFLICT (content_type, content_id, assignee_type, assignee_id) DO NOTHING`,
 		batchID, courseID, assignedBy, orgID)
 	if err != nil {
 		return fmt.Errorf("assessment: assign batch course: %w", err)
@@ -427,8 +427,8 @@ func (r *Repo) AssignBatchCourse(ctx context.Context, orgID, batchID, courseID, 
 
 func (r *Repo) UnassignBatchCourse(ctx context.Context, orgID, batchID, courseID string) error {
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM batch_courses
-		 WHERE batch_id = $1 AND course_id = $2
+		`DELETE FROM content_assignments
+		 WHERE content_type = 'course' AND content_id = $2 AND assignee_type = 'batch' AND assignee_id = $1
 		   AND EXISTS (SELECT 1 FROM batches WHERE id = $1 AND org_id = $3)`,
 		batchID, courseID, orgID)
 	if err != nil {
@@ -442,12 +442,12 @@ func (r *Repo) UnassignBatchCourse(ctx context.Context, orgID, batchID, courseID
 
 func (r *Repo) ListBatchCourses(ctx context.Context, orgID, batchID string) ([]BatchCourse, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT bc.course_id, c.title, c.slug, c.difficulty, bc.assigned_at
-		 FROM batch_courses bc
-		 JOIN courses c ON c.id = bc.course_id
-		 WHERE bc.batch_id = $1
+		`SELECT ca.content_id, c.title, c.slug, c.difficulty, ca.assigned_at
+		 FROM content_assignments ca
+		 JOIN courses c ON c.id = ca.content_id
+		 WHERE ca.assignee_type = 'batch' AND ca.assignee_id = $1 AND ca.content_type = 'course'
 		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $1 AND b.org_id = $2)
-		 ORDER BY bc.assigned_at`, batchID, orgID)
+		 ORDER BY ca.assigned_at`, batchID, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("assessment: list batch courses: %w", err)
 	}
@@ -708,7 +708,8 @@ func (r *Repo) GetBatchProgress(ctx context.Context, orgID, batchID string) ([]M
 		   AND ls.lab_id IN (
 		     SELECT ld.id FROM lab_definitions ld
 		     JOIN course_modules cm ON cm.id = ld.module_id
-		     JOIN batch_courses bc ON bc.course_id = cm.course_id AND bc.batch_id = $1
+		     JOIN content_assignments ca ON ca.content_type = 'course' AND ca.content_id = cm.course_id
+		       AND ca.assignee_type = 'batch' AND ca.assignee_id = $1
 		   )
 		 LEFT JOIN lab_task_completions ltc ON ltc.session_id = ls.id
 		 LEFT JOIN LATERAL (

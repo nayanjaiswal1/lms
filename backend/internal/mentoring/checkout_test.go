@@ -30,7 +30,7 @@ func seedCheckoutCoupon(t *testing.T, pool *pgxpool.Pool, orgID string, percent 
 // TestStartCheckout_CouponHeldByOpenCheckout proves the same one-per-customer
 // coupon cannot back two simultaneous discounted checkouts on two different
 // courses. coupon_redemptions is only written at webhook confirmation, so
-// without ux_course_purchases_coupon_user_open (009_coupon_hold_guard.sql)
+// without ux_purchases_coupon_user_open (009_coupon_hold_guard.sql)
 // both checkouts would be created — and both would be charged the discounted
 // price, since confirmPurchase deliberately enrolls even when the redemption
 // loses its race.
@@ -49,7 +49,7 @@ func TestStartCheckout_CouponHeldByOpenCheckout(t *testing.T) {
 	if _, err := svc.StartCheckout(ctx, req); err != nil {
 		t.Fatalf("first checkout: %v", err)
 	}
-	t.Cleanup(func() { pool.Exec(ctx, `DELETE FROM course_purchases WHERE user_id = $1`, userID) }) //nolint:errcheck
+	t.Cleanup(func() { pool.Exec(ctx, `DELETE FROM purchases WHERE user_id = $1`, userID) }) //nolint:errcheck
 
 	req.CourseID = courseB
 	_, err := svc.StartCheckout(ctx, req)
@@ -77,7 +77,7 @@ func TestStartCheckout_ZeroTotalCompletesImmediately(t *testing.T) {
 	if err != nil {
 		t.Fatalf("zero-total checkout: %v", err)
 	}
-	t.Cleanup(func() { pool.Exec(ctx, `DELETE FROM course_purchases WHERE user_id = $1`, userID) }) //nolint:errcheck
+	t.Cleanup(func() { pool.Exec(ctx, `DELETE FROM purchases WHERE user_id = $1`, userID) }) //nolint:errcheck
 
 	if session.Status != PurchaseStatusCompleted || session.AmountCents != 0 {
 		t.Fatalf("expected a completed zero-total session, got status %q amount %d", session.Status, session.AmountCents)

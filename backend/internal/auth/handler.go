@@ -286,9 +286,9 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	expires := time.Now().Add(h.cfg.EmailVerificationTTL)
 	if _, err := tx.Exec(r.Context(),
-		`INSERT INTO email_verifications (user_id, token_hash, expires_at)
-		 VALUES ($1, $2, $3)`,
-		userID, emailTokenHash, expires,
+		`INSERT INTO auth_tokens (purpose, token_hash, user_id, expires_at)
+		 VALUES ('email_verify', $1, $2, $3)`,
+		emailTokenHash, userID, expires,
 	); err != nil {
 		slog.Error("auth: register insert email_verification", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Registration failed.")
@@ -723,8 +723,8 @@ func (h *Handler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 
 	var evID, userID string
 	err := h.pool.QueryRow(r.Context(),
-		`SELECT id, user_id FROM email_verifications
-		 WHERE token_hash = $1 AND verified_at IS NULL AND expires_at > now()`,
+		`SELECT id, user_id FROM auth_tokens
+		 WHERE purpose = 'email_verify' AND token_hash = $1 AND consumed_at IS NULL AND expires_at > now()`,
 		tokenHash,
 	).Scan(&evID, &userID)
 	if err != nil {
@@ -741,7 +741,7 @@ func (h *Handler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context()) //nolint:errcheck
 
 	if _, err := tx.Exec(r.Context(),
-		`UPDATE email_verifications SET verified_at = now() WHERE id = $1`, evID,
+		`UPDATE auth_tokens SET consumed_at = now() WHERE id = $1`, evID,
 	); err != nil {
 		slog.Error("auth: verify-email update token", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Verification failed.")
@@ -807,9 +807,9 @@ func (h *Handler) HandleResendVerification(w http.ResponseWriter, r *http.Reques
 
 	expires := time.Now().Add(h.cfg.EmailVerificationTTL)
 	if _, err := h.pool.Exec(r.Context(),
-		`INSERT INTO email_verifications (user_id, token_hash, expires_at)
-		 VALUES ($1, $2, $3)`,
-		userID, emailTokenHash, expires,
+		`INSERT INTO auth_tokens (purpose, token_hash, user_id, expires_at)
+		 VALUES ('email_verify', $1, $2, $3)`,
+		emailTokenHash, userID, expires,
 	); err != nil {
 		slog.Error("auth: resend-verification insert token", "error", err)
 		httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
@@ -863,8 +863,8 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	// link that leaked from an inbox or a proxy log keeps working even after the
 	// user has requested a fresh one.
 	if _, err := h.pool.Exec(r.Context(),
-		`UPDATE password_reset_tokens SET used_at = now()
-		 WHERE user_id = $1 AND used_at IS NULL`,
+		`UPDATE auth_tokens SET consumed_at = now()
+		 WHERE purpose = 'password_reset' AND user_id = $1 AND consumed_at IS NULL`,
 		userID,
 	); err != nil {
 		slog.Error("auth: forgot-password supersede outstanding tokens", "error", err)
@@ -881,9 +881,9 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	expires := time.Now().Add(h.cfg.PasswordResetTTL)
 	if _, err := h.pool.Exec(r.Context(),
-		`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-		 VALUES ($1, $2, $3)`,
-		userID, tokenHash, expires,
+		`INSERT INTO auth_tokens (purpose, token_hash, user_id, expires_at)
+		 VALUES ('password_reset', $1, $2, $3)`,
+		tokenHash, userID, expires,
 	); err != nil {
 		slog.Error("auth: forgot-password insert token", "error", err)
 		httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
@@ -923,9 +923,9 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	var userID, userEmail, userName string
 	err := h.pool.QueryRow(r.Context(),
 		`SELECT prt.user_id, u.email, u.name
-		 FROM password_reset_tokens prt
+		 FROM auth_tokens prt
 		 JOIN users u ON u.id = prt.user_id
-		 WHERE prt.token_hash = $1 AND prt.used_at IS NULL AND prt.expires_at > now()`,
+		 WHERE prt.purpose = 'password_reset' AND prt.token_hash = $1 AND prt.consumed_at IS NULL AND prt.expires_at > now()`,
 		tokenHash,
 	).Scan(&userID, &userEmail, &userName)
 	if err != nil {
@@ -976,8 +976,8 @@ func (h *Handler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	// Consume every outstanding reset token for the account, not just the one
 	// presented, so a second link mailed earlier cannot be redeemed afterwards.
 	if _, err := tx.Exec(r.Context(),
-		`UPDATE password_reset_tokens SET used_at = now()
-		 WHERE user_id = $1 AND used_at IS NULL`, userID,
+		`UPDATE auth_tokens SET consumed_at = now()
+		 WHERE purpose = 'password_reset' AND user_id = $1 AND consumed_at IS NULL`, userID,
 	); err != nil {
 		slog.Error("auth: reset-password mark token used", "error", err)
 		httputil.WriteError(w, http.StatusInternalServerError, "Password reset failed.")

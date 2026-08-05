@@ -1,6 +1,7 @@
 import { Sparkles, AlertCircle, ListChecks } from "lucide-react";
 import type { RevisionPlan } from "@/lib/server/revision-plan";
 import { GenerateRevisionPlanButton } from "@/components/revision-plan/generate-revision-plan-button";
+import { IconMessage } from "@/components/shared/icon-message";
 
 interface RevisionPlanCardProps {
   courseId: string;
@@ -43,12 +44,15 @@ export function RevisionPlanCard({ courseId, plan }: RevisionPlanCardProps) {
       </div>
 
       {plan.status === "generating" && (
-        <div className="flex items-center gap-3 rounded-md border border-ai/20 bg-background/50 p-4">
-          <Sparkles aria-hidden className="h-5 w-5 shrink-0 text-ai" />
-          <p className="text-sm">
-            AI is analyzing your performance across this course. This page refreshes automatically.
-          </p>
-        </div>
+        <IconMessage
+          className="rounded-md border border-ai/20 bg-background/50 p-4"
+          icon={Sparkles}
+          size="md"
+          tone="ai"
+          variant="plain"
+        >
+          AI is analyzing your performance across this course. This page refreshes automatically.
+        </IconMessage>
       )}
 
       {plan.status === "failed" && (
@@ -68,8 +72,8 @@ export function RevisionPlanCard({ courseId, plan }: RevisionPlanCardProps) {
         <ol className="flex flex-col gap-3">
           {plan.topics.map((topic) => (
             <li className="flex flex-col gap-1 rounded-lg border border-border p-3" key={topic.id}>
-              <div className="flex items-center gap-2">
-                <ListChecks aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="flex items-start gap-2">
+                <ListChecks aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                 <span className="text-sm font-medium">{topic.title}</span>
               </div>
               <p className="text-xs text-muted-foreground">{topic.reason}</p>

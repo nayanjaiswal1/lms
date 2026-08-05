@@ -82,10 +82,11 @@ type Course struct {
 	// default) from a student's own private course ("self"). OwnerID is set
 	// only for kind="self" — the one user who can read/edit it and whose
 	// connected AI (via MCP) is allowed to write its modules directly.
-	Kind      string    `json:"kind"`
-	OwnerID   *string   `json:"owner_id,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Kind                      string    `json:"kind"`
+	OwnerID                   *string   `json:"owner_id,omitempty"`
+	CertificateThresholdPercent *int    `json:"certificate_threshold_percent,omitempty"`
+	CreatedAt                 time.Time `json:"created_at"`
+	UpdatedAt                 time.Time `json:"updated_at"`
 }
 
 // CourseReview is one student's star rating (1-5) for a course. A user may

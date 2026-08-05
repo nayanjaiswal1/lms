@@ -486,13 +486,6 @@ export const PRACTICE_TECHNOLOGY_OPTIONS = [
 // Mentoring — tickets, reports, ratings
 // ─────────────────────────────────────────────
 
-export const MENTOR_TICKET_STATUS = {
-  OPEN:     "open",
-  ASSIGNED: "assigned",
-  CLOSED:   "closed",
-} as const;
-export type MentorTicketStatus = (typeof MENTOR_TICKET_STATUS)[keyof typeof MENTOR_TICKET_STATUS];
-
 export const MENTOR_REPORT_REASON = {
   UNRESPONSIVE:            "unresponsive",
   INAPPROPRIATE_BEHAVIOR:  "inappropriate_behavior",
@@ -873,50 +866,67 @@ export const HABIT_COLOR_OPTIONS = [
 ] as const;
 
 // ─────────────────────────────────────────────
-// Support — helpdesk tickets
+// Tickets — shared support + mentorship ticket lifecycle
+// (backend/internal/tickets; kind=support|mentorship)
 // ─────────────────────────────────────────────
 
-export const SUPPORT_TICKET_STATUS = {
+export const TICKET_KIND = {
+  SUPPORT: "support",
+  MENTORSHIP: "mentorship",
+} as const;
+export type TicketKind = (typeof TICKET_KIND)[keyof typeof TICKET_KIND];
+
+// Union of both kinds' status vocabularies — in_progress/resolved are
+// support-only, assigned is mentorship-only (mirrors tickets.IsValidStatus).
+export const TICKET_STATUS = {
   OPEN:        "open",
   IN_PROGRESS: "in_progress",
+  ASSIGNED:    "assigned",
   RESOLVED:    "resolved",
   CLOSED:      "closed",
 } as const;
-export type SupportTicketStatus = (typeof SUPPORT_TICKET_STATUS)[keyof typeof SUPPORT_TICKET_STATUS];
+export type TicketStatus = (typeof TICKET_STATUS)[keyof typeof TICKET_STATUS];
 
-export const SUPPORT_TICKET_STATUS_OPTIONS = [
-  { label: "Open",        value: SUPPORT_TICKET_STATUS.OPEN },
-  { label: "In progress", value: SUPPORT_TICKET_STATUS.IN_PROGRESS },
-  { label: "Resolved",    value: SUPPORT_TICKET_STATUS.RESOLVED },
-  { label: "Closed",      value: SUPPORT_TICKET_STATUS.CLOSED },
+export const SUPPORT_STATUS_OPTIONS = [
+  { label: "Open",        value: TICKET_STATUS.OPEN },
+  { label: "In progress", value: TICKET_STATUS.IN_PROGRESS },
+  { label: "Resolved",    value: TICKET_STATUS.RESOLVED },
+  { label: "Closed",      value: TICKET_STATUS.CLOSED },
 ] as const;
 
-export const SUPPORT_TICKET_CATEGORY = {
+export const MENTOR_STATUS_OPTIONS = [
+  { label: "Open",     value: TICKET_STATUS.OPEN },
+  { label: "Assigned", value: TICKET_STATUS.ASSIGNED },
+  { label: "Closed",   value: TICKET_STATUS.CLOSED },
+] as const;
+
+// Category/priority — support tickets only.
+export const TICKET_CATEGORY = {
   TECHNICAL:      "technical",
   BILLING:        "billing",
   ACCOUNT:        "account",
   COURSE_CONTENT: "course_content",
   OTHER:          "other",
 } as const;
-export type SupportTicketCategory = (typeof SUPPORT_TICKET_CATEGORY)[keyof typeof SUPPORT_TICKET_CATEGORY];
+export type TicketCategory = (typeof TICKET_CATEGORY)[keyof typeof TICKET_CATEGORY];
 
-export const SUPPORT_TICKET_CATEGORY_OPTIONS = [
-  { label: "Technical issue", value: SUPPORT_TICKET_CATEGORY.TECHNICAL },
-  { label: "Billing",         value: SUPPORT_TICKET_CATEGORY.BILLING },
-  { label: "Account",         value: SUPPORT_TICKET_CATEGORY.ACCOUNT },
-  { label: "Course content",  value: SUPPORT_TICKET_CATEGORY.COURSE_CONTENT },
-  { label: "Other",           value: SUPPORT_TICKET_CATEGORY.OTHER },
+export const TICKET_CATEGORY_OPTIONS = [
+  { label: "Technical issue", value: TICKET_CATEGORY.TECHNICAL },
+  { label: "Billing",         value: TICKET_CATEGORY.BILLING },
+  { label: "Account",         value: TICKET_CATEGORY.ACCOUNT },
+  { label: "Course content",  value: TICKET_CATEGORY.COURSE_CONTENT },
+  { label: "Other",           value: TICKET_CATEGORY.OTHER },
 ] as const;
 
-export const SUPPORT_TICKET_PRIORITY = {
+export const TICKET_PRIORITY = {
   LOW:    "low",
   NORMAL: "normal",
   HIGH:   "high",
 } as const;
-export type SupportTicketPriority = (typeof SUPPORT_TICKET_PRIORITY)[keyof typeof SUPPORT_TICKET_PRIORITY];
+export type TicketPriority = (typeof TICKET_PRIORITY)[keyof typeof TICKET_PRIORITY];
 
-export const SUPPORT_TICKET_PRIORITY_OPTIONS = [
-  { label: "Low",    value: SUPPORT_TICKET_PRIORITY.LOW },
-  { label: "Normal", value: SUPPORT_TICKET_PRIORITY.NORMAL },
-  { label: "High",   value: SUPPORT_TICKET_PRIORITY.HIGH },
+export const TICKET_PRIORITY_OPTIONS = [
+  { label: "Low",    value: TICKET_PRIORITY.LOW },
+  { label: "Normal", value: TICKET_PRIORITY.NORMAL },
+  { label: "High",   value: TICKET_PRIORITY.HIGH },
 ] as const;

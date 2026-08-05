@@ -13,6 +13,7 @@ import {
   Shield,
   UserCheck,
   Ticket,
+  LifeBuoy,
   BookmarkCheck,
   Calendar,
   CalendarClock,
@@ -146,6 +147,12 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:               UserCheck,
     hideForPermission:  "admin.view_members",
   },
+
+  support: {
+    label:  "Help & Support",
+    href:   ROUTES.SUPPORT,
+    icon:   LifeBuoy,
+  },
   sessions: {
     label:   "My Sessions",
     href:    ROUTES.SESSIONS,
@@ -170,12 +177,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label: "Saved Highlights",
     href:  ROUTES.HIGHLIGHTS,
     icon:  BookmarkCheck,
-  },
-  support_queue: {
-    label:               "Support Queue",
-    href:                ROUTES.SUPPORT_QUEUE,
-    icon:                Ticket,
-    requiredPermission:  "support.manage",
   },
   flashcards: {
     label:               "Review Cards",
@@ -261,7 +262,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label:               "Ticket Queue",
     href:                ROUTES.MENTORING_TICKETS,
     icon:                Ticket,
-    requiredPermission:  "mentoring.manage_batches",
+    requiredPermission:  "mentoring.view_tickets",
   },
 
   admin_rbac: {
@@ -440,6 +441,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,
+      ALL_NAV_ITEMS.support,
       ALL_NAV_ITEMS.sessions,
       ALL_NAV_ITEMS.calendar,
     ],
@@ -450,7 +452,6 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.teach_hub,
       ALL_NAV_ITEMS.cohort_groups,
-      ALL_NAV_ITEMS.support_queue,
     ],
   },
   {

@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-07-27T17:35:21Z
+-- Generated at: 2026-08-05T02:25:44Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: 45-Day Interview Preparation Bootcamp ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, estimated_hours)
-VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), 20+ system design exercises plus low-level/OOP design, backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 'published', true, 201.2)
+VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), 20+ system design exercises plus low-level/OOP design, backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 'published', true, 201.3)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 -- Section: DSA — Data Structures & Algorithms
@@ -9710,6 +9710,173 @@ Event Logging (impressions + downstream metric events) --> Analytics Pipeline --
 $md$, 15, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('d04e08a3-e875-5e46-b5f3-cd6a947fc35f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Notes: Consistent Hashing', 'notes', 91, $md$Consistent hashing is one of the few system-design building blocks interviewers expect you to derive on the spot, not just name-drop — it's the mechanism behind Dynamo, Cassandra, memcached client sharding, and most CDN/load-balancer request routing. If you can explain *why* plain `hash(key) % N` breaks and *how* the ring fixes it, you've demonstrated the exact kind of first-principles reasoning these interviews are built to test.
+
+## The problem: modulo hashing doesn't survive resizing
+
+The naive way to shard data across `N` servers is `server = hash(key) % N`. It works fine until `N` changes — add or remove a single server and `% N` becomes `% (N±1)`, which reassigns almost **every** key to a different server, not just the keys that belong on the new one. For a cache, that's a near-total cache miss storm; for a database, it's a massive, unnecessary data migration triggered by a single node joining or leaving.
+
+Interviewers ask this to check whether you reason about **failure and scaling as first-class requirements**, not edge cases — servers going up and down is the normal operating condition of a distributed system, not an exception.
+
+## The idea: a hash ring
+
+Consistent hashing maps both **servers** and **keys** onto the same fixed circular space (typically `0` to `2^32 - 1`, using a hash function like MD5 or MurmurHash). A key is owned by the first server encountered walking clockwise from the key's position on the ring.
+
+```
+                    hash space: a ring, 0 .. 2^32-1
+
+                            0 / 2^32
+                              |
+                    Server D  *
+                         .        .
+                    .                .
+              key "session:42"          Server A
+              hash -> lands here   *          *
+                    .          walk CW    .
+                       .        |      .
+                    Server C *--+---* Server B
+                              |
+                        (owns everything
+                         clockwise back
+                         to Server A)
+```
+
+- **Adding a server** only steals the keys between its new ring position and the previous server clockwise from it — every other key stays put. Only `~1/N` of keys move, not nearly all of them.
+- **Removing a server** only reassigns that server's keys to the next server clockwise — again, a small, local blast radius instead of a global reshuffle.
+
+This is the entire point: **ring membership changes cause proportional, local key movement instead of global reshuffling.**
+
+## Virtual nodes (the part people forget)
+
+Placing each physical server at a single random ring position causes two problems: uneven load (some servers own a much bigger arc than others by chance) and an all-or-nothing failover (when a server dies, 100% of its keys land on exactly one neighbor, doubling that neighbor's load).
+
+The fix: hash each physical server into **many** points on the ring (100-200 virtual nodes is typical), each labeled `server-A#1`, `server-A#2`, etc. A key still resolves to "the first virtual node clockwise," but that virtual node's physical owner is what actually serves the request.
+
+```
+Ring with virtual nodes (letters = physical server owning that point):
+
+  A1  B2  C1  A2  B1  C3  A3  C2  B3  A1 ...
+
+  - Load evens out: each physical server owns many small,
+    scattered arcs instead of one large arc.
+  - Failover spreads out: when server B dies, its keys
+    (B1, B2, B3) land on several different neighbors,
+    not one.
+```
+
+More virtual nodes → smoother load distribution, at the cost of more ring metadata to store and traverse. Real systems (Cassandra, Dynamo) tune this count based on cluster size.
+
+## System design considerations
+
+- **Ring lookup structure.** Keep virtual node positions in a sorted structure (a balanced tree, or a sorted array with binary search) so "find the first node clockwise from `hash(key)`" is O(log V) where V is the number of virtual nodes — not a linear scan.
+- **Replication.** For durability, a key is usually stored on the N *distinct physical* servers encountered walking clockwise from its position (skipping virtual nodes that map back to an already-selected physical server) — this is exactly how Dynamo-style systems place replicas.
+- **Heterogeneous capacity.** A server with 2x the RAM/disk of its peers gets 2x the virtual nodes, so it owns proportionally more of the ring — virtual node count is a natural capacity-weighting knob, not just a load-smoothing one.
+- **Client-side vs server-side.** memcached clients typically compute the ring locally (every client needs the same server list); Dynamo/Cassandra maintain ring membership via gossip between nodes instead, so clients don't need cluster topology knowledge.
+
+## Common pitfalls
+
+- **Forgetting virtual nodes entirely** — a bare hash ring with one point per server has bad load balance and bad failover blast radius; interviewers listen for whether you bring this up unprompted.
+- **Using a weak hash function** — a poor hash clusters keys/servers unevenly on the ring regardless of virtual nodes; a well-distributed hash (MurmurHash, SHA-based) matters as much as the ring structure itself.
+- **Conflating consistent hashing with data consistency** — the name is about hashing being *consistent under membership change*, not about strong vs eventual consistency of the stored data; interviewers sometimes probe this distinction directly.
+
+## Key takeaways
+
+- Plain `hash(key) % N` reshuffles almost all keys on every server add/remove — consistent hashing fixes this by mapping servers and keys onto the same ring so only `~1/N` of keys move per membership change.
+- Virtual nodes (100-200 per physical server) fix uneven load and concentrated failover blast radius that a single-point-per-server ring suffers from.
+- Replicas are placed by walking clockwise to the next N distinct physical servers — the same ring structure that assigns primary ownership also derives replica placement.
+- Virtual node count doubles as a capacity-weighting knob for heterogeneous hardware, not just a load-smoothing parameter.
+$md$, 20, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('71d80ada-c336-5ff7-a1a6-a8b69cb60005', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '18add646-da46-5396-ac6e-b7bbd367501c', 'Notes: Dataclasses, Monkey Patching & Deep vs Shallow Copy', 'notes', 109, $md$Backend/103's stdlib reference mentions `dataclasses` in one line ("auto-generate `__init__`/`__repr__`/`__eq__`"); this note covers the parts that actually come up when asked to use one. Monkey patching and Python's `copy`/`copy.deepcopy` semantics aren't covered anywhere in the course — both are common "gotcha" questions once basic OOP is out of the way.
+
+## Dataclasses beyond the one-liner
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass(frozen=True, order=True)
+class Point:
+    x: float
+    y: float
+    tags: list[str] = field(default_factory=list)  # never use a mutable literal default
+
+    def __post_init__(self):
+        if self.x < 0 or self.y < 0:
+            raise ValueError("coordinates must be non-negative")
+```
+
+- **`@dataclass` alone** generates `__init__`, `__repr__`, and `__eq__` (field-by-field comparison) — the boilerplate you'd otherwise hand-write for a plain data-holding class.
+- **`field(default_factory=list)`** — a mutable default (`tags: list[str] = []`) would be the classic Python footgun: the *same* list object gets shared across every instance, since default argument values are evaluated once at function-definition time, not per call. `default_factory` defers construction to instance-creation time, giving each instance its own list.
+- **`frozen=True`** makes instances immutable after `__init__` — attribute assignment raises `FrozenInstanceError`. Use this for value objects that should never mutate (safe to hash, safe to share across threads).
+- **`order=True`** generates `__lt__`, `__le__`, `__gt__`, `__ge__` based on field order, so instances become sortable (`sorted(points)`) without hand-writing comparison methods.
+- **`__post_init__`** runs immediately after the generated `__init__` — the place for validation or derived-field computation that plain field defaults can't express.
+- **When to reach for a dataclass vs Pydantic:** dataclasses are the stdlib choice when you just need structured data with generated boilerplate and no runtime validation. Pydantic (used throughout FastAPI in this course) adds actual type validation, coercion, and JSON schema generation on top — reach for it when the data crosses a trust boundary (API request bodies); reach for a plain dataclass for internal, already-trusted data structures.
+
+## Monkey patching
+
+Monkey patching means modifying or replacing an attribute, method, or function on a class or module **at runtime**, from outside its original definition — not editing the source file, but reaching in and swapping the implementation while the program runs.
+
+```python
+import requests
+
+def fake_get(url, *args, **kwargs):
+    class FakeResponse:
+        status_code = 200
+        def json(self): return {"mocked": True}
+    return FakeResponse()
+
+requests.get = fake_get  # monkey patch: replace the real function with a fake one
+```
+
+**Legitimate use cases:**
+- **Testing** — this is exactly what `unittest.mock.patch` does under the hood (see the API-security note's mocking section): temporarily replace a real dependency with a controllable fake for the duration of a test.
+- **Working around a bug in a third-party library** without forking it, as a stopgap until an upstream fix ships.
+- **Adding missing functionality to a library at runtime** (rare, and usually a sign you should vendor or fork instead).
+
+**Why it's risky outside of tests:**
+- **Fragility** — the patch silently breaks if the library's internal structure changes in a later version; nothing warns you at import time.
+- **Debugging difficulty** — a function behaving differently than its own source code shows is deeply confusing to anyone (including future-you) reading the codebase later.
+- **Global side effects** — patching a module-level attribute (like `requests.get` above) affects *every* caller of that module for the rest of the process, not just your intended call site — this is why test frameworks patch narrowly and always undo the patch (`unittest.mock.patch` restores the original automatically when the context manager/decorator exits).
+
+**Interview framing:** monkey patching is a legitimate, well-understood testing tool (that's precisely what mocking libraries formalize), but reaching for it in production application code is usually a design smell — it means the code couldn't be made testable/extensible through normal means (dependency injection, subclassing), so it's being forced from the outside instead.
+
+## Deep copy vs shallow copy (Python's `copy` module)
+
+```python
+import copy
+
+original = {"name": "Alice", "scores": [90, 85, 95]}
+
+shallow = copy.copy(original)        # or original.copy(), or dict(original)
+deep = copy.deepcopy(original)
+
+shallow["scores"].append(100)   # mutates the SAME list object original["scores"] points to
+print(original["scores"])       # [90, 85, 95, 100] — original was affected!
+
+deep["scores"].append(100)      # deepcopy made an independent nested list
+print(original["scores"])       # unaffected by the deep copy's mutation
+```
+
+- **Shallow copy** creates a new top-level container, but the elements inside it are the *same objects* (same references) as in the original — mutating a nested mutable object (a list, dict, or custom object) through the copy also mutates the original, because there's only one such object, referenced twice.
+- **Deep copy** recursively copies every nested object, so the copy is fully independent — mutating anything inside it never touches the original.
+- **Immutable nested values (ints, strings, tuples of immutables) behave identically either way** — since they can't be mutated in place, sharing a reference to them is indistinguishable from having a separate copy. The distinction only matters when nested objects are mutable.
+
+**Gotchas:**
+- **Circular references** — an object that (directly or indirectly) contains a reference to itself would cause naive recursive copying to loop forever. `copy.deepcopy` handles this correctly via a `memo` dict that tracks already-copied objects by `id()`, reusing the copy instead of recursing again — you get this for free, but it's worth knowing *why* `deepcopy` doesn't hang on a circular structure.
+- **Performance** — `deepcopy` is meaningfully slower than a shallow copy for large/deeply nested structures, since it walks and copies the entire object graph. Don't reach for it by default; use it specifically when independence from the original is required.
+- **Custom classes** can override the copy behavior via `__copy__` and `__deepcopy__` dunder methods if the default recursive behavior isn't correct for that type (e.g. a class wrapping a database connection, which should never be naively duplicated).
+
+## Key takeaways
+
+- `field(default_factory=...)` avoids the shared-mutable-default bug; `frozen=True` makes instances immutable/hashable; `__post_init__` is where validation goes.
+- Monkey patching (runtime attribute/method replacement) is exactly what mocking libraries formalize for tests — legitimate there, a design smell in production code because it's fragile, hard to debug, and has global side effects on the patched module.
+- Shallow copy duplicates the container but shares nested mutable objects with the original; deep copy recursively duplicates everything, at a real performance cost.
+- `copy.deepcopy` handles circular references safely via a memo dict tracking already-copied objects by identity.
+$md$, 15, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
 -- Section: Backend Engineering
 INSERT INTO course_sections (id, course_id, title, position)
 VALUES ('18add646-da46-5396-ac6e-b7bbd367501c', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Backend Engineering', 3)
@@ -15441,95 +15608,6 @@ class BankAccount:
 - Abstraction hides *complexity* (the how) behind a simple interface; encapsulation hides *data* (the state) behind controlled access. They're complementary, not the same thing.
 - Operator overloading (`__add__`, `__eq__`, etc.) is polymorphism applied to Python's built-in operators.
 $md$, 20, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('71d80ada-c336-5ff7-a1a6-a8b69cb60005', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '18add646-da46-5396-ac6e-b7bbd367501c', 'Notes: Dataclasses, Monkey Patching & Deep vs Shallow Copy', 'notes', 109, $md$Backend/103's stdlib reference mentions `dataclasses` in one line ("auto-generate `__init__`/`__repr__`/`__eq__`"); this note covers the parts that actually come up when asked to use one. Monkey patching and Python's `copy`/`copy.deepcopy` semantics aren't covered anywhere in the course — both are common "gotcha" questions once basic OOP is out of the way.
-
-## Dataclasses beyond the one-liner
-
-```python
-from dataclasses import dataclass, field
-
-@dataclass(frozen=True, order=True)
-class Point:
-    x: float
-    y: float
-    tags: list[str] = field(default_factory=list)  # never use a mutable literal default
-
-    def __post_init__(self):
-        if self.x < 0 or self.y < 0:
-            raise ValueError("coordinates must be non-negative")
-```
-
-- **`@dataclass` alone** generates `__init__`, `__repr__`, and `__eq__` (field-by-field comparison) — the boilerplate you'd otherwise hand-write for a plain data-holding class.
-- **`field(default_factory=list)`** — a mutable default (`tags: list[str] = []`) would be the classic Python footgun: the *same* list object gets shared across every instance, since default argument values are evaluated once at function-definition time, not per call. `default_factory` defers construction to instance-creation time, giving each instance its own list.
-- **`frozen=True`** makes instances immutable after `__init__` — attribute assignment raises `FrozenInstanceError`. Use this for value objects that should never mutate (safe to hash, safe to share across threads).
-- **`order=True`** generates `__lt__`, `__le__`, `__gt__`, `__ge__` based on field order, so instances become sortable (`sorted(points)`) without hand-writing comparison methods.
-- **`__post_init__`** runs immediately after the generated `__init__` — the place for validation or derived-field computation that plain field defaults can't express.
-- **When to reach for a dataclass vs Pydantic:** dataclasses are the stdlib choice when you just need structured data with generated boilerplate and no runtime validation. Pydantic (used throughout FastAPI in this course) adds actual type validation, coercion, and JSON schema generation on top — reach for it when the data crosses a trust boundary (API request bodies); reach for a plain dataclass for internal, already-trusted data structures.
-
-## Monkey patching
-
-Monkey patching means modifying or replacing an attribute, method, or function on a class or module **at runtime**, from outside its original definition — not editing the source file, but reaching in and swapping the implementation while the program runs.
-
-```python
-import requests
-
-def fake_get(url, *args, **kwargs):
-    class FakeResponse:
-        status_code = 200
-        def json(self): return {"mocked": True}
-    return FakeResponse()
-
-requests.get = fake_get  # monkey patch: replace the real function with a fake one
-```
-
-**Legitimate use cases:**
-- **Testing** — this is exactly what `unittest.mock.patch` does under the hood (see the API-security note's mocking section): temporarily replace a real dependency with a controllable fake for the duration of a test.
-- **Working around a bug in a third-party library** without forking it, as a stopgap until an upstream fix ships.
-- **Adding missing functionality to a library at runtime** (rare, and usually a sign you should vendor or fork instead).
-
-**Why it's risky outside of tests:**
-- **Fragility** — the patch silently breaks if the library's internal structure changes in a later version; nothing warns you at import time.
-- **Debugging difficulty** — a function behaving differently than its own source code shows is deeply confusing to anyone (including future-you) reading the codebase later.
-- **Global side effects** — patching a module-level attribute (like `requests.get` above) affects *every* caller of that module for the rest of the process, not just your intended call site — this is why test frameworks patch narrowly and always undo the patch (`unittest.mock.patch` restores the original automatically when the context manager/decorator exits).
-
-**Interview framing:** monkey patching is a legitimate, well-understood testing tool (that's precisely what mocking libraries formalize), but reaching for it in production application code is usually a design smell — it means the code couldn't be made testable/extensible through normal means (dependency injection, subclassing), so it's being forced from the outside instead.
-
-## Deep copy vs shallow copy (Python's `copy` module)
-
-```python
-import copy
-
-original = {"name": "Alice", "scores": [90, 85, 95]}
-
-shallow = copy.copy(original)        # or original.copy(), or dict(original)
-deep = copy.deepcopy(original)
-
-shallow["scores"].append(100)   # mutates the SAME list object original["scores"] points to
-print(original["scores"])       # [90, 85, 95, 100] — original was affected!
-
-deep["scores"].append(100)      # deepcopy made an independent nested list
-print(original["scores"])       # unaffected by the deep copy's mutation
-```
-
-- **Shallow copy** creates a new top-level container, but the elements inside it are the *same objects* (same references) as in the original — mutating a nested mutable object (a list, dict, or custom object) through the copy also mutates the original, because there's only one such object, referenced twice.
-- **Deep copy** recursively copies every nested object, so the copy is fully independent — mutating anything inside it never touches the original.
-- **Immutable nested values (ints, strings, tuples of immutables) behave identically either way** — since they can't be mutated in place, sharing a reference to them is indistinguishable from having a separate copy. The distinction only matters when nested objects are mutable.
-
-**Gotchas:**
-- **Circular references** — an object that (directly or indirectly) contains a reference to itself would cause naive recursive copying to loop forever. `copy.deepcopy` handles this correctly via a `memo` dict that tracks already-copied objects by `id()`, reusing the copy instead of recursing again — you get this for free, but it's worth knowing *why* `deepcopy` doesn't hang on a circular structure.
-- **Performance** — `deepcopy` is meaningfully slower than a shallow copy for large/deeply nested structures, since it walks and copies the entire object graph. Don't reach for it by default; use it specifically when independence from the original is required.
-- **Custom classes** can override the copy behavior via `__copy__` and `__deepcopy__` dunder methods if the default recursive behavior isn't correct for that type (e.g. a class wrapping a database connection, which should never be naively duplicated).
-
-## Key takeaways
-
-- `field(default_factory=...)` avoids the shared-mutable-default bug; `frozen=True` makes instances immutable/hashable; `__post_init__` is where validation goes.
-- Monkey patching (runtime attribute/method replacement) is exactly what mocking libraries formalize for tests — legitimate there, a design smell in production code because it's fragile, hard to debug, and has global side effects on the patched module.
-- Shallow copy duplicates the container but shares nested mutable objects with the original; deep copy recursively duplicates everything, at a real performance cost.
-- `copy.deepcopy` handles circular references safely via a memo dict tracking already-copied objects by identity.
-$md$, 15, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)

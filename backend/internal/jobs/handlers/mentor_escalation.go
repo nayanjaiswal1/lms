@@ -84,13 +84,14 @@ func (h *MentorEscalationHandler) Handle(ctx context.Context, _ jobs.Job) error 
 // same org only resolves mentors/staff once.
 func (h *MentorEscalationHandler) escalateStep(ctx context.Context, step mentorEscalationStep) (int, error) {
 	rows, err := h.pool.Query(ctx,
-		`SELECT mt.id, mt.org_id, mt.student_id, u.email, u.name, c.title
-		 FROM mentor_tickets mt
-		 JOIN users u ON u.id = mt.student_id
-		 JOIN courses c ON c.id = mt.course_id
-		 WHERE mt.status = 'open'
-		   AND mt.escalation_level < $1
-		   AND mt.created_at <= now() - make_interval(days => $2::int)
+		`SELECT conv.id, conv.org_id, conv.requester_id, u.email, u.name, co.title
+		 FROM conversations conv
+		 JOIN users u ON u.id = conv.requester_id
+		 JOIN courses co ON co.id = conv.course_id
+		 WHERE conv.kind = 'mentorship'
+		   AND conv.status = 'open'
+		   AND conv.escalation_level < $1
+		   AND conv.created_at <= now() - make_interval(days => $2::int)
 		 LIMIT 500`,
 		step.Level, step.Days,
 	)
@@ -148,7 +149,7 @@ func (h *MentorEscalationHandler) escalateStep(ctx context.Context, step mentorE
 		}
 
 		tag, err := h.pool.Exec(ctx,
-			`UPDATE mentor_tickets SET escalation_level = $1, updated_at = now() WHERE id = $2 AND escalation_level < $1`,
+			`UPDATE conversations SET escalation_level = $1 WHERE id = $2 AND escalation_level < $1`,
 			step.Level, t.ID,
 		)
 		if err != nil {
@@ -205,7 +206,7 @@ func (h *MentorEscalationHandler) orgAssignStaff(ctx context.Context, orgID stri
 		 JOIN role_permissions rp ON rp.role_id = ur.role_id
 		 JOIN permissions p ON p.id = rp.permission_id
 		 JOIN users u ON u.id = ur.user_id
-		 WHERE ur.tenant_id = $1 AND p.code = $2 AND u.email <> ''`,
+		 WHERE ur.org_id = $1 AND p.code = $2 AND u.email <> ''`,
 		orgID, mentoringAssignTicketsPermission,
 	)
 	if err != nil {

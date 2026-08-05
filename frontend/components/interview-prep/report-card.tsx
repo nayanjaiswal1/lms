@@ -3,6 +3,7 @@ import { BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PracticeAgainButton } from "@/components/interview-prep/practice-again-button";
+import { IconMessage } from "@/components/shared/icon-message";
 import type { PrepReport } from "@/lib/server/interview-prep";
 import ROUTES from "@/lib/routes";
 
@@ -59,20 +60,25 @@ export function ReportCard({ jobTitle, report }: ReportCardProps) {
       )}
 
       {report.cards_added > 0 && (
-        <div className="card-base flex items-center gap-4 p-4">
-          <BookOpen aria-hidden className="h-5 w-5 shrink-0 text-ai" />
-          <div className="flex-1">
-            <p className="text-sm font-medium">
-              {report.cards_added} revision card{report.cards_added === 1 ? "" : "s"} added
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Everything you missed is now in your spaced-repetition queue.
-            </p>
-          </div>
-          <Button asChild size="sm" variant="outline">
-            <Link href={ROUTES.REVIEW}>Revise now</Link>
-          </Button>
-        </div>
+        <IconMessage
+          action={
+            <Button asChild size="sm" variant="outline">
+              <Link href={ROUTES.REVIEW}>Revise now</Link>
+            </Button>
+          }
+          className="card-base gap-4 p-4"
+          icon={BookOpen}
+          size="md"
+          tone="ai"
+          variant="plain"
+        >
+          <p className="text-sm font-medium">
+            {report.cards_added} revision card{report.cards_added === 1 ? "" : "s"} added
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Everything you missed is now in your spaced-repetition queue.
+          </p>
+        </IconMessage>
       )}
 
       {report.next_steps.length > 0 && (

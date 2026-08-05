@@ -19,18 +19,21 @@ Organizations and instructors can publish tests via a unique link — no login, 
 ## Flow
 
 ```
-Instructor creates test → toggles "Public / Anonymous allowed"
-  └─ System generates unique URL: /t/{short-code}
-  └─ Anyone with the link can take the test
+Instructor creates assessment → toggles "Make public for anonymous access"
+  └─ System marks assessment `is_public = true`
+  └─ Public endpoint available: /api/assessments/:id/public
+  └─ Anyone with the link can take the assessment
 
-Anonymous user visits link
+Anonymous user visits public assessment link
   └─ Optionally enters name + email (configurable: required or optional)
-  └─ Takes the test (quiz / coding challenge / mixed)
+  └─ POST /api/assessments/:id/attempt/start → captures metadata
+  └─ Takes the assessment (MCQ / coding challenge / mixed)
   └─ Gets result page immediately on submit
-  └─ Receives shareable result link: /t/{short-code}/result/{attempt-uuid}
-  └─ Can optionally create account to save history
+  └─ Receives shareable result link: /api/assessments/attempt/:attemptId/result
+  └─ Can optionally create account to save attempt history
 
 Instructor sees all attempts (anonymous + registered)
+  └─ `assessment_attempts` rows with `user_id IS NULL` = anonymous
   └─ Filters: registered vs anonymous, score range, date
   └─ Export results as CSV
 ```
@@ -49,44 +52,50 @@ Instructor sees all attempts (anonymous + registered)
 ## API Endpoints
 
 ```
-GET  /t/:code                        public test info (title, time limit, instructions) — no auth
-POST /t/:code/start                  body: {name?, email?} → {attempt_id, questions}
-POST /t/:code/submit/:attemptId      body: {answers} → {score, total, result_url}
-GET  /t/:code/result/:attemptId      public result page — no auth
+GET  /api/assessments/:assessmentId/public  public assessment info (title, time limit, instructions) — no auth
+POST /api/assessments/:assessmentId/attempt/start  body: {name?, email?, ip_address?} → {attempt_id, questions}
+POST /api/assessments/:attemptId/submit          body: {answers} → {score, total}
+GET  /api/assessments/attempt/:attemptId/result  public result page — no auth
 ```
 
 ---
 
 ## Database Schema
 
+Anonymous attempts are stored in the same `assessment_attempts` table as authenticated attempts, with `user_id = NULL`. Assessments may be marked as `is_public = true` to enable anonymous access.
+
 ```sql
-public_tests (
-  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  quiz_id                  UUID REFERENCES quizzes(id) ON DELETE CASCADE,
-  final_test_id            UUID REFERENCES final_tests(id) ON DELETE CASCADE,
-  created_by               UUID NOT NULL REFERENCES users(id),
-  short_code               TEXT NOT NULL UNIQUE,
-  title                    TEXT NOT NULL,
-  requires_name            BOOLEAN NOT NULL DEFAULT false,
-  requires_email           BOOLEAN NOT NULL DEFAULT false,
-  allow_anonymous          BOOLEAN NOT NULL DEFAULT true,
-  starts_at                TIMESTAMPTZ,    -- NULL = always open
-  ends_at                  TIMESTAMPTZ,
-  max_attempts_per_ip      INT NOT NULL DEFAULT 3,
-  show_result_immediately  BOOLEAN NOT NULL DEFAULT true,
-  created_at               TIMESTAMPTZ DEFAULT now()
+assessments (
+  -- Core fields; see docs/learning.md for full schema
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id                UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  title                 TEXT NOT NULL,
+  is_public             BOOLEAN DEFAULT false,  -- enables /public endpoint and anonymous attempts
+  requires_name         BOOLEAN DEFAULT false,
+  requires_email        BOOLEAN DEFAULT false,
+  max_attempts_per_ip   INT DEFAULT 3,
+  starts_at             TIMESTAMPTZ,
+  ends_at               TIMESTAMPTZ,
+  -- ... other fields
 )
 
-anonymous_attempts (
+assessment_attempts (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  public_test_id  UUID NOT NULL REFERENCES public_tests(id) ON DELETE CASCADE,
-  name            TEXT,
-  email           TEXT,
-  ip_hash         TEXT NOT NULL,   -- hashed for rate limiting; raw IP never stored
-  answers         JSONB NOT NULL,
-  score           INT NOT NULL,
-  total           INT NOT NULL,
+  assessment_id   UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+  user_id         UUID,  -- NULL for anonymous attempts
+  org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  
+  -- Anonymous metadata
+  anon_name       TEXT,  -- captured from {name?} in /start
+  anon_email      TEXT,  -- captured from {email?} in /start
+  ip_hash         TEXT,  -- hashed for rate limiting; raw IP never stored
+  
   started_at      TIMESTAMPTZ DEFAULT now(),
-  completed_at    TIMESTAMPTZ
+  submitted_at    TIMESTAMPTZ,
+  percentage      INT,
+  passed          BOOLEAN,
+  time_spent_ms   INT
 )
 ```
+
+**Key design:** No separate `public_tests` or `anonymous_attempts` tables. Assessments are polymorphic — the same data model handles both authenticated and anonymous taking. Rate limiting by IP uses `ip_hash`; email/name are optional capture fields.

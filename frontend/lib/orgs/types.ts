@@ -33,6 +33,14 @@ export interface OrgSummary {
   role: OrgRole;
 }
 
+/** Platform admin's cross-tenant org picker row — no membership role. */
+export interface AdminOrgSummary {
+  id: string;
+  slug: string;
+  name: string;
+  status: OrgStatus;
+}
+
 export interface Member {
   id: string;
   user_id: string;

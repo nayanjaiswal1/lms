@@ -2,6 +2,7 @@ package calendar
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -466,11 +467,11 @@ func (r *Repo) listVirtualAssessmentEvents(ctx context.Context, orgID, userID st
 		   AND a.starts_at <= $3 AND COALESCE(a.ends_at, a.starts_at) >= $2
 		   AND (
 		     EXISTS (
-		       SELECT 1 FROM assessment_assignments aa
-		       WHERE aa.assessment_id = a.id
+		       SELECT 1 FROM content_assignments ca
+		       WHERE ca.content_type = 'assessment' AND ca.content_id = a.id
 		         AND (
-		           (aa.assignee_type = 'student' AND aa.assignee_id = $4)
-		           OR (aa.assignee_type = 'batch' AND aa.assignee_id IN (
+		           (ca.assignee_type = 'user' AND ca.assignee_id = $4)
+		           OR (ca.assignee_type = 'batch' AND ca.assignee_id IN (
 		                 SELECT batch_id FROM batch_members WHERE user_id = $4))
 		         )
 		     )
@@ -517,7 +518,7 @@ func (r *Repo) listVirtualBatchEvents(ctx context.Context, orgID, userID string,
 		   AND b.starts_at <= $3 AND COALESCE(b.ends_at, b.starts_at) >= $2
 		   AND (
 		     EXISTS (SELECT 1 FROM batch_members bm WHERE bm.batch_id = b.id AND bm.user_id = $4)
-		     OR EXISTS (SELECT 1 FROM batch_mentors bmt WHERE bmt.batch_id = b.id AND bmt.user_id = $4)
+		     OR EXISTS (SELECT 1 FROM batch_members bm WHERE bm.batch_id = b.id AND bm.user_id = $4 AND bm.role = 'mentor')
 		   )`,
 		orgID, from, to, userID)
 	if err != nil {
@@ -660,7 +661,7 @@ func (r *Repo) ListDueForReminder(ctx context.Context, from, to time.Time) ([]Ev
 func (r *Repo) GetFeedTokenHash(ctx context.Context, userID, orgID string) (string, bool, error) {
 	var hash string
 	err := r.pool.QueryRow(ctx,
-		`SELECT token_hash FROM calendar_feed_tokens WHERE user_id = $1 AND org_id = $2`,
+		`SELECT token_hash FROM auth_tokens WHERE purpose = 'calendar_feed' AND user_id = $1 AND org_id = $2`,
 		userID, orgID,
 	).Scan(&hash)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -676,10 +677,10 @@ func (r *Repo) GetFeedTokenHash(ctx context.Context, userID, orgID string) (stri
 // (userID, orgID).
 func (r *Repo) UpsertFeedTokenHash(ctx context.Context, userID, orgID, tokenHash string) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO calendar_feed_tokens (user_id, org_id, token_hash)
-		 VALUES ($1, $2, $3)
-		 ON CONFLICT (user_id, org_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, created_at = now()`,
-		userID, orgID, tokenHash)
+		`INSERT INTO auth_tokens (purpose, token_hash, user_id, org_id, payload, expires_at)
+		 VALUES ('calendar_feed', $1, $2, $3, '{}'::jsonb, 'infinity'::timestamptz)
+		 ON CONFLICT (token_hash) DO UPDATE SET expires_at = 'infinity'::timestamptz`,
+		tokenHash, userID, orgID)
 	if err != nil {
 		return fmt.Errorf("calendar: upsert feed token: %w", err)
 	}
@@ -689,7 +690,7 @@ func (r *Repo) UpsertFeedTokenHash(ctx context.Context, userID, orgID, tokenHash
 // ResolveFeedTokenHash returns the (userID, orgID) that own tokenHash.
 func (r *Repo) ResolveFeedTokenHash(ctx context.Context, tokenHash string) (userID, orgID string, err error) {
 	err = r.pool.QueryRow(ctx,
-		`SELECT user_id, org_id FROM calendar_feed_tokens WHERE token_hash = $1`,
+		`SELECT user_id, org_id FROM auth_tokens WHERE purpose = 'calendar_feed' AND token_hash = $1`,
 		tokenHash,
 	).Scan(&userID, &orgID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -703,36 +704,52 @@ func (r *Repo) ResolveFeedTokenHash(ctx context.Context, tokenHash string) (user
 
 // ─── external event invites ─────────────────────────────────────────────────
 
-const inviteColumns = `id, event_id, email, role, token_hash, expires_at, accepted_at, created_at`
-
-func scanInvite(row rowScanner) (EventInvite, error) {
-	var inv EventInvite
-	err := row.Scan(&inv.ID, &inv.EventID, &inv.Email, &inv.Role, &inv.TokenHash, &inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt)
-	return inv, err
-}
-
-// CreateInvite inserts a pending external invite for eventID.
+// CreateInvite inserts a pending external invite for eventID into calendar_event_attendees
+// and creates an auth_tokens entry for the token.
 func (r *Repo) CreateInvite(ctx context.Context, inv EventInvite) (EventInvite, error) {
-	row := r.pool.QueryRow(ctx,
-		`INSERT INTO calendar_event_invites (event_id, email, role, token_hash, expires_at)
-		 VALUES ($1,$2,$3,$4,$5)
-		 RETURNING `+inviteColumns,
-		inv.EventID, inv.Email, inv.Role, inv.TokenHash, inv.ExpiresAt)
-	created, err := scanInvite(row)
+	var attendeeID string
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO calendar_event_attendees (event_id, email, role, rsvp_status)
+		 VALUES ($1, $2, $3, 'pending')
+		 RETURNING id`,
+		inv.EventID, inv.Email, inv.Role).Scan(&attendeeID)
 	if err != nil {
-		return EventInvite{}, fmt.Errorf("calendar: create invite: %w", err)
+		return EventInvite{}, fmt.Errorf("calendar: create attendee: %w", err)
 	}
-	return created, nil
+
+	// If token_hash is provided, insert into auth_tokens
+	if inv.TokenHash != "" {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"event_id": inv.EventID,
+			"email":    inv.Email,
+			"role":     inv.Role,
+		})
+		_, err := r.pool.Exec(ctx,
+			`INSERT INTO auth_tokens (purpose, token_hash, payload, expires_at)
+			 VALUES ('calendar_invite', $1, $2, $3)`,
+			inv.TokenHash, payload, inv.ExpiresAt)
+		if err != nil {
+			return EventInvite{}, fmt.Errorf("calendar: create invite token: %w", err)
+		}
+	}
+
+	inv.ID = attendeeID
+	inv.AcceptedAt = nil
+	inv.CreatedAt = time.Now()
+	return inv, nil
 }
 
-// ListPendingInvitesByEvent returns eventID's not-yet-accepted, not-yet-expired
-// external invites, newest first — surfaced in the event detail view so an
-// inviter can see an invite was actually sent, ahead of the invitee accepting it.
+// ListPendingInvitesByEvent returns eventID's pending external invites.
 func (r *Repo) ListPendingInvitesByEvent(ctx context.Context, eventID string) ([]EventInvite, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+inviteColumns+` FROM calendar_event_invites
-		 WHERE event_id = $1 AND accepted_at IS NULL AND expires_at > now()
-		 ORDER BY created_at DESC`,
+		`SELECT cea.id, cea.event_id, cea.email, cea.role, cea.created_at,
+		        COALESCE(at.token_hash, ''), COALESCE(at.expires_at, now())
+		 FROM calendar_event_attendees cea
+		 LEFT JOIN auth_tokens at ON at.purpose = 'calendar_invite'
+		   AND (at.payload->>'event_id')::uuid = cea.event_id
+		   AND (at.payload->>'email') = cea.email
+		 WHERE cea.event_id = $1 AND cea.rsvp_status = 'pending'
+		 ORDER BY cea.created_at DESC`,
 		eventID)
 	if err != nil {
 		return nil, fmt.Errorf("calendar: list pending invites: %w", err)
@@ -741,10 +758,14 @@ func (r *Repo) ListPendingInvitesByEvent(ctx context.Context, eventID string) ([
 
 	invites := make([]EventInvite, 0)
 	for rows.Next() {
-		inv, err := scanInvite(rows)
-		if err != nil {
+		var inv EventInvite
+		var tokenHash string
+		var expiresAt time.Time
+		if err := rows.Scan(&inv.ID, &inv.EventID, &inv.Email, &inv.Role, &inv.CreatedAt, &tokenHash, &expiresAt); err != nil {
 			return nil, fmt.Errorf("calendar: scan pending invite: %w", err)
 		}
+		inv.TokenHash = tokenHash
+		inv.ExpiresAt = expiresAt
 		invites = append(invites, inv)
 	}
 	if err := rows.Err(); err != nil {
@@ -753,48 +774,101 @@ func (r *Repo) ListPendingInvitesByEvent(ctx context.Context, eventID string) ([
 	return invites, nil
 }
 
-// SetInviteTokenHash stores the final token hash on an already-created
-// invite row (see Service.InviteExternal: the invite is inserted with a
-// placeholder hash first so its generated ID can be folded into the real
-// token payload before hashing).
+// SetInviteTokenHash stores the final token hash in auth_tokens for an invite.
 func (r *Repo) SetInviteTokenHash(ctx context.Context, inviteID, tokenHash string) (EventInvite, error) {
-	row := r.pool.QueryRow(ctx,
-		`UPDATE calendar_event_invites SET token_hash = $1 WHERE id = $2 RETURNING `+inviteColumns,
-		tokenHash, inviteID)
-	inv, err := scanInvite(row)
+	// Get attendee details
+	var inv EventInvite
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, event_id, email, role, created_at FROM calendar_event_attendees WHERE id = $1`,
+		inviteID).Scan(&inv.ID, &inv.EventID, &inv.Email, &inv.Role, &inv.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return EventInvite{}, ErrNotFound
 		}
-		return EventInvite{}, fmt.Errorf("calendar: set invite token hash: %w", err)
+		return EventInvite{}, fmt.Errorf("calendar: get attendee: %w", err)
 	}
+
+	// Insert token into auth_tokens
+	payload, _ := json.Marshal(map[string]interface{}{
+		"event_id": inv.EventID,
+		"email":    inv.Email,
+		"role":     inv.Role,
+	})
+	_, err = r.pool.Exec(ctx,
+		`INSERT INTO auth_tokens (purpose, token_hash, payload, expires_at)
+		 VALUES ('calendar_invite', $1, $2, now() + interval '7 days')
+		 ON CONFLICT (token_hash) DO NOTHING`,
+		tokenHash, payload)
+	if err != nil {
+		return EventInvite{}, fmt.Errorf("calendar: set token hash: %w", err)
+	}
+
+	inv.TokenHash = tokenHash
+	inv.ExpiresAt = time.Now().AddDate(0, 0, 7)
 	return inv, nil
 }
 
-// GetInviteByTokenHash returns the invite matching tokenHash.
+// GetInviteByTokenHash returns the invite matching tokenHash via auth_tokens lookup.
 func (r *Repo) GetInviteByTokenHash(ctx context.Context, tokenHash string) (EventInvite, error) {
-	row := r.pool.QueryRow(ctx, `SELECT `+inviteColumns+` FROM calendar_event_invites WHERE token_hash = $1`, tokenHash)
-	inv, err := scanInvite(row)
+	var inv EventInvite
+	var payload json.RawMessage
+	var expiresAt time.Time
+
+	err := r.pool.QueryRow(ctx,
+		`SELECT payload, expires_at FROM auth_tokens
+		 WHERE purpose = 'calendar_invite' AND token_hash = $1`,
+		tokenHash).Scan(&payload, &expiresAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return EventInvite{}, ErrNotFound
 		}
-		return EventInvite{}, fmt.Errorf("calendar: get invite: %w", err)
+		return EventInvite{}, fmt.Errorf("calendar: get invite token: %w", err)
 	}
+
+	var payloadData map[string]interface{}
+	json.Unmarshal(payload, &payloadData)
+	inv.EventID = payloadData["event_id"].(string)
+	inv.Email = payloadData["email"].(string)
+	inv.Role = payloadData["role"].(string)
+	inv.TokenHash = tokenHash
+	inv.ExpiresAt = expiresAt
+
 	return inv, nil
 }
 
-// AcceptInviteTx marks an invite accepted within tx. Returns ErrNotFound if
-// the invite no longer exists (defensive; callers already hold it).
+// AcceptInviteTx marks an invite accepted within tx. Updates both the attendee
+// status and the auth_tokens consumed_at timestamp.
 func (r *Repo) AcceptInviteTx(ctx context.Context, tx pgx.Tx, inviteID string) error {
+	// Get attendee details
+	var email string
+	var eventID string
+	err := tx.QueryRow(ctx,
+		`SELECT email, event_id FROM calendar_event_attendees WHERE id = $1`,
+		inviteID).Scan(&email, &eventID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("calendar: get attendee: %w", err)
+	}
+
+	// Update attendee rsvp_status
 	tag, err := tx.Exec(ctx,
-		`UPDATE calendar_event_invites SET accepted_at = now() WHERE id = $1`,
+		`UPDATE calendar_event_attendees SET rsvp_status = 'accepted' WHERE id = $1`,
 		inviteID)
 	if err != nil {
-		return fmt.Errorf("calendar: accept invite: %w", err)
+		return fmt.Errorf("calendar: accept attendee: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
+
+	// Mark auth_tokens as consumed
+	_, _ = tx.Exec(ctx,
+		`UPDATE auth_tokens SET consumed_at = now()
+		 WHERE purpose = 'calendar_invite' AND (payload->>'event_id')::uuid = $1
+		   AND (payload->>'email') = $2`,
+		eventID, email)
+
 	return nil
 }

@@ -217,11 +217,12 @@ func (r *Repo) AddQuestion(ctx context.Context, orgID, assessmentID, questionID 
 			return ErrNotDraft
 		}
 
-		var versionID string
+		var contentVersionID string
 		var content []byte
 		if err := tx.QueryRow(ctx,
-			`SELECT id, content FROM question_versions WHERE question_id = $1 AND version = $2`,
-			questionID, version).Scan(&versionID, &content); err != nil {
+			`SELECT cv.id, cv.content FROM content_versions cv
+			 WHERE cv.content_type = 'question' AND cv.content_id = $1 AND cv.version = $2`,
+			questionID, version).Scan(&contentVersionID, &content); err != nil {
 			return fmt.Errorf("assessment: resolve question version: %w", err)
 		}
 
@@ -232,18 +233,18 @@ func (r *Repo) AddQuestion(ctx context.Context, orgID, assessmentID, questionID 
 
 		if err := tx.QueryRow(ctx,
 			`INSERT INTO assessment_questions
-			   (assessment_id, question_id, version_id, position, points)
+			   (assessment_id, question_id, content_version_id, position, points)
 			 VALUES ($1, $2, $3,
 			   COALESCE((SELECT max(position)+1 FROM assessment_questions WHERE assessment_id = $1), 0),
 			   $4)
 			 RETURNING id, position`,
-			assessmentID, questionID, versionID, pts).Scan(&aq.ID, &aq.Position); err != nil {
+			assessmentID, questionID, contentVersionID, pts).Scan(&aq.ID, &aq.Position); err != nil {
 			return fmt.Errorf("assessment: insert assessment question: %w", err)
 		}
 
 		aq.AssessmentID = assessmentID
 		aq.QuestionID = questionID
-		aq.VersionID = versionID
+		aq.VersionID = contentVersionID
 		aq.Points = pts
 		aq.Tags = tags
 		aq.Content = content
@@ -356,11 +357,11 @@ func (r *Repo) ListAssessmentQuestions(ctx context.Context, assessmentID string,
 
 	rows, err := r.pool.Query(ctx,
 		fmt.Sprintf(
-			`SELECT aq.id, aq.assessment_id, aq.question_id, aq.version_id, aq.position,
-			        aq.points, q.type, q.title, q.difficulty, q.tags, qv.content
+			`SELECT aq.id, aq.assessment_id, aq.question_id, aq.content_version_id, aq.position,
+			        aq.points, q.type, q.title, q.difficulty, q.tags, cv.content
 			 FROM assessment_questions aq
 			 JOIN questions q ON q.id = aq.question_id
-			 JOIN question_versions qv ON qv.id = aq.version_id
+			 JOIN content_versions cv ON cv.id = aq.content_version_id
 			 WHERE %s
 			 ORDER BY aq.position`, where),
 		args...)
@@ -437,10 +438,10 @@ func (r *Repo) CreateAssignments(ctx context.Context, orgID, assessmentID, assig
 		for _, assigneeID := range assigneeIDs {
 			var id string
 			if err := tx.QueryRow(ctx,
-				`INSERT INTO assessment_assignments
-				   (assessment_id, assignee_type, assignee_id, due_at, assigned_by)
-				 VALUES ($1, $2, $3, $4, $5)
-				 ON CONFLICT (assessment_id, assignee_type, assignee_id)
+				`INSERT INTO content_assignments
+				   (content_type, content_id, assignee_type, assignee_id, due_at, assigned_by)
+				 VALUES ('assessment', $1, $2, $3, $4, $5)
+				 ON CONFLICT (content_type, content_id, assignee_type, assignee_id)
 				 DO UPDATE SET due_at = EXCLUDED.due_at
 				 RETURNING id`,
 				assessmentID, assigneeType, assigneeID, dueAt, assignedBy).Scan(&id); err != nil {
@@ -458,15 +459,15 @@ func (r *Repo) CreateAssignments(ctx context.Context, orgID, assessmentID, assig
 
 func (r *Repo) ListAssignments(ctx context.Context, orgID, assessmentID string) ([]Assignment, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT aa.id, aa.assessment_id, aa.assignee_type, aa.assignee_id,
+		`SELECT ca.id, ca.content_id, ca.assignee_type, ca.assignee_id,
 		        COALESCE(u.name, b.name, '') AS assignee_name,
-		        aa.due_at::text, aa.assigned_by
-		 FROM assessment_assignments aa
-		 JOIN assessments a ON a.id = aa.assessment_id AND a.org_id = $1
-		 LEFT JOIN users u ON aa.assignee_type = 'student' AND u.id = aa.assignee_id
-		 LEFT JOIN batches b ON aa.assignee_type = 'batch' AND b.id = aa.assignee_id
-		 WHERE aa.assessment_id = $2
-		 ORDER BY aa.assigned_at DESC`, orgID, assessmentID)
+		        ca.due_at::text, ca.assigned_by
+		 FROM content_assignments ca
+		 JOIN assessments a ON a.id = ca.content_id AND a.org_id = $1
+		 LEFT JOIN users u ON ca.assignee_type = 'user' AND u.id = ca.assignee_id
+		 LEFT JOIN batches b ON ca.assignee_type = 'batch' AND b.id = ca.assignee_id
+		 WHERE ca.content_type = 'assessment' AND ca.content_id = $2
+		 ORDER BY ca.assigned_at DESC`, orgID, assessmentID)
 	if err != nil {
 		return nil, fmt.Errorf("assessment: list assignments: %w", err)
 	}
@@ -486,9 +487,10 @@ func (r *Repo) ListAssignments(ctx context.Context, orgID, assessmentID string) 
 
 func (r *Repo) DeleteAssignment(ctx context.Context, orgID, assessmentID, assignmentID string) error {
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM assessment_assignments aa
+		`DELETE FROM content_assignments ca
 		 USING assessments a
-		 WHERE aa.id = $1 AND aa.assessment_id = $2 AND a.id = aa.assessment_id AND a.org_id = $3`,
+		 WHERE ca.id = $1 AND ca.content_id = $2 AND ca.content_type = 'assessment'
+		   AND a.id = ca.content_id AND a.org_id = $3`,
 		assignmentID, assessmentID, orgID)
 	if err != nil {
 		return fmt.Errorf("assessment: delete assignment: %w", err)
@@ -501,17 +503,17 @@ func (r *Repo) DeleteAssignment(ctx context.Context, orgID, assessmentID, assign
 
 // IsUserAssigned reports whether the user may take the assessment.
 // Access is granted if any of these conditions hold:
-//  1. The user has a direct or batch assignment in assessment_assignments.
+//  1. The user has a direct or batch assignment in content_assignments.
 //  2. The assessment is linked to a course module and the user is enrolled in that course.
 func (r *Repo) IsUserAssigned(ctx context.Context, assessmentID, userID string) (bool, error) {
 	var ok bool
 	err := r.pool.QueryRow(ctx,
 		`SELECT EXISTS(
-		   SELECT 1 FROM assessment_assignments aa
-		   WHERE aa.assessment_id = $1
+		   SELECT 1 FROM content_assignments ca
+		   WHERE ca.content_type = 'assessment' AND ca.content_id = $1
 		     AND (
-		       (aa.assignee_type = 'student' AND aa.assignee_id = $2)
-		       OR (aa.assignee_type = 'batch' AND aa.assignee_id IN (
+		       (ca.assignee_type = 'user' AND ca.assignee_id = $2)
+		       OR (ca.assignee_type = 'batch' AND ca.assignee_id IN (
 		             SELECT batch_id FROM batch_members WHERE user_id = $2))
 		     )
 		 )

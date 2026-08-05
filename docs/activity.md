@@ -31,6 +31,7 @@ inside `srs.ReviewCard` (shared by `POST /api/srs/review` and the MCP
 | `sheet_problem_solved` | `user_problem_progress` | `solved_at` | keyed by `topic_tag`, shared across every sheet containing it |
 | `lab_completed` | `lab_sessions` | `completed_at` | |
 | `card_reviewed` | `srs_reviews` | `reviewed_at` | new table, see above |
+| `annotation:highlight`, `annotation:mistake` | `learning_annotations` | `created_at` | unified branch with `annotation_type` filter; replaced separate `highlights`/`mistake_entries` branches |
 
 ## API
 
@@ -93,7 +94,11 @@ to those two sources.
 Each source is one `UNION ALL` branch in `backend/internal/activity/repo.go`
 plus one partial `(user_id, ts DESC) ` index in a new migration — see
 `014_activity_feed.sql` for the pattern. Deliberately not included yet:
-`mistake_entries`, `coding_submissions`, `highlights`, `practice_sessions`,
-`wiki_pages`. Add one when it's actually asked for, not before — every branch
-added is one more index to keep the `MergeAppend` query plan intact as data
-grows (see the `ponytail:` comment in `repo.go`).
+`coding_submissions`, `practice_sessions`, `wiki_pages`. Add one when it's
+actually asked for, not before — every branch added is one more index to keep
+the `MergeAppend` query plan intact as data grows (see the `ponytail:`
+comment in `repo.go`).
+
+**Note:** `highlights` and `mistake_entries` are now unified under one
+`learning_annotations` branch (annotation_type='highlight'/'mistake'); they
+are no longer separate sources.

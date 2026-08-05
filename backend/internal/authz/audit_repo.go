@@ -26,7 +26,7 @@ var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 // when it is a valid UUID; otherwise target_id is left NULL and the original
 // value is preserved under "original_entity_id" in after_state (mirrors
 // 002_merge_audit_logs.sql's handling of compound IDs like "userID/roleID").
-func (r *AuditRepo) Write(ctx context.Context, tenantID, actorID, action, entityType, entityID string, diff *AuditDiff) error {
+func (r *AuditRepo) Write(ctx context.Context, orgID, actorID, action, entityType, entityID string, diff *AuditDiff) error {
 	var before, after json.RawMessage
 	var targetID *string
 
@@ -59,7 +59,7 @@ func (r *AuditRepo) Write(ctx context.Context, tenantID, actorID, action, entity
 		actorParam = actorID
 	}
 
-	_, err := r.pool.Exec(ctx, q, tenantID, actorParam, action, entityType, targetID, before, after)
+	_, err := r.pool.Exec(ctx, q, orgID, actorParam, action, entityType, targetID, before, after)
 	if err != nil {
 		return fmt.Errorf("audit: write: %w", err)
 	}
@@ -79,7 +79,7 @@ func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEn
 
 	// Build WHERE clause dynamically.
 	// org_id filter is always applied (even if empty string the caller scopes it).
-	args := []interface{}{params.TenantID} // $1
+	args := []interface{}{params.OrgID} // $1
 	where := "WHERE org_id = $1"
 
 	if params.EntityType != "" {
@@ -136,7 +136,7 @@ func (r *AuditRepo) List(ctx context.Context, params ListAuditParams) ([]AuditEn
 
 		if orgID.Valid {
 			s := uuidToString(orgID)
-			e.TenantID = &s
+			e.OrgID = &s
 		}
 		if actorID.Valid {
 			s := uuidToString(actorID)

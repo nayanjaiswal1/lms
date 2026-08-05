@@ -2,12 +2,15 @@ package mentoring
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/tickets"
 )
 
 var (
@@ -107,7 +110,7 @@ func scanPurchase(row rowScanner) (Purchase, error) {
 	return p, err
 }
 
-// CreatePurchase inserts a new 'pending' course_purchases row — the record
+// CreatePurchase inserts a new 'pending' purchases row — the record
 // checkout-start creates before ever contacting the gateway, so a charge can
 // never exist without a row to confirm/fail it against. ProviderRef must
 // already be a unique placeholder (see mentoring.newPendingProviderRef); the
@@ -116,10 +119,10 @@ func scanPurchase(row rowScanner) (Purchase, error) {
 func (r *Repo) CreatePurchase(ctx context.Context, p Purchase) (Purchase, error) {
 	p.Status = PurchaseStatusPending
 	created, err := scanPurchase(r.pool.QueryRow(ctx,
-		`INSERT INTO course_purchases (org_id, user_id, course_id, amount_cents, discount_cents, currency, provider, provider_ref, coupon_id, status)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		`INSERT INTO purchases (org_id, user_id, course_id, amount_cents, discount_cents, currency, provider, provider_ref, coupon_id, status, product_type)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		 RETURNING `+purchaseColumns,
-		p.OrgID, p.UserID, p.CourseID, p.AmountCents, p.DiscountCents, p.Currency, p.Provider, p.ProviderRef, p.CouponID, p.Status,
+		p.OrgID, p.UserID, p.CourseID, p.AmountCents, p.DiscountCents, p.Currency, p.Provider, p.ProviderRef, p.CouponID, p.Status, "course",
 	))
 	if err != nil {
 		// ux_course_purchases_coupon_user_open (009_coupon_hold_guard.sql) is
@@ -149,8 +152,8 @@ const purchaseHoldWindow = "30 minutes"
 // (24h on Stripe, never on Razorpay).
 func (r *Repo) ExpireStaleCouponHolds(ctx context.Context, userID, couponID string) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE course_purchases SET status = $3, updated_at = now()
-		 WHERE user_id = $1 AND coupon_id = $2 AND status = $4
+		`UPDATE purchases SET status = $3, updated_at = now()
+		 WHERE user_id = $1 AND coupon_id = $2 AND status = $4 AND product_type = 'course'
 		   AND purchased_at < now() - interval '`+purchaseHoldWindow+`'`,
 		userID, couponID, PurchaseStatusFailed, PurchaseStatusPending)
 	if err != nil {
@@ -167,8 +170,8 @@ func (r *Repo) ExpireStaleCouponHolds(ctx context.Context, userID, couponID stri
 func (r *Repo) CountLiveCouponHolds(ctx context.Context, couponID string) (int, error) {
 	var n int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM course_purchases
-		  WHERE coupon_id = $1 AND status = $2
+		`SELECT COUNT(*) FROM purchases
+		  WHERE coupon_id = $1 AND status = $2 AND product_type = 'course'
 		    AND purchased_at > now() - interval '`+purchaseHoldWindow+`'`,
 		couponID, PurchaseStatusPending,
 	).Scan(&n)
@@ -184,8 +187,8 @@ func (r *Repo) CountLiveCouponHolds(ctx context.Context, couponID string) (int, 
 // session instead of creating a second one. Returns ErrNotFound if none.
 func (r *Repo) GetLivePendingPurchase(ctx context.Context, userID, courseID, provider string, couponID *string) (Purchase, error) {
 	p, err := scanPurchase(r.pool.QueryRow(ctx,
-		`SELECT `+purchaseColumns+` FROM course_purchases
-		 WHERE user_id = $1 AND course_id = $2 AND provider = $3 AND status = $4
+		`SELECT `+purchaseColumns+` FROM purchases
+		 WHERE user_id = $1 AND course_id = $2 AND provider = $3 AND status = $4 AND product_type = 'course'
 		   AND (coupon_id = $5 OR (coupon_id IS NULL AND $5 IS NULL))
 		   AND purchased_at > now() - interval '`+purchaseHoldWindow+`'
 		 ORDER BY purchased_at DESC LIMIT 1`,
@@ -204,7 +207,7 @@ func (r *Repo) GetLivePendingPurchase(ctx context.Context, userID, courseID, pro
 // with the gateway's real session/order id, once CreateCheckout returns it.
 func (r *Repo) SetProviderRef(ctx context.Context, id, providerRef string) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE course_purchases SET provider_ref = $2, updated_at = now() WHERE id = $1`, id, providerRef)
+		`UPDATE purchases SET provider_ref = $2, updated_at = now() WHERE id = $1`, id, providerRef)
 	if err != nil {
 		return fmt.Errorf("mentoring: set provider ref: %w", err)
 	}
@@ -217,7 +220,7 @@ func (r *Repo) SetProviderRef(ctx context.Context, id, providerRef string) error
 // lookup key a webhook can use.
 func (r *Repo) GetPurchaseByProviderRef(ctx context.Context, provider, providerRef string) (Purchase, error) {
 	p, err := scanPurchase(r.pool.QueryRow(ctx,
-		`SELECT `+purchaseColumns+` FROM course_purchases WHERE provider = $1 AND provider_ref = $2`,
+		`SELECT `+purchaseColumns+` FROM purchases WHERE provider = $1 AND provider_ref = $2 AND product_type = 'course'`,
 		provider, providerRef,
 	))
 	if err != nil {
@@ -240,7 +243,7 @@ func (r *Repo) GetPurchaseByProviderRef(ctx context.Context, provider, providerR
 // caller to log loudly rather than silently picking one.
 func (r *Repo) MarkPurchaseCompletedTx(ctx context.Context, tx pgx.Tx, id, paymentRef string) (Purchase, bool, error) {
 	p, err := scanPurchase(tx.QueryRow(ctx,
-		`UPDATE course_purchases
+		`UPDATE purchases
 		 SET status = $2, payment_ref = $3, purchased_at = now(), updated_at = now(),
 		     receipt_number = 'MF-' || extract(year from now())::text || '-' || lpad(nextval('receipt_number_seq')::text, 6, '0')
 		 WHERE id = $1 AND status = $4
@@ -266,7 +269,7 @@ func (r *Repo) MarkPurchaseCompletedTx(ctx context.Context, tx pgx.Tx, id, payme
 // completed purchase).
 func (r *Repo) MarkPurchaseFailed(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx,
-		`UPDATE course_purchases SET status = $2, updated_at = now() WHERE id = $1 AND status = $3`,
+		`UPDATE purchases SET status = $2, updated_at = now() WHERE id = $1 AND status = $3`,
 		id, PurchaseStatusFailed, PurchaseStatusPending)
 	if err != nil {
 		return fmt.Errorf("mentoring: mark purchase failed: %w", err)
@@ -279,7 +282,7 @@ func (r *Repo) MarkPurchaseFailed(ctx context.Context, id string) error {
 // which need one specific purchase rather than "the latest for this course".
 func (r *Repo) GetPurchase(ctx context.Context, orgID, id string) (Purchase, error) {
 	p, err := scanPurchase(r.pool.QueryRow(ctx,
-		`SELECT `+purchaseColumns+` FROM course_purchases WHERE id = $1 AND org_id = $2`,
+		`SELECT `+purchaseColumns+` FROM purchases WHERE id = $1 AND org_id = $2`,
 		id, orgID,
 	))
 	if err != nil {
@@ -298,7 +301,7 @@ func (r *Repo) GetPurchase(ctx context.Context, orgID, id string) (Purchase, err
 // the gateway call, not just guarded here (see Service.Refund).
 func (r *Repo) MarkPurchaseRefundedTx(ctx context.Context, tx pgx.Tx, id string) (Purchase, bool, error) {
 	p, err := scanPurchase(tx.QueryRow(ctx,
-		`UPDATE course_purchases SET status = $2, updated_at = now()
+		`UPDATE purchases SET status = $2, updated_at = now()
 		 WHERE id = $1 AND status = $3
 		 RETURNING `+purchaseColumns,
 		id, PurchaseStatusRefunded, PurchaseStatusCompleted,
@@ -377,7 +380,7 @@ func (r *Repo) MarkPaymentEventProcessed(ctx context.Context, eventRowID string)
 // has never attempted to purchase this course.
 func (r *Repo) GetLatestPurchase(ctx context.Context, orgID, userID, courseID string) (Purchase, error) {
 	p, err := scanPurchase(r.pool.QueryRow(ctx,
-		`SELECT `+purchaseColumns+` FROM course_purchases
+		`SELECT `+purchaseColumns+` FROM purchases
 		 WHERE org_id = $1 AND user_id = $2 AND course_id = $3
 		 ORDER BY purchased_at DESC LIMIT 1`,
 		orgID, userID, courseID,
@@ -393,12 +396,17 @@ func (r *Repo) GetLatestPurchase(ctx context.Context, orgID, userID, courseID st
 
 // HasActiveMentor reports whether studentID already has an open or assigned
 // mentor ticket in orgID — used to dedupe ticket creation on repeat purchases.
+// HasActiveMentor reports whether studentID has an open or assigned
+// mentorship ticket in orgID — the dedup check RequestMentor and
+// confirmPurchase use before opening a new one. Deliberately kind='mentorship'
+// only: a ticket-independent DM (kind='direct') is not a mentor assignment
+// and must not suppress ticket creation.
 func (r *Repo) HasActiveMentor(ctx context.Context, tx pgx.Tx, orgID, studentID string) (bool, error) {
 	var exists bool
 	err := tx.QueryRow(ctx,
 		`SELECT EXISTS(
-		   SELECT 1 FROM mentor_tickets
-		   WHERE org_id = $1 AND student_id = $2 AND status IN ('open','assigned')
+		   SELECT 1 FROM conversations
+		   WHERE org_id = $1 AND requester_id = $2 AND kind = 'mentorship' AND status IN ('open','assigned')
 		 )`, orgID, studentID,
 	).Scan(&exists)
 	if err != nil {
@@ -407,18 +415,18 @@ func (r *Repo) HasActiveMentor(ctx context.Context, tx pgx.Tx, orgID, studentID 
 	return exists, nil
 }
 
-// HasBeenMentoredBy reports whether mentorID has ever actually been assigned
-// to studentID — checked against the durable mentor_ticket_assignments
-// history (not mentor_tickets.assigned_mentor_id, which only reflects the
-// CURRENT mentor and is cleared on reassignment). Used to gate mentor
-// ratings — a student can rate any mentor who has mentored them, past or
-// present.
+// HasBeenMentoredBy reports whether mentorID is or was the assigned mentor
+// on one of studentID's mentorship tickets. Deliberately kind='mentorship'
+// only: a ticket-independent DM (kind='direct') is not a mentorship and must
+// not count for rating/report/certificate eligibility. Note:
+// mentor_ticket_assignments history was dropped in an earlier schema
+// refactor; this can only detect the current assignment, not past ones.
 func (r *Repo) HasBeenMentoredBy(ctx context.Context, orgID, studentID, mentorID string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,
 		`SELECT EXISTS(
-		   SELECT 1 FROM mentor_ticket_assignments
-		   WHERE org_id = $1 AND student_id = $2 AND mentor_id = $3
+		   SELECT 1 FROM conversations
+		   WHERE org_id = $1 AND requester_id = $2 AND kind = 'mentorship' AND assigned_to = $3
 		 )`, orgID, studentID, mentorID,
 	).Scan(&exists)
 	if err != nil {
@@ -434,7 +442,7 @@ func (r *Repo) HasCompletedPurchase(ctx context.Context, userID, courseID string
 	var exists bool
 	err := r.pool.QueryRow(ctx,
 		`SELECT EXISTS(
-		   SELECT 1 FROM course_purchases
+		   SELECT 1 FROM purchases
 		   WHERE user_id = $1 AND course_id = $2 AND status = $3
 		 )`, userID, courseID, PurchaseStatusCompleted,
 	).Scan(&exists)
@@ -444,135 +452,70 @@ func (r *Repo) HasCompletedPurchase(ctx context.Context, userID, courseID string
 	return exists, nil
 }
 
-// CreateTicket opens a new 'open' mentor ticket within tx.
-func (r *Repo) CreateTicket(ctx context.Context, tx pgx.Tx, t Ticket) (Ticket, error) {
-	t.Status = TicketStatusOpen
-	err := tx.QueryRow(ctx,
-		`INSERT INTO mentor_tickets (org_id, student_id, course_id, purchase_id, status)
-		 VALUES ($1,$2,$3,$4,$5)
-		 RETURNING id, created_at, updated_at`,
-		t.OrgID, t.StudentID, t.CourseID, t.PurchaseID, t.Status,
-	).Scan(&t.ID, &t.CreatedAt, &t.UpdatedAt)
-	if err != nil {
-		return Ticket{}, fmt.Errorf("mentoring: create ticket: %w", err)
-	}
-	return t, nil
-}
-
-const ticketColumns = `id, org_id, student_id, course_id, purchase_id, status,
-	assigned_mentor_id, assigned_by, assigned_at, closed_at, escalation_level, created_at, updated_at`
-
-func scanTicket(row rowScanner) (Ticket, error) {
-	var t Ticket
-	err := row.Scan(&t.ID, &t.OrgID, &t.StudentID, &t.CourseID, &t.PurchaseID, &t.Status,
-		&t.AssignedMentorID, &t.AssignedBy, &t.AssignedAt, &t.ClosedAt, &t.EscalationLevel, &t.CreatedAt, &t.UpdatedAt)
-	return t, err
-}
-
-// recordAssignment inserts a durable mentor_ticket_assignments row so
-// HasBeenMentoredBy can still recognize a previous mentor after the ticket
-// is later reassigned (assigned_mentor_id on mentor_tickets only ever
-// reflects the CURRENT mentor).
-func recordAssignment(ctx context.Context, tx pgx.Tx, orgID, ticketID, mentorID, studentID string) error {
-	_, err := tx.Exec(ctx,
-		`INSERT INTO mentor_ticket_assignments (org_id, ticket_id, mentor_id, student_id)
-		 VALUES ($1,$2,$3,$4)`,
-		orgID, ticketID, mentorID, studentID)
-	if err != nil {
-		return fmt.Errorf("mentoring: record assignment: %w", err)
-	}
-	return nil
-}
-
-// ListTicketAssignments returns every mentor ever assigned to ticketID, in
-// chronological order — the durable history behind mentor_tickets'
-// current-only assigned_mentor_id.
-func (r *Repo) ListTicketAssignments(ctx context.Context, ticketID string) ([]TicketAssignment, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, ticket_id, mentor_id, assigned_at
-		 FROM mentor_ticket_assignments
-		 WHERE ticket_id = $1
-		 ORDER BY assigned_at ASC`, ticketID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("mentoring: list ticket assignments: %w", err)
-	}
-	defer rows.Close()
-
-	assignments := []TicketAssignment{}
-	for rows.Next() {
-		var a TicketAssignment
-		if err := rows.Scan(&a.ID, &a.TicketID, &a.MentorID, &a.AssignedAt); err != nil {
-			return nil, fmt.Errorf("mentoring: list ticket assignments: scan: %w", err)
-		}
-		assignments = append(assignments, a)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("mentoring: list ticket assignments: rows: %w", err)
-	}
-	return assignments, nil
-}
-
-// ClaimTicket lets mentorID self-assign an open ticket within orgID. Returns
-// ErrTicketAlreadyClaimed if the ticket doesn't exist in this org or is no
-// longer open — the same error for "not found" and "not open" avoids leaking
-// whether a ticket exists in another org (mirrors the RBAC "identical 404"
-// no-leak convention).
-func (r *Repo) ClaimTicket(ctx context.Context, orgID, ticketID, mentorID string) (Ticket, error) {
-	var t Ticket
+// CreateTicket opens a new 'open' mentorship conversation within tx.
+// ClaimTicket lets mentorID self-assign an open mentorship ticket within
+// orgID. Returns ErrTicketAlreadyClaimed if the ticket doesn't exist in this
+// org or is no longer open — the same error for "not found" and "not open"
+// avoids leaking whether a ticket exists in another org (mirrors the RBAC
+// "identical 404" no-leak convention). Deliberately kind='mentorship' only:
+// a ticket-independent DM (kind='direct') must never be claimable.
+func (r *Repo) ClaimTicket(ctx context.Context, orgID, ticketID, mentorID string) (tickets.Ticket, error) {
+	var t tickets.Ticket
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		row := tx.QueryRow(ctx,
-			`UPDATE mentor_tickets
-			 SET status = 'assigned', assigned_mentor_id = $1, assigned_by = $1, assigned_at = now(), updated_at = now()
-			 WHERE id = $2 AND org_id = $3 AND status = 'open'
-			 RETURNING `+ticketColumns,
+			`UPDATE conversations
+			 SET status = 'assigned', assigned_to = $1
+			 WHERE id = $2 AND org_id = $3 AND kind = 'mentorship' AND status = 'open'
+			 RETURNING `+tickets.TicketColumns,
 			mentorID, ticketID, orgID)
 		var txErr error
-		t, txErr = scanTicket(row)
+		t, txErr = tickets.ScanTicket(row)
 		if txErr != nil {
 			if errors.Is(txErr, pgx.ErrNoRows) {
 				return ErrTicketAlreadyClaimed
 			}
 			return txErr
 		}
-		return recordAssignment(ctx, tx, orgID, ticketID, mentorID, t.StudentID)
+		return nil
 	})
 	if err != nil {
 		if errors.Is(err, ErrTicketAlreadyClaimed) {
-			return Ticket{}, ErrTicketAlreadyClaimed
+			return tickets.Ticket{}, ErrTicketAlreadyClaimed
 		}
-		return Ticket{}, fmt.Errorf("mentoring: claim ticket: %w", err)
+		return tickets.Ticket{}, fmt.Errorf("mentoring: claim ticket: %w", err)
 	}
 	return t, nil
 }
 
 // AssignTicket lets a staff member (assignedBy) hand-assign mentorID to an
-// open ticket within orgID. Returns ErrTicketAlreadyClaimed if the ticket
-// doesn't exist in this org or is no longer open.
-func (r *Repo) AssignTicket(ctx context.Context, orgID, ticketID, mentorID, assignedBy string) (Ticket, error) {
-	var t Ticket
+// open mentorship ticket within orgID. Returns ErrTicketAlreadyClaimed if the
+// ticket doesn't exist in this org or is no longer open.
+// Note: assignedBy info is not persisted (the schema has no assigned_by
+// column on conversations).
+func (r *Repo) AssignTicket(ctx context.Context, orgID, ticketID, mentorID, assignedBy string) (tickets.Ticket, error) {
+	var t tickets.Ticket
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		row := tx.QueryRow(ctx,
-			`UPDATE mentor_tickets
-			 SET status = 'assigned', assigned_mentor_id = $1, assigned_by = $2, assigned_at = now(), updated_at = now()
-			 WHERE id = $3 AND org_id = $4 AND status = 'open'
-			 RETURNING `+ticketColumns,
-			mentorID, assignedBy, ticketID, orgID)
+			`UPDATE conversations
+			 SET status = 'assigned', assigned_to = $1
+			 WHERE id = $2 AND org_id = $3 AND kind = 'mentorship' AND status = 'open'
+			 RETURNING `+tickets.TicketColumns,
+			mentorID, ticketID, orgID)
 		var txErr error
-		t, txErr = scanTicket(row)
+		t, txErr = tickets.ScanTicket(row)
 		if txErr != nil {
 			if errors.Is(txErr, pgx.ErrNoRows) {
 				return ErrTicketAlreadyClaimed
 			}
 			return txErr
 		}
-		return recordAssignment(ctx, tx, orgID, ticketID, mentorID, t.StudentID)
+		return nil
 	})
 	if err != nil {
 		if errors.Is(err, ErrTicketAlreadyClaimed) {
-			return Ticket{}, ErrTicketAlreadyClaimed
+			return tickets.Ticket{}, ErrTicketAlreadyClaimed
 		}
-		return Ticket{}, fmt.Errorf("mentoring: assign ticket: %w", err)
+		return tickets.Ticket{}, fmt.Errorf("mentoring: assign ticket: %w", err)
 	}
 	return t, nil
 }
@@ -592,107 +535,52 @@ func (r *Repo) IsMentor(ctx context.Context, orgID, userID string) (bool, error)
 	return exists, nil
 }
 
-// CloseTicket closes a ticket within orgID that isn't already closed.
-func (r *Repo) CloseTicket(ctx context.Context, orgID, ticketID string) (Ticket, error) {
+// CloseTicket closes a mentorship ticket within orgID that isn't already
+// closed. Deliberately kind='mentorship' only: a ticket-independent DM must
+// never be closeable through this path.
+func (r *Repo) CloseTicket(ctx context.Context, orgID, ticketID string) (tickets.Ticket, error) {
 	row := r.pool.QueryRow(ctx,
-		`UPDATE mentor_tickets
-		 SET status = 'closed', closed_at = now(), updated_at = now()
-		 WHERE id = $1 AND org_id = $2 AND status != 'closed'
-		 RETURNING `+ticketColumns,
+		`UPDATE conversations
+		 SET status = 'closed', closed_at = now()
+		 WHERE id = $1 AND org_id = $2 AND kind = 'mentorship' AND status != 'closed'
+		 RETURNING `+tickets.TicketColumns,
 		ticketID, orgID)
-	t, err := scanTicket(row)
+	t, err := tickets.ScanTicket(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Ticket{}, ErrNotFound
+			return tickets.Ticket{}, ErrNotFound
 		}
-		return Ticket{}, fmt.Errorf("mentoring: close ticket: %w", err)
+		return tickets.Ticket{}, fmt.Errorf("mentoring: close ticket: %w", err)
 	}
 	return t, nil
-}
-
-// GetTicket returns a single ticket by ID, scoped to orgID.
-func (r *Repo) GetTicket(ctx context.Context, orgID, ticketID string) (Ticket, error) {
-	row := r.pool.QueryRow(ctx, `SELECT `+ticketColumns+` FROM mentor_tickets WHERE id = $1 AND org_id = $2`, ticketID, orgID)
-	t, err := scanTicket(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Ticket{}, ErrNotFound
-		}
-		return Ticket{}, fmt.Errorf("mentoring: get ticket: %w", err)
-	}
-	return t, nil
-}
-
-// ListTickets returns tickets for orgID, optionally filtered by status,
-// assigned_mentor_id (a mentor's own queue), and/or student_id (a student's
-// own tickets).
-func (r *Repo) ListTickets(ctx context.Context, orgID string, status *string, mentorID *string, studentID *string) ([]Ticket, error) {
-	args := []any{orgID}
-	where := "WHERE org_id = $1"
-	n := 2
-	if status != nil && *status != "" {
-		where += fmt.Sprintf(" AND status = $%d", n)
-		args = append(args, *status)
-		n++
-	}
-	if mentorID != nil && *mentorID != "" {
-		where += fmt.Sprintf(" AND assigned_mentor_id = $%d", n)
-		args = append(args, *mentorID)
-		n++
-	}
-	if studentID != nil && *studentID != "" {
-		where += fmt.Sprintf(" AND student_id = $%d", n)
-		args = append(args, *studentID)
-		n++
-	}
-	rows, err := r.pool.Query(ctx,
-		`SELECT `+ticketColumns+` FROM mentor_tickets `+where+` ORDER BY created_at DESC`, args...)
-	if err != nil {
-		return nil, fmt.Errorf("mentoring: list tickets: %w", err)
-	}
-	defer rows.Close()
-	out := []Ticket{}
-	for rows.Next() {
-		t, err := scanTicket(rows)
-		if err != nil {
-			return nil, fmt.Errorf("mentoring: scan ticket: %w", err)
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
 }
 
 // ListMentorDirectory returns every mentor-role org member with their live
-// assigned-mentee count (mentor_tickets, status='assigned') and aggregated
-// rating (feedback, subject_type='mentor'). Mirrors the aggregation idiom
-// used by assessment.Repo.GetBatchProgress: subquery joins, one round-trip.
+// assigned-mentee count (conversations with kind='mentorship', status='assigned')
+// and aggregated rating (feedback, subject_type='mentor').
+// Note: Skills are now stored in user_profiles.skills (jsonb); empty list returned here,
+// callers should fetch skills separately if needed.
 func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorDirectoryEntry, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT u.id, u.name, u.email, u.avatar_url, u.created_at,
 		        COALESCE(mt.mentee_count, 0) AS mentee_count,
 		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count,
-		        p.bio, p.current_role, p.years_of_experience,
-		        COALESCE(sk.skills, '{}') AS skills
+		        p.bio, p.current_role, p.years_of_experience
 		 FROM org_members om
 		 JOIN users u ON u.id = om.user_id
 		 LEFT JOIN user_profiles p ON p.user_id = u.id
 		 LEFT JOIN (
-		   SELECT assigned_mentor_id, COUNT(*) AS mentee_count
-		   FROM mentor_tickets
-		   WHERE status = 'assigned'
-		   GROUP BY assigned_mentor_id
-		 ) mt ON mt.assigned_mentor_id = u.id
+		   SELECT assigned_to, COUNT(*) AS mentee_count
+		   FROM conversations
+		   WHERE kind = 'mentorship' AND status = 'assigned'
+		   GROUP BY assigned_to
+		 ) mt ON mt.assigned_to = u.id
 		 LEFT JOIN (
 		   SELECT subject_id, AVG(rating) AS avg_rating, COUNT(rating) AS rating_count
 		   FROM feedback
 		   WHERE subject_type = 'mentor' AND rating IS NOT NULL
 		   GROUP BY subject_id
 		 ) fb ON fb.subject_id = u.id
-		 LEFT JOIN (
-		   SELECT user_id, array_agg(skill_name ORDER BY created_at) AS skills
-		   FROM user_skills
-		   GROUP BY user_id
-		 ) sk ON sk.user_id = u.id
 		 WHERE om.org_id = $1 AND om.role = 'mentor'
 		 ORDER BY u.name`, orgID)
 	if err != nil {
@@ -705,10 +593,11 @@ func (r *Repo) ListMentorDirectory(ctx context.Context, orgID string) ([]MentorD
 		var m MentorDirectoryEntry
 		if err := rows.Scan(
 			&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.JoinedAt, &m.MenteeCount, &m.AvgRating, &m.RatingCount,
-			&m.Bio, &m.CurrentRole, &m.YearsOfExperience, &m.Skills,
+			&m.Bio, &m.CurrentRole, &m.YearsOfExperience,
 		); err != nil {
 			return nil, fmt.Errorf("mentoring: scan mentor directory entry: %w", err)
 		}
+		m.Skills = []string{}
 		out = append(out, m)
 	}
 	return out, rows.Err()
@@ -724,37 +613,30 @@ func (r *Repo) GetMentorProfile(ctx context.Context, orgID, mentorID string) (Me
 		        COALESCE(mt.mentee_count, 0) AS mentee_count,
 		        fb.avg_rating, COALESCE(fb.rating_count, 0) AS rating_count,
 		        p.bio, p.current_role, p.years_of_experience,
-		        COALESCE(sk.skills, '{}') AS skills,
 		        COALESCE(p.mentor_verified, false) AS mentor_verified, p.mentor_verified_at,
-		        u.last_active_at, sl.linkedin, sl.github, sl.portfolio
+		        u.last_active_at, p.linkedin_url, p.github_url, p.portfolio_url
 		 FROM org_members om
 		 JOIN users u ON u.id = om.user_id
 		 LEFT JOIN user_profiles p ON p.user_id = u.id
-		 LEFT JOIN user_social_links sl ON sl.user_id = u.id
 		 LEFT JOIN (
-		   SELECT assigned_mentor_id, COUNT(*) AS mentee_count
-		   FROM mentor_tickets
-		   WHERE status = 'assigned'
-		   GROUP BY assigned_mentor_id
-		 ) mt ON mt.assigned_mentor_id = u.id
+		   SELECT assigned_to, COUNT(*) AS mentee_count
+		   FROM conversations
+		   WHERE kind = 'mentorship' AND status = 'assigned'
+		   GROUP BY assigned_to
+		 ) mt ON mt.assigned_to = u.id
 		 LEFT JOIN (
 		   SELECT subject_id, AVG(rating) AS avg_rating, COUNT(rating) AS rating_count
 		   FROM feedback
 		   WHERE subject_type = 'mentor' AND rating IS NOT NULL
 		   GROUP BY subject_id
 		 ) fb ON fb.subject_id = u.id
-		 LEFT JOIN (
-		   SELECT user_id, array_agg(skill_name ORDER BY created_at) AS skills
-		   FROM user_skills
-		   GROUP BY user_id
-		 ) sk ON sk.user_id = u.id
 		 WHERE om.org_id = $1 AND om.role = 'mentor' AND u.id = $2`,
 		orgID, mentorID)
 
 	var m MentorProfile
 	if err := row.Scan(
 		&m.UserID, &m.Name, &m.Email, &m.AvatarURL, &m.JoinedAt, &m.MenteeCount, &m.AvgRating, &m.RatingCount,
-		&m.Bio, &m.CurrentRole, &m.YearsOfExperience, &m.Skills, &m.Verified, &m.VerifiedAt,
+		&m.Bio, &m.CurrentRole, &m.YearsOfExperience, &m.Verified, &m.VerifiedAt,
 		&m.LastActiveAt, &m.LinkedIn, &m.GitHub, &m.Portfolio,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -762,16 +644,17 @@ func (r *Repo) GetMentorProfile(ctx context.Context, orgID, mentorID string) (Me
 		}
 		return MentorProfile{}, fmt.Errorf("mentoring: get mentor profile: %w", err)
 	}
+	m.Skills = []string{} // Skills are in jsonb now; empty list for backward compat
 
 	respErr := r.pool.QueryRow(ctx,
 		`WITH thread AS (
-		   SELECT m.ticket_id,
-		          MIN(m.created_at) FILTER (WHERE m.sender_id = t.student_id) AS student_first,
-		          MIN(m.created_at) FILTER (WHERE m.sender_id = t.assigned_mentor_id) AS mentor_first
-		   FROM mentor_chat_messages m
-		   JOIN mentor_tickets t ON t.id = m.ticket_id
-		   WHERE t.org_id = $1 AND t.assigned_mentor_id = $2
-		   GROUP BY m.ticket_id
+		   SELECT c.id,
+		          MIN(m.created_at) FILTER (WHERE m.sender_id = c.requester_id) AS student_first,
+		          MIN(m.created_at) FILTER (WHERE m.sender_id = c.assigned_to) AS mentor_first
+		   FROM messages m
+		   JOIN conversations c ON c.id = m.thread_id
+		   WHERE c.org_id = $1 AND c.assigned_to = $2 AND c.kind = 'mentorship' AND m.thread_type = 'mentor_ticket'
+		   GROUP BY c.id
 		 )
 		 SELECT AVG(EXTRACT(EPOCH FROM (mentor_first - student_first)) / 60)
 		 FROM thread
@@ -842,24 +725,26 @@ func (r *Repo) SetMentorVerified(ctx context.Context, mentorID string, verified 
 	return nil
 }
 
-const reportColumns = `id, org_id, mentor_id, reporter_id, ticket_id, reason, description, status,
+const reportColumns = `id, org_id, content_id, reporter_id, reason, description, status,
 	resolved_by, resolution_note, resolved_at, created_at`
 
 func scanReport(row rowScanner) (Report, error) {
 	var rep Report
-	err := row.Scan(&rep.ID, &rep.OrgID, &rep.MentorID, &rep.ReporterID, &rep.TicketID, &rep.Reason,
+	err := row.Scan(&rep.ID, &rep.OrgID, &rep.MentorID, &rep.ReporterID, &rep.Reason,
 		&rep.Description, &rep.Status, &rep.ResolvedBy, &rep.ResolutionNote, &rep.ResolvedAt, &rep.CreatedAt)
+	// Note: TicketID is not available in new schema (content_reports doesn't track it)
 	return rep, err
 }
 
-// CreateReport files a new mentor complaint report with status 'open'.
+// CreateReport files a new mentor complaint report with status 'pending'.
+// Maps to content_reports with content_type='mentor', content_id=mentor_id.
 func (r *Repo) CreateReport(ctx context.Context, rep Report) (Report, error) {
 	rep.Status = ReportStatusOpen
 	row := r.pool.QueryRow(ctx,
-		`INSERT INTO mentor_reports (org_id, mentor_id, reporter_id, ticket_id, reason, description, status)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)
+		`INSERT INTO content_reports (org_id, reporter_id, content_type, content_id, reason, description, status)
+		 VALUES ($1,$2,'mentor',$3,$4,$5,$6)
 		 RETURNING `+reportColumns,
-		rep.OrgID, rep.MentorID, rep.ReporterID, rep.TicketID, rep.Reason, rep.Description, rep.Status)
+		rep.OrgID, rep.ReporterID, rep.MentorID, rep.Reason, rep.Description, rep.Status)
 	created, err := scanReport(row)
 	if err != nil {
 		return Report{}, fmt.Errorf("mentoring: create report: %w", err)
@@ -867,15 +752,15 @@ func (r *Repo) CreateReport(ctx context.Context, rep Report) (Report, error) {
 	return created, nil
 }
 
-// ListReports returns reports for orgID, optionally filtered by status.
+// ListReports returns mentor reports for orgID, optionally filtered by status.
 func (r *Repo) ListReports(ctx context.Context, orgID string, status *string) ([]Report, error) {
 	args := []any{orgID}
-	where := "WHERE org_id = $1"
+	where := "WHERE org_id = $1 AND content_type = 'mentor'"
 	if status != nil && *status != "" {
 		where += " AND status = $2"
 		args = append(args, *status)
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+reportColumns+` FROM mentor_reports `+where+` ORDER BY created_at DESC`, args...)
+	rows, err := r.pool.Query(ctx, `SELECT `+reportColumns+` FROM content_reports `+where+` ORDER BY created_at DESC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("mentoring: list reports: %w", err)
 	}
@@ -891,14 +776,13 @@ func (r *Repo) ListReports(ctx context.Context, orgID string, status *string) ([
 	return out, rows.Err()
 }
 
-// ResolveReport marks a report within orgID resolved or dismissed. status
-// must be ReportStatusResolved or ReportStatusDismissed (validated by the
-// service).
+// ResolveReport marks a mentor report within orgID resolved or dismissed. status
+// must be ReportStatusResolved or ReportStatusDismissed (validated by the service).
 func (r *Repo) ResolveReport(ctx context.Context, orgID, reportID, resolvedBy, status, note string) (Report, error) {
 	row := r.pool.QueryRow(ctx,
-		`UPDATE mentor_reports
+		`UPDATE content_reports
 		 SET status = $1, resolved_by = $2, resolution_note = $3, resolved_at = now()
-		 WHERE id = $4 AND org_id = $5
+		 WHERE id = $4 AND org_id = $5 AND content_type = 'mentor'
 		 RETURNING `+reportColumns,
 		status, resolvedBy, note, reportID, orgID)
 	rep, err := scanReport(row)
@@ -911,12 +795,18 @@ func (r *Repo) ResolveReport(ctx context.Context, orgID, reportID, resolvedBy, s
 	return rep, nil
 }
 
-// ListReportsByTicket returns every complaint report filed against
-// ticketID, most recent first — used by GetTicketDetail. Callers must check
-// mentoring.manage_reports before calling this; it is not checked here.
+// ListReportsByTicket returns every complaint report filed about the mentor
+// of the given ticketID, most recent first. Note: mentor_reports.ticket_id
+// was dropped in the schema refactor; this now looks up the mentor from the
+// conversation and returns all reports about that mentor.
 func (r *Repo) ListReportsByTicket(ctx context.Context, ticketID string) ([]Report, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+reportColumns+` FROM mentor_reports WHERE ticket_id = $1 ORDER BY created_at DESC`, ticketID)
+		`SELECT cr.id, cr.org_id, cr.content_id, cr.reporter_id, cr.reason, cr.description, cr.status,
+		        cr.resolved_by, cr.resolution_note, cr.resolved_at, cr.created_at
+		 FROM content_reports cr
+		 JOIN conversations c ON c.id = $1
+		 WHERE cr.content_type = 'mentor' AND cr.content_id = c.assigned_to
+		 ORDER BY cr.created_at DESC`, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("mentoring: list reports by ticket: %w", err)
 	}
@@ -932,67 +822,27 @@ func (r *Repo) ListReportsByTicket(ctx context.Context, ticketID string) ([]Repo
 	return out, rows.Err()
 }
 
-const chatMessageColumns = `id, org_id, ticket_id, sender_id, body, created_at`
-
-func scanChatMessage(row rowScanner) (ChatMessage, error) {
-	var m ChatMessage
-	err := row.Scan(&m.ID, &m.OrgID, &m.TicketID, &m.SenderID, &m.Body, &m.CreatedAt)
-	return m, err
-}
-
-// CreateChatMessage posts a new message on ticketID's chat thread.
-func (r *Repo) CreateChatMessage(ctx context.Context, orgID, ticketID, senderID, body string) (ChatMessage, error) {
-	row := r.pool.QueryRow(ctx,
-		`INSERT INTO mentor_chat_messages (org_id, ticket_id, sender_id, body)
-		 VALUES ($1,$2,$3,$4)
-		 RETURNING `+chatMessageColumns,
-		orgID, ticketID, senderID, body)
-	m, err := scanChatMessage(row)
-	if err != nil {
-		return ChatMessage{}, fmt.Errorf("mentoring: create chat message: %w", err)
-	}
-	return m, nil
-}
-
-// ListChatMessages returns every message on ticketID's chat thread, oldest first.
-func (r *Repo) ListChatMessages(ctx context.Context, orgID, ticketID string) ([]ChatMessage, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT `+chatMessageColumns+` FROM mentor_chat_messages
-		 WHERE org_id = $1 AND ticket_id = $2
-		 ORDER BY created_at ASC`,
-		orgID, ticketID)
-	if err != nil {
-		return nil, fmt.Errorf("mentoring: list chat messages: %w", err)
-	}
-	defer rows.Close()
-	out := []ChatMessage{}
-	for rows.Next() {
-		m, err := scanChatMessage(rows)
-		if err != nil {
-			return nil, fmt.Errorf("mentoring: scan chat message: %w", err)
-		}
-		out = append(out, m)
-	}
-	return out, rows.Err()
-}
-
-const mentorConversationColumns = `id, org_id, student_id, mentor_id, created_at, updated_at`
+const mentorConversationColumns = `id, org_id, requester_id, counterpart_id, created_at, created_at`
 
 func scanMentorConversation(row rowScanner) (MentorConversation, error) {
 	var c MentorConversation
-	err := row.Scan(&c.ID, &c.OrgID, &c.StudentID, &c.MentorID, &c.CreatedAt, &c.UpdatedAt)
+	var createdAt1, createdAt2 time.Time
+	err := row.Scan(&c.ID, &c.OrgID, &c.StudentID, &c.MentorID, &createdAt1, &createdAt2)
+	if err == nil {
+		c.CreatedAt = createdAt1
+		c.UpdatedAt = createdAt2 // Use second created_at as UpdatedAt (conversations doesn't track it separately)
+	}
 	return c, err
 }
 
 // GetOrCreateConversation returns the existing DM thread between studentID
-// and mentorID within orgID, creating it (and bumping updated_at) if it
-// doesn't exist yet — the get-or-create idiom for a UNIQUE(org_id,
-// student_id, mentor_id) row.
+// and mentorID within orgID, creating it if it doesn't exist yet.
+// Maps to conversations with kind='direct', using requester_id and counterpart_id.
 func (r *Repo) GetOrCreateConversation(ctx context.Context, orgID, studentID, mentorID string) (MentorConversation, error) {
 	row := r.pool.QueryRow(ctx,
-		`INSERT INTO mentor_conversations (org_id, student_id, mentor_id)
-		 VALUES ($1,$2,$3)
-		 ON CONFLICT (org_id, student_id, mentor_id) DO UPDATE SET updated_at = now()
+		`INSERT INTO conversations (org_id, kind, requester_id, counterpart_id, status)
+		 VALUES ($1,'direct',$2,$3,'open')
+		 ON CONFLICT (org_id, requester_id, counterpart_id) WHERE kind = 'direct' DO UPDATE SET created_at = created_at
 		 RETURNING `+mentorConversationColumns,
 		orgID, studentID, mentorID)
 	c, err := scanMentorConversation(row)
@@ -1002,10 +852,10 @@ func (r *Repo) GetOrCreateConversation(ctx context.Context, orgID, studentID, me
 	return c, nil
 }
 
-// GetConversation returns a single conversation by ID, scoped to orgID.
+// GetConversation returns a single direct conversation by ID, scoped to orgID.
 func (r *Repo) GetConversation(ctx context.Context, orgID, conversationID string) (MentorConversation, error) {
 	row := r.pool.QueryRow(ctx,
-		`SELECT `+mentorConversationColumns+` FROM mentor_conversations WHERE id = $1 AND org_id = $2`,
+		`SELECT `+mentorConversationColumns+` FROM conversations WHERE id = $1 AND org_id = $2 AND kind = 'direct'`,
 		conversationID, orgID)
 	c, err := scanMentorConversation(row)
 	if err != nil {
@@ -1017,13 +867,13 @@ func (r *Repo) GetConversation(ctx context.Context, orgID, conversationID string
 	return c, nil
 }
 
-// ListMyConversations returns every conversation userID is a party to
-// (as either student or mentor) within orgID, most recently active first.
+// ListMyConversations returns every direct conversation userID is a party to
+// (as either requester or counterpart) within orgID.
 func (r *Repo) ListMyConversations(ctx context.Context, orgID, userID string) ([]MentorConversation, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+mentorConversationColumns+` FROM mentor_conversations
-		 WHERE org_id = $1 AND (student_id = $2 OR mentor_id = $2)
-		 ORDER BY updated_at DESC`,
+		`SELECT `+mentorConversationColumns+` FROM conversations
+		 WHERE org_id = $1 AND kind = 'direct' AND (requester_id = $2 OR counterpart_id = $2)
+		 ORDER BY created_at DESC`,
 		orgID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("mentoring: list my conversations: %w", err)
@@ -1040,7 +890,7 @@ func (r *Repo) ListMyConversations(ctx context.Context, orgID, userID string) ([
 	return out, rows.Err()
 }
 
-const directMessageColumns = `id, org_id, conversation_id, sender_id, body, created_at`
+const directMessageColumns = `id, org_id, thread_id, sender_id, body, created_at`
 
 func scanDirectMessage(row rowScanner) (DirectMessage, error) {
 	var m DirectMessage
@@ -1048,22 +898,17 @@ func scanDirectMessage(row rowScanner) (DirectMessage, error) {
 	return m, err
 }
 
-// CreateDirectMessage posts a new message on conversationID's DM thread, and
-// bumps the conversation's updated_at so ListMyConversations sorts it to the top.
+// CreateDirectMessage posts a new message on conversationID's DM thread (messages.thread_type='mentor_conversation').
+// Note: conversations doesn't have an updated_at column, so we don't bump it.
 func (r *Repo) CreateDirectMessage(ctx context.Context, orgID, conversationID, senderID, body string) (DirectMessage, error) {
 	row := r.pool.QueryRow(ctx,
-		`INSERT INTO mentor_direct_messages (org_id, conversation_id, sender_id, body)
-		 VALUES ($1,$2,$3,$4)
+		`INSERT INTO messages (org_id, thread_type, thread_id, sender_id, body)
+		 VALUES ($1,'mentor_conversation',$2,$3,$4)
 		 RETURNING `+directMessageColumns,
 		orgID, conversationID, senderID, body)
 	m, err := scanDirectMessage(row)
 	if err != nil {
 		return DirectMessage{}, fmt.Errorf("mentoring: create direct message: %w", err)
-	}
-	if _, err := r.pool.Exec(ctx,
-		`UPDATE mentor_conversations SET updated_at = now() WHERE id = $1`, conversationID,
-	); err != nil {
-		return DirectMessage{}, fmt.Errorf("mentoring: touch conversation: %w", err)
 	}
 	return m, nil
 }
@@ -1071,8 +916,8 @@ func (r *Repo) CreateDirectMessage(ctx context.Context, orgID, conversationID, s
 // ListDirectMessages returns every message on conversationID's thread, oldest first.
 func (r *Repo) ListDirectMessages(ctx context.Context, orgID, conversationID string) ([]DirectMessage, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+directMessageColumns+` FROM mentor_direct_messages
-		 WHERE org_id = $1 AND conversation_id = $2
+		`SELECT `+directMessageColumns+` FROM messages
+		 WHERE org_id = $1 AND thread_type = 'mentor_conversation' AND thread_id = $2
 		 ORDER BY created_at ASC`,
 		orgID, conversationID)
 	if err != nil {
@@ -1090,7 +935,7 @@ func (r *Repo) ListDirectMessages(ctx context.Context, orgID, conversationID str
 	return out, rows.Err()
 }
 
-const changeRequestColumns = `id, org_id, ticket_id, student_id, reason, status,
+const changeRequestColumns = `id, org_id, subject_id, requester_id, requested_change->>'reason' as reason, status,
 	reviewed_by, review_note, reviewed_at, created_at`
 
 func scanChangeRequest(row rowScanner) (ChangeRequest, error) {
@@ -1101,15 +946,18 @@ func scanChangeRequest(row rowScanner) (ChangeRequest, error) {
 }
 
 // CreateChangeRequest files a new pending mentor-change request for a ticket.
-// Returns ErrChangeRequestPending if one is already pending for this ticket
-// (UNIQUE (ticket_id) WHERE status='pending').
+// Maps to change_requests with kind='mentor_reassignment', storing reason in requested_change jsonb.
+// Returns ErrChangeRequestPending if one is already pending for this subject
+// (database constraint on kind/subject_type/subject_id/status).
 func (r *Repo) CreateChangeRequest(ctx context.Context, cr ChangeRequest) (ChangeRequest, error) {
 	cr.Status = ChangeRequestStatusPending
+	requestedChange, _ := json.Marshal(map[string]string{"reason": cr.Reason})
 	row := r.pool.QueryRow(ctx,
-		`INSERT INTO mentor_change_requests (org_id, ticket_id, student_id, reason, status)
-		 VALUES ($1,$2,$3,$4,$5)
-		 RETURNING `+changeRequestColumns,
-		cr.OrgID, cr.TicketID, cr.StudentID, cr.Reason, cr.Status)
+		`INSERT INTO change_requests (org_id, kind, requester_id, subject_type, subject_id, requested_change, status)
+		 VALUES ($1,'mentor_reassignment',$2,'mentor_ticket',$3,$4,$5)
+		 RETURNING id, org_id, subject_id, requester_id, requested_change->>'reason' as reason, status,
+		          reviewed_by, review_note, reviewed_at, created_at`,
+		cr.OrgID, cr.StudentID, cr.TicketID, requestedChange, cr.Status)
 	created, err := scanChangeRequest(row)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -1121,16 +969,19 @@ func (r *Repo) CreateChangeRequest(ctx context.Context, cr ChangeRequest) (Chang
 	return created, nil
 }
 
-// ListChangeRequests returns change requests for orgID, optionally filtered
-// by status.
+// ListChangeRequests returns mentor reassignment change requests for orgID,
+// optionally filtered by status.
 func (r *Repo) ListChangeRequests(ctx context.Context, orgID string, status *string) ([]ChangeRequest, error) {
 	args := []any{orgID}
-	where := "WHERE org_id = $1"
+	where := "WHERE org_id = $1 AND kind = 'mentor_reassignment'"
 	if status != nil && *status != "" {
 		where += " AND status = $2"
 		args = append(args, *status)
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+changeRequestColumns+` FROM mentor_change_requests `+where+` ORDER BY created_at DESC`, args...)
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, org_id, subject_id, requester_id, requested_change->>'reason' as reason, status,
+		        reviewed_by, review_note, reviewed_at, created_at
+		 FROM change_requests `+where+` ORDER BY created_at DESC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("mentoring: list change requests: %w", err)
 	}
@@ -1148,10 +999,14 @@ func (r *Repo) ListChangeRequests(ctx context.Context, orgID string, status *str
 
 // ListChangeRequestsByTicket returns every change request ever filed for
 // ticketID, most recent first — used by GetTicketDetail to assemble a
-// ticket's full lifecycle alongside its assignments and reports.
+// ticket's full lifecycle.
 func (r *Repo) ListChangeRequestsByTicket(ctx context.Context, ticketID string) ([]ChangeRequest, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+changeRequestColumns+` FROM mentor_change_requests WHERE ticket_id = $1 ORDER BY created_at DESC`, ticketID)
+		`SELECT id, org_id, subject_id, requester_id, requested_change->>'reason' as reason, status,
+		        reviewed_by, review_note, reviewed_at, created_at
+		 FROM change_requests
+		 WHERE kind = 'mentor_reassignment' AND subject_type = 'mentor_ticket' AND subject_id = $1
+		 ORDER BY created_at DESC`, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("mentoring: list change requests by ticket: %w", err)
 	}
@@ -1167,9 +1022,13 @@ func (r *Repo) ListChangeRequestsByTicket(ctx context.Context, ticketID string) 
 	return out, rows.Err()
 }
 
-// GetChangeRequest returns a single change request scoped to orgID.
+// GetChangeRequest returns a single mentor reassignment request scoped to orgID.
 func (r *Repo) GetChangeRequest(ctx context.Context, orgID, requestID string) (ChangeRequest, error) {
-	row := r.pool.QueryRow(ctx, `SELECT `+changeRequestColumns+` FROM mentor_change_requests WHERE id = $1 AND org_id = $2`, requestID, orgID)
+	row := r.pool.QueryRow(ctx,
+		`SELECT id, org_id, subject_id, requester_id, requested_change->>'reason' as reason, status,
+		        reviewed_by, review_note, reviewed_at, created_at
+		 FROM change_requests
+		 WHERE id = $1 AND org_id = $2 AND kind = 'mentor_reassignment'`, requestID, orgID)
 	cr, err := scanChangeRequest(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1180,14 +1039,15 @@ func (r *Repo) GetChangeRequest(ctx context.Context, orgID, requestID string) (C
 	return cr, nil
 }
 
-// DenyChangeRequest marks a pending request denied within orgID. Returns
-// ErrNotFound if the request doesn't exist in this org or is no longer pending.
+// DenyChangeRequest marks a pending mentor reassignment request denied within orgID.
+// Returns ErrNotFound if the request doesn't exist in this org or is no longer pending.
 func (r *Repo) DenyChangeRequest(ctx context.Context, orgID, requestID, reviewedBy, note string) (ChangeRequest, error) {
 	row := r.pool.QueryRow(ctx,
-		`UPDATE mentor_change_requests
+		`UPDATE change_requests
 		 SET status = $1, reviewed_by = $2, review_note = $3, reviewed_at = now()
-		 WHERE id = $4 AND org_id = $5 AND status = $6
-		 RETURNING `+changeRequestColumns,
+		 WHERE id = $4 AND org_id = $5 AND kind = 'mentor_reassignment' AND status = $6
+		 RETURNING id, org_id, subject_id, requester_id, requested_change->>'reason' as reason, status,
+		          reviewed_by, review_note, reviewed_at, created_at`,
 		ChangeRequestStatusDenied, reviewedBy, note, requestID, orgID, ChangeRequestStatusPending)
 	cr, err := scanChangeRequest(row)
 	if err != nil {
@@ -1199,20 +1059,19 @@ func (r *Repo) DenyChangeRequest(ctx context.Context, orgID, requestID, reviewed
 	return cr, nil
 }
 
-// ApproveChangeRequest marks a pending request approved and reopens its
-// ticket (status back to 'open', mentor cleared, escalation_level reset to 0
-// so the fresh assignment cycle re-escalates from scratch) atomically within
-// orgID. Returns ErrNotFound if the request doesn't exist in this org or is
-// no longer pending.
-func (r *Repo) ApproveChangeRequest(ctx context.Context, orgID, requestID, reviewedBy, note string) (ChangeRequest, Ticket, error) {
+// ApproveChangeRequest marks a pending mentor reassignment request approved and reopens its
+// ticket (status back to 'open', mentor cleared, escalation_level reset to 0)
+// atomically within orgID.
+func (r *Repo) ApproveChangeRequest(ctx context.Context, orgID, requestID, reviewedBy, note string) (ChangeRequest, tickets.Ticket, error) {
 	var cr ChangeRequest
-	var t Ticket
+	var t tickets.Ticket
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		row := tx.QueryRow(ctx,
-			`UPDATE mentor_change_requests
+			`UPDATE change_requests
 			 SET status = $1, reviewed_by = $2, review_note = $3, reviewed_at = now()
-			 WHERE id = $4 AND org_id = $5 AND status = $6
-			 RETURNING `+changeRequestColumns,
+			 WHERE id = $4 AND org_id = $5 AND kind = 'mentor_reassignment' AND status = $6
+			 RETURNING id, org_id, subject_id, requester_id, requested_change->>'reason' as reason, status,
+			          reviewed_by, review_note, reviewed_at, created_at`,
 			ChangeRequestStatusApproved, reviewedBy, note, requestID, orgID, ChangeRequestStatusPending)
 		var txErr error
 		cr, txErr = scanChangeRequest(row)
@@ -1224,20 +1083,19 @@ func (r *Repo) ApproveChangeRequest(ctx context.Context, orgID, requestID, revie
 		}
 
 		ticketRow := tx.QueryRow(ctx,
-			`UPDATE mentor_tickets
-			 SET status = 'open', assigned_mentor_id = NULL, assigned_by = NULL,
-			     assigned_at = NULL, escalation_level = 0, updated_at = now()
-			 WHERE id = $1 AND org_id = $2
-			 RETURNING `+ticketColumns,
+			`UPDATE conversations
+			 SET status = 'open', assigned_to = NULL, escalation_level = 0
+			 WHERE id = $1 AND org_id = $2 AND kind = 'mentorship'
+			 RETURNING `+tickets.TicketColumns,
 			cr.TicketID, orgID)
-		t, txErr = scanTicket(ticketRow)
+		t, txErr = tickets.ScanTicket(ticketRow)
 		if txErr != nil {
 			return fmt.Errorf("reopen ticket %s: %w", cr.TicketID, txErr)
 		}
 		return nil
 	})
 	if err != nil {
-		return ChangeRequest{}, Ticket{}, err
+		return ChangeRequest{}, tickets.Ticket{}, err
 	}
 	return cr, t, nil
 }

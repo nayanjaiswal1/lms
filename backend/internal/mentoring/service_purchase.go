@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/payments"
+	"github.com/mindforge/backend/internal/tickets"
 )
 
 // newPendingProviderRef generates a unique placeholder for a purchase row
@@ -420,9 +421,10 @@ func (s *Service) confirmPurchase(ctx context.Context, p Purchase, paymentRef, e
 			return txErr
 		}
 		if !hasMentor {
-			purchaseID := completed.ID
-			if _, txErr := s.repo.CreateTicket(ctx, tx, Ticket{
-				OrgID: completed.OrgID, StudentID: completed.UserID, CourseID: completed.CourseID, PurchaseID: &purchaseID,
+			purchaseID, courseID := completed.ID, completed.CourseID
+			if _, txErr := s.tickets.CreateTx(ctx, tx, tickets.Ticket{
+				OrgID: completed.OrgID, Kind: tickets.KindMentorship, RequesterID: completed.UserID,
+				CourseID: &courseID, PurchaseID: &purchaseID,
 			}); txErr != nil {
 				return txErr
 			}

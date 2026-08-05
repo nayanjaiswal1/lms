@@ -51,10 +51,10 @@ var exportQueries = []exportQuery{
 	{"profile", `SELECT id, name, email, avatar_url, platform_role, created_at FROM users WHERE id = $1`},
 	{"org_memberships", `SELECT org_id, role, created_at FROM org_members WHERE user_id = $1`},
 	{"course_purchases", `SELECT id, course_id, amount_cents, discount_cents, currency, status, purchased_at
-	                        FROM course_purchases WHERE user_id = $1`},
+	                        FROM purchases WHERE user_id = $1 AND product_type = 'course'`},
 	{"assessment_attempts", `SELECT id, assessment_id, status, score, percentage, created_at
 	                          FROM assessment_attempts WHERE user_id = $1`},
-	{"support_tickets", `SELECT id, subject, category, status, created_at FROM support_tickets WHERE user_id = $1`},
+	{"support_tickets", `SELECT id, subject, category, status, created_at FROM conversations WHERE requester_id = $1 AND kind = 'support'`},
 	{"legal_acceptances", `SELECT doc_type, version, accepted_at FROM legal_acceptances WHERE user_id = $1`},
 }
 

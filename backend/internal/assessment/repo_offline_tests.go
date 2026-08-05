@@ -28,7 +28,7 @@ type OfflineTestScoreEntry struct {
 }
 
 // CreateOfflineTestScores inserts one score row per entry, all sharing a
-// freshly generated test_id, in a transaction so the submission is all-or-nothing.
+// freshly generated assessment_id (an offline assessment), in a transaction so the submission is all-or-nothing.
 func (r *Repo) CreateOfflineTestScores(
 	ctx context.Context, orgID, batchID, testName string, testDate time.Time,
 	maxScore float64, enteredBy string, entries []OfflineTestScoreEntry,
@@ -36,7 +36,7 @@ func (r *Repo) CreateOfflineTestScores(
 	if len(entries) == 0 {
 		return "", fmt.Errorf("assessment: create offline test scores: no entries")
 	}
-	testID := uuid.NewString()
+	assessmentID := uuid.NewString()
 
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		var exists bool
@@ -49,6 +49,30 @@ func (r *Repo) CreateOfflineTestScores(
 			return ErrNotFound
 		}
 
+		// Find or create an offline assessment for this batch+testName
+		var aID string
+		err := tx.QueryRow(ctx,
+			`SELECT id FROM assessments
+			 WHERE org_id = $1 AND parent_type = 'batch' AND parent_id = $2
+			   AND type = 'offline' AND title = $3
+			 LIMIT 1`,
+			orgID, batchID, testName).Scan(&aID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("assessment: lookup offline assessment: %w", err)
+		}
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Create a new offline assessment
+			err = tx.QueryRow(ctx,
+				`INSERT INTO assessments (id, org_id, title, type, status, parent_type, parent_id, created_by, published_at, total_points)
+				 VALUES ($1, $2, $3, 'offline', 'published', 'batch', $4, $5, now(), $6)
+				 RETURNING id`,
+				assessmentID, orgID, testName, batchID, enteredBy, maxScore).Scan(&aID)
+			if err != nil {
+				return fmt.Errorf("assessment: create offline assessment: %w", err)
+			}
+		}
+		assessmentID = aID
+
 		userIDs := make([]string, len(entries))
 		scores := make([]float64, len(entries))
 		for i, e := range entries {
@@ -57,11 +81,15 @@ func (r *Repo) CreateOfflineTestScores(
 		}
 
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO offline_test_scores
-			   (org_id, batch_id, user_id, test_id, test_name, test_date, max_score, score, entered_by)
-			 SELECT $1, $2, x.user_id, $3, $4, $5, $6, x.score, $7
-			 FROM unnest($8::uuid[], $9::numeric[]) AS x(user_id, score)`,
-			orgID, batchID, testID, testName, testDate, maxScore, enteredBy, userIDs, scores); err != nil {
+			`INSERT INTO assessment_attempts (assessment_id, user_id, org_id, score, max_score, status, submitted_at, created_at, updated_at)
+			 SELECT $1, x.user_id, $2, x.score, $3, 'evaluated', $4::timestamp, now(), now()
+			 FROM unnest($5::uuid[]) AS x(user_id)
+			 JOIN (SELECT * FROM unnest($6::numeric[]) WITH ORDINALITY) AS scores(score, idx)
+			   ON TRUE
+			 WHERE scores.idx = x.ordinality
+			 ON CONFLICT (assessment_id, user_id) DO UPDATE
+			   SET score = EXCLUDED.score, updated_at = now()`,
+			assessmentID, orgID, maxScore, testDate, userIDs, scores); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23514" {
 				return ErrInvalidScore
@@ -73,7 +101,7 @@ func (r *Repo) CreateOfflineTestScores(
 	if err != nil {
 		return "", err
 	}
-	return testID, nil
+	return assessmentID, nil
 }
 
 // OfflineTestSummary is one row in the classroom tests list view.
@@ -86,16 +114,16 @@ type OfflineTestSummary struct {
 	AvgScore     float64   `json:"avg_score"`
 }
 
-// ListOfflineTests returns one summary row per test_id entered for the batch.
+// ListOfflineTests returns one summary row per offline assessment entered for the batch.
 func (r *Repo) ListOfflineTests(ctx context.Context, orgID, batchID string) ([]OfflineTestSummary, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT ots.test_id, ots.test_name, ots.test_date, ots.max_score,
-		        COUNT(*), AVG(ots.score)
-		 FROM offline_test_scores ots
-		 WHERE ots.batch_id = $1
-		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $1 AND b.org_id = $2)
-		 GROUP BY ots.test_id, ots.test_name, ots.test_date, ots.max_score
-		 ORDER BY ots.test_date DESC`, batchID, orgID)
+		`SELECT a.id, a.title, COALESCE(MAX(aa.submitted_at), a.created_at),
+		        a.total_points, COUNT(DISTINCT aa.user_id), AVG(aa.score)
+		 FROM assessments a
+		 LEFT JOIN assessment_attempts aa ON aa.assessment_id = a.id
+		 WHERE a.org_id = $1 AND a.parent_type = 'batch' AND a.parent_id = $2 AND a.type = 'offline'
+		 GROUP BY a.id, a.title, a.total_points
+		 ORDER BY COALESCE(MAX(aa.submitted_at), a.created_at) DESC`, orgID, batchID)
 	if err != nil {
 		return nil, fmt.Errorf("assessment: list offline tests: %w", err)
 	}
@@ -134,25 +162,41 @@ type OfflineTestDetail struct {
 func (r *Repo) GetOfflineTestScores(ctx context.Context, orgID, batchID, testID string) (OfflineTestDetail, error) {
 	var out OfflineTestDetail
 	rows, err := r.pool.Query(ctx,
-		`SELECT ots.test_id, ots.test_name, ots.test_date, ots.max_score,
-		        u.id, u.name, u.email, ots.score
-		 FROM offline_test_scores ots
-		 JOIN users u ON u.id = ots.user_id
-		 WHERE ots.batch_id = $1 AND ots.test_id = $2
-		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $1 AND b.org_id = $3)
-		 ORDER BY u.name`, batchID, testID, orgID)
+		`SELECT a.id, a.title, COALESCE(MAX(aa.submitted_at), a.created_at), a.total_points,
+		        u.id, u.name, u.email, aa.score
+		 FROM assessments a
+		 LEFT JOIN assessment_attempts aa ON aa.assessment_id = a.id
+		 LEFT JOIN users u ON u.id = aa.user_id
+		 WHERE a.id = $1 AND a.org_id = $2 AND a.parent_type = 'batch' AND a.parent_id = $3
+		   AND a.type = 'offline'
+		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $3 AND b.org_id = $2)
+		 ORDER BY u.name`, testID, orgID, batchID)
 	if err != nil {
 		return out, fmt.Errorf("assessment: get offline test scores: %w", err)
 	}
 	defer rows.Close()
 
+	seen := make(map[string]bool) // track which rows we've scanned for header info
 	for rows.Next() {
 		var row OfflineTestScoreRow
+		var userID, userName, email *string
+		var score *float64
 		if err := rows.Scan(&out.TestID, &out.TestName, &out.TestDate, &out.MaxScore,
-			&row.UserID, &row.UserName, &row.Email, &row.Score); err != nil {
+			&userID, &userName, &email, &score); err != nil {
 			return out, fmt.Errorf("assessment: scan offline test score: %w", err)
 		}
-		out.Scores = append(out.Scores, row)
+		// Only set header fields once per test
+		if !seen["header"] {
+			seen["header"] = true
+		}
+		// Only add scores for users with attempts
+		if userID != nil && userName != nil && email != nil && score != nil {
+			row.UserID = *userID
+			row.UserName = *userName
+			row.Email = *email
+			row.Score = *score
+			out.Scores = append(out.Scores, row)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return out, err
@@ -167,10 +211,15 @@ func (r *Repo) GetOfflineTestScores(ctx context.Context, orgID, batchID, testID 
 // The table's CHECK constraint rejects a score outside 0..max_score.
 func (r *Repo) UpdateOfflineTestScore(ctx context.Context, orgID, batchID, testID, userID string, score float64) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE offline_test_scores SET score = $1, updated_at = now()
-		 WHERE batch_id = $2 AND test_id = $3 AND user_id = $4
-		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $2 AND b.org_id = $5)`,
-		score, batchID, testID, userID, orgID)
+		`UPDATE assessment_attempts SET score = $1, updated_at = now()
+		 WHERE assessment_id = $2 AND user_id = $3
+		   AND EXISTS (
+		     SELECT 1 FROM assessments a
+		     WHERE a.id = $2 AND a.org_id = $4 AND a.parent_type = 'batch'
+		       AND a.parent_id = $5 AND a.type = 'offline'
+		   )
+		   AND EXISTS (SELECT 1 FROM batches b WHERE b.id = $5 AND b.org_id = $4)`,
+		score, testID, userID, orgID, batchID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23514" {

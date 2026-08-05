@@ -331,36 +331,38 @@ func (s *Service) IssueByMentor(ctx context.Context, orgID, callerID, callerRole
 
 // ─── Threshold-based auto-issue ────────────────────────────────────────────────
 
-func (s *Service) UpsertCertificateRule(ctx context.Context, orgID, courseID string, thresholdPercent int) (CertificateRule, error) {
+// UpsertCertificateThreshold sets the certificate threshold percentage for a course.
+func (s *Service) UpsertCertificateThreshold(ctx context.Context, orgID, courseID string, thresholdPercent *int) error {
 	if _, err := s.coursesRepo.GetCourse(ctx, orgID, courseID); err != nil {
 		if errors.Is(err, courses.ErrNotFound) {
-			return CertificateRule{}, ErrCourseNotFound
+			return ErrCourseNotFound
 		}
-		return CertificateRule{}, fmt.Errorf("certificates: load course: %w", err)
+		return fmt.Errorf("certificates: load course: %w", err)
 	}
-	if thresholdPercent < 1 || thresholdPercent > 100 {
-		return CertificateRule{}, ErrInvalidThreshold
+	if thresholdPercent != nil && (*thresholdPercent < 1 || *thresholdPercent > 100) {
+		return ErrInvalidThreshold
 	}
-	return s.repo.UpsertCertificateRule(ctx, courseID, thresholdPercent)
+	return s.repo.UpsertCertificateThreshold(ctx, courseID, thresholdPercent)
 }
 
-// GetCertificateRule returns nil (not an error) when the course has no
-// threshold rule configured — a normal state, not a fault.
-func (s *Service) GetCertificateRule(ctx context.Context, orgID, courseID string) (*CertificateRule, error) {
+// GetCertificateThreshold returns the certificate threshold percentage for a
+// course, or nil (not an error) when the course has no threshold configured —
+// a normal state, not a fault.
+func (s *Service) GetCertificateThreshold(ctx context.Context, orgID, courseID string) (*int, error) {
 	if _, err := s.coursesRepo.GetCourse(ctx, orgID, courseID); err != nil {
 		if errors.Is(err, courses.ErrNotFound) {
 			return nil, ErrCourseNotFound
 		}
 		return nil, fmt.Errorf("certificates: load course: %w", err)
 	}
-	rule, err := s.repo.GetCertificateRule(ctx, courseID)
+	threshold, err := s.repo.GetCertificateThreshold(ctx, courseID)
 	if errors.Is(err, ErrNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &rule, nil
+	return threshold, nil
 }
 
 // CheckThresholdIssue evaluates whether userID now qualifies for this
@@ -376,12 +378,12 @@ func (s *Service) CheckThresholdIssue(ctx context.Context, orgID, userID, course
 		return nil, err
 	}
 
-	rule, err := s.repo.GetCertificateRule(ctx, courseID)
-	if errors.Is(err, ErrNotFound) {
-		return nil, nil
-	}
-	if err != nil {
+	threshold, err := s.repo.GetCertificateThreshold(ctx, courseID)
+	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, err
+	}
+	if threshold == nil {
+		return nil, nil
 	}
 
 	enrolled, err := s.coursesRepo.IsEnrolled(ctx, userID, courseID)
@@ -396,7 +398,7 @@ func (s *Service) CheckThresholdIssue(ctx context.Context, orgID, userID, course
 	if err != nil {
 		return nil, fmt.Errorf("certificates: check progress: %w", err)
 	}
-	if progress.Total == 0 || progress.Pct < float64(rule.ThresholdPercent) {
+	if progress.Total == 0 || progress.Pct < float64(*threshold) {
 		return nil, nil
 	}
 

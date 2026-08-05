@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/mentoring/format";
+import { formatDateTime } from "@/lib/tickets/format";
 
 interface LifecycleRecordCardProps {
   status: string;

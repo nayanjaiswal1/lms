@@ -374,12 +374,12 @@ func (r *Repo) GetWeeklyStats(ctx context.Context, userID string) (WeeklyStats, 
 	return s, nil
 }
 
-// GetUserState returns the user's energy state, creating a default row if
-// none exists yet.
+// GetUserState returns the user's energy state, defaulting to EnergySharp
+// when no profile row exists yet or none was ever set.
 func (r *Repo) GetUserState(ctx context.Context, userID string) (Energy, error) {
-	var energy Energy
+	var energy *Energy
 	err := r.pool.QueryRow(ctx,
-		`SELECT energy FROM whatnow_user_state WHERE user_id = $1`, userID,
+		`SELECT whatnow_energy FROM user_profiles WHERE user_id = $1`, userID,
 	).Scan(&energy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return EnergySharp, nil
@@ -387,15 +387,18 @@ func (r *Repo) GetUserState(ctx context.Context, userID string) (Energy, error) 
 	if err != nil {
 		return "", fmt.Errorf("whatnow: get user state: %w", err)
 	}
-	return energy, nil
+	if energy == nil {
+		return EnergySharp, nil
+	}
+	return *energy, nil
 }
 
 // UpsertUserState sets the user's energy state.
 func (r *Repo) UpsertUserState(ctx context.Context, userID string, energy Energy) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO whatnow_user_state (user_id, energy, updated_at)
+		`INSERT INTO user_profiles (user_id, whatnow_energy, updated_at)
 		 VALUES ($1, $2, now())
-		 ON CONFLICT (user_id) DO UPDATE SET energy = $2, updated_at = now()`,
+		 ON CONFLICT (user_id) DO UPDATE SET whatnow_energy = $2, updated_at = now()`,
 		userID, energy)
 	if err != nil {
 		return fmt.Errorf("whatnow: upsert user state: %w", err)

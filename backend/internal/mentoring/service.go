@@ -10,6 +10,7 @@ import (
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/payments"
+	"github.com/mindforge/backend/internal/tickets"
 )
 
 // ErrInvalid signals a request that failed validation before reaching the
@@ -22,6 +23,7 @@ var ErrInvalid = errors.New("mentoring: invalid input")
 // ticket/report/directory workflows.
 type Service struct {
 	repo        *Repo
+	tickets     *tickets.Repo
 	providers   *payments.Registry
 	coupons     *coupons.Service
 	coursesRepo *courses.Repo
@@ -49,10 +51,13 @@ type PackConfirmer interface {
 // CreateEnrollmentTx capability, so the paid-course enrollment insert stays
 // byte-identical to courses.Repo.CreateEnrollment's free-course path instead
 // of being duplicated here. packs may be nil — a deployment with no session
-// booking simply has no second product to fan webhooks out to.
-func NewService(repo *Repo, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, packs PackConfirmer, cfg *config.Config) *Service {
+// booking simply has no second product to fan webhooks out to. ticketsRepo
+// backs mentorship ticket creation (RequestMentor, confirmPurchase) — the
+// shared internal/tickets package owns the conversations/messages CRUD both
+// this package and internal/tickets' own support-ticket flow build on.
+func NewService(repo *Repo, ticketsRepo *tickets.Repo, providers *payments.Registry, couponsSvc *coupons.Service, coursesRepo *courses.Repo, packs PackConfirmer, cfg *config.Config) *Service {
 	return &Service{
-		repo: repo, providers: providers, coupons: couponsSvc, coursesRepo: coursesRepo,
+		repo: repo, tickets: ticketsRepo, providers: providers, coupons: couponsSvc, coursesRepo: coursesRepo,
 		packs: packs, frontendURL: cfg.FrontendURL, currency: cfg.PaymentsCurrency,
 	}
 }
@@ -65,16 +70,16 @@ func NewService(repo *Repo, providers *payments.Registry, couponsSvc *coupons.Se
 // enrolled in courseID, ErrAlreadyHasMentor if they already have an open or
 // assigned ticket anywhere in the org (mirrors confirmPurchase's
 // HasActiveMentor dedup).
-func (s *Service) RequestMentor(ctx context.Context, orgID, userID, courseID string) (Ticket, error) {
+func (s *Service) RequestMentor(ctx context.Context, orgID, userID, courseID string) (tickets.Ticket, error) {
 	enrolled, err := s.coursesRepo.IsEnrolled(ctx, userID, courseID)
 	if err != nil {
-		return Ticket{}, fmt.Errorf("mentoring: request mentor: check enrollment: %w", err)
+		return tickets.Ticket{}, fmt.Errorf("mentoring: request mentor: check enrollment: %w", err)
 	}
 	if !enrolled {
-		return Ticket{}, fmt.Errorf("%w: you must be enrolled in this course to request a mentor", ErrInvalid)
+		return tickets.Ticket{}, fmt.Errorf("%w: you must be enrolled in this course to request a mentor", ErrInvalid)
 	}
 
-	var ticket Ticket
+	var ticket tickets.Ticket
 	err = s.repo.tx(ctx, func(tx pgx.Tx) error {
 		hasMentor, txErr := s.repo.HasActiveMentor(ctx, tx, orgID, userID)
 		if txErr != nil {
@@ -83,10 +88,11 @@ func (s *Service) RequestMentor(ctx context.Context, orgID, userID, courseID str
 		if hasMentor {
 			return ErrAlreadyHasMentor
 		}
-		created, txErr := s.repo.CreateTicket(ctx, tx, Ticket{
-			OrgID:     orgID,
-			StudentID: userID,
-			CourseID:  courseID,
+		created, txErr := s.tickets.CreateTx(ctx, tx, tickets.Ticket{
+			OrgID:       orgID,
+			Kind:        tickets.KindMentorship,
+			RequesterID: userID,
+			CourseID:    &courseID,
 		})
 		if txErr != nil {
 			return txErr
@@ -95,13 +101,13 @@ func (s *Service) RequestMentor(ctx context.Context, orgID, userID, courseID str
 		return nil
 	})
 	if err != nil {
-		return Ticket{}, err
+		return tickets.Ticket{}, err
 	}
 	return ticket, nil
 }
 
 // ClaimTicket lets a mentor self-assign an open ticket within orgID.
-func (s *Service) ClaimTicket(ctx context.Context, orgID, ticketID, mentorID string) (Ticket, error) {
+func (s *Service) ClaimTicket(ctx context.Context, orgID, ticketID, mentorID string) (tickets.Ticket, error) {
 	return s.repo.ClaimTicket(ctx, orgID, ticketID, mentorID)
 }
 
@@ -109,13 +115,13 @@ func (s *Service) ClaimTicket(ctx context.Context, orgID, ticketID, mentorID str
 // within orgID. Validates that mentorID actually holds the mentor role in
 // this org before assigning — otherwise a staff member could hand a ticket
 // to an arbitrary user ID.
-func (s *Service) AssignTicket(ctx context.Context, orgID, ticketID, mentorID, assignedBy string) (Ticket, error) {
+func (s *Service) AssignTicket(ctx context.Context, orgID, ticketID, mentorID, assignedBy string) (tickets.Ticket, error) {
 	isMentor, err := s.repo.IsMentor(ctx, orgID, mentorID)
 	if err != nil {
-		return Ticket{}, err
+		return tickets.Ticket{}, err
 	}
 	if !isMentor {
-		return Ticket{}, fmt.Errorf("%w: mentor_id must be a mentor in this organization", ErrInvalid)
+		return tickets.Ticket{}, fmt.Errorf("%w: mentor_id must be a mentor in this organization", ErrInvalid)
 	}
 	return s.repo.AssignTicket(ctx, orgID, ticketID, mentorID, assignedBy)
 }
@@ -123,25 +129,16 @@ func (s *Service) AssignTicket(ctx context.Context, orgID, ticketID, mentorID, a
 // CloseTicket closes a ticket within orgID. Callers must already have
 // verified the caller is either the assigned mentor or holds
 // mentoring.assign_tickets.
-func (s *Service) CloseTicket(ctx context.Context, orgID, ticketID string) (Ticket, error) {
+func (s *Service) CloseTicket(ctx context.Context, orgID, ticketID string) (tickets.Ticket, error) {
 	return s.repo.CloseTicket(ctx, orgID, ticketID)
 }
 
-// GetTicket returns a single ticket by ID, scoped to orgID.
-func (s *Service) GetTicket(ctx context.Context, orgID, ticketID string) (Ticket, error) {
-	return s.repo.GetTicket(ctx, orgID, ticketID)
-}
-
-// ListTickets returns tickets for orgID, optionally filtered by status
-// and/or assigned mentor (a mentor's own queue).
-func (s *Service) ListTickets(ctx context.Context, orgID string, status, mentorID *string) ([]Ticket, error) {
-	return s.repo.ListTickets(ctx, orgID, status, mentorID, nil)
-}
-
-// ListMyTickets returns every ticket belonging to studentID within orgID,
-// most recent first — the student-facing counterpart to ListTickets.
-func (s *Service) ListMyTickets(ctx context.Context, orgID, studentID string) ([]Ticket, error) {
-	return s.repo.ListTickets(ctx, orgID, nil, nil, &studentID)
+// GetTicket returns a single ticket by ID, scoped to orgID — a thin
+// pass-through to the shared tickets.Repo, kept here since CloseTicket's
+// handler needs it for its either/or ownership check (own student, assigned
+// mentor, or mentoring.assign_tickets) before calling CloseTicket.
+func (s *Service) GetTicket(ctx context.Context, orgID, ticketID string) (tickets.Ticket, error) {
+	return s.tickets.Get(ctx, orgID, ticketID)
 }
 
 // ListMentorDirectory returns every mentor in orgID with a live mentee count
@@ -225,83 +222,25 @@ func (s *Service) ListConversationMessages(ctx context.Context, orgID, conversat
 	return s.repo.ListDirectMessages(ctx, orgID, conversationID)
 }
 
-// SendChatMessage posts a message on ticketID's 1:1 chat thread. Only the
-// ticket's student or its currently assigned mentor may post, and only
-// while the ticket is 'assigned' (there's no one to talk to on an open or
-// closed ticket).
-func (s *Service) SendChatMessage(ctx context.Context, orgID, ticketID, senderID, body string) (ChatMessage, error) {
-	if len(body) < 1 || len(body) > 4000 {
-		return ChatMessage{}, fmt.Errorf("%w: message must be between 1 and 4000 characters", ErrInvalid)
-	}
-	ticket, err := s.repo.GetTicket(ctx, orgID, ticketID)
+// GetTicketDetail returns the full staff-facing lifecycle for ticketID: the
+// ticket and every change request filed against it. Reports are included
+// only when canViewReports is true — the handler decides that via
+// authzSvc.HasPermission before calling in, since Service has no access to
+// the authz package's permission check.
+func (s *Service) GetTicketDetail(ctx context.Context, orgID, ticketID string, canViewReports bool) (TicketLifecycle, error) {
+	ticket, err := s.tickets.Get(ctx, orgID, ticketID)
 	if err != nil {
-		return ChatMessage{}, err
-	}
-	if ticket.Status != TicketStatusAssigned || ticket.AssignedMentorID == nil {
-		return ChatMessage{}, fmt.Errorf("%w: this ticket has no active mentor to chat with", ErrInvalid)
-	}
-	if senderID != ticket.StudentID && senderID != *ticket.AssignedMentorID {
-		return ChatMessage{}, ErrForbidden
-	}
-	return s.repo.CreateChatMessage(ctx, orgID, ticketID, senderID, body)
-}
-
-// ListChatMessages returns the full chat thread for ticketID. Only the
-// ticket's student or its currently assigned mentor may read it.
-func (s *Service) ListChatMessages(ctx context.Context, orgID, ticketID, callerID string) ([]ChatMessage, error) {
-	ticket, err := s.repo.GetTicket(ctx, orgID, ticketID)
-	if err != nil {
-		return nil, err
-	}
-	isMentor := ticket.AssignedMentorID != nil && *ticket.AssignedMentorID == callerID
-	if callerID != ticket.StudentID && !isMentor {
-		return nil, ErrForbidden
-	}
-	return s.repo.ListChatMessages(ctx, orgID, ticketID)
-}
-
-// GetTicketHistory returns a ticket plus its full mentor-assignment history.
-// Only the ticket's student or its currently assigned mentor may view it —
-// same access rule as ListChatMessages.
-func (s *Service) GetTicketHistory(ctx context.Context, orgID, ticketID, callerID string) (Ticket, []TicketAssignment, error) {
-	ticket, err := s.repo.GetTicket(ctx, orgID, ticketID)
-	if err != nil {
-		return Ticket{}, nil, err
-	}
-	isMentor := ticket.AssignedMentorID != nil && *ticket.AssignedMentorID == callerID
-	if callerID != ticket.StudentID && !isMentor {
-		return Ticket{}, nil, ErrForbidden
-	}
-	assignments, err := s.repo.ListTicketAssignments(ctx, ticketID)
-	if err != nil {
-		return Ticket{}, nil, err
-	}
-	return ticket, assignments, nil
-}
-
-// GetTicketDetail returns the full staff-facing lifecycle for ticketID:
-// the ticket, its assignment history, and every change request filed
-// against it. Reports are included only when canViewReports is true — the
-// handler decides that via authzSvc.HasPermission before calling in, since
-// Service has no access to the authz package's permission check.
-func (s *Service) GetTicketDetail(ctx context.Context, orgID, ticketID string, canViewReports bool) (TicketDetail, error) {
-	ticket, err := s.repo.GetTicket(ctx, orgID, ticketID)
-	if err != nil {
-		return TicketDetail{}, err
-	}
-	assignments, err := s.repo.ListTicketAssignments(ctx, ticketID)
-	if err != nil {
-		return TicketDetail{}, err
+		return TicketLifecycle{}, err
 	}
 	changeRequests, err := s.repo.ListChangeRequestsByTicket(ctx, ticketID)
 	if err != nil {
-		return TicketDetail{}, err
+		return TicketLifecycle{}, err
 	}
-	detail := TicketDetail{Ticket: ticket, Assignments: assignments, ChangeRequests: changeRequests}
+	detail := TicketLifecycle{Ticket: ticket, ChangeRequests: changeRequests}
 	if canViewReports {
 		reports, err := s.repo.ListReportsByTicket(ctx, ticketID)
 		if err != nil {
-			return TicketDetail{}, err
+			return TicketLifecycle{}, err
 		}
 		detail.Reports = reports
 	}
@@ -364,11 +303,11 @@ func (s *Service) RequestMentorChange(ctx context.Context, orgID, ticketID, stud
 	if len(reason) < 10 || len(reason) > 1000 {
 		return ChangeRequest{}, fmt.Errorf("%w: reason must be between 10 and 1000 characters", ErrInvalid)
 	}
-	ticket, err := s.repo.GetTicket(ctx, orgID, ticketID)
+	ticket, err := s.tickets.Get(ctx, orgID, ticketID)
 	if err != nil {
 		return ChangeRequest{}, err
 	}
-	if ticket.StudentID != studentID {
+	if ticket.RequesterID != studentID {
 		return ChangeRequest{}, ErrForbidden
 	}
 	if ticket.Status != TicketStatusAssigned {
@@ -390,7 +329,7 @@ func (s *Service) ListChangeRequests(ctx context.Context, orgID string, status *
 
 // ApproveChangeRequest approves a pending change request and reopens its
 // ticket for reclaim/reassignment.
-func (s *Service) ApproveChangeRequest(ctx context.Context, orgID, requestID, reviewedBy, note string) (ChangeRequest, Ticket, error) {
+func (s *Service) ApproveChangeRequest(ctx context.Context, orgID, requestID, reviewedBy, note string) (ChangeRequest, tickets.Ticket, error) {
 	return s.repo.ApproveChangeRequest(ctx, orgID, requestID, reviewedBy, note)
 }
 

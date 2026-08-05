@@ -106,12 +106,12 @@ func (h *AnalyticsHandler) runCleanup(ctx context.Context) error {
 			query: `DELETE FROM refresh_tokens WHERE expires_at < NOW()`,
 		},
 		{
-			table: "email_verifications",
-			query: `DELETE FROM email_verifications WHERE expires_at < NOW() AND verified_at IS NOT NULL`,
+			table: "auth_tokens (email_verify)",
+			query: `DELETE FROM auth_tokens WHERE purpose = 'email_verify' AND expires_at < NOW() AND consumed_at IS NOT NULL`,
 		},
 		{
-			table: "oauth_exchanges",
-			query: `DELETE FROM oauth_exchanges WHERE expires_at < NOW()`,
+			table: "auth_tokens (oauth_exchange)",
+			query: `DELETE FROM auth_tokens WHERE purpose = 'oauth_exchange' AND expires_at < NOW()`,
 		},
 	}
 

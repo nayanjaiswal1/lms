@@ -56,13 +56,9 @@ func (s *Service) Explain(ctx context.Context, userID string, req ExplainRequest
 	textHash := computeHash(req.SelectedText, string(req.SourceType), req.SourceID)
 
 	h, err := s.repo.Create(ctx, userID, textHash, CreateRequest{
-		SourceType:     req.SourceType,
-		SourceID:       req.SourceID,
-		SelectedText:   req.SelectedText,
-		PositionStart:  req.PositionStart,
-		PositionEnd:    req.PositionEnd,
-		ContextSnippet: req.ContextSnippet,
-		SourceURL:      req.SourceURL,
+		SourceType:   req.SourceType,
+		SourceID:     req.SourceID,
+		SelectedText: req.SelectedText,
 	})
 	if err != nil {
 		return ExplainResponse{}, err
@@ -182,17 +178,9 @@ func computeHash(text, sourceType, sourceID string) string {
 }
 
 // buildExplainUserPrompt assembles the LLM user prompt for a highlight explanation.
-// It always includes the surrounding paragraph text captured client-side at
-// selection time (ContextSnippet) when present, so the explanation is tailored to
-// how the term is actually used here rather than a generic dictionary definition.
 func buildExplainUserPrompt(req ExplainRequest) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Context: this text appears in a %s.\n", sourceLabel(req.SourceType))
-	if req.ContextSnippet != nil {
-		if snippet := ai.SanitizeTopic(*req.ContextSnippet, 600); snippet != "" {
-			fmt.Fprintf(&sb, "Surrounding text (use this to determine what the highlighted text actually means here, before falling back to its generic meaning):\n%s\n", snippet)
-		}
-	}
 	fmt.Fprintf(&sb, "\nHighlighted text:\n%s", ai.SanitizeTopic(req.SelectedText, 2000))
 	return sb.String()
 }

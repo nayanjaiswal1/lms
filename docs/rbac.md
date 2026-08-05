@@ -48,7 +48,7 @@ A user's effective permissions are the union of all permissions granted through 
 
 ### `permissions`
 
-Global table. No `tenant_id`. Permissions are a platform vocabulary — tenants cannot create new codes.
+Global table. No `org_id`. Permissions are a platform vocabulary — tenants cannot create new codes.
 
 ```sql
 id          UUID  PRIMARY KEY
@@ -66,7 +66,7 @@ Index: `idx_permissions_module ON permissions(module, is_active)`
 
 ```sql
 id          UUID  PRIMARY KEY
-tenant_id   UUID  REFERENCES organizations(id) ON DELETE CASCADE  -- NULL for system roles
+org_id   UUID  REFERENCES organizations(id) ON DELETE CASCADE  -- NULL for system roles
 name        TEXT
 description TEXT
 is_system   BOOLEAN DEFAULT false
@@ -76,10 +76,10 @@ created_at, updated_at TIMESTAMPTZ
 ```
 
 **Key constraints:**
-- `roles_system_tenant_biconditional CHECK`: `(is_system=true AND tenant_id IS NULL) OR (is_system=false AND tenant_id IS NOT NULL)` — these two states are the only valid combinations.
-- `UNIQUE NULLS NOT DISTINCT (tenant_id, name)` — system roles share a global namespace; tenant roles share per-org namespace. (Requires PostgreSQL 15+.)
+- `roles_system_org_biconditional CHECK`: `(is_system=true AND org_id IS NULL) OR (is_system=false AND org_id IS NOT NULL)` — these two states are the only valid combinations.
+- `UNIQUE NULLS NOT DISTINCT (org_id, name)` — system roles share a global namespace; tenant roles share per-org namespace. (Requires PostgreSQL 15+.)
 
-Index: `idx_roles_tenant_active ON roles(tenant_id, is_active)`
+Index: `idx_roles_org_active ON roles(org_id, is_active)`
 
 ### `role_permissions`
 
@@ -96,16 +96,16 @@ PRIMARY KEY (role_id, permission_id)
 ```sql
 user_id   UUID REFERENCES users(id)         ON DELETE CASCADE
 role_id   UUID REFERENCES roles(id)         ON DELETE RESTRICT
-tenant_id UUID REFERENCES organizations(id) ON DELETE CASCADE
-PRIMARY KEY (user_id, role_id, tenant_id)
+org_id UUID REFERENCES organizations(id) ON DELETE CASCADE
+PRIMARY KEY (user_id, role_id, org_id)
 ```
 
-`tenant_id` is always set (never NULL). This is the **authoritative grant scope** — a system role assigned here only grants access within this tenant.
+`org_id` is always set (never NULL). This is the **authoritative grant scope** — a system role assigned here only grants access within this tenant.
 
-**Trigger:** `trg_user_role_tenant_scope` (function: `fn_check_user_role_tenant_scope`) fires BEFORE INSERT OR UPDATE. It rejects any attempt to assign a tenant-owned role under a different tenant's `tenant_id`. System roles (role's `tenant_id IS NULL`) pass unconditionally.
+**Trigger:** `trg_user_role_org_scope` (function: `fn_check_user_role_org_scope`) fires BEFORE INSERT OR UPDATE. It rejects any attempt to assign a tenant-owned role under a different tenant's `org_id`. System roles (role's `org_id IS NULL`) pass unconditionally.
 
 Indexes:
-- `idx_user_roles_user_tenant ON user_roles(user_id, tenant_id)` — permission resolution
+- `idx_user_roles_user_org ON user_roles(user_id, org_id)` — permission resolution
 - `idx_user_roles_role ON user_roles(role_id)` — cache invalidation on role change
 
 ### `user_permission_overrides`
@@ -116,22 +116,22 @@ Direct per-user permission grants that bypass roles entirely — see the design-
 
 ```sql
 user_id       UUID REFERENCES users(id)         ON DELETE CASCADE
-tenant_id     UUID REFERENCES organizations(id) ON DELETE CASCADE
+org_id     UUID REFERENCES organizations(id) ON DELETE CASCADE
 permission_id UUID REFERENCES permissions(id)   ON DELETE RESTRICT
 granted_by    UUID REFERENCES users(id)         ON DELETE SET NULL  -- nullable
 granted_at    TIMESTAMPTZ DEFAULT now()
-PRIMARY KEY (user_id, tenant_id, permission_id)
+PRIMARY KEY (user_id, org_id, permission_id)
 ```
 
-No tenant-scope trigger (unlike `user_roles`): `permissions` has no `tenant_id` at all — it's a global vocabulary — so there's no tenant-mismatch case to guard against. `GetEffectivePermissions` (`repo.go`) `UNION`s this table with the role-resolution query; nothing else in the resolution/cache layer changes.
+No tenant-scope trigger (unlike `user_roles`): `permissions` has no `org_id` at all — it's a global vocabulary — so there's no tenant-mismatch case to guard against. `GetEffectivePermissions` (`repo.go`) `UNION`s this table with the role-resolution query; nothing else in the resolution/cache layer changes.
 
-Index: `idx_user_permission_overrides_user_tenant ON user_permission_overrides(user_id, tenant_id)`
+Index: `idx_user_permission_overrides_user_tenant ON user_permission_overrides(user_id, org_id)`
 
 ### `audit_log`
 
 ```sql
 id          UUID  PRIMARY KEY
-tenant_id   UUID  REFERENCES organizations(id) ON DELETE SET NULL
+org_id   UUID  REFERENCES organizations(id) ON DELETE SET NULL
 actor_id    UUID  REFERENCES users(id)         ON DELETE SET NULL
 action      TEXT          -- e.g. "role.create", "user.role.assign"
 entity_type TEXT          -- "role" | "user"
@@ -141,7 +141,7 @@ created_at  TIMESTAMPTZ
 ```
 
 Indexes:
-- `idx_audit_log_tenant_created ON audit_log(tenant_id, created_at DESC)` — fast pagination
+- `idx_audit_log_tenant_created ON audit_log(org_id, created_at DESC)` — fast pagination
 - `idx_audit_log_entity ON audit_log(entity_type, entity_id)` — look up history for one entity
 
 ---
@@ -281,7 +281,7 @@ FROM user_roles ur
 JOIN roles r       ON r.id = ur.role_id       AND r.is_active = true
 JOIN role_permissions rp ON rp.role_id = r.id
 JOIN permissions p ON p.id = rp.permission_id AND p.is_active = true
-WHERE ur.user_id = $1 AND ur.tenant_id = $2
+WHERE ur.user_id = $1 AND ur.org_id = $2
 ```
 
 Returns `[]string{}` (not nil) when the user has no permissions.
@@ -610,11 +610,11 @@ The pub/sub channel `rbac:invalidate` exists for future L1 in-process cache supp
 
 ## 10. Multi-Tenant Scoping Rules
 
-1. **System roles** (`is_system=true`, `tenant_id IS NULL`) are global templates. They can be assigned to any user in any tenant. The `user_roles.tenant_id` on that assignment is the scope of the grant.
+1. **System roles** (`is_system=true`, `org_id IS NULL`) are global templates. They can be assigned to any user in any tenant. The `user_roles.org_id` on that assignment is the scope of the grant.
 
-2. **Tenant-owned roles** (`is_system=false`, `tenant_id=<orgID>`) can only be assigned to users within the same org. The DB trigger `trg_user_role_tenant_scope` enforces this — no application-level code can bypass it.
+2. **Tenant-owned roles** (`is_system=false`, `org_id=<orgID>`) can only be assigned to users within the same org. The DB trigger `trg_user_role_org_scope` enforces this — no application-level code can bypass it.
 
-3. Permission resolution always scopes to `user_roles.tenant_id = ?`. A user with the `instructor` system role in Org A has no permissions in Org B, even if they are a member there without any role assignment.
+3. Permission resolution always scopes to `user_roles.org_id = ?`. A user with the `instructor` system role in Org A has no permissions in Org B, even if they are a member there without any role assignment.
 
 4. Admin API routes read `claims.OrgID` from the JWT to determine the caller's tenant. All queries filter by this value. Looking up another org's roles returns 404, identical to a genuinely missing role, preventing existence probing.
 
@@ -643,7 +643,7 @@ The pub/sub channel `rbac:invalidate` exists for future L1 in-process cache supp
 
 1. Pick a new stable UUID and add to `001_baseline.sql`:
    ```sql
-   INSERT INTO roles (id, name, description, is_system, is_editable, tenant_id) VALUES
+   INSERT INTO roles (id, name, description, is_system, is_editable, org_id) VALUES
      ('<new-uuid>', 'reviewer', 'Content reviewer role', true, false, NULL)
    ON CONFLICT (id) DO NOTHING;
    ```

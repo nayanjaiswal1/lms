@@ -198,9 +198,9 @@ func (h *Handler) CheckThresholdCertificate(w http.ResponseWriter, r *http.Reque
 	httputil.WriteJSON(w, http.StatusOK, cert)
 }
 
-// UpsertCertificateRule handles PUT /api/courses/{courseID}/certificate-rule
-// — instructor authoring of the threshold-based auto-issue rule.
-func (h *Handler) UpsertCertificateRule(w http.ResponseWriter, r *http.Request) {
+// UpsertCertificateThreshold handles PUT /api/courses/{courseID}/certificate-threshold
+// — instructor authoring of the threshold-based auto-issue configuration.
+func (h *Handler) UpsertCertificateThreshold(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
@@ -210,26 +210,26 @@ func (h *Handler) UpsertCertificateRule(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
-	rule, err := h.service.UpsertCertificateRule(r.Context(), claims.OrgID, courseID, req.ThresholdPercent)
+	err := h.service.UpsertCertificateThreshold(r.Context(), claims.OrgID, courseID, &req.ThresholdPercent)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, rule)
+	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{"threshold_percent": req.ThresholdPercent})
 }
 
-// GetCertificateRule handles GET /api/courses/{courseID}/certificate-rule —
+// GetCertificateThreshold handles GET /api/courses/{courseID}/certificate-threshold —
 // instructor authoring read.
-func (h *Handler) GetCertificateRule(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetCertificateThreshold(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
-	rule, err := h.service.GetCertificateRule(r.Context(), claims.OrgID, courseID)
+	threshold, err := h.service.GetCertificateThreshold(r.Context(), claims.OrgID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, rule)
+	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{"threshold_percent": threshold})
 }

@@ -152,7 +152,7 @@ func (h *InviteHandler) sendInviteEmail(inv *orgs.Invite, token string) error {
 		smtpAuth = smtp.PlainAuth("", h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.SMTPHost)
 	}
 
-	msg := buildInviteMessage(h.cfg.EmailFrom, inv.Email, subject, body)
+	msg := buildInviteMessage(h.cfg.EmailFromHeader(), inv.Email, subject, body)
 	if err := smtp.SendMail(addr, smtpAuth, h.cfg.EmailFrom, []string{inv.Email}, []byte(msg)); err != nil {
 		return fmt.Errorf("smtp send to %s: %w", inv.Email, err)
 	}

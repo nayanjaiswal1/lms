@@ -17,7 +17,6 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
-	"github.com/mindforge/backend/internal/experience"
 	"github.com/mindforge/backend/internal/features"
 	"github.com/mindforge/backend/internal/feedback"
 	"github.com/mindforge/backend/internal/focuswall"
@@ -53,8 +52,8 @@ import (
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/storage"
-	"github.com/mindforge/backend/internal/support"
 	"github.com/mindforge/backend/internal/systemdesign"
+	"github.com/mindforge/backend/internal/tickets"
 	"github.com/mindforge/backend/internal/whatnow"
 	"github.com/redis/go-redis/v9"
 )
@@ -129,12 +128,19 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// payments, and authz, never mentoring.
 	sessionsRouter := sessions.New(pool, calendarRouter.Service, paymentProviders, cfg)
 
+	// tickets owns the shared conversations/messages CRUD backing both
+	// general support tickets (kind=support) and mentor-assignment tickets
+	// (kind=mentorship) — built before mentoring so mentoringRouter can be
+	// handed its repo and build mentorship-ticket creation on top of it
+	// instead of duplicating the CRUD.
+	ticketsRouter := tickets.New(pool, authzHandler.Service())
+
 	// mentoring is built before the courses handler so mentoringRouter.Service
 	// (satisfying courses.CoursePurchaser) can be injected into it. mentoring
 	// only needs *courses.Repo (for CreateEnrollmentTx), not the courses
 	// handler, so there is no import cycle: mentoring -> courses, courses ->
 	// (local interface only, no mentoring import).
-	mentoringRouter := mentoring.New(pool, paymentProviders, couponsRouter.Service, coursesRepo, sessionsRouter.Service, authzHandler.Service(), cfg)
+	mentoringRouter := mentoring.New(pool, ticketsRouter.Repo, paymentProviders, couponsRouter.Service, coursesRepo, sessionsRouter.Service, authzHandler.Service(), cfg)
 
 	coursesRouter := courses.NewHandler(coursesRepo, coursesSvc, mentoringRouter.Service, couponsRouter.Service, rdb, cfg, authzHandler.Service())
 
@@ -142,10 +148,18 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	rewardsHandler := rewards.New(pool, rdb)
 	messagingRouter := messaging.New(pool)
 	feedbackRouter := feedback.New(pool, mentoringRouter.Service)
-	experienceRouter := experience.New(pool)
 	practiceRouter := practice.New(pool, aiProvider)
 	interviewPrepRouter := interviewprep.New(pool, cfg, aiProvider, practiceRouter.Service)
-	orgsHandler := orgs.NewHandler(cfg, pool, cache, jobsRegistry)
+
+	// Secrets vault — created once and shared by both gitlab (credentials encryption)
+	// and orgs (OIDC client secret encryption). cmd/server/main.go builds its own
+	// separate instance for background jobs the same way.
+	secretsVault, err := secrets.New(cfg)
+	if err != nil {
+		panic(fmt.Errorf("api: secrets vault init failed: %w", err))
+	}
+
+	orgsHandler := orgs.NewHandler(cfg, pool, cache, secretsVault, jobsRegistry)
 	srsRouter := srs.New(pool)
 	// A second *srs.Repo wrapping the same pool (NewRepo holds no state of its
 	// own beyond the pool reference) so mistakes.Service and mcpconnect can
@@ -172,10 +186,6 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	featuresRouter := features.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
-	// Support — general-purpose helpdesk tickets, gated on the
-	// support.manage permission for the staff queue (authzHandler already
-	// built above for mentoringRouter's own permission checks).
-	supportRouter := support.New(pool, authzHandler.Service())
 
 	// Legal — Terms/Privacy consent tracking, no permission gating (every
 	// authenticated user manages only their own acceptance record).
@@ -207,15 +217,9 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	notificationsRouter := notifications.NewRouter(pool, jobsRegistry)
 
 	// GitLab integration — org-level installation (PAT or OAuth service
-	// account) plus per-user OAuth+PKCE connections (Batch 1). The vault is
-	// built once here and passed to gitlab.New; cmd/server/main.go builds its
-	// own separate instance for the token-refresh job the same way it builds
-	// a standalone assessment.Handler for the expire-attempts reaper.
-	gitlabVault, err := secrets.New(cfg)
-	if err != nil {
-		panic(fmt.Errorf("api: gitlab secrets vault init failed: %w", err))
-	}
-	gitlabRouter := gitlab.New(pool, cfg, gitlabVault, jobsRegistry, notificationsRouter.Service)
+	// account) plus per-user OAuth+PKCE connections (Batch 1). Uses the same
+	// secrets vault created above for orgs.
+	gitlabRouter := gitlab.New(pool, cfg, secretsVault, jobsRegistry, notificationsRouter.Service)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.
@@ -329,13 +333,17 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Messaging — batch messages, reactions, FAQ management.
 		messagingRouter.RegisterRoutes(r)
 
-		// Feedback — post-completion ratings/comments for courses, assessments, labs, mentors.
+		// Feedback — post-completion ratings/comments for courses, assessments, labs, mentors,
+		// plus experience reports (post-activity "did anything go wrong" capture).
 		feedbackRouter.RegisterRoutes(r)
 
-		// Experience reports — post-assessment "did anything go wrong" issue/complaint capture.
-		experienceRouter.RegisterRoutes(r)
+		// Tickets — shared support/mentorship ticket CRUD and messaging
+		// (/api/tickets*); mount before mentoring's own routes since both
+		// build on the same conversations/messages tables.
+		ticketsRouter.RegisterRoutes(r)
 
-		// Mentoring — mentor tickets (claim/assign/close), mentor directory, mentor reports.
+		// Mentoring — mentor-ticket lifecycle (request/claim/assign/close/
+		// change-request), mentor directory, mentor reports.
 		mentoringRouter.RegisterRoutes(r)
 
 		// Coupons — admin CRUD, gated by payments.manage_coupons.
@@ -387,6 +395,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Feature flags — resolves org-enabled features + per-user entitlements
 		// for the current session (frontend's <AccessGate>/<FeatureFlagProvider>).
 		featuresRouter.RegisterRoutes(r)
+		// Org admin (owner/admin org role) grants/revokes a feature for one
+		// member; platform admin (super_admin) turns a feature on/off for a
+		// whole org.
+		featuresRouter.RegisterOrgAdminRoutes(r)
+		featuresRouter.RegisterPlatformRoutes(r)
 
 		// RBAC — permission catalogue, role CRUD, user-role assignment, audit log.
 		authzHandler.RegisterRoutes(r)
@@ -459,10 +472,6 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// mark read/read-all. Any authenticated member, row-scoped to their
 		// own notifications.
 		notificationsRouter.RegisterRoutes(r)
-
-		// Support — raise/list a helpdesk ticket (any member), plus the
-		// support.manage-gated staff queue (view all, reply, change status).
-		supportRouter.RegisterRoutes(r)
 
 		// Legal — check/record Terms/Privacy consent.
 		legalRouter.RegisterRoutes(r)

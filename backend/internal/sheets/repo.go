@@ -212,6 +212,65 @@ func (r *Repo) ListItemsWithProgress(ctx context.Context, sheetID, userID string
 	return out, rows.Err()
 }
 
+// NextTasks returns, across every sheet userID tracks, the items worth
+// surfacing in a revision digest: anything with a revision_at due within the
+// next day (the existing SM-2-like growth scheme already maintained by
+// UpsertProgress/MarkReviewed — see docs/sheets.md), plus the next
+// lowest-order_index 'todo' item per sheet so a student always has a next
+// concrete task even on a sheet with nothing due yet. No new
+// spaced-repetition math — this is a filtered read over the same join
+// ListItemsWithProgress already uses. Ordered soonest-due first, capped at
+// limit total across all sheets.
+func (r *Repo) NextTasks(ctx context.Context, userID string, limit int) ([]SheetItem, error) {
+	rows, err := r.pool.Query(ctx,
+		`WITH due AS (
+			SELECT si.id, si.sheet_id, si.title, si.topic_tag, si.category, si.difficulty,
+			       si.external_url, si.order_index, si.created_at,
+			       upp.status, upp.solved_at, upp.revision_at, upp.review_count, upp.notes, upp.is_starred
+			  FROM user_sheets us
+			  JOIN sheet_items si ON si.sheet_id = us.sheet_id
+			  JOIN user_problem_progress upp ON upp.topic_tag = si.topic_tag AND upp.user_id = us.user_id
+			 WHERE us.user_id = $1 AND upp.revision_at IS NOT NULL
+			   AND upp.revision_at::date <= CURRENT_DATE + 1
+		),
+		next_todo AS (
+			SELECT DISTINCT ON (si.sheet_id)
+			       si.id, si.sheet_id, si.title, si.topic_tag, si.category, si.difficulty,
+			       si.external_url, si.order_index, si.created_at,
+			       upp.status, upp.solved_at, upp.revision_at, upp.review_count, upp.notes, upp.is_starred
+			  FROM user_sheets us
+			  JOIN sheet_items si ON si.sheet_id = us.sheet_id
+			  LEFT JOIN user_problem_progress upp ON upp.topic_tag = si.topic_tag AND upp.user_id = us.user_id
+			 WHERE us.user_id = $1 AND COALESCE(upp.status, 'todo') = 'todo'
+			 ORDER BY si.sheet_id, si.order_index
+		)
+		SELECT id, sheet_id, title, topic_tag, category, difficulty, external_url, order_index, created_at,
+		       COALESCE(status, 'todo'), solved_at, revision_at, COALESCE(review_count, 0),
+		       COALESCE(notes, '{}'::jsonb), COALESCE(is_starred, false)
+		  FROM (SELECT * FROM due UNION SELECT * FROM next_todo) t
+		 ORDER BY (revision_at IS NULL), revision_at, order_index
+		 LIMIT $2`,
+		userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("sheets: next tasks: %w", err)
+	}
+	defer rows.Close()
+
+	out := []SheetItem{}
+	for rows.Next() {
+		var it SheetItem
+		if err := rows.Scan(
+			&it.ID, &it.SheetID, &it.Title, &it.TopicTag, &it.Category, &it.Difficulty,
+			&it.ExternalURL, &it.OrderIndex, &it.CreatedAt,
+			&it.Status, &it.SolvedAt, &it.RevisionAt, &it.ReviewCount, &it.Notes, &it.IsStarred,
+		); err != nil {
+			return nil, fmt.Errorf("sheets: scan next task: %w", err)
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
 // CreateSheet inserts a new sheet and registers the creator as its owner in a
 // single transaction.
 func (r *Repo) CreateSheet(ctx context.Context, userID, slug string, req CreateSheetRequest) (Sheet, error) {
@@ -611,34 +670,44 @@ func (r *Repo) UpdateRevision(ctx context.Context, userID, topicTag string, revi
 // customized it.
 func (r *Repo) GetSheetSettings(ctx context.Context, userID, sheetID string) (UserSheetSettings, error) {
 	settings := UserSheetSettings{BaseRevisionDays: 7, GrowthScheme: "doubling"}
+	var days *int
+	var scheme *string
 	err := r.pool.QueryRow(ctx,
-		`SELECT base_revision_days, growth_scheme FROM user_sheet_settings WHERE user_id = $1 AND sheet_id = $2`,
+		`SELECT base_revision_days, growth_scheme FROM user_sheets WHERE user_id = $1 AND sheet_id = $2`,
 		userID, sheetID,
-	).Scan(&settings.BaseRevisionDays, &settings.GrowthScheme)
+	).Scan(&days, &scheme)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return settings, nil
 		}
 		return UserSheetSettings{}, fmt.Errorf("sheets: get sheet settings: %w", err)
 	}
+	if days != nil {
+		settings.BaseRevisionDays = *days
+	}
+	if scheme != nil {
+		settings.GrowthScheme = *scheme
+	}
 	return settings, nil
 }
 
 // UpsertSheetSettings sets the user's base interval and growth scheme for one
-// sheet.
+// sheet. The caller must already have a user_sheets row (owner or
+// subscriber) — settings have no meaning for a sheet the user hasn't added.
 func (r *Repo) UpsertSheetSettings(ctx context.Context, userID, sheetID string, baseRevisionDays int, growthScheme string) (UserSheetSettings, error) {
 	var settings UserSheetSettings
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO user_sheet_settings (user_id, sheet_id, base_revision_days, growth_scheme, updated_at)
-		 VALUES ($1, $2, $3, $4, now())
-		 ON CONFLICT (user_id, sheet_id) DO UPDATE SET
-		   base_revision_days = EXCLUDED.base_revision_days,
-		   growth_scheme = EXCLUDED.growth_scheme,
-		   updated_at = now()
+		`UPDATE user_sheets SET
+		   base_revision_days = $3,
+		   growth_scheme = $4
+		 WHERE user_id = $1 AND sheet_id = $2
 		 RETURNING base_revision_days, growth_scheme`,
 		userID, sheetID, baseRevisionDays, growthScheme,
 	).Scan(&settings.BaseRevisionDays, &settings.GrowthScheme)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return UserSheetSettings{}, ErrNotFound
+		}
 		return UserSheetSettings{}, fmt.Errorf("sheets: upsert sheet settings: %w", err)
 	}
 	return settings, nil

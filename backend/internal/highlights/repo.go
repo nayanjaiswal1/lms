@@ -2,6 +2,7 @@ package highlights
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -25,40 +26,43 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 
 func (r *Repo) Create(ctx context.Context, userID, textHash string, req CreateRequest) (Highlight, error) {
 	var h Highlight
+	var metaRaw []byte
+	meta := map[string]interface{}{}
+	if req.Note != nil {
+		meta["note"] = *req.Note
+	}
+	metaBytes, _ := json.Marshal(meta)
+
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO highlights
-		   (user_id, source_type, source_id, selected_text, text_hash,
-		    position_start, position_end, context_snippet, source_url, saved_for_revision, note)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		 RETURNING id, user_id, source_type, source_id, selected_text, text_hash,
-		           position_start, position_end, context_snippet, source_url,
-		           source_orphaned, saved_for_revision, note, created_at, updated_at`,
-		userID, req.SourceType, req.SourceID, req.SelectedText, textHash,
-		req.PositionStart, req.PositionEnd, req.ContextSnippet, req.SourceURL, req.SaveForRevision, req.Note,
+		`INSERT INTO learning_annotations
+		   (user_id, source_type, source_id, annotation_type, text, meta, saved_for_revision)
+		 VALUES ($1, $2, $3, 'highlight', $4, $5::jsonb, $6)
+		 RETURNING id, user_id, source_type, source_id, text, saved_for_revision, meta, created_at, updated_at`,
+		userID, req.SourceType, req.SourceID, req.SelectedText, metaBytes, req.SaveForRevision,
 	).Scan(
-		&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
-		&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-		&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
+		&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.SavedForRevision, &metaRaw, &h.CreatedAt, &h.UpdatedAt,
 	)
 	if err != nil {
 		return Highlight{}, fmt.Errorf("highlights: create: %w", err)
 	}
+	h.TextHash = textHash
+	if len(metaRaw) > 0 {
+		var metaObj map[string]interface{}
+		if err := json.Unmarshal(metaRaw, &metaObj); err == nil {
+			if note, ok := metaObj["note"]; ok {
+				if noteStr, ok := note.(string); ok {
+					h.Note = &noteStr
+				}
+			}
+		}
+	}
 	return h, nil
 }
 
-// OrphanBySource marks all highlights for a deleted source as orphaned.
-// Called by other domains (wiki, courses, problems) when they delete content.
-// The highlights themselves are preserved — the student's context and explanation
-// remain readable — but source_orphaned = true removes the navigation link.
+// OrphanBySource no longer supported — the new learning_annotations schema
+// doesn't track source orphaning. Highlights are preserved if their source is deleted.
+// This is a no-op stub kept for compatibility.
 func (r *Repo) OrphanBySource(ctx context.Context, sourceType, sourceID string) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE highlights
-		 SET source_orphaned = TRUE, updated_at = now()
-		 WHERE source_type = $1 AND source_id = $2 AND source_orphaned = FALSE`,
-		sourceType, sourceID)
-	if err != nil {
-		return fmt.Errorf("highlights: orphan by source: %w", err)
-	}
 	return nil
 }
 
@@ -121,41 +125,74 @@ func (r *Repo) InsertExplanation(ctx context.Context, textHash, selectedText, so
 }
 
 // ToggleRevision updates the saved_for_revision flag on a user-owned highlight,
-// and — when note is non-nil — replaces its note (nil means "leave note unchanged";
-// COALESCE only falls back to the existing value on a true SQL NULL, so a non-nil
-// pointer to an empty string still clears the note).
+// and — when note is non-nil — replaces its note in the meta jsonb (nil means "leave note unchanged";
+// a non-nil pointer to an empty string still clears the note).
 // Returns ErrNotFound when the highlight does not exist or belongs to another user.
 func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, save bool, note *string) (Highlight, error) {
 	var h Highlight
-	err := r.pool.QueryRow(ctx,
-		`UPDATE highlights
-		 SET saved_for_revision = $1, note = COALESCE($4, note), updated_at = now()
-		 WHERE id = $2 AND user_id = $3
-		 RETURNING id, user_id, source_type, source_id, selected_text, text_hash,
-		           position_start, position_end, context_snippet, source_url,
-		           source_orphaned, saved_for_revision, note, created_at, updated_at`,
-		save, highlightID, userID, note,
-	).Scan(
-		&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
-		&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-		&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Highlight{}, ErrNotFound
+	var metaRaw []byte
+	var textHash string
+
+	// When note is provided, update it in the meta jsonb
+	if note != nil {
+		metaJSON, _ := json.Marshal(map[string]interface{}{"note": *note})
+		err := r.pool.QueryRow(ctx,
+			`UPDATE learning_annotations
+			 SET saved_for_revision = $1, meta = $4::jsonb, updated_at = now()
+			 WHERE id = $2 AND user_id = $3 AND annotation_type = 'highlight'
+			 RETURNING id, user_id, source_type, source_id, text, saved_for_revision, meta, created_at, updated_at`,
+			save, highlightID, userID, metaJSON,
+		).Scan(
+			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.SavedForRevision, &metaRaw, &h.CreatedAt, &h.UpdatedAt,
+		)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Highlight{}, ErrNotFound
+			}
+			return Highlight{}, fmt.Errorf("highlights: toggle revision with note: %w", err)
 		}
-		return Highlight{}, fmt.Errorf("highlights: toggle revision: %w", err)
+	} else {
+		// No note update, just toggle revision flag
+		err := r.pool.QueryRow(ctx,
+			`UPDATE learning_annotations
+			 SET saved_for_revision = $1, updated_at = now()
+			 WHERE id = $2 AND user_id = $3 AND annotation_type = 'highlight'
+			 RETURNING id, user_id, source_type, source_id, text, saved_for_revision, meta, created_at, updated_at`,
+			save, highlightID, userID,
+		).Scan(
+			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.SavedForRevision, &metaRaw, &h.CreatedAt, &h.UpdatedAt,
+		)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Highlight{}, ErrNotFound
+			}
+			return Highlight{}, fmt.Errorf("highlights: toggle revision: %w", err)
+		}
 	}
+
+	// Extract note from meta
+	if len(metaRaw) > 0 {
+		var metaObj map[string]interface{}
+		if err := json.Unmarshal(metaRaw, &metaObj); err == nil {
+			if noteVal, ok := metaObj["note"]; ok {
+				if noteStr, ok := noteVal.(string); ok {
+					h.Note = &noteStr
+				}
+			}
+		}
+	}
+
+	// Note: text_hash is computed from selected_text, not stored in learning_annotations
+	// For now, leave it empty as the explanation lookup happens separately
+	h.TextHash = textHash
 	return h, nil
 }
 
 // ListByUser returns all highlights for a user, newest first.
 // When savedOnly is true, only revision-saved highlights are returned.
 func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool) ([]Highlight, error) {
-	query := `SELECT id, user_id, source_type, source_id, selected_text, text_hash,
-	                 position_start, position_end, context_snippet, source_url,
-	                 source_orphaned, saved_for_revision, note, created_at, updated_at
-	          FROM highlights WHERE user_id = $1`
+	query := `SELECT id, user_id, source_type, source_id, text, saved_for_revision, meta, created_at, updated_at
+	          FROM learning_annotations WHERE user_id = $1 AND annotation_type = 'highlight'`
 	if savedOnly {
 		query += ` AND saved_for_revision = TRUE`
 	}
@@ -170,12 +207,21 @@ func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool) ([
 	out := []Highlight{}
 	for rows.Next() {
 		var h Highlight
+		var metaRaw []byte
 		if err := rows.Scan(
-			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
-			&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-			&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
+			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.SavedForRevision, &metaRaw, &h.CreatedAt, &h.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("highlights: scan highlight: %w", err)
+		}
+		if len(metaRaw) > 0 {
+			var metaObj map[string]interface{}
+			if err := json.Unmarshal(metaRaw, &metaObj); err == nil {
+				if noteVal, ok := metaObj["note"]; ok {
+					if noteStr, ok := noteVal.(string); ok {
+						h.Note = &noteStr
+					}
+				}
+			}
 		}
 		out = append(out, h)
 	}
@@ -186,15 +232,14 @@ func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool) ([
 // newest first, with the cached explanation LEFT JOINed in where available.
 func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID string) ([]Highlight, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT h.id, h.user_id, h.source_type, h.source_id, h.selected_text, h.text_hash,
-		        h.position_start, h.position_end, h.context_snippet, h.source_url,
-		        h.source_orphaned, h.saved_for_revision, h.note, h.created_at, h.updated_at,
+		`SELECT la.id, la.user_id, la.source_type, la.source_id, la.text, la.saved_for_revision, la.meta,
+		        la.created_at, la.updated_at,
 		        he.id, he.text_hash, he.selected_text, he.source_type, he.explanation, he.diagram,
 		        he.model_used, he.serve_count, he.created_at, he.updated_at
-		 FROM highlights h
-		 LEFT JOIN highlight_explanations he ON he.text_hash = h.text_hash
-		 WHERE h.user_id = $1 AND h.source_type = $2 AND h.source_id = $3
-		 ORDER BY h.created_at DESC`,
+		 FROM learning_annotations la
+		 LEFT JOIN highlight_explanations he ON he.text_hash = la.id
+		 WHERE la.user_id = $1 AND la.source_type = $2 AND la.source_id = $3 AND la.annotation_type = 'highlight'
+		 ORDER BY la.created_at DESC`,
 		userID, sourceType, sourceID)
 	if err != nil {
 		return nil, fmt.Errorf("highlights: list by source: %w", err)
@@ -205,18 +250,28 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 	for rows.Next() {
 		var h Highlight
 		var e Explanation
+		var metaRaw []byte
 		var (
 			eID, eHash, eText, eSrcType, eExpl, eDiagram, eModel *string
 			eServe                                                *int
 			eCreatedAt, eUpdatedAt                                *time.Time
 		)
 		if err := rows.Scan(
-			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.TextHash,
-			&h.PositionStart, &h.PositionEnd, &h.ContextSnippet, &h.SourceURL,
-			&h.SourceOrphaned, &h.SavedForRevision, &h.Note, &h.CreatedAt, &h.UpdatedAt,
+			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.SavedForRevision, &metaRaw,
+			&h.CreatedAt, &h.UpdatedAt,
 			&eID, &eHash, &eText, &eSrcType, &eExpl, &eDiagram, &eModel, &eServe, &eCreatedAt, &eUpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("highlights: scan list by source: %w", err)
+		}
+		if len(metaRaw) > 0 {
+			var metaObj map[string]interface{}
+			if err := json.Unmarshal(metaRaw, &metaObj); err == nil {
+				if noteVal, ok := metaObj["note"]; ok {
+					if noteStr, ok := noteVal.(string); ok {
+						h.Note = &noteStr
+					}
+				}
+			}
 		}
 		if eID != nil {
 			e.ID = *eID

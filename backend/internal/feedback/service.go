@@ -36,15 +36,21 @@ func NewService(repo *Repo, mentorship MentorshipVerifier) *Service {
 // one of (rating, skip) must be set: a real submission requires a 1-5
 // rating; a skip requires no rating. comment is always optional. Rating a
 // mentor additionally requires that mentor to have actually mentored userID.
-func (s *Service) Submit(ctx context.Context, orgID string, subjectType SubjectType, subjectID, userID string, rating *int, comment *string, skip bool) (Feedback, error) {
+func (s *Service) Submit(ctx context.Context, orgID *string, subjectType SubjectType, subjectID, userID string, kind Kind, rating *int, comment *string, skip bool) (Feedback, error) {
 	if !IsValidSubjectType(subjectType) {
-		return Feedback{}, fmt.Errorf("%w: subject_type must be one of course, assessment, lab, mentor", ErrInvalid)
+		return Feedback{}, fmt.Errorf("%w: subject_type must be one of course, assessment, lab, mentor, mentor_session, experience_subject", ErrInvalid)
+	}
+	if !IsValidKind(kind) {
+		return Feedback{}, fmt.Errorf("%w: kind must be one of rating, experience", ErrInvalid)
 	}
 	if subjectID == "" {
 		return Feedback{}, fmt.Errorf("%w: subject_id is required", ErrInvalid)
 	}
 	if subjectType == SubjectTypeMentor {
-		mentored, err := s.mentorship.HasBeenMentoredBy(ctx, orgID, userID, subjectID)
+		if orgID == nil {
+			return Feedback{}, fmt.Errorf("%w: org_id is required for mentor feedback", ErrInvalid)
+		}
+		mentored, err := s.mentorship.HasBeenMentoredBy(ctx, *orgID, userID, subjectID)
 		if err != nil {
 			return Feedback{}, fmt.Errorf("feedback: verify mentorship: %w", err)
 		}
@@ -64,14 +70,14 @@ func (s *Service) Submit(ctx context.Context, orgID string, subjectType SubjectT
 			return Feedback{}, fmt.Errorf("%w: rating must be between 1 and 5", ErrInvalid)
 		}
 	}
-	return s.repo.Upsert(ctx, orgID, subjectType, subjectID, userID, rating, comment, skip)
+	return s.repo.Upsert(ctx, orgID, subjectType, subjectID, userID, kind, rating, comment, skip)
 }
 
 // GetMine returns the authenticated user's existing feedback for a subject,
 // validating the subject type before querying.
 func (s *Service) GetMine(ctx context.Context, subjectType SubjectType, subjectID, userID string) (Feedback, error) {
 	if !IsValidSubjectType(subjectType) {
-		return Feedback{}, fmt.Errorf("%w: subject_type must be one of course, assessment, lab, mentor", ErrInvalid)
+		return Feedback{}, fmt.Errorf("%w: subject_type must be one of course, assessment, lab, mentor, mentor_session, experience_subject", ErrInvalid)
 	}
 	return s.repo.GetMine(ctx, subjectType, subjectID, userID)
 }
@@ -87,9 +93,9 @@ const (
 
 // ListPublic returns the most recent written reviews for a subject, visible
 // to any authenticated org member (same no-extra-gate policy as Submit/GetMine).
-func (s *Service) ListPublic(ctx context.Context, orgID string, subjectType SubjectType, subjectID string, limit int) ([]PublicReview, error) {
+func (s *Service) ListPublic(ctx context.Context, orgID *string, subjectType SubjectType, subjectID string, limit int) ([]PublicReview, error) {
 	if !IsValidSubjectType(subjectType) {
-		return nil, fmt.Errorf("%w: subject_type must be one of course, assessment, lab, mentor", ErrInvalid)
+		return nil, fmt.Errorf("%w: subject_type must be one of course, assessment, lab, mentor, mentor_session, experience_subject", ErrInvalid)
 	}
 	if limit <= 0 {
 		limit = defaultReviewLimit

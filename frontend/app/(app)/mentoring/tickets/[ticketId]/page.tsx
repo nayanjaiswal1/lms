@@ -13,14 +13,8 @@ import { ResolveReportControl } from "@/components/mentoring/resolve-report-cont
 import { LifecycleRecordCard } from "@/components/mentoring/lifecycle-record-card";
 import { getMentorTicketDetail, getMentors } from "@/lib/server/mentoring";
 import { getCurrentUser } from "@/lib/server/auth";
-import {
-  TICKET_STATUS_VARIANT,
-  CHANGE_REQUEST_STATUS_VARIANT,
-  REPORT_STATUS_VARIANT,
-  ESCALATION_LABEL,
-  truncateId,
-  formatDateTime,
-} from "@/lib/mentoring/format";
+import { TICKET_STATUS_VARIANT, ESCALATION_LABEL, truncateId, formatDateTime } from "@/lib/tickets/format";
+import { CHANGE_REQUEST_STATUS_VARIANT, REPORT_STATUS_VARIANT } from "@/lib/mentoring/format";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -32,9 +26,12 @@ export async function generateMetadata({ params }: Props) {
   return { title: "Ticket detail", alternates: { canonical: `/mentoring/tickets/${ticketId}` } };
 }
 
-// One event, one ordering rule — the single timeline the whole lifecycle
-// view renders, merged from assignments/change-requests/reports instead of
-// three separately-sorted lists on the page.
+// One event, one ordering rule — the single timeline the lifecycle view
+// renders, merged from change-requests/reports instead of two separately-
+// sorted lists on the page. There's no durable assignment-history record in
+// the schema (assigned_to is overwritten in place, no timestamp kept), so
+// "currently assigned to" is shown as a standalone fact near the status
+// badge instead of a fabricated timeline entry.
 interface LifecycleEvent {
   at: string;
   label: string;
@@ -50,17 +47,13 @@ export default async function TicketDetailPage({ params }: Props) {
     getCurrentUser(),
   ]);
 
-  const { ticket, assignments, change_requests: changeRequests, reports } = detail;
+  const { ticket, change_requests: changeRequests, reports } = detail;
   const mentorNameById = new Map(mentors.map((m) => [m.user_id, m.name]));
-  const isOwnTicket = ticket.assigned_mentor_id === currentUser?.id;
+  const isOwnTicket = ticket.assigned_to === currentUser?.id;
+  const assignedMentorName = ticket.assigned_to ? mentorNameById.get(ticket.assigned_to) ?? truncateId(ticket.assigned_to) : null;
 
   const events: LifecycleEvent[] = [
     { at: ticket.created_at, label: "Requested" },
-    ...assignments.map((a) => ({
-      at: a.assigned_at,
-      label: "Mentor assigned",
-      detail: mentorNameById.get(a.mentor_id) ?? truncateId(a.mentor_id),
-    })),
     ...changeRequests.map((cr) => ({
       at: cr.created_at,
       label: `Change requested (${cr.status})`,
@@ -87,7 +80,8 @@ export default async function TicketDetailPage({ params }: Props) {
         <div className="flex flex-col gap-1">
           <h1 className="section-title">Ticket {truncateId(ticket.id)}</h1>
           <p className="text-muted-foreground">
-            Student {truncateId(ticket.student_id)} · Course {truncateId(ticket.course_id)}
+            Student {truncateId(ticket.requester_id)} · Course {ticket.course_id ? truncateId(ticket.course_id) : "—"}
+            {assignedMentorName && ` · Mentor ${assignedMentorName}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -118,12 +112,12 @@ export default async function TicketDetailPage({ params }: Props) {
             {isOwnTicket ? (
               <>
                 <CloseTicketButton ticketId={ticket.id} />
-                <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
+                {ticket.course_id && <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.requester_id} />}
               </>
             ) : (
               <Can permission={PERMISSIONS.MENTORING.ASSIGN_TICKETS}>
                 <CloseTicketButton ticketId={ticket.id} />
-                <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
+                {ticket.course_id && <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.requester_id} />}
               </Can>
             )}
           </>
@@ -131,12 +125,14 @@ export default async function TicketDetailPage({ params }: Props) {
         {ticket.status === "closed" && (
           <>
             <p className="text-sm text-muted-foreground">This ticket is closed.</p>
-            {isOwnTicket ? (
-              <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
-            ) : (
-              <Can permission={PERMISSIONS.MENTORING.ASSIGN_TICKETS}>
-                <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.student_id} />
-              </Can>
+            {ticket.course_id && (
+              isOwnTicket ? (
+                <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.requester_id} />
+              ) : (
+                <Can permission={PERMISSIONS.MENTORING.ASSIGN_TICKETS}>
+                  <IssueCertificateControl courseId={ticket.course_id} studentId={ticket.requester_id} />
+                </Can>
+              )
             )}
           </>
         )}

@@ -7,41 +7,6 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
-// ListTickets returns mentor tickets for the caller's org, optionally
-// filtered by ?status= and, for a mentor's own queue, ?mine=true.
-func (h *Handler) ListTickets(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	status := queryStrPtr(r, "status")
-	var mentorID *string
-	if r.URL.Query().Get("mine") == "true" {
-		mentorID = &claims.UserID
-	}
-	tickets, err := h.service.ListTickets(r.Context(), claims.OrgID, status, mentorID)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"tickets": tickets})
-}
-
-// ListMyTickets returns the authenticated student's own mentor tickets —
-// the student-facing counterpart to ListTickets (which is staff-only).
-func (h *Handler) ListMyTickets(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	tickets, err := h.service.ListMyTickets(r.Context(), claims.OrgID, claims.UserID)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"tickets": tickets})
-}
-
 // RequestMentor lets the authenticated student open a mentor ticket for a
 // course they're enrolled in, when they don't already have an active one.
 // Body: {"course_id": "..."}.
@@ -68,23 +33,8 @@ func (h *Handler) RequestMentor(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, ticket)
 }
 
-// GetTicketHistory returns a ticket plus its full mentor-assignment history —
-// allowed only for that ticket's student or currently assigned mentor.
-func (h *Handler) GetTicketHistory(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	ticket, assignments, err := h.service.GetTicketHistory(r.Context(), claims.OrgID, urlParam(r, "ticketID"), claims.UserID)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{"ticket": ticket, "assignments": assignments})
-}
-
 // GetTicketDetail returns the full staff-facing lifecycle for a ticket —
-// assignments, change requests, and (if the caller holds
+// the ticket, its change requests, and (if the caller holds
 // mentoring.manage_reports) complaint reports — the single aggregate behind
 // the ticket detail page. The route is gated by mentoring.assign_tickets
 // (see routes.go); the report section is additionally gated inline here
@@ -162,8 +112,8 @@ func (h *Handler) CloseTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isOwnTicket := ticket.StudentID == claims.UserID
-	isAssignedMentor := ticket.AssignedMentorID != nil && *ticket.AssignedMentorID == claims.UserID
+	isOwnTicket := ticket.RequesterID == claims.UserID
+	isAssignedMentor := ticket.AssignedTo != nil && *ticket.AssignedTo == claims.UserID
 	if !isOwnTicket && !isAssignedMentor {
 		allowed, err := h.authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, PermissionAssignTickets)
 		if err != nil {

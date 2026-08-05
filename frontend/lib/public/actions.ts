@@ -1,6 +1,6 @@
 "use server";
 
-import type { ActionResult } from "@/lib/server/api";
+import { actionErrorMessage, type ActionResult } from "@/lib/server/api";
 import type { PublicSession } from "@/lib/server/public";
 
 function publicBase(): string {
@@ -22,8 +22,8 @@ export async function startPublicAttemptAction(
       body: JSON.stringify(body),
       cache: "no-store",
     });
-    const json = await res.json().catch(() => ({})) as { data?: PublicSession; error?: string };
-    if (!res.ok) return { error: json.error ?? "Could not start the test." };
+    const json = await res.json().catch(() => ({})) as { data?: PublicSession; error?: string; fields?: Record<string, string> };
+    if (!res.ok) return { error: actionErrorMessage(json, "Could not start the test."), fieldErrors: json.fields };
     return { ok: true, data: json.data };
   } catch {
     return { error: "Network error. Please try again." };
@@ -52,8 +52,9 @@ export async function submitPublicAttemptAction(
     const json = await res.json().catch(() => ({})) as {
       data?: { percentage: number; passed: boolean; score: number; max_score: number };
       error?: string;
+      fields?: Record<string, string>;
     };
-    if (!res.ok) return { error: json.error ?? "Could not submit." };
+    if (!res.ok) return { error: actionErrorMessage(json, "Could not submit."), fieldErrors: json.fields };
     return { ok: true, data: json.data };
   } catch {
     return { error: "Network error. Please try again." };

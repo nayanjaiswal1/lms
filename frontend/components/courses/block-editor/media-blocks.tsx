@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Upload, Link as LinkIcon, Lock } from "lucide-react";
+import { IconMessage } from "@/components/shared/icon-message";
 import { cn } from "@/lib/utils";
 import { extractYouTubeId, youtubeEmbedUrl } from "@/components/courses/block-editor/youtube-utils";
 import type { ImageBlock, YouTubeBlock, VideoBlock } from "@/lib/courses/draft-types";
@@ -26,13 +27,13 @@ function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
       <div className="flex gap-1 text-xs">
         {(["url", "upload"] as const).map((t) => (
           <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
             className={cn(
               "flex items-center gap-1 rounded px-2 py-1 transition-colors",
               tab === t ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
             )}
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
           >
             {t === "url" ? <LinkIcon className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
             {t === "url" ? "Paste URL" : "Upload file"}
@@ -74,14 +75,14 @@ export function ImageBlockEditor({ block, onChange, onFile }: ImageProps) {
   return (
     <div className="flex flex-col gap-3">
       <AssetInput
-        url={block.url}
         accept="image/*"
         label="Image"
-        onUrl={(url) => onChange({ ...block, url, previewUrl: undefined })}
+        url={block.url}
         onFile={(file) => {
           onFile(block.id, file);
           onChange({ ...block, previewUrl: URL.createObjectURL(file), url: "" });
         }}
+        onUrl={(url) => onChange({ ...block, url, previewUrl: undefined })}
       />
       {displayUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -125,8 +126,8 @@ export function YouTubeBlockEditor({ block, onChange }: YouTubeProps) {
         <div className="flex flex-col gap-2">
           <div className="aspect-video w-full overflow-hidden rounded-md bg-muted">
             <iframe
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               className="h-full w-full"
               src={youtubeEmbedUrl(block.videoId)}
               title="YouTube preview"
@@ -155,30 +156,29 @@ export function VideoBlockEditor({ block, onChange, onFile }: VideoProps) {
   const displayUrl = block.previewUrl ?? block.url;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        <Lock className="h-3.5 w-3.5 shrink-0" />
+      <IconMessage className="bg-muted/50 text-muted-foreground" icon={Lock} size="xs">
         Enrolled students only · served via signed URL (link expires after 15 min)
-      </div>
+      </IconMessage>
       <Input
         placeholder="Video title"
         value={block.title}
         onChange={(e) => onChange({ ...block, title: e.target.value })}
       />
       <AssetInput
-        url={block.url}
         accept="video/*"
         label="Video"
-        onUrl={(url) => onChange({ ...block, url, storageKey: "", previewUrl: undefined })}
+        url={block.url}
         onFile={(file) => {
           onFile(block.id, file);
           onChange({ ...block, previewUrl: URL.createObjectURL(file), url: "", storageKey: "" });
         }}
+        onUrl={(url) => onChange({ ...block, url, storageKey: "", previewUrl: undefined })}
       />
       {displayUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption -- no caption track available in the data model
         <video
-          className="max-h-60 w-full rounded-md bg-muted"
           controls
+          className="max-h-60 w-full rounded-md bg-muted"
           src={displayUrl}
         />
       )}
