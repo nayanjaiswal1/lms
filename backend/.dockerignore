@@ -1,0 +1,10 @@
+tmp
+*.log
+.env
+.env.*
+!.env.example
+server
+server.exe
+coursegen
+coursegen_local.exe
+.git
