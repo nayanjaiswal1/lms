@@ -93,12 +93,45 @@ func parseRRuleTime(val string) (time.Time, error) {
 	return time.Parse(time.RFC3339, val)
 }
 
-// maxOccurrenceScan bounds ExpandOccurrences' loop so an unbounded daily rule
-// (no COUNT/UNTIL) queried against a far-future window cannot spin forever.
-// ponytail: fixed cap rather than a smarter closed-form jump to the window
-// start — 2000 daily steps is ~5.5 years, comfortably past any realistic
-// mentor-session/live-class series. Raise if that ever stops being true.
-const maxOccurrenceScan = 2000
+// maxOccurrenceScan bounds the enumeration loop ExpandOccurrences runs once
+// it has already closed-form-jumped to the first occurrence at or after
+// `from` (see occurrenceIndexAtOrAfter) — a defensive cap on the size of the
+// [from, to] window itself (e.g. a 1-day INTERVAL queried across a
+// multi-year window), not on the distance from the event's start date, which
+// is what used to make this loop the bottleneck. It also doubles as the
+// fallback scan length for any future RRule extension that can't jump in
+// closed form (e.g. BYDAY/BYSETPOS); unreachable today since RRule only
+// supports plain DAILY/WEEKLY INTERVAL rules, every one of which has a
+// constant per-occurrence day step and jumps exactly.
+const maxOccurrenceScan = 400
+
+// occurrenceIndexAtOrAfter returns the 0-based index (i.e. the occurrence at
+// start.AddDate(0, 0, i*stepDays)) of the first occurrence at or after
+// `from`, computed directly instead of by iterating every occurrence
+// between start and from — the closed-form window jump this package used to
+// defer behind a bounded scan. stepDays is always a whole number of days
+// (DAILY/WEEKLY are the only supported FREQs), so dividing the elapsed
+// wall-clock duration by it gives an exact-or-near estimate; the correction
+// loops below nudge that estimate to the true index and are bounded by a
+// small constant (DST shifts wall-clock duration by at most a couple hours
+// around a transition), never by the number of occurrences skipped.
+func occurrenceIndexAtOrAfter(start time.Time, stepDays int, from time.Time) int {
+	if !from.After(start) {
+		return 0
+	}
+	elapsedDays := from.Sub(start).Hours() / 24
+	idx := int(elapsedDays / float64(stepDays))
+	if idx < 0 {
+		idx = 0
+	}
+	for start.AddDate(0, 0, idx*stepDays).Before(from) {
+		idx++
+	}
+	for idx > 0 && !start.AddDate(0, 0, (idx-1)*stepDays).Before(from) {
+		idx--
+	}
+	return idx
+}
 
 // ExpandOccurrences returns concrete occurrences of a recurring base event
 // (base.RecurrenceRule must be set) whose start falls within [from, to],
@@ -134,9 +167,14 @@ func ExpandOccurrences(base Event, from, to time.Time) ([]Event, error) {
 		excluded[ex.UTC().Unix()] = struct{}{}
 	}
 
+	startIdx := occurrenceIndexAtOrAfter(base.StartsAt, stepDays, from)
+	if rule.Count > 0 && startIdx >= rule.Count {
+		return nil, nil
+	}
+
 	var out []Event
-	cur := base.StartsAt
-	for i := 0; i < maxOccurrenceScan; i++ {
+	cur := base.StartsAt.AddDate(0, 0, startIdx*stepDays)
+	for i := startIdx; i < startIdx+maxOccurrenceScan; i++ {
 		if rule.Count > 0 && i >= rule.Count {
 			break
 		}
@@ -146,16 +184,14 @@ func ExpandOccurrences(base Event, from, to time.Time) ([]Event, error) {
 		if cur.After(to) {
 			break
 		}
-		if !cur.Before(from) {
-			if _, skip := excluded[cur.UTC().Unix()]; !skip {
-				occ := base
-				occ.StartsAt = cur
-				if base.EndsAt != nil {
-					end := cur.Add(duration)
-					occ.EndsAt = &end
-				}
-				out = append(out, occ)
+		if _, skip := excluded[cur.UTC().Unix()]; !skip {
+			occ := base
+			occ.StartsAt = cur
+			if base.EndsAt != nil {
+				end := cur.Add(duration)
+				occ.EndsAt = &end
 			}
+			out = append(out, occ)
 		}
 		cur = cur.AddDate(0, 0, stepDays)
 	}

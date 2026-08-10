@@ -4,14 +4,21 @@ import { useRouter } from "next/navigation"
 import { Terminal, Clock, CheckSquare, Loader2, LogOut } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { LabReadinessWait } from "@/components/labs/lab-readiness-wait"
+import { LabReadinessInline } from "@/components/labs/lab-readiness-inline"
 import { LabTimer } from "@/components/labs/lab-timer"
 import { useLessonLab } from "@/components/courses/lesson-lab-provider"
+
+interface LessonLabHeroProps {
+  /** The lesson page's own title — when it matches the lab's title (the
+   * common case: one lab per lesson, same name), the not-started card skips
+   * its own heading instead of repeating a title already visible above it. */
+  pageTitle?: string
+}
 
 // Rendered once, immediately before the first [[lab-task:N]] marker in the
 // lesson body — the Google Cloud Skills Boost equivalent of the top
 // "instance details" panel that precedes the per-task check cards.
-export function LessonLabHero() {
+export function LessonLabHero({ pageTitle }: LessonLabHeroProps = {}) {
   const router = useRouter()
   const {
     lab,
@@ -25,7 +32,7 @@ export function LessonLabHero() {
 
   if (initialSession?.session.status === "provisioning") {
     return (
-      <LabReadinessWait
+      <LabReadinessInline
         sessionId={initialSession.session.id}
         onFailed={() => router.refresh()}
         onReady={() => router.refresh()}
@@ -57,9 +64,13 @@ export function LessonLabHero() {
   const totalPoints = lab.tasks.reduce((s, t) => s + t.points, 0)
 
   return (
-    <div className="card-base flex flex-col gap-4 p-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge className="capitalize" variant="outline">{lab.lab_type}</Badge>
+    <div className="card-base flex flex-col gap-3 p-4">
+      {/* lab_type now shown in the lesson header's badge row (page.tsx
+          moduleMeta) instead — duration stays here rather than joining it
+          up there, since the header already has the lesson's own estimated
+          reading-time clock badge; two clock badges with different meanings
+          but often the same number read as one duplicated fact. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <Badge variant="secondary">
           <Clock aria-hidden className="mr-1 h-3 w-3" />{lab.max_duration} min
         </Badge>
@@ -69,12 +80,14 @@ export function LessonLabHero() {
         {totalPoints > 0 && <Badge variant="secondary">{totalPoints} pts</Badge>}
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="text-lg font-semibold text-foreground">{lab.title}</h3>
+        {lab.title !== pageTitle && (
+          <h3 className="text-sm font-semibold text-foreground">{lab.title}</h3>
+        )}
         {lab.description && (
-          <p className="text-sm leading-relaxed text-muted-foreground">{lab.description}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{lab.description}</p>
         )}
       </div>
-      <Button className="w-full sm:w-auto" disabled={isStarting} onClick={handleStart}>
+      <Button className="w-full" disabled={isStarting} onClick={handleStart}>
         {isStarting ? (
           <Loader2 aria-hidden className="mr-2 h-4 w-4 animate-spin" />
         ) : (

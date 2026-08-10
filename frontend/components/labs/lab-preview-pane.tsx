@@ -44,7 +44,7 @@ export function LabPreviewPane({ sessionId, previewPort, ports, onSelectPort }: 
                 No open ports detected yet
               </span>
             )}
-            {ports.map(({ port }) => (
+            {ports.map(({ port, process_name }) => (
               <button
                 aria-selected={port === previewPort}
                 className={cn(
@@ -55,10 +55,14 @@ export function LabPreviewPane({ sessionId, previewPort, ports, onSelectPort }: 
                 )}
                 key={port}
                 role="tab"
+                title={process_name ? `Port ${port} — ${process_name}` : `Port ${port}`}
                 type="button"
                 onClick={() => onSelectPort?.(port)}
               >
                 :{port}
+                {process_name && (
+                  <span className="ml-1 text-muted-foreground">({process_name})</span>
+                )}
               </button>
             ))}
           </div>

@@ -1,0 +1,76 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# No top-level `namespace:` field — same reasoning as the prod overlay: base
+# resources already set their own namespace (mindforge / mindforge-labs).
+
+resources:
+  - ../../base
+
+# Produces the "mindforge-secrets" Secret every base Deployment references via
+# envFrom.secretRef. secrets.env is gitignored (k8s/overlays/*/secrets.env).
+secretGenerator:
+  - name: mindforge-secrets
+    namespace: mindforge
+    envs:
+      - secrets.env
+
+# Domain-dependent values. configmap-domain.patch.yaml covers app env vars
+# (same file the prod overlay uses, just pointed at the local nip.io hostname
+# instead of a real domain). The Gateway/HTTPRoute hostnames use JSON6902 ops
+# instead of a strategic-merge file — Gateway API's `listeners` is a list
+# inside a CRD (no patchMergeKey metadata for kustomize to merge by), so a
+# strategic-merge patch there silently replaces the WHOLE listeners array,
+# dropping port/protocol/tls/allowedRoutes. JSON6902 touches only the exact
+# field.
+patches:
+  - path: configmap-domain.patch.yaml
+  # Port 8000/8443 (not the standard 80/443 in base) is local-only: k3s's
+  # bundled Traefik runs its entryPoints on 8000/8443 internally (avoids
+  # needing CAP_NET_BIND_SERVICE for <1024 in-container) and its Service maps
+  # those to the standard external 80/443 — but Traefik's Gateway API provider
+  # requires the Gateway listener's `port` to exactly match its entryPoint's
+  # own port, not the Service's external one. `kubectl get svc -n kube-system
+  # traefik` shows the real mapping. A standards-compliant Gateway API
+  # implementation (what prod uses) wouldn't have this quirk, hence patching
+  # it here rather than in base.
+  - target:
+      kind: Gateway
+      name: mindforge
+    patch: |-
+      - op: replace
+        path: /spec/listeners/0/hostname
+        value: mindforge.127.0.0.1.nip.io
+      - op: replace
+        path: /spec/listeners/0/port
+        value: 8000
+      - op: replace
+        path: /spec/listeners/1/hostname
+        value: mindforge.127.0.0.1.nip.io
+      - op: replace
+        path: /spec/listeners/1/port
+        value: 8443
+  - target:
+      kind: HTTPRoute
+      name: mindforge-redirect
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: mindforge.127.0.0.1.nip.io
+  - target:
+      kind: HTTPRoute
+      name: mindforge
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: mindforge.127.0.0.1.nip.io
+
+# Images are built locally (docker build ... :local) and imported straight into
+# k3s's containerd — no registry involved for this overlay.
+images:
+  - name: mindforge-backend
+    newTag: local
+  - name: mindforge-labproxy
+    newTag: local
+  - name: mindforge-frontend
+    newTag: local

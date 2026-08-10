@@ -10,15 +10,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
-import type { MemberProgress } from "@/lib/server/batches";
+import { FormCheckboxField } from "@/components/ui/form-checkbox-field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { MemberProgress, TestTemplate } from "@/lib/server/batches";
 import type { Terminology } from "@/lib/terminology";
-import { enterOfflineTestScoresAction } from "@/app/(app)/batches/actions";
+import { createTestTemplateAction, enterOfflineTestScoresAction } from "@/app/(app)/batches/actions";
 import ROUTES from "@/lib/routes";
+
+// Sentinel for "create a new test" — kept distinct from "" so an empty
+// template_id form value unambiguously means "no template picked yet" while
+// this value drives the Select's own placeholder state.
+const CREATE_NEW_VALUE = "__create_new__";
 
 const Schema = z.object({
   test_name: z.string().min(1, "Test name is required.").max(200),
   test_date: z.string().min(1, "Date is required."),
   max_score: z.coerce.number().positive("Max score must be greater than 0."),
+  template_id: z.string().optional(),
+  save_as_template: z.boolean().default(false),
   scores: z.array(
     z.object({
       user_id: z.string(),
@@ -33,10 +42,11 @@ type FormData = z.output<typeof Schema>;
 interface EnterScoresFormProps {
   batchId: string;
   roster: MemberProgress[];
+  templates: TestTemplate[];
   t: Terminology;
 }
 
-export function EnterScoresForm({ batchId, roster, t }: EnterScoresFormProps) {
+export function EnterScoresForm({ batchId, roster, templates, t }: EnterScoresFormProps) {
   const router = useRouter();
   const form = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(Schema),
@@ -44,16 +54,42 @@ export function EnterScoresForm({ batchId, roster, t }: EnterScoresFormProps) {
       test_name: "",
       test_date: new Date().toISOString().slice(0, 10),
       max_score: 100,
+      template_id: "",
+      save_as_template: false,
       scores: roster.map((s) => ({ user_id: s.user_id, name: s.name, score: 0 })),
     },
   });
 
+  const handleTemplateChange = (value: string) => {
+    if (value === CREATE_NEW_VALUE) {
+      form.setValue("template_id", "");
+      return;
+    }
+    form.setValue("template_id", value);
+    const template = templates.find((tt) => tt.id === value);
+    if (template) {
+      form.setValue("test_name", template.name);
+      form.setValue("max_score", template.max_score);
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
+    let templateId = data.template_id || undefined;
+    if (!templateId && data.save_as_template) {
+      const templateRes = await createTestTemplateAction({ name: data.test_name, max_score: data.max_score });
+      if (templateRes.error) {
+        toast.error(templateRes.error);
+        return;
+      }
+      templateId = templateRes.data?.id;
+    }
+
     const res = await enterOfflineTestScoresAction(batchId, {
       test_name: data.test_name,
       test_date: data.test_date,
       max_score: data.max_score,
       scores: data.scores.map((s) => ({ user_id: s.user_id, score: s.score })),
+      template_id: templateId,
     });
     if (res.error) {
       toast.error(res.error);
@@ -75,6 +111,26 @@ export function EnterScoresForm({ batchId, roster, t }: EnterScoresFormProps) {
     <Form {...form}>
       <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
         <div className="stack-sm">
+          {templates.length > 0 && (
+            <FormItem>
+              <FormLabel>Use existing template</FormLabel>
+              <Select defaultValue={CREATE_NEW_VALUE} onValueChange={handleTemplateChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Create new" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value={CREATE_NEW_VALUE}>Create new</SelectItem>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name} (max {template.max_score})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
           <FormInputField control={form.control} label="Test name" name="test_name" placeholder="Unit Test 1 — Measurement" />
           <FormField
             control={form.control}
@@ -90,6 +146,13 @@ export function EnterScoresForm({ batchId, roster, t }: EnterScoresFormProps) {
             )}
           />
           <FormInputField control={form.control} label="Max score" min={1} name="max_score" step="0.5" type="number" />
+          {!form.watch("template_id") && (
+            <FormCheckboxField
+              control={form.control}
+              label="Save this test name and max score as a reusable template"
+              name="save_as_template"
+            />
+          )}
         </div>
 
         <div className="card-base p-4">

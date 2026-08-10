@@ -49,7 +49,7 @@ export function LessonNotes({ moduleId, initialContent }: LessonNotesProps) {
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setLessonPanel("notes")}>
+      <Button className="w-full" size="sm" variant="secondary" onClick={() => setLessonPanel("notes")}>
         <NotebookPen aria-hidden className="mr-2 h-4 w-4" />
         My notes
       </Button>
@@ -62,10 +62,6 @@ export function LessonNotes({ moduleId, initialContent }: LessonNotesProps) {
           onClose={() => setLessonPanel(null)}
         >
           <div className="min-h-0 flex-1 overflow-y-auto flex flex-col gap-3 p-4">
-            <p className="text-sm text-muted-foreground">
-              Your own notes for this lesson — separate from the lesson content itself. Close this
-              panel any time to see the original lesson again.
-            </p>
             <Textarea
               className="min-h-40 flex-1"
               placeholder="Write anything you want to remember about this lesson..."

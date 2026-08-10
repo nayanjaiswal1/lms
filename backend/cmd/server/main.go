@@ -119,8 +119,9 @@ func main() {
 				}
 				return "rootless-dind"
 			}(),
-			K8sRuntimeClass: cfg.LabsNestedDockerRuntimeClass,
-			K8sExtraVolume:  true,
+			K8sRuntimeClass:      cfg.LabsNestedDockerRuntimeClass,
+			K8sExtraVolume:       true,
+			K8sExtraVolumeSizeGB: labs.NestedContainerDiskGB,
 		},
 	}
 	labsImageProfiles := make(map[string]labs.ImageProfile, len(cfg.LabsImageProfiles))
@@ -136,12 +137,12 @@ func main() {
 	var labsRuntime labs.ContainerRuntime
 	switch cfg.LabsRuntime {
 	case "kubernetes":
-		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace, labsImageProfiles)
+		labsRuntime, err = labs.NewKubernetesContainerService(cfg.LabsK8sNamespace, labsImageProfiles, cfg.LabsImageRegistry)
 		if err != nil {
 			slog.Error("labs: kubernetes runtime init failed", "error", err)
 			os.Exit(1)
 		}
-		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace)
+		slog.Info("labs: kubernetes runtime ready", "namespace", cfg.LabsK8sNamespace, "image_registry", cfg.LabsImageRegistry)
 	default:
 		labsRuntime = labs.NewDockerContainerService(labsImageProfiles)
 		slog.Info("labs: docker runtime ready")
@@ -216,7 +217,12 @@ func main() {
 	jobsRegistry.OnDead(handlers.HandlerEvalSubjective, handlers.NewEvalDeadHook(pool))
 	emailSender := mailer.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom)
 	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg, emailSender))
+	// A dead email.send job used to leave nothing but last_error on the jobs
+	// row — nobody was told a user-facing email (e.g. a password reset) will
+	// never arrive. This turns that into a structured, alertable log line.
+	jobsRegistry.OnDead(handlers.HandlerEmailSend, handlers.NewEmailDeadHook())
 	jobsRegistry.Register(handlers.HandlerBulkInvite, handlers.NewInviteHandler(pool, cfg))
+	jobsRegistry.OnDead(handlers.HandlerBulkInvite, handlers.NewInviteDeadHook())
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
 	jobsRegistry.Register(handlers.HandlerSRSReminder, handlers.NewSRSHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))

@@ -5,12 +5,13 @@ import (
 	"testing"
 )
 
-// ponytail: no DB test infra exists for this package yet (see
-// courses.service_test.go's precedent) — this covers the one pure-Go branch
-// worth a check: isRevertible must never let a matched-existing result
-// (create_self_course/add_self_course_module resolving to a pre-existing
-// row instead of a new one) come back as revertible, since Revert would
-// otherwise delete/soft-delete a row the call didn't create.
+// ponytail: DB test infra now exists via internal/testdb (see repo_db_test.go
+// in this package) — this file predates it and stays pure-Go on purpose,
+// covering the one non-DB branch worth a check: isRevertible must never let
+// a matched-existing result (create_self_course/add_self_course_module
+// resolving to a pre-existing row instead of a new one) come back as
+// revertible, since Revert would otherwise delete/soft-delete a row the call
+// didn't create.
 
 type fakeMatchedResult struct{ matched bool }
 

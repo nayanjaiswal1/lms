@@ -66,6 +66,10 @@ export interface Lab {
 // One listening TCP port detected inside the session container.
 export interface LabPort {
   port: number
+  // Best-effort process name (e.g. "node", "postgres") resolved server-side
+  // via a /proc fd inode walk; empty when the owning process couldn't be
+  // identified.
+  process_name?: string
 }
 
 export interface LabPortsData {

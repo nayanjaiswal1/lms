@@ -36,6 +36,15 @@ spec:
                 name: mindforge-config
             - secretRef:
                 name: mindforge-secrets
+          # mindforge-config's PORT=8080 is for the backend — envFrom pulls it
+          # into every container sharing that ConfigMap, and Next.js's server
+          # reads the bare PORT var directly, so without this override the
+          # frontend listens on 8080 while the Service/probes above still
+          # target 3000, and it never becomes Ready. An explicit `env` entry
+          # takes precedence over `envFrom` for the same key.
+          env:
+            - name: PORT
+              value: "3000"
           # No dedicated health route in the Next.js app — "/" is sufficient
           # to confirm the standalone server is actually serving requests.
           readinessProbe:

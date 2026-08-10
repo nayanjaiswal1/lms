@@ -1,0 +1,21 @@
+# Custom Caddy build with a DNS-01 provider module compiled in. The stock
+# caddy:2-alpine image only supports HTTP-01/TLS-ALPN-01 issuance, which
+# cannot obtain a wildcard certificate (*.{$LABPROXY_PREVIEW_DOMAIN}) — the
+# preview subdomain site block in Caddyfile needs DNS-01 for that. See
+# docs/infrastructure.md and ENV_VARS.md for CADDY_DNS_PROVIDER/
+# CADDY_DNS_API_TOKEN.
+#
+# CADDY_DNS_PROVIDER selects the caddy-dns module to compile in (build-time —
+# changing it requires rebuilding this image, not just a redeploy). Defaults
+# to cloudflare so this isn't hardcoded to one vendor; override with
+# `docker compose build --build-arg CADDY_DNS_PROVIDER=route53 caddy` (or set
+# it in docker-compose.prod.yml's build.args) for any other provider xcaddy
+# supports — see https://github.com/caddy-dns for the full module list.
+ARG CADDY_DNS_PROVIDER=cloudflare
+
+FROM caddy:2-builder AS builder
+ARG CADDY_DNS_PROVIDER
+RUN xcaddy build --with github.com/caddy-dns/${CADDY_DNS_PROVIDER}
+
+FROM caddy:2-alpine
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy

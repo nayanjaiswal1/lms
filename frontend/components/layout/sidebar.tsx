@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { SidebarNavContent } from "@/components/layout/sidebar-nav-content";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
-import { isCourseLearnRoute } from "@/lib/routes";
+import ROUTES, { isCourseLearnRoute } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/server/auth";
 
@@ -45,7 +46,9 @@ export function Sidebar({ user }: Props) {
         className={cn("app-sidebar transition-[width] duration-normal ease-smooth", collapsed && "w-16")}
       >
         <div className={cn("flex items-center px-5 py-4 border-b border-sidebar-border overflow-hidden", collapsed && "justify-center px-3")}>
-          <BrandMark iconClassName="h-6 w-6" showName={!collapsed} />
+          <Link aria-label="Go to your home page" href={user?.default_landing_page || ROUTES.DASHBOARD}>
+            <BrandMark iconClassName="h-6 w-6" showName={!collapsed} />
+          </Link>
           {user && !collapsed && (
             <div className="ml-auto flex items-center">
               <NotificationBell />

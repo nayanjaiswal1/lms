@@ -2,7 +2,9 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # scripts/deploy-k8s.sh — Apply the MindForge Kubernetes manifests to whatever
 # cluster your current kubectl context points at.
-# Run from the mindforge/ directory: bash scripts/deploy-k8s.sh
+# Run from the mindforge/ directory: bash scripts/deploy-k8s.sh [overlay]
+#   overlay defaults to "prod" — pass "local" for the WSL/k3s dev overlay
+#   (see docs/local-k3s-dev.md and scripts/setup-k3s-local.sh).
 # Safe to re-run — kubectl apply -k is idempotent.
 # ══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
@@ -22,7 +24,8 @@ success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
-OVERLAY_DIR="k8s/overlays/prod"
+OVERLAY_DIR="k8s/overlays/${1:-prod}"
+[[ -d "$OVERLAY_DIR" ]] || error "No such overlay: ${OVERLAY_DIR}"
 
 # ─── 1. Check prerequisites ───────────────────────────────────────────────────
 command -v kubectl &>/dev/null || error "kubectl is not installed."
@@ -38,8 +41,8 @@ fi
 if grep -qE "change_me|your_(google|smtp)" "${OVERLAY_DIR}/secrets.env"; then
   error "Refusing to deploy: ${OVERLAY_DIR}/secrets.env still contains change_me / placeholder values."
 fi
-if grep -q "yourdomain.com" "${OVERLAY_DIR}/configmap-domain.patch.yaml" "${OVERLAY_DIR}/ingress-domain.patch.yaml"; then
-  error "Refusing to deploy: ${OVERLAY_DIR}/configmap-domain.patch.yaml or ingress-domain.patch.yaml still has the placeholder domain (app.yourdomain.com)."
+if grep -q "yourdomain.com" "${OVERLAY_DIR}/configmap-domain.patch.yaml" "${OVERLAY_DIR}/kustomization.yaml"; then
+  error "Refusing to deploy: ${OVERLAY_DIR}/configmap-domain.patch.yaml or kustomization.yaml's Gateway/HTTPRoute patches still have the placeholder domain (app.yourdomain.com)."
 fi
 if grep -q "REPLACE_ME_REGISTRY" "${OVERLAY_DIR}/kustomization.yaml"; then
   error "Refusing to deploy: image tags aren't pinned yet. Run scripts/build-push-k8s-images.sh first."

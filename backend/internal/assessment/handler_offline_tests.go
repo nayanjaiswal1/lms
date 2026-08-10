@@ -20,10 +20,11 @@ func (h *Handler) CreateOfflineTestScores(w http.ResponseWriter, r *http.Request
 	batchID := chi.URLParam(r, "batchID")
 
 	var body struct {
-		TestName string  `json:"test_name"`
-		TestDate string  `json:"test_date"` // YYYY-MM-DD
-		MaxScore float64 `json:"max_score"`
-		Scores   []struct {
+		TestName   string  `json:"test_name"`
+		TestDate   string  `json:"test_date"` // YYYY-MM-DD
+		MaxScore   float64 `json:"max_score"`
+		TemplateID *string `json:"template_id,omitempty"`
+		Scores     []struct {
 			UserID string  `json:"user_id"`
 			Score  float64 `json:"score"`
 		} `json:"scores"`
@@ -51,13 +52,57 @@ func (h *Handler) CreateOfflineTestScores(w http.ResponseWriter, r *http.Request
 	}
 
 	testID, err := h.repo.CreateOfflineTestScores(
-		r.Context(), claims.OrgID, batchID, body.TestName, testDate, body.MaxScore, claims.UserID, entries,
+		r.Context(), claims.OrgID, batchID, body.TestName, testDate, body.MaxScore, claims.UserID, entries, body.TemplateID,
 	)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
 	httputil.WriteJSON(w, http.StatusCreated, map[string]string{"test_id": testID})
+}
+
+// CreateTestTemplate handles saving a reusable offline-test name + default
+// max score for the org's "use existing template" dropdown.
+func (h *Handler) CreateTestTemplate(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Name     string  `json:"name"`
+		MaxScore float64 `json:"max_score"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if body.Name == "" {
+		httputil.WriteError(w, http.StatusBadRequest, "name is required.")
+		return
+	}
+	if body.MaxScore <= 0 {
+		httputil.WriteError(w, http.StatusBadRequest, "max_score must be greater than 0.")
+		return
+	}
+	template, err := h.repo.CreateTestTemplate(r.Context(), claims.OrgID, body.Name, body.MaxScore, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, template)
+}
+
+// ListTestTemplates returns every reusable offline-test template for the org.
+func (h *Handler) ListTestTemplates(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	templates, err := h.repo.ListTestTemplates(r.Context(), claims.OrgID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, map[string]any{"templates": templates})
 }
 
 // ListOfflineTests returns every classroom test entered for this batch.

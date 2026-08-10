@@ -53,6 +53,44 @@ dropdown inside a modal.
 
 ---
 
+## Popper components (Select/Dropdown/Tooltip) render behind an open Dialog
+
+**What broke:** a `<Select>` opened from inside a `<Dialog>` rendered its
+options underneath the dialog's own backdrop/content instead of on top.
+
+**Root cause:** Select/DropdownMenu/ContextMenu/Tooltip render their content
+via a Radix Portal to `document.body` — a DOM **sibling** of `DialogContent`,
+not a descendant. Nesting one inside a `<Dialog>` does not inherit the
+dialog's stacking context; only the raw z-index number decides who's on top.
+
+**Rule:** `z-dropdown` (450) is deliberately *above* `z-modal` (400) in the
+named layer scale (`z-raised` 10 < `z-sticky` 200 < `z-overlay` 300 <
+`z-modal` 400 < `z-dropdown` 450 < `z-toast` 500). Any popper-based component
+must out-rank `z-modal` or it silently renders behind an open dialog/sheet/
+alert-dialog the first time it's used inside one. Never hardcode `z-[400]` or
+`z-50` — use the named classes so this ordering stays auditable.
+
+---
+
+## A code/slug/UUID/email in a flex or grid cell overflows into the next column
+
+**What broke:** a permission code (`assessments.manage_batches`) or long UUID
+rendered inside a grid/flex cell visually spilled into the next card/column —
+looked like a spacing bug, but no amount of padding or gap fixed it.
+
+**Root cause:** flex and grid items default to `min-width: auto` — they will
+not shrink below the intrinsic width of their content. A long token with no
+spaces has a large intrinsic width, forcing the item wider than its
+column/track.
+
+**Fix:** add `min-w-0` to the flex/grid item (or its direct text wrapper),
+plus `truncate` (single-line ellipsis) or `break-all` (wraps mid-token) on the
+text itself. Reach for `whitespace-nowrap` + `.table-responsive` scrolling
+only inside an actual `<table>` — inside a card/grid layout there's no scroll
+container, so the text must wrap or truncate in place.
+
+---
+
 ## `page-container`/`page-container-sm` with `py-*` triples a page's top padding
 
 **What broke:** flagged on `/users` — visibly more dead space above the page

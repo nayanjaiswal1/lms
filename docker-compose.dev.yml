@@ -166,6 +166,9 @@ services:
       LABPROXY_REDIS_URL: redis://redis:6379/0
       LABPROXY_JWT_SECRET: ${JWT_SECRET}
       LABPROXY_JWT_ISSUER: mindforge-labproxy
+      # *.localhost — no DNS/TLS setup needed in dev; see Caddyfile.dev's
+      # preview block and backend/cmd/labproxy/host.go.
+      LABPROXY_PREVIEW_DOMAIN: localhost
     # No published port — matches docker-compose.prod.yml/Caddyfile: the
     # terminal WebSocket and live-preview asset routes are reached through
     # Caddy's /lab-ws/* prefix-stripped proxy (Caddyfile.dev), not a raw port.
@@ -233,6 +236,8 @@ services:
     container_name: mindforge_frontend_dev
     restart: unless-stopped
     env_file: ./frontend/.env.local
+    environment:
+      BACKEND_URL: http://backend:8080
     # No published port — only Caddy reaches this, over mindforge_dev.
     networks:
       - mindforge_dev

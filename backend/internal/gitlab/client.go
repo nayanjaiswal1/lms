@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mindforge/backend/internal/netguard"
 )
 
 // Client is a GitLab REST API client. Batch 1 built the minimal surface
@@ -26,12 +29,66 @@ type Client struct {
 
 // NewClient builds a Client for baseURL authorized with the given bearer
 // token (a PAT or an OAuth access token — GitLab accepts both identically).
+//
+// The transport's DialContext re-checks the IP actually being connected to
+// against netguard's denylist on every dial, not just once at config-save
+// time in validateBaseURL. That handler-time check can't fully close the
+// SSRF gap on its own: the admin-configured hostname's DNS can change
+// between validation and any later request this client makes (DNS
+// rebinding), so the real guard has to sit at the point of connection.
 func NewClient(baseURL, token string) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		token:   token,
-		http:    &http.Client{Timeout: 15 * time.Second},
+		http: &http.Client{
+			Timeout:   15 * time.Second,
+			Transport: guardedTransport(),
+		},
 	}
+}
+
+// guardedTransport returns an http.Transport whose DialContext rejects any
+// address that resolves to a denylisted IP (see internal/netguard) before
+// the connection is made — the dial-time half of this app's SSRF defense.
+func guardedTransport() *http.Transport {
+	dialer := &net.Dialer{Timeout: 15 * time.Second}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, fmt.Errorf("gitlab: parse dial address %q: %w", addr, err)
+		}
+		if ip := net.ParseIP(host); ip != nil {
+			if netguard.IsDenylisted(ip) {
+				return nil, fmt.Errorf("gitlab: refusing to dial denylisted address %s", host)
+			}
+			return dialer.DialContext(ctx, network, addr)
+		}
+		// addr's host is still a hostname (net/http resolves via DialContext
+		// itself rather than pre-resolving) — resolve it here so every IP it
+		// could connect to is checked, then dial that specific IP directly
+		// rather than re-resolving (which could yield a different, unchecked
+		// answer under DNS rebinding).
+		ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+		if err != nil {
+			return nil, fmt.Errorf("gitlab: resolve %q: %w", host, err)
+		}
+		for _, ip := range ips {
+			if netguard.IsDenylisted(ip) {
+				continue
+			}
+			conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+			if dialErr == nil {
+				return conn, nil
+			}
+			err = dialErr
+		}
+		if err == nil {
+			err = fmt.Errorf("gitlab: all resolved addresses for %q are denylisted", host)
+		}
+		return nil, fmt.Errorf("gitlab: dial %q: %w", host, err)
+	}
+	return transport
 }
 
 // APIError is returned for any non-2xx GitLab API response. RetryAfter is
@@ -173,24 +230,62 @@ type InstanceMetadata struct {
 	Enterprise bool   `json:"enterprise"`
 }
 
+// GitlabLicense is the subset of GET /license (admin-only) this package uses
+// to split Premium from Ultimate. Plan is GitLab's own tier name for the
+// active license ("ultimate", "premium", or an older/unrecognized value).
+type GitlabLicense struct {
+	Plan string `json:"plan"`
+}
+
 // DetectTier calls GET /metadata and maps the response to this app's coarse
-// tier field.
-//
-// ponytail: GitLab's API cannot distinguish Premium from Ultimate without an
-// admin-scoped license read; "enterprise" only proves "not Free". Every
-// enterprise instance is recorded as "premium" until a real need (e.g.
-// Ultimate-only features gating approval-rule creation in a later batch)
-// forces the finer split — upgrade path is an admin GET /license call, gated
-// on the installation actually holding admin rights.
+// tier field. When the instance reports "enterprise" — GitLab's /metadata
+// can't tell Premium from Ultimate, it only proves "not Free" — DetectTier
+// then attempts an admin-scoped GET /license call to read the actual plan.
+// Most installation tokens are not admin-scoped, so a 403/404 (or any other
+// error, or an unrecognized plan value) from /license is expected, not
+// fatal: that's a capability gap (finer detection unavailable for this
+// token), not a tier-detection failure, so it falls back to the coarser
+// "premium" collapse instead of erroring out.
 func (c *Client) DetectTier(ctx context.Context) (string, error) {
 	var meta InstanceMetadata
 	if err := c.do(ctx, http.MethodGet, "/metadata", nil, &meta); err != nil {
 		return "", fmt.Errorf("gitlab: detect tier: %w", err)
 	}
-	if meta.Enterprise {
-		return TierPremium, nil
+	if !meta.Enterprise {
+		return TierFree, nil
 	}
-	return TierFree, nil
+	if tier, ok := c.detectEnterpriseTier(ctx); ok {
+		return tier, nil
+	}
+	return TierPremium, nil
+}
+
+// detectEnterpriseTier attempts the admin-scoped GET /license call that can
+// distinguish Premium from Ultimate. ok is false whenever the call didn't
+// yield a usable tier — missing admin scope (403), license endpoint absent
+// (404), or any other transport/API error — in which case the caller falls
+// back to the "premium" collapse.
+func (c *Client) detectEnterpriseTier(ctx context.Context) (tier string, ok bool) {
+	var lic GitlabLicense
+	if err := c.do(ctx, http.MethodGet, "/license", nil, &lic); err != nil {
+		return "", false
+	}
+	return planToTier(lic.Plan)
+}
+
+// planToTier maps GET /license's "plan" field to this app's tier constants.
+// ok is false for a plan value this app doesn't recognize, in which case the
+// caller falls back to the "premium" collapse rather than trusting an
+// unrecognized string.
+func planToTier(plan string) (tier string, ok bool) {
+	switch strings.ToLower(strings.TrimSpace(plan)) {
+	case "ultimate":
+		return TierUltimate, true
+	case "premium":
+		return TierPremium, true
+	default:
+		return "", false
+	}
 }
 
 // doJSON is do() with payload marshaled to JSON — the common case for

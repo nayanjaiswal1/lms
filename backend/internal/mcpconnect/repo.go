@@ -357,7 +357,7 @@ func (r *Repo) InsertActionLog(ctx context.Context, e ActionLogEntry) error {
 	}
 
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO audit_logs (org_id, user_id, source, action, target_type, target_id, before_state, after_state, connection_id, revertible)
+		`INSERT INTO audit_logs (org_id, actor_user_id, source, action, target_type, target_id, before_state, after_state, connection_id, revertible)
 		 VALUES ($1, $2, 'mcp', $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)`,
 		e.OrgID, e.UserID, e.ToolName, targetType, targetID, beforeJSON, afterJSON, e.ConnectionID, e.Revertible,
 	)

@@ -67,6 +67,12 @@ type ImageProfile struct {
 	// as an independent knob from K8sRuntimeClass since a future elevated
 	// profile might need a RuntimeClass without this particular volume.
 	K8sExtraVolume bool
+	// K8sExtraVolumeSizeGB caps that emptyDir (and the container's
+	// ephemeral-storage request/limit, so the scheduler accounts for it too)
+	// — see NestedContainerDiskGB. Zero falls back to that constant, same as
+	// CPU/MemoryMB falling back to ContainerCPU/ContainerMemoryMB. Ignored
+	// when K8sExtraVolume is false.
+	K8sExtraVolumeSizeGB int
 }
 
 // ImageProfileNestedDocker names the one real non-standard profile that

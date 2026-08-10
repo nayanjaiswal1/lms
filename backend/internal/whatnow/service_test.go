@@ -2,8 +2,10 @@ package whatnow
 
 import "testing"
 
-// ponytail: no test infra exists in this package yet — this is the one
-// runnable check for the new ScheduledStart branch, not a new test pattern.
+// ponytail: DB test infra now exists via internal/testdb (see
+// repo_db_test.go in this package) — this file predates it and stays
+// pure-Go on purpose, as the one runnable check for the new ScheduledStart
+// branch, not a new test pattern.
 func TestApplyPatchScheduledStart(t *testing.T) {
 	var task Task
 

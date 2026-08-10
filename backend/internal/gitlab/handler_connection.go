@@ -1,15 +1,19 @@
 package gitlab
 
 import (
+	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/netguard"
 )
 
 // installationRequest is POST/PATCH /api/gitlab/installations(/{id})'s body.
@@ -29,17 +33,48 @@ type installationRequest struct {
 	OAuthClientSecret   string `json:"oauth_client_secret"`
 }
 
-func validateBaseURL(raw string) bool {
-	// ponytail: this is an authenticated admin's own trusted-instance config
-	// value (RequireOrgRole("admin")), not an untrusted user-supplied fetch
-	// target — a full SSRF denylist (private-IP/metadata-endpoint blocking)
-	// belongs on any *unauthenticated or student-facing* URL intake this app
-	// grows later, not here. This just rejects obviously malformed input.
+// dnsLookupTimeout bounds validateBaseURL's resolution check — this runs
+// inline in an admin request handler, so a slow/unresponsive resolver must
+// not hang the request indefinitely.
+const dnsLookupTimeout = 5 * time.Second
+
+// validateBaseURL rejects malformed input and, for well-formed http(s) URLs,
+// resolves the hostname and rejects it if any answer lands in
+// netguard's denylist (private/loopback/link-local/metadata ranges).
+//
+// This is authenticated admin input (RequireOrgRole("admin")), not an
+// unauthenticated/student-facing fetch target — but the denylist check is
+// applied anyway: a hostname that resolves safely right now can be
+// re-pointed at an internal address by the time this app actually connects
+// (DNS rebinding), and admin-trust doesn't change that TOCTOU gap. This
+// check narrows the window; client.go's DialContext closes it by
+// re-checking the IP actually being dialed at connection time.
+func validateBaseURL(ctx context.Context, raw string) bool {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" {
 		return false
 	}
-	return u.Scheme == "http" || u.Scheme == "https"
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, dnsLookupTimeout)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupIP(lookupCtx, "ip", host)
+	if err != nil || len(ips) == 0 {
+		return false
+	}
+	for _, ip := range ips {
+		if netguard.IsDenylisted(ip) {
+			return false
+		}
+	}
+	return true
 }
 
 // InstallationsList handles GET /api/gitlab/installations — admin-only list
@@ -61,12 +96,12 @@ func (h *Handler) InstallationsList(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, views)
 }
 
-func validateInstallationRequest(req installationRequest, requireName bool) map[string]string {
+func validateInstallationRequest(ctx context.Context, req installationRequest, requireName bool) map[string]string {
 	fields := map[string]string{}
 	if requireName && strings.TrimSpace(req.Name) == "" {
 		fields["name"] = "A name is required."
 	}
-	if !validateBaseURL(req.BaseURL) {
+	if !validateBaseURL(ctx, req.BaseURL) {
 		fields["base_url"] = "A valid http(s) GitLab instance URL is required."
 	}
 	switch req.AuthKind {
@@ -97,7 +132,7 @@ func (h *Handler) InstallationsCreate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if fields := validateInstallationRequest(req, true); len(fields) > 0 {
+	if fields := validateInstallationRequest(r.Context(), req, true); len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
@@ -133,7 +168,7 @@ func (h *Handler) InstallationUpdate(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if fields := validateInstallationRequest(req, false); len(fields) > 0 {
+	if fields := validateInstallationRequest(r.Context(), req, false); len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}

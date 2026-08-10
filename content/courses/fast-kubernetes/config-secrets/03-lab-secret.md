@@ -18,6 +18,7 @@ source:
 lab_type: terminal
 environment: mindforge/lab-k8s:1.31
 preview_port: 0
+workspace_layout: ""
 run_script: ""
 max_duration: 60
 max_resets: 3

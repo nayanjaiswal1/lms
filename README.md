@@ -12,7 +12,7 @@ Multi-tenant learning platform. LeetCode + KodeKloud + Udemy + Notion, self-host
 |---|---|---|
 | Docker + Docker Compose | Latest stable | [docs.docker.com](https://docs.docker.com/get-docker/) |
 | Go | 1.26.4+ | [go.dev/dl](https://go.dev/dl/) |
-| Node.js | 20+ | [nodejs.org](https://nodejs.org/) |
+| Node.js | 26+ (pnpm 11's `node:sqlite` dependency needs it fully stable) | [nodejs.org](https://nodejs.org/) |
 | pnpm | 9+ | `npm install -g pnpm` |
 
 ---
@@ -347,19 +347,23 @@ bash scripts/deploy-prod.sh   # redeploy after a `git pull` (rebuilds changed im
 `k8s/` (Kustomize: `base/` + `overlays/prod/`) deploys the same stack to a cluster instead of a single VPS. The one real architectural difference: lab sandboxes run as native Kubernetes Pods (`backend/internal/labs/runtime_kubernetes.go`, via the in-cluster API) instead of `docker run` against a mounted host socket — that pattern doesn't work on managed clusters (containerd, not dockerd; mounting the host socket is a real security hole). Toggle which sandbox runtime the backend uses with `LABS_RUNTIME=docker|kubernetes` (default `docker`) — no other code changes needed either way.
 
 **Prerequisites:**
-- A cluster with `ingress-nginx` and `cert-manager` (plus a `ClusterIssuer` named `letsencrypt-prod`) already installed — these manifests don't install cluster-wide addons, same relationship the VPS deploy has to Docker itself
+- A cluster with the [Gateway API CRDs](https://gateway-api.sigs.k8s.io/), a Gateway API implementation (e.g. Traefik with `providers.kubernetesGateway.enabled=true` — k3s ships this), and `cert-manager` installed with Gateway API support enabled (`--set config.apiVersion=controller.config.cert-manager.io/v1alpha1 --set config.kind=ControllerConfiguration --set config.enableGatewayAPI=true` via Helm) plus a `ClusterIssuer` named `letsencrypt-prod` — these manifests don't install cluster-wide addons, same relationship the VPS deploy has to Docker itself. (`ingress-nginx` was retired/archived 2026-03-31 by the Kubernetes project — Gateway API is its maintained successor, see `k8s/base/gateway.yaml`. `scripts/setup-k3s-local.sh` shows a full working install of all of this for a local k3s cluster — see `docs/local-k3s-dev.md`.)
 - A container registry your cluster's nodes can pull from (ghcr.io, Docker Hub, a private registry)
-- A domain with DNS pointing at your ingress controller's external IP
+- A domain with DNS pointing at your Gateway API implementation's external IP
 - `kubectl` and the standalone `kustomize` CLI (`kubectl`'s built-in kustomize can render but can't run `kustomize edit`)
 - Run `docker network create mindforge-labs`-equivalent step is not needed here — `k8s/base/namespace.yaml` creates the `mindforge-labs` namespace instead
+
+> **Just want this running locally to test?** See [`docs/local-k3s-dev.md`](docs/local-k3s-dev.md) — a scripted k3s-in-WSL setup with no registry/domain/DNS needed, using the exact same `k8s/base/` manifests.
 
 **Steps:**
 ```bash
 git clone <this repo> && cd mindforge
 cp k8s/overlays/prod/secrets.env.example k8s/overlays/prod/secrets.env
 # Edit secrets.env — fill in every value
-# Edit k8s/overlays/prod/configmap-domain.patch.yaml and ingress-domain.patch.yaml —
-# replace every "app.yourdomain.com" with your real domain
+# Edit k8s/overlays/prod/configmap-domain.patch.yaml, and the "value:" lines in
+# the Gateway/HTTPRoute JSON6902 patches at the bottom of
+# k8s/overlays/prod/kustomization.yaml — replace every "app.yourdomain.com"
+# with your real domain
 
 REGISTRY=ghcr.io/youruser bash scripts/build-push-k8s-images.sh   # build, push, pin image tags
 bash scripts/deploy-k8s.sh                                        # apply manifests, wait for rollout

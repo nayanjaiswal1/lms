@@ -267,6 +267,23 @@ export async function getOfflineTest(batchId: string, testId: string): Promise<O
   return apiGet<OfflineTestDetail>(`/api/batches/${batchId}/offline-tests/${testId}`);
 }
 
+// A saved offline-test name + default max score, reusable across batches
+// instead of retyping the same pair every time (the "Enter Scores" form's
+// "use existing template" dropdown).
+export interface TestTemplate {
+  id: string;
+  org_id: string;
+  name: string;
+  max_score: number;
+  created_by: string;
+  created_at: string;
+}
+
+export async function listTestTemplates(): Promise<TestTemplate[]> {
+  const data = await apiGet<{ templates: TestTemplate[] }>("/api/test-templates");
+  return data.templates ?? [];
+}
+
 export interface OrgMemberSummary {
   user_id: string;
   name: string;

@@ -618,6 +618,9 @@ func validateProfileInput(input UpdateProfileInput) error {
 	if input.WeeklyGoalHrs != nil && (*input.WeeklyGoalHrs < 1 || *input.WeeklyGoalHrs > 168) {
 		return fmt.Errorf("profile: weekly_goal_hrs must be between 1 and 168")
 	}
+	if input.DefaultLandingPage != nil && !contains(ValidDefaultLandingPages, *input.DefaultLandingPage) {
+		return fmt.Errorf("profile: default_landing_page must be one of: %s", strings.Join(ValidDefaultLandingPages, ", "))
+	}
 	if input.LinkedIn != nil {
 		if err := validateHTTPSURL(*input.LinkedIn); err != nil {
 			return fmt.Errorf("profile: linkedin: %w", err)

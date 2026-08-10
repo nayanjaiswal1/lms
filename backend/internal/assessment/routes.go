@@ -105,6 +105,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/api/batches/{batchID}/offline-tests/{testID}", h.GetOfflineTest)
 		r.Patch("/api/batches/{batchID}/offline-tests/{testID}/scores/{userID}", h.UpdateOfflineTestScore)
 
+		// Offline test templates — reusable name + default max score
+		r.Post("/api/test-templates", h.CreateTestTemplate)
+		r.Get("/api/test-templates", h.ListTestTemplates)
+
 		// Assessments
 		r.Post("/api/assessments", h.CreateAssessment)
 		r.Get("/api/assessments", h.ListAssessments)

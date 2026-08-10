@@ -2,14 +2,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { AccessGate } from "@/components/shared/access-gate"
 import { FEATURES } from "@/lib/features"
+import { DEFAULT_LANDING_PAGE_OPTIONS } from "@/lib/constants"
 import type { Profile } from "@/lib/profile/types"
 
 interface Props {
   profile: Pick<
     Profile,
-    "language" | "timezone" | "notifications" | "weekly_goal_hrs"
+    "language" | "timezone" | "notifications" | "weekly_goal_hrs" | "default_landing_page"
   >
   updateAction: (formData: FormData) => Promise<void>
 }
@@ -66,6 +74,26 @@ export function PreferencesForm({ profile, updateAction }: Props) {
             step={1}
             type="number"
           />
+        </div>
+
+        {/* Sidebar logo destination */}
+        <div className="space-y-2">
+          <Label htmlFor="default-landing-page-select">Logo takes you to</Label>
+          <Select
+            defaultValue={profile.default_landing_page ?? undefined}
+            name="default_landing_page"
+          >
+            <SelectTrigger className="w-full sm:w-72" id="default-landing-page-select">
+              <SelectValue placeholder="Dashboard (default)" />
+            </SelectTrigger>
+            <SelectContent>
+              {DEFAULT_LANDING_PAGE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Notifications */}

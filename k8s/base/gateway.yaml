@@ -1,0 +1,77 @@
+# Gateway API replaces Ingress+ingress-nginx here. kubernetes/ingress-nginx
+# (the project, not the Ingress API) was retired/archived by the Kubernetes
+# Steering and Security Response Committees on 2026-03-31 — no further
+# security patches will ever ship for it. Gateway API is the maintained,
+# industry-standard successor; k3s's bundled Traefik and most cloud LB
+# controllers implement it natively.
+#
+# Domain-dependent values (hostname, TLS secret name, cluster-issuer) are
+# patched per overlay — see the Gateway/HTTPRoute JSON6902 patches at the
+# bottom of each overlay's kustomization.yaml. gatewayClassName is also
+# overlay-specific (the GatewayClass a given cluster's Gateway API
+# implementation registers, e.g. "traefik" for k3s's bundled controller).
+#
+# Cluster-wide prerequisites this app-level manifest deliberately does NOT
+# install (same relationship the old ingress.yaml had to ingress-nginx):
+# Gateway API CRDs, a Gateway API implementation (e.g. Traefik with
+# providers.kubernetesGateway.enabled), and cert-manager with
+# config.gatewayAPI.enabled=true.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mindforge
+  namespace: mindforge
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  gatewayClassName: traefik
+  listeners:
+    # Kept open (no TLS) so cert-manager's HTTP-01 solver can complete the
+    # ACME challenge, and so the redirect rule in httproute.yaml can send
+    # plain-HTTP visitors to HTTPS.
+    - name: http
+      hostname: app.yourdomain.com
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      hostname: app.yourdomain.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: mindforge-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+    # Live preview subdomains — one origin per port+session
+    # (p<port>-<sessionID>.<preview-domain>, see
+    # backend/cmd/labproxy/host.go). A wildcard hostname needs a wildcard
+    # cert, which the letsencrypt-prod ClusterIssuer above cannot issue: it
+    # solves HTTP-01 (see the annotation and the open "http" listener above),
+    # and HTTP-01 has no way to prove control of a wildcard name. This
+    # listener's cert is therefore NOT left to the Gateway-level
+    # cert-manager.io/cluster-issuer annotation's auto-provisioning —
+    # k8s/base/certificate-preview.yaml requests it explicitly from a
+    # separate DNS-01 ClusterIssuer instead. Cluster prerequisite: verify
+    # your cert-manager version's gateway-shim does not ALSO try to
+    # auto-issue a certificate for this listener from the annotation above
+    # (some versions provision one Certificate per TLS listener
+    # unconditionally) — if it does, exclude this listener from gateway-shim
+    # per your cert-manager version's docs, so only
+    # certificate-preview.yaml's Certificate ever owns the
+    # mindforge-preview-tls secret.
+    - name: preview-https
+      hostname: "*.labs.yourdomain.com"
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: mindforge-preview-tls
+      allowedRoutes:
+        namespaces:
+          from: Same

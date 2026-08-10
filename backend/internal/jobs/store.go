@@ -319,7 +319,8 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, registry *Registry, jobID str
 	}
 
 	errMsg := jobErr.Error()
-	wentDead := retryCount+1 >= maxRetries
+	var permErr *PermanentError
+	wentDead := retryCount+1 >= maxRetries || errors.As(jobErr, &permErr)
 
 	if !wentDead {
 		// Exponential backoff: 2^retryCount * 2s, capped at 5 minutes.
@@ -367,7 +368,7 @@ func Fail(ctx context.Context, pool *pgxpool.Pool, registry *Registry, jobID str
 
 	if wentDead && registry != nil {
 		if hook, ok := registry.getDeadHook(handler); ok {
-			job := Job{ID: jobID, Handler: handler, Payload: payload, OrgID: orgID}
+			job := Job{ID: jobID, Handler: handler, Payload: payload, OrgID: orgID, LastError: &errMsg}
 			go runDeadHook(hook, job)
 		}
 	}

@@ -12,6 +12,42 @@ import (
 	"github.com/mindforge/backend/internal/mailer"
 )
 
+// classifyErr wraps formatted (the error to actually return from Handle) as
+// jobs.Permanent when raw — the underlying send error before formatting —
+// was a 5xx SMTP rejection (see mailer.IsPermanent). A permanent send
+// failure (bad recipient, sender rejected) will produce the identical
+// outcome on every retry, so the job goes straight to dead instead of
+// spending its retry budget re-attempting it.
+func classifyErr(raw, formatted error) error {
+	if mailer.IsPermanent(raw) {
+		return jobs.Permanent(formatted)
+	}
+	return formatted
+}
+
+// NewEmailDeadHook returns a DeadLetterHook for HandlerEmailSend. There is no
+// single owning resource to flip (unlike eval.subjective's assessment
+// attempt) — email.send backs auth_verify/password_reset/eval_complete/
+// notification alike — so this only turns a silent permanent failure into a
+// structured, alertable log line. Previously a dead email.send job left
+// nothing but last_error on the jobs row; nobody was told an email a user is
+// waiting on (e.g. a password reset) will never arrive.
+func NewEmailDeadHook() jobs.DeadLetterHook {
+	return func(_ context.Context, job jobs.Job) {
+		var p EmailPayload
+		if err := json.Unmarshal(job.Payload, &p); err != nil {
+			slog.Error("email.send dead hook: unmarshal payload", "job_id", job.ID, "error", err)
+			return
+		}
+		lastErr := ""
+		if job.LastError != nil {
+			lastErr = *job.LastError
+		}
+		slog.Error("email.send permanently failed — exhausted retries or hit a permanent SMTP rejection",
+			"job_id", job.ID, "email_type", p.Type, "to", p.To, "org_id", job.OrgID, "last_error", lastErr)
+	}
+}
+
 // EmailPayload is the JSON payload stored in jobs.payload for email.send jobs.
 type EmailPayload struct {
 	Type         string         `json:"type"` // auth_verify|password_reset|eval_complete|notification
@@ -60,7 +96,7 @@ func (h *EmailHandler) Handle(ctx context.Context, job jobs.Job) error {
 			return fmt.Errorf("handlers.email: auth_verify requires template_data.token")
 		}
 		if err := auth.SendVerification(h.cfg, p.To, token); err != nil {
-			return fmt.Errorf("handlers.email: send verification (to=%s): %w", p.To, err)
+			return classifyErr(err, fmt.Errorf("handlers.email: send verification (to=%s): %w", p.To, err))
 		}
 
 	case "password_reset":
@@ -69,14 +105,14 @@ func (h *EmailHandler) Handle(ctx context.Context, job jobs.Job) error {
 			return fmt.Errorf("handlers.email: password_reset requires template_data.token")
 		}
 		if err := auth.SendPasswordReset(h.cfg, p.To, token); err != nil {
-			return fmt.Errorf("handlers.email: send password reset (to=%s): %w", p.To, err)
+			return classifyErr(err, fmt.Errorf("handlers.email: send password reset (to=%s): %w", p.To, err))
 		}
 
 	case "eval_complete":
 		title, _ := p.TemplateData["assessment_title"].(string)
 		attemptID, _ := p.TemplateData["attempt_id"].(string)
 		if err := h.sendEvalComplete(ctx, p.To, p.ToName, title, attemptID); err != nil {
-			return fmt.Errorf("handlers.email: send eval complete (to=%s): %w", p.To, err)
+			return classifyErr(err, fmt.Errorf("handlers.email: send eval complete (to=%s): %w", p.To, err))
 		}
 
 	case "notification":
@@ -99,7 +135,7 @@ func (h *EmailHandler) Handle(ctx context.Context, job jobs.Job) error {
 			}
 		}
 		if err := h.sender.Send(ctx, p.To, subject, body, headers); err != nil {
-			return fmt.Errorf("handlers.email: send notification (to=%s): %w", p.To, err)
+			return classifyErr(err, fmt.Errorf("handlers.email: send notification (to=%s): %w", p.To, err))
 		}
 
 	default:

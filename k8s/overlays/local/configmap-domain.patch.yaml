@@ -1,0 +1,40 @@
+# Local k3s (WSL) overrides for the domain-dependent keys in
+# k8s/base/configmap.yaml. The cluster-issuer referenced by gateway.yaml
+# (letsencrypt-prod) resolves to a selfSigned ClusterIssuer locally instead of
+# a real ACME one — see the cluster-addons setup, not this overlay — so the
+# browser will show an untrusted-certificate warning here, unlike in prod.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mindforge-config
+  namespace: mindforge
+data:
+  ENV: "development"
+  DOMAIN: "mindforge.127.0.0.1.nip.io"
+  FRONTEND_URL: "https://mindforge.127.0.0.1.nip.io"
+  BACKEND_URL: "http://backend:8080"
+  NEXT_PUBLIC_API_URL: ""
+  NEXT_PUBLIC_APP_URL: "https://mindforge.127.0.0.1.nip.io"
+  NEXT_PUBLIC_MEDIA_URL: "https://mindforge.127.0.0.1.nip.io"
+  NEXT_PUBLIC_LAB_PROXY_URL: "wss://mindforge.127.0.0.1.nip.io/lab-ws"
+  NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED: "false"
+  NEXT_PUBLIC_GITHUB_OAUTH_ENABLED: "false"
+  MINIO_ENDPOINT: "minio:9000"
+  MINIO_PUBLIC_ENDPOINT: "mindforge.127.0.0.1.nip.io"
+  MINIO_USE_SSL: "false"
+  MINIO_PUBLIC_USE_SSL: "true"
+  # Prepended to a lab image before the Kubernetes runtime pulls it — pushed
+  # by scripts/push-lab-images.sh (its own default registry). Resolved by
+  # containerd on the node itself, so "localhost:5000" correctly means this
+  # single-node cluster's own host, not the backend Pod's network namespace.
+  # See ENV_VARS.md "LABS_IMAGE_REGISTRY".
+  LABS_IMAGE_REGISTRY: "localhost:5000"
+  # Gmail SMTP — matches SMTP_USER/SMTP_PASS (Gmail app password) in
+  # secrets.env. Base's SMTP_HOST/EMAIL_FROM are Postmark prod placeholders,
+  # which don't work with Gmail creds.
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  EMAIL_FROM: "nayan.jaiswal.dev@gmail.com"
+  # Without this, ENV=development logs every email as "DEV EMAIL: ..." to
+  # stdout instead of actually sending it — see ENV_VARS.md.
+  DEV_EMAIL_ALLOWLIST: "jaiswal2062@gmail.com"

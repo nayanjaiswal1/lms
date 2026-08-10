@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string;
   avatar_url: string;
   platform_role: "super_admin" | "user";
+  default_landing_page: string | null;
 }
 
 export interface AuthMeResponse {

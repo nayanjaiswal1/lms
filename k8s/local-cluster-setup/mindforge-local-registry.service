@@ -1,0 +1,21 @@
+[Unit]
+Description=MindForge local lab-image registry (localhost:5000 — k3s pulls lab sandbox images from here)
+After=docker.service
+Requires=docker.service
+
+[Service]
+# Foreground (no -d) so systemd tracks the container process directly: if the
+# container dies OR is removed out from under it (docker rm, manual cleanup,
+# WSL VM reset losing --restart=always state), systemd notices the ExecStart
+# process exited and restarts it — recreating the container from scratch.
+# docker run's own --restart=always only survives a docker/WSL restart, not
+# an outright `docker rm`; this is why the registry silently disappeared once
+# already (see docs/local-k3s-dev.md "Bugs found and fixed" #13).
+ExecStartPre=-/usr/bin/docker rm -f mindforge-local-registry
+ExecStart=/usr/bin/docker run --rm --name mindforge-local-registry -p 5000:5000 -v mindforge-registry-data:/var/lib/registry registry:2
+ExecStop=/usr/bin/docker stop -t 5 mindforge-local-registry
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef } from "react"
 import { Loader2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useLabReadiness } from "@/lib/labs/use-lab-readiness"
 
 interface LabReadinessWaitProps {
   sessionId: string
@@ -10,53 +10,17 @@ interface LabReadinessWaitProps {
   onFailed: () => void
 }
 
+// Full-screen takeover for the dedicated /labs/sessions/[sessionId] route —
+// that route *is* the lab, so covering the viewport while it provisions is
+// correct there. Course-page callers (LessonLabHero, ModuleLabClient) use
+// <LabReadinessInline> instead, which shares useLabReadiness but stays
+// scoped to the lab card's own footprint.
 export function LabReadinessWait({
   sessionId,
   onReady,
   onFailed,
 }: LabReadinessWaitProps) {
-  const onReadyRef = useRef(onReady)
-  const onFailedRef = useRef(onFailed)
-  onReadyRef.current = onReady
-  onFailedRef.current = onFailed
-
-  useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
-    const es = new EventSource(`${apiUrl}/api/labs/sessions/${sessionId}/events`, {
-      withCredentials: true,
-    })
-
-    // Safety backstop against a lab that never resolves — must clear the
-    // longest legitimate provisioning path server-side (see
-    // labs.ProvisionTimeoutSeconds, 180s: nested-Docker labs on a proxied-
-    // socket host run a doomed scoped attempt to completion before their
-    // privileged retry boots dockerd for real).
-    const safetyTimer = setTimeout(() => onFailedRef.current(), 200_000)
-
-    es.onmessage = (e: MessageEvent) => {
-      const data = JSON.parse(e.data as string) as { type: string }
-      if (data.type === "ready") {
-        clearTimeout(safetyTimer)
-        es.close()
-        onReadyRef.current()
-      } else if (data.type === "failed") {
-        clearTimeout(safetyTimer)
-        es.close()
-        onFailedRef.current()
-      }
-    }
-
-    // The connection can drop for transient reasons (proxy hiccup, brief
-    // network loss); the browser retries EventSource automatically, so this
-    // must not be treated as a hard failure — the safety timeout above is
-    // the real backstop. See the identical comment in
-    // lab-provisioning-watcher.tsx, which this mirrors.
-
-    return () => {
-      clearTimeout(safetyTimer)
-      es.close()
-    }
-  }, [sessionId])
+  useLabReadiness(sessionId, { onReady, onFailed })
 
   return (
     <div className="fixed inset-0 bg-background z-modal flex flex-col safe-inset">

@@ -6,19 +6,15 @@ import type { MyCheckpointRow } from "@/lib/projects/types";
 
 interface MyCheckpointListProps {
   checkpoints: MyCheckpointRow[];
+  /** ProjectAssignment.required_approvals, joined onto GetMyProjectDetail — same field the staff checkpoint views (submission-row.tsx) read. */
+  requiredApprovals: number;
 }
 
 // Read-only student view of a team's checkpoints — no actions, since
 // merging/grading/commenting stay staff-only (checkpoint-submissions.tsx /
 // submission-row.tsx). Reuses that same file's badge/status maps from
 // lib/constants.ts rather than redefining them here.
-//
-// ponytail: approvals show as a plain count ("2 approvals"), not "2/3" —
-// required_approvals lives on ProjectAssignment, which has no student-scoped
-// read route (GET /api/projects/assignments/{id} is staff-only). Add the
-// denominator if a student-facing assignment summary route is ever added;
-// not worth a new backend route for this one number today.
-export function MyCheckpointList({ checkpoints }: MyCheckpointListProps) {
+export function MyCheckpointList({ checkpoints, requiredApprovals }: MyCheckpointListProps) {
   if (checkpoints.length === 0) {
     return (
       <div className="empty-state py-10">
@@ -64,7 +60,7 @@ export function MyCheckpointList({ checkpoints }: MyCheckpointListProps) {
             )}
             {cp.approvals_count !== null && (
               <span>
-                {cp.approvals_count} approval{cp.approvals_count === 1 ? "" : "s"}
+                {cp.approvals_count}/{requiredApprovals} approval{requiredApprovals === 1 ? "" : "s"}
               </span>
             )}
           </div>

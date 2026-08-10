@@ -2,7 +2,7 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-07-30T13:58:59Z
+-- Generated at: 2026-08-06T01:52:26Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: Docker Essentials ─────────────────────────────────────────────
@@ -263,10 +263,10 @@ docker run --rm --network host busybox:1.36 wget -qO- http://127.0.0.1:80
 $md$, 45, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)
-VALUES ('f9f516ae-38a5-5f99-ac05-eecb4b3457a4', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '50cc2134-9259-58f1-b58c-e745804d8042', 'module', 'Container Lifecycle & Commands', NULL, 'terminal', 'mindforge/lab-docker-sysbox:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
-$script$, NULL, 45, 3, 0, false, false, NULL, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('f9f516ae-38a5-5f99-ac05-eecb4b3457a4', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '50cc2134-9259-58f1-b58c-e745804d8042', 'module', 'Container Lifecycle & Commands', NULL, 'terminal', 'mindforge/lab-docker:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
+$script$, NULL, 45, 3, 0, false, false, NULL, 'console', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES
@@ -410,10 +410,10 @@ run` produces containers.
 $md$, 45, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)
-VALUES ('176a62d7-cf17-5b81-8d01-33a4ee89f337', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '8688da8c-d6a3-53d3-9307-8f12ab174b02', 'module', 'Building & Managing Images', NULL, 'terminal', 'mindforge/lab-docker-sysbox:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
-$script$, NULL, 45, 3, 0, false, false, NULL, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('176a62d7-cf17-5b81-8d01-33a4ee89f337', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '8688da8c-d6a3-53d3-9307-8f12ab174b02', 'module', 'Building & Managing Images', NULL, 'terminal', 'mindforge/lab-docker:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
+$script$, NULL, 45, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES
@@ -532,10 +532,10 @@ at **container start** time and don't affect the image's layers at all.
 $md$, 40, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)
-VALUES ('066ee5fe-29dd-5dce-b852-52ee85e60bca', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', 'e473f1c5-c300-5a6f-bdd3-84e5c2d8ff24', 'module', 'Writing a Dockerfile', NULL, 'terminal', 'mindforge/lab-docker-sysbox:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
-$script$, NULL, 40, 3, 0, false, false, NULL, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('066ee5fe-29dd-5dce-b852-52ee85e60bca', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', 'e473f1c5-c300-5a6f-bdd3-84e5c2d8ff24', 'module', 'Writing a Dockerfile', NULL, 'terminal', 'mindforge/lab-docker:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
+$script$, NULL, 40, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES
@@ -644,10 +644,10 @@ bind mount depends on the host's filesystem layout, a named volume doesn't.
 $md$, 35, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)
-VALUES ('85ace03d-4a36-536d-bd8b-63043a0c295f', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '45110f93-674a-54e1-9bea-c54ec8fb73c4', 'module', 'Networks & Volumes', NULL, 'terminal', 'mindforge/lab-docker-sysbox:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
-$script$, NULL, 35, 3, 0, false, false, NULL, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('85ace03d-4a36-536d-bd8b-63043a0c295f', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '45110f93-674a-54e1-9bea-c54ec8fb73c4', 'module', 'Networks & Volumes', NULL, 'terminal', 'mindforge/lab-docker:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
+$script$, NULL, 35, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES
@@ -773,10 +773,10 @@ constraint that `-p` publishing and raw `curl` hit elsewhere in this course.
 $md$, 35, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)
-VALUES ('871b5216-5e02-59e0-bdd1-db78f4e78d63', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', 'ccf2c203-70e2-536f-92f7-4cc6568329ca', 'module', 'Docker Compose, Hub & Registries', NULL, 'terminal', 'mindforge/lab-docker-sysbox:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
-$script$, NULL, 35, 3, 0, false, false, NULL, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('871b5216-5e02-59e0-bdd1-db78f4e78d63', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', 'ccf2c203-70e2-536f-92f7-4cc6568329ca', 'module', 'Docker Compose, Hub & Registries', NULL, 'terminal', 'mindforge/lab-docker:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
+$script$, NULL, 35, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES
@@ -996,10 +996,10 @@ invocation with several flags stops being intimidating.
 $md$, 40, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)
-VALUES ('7b001873-fb9b-551b-9b8c-f5ac24ba4455', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '6a98ace6-cec3-5801-978f-6a3a3c7fc18a', 'module', 'Two Worked Examples', NULL, 'terminal', 'mindforge/lab-docker-sysbox:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
-$script$, NULL, 40, 3, 0, false, false, NULL, '00000000-0000-0000-0000-000000000012')
-ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();
+INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
+VALUES ('7b001873-fb9b-551b-9b8c-f5ac24ba4455', '00000000-0000-0000-0000-000000000001', '27527dc6-807c-51bf-beb9-a499519888d9', '6a98ace6-cec3-5801-978f-6a3a3c7fc18a', 'module', 'Two Worked Examples', NULL, 'terminal', 'mindforge/lab-docker:27', 0, $script$for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
+$script$, NULL, 40, 3, 0, false, false, NULL, 'split', '00000000-0000-0000-0000-000000000012')
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();
 
 INSERT INTO lab_tasks (id, lab_id, position, title, description, verification_script, hint_context, explanation_context, points, is_optional, is_stateful)
 VALUES

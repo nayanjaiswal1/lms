@@ -21,6 +21,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// emailSendHandler mirrors handlers.HandlerEmailSend (internal/jobs/handlers),
+// and emailPriorityHigh mirrors jobs.PriorityHigh — both duplicated as
+// literals rather than importing those packages. jobs/handlers imports this
+// auth package already (to call SendVerification/SendPasswordReset from its
+// own "auth_verify"/"password_reset" job cases); internal/jobs itself is
+// imported by internal/middleware, which auth's own HTTP layer depends on —
+// so either import back from here would cycle. MUST stay in sync with
+// handlers.HandlerEmailSend ("email.send") and jobs.PriorityHigh (2).
+const (
+	emailSendHandler  = "email.send"
+	emailPriorityHigh = 2
+)
+
 var emailRE = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 // dummyBcryptHash is a syntactically valid cost-12 bcrypt hash used to equalize
@@ -56,6 +69,40 @@ func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rd
 		slog.Error("auth: webauthn config invalid — passkey endpoints will 503", "error", err)
 	}
 	return &Handler{cfg: cfg, pool: pool, cache: cache, rdb: rdb, wa: wa, limiter: ratelimit.New(rdb)}
+}
+
+// enqueueAuthEmail queues an "auth_verify" or "password_reset" email as an
+// email.send background job instead of sending it inline on the request
+// path. Register/resend-verification/forgot-password used to call
+// SendVerification/SendPasswordReset synchronously: an SMTP outage or a slow
+// relay blocked the HTTP response on the send, and a failed send was only
+// ever logged once with no retry and no record for support to find later.
+// Routing through the job queue picks up its existing retry/backoff and
+// dead-letter handling (see jobs.Fail, and the dead-letter hook registered
+// for HandlerEmailSend in cmd/server/main.go) for free.
+//
+// idempKey is derived from the token hash so a client retry (or a double
+// submit) never queues the same email twice.
+func (h *Handler) enqueueAuthEmail(ctx context.Context, emailType, to, token, idempKey string) error {
+	payload, err := json.Marshal(map[string]any{
+		"type": emailType,
+		"to":   to,
+		"template_data": map[string]any{
+			"token": token,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("auth: marshal %s email payload: %w", emailType, err)
+	}
+	if _, err := h.pool.Exec(ctx,
+		`INSERT INTO jobs (handler, status, priority, payload, idempotency_key)
+		 VALUES ($1, 'queued', $2, $3, $4)
+		 ON CONFLICT (idempotency_key) DO NOTHING`,
+		emailSendHandler, emailPriorityHigh, payload, idempKey,
+	); err != nil {
+		return fmt.Errorf("auth: enqueue %s email (to=%s): %w", emailType, to, err)
+	}
+	return nil
 }
 
 // limitByAccount applies a rate limit keyed on the account being acted upon,
@@ -144,11 +191,12 @@ type resetPasswordRequest struct {
 }
 
 type userResponse struct {
-	ID           string  `json:"id"`
-	Name         string  `json:"name"`
-	Email        string  `json:"email"`
-	AvatarURL    *string `json:"avatar_url"`
-	PlatformRole string  `json:"platform_role"`
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	Email              string  `json:"email"`
+	AvatarURL          *string `json:"avatar_url"`
+	PlatformRole       string  `json:"platform_role"`
+	DefaultLandingPage *string `json:"default_landing_page"`
 }
 
 type orgResponse struct {
@@ -301,14 +349,15 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// SendVerification itself decides between SMTP and a stdout log based on the
-	// environment. The token is never returned in the response body: it used to
-	// be echoed as "dev_token" outside production, which meant a mis-set ENV
-	// handed anyone a verification token for an address they do not own — i.e.
+	// The queued email.send job (handled by EmailHandler's "auth_verify" case)
+	// itself decides between SMTP and a stdout log based on the environment.
+	// The token is never returned in the response body: it used to be echoed
+	// as "dev_token" outside production, which meant a mis-set ENV handed
+	// anyone a verification token for an address they do not own — i.e.
 	// account takeover by registering as someone else. On a local stack the
 	// token is in the server log, which is where a developer already looks.
-	if err := SendVerification(h.cfg, req.Email, emailToken); err != nil {
-		slog.Error("auth: register send verification email", "error", err)
+	if err := h.enqueueAuthEmail(r.Context(), "auth_verify", req.Email, emailToken, "auth_verify:"+emailTokenHash); err != nil {
+		slog.Error("auth: register enqueue verification email", "error", err)
 	}
 
 	httputil.WriteJSON(w, http.StatusCreated, map[string]string{
@@ -816,11 +865,11 @@ func (h *Handler) HandleResendVerification(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// SendVerification already logs instead of mailing on a local stack; the
-	// duplicate branch here logged the token a second time and, more to the
-	// point, decided that with its own copy of the environment check.
-	if err := SendVerification(h.cfg, req.Email, emailToken); err != nil {
-		slog.Error("auth: resend-verification send email", "error", err)
+	// The queued job already logs instead of mailing on a local stack; a
+	// duplicate branch here would log the token a second time and, more to
+	// the point, decide that with its own copy of the environment check.
+	if err := h.enqueueAuthEmail(r.Context(), "auth_verify", req.Email, emailToken, "auth_verify:"+emailTokenHash); err != nil {
+		slog.Error("auth: resend-verification enqueue email", "error", err)
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
@@ -890,8 +939,8 @@ func (h *Handler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := SendPasswordReset(h.cfg, req.Email, rawToken); err != nil {
-		slog.Error("auth: forgot-password send email", "error", err)
+	if err := h.enqueueAuthEmail(r.Context(), "password_reset", req.Email, rawToken, "password_reset:"+tokenHash); err != nil {
+		slog.Error("auth: forgot-password enqueue email", "error", err)
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"message": msg})
@@ -1017,17 +1066,21 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type userRow struct {
-		ID           string
-		Name         string
-		Email        string
-		AvatarURL    *string
-		PlatformRole string
+		ID                 string
+		Name               string
+		Email              string
+		AvatarURL          *string
+		PlatformRole       string
+		DefaultLandingPage *string
 	}
 	var u userRow
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT id, name, email, avatar_url, platform_role FROM users WHERE id = $1`,
+		`SELECT u.id, u.name, u.email, u.avatar_url, u.platform_role, p.default_landing_page
+		 FROM users u
+		 LEFT JOIN user_profiles p ON p.user_id = u.id
+		 WHERE u.id = $1`,
 		claims.UserID,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PlatformRole); err != nil {
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.PlatformRole, &u.DefaultLandingPage); err != nil {
 		httputil.WriteError(w, http.StatusUnauthorized, "User not found.")
 		return
 	}
@@ -1048,11 +1101,12 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{
 		"user": userResponse{
-			ID:           u.ID,
-			Name:         u.Name,
-			Email:        u.Email,
-			AvatarURL:    u.AvatarURL,
-			PlatformRole: u.PlatformRole,
+			ID:                 u.ID,
+			Name:               u.Name,
+			Email:              u.Email,
+			AvatarURL:          u.AvatarURL,
+			PlatformRole:       u.PlatformRole,
+			DefaultLandingPage: u.DefaultLandingPage,
 		},
 		"orgs":                 orgs,
 		"onboarding_completed": onboardingCompleted,

@@ -120,7 +120,7 @@ export async function getAssessmentCandidates(id: string): Promise<PublicCandida
 
 export async function getAttemptProctoringLog(
   attemptId: string,
-): Promise<{ attempt: Attempt; events: ProctoringEvent[]; review: ReviewItem[] }> {
+): Promise<{ attempt: Attempt; events: ProctoringEvent[]; review: ReviewItem[]; assessment_title: string }> {
   return apiGet(`/api/attempts/${attemptId}/proctoring`);
 }
 

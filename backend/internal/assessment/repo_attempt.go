@@ -171,6 +171,21 @@ func (r *Repo) GetAttempt(ctx context.Context, attemptID string) (Attempt, error
 	return a, nil
 }
 
+// GetAssessmentTitle returns just the title of an assessment, for callers
+// (like the proctoring log view) that need to label an attempt without
+// pulling the full Assessment row via GetAssessment.
+func (r *Repo) GetAssessmentTitle(ctx context.Context, assessmentID string) (string, error) {
+	var title string
+	err := r.pool.QueryRow(ctx, `SELECT title FROM assessments WHERE id = $1`, assessmentID).Scan(&title)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", fmt.Errorf("assessment: get assessment title: %w", err)
+	}
+	return title, nil
+}
+
 // RotateSessionToken generates a fresh opaque token and stores it as the
 // attempt's sole active session, superseding whatever device held the
 // previous token — that device's next write is rejected until it reopens the

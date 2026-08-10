@@ -2,10 +2,12 @@ package habit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -30,36 +32,95 @@ func (r *Repo) Create(ctx context.Context, userID string, req CreateRequest) (Ha
 	if weekdays == nil {
 		weekdays = []int32{}
 	}
+	customFields := req.CustomFields
+	if customFields == nil {
+		customFields = []CustomField{}
+	}
+	customFieldsJSON, err := json.Marshal(customFields)
+	if err != nil {
+		return Habit{}, fmt.Errorf("habit: encode custom fields: %w", err)
+	}
+	tags := req.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
 	var h Habit
-	err := r.pool.QueryRow(ctx,
+	var customFieldsRaw []byte
+	err = r.pool.QueryRow(ctx,
 		`WITH existing AS (
 		     SELECT COUNT(*) AS n, COALESCE(MAX(sort_order) + 1, 0) AS next_order
 		     FROM habits WHERE user_id = $1
 		 )
-		 INSERT INTO habits (user_id, name, cadence, sort_order, color, target_count, weekdays)
+		 INSERT INTO habits (user_id, name, cadence, sort_order, color, target_count, weekdays, type, custom_fields, icon, tags)
 		 SELECT $1, $2, $3, next_order,
 		        (ARRAY['blue','orange','aqua','yellow','magenta','green','violet','red'])[(n % 8) + 1],
-		        $4, $5
+		        $4, $5, $6, $7::jsonb, $8, $9
 		 FROM existing
-		 RETURNING id, user_id, name, cadence, sort_order, color, target_count, weekdays, created_at`,
-		userID, req.Name, req.Cadence, req.TargetCount, weekdays,
-	).Scan(&h.ID, &h.UserID, &h.Name, &h.Cadence, &h.SortOrder, &h.Color, &h.TargetCount, &h.Weekdays, &h.CreatedAt)
+		 RETURNING id, user_id, name, cadence, sort_order, color, target_count, weekdays, type, custom_fields, icon, tags, created_at`,
+		userID, req.Name, req.Cadence, req.TargetCount, weekdays, req.Type, customFieldsJSON, req.Icon, tags,
+	).Scan(&h.ID, &h.UserID, &h.Name, &h.Cadence, &h.SortOrder, &h.Color, &h.TargetCount, &h.Weekdays, &h.Type, &customFieldsRaw, &h.Icon, &h.Tags, &h.CreatedAt)
 	if err != nil {
 		return Habit{}, fmt.Errorf("habit: create: %w", err)
+	}
+	if err := json.Unmarshal(customFieldsRaw, &h.CustomFields); err != nil {
+		return Habit{}, fmt.Errorf("habit: decode custom fields: %w", err)
 	}
 	return h, nil
 }
 
-// UpdateColor changes a user-owned habit's palette slot. Returns ErrNotFound
-// if the habit doesn't exist or belongs to another user.
-func (r *Repo) UpdateColor(ctx context.Context, habitID, userID string, color Color) error {
-	tag, err := r.pool.Exec(ctx,
-		`UPDATE habits SET color = $1 WHERE id = $2 AND user_id = $3`, color, habitID, userID)
-	if err != nil {
-		return fmt.Errorf("habit: update color: %w", err)
+// Get returns a user-owned habit. Returns ErrNotFound if it doesn't exist or
+// belongs to another user.
+func (r *Repo) Get(ctx context.Context, habitID, userID string) (Habit, error) {
+	var h Habit
+	var customFieldsRaw []byte
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, name, cadence, sort_order, color, target_count, weekdays, type, custom_fields, icon, tags, created_at
+		 FROM habits WHERE id = $1 AND user_id = $2`, habitID, userID,
+	).Scan(&h.ID, &h.UserID, &h.Name, &h.Cadence, &h.SortOrder, &h.Color, &h.TargetCount, &h.Weekdays, &h.Type, &customFieldsRaw, &h.Icon, &h.Tags, &h.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Habit{}, ErrNotFound
 	}
-	if tag.RowsAffected() == 0 {
+	if err != nil {
+		return Habit{}, fmt.Errorf("habit: get: %w", err)
+	}
+	if err := json.Unmarshal(customFieldsRaw, &h.CustomFields); err != nil {
+		return Habit{}, fmt.Errorf("habit: decode custom fields: %w", err)
+	}
+	return h, nil
+}
+
+// Update applies whichever fields of req are non-nil to a user-owned habit —
+// each field its own single-column UPDATE, scoped to this one row, so
+// changing a habit's color/icon/tags today never touches any other habit's
+// row or any habit_completions row (past months stay exactly as they were).
+// Returns ErrNotFound if the habit doesn't exist or belongs to another user.
+func (r *Repo) Update(ctx context.Context, habitID, userID string, req UpdateRequest) error {
+	ok, err := r.owned(ctx, habitID, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		return ErrNotFound
+	}
+	if req.Color != nil {
+		if _, err := r.pool.Exec(ctx, `UPDATE habits SET color = $1 WHERE id = $2`, *req.Color, habitID); err != nil {
+			return fmt.Errorf("habit: update color: %w", err)
+		}
+	}
+	if req.Icon != nil {
+		if _, err := r.pool.Exec(ctx, `UPDATE habits SET icon = $1 WHERE id = $2`, *req.Icon, habitID); err != nil {
+			return fmt.Errorf("habit: update icon: %w", err)
+		}
+	}
+	if req.Tags != nil {
+		tags := *req.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		if _, err := r.pool.Exec(ctx, `UPDATE habits SET tags = $1 WHERE id = $2`, tags, habitID); err != nil {
+			return fmt.Errorf("habit: update tags: %w", err)
+		}
 	}
 	return nil
 }
@@ -82,7 +143,7 @@ func (r *Repo) Delete(ctx context.Context, habitID, userID string) error {
 // completion of theirs whose period_start falls within [rangeStart, rangeEnd].
 func (r *Repo) ListForRange(ctx context.Context, userID string, rangeStart, rangeEnd time.Time) ([]Habit, []Completion, error) {
 	hrows, err := r.pool.Query(ctx,
-		`SELECT id, user_id, name, cadence, sort_order, color, target_count, weekdays, created_at
+		`SELECT id, user_id, name, cadence, sort_order, color, target_count, weekdays, type, custom_fields, icon, tags, created_at
 		 FROM habits WHERE user_id = $1 ORDER BY sort_order, created_at`, userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("habit: list habits: %w", err)
@@ -90,9 +151,14 @@ func (r *Repo) ListForRange(ctx context.Context, userID string, rangeStart, rang
 	habits := []Habit{}
 	for hrows.Next() {
 		var h Habit
-		if err := hrows.Scan(&h.ID, &h.UserID, &h.Name, &h.Cadence, &h.SortOrder, &h.Color, &h.TargetCount, &h.Weekdays, &h.CreatedAt); err != nil {
+		var customFieldsRaw []byte
+		if err := hrows.Scan(&h.ID, &h.UserID, &h.Name, &h.Cadence, &h.SortOrder, &h.Color, &h.TargetCount, &h.Weekdays, &h.Type, &customFieldsRaw, &h.Icon, &h.Tags, &h.CreatedAt); err != nil {
 			hrows.Close()
 			return nil, nil, fmt.Errorf("habit: scan habit: %w", err)
+		}
+		if err := json.Unmarshal(customFieldsRaw, &h.CustomFields); err != nil {
+			hrows.Close()
+			return nil, nil, fmt.Errorf("habit: decode custom fields: %w", err)
 		}
 		habits = append(habits, h)
 	}
@@ -102,7 +168,7 @@ func (r *Repo) ListForRange(ctx context.Context, userID string, rangeStart, rang
 	}
 
 	crows, err := r.pool.Query(ctx,
-		`SELECT hc.habit_id, hc.period_start, hc.count
+		`SELECT hc.habit_id, hc.period_start, hc.count, hc.metadata
 		 FROM habit_completions hc
 		 JOIN habits h ON h.id = hc.habit_id
 		 WHERE h.user_id = $1 AND hc.period_start BETWEEN $2 AND $3
@@ -117,10 +183,14 @@ func (r *Repo) ListForRange(ctx context.Context, userID string, rangeStart, rang
 	for crows.Next() {
 		var c Completion
 		var periodStart time.Time
-		if err := crows.Scan(&c.HabitID, &periodStart, &c.Count); err != nil {
+		var metadataRaw []byte
+		if err := crows.Scan(&c.HabitID, &periodStart, &c.Count, &metadataRaw); err != nil {
 			return nil, nil, fmt.Errorf("habit: scan completion: %w", err)
 		}
 		c.PeriodStart = periodStart.Format("2006-01-02")
+		if err := json.Unmarshal(metadataRaw, &c.Metadata); err != nil {
+			return nil, nil, fmt.Errorf("habit: decode completion metadata: %w", err)
+		}
 		completions = append(completions, c)
 	}
 	return habits, completions, crows.Err()
@@ -182,6 +252,37 @@ func (r *Repo) ClearCompletion(ctx context.Context, habitID, userID string, peri
 		habitID, periodStart,
 	); err != nil {
 		return fmt.Errorf("habit: clear completion: %w", err)
+	}
+	return nil
+}
+
+// UpsertCompletionMetadata saves periodStart's structured entry for a
+// user-owned habit. If the period has no completion row yet, one is created
+// with count=1 — saving an entry (e.g. today's workout) also checks the
+// habit off for that day, same as clicking its grid cell would. Returns
+// ErrNotFound if the habit doesn't exist or belongs to another user.
+func (r *Repo) UpsertCompletionMetadata(ctx context.Context, habitID, userID string, periodStart time.Time, metadata map[string]any) error {
+	ok, err := r.owned(ctx, habitID, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrNotFound
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("habit: encode completion metadata: %w", err)
+	}
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO habit_completions (habit_id, period_start, count, metadata)
+		 VALUES ($1, $2, 1, $3::jsonb)
+		 ON CONFLICT (habit_id, period_start) DO UPDATE SET metadata = EXCLUDED.metadata`,
+		habitID, periodStart, metadataJSON,
+	); err != nil {
+		return fmt.Errorf("habit: set completion metadata: %w", err)
 	}
 	return nil
 }

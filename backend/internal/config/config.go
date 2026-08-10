@@ -173,6 +173,21 @@ type Config struct {
 	// RuntimeClass isolation.
 	LabsNestedDockerRuntimeClass string
 
+	// LabsImageRegistry, when set, is prepended ("<registry>/<image>") to a
+	// lab environment image before the Kubernetes runtime pulls it — e.g.
+	// "localhost:5000" (a local dev registry) or "ghcr.io/youruser". Content
+	// frontmatter and LABS_IMAGE_PROFILES keep bare image names
+	// (e.g. "mindforge/lab-k8s:1.31") so they stay identical across every
+	// environment; only this value differs per deploy. Classification
+	// against LabsImageProfiles happens on the bare name BEFORE this prefix
+	// is applied, so profile mappings never need the registry either. Empty
+	// (the default) leaves images bare, requiring them to already be present
+	// wherever the runtime pulls from (e.g. imported into k3s's containerd
+	// directly) — unchanged from before this setting existed. The Docker
+	// runtime never uses this: it shares the same image store `docker build`
+	// writes to, so a registry is never needed there.
+	LabsImageRegistry string
+
 	// Object storage (MinIO / S3-compatible).
 	// When MinioAccessKey is empty, avatar upload returns 503; other features unaffected.
 	MinioEndpoint  string
@@ -342,6 +357,7 @@ func Load() *Config {
 	cfg.LabsImageProfiles = getEnvImageProfiles("LABS_IMAGE_PROFILES")
 	cfg.LabsNestedDockerRuntime = os.Getenv("LABS_NESTED_DOCKER_RUNTIME")
 	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
+	cfg.LabsImageRegistry = os.Getenv("LABS_IMAGE_REGISTRY")
 
 	cfg.MinioEndpoint = getEnvDefault("MINIO_ENDPOINT", "localhost:9000")
 	cfg.MinioAccessKey = os.Getenv("MINIO_ACCESS_KEY")
@@ -405,6 +421,15 @@ func Load() *Config {
 	}
 	if cfg.RazorpayKeyID != "" && cfg.RazorpayWebhookSecret == "" {
 		slog.Error("RAZORPAY_WEBHOOK_SECRET is required when RAZORPAY_KEY_ID is set")
+		os.Exit(1)
+	}
+
+	// SMTP_HOST defaults to the local dev relay (Mailpit) when unset. That's
+	// convenient locally but dangerous in prod: a missing env var doesn't fail
+	// startup, it silently points every send at a relay that doesn't exist —
+	// the failure only surfaces later, per-job, after retries are exhausted.
+	if cfg.IsProd() && cfg.SMTPHost == "localhost" {
+		slog.Error("SMTP_HOST is required in production (currently unset, defaulting to the local dev relay)")
 		os.Exit(1)
 	}
 

@@ -1,12 +1,14 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
-	"net/smtp"
 	"strings"
+	"time"
 
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/mailer"
 )
 
 // SendVerification sends the email-verification link to the given address.
@@ -78,17 +80,18 @@ func SendPasskeyCloneAlert(cfg *config.Config, to string) error {
 
 // ─── internal ─────────────────────────────────────────────────────────────────
 
+// sendSMTP delegates the actual delivery to mailer.SendRaw, which bounds the
+// SMTP transaction to a fixed deadline and classifies 5xx relay rejections as
+// permanent (see mailer.IsPermanent) — this package's callers don't carry a
+// context of their own, so a fixed timeout is applied here rather than
+// leaving the call unbounded like the old direct net/smtp.SendMail did.
 func sendSMTP(cfg *config.Config, to, subject, body string) error {
-	addr := cfg.SMTPHost + ":" + cfg.SMTPPort
-
-	var auth smtp.Auth
-	if cfg.SMTPUser != "" {
-		auth = smtp.PlainAuth("", cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPHost)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
 
 	msg := buildMessage(cfg.EmailFromHeader(), to, subject, body)
 
-	if err := smtp.SendMail(addr, auth, cfg.EmailFrom, []string{to}, []byte(msg)); err != nil {
+	if err := mailer.SendRaw(ctx, cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom, to, []byte(msg)); err != nil {
 		return fmt.Errorf("auth: send email to %s: %w", to, err)
 	}
 	return nil

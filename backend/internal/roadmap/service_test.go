@@ -5,10 +5,11 @@ import (
 	"testing"
 )
 
-// ponytail: no DB test infra exists for domain packages yet (see
-// whatnow.service_test.go) — these are pure-Go checks for the two riskiest
-// non-DB branches: title defaulting and the AI-output sanitization ladder
-// that matchModules runs before anything touches the catalog tables.
+// ponytail: DB test infra now exists via internal/testdb (see repo_db_test.go
+// in this package) — this file predates it and stays pure-Go on purpose,
+// covering the two riskiest non-DB branches: title defaulting and the
+// AI-output sanitization ladder that matchModules runs before anything
+// touches the catalog tables.
 
 func TestDefaultTitle(t *testing.T) {
 	cases := []struct {

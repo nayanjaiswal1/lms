@@ -65,6 +65,7 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 	}
 
 	var couponID *string
+	var coupon *coupons.Coupon
 	discountCents := 0
 	if req.CouponCode != "" {
 		c, cErr := s.coupons.Validate(ctx, req.OrgID, req.UserID, req.CourseID, coupons.NormalizeCode(req.CouponCode))
@@ -73,6 +74,7 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 		}
 		discountCents = coupons.DiscountCents(c, course.PriceCents)
 		couponID = &c.ID
+		coupon = &c
 
 		// Retire this student's own abandoned holds first, so a walked-away
 		// checkout doesn't keep the coupon locked (see ExpireStaleCouponHolds).
@@ -86,21 +88,9 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 		// concurrent buyers, every one of whom then gets enrolled anyway once
 		// their payment captures (see confirmPurchase's lost-race branch).
 		//
-		// ponytail: this is a soft cap — two simultaneous requests can both
-		// read the same count and slip past. The hard, atomic guarantee is the
-		// per-user one (ux_course_purchases_coupon_user_open); overshooting a
-		// global cap by a couple of concurrent buyers costs the discount, not
-		// correctness. Lock the coupon row FOR UPDATE here if an exact cap
-		// ever has to hold.
-		if c.MaxRedemptions != nil {
-			held, err := s.repo.CountLiveCouponHolds(ctx, c.ID)
-			if err != nil {
-				return courses.CheckoutSession{}, err
-			}
-			if c.RedeemedCount+held >= *c.MaxRedemptions {
-				return courses.CheckoutSession{}, coupons.ErrExhausted
-			}
-		}
+		// The actual cap enforcement (FOR UPDATE-locked, atomic with the hold
+		// it protects) happens below, immediately around CreatePurchaseTx —
+		// checking here too would just be a stale, unlocked pre-check.
 	}
 	finalAmount := course.PriceCents - discountCents
 	if finalAmount < 0 {
@@ -118,19 +108,41 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 		if !errors.Is(err, ErrNotFound) {
 			return courses.CheckoutSession{}, err
 		}
-		purchase, err = s.repo.CreatePurchase(ctx, Purchase{
-			OrgID: req.OrgID, UserID: req.UserID, CourseID: req.CourseID,
-			AmountCents: finalAmount, DiscountCents: discountCents, Currency: s.currency,
-			Provider: provider.Name(), ProviderRef: newPendingProviderRef(), CouponID: couponID,
+		// No existing hold to reuse — this is what actually consumes a
+		// redemption slot, so the capped-coupon check and the insert run
+		// inside one transaction with the coupon row locked FOR UPDATE the
+		// whole time: two concurrent requests can no longer both read
+		// "under cap" and both insert a hold.
+		txErr := s.repo.tx(ctx, func(tx pgx.Tx) error {
+			if coupon != nil && coupon.MaxRedemptions != nil {
+				redeemed, lockErr := s.repo.LockCouponRedeemedCount(ctx, tx, coupon.ID)
+				if lockErr != nil {
+					return lockErr
+				}
+				held, cErr := s.repo.CountLiveCouponHoldsTx(ctx, tx, coupon.ID)
+				if cErr != nil {
+					return cErr
+				}
+				if redeemed+held >= *coupon.MaxRedemptions {
+					return coupons.ErrExhausted
+				}
+			}
+			var pErr error
+			purchase, pErr = s.repo.CreatePurchaseTx(ctx, tx, Purchase{
+				OrgID: req.OrgID, UserID: req.UserID, CourseID: req.CourseID,
+				AmountCents: finalAmount, DiscountCents: discountCents, Currency: s.currency,
+				Provider: provider.Name(), ProviderRef: newPendingProviderRef(), CouponID: couponID,
+			})
+			return pErr
 		})
-		if err != nil {
+		if txErr != nil {
 			// The coupon-hold index fired: this student already has an open
 			// checkout (or a completed purchase) using this coupon. Same
 			// meaning the API already has a message for.
-			if errors.Is(err, ErrCouponHeld) {
+			if errors.Is(txErr, ErrCouponHeld) {
 				return courses.CheckoutSession{}, coupons.ErrAlreadyUsed
 			}
-			return courses.CheckoutSession{}, err
+			return courses.CheckoutSession{}, txErr
 		}
 	}
 

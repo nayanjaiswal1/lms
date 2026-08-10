@@ -1,14 +1,17 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarDays, CalendarRange, Sun } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { CalendarDays, CalendarRange, Plus, Sun, Trash2 } from "lucide-react";
+import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
+import { FormSelectField } from "@/components/ui/form-select-field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WEEKDAY_OPTIONS } from "@/lib/constants";
-import type { HabitCadence } from "@/lib/server/habits";
+import { CUSTOM_FIELD_KIND_OPTIONS, HABIT_TYPE_OPTIONS, slugifyFieldKey } from "@/lib/habits/type-schemas";
+import type { CustomField, HabitCadence, HabitType } from "@/lib/server/habits";
 import { cn } from "@/lib/utils";
 
 const CADENCE_OPTIONS: { value: HabitCadence; label: string; icon: typeof Sun }[] = [
@@ -22,6 +25,11 @@ const WEEKLY_MODE_OPTIONS = [
   { value: "days", label: "Specific days" },
 ] as const;
 
+const CustomFieldSchema = z.object({
+  label: z.string().trim().min(1, "Required").max(60, "Must not exceed 60 characters"),
+  kind: z.enum(["text", "number", "textarea"]),
+});
+
 const Schema = z
   .object({
     name: z.string().trim().min(1, "Required").max(60, "Must not exceed 60 characters"),
@@ -29,36 +37,73 @@ const Schema = z
     weeklyMode: z.enum(["count", "days"]),
     targetCount: z.coerce.number().int().min(1).max(7),
     weekdays: z.array(z.number().int().min(0).max(6)),
+    type: z.enum(["generic", "gym", "sleep", "reading", "custom"]),
+    customFields: z.array(CustomFieldSchema),
   })
   .refine((data) => data.cadence !== "weekly" || data.weeklyMode !== "days" || data.weekdays.length > 0, {
     message: "Pick at least one day",
     path: ["weekdays"],
-  });
+  })
+  .refine((data) => data.type !== "custom" || data.customFields.length > 0, {
+    message: "Add at least one field",
+    path: ["customFields"],
+  })
+  .refine(
+    (data) => {
+      if (data.type !== "custom") return true;
+      const keys = data.customFields.map((f) => slugifyFieldKey(f.label));
+      return new Set(keys).size === keys.length && keys.every((k) => k.length > 0);
+    },
+    { message: "Field names must be unique", path: ["customFields"] },
+  );
 type FormInput = z.input<typeof Schema>;
 type FormData = z.output<typeof Schema>;
 
+const DEFAULT_VALUES: FormInput = {
+  name: "",
+  cadence: "daily",
+  weeklyMode: "count",
+  targetCount: 2,
+  weekdays: [],
+  type: "generic",
+  customFields: [],
+};
+
 interface AddHabitInlineProps {
-  onAdd: (name: string, cadence: HabitCadence, targetCount?: number, weekdays?: number[]) => Promise<void>;
+  onAdd: (
+    name: string,
+    cadence: HabitCadence,
+    targetCount?: number,
+    weekdays?: number[],
+    type?: HabitType,
+    customFields?: CustomField[],
+  ) => Promise<void>;
 }
 
 export function AddHabitInline({ onAdd }: AddHabitInlineProps) {
   const form = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(Schema),
-    defaultValues: { name: "", cadence: "daily", weeklyMode: "count", targetCount: 2, weekdays: [] },
+    defaultValues: DEFAULT_VALUES,
   });
   const cadence = form.watch("cadence");
   const weeklyMode = form.watch("weeklyMode");
   const weekdays = form.watch("weekdays");
+  const type = form.watch("type");
+  const customFieldsArray = useFieldArray({ control: form.control, name: "customFields" });
 
   async function onSubmit(data: FormData) {
+    const customFields: CustomField[] | undefined =
+      data.type === "custom"
+        ? data.customFields.map((f) => ({ key: slugifyFieldKey(f.label), label: f.label, kind: f.kind }))
+        : undefined;
     if (data.cadence === "weekly" && data.weeklyMode === "days") {
-      await onAdd(data.name, data.cadence, 1, data.weekdays);
+      await onAdd(data.name, data.cadence, 1, data.weekdays, data.type, customFields);
     } else if (data.cadence === "weekly") {
-      await onAdd(data.name, data.cadence, data.targetCount, []);
+      await onAdd(data.name, data.cadence, data.targetCount, [], data.type, customFields);
     } else {
-      await onAdd(data.name, data.cadence);
+      await onAdd(data.name, data.cadence, undefined, undefined, data.type, customFields);
     }
-    form.reset({ name: "", cadence: data.cadence, weeklyMode: "count", targetCount: 2, weekdays: [] });
+    form.reset({ ...DEFAULT_VALUES, cadence: data.cadence });
   }
 
   function toggleWeekday(day: number) {
@@ -153,6 +198,79 @@ export function AddHabitInline({ onAdd }: AddHabitInlineProps) {
             )}
           </div>
         )}
+
+        <div className="flex flex-col gap-2 rounded-md border border-border p-2 sm:flex-row sm:items-start sm:gap-3">
+          <div className="flex w-full flex-col gap-1.5 sm:w-56">
+            <span className="text-xs font-medium">Type</span>
+            <Select
+              value={type}
+              onValueChange={(value: HabitType) => {
+                form.setValue("type", value, { shouldValidate: true });
+                if (value !== "custom") form.setValue("customFields", []);
+                else if (customFieldsArray.fields.length === 0) customFieldsArray.append({ label: "", kind: "text" });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HABIT_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {type === "custom" && (
+            <div className="flex w-full flex-col gap-2">
+              {customFieldsArray.fields.map((field, index) => (
+                <div className="flex items-start gap-1.5" key={field.id}>
+                  <div className="flex-1">
+                    <FormInputField
+                      control={form.control}
+                      label={`Field ${index + 1}`}
+                      name={`customFields.${index}.label`}
+                      placeholder="e.g. Mood"
+                    />
+                  </div>
+                  <div className="w-32">
+                    <FormSelectField
+                      control={form.control}
+                      label="Kind"
+                      name={`customFields.${index}.kind`}
+                      options={CUSTOM_FIELD_KIND_OPTIONS}
+                    />
+                  </div>
+                  <Button
+                    aria-label={`Remove field ${index + 1}`}
+                    className="touch-target mt-6"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => customFieldsArray.remove(index)}
+                  >
+                    <Trash2 aria-hidden className="size-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+              {form.formState.errors.customFields?.message && (
+                <span className="text-xs text-destructive">{form.formState.errors.customFields.message}</span>
+              )}
+              <Button
+                className="touch-target w-fit gap-1.5"
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => customFieldsArray.append({ label: "", kind: "text" })}
+              >
+                <Plus aria-hidden className="size-4" />
+                Add field
+              </Button>
+            </div>
+          )}
+        </div>
       </form>
     </Form>
   );

@@ -226,7 +226,7 @@ func (h *Handler) ListProposals(w http.ResponseWriter, r *http.Request) {
 	if status == "" {
 		status = ProposalStatusPending
 	}
-	proposals, err := h.repo.ListProposalsForCourse(r.Context(), claims.OrgID, urlParam(r, "courseID"), status)
+	proposals, err := h.repo.ListProposalsForCourse(r.Context(), claims.OrgID, urlParam(r, "courseID"), status, queryInt(r, "limit", 100), queryInt(r, "offset", 0))
 	if err != nil {
 		writeDomainError(w, err)
 		return

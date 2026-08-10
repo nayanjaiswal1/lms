@@ -13,12 +13,68 @@ import (
 
 // ─────────────────────────────────────────────
 // Classroom Test Assessment Engine — manual entry for offline/paper tests.
-// A "test" is a name + date, not a reusable catalog entity: every score row
-// entered in one "Enter Scores" submission shares a generated test_id so the
-// set is addressable for viewing/editing later.
-// ponytail: no test-template table — add one if teachers need to reuse a
-// test name/rubric across batches; not needed for a single class's scores.
+// A "test" is a name + date, not a reusable catalog entity in itself: every
+// score row entered in one "Enter Scores" submission shares a generated
+// test_id so the set is addressable for viewing/editing later.
+// TestTemplate (below) is the reusable piece: a saved name + default max
+// score a teacher can pick from instead of retyping it per batch — it never
+// carries a rubric field because nothing in this flow has one to template.
 // ─────────────────────────────────────────────
+
+// TestTemplate is a saved offline-test name + default max score a teacher
+// can reuse across batches instead of retyping the same pair every time —
+// see 007_offline_test_templates.sql.
+type TestTemplate struct {
+	ID        string    `json:"id"`
+	OrgID     string    `json:"org_id"`
+	Name      string    `json:"name"`
+	MaxScore  float64   `json:"max_score"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// CreateTestTemplate saves a new reusable offline-test name + default max
+// score for the org.
+func (r *Repo) CreateTestTemplate(ctx context.Context, orgID, name string, maxScore float64, createdBy string) (TestTemplate, error) {
+	var t TestTemplate
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO test_templates (org_id, name, max_score, created_by)
+		 VALUES ($1, $2, $3, $4)
+		 RETURNING id, org_id, name, max_score, created_by, created_at`,
+		orgID, name, maxScore, createdBy).
+		Scan(&t.ID, &t.OrgID, &t.Name, &t.MaxScore, &t.CreatedBy, &t.CreatedAt)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23514" {
+			return TestTemplate{}, ErrInvalidScore
+		}
+		return TestTemplate{}, fmt.Errorf("assessment: create test template: %w", err)
+	}
+	return t, nil
+}
+
+// ListTestTemplates returns every reusable test template for the org, most
+// recently created first — the "use existing template" dropdown's data
+// source.
+func (r *Repo) ListTestTemplates(ctx context.Context, orgID string) ([]TestTemplate, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, org_id, name, max_score, created_by, created_at
+		 FROM test_templates WHERE org_id = $1 ORDER BY created_at DESC`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("assessment: list test templates: %w", err)
+	}
+	defer rows.Close()
+
+	out := []TestTemplate{}
+	for rows.Next() {
+		var t TestTemplate
+		if err := rows.Scan(&t.ID, &t.OrgID, &t.Name, &t.MaxScore, &t.CreatedBy, &t.CreatedAt); err != nil {
+			return nil, fmt.Errorf("assessment: scan test template: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
 
 // OfflineTestScoreEntry is one student's score within a single "Enter
 // Scores" submission.
@@ -28,10 +84,16 @@ type OfflineTestScoreEntry struct {
 }
 
 // CreateOfflineTestScores inserts one score row per entry, all sharing a
-// freshly generated assessment_id (an offline assessment), in a transaction so the submission is all-or-nothing.
+// freshly generated assessment_id (an offline assessment), in a transaction
+// so the submission is all-or-nothing. templateID, if non-nil, must name a
+// test_templates row belonging to orgID; it is recorded on a newly created
+// offline assessment as test_template_id (purely informational — it doesn't
+// change any of testName/maxScore, which the caller still supplies
+// explicitly, letting a teacher start from a template and still edit it for
+// this one entry).
 func (r *Repo) CreateOfflineTestScores(
 	ctx context.Context, orgID, batchID, testName string, testDate time.Time,
-	maxScore float64, enteredBy string, entries []OfflineTestScoreEntry,
+	maxScore float64, enteredBy string, entries []OfflineTestScoreEntry, templateID *string,
 ) (string, error) {
 	if len(entries) == 0 {
 		return "", fmt.Errorf("assessment: create offline test scores: no entries")
@@ -49,6 +111,18 @@ func (r *Repo) CreateOfflineTestScores(
 			return ErrNotFound
 		}
 
+		if templateID != nil {
+			var templateExists bool
+			if err := tx.QueryRow(ctx,
+				`SELECT EXISTS(SELECT 1 FROM test_templates WHERE id = $1 AND org_id = $2)`,
+				*templateID, orgID).Scan(&templateExists); err != nil {
+				return fmt.Errorf("assessment: verify test template: %w", err)
+			}
+			if !templateExists {
+				return ErrNotFound
+			}
+		}
+
 		// Find or create an offline assessment for this batch+testName
 		var aID string
 		err := tx.QueryRow(ctx,
@@ -63,10 +137,10 @@ func (r *Repo) CreateOfflineTestScores(
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Create a new offline assessment
 			err = tx.QueryRow(ctx,
-				`INSERT INTO assessments (id, org_id, title, type, status, parent_type, parent_id, created_by, published_at, total_points)
-				 VALUES ($1, $2, $3, 'offline', 'published', 'batch', $4, $5, now(), $6)
+				`INSERT INTO assessments (id, org_id, title, slug, type, status, parent_type, parent_id, created_by, published_at, total_points, test_template_id)
+				 VALUES ($1, $2, $3, $4, 'offline', 'published', 'batch', $5, $6, now(), $7, $8)
 				 RETURNING id`,
-				assessmentID, orgID, testName, batchID, enteredBy, maxScore).Scan(&aID)
+				assessmentID, orgID, testName, slugify(testName), batchID, enteredBy, maxScore, templateID).Scan(&aID)
 			if err != nil {
 				return fmt.Errorf("assessment: create offline assessment: %w", err)
 			}
@@ -82,12 +156,11 @@ func (r *Repo) CreateOfflineTestScores(
 
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO assessment_attempts (assessment_id, user_id, org_id, score, max_score, status, submitted_at, created_at, updated_at)
-			 SELECT $1, x.user_id, $2, x.score, $3, 'evaluated', $4::timestamp, now(), now()
-			 FROM unnest($5::uuid[]) AS x(user_id)
-			 JOIN (SELECT * FROM unnest($6::numeric[]) WITH ORDINALITY) AS scores(score, idx)
-			   ON TRUE
-			 WHERE scores.idx = x.ordinality
-			 ON CONFLICT (assessment_id, user_id) DO UPDATE
+			 SELECT $1, x.user_id, $2, s.score, $3, 'evaluated', $4::timestamp, now(), now()
+			 FROM unnest($5::uuid[]) WITH ORDINALITY AS x(user_id, ord)
+			 JOIN unnest($6::numeric[]) WITH ORDINALITY AS s(score, ord)
+			   ON s.ord = x.ord
+			 ON CONFLICT (assessment_id, user_id, attempt_number) DO UPDATE
 			   SET score = EXCLUDED.score, updated_at = now()`,
 			assessmentID, orgID, maxScore, testDate, userIDs, scores); err != nil {
 			var pgErr *pgconn.PgError

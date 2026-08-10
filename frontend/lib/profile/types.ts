@@ -21,6 +21,7 @@ export interface Profile {
   language: string | null
   timezone: string | null
   weekly_goal_hrs: number | null
+  default_landing_page: string | null
   notifications: Record<string, boolean>
   completion_score: number
   skills: Skill[]

@@ -78,8 +78,7 @@ export function ModuleSystemDesignClient({
   if (!isOpen) {
     return (
       <div className="card-base flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        <div className="flex justify-end">
           <Button className="shrink-0" size="sm" onClick={() => setIsOpen(true)}>
             <Maximize2 aria-hidden className="h-3.5 w-3.5" />Open whiteboard
           </Button>

@@ -51,7 +51,11 @@ export function LabFixedConsole({
   positions = ["bottom", "right"],
   onClose,
 }: LabFixedConsoleProps) {
-  const [size, setSize] = useState(LAB_CONSOLE_DEFAULT_HEIGHT)
+  // Remembered per-axis so swapping edges restores each axis's own last-used
+  // size instead of carrying one number over between them (e.g. a wide
+  // right-docked panel no longer hands its width to the bottom dock's
+  // height, and vice versa).
+  const [sizes, setSizes] = useState({ bottom: LAB_CONSOLE_DEFAULT_HEIGHT, right: LAB_CONSOLE_DEFAULT_HEIGHT })
   const [layout, setLayout] = useState<{ position: Position; collapsed: boolean }>(() => ({
     position: positions[0] ?? "bottom",
     collapsed: false,
@@ -59,6 +63,11 @@ export function LabFixedConsole({
   const drag = useRef<{ start: number; startSize: number } | null>(null)
   const isRight = layout.position === "right"
   const canTogglePosition = positions.length > 1
+  const size = sizes[layout.position]
+
+  function setSize(next: number) {
+    setSizes((s) => ({ ...s, [layout.position]: next }))
+  }
 
   function onDragStart(e: PointerEvent<HTMLDivElement>) {
     drag.current = { start: isRight ? e.clientX : e.clientY, startSize: size }
@@ -87,9 +96,6 @@ export function LabFixedConsole({
     })
   }
 
-  // ponytail: swapping edges keeps the current size number as-is (no
-  // separate remembered width/height) — it's immediately draggable again,
-  // and a per-axis default isn't worth a third piece of state.
   function togglePosition() {
     if (!canTogglePosition) return
     setLayout((l) => ({ ...l, position: l.position === "bottom" ? "right" : "bottom" }))

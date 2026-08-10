@@ -79,6 +79,27 @@ LABS_WARM_POOL_OVERRIDES=
 LABS_IMAGE_PROFILES=mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:nested-docker
 LABS_NESTED_DOCKER_RUNTIME=          # Optional — "sysbox-runc" switches the "nested-docker" profile's Docker mechanism (default: scoped rootless-dind)
 LABS_NESTED_DOCKER_RUNTIME_CLASS=    # Kubernetes only — RuntimeClassName (e.g. "sysbox-runc"/"kata-containers") REQUIRED for any image mapped to "nested-docker" under LABS_RUNTIME=kubernetes
+# LABS_IMAGE_REGISTRY (Kubernetes runtime only) — prepended as "<registry>/<image>"
+# when the Kubernetes runtime pulls a lab image; classification against
+# LABS_IMAGE_PROFILES always happens on the bare name first. Empty (default) =
+# images pulled bare, must already be present wherever the runtime pulls from.
+# See ENV_VARS.md and docs/local-k3s-dev.md.
+LABS_IMAGE_REGISTRY=
+
+# labproxy live preview — preview subdomains are p<port>-<sessionID>.<this>
+# (see backend/cmd/labproxy/host.go), one origin per port+session instead of
+# the old single shared preview origin. A wildcard cert only covers one
+# dynamic DNS label ("*.domain", never "*.*.domain"), which is why the port
+# and session are packed into a single label instead of two path/subdomain
+# segments — and a wildcard cert needs DNS-01 issuance, since HTTP-01 can't
+# prove control of a wildcard name. Required; dev uses "localhost" (see
+# docker-compose.dev.yml/Caddyfile.dev — *.localhost needs no DNS-01 at all).
+LABPROXY_PREVIEW_DOMAIN=labs.yourdomain.com   # Required; dev uses "localhost". Must be a subdomain of DOMAIN (SameSite=Lax).
+# Compose/Caddy only — Kubernetes deploys use cert-manager's DNS-01
+# ClusterIssuer instead (see k8s/base/certificate-preview.yaml) and ignore
+# both vars below entirely.
+CADDY_DNS_PROVIDER=cloudflare                 # Required (compose only) — caddy-dns module name, see Dockerfile.caddy
+CADDY_DNS_API_TOKEN=                          # Required (compose only) — zone-edit token for CADDY_DNS_PROVIDER
 ```
 
 ---

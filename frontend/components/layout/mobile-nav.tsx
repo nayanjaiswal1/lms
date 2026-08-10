@@ -10,6 +10,7 @@ import { SidebarNavContent } from "@/components/layout/sidebar-nav-content";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { useVisibleNavGroups } from "@/lib/nav";
 import { useFeatureFlags } from "@/lib/feature-context";
+import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/server/auth";
 import type { Feature } from "@/lib/features";
@@ -48,7 +49,9 @@ export function MobileNav({ user }: Props) {
         >
           <Menu aria-hidden className="h-5 w-5" />
         </button>
-        <BrandMark />
+        <Link aria-label="Go to your home page" href={user?.default_landing_page || ROUTES.DASHBOARD}>
+          <BrandMark />
+        </Link>
         {user && (
           <div className="ml-auto flex items-center">
             <NotificationBell />

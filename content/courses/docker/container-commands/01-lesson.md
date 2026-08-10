@@ -18,6 +18,7 @@ lab:
   max_duration: 45
   max_resets: 3
   is_required: false
+  workspace_layout: console
   setup_script: |
     for i in $(seq 1 70); do docker info >/dev/null 2>&1 && exit 0; sleep 1; done; exit 1
   tasks:

@@ -215,6 +215,10 @@ export interface MyProjectSummary {
 // contributions + checkpoints, all in one response for the team detail page.
 export interface MyProjectDetailView extends ProjectTeam {
   assignment_title: string;
+  // Mirrors ProjectAssignment.required_approvals above — joined onto this
+  // view so the student-scoped checkpoint list can render "n/required"
+  // instead of a bare approvals count (see MyCheckpointList).
+  required_approvals: number;
   role: TeamMemberRole;
   contributions: ContributionRow[];
   checkpoints: MyCheckpointRow[];

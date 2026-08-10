@@ -1,0 +1,14 @@
+# Local-only cluster addon (not part of k8s/base or any overlay — same
+# reasoning as ingress-nginx/cert-manager themselves: these are cluster-wide
+# prerequisites the app manifests never install). Named "letsencrypt-prod" to
+# exactly match the cert-manager.io/cluster-issuer annotation already baked
+# into k8s/base/gateway.yaml, so gateway.yaml needs zero patching between
+# local and cloud — only the ClusterIssuer *implementation* differs: this one
+# self-signs (browser will show an untrusted-certificate warning, expected
+# for local dev), the cloud one is real ACME via Let's Encrypt.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  selfSigned: {}

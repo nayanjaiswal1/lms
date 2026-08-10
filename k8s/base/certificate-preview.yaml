@@ -1,0 +1,33 @@
+# Explicit cert-manager Certificate for gateway.yaml's "preview-https"
+# listener. Not left to the Gateway's cert-manager.io/cluster-issuer
+# annotation (letsencrypt-prod, HTTP-01) — HTTP-01 cannot prove control of a
+# wildcard name, so this resource requests the cert directly from a DNS-01
+# ClusterIssuer instead, mirroring the reasoning already documented in
+# gateway.yaml next to the preview-https listener.
+#
+# Cluster-wide prerequisite this app-level manifest deliberately does NOT
+# install (same relationship gateway.yaml has to the Gateway API CRDs/
+# implementation it depends on): a ClusterIssuer named "letsencrypt-dns01",
+# configured with an ACME DNS-01 solver for whatever provider hosts the
+# preview domain's DNS zone (cert-manager ships solvers for Route53,
+# Cloudflare, Google CloudDNS, etc. — see cert-manager's ACME DNS-01 docs).
+# This is unrelated to the Caddy-only CADDY_DNS_PROVIDER/CADDY_DNS_API_TOKEN
+# env vars documented in docs/infrastructure.md — the Kubernetes deploy path
+# uses this ClusterIssuer instead and ignores those two vars entirely.
+#
+# hostname/dnsNames here use the same "*.labs.yourdomain.com" placeholder as
+# gateway.yaml's preview-https listener — patch both together per overlay,
+# the same way the http/https listeners' hostnames are patched (see
+# k8s/overlays/*/kustomization.yaml).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mindforge-preview-tls
+  namespace: mindforge
+spec:
+  secretName: mindforge-preview-tls
+  issuerRef:
+    name: letsencrypt-dns01
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.labs.yourdomain.com"

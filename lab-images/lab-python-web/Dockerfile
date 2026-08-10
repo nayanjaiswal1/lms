@@ -26,8 +26,12 @@ RUN useradd --create-home --shell /bin/bash labuser \
     && chown -R labuser:labuser /home/labuser /var/log/mindforge-lab \
     && chmod 777 /var/log/mindforge-lab
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY app-runner.sh /usr/local/bin/app-runner.sh
+# entrypoint.sh / app-runner.sh are identical across every lab-*-web image,
+# so they live once in lab-images/shared/ — this Dockerfile's build context
+# is the lab-images/ parent dir (see scripts/push-lab-images.sh) so shared/
+# is reachable from here.
+COPY shared/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY shared/app-runner.sh /usr/local/bin/app-runner.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/app-runner.sh
 
 EXPOSE 7681

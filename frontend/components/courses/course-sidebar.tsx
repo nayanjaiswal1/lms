@@ -37,7 +37,7 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
           <Tooltip>
             <TooltipTrigger asChild>
               <Link
-                className="-mx-1.5 flex items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors duration-fast hover:bg-muted"
+                className="-mx-1.5 flex items-start gap-1 rounded-md px-1.5 py-1.5 transition-colors duration-fast hover:bg-muted"
                 href={ROUTES.course(course.slug)}
               >
                 <BookOpen aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -73,7 +73,7 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
         </div>
       </div>
 
-      <div className="mt-2 flex flex-col gap-1 overflow-y-auto pb-4">
+      <div className="mt-3 flex flex-col gap-1 overflow-y-auto pb-4">
         {course.sections.map((section) => {
           const sectionModules = isSearching
             ? section.modules.filter((m) => m.title.toLowerCase().includes(trimmed))

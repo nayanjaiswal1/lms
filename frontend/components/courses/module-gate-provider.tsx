@@ -6,6 +6,12 @@ interface ModuleGateContextValue {
   requiredIds: string[];
   passedIds: Set<string>;
   markPassed: (questionId: string) => void;
+  // Whether this lesson has an attached lab, and whether that lab's session
+  // has reached "completed" — independent of the knowledge-check gate above,
+  // both must clear before ModuleCompleteButton unlocks. labCompleted is
+  // meaningless when labRequired is false (no lab attached).
+  labRequired: boolean;
+  labCompleted: boolean;
 }
 
 const ModuleGateContext = createContext<ModuleGateContextValue | null>(null);
@@ -19,6 +25,8 @@ export function useModuleGate(): ModuleGateContextValue {
 interface ModuleGateProviderProps {
   requiredIds: string[];
   initialPassedIds: string[];
+  labRequired?: boolean;
+  labCompleted?: boolean;
   children: ReactNode;
 }
 
@@ -29,7 +37,18 @@ interface ModuleGateProviderProps {
 // subtrees under page.tsx, so a shared Context is needed instead of lifted
 // component state. requiredIds is empty for any module without an embedded
 // check, so the gate is a no-op everywhere else.
-export function ModuleGateProvider({ requiredIds, initialPassedIds, children }: ModuleGateProviderProps) {
+//
+// labRequired/labCompleted piggyback on the same context for the attached-
+// lab gate — no client-side "mark passed" action exists for it (unlike the
+// knowledge check), it's just re-read from the server on every
+// router.refresh() the lab start/end/complete actions already trigger.
+export function ModuleGateProvider({
+  requiredIds,
+  initialPassedIds,
+  labRequired = false,
+  labCompleted = false,
+  children,
+}: ModuleGateProviderProps) {
   const [passedIds, setPassedIds] = useState<Set<string>>(() => new Set(initialPassedIds));
 
   const markPassed = (questionId: string) => {
@@ -42,7 +61,7 @@ export function ModuleGateProvider({ requiredIds, initialPassedIds, children }: 
   };
 
   return (
-    <ModuleGateContext.Provider value={{ requiredIds, passedIds, markPassed }}>
+    <ModuleGateContext.Provider value={{ requiredIds, passedIds, markPassed, labRequired, labCompleted }}>
       {children}
     </ModuleGateContext.Provider>
   );

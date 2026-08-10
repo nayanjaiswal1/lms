@@ -15,6 +15,24 @@ import type { CohortGroup } from "@/lib/server/cohorts";
 
 const NO_PARENT = "__none__";
 
+// Walks the flat group list to collect groupId itself plus every descendant,
+// via each group's parent_id — the same relationship the picker already
+// renders, so no extra fetch is needed to know the shape of the subtree.
+function descendantIds(groups: CohortGroup[], groupId: string): Set<string> {
+  const ids = new Set([groupId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const g of groups) {
+      if (g.parent_id && ids.has(g.parent_id) && !ids.has(g.id)) {
+        ids.add(g.id);
+        grew = true;
+      }
+    }
+  }
+  return ids;
+}
+
 const Schema = z.object({
   name: z.string().min(2, "Name is too short."),
   level_label: z.string().optional(),
@@ -40,10 +58,15 @@ export function CreateCohortGroupForm({ groups, presetParentId, onCreated, editi
       parent_id: editingGroup?.parent_id ?? presetParentId ?? NO_PARENT,
     },
   });
-  // ponytail: excludes only the group itself, not its descendants — picking a
-  // descendant as parent still fails server-side (cycle check), just with a
-  // less friendly error. Filter the whole subtree out here if that surfaces.
-  const parentOptions = groups.filter((g) => g.id !== editingGroup?.id);
+  // Excludes the group itself and its whole descendant subtree — picking any
+  // of those as the new parent would create a cycle. No dedicated "list
+  // descendants" endpoint exists for cohort groups (only an internal
+  // ancestor/candidate cycle check used by the update route itself), but the
+  // full flat list already carries every group's parent_id, so the subtree
+  // is walked client-side from data already on hand rather than adding a
+  // backend route for it.
+  const excludedIds = editingGroup ? descendantIds(groups, editingGroup.id) : new Set<string>();
+  const parentOptions = groups.filter((g) => !excludedIds.has(g.id));
 
   const onSubmit = async (data: FormData) => {
     const input = {

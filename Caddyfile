@@ -19,3 +19,19 @@
 	# All other requests go to the Next.js frontend
 	reverse_proxy frontend:3000
 }
+
+# Live preview subdomains — one origin per port+session
+# (p<port>-<sessionID>.{$LABPROXY_PREVIEW_DOMAIN}, see
+# backend/cmd/labproxy/host.go). A wildcard host needs a wildcard cert, which
+# Caddy's default HTTP-01 issuance cannot obtain — this block uses DNS-01
+# instead (needs the custom Caddy build in Dockerfile.caddy, with the
+# provider module for whatever CADDY_DNS_PROVIDER names). LABPROXY_PREVIEW_DOMAIN
+# must be a subdomain of {$DOMAIN} (e.g. labs.{$DOMAIN}) so SameSite=Lax still
+# holds for the ServePreview→ServePreviewAuth redirect. No path stripping:
+# labproxy's host-based router reads the port straight off the Host header.
+*.{$LABPROXY_PREVIEW_DOMAIN} {
+	tls {
+		dns {$CADDY_DNS_PROVIDER} {$CADDY_DNS_API_TOKEN}
+	}
+	reverse_proxy labproxy:8081
+}

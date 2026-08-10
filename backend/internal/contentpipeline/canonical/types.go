@@ -119,6 +119,11 @@ type LabSpec struct {
 	LabType     string `yaml:"lab_type"` // must be one of terminal|code|playground|guided|sandbox
 	Environment string `yaml:"environment"`
 	PreviewPort int    `yaml:"preview_port"` // container port of the lab's running app; 0 = no live preview pane
+	// WorkspaceLayout selects how the student workspace is arranged: "split"
+	// (default, task panel + terminal side by side) or "console" (terminal
+	// docked to a draggable bottom/right edge panel instead). Empty defers to
+	// the generator's default ("split").
+	WorkspaceLayout string `yaml:"workspace_layout"`
 	// RunScript is the student-visible sample-test command for sandbox labs
 	// (the Run button); empty = no Run button. Unlike solution_script it IS
 	// written to the DB, but its content never reaches the client.

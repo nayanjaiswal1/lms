@@ -19,11 +19,39 @@ secretGenerator:
     envs:
       - secrets.env
 
-# Domain-dependent values (edit configmap-domain.patch.yaml and
-# ingress-domain.patch.yaml directly for your real domain).
+# Domain-dependent values. configmap-domain.patch.yaml covers app env vars —
+# edit it for your real domain. The Gateway/HTTPRoute hostnames below use
+# JSON6902 ops instead of a strategic-merge file: edit the "value:" lines to
+# your real domain too. (Gateway API's `listeners` is a list inside a CRD —
+# no patchMergeKey metadata for kustomize to merge by — so a strategic-merge
+# patch there would silently replace the WHOLE listeners array, dropping
+# port/protocol/tls/allowedRoutes. JSON6902 touches only the exact field.)
 patches:
   - path: configmap-domain.patch.yaml
-  - path: ingress-domain.patch.yaml
+  - target:
+      kind: Gateway
+      name: mindforge
+    patch: |-
+      - op: replace
+        path: /spec/listeners/0/hostname
+        value: app.yourdomain.com
+      - op: replace
+        path: /spec/listeners/1/hostname
+        value: app.yourdomain.com
+  - target:
+      kind: HTTPRoute
+      name: mindforge-redirect
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: app.yourdomain.com
+  - target:
+      kind: HTTPRoute
+      name: mindforge
+    patch: |-
+      - op: replace
+        path: /spec/hostnames/0
+        value: app.yourdomain.com
 
 # Placeholder — overwritten by `scripts/build-push-k8s-images.sh`, which runs
 # `kustomize edit set image` after building and pushing each image to $REGISTRY.

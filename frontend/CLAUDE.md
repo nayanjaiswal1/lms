@@ -1,553 +1,203 @@
 # Frontend Rules (Non-Negotiable)
 
----
+Deep rationale for non-obvious rules (z-index/Portal stacking, min-w-0 flex overflow, etc.) lives in [docs/frontend-gotchas.md](../docs/frontend-gotchas.md) — read it when a rule below doesn't make sense on its own, not by default.
 
-## Design Identity — MindForge Forge Palette
+## Design Skills
 
-MindForge has two intentional expressions of one brand. Do not drift from this.
+`/frontend-design` (aesthetic direction) and `/ui-ux-pro-max` (UX/accessibility/spacing/chart intelligence) are available. For `/ui-ux-pro-max`: ignore any color/typography/design-system suggestions it makes — use MindForge's existing tokens below instead. Use it only for UX patterns, accessibility, interaction timing, and chart selection. Query directly: `python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --stack nextjs`.
 
-### Brand constants (same across both themes)
-| Role | Light value | Dark value | Meaning |
+## Design Identity — Forge Palette
+
+| Role | Light | Dark | Use for |
 |---|---|---|---|
-| `--primary` | amber-700 `#B45309` | amber-400 `#F59E0B` | Fire, progress, CTAs, streaks |
-| `--primary-foreground` | white | black | Text on amber surfaces |
-| `--ai` | cyan-700 `#0E7490` | cyan-400 `#22D3EE` | AI-generated content, hints, suggestions |
-| `--ai-foreground` | white | black | Text on cyan surfaces |
+| `--primary` | amber-700 `#B45309` | amber-400 `#F59E0B` | Buttons, progress, CTAs, streaks, focus rings |
+| `--ai` | cyan-700 `#0E7490` | cyan-400 `#22D3EE` | AI panels, hints, generated content, AI badges |
 
-### What these tokens mean in the UI
-- **Amber (`primary`, `ring`)** — primary buttons, progress bars, streak counters, focus rings, active nav indicators, score highlights
-- **Cyan (`ai`, `ai-foreground`)** — AI explanation panels, generated curriculum cards, hint tooltips, "AI" badge chips, AI chat bubbles
+Amber = human actions. Cyan = AI. Never mix.
 
-### Banned class patterns in components
-The **ESLint linter enforces all of these as errors** (`eslint.config.mjs` → `no-restricted-syntax`).
-Do not disable the rules without a written explanation in the comment.
-
-| Banned | Correct alternative |
+**Banned (ESLint `no-restricted-syntax` enforces):**
+| Banned | Use instead |
 |---|---|
 | `text-amber-*`, `bg-amber-*` | `text-primary`, `bg-primary` |
 | `text-cyan-*`, `bg-cyan-*` | `text-ai`, `bg-ai` |
-| `text-gray-*`, `bg-zinc-*`, any raw shade | `text-foreground`, `text-muted-foreground`, `bg-muted` |
+| `text-gray-*`, `bg-zinc-*`, raw shades | `text-foreground`, `text-muted-foreground`, `bg-muted` |
 | `bg-white`, `text-black` | `bg-background`, `text-foreground` |
-| `bg-[#fff]`, `text-[#1a2b3c]` | Add a CSS variable to `globals.css` |
-| `dark:bg-*`, `dark:text-*` | Never — `.dark` class handles this via CSS vars |
-| `style={{ color: '...' }}` | Add a CSS variable; inline style only for dynamic `--var` values |
+| `bg-[#fff]`, `text-[#...]` | Add a CSS var to `globals.css` |
+| `dark:*` | Never — `.dark` class + CSS vars handle it |
+| `style={{ color: '...' }}` | CSS variable; inline style only for dynamic `--var` values |
 
-### Spacing & shape
-- Card padding: `p-6` (24px) for spacious feature/dashboard cards (`.card-base`, `.card-raised`, `.card-interactive`) — one focal card per grid cell.
-- Compact selectable tile padding (checkbox/radio list item, chip-style option in a dense `.card-grid`): `p-4` (16px). These hold a checkbox + 1-2 lines of text, not a full card's worth of content — `p-6` here reads as excess whitespace, not polish.
-- Input padding: `px-3 py-2.5` (12px / 10px)
-- Button padding: `px-5 py-2.5` (20px / 10px)
-- Page gutter: `px-6 sm:px-8 lg:px-12` — use `.page-container`
-- Radius: use `--radius-sm` (4px) for badges, `--radius-md` (8px) for inputs, `--radius-lg` (10px) for cards, `--radius-xl` (16px) for feature cards
+Disabling any of these needs a written inline reason.
 
-### AI surface components
-- Use `.ai-surface` for AI-generated content panels (cyan-tinted bg + border)
-- Use `.ai-badge` for the "AI" chip label
-- Never style AI content with amber — amber = human actions, cyan = AI
-
-### WCAG 2.2 AA contrast — verified values
-| Token | Light | Dark | Contrast on bg |
-|---|---|---|---|
-| `--primary` | amber-700 `#B45309` | amber-400 `#F59E0B` | Light: 4.80:1 ✓ |
-| `--ai` | cyan-700 `#0E7490` | cyan-400 `#22D3EE` | Light: 5.13:1 ✓ |
-| `--muted-foreground` | zinc-500 `#71717A` | zinc-400 | Light: 5.02:1 ✓ |
-| `--success` | darkened green | amber-range | Verified ≥ 4.5:1 |
-
-Never change these token values without re-checking contrast at [webaim.org/resources/contrastchecker](https://webaim.org/resources/contrastchecker/).
-
-### Motion
-- Use `duration-fast` (120ms), `duration-normal` (200ms), `duration-slow` (350ms) utility classes — defined in `@theme inline`
-- Use `ease-smooth` for hover/transitions, `ease-in-out` for state changes
-- Wrap every transition in `@media (prefers-reduced-motion: reduce)` override (already in `@layer base`)
-- No bounce, spring, or scale-on-click — `translateY(-2px)` lift only via `.card-interactive`
-
-### Z-index
-Use named layers, low → high: `z-raised` (10) < `z-sticky` (200) < `z-overlay` (300) < `z-modal` (400) < `z-dropdown` (450) < `z-toast` (500).
-Never write `z-[400]` or `z-50` — it makes stacking context impossible to audit.
-
-`z-dropdown` is deliberately *above* `z-modal`. Select/DropdownMenu/ContextMenu/Tooltip render their content via a Radix Portal to `document.body` — a DOM sibling of `DialogContent`, not a descendant — so nesting one inside a `<Dialog>` does not inherit the dialog's stacking context; only the raw z-index number decides who's on top. Any popper-based component must out-rank `z-modal` or it silently renders behind an open dialog/sheet/alert-dialog the moment it's used inside one.
-
----
+- Card padding `p-6`; compact selectable tiles (checkbox/chip rows) `p-4`; inputs `px-3 py-2.5`; buttons `px-5 py-2.5`; page gutter `.page-container` (`px-6 sm:px-8 lg:px-12`)
+- Radius: `--radius-sm` badges, `--radius-md` inputs, `--radius-lg` cards, `--radius-xl` feature cards
+- AI content: `.ai-surface` panel, `.ai-badge` chip — never amber
+- Contrast is pre-verified (≥4.5:1) for `--primary`, `--ai`, `--muted-foreground`, `--success` — re-check at webaim.org/resources/contrastchecker before changing any token value
+- Motion: `duration-fast/normal/slow` (120/200/350ms), `ease-smooth` for hover, wrap in `prefers-reduced-motion`. No bounce/spring — `.card-interactive` lift only
+- Z-index: named layers only, `z-raised`(10) < `z-sticky`(200) < `z-overlay`(300) < `z-modal`(400) < `z-dropdown`(450) < `z-toast`(500). Never `z-[N]`. Popper-based components (Select/Dropdown/Tooltip/ContextMenu) must out-rank `z-modal` — see gotchas doc for why
 
 ## PWA Manifest & App Shell
 
-**Files:**
-| File | Purpose |
-|---|---|
-| `app/manifest.ts` | Web app manifest — name, icons, shortcuts, colours |
-| `app/layout.tsx` | Root layout — fonts, ThemeProvider, viewport, metadata |
+`app/manifest.ts` (name/icons/shortcuts/colors), `app/layout.tsx` (fonts/ThemeProvider/viewport/metadata). Theme color: light `#B45309`, dark `#F59E0B`, must match `--primary`.
 
-**Theme colour** in `layout.tsx` switches per OS colour scheme:
-- Light: `#B45309` (amber-700 = `--primary` light)
-- Dark: `#F59E0B` (amber-400 = `--primary` dark)
-This colours the browser chrome / status bar to match the brand.
+Icons in `public/icons/`: `icon-192(-maskable).png`, `icon-512(-maskable).png`, `shortcuts/{dashboard,learn,practice,quiz}.png` (96×96), plus `apple-icon.png` (180×180) and `favicon.ico` in `app/`. Generate with `npx pwa-asset-generator` or maskable.app. Maskable icons: logo inside the 80% safe zone. Never change `manifest.ts` colors without syncing `globals.css` tokens.
 
-**Required icon files** — generate with `npx pwa-asset-generator` or [maskable.app](https://maskable.app):
-```
-public/
-  icons/
-    icon-192.png              192×192  any      (Android launcher)
-    icon-192-maskable.png     192×192  maskable (Android adaptive)
-    icon-512.png              512×512  any      (splash / install prompt)
-    icon-512-maskable.png     512×512  maskable (Android adaptive)
-    shortcuts/
-      dashboard.png           96×96
-      learn.png               96×96
-      practice.png            96×96
-      quiz.png                96×96
-  apple-icon.png              180×180           (placed in app/ for Next.js auto-handling)
-  favicon.ico                                   (placed in app/ for Next.js auto-handling)
-```
-Maskable icons must keep the logo inside the **80% safe zone** (centre circle). The outer 10% on each edge will be cropped on some launchers.
+## Responsiveness (Day 1, not a follow-up)
 
-**Never** change `manifest.ts` `background_color` or `theme_color` without updating the corresponding token in `globals.css` — they must stay in sync with `--background` and `--primary`.
-
----
-
-## Responsiveness (Non-Negotiable — Handle on Day 1)
-
-Every component is mobile-first from the moment it is written. Responsiveness is never a follow-up task.
-
----
-
-### Breakpoint system
-
-| Prefix | Viewport | What changes at this point |
+| Prefix | Viewport | Unlocks |
 |---|---|---|
-| *(none)* | 0–639px | Mobile default — the baseline |
-| `sm:` | ≥ 640px | Large phones, small tablets — 2-col grids unlock |
-| `md:` | ≥ 768px | Tablets — form rows go side-by-side |
-| `lg:` | ≥ 1024px | **Sidebar appears**, 3-col grids, desktop spacing |
-| `xl:` | ≥ 1280px | Wide desktop — max-width containers kick in |
+| *(none)* | 0–639px | Mobile baseline |
+| `sm:` | ≥640px | 2-col grids |
+| `md:` | ≥768px | Side-by-side form rows |
+| `lg:` | ≥1024px | **Sidebar appears**, 3-col grids |
+| `xl:` | ≥1280px | Max-width containers |
 
-**Rule:** Write the mobile style first, then layer on `sm:`, `md:`, `lg:`. Never write a component that only works at desktop width.
+Mobile-first: write the unprefixed style first, layer `sm:`/`md:`/`lg:` on top. Mobile (`<lg`) = 1-col + bottom-nav, no sidebar. Desktop (`lg+`) = sidebar + 3-col grid, no bottom-nav. Shell utilities: `.app-shell` / `.app-sidebar` / `.app-main` / `.app-header` / `.app-content` / `.bottom-nav`.
 
----
+**Rules:**
+1. Mobile-first — `flex-col` before `sm:flex-row`, `hidden` before `lg:flex`
+2. Touch targets ≥44×44px (WCAG 2.5.5) — use `.touch-target` or `size="default"`, not shadcn's default `sm` button
+3. `h-dvh`/`min-h-dvh`, never `h-screen` (ESLint error) — `100vh` hides content behind mobile Safari chrome
+4. `w-full`, never `w-screen` (ESLint error) — overflows on scrollbar devices
+5. Every `<table>` wrapped in `.table-responsive` **and** every `<tr>` has `whitespace-nowrap` — the wrapper alone doesn't stop cell wrap/row-overlap; scope `whitespace-normal` to individual `<td>`s that must wrap
+6. Modals: `.modal-responsive` on `<DialogContent>` — full-screen mobile, centered `sm+`
+7. Safe-area insets for notched devices — `.bottom-nav`/`.app-header`/`.sidebar-drawer` handle it already; anything else fixed-bottom needs `padding-bottom: env(safe-area-inset-bottom)`
+8. No bare `w-[Npx]` (ESLint warns) — always pair `w-full sm:w-[Npx]`
+9. Sidebar on mobile = full drawer (`.sidebar-drawer` + `.sidebar-drawer-backdrop`), never a squished icon rail
+10. Any grid/flex cell rendering a code/slug/UUID/email needs `min-w-0` on the item + `truncate` or `break-all` on the text, or it spills into the next cell — flex/grid items don't shrink below content width by default
 
-### The three layout modes
+**Defined utilities (reuse, don't reimplement):** `.app-shell` `.app-sidebar` `.app-main` `.app-header` `.app-content` `.sidebar-drawer(-backdrop)` `.bottom-nav(-item)` `.touch-target` `.table-responsive` `.stack-sm/md/lg` `.grid-responsive(-2/-4)` `.grid-stats` `.modal-responsive`
 
-Mobile (`<lg`): 1-col stack + bottom-nav, no sidebar. Tablet (`md`): 2-col grid, no bottom-nav. Desktop (`lg+`): sidebar + 3-col grid, no bottom-nav.
+**Banned:** `h-screen`, `w-screen`, bare `w-[Npx]`, `overflow-x-hidden` on html/body, desktop-only styles, `<tr>` without `whitespace-nowrap`, hand-written breakpoint-chain grids duplicating `.grid-responsive*`.
 
-Use the shell utilities from `globals.css`:
+Safe area classes: `.safe-top/-bottom/-left/-right`, `.safe-x/-y`, `.safe-inset`. `app/layout.tsx` sets `viewport.viewportFit = 'cover'` — never remove it.
 
-```tsx
-// _layout.tsx — app shell
-<div className="app-shell">
-  <nav className="app-sidebar">...</nav>          {/* hidden on mobile */}
-  <div className="app-main">
-    <header className="app-header">...</header>
-    <main className="app-content">
-      {children}
-    </main>
-  </div>
-  <nav className="bottom-nav">...</nav>           {/* hidden on lg+ */}
-</div>
-```
+Images: always `next/image` with `sizes`, never raw `<img>`.
 
----
+## Linter
 
-### Rules — what you must always do
+`pnpm lint:strict` for zero-warning CI (not `next lint`). Covers everything above plus: `fetch()` in `useEffect` banned, arbitrary Tailwind values flagged. Disabling a rule needs an inline `eslint-disable-next-line` comment with a reason.
 
-**1. Mobile-first always**
-Write `flex-col` before `sm:flex-row`. Write `hidden` before `lg:flex`. Never assume desktop.
+## Theming
 
-**2. Touch targets minimum 44×44px (WCAG 2.5.5)**
-All interactive elements must have a minimum tap area of 44×44px.
-- shadcn `<Button size="sm">` is 36px tall — wrap with `.touch-target` or use `size="default"`
-- Icon-only buttons: add `className="touch-target"` or `p-3` to meet the minimum
-- Bottom nav items: use `.bottom-nav-item` which enforces `min-h-11 min-w-[52px]`
+All tokens live in `app/globals.css` only (`:root` / `.dark`), wired via `next-themes` in `layout.tsx`. `dark:*` prefix and raw color classes (`bg-white`, `text-gray-500`, etc.) are banned in components — use semantic tokens. Fonts: `--font-plus-jakarta` (headings/UI), `--font-jetbrains-mono` (code/quiz options) — never `font-geist-*`. New color: add to `:root` + `.dark` + `@theme` block in `globals.css`, then reference by semantic class.
 
-**3. Use `h-dvh` / `min-h-dvh`, never `h-screen`**
-`100vh` on mobile Safari includes the browser chrome, cutting off content behind the address bar.
-`dvh` (dynamic viewport height) updates as the browser chrome shows/hides.
-ESLint will error on `h-screen`.
+## Layout & Spacing (`globals.css` `@layer components`)
 
-**4. Use `w-full`, never `w-screen`**
-`100vw` causes horizontal overflow on devices with a scrollbar.
-ESLint will error on `w-screen`.
+Reuse, don't reimplement: `.page-container(-sm)` `.page-header` `.page-title` `.section-title` `.card-base/-raised/-interactive` `.ai-surface` `.ai-badge` `.mastery-*` `.difficulty-*` `.progress-track/-fill` `.form-stack` `.card-grid` `.prose-content` `.empty-state` `.divider-label` `.kbd` `.skeleton`. Same multi-class string twice → promote to a named utility in `globals.css`.
 
-**5. Every table needs `.table-responsive`, and every row needs `whitespace-nowrap`**
-Wrap all `<table>` elements in a `.table-responsive` div.
-Never let a table overflow the page horizontally — it breaks mobile layout completely.
-`.table-responsive` only creates the scroll container — it does not stop individual cells from
-wrapping. Without `whitespace-nowrap` on the `<tr>` (header and body), a narrow column squeezes
-its text onto two lines instead of triggering the horizontal scroll, and the wrapped row
-overlaps the row below it. Always pair the two: `.table-responsive` on the wrapper, `whitespace-nowrap`
-on every `<tr>`. If a cell must wrap on purpose (e.g. a long description column), scope
-`whitespace-normal` to that one `<td>` — never omit `whitespace-nowrap` from the row as the default.
+## Typography
 
-**6. Modals are full-screen on mobile**
-Use `.modal-responsive` on `<DialogContent>` so dialogs fill the screen on mobile and are centred on `sm+`.
-Never set a fixed max-width on a modal without a mobile fallback.
-
-**7. Safe area insets for notched devices**
-Bottom nav, sheets, and drawers must account for the iPhone home indicator.
-`.bottom-nav` already handles `env(safe-area-inset-bottom)`.
-For any other fixed-bottom element add: `padding-bottom: env(safe-area-inset-bottom)`
-
-**8. No fixed pixel widths without a responsive variant**
-`w-[320px]` alone is an error — it overflows on a 375px phone with padding.
-Always pair with a responsive variant: `w-full sm:w-[320px]`.
-ESLint will warn on bare `w-[Npx]`.
-
-**9. Sidebar on mobile = drawer, never squished**
-On mobile, the sidebar must be completely hidden and accessible via a hamburger/drawer.
-Never let the sidebar collapse to a narrow icon-only rail on mobile — use the `.sidebar-drawer` + `.sidebar-drawer-backdrop` pattern from globals.css instead.
-
-**10. Unbreakable text inside a flex/grid child needs `min-w-0` on the child + `break-all`/`truncate` on the text**
-Flex and grid items default to `min-width: auto` — they will not shrink below the intrinsic width of
-their content. A long token with no spaces (a permission code like `assessments.manage_batches`, a slug,
-an email, a UUID) has a large intrinsic width, so the item is forced wider than its column/track and
-visually spills into the next card or column — this reads as "overlapping" content, not as a spacing bug,
-and no amount of padding or gap fixes it. Whenever a grid/flex cell renders a code, slug, ID, or email:
-add `min-w-0` to the flex/grid item (or its direct text wrapper) and either `truncate` (single line,
-ellipsis) or `break-all` (wraps mid-token) on the text itself. Reach for `whitespace-nowrap` + `.table-responsive`
-scrolling instead only inside an actual `<table>` (see rule 5) — inside a card/grid layout there is no
-scroll container, so the text must wrap or truncate in place.
-
----
-
-### Defined responsive utilities (use these, never re-implement)
-
-| Class | Behaviour |
-|---|---|
-| `.app-shell` | Top-level flex wrapper, `min-h-dvh` |
-| `.app-sidebar` | `hidden lg:flex` — sidebar column |
-| `.app-main` | `flex-1 flex flex-col min-w-0` |
-| `.app-header` | Sticky header, `h-14`, backdrop blur |
-| `.app-content` | Page padding — `p-4 pb-24 sm:p-6 sm:pb-6 lg:p-8` |
-| `.sidebar-drawer` | Mobile slide-in drawer (`z-modal`) |
-| `.sidebar-drawer-backdrop` | Backdrop behind drawer (`z-overlay`) |
-| `.bottom-nav` | Fixed bottom nav, `lg:hidden`, safe-area aware |
-| `.bottom-nav-item` | Nav item with 44px touch target |
-| `.touch-target` | `min-h-11 min-w-11 flex-center` |
-| `.table-responsive` | Horizontal scroll container for tables |
-| `.stack-sm` | `flex-col sm:flex-row gap-3` |
-| `.stack-md` | `flex-col md:flex-row gap-4` |
-| `.stack-lg` | `flex-col lg:flex-row gap-6` |
-| `.grid-responsive` | 1→2→3 col grid |
-| `.grid-responsive-2` | 1→2 col grid |
-| `.grid-responsive-4` | 2→2→4 col grid |
-| `.grid-stats` | 2×2 on mobile, 4-across on sm+ |
-| `.modal-responsive` | Full-screen on mobile, centred dialog on sm+ |
-
----
-
-### Banned responsive patterns (ESLint enforces these)
-
-| Banned | Why | Fix |
-|---|---|---|
-| `h-screen` | 100vh cuts off content on mobile Safari | `h-dvh` or `min-h-dvh` |
-| `w-screen` | 100vw overflows on scrollbar devices | `w-full` |
-| `w-[Npx]` alone | Fixed width breaks on small screens | `w-full sm:w-[Npx]` |
-| `overflow-x-hidden` on html/body | Masks bugs, breaks sticky | Fix the overflowing element |
-| Desktop-only design (no mobile style) | Page is broken on phones | Write mobile style first |
-| `<table>` row without `whitespace-nowrap` | Cell text wraps and overlaps the row below instead of scrolling | Add `whitespace-nowrap` to every `<tr>` |
-| Hand-written `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` (or any breakpoint chain that already exists as a named class) | Duplicates `.grid-responsive`/`.grid-responsive-2`/`.grid-responsive-4` with a drifted gap value | Use the existing `.grid-responsive*` class |
-
----
-
-### Notch, camera cutout, and safe area insets
-
-Ignoring safe areas puts UI behind the camera cutout or home-indicator bar. `app/layout.tsx` already sets `viewport.viewportFit = 'cover'` — never remove it, since `env(safe-area-inset-*)` is `0` without it.
-
-`.app-header`, `.bottom-nav`, and `.sidebar-drawer` already apply their own insets — don't re-add padding to them. For anything else fixed to an edge, use these (defined in `globals.css`):
-
-| Class | CSS property |
-|---|---|
-| `.safe-top` / `.safe-bottom` / `.safe-left` / `.safe-right` | single-edge `env(safe-area-inset-*)` |
-| `.safe-x` / `.safe-y` | left+right / top+bottom |
-| `.safe-inset` | all four sides |
-
-E.g. a full-screen modal: `<div className="fixed inset-0 safe-inset z-modal">`.
-
----
-
-### Images — always responsive
-
-```tsx
-// Always provide sizes so the browser picks the right source
-<Image
-  src={src}
-  alt={alt}
-  fill                              // or width + height
-  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-  className="object-cover"
-/>
-```
-
-Never use `<img>` — `next/image` handles lazy loading, sizing, and format optimisation.
-
----
-
-## Linter — Rules Not Stated Elsewhere in This File
-
-Run `pnpm lint:strict` for zero-warning enforcement (CI must run this, not `next lint`). Everything else ESLint enforces here is already covered by name above (banned class patterns, banned responsive patterns), in Accessibility (aria-label), TypeScript (`any`, `!`), and Feature-Based Organization (import boundaries) — not repeated twice.
-
-Two `no-restricted-syntax` / `@poupe/eslint-plugin-tailwindcss` rules with no other section: `fetch()` inside `useEffect` is banned, and arbitrary Tailwind values are flagged in favor of theme tokens.
-
-**When you must disable a rule**, use an inline comment with a reason:
-```tsx
-{/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
-<div style={{ '--progress': `${pct}%` } as React.CSSProperties} />
-```
-
----
-
-## Theming — Single Source of Truth
-
-**All design tokens live in `app/globals.css` only. No exceptions.**
-
-- Light and dark themes are defined as CSS variables in `globals.css` under `:root` and `.dark`
-- `next-themes` `<ThemeProvider>` wraps the app in `layout.tsx` — that is the only theme wiring needed
-- Theme switches automatically via the `.dark` class on `<html>` — no component needs to know about it
-
-**The `dark:` Tailwind prefix is banned in component files.**
-If you are writing `dark:bg-gray-900` or `dark:text-white` anywhere outside `globals.css`, you are using the wrong token. Use the semantic token (`bg-background`, `text-foreground`) and the theme handles it.
-
-**Raw color classes are banned in component files.**
-Never write `bg-white`, `bg-gray-100`, `text-black`, `text-gray-500`, `border-gray-200`, etc. in a component.
-Always use semantic tokens: `bg-background`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `border-border`.
-
-**Fonts:**
-- `--font-plus-jakarta` → `Plus Jakarta Sans` (headings, UI labels) — loaded via `next/font/google` in `layout.tsx`
-- `--font-jetbrains-mono` → `JetBrains Mono` (code, quiz answer options) — loaded via `next/font/google` in `layout.tsx`
-- Never use `font-geist-*` — MindForge uses Plus Jakarta Sans and JetBrains Mono only
-
-**Adding a new color or style pattern:**
-1. Add the CSS variable to both `:root` and `.dark` in `globals.css`
-2. Register it in the `@theme` block in `globals.css`
-3. Use it in components via the semantic class name — done
-
----
-
-## Layout & Spacing — `@layer components` in `globals.css`
-
-Common layout patterns are defined once in `globals.css` under `@layer components`.
-Components use those class names — they do NOT repeat the underlying Tailwind chain.
-
-**Defined patterns (use these, do not re-implement):**
-
-| Class | What it does |
-|---|---|
-| `.page-container` | `mx-auto max-w-7xl px-6 sm:px-8 lg:px-12` |
-| `.page-container-sm` | `mx-auto max-w-3xl px-6 sm:px-8` |
-| `.page-header` | `flex items-center justify-between py-6 gap-4 flex-wrap` |
-| `.page-title` | `text-3xl font-bold tracking-tight` |
-| `.section-title` | `text-2xl font-semibold tracking-tight` |
-| `.card-base` | card with border + shadow-card |
-| `.card-raised` | elevated card with shadow-raised |
-| `.card-interactive` | card-base + hover lift (`translateY(-2px)`) |
-| `.ai-surface` | cyan-tinted panel for AI-generated content |
-| `.ai-badge` | inline "AI" chip label |
-| `.mastery-none/learning/practiced/mastered` | SRS flashcard states |
-| `.difficulty-beginner/intermediate/advanced` | difficulty level badges |
-| `.progress-track` + `.progress-fill` | animated progress bar |
-| `.form-stack` | `flex flex-col gap-4` |
-| `.card-grid` | `grid gap-6 sm:grid-cols-2 lg:grid-cols-3` |
-| `.prose-content` | base typography for rich-text read views |
-| `.empty-state` | centred empty state container |
-| `.divider-label` | horizontal rule with centred text label |
-| `.kbd` | keyboard shortcut key visual |
-| `.skeleton` | loading placeholder |
-
-If you find yourself writing the same multi-class string twice, it belongs in `globals.css` as a named utility, not repeated in two components.
-
----
-
-## Typography — Auto-Applied via `@layer base`
-
-Base element styles are set globally in `globals.css`. Components do not style headings, paragraphs, or links — the browser picks up the base styles automatically.
-
-- `h1`–`h4` sizes, weights, and tracking are set globally
-- `p` line-height and color (`text-foreground`) set globally
-- `a` color (`text-primary`) and hover state set globally
-- `code` font and background set globally
-- `body` gets `bg-background text-foreground font-sans antialiased` globally
-
-You never write `text-4xl font-bold tracking-tight` on an `<h1>` in a component — it already has that style.
-
----
+Base element styles (`h1`–`h4`, `p`, `a`, `code`, `body`) are set globally in `@layer base`. Never re-style them per component.
 
 ## Forms
 
-### Shared field abstraction (required)
-
-- Repeated `FormField` + `FormItem` + `FormLabel` + `FormControl` + `FormMessage`
-  plumbing must be extracted into a typed primitive in `components/ui/`. Use
-  `<FormInputField />` for standard text, email, and password inputs instead of
-  duplicating that JSX in feature forms.
-- Keep each form's field declarations explicit and type-safe. Do not turn a fixed
-  API contract into a config-driven form merely to reduce lines of JSX.
-- Add a focused typed primitive for genuinely different controls such as select,
-  checkbox, radio, date, or file input. Do not grow `<FormInputField />` into a
-  conditional component that handles unrelated control types.
-- Apply an existing shared field primitive across the codebase whenever the same
-  form-control structure appears; feature code should contain field intent and
-  copy, not repeated library wiring.
-
-### Form behavior
-- Every form uses **react-hook-form** + **zod** — no raw `useState` for form fields
-- Schema declared above the component in the same file: `const Schema = z.object({...})`
-- Infer the form type from the schema: `type FormData = z.infer<typeof Schema>`
-- Validation errors render via shadcn `<FormMessage />` — never a custom error `<p>`
-- Submit button pending state via `useFormStatus()` — not a separate `useState`
-- Submit handler receives typed, validated data — no manual field reads
-
----
+- Extract repeated `FormField`+`FormItem`+`FormLabel`+`FormControl`+`FormMessage` into `<FormInputField />` (`components/ui/`) for text/email/password
+- New control shape (select/checkbox/radio/date/file) → new typed primitive, don't overload `<FormInputField />`
+- Don't turn a fixed API contract into a config-driven form just to cut JSX lines
+- react-hook-form + zod always, no raw `useState` for fields. Schema above component: `const Schema = z.object({...})`, type via `z.infer`. Errors via `<FormMessage />`. Pending state via `useFormStatus()`
 
 ## Feature-Based Organization
 
-Components, routes, and data logic are organized by feature, not by type — `components/<feature>/`, `app/(app)/<feature>/`, `lib/<feature>/` (e.g. `courses/`, `labs/`, `rewards/`, `assessments/`). Only promote a component to `components/shared/` when an *unrelated* feature reuses it (see below) — never place new components in a type-based folder like `components/cards/` or `components/modals/`.
-
-**This is enforced automatically** by `eslint-plugin-boundaries` in `eslint.config.mjs` — a feature may only import `components/ui/`, `components/shared/`, cross-cutting `lib/` files, or its own feature folder. A genuinely deliberate cross-feature integration (e.g. courses embedding a labs widget) must be added as an explicit allow-listed edge in the `boundaries/dependencies` rule config, with a comment explaining why — it is not something to work around by importing directly.
-
----
+`components/<feature>/`, `app/(app)/<feature>/`, `lib/<feature>/`. Promote to `components/shared/` only when an unrelated feature reuses it. Enforced by `eslint-plugin-boundaries` — cross-feature imports need an explicit allow-listed edge in `boundaries/dependencies` with a comment, not a workaround import.
 
 ## Shared Components (`components/shared/`)
 
 | Component | File | Notes |
 |---|---|---|
-| `<CodeEditor>` | `components/shared/code-editor.tsx` | Lazy-loaded Monaco Editor (`next/dynamic`, ssr: false). Props: `language`, `value`, `onChange`, `readOnly`, `height`, `className`. Uses `var(--font-jetbrains-mono)`. Skeleton shown while loading. |
-| `<AccessGate>` | `components/shared/access-gate.tsx` | Permission/feature gate wrapper |
-| `<BrandMark>` | `components/shared/brand-mark.tsx` | Logo mark |
-| `<ThemeToggle>` | `components/shared/theme-toggle.tsx` | Light/dark toggle |
-| `<WithFeature>` | `components/shared/with-feature.tsx` | Feature-flag HOC |
-
----
+| `<CodeEditor>` | `code-editor.tsx` | Lazy Monaco (`next/dynamic`, ssr:false), `var(--font-jetbrains-mono)` |
+| `<AccessGate>` | `access-gate.tsx` | Permission/feature gate |
+| `<BrandMark>` | `brand-mark.tsx` | Logo |
+| `<ThemeToggle>` | `theme-toggle.tsx` | Light/dark toggle |
+| `<WithFeature>` | `with-feature.tsx` | Feature-flag HOC |
 
 ## Design System
-- UI primitives from `components/ui/` (shadcn) only — no raw `<input>`, `<button>`, `<select>`, `<textarea>`
-- Compose larger patterns from `components/shared/` — never duplicate a layout pattern
-- No style props — components own their appearance; callers pass data and callbacks only
-- Variants go through `cva()` inside the component — callers pass `variant` or `size`, not class strings
-- Always use `cn()` from `lib/utils` for className merging — never string concatenation
-- `globals.css` contains only design tokens, base element styles, and utilities that
-  are reused across multiple unrelated components or features.
-- Component- or feature-specific selectors must not be added to `globals.css`.
-  Keep those Tailwind classes in the owning component, or use a colocated CSS
-  module when Tailwind cannot express the styling clearly.
-- Repetition alone does not make a style global when every use belongs to one
-  component family. Extract a shared component first; promote styling to a global
-  utility only when unrelated parts of the application reuse the same pattern.
 
----
+- `components/ui/` (shadcn) primitives only — no raw `<input>`/`<button>`/`<select>`/`<textarea>`
+- No style props — variants via `cva()`, callers pass `variant`/`size` not classes
+- `cn()` from `lib/utils` for className merging, never string concat
+- `globals.css` = tokens/base/cross-feature utilities only; component-specific CSS stays in the component or a colocated CSS module
+- Extract a shared component before promoting styling to a global utility
 
 ## Component Constraints
-- **Max 300 lines per file** — split into sub-components or hooks when approaching the limit
-- **Max 2 `useState` calls per component** — more state goes into a custom hook or URL params
-- **No `useEffect`** — use server components, `use()`, SWR/React Query, or URL state instead
-- One component per file
-- Props interface declared above the component in the same file
 
----
+Max 300 lines/file (split into sub-components/hooks). Max 2 `useState`/component (else a custom hook or URL params). No `useEffect` — server components, `use()`, SWR/React Query, or URL state instead. One component per file. Props interface above the component.
 
 ## `"use client"` Discipline
-- Add `"use client"` only when the component uses browser APIs, event handlers, or hooks
-- Everything else is a Server Component by default — no exceptions
-- Keep client boundaries as deep (leaf) as possible — never make a layout or full page a client component
-- A page that needs one interactive widget: make the widget `"use client"`, keep the page a server component
 
----
+Only for browser APIs/handlers/hooks. Everything else is a Server Component. Keep client boundaries leaf-level — never a whole layout/page.
 
 ## TypeScript
-- No `any` — use `unknown` and narrow, or infer from zod schemas
-- No non-null assertion `!` unless the value is provably non-null at that point
-- Named exports for all components — default export only for Next.js pages and layouts (framework requirement)
 
----
+No `any` (use `unknown` + narrow, or infer from zod). No `!` unless provably non-null. Named exports except Next.js pages/layouts.
 
 ## URL-Driven UI State
-- Search query, active filters, sort order, current page, and open modal ID go in the URL
-- Use `nuqs` for typed URL search params — not `useSearchParams` directly
-- A page refresh must restore the exact UI state the user was in
-- No `useState(false)` for "is modal open" — use a URL param (e.g. `?modal=invite`)
 
----
+Search/filters/sort/page/open-modal live in the URL via `nuqs`, not `useSearchParams` or `useState`. Refresh must restore exact UI state.
 
 ## Data Fetching & Mutations
-- Fetch in **Server Components** by default — pass data down as props
-- Loading and error states use `<Suspense>` + `error.tsx` boundaries — no `isLoading` booleans
-- Use shadcn `<Skeleton>` for loading placeholders — no spinners
-- Hand-author skeleton shapes per route in `loading.tsx` — do not add Boneyard or similar auto-generated-skeleton tooling; the manual `<Skeleton>` + `loading.tsx` pattern already covers all routes with no extra build-step dependency
-- Mutations use **server actions** — no manual `fetch` calls in components
-- Server action naming: `<verb><Noun>Action` — e.g. `createCourseAction`, `deleteCardAction`
-- Action errors are returned as state — never thrown to the client
-- `useActionState` (React 19) consumes server action results
 
----
+Fetch in Server Components, pass down as props. Loading/error via `<Suspense>` + `error.tsx`, shadcn `<Skeleton>` (hand-authored per route in `loading.tsx`, no auto-skeleton tooling) — no `isLoading` booleans, no spinners. Mutations via server actions only, named `<verb><Noun>Action`. Errors returned as state, never thrown. `useActionState` consumes results.
 
-## Next.js Built-ins — Always Use, Never Bypass
-- Images → `next/image` with explicit `width`/`height` or `fill` — no raw `<img>`
-- Internal links → `next/link` — no raw `<a href>` for internal routes
-- Fonts → `next/font` — no Google Fonts `<link>` tags in HTML
-- 404 → `notFound()` from `next/navigation` in server components
-- Redirects → `redirect()` from `next/navigation` — no `router.push` in server components
+## Server-Side API Calls (`lib/server/api.ts`)
 
----
+All server-side fetches go through these — never raw `fetch()` with manual auth headers:
+- `apiGet<T>(path)` — server component reads, throws to `error.tsx`
+- `apiPost<T>(path, payload)` — one-shot POSTs, throws
+- `apiAction<T>(method, path, payload?, extraHeaders?)` — server actions, returns `ActionResult<T>`, never throws (`extraHeaders` for one-off headers like `Idempotency-Key`, don't add new positional params instead)
+- `apiUpload<T>(path, formData)` — multipart uploads, returns `ActionResult<T>`, omits `Content-Type` so the browser sets the boundary
 
-## Heavy Dependencies — Dynamic Import Always
-- Monaco Editor, React Flow, TipTap, Recharts → `dynamic(() => import(...), { ssr: false })`
-- Never statically import a heavy client-only library at the page level
+Client components calling the backend directly (not via server action) use `apiFetch<T>()` from `lib/client/api.ts` — don't redeclare it locally.
 
----
+A raw `fetch()` with a hand-built `Cookie` header is ESLint-flagged (`no-restricted-syntax`, `Property[key.name="Cookie"]`). Genuine exceptions (pre-session bootstrap, `forwardSetCookies`, Edge middleware) need an inline `eslint-disable-next-line` with a reason — see `lib/server/api.ts`, `middleware.ts`, `app/login/actions.ts` for precedent.
+
+`export type { ActionResult }` must never appear in a `"use server"` file — Next.js registers every export as a server reference at runtime, and a type-only export erases to a missing reference that crashes the page. Import `ActionResult` from `@/lib/server/api` directly instead.
+
+```ts
+// "use server" actions file:
+export async function uploadAssetAction(formData: FormData): Promise<ActionResult<{ url: string; storage_key: string }>> {
+  return apiUpload<{ url: string; storage_key: string }>("/api/upload", formData);
+}
+```
+
+## Next.js Built-ins
+
+`next/image` (no raw `<img>`), `next/link` (no raw `<a>` for internal routes), `next/font` (no Google Fonts `<link>`), `notFound()`, `redirect()` (no `router.push` in server components).
+
+## Heavy Dependencies
+
+Monaco, React Flow, TipTap, Recharts → `dynamic(() => import(...), { ssr: false })`. Never static-import at page level.
 
 ## Feedback
-- Success/error notifications via shadcn **Sonner** toast — no `alert()`, no custom toast state
 
----
+Sonner toast only — no `alert()`, no custom toast state.
 
 ## File & Import Conventions
-- File names: `kebab-case.tsx` — component name inside is PascalCase
-- Imports: always use `@/` alias — never `../../relative/paths`
-- No barrel `index.ts` re-export files — they slow bundling and hide dependencies
-- Route paths as constants in `lib/routes.ts` — no hardcoded `"/dashboard"` strings in components
 
----
+`kebab-case.tsx` files, PascalCase components, `@/` alias always (no `../../relative`), no barrel `index.ts` re-exports, route paths as constants in `lib/routes.ts` (no hardcoded strings).
 
 ## Feature Flags & Subscription Gating
 
-**Every gated feature uses `<AccessGate>` from day 1.** Two axes, both resolved server-side, frontend just trusts them: **org toggle** (admin turns a feature ON/OFF for the whole org — OFF means fully hidden, no lock/CTA) and **user entitlement** (plan / add-on / org-granted seat — resolved into `orgFeatures`, `entitlements`, `lockedInfo` by `getFeatureConfig()` in root `app/layout.tsx`, cached 60s, exposed via `<FeatureFlagProvider>` and the `useIsEntitled()` / `useIsOrgFeatureEnabled()` / `useLockedInfo()` hooks).
+Every gated feature uses `<AccessGate>` from day 1. Two server-resolved axes: org toggle (admin on/off) and user entitlement (plan/add-on/seat) — exposed via `<FeatureFlagProvider>` and `useIsEntitled()` / `useIsOrgFeatureEnabled()` / `useLockedInfo()`.
 
-**Mode decision guide** for `<AccessGate feature={FEATURES.X} mode="lock|badge|hide">`:
-
-| Situation | Mode | What user sees |
+| Situation | Mode | Result |
 |---|---|---|
-| Org ON, user not entitled — show what they're missing (default, prefer this for discoverability) | `lock` | Content blurred + lock icon + CTA from `lockedInfo` |
-| Nav/sidebar item user doesn't have | `badge` | Item visible + "Add-on"/"Upgrade" badge |
-| Feature the user must never know exists | `hide` | Nothing rendered (use sparingly) |
-| Org OFF entirely | N/A | Renders nothing automatically |
+| Org ON, not entitled (default, prefer for discoverability) | `lock` | Blurred + lock icon + CTA from `lockedInfo` |
+| Nav item user lacks | `badge` | Visible + "Add-on"/"Upgrade" badge |
+| Must stay unknown | `hide` | Nothing rendered (rare) |
+| Org OFF | N/A | Renders nothing automatically |
 
-Lock CTA text always comes from `lockedInfo.unlock_via` (`"addon"` → "Add X", `"plan"` → "Upgrade Plan", `"org_admin"` → "Contact your admin", `"plan_or_addon"` → show both) — the component never invents CTA copy.
+CTA text always from `lockedInfo.unlock_via` — never invented client-side.
 
-**Server-side guard `page.tsx` too — UI gates are UX, not security:** `await requireAccess(FEATURES.WIKI)` (404 if org-OFF, redirect to `/billing?feature=X` if not entitled), or `requireOrgFeature()` / `requireEntitlement()` for a single-axis check.
+**Always guard `page.tsx` server-side too** — UI gates are UX, not security: `await requireAccess(FEATURES.X)`, or `requireOrgFeature()`/`requireEntitlement()`.
 
-**`<AccessGate>` is never written at a component's call site** — pick one:
-| Situation | Pattern |
-|---|---|
-| Component always belongs to one feature (WikiCard) | `export const WikiCard = withFeature(WikiCardBase, FEATURES.WIKI)` — bakes the gate in once, callers never wrap it |
-| Sidebar / nav / feature grid | Config-driven: add `feature`/`mode` to the nav-item object (`lib/nav.ts`), the renderer applies the gate |
-| Entire page/route | Server guard at the top of `page.tsx`; the rendered tree needs no internal gate |
-| Section within a mixed page | `<AccessGate>` directly — the one valid call-site use |
+`<AccessGate>` call-site rule: single-feature component → `withFeature(Base, FEATURES.X)` wrapper baked in once; nav/sidebar → config-driven (`feature`/`mode` on the nav-item object); whole page → server guard only, no internal gate; mixed page section → `<AccessGate>` inline (the one valid direct use).
 
-**Banned:** any `if (user.plan === 'pro')` / `if (user.subscription === ...)` comparison in a component; hardcoded plan or feature strings (`"pro"`, `"wiki"`) instead of `PLANS.*`/`FEATURES.*`; deciding lock CTA text client-side; fetching feature config client-side (root layout already fetches once).
-
----
+**Banned:** `if (user.plan === 'pro')` comparisons in components, hardcoded plan/feature strings instead of `PLANS.*`/`FEATURES.*`, client-side lock CTA text, client-side feature-config fetching (root layout fetches once).
 
 ## Config & Server-Driven Options
 
-**No option list, dropdown, or enum is hardcoded in a component.**
-
-- Role lists, difficulty levels, status values, language options, category lists, plan tiers, verdict options — all come from the server (API response or server component prop) or from a constants file (`lib/constants.ts`)
-- Components receive `options: { label: string; value: string }[]` as a prop — they never define the array themselves
-- If an option list is static (never changes per org/user), it lives in `lib/constants.ts` — one place, imported everywhere
-- If an option list varies per org or user, it is fetched server-side and passed down as props
-- No `const ROLES = ["admin", "instructor", "student"]` inside a component file
-- Filter panels, sort dropdowns, and status selectors all derive their options from a single source — changing a value in one place updates every UI that uses it
-
----
+No option list/dropdown/enum hardcoded in a component. Static lists → `lib/constants.ts`, imported everywhere. Per-org/user lists → fetched server-side, passed as props. Components take `options: {label, value}[]`, never define the array. One source of truth per option set.
 
 ## Accessibility
-- Semantic HTML: `<main>`, `<nav>`, `<header>`, `<section>`, `<article>` — no `<div>` soup for structure
-- Icon-only buttons must have `aria-label`
-- Never override shadcn's focus ring or keyboard navigation styles
+
+Semantic HTML (`<main>`/`<nav>`/`<header>`/`<section>`/`<article>`), `aria-label` on icon-only buttons, never override shadcn's focus ring or keyboard nav.

@@ -1,6 +1,7 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, CheckCircle2, Brain } from "lucide-react";
+import { Clock, CheckCircle2, Brain, Terminal } from "lucide-react";
 import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
 import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote } from "@/lib/server/courses";
@@ -14,6 +15,8 @@ import { LabFixedConsole } from "@/components/labs/lab-fixed-console";
 import { LessonCompilerToggle } from "@/components/courses/lesson-compiler-toggle";
 import { ModuleGateProvider } from "@/components/courses/module-gate-provider";
 import { HighlightProvider } from "@/components/highlights/highlight-provider";
+import { LessonLabProvider } from "@/components/courses/lesson-lab-provider";
+import { LessonLabHero } from "@/components/courses/lesson-lab-hero";
 import { getHighlightsForSource } from "@/lib/server/highlights";
 import { MODULE_TYPE_LABEL } from "@/lib/courses/module-types";
 import { computeCompletion } from "@/lib/courses/progress";
@@ -29,11 +32,11 @@ import { ModuleNavFooter } from "@/components/courses/module-nav-footer";
 import { ModuleVideo } from "@/components/courses/module-video";
 import { ModulePDF } from "@/components/courses/module-pdf";
 import { ModuleNotes } from "@/components/courses/module-notes";
+import { LessonNotes } from "@/components/courses/lesson-notes";
 import { ModuleAssessment } from "@/components/courses/module-assessment";
 import { ModuleLab } from "@/components/courses/module-lab";
 import { ModuleSystemDesign } from "@/components/courses/module-system-design";
-import { DeleteSelfCourseModuleButton } from "@/components/courses/delete-self-course-module-button";
-import { ReportContentButton } from "@/components/shared/report-content-button";
+import { LessonMoreMenu } from "@/components/courses/lesson-more-menu";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -120,11 +123,30 @@ export default async function ModuleLearnPage({ params }: Props) {
   const isLabOpen = Boolean(
     moduleLab?.initialSession && isLabSessionActive(moduleLab.initialSession.session.status),
   );
+  // True before the student has ever started a lab attached to this lesson —
+  // the Launch Lab hero (badges, title, button) then renders in the right
+  // rail below instead of inline in the lesson body (see ModuleNotes).
+  const hasUnstartedLab = Boolean(moduleLab?.lab) && !moduleLab?.initialSession;
+  // Whether the rail should keep hosting <LessonLabHero> at all — not just
+  // "not started" (hasUnstartedLab) but also mid-provisioning: once the
+  // student clicks Launch Lab the session isn't running yet (isLabOpen is
+  // still false, since isLabSessionActive excludes "provisioning"), so the
+  // layout hasn't switched to the wide no-rail treatment yet either. Gating
+  // this on hasUnstartedLab alone made the rail's End Lab / provisioning
+  // status disappear the instant the student clicked Launch Lab, with
+  // nothing replacing it until isLabOpen flips true — this keeps
+  // LessonLabHero mounted through that gap so its own provisioning-card
+  // branch has somewhere to render. Once running/paused, isLabOpen goes
+  // true and the rail is hidden by the wide-layout switch anyway (see
+  // isWideLayout below), so this never doubles up with the inline
+  // ModuleNotes copy's "End Lab" header.
+  const showLabInRail = Boolean(moduleLab?.lab) && !isLabOpen;
   // system_design no longer needs the wide/no-rail treatment: its default
   // view is a compact guidance card like any other module, and the
   // whiteboard opens in its own fixed-position overlay that already escapes
   // this page's layout — so it gets the same right rail (progress bar,
-  // badges, Mark as Complete, next module) as every other module type.
+  // badges) and bottom nav footer (Mark as Complete, next module) as every
+  // other module type.
   const isWideLayout = currentModule.type === "lab" || isLabOpen;
 
   const moduleMeta = (
@@ -150,11 +172,43 @@ export default async function ModuleLearnPage({ params }: Props) {
           </Badge>
         </Link>
       )}
+      {/* Lab type moved here from <LessonLabHero>'s own badge row — that row
+          was cramming 4 badges into the w-80 rail card and wrapping.
+          Duration stays out of here deliberately: this row already has the
+          lesson's own estimated_minutes clock badge, and the lab's
+          max_duration is a different number that happens to coincide with
+          it in most fixtures — two identical clock badges side by side
+          reads as a duplicate, not two facts. Duration, task count, and
+          points all stay on the lab card itself. */}
+      {hasUnstartedLab && moduleLab?.lab && (
+        <Badge className="capitalize" variant="outline">
+          <Terminal aria-hidden className="mr-1 h-3 w-3" />{moduleLab.lab.lab_type}
+        </Badge>
+      )}
     </>
   );
 
+  // LessonLabProvider needs a non-null lab, so it can't wrap unconditionally
+  // — Fragment is a drop-in stand-in with the same `{children}` shape for
+  // modules with no attached lab, letting the JSX below wrap once instead of
+  // duplicating the whole article+rail block per branch.
+  const LabProviderWrapper = moduleLab?.lab
+    ? function LabProviderWrapper({ children }: { children: React.ReactNode }) {
+        return (
+          <LessonLabProvider initialSession={moduleLab.initialSession ?? null} lab={moduleLab.lab}>
+            {children}
+          </LessonLabProvider>
+        );
+      }
+    : Fragment;
+
   return (
-    <ModuleGateProvider initialPassedIds={passedCheckIds} requiredIds={requiredCheckIds}>
+    <ModuleGateProvider
+      initialPassedIds={passedCheckIds}
+      labCompleted={moduleLab?.initialSession?.session.status === "completed"}
+      labRequired={Boolean(moduleLab?.lab)}
+      requiredIds={requiredCheckIds}
+    >
     <div className="flex flex-col items-start gap-6 lg:flex-row">
       {courseComplete && !myCourseFeedback && <CourseCompletionPrompt courseId={course.id} />}
 
@@ -173,19 +227,43 @@ export default async function ModuleLearnPage({ params }: Props) {
           progress={progressModules}
         />
 
-        {/* eslint-disable-next-line no-restricted-syntax -- nested content column inside a custom sidebar split, not the page's top-level shell; no .page-header exists here so py-* is this column's only vertical spacing */}
-        <div className="page-container flex items-start gap-6 py-6 lg:py-8 xl:gap-10">
-          <article className={cn("min-w-0 flex-1", !isWideLayout && "max-w-3xl")}>
-            <div className="mb-6 flex flex-wrap items-center gap-2 xl:hidden">
-              {moduleMeta}
-            </div>
+        {/* No gap-* / justify-* on this row: article's own mx-auto (below)
+            splits 100% of the row's leftover width evenly as its left/right
+            margins, so article ends up centered between the nav edge and
+            the rail, with the rail flush to the row's right edge (mirrors
+            the nav sidebar pinned to the left — no dead strip past the
+            rail). A gap-* here would sit on top of that auto-margin split
+            rather than replace it, making the article-to-rail side bigger
+            than the nav-to-article side by the gap amount — exactly the
+            lopsided spacing this replaced. No effect on the isWideLayout
+            case (article alone, no max-w cap, already fills the row).
+            No px-* here (unlike .page-container elsewhere): this column
+            already sits inside <main class="app-content">'s own edge
+            padding, so adding a second edge gutter here would just push the
+            rail further from the page edge for no reason. */}
+        {/* eslint-disable-next-line no-restricted-syntax -- nested content column inside a custom sidebar split, not the page's top-level shell; no .page-header exists here so py-* is this column's only vertical spacing, and .page-container's px-* would double up with app-content's own edge padding */}
+        <div className="mx-auto max-w-7xl flex items-start py-6 lg:py-8">
+        <LabProviderWrapper>
+          <article className={cn("min-w-0 flex-1", !isWideLayout && "mx-auto max-w-3xl")}>
+            {!isWideLayout && (
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <h2 className="min-w-0 flex-1 text-xl font-semibold">{currentModule.title}</h2>
+                <LessonMoreMenu
+                  courseSlug={slug}
+                  fallbackModuleId={(prevModule ?? nextModule)?.id ?? null}
+                  isSelfCourse={course.kind === "self"}
+                  moduleId={moduleId}
+                  moduleTitle={currentModule.title}
+                />
+              </div>
+            )}
+            <div className="mb-6 flex flex-wrap items-center gap-2">{moduleMeta}</div>
 
             {currentModule.type === "video" && content?.presigned_url && (
               <ModuleVideo
                 initialPositionSeconds={moduleProgress?.last_position_seconds}
                 moduleId={moduleId}
                 presignedUrl={content.presigned_url}
-                title={currentModule.title}
               />
             )}
             {currentModule.type === "pdf" && content?.presigned_url && (
@@ -205,14 +283,11 @@ export default async function ModuleLearnPage({ params }: Props) {
               >
                 <ModuleNotes
                   highlights={initialHighlights}
-                  initialCompleted={moduleProgress?.status === "completed"}
-                  initialNote={initialNote}
                   initialReflection={initialReflection}
                   initialSession={moduleLab?.initialSession ?? null}
                   lab={moduleLab?.lab ?? null}
                   moduleId={moduleId}
                   segments={notes.segments}
-                  title={currentModule.title}
                 />
               </HighlightProvider>
             )}
@@ -220,7 +295,6 @@ export default async function ModuleLearnPage({ params }: Props) {
               <ModuleAssessment
                 assessmentId={currentModule.assessment_id}
                 moduleId={moduleId}
-                title={currentModule.title}
               />
             )}
             {currentModule.type === "lab" && (
@@ -239,32 +313,37 @@ export default async function ModuleLearnPage({ params }: Props) {
               </div>
             )}
 
-            <ModuleNavFooter courseSlug={slug} nextModule={nextModule} prevModule={prevModule} />
+            <ModuleNavFooter
+              completeButton={
+                (currentModule.type === "notes" || currentModule.type === "system_design") ? (
+                  <ModuleCompleteButton
+                    initialCompleted={moduleProgress?.status === "completed"}
+                    moduleId={moduleId}
+                  />
+                ) : null
+              }
+              courseSlug={slug}
+              nextModule={nextModule}
+              prevModule={prevModule}
+            />
           </article>
 
           {!isWideLayout && (
             <ModuleProgressRail>
               <CourseProgressBar completed={completedCount} total={totalCount} />
-              <div className="flex flex-wrap items-center gap-2">{moduleMeta}</div>
-              {(currentModule.type === "notes" || currentModule.type === "system_design") && (
-                <ModuleCompleteButton
-                  initialCompleted={moduleProgress?.status === "completed"}
-                  moduleId={moduleId}
-                />
-              )}
-              {course.kind === "self" && (
-                <DeleteSelfCourseModuleButton
-                  courseSlug={slug}
-                  fallbackModuleId={(prevModule ?? nextModule)?.id ?? null}
-                  moduleId={moduleId}
-                  moduleTitle={currentModule.title}
-                />
-              )}
-              <ReportContentButton contentId={moduleId} contentType="course_module" />
-              {/* Next-module navigation lives once, in <ModuleNavFooter> at the
-                  bottom of the article (alongside Previous) — do not duplicate
-                  it here in the rail. */}
+              {/* Mark as Complete lives once, at the bottom of the article via
+                  <ModuleNavFooter>'s completeButton slot — do not duplicate it
+                  here in the rail. Delete lesson / Report moved to
+                  <LessonMoreMenu> next to the title above. */}
               {firstRunnableLanguage && <LessonCompilerToggle language={firstRunnableLanguage} />}
+              {notes && <LessonNotes initialContent={initialNote} moduleId={moduleId} />}
+              {/* Launch Lab card (and its provisioning/End Lab states) for a
+                  lesson's attached lab — lives here instead of inline in the
+                  lesson body (see ModuleNotes) so it doesn't interrupt the
+                  reading flow. showLabInRail (not hasUnstartedLab) keeps it
+                  mounted through the provisioning gap — see that variable's
+                  comment above. */}
+              {showLabInRail && <LessonLabHero pageTitle={currentModule.title} />}
               {notes && (
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <ModuleToc entries={notes.toc} />
@@ -272,6 +351,7 @@ export default async function ModuleLearnPage({ params }: Props) {
               )}
             </ModuleProgressRail>
           )}
+        </LabProviderWrapper>
 
           {/* The rail above is hidden while the lab split is open, so "On
               this page" relocates to the same draggable bottom dock a

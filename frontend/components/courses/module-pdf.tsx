@@ -16,13 +16,12 @@ export function ModulePDF({ moduleId, presignedUrl, title }: ModulePDFProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">{title}</h2>
+      <div className="flex justify-end">
         <a
-          href={presignedUrl}
-          target="_blank"
-          rel="noopener noreferrer"
           className="text-sm text-primary hover:underline"
+          href={presignedUrl}
+          rel="noopener noreferrer"
+          target="_blank"
           onClick={() => updateProgressAction({ moduleID: moduleId, status: "completed" }).then((r) => {
             if (r.ok && r.data?.rewards) showRewardToasts(r.data.rewards);
           })}
@@ -31,9 +30,9 @@ export function ModulePDF({ moduleId, presignedUrl, title }: ModulePDFProps) {
         </a>
       </div>
       <iframe
+        className="min-h-[60dvh] w-full rounded-lg border border-border"
         src={presignedUrl}
         title={title}
-        className="min-h-[60dvh] w-full rounded-lg border border-border"
         onLoad={handleLoad}
       />
     </div>

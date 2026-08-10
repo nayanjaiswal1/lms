@@ -26,6 +26,14 @@ var (
 		"guided":     true,
 		"sandbox":    true,
 	}
+	// validWorkspaceLayouts mirrors lab_definitions_workspace_layout_check
+	// (backend/db/migrations/001_baseline.sql). Empty is also accepted here —
+	// the generator defaults it to "split".
+	validWorkspaceLayouts = map[string]bool{
+		"":        true,
+		"split":   true,
+		"console": true,
+	}
 	validQuestionTypes = map[string]bool{
 		"mcq":        true,
 		"coding":     true,
@@ -172,6 +180,9 @@ func (s *LabSpec) validate(ctx string) []error {
 
 	if !validLabTypes[s.LabType] {
 		errs = append(errs, fmt.Errorf("%s: invalid lab_type %q", ctx, s.LabType))
+	}
+	if !validWorkspaceLayouts[s.WorkspaceLayout] {
+		errs = append(errs, fmt.Errorf("%s: invalid workspace_layout %q", ctx, s.WorkspaceLayout))
 	}
 	if strings.TrimSpace(s.Environment) == "" {
 		errs = append(errs, fmt.Errorf("%s: environment is required", ctx))

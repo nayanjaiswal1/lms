@@ -168,6 +168,28 @@ must equal the main server's `JWT_SECRET` — the backend mints lab session
 tokens that labproxy verifies. In prod, `LABPROXY_DB_URL`/`LABPROXY_REDIS_URL`
 mirror `DATABASE_URL`/`REDIS_URL`.
 
+### Live app preview (`LABPROXY_PREVIEW_DOMAIN`)
+
+`LABPROXY_PREVIEW_DOMAIN` is required and fatal-at-boot if unset (`cmd/labproxy/main.go`,
+same pattern as `LABPROXY_DB_URL`/`LABPROXY_JWT_SECRET`). Every previewed app port+session
+gets its own real origin — `p<port>-<sessionID>.<LABPROXY_PREVIEW_DOMAIN>` — instead of
+sharing one origin with a port cookie, so two ports (or two students) previewed at once no
+longer fight over which one's absolute-path assets resolve; see `cmd/labproxy/host.go` and
+`preview_host.go`. It must be a subdomain of the main `DOMAIN` (e.g. `labs.<DOMAIN>`) so
+`SameSite=Lax` still holds for the preview redirect, and a single wildcard cert
+(`*.<LABPROXY_PREVIEW_DOMAIN>`) can only ever cover one dynamic DNS label — packing port
+and session into one label (`p<port>-<sessionID>`) is what makes that work; `port.sessionID.domain`
+would need a cert for `*.*.domain`, which no CA issues. Dev sets this to `"localhost"`
+directly in `docker-compose.dev.yml` (`*.localhost` resolves to loopback with zero config
+and is treated as a secure context by every major browser, so the `__Host-`-prefixed preview
+cookie still works over plain HTTP).
+
+A wildcard cert needs DNS-01 issuance (HTTP-01 can't prove control of a wildcard name) — the
+Compose/Caddy path handles this via `CADDY_DNS_PROVIDER`/`CADDY_DNS_API_TOKEN` (a custom Caddy
+build, see `Dockerfile.caddy` and `Caddyfile`'s `*.{$LABPROXY_PREVIEW_DOMAIN}` block); the
+Kubernetes path ignores those two vars entirely and instead expects a `letsencrypt-dns01`
+`ClusterIssuer` cluster prerequisite, referenced by `k8s/base/certificate-preview.yaml`.
+
 ### Nested Docker-in-Docker (`backend/.env` dev example)
 
 Off by default — an empty `LABS_NESTED_DOCKER_RUNTIME` means the feature
@@ -187,6 +209,35 @@ rootless-dind grant for every nested-docker image regardless of which one a
 course points at, which would run the sysbox image under the wrong mechanism
 and fail. Docker Desktop cannot run sysbox-runc at all (see `docs/labs.md`) —
 only a real Docker Engine host can.
+
+Under `LABS_RUNTIME=kubernetes`, the equivalent knob is
+`LABS_NESTED_DOCKER_RUNTIME_CLASS` — a Kubernetes `RuntimeClass` name, not a
+Docker mechanism string. It must reference a `RuntimeClass` already
+registered in the cluster (`kubectl get runtimeclass`) or every nested-docker
+session hard-fails before a Pod is even created. See
+`docs/local-k3s-dev.md` for wiring `sysbox-runc` into a local k3s cluster via
+`scripts/setup-sysbox-local.sh`.
+
+### `LABS_IMAGE_REGISTRY` (Kubernetes runtime only)
+
+Optional. Content frontmatter and `LABS_IMAGE_PROFILES` always use bare image
+names (`mindforge/lab-k8s:1.31`) so the same values work in every
+environment — `LABS_IMAGE_REGISTRY` is the one per-deploy knob that decides
+where the Kubernetes runtime actually pulls that name from, prepended as
+`<registry>/<image>` at Pod-creation time (`runtime_kubernetes.go`,
+`qualifyImage`). Classification against `LABS_IMAGE_PROFILES` always happens
+on the bare name first, so profile mappings never need the registry either.
+
+Empty (default) leaves images bare — the runtime must already have them
+(e.g. imported directly into k3s's containerd via `docker save | k3s ctr
+images import -`, as `scripts/setup-sysbox-local.sh` used to do ad hoc).
+Set it to push+pull through a real registry instead: `scripts/push-lab-
+images.sh` builds every `lab-images/*` Dockerfile and pushes to `REGISTRY`
+(env var to that script — any registry: a local throwaway one for dev, or
+`ghcr.io/youruser` for a real deploy), then set `LABS_IMAGE_REGISTRY` to the
+same value. See `docs/local-k3s-dev.md` for the local-dev default (a
+`registry:2` container at `localhost:5000`, with k3s's containerd configured
+to trust it as plain HTTP).
 
 ## LLM Provider
 

@@ -8,7 +8,7 @@ import { Terminal, Clock, CheckSquare, Loader2, LogOut, Maximize2 } from "lucide
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LabReadinessWait } from "@/components/labs/lab-readiness-wait";
+import { LabReadinessInline } from "@/components/labs/lab-readiness-inline";
 import { LabTimer } from "@/components/labs/lab-timer";
 import { LabWorkspaceContent, isLabAuthError } from "@/components/labs/lab-workspace-content";
 import { startLabSessionAction, endLabSessionAction } from "@/app/(app)/labs/[labId]/actions";
@@ -86,7 +86,7 @@ export function ModuleLabClient({ lab, title, initialSession }: ModuleLabClientP
 
   if (initialSession?.session.status === "provisioning") {
     return (
-      <LabReadinessWait
+      <LabReadinessInline
         sessionId={initialSession.session.id}
         onFailed={() => router.refresh()}
         onReady={() => router.refresh()}

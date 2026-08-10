@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	utilexec "k8s.io/client-go/util/exec"
 )
@@ -49,6 +50,9 @@ type KubernetesContainerService struct {
 	// than approximate elevated capabilities on a shared node pool with no
 	// RuntimeClass isolation.
 	profiles map[string]ImageProfile
+	// registry is config.LabsImageRegistry — see its doc comment. Empty
+	// means Pod specs use the bare image name unchanged.
+	registry string
 }
 
 // NewKubernetesContainerService returns a KubernetesContainerService using
@@ -57,11 +61,11 @@ type KubernetesContainerService struct {
 // this service account pods (create/get/list/watch/delete) and pods/exec
 // (create) in that namespace. profiles maps an environment image to the
 // ImageProfile deciding its Pod config — see profile.go and docs/labs.md
-// "Nested Docker labs".
-func NewKubernetesContainerService(namespace string, profiles map[string]ImageProfile) (*KubernetesContainerService, error) {
-	restConfig, err := rest.InClusterConfig()
+// "Nested Docker labs". registry is config.LabsImageRegistry (may be empty).
+func NewKubernetesContainerService(namespace string, profiles map[string]ImageProfile, registry string) (*KubernetesContainerService, error) {
+	restConfig, err := loadRestConfig()
 	if err != nil {
-		return nil, fmt.Errorf("labs.NewKubernetesContainerService: in-cluster config: %w", err)
+		return nil, fmt.Errorf("labs.NewKubernetesContainerService: %w", err)
 	}
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
@@ -72,8 +76,26 @@ func NewKubernetesContainerService(namespace string, profiles map[string]ImagePr
 	}
 	return &KubernetesContainerService{
 		clientset: clientset, restConfig: restConfig, namespace: namespace,
-		profiles: profiles,
+		profiles: profiles, registry: registry,
 	}, nil
+}
+
+// loadRestConfig returns the in-cluster service account config when running
+// as a Pod, falling back to the standard kubeconfig loading rules ($KUBECONFIG,
+// then ~/.kube/config) when not — the same fallback kubectl itself uses. This
+// lets the backend run natively (e.g. on the dev host, hot-reloading outside
+// the cluster) against a real cluster's Kubernetes API, same as in prod,
+// rather than a separate non-Kubernetes runtime standing in for it locally.
+func loadRestConfig() (*rest.Config, error) {
+	if cfg, err := rest.InClusterConfig(); err == nil {
+		return cfg, nil
+	}
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{}).ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("no in-cluster config and no usable kubeconfig (checked $KUBECONFIG and ~/.kube/config): %w", err)
+	}
+	return cfg, nil
 }
 
 // Classify implements ContainerRuntime — see DockerContainerService.Classify
@@ -100,6 +122,16 @@ func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID strin
 // ContainerRuntime.ExecSetup and this type's own doc comment.
 func (k *KubernetesContainerService) ExecSetup(ctx context.Context, containerID, script string, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
 	return k.execWithStdin(ctx, containerID, script, nil, timeoutSec)
+}
+
+// qualifyImage prepends the configured registry to a bare image name for the
+// Pod spec. Must run AFTER Classify/profile lookup — profiles are keyed by
+// the bare name from LABS_IMAGE_PROFILES, which never includes a registry.
+func (k *KubernetesContainerService) qualifyImage(image string) string {
+	if k.registry == "" {
+		return image
+	}
+	return k.registry + "/" + image
 }
 
 func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image string) (containerID, containerHost string, err error) {
@@ -140,7 +172,7 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 			AutomountServiceAccountToken: boolPtr(false),
 			Containers: []corev1.Container{{
 				Name:  "sandbox",
-				Image: image,
+				Image: k.qualifyImage(image),
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceCPU:    cpuQty,
@@ -168,15 +200,41 @@ func (k *KubernetesContainerService) startPod(ctx context.Context, name string, 
 		// single-host Docker deploy where it's at least the sole tenant of
 		// the elevated network segment (see docs/labs.md).
 		pod.Spec.RuntimeClassName = &profile.K8sRuntimeClass
+		if profile.K8sRuntimeClass == "sysbox-runc" {
+			// Sysbox virtualizes the container's root user via its own user
+			// namespace; without hostUsers: false the kubelet still maps the
+			// pod to the host's root UID before sysbox ever sees it, which
+			// defeats that isolation (see docs.k3s.io "Sysbox Runtime With
+			// K3s"). kata-containers has no such requirement.
+			pod.Spec.HostUsers = boolPtr(false)
+		}
 	}
 	if profile.K8sExtraVolume {
+		diskGB := profile.K8sExtraVolumeSizeGB
+		if diskGB == 0 {
+			diskGB = NestedContainerDiskGB
+		}
+		diskQty, err := resource.ParseQuantity(fmt.Sprintf("%dGi", diskGB))
+		if err != nil {
+			return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: parse disk quantity: %w", err)
+		}
+		// SizeLimit bounds the emptyDir itself; the container's own
+		// ephemeral-storage limit makes the scheduler and kubelet eviction
+		// both aware of the same budget (otherwise a full emptyDir just
+		// triggers disk pressure on the node instead of a clean per-pod
+		// limit). Without either, a student's `docker build`/image pulls
+		// share the node's disk unbounded — see NestedContainerDiskGB.
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name:         "docker-lib",
-			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+			Name: "docker-lib",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: &diskQty},
+			},
 		})
 		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name: "docker-lib", MountPath: "/var/lib/docker",
 		})
+		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceEphemeralStorage] = diskQty
+		pod.Spec.Containers[0].Resources.Limits[corev1.ResourceEphemeralStorage] = diskQty
 	}
 
 	created, err := k.clientset.CoreV1().Pods(k.namespace).Create(ctx, pod, metav1.CreateOptions{})

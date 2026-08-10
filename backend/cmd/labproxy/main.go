@@ -20,6 +20,7 @@ func main() {
 	redisURL := getEnv("LABPROXY_REDIS_URL", "redis://localhost:6379/0")
 	jwtSecret := os.Getenv("LABPROXY_JWT_SECRET")
 	jwtIssuer := getEnv("LABPROXY_JWT_ISSUER", "mindforge-labproxy")
+	previewDomain := os.Getenv("LABPROXY_PREVIEW_DOMAIN")
 
 	if dbURL == "" {
 		slog.Error("labproxy: LABPROXY_DB_URL is required")
@@ -27,6 +28,10 @@ func main() {
 	}
 	if jwtSecret == "" {
 		slog.Error("labproxy: LABPROXY_JWT_SECRET is required")
+		os.Exit(1)
+	}
+	if previewDomain == "" {
+		slog.Error("labproxy: LABPROXY_PREVIEW_DOMAIN is required")
 		os.Exit(1)
 	}
 
@@ -49,7 +54,7 @@ func main() {
 	rdb := redis.NewClient(redisOpts)
 	defer rdb.Close()
 
-	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer)
+	handler := NewProxyHandler(pool, rdb, jwtSecret, jwtIssuer, previewDomain)
 
 	mux := http.NewServeMux()
 	mux.Handle("/ws", handler)
@@ -57,15 +62,33 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
 	})
-	// Live app preview: token-in-path entry for the iframe document, plus a
-	// cookie-resolved catch-all for the app's absolute-path subresources.
-	// ServeMux picks the longest pattern, so /ws and /health stay unaffected.
+	// Live app preview entry point: validates the token and 302s to the
+	// preview subdomain (see preview.go's ServePreview doc comment). Once
+	// there, every request is dispatched by the host-based router below —
+	// this mux never sees them.
 	mux.HandleFunc("/preview/", handler.ServePreview)
-	mux.HandleFunc("/", handler.ServePreviewAsset)
+
+	// Host-based routing for preview subdomains
+	// (p<port>-<sessionID>.<previewDomain>) — checked ahead of the ordinary
+	// mux above so every path on a matching Host goes to the preview
+	// handlers regardless of what it looks like, and every other Host falls
+	// through to /ws, /health, /preview/ unchanged.
+	root := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		previewPort, sessionID, ok := splitPreviewHost(r.Host, previewDomain)
+		if !ok {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/__mf/preview-auth" {
+			handler.ServePreviewAuth(w, r, previewPort, sessionID)
+			return
+		}
+		handler.ServePreviewPassthrough(w, r, previewPort, sessionID)
+	})
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: mux,
+		Handler: root,
 	}
 
 	go func() {

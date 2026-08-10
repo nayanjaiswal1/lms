@@ -12,33 +12,26 @@ import (
 	"strings"
 )
 
-// previewCookieName carries the preview token for absolute-path subresource
-// requests. The lab app inside the container serves absolute URLs
-// (/static/app.css, /@vite/client, …) that escape the /preview/{token}/
-// prefix; those land on ServePreviewAsset, which resolves the session from
-// this cookie instead. SameSite=Lax works because SameSite ignores ports:
-// the app on :3000 embedding labproxy on :8081 of the same host is
-// same-site, in dev (localhost) and in prod (same registrable domain) alike.
-const previewCookieName = "mf_preview_token"
-
-// previewCookiePortName carries the explicit preview port alongside the token
-// cookie, so absolute-path subresource requests resolve against the same
-// container port their document was served from.
-// ponytail: one shared port cookie ⇒ only one port's absolute-path assets
-// resolve at a time; upgrade path is subdomain-per-port routing.
-const previewCookiePortName = "mf_preview_port"
-
 // ttydPort is the container port labproxy's terminal path already owns; the
 // preview proxy must never route HTTP traffic to it.
 const ttydPort = 7681
 
-// splitPreviewPort peeks at the path remainder after the token segment: an
-// all-digits first segment is an explicit container port (sandbox multi-port
-// previews), anything else means "use the lab's configured preview_port".
-// Returns the port (0 = not specified) and the path with the port stripped.
-// ponytail: a single-port app serving an all-digits top-level path would be
-// misread as a port request — acceptable; subdomain-per-port is the upgrade.
-func splitPreviewPort(path string) (int, string) {
+// splitEntryPort peeks at the path remainder after the token segment in the
+// one-shot /preview/{token}/{port}/{path} entry URL: an all-digits first
+// segment is the frontend's explicit container port (use-lab-preview.ts only
+// ever sends one for multi-port labs), anything else is passed straight
+// through as the initial path to hand off as ServePreviewAuth's "next".
+//
+// This used to be ambiguous (ponytail: an all-digits app path segment could
+// be misread as a port) because the old design re-entered this same parser
+// on every relative link the previewed app followed. That's no longer true:
+// ServePreview now redirects to a preview subdomain exactly once per token,
+// and every request after that — including the app's own relative-link
+// navigation — resolves directly against the subdomain via ordinary
+// host-based routing (ServePreviewPassthrough in preview_host.go) and never
+// re-enters this function. Subdomain-per-port routing was the named upgrade;
+// this is it.
+func splitEntryPort(path string) (int, string) {
 	seg, rest, _ := strings.Cut(path, "/")
 	port, err := strconv.Atoi(seg)
 	if err != nil || seg == "" || port <= 0 {
@@ -56,15 +49,25 @@ func validPreviewPort(port int) bool {
 // previewTarget validates a preview token and resolves the container URL the
 // request must be proxied to. reqPort > 0 selects an explicit container port
 // (validated here); reqPort == 0 falls back to the lab's configured
-// preview_port. Returns a non-nil *url.URL on success; otherwise the HTTP
-// status and message the caller should write.
-func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort int) (*url.URL, int, string) {
+// preview_port. wantSessionID, when non-empty, must equal the token's own
+// claims.SessionID or the request is rejected with 403 — this is the guard
+// that stops a token minted for one session being replayed against a
+// different session's preview subdomain (see preview_host.go). Pass ""
+// to skip that check (used only by ServePreview, before any subdomain host
+// exists to compare against).
+//
+// Returns a non-nil *url.URL and the resolved port + session ID on success;
+// otherwise a zero URL, the HTTP status, and message the caller should write.
+func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort int, wantSessionID string) (target *url.URL, resolvedPort int, sessionID string, status int, msg string) {
 	claims, err := validateWSToken(tokenStr, h.jwtSecret, h.jwtIssuer)
 	if err != nil {
-		return nil, http.StatusUnauthorized, "unauthorized"
+		return nil, 0, "", http.StatusUnauthorized, "unauthorized"
 	}
 	if !h.tokenIsLive(r.Context(), tokenStr) {
-		return nil, http.StatusUnauthorized, "token revoked or expired"
+		return nil, 0, "", http.StatusUnauthorized, "token revoked or expired"
+	}
+	if wantSessionID != "" && claims.SessionID != wantSessionID {
+		return nil, 0, "", http.StatusForbidden, "token session mismatch"
 	}
 
 	var sess labSession
@@ -77,21 +80,21 @@ func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort i
 		claims.SessionID,
 	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerID, &sess.ContainerHost, &previewPort)
 	if err != nil {
-		return nil, http.StatusNotFound, "session not found"
+		return nil, 0, "", http.StatusNotFound, "session not found"
 	}
 
 	// IDOR guard: token's user_id must match the session's owner.
 	if sess.UserID != claims.UserID {
-		return nil, http.StatusForbidden, "forbidden"
+		return nil, 0, "", http.StatusForbidden, "forbidden"
 	}
 	port := previewPort
 	if reqPort > 0 {
 		if !validPreviewPort(reqPort) {
-			return nil, http.StatusBadRequest, "invalid preview port"
+			return nil, 0, "", http.StatusBadRequest, "invalid preview port"
 		}
 		port = reqPort
 	} else if previewPort <= 0 {
-		return nil, http.StatusNotFound, "lab has no app preview"
+		return nil, 0, "", http.StatusNotFound, "lab has no app preview"
 	}
 
 	// Resuming a paused container is the main API's job (labs.Service.
@@ -101,19 +104,19 @@ func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort i
 	// always fetches a fresh token before setting the iframe src) rather than
 	// this process attempting a resume it has no credentials to perform.
 	if sess.Status != "running" {
-		return nil, http.StatusConflict, "session not running — mint a fresh preview token"
+		return nil, 0, "", http.StatusConflict, "session not running — mint a fresh preview token"
 	}
 	if sess.ContainerHost == nil || *sess.ContainerHost == "" {
-		return nil, http.StatusServiceUnavailable, "container not ready"
+		return nil, 0, "", http.StatusServiceUnavailable, "container not ready"
 	}
 
 	// container_host is "{containerID12}:7681" (the ttyd port) — same
 	// container, different port for the app.
 	host, _, found := strings.Cut(*sess.ContainerHost, ":")
 	if !found || host == "" {
-		return nil, http.StatusServiceUnavailable, "container host malformed"
+		return nil, 0, "", http.StatusServiceUnavailable, "container host malformed"
 	}
-	return &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, port)}, 0, ""
+	return &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, port)}, port, claims.SessionID, 0, ""
 }
 
 // maxWrappedJSONBytes caps how much of a JSON document response is inlined
@@ -124,12 +127,13 @@ const maxWrappedJSONBytes = 1 << 20
 // document being loaded as the preview iframe's page. Chrome cannot display
 // raw JSON in a subframe — its JSON viewer is top-level only, so it falls
 // back to a file download, which the sandboxed iframe blocks with "This
-// content is blocked". isDocRoot is true only for ServePreview requests
-// whose remaining path is empty — exactly the URL the frontend puts in the
-// iframe/new-tab — so the app's own fetch/XHR responses (absolute paths via
-// ServePreviewAsset, relative paths with a non-empty remainder) are never
-// rewritten. Sec-Fetch-Dest can't be the signal here: Chrome omits fetch
-// metadata on plain-http origins like the dev proxy.
+// content is blocked". isDocRoot is true only when the proxied request path
+// is exactly "/" — the preview subdomain's document root, which is what the
+// frontend's iframe always navigates to first (use-lab-preview.ts never
+// appends a path) — so the app's own fetch/XHR responses (ServePreviewPassthrough
+// requests to any other path) are never rewritten. Sec-Fetch-Dest can't be
+// the signal here: Chrome omits fetch metadata on plain-http origins like the
+// dev proxy.
 func shouldWrapJSONDocument(isDocRoot bool, contentType string, status int) bool {
 	if !isDocRoot {
 		return false
@@ -154,6 +158,7 @@ func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, targ
 			pr.Out.Host = target.Host
 		},
 		ModifyResponse: func(resp *http.Response) error {
+			stripSetCookieDomain(resp)
 			if isDocRoot {
 				resp.Header.Set("Cache-Control", "no-store")
 			}
@@ -189,10 +194,43 @@ func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, targ
 	proxy.ServeHTTP(w, r)
 }
 
-// ServePreview handles /preview/{token}/{path...} — the iframe's document
-// URL. It authenticates the token from the path, drops the preview cookie so
-// the app's absolute-path subresources can be resolved by ServePreviewAsset,
-// and proxies to the container app port.
+// stripSetCookieDomain removes the Domain attribute from every upstream
+// Set-Cookie header before it reaches the browser. Preview subdomains and the
+// main app now share a registrable domain (LABPROXY_PREVIEW_DOMAIN is
+// documented as a subdomain of DOMAIN, e.g. labs.<DOMAIN>, so SameSite=Lax
+// still works for the ServePreview→ServePreviewAuth redirect) — which also
+// means a malicious previewed app could otherwise set a cookie with
+// Domain=<DOMAIN> and have it ride along to the real app on every request.
+// Stripping Domain forces every upstream cookie host-only to the preview
+// subdomain that set it, same as previewTokenCookieName's own __Host- cookie.
+func stripSetCookieDomain(resp *http.Response) {
+	cookies := resp.Header.Values("Set-Cookie")
+	if len(cookies) == 0 {
+		return
+	}
+	resp.Header.Del("Set-Cookie")
+	for _, raw := range cookies {
+		attrs := strings.Split(raw, ";")
+		kept := attrs[:1] // name=value always kept
+		for _, attr := range attrs[1:] {
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(attr)), "domain=") {
+				continue
+			}
+			kept = append(kept, attr)
+		}
+		resp.Header.Add("Set-Cookie", strings.Join(kept, ";"))
+	}
+}
+
+// ServePreview handles /preview/{token}/{port}/{path...} — the frontend
+// iframe's one-shot entry URL (use-lab-preview.ts). It validates the token,
+// resolves the preview port (explicit segment, or the lab's configured
+// preview_port when the segment is omitted — see splitEntryPort and
+// previewTarget), and redirects the browser to that port+session's preview
+// subdomain, where ServePreviewAuth (preview_host.go) completes the
+// handshake. This replaces the old single-origin design where this handler
+// both authenticated *and* served the document; now it only ever issues one
+// redirect per token, and never proxies anything itself.
 func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 	if h.draining.Load() {
 		http.Error(w, "service draining", http.StatusServiceUnavailable)
@@ -205,75 +243,36 @@ func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing token", http.StatusUnauthorized)
 		return
 	}
-	reqPort, path := splitPreviewPort(path)
+	reqPort, path := splitEntryPort(path)
 
-	target, status, msg := h.previewTarget(r, token, reqPort)
-	if target == nil {
+	// wantSessionID is "" here — there is no subdomain host yet to compare
+	// the token's session against; that check happens in ServePreviewAuth
+	// once the browser lands on the subdomain this redirect points to.
+	_, resolvedPort, sessionID, status, msg := h.previewTarget(r, token, reqPort, "")
+	if status != 0 {
 		http.Error(w, msg, status)
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     previewCookieName,
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		// Session cookie on purpose: the token inside expires on its own
-		// (5-minute JWT); the frontend re-mints and reloads the iframe with
-		// a fresh token, which re-sets this cookie. Secure: true is safe even
-		// in local dev — browsers treat http://localhost as a secure context
-		// — and mandatory in prod: this cookie carries a live session
-		// credential, and without Secure it would ride along with any
-		// plaintext HTTP request to the same host.
-	})
-	// Port cookie mirrors the document's explicit port (cleared when the lab's
-	// configured preview_port is in use) so ServePreviewAsset routes this
-	// document's absolute-path subresources to the same container port.
-	portValue := ""
-	if reqPort > 0 {
-		portValue = strconv.Itoa(reqPort)
-	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     previewCookiePortName,
-		Value:    portValue,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
-
-	h.proxyPreview(w, r, target, "/"+path, path == "")
-}
-
-// ServePreviewAsset is the catch-all for absolute-path subresource requests
-// escaping the /preview/{token}/ prefix (stylesheets, module scripts, HMR
-// websockets). The session is resolved from the preview cookie set by
-// ServePreview; without it there is nothing to route to.
-func (h *ProxyHandler) ServePreviewAsset(w http.ResponseWriter, r *http.Request) {
-	if h.draining.Load() {
-		http.Error(w, "service draining", http.StatusServiceUnavailable)
-		return
+	// Caddy/Traefik terminate the public TLS connection and proxy to
+	// labproxy over plain HTTP internally, so r.TLS is never set here even
+	// in prod — X-Forwarded-Proto (set by both automatically) is the real
+	// signal. Dev's Caddyfile.dev has no TLS at all (LABPROXY_PREVIEW_DOMAIN
+	// =localhost, plain :80), so it never sends "https"; prod always does.
+	scheme := "https"
+	if r.Header.Get("X-Forwarded-Proto") == "http" {
+		scheme = "http"
 	}
 
-	cookie, err := r.Cookie(previewCookieName)
-	if err != nil || cookie.Value == "" {
-		http.NotFound(w, r)
-		return
+	next := "/" + path
+	target := url.URL{
+		Scheme: scheme,
+		Host:   fmt.Sprintf("p%d-%s.%s", resolvedPort, sessionID, h.previewDomain),
+		Path:   "/__mf/preview-auth",
+		RawQuery: url.Values{
+			"t":    {token},
+			"next": {next},
+		}.Encode(),
 	}
-	reqPort := 0
-	if portCookie, pErr := r.Cookie(previewCookiePortName); pErr == nil && portCookie.Value != "" {
-		if p, aErr := strconv.Atoi(portCookie.Value); aErr == nil {
-			reqPort = p
-		}
-	}
-
-	target, status, msg := h.previewTarget(r, cookie.Value, reqPort)
-	if target == nil {
-		http.Error(w, msg, status)
-		return
-	}
-
-	h.proxyPreview(w, r, target, r.URL.Path, false)
+	http.Redirect(w, r, target.String(), http.StatusFound)
 }

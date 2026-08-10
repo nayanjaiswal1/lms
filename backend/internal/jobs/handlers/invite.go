@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/smtp"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/mailer"
 	"github.com/mindforge/backend/internal/orgs"
 )
 
@@ -22,6 +22,29 @@ type BulkInvitePayload struct {
 	InviterID string   `json:"inviter_id"`
 	Emails    []string `json:"emails"` // this chunk's emails (max 50)
 	Role      string   `json:"role"`
+}
+
+// NewInviteDeadHook returns a DeadLetterHook for HandlerBulkInvite. A dead
+// chunk means the transient error path in Handle (org lookup, DB write) kept
+// failing across every retry — the individual invite rows for this chunk may
+// or may not exist depending on how far it got. This only logs; an org admin
+// has no way today to see which specific invites in a batch never went out
+// (see docs/email-job-resilience-checklist.md item 8) — that gap is still
+// open, this just makes the failure visible in logs instead of silent.
+func NewInviteDeadHook() jobs.DeadLetterHook {
+	return func(_ context.Context, job jobs.Job) {
+		var p BulkInvitePayload
+		if err := json.Unmarshal(job.Payload, &p); err != nil {
+			slog.Error("invite.bulk dead hook: unmarshal payload", "job_id", job.ID, "error", err)
+			return
+		}
+		lastErr := ""
+		if job.LastError != nil {
+			lastErr = *job.LastError
+		}
+		slog.Error("invite.bulk permanently failed — some invites in this chunk may not be created/emailed",
+			"job_id", job.ID, "org_id", p.OrgID, "email_count", len(p.Emails), "last_error", lastErr)
+	}
 }
 
 // InviteHandler implements jobs.Handler for HandlerBulkInvite jobs.
@@ -104,7 +127,7 @@ func (h *InviteHandler) Handle(ctx context.Context, job jobs.Job) error {
 		}
 
 		// Send the invite email. Non-fatal: the invite row exists and can be resent manually.
-		if emailErr := h.sendInviteEmail(inv, token); emailErr != nil {
+		if emailErr := h.sendInviteEmail(ctx, inv, token); emailErr != nil {
 			slog.WarnContext(ctx, "handlers.invite: send invite email failed (invite created, will need resend)",
 				"org_id", p.OrgID, "invite_id", inv.ID, "email", email, "error", emailErr)
 		}
@@ -131,9 +154,12 @@ func (h *InviteHandler) fetchMemberRole(ctx context.Context, orgID, userID strin
 }
 
 // sendInviteEmail delivers the org invite email to the invitee.
-// In development it logs to stdout instead of using SMTP.
-func (h *InviteHandler) sendInviteEmail(inv *orgs.Invite, token string) error {
-	if !h.cfg.IsProd() {
+// In development it logs to stdout instead of using SMTP, unless inv.Email is
+// in DEV_EMAIL_ALLOWLIST — mirrors every other email path's
+// cfg.ShouldSendRealEmail gate (auth/email.go, EmailHandler.sendEvalComplete)
+// so org-invite emails can be tested against a real inbox in dev the same way.
+func (h *InviteHandler) sendInviteEmail(ctx context.Context, inv *orgs.Invite, token string) error {
+	if !h.cfg.ShouldSendRealEmail(inv.Email) {
 		slog.Info("DEV EMAIL: Org invite",
 			"to", inv.Email, "org_id", inv.OrgID,
 			"role", inv.Role, "token", token)
@@ -146,14 +172,11 @@ func (h *InviteHandler) sendInviteEmail(inv *orgs.Invite, token string) error {
 		"Click the link below to accept your invitation:\n\n" + link + "\n\n" +
 		"This invitation expires in 7 days. If you did not expect this email, no action is needed."
 
-	addr := h.cfg.SMTPHost + ":" + h.cfg.SMTPPort
-	var smtpAuth smtp.Auth
-	if h.cfg.SMTPUser != "" {
-		smtpAuth = smtp.PlainAuth("", h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.SMTPHost)
-	}
-
+	// Delegates to mailer.SendRaw (shared with internal/auth's transactional
+	// emails) instead of calling net/smtp directly, so this send is bounded by
+	// the job's own timeout context rather than left unbounded.
 	msg := buildInviteMessage(h.cfg.EmailFromHeader(), inv.Email, subject, body)
-	if err := smtp.SendMail(addr, smtpAuth, h.cfg.EmailFrom, []string{inv.Email}, []byte(msg)); err != nil {
+	if err := mailer.SendRaw(ctx, h.cfg.SMTPHost, h.cfg.SMTPPort, h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.EmailFrom, inv.Email, []byte(msg)); err != nil {
 		return fmt.Errorf("smtp send to %s: %w", inv.Email, err)
 	}
 	return nil

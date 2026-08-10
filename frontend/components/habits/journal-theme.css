@@ -1,0 +1,85 @@
+/* Scoped "1% Better" paper/journal look for the habits grid view only.
+   Overrides the same semantic tokens every shadcn primitive already reads
+   (bg-card, text-foreground, border-border, rounded-md, shadow-raised, ...),
+   so Button/Badge/DropdownMenu/Input reskin for free inside this scope —
+   nothing outside .habits-journal is touched. Values are the code.html
+   mockup's flat palette: journal-paper/ink/ink-light/accent/line. */
+
+.habits-journal {
+  --background: 42 39% 94%;
+  --foreground: 0 0% 10%;
+  --card: 42 39% 94%;
+  --card-foreground: 0 0% 10%;
+  --popover: 42 39% 94%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 21 79% 38%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 51 20% 87%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 51 20% 90%;
+  --muted-foreground: 0 0% 33%;
+  --accent: 51 20% 87%;
+  --accent-foreground: 0 0% 10%;
+  --border: 51 20% 87%;
+  --input: 51 20% 87%;
+  --ring: 21 79% 38%;
+
+  /* "Soft Precision" — a small, consistent radius scale instead of the
+     app's default 8-16px cards. */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+
+  /* Flat, hairline-only depth — no soft blur shadows. */
+  --shadow-card: 0 0 0 1px hsl(var(--border));
+  --shadow-raised: 0 0 0 1px hsl(var(--border));
+
+  --font-sans: var(--font-journal-sans), ui-sans-serif, system-ui, sans-serif;
+
+  background-color: hsl(var(--background));
+  background-image: radial-gradient(hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+  background-size: 16px 16px;
+  color: hsl(var(--foreground));
+}
+
+/* Table scroll affordance — a slim, always-visible track so a wide 31-day
+   grid reads as scrollable instead of silently clipping its last column. */
+.habits-journal .table-responsive {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.25) transparent;
+}
+.habits-journal .table-responsive::-webkit-scrollbar {
+  height: 8px;
+}
+.habits-journal .table-responsive::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--foreground) / 0.25);
+  border-radius: 4px;
+}
+
+.habits-journal ::selection {
+  background-color: hsl(var(--primary) / 0.18);
+  color: hsl(var(--foreground));
+}
+
+/* Editorial serif for headlines only — body copy stays on --font-sans above. */
+.habits-journal-headline {
+  font-family: var(--font-journal-serif), Georgia, serif;
+}
+
+/* Lined-notebook input: bottom border only, no box, accent on focus. */
+.journal-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid hsl(var(--border));
+  background: transparent;
+  padding: 8px 0;
+  color: hsl(var(--foreground));
+  transition: border-color var(--duration-fast, 150ms) ease;
+}
+.journal-input:focus {
+  outline: none;
+  border-bottom-color: hsl(var(--primary));
+}

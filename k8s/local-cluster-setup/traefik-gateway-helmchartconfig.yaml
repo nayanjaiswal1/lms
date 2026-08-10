@@ -1,0 +1,17 @@
+# Local-only cluster addon. k3s bundles Traefik but its Gateway API provider
+# is off by default; this HelmChartConfig turns it on. Must be dropped into
+# /var/lib/rancher/k3s/server/manifests/ on the k3s node BEFORE (or to
+# reconfigure, applied and then Traefik's helm-install job re-triggered) —
+# k3s's helm-controller watches that directory and reconciles the bundled
+# Traefik chart against it. Not a kubectl-apply-able resource from outside
+# the node; see scripts/setup-k3s-local.sh for how this gets placed.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true

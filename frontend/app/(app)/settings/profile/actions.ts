@@ -89,6 +89,7 @@ export async function updatePreferencesAction(
     timezone: formData.get('timezone') || null,
     language: formData.get('language') || null,
     weekly_goal_hrs: weeklyRaw ? Number(weeklyRaw) : null,
+    default_landing_page: formData.get('default_landing_page') || null,
     notifications: {
       email: ['on', 'true'].includes(formData.get('email_notifications') as string),
       push: ['on', 'true'].includes(formData.get('push_notifications') as string),

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Flag, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -32,9 +33,11 @@ type ReportInput = z.infer<typeof reportSchema>;
 interface ReportContentButtonProps {
   contentType: "wiki_page" | "course_module";
   contentId: string;
+  /** Renders as a DropdownMenuItem instead of a standalone Button — for use inside LessonMoreMenu. */
+  asMenuItem?: boolean;
 }
 
-export function ReportContentButton({ contentType, contentId }: ReportContentButtonProps) {
+export function ReportContentButton({ contentType, contentId, asMenuItem = false }: ReportContentButtonProps) {
   const [open, setOpen] = useState(false);
   const form = useForm<ReportInput>({
     resolver: zodResolver(reportSchema),
@@ -52,18 +55,30 @@ export function ReportContentButton({ contentType, contentId }: ReportContentBut
     form.reset();
   });
 
+  const label = (
+    <>
+      <Flag aria-hidden className="h-4 w-4" />
+      Report
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        aria-label="Report this content"
-        size="sm"
-        type="button"
-        variant="ghost"
-        onClick={() => setOpen(true)}
-      >
-        <Flag aria-hidden className="h-4 w-4" />
-        Report
-      </Button>
+      {asMenuItem ? (
+        <DropdownMenuItem onSelect={() => setOpen(true)}>
+          {label}
+        </DropdownMenuItem>
+      ) : (
+        <Button
+          aria-label="Report this content"
+          size="sm"
+          type="button"
+          variant="ghost"
+          onClick={() => setOpen(true)}
+        >
+          {label}
+        </Button>
+      )}
       <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>Report this content</DialogTitle>

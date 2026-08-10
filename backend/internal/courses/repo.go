@@ -1608,16 +1608,24 @@ func scanProposal(row pgx.Row, p *CourseContentProposal) error {
 
 // ListProposalsForCourse returns proposals targeting courseID, newest first —
 // the instructor/admin review queue. status filters to one status when set,
-// otherwise returns every proposal regardless of status.
-func (r *Repo) ListProposalsForCourse(ctx context.Context, orgID, courseID, status string) ([]CourseContentProposal, error) {
+// otherwise returns every proposal regardless of status. limit/offset follow
+// the same defaulting shape as ListPublicCourses.
+func (r *Repo) ListProposalsForCourse(ctx context.Context, orgID, courseID, status string, limit, offset int) ([]CourseContentProposal, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 12
+	}
+	if offset < 0 {
+		offset = 0
+	}
 	args := []any{orgID, "course_content_proposal", courseID}
 	where := "WHERE p.org_id=$1 AND p.kind=$2 AND p.subject_type='course' AND p.subject_id=$3"
 	if status != "" {
 		args = append(args, status)
 		where += fmt.Sprintf(" AND p.status=$%d", len(args))
 	}
-	// ponytail: hard cap, no pagination params on this endpoint yet — add offset/limit query params if a course ever needs more than 100 pending proposals.
-	rows, err := r.pool.Query(ctx, `SELECT `+proposalColumns+` FROM change_requests p `+where+` ORDER BY p.created_at DESC LIMIT 100`, args...)
+	args = append(args, limit, offset)
+	rows, err := r.pool.Query(ctx, `SELECT `+proposalColumns+` FROM change_requests p `+where+
+		fmt.Sprintf(" ORDER BY p.created_at DESC LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, fmt.Errorf("courses: list proposals: %w", err)
 	}

@@ -22,6 +22,13 @@ const (
 	StyleMixed   = "mixed"
 )
 
+// ValidDefaultLandingPages mirrors the user_profiles_default_landing_page_check
+// DB constraint and frontend/lib/constants.ts's DEFAULT_LANDING_PAGE_OPTIONS —
+// keep all three in sync. Restricted to routes with no feature/permission gate
+// (see frontend/lib/nav.ts's ALL_NAV_ITEMS) so the chosen page is always
+// reachable regardless of the user's org features or RBAC permissions.
+var ValidDefaultLandingPages = []string{"/dashboard", "/learn", "/calendar", "/mistakes"}
+
 // QuestionDifficultyLevels is the canonical ordering of question.difficulty
 // values (mirrors the questions table CHECK constraint). Used to zero-fill
 // the profile overview's difficulty breakdown so every level always appears.
@@ -78,10 +85,11 @@ type Profile struct {
 	CurrentRole       *string `json:"current_role"`
 	YearsOfExperience *int16  `json:"years_of_experience"`
 
-	Language      *string                `json:"language"`
-	Timezone      *string                `json:"timezone"`
-	WeeklyGoalHrs *int16                 `json:"weekly_goal_hrs"`
-	Notifications map[string]interface{} `json:"notifications"`
+	Language            *string                `json:"language"`
+	Timezone            *string                `json:"timezone"`
+	WeeklyGoalHrs       *int16                 `json:"weekly_goal_hrs"`
+	DefaultLandingPage  *string                `json:"default_landing_page"`
+	Notifications       map[string]interface{} `json:"notifications"`
 
 	CompletionScore int `json:"completion_score"`
 
@@ -214,6 +222,7 @@ type UpdateProfileInput struct {
 	Language               *string                `json:"language"`
 	Timezone               *string                `json:"timezone"`
 	WeeklyGoalHrs          *int16                 `json:"weekly_goal_hrs"`
+	DefaultLandingPage     *string                `json:"default_landing_page"`
 	Notifications          map[string]interface{} `json:"notifications"`
 	PublicEnabled          *bool                  `json:"public_enabled"`
 	ShowSkills             *bool                  `json:"show_skills"`

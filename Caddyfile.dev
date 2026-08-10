@@ -22,3 +22,14 @@
 
 	reverse_proxy frontend:3000
 }
+
+# Live preview subdomains (dev) — mirrors the production Caddyfile's
+# wildcard preview block, minus TLS/DNS-01: docker-compose.dev.yml sets
+# LABPROXY_PREVIEW_DOMAIN=localhost, and *.localhost resolves to loopback in
+# Chrome/Edge/Firefox with zero /etc/hosts or DNS setup, and is treated as a
+# secure context (so the __Host-prefixed preview cookie still works) even
+# over plain HTTP — see backend/cmd/labproxy/preview_host.go. No path
+# stripping, same reasoning as the production block.
+*.localhost:80 {
+	reverse_proxy labproxy:8081
+}

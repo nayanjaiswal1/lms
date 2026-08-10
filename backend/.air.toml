@@ -2,9 +2,9 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  cmd = "go build -o ./tmp/server ./cmd/server"
-  bin = "./tmp/server"
-  full_bin = "./tmp/server"
+  cmd = "go build -o ./tmp/server.exe ./cmd/server"
+  bin = "./tmp/server.exe"
+  full_bin = "./tmp/server.exe"
   delay = 200
   include_ext = ["go"]
   exclude_dir = ["tmp", "bin"]

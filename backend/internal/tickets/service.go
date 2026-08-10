@@ -256,21 +256,22 @@ func (s *Service) notifyCreated(ctx context.Context, t Ticket) {
 	}
 }
 
-// notifyReply emails the "other side" of a support ticket's conversation
-// after senderID posts msg: the requester if staff/the assignee replied, or
-// the assignee — falling back to every support.manage holder if the ticket
-// is still unclaimed — if the requester replied. Mentorship tickets are
-// deliberately excluded: their notifications are already owned end-to-end by
-// jobs/handlers/mentor_escalation.go, and having two systems separately
-// decide who to email about the same ticket would drift out of sync.
+// notifyReply emails the "other side" of a ticket's conversation after
+// senderID posts msg: the requester if staff/the assignee replied, or the
+// assignee — falling back to every manage-permission holder if the ticket is
+// still unclaimed — if the requester replied. Covers both kinds: mentorship
+// tickets only get escalation emails (jobs/handlers/mentor_escalation.go)
+// while unclaimed, so a reply on an already-assigned mentorship ticket would
+// otherwise notify no one.
 func (s *Service) notifyReply(ctx context.Context, t Ticket, msg Message, senderID string) {
-	if t.Kind != KindSupport {
-		return
-	}
 	domain := threadDomain(s.cfg.EmailFrom)
 	root := rootMessageID(domain, t.ID)
-	link := s.cfg.FrontendURL + "/support?ticket=" + t.ID
-	subject := *t.Subject
+	subject := "your mentor ticket"
+	link := s.cfg.FrontendURL + "/mentoring/tickets/" + t.ID + "/chat"
+	if t.Kind == KindSupport {
+		subject = *t.Subject
+		link = s.cfg.FrontendURL + "/support?ticket=" + t.ID
+	}
 	body := fmt.Sprintf("There's a new reply on ticket \"%s\":\n\n%s\n\nView the full conversation:\n%s", subject, msg.Body, link)
 
 	var recipients []contact
@@ -282,7 +283,7 @@ func (s *Service) notifyReply(ctx context.Context, t Ticket, msg Message, sender
 			recipients = []contact{c}
 		}
 	case senderID == t.RequesterID:
-		recipients, err = s.repo.manageContacts(ctx, t.OrgID, ManagePermission[KindSupport])
+		recipients, err = s.repo.manageContacts(ctx, t.OrgID, ManagePermission[t.Kind])
 	default:
 		var c contact
 		if c, err = s.repo.userContact(ctx, t.RequesterID); err == nil {

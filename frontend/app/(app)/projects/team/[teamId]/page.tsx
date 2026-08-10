@@ -78,7 +78,7 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
 
       <section className="card-base mt-6 flex flex-col gap-4 p-6">
         <h2 className="section-title">Checkpoints</h2>
-        <MyCheckpointList checkpoints={team.checkpoints} />
+        <MyCheckpointList checkpoints={team.checkpoints} requiredApprovals={team.required_approvals} />
       </section>
 
       <section className="card-base mt-6 flex flex-col gap-4 p-6">

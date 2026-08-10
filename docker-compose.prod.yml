@@ -178,6 +178,7 @@ services:
       LABPROXY_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       LABPROXY_JWT_SECRET: ${JWT_SECRET}
       LABPROXY_JWT_ISSUER: mindforge-labproxy
+      LABPROXY_PREVIEW_DOMAIN: ${LABPROXY_PREVIEW_DOMAIN}
     networks:
       - mindforge_prod
       - mindforge-labs
@@ -234,7 +235,15 @@ services:
         max-file: "3"
 
   caddy:
-    image: caddy:2-alpine
+    # Custom build instead of a bare image: the preview subdomain's wildcard
+    # cert (see Caddyfile's *.{$LABPROXY_PREVIEW_DOMAIN} block) needs DNS-01
+    # issuance, which stock caddy:2-alpine has no provider module for — see
+    # Dockerfile.caddy.
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+      args:
+        CADDY_DNS_PROVIDER: ${CADDY_DNS_PROVIDER:-cloudflare}
     container_name: mindforge_caddy_prod
     restart: always
     env_file: .env.prod

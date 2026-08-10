@@ -34,25 +34,6 @@ Subagent, advisor-strategy, context-protection, and parallel-agent rules are alr
 
 ---
 
-## Custom Skills (Slash Commands)
-
-| Command | What it does |
-|---|---|
-| `/frontend-design` | Official Anthropic skill — aesthetic direction, typography, intentional visual choices before writing code |
-| `/ui-ux-pro-max` | Design intelligence: UX guidelines, accessibility checklist, interaction patterns, spacing, chart types |
-
-### ui-ux-pro-max adapter rule (MindForge only)
-When `/ui-ux-pro-max` suggests colors, typography, or a design system — **ignore those and use MindForge's existing tokens** (`--primary`, `--ai`, `bg-background`, etc. from `globals.css`). Use it only for: UX patterns, accessibility rules, interaction timing, spacing rhythm, layout composition, chart selection, and the pre-delivery checklist. MindForge's design system is already defined — the skill adds UX intelligence on top, not a replacement palette.
-
-To query the skill's knowledge base directly:
-```bash
-python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "dashboard learning edtech" --design-system --stack nextjs
-python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "progress charts" --domain chart
-python3 ~/.claude/skills/ui-ux-pro-max/scripts/search.py "form validation" --domain ux
-```
-
----
-
 MCP server list and hooks.json template: see the `dev-env-setup` skill. The post-edit hook is already wired in `.claude/settings.json` — `post-edit.sh` runs `go vet ./...` after `.go` edits and `pnpm tsc --noEmit` after `.ts/.tsx` edits, so Claude self-corrects before moving to the next file.
 
 ---
@@ -88,43 +69,12 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/infrastructure.md](docs/infrastructure.md) | Project file structure, all env vars, AI rules, payments, SSRF denylist |
 | [docs/activity.md](docs/activity.md) | Activity tracker — day-by-day timeline aggregating module/course completions, quiz attempts, MCP reflections, sheet progress, lab sessions, SM-2 reviews, API, DB schema |
 | [docs/frontend-gotchas.md](docs/frontend-gotchas.md) | Non-obvious frontend bugs and regressions worth not repeating (e.g. Popover-in-Dialog scroll lock) |
+| [docs/ai-pattern-learnings.md](docs/ai-pattern-learnings.md) | Shortcut patterns found in AI-written code (unthrottled endpoints, unlocked counters, unpaginated lists, trusted-input-as-validation, missing DB test infra) — updated as new instances are found, not just at the end of a review |
 
 ---
 
 ## Frontend Rules
-See [frontend/CLAUDE.md](frontend/CLAUDE.md) — enforced on every frontend file.
-
----
-
-## Frontend API Helpers — `lib/server/api.ts`
-
-All server-side fetch calls go through helpers in `lib/server/api.ts`. Never write raw `fetch()` calls with manual auth headers in actions or server components.
-
-| Helper | Use case |
-|---|---|
-| `apiGet<T>(path)` | Server component reads — throws on error, propagates to `error.tsx` |
-| `apiPost<T>(path, payload)` | Server component one-shot POSTs — throws on error |
-| `apiAction<T>(method, path, payload?, extraHeaders?)` | Server actions — returns `ActionResult<T>`, never throws. `extraHeaders` is for one-off headers a caller needs (e.g. `Idempotency-Key`) — do not add new positional params for other one-off needs, pass them here |
-| `apiUpload<T>(path, formData)` | Multipart file uploads — returns `ActionResult<T>`, omits `Content-Type` so the browser sets the correct multipart boundary |
-
-A raw `fetch()` with a hand-built `Cookie` header anywhere in the frontend is flagged by the `no-restricted-syntax` ESLint rule in `eslint.config.mjs` (`Property[key.name="Cookie"]`). Genuine exceptions (pre-session bootstrap before a token exists, capturing `Set-Cookie` from a response via `forwardSetCookies`, Edge middleware) are allowed but must be marked with an inline `eslint-disable-next-line` comment explaining why — see `lib/server/api.ts`, `middleware.ts`, `app/login/actions.ts`, `app/org/create/actions.ts`, `app/org-select/actions.ts` for the existing documented cases.
-
-For client components (`"use client"`) that must call the backend directly rather than through a server action, use `apiFetch<T>(path, options?)` from `lib/client/api.ts` — do not redeclare a local `apiFetch` helper.
-
-**Rule:** `export type { ActionResult }` must never appear in a `"use server"` file. Next.js registers every export in a server action module as a server reference at runtime. TypeScript erases type-only exports, leaving a missing reference that crashes the page. Import `ActionResult` directly from `@/lib/server/api` wherever the type is needed.
-
-**File upload pattern:**
-```ts
-// In a "use server" actions file:
-export async function uploadAssetAction(formData: FormData): Promise<ActionResult<{ url: string; storage_key: string }>> {
-  return apiUpload<{ url: string; storage_key: string }>("/api/upload", formData);
-}
-
-// In a client component:
-const fd = new FormData();
-fd.append("file", file);
-const res = await uploadAssetAction(fd);
-```
+See [frontend/CLAUDE.md](frontend/CLAUDE.md) — enforced on every frontend file. Covers design tokens, the `lib/server/api.ts` helpers, and the `ui-ux-pro-max` adapter rule — not repeated here since this file loads for backend work too.
 
 ---
 

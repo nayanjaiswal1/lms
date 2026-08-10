@@ -62,8 +62,15 @@ func (h *Handler) AttemptProctoringLog(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
+	// Joined in for the staff-side breadcrumb ("Assessments / {title} /
+	// Proctoring") — Attempt itself carries only assessment_id, not a title.
+	assessmentTitle, err := h.repo.GetAssessmentTitle(r.Context(), att.AssessmentID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{
-		"attempt": att, "events": events, "review": review,
+		"attempt": att, "events": events, "review": review, "assessment_title": assessmentTitle,
 	})
 }
 

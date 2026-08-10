@@ -201,6 +201,7 @@ All inserts use `ON CONFLICT DO NOTHING` — safe to re-run.
 | `11111111-1111-1111-1111-000000000003` | `instructor` | Course and assessment author |
 | `11111111-1111-1111-1111-000000000004` | `mentor` | Mentoring and batch supervision |
 | `11111111-1111-1111-1111-000000000005` | `tenant_admin` | Full organisation administration |
+| `11111111-1111-1111-1111-000000000006` | `support_agent` | Support ticket queue — view, reply, triage, and get notified |
 
 ### System Role → Permissions
 
@@ -208,9 +209,11 @@ All inserts use `ON CONFLICT DO NOTHING` — safe to re-run.
 
 **member (13):** `courses.view`, `courses.enroll`, `assessments.take`, `assessments.view_assigned`, `practice.use`, `mentoring.chat`, `content.wiki`, `content.system_design`, `content.interview_board`, `content.load_test`, `content.sheets`, `content.srs`, `content.certificates`
 
-**instructor (25):** all member permissions + `courses.create/edit/publish/delete/view_analytics`, `assessments.create/edit/publish/delete/view_results/manage_questions/manage_batches`, `admin.view_members`
+**instructor:** all member permissions + `courses.create/edit/publish/delete/view_analytics`, `assessments.create/edit/publish/delete/view_results/manage_questions/manage_batches`, `admin.view_members`, and others — see `001_baseline.sql`'s `role_permissions` for the exhaustive, current list rather than a count here, which drifts every time a permission is added.
 
-**mentor (17):** all member permissions + `assessments.view_results`, `mentoring.manage_batches`, `mentoring.view_students`, `admin.view_members`
+**mentor:** all member permissions + `assessments.view_results`, `mentoring.manage_batches`, `mentoring.view_students`, `admin.view_members`, and others — see `001_baseline.sql`. Does **not** include `support.manage` — see `docs/support-ticket-rbac-decision.md` (support ticket access moved to the dedicated `support_agent` role).
+
+**support_agent (1):** `support.manage` only — view the support ticket queue, reply, triage (category/priority/status), and receive ticket email notifications.
 
 **tenant_admin:** all permissions, including `payments.manage_coupons` (granted only to tenant_admin by default — see backend/db/migrations/004_payments_coupons.sql; the RBAC admin UI can grant it to instructor at runtime with no migration needed)
 

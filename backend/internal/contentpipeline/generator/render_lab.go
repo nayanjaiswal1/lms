@@ -57,6 +57,10 @@ func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string
 	if maxResets <= 0 {
 		maxResets = defaultMaxResets
 	}
+	workspaceLayout := spec.WorkspaceLayout
+	if workspaceLayout == "" {
+		workspaceLayout = "split"
+	}
 
 	// 1. lab_definitions (unpublished; published_version_id set by the
 	//    UPDATE at the end once lab_task_versions exists).
@@ -66,12 +70,12 @@ func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string
 		runScript = dollarQuote("script", spec.RunScript)
 	}
 	fmt.Fprintf(out,
-		"INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, created_by)\nVALUES (%s, %s, %s, %s, 'module', %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, false, NULL, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, updated_at=now();\n\n",
+		"INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)\nVALUES (%s, %s, %s, %s, 'module', %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, false, NULL, %s, %s)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, lab_type=EXCLUDED.lab_type, environment=EXCLUDED.environment, preview_port=EXCLUDED.preview_port, setup_script=EXCLUDED.setup_script, run_script=EXCLUDED.run_script, max_duration=EXCLUDED.max_duration, max_resets=EXCLUDED.max_resets, hint_penalty_pct=EXCLUDED.hint_penalty_pct, is_required=EXCLUDED.is_required, workspace_layout=EXCLUDED.workspace_layout, updated_at=now();\n\n",
 		sqlString(labID), sqlString(seededOrgID), sqlString(courseID), sqlString(moduleID),
 		sqlString(title),
 		sqlString(spec.LabType), sqlString(spec.Environment), sqlInt(spec.PreviewPort), dollarQuote("script", setupScript), runScript,
 		sqlInt(maxDuration), sqlInt(maxResets), sqlInt(spec.HintPenaltyPct), sqlBool(spec.IsRequired),
-		sqlString(seededInstructorID),
+		sqlString(workspaceLayout), sqlString(seededInstructorID),
 	)
 
 	// 2. lab_tasks (live editable copy).

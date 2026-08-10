@@ -17,8 +17,16 @@ const jobOriginalityScan = "gitlab.originality_scan"
 
 // originalityScanTimeoutMS is generous — downloading every team's (+ the
 // template's) repository archive and running the pairwise shingle/Jaccard
-// comparison can run long for an assignment with many teams.
-const originalityScanTimeoutMS = 300000
+// comparison can run long for an assignment with many teams. Raised from
+// 300000 (300s) to 900000 (900s) alongside originality.go's
+// maxOriginalityFileBytes (512KB -> 2MB) and maxOriginalityFilesPerProject
+// (300 -> 600): both the pairwise file-compare count (files^2) and the
+// per-file shingle-set size scale with those caps, so the worst-case
+// comparison cost can grow well beyond the 4x a naive "doubled both caps"
+// estimate suggests — 900s covers that with headroom. There is no
+// job-queue-level ceiling on TimeoutMS (internal/jobs/worker.go applies it
+// directly as the job's context deadline), so raising this is safe.
+const originalityScanTimeoutMS = 900000
 
 // RequestOriginalityScan creates a pending report row for assignmentID and
 // enqueues the gitlab.originality_scan job to actually run it — the same

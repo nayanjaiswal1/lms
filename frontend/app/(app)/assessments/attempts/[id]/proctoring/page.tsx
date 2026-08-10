@@ -62,7 +62,7 @@ export default async function ProctoringLogPage({ params, searchParams }: PagePr
     notFound();
   }
 
-  const { attempt, events } = log;
+  const { attempt, events, assessment_title } = log;
   const visible = showHeartbeats ? events : events.filter((e) => e.event_type !== "heartbeat");
   const critical = countBySeverity(events, "critical");
   const warnings = countBySeverity(events, "warning");
@@ -72,8 +72,13 @@ export default async function ProctoringLogPage({ params, searchParams }: PagePr
 
   return (
     <main className="page-container">
-      {/* ponytail: Attempt has no assessment/attempt title field — 2-item trail to avoid a new fetch just for a label */}
-      <Breadcrumb items={[{ label: "Assessments", href: ROUTES.ASSESSMENTS }, { label: "Proctoring" }]} />
+      <Breadcrumb
+        items={[
+          { label: "Assessments", href: ROUTES.ASSESSMENTS },
+          { label: assessment_title, href: ROUTES.assessmentResults(attempt.assessment_id) },
+          { label: "Proctoring" },
+        ]}
+      />
       <Link
         className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         href={ROUTES.assessmentResults(attempt.assessment_id)}

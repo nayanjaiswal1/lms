@@ -35,7 +35,7 @@ data:
 
   # Object storage (MinIO) — internal endpoint is the in-cluster Service name;
   # public endpoint must match DOMAIN so presigned URL signatures verify once
-  # proxied through the Ingress (see ingress.yaml's bucket-path rule).
+  # proxied through the Gateway (see httproute.yaml's bucket-path rule).
   MINIO_ENDPOINT: "minio:9000"
   MINIO_PUBLIC_ENDPOINT: "app.yourdomain.com"
   MINIO_BUCKET: "mindforge"
@@ -56,6 +56,12 @@ data:
   LABS_K8S_NAMESPACE: "mindforge-labs"
   LABPROXY_PORT: "8081"
   LABPROXY_JWT_ISSUER: "mindforge-labproxy"
+  # Subdomain of DOMAIN (placeholder here, real value patched per overlay —
+  # see gateway.yaml's preview-https listener and certificate-preview.yaml,
+  # which must stay in sync with this). Must be a subdomain of DOMAIN, not an
+  # unrelated domain, so SameSite=Lax still holds for the preview redirect —
+  # see backend/cmd/labproxy/preview.go's ServePreview.
+  LABPROXY_PREVIEW_DOMAIN: "labs.app.yourdomain.com"
 
   # AI provider — disabled by default; set LLM_PROVIDER + LLM_API_KEY (in the
   # Secret) to enable course generation / revision plans / hints.

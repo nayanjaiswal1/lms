@@ -117,8 +117,27 @@ func scanPurchase(row rowScanner) (Purchase, error) {
 // real gateway reference overwrites it once CreateCheckout returns (see
 // SetProviderRef).
 func (r *Repo) CreatePurchase(ctx context.Context, p Purchase) (Purchase, error) {
+	return createPurchase(ctx, r.pool, p)
+}
+
+// CreatePurchaseTx is CreatePurchase run inside an in-flight transaction —
+// used when the insert must happen while StartCheckout still holds the
+// coupon row lock from LockCouponRedeemedCount, so the redemption-cap check
+// and the hold it protects can't race with a concurrent checkout for the
+// same coupon.
+func (r *Repo) CreatePurchaseTx(ctx context.Context, tx pgx.Tx, p Purchase) (Purchase, error) {
+	return createPurchase(ctx, tx, p)
+}
+
+// dbtx is satisfied by both *pgxpool.Pool and pgx.Tx, letting a query run
+// either standalone or inside an in-flight transaction without a second copy.
+type dbtx interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func createPurchase(ctx context.Context, db dbtx, p Purchase) (Purchase, error) {
 	p.Status = PurchaseStatusPending
-	created, err := scanPurchase(r.pool.QueryRow(ctx,
+	created, err := scanPurchase(db.QueryRow(ctx,
 		`INSERT INTO purchases (org_id, user_id, course_id, amount_cents, discount_cents, currency, provider, provider_ref, coupon_id, status, product_type)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		 RETURNING `+purchaseColumns,
@@ -136,6 +155,19 @@ func (r *Repo) CreatePurchase(ctx context.Context, p Purchase) (Purchase, error)
 		return Purchase{}, fmt.Errorf("mentoring: create purchase: %w", err)
 	}
 	return created, nil
+}
+
+// LockCouponRedeemedCount locks the coupon row FOR UPDATE and returns its
+// current redeemed_count. Must run inside the same transaction as the
+// CreatePurchaseTx call it protects — the lock only closes the concurrent-
+// redemption race while held through both the check and the insert; reading
+// it standalone would just narrow the window, not close it.
+func (r *Repo) LockCouponRedeemedCount(ctx context.Context, tx pgx.Tx, couponID string) (int, error) {
+	var n int
+	if err := tx.QueryRow(ctx, `SELECT redeemed_count FROM coupons WHERE id = $1 FOR UPDATE`, couponID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("mentoring: lock coupon: %w", err)
+	}
+	return n, nil
 }
 
 // purchaseHoldWindow is how long a 'pending' course_purchases row is treated
@@ -168,8 +200,19 @@ func (r *Repo) ExpireStaleCouponHolds(ctx context.Context, userID, couponID stri
 // coupon can't be handed to far more paying students than it allows just
 // because none of their webhooks have landed yet.
 func (r *Repo) CountLiveCouponHolds(ctx context.Context, couponID string) (int, error) {
+	return countLiveCouponHolds(ctx, r.pool, couponID)
+}
+
+// CountLiveCouponHoldsTx is CountLiveCouponHolds run inside the same
+// transaction as LockCouponRedeemedCount/CreatePurchaseTx — see
+// LockCouponRedeemedCount's doc comment.
+func (r *Repo) CountLiveCouponHoldsTx(ctx context.Context, tx pgx.Tx, couponID string) (int, error) {
+	return countLiveCouponHolds(ctx, tx, couponID)
+}
+
+func countLiveCouponHolds(ctx context.Context, db dbtx, couponID string) (int, error) {
 	var n int
-	err := r.pool.QueryRow(ctx,
+	err := db.QueryRow(ctx,
 		`SELECT COUNT(*) FROM purchases
 		  WHERE coupon_id = $1 AND status = $2 AND product_type = 'course'
 		    AND purchased_at > now() - interval '`+purchaseHoldWindow+`'`,

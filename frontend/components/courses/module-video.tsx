@@ -7,11 +7,10 @@ import { showRewardToasts } from "@/components/shared/reward-toast";
 interface ModuleVideoProps {
   moduleId: string;
   presignedUrl: string;
-  title: string;
   initialPositionSeconds?: number;
 }
 
-export function ModuleVideo({ moduleId, presignedUrl, title, initialPositionSeconds = 0 }: ModuleVideoProps) {
+export function ModuleVideo({ moduleId, presignedUrl, initialPositionSeconds = 0 }: ModuleVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [reported, setReported] = useState(false);
 
@@ -34,7 +33,6 @@ export function ModuleVideo({ moduleId, presignedUrl, title, initialPositionSeco
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-xl font-semibold">{title}</h2>
       <div className="overflow-hidden rounded-lg bg-card">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video

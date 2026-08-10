@@ -1,0 +1,109 @@
+# Route table mirrors Caddyfile.dev's single-origin routing (the same shape
+# already proven for docker-compose dev), fixed up to also cover the AI
+# Connector's /oauth, /.well-known, /mcp routes — the old ingress.yaml only
+# routed /api, /mindforge, and / to the backend/minio/frontend, silently
+# falling through those three paths to the frontend's catch-all instead of
+# the backend that actually serves them.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mindforge-redirect
+  namespace: mindforge
+spec:
+  parentRefs:
+    - name: mindforge
+      sectionName: http
+  hostnames:
+    - app.yourdomain.com
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mindforge
+  namespace: mindforge
+spec:
+  parentRefs:
+    - name: mindforge
+      sectionName: https
+  hostnames:
+    - app.yourdomain.com
+  rules:
+    - matches:
+        - path: { type: PathPrefix, value: /api }
+      backendRefs:
+        - name: backend
+          port: 8080
+
+    - matches:
+        - path: { type: PathPrefix, value: /oauth }
+      backendRefs:
+        - name: backend
+          port: 8080
+
+    - matches:
+        - path: { type: PathPrefix, value: /.well-known }
+      backendRefs:
+        - name: backend
+          port: 8080
+
+    - matches:
+        - path: { type: Exact, value: /mcp }
+      backendRefs:
+        - name: backend
+          port: 8080
+
+    # labproxy only serves "/ws", "/health", "/preview/*" — strip the
+    # "/lab-ws" prefix (frontend calls NEXT_PUBLIC_LAB_PROXY_URL=wss://<domain>/lab-ws)
+    # the same way Caddyfile.dev's handle_path does.
+    - matches:
+        - path: { type: PathPrefix, value: /lab-ws }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: / }
+      backendRefs:
+        - name: labproxy
+          port: 8081
+
+    # Path must match configmap.yaml's MINIO_BUCKET — a static HTTPRoute path
+    # can't reference a ConfigMap value, so if the bucket name changes, update
+    # this path to match.
+    - matches:
+        - path: { type: PathPrefix, value: /mindforge }
+      backendRefs:
+        - name: minio
+          port: 9000
+
+    - matches:
+        - path: { type: PathPrefix, value: / }
+      backendRefs:
+        - name: frontend
+          port: 3000
+---
+# Live preview subdomains route straight to labproxy on every path — no
+# prefix stripping (unlike the /lab-ws rule above): labproxy's host-based
+# router (splitPreviewHost, backend/cmd/labproxy/host.go) reads the port and
+# session ID straight off the Host header, so the request path must reach it
+# unmodified. hostnames here must stay in sync with gateway.yaml's
+# preview-https listener and certificate-preview.yaml's dnsNames.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mindforge-preview
+  namespace: mindforge
+spec:
+  parentRefs:
+    - name: mindforge
+      sectionName: preview-https
+  hostnames:
+    - "*.labs.yourdomain.com"
+  rules:
+    - backendRefs:
+        - name: labproxy
+          port: 8081

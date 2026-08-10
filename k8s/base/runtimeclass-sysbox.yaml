@@ -1,0 +1,39 @@
+# Lets Pods opt into sysbox-runc via `runtimeClassName: sysbox-runc` (see
+# backend/internal/labs/runtime_kubernetes.go, K8sRuntimeClass) — the ONLY
+# elevation mechanism nested-docker lab images get under
+# LABS_RUNTIME=kubernetes (no --cap-add equivalent exists). Same manifest in
+# every environment (docs/local-k3s-dev.md); what differs per environment is
+# which nodes actually carry the `mindforge.io/sysbox: "true"` label below.
+#
+# `scheduling.nodeSelector`/`scheduling.tolerations` are a Kubernetes-native
+# RuntimeClass feature — the RuntimeClass admission controller merges both
+# onto every Pod that sets this runtimeClassName, automatically, with no Go
+# code needed on the backend's side. This is the safety mechanism, not an
+# optimization:
+#   - nodeSelector means a Pod can ONLY schedule onto a node actually
+#     labeled `mindforge.io/sysbox=true` — i.e. a node where sysbox-runc is
+#     verified installed and registered with containerd. Without this, the
+#     scheduler could place a sysbox pod on any node, where pod creation
+#     would fail (RuntimeClass not found by containerd) instead of failing
+#     safely before creation.
+#   - the toleration lets these Pods land on a node tainted
+#     `mindforge.io/sysbox-only=true:NoSchedule` — a taint you apply in
+#     PRODUCTION to dedicate a node pool to these Pods only, so an
+#     untrusted student `docker build`/`docker run` workload never shares a
+#     kernel with anything else in the cluster (defense in depth beyond
+#     sysbox's own isolation — sysbox has had CVEs, like any runtime). This
+#     toleration is inert if no such taint exists (e.g. local k3s, a single
+#     node that can't be dedicated to anything — see
+#     docs/local-k3s-dev.md "Known local-only limitations").
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: sysbox-runc
+handler: sysbox-runc
+scheduling:
+  nodeSelector:
+    mindforge.io/sysbox: "true"
+  tolerations:
+    - key: mindforge.io/sysbox-only
+      operator: Exists
+      effect: NoSchedule

@@ -2,9 +2,10 @@ package courses
 
 import "testing"
 
-// ponytail: no DB test infra exists for domain packages yet (see
-// roadmap.service_test.go's precedent) — this covers the one pure-Go branch
-// in GetRandomTopic worth a check: the fallback tier ordering itself.
+// ponytail: DB test infra now exists via internal/testdb (see repo_db_test.go
+// in this package) — this file predates it and stays pure-Go on purpose,
+// covering the one non-DB branch in GetRandomTopic worth a check: the
+// fallback tier ordering itself.
 
 func TestRandomTopicAttempts(t *testing.T) {
 	interests := []string{"go", "databases"}

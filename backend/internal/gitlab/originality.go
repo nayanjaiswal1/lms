@@ -142,15 +142,18 @@ func CompareSource(a, b string) (similarity float64, matchedShingles int) {
 const (
 	// maxOriginalityFileBytes skips any single file over this size — binary
 	// assets and vendored bundles are the overwhelmingly common case above
-	// this size, not source a student wrote by hand.
-	// ponytail: raise if a legitimate large source file gets skipped.
-	maxOriginalityFileBytes = 512 * 1024
+	// this size, not source a student wrote by hand. Raised from 512KB to
+	// 2MB (2026-08-10); originalityScanTimeoutMS in service_originality.go
+	// was raised alongside it to cover the resulting worst-case comparison
+	// cost.
+	maxOriginalityFileBytes = 2 * 1024 * 1024
 
 	// maxOriginalityFilesPerProject bounds the pairwise file-compare cost per
-	// project pair (comparisons are O(files_a * files_b)).
-	// ponytail: raise, or move to MinHash bucketing, if a real assignment's
-	// repo legitimately exceeds this file count.
-	maxOriginalityFilesPerProject = 300
+	// project pair (comparisons are O(files_a * files_b)). Raised from 300 to
+	// 600 (2026-08-10) alongside originalityScanTimeoutMS; a further raise —
+	// or a move to MinHash bucketing to cut the O(n*m) cost itself — is the
+	// next step if a real assignment's repo still legitimately exceeds this.
+	maxOriginalityFilesPerProject = 600
 )
 
 // binaryExtensions is a small denylist of common non-source file types —

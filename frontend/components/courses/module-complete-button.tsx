@@ -17,8 +17,15 @@ interface ModuleCompleteButtonProps {
 export function ModuleCompleteButton({ moduleId, initialCompleted, className }: ModuleCompleteButtonProps) {
   const [completed, setCompleted] = useState(initialCompleted);
   const [pending, setPending] = useState(false);
-  const { requiredIds, passedIds } = useModuleGate();
-  const locked = !completed && requiredIds.some((id) => !passedIds.has(id));
+  const { requiredIds, passedIds, labRequired, labCompleted } = useModuleGate();
+  const checkPending = requiredIds.some((id) => !passedIds.has(id));
+  const labPending = labRequired && !labCompleted;
+  const locked = !completed && (checkPending || labPending);
+  const lockedReason = checkPending && labPending
+    ? "Answer the knowledge check and complete the lab first."
+    : checkPending
+      ? "Answer the knowledge check correctly first."
+      : "Complete the attached lab first.";
 
   async function handleToggle() {
     const nextStatus = completed ? "in_progress" : "completed";
@@ -35,7 +42,7 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
       className={cn("w-full sm:w-fit", className)}
       disabled={pending || locked}
       size="sm"
-      title={locked ? "Answer the knowledge check correctly first." : undefined}
+      title={locked ? lockedReason : undefined}
       variant={completed ? "outline" : "default"}
       onClick={handleToggle}
     >
@@ -47,7 +54,7 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
           Completed
         </>
       ) : locked ? (
-        "Answer the knowledge check first"
+        checkPending ? "Answer the knowledge check first" : "Complete the lab first"
       ) : (
         "Mark as Complete"
       )}

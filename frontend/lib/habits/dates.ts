@@ -22,6 +22,28 @@ export function monthLabel(month: string): string {
   })
 }
 
+// Today's day-of-month if `month` is the month currently in progress, else
+// null — drives the grid's "TODAY" column highlight.
+export function todayInMonth(month: string): number | null {
+  const now = new Date()
+  const current = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
+  return month === current ? now.getUTCDate() : null
+}
+
+// How many days of `month` have actually happened: every day for a month
+// already fully in the past, none for a month that hasn't started, and the
+// current day-of-month for the month in progress. A streak only counts cells
+// that have happened — without this cutoff, a habit done every day so far
+// this month would still show a broken streak because the remaining,
+// not-yet-lived days sit at count 0.
+export function elapsedDays(month: string, days: number): number {
+  const today = todayInMonth(month)
+  if (today !== null) return today
+  const now = new Date()
+  const current = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
+  return month < current ? days : 0
+}
+
 export function dateAt(month: string, day: number): string {
   const [y, m] = month.split("-").map(Number)
   return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`

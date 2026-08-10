@@ -5,7 +5,7 @@ import { AlertTriangle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
-import { getReviewQueue } from "@/lib/assessments/server";
+import { getAssessment, getReviewQueue } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 import type { ReviewQueueItem } from "@/lib/assessments/types";
 
@@ -16,14 +16,25 @@ interface PageProps {
 }
 
 export default async function ReviewQueuePage({ params }: PageProps) {
-  void params; // assessment id not needed — queue is org-wide
-  const data = await getReviewQueue();
+  const { id } = await params;
+  // The queue itself is org-wide (not filtered by id), but this route is
+  // reached from within one assessment's edit flow — id is only used here to
+  // label the breadcrumb with that assessment's title, reusing the same
+  // getAssessment() call the surrounding edit/layout.tsx already makes (Next
+  // dedupes identical fetches within one render pass, so this isn't a second
+  // network round trip).
+  const [data, detail] = await Promise.all([getReviewQueue(), getAssessment(id)]);
   const items = data.items;
 
   return (
     <main className="page-container">
-      {/* ponytail: no assessment title available here (queue is org-wide, id unused) — 2-item trail to avoid an extra fetch just for a label */}
-      <Breadcrumb items={[{ label: "Assessments", href: ROUTES.ASSESSMENTS }, { label: "Review Queue" }]} />
+      <Breadcrumb
+        items={[
+          { label: "Assessments", href: ROUTES.ASSESSMENTS },
+          { label: detail.assessment.title, href: ROUTES.assessmentEdit(id) },
+          { label: "Review Queue" },
+        ]}
+      />
       <div className="page-header">
         <div>
           <h1 className="section-title">Review Queue</h1>

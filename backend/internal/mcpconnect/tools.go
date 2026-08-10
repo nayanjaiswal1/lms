@@ -1885,9 +1885,10 @@ var tools = []mcpTool{
 
 // qualityFromBool maps the boolean grading a caller of mark_revision_result
 // has (right/wrong) onto an SM-2 quality grade: 2 ("Good") on a correct
-// answer, 0 ("Again") on a wrong one.
-// ponytail: a caller with finer-grained recall (hesitated but got it right,
-// etc.) should call POST /api/srs/review directly with a 0-3 quality instead.
+// answer, 0 ("Again") on a wrong one. Reviewed: this is a deliberate
+// simplification, not a gap — a caller with finer-grained recall (hesitated
+// but got it right, etc.) already has an escape hatch: call
+// POST /api/srs/review directly with a real 0-3 quality instead of this tool.
 func qualityFromBool(wasCorrect bool) int {
 	if wasCorrect {
 		return 2

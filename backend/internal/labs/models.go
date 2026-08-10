@@ -75,6 +75,14 @@ const (
 	// they work fine on an otherwise-idle dev machine.
 	NestedContainerCPU      = "2.0"
 	NestedContainerMemoryMB = 1536
+	// NestedContainerDiskGB bounds the nested dockerd's own storage (image
+	// layers, a student's `docker build` output) on the Kubernetes runtime,
+	// where it's an emptyDir sharing the node's disk — see
+	// KubernetesContainerService.startPod. Unbounded, one nested-docker
+	// session's image pulls/builds could fill the node and evict every other
+	// pod on it, including other students' sessions. Ignored by the Docker
+	// runtime, which has no equivalent per-container knob wired up yet.
+	NestedContainerDiskGB = 10
 	// NestedLabNetwork isolates nested-Docker (elevated, SYS_ADMIN-holding)
 	// containers onto their own bridge, separate from the shared
 	// "mindforge-labs" network every ordinary (--cap-drop ALL, no added

@@ -129,6 +129,10 @@ export interface EnterOfflineTestScoresInput {
   test_date: string; // YYYY-MM-DD
   max_score: number;
   scores: { user_id: string; score: number }[];
+  // Reusable template (see createTestTemplateAction) this test was created
+  // from, if the teacher picked one — purely informational, doesn't change
+  // test_name/max_score, which are still sent explicitly above.
+  template_id?: string;
 }
 
 export async function enterOfflineTestScoresAction(
@@ -138,6 +142,17 @@ export async function enterOfflineTestScoresAction(
   const result = await apiAction<{ test_id: string }>("POST", `/api/batches/${batchId}/offline-tests`, input);
   if (result.ok) revalidatePath(`${ROUTES.batch(batchId)}/tests`);
   return result;
+}
+
+export interface CreateTestTemplateInput {
+  name: string;
+  max_score: number;
+}
+
+export async function createTestTemplateAction(
+  input: CreateTestTemplateInput,
+): Promise<ActionResult<{ id: string }>> {
+  return apiAction<{ id: string }>("POST", "/api/test-templates", input);
 }
 
 export async function updateOfflineTestScoreAction(

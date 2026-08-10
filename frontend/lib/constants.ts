@@ -4,9 +4,24 @@
 // Import the *_OPTIONS arrays as `options` props.
 // ─────────────────────────────────────────────
 
+import ROUTES from "@/lib/routes";
+
 // "What Now?" is a personal, single-user room — not org/plan gated, so it
 // doesn't go through FEATURES/<AccessGate>. Restricted to one email instead.
 export const NOW_FEATURE_ALLOWED_EMAIL = "jaiswal2062@gmail.com";
+
+// Sidebar/mobile-nav logo click destination, user-configurable in Settings >
+// Profile > Preferences. Mirrors backend/internal/profile/models.go's
+// ValidDefaultLandingPages and the user_profiles_default_landing_page_check
+// DB constraint — keep all three in sync. Restricted to routes with no
+// feature/permission gate (lib/nav.ts's ALL_NAV_ITEMS) so the chosen page is
+// always reachable regardless of the user's org features or RBAC permissions.
+export const DEFAULT_LANDING_PAGE_OPTIONS = [
+  { label: "Dashboard",    value: ROUTES.DASHBOARD },
+  { label: "Learn",        value: ROUTES.LEARN },
+  { label: "Calendar",     value: ROUTES.CALENDAR },
+  { label: "My Mistakes",  value: ROUTES.MISTAKES },
+] as const;
 
 // ─────────────────────────────────────────────
 

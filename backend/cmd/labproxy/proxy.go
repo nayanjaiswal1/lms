@@ -45,25 +45,30 @@ type labSession struct {
 // per-session ttyd container. It tracks live connections via a WaitGroup so
 // main.go can wait for a clean drain on shutdown.
 type ProxyHandler struct {
-	pool      *pgxpool.Pool
-	rdb       *redis.Client
-	jwtSecret string
-	jwtIssuer string
-	upgrader  websocket.Upgrader
-	wg        sync.WaitGroup
-	draining  atomic.Bool
+	pool          *pgxpool.Pool
+	rdb           *redis.Client
+	jwtSecret     string
+	jwtIssuer     string
+	previewDomain string
+	upgrader      websocket.Upgrader
+	wg            sync.WaitGroup
+	draining      atomic.Bool
 }
 
 // NewProxyHandler constructs a ProxyHandler with all dependencies injected.
 // This process never touches Docker or the Kubernetes API — resuming a
 // paused container is the main API's job (labs.Service.MintWSToken), done
 // before it ever hands out the token requests here are authenticated with.
-func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer string) *ProxyHandler {
+// previewDomain is LABPROXY_PREVIEW_DOMAIN — the suffix preview subdomains
+// (p<port>-<sessionID>.<previewDomain>) are matched against; see host.go and
+// preview_host.go.
+func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, previewDomain string) *ProxyHandler {
 	return &ProxyHandler{
-		pool:      pool,
-		rdb:       rdb,
-		jwtSecret: jwtSecret,
-		jwtIssuer: jwtIssuer,
+		pool:          pool,
+		rdb:           rdb,
+		jwtSecret:     jwtSecret,
+		jwtIssuer:     jwtIssuer,
+		previewDomain: previewDomain,
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: 10 * time.Second,
 			CheckOrigin:      func(r *http.Request) bool { return true },
