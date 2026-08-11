@@ -8,6 +8,8 @@ import { getWikiSpaces } from "@/lib/server/wiki";
 import { ModuleEditor } from "@/components/courses/module-editor";
 import { CourseDocsToggle } from "@/components/courses/course-docs-toggle";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -21,6 +23,11 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function InstructorCourseDetailPage({ params }: Props) {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.COURSES.EDIT)) {
+    notFound();
+  }
+
   const { slug } = await params;
   const course = await getInstructorCourseBySlug(slug).catch(() => undefined);
   if (!course) notFound();

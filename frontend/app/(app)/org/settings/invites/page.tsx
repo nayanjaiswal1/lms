@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { apiGet } from "@/lib/server/api";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { InviteManager } from "./invite-manager";
 
@@ -38,6 +41,11 @@ interface SearchParams { status?: string; cursor?: string }
 interface Props { searchParams: Promise<SearchParams> }
 
 export default async function OrgInvitesPage({ searchParams }: Props) {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.ADMIN.MANAGE_ORG)) {
+    notFound();
+  }
+
   const params = await searchParams;
   const status = params.status ?? "pending";
 

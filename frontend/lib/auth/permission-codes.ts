@@ -49,8 +49,6 @@ export const PERMISSIONS = {
     MANAGE_PERMISSIONS: "admin.manage_permissions",
     VIEW_AUDIT_LOG:     "admin.view_audit_log",
     MANAGE_ORG:         "admin.manage_org",
-    VIEW_JOBS:          "admin.view_jobs",
-    MANAGE_JOBS:        "admin.manage_jobs",
   },
   PAYMENTS: {
     MANAGE_COUPONS: "payments.manage_coupons",
@@ -61,6 +59,13 @@ export const PERMISSIONS = {
   },
   MODERATION: {
     MANAGE: "content.moderate",
+  },
+  PROJECTS: {
+    VIEW:   "projects.view",
+    MANAGE: "projects.manage",
+  },
+  CALENDAR: {
+    MANAGE_EVENTS: "calendar.events.manage",
   },
 } as const
 

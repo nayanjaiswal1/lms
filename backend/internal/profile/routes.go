@@ -20,7 +20,7 @@ type ProfileHandler struct {
 func New(pool *pgxpool.Pool, cfg *config.Config, store storage.StorageClient, certsRepo *certificates.Repo) *ProfileHandler {
 	repo := NewRepo(pool)
 	svc := NewService(repo, store, cfg, certsRepo)
-	h := newHandler(svc)
+	h := newHandler(svc, pool)
 	return &ProfileHandler{handler: h}
 }
 

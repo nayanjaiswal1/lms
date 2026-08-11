@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getCourseTree, getFinalTestForEdit, getCertificateRule, getInstructorCourseBySlug } from "@/lib/server/courses";
 import { CourseWizard } from "@/components/courses/course-wizard";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -15,6 +17,11 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function CourseSettingsPage({ params }: Props) {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.COURSES.EDIT)) {
+    notFound();
+  }
+
   const { slug } = await params;
   const course = await getInstructorCourseBySlug(slug).catch(() => undefined);
   if (!course) notFound();

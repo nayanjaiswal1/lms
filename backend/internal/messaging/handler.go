@@ -6,9 +6,11 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 const (
@@ -19,6 +21,7 @@ const (
 type Handler struct {
 	service *Service
 	repo    *Repo
+	pool    *pgxpool.Pool
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
@@ -140,7 +143,11 @@ func (h *Handler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msgID := chi.URLParam(r, "msgID")
-	if err := h.service.DeleteMessage(r.Context(), claims.OrgID, msgID, claims.UserID, claims.OrgRole); err != nil {
+	// Live-looked-up org role, not claims.OrgRole: a demoted staff member's
+	// stale JWT would otherwise keep the "any staff can delete any message"
+	// privilege until token expiry (see middleware.LiveOrgRole).
+	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
+	if err := h.service.DeleteMessage(r.Context(), claims.OrgID, msgID, claims.UserID, liveRole); err != nil {
 		writeDomainError(w, err)
 		return
 	}

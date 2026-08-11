@@ -26,10 +26,12 @@ import {
   TicketPercent,
   Lock,
   Flag,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
 import { FEATURES, type Feature } from "@/lib/features";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { usePermissions } from "@/lib/auth/permissions";
 import { useTerminology } from "@/lib/terminology-context";
 import { type Terminology } from "@/lib/terminology";
@@ -117,7 +119,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.COURSES,
     icon:                GraduationCap,
     feature:             FEATURES.COURSES,
-    requiredPermission:  "courses.view",
+    requiredPermission:  PERMISSIONS.COURSES.VIEW,
     mode:                "badge",
   },
   interview_prep: {
@@ -125,7 +127,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.INTERVIEW_PREP,
     icon:                ClipboardCheck,
     feature:             FEATURES.PRACTICE_AI,
-    requiredPermission:  "practice.use",
+    requiredPermission:  PERMISSIONS.PRACTICE.USE,
     mode:                "badge",
   },
   roadmap: {
@@ -138,14 +140,14 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.ASSESSMENTS,
     icon:                ClipboardCheck,
     feature:             FEATURES.ASSESSMENTS,
-    requiredPermission:  "assessments.take",
+    requiredPermission:  PERMISSIONS.ASSESSMENTS.TAKE,
     mode:                "badge",
   },
   mentors: {
     label:              "Mentors",
     href:               ROUTES.MENTORS,
     icon:               UserCheck,
-    hideForPermission:  "admin.view_members",
+    hideForPermission:  PERMISSIONS.ADMIN.VIEW_MEMBERS,
   },
 
   support: {
@@ -183,7 +185,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.REVIEW,
     icon:                Brain,
     feature:             FEATURES.FLASHCARDS,
-    requiredPermission:  "content.srs",
+    requiredPermission:  PERMISSIONS.CONTENT.SRS,
     mode:                "badge",
   },
   mistakes: {
@@ -196,7 +198,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.SHEETS,
     icon:                ListChecks,
     feature:             FEATURES.SHEET_TRACKER,
-    requiredPermission:  "content.sheets",
+    requiredPermission:  PERMISSIONS.CONTENT.SHEETS,
     mode:                "badge",
   },
   wiki: {
@@ -204,7 +206,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.WIKI,
     icon:                FileText,
     feature:             FEATURES.WIKI,
-    requiredPermission:  "content.wiki",
+    requiredPermission:  PERMISSIONS.CONTENT.WIKI,
     mode:                "badge",
   },
   interview_exp: {
@@ -212,7 +214,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.INTERVIEW_EXP,
     icon:                MessageSquare,
     feature:             FEATURES.INTERVIEW_EXP,
-    requiredPermission:  "content.interview_exp",
+    requiredPermission:  PERMISSIONS.CONTENT.INTERVIEW_EXP,
     mode:                "badge",
   },
   // system_design / interview_board / load_test nav items removed: those
@@ -224,7 +226,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.ASSESSMENTS,
     icon:                ClipboardCheck,
     feature:             FEATURES.ASSESSMENTS,
-    requiredPermission:  "assessments.create",
+    requiredPermission:  PERMISSIONS.ASSESSMENTS.CREATE,
     mode:                "badge",
   },
   question_bank: {
@@ -232,7 +234,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.QUESTION_BANK,
     icon:                FileQuestion,
     feature:             FEATURES.ASSESSMENTS,
-    requiredPermission:  "assessments.manage_questions",
+    requiredPermission:  PERMISSIONS.ASSESSMENTS.MANAGE_QUESTIONS,
     mode:                "badge",
   },
   cohort_groups: {
@@ -240,7 +242,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.COHORT_GROUPS,
     icon:                FolderTree,
     feature:             FEATURES.ASSESSMENTS,
-    requiredPermission:  "assessments.manage_batches",
+    requiredPermission:  PERMISSIONS.ASSESSMENTS.MANAGE_BATCHES,
     mode:                "badge",
   },
   projects: {
@@ -248,46 +250,52 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.PROJECTS,
     icon:                FolderGit2,
     feature:             FEATURES.GITLAB_INTEGRATION,
-    requiredPermission:  "projects.view",
+    requiredPermission:  PERMISSIONS.PROJECTS.VIEW,
     mode:                "hide",
   },
   mentor_dashboard: {
     label:               "Overview",
     href:                ROUTES.MENTORING,
     icon:                LayoutDashboard,
-    requiredPermission:  "mentoring.manage_batches",
+    requiredPermission:  PERMISSIONS.MENTORING.MANAGE_BATCHES,
     exact:               true,
   },
   mentor_tickets: {
     label:               "Ticket Queue",
     href:                ROUTES.MENTORING_TICKETS,
     icon:                Ticket,
-    requiredPermission:  "mentoring.view_tickets",
+    requiredPermission:  PERMISSIONS.MENTORING.VIEW_TICKETS,
   },
 
   admin_rbac: {
     label:               "Roles & Permissions",
     href:                ROUTES.ADMIN_RBAC_ROLES,
     icon:                Shield,
-    requiredPermission:  "admin.manage_roles",
+    requiredPermission:  PERMISSIONS.ADMIN.MANAGE_ROLES,
   },
   admin_users: {
     label:               "Users",
     href:                ROUTES.USERS,
     icon:                Users,
-    requiredPermission:  "admin.view_members",
+    requiredPermission:  PERMISSIONS.ADMIN.VIEW_MEMBERS,
   },
   admin_coupons: {
     label:               "Coupons",
     href:                ROUTES.ADMIN_COUPONS,
     icon:                TicketPercent,
-    requiredPermission:  "payments.manage_coupons",
+    requiredPermission:  PERMISSIONS.PAYMENTS.MANAGE_COUPONS,
   },
   admin_content_reports: {
     label:               "Content Reports",
     href:                ROUTES.ADMIN_CONTENT_REPORTS,
     icon:                Flag,
-    requiredPermission:  "content.moderate",
+    requiredPermission:  PERMISSIONS.MODERATION.MANAGE,
+  },
+  org_settings: {
+    label:               "Organization Settings",
+    href:                ROUTES.ORG_SETTINGS_MEMBERS,
+    icon:                Building2,
+    requiredPermission:  PERMISSIONS.ADMIN.MANAGE_ORG,
   },
 
   teach_hub: {
@@ -295,10 +303,10 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.TEACH,
     icon:                Presentation,
     requiredPermission:  [
-      "courses.create",
-      "assessments.create",
-      "assessments.manage_questions",
-      "mentoring.manage_batches",
+      PERMISSIONS.COURSES.CREATE,
+      PERMISSIONS.ASSESSMENTS.CREATE,
+      PERMISSIONS.ASSESSMENTS.MANAGE_QUESTIONS,
+      PERMISSIONS.MENTORING.MANAGE_BATCHES,
     ],
   },
   manage_courses: {
@@ -306,7 +314,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.COURSE_NEW,
     icon:                GraduationCap,
     feature:             FEATURES.COURSES,
-    requiredPermission:  "courses.create",
+    requiredPermission:  PERMISSIONS.COURSES.CREATE,
     mode:                "badge",
   },
 
@@ -460,6 +468,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.admin_rbac,
       ALL_NAV_ITEMS.admin_users,
       ALL_NAV_ITEMS.admin_coupons,
+      ALL_NAV_ITEMS.org_settings,
     ],
   },
 ];

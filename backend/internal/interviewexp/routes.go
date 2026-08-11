@@ -14,7 +14,7 @@ type Router struct {
 func New(pool *pgxpool.Pool) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo)
-	return &Router{handler: newHandler(service)}
+	return &Router{handler: newHandler(service, pool)}
 }
 
 // RegisterRoutes mounts interview-experiences endpoints under the caller's

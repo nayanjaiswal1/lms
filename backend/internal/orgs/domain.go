@@ -64,6 +64,35 @@ func (s *DomainService) Add(ctx context.Context, orgID, actorUserID string, req 
 	return &d, nil
 }
 
+// List returns all domain entries configured for orgID, most recently added first.
+func (s *DomainService) List(ctx context.Context, orgID string) ([]Domain, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, org_id, domain, verified, verification_method, verification_token, verified_at, auto_join_enabled, created_at
+		 FROM org_domains WHERE org_id = $1 ORDER BY created_at DESC`,
+		orgID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("orgs: list domains: %w", err)
+	}
+	defer rows.Close()
+
+	domains := make([]Domain, 0)
+	for rows.Next() {
+		var d Domain
+		if err := rows.Scan(
+			&d.ID, &d.OrgID, &d.Domain, &d.Verified, &d.VerificationMethod,
+			&d.VerificationToken, &d.VerifiedAt, &d.AutoJoinEnabled, &d.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("orgs: list domains: scan: %w", err)
+		}
+		domains = append(domains, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("orgs: list domains: rows: %w", err)
+	}
+	return domains, nil
+}
+
 // Verify marks a domain as verified if the verification_token matches.
 func (s *DomainService) Verify(ctx context.Context, orgID, domainID, token string) (*Domain, error) {
 	var d Domain

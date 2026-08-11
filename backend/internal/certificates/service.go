@@ -27,7 +27,8 @@ var (
 // roleMentor mirrors middleware.RoleMentor's DB/JWT value. Certificates
 // takes it as a plain string (rather than importing the middleware package)
 // so the domain layer stays decoupled from the HTTP-role constant — the
-// handler is what actually reads claims.OrgRole.
+// handler is what actually resolves the caller's live org role (see
+// middleware.LiveOrgRole).
 const roleMentor = "mentor"
 
 // MentorAuthChecker is the narrow capability certificates needs from the

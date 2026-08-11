@@ -133,6 +133,13 @@ type CourseFilter struct {
 	Search     string
 	Limit      int
 	Offset     int
+	// CreatorID, when set (role=instructor on the handler), scopes the
+	// listing to courses authored by this user — every status, including
+	// drafts, is visible to its own author. When nil, this is the general
+	// browse listing any authenticated user can call, so status is forced to
+	// published below instead of trusting a caller-supplied Status — drafts
+	// must never leak to non-authors here.
+	CreatorID *string
 }
 
 // ListCourses returns courses matching the filter for an org.
@@ -144,9 +151,23 @@ func (r *Repo) ListCourses(ctx context.Context, orgID string, filter CourseFilte
 	where := "WHERE c.org_id = $1 AND c.kind = 'org'"
 	n := 2
 
-	if filter.Status != "" {
+	if filter.CreatorID != nil {
+		// Instructor's own catalog — every status, including drafts, is
+		// visible to the author; an explicit status filter narrows further.
+		where += fmt.Sprintf(" AND c.creator_id = $%d", n)
+		args = append(args, *filter.CreatorID)
+		n++
+		if filter.Status != "" {
+			where += fmt.Sprintf(" AND c.status = $%d", n)
+			args = append(args, filter.Status)
+			n++
+		}
+	} else {
+		// General browse (students and anyone without role=instructor):
+		// pin to published regardless of any status query param sent, so
+		// drafts/in-review courses can never leak here.
 		where += fmt.Sprintf(" AND c.status = $%d", n)
-		args = append(args, filter.Status)
+		args = append(args, StatusPublished)
 		n++
 	}
 	if filter.Difficulty != "" {
@@ -533,13 +554,15 @@ func (r *Repo) ReorderSections(ctx context.Context, orgID, courseID string, sect
 }
 
 // CreateModule inserts a course module in a section.
+// CreateModule inserts a module, leaving position unset so the
+// course_modules_lock_section_trigger (migration 013) assigns MAX+1 under
+// a per-section advisory lock — it serializes every insert path (this one,
+// proposal approval, course forking, the roadmap job), not just this one.
 func (r *Repo) CreateModule(ctx context.Context, m CourseModule) (CourseModule, error) {
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO course_modules (course_id, section_id, title, type, position, is_free_preview,
+		`INSERT INTO course_modules (course_id, section_id, title, type, is_free_preview,
 		  storage_key, duration_seconds, content_body, assessment_id, estimated_minutes, starts_at, ends_at)
-		 VALUES ($1,$2,$3,$4,
-		   COALESCE((SELECT MAX(position)+1 FROM course_modules WHERE section_id=$2 AND deleted_at IS NULL),0),
-		   $5,$6,$7,$8,$9,$10,$11,$12)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 		 RETURNING id, position, created_at, updated_at`,
 		m.CourseID, m.SectionID, m.Title, m.Type, m.IsFreePreview,
 		m.StorageKey, m.DurationSeconds, m.ContentBody, m.AssessmentID, m.EstimatedMinutes,
@@ -1695,10 +1718,14 @@ func (r *Repo) ApproveProposal(ctx context.Context, orgID, proposalID, reviewerI
 			sectionID = &id
 		}
 
+		// position is left unset — course_modules_lock_section_trigger
+		// (migration 013) assigns MAX+1 under a per-section advisory lock, so
+		// this can't race with a concurrent CreateModule into the same
+		// section the way an inline COALESCE(MAX...) here would.
 		var moduleID string
 		if err := tx.QueryRow(ctx,
-			`INSERT INTO course_modules (course_id, section_id, title, type, position, content_body)
-			 VALUES ($1,$2,$3,$4, COALESCE((SELECT MAX(position)+1 FROM course_modules WHERE section_id=$2 AND deleted_at IS NULL),0), $5)
+			`INSERT INTO course_modules (course_id, section_id, title, type, content_body)
+			 VALUES ($1,$2,$3,$4,$5)
 			 RETURNING id`,
 			p.TargetCourseID, *sectionID, p.Title, p.Type, p.ContentBody,
 		).Scan(&moduleID); err != nil {

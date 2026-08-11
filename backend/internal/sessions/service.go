@@ -587,12 +587,25 @@ func (s *Service) ListSessions(ctx context.Context, orgID, callerID, scope strin
 }
 
 // MenteeProgress returns one mentee's full history with the calling mentor.
+//
+// Being *a* mentor in orgID is not enough: the caller must actually be
+// *this* student's mentor, or any mentor in the org could pull any other
+// user's name and session stats by ID. HasMentoredStudent enforces that with
+// the same (org_id, mentor_id, student_id) scoping the session list below
+// already uses.
 func (s *Service) MenteeProgress(ctx context.Context, orgID, mentorID, studentID string) (MenteeProgress, error) {
 	isMentor, err := s.repo.IsMentorInOrg(ctx, orgID, mentorID)
 	if err != nil {
 		return MenteeProgress{}, err
 	}
 	if !isMentor {
+		return MenteeProgress{}, ErrForbidden
+	}
+	hasMentored, err := s.repo.HasMentoredStudent(ctx, orgID, mentorID, studentID)
+	if err != nil {
+		return MenteeProgress{}, err
+	}
+	if !hasMentored {
 		return MenteeProgress{}, ErrForbidden
 	}
 	return s.repo.MenteeProgress(ctx, orgID, mentorID, studentID)

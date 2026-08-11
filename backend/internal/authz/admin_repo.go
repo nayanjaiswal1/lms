@@ -481,9 +481,44 @@ func (r *AdminRepo) GetUserRoles(ctx context.Context, userID, orgID string) ([]R
 	return roles, nil
 }
 
+// rowQuerier is the subset of *pgxpool.Pool and pgx.Tx that
+// requireOrgMembership needs, so the same check can run inside or outside an
+// existing transaction.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// requireOrgMembership returns a "not found"-style error unless userID is an
+// active member of orgID. Every admin write that scopes a mutation to a
+// tenant (assigning a role, granting a permission override, locking an
+// account) must call this before writing — otherwise a tenant admin could
+// target any platform user by ID, not just members of their own org, since
+// the underlying UPDATE/INSERT has no org-membership join of its own.
+func requireOrgMembership(ctx context.Context, q rowQuerier, userID, orgID string) error {
+	var isMember bool
+	if err := q.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM org_members WHERE user_id = $1 AND org_id = $2 AND status = 'active')`,
+		userID, orgID,
+	).Scan(&isMember); err != nil {
+		return fmt.Errorf("check org membership: %w", err)
+	}
+	if !isMember {
+		return fmt.Errorf("user not found in this organization")
+	}
+	return nil
+}
+
 // AssignRole grants roleID to userID within orgID. The role must be a
 // system role or belong to orgID. Duplicate assignments are silently ignored.
+//
+// userID must already be an active member of orgID: without this check a
+// tenant admin could write a user_roles row — scoped to their own org — for
+// any platform user, including one who has never belonged to that org.
 func (r *AdminRepo) AssignRole(ctx context.Context, userID, roleID, orgID string) error {
+	if err := requireOrgMembership(ctx, r.pool, userID, orgID); err != nil {
+		return fmt.Errorf("admin: assign role: %w", err)
+	}
+
 	// Verify the role is accessible to this org.
 	var isSystem bool
 	var roleOrgID pgtype.UUID
@@ -558,7 +593,13 @@ func (r *AdminRepo) GetUserPermissionOverrides(ctx context.Context, userID, orgI
 
 // GrantUserPermission grants permissionID directly to userID within orgID,
 // bypassing roles. Duplicate grants are silently ignored.
+//
+// userID must already be an active member of orgID — see requireOrgMembership.
 func (r *AdminRepo) GrantUserPermission(ctx context.Context, userID, orgID, permissionID, grantedBy string) error {
+	if err := requireOrgMembership(ctx, r.pool, userID, orgID); err != nil {
+		return fmt.Errorf("admin: grant user permission: %w", err)
+	}
+
 	var isActive bool
 	if err := r.pool.QueryRow(ctx,
 		`SELECT is_active FROM permissions WHERE id = $1`, permissionID,
@@ -709,7 +750,36 @@ func isValidUUID(s string) bool {
 // locked with live sessions.
 //
 // reason is stored only for a lock; restoring to active clears it.
-func (r *AdminRepo) SetUserStatus(ctx context.Context, userID, status, reason string) (previous string, err error) {
+//
+// orgID must be the caller's tenant, and userID must already be an active
+// member of it — see requireOrgMembership. Without this, a tenant admin
+// could suspend or restore any platform account by ID, including one that
+// has never belonged to their org.
+func (r *AdminRepo) SetUserStatus(ctx context.Context, userID, orgID, status, reason string) (string, error) {
+	return r.setUserStatus(ctx, userID, status, reason, func(tx pgx.Tx) error {
+		if err := requireOrgMembership(ctx, tx, userID, orgID); err != nil {
+			return fmt.Errorf("admin: set user status: %w", err)
+		}
+		return nil
+	})
+}
+
+// SetUserStatusUnscoped locks or restores a platform account with no
+// org-membership check. Only for genuinely tenant-less callers acting on
+// their own account — currently self-service account deletion
+// (internal/privacy.Service.DeleteAccount), where userID is always the
+// authenticated caller, never an admin-supplied target. Any admin-triggered
+// path must go through SetUserStatus instead, which enforces that the
+// target belongs to the caller's org.
+func (r *AdminRepo) SetUserStatusUnscoped(ctx context.Context, userID, status, reason string) (string, error) {
+	return r.setUserStatus(ctx, userID, status, reason, nil)
+}
+
+// setUserStatus holds the shared read-then-write transaction for
+// SetUserStatus and SetUserStatusUnscoped. guard, when non-nil, runs inside
+// the transaction before the status is read/written and can abort the
+// whole operation by returning an error.
+func (r *AdminRepo) setUserStatus(ctx context.Context, userID, status, reason string, guard func(pgx.Tx) error) (previous string, err error) {
 	if status == "active" {
 		reason = ""
 	}
@@ -728,6 +798,12 @@ func (r *AdminRepo) SetUserStatus(ctx context.Context, userID, status, reason st
 		return "", fmt.Errorf("admin: set user status: begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if guard != nil {
+		if err = guard(tx); err != nil {
+			return "", err
+		}
+	}
 
 	if err = tx.QueryRow(ctx,
 		`SELECT status FROM users WHERE id = $1 FOR UPDATE`, userID,

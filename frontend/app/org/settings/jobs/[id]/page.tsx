@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { fetchJob } from "@/lib/jobs/server";
 import type { JobStatus, JobPriority } from "@/lib/jobs/types";
 import { cancelJobAction, retryJobAction, pauseJobAction } from "@/app/org/settings/jobs/[id]/actions";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { getCurrentOrgId } from "@/lib/server/claims";
@@ -41,6 +43,11 @@ function fmtDate(iso: string | null): string {
 }
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.ADMIN.MANAGE_ORG)) {
+    notFound();
+  }
+
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 

@@ -124,6 +124,9 @@ const GRID_LINE = "stroke-foreground/35";
 // foreground gray, so they read as an intentional part of the progress wheel
 // rather than a neutral grid line, and stay visible over a "done" wedge fill.
 const RING_LINE = "stroke-primary/70";
+// Degrees each wedge is widened by on both radial edges so it overlaps its
+// neighbor instead of butting exactly against it — see the wedgePath call below.
+const SEAM_OVERLAP = 0.25;
 
 interface DailyHabitWheelProps {
   habits: Habit[];
@@ -237,8 +240,16 @@ export function DailyHabitWheel({
                       CENTER_Y,
                       innerR,
                       outerR,
-                      startAngle,
-                      endAngle,
+                      // Widened by SEAM_OVERLAP on both sides so adjacent wedges
+                      // overlap by a hair instead of butting edge to edge —
+                      // anti-aliasing on an exact shared boundary otherwise lets
+                      // the page background bleed through as a dashed seam, most
+                      // visible when both wedges are the same "done" color and
+                      // should read as one unbroken arc. shapeRendering=crispEdges
+                      // was tried first but stair-steps unevenly along a curved
+                      // edge, which reads as the same dashed seam it's meant to fix.
+                      startAngle - SEAM_OVERLAP,
+                      endAngle + SEAM_OVERLAP,
                       // Only a single-day cell gets the flat-chord edge — a merged
                       // multi-day cell (a week, or the whole month) spans far more
                       // than the notch-adjacent sliver that edge treatment was

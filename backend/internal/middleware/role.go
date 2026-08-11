@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 // Org-level roles, mirrored from the org_members.role CHECK constraint.
 // Centralised here so route guards never compare bare strings.
 const (
+	RoleOwner      = "owner"
 	RoleAdmin      = "admin"
 	RoleInstructor = "instructor"
 	RoleMentor     = "mentor"
@@ -67,32 +69,50 @@ func RequireOrgRole(pool *pgxpool.Pool, allowed ...string) func(http.Handler) ht
 	}
 }
 
-// liveOrgRole resolves the caller's current role in the active org, preferring
-// the value RequireOrgMember already resolved. Reports false when the user is
-// not an active member of that org.
+// liveOrgRole resolves the caller's current role in their JWT's org
+// (claims.OrgID), preferring the value RequireOrgMember already resolved.
+// Reports false when the user is not an active member of that org.
+//
+// The org is always claims.OrgID, never the X-Org-Id request header: the
+// header is caller-controlled, and every handler downstream of this
+// authorization check writes using claims.OrgID, not the header. Trusting
+// the header here would let a caller pass the role check for an org they
+// pick (e.g. one they made themselves an admin of) while every write still
+// lands in their real JWT org — a cross-org privilege escalation.
+// RequireOrgMember is a separate, legitimate multi-org-switching flow and is
+// free to keep reading the header; this function is only for authorization
+// decisions.
 func liveOrgRole(r *http.Request, pool *pgxpool.Pool, claims *auth.Claims) (string, bool) {
 	if orgCtx, ok := GetOrgCtx(r.Context()); ok {
 		return orgCtx.CallerRole, true
 	}
-
-	orgID := r.Header.Get("X-Org-Id")
-	if orgID == "" {
-		orgID = claims.OrgID
+	if claims.OrgID == "" {
+		return "", false
 	}
+	return LiveOrgRole(r.Context(), pool, claims.UserID, claims.OrgID)
+}
+
+// LiveOrgRole looks up userID's current role in orgID directly from the
+// database. Exported so handlers that authorize outside the RequireOrgRole
+// middleware chain — e.g. comparing against a role instead of gating the
+// whole route — can use the same live lookup instead of reading the stale
+// claims.OrgRole JWT claim (see the rationale on RequireOrgRole above).
+// Reports false when the user is not an active member of orgID.
+func LiveOrgRole(ctx context.Context, pool *pgxpool.Pool, userID, orgID string) (string, bool) {
 	if orgID == "" {
 		return "", false
 	}
 
 	var role string
-	err := pool.QueryRow(r.Context(),
+	err := pool.QueryRow(ctx,
 		`SELECT role FROM org_members
 		 WHERE org_id = $1 AND user_id = $2 AND status = 'active'`,
-		orgID, claims.UserID,
+		orgID, userID,
 	).Scan(&role)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
-			slog.ErrorContext(r.Context(), "RequireOrgRole: db query failed",
-				"org_id", orgID, "user_id", claims.UserID, "err", err)
+			slog.ErrorContext(ctx, "LiveOrgRole: db query failed",
+				"org_id", orgID, "user_id", userID, "err", err)
 		}
 		return "", false
 	}

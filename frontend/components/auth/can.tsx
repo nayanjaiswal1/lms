@@ -25,7 +25,7 @@ export function Can({
   const hasAny = useHasAnyPermission(anyOf ?? [])
   const hasAll = useHasAllPermissions(allOf ?? [])
 
-  let allowed = true
+  let allowed = false
 
   if (permission !== undefined) allowed = hasOne
   else if (anyOf !== undefined) allowed = hasAny

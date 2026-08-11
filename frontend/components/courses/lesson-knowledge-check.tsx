@@ -1,3 +1,4 @@
+import { HelpCircle } from "lucide-react";
 import type { KnowledgeCheckQuestion } from "@/lib/courses/markdown";
 import { LessonMcqQuestion } from "@/components/courses/lesson-mcq-question";
 import { LessonSqlCheckQuestion } from "@/components/courses/lesson-sql-check-question";
@@ -12,9 +13,12 @@ interface LessonKnowledgeCheckProps {
 // which ModuleCompleteButton reads to decide whether Mark Complete unlocks.
 export function LessonKnowledgeCheck({ moduleId, questions }: LessonKnowledgeCheckProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-primary/40 bg-card p-4">
+    <div className="card-raised flex flex-col gap-4 border-primary/30">
       <div>
-        <span className="text-xs font-semibold text-primary">Knowledge Check</span>
+        <div className="flex items-center gap-2">
+          <HelpCircle aria-hidden className="h-5 w-5 text-primary" />
+          <span className="text-base font-semibold text-foreground">Knowledge Check</span>
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Answer all {questions.length} questions correctly to unlock Mark as Complete.
         </p>

@@ -528,7 +528,7 @@
   .prose-content {
     @apply leading-7 text-foreground
            [&>*+*]:mt-4
-           [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:text-xl [&>h2]:font-semibold [&>h2]:leading-snug
+           [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:border-b [&>h2]:border-border [&>h2]:pb-2 [&>h2]:text-xl [&>h2]:font-semibold [&>h2]:leading-snug
            [&>h3]:mt-6 [&>h3]:mb-2 [&>h3]:text-lg [&>h3]:font-semibold [&>h3]:leading-snug
            [&>pre]:my-5 [&>pre]:block [&>pre]:overflow-x-auto
            [&>blockquote]:my-5
@@ -566,12 +566,19 @@
   }
 
   .prose-content .callout {
-    @apply rounded-lg border p-4 text-sm [&>*+*]:mt-2;
+    @apply relative rounded-xl border border-l-4 p-5 pl-14 text-sm [&>*+*]:mt-2;
+  }
+  .prose-content .callout::before {
+    @apply absolute left-4 top-5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold leading-none;
   }
   .prose-content .callout-info    { @apply border-border bg-muted text-foreground; }
+  .prose-content .callout-info::before    { content: "i"; @apply bg-foreground/10 text-foreground; }
   .prose-content .callout-warning { @apply border-warning/40 bg-warning/10 text-foreground; }
+  .prose-content .callout-warning::before { content: "!"; @apply bg-warning/20 text-warning-foreground; }
   .prose-content .callout-tip     { @apply border-success/40 bg-success/10 text-foreground; }
+  .prose-content .callout-tip::before     { content: "✓"; @apply bg-success/20 text-success; }
   .prose-content .callout-danger  { @apply border-destructive/40 bg-destructive/10 text-foreground; }
+  .prose-content .callout-danger::before  { content: "!"; @apply bg-destructive/20 text-destructive; }
 
   /* ── Empty state ────────────────────────────────────────────────── */
   .empty-state      { @apply flex flex-col items-center justify-center py-16 text-center gap-4 text-muted-foreground; }

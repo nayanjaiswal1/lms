@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { getOrgMembers, getOrgInvites } from "@/lib/orgs/server";
 import { MemberTable } from "@/app/org/settings/members/member-table";
 import { InviteForm } from "@/app/org/settings/members/invite-form";
 import { InviteList } from "@/app/org/settings/members/invite-list";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { getCurrentOrgId } from "@/lib/server/claims";
 
@@ -14,6 +16,11 @@ export const metadata: Metadata = {
 
 
 export default async function MembersPage() {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.ADMIN.MANAGE_ORG)) {
+    notFound();
+  }
+
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 

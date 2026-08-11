@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { apiGet } from "@/lib/server/api";
 import { GitlabInstallationManager, type GitlabInstallationStatus, type GitlabOrgConfig } from "@/components/settings/gitlab-installation-manager";
 import { getOrgAIConnectorConfig } from "@/lib/orgs/server";
 import { AIConnectorToggleForm } from "@/app/org/settings/integrations/ai-connector-toggle-form";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { getCurrentOrgId } from "@/lib/server/claims";
 
@@ -25,6 +27,11 @@ async function fetchGitlabOrgConfig(): Promise<GitlabOrgConfig> {
 }
 
 export default async function OrgIntegrationsPage() {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.ADMIN.MANAGE_ORG)) {
+    notFound();
+  }
+
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 

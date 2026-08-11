@@ -349,6 +349,13 @@ func (h *Handler) HandleAssignRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.adminSvc.AssignRole(r.Context(), claims.UserID, claims.OrgID, userID, req.RoleID); err != nil {
+		if isNotFound(err) {
+			// Covers both "role not found or inactive" and "user not found
+			// in this organization" — the error text already distinguishes
+			// them for the caller.
+			httputil.WriteError(w, http.StatusNotFound, err.Error())
+			return
+		}
 		if isForbidden(err) {
 			httputil.WriteError(w, http.StatusForbidden, err.Error())
 			return
@@ -453,7 +460,10 @@ func (h *Handler) HandleGrantUserPermission(w http.ResponseWriter, r *http.Reque
 
 	if err := h.adminSvc.GrantUserPermission(r.Context(), claims.UserID, claims.OrgID, userID, req.PermissionID); err != nil {
 		if isNotFound(err) {
-			httputil.WriteError(w, http.StatusNotFound, "Permission not found.")
+			// Covers both "permission not found" and "user not found in
+			// this organization" — the error text already distinguishes
+			// them for the caller.
+			httputil.WriteError(w, http.StatusNotFound, err.Error())
 			return
 		}
 		if isForbidden(err) {

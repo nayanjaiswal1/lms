@@ -9,8 +9,8 @@ import (
 // RegisterRoutes mounts the courses API onto the given router.
 // Caller has already applied RequireAuth + RequireCSRF middleware.
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	instructor := middleware.RequireOrgRole(h.repo.Pool(), middleware.RoleAdmin, middleware.RoleInstructor)
-	staff := middleware.RequireOrgRole(h.repo.Pool(), middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
+	instructor := middleware.RequireOrgRole(h.repo.Pool(), middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
+	staff := middleware.RequireOrgRole(h.repo.Pool(), middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
 
 	// ─── Instructor: course/section/module authoring ──────────────────────────
 	r.Group(func(r chi.Router) {

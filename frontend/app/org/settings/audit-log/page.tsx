@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAuditLogs } from "@/lib/orgs/server";
 import type { AuditLog } from "@/lib/orgs/types";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { getCurrentOrgId } from "@/lib/server/claims";
 
@@ -88,6 +90,11 @@ export default async function AuditLogPage({
 }: {
   searchParams: Promise<{ cursor?: string }>;
 }) {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.ADMIN.VIEW_AUDIT_LOG)) {
+    notFound();
+  }
+
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 

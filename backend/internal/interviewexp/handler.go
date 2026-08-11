@@ -5,17 +5,20 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 type Handler struct {
 	service *Service
+	pool    *pgxpool.Pool
 }
 
-func newHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func newHandler(service *Service, pool *pgxpool.Pool) *Handler {
+	return &Handler{service: service, pool: pool}
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -158,7 +161,9 @@ func (h *Handler) UpdateQna(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	q, err := h.service.UpdateQna(r.Context(), claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
+	// Live-looked-up org role, not claims.OrgRole — see middleware.LiveOrgRole.
+	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
+	q, err := h.service.UpdateQna(r.Context(), claims.UserID, liveRole, chi.URLParam(r, "id"), req)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -171,7 +176,9 @@ func (h *Handler) DeleteQna(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.service.DeleteQna(r.Context(), claims.UserID, claims.OrgRole, chi.URLParam(r, "id")); err != nil {
+	// Live-looked-up org role, not claims.OrgRole — see middleware.LiveOrgRole.
+	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
+	if err := h.service.DeleteQna(r.Context(), claims.UserID, liveRole, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -219,7 +226,9 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.service.DeleteComment(r.Context(), claims.UserID, claims.OrgRole, chi.URLParam(r, "id")); err != nil {
+	// Live-looked-up org role, not claims.OrgRole — see middleware.LiveOrgRole.
+	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
+	if err := h.service.DeleteComment(r.Context(), claims.UserID, liveRole, chi.URLParam(r, "id")); err != nil {
 		writeDomainError(w, err)
 		return
 	}

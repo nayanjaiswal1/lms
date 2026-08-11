@@ -296,6 +296,14 @@ func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
 		Limit:      queryInt(r, "limit", 20),
 		Offset:     queryInt(r, "offset", 0),
 	}
+	// role=instructor means "courses I author" (the instructor-editor pages
+	// rely on this to scope drafts to their own owner — see
+	// getInstructorCourseBySlug in frontend/lib/server/courses.ts). Any other
+	// value, including no role param, is the general browse listing, which
+	// ListCourses restricts to published courses regardless of filter.Status.
+	if queryStr(r, "role") == "instructor" {
+		filter.CreatorID = &claims.UserID
+	}
 	courses, total, err := h.repo.ListCourses(r.Context(), claims.OrgID, filter)
 	if err != nil {
 		writeDomainError(w, err)

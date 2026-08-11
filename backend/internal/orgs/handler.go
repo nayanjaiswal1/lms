@@ -78,6 +78,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Get("/ai-connector-config", h.handleGetAIConnectorConfig)
 		r.Patch("/ai-connector-config", h.handleUpdateAIConnectorConfig)
 
+		r.Get("/domains", h.handleListDomains)
 		r.Post("/domains", h.handleAddDomain)
 		r.Post("/domains/verify", h.handleVerifyDomain)
 		r.Post("/domains/{domain_id}/auto-join", h.handleSetAutoJoin)
@@ -523,6 +524,25 @@ func (h *Handler) handleUpdateAIConnectorConfig(w http.ResponseWriter, r *http.R
 }
 
 // ─── domains ──────────────────────────────────────────────────────────────────
+
+func (h *Handler) handleListDomains(w http.ResponseWriter, r *http.Request) {
+	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
+		return
+	}
+
+	domains, err := h.domSvc.List(r.Context(), orgCtx.OrgID)
+	if err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to list domains.")
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, domains)
+}
 
 func (h *Handler) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.GetClaims(r.Context())
@@ -1028,6 +1048,10 @@ func (h *Handler) handleListMembers(w http.ResponseWriter, r *http.Request) {
 	orgCtx, ok := apimiddleware.GetOrgCtx(r.Context())
 	if !ok {
 		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
+		return
+	}
+	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}
 

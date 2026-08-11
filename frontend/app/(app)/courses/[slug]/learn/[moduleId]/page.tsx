@@ -151,23 +151,23 @@ export default async function ModuleLearnPage({ params }: Props) {
 
   const moduleMeta = (
     <>
-      <Badge className="capitalize" variant="outline">
+      <Badge className="gap-1.5 rounded-full border-primary/20 bg-accent px-2.5 py-1 font-mono text-sm capitalize text-primary" variant="outline">
         {MODULE_TYPE_LABEL[currentModule.type] ?? currentModule.type}
       </Badge>
       {currentModule.estimated_minutes && (
-        <Badge variant="secondary">
-          <Clock aria-hidden className="mr-1 h-3 w-3" />{currentModule.estimated_minutes} min
+        <Badge className="gap-1.5 rounded-full px-2.5 py-1 font-mono text-sm" variant="secondary">
+          <Clock aria-hidden className="h-3.5 w-3.5" />{currentModule.estimated_minutes} min
         </Badge>
       )}
       {moduleProgress?.status === "completed" && (
-        <Badge className="badge-success" variant="outline">
-          <CheckCircle2 aria-hidden className="mr-1 h-3 w-3" />Completed
+        <Badge className="badge-success gap-1.5 rounded-full px-2.5 py-1 font-mono text-sm" variant="outline">
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" />Completed
         </Badge>
       )}
       {dueRevisions.total > 0 && (
         <Link href={ROUTES.REVIEW}>
-          <Badge className="badge-warning" variant="outline">
-            <Brain aria-hidden className="mr-1 h-3 w-3" />
+          <Badge className="badge-warning gap-1.5 rounded-full px-2.5 py-1 font-mono text-sm" variant="outline">
+            <Brain aria-hidden className="h-3.5 w-3.5" />
             {dueRevisions.total} due for revision
           </Badge>
         </Link>
@@ -181,8 +181,8 @@ export default async function ModuleLearnPage({ params }: Props) {
           reads as a duplicate, not two facts. Duration, task count, and
           points all stay on the lab card itself. */}
       {hasUnstartedLab && moduleLab?.lab && (
-        <Badge className="capitalize" variant="outline">
-          <Terminal aria-hidden className="mr-1 h-3 w-3" />{moduleLab.lab.lab_type}
+        <Badge className="gap-1.5 rounded-full border-primary/20 bg-accent px-2.5 py-1 font-mono text-sm capitalize text-primary" variant="outline">
+          <Terminal aria-hidden className="h-3.5 w-3.5" />{moduleLab.lab.lab_type}
         </Badge>
       )}
     </>
@@ -247,7 +247,7 @@ export default async function ModuleLearnPage({ params }: Props) {
           <article className={cn("min-w-0 flex-1", !isWideLayout && "mx-auto max-w-3xl")}>
             {!isWideLayout && (
               <div className="mb-2 flex items-start justify-between gap-3">
-                <h2 className="min-w-0 flex-1 text-xl font-semibold">{currentModule.title}</h2>
+                <h2 className="min-w-0 flex-1 text-2xl font-bold tracking-tight">{currentModule.title}</h2>
                 <LessonMoreMenu
                   courseSlug={slug}
                   fallbackModuleId={(prevModule ?? nextModule)?.id ?? null}

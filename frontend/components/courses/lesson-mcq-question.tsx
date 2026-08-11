@@ -5,8 +5,8 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { recordCheckAttemptAction } from "@/lib/courses/actions";
 import { useModuleGate } from "@/components/courses/module-gate-provider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { KnowledgeCheckQuestion } from "@/lib/courses/markdown";
 
 interface LessonMcqQuestionProps {
@@ -48,14 +48,24 @@ export function LessonMcqQuestion({ moduleId, question }: LessonMcqQuestionProps
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <p className="text-sm font-medium text-foreground">{question.prompt}</p>
 
-      <RadioGroup disabled={solved} value={selected ?? undefined} onValueChange={setSelected}>
+      <RadioGroup
+        className="flex flex-col gap-2"
+        disabled={solved}
+        value={selected ?? undefined}
+        onValueChange={setSelected}
+      >
         {question.options?.map((option) => (
-          <div className="flex items-center gap-2" key={option.id}>
+          <label
+            className={cn(
+              "flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3 text-sm transition-colors hover:bg-muted/50",
+              selected === option.id && "border-primary bg-primary/5",
+            )}
+            htmlFor={`${question.id}-${option.id}`}
+            key={option.id}
+          >
             <RadioGroupItem id={`${question.id}-${option.id}`} value={option.id} />
-            <Label className="text-sm font-normal" htmlFor={`${question.id}-${option.id}`}>
-              {option.text}
-            </Label>
-          </div>
+            <span className="font-normal text-foreground">{option.text}</span>
+          </label>
         ))}
       </RadioGroup>
 

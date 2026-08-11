@@ -58,7 +58,7 @@ func (s *Service) DeleteAccount(ctx context.Context, userID, password string) er
 		return err
 	}
 
-	if _, err := s.adminRepo.SetUserStatus(ctx, userID, "deactivated", deletionReason); err != nil {
+	if _, err := s.adminRepo.SetUserStatusUnscoped(ctx, userID, "deactivated", deletionReason); err != nil {
 		return fmt.Errorf("privacy: deactivate after anonymize: %w", err)
 	}
 	return nil

@@ -5,17 +5,20 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/middleware"
 )
 
 type Handler struct {
 	service *Service
+	pool    *pgxpool.Pool
 }
 
-func newHandler(service *Service) *Handler {
-	return &Handler{service: service}
+func newHandler(service *Service, pool *pgxpool.Pool) *Handler {
+	return &Handler{service: service, pool: pool}
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
@@ -172,7 +175,11 @@ func (h *Handler) IssueCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
-	cert, err := h.service.IssueByMentor(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, req.StudentID, courseID)
+	// Live-looked-up org role, not claims.OrgRole: a demoted admin's stale
+	// JWT would otherwise skip the mentor-assignment check below (see
+	// middleware.LiveOrgRole).
+	liveRole, _ := middleware.LiveOrgRole(r.Context(), h.pool, claims.UserID, claims.OrgID)
+	cert, err := h.service.IssueByMentor(r.Context(), claims.OrgID, claims.UserID, liveRole, req.StudentID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
 		return

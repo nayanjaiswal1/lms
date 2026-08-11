@@ -366,6 +366,7 @@ func (r *Repo) MenteeProgress(ctx context.Context, orgID, mentorID, studentID st
 		            AND fs.org_id = $1 AND fs.mentor_id = $2 AND fs.student_id = $3
 		            AND f.user_id = $3)
 		   FROM users u
+		   JOIN org_members om ON om.user_id = u.id AND om.org_id = $1 AND om.status = 'active'
 		   LEFT JOIN mentor_sessions s
 		          ON s.student_id = u.id AND s.mentor_id = $2 AND s.org_id = $1
 		  WHERE u.id = $3
@@ -448,6 +449,27 @@ func (r *Repo) IsMentorInOrg(ctx context.Context, orgID, userID string) (bool, e
 	).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("sessions: is mentor in org: %w", err)
+	}
+	return exists, nil
+}
+
+// HasMentoredStudent reports whether mentorID has an existing session record
+// with studentID in orgID — the same (org_id, mentor_id, student_id) scoping
+// the mentee session list itself uses. Being *a* mentor in the org is not
+// enough to authorize MenteeProgress; the caller must be *this* student's
+// mentor, or the endpoint discloses any user's name/session stats to any
+// mentor in the org.
+func (r *Repo) HasMentoredStudent(ctx context.Context, orgID, mentorID, studentID string) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+		   SELECT 1 FROM mentor_sessions
+		    WHERE org_id = $1 AND mentor_id = $2 AND student_id = $3
+		 )`,
+		orgID, mentorID, studentID,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("sessions: has mentored student: %w", err)
 	}
 	return exists, nil
 }

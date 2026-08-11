@@ -10,6 +10,7 @@ import { LessonKnowledgeCheck } from "@/components/courses/lesson-knowledge-chec
 import { LessonReflection } from "@/components/courses/lesson-reflection";
 import { LessonFigure } from "@/components/courses/lesson-figure";
 import { LessonHtml } from "@/components/courses/lesson-html";
+import { LessonStaticCodeBlock } from "@/components/courses/lesson-static-code-block";
 import { isRunnableLanguage } from "@/lib/courses/runnable-languages";
 import { LessonLabHero } from "@/components/courses/lesson-lab-hero";
 import { LessonLabTaskCard } from "@/components/courses/lesson-lab-task-card";
@@ -45,7 +46,7 @@ export function ModuleNotes({
   // the wide no-rail layout switch), this inline copy once running/paused.
 
   const body = (
-    <div className="card-base flex flex-col gap-4 p-6">
+    <div className="flex flex-col gap-8">
       {segments.map((segment, index) => {
         switch (segment.type) {
           case "html":
@@ -66,9 +67,7 @@ export function ModuleNotes({
                 language={segment.language}
               />
             ) : (
-              <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-sm" key={index}>
-                <code>{segment.code}</code>
-              </pre>
+              <LessonStaticCodeBlock code={segment.code} key={index} language={segment.language} />
             );
           case "sql-try":
             return <LessonSqlRunner initialQuery={segment.query} key={index} />;

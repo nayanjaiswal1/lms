@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/ai"
+	"github.com/mindforge/backend/internal/authz"
 )
 
 // Router mounts the practice HTTP API. Service is exported so other packages
@@ -26,9 +27,14 @@ func New(pool *pgxpool.Pool, provider ai.LLMProvider) *Router {
 	return &Router{handler: &Handler{service: service, repo: repo}, Service: service}
 }
 
-func (rt *Router) RegisterRoutes(r chi.Router) {
-	r.Get("/api/practice/technologies", rt.handler.ListTechnologies)
-	r.Get("/api/practice/sessions/{sessionID}", rt.handler.GetSession)
-	r.Patch("/api/practice/sessions/{sessionID}", rt.handler.UpdateSessionStatus)
-	r.Post("/api/practice/sessions/{sessionID}/items/{position}/answer", rt.handler.SubmitAnswer)
+// RegisterRoutes mounts the practice API, gated on practice.use — the same
+// permission code the frontend's nav entry and <AccessGate> already check,
+// enforced again here since UI gates are UX, not security.
+func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
+	r.With(authz.RequirePermission(authzSvc, "practice.use")).Group(func(r chi.Router) {
+		r.Get("/api/practice/technologies", rt.handler.ListTechnologies)
+		r.Get("/api/practice/sessions/{sessionID}", rt.handler.GetSession)
+		r.Patch("/api/practice/sessions/{sessionID}", rt.handler.UpdateSessionStatus)
+		r.Post("/api/practice/sessions/{sessionID}/items/{position}/answer", rt.handler.SubmitAnswer)
+	})
 }

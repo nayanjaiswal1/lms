@@ -10,6 +10,8 @@ import { OrgBrandingCard } from "@/app/org/settings/org-branding-card";
 import { apiGet } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import { getCurrentOrgId, getCurrentOrgRole } from "@/lib/server/claims";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 
 export const metadata: Metadata = {
   title: "Overview — Organisation Settings",
@@ -48,6 +50,11 @@ function statusLabel(status: string): string {
 export default async function OrgSettingsPage() {
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
+
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.ADMIN.MANAGE_ORG)) {
+    notFound();
+  }
 
   const [org, role] = await Promise.all([fetchOrg(orgId), getCurrentOrgRole()]);
   if (!org) notFound();

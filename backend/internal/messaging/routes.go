@@ -14,12 +14,12 @@ type Router struct {
 func New(pool *pgxpool.Pool) *Router {
 	repo := NewRepo(pool)
 	service := NewService(repo)
-	return &Router{handler: &Handler{service: service, repo: repo}, pool: pool}
+	return &Router{handler: &Handler{service: service, repo: repo, pool: pool}, pool: pool}
 }
 
 func (rt *Router) RegisterRoutes(r chi.Router) {
-	staff := middleware.RequireOrgRole(rt.pool, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
-	adminInstructor := middleware.RequireOrgRole(rt.pool, middleware.RoleAdmin, middleware.RoleInstructor)
+	staff := middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor)
+	adminInstructor := middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor)
 
 	// Batch messages — any authenticated member can list and post
 	r.Get("/api/batches/{batchID}/messages", rt.handler.ListMessages)

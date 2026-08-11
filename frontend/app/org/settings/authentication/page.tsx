@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { Shield } from "lucide-react";
 import { getOrgAuthConfig } from "@/lib/orgs/server";
 import { AuthConfigForm } from "@/app/org/settings/authentication/auth-config-form";
 import { SectionHeader } from "@/components/shared/section-header";
+import { getMyPermissions } from "@/lib/server/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { getCurrentOrgId } from "@/lib/server/claims";
 
@@ -13,6 +15,11 @@ export const metadata: Metadata = {
 
 
 export default async function AuthenticationPage() {
+  const myPerms = await getMyPermissions();
+  if (!myPerms.includes(PERMISSIONS.ADMIN.MANAGE_ORG)) {
+    notFound();
+  }
+
   const orgId = await getCurrentOrgId();
   if (!orgId) redirect(ROUTES.ORG_SELECT);
 

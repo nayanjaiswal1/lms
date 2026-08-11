@@ -56,6 +56,7 @@ import (
 	"github.com/mindforge/backend/internal/systemdesign"
 	"github.com/mindforge/backend/internal/tickets"
 	"github.com/mindforge/backend/internal/whatnow"
+	"github.com/mindforge/backend/internal/wiki"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -172,6 +173,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	mistakesRouter := mistakes.NewHandler(mistakesRepo, mistakesSvc)
 	sheetsRouter := sheets.New(pool)
 	interviewExpRouter := interviewexp.New(pool)
+	// Wiki — shares coursesRepo (read-only) with systemDesignRouter/wiki.New's
+	// other callers, to validate course_id on space create and check
+	// enrollment on course-linked spaces without a second query path.
+	wikiRouter := wiki.New(pool, coursesRepo)
 	highlightsRouter := highlights.New(pool, aiProvider)
 	focusWallRouter := focuswall.New(pool)
 	habitRouter := habit.New(pool)
@@ -356,7 +361,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		couponsRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Practice — AI interview prep sessions and answer review.
-		practiceRouter.RegisterRoutes(r)
+		practiceRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Interview Prep — paste a job title/JD, get a scored multi-round mock
 		// test (conceptual round via practice, coding round self-contained).
@@ -366,7 +371,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		orgsHandler.RegisterRoutes(r)
 
 		// SRS — spaced-repetition cards, daily review queue, SM-2 scheduling.
-		srsRouter.RegisterRoutes(r)
+		srsRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Mistakes — the Mistake & Progress Ledger: timestamped mistake events,
 		// per-category trend summary, resolve. Spaced revision for these rides
@@ -375,12 +380,17 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 
 		// Sheets — curated problem-list tracker: create/start a sheet, track
 		// per-problem progress (todo/done/revisit).
-		sheetsRouter.RegisterRoutes(r)
+		sheetsRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Interview Experiences — crowd-sourced company/position-tagged Q&A
 		// board: multi-user continuation, nested discussion, voting. Unlike
 		// every other domain, reads are platform-wide, not org-scoped.
 		interviewExpRouter.RegisterRoutes(r, authzHandler.Service())
+
+		// Wiki — spaces, pages, TipTap-editor content, versioning, comments,
+		// templates, search. Gated on content.wiki; space delete additionally
+		// requires the org admin role.
+		wikiRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// What Now? — deterministic task-triage: capture, pick-now scoring,
 		// plan-today, breakdown, stuck resolution, weekly recap.

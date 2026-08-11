@@ -44,7 +44,7 @@ func (h *Handler) Service() *Service {
 // org configuration, per kind-herding-cookie.md §2's routes table.
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleAdmin))
+		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin))
 
 		r.Get("/api/gitlab/installations", h.InstallationsList)
 		r.Post("/api/gitlab/installations", h.InstallationsCreate)
@@ -62,7 +62,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/gitlab/disconnect", h.Disconnect)
 
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleAdmin, middleware.RoleInstructor))
+		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor))
 
 		r.Post("/api/projects/assignments", h.CreateAssignment)
 		r.Get("/api/projects/assignments", h.ListAssignments)
@@ -114,7 +114,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// for their own "staff+mentor" surfaces (see e.g.
 	// internal/courses/routes.go:12, internal/assessment/routes.go:39).
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor))
+		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor, middleware.RoleMentor))
 
 		r.Get("/api/projects/assignments/{assignmentID}/dashboard", h.GetAssignmentDashboard)
 		r.Get("/api/projects/teams/{teamID}/contributions", h.GetTeamContributions)

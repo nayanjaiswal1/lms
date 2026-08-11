@@ -34,7 +34,7 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Post("/api/wiki/spaces", rt.handler.CreateSpace)
 		r.Get("/api/wiki/spaces/{slug}", rt.handler.GetSpace)
 		r.Patch("/api/wiki/spaces/{id}", rt.handler.UpdateSpace)
-		r.With(middleware.RequireOrgRole(rt.pool, middleware.RoleAdmin)).Delete("/api/wiki/spaces/{id}", rt.handler.DeleteSpace)
+		r.With(middleware.RequireOrgRole(rt.pool, middleware.RoleOwner, middleware.RoleAdmin)).Delete("/api/wiki/spaces/{id}", rt.handler.DeleteSpace)
 
 		r.Get("/api/wiki/spaces/{spaceId}/pages", rt.handler.GetPageTree)
 		r.Post("/api/wiki/spaces/{spaceId}/pages", rt.handler.CreatePage)

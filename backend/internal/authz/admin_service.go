@@ -252,7 +252,7 @@ func (s *AdminService) SetUserStatus(ctx context.Context, actorID, tenantID, tar
 		return fmt.Errorf("forbidden: you cannot change your own account status")
 	}
 
-	previous, err := s.adminRepo.SetUserStatus(ctx, targetUserID, status, reason)
+	previous, err := s.adminRepo.SetUserStatus(ctx, targetUserID, tenantID, status, reason)
 	if err != nil {
 		return fmt.Errorf("admin svc: set user status: %w", err)
 	}
