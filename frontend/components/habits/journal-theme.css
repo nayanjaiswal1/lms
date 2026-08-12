@@ -44,6 +44,28 @@
   color: hsl(var(--foreground));
 }
 
+/* Dark-mode paper: same journal shape (radius/shadow/dot grid), warm dark
+   "night paper" tones instead of the light mockup's cream palette. */
+.dark .habits-journal {
+  --background: 20 10% 8%;
+  --foreground: 30 8% 92%;
+  --card: 20 10% 8%;
+  --card-foreground: 30 8% 92%;
+  --popover: 20 8% 10%;
+  --popover-foreground: 30 8% 92%;
+  --primary: 38 92% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 20 7% 15%;
+  --secondary-foreground: 30 8% 92%;
+  --muted: 20 7% 13%;
+  --muted-foreground: 28 6% 65%;
+  --accent: 20 7% 18%;
+  --accent-foreground: 30 8% 92%;
+  --border: 20 7% 20%;
+  --input: 20 7% 20%;
+  --ring: 38 92% 50%;
+}
+
 /* Table scroll affordance — a slim, always-visible track so a wide 31-day
    grid reads as scrollable instead of silently clipping its last column. */
 .habits-journal .table-responsive {

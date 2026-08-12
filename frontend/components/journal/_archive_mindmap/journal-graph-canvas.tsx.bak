@@ -1,0 +1,78 @@
+"use client";
+
+import "@xyflow/react/dist/style.css";
+
+import { useMemo, useState } from "react";
+import { Background, Controls, ReactFlow, useEdgesState, useNodesState, type NodeMouseHandler } from "@xyflow/react";
+import { useQueryState } from "nuqs";
+
+import { JournalEntryPanel } from "@/components/journal/journal-entry-panel";
+import { journalNodeTypes } from "@/components/journal/journal-graph-node";
+import { computeGraphLayout, type JournalNode } from "@/lib/journal/graph-layout";
+import type { JournalEntry, JournalLink } from "@/lib/server/journal";
+
+interface JournalGraphCanvasProps {
+  entries: JournalEntry[];
+  links: JournalLink[];
+}
+
+function entryMatches(entry: JournalEntry, category: string, search: string): boolean {
+  if (category && entry.category !== category) return false;
+  if (!search) return true;
+  const needle = search.toLowerCase();
+  return entry.title.toLowerCase().includes(needle) || entry.content.toLowerCase().includes(needle);
+}
+
+export function JournalGraphCanvas({ entries, links }: JournalGraphCanvasProps) {
+  const base = useMemo(() => computeGraphLayout(entries, links), [entries, links]);
+  const [nodes, , onNodesChange] = useNodesState(base.nodes);
+  const [edges, , onEdgesChange] = useEdgesState(base.edges);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  // shallow: filtering here is a client-side dim pass, not a server re-fetch —
+  // re-laying-out the canvas on every keystroke would reset pan/zoom.
+  const [category] = useQueryState("category", { defaultValue: "", shallow: true });
+  const [search] = useQueryState("q", { defaultValue: "", shallow: true });
+
+  const displayNodes = useMemo(
+    () =>
+      nodes.map((node) => {
+        const dimmed = node.data.kind === "entry" && !entryMatches(node.data.entry, category, search);
+        return { ...node, style: { ...node.style, opacity: dimmed ? 0.25 : 1 } };
+      }),
+    [nodes, category, search],
+  );
+
+  const displayEdges = useMemo(() => {
+    const dimmedIds = new Set(
+      nodes.filter((n) => n.data.kind === "entry" && !entryMatches(n.data.entry, category, search)).map((n) => n.id),
+    );
+    return edges.map((edge) => {
+      const dimmed = dimmedIds.has(edge.source) || dimmedIds.has(edge.target);
+      return { ...edge, style: { ...edge.style, opacity: dimmed ? 0.15 : 1 } };
+    });
+  }, [edges, nodes, category, search]);
+
+  const selectedEntry = selectedEntryId ? (entries.find((e) => e.id === selectedEntryId) ?? null) : null;
+
+  const handleNodeClick: NodeMouseHandler<JournalNode> = (_event, node) => {
+    if (node.data.kind === "entry") setSelectedEntryId(node.id);
+  };
+
+  return (
+    <div className="h-[70dvh] w-full overflow-hidden rounded-lg border border-border">
+      <ReactFlow
+        fitView
+        edges={displayEdges}
+        nodeTypes={journalNodeTypes}
+        nodes={displayNodes}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        onNodesChange={onNodesChange}
+      >
+        <Background />
+        <Controls />
+      </ReactFlow>
+      <JournalEntryPanel entry={selectedEntry} onClose={() => setSelectedEntryId(null)} />
+    </div>
+  );
+}

@@ -1,0 +1,23 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { JournalEntry, JournalLink } from "@/lib/server/journal";
+
+// React Flow measures the DOM on mount and has no server-render story, so it
+// loads client-only — same ssr:false pattern components/shared/code-editor.tsx
+// uses for Monaco. ssr:false can't live directly in the server-component
+// page.tsx, hence this thin client wrapper.
+const JournalGraphCanvas = dynamic(
+  () => import("@/components/journal/journal-graph-canvas").then((m) => m.JournalGraphCanvas),
+  { ssr: false, loading: () => <Skeleton className="h-[70dvh] w-full rounded-lg" /> },
+);
+
+interface JournalGraphProps {
+  entries: JournalEntry[];
+  links: JournalLink[];
+}
+
+export function JournalGraph({ entries, links }: JournalGraphProps) {
+  return <JournalGraphCanvas entries={entries} links={links} />;
+}

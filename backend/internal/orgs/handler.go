@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
@@ -33,6 +34,7 @@ type Handler struct {
 	memSvc       *MemberService
 	domSvc       *DomainService
 	jobsRegistry *jobs.Registry
+	authzSvc     *authz.Service
 }
 
 func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, vault *secrets.Vault, jobsRegistry *jobs.Registry) *Handler {
@@ -50,7 +52,8 @@ func NewHandler(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, va
 
 // RegisterRoutes mounts all org routes. Callers must have already applied
 // RequireAuth and RequireCSRF on the parent router.
-func (h *Handler) RegisterRoutes(r chi.Router) {
+func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
+	h.authzSvc = authzSvc
 	idem := apimiddleware.Idempotency(h.pool)
 
 	r.With(idem).Post("/api/orgs", h.handleCreate)
@@ -1152,7 +1155,28 @@ func (h *Handler) handleListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusForbidden, "Org context missing.")
 		return
 	}
-	if orgCtx.CallerRole != RoleOwner && orgCtx.CallerRole != RoleAdmin {
+	claims, ok := auth.GetClaims(r.Context())
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+	// Owner/admin always has access, same as every other org-settings endpoint.
+	// admin.view_audit_log is an *additional* grant on top of that — nothing
+	// auto-assigns RBAC roles on org creation, so requiring the permission
+	// alone would lock every org's own owner out of their own audit log.
+	allowed := orgCtx.CallerRole == RoleOwner || orgCtx.CallerRole == RoleAdmin
+	if !allowed {
+		// Scoped to orgCtx.OrgID (the URL-resolved, membership-verified org),
+		// not claims.OrgID — a member's JWT reflects their last-active org,
+		// and this route lets any org they belong to be addressed by {id}.
+		var err error
+		allowed, err = h.authzSvc.HasAllPermissions(r.Context(), claims.UserID, orgCtx.OrgID, "admin.view_audit_log")
+		if err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
+			return
+		}
+	}
+	if !allowed {
 		httputil.WriteError(w, http.StatusForbidden, "Insufficient permissions.")
 		return
 	}

@@ -27,6 +27,7 @@ import {
   Lock,
   Flag,
   Building2,
+  NotebookPen,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -199,6 +200,13 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:                ListChecks,
     feature:             FEATURES.SHEET_TRACKER,
     requiredPermission:  PERMISSIONS.CONTENT.SHEETS,
+    mode:                "badge",
+  },
+  learning_journal: {
+    label:               "Learning Journal",
+    href:                ROUTES.JOURNAL,
+    icon:                NotebookPen,
+    requiredPermission:  PERMISSIONS.CONTENT.LEARNING_JOURNAL,
     mode:                "badge",
   },
   wiki: {
@@ -398,6 +406,7 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.highlights,
       ALL_NAV_ITEMS.flashcards,
       ALL_NAV_ITEMS.sheet_tracker,
+      ALL_NAV_ITEMS.learning_journal,
       ALL_NAV_ITEMS.wiki,
       ALL_NAV_ITEMS.interview_exp,
     ],

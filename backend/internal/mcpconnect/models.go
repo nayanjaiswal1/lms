@@ -22,6 +22,7 @@ const (
 	ScopeInterviewPrep  = "interview_prep:manage"
 	ScopeSystemDesign   = "system_design:manage"
 	ScopeSheets         = "sheets:manage"
+	ScopeJournal        = "journal:manage"
 )
 
 // AllScopes is the full set offered on the consent screen — this MVP grants
@@ -36,7 +37,7 @@ const (
 // same one-combined-scope shape again: every sheets tool only ever reads/writes
 // sheets the connection's own user owns or subscribes to, or that user's own
 // cross-sheet problem progress.
-var AllScopes = []string{ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets}
+var AllScopes = []string{ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal}
 
 // ScopeDescriptions is shown on the consent screen, keyed by scope.
 var ScopeDescriptions = map[string]string{
@@ -48,11 +49,12 @@ var ScopeDescriptions = map[string]string{
 	ScopeInterviewPrep:  "Create and run interview-prep practice plans, submit coding answers, and view your readiness report",
 	ScopeSystemDesign:   "Create and edit your system design whiteboard attempts, and get AI feedback",
 	ScopeSheets:         "View and manage your problem-sheet trackers, items, and cross-sheet solve progress",
+	ScopeJournal:        "View, add, edit, and delete entries in your personal learning journal",
 }
 
 func validScope(s string) bool {
 	switch s {
-	case ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets:
+	case ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal:
 		return true
 	default:
 		return false

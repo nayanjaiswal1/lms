@@ -395,6 +395,10 @@ func (s *InviteService) Join(ctx context.Context, req JoinOrgRequest, userID str
 		return nil, fmt.Errorf("orgs: join: upsert member: %w", err)
 	}
 
+	if err := syncTenantAdminRole(ctx, tx, inv.OrgID, userID, inv.Role); err != nil {
+		return nil, fmt.Errorf("orgs: join: sync tenant_admin role: %w", err)
+	}
+
 	now := time.Now()
 	if _, err := tx.Exec(ctx,
 		`UPDATE org_invites

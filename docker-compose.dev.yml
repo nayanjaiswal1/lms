@@ -109,18 +109,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     env_file: ./backend/.env
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: redis://redis:6379/0
+      # Neon + Upstash (root .env) — the one Postgres and one Redis every dev
+      # entry point uses, so there's nothing local to drift out of sync.
+      # scripts/start-minimal.bat calls `compose up --no-deps backend`, which
+      # skips starting minio/piston too (neither needed for backend+UI+MCP only).
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
     # No published port — reached through Caddy's /api, /oauth, /.well-known,
     # /mcp routes (Caddyfile.dev), and by labproxy/frontend over the internal
     # network directly.
     networks:
       - mindforge_dev
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       minio:
         condition: service_healthy
       piston:
@@ -162,8 +162,10 @@ services:
       - mindforge_go_cache:/root/go
     environment:
       LABPROXY_PORT: "8081"
-      LABPROXY_DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      LABPROXY_REDIS_URL: redis://redis:6379/0
+      # Same Neon DB as backend — labproxy verifies JWTs issued against it, so
+      # both must be looking at the one database.
+      LABPROXY_DB_URL: ${DATABASE_URL}
+      LABPROXY_REDIS_URL: ${REDIS_URL}
       LABPROXY_JWT_SECRET: ${JWT_SECRET}
       LABPROXY_JWT_ISSUER: mindforge-labproxy
       # *.localhost — no DNS/TLS setup needed in dev; see Caddyfile.dev's
@@ -177,10 +179,6 @@ services:
       - mindforge-labs
       - mindforge-labs-dind
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       backend:
         condition: service_healthy
     command: go run ./cmd/labproxy

@@ -1,0 +1,97 @@
+"use client";
+
+import Link from "next/link";
+import { useState, useTransition } from "react";
+import { Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import ROUTES from "@/lib/routes";
+import { deleteJournalEntryAction } from "@/app/(app)/journal/actions";
+import type { JournalEntry } from "@/lib/server/journal";
+
+interface JournalEntryPanelProps {
+  entry: JournalEntry | null;
+  onClose: () => void;
+}
+
+// The graph's node-click detail drawer — replaces the list view's per-row
+// dropdown menu, since a node's affordance is "click to open," not a `⋮`
+// menu sitting on top of the canvas.
+export function JournalEntryPanel({ entry, onClose }: JournalEntryPanelProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function confirmDelete() {
+    if (!entry) return;
+    startTransition(async () => {
+      const result = await deleteJournalEntryAction(entry.id);
+      if (!result.ok) {
+        toast.error(result.error ?? "Couldn't delete this entry.");
+        return;
+      }
+      toast.success("Entry deleted.");
+      setConfirmOpen(false);
+      onClose();
+    });
+  }
+
+  return (
+    <>
+      <Sheet open={entry !== null} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent className="modal-responsive">
+          {entry && (
+            <>
+              <SheetHeader>
+                <span className="badge-muted w-fit rounded-sm border px-2 py-0.5 text-xs font-medium">{entry.category}</span>
+                <SheetTitle>{entry.title}</SheetTitle>
+                <p className="text-xs text-muted-foreground">{entry.entry_date}</p>
+              </SheetHeader>
+              <p className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap text-sm text-muted-foreground">
+                {entry.content}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={ROUTES.journalEdit(entry.id)}>
+                    <Pencil aria-hidden className="size-4" />
+                    Edit
+                  </Link>
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setConfirmOpen(true)}>
+                  <Trash2 aria-hidden className="size-4" />
+                  Delete
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="modal-responsive">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &quot;{entry?.title}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>This permanently removes this entry. This can&apos;t be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={isPending} onClick={confirmDelete}>
+              {isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

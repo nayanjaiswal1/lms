@@ -24,16 +24,26 @@ The root file is the authoritative full reference.
 
 ## Database
 
-Credentials used by both docker-compose (to create the Postgres container) and
-the Go backend (`DATABASE_URL`, via pgx/v5) to connect. `POSTGRES_*` and
-`DATABASE_URL` must match — `DATABASE_URL` is the full DSN built from the same
-values. In prod, Postgres runs inside Docker with no external port exposure.
+Dev uses one Postgres for every entry point (docker-compose backend/labproxy,
+native `go run`, `scripts/start-minimal.bat`): a Neon instance, set once as
+`DATABASE_URL` in the root `.env` (compose interpolation) and mirrored in
+`backend/.env` (native/godotenv runs) — the two copies must match. The local
+`postgres`/`mindforge_pg_dev` container in `docker-compose.dev.yml` still
+exists but nothing depends on it anymore; it starts only via `adminer`'s own
+dependency, for manual poking, and holds no app data of record. `POSTGRES_*`
+still seeds that dormant container's credentials. In prod, Postgres runs
+inside Docker with no external port exposure (unrelated to the dev Neon setup
+above).
 
 ## Redis
 
-No password in dev — Redis runs with `--save ""` (no persistence). In
-production, `REDIS_PASSWORD` sets `--requirepass` and must also be embedded
-into `REDIS_URL` as `redis://:<REDIS_PASSWORD>@host:6379/0`.
+Same story as Postgres above: dev uses one Redis (Upstash, `rediss://`) for
+every entry point, set once as `REDIS_URL` in the root `.env` and mirrored in
+`backend/.env`. The local `redis`/`mindforge_redis_dev` container has zero
+dependents left and no longer auto-starts — fully dormant unless started
+explicitly. In production, `REDIS_PASSWORD` sets `--requirepass` on a
+self-hosted Redis and must be embedded into `REDIS_URL` as
+`redis://:<REDIS_PASSWORD>@host:6379/0` (unrelated to the dev Upstash setup).
 
 ## Code Execution (Piston / Judge0)
 

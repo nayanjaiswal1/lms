@@ -463,6 +463,7 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 		provider, p.ProviderUID,
 	).Scan(&userID)
 	if err == nil {
+		h.backfillAvatarFromProvider(ctx, userID, p.AvatarURL)
 		onboardingCompleted, err = h.checkOnboardingCompleted(ctx, userID)
 		return
 	}
@@ -535,6 +536,7 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 				h.cache.InvalidateVersionCache(ctx, userID)
 			}
 
+			h.backfillAvatarFromProvider(ctx, userID, p.AvatarURL)
 			onboardingCompleted, err = h.checkOnboardingCompleted(ctx, userID)
 			return
 		}
@@ -586,4 +588,22 @@ func (h *Handler) findOrCreateSocialUser(ctx context.Context, provider string, p
 	}
 
 	return userID, false, nil
+}
+
+// backfillAvatarFromProvider fills avatar_url from the provider's picture
+// only while the user has never set one. Once set — by this backfill or by
+// a manual upload — it is never overwritten again, so a later profile
+// picture change on Google/GitHub is not pushed onto an account that has
+// customized its avatar.
+func (h *Handler) backfillAvatarFromProvider(ctx context.Context, userID, providerAvatarURL string) {
+	if providerAvatarURL == "" {
+		return
+	}
+	if _, err := h.pool.Exec(ctx,
+		`UPDATE users SET avatar_url = $1, updated_at = now()
+		 WHERE id = $2 AND (avatar_url IS NULL OR avatar_url = '')`,
+		providerAvatarURL, userID,
+	); err != nil {
+		slog.Error("backfill avatar from provider", "error", err, "user_id", userID)
+	}
 }

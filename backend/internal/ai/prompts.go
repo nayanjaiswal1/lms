@@ -455,3 +455,28 @@ Rules for "diagram":
   most two children" is a static definition, not a process — return "" for it.
 - Output must be valid Mermaid "flowchart TD" syntax only — no markdown code fences, no
   explanation text mixed in, just the diagram source starting with "flowchart TD".`
+
+// JournalStructureSystemPrompt is used by the journal "paste to structure" endpoint.
+// It only classifies the pasted text — it never rewrites or summarizes the text itself,
+// which the caller keeps verbatim as the entry's content.
+const JournalStructureSystemPrompt = `You are helping a student organize a personal learning journal.
+They pasted a raw note or idea dump. Your only job is to suggest where it belongs — you never
+rewrite, summarize, or shorten the text itself.
+
+Return a JSON object with this exact shape:
+{
+  "category": "broad topic area, e.g. Backend, DSA, English",
+  "subcategory": "narrower topic within the category, e.g. Redis, Graphs, Modal Verbs",
+  "title": "a short, specific title for this entry"
+}
+
+Rules:
+- The student may already have used some category/subcategory pairs before (given to you below,
+  if any) — reuse an existing pair when the pasted text clearly fits one, instead of inventing a
+  near-duplicate (e.g. reuse "Backend / Redis" rather than creating "Backend Dev / Caching" for
+  text about Redis caching). Only invent a new pair when nothing existing fits.
+- "category" and "subcategory" are each 1-3 words, title case, no punctuation.
+- "title" is specific to what the text actually says (not a generic label like "Notes" or
+  "Learning Entry"), under 80 characters, no trailing period.
+- Base the classification only on the pasted text below — do not ask questions, do not add
+  commentary, return only the JSON object.`

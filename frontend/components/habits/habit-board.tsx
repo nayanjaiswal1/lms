@@ -18,8 +18,6 @@ import { AddHabitInline } from "@/components/habits/add-habit-inline";
 import { DailyHabitWheel } from "@/components/habits/daily-habit-wheel";
 import { GymPerformanceCard } from "@/components/habits/gym-performance-card";
 import { HabitGrid } from "@/components/habits/habit-grid";
-import { journalSans, journalSerif } from "@/components/habits/journal-fonts";
-import "@/components/habits/journal-theme.css";
 import { SleepQualityCard } from "@/components/habits/sleep-quality-chart";
 import { Button } from "@/components/ui/button";
 import type { HabitColorValue } from "@/lib/constants";
@@ -170,9 +168,7 @@ export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBo
   }
 
   return (
-    <div
-      className={cn("flex flex-col gap-6 habits-journal", journalSans.variable, journalSerif.variable)}
-    >
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-center gap-4">
         <Button asChild aria-label="Previous month" className="touch-target" size="icon" variant="ghost">
           <Link href={`/habits?month=${shiftMonth(month, -1)}`}>

@@ -123,6 +123,11 @@ enforces):
 | `update_problem_revision` | `sheets:manage` | `sheets.Repo.UpdateRevision` — direct reschedule, bypassing the growth scheme |
 | `update_problem_notes` | `sheets:manage` | `sheets.Repo.UpsertNotes` — TipTap doc JSON, same shape as `lesson_notes`/`wiki_pages.content` |
 | `toggle_problem_starred` | `sheets:manage` | `sheets.Repo.SetStarred` |
+| `list_journal_entries` | `journal:manage` | `journal.Repo.ListEntries` — the connection's own learning journal, newest day first, optional category/search filter |
+| `find_similar_journal_entries` | `journal:manage` | `journal.Repo.FindSimilarEntries` — pg_trgm title match against the connection's own entries, same `> 0.3` threshold `internal/roadmap/matcher.go`/`courses.Repo.FindSimilarSelfCourse` use |
+| `create_journal_entry` | `journal:manage` | `journal.Repo.CreateEntry`, then `FindSimilarEntries` — the response's `similar_entries` surfaces a likely-duplicate topic without blocking or merging the new entry |
+| `update_journal_entry` | `journal:manage` | `journal.Repo.UpdateEntry` |
+| `delete_journal_entry` | `journal:manage` | `journal.Repo.DeleteEntry` |
 
 ### `interview_prep:manage` — one combined scope, no revert on generation
 
@@ -142,6 +147,10 @@ This scope covers `internal/systemdesign`, the actual system-design feature: an 
 ### `sheets:manage` — the problem-sheet tracker, one scope like `calendar:manage`
 
 Covers `internal/sheets` end to end: browsing/creating/combining sheets, adding/editing/removing items, subscribe/unsubscribe, spaced-repetition settings, and cross-sheet problem progress (status, revision date, notes, star) keyed by `topic_tag` — see `docs/sheets.md`. One combined scope rather than a read/write split, same reasoning as `calendar:manage`/`interview_prep:manage`: every tool is already scoped to the connection's own sheets (owned or subscribed) and the connection's own `user_problem_progress` rows, enforced the same way the HTTP handlers do (`sheets.Repo.IsOwner`/`UserHasAccess` before any write or cross-sheet read). `POST /api/sheets/import/excel` has no MCP tool — it's a multipart `.xlsx` upload with no sensible JSON-RPC shape; a student importing a spreadsheet still does that step in the web app, then the connected AI can pick up from `add_sheet_item` onward. Most sheets mutations have no `Revert`: `sheets.Repo` has no get-by-id/get-by-topic_tag read to snapshot a prior name, item field, progress state, or settings from (unlike `courses`/`calendar`, which expose one), and `delete_sheet_item`'s revert is unsafe for a different reason — `Slugify` mints a fresh random `topic_tag` on every insert, so recreating a deleted item would orphan any progress/notes still tied to the original tag. `create_sheet`, `combine_sheets`, and `add_sheet_item` are the exceptions: reverting a create is just deleting the row it made.
+
+### `journal:manage` — the personal learning journal, one scope like `sheets:manage`
+
+Covers `internal/journal` end to end: list/create/update/delete entries in the connection's own day-by-day learning log, plus `find_similar_journal_entries` for checking before logging a near-duplicate — see `docs/learning-journal.md`. One combined scope, same reasoning as `sheets:manage`: every tool is already scoped to the connection's own `user_id` (ownership is baked into `journal.Repo`'s `WHERE id = $1 AND user_id = $2`, not a separate check). Unlike sheets, every mutation gets a full `Revert` — `journal.Repo.GetEntry` exists from day one (a single-column ownership check needs no join-table lookup the way sheets' does), and a reverted `delete_journal_entry` is safe to recreate since nothing else in the schema references a journal entry by id. v1 has no bespoke AI endpoint of its own — no auto-structuring, gap-detection, or "needs review" nudges — a connected client's own reasoning over `list_journal_entries`/`find_similar_journal_entries` is the only "AI" in this feature.
 
 ## Database Schema
 

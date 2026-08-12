@@ -27,6 +27,7 @@ import (
 	"github.com/mindforge/backend/internal/interviewexp"
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/journal"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/learnhub"
 	"github.com/mindforge/backend/internal/legal"
@@ -172,6 +173,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	mistakesSvc := mistakes.NewService(mistakesRepo, pool)
 	mistakesRouter := mistakes.NewHandler(mistakesRepo, mistakesSvc)
 	sheetsRouter := sheets.New(pool)
+	journalRouter := journal.New(pool, aiProvider)
 	interviewExpRouter := interviewexp.New(pool)
 	// Wiki — shares coursesRepo (read-only) with systemDesignRouter/wiki.New's
 	// other callers, to validate course_id on space create and check
@@ -368,7 +370,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		interviewPrepRouter.RegisterRoutes(r)
 
 		// Orgs — multi-tenant org management, members, invites, domains, onboarding.
-		orgsHandler.RegisterRoutes(r)
+		orgsHandler.RegisterRoutes(r, authzHandler.Service())
 
 		// SRS — spaced-repetition cards, daily review queue, SM-2 scheduling.
 		srsRouter.RegisterRoutes(r, authzHandler.Service())
@@ -381,6 +383,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Sheets — curated problem-list tracker: create/start a sheet, track
 		// per-problem progress (todo/done/revisit).
 		sheetsRouter.RegisterRoutes(r, authzHandler.Service())
+
+		// Learning Journal — personal day-by-day log of what the user
+		// learned, under a free-typed category.
+		journalRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Interview Experiences — crowd-sourced company/position-tagged Q&A
 		// board: multi-user continuation, nested discussion, voting. Unlike

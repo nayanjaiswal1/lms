@@ -6,6 +6,7 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/interviewprep"
+	"github.com/mindforge/backend/internal/journal"
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
@@ -29,6 +30,7 @@ type Router struct {
 	interviewPrepSvc *interviewprep.Service
 	systemDesignSvc  *systemdesign.Service
 	sheetsRepo       *sheets.Repo
+	journalRepo      *journal.Repo
 }
 
 // New builds the mcpconnect Router with its full dependency graph.
@@ -47,6 +49,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, coursesRepo *courses.Repo, cour
 		coursesRepo: coursesRepo, coursesSvc: coursesSvc, calendarSvc: calendarSvc,
 		mistakesRepo: mistakesRepo, mistakesSvc: mistakesSvc, srsRepo: srsRepo,
 		interviewPrepSvc: interviewPrepSvc, systemDesignSvc: systemDesignSvc,
-		sheetsRepo: sheets.NewRepo(pool),
+		sheetsRepo:  sheets.NewRepo(pool),
+		journalRepo: journal.NewRepo(pool),
 	}
 }

@@ -149,6 +149,12 @@
    ───────────────────────────────────────────── */
 
 :root {
+  /* Tells native form chrome (date/time picker icon+popup, scrollbars) which
+     palette to render in — without it the calendar icon on <input type=date>
+     stays light-mode black-on-transparent and nearly disappears against a
+     dark input background. */
+  color-scheme: light;
+
   /* Surface stack — warm parchment, not clinical white */
   --background:            36 28% 96%;   /* warm cream — like paper under a lamp */
   --foreground:            25 15% 10%;   /* warm near-black */
@@ -237,6 +243,8 @@
    ───────────────────────────────────────────── */
 
 .dark {
+  color-scheme: dark;
+
   /* Surface stack — warm charcoal/iron, not cool zinc */
   --background:            20 10% 5%;    /* dark warm charcoal — cooled forge iron */
   --foreground:            30 8% 97%;    /* warm off-white */

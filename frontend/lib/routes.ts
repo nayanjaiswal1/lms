@@ -35,6 +35,8 @@ const ROUTES = {
   SHEETS:              "/sheets",
   SHEETS_NEW:          "/sheets/new",
   SHEETS_COMPARE:      "/sheets/compare",
+  JOURNAL:             "/journal",
+  JOURNAL_NEW:         "/journal/new",
 
   // Mentoring
   MENTORING:               "/mentoring",
@@ -195,6 +197,7 @@ const ROUTES = {
   certificate:              (uuid: string)                      => `/certificates/${uuid}`,
   sheet:                    (slug: string)                      => `/sheets/${slug}`,
   sheetJoin:                (slug: string)                      => `/sheets/join/${slug}`,
+  journalEdit:              (id: string)                        => `/journal/${id}/edit`,
   assessmentTake:           (id: string)                        => `/assessments/${id}/take`,
   assessmentResult:         (attemptId: string)                 => `/assessments/result/${attemptId}`,
   attemptProctoring:        (attemptId: string)                 => `/assessments/attempts/${attemptId}/proctoring`,

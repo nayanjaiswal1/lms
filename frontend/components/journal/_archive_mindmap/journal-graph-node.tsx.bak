@@ -1,0 +1,44 @@
+"use client";
+
+import { Handle, Position, type NodeProps } from "@xyflow/react";
+import type { CategoryNode as CategoryNodeType, EntryNode as EntryNodeType } from "@/lib/journal/graph-layout";
+import { cn } from "@/lib/utils";
+
+type CategoryNodeProps = NodeProps<CategoryNodeType>;
+type EntryNodeProps = NodeProps<EntryNodeType>;
+
+export function CategoryNode({ data }: CategoryNodeProps) {
+  return (
+    <div className="rounded-full border-2 border-primary bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+      <Handle position={Position.Bottom} type="source" />
+      {data.category}
+    </div>
+  );
+}
+
+// ponytail: one source (bottom) + one target (top) handle regardless of the
+// node's actual angle on the radial layout — edges still route correctly
+// (React Flow allows many edges per handle), just not always the visually
+// shortest curve for a cross-branch similarity link. Upgrade to 4-way
+// handles picked by relative angle only if that routing reads as confusing
+// in practice.
+export function EntryNode({ data, selected }: EntryNodeProps) {
+  return (
+    <button
+      className={cn(
+        // eslint-disable-next-line no-restricted-syntax -- node lives in React Flow's zoomable canvas, not the page viewport; a fixed px width is the node's size in canvas coordinate space, not a responsive-breakpoint concern.
+        "card-base w-[200px] cursor-pointer p-3 text-left transition-colors",
+        selected && "border-primary",
+      )}
+      type="button"
+    >
+      <Handle position={Position.Top} type="target" />
+      <Handle position={Position.Bottom} type="source" />
+      <span className="badge-muted w-fit rounded-sm border px-2 py-0.5 text-xs font-medium">{data.entry.category}</span>
+      <p className="mt-1.5 truncate text-sm font-semibold text-foreground">{data.entry.title}</p>
+      <p className="text-xs text-muted-foreground">{data.entry.entry_date}</p>
+    </button>
+  );
+}
+
+export const journalNodeTypes = { category: CategoryNode, entry: EntryNode };

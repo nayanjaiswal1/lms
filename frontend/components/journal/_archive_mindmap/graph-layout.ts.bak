@@ -1,0 +1,85 @@
+import type { Edge, Node } from "@xyflow/react";
+import type { JournalEntry, JournalLink } from "@/lib/server/journal";
+
+export type CategoryNode = Node<{ kind: "category"; category: string }, "category">;
+export type EntryNode = Node<{ kind: "entry"; entry: JournalEntry }, "entry">;
+export type JournalNode = CategoryNode | EntryNode;
+
+const HUB_RADIUS = 320;
+const ENTRY_START_OFFSET = 170;
+const ENTRY_SPACING = 190;
+const JITTER = 42;
+
+// Deterministic radial layout, no layout-engine dependency: one hub per
+// category arranged in a circle, each category's own entries chained
+// chronologically outward along that hub's ray (oldest nearest the hub) with
+// a small alternating perpendicular offset so the branch fans out instead of
+// sitting in a single rigid line. Similarity links (from ListSimilarPairs)
+// draw across branches on top of this, independent of category grouping.
+export function computeGraphLayout(
+  entries: JournalEntry[],
+  links: JournalLink[],
+): { nodes: JournalNode[]; edges: Edge[] } {
+  const byCategory = new Map<string, JournalEntry[]>();
+  for (const entry of entries) {
+    const group = byCategory.get(entry.category);
+    if (group) group.push(entry);
+    else byCategory.set(entry.category, [entry]);
+  }
+  for (const group of byCategory.values()) {
+    group.sort((a, b) => a.entry_date.localeCompare(b.entry_date) || a.created_at.localeCompare(b.created_at));
+  }
+
+  const categories = [...byCategory.keys()];
+  const nodes: JournalNode[] = [];
+  const edges: Edge[] = [];
+
+  categories.forEach((category, categoryIndex) => {
+    const angle = (2 * Math.PI * categoryIndex) / categories.length;
+    const perpAngle = angle + Math.PI / 2;
+    const hubId = `category:${category}`;
+
+    nodes.push({
+      id: hubId,
+      type: "category",
+      position: { x: Math.cos(angle) * HUB_RADIUS, y: Math.sin(angle) * HUB_RADIUS },
+      data: { kind: "category", category },
+      draggable: false,
+      selectable: false,
+    });
+
+    let previousId = hubId;
+    for (const [i, entry] of (byCategory.get(category) ?? []).entries()) {
+      const radius = HUB_RADIUS + ENTRY_START_OFFSET + i * ENTRY_SPACING;
+      const jitter = i === 0 ? 0 : (i % 2 === 0 ? 1 : -1) * Math.ceil(i / 2) * JITTER;
+      nodes.push({
+        id: entry.id,
+        type: "entry",
+        position: {
+          x: Math.cos(angle) * radius + Math.cos(perpAngle) * jitter,
+          y: Math.sin(angle) * radius + Math.sin(perpAngle) * jitter,
+        },
+        data: { kind: "entry", entry },
+      });
+      edges.push({
+        id: `hier:${previousId}->${entry.id}`,
+        source: previousId,
+        target: entry.id,
+        type: "smoothstep",
+        style: { stroke: "var(--primary)" },
+      });
+      previousId = entry.id;
+    }
+  });
+
+  for (const link of links) {
+    edges.push({
+      id: `sim:${link.source_id}-${link.target_id}`,
+      source: link.source_id,
+      target: link.target_id,
+      style: { stroke: "var(--ai)", strokeDasharray: "4 4" },
+    });
+  }
+
+  return { nodes, edges };
+}

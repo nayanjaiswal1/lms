@@ -1,0 +1,35 @@
+import type { Metadata } from "next";
+import { NotebookPen } from "lucide-react";
+
+import { getJournalCategories, getJournalGraph } from "@/lib/server/journal";
+import { JournalGraph } from "@/components/journal/journal-graph";
+import { JournalToolbar } from "@/components/journal/journal-toolbar";
+
+export const metadata: Metadata = { title: "Learning Journal" };
+
+export default async function JournalPage() {
+  const [graph, categories] = await Promise.all([getJournalGraph(), getJournalCategories()]);
+
+  return (
+    <main>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Learning Journal</h1>
+          <p className="text-sm text-muted-foreground">A mind map of what you&apos;ve learned, branch by category.</p>
+        </div>
+      </div>
+
+      <JournalToolbar categories={categories} />
+
+      {graph.entries.length === 0 ? (
+        <div className="empty-state">
+          <NotebookPen aria-hidden className="empty-state-icon" />
+          <p className="font-medium text-muted-foreground">Nothing logged yet.</p>
+          <p className="text-sm text-muted-foreground">Add what you learned today to start your map.</p>
+        </div>
+      ) : (
+        <JournalGraph entries={graph.entries} links={graph.links} />
+      )}
+    </main>
+  );
+}

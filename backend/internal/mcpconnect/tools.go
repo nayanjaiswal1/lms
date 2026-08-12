@@ -10,6 +10,7 @@ import (
 	"github.com/mindforge/backend/internal/calendar"
 	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/interviewprep"
+	"github.com/mindforge/backend/internal/journal"
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
@@ -1879,6 +1880,183 @@ var tools = []mcpTool{
 			}
 			starred, _ := args["starred"].(bool)
 			return rt.sheetsRepo.SetStarred(ctx, id.UserID, topicTag, starred)
+		},
+	},
+	{
+		Name:        "list_journal_entries",
+		Description: "List the student's personal learning journal entries, most recent day first. Optionally filter by category, subcategory, or a free-text search over title/content.",
+		Scope:       ScopeJournal,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"category":    map[string]any{"type": "string"},
+				"subcategory": map[string]any{"type": "string", "description": "Only meaningful alongside category."},
+				"search":      map[string]any{"type": "string"},
+			},
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			return rt.journalRepo.ListEntries(ctx, id.UserID, journal.ListEntriesFilter{
+				Category:    optStringOr(args, "category", ""),
+				Subcategory: optStringOr(args, "subcategory", ""),
+				Search:      optStringOr(args, "search", ""),
+			})
+		},
+	},
+	{
+		Name:        "find_similar_journal_entries",
+		Description: "Check whether the student has already logged something with a closely-matching title in their learning journal — call this before create_journal_entry to avoid logging a near-duplicate under a slightly different title.",
+		Scope:       ScopeJournal,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"title": map[string]any{"type": "string"}},
+			"required":   []string{"title"},
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			title, err := argString(args, "title")
+			if err != nil {
+				return nil, err
+			}
+			return rt.journalRepo.FindSimilarEntries(ctx, id.UserID, title, "")
+		},
+	},
+	{
+		Name:        "create_journal_entry",
+		Description: "Add a new entry to the student's personal learning journal — what they learned, under a free-typed category -> subcategory path (e.g. \"Backend\" / \"Redis\", \"DSA\" / \"Graphs\", \"English\" / \"Modal Verbs\"). entry_date defaults to today if omitted. The response includes similar_entries — any of the student's own past entries with a closely-matching title — mention it to the student rather than logging a silent duplicate.",
+		Scope:       ScopeJournal,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"entry_date":  map[string]any{"type": "string", "description": "YYYY-MM-DD, defaults to today."},
+				"category":    map[string]any{"type": "string"},
+				"subcategory": map[string]any{"type": "string"},
+				"title":       map[string]any{"type": "string"},
+				"content":     map[string]any{"type": "string"},
+			},
+			"required": []string{"category", "subcategory", "title", "content"},
+		},
+		TargetType: "journal_entry",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			category, err := argString(args, "category")
+			if err != nil {
+				return nil, err
+			}
+			subcategory, err := argString(args, "subcategory")
+			if err != nil {
+				return nil, err
+			}
+			title, err := argString(args, "title")
+			if err != nil {
+				return nil, err
+			}
+			content, err := argString(args, "content")
+			if err != nil {
+				return nil, err
+			}
+			entry, err := rt.journalRepo.CreateEntry(ctx, id.UserID, journal.CreateEntryRequest{
+				EntryDate: optString(args, "entry_date"), Category: category, Subcategory: subcategory, Title: title, Content: content,
+			})
+			if err != nil {
+				return nil, err
+			}
+			similar, err := rt.journalRepo.FindSimilarEntries(ctx, id.UserID, entry.Title, entry.ID)
+			if err != nil {
+				return nil, err
+			}
+			return journal.CreateEntryResponse{Entry: entry, SimilarEntries: similar}, nil
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			return rt.journalRepo.DeleteEntry(ctx, id.UserID, entry.TargetID)
+		},
+	},
+	{
+		Name:        "update_journal_entry",
+		Description: "Edit an existing journal entry the student owns. Only the given fields change.",
+		Scope:       ScopeJournal,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"entry_id":    map[string]any{"type": "string"},
+				"entry_date":  map[string]any{"type": "string", "description": "YYYY-MM-DD"},
+				"category":    map[string]any{"type": "string"},
+				"subcategory": map[string]any{"type": "string"},
+				"title":       map[string]any{"type": "string"},
+				"content":     map[string]any{"type": "string"},
+			},
+			"required": []string{"entry_id"},
+		},
+		TargetType: "journal_entry",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			entryID, err := argString(args, "entry_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.journalRepo.GetEntry(ctx, id.UserID, entryID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			entryID, err := argString(args, "entry_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.journalRepo.UpdateEntry(ctx, id.UserID, entryID, journal.UpdateEntryRequest{
+				EntryDate:   optString(args, "entry_date"),
+				Category:    optString(args, "category"),
+				Subcategory: optString(args, "subcategory"),
+				Title:       optString(args, "title"),
+				Content:     optString(args, "content"),
+			})
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			var before journal.Entry
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			_, err := rt.journalRepo.UpdateEntry(ctx, id.UserID, entry.TargetID, journal.UpdateEntryRequest{
+				EntryDate: &before.EntryDate, Category: &before.Category, Subcategory: &before.Subcategory,
+				Title: &before.Title, Content: &before.Content,
+			})
+			return err
+		},
+	},
+	{
+		Name:        "delete_journal_entry",
+		Description: "Permanently delete a journal entry the student owns.",
+		Scope:       ScopeJournal,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"entry_id": map[string]any{"type": "string"}},
+			"required":   []string{"entry_id"},
+		},
+		TargetType: "journal_entry",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			entryID, err := argString(args, "entry_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.journalRepo.GetEntry(ctx, id.UserID, entryID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			entryID, err := argString(args, "entry_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := rt.journalRepo.DeleteEntry(ctx, id.UserID, entryID); err != nil {
+				return nil, err
+			}
+			return map[string]any{"deleted": true, "id": entryID}, nil
+		},
+		// Revert recreates the entry via CreateEntry, which mints a fresh id —
+		// safe here since nothing else in the schema references a journal
+		// entry by id (unlike sheets' topic_tag orphan risk on delete_sheet_item).
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			var before journal.Entry
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			_, err := rt.journalRepo.CreateEntry(ctx, id.UserID, journal.CreateEntryRequest{
+				EntryDate: &before.EntryDate, Category: before.Category, Subcategory: before.Subcategory,
+				Title: before.Title, Content: before.Content,
+			})
+			return err
 		},
 	},
 }

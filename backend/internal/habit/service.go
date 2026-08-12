@@ -13,6 +13,7 @@ var (
 	ErrInvalidCadence       = errors.New("habit: invalid cadence")
 	ErrInvalidMonth         = errors.New("habit: month must be formatted YYYY-MM")
 	ErrInvalidPeriod        = errors.New("habit: period must be formatted YYYY-MM-DD")
+	ErrFuturePeriod         = errors.New("habit: cannot log a completion for a period that hasn't happened yet")
 	ErrInvalidColor         = errors.New("habit: invalid color")
 	ErrInvalidTarget        = errors.New("habit: target_count must be between 1 and 7")
 	ErrInvalidWeekday       = errors.New("habit: weekdays must be unique values between 0 and 6")

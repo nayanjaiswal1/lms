@@ -178,6 +178,12 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 	// effect immediately rather than at token expiry.
 	roleChanged := req.Role != nil && *req.Role != target.Role
 	statusChanged := req.Status != nil && *req.Status != target.Status
+	if roleChanged {
+		if err := syncTenantAdminRole(ctx, s.pool, orgID, updated.UserID, updated.Role); err != nil {
+			return nil, fmt.Errorf("orgs: update member: sync tenant_admin role: %w", err)
+		}
+	}
+
 	if roleChanged || statusChanged {
 		if _, err := s.pool.Exec(ctx,
 			`UPDATE users SET session_version = session_version + 1 WHERE id = $1`,
@@ -233,6 +239,14 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 			return ErrLastOwner
 		}
 		return fmt.Errorf("orgs: remove member: %w", err)
+	}
+
+	// Revoke tenant_admin so a future re-add (e.g. as a plain learner) doesn't
+	// silently inherit admin.* permissions from a role grant that predates it.
+	if target.Role == RoleOwner || target.Role == RoleAdmin {
+		if err := syncTenantAdminRole(ctx, s.pool, orgID, target.UserID, "removed"); err != nil {
+			return fmt.Errorf("orgs: remove member: sync tenant_admin role: %w", err)
+		}
 	}
 
 	// Retire the removed member's outstanding access tokens rather than letting

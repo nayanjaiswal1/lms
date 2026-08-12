@@ -90,6 +90,10 @@ func (s *OrgService) Create(ctx context.Context, actorUserID string, req CreateO
 		return nil, fmt.Errorf("orgs: create: insert owner member: %w", err)
 	}
 
+	if err := syncTenantAdminRole(ctx, tx, org.ID, actorUserID, RoleOwner); err != nil {
+		return nil, fmt.Errorf("orgs: create: sync tenant_admin role: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("orgs: create: commit: %w", err)
 	}
