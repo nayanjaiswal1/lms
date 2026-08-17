@@ -43,9 +43,10 @@ function formatDate(iso: string | null): string {
 interface McpConnectionsManagerProps {
   connections: McpConnection[];
   connectorUrl: string;
+  isLocalConnector: boolean;
 }
 
-export function McpConnectionsManager({ connections, connectorUrl }: McpConnectionsManagerProps) {
+export function McpConnectionsManager({ connections, connectorUrl, isLocalConnector }: McpConnectionsManagerProps) {
   const [revokeTarget, setRevokeTarget] = useState<McpConnection | null>(null);
 
   async function copyConnectorUrl() {
@@ -60,21 +61,27 @@ export function McpConnectionsManager({ connections, connectorUrl }: McpConnecti
   // there's nothing to remember or mistype; pasting it into a chat also works
   // fine as a way to have the assistant narrate the same steps back.
   //
-  // Leads with Claude Desktop rather than Claude.ai/ChatGPT web: this URL is
-  // whatever BACKEND_URL resolves to (localhost in dev), and only a client
-  // running on this same machine — Desktop, or Claude Code itself — can
-  // reach a localhost address. Claude.ai and ChatGPT are cloud products;
-  // their servers call this URL directly and cannot reach your machine
-  // without a public tunnel (ngrok, Cloudflare Tunnel) in front of it.
+  // isLocalConnector (from connectorUrl's host, resolved server-side in
+  // page.tsx) decides which guide copy applies: a loopback URL only a
+  // same-machine client (Desktop, Claude Code) can reach, with a note that
+  // Claude.ai/ChatGPT need a tunnel — vs. a real public BACKEND_URL, which
+  // cloud clients can already reach directly, so that caveat would be wrong.
   async function copySetupGuide() {
-    const guide = `Connect MindForge to Claude Desktop:
+    const guide = isLocalConnector
+      ? `Connect MindForge to Claude Desktop:
 
 1. Open Claude Desktop -> Settings -> Connectors -> Add custom connector.
 2. Paste this URL: ${connectorUrl}
 3. Click Connect, sign in to MindForge if asked, then approve the requested access on the consent screen.
 4. Once connected, just ask things like "what are my enrolled courses?" or "save a note on this lesson" and Claude will call MindForge directly.
 
-Note: this URL only works from an app running on this same machine (Claude Desktop, Claude Code). Claude.ai and ChatGPT run in the cloud and can't reach a localhost address — connecting those needs a public tunnel in front of this server instead.`;
+Note: this URL only works from an app running on this same machine (Claude Desktop, Claude Code). Claude.ai and ChatGPT run in the cloud and can't reach a localhost address — connecting those needs a public tunnel in front of this server instead.`
+      : `Connect MindForge to Claude or ChatGPT:
+
+1. Open Claude (Desktop, Claude.ai, or Claude Code) or ChatGPT -> Settings -> Connectors -> Add custom connector.
+2. Paste this URL: ${connectorUrl}
+3. Click Connect, sign in to MindForge if asked, then approve the requested access on the consent screen.
+4. Once connected, just ask things like "what are my enrolled courses?" or "save a note on this lesson" and it will call MindForge directly.`;
     await navigator.clipboard.writeText(guide);
     toast.success("Setup guide copied.");
   }

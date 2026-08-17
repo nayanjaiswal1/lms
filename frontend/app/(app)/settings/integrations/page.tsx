@@ -22,11 +22,20 @@ export default async function SettingsIntegrationsPage() {
   // useful when the backend itself is on localhost but reachable externally
   // (e.g. a client, or Claude/ChatGPT's cloud infra) only via a tunnel.
   const connectorUrl = `${process.env.MCP_PUBLIC_URL ?? process.env.BACKEND_URL}/mcp`;
+  // Only a loopback connector URL needs the "cloud clients can't reach this"
+  // caveat and the tunnel workaround — a real deploy's BACKEND_URL (e.g.
+  // Render, a VPS) is already publicly reachable, so Claude.ai/ChatGPT work
+  // directly against it with no tunnel.
+  const isLocalConnector = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(connectorUrl);
 
   return (
     <div className="space-y-6">
       <AccessGate feature={FEATURES.AI_CONNECTOR} mode="hide">
-        <McpConnectionsManager connections={connections} connectorUrl={connectorUrl} />
+        <McpConnectionsManager
+          connections={connections}
+          connectorUrl={connectorUrl}
+          isLocalConnector={isLocalConnector}
+        />
       </AccessGate>
       <GitlabConnectionManager
         connection={gitlabStatus.connection}
