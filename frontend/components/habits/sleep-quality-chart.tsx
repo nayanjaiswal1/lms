@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Moon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { latestSleepTimes, sleepSeriesForMonth, type MetadataByKey } from "@/lib/habits/summaries";
+import { latestMetadataEntry, latestSleepTimes, sleepSeriesForMonth, type MetadataByKey } from "@/lib/habits/summaries";
 import type { Habit } from "@/lib/server/habits";
 
 const SleepQualityChartInner = dynamic(() => import("@/components/habits/sleep-quality-chart-inner"), {
@@ -36,6 +37,8 @@ export function SleepQualityCard({ habits, month, metadata }: SleepQualityCardPr
   const points = sleepSeriesForMonth(habit, month, metadata);
   const times = latestSleepTimes(habit, month, metadata);
   const hasData = points.some((p) => p.hours !== null);
+  const latestEntry = latestMetadataEntry(habit, month, metadata);
+  const wakes = typeof latestEntry?.night_wakes === "number" ? latestEntry.night_wakes : null;
 
   return (
     <section className="rounded-lg border border-border p-6">
@@ -55,6 +58,12 @@ export function SleepQualityCard({ habits, month, metadata }: SleepQualityCardPr
                 <span className="text-[10px] uppercase tracking-widest text-primary">Wake Up</span>
                 <span className="text-sm">{times.wokeUp}</span>
               </div>
+            </div>
+          )}
+          {wakes !== null && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
+              <Moon aria-hidden className="size-3" />
+              {wakes} {wakes === 1 ? "wake" : "wakes"} last night
             </div>
           )}
         </>

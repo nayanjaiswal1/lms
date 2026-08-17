@@ -3,12 +3,13 @@ package mistakes
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/jobs"
 )
 
 // New builds the fully-wired mistakes handler.
-func New(pool *pgxpool.Pool) *Handler {
+func New(pool *pgxpool.Pool, jobsRegistry *jobs.Registry) *Handler {
 	repo := NewRepo(pool)
-	return NewHandler(repo, NewService(repo, pool))
+	return NewHandler(repo, NewService(repo, pool, jobsRegistry))
 }
 
 // RegisterRoutes mounts the mistakes API onto the given router.

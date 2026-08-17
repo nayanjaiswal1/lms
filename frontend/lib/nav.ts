@@ -17,7 +17,6 @@ import {
   BookmarkCheck,
   Calendar,
   CalendarClock,
-  Compass,
   Map,
   FolderTree,
   FolderGit2,
@@ -107,14 +106,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:  LayoutDashboard,
     exact: true,
   },
-  what_now: {
-    label:   "What Now?",
-    href:    ROUTES.NOW,
-    icon:    Compass,
-    feature: FEATURES.WHAT_NOW,
-    mode:    "hide",
-    exact:   true,
-  },
   courses: {
     label:               "My Courses",
     href:                ROUTES.COURSES,
@@ -180,14 +171,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label: "Saved Highlights",
     href:  ROUTES.HIGHLIGHTS,
     icon:  BookmarkCheck,
-  },
-  flashcards: {
-    label:               "Review Cards",
-    href:                ROUTES.REVIEW,
-    icon:                Brain,
-    feature:             FEATURES.FLASHCARDS,
-    requiredPermission:  PERMISSIONS.CONTENT.SRS,
-    mode:                "badge",
   },
   mistakes: {
     label: "My Mistakes",
@@ -301,7 +284,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
   },
   org_settings: {
     label:               "Organization Settings",
-    href:                ROUTES.ORG_SETTINGS_MEMBERS,
+    href:                ROUTES.ORG_SETTINGS,
     icon:                Building2,
     requiredPermission:  PERMISSIONS.ADMIN.MANAGE_ORG,
   },
@@ -404,7 +387,6 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
     label: "Library",
     items: [
       ALL_NAV_ITEMS.highlights,
-      ALL_NAV_ITEMS.flashcards,
       ALL_NAV_ITEMS.sheet_tracker,
       ALL_NAV_ITEMS.learning_journal,
       ALL_NAV_ITEMS.wiki,
@@ -455,7 +437,6 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     // the rest.
     items: [
       ALL_NAV_ITEMS.dashboard,
-      ALL_NAV_ITEMS.what_now,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.support,

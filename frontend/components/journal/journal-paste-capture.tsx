@@ -6,7 +6,7 @@ import { Sparkles } from "lucide-react";
 import { LessonFloatingPanel } from "@/components/shared/lesson-floating-panel";
 import { JournalEntryForm } from "@/components/journal/journal-entry-form";
 import { structureJournalEntryAction } from "@/app/(app)/journal/actions";
-import type { JournalCategoryNode } from "@/lib/server/journal";
+import type { JournalCategoryNode, StructureJournalEntryResult } from "@/lib/server/journal";
 
 // Ignores accidental short pastes (a word, a link) — only a real note-sized
 // paste is worth an AI call.
@@ -16,29 +16,23 @@ interface JournalPasteCaptureProps {
   categories: JournalCategoryNode[];
 }
 
-interface PasteDraft {
-  category: string;
-  subcategory: string;
-  title: string;
-  content: string;
-}
-
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
 // Paste anywhere on the journal page outside a real input/textarea and AI
-// suggests a category/subcategory/title for it — the pasted text itself is
-// never rewritten, only classified. Opens as the same bottom-right floating
-// panel "Ask your AI"/ticket chat use (LessonFloatingPanel), not a modal —
-// nothing saves until the user reviews the prefilled form and hits Save.
+// suggests a category/subcategory/title, plus a cleaned-up rewrite of the
+// text itself (structure, grammar, conciseness — same facts, no invented
+// ones). Opens as the same bottom-right floating panel "Ask your AI"/ticket
+// chat use (LessonFloatingPanel), not a modal — nothing saves until the
+// user reviews the prefilled form (still fully editable) and hits Save.
 export function JournalPasteCapture({ categories }: JournalPasteCaptureProps) {
-  const [state, setState] = useState<{ open: boolean; draft: PasteDraft | null; error: string | null }>({
-    open: false,
-    draft: null,
-    error: null,
-  });
+  const [state, setState] = useState<{
+    open: boolean;
+    draft: StructureJournalEntryResult | null;
+    error: string | null;
+  }>({ open: false, draft: null, error: null });
   const [isPending, startTransition] = useTransition();
 
   // Global paste listener — there's no non-effect equivalent for a
@@ -58,7 +52,7 @@ export function JournalPasteCapture({ categories }: JournalPasteCaptureProps) {
           setState({ open: true, draft: null, error: result.error ?? "Couldn't structure this with AI." });
           return;
         }
-        setState({ open: true, draft: { ...result.data, content: text }, error: null });
+        setState({ open: true, draft: result.data, error: null });
       });
     }
     document.addEventListener("paste", onPaste);

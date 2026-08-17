@@ -2,7 +2,6 @@
 
 import type { LucideIcon } from "lucide-react";
 import { Eye, GraduationCap, Presentation, Shield, ShieldCheck, Users as UsersIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 // System role name → icon. Tenant-created custom roles fall back to Shield.
 export const ROLE_ICONS: Record<string, LucideIcon> = {
@@ -25,7 +24,7 @@ interface Props {
 // later roles paint over earlier ones via DOM order, no z-index needed.
 export function RoleBadges({ roleNames }: Props) {
   if (roleNames.length === 0) {
-    return <Badge variant="secondary">None</Badge>;
+    return null;
   }
 
   return (
@@ -34,10 +33,10 @@ export function RoleBadges({ roleNames }: Props) {
         const Icon = roleIcon(name);
         return (
           <div
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary ring-2 ring-background"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted ring-2 ring-background"
             key={name}
           >
-            <Icon aria-hidden className="h-3.5 w-3.5 text-primary-foreground" />
+            <Icon aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
         );
       })}

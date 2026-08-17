@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { fetchPlatformStats } from "@/lib/jobs/admin-server";
 import { QuotaForm } from "@/app/platform/orgs/[id]/quotas/quota-form";
 import ROUTES from "@/lib/routes";
@@ -21,6 +20,14 @@ export default async function PlatformOrgQuotasPage({ params }: PageProps) {
 
   return (
     <div className="page-container">
+      <Breadcrumb
+        items={[
+          { href: ROUTES.PLATFORM_JOBS, label: "Jobs" },
+          { href: `${ROUTES.PLATFORM_JOBS}?org_id=${orgID}`, label: orgStats.org_name },
+          { label: "Edit Quota" },
+        ]}
+      />
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Edit Quota</h1>
@@ -29,9 +36,6 @@ export default async function PlatformOrgQuotasPage({ params }: PageProps) {
             <strong>{orgStats.org_name}</strong>.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={ROUTES.PLATFORM_JOBS}>Back to Jobs</Link>
-        </Button>
       </div>
 
       {/* Current snapshot */}

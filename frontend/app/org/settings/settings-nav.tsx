@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Users,
   Globe,
   Shield,
   ScrollText,
@@ -23,7 +22,6 @@ interface OrgNavItem {
 
 const ORG_SETTINGS_NAV: OrgNavItem[] = [
   { label: "Overview",       href: ROUTES.ORG_SETTINGS,         icon: LayoutDashboard, exact: true },
-  { label: "Members",        href: ROUTES.ORG_SETTINGS_MEMBERS,  icon: Users },
   { label: "Domains",        href: ROUTES.ORG_SETTINGS_DOMAINS,  icon: Globe },
   { label: "Authentication", href: ROUTES.ORG_SETTINGS_AUTH,     icon: Shield },
   { label: "Integrations",   href: ROUTES.ORG_SETTINGS_INTEGRATIONS, icon: GitBranch },

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RemoveMemberButton } from "@/app/(app)/batches/[id]/remove-member-button";
 import { RemoveMentorButton } from "@/components/batches/remove-mentor-button";
+import { UserLink } from "@/components/shared/user-link";
 
 export interface Person {
   user_id: string;
@@ -70,7 +71,11 @@ export function PeopleList({ batchId, people, actions }: Props) {
             <tbody className="divide-y divide-border">
               {filtered.map((p) => (
                 <tr key={`${p.role}-${p.user_id}`}>
-                  <td className="py-2.5 pr-4 font-medium">{p.name}</td>
+                  <td className="py-2.5 pr-4 font-medium">
+                    <UserLink className="hover:underline" userId={p.user_id}>
+                      {p.name}
+                    </UserLink>
+                  </td>
                   <td className="py-2.5 pr-4 text-muted-foreground">{p.email}</td>
                   <td className="py-2.5 pr-4">
                     <Badge variant={p.role === "mentor" ? "default" : "secondary"}>

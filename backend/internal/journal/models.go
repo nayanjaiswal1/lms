@@ -78,12 +78,13 @@ type StructureRequest struct {
 	Text string `json:"text"`
 }
 
-// StructureResponse is the AI's suggested category/subcategory/title for
+// StructureResponse is the AI's suggested category/subcategory/title, plus
+// a cleaned-up/restructured rewrite of the pasted text, for
 // StructureRequest.Text — a suggestion only, nothing is saved. The caller
-// reviews/edits it and creates the entry via the normal POST /api/journal,
-// using the original pasted text as Content (the AI never rewrites it).
+// reviews/edits it and creates the entry via the normal POST /api/journal.
 type StructureResponse struct {
 	Category    string `json:"category"`
 	Subcategory string `json:"subcategory"`
 	Title       string `json:"title"`
+	Content     string `json:"content"`
 }

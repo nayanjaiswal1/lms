@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -56,6 +57,7 @@ import (
 	"github.com/mindforge/backend/internal/storage"
 	"github.com/mindforge/backend/internal/systemdesign"
 	"github.com/mindforge/backend/internal/tickets"
+	"github.com/mindforge/backend/internal/useroverview"
 	"github.com/mindforge/backend/internal/whatnow"
 	"github.com/mindforge/backend/internal/wiki"
 	"github.com/redis/go-redis/v9"
@@ -170,7 +172,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// its unexported repo field.
 	srsRepo := srs.NewRepo(pool)
 	mistakesRepo := mistakes.NewRepo(pool)
-	mistakesSvc := mistakes.NewService(mistakesRepo, pool)
+	mistakesSvc := mistakes.NewService(mistakesRepo, pool, jobsRegistry)
 	mistakesRouter := mistakes.NewHandler(mistakesRepo, mistakesSvc)
 	sheetsRouter := sheets.New(pool)
 	journalRouter := journal.New(pool, aiProvider)
@@ -430,6 +432,15 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// RBAC — permission catalogue, role CRUD, user-role assignment, audit log.
 		authzHandler.RegisterRoutes(r)
 
+		// User overview — cross-domain progress data (courses/activity/sheets/
+		// mistakes/habits/journal) for the admin user detail page. Reuses the
+		// coursesRepo/mistakesRepo already built above and authzHandler's
+		// *authz.Service for its permission gate; see internal/useroverview's
+		// package doc for why this couldn't live inside internal/authz itself
+		// (courses and journal both import authz, so authz importing them back
+		// would be a cycle).
+		useroverview.New(pool, authzHandler.Service(), coursesRepo, mistakesRepo).RegisterRoutes(r)
+
 		// Job Management System — org job list/cancel/retry, admin stats, worker view.
 		jobsHandler := jobs.NewHTTPHandler(pool, rdb, cfg, jobsRegistry)
 		jobsHandler.RegisterRoutes(r)
@@ -513,12 +524,13 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 }
 
 // corsMiddleware sets CORS headers allowing the configured FRONTEND_URL origin
-// with credentials.  X-CSRF-Token is explicitly listed so browser JS can send it.
+// (plus any CORS_EXTRA_ORIGINS) with credentials.  X-CSRF-Token is explicitly
+// listed so browser JS can send it.
 func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			if origin == cfg.FrontendURL {
+			if origin == cfg.FrontendURL || slices.Contains(cfg.CORSExtraOrigins, origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")

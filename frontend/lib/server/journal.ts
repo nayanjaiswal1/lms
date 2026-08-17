@@ -47,13 +47,14 @@ export interface JournalCategoryNode {
   subcategories: string[];
 }
 
-/** AI's suggested category/subcategory/title for a block of pasted text — a
- * suggestion only; the caller supplies the pasted text itself as content
- * when actually creating the entry. */
+/** AI's suggested category/subcategory/title, plus a cleaned-up rewrite of
+ * the pasted text, for a block of pasted text — a suggestion only, reviewed
+ * and editable before the caller actually creates the entry. */
 export interface StructureJournalEntryResult {
   category: string;
   subcategory: string;
   title: string;
+  content: string;
 }
 
 export async function getJournalEntries(filter?: JournalEntriesFilter): Promise<JournalEntry[]> {

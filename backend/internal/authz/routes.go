@@ -58,6 +58,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			"admin.view_members",
 		)).Get("/users", h.HandleListUsers)
 
+		r.With(RequireAnyPermission(h.svc,
+			"admin.manage_members",
+			"admin.view_members",
+		)).Get("/users/{userID}", h.HandleGetUser)
+
 		// ── User-role management ──────────────────────────────────────────────
 		r.With(RequireAnyPermission(h.svc,
 			"admin.manage_members",

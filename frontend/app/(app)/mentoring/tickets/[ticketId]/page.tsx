@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Can } from "@/components/auth/can";
+import { UserLink } from "@/components/shared/user-link";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { ClaimTicketButton } from "@/components/mentoring/claim-ticket-button";
 import { CloseTicketButton } from "@/components/mentoring/close-ticket-button";
@@ -80,8 +81,19 @@ export default async function TicketDetailPage({ params }: Props) {
         <div className="flex flex-col gap-1">
           <h1 className="section-title">Ticket {truncateId(ticket.id)}</h1>
           <p className="text-muted-foreground">
-            Student {truncateId(ticket.requester_id)} · Course {ticket.course_id ? truncateId(ticket.course_id) : "—"}
-            {assignedMentorName && ` · Mentor ${assignedMentorName}`}
+            Student{" "}
+            <UserLink className="hover:text-foreground hover:underline" userId={ticket.requester_id}>
+              {truncateId(ticket.requester_id)}
+            </UserLink>
+            {" "}· Course {ticket.course_id ? truncateId(ticket.course_id) : "—"}
+            {assignedMentorName && ticket.assigned_to && (
+              <>
+                {" "}· Mentor{" "}
+                <UserLink className="hover:text-foreground hover:underline" userId={ticket.assigned_to}>
+                  {assignedMentorName}
+                </UserLink>
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/mindforge/backend/internal/httputil"
 )
 
@@ -303,6 +304,30 @@ func (h *Handler) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 		"users": users,
 		"total": total,
 	})
+}
+
+// HandleGetUser returns a single tenant member for the user detail page.
+//
+// GET /api/admin/rbac/users/{userID}
+func (h *Handler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.getClaims(r)
+	if !ok {
+		httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+		return
+	}
+
+	userID := chi.URLParam(r, "userID")
+	user, err := h.adminRepo.GetUser(r.Context(), userID, claims.OrgID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httputil.WriteError(w, http.StatusNotFound, "User not found.")
+			return
+		}
+		httputil.WriteError(w, http.StatusInternalServerError, "Failed to load user.")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, user)
 }
 
 // ─── User-role management ─────────────────────────────────────────────────────

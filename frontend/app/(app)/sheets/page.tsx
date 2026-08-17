@@ -26,7 +26,7 @@ export default async function SheetsPage() {
   const discoverSheets = publicSheets.filter((s) => !trackedIds.has(s.id));
 
   return (
-    <main>
+    <main className="page-container">
       <div className="page-header">
         <div>
           <h1 className="page-title">Sheet Tracker</h1>

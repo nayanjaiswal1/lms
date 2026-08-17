@@ -55,6 +55,13 @@ type Config struct {
 	FrontendURL string
 	BackendURL  string
 
+	// CORSExtraOrigins lets additional origins through corsMiddleware besides
+	// FrontendURL — e.g. hitting the app via both a Caddy dev proxy
+	// (http://localhost) and the frontend dev server directly
+	// (http://localhost:3000) in the same session. FrontendURL alone still
+	// drives WebAuthn RPID/RPOrigin and OAuth redirects.
+	CORSExtraOrigins []string
+
 	// MCPPublicURL is the address external MCP clients (Claude, ChatGPT) use to
 	// reach this server's OAuth/MCP endpoints — defaults to BackendURL, but can
 	// be overridden independently (e.g. a tunnel URL while developing locally)
@@ -291,6 +298,7 @@ func Load() *Config {
 		EmailFrom:          getEnvDefault("EMAIL_FROM", "noreply@mindforge.dev"),
 		EmailFromName:      getEnvDefault("EMAIL_FROM_NAME", "MindForge"),
 		DevEmailAllowlist:  getEnvList("DEV_EMAIL_ALLOWLIST"),
+		CORSExtraOrigins:   getEnvList("CORS_EXTRA_ORIGINS"),
 	}
 
 	// ENV is whitelisted rather than free-form. Every production safeguard —

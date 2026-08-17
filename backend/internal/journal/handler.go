@@ -255,16 +255,15 @@ func (h *Handler) DeleteEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	structureTextMinLength    = 20
-	structureTextMaxLength    = 20000
-	structurePromptTextLength = 4000
+	structureTextMinLength = 20
+	structureTextMaxLength = 20000
 )
 
 // StructureEntry handles POST /api/journal/structure. Given raw pasted
-// text, it asks the LLM to suggest a category/subcategory/title — the AI
-// never sees this as a save operation and nothing is written to the
-// database here; the caller reviews the suggestion and creates the entry
-// via the normal POST /api/journal, using the original text as content.
+// text, it asks the LLM to suggest a category/subcategory/title and a
+// cleaned-up rewrite of the text — nothing is written to the database
+// here; the caller reviews the suggestion (and can still edit it) before
+// creating the entry via the normal POST /api/journal.
 func (h *Handler) StructureEntry(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -297,7 +296,7 @@ func (h *Handler) StructureEntry(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.provider.Complete(r.Context(), ai.CompletionRequest{
 		SystemPrompt: ai.JournalStructureSystemPrompt,
 		UserPrompt:   buildStructureUserPrompt(trimmed, categories),
-		MaxTokens:    300,
+		MaxTokens:    4096,
 		Temperature:  0.3,
 		JSONMode:     true,
 	})
@@ -315,6 +314,13 @@ func (h *Handler) StructureEntry(w http.ResponseWriter, r *http.Request) {
 	parsed.Category = clampField(parsed.Category, 60)
 	parsed.Subcategory = clampField(parsed.Subcategory, 60)
 	parsed.Title = clampField(parsed.Title, 200)
+	// A blank rewrite (AI omitted it, or clamping emptied whitespace-only
+	// output) falls back to the original pasted text rather than handing
+	// the caller an entry with no content.
+	parsed.Content = clampField(parsed.Content, 20000)
+	if parsed.Content == "" {
+		parsed.Content = trimmed
+	}
 	if parsed.Category == "" || parsed.Subcategory == "" || parsed.Title == "" {
 		writeDomainError(w, fmt.Errorf("journal: AI structure response missing required fields"))
 		return
@@ -325,9 +331,11 @@ func (h *Handler) StructureEntry(w http.ResponseWriter, r *http.Request) {
 
 // buildStructureUserPrompt lists the caller's existing category/subcategory
 // pairs (so the AI can reuse one instead of inventing a near-duplicate),
-// then the pasted text itself, capped and HTML-stripped via SanitizeTopic —
-// this is classification context only, the saved entry keeps the original
-// text verbatim.
+// then the pasted text itself — the full validated text (already capped at
+// structureTextMaxLength), not further truncated, since the AI needs the
+// whole thing to rewrite it faithfully rather than just enough to classify
+// it. It arrived as clipboard text/plain on the frontend, so no HTML can be
+// embedded in it.
 func buildStructureUserPrompt(text string, categories []CategoryNode) string {
 	var sb strings.Builder
 	if len(categories) > 0 {
@@ -340,7 +348,7 @@ func buildStructureUserPrompt(text string, categories []CategoryNode) string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString("Pasted text:\n")
-	sb.WriteString(ai.SanitizeTopic(text, structurePromptTextLength))
+	sb.WriteString(text)
 	return sb.String()
 }
 

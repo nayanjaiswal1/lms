@@ -1,6 +1,7 @@
 import { Trophy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { UserLink } from "@/components/shared/user-link";
 import type { LeaderboardRow } from "@/lib/projects/types";
 
 interface AssignmentLeaderboardProps {
@@ -41,7 +42,9 @@ export function AssignmentLeaderboard({ leaderboard }: AssignmentLeaderboardProp
               <td className="py-2 pr-2 tabular-nums text-muted-foreground">{row.rank}</td>
               <td className="py-2 pr-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{row.name}</span>
+                  <UserLink className="font-medium hover:underline" userId={row.user_id}>
+                    {row.name}
+                  </UserLink>
                   {row.commit_count === 0 && (
                     <Badge className="badge-muted h-5 px-1.5 text-[10px]" variant="outline">
                       No commits

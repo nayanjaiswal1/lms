@@ -1,5 +1,5 @@
 import { Zap } from "lucide-react";
-import { latestGymEntry, type MetadataByKey } from "@/lib/habits/summaries";
+import { latestMetadataEntry, type MetadataByKey } from "@/lib/habits/summaries";
 import type { Habit } from "@/lib/server/habits";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ interface GymPerformanceCardProps {
 // habit (see habit-entry-form.tsx), never sample numbers.
 export function GymPerformanceCard({ habits, month, metadata }: GymPerformanceCardProps) {
   const habit = habits.find((h) => h.type === "gym");
-  const entry = habit ? latestGymEntry(habit, month, metadata) : null;
+  const entry = habit ? latestMetadataEntry(habit, month, metadata) : null;
 
   return (
     <section className="rounded-lg border border-border p-6">

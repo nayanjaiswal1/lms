@@ -3,10 +3,14 @@
 import { parseAsStringLiteral, useQueryState } from "nuqs";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { UserLink } from "@/components/shared/user-link";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import type { OrgRole } from "@/lib/orgs/types";
 import { UserActionsMenu } from "@/app/(app)/users/user-actions-menu";
 import { ManageRolesDialog } from "@/app/(app)/users/manage-roles-dialog";
+import { ManageFeaturesDialog } from "@/app/(app)/users/manage-features-dialog";
 import { RoleBadges } from "@/app/(app)/users/role-badges";
+import { RoleLegend } from "@/app/(app)/users/role-legend";
 import { UserBulkActions } from "@/app/(app)/users/user-bulk-actions";
 import { STATUS_FILTERS } from "@/app/(app)/users/user-filters";
 
@@ -29,13 +33,32 @@ export interface RoleOption {
   name: string;
 }
 
+/** One row of the merged table: org membership (role/status) + RBAC roles, keyed by user. */
+export interface MergedUser {
+  id: string;
+  memberId: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  /** null when the caller can't see org-membership data (no MANAGE_ORG/VIEW_MEMBERS). */
+  orgRole: OrgRole | null;
+  roleNames: string[];
+  status: string;
+  accountStatus: string | null;
+  joinedAt: string;
+}
+
 interface Props {
-  users: UserSummary[];
+  users: MergedUser[];
   orgId: string;
 }
 
-function statusBadgeVariant(status: string): "default" | "destructive" {
-  return status === "suspended" ? "destructive" : "default";
+function orgRoleBadgeClass(role: string): string {
+  switch (role) {
+    case "owner": return "bg-primary text-primary-foreground";
+    case "admin": return "bg-muted text-foreground";
+    default:      return "bg-muted text-muted-foreground";
+  }
 }
 
 // Search already narrows `users` server-side (see page.tsx); status/role stay
@@ -50,14 +73,14 @@ export function UserTable({ users, orgId }: Props) {
 
   const filtered = users.filter((u) => {
     if (status !== "all" && u.status !== status) return false;
-    if (roleName !== "all" && !u.role_names.includes(roleName)) return false;
+    if (roleName !== "all" && !u.roleNames.includes(roleName)) return false;
     return true;
   });
 
   const selection = useRowSelection(filtered.map((u) => u.id));
   const selectedMemberIds = filtered
     .filter((u) => selection.isSelected(u.id))
-    .map((u) => u.member_id);
+    .map((u) => u.memberId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -89,9 +112,12 @@ export function UserTable({ users, orgId }: Props) {
                   />
                 </th>
                 <th className="pb-2 pr-6 font-medium">Name</th>
-                <th className="pb-2 pr-6 font-medium">Email</th>
-                <th className="pb-2 pr-6 font-medium">Roles</th>
-                <th className="pb-2 pr-6 font-medium">Status</th>
+                <th className="pb-2 pr-6 font-medium">
+                  <span className="inline-flex items-center gap-0.5">
+                    Roles
+                    <RoleLegend />
+                  </span>
+                </th>
                 <th className="pb-2 font-medium" />
               </tr>
             </thead>
@@ -105,25 +131,99 @@ export function UserTable({ users, orgId }: Props) {
                       onCheckedChange={() => selection.toggle(user.id)}
                     />
                   </td>
-                  <td className="py-3 pr-6 font-medium">{user.name}</td>
-                  <td className="py-3 pr-6 text-muted-foreground">{user.email}</td>
                   <td className="py-3 pr-6">
-                    <RoleBadges roleNames={user.role_names} />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative flex-shrink-0">
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-foreground overflow-hidden">
+                          {user.avatarUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              alt={user.name}
+                              className="h-8 w-8 rounded-full object-cover"
+                              src={user.avatarUrl}
+                            />
+                          ) : (
+                            user.name.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        {/* Quick-glance echo of the Status column's badge,
+                            same "only the exception is worth a mark" rule —
+                            skipped for active so most avatars stay plain. */}
+                        {user.status !== "active" && (
+                          <span
+                            aria-hidden
+                            className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
+                              user.status === "suspended" ? "bg-destructive" : "bg-muted-foreground"
+                            }`}
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        {/* div, not p — globals.css sets `p { leading-7 }` for
+                            prose, which blows out the gap between two small
+                            stacked lines like this (see lab-usage-view.tsx
+                            for the same fix on the same name+email pattern). */}
+                        <div className="truncate">
+                          <UserLink className="font-medium text-foreground hover:underline" userId={user.id}>
+                            {user.name}
+                          </UserLink>
+                          {/* Status folded in here instead of its own column —
+                              active is the default for nearly every row, so
+                              showing it every time was a wall of identical
+                              badges. Only the exceptions get a mark. Literal
+                              superscript, like an exponent, not a pill badge. */}
+                          {user.status !== "active" && (
+                            <sup
+                              className={`ml-1 font-semibold ${
+                                user.status === "suspended" ? "text-destructive" : "text-muted-foreground"
+                              }`}
+                            >
+                              {user.status}
+                            </sup>
+                          )}
+                          {user.accountStatus && user.accountStatus !== "active" && (
+                            <sup className="ml-1 font-semibold text-destructive">{user.accountStatus}</sup>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className="py-3 pr-6">
-                    <Badge variant={statusBadgeVariant(user.status)}>{user.status}</Badge>
+                    {/* Read-only here — two distinct backend systems (org
+                        membership role vs RBAC role assignment, see
+                        actions.ts) shown as one column since both answer
+                        "what can this person do". Edited via the row's
+                        Manage roles dialog, not inline. */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {user.orgRole && (
+                        <Badge className={orgRoleBadgeClass(user.orgRole)} variant="outline">
+                          {user.orgRole}
+                        </Badge>
+                      )}
+                      <RoleBadges roleNames={user.roleNames} />
+                    </div>
                   </td>
                   <td className="py-3 text-right">
-                    <UserActionsMenu
-                      accountStatus={user.account_status}
-                      email={user.email}
-                      memberId={user.member_id}
-                      name={user.name}
-                      orgId={orgId}
-                      status={user.status}
-                      userId={user.id}
-                    />
-                    <ManageRolesDialog userId={user.id} userName={user.name} />
+                    <div className="flex items-center justify-end gap-1">
+                      <ManageFeaturesDialog orgId={orgId} userId={user.id} userName={user.name} />
+                      <UserActionsMenu
+                        accountStatus={user.accountStatus ?? "active"}
+                        email={user.email}
+                        memberId={user.memberId}
+                        name={user.name}
+                        orgId={orgId}
+                        status={user.status}
+                        userId={user.id}
+                      />
+                      <ManageRolesDialog
+                        memberId={user.memberId}
+                        orgId={orgId}
+                        orgRole={user.orgRole}
+                        userId={user.id}
+                        userName={user.name}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

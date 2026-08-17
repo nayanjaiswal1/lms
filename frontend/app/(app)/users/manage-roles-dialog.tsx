@@ -1,15 +1,32 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MultiSelectDropdown } from "@/components/shared/multi-select-dropdown";
 import { useHasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { apiFetch, API, csrfToken } from "@/lib/client/api";
+import type { OrgRole } from "@/lib/orgs/types";
+
+const ORG_ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
+  { value: "owner", label: "Owner" },
+  { value: "admin", label: "Admin" },
+  { value: "instructor", label: "Instructor" },
+  { value: "mentor", label: "Mentor" },
+  { value: "learner", label: "Learner" },
+];
 
 interface Role {
   id: string;
@@ -37,22 +54,49 @@ interface RolesData {
 interface Props {
   userId: string;
   userName: string;
+  orgId: string;
+  memberId: string;
+  /** null when the caller can't see org-membership data (no MANAGE_ORG/VIEW_MEMBERS for this row). */
+  orgRole: OrgRole | null;
 }
 
 // Opened via the `manageRoles` URL param (set by UserActionsMenu), so only
-// one instance needs to be mounted per users table.
-export function ManageRolesDialog({ userId, userName }: Props) {
+// one instance needs to be mounted per users table. Covers both role systems
+// in one place: the coarse org membership role (owner/admin/instructor/
+// mentor/learner) and the granular RBAC roles/permissions below it.
+export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }: Props) {
   const [openId, setOpenId] = useQueryState("manageRoles");
   const open = openId === userId;
   const canManage = useHasPermission(PERMISSIONS.ADMIN.MANAGE_MEMBERS);
+  const canManageOrg = useHasPermission(PERMISSIONS.ADMIN.MANAGE_ORG);
   // Direct permission overrides skip the curation a role provides, so they
   // need both codes — a stricter bar than plain role assignment. Mirrors the
   // backend guard on POST/DELETE .../permission-overrides (routes.go).
   const hasManagePermissions = useHasPermission(PERMISSIONS.ADMIN.MANAGE_PERMISSIONS);
   const canManagePermissions = canManage && hasManagePermissions;
+  const router = useRouter();
 
   const [data, setData] = useState<RolesData | null>(null);
+  const [currentOrgRole, setCurrentOrgRole] = useState(orgRole);
   const [isPending, startTransition] = useTransition();
+
+  function updateOrgRole(role: OrgRole) {
+    startTransition(async () => {
+      const res = await fetch(`${API}/api/orgs/${orgId}/members/${memberId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
+        body: JSON.stringify({ role }),
+      });
+      if (res.ok) {
+        setCurrentOrgRole(role);
+        toast.success("Org role updated.");
+        router.refresh();
+      } else {
+        toast.error("Failed to update org role.");
+      }
+    });
+  }
 
   async function load() {
     const [userRoles, rolesData, permsData, allPermsData, overridesData] = await Promise.all([
@@ -175,8 +219,34 @@ export function ManageRolesDialog({ userId, userName }: Props) {
           </div>
         ) : (
           <>
-            <section>
-              <h3 className="text-sm font-semibold mb-2">Roles</h3>
+            {currentOrgRole && (
+              <section>
+                <h3 className="text-sm font-semibold mb-2">Organization role</h3>
+                {canManageOrg ? (
+                  <Select
+                    disabled={isPending}
+                    value={currentOrgRole}
+                    onValueChange={(v) => updateOrgRole(v as OrgRole)}
+                  >
+                    <SelectTrigger aria-label={`Change org role for ${userName}`} className="h-9 w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ORG_ROLE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant="outline">{currentOrgRole}</Badge>
+                )}
+              </section>
+            )}
+
+            <section className="mt-4">
+              <h3 className="text-sm font-semibold mb-2">RBAC roles</h3>
               <MultiSelectDropdown
                 disabled={!canManage || isPending}
                 options={data.allRoles.map((r) => ({ id: r.id, label: r.name }))}

@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { fetchAdminJobDetail } from "@/lib/jobs/admin-server";
 import {
   forceRetryJobAction,
@@ -61,6 +61,8 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
 
   return (
     <div className="page-container">
+      <Breadcrumb items={[{ href: ROUTES.PLATFORM_JOBS, label: "Jobs" }, { label: job.handler }]} />
+
       <div className="page-header">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -85,9 +87,6 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
               </Button>
             </form>
           )}
-          <Button asChild variant="outline" size="sm">
-            <Link href={ROUTES.PLATFORM_JOBS}>Back to Jobs</Link>
-          </Button>
         </div>
       </div>
 

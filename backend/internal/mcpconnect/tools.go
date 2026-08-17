@@ -9,6 +9,7 @@ import (
 
 	"github.com/mindforge/backend/internal/calendar"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/habit"
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/journal"
 	"github.com/mindforge/backend/internal/mistakes"
@@ -118,6 +119,22 @@ func argStringSlice(args map[string]any, key string) []string {
 	for _, v := range raw {
 		if s, ok := v.(string); ok && s != "" {
 			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// argInt32Slice reads args[key] as a []int32 — the weekdays counterpart to
+// argStringSlice (e.g. create_habit's weekdays, Sunday=0..Saturday=6).
+func argInt32Slice(args map[string]any, key string) []int32 {
+	raw, ok := args[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]int32, 0, len(raw))
+	for _, v := range raw {
+		if n, ok := v.(float64); ok {
+			out = append(out, int32(n))
 		}
 	}
 	return out
@@ -2057,6 +2074,230 @@ var tools = []mcpTool{
 				Title: before.Title, Content: before.Content,
 			})
 			return err
+		},
+	},
+	{
+		Name:        "list_habits",
+		Description: "List the student's habits and their check-off history for one calendar month, including the weekly rows that span into the prior month. month defaults to the current month.",
+		Scope:       ScopeHabits,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"month": map[string]any{"type": "string", "description": "YYYY-MM, defaults to the current month."}},
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			month := optStringOr(args, "month", time.Now().Format("2006-01"))
+			return rt.habitSvc.MonthView(ctx, id.UserID, month)
+		},
+	},
+	{
+		Name:        "create_habit",
+		Description: "Create a new habit for the student to track. cadence is one of: daily, weekly, monthly. For a weekly habit, either set target_count above 1 (\"any N times a week\") or weekdays (specific days, Sunday=0..Saturday=6) — not both.",
+		Scope:       ScopeHabits,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name":          map[string]any{"type": "string"},
+				"cadence":       map[string]any{"type": "string", "description": "One of: daily, weekly, monthly."},
+				"target_count":  map[string]any{"type": "integer", "description": "Weekly only. 1-7. Defaults to 1."},
+				"weekdays":      map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "Weekly only. Sunday=0..Saturday=6."},
+				"type":          map[string]any{"type": "string", "description": "One of: generic, gym, sleep, reading, custom. Defaults to generic."},
+				"custom_fields": map[string]any{"type": "array", "items": map[string]any{"type": "object"}, "description": "Required when type is custom: [{key, label, kind}], kind one of text/number/textarea."},
+				"icon":          map[string]any{"type": "string"},
+				"tags":          map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+			},
+			"required": []string{"name", "cadence"},
+		},
+		TargetType: "habit",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			name, err := argString(args, "name")
+			if err != nil {
+				return nil, err
+			}
+			cadence, err := argString(args, "cadence")
+			if err != nil {
+				return nil, err
+			}
+			targetCount := 0
+			if v, ok := args["target_count"].(float64); ok {
+				targetCount = int(v)
+			}
+			var customFields []habit.CustomField
+			if raw, ok := args["custom_fields"]; ok {
+				b, err := json.Marshal(raw)
+				if err != nil {
+					return nil, fmt.Errorf("%q: %w", "custom_fields", err)
+				}
+				if err := json.Unmarshal(b, &customFields); err != nil {
+					return nil, fmt.Errorf("custom_fields must be an array of {key, label, kind}: %w", err)
+				}
+			}
+			return rt.habitSvc.Create(ctx, id.UserID, habit.CreateRequest{
+				Name:         name,
+				Cadence:      habit.Cadence(cadence),
+				TargetCount:  targetCount,
+				Weekdays:     argInt32Slice(args, "weekdays"),
+				Type:         habit.HabitType(optStringOr(args, "type", "")),
+				CustomFields: customFields,
+				Icon:         optStringOr(args, "icon", ""),
+				Tags:         argStringSlice(args, "tags"),
+			})
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			return rt.habitSvc.Delete(ctx, id.UserID, entry.TargetID)
+		},
+	},
+	{
+		Name:        "update_habit",
+		Description: "Change an existing habit's color, icon, and/or tags — the only attributes changeable after creation. Only the given fields change.",
+		Scope:       ScopeHabits,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"habit_id": map[string]any{"type": "string"},
+				"color":    map[string]any{"type": "string", "description": "One of: blue, orange, aqua, yellow, magenta, green, violet, red."},
+				"icon":     map[string]any{"type": "string"},
+				"tags":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+			},
+			"required": []string{"habit_id"},
+		},
+		TargetType: "habit",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			habitID, err := argString(args, "habit_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.habitSvc.Get(ctx, id.UserID, habitID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			habitID, err := argString(args, "habit_id")
+			if err != nil {
+				return nil, err
+			}
+			req := habit.UpdateRequest{Icon: optString(args, "icon")}
+			if c := optString(args, "color"); c != nil {
+				color := habit.Color(*c)
+				req.Color = &color
+			}
+			if _, ok := args["tags"]; ok {
+				tags := argStringSlice(args, "tags")
+				req.Tags = &tags
+			}
+			if err := rt.habitSvc.Update(ctx, id.UserID, habitID, req); err != nil {
+				return nil, err
+			}
+			return rt.habitSvc.Get(ctx, id.UserID, habitID)
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			var before habit.Habit
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			return rt.habitSvc.Update(ctx, id.UserID, entry.TargetID, habit.UpdateRequest{
+				Color: &before.Color, Icon: &before.Icon, Tags: &before.Tags,
+			})
+		},
+	},
+	{
+		Name:        "delete_habit",
+		Description: "Permanently delete a habit the student owns, including its full check-off history.",
+		Scope:       ScopeHabits,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"habit_id": map[string]any{"type": "string"}},
+			"required":   []string{"habit_id"},
+		},
+		TargetType: "habit",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			habitID, err := argString(args, "habit_id")
+			if err != nil {
+				return nil, err
+			}
+			return rt.habitSvc.Get(ctx, id.UserID, habitID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			habitID, err := argString(args, "habit_id")
+			if err != nil {
+				return nil, err
+			}
+			if err := rt.habitSvc.Delete(ctx, id.UserID, habitID); err != nil {
+				return nil, err
+			}
+			return map[string]any{"deleted": true, "id": habitID}, nil
+		},
+		// Revert recreates the habit via Create, which mints a fresh id and
+		// drops its check-off history — same tradeoff delete_journal_entry's
+		// revert makes, and nothing else in the schema references a habit by
+		// id, so the new id is safe.
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			var before habit.Habit
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			_, err := rt.habitSvc.Create(ctx, id.UserID, habit.CreateRequest{
+				Name: before.Name, Cadence: before.Cadence, TargetCount: before.TargetCount,
+				Weekdays: before.Weekdays, Type: before.Type, CustomFields: before.CustomFields,
+				Icon: before.Icon, Tags: before.Tags,
+			})
+			return err
+		},
+	},
+	{
+		Name:        "set_habit_completion",
+		Description: "Check off a habit for one period (a day, or the Monday of a week for weekly habits). Calling this again on an already-checked \"any N times a week\" habit adds another check-in, capped at its target_count.",
+		Scope:       ScopeHabits,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"habit_id": map[string]any{"type": "string"},
+				"period":   map[string]any{"type": "string", "description": "YYYY-MM-DD."},
+			},
+			"required": []string{"habit_id", "period"},
+		},
+		TargetType: "habit_completion",
+		// ponytail: no BeforeState/Revert — same as toggle_problem_starred,
+		// there's no by-period read to snapshot the prior count from.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			habitID, err := argString(args, "habit_id")
+			if err != nil {
+				return nil, err
+			}
+			period, err := argString(args, "period")
+			if err != nil {
+				return nil, err
+			}
+			if err := rt.habitSvc.SetCompletion(ctx, id.UserID, habitID, period); err != nil {
+				return nil, err
+			}
+			return map[string]any{"habit_id": habitID, "period": period, "completed": true}, nil
+		},
+	},
+	{
+		Name:        "clear_habit_completion",
+		Description: "Unmark a habit's check-off for one period.",
+		Scope:       ScopeHabits,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"habit_id": map[string]any{"type": "string"},
+				"period":   map[string]any{"type": "string", "description": "YYYY-MM-DD."},
+			},
+			"required": []string{"habit_id", "period"},
+		},
+		TargetType: "habit_completion",
+		// ponytail: no BeforeState/Revert — same as set_habit_completion.
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			habitID, err := argString(args, "habit_id")
+			if err != nil {
+				return nil, err
+			}
+			period, err := argString(args, "period")
+			if err != nil {
+				return nil, err
+			}
+			if err := rt.habitSvc.ClearCompletion(ctx, id.UserID, habitID, period); err != nil {
+				return nil, err
+			}
+			return map[string]any{"habit_id": habitID, "period": period, "completed": false}, nil
 		},
 	},
 }

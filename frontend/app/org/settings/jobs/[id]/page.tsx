@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { fetchJob } from "@/lib/jobs/server";
 import type { JobStatus, JobPriority } from "@/lib/jobs/types";
 import { cancelJobAction, retryJobAction, pauseJobAction } from "@/app/org/settings/jobs/[id]/actions";
@@ -63,9 +63,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-6">
-      <Link href="/org/settings/jobs" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors duration-[--duration-fast]">
-        ← Back to Jobs
-      </Link>
+      <Breadcrumb items={[{ href: ROUTES.ORG_SETTINGS_JOBS, label: "Jobs" }, { label: job.handler }]} />
 
       {/* Job metadata */}
       <div className="card-base p-6 space-y-5">

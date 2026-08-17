@@ -398,7 +398,11 @@ export default tseslint.config(
       'import/resolver': { typescript: { project: './tsconfig.json' } },
       'boundaries/elements': [
         { type: 'ui', pattern: 'components/ui/**' },
-        { type: 'shared-components', pattern: 'components/shared/**' },
+        // components/auth/** (Can, permission hooks) is the same shape of
+        // exception as lib/notifications/** below: RBAC permission checks
+        // are read by every feature that gates UI on a permission code, not
+        // scoped to one feature of their own — see components/auth/can.tsx.
+        { type: 'shared-components', pattern: ['components/shared/**', 'components/auth/**'] },
         { type: 'feature-components', pattern: 'components/*/**', capture: ['family'] },
         {
           type: 'shared-lib',
@@ -409,7 +413,9 @@ export default tseslint.config(
           // shape of exception: system-wide in-app notifications (Batch 5)
           // are read by components/shared/notification-bell.tsx, which by
           // definition isn't scoped to any one feature — see docs there.
-          pattern: ['lib/*.ts', 'lib/*.tsx', 'lib/server/**', 'lib/client/**', 'lib/validation/**', 'lib/notifications/**'],
+          // lib/auth/** (permission codes, useHasPermission) is identical:
+          // every feature that gates UI on RBAC needs it.
+          pattern: ['lib/*.ts', 'lib/*.tsx', 'lib/server/**', 'lib/client/**', 'lib/validation/**', 'lib/notifications/**', 'lib/auth/**'],
         },
         { type: 'feature-lib', pattern: 'lib/*/**', capture: ['family'] },
       ],

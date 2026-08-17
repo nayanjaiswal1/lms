@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { apiGet } from "@/lib/server/api";
 import { OrgFeatureFlagRow, type OrgFeatureFlagData } from "@/app/platform/features/[id]/org-feature-flag-row";
 import ROUTES from "@/lib/routes";
@@ -31,6 +30,8 @@ export default async function PlatformOrgFeaturesPage({ params }: PageProps) {
 
   return (
     <div className="page-container">
+      <Breadcrumb items={[{ href: ROUTES.PLATFORM_FEATURES, label: "Features" }, { label: org.name }]} />
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Features — {org.name}</h1>
@@ -39,9 +40,6 @@ export default async function PlatformOrgFeaturesPage({ params }: PageProps) {
             organisation, regardless of any per-member grant an org admin has set.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={ROUTES.PLATFORM_FEATURES}>Back to Organisations</Link>
-        </Button>
       </div>
 
       <section className="mt-8 card-base p-6">

@@ -38,6 +38,7 @@ type ConfirmAction = "reset" | "toggle" | "remove" | "lock";
 
 export function UserActionsMenu({ userId, memberId, name, email, status, accountStatus, orgId }: Props) {
   const [, setManageRolesId] = useQueryState("manageRoles");
+  const [, setManageFeaturesId] = useQueryState("manageFeatures");
   const canManageMembers = useHasPermission(PERMISSIONS.ADMIN.MANAGE_MEMBERS);
   const [isPending, startTransition] = useTransition();
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
@@ -89,6 +90,9 @@ export function UserActionsMenu({ userId, memberId, name, email, status, account
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={() => void setManageRolesId(userId)}>
             Manage roles
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void setManageFeaturesId(userId)}>
+            Manage features
           </DropdownMenuItem>
           <DropdownMenuItem disabled={isPending} onSelect={() => setConfirmAction("reset")}>
             Reset password

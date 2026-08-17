@@ -16,15 +16,14 @@ const SEGMENT_LABELS: Record<string, string> = {
 };
 
 // Renders "Assessments / {title} / {tab}" above the header for the tab
-// pages this layout owns (questions/batches/settings). results/review keep
-// their own breadcrumb — they render outside the tab bar's context.
+// pages this layout owns (questions/batches/settings). results/review are
+// siblings of edit/, not children — they render their own breadcrumb outside
+// this layout entirely.
 export function AssessmentBreadcrumb({ assessmentId, title }: Props) {
   const pathname = usePathname();
   const base = ROUTES.assessmentEdit(assessmentId);
   const rest = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\/+/, "") : "";
   const segment = rest.split("/")[0] ?? "";
-
-  if (segment === "results" || segment === "review") return null;
 
   const items: BreadcrumbItem[] = [{ label: "Assessments", href: ROUTES.ASSESSMENTS }];
 

@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { fetchWorkerHealth } from "@/lib/jobs/admin-server";
 import { WorkersClient } from "@/app/platform/jobs/workers/workers-client";
 import ROUTES from "@/lib/routes";
@@ -9,6 +8,8 @@ export default async function PlatformWorkersPage() {
 
   return (
     <div className="page-container">
+      <Breadcrumb items={[{ href: ROUTES.PLATFORM_JOBS, label: "Jobs" }, { label: "Worker Health" }]} />
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Worker Health</h1>
@@ -16,9 +17,6 @@ export default async function PlatformWorkersPage() {
             Live view of all job worker instances. Updates every 15 seconds.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={ROUTES.PLATFORM_JOBS}>Back to Jobs</Link>
-        </Button>
       </div>
 
       <section className="mt-8">

@@ -192,7 +192,7 @@ type AuditLog struct {
 	OrgID       string    `json:"org_id"`
 	ActorUserID *string   `json:"actor_user_id"`
 	Action      string    `json:"action"`
-	TargetType  string    `json:"target_type"`
+	TargetType  *string   `json:"target_type"`
 	TargetID    *string   `json:"target_id"`
 	BeforeState *any      `json:"before_state"`
 	AfterState  *any      `json:"after_state"`

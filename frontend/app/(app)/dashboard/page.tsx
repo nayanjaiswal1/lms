@@ -14,6 +14,7 @@ import { ScopeTabs } from "@/components/rewards/scope-tabs";
 import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
 import { CourseCard } from "@/components/courses/course-card";
 import { AIConnectorNudge } from "@/components/settings/ai-connector-nudge";
+import { DashboardReviewWidget } from "@/components/review/dashboard-review-widget";
 import ROUTES from "@/lib/routes";
 import { getCurrentUser } from "@/lib/server/auth";
 import { getEnrollments } from "@/lib/server/courses";
@@ -21,6 +22,8 @@ import { getMyAssessments } from "@/lib/assessments/server";
 import { getMyRewardProfile, getLeaderboard } from "@/lib/server/rewards";
 import { listEventsAction } from "@/lib/server/calendar";
 import { getMyBatches } from "@/lib/server/batches";
+import { getDueCards } from "@/lib/server/srs";
+import type { SRSCard } from "@/lib/server/srs";
 import { apiGet } from "@/lib/server/api";
 import type { Enrollment } from "@/lib/server/courses";
 import type { AssignedAssessment } from "@/lib/assessments/types";
@@ -122,6 +125,18 @@ async function fetchUpcomingItems(): Promise<UpcomingItem[]> {
   return items.sort((a, b) => a.sortTime - b.sortTime).slice(0, UPCOMING_ITEMS_LIMIT);
 }
 
+// null (not an empty array) means the feature/permission isn't there for this
+// user — getDueCards throws in that case, same as the other server-only
+// fetches above, so we just hide the widget instead of replicating nav.ts's
+// client-side gating logic server-side.
+async function fetchDueCards(): Promise<SRSCard[] | null> {
+  try {
+    return (await getDueCards()).cards;
+  } catch {
+    return null;
+  }
+}
+
 const DASHBOARD_LEADERBOARD_SIZE = 5;
 
 // getLeaderboard's response already embeds the caller's own rank (`me`) —
@@ -193,12 +208,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const firstName = user.name.split(" ")[0];
   const params = await searchParams;
 
-  const [coursesWithProgress, upcomingItems, rewardProfile, myBatches, hasAIConnection] = await Promise.all([
+  const [coursesWithProgress, upcomingItems, rewardProfile, myBatches, hasAIConnection, dueCards] = await Promise.all([
     fetchEnrolledCoursesWithProgress(),
     fetchUpcomingItems(),
     getMyRewardProfile(),
     getMyBatches(),
     apiGet<{ id: string }[] | null>("/api/mcp-connections").then((c) => Boolean(c?.length)).catch(() => false),
+    fetchDueCards(),
   ]);
 
   // "Your standing" scope: global by default, one of the user's batches, or —
@@ -310,6 +326,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         {/* Right rail */}
         <aside className="flex flex-col gap-8 lg:col-span-1">
+          {dueCards !== null && <DashboardReviewWidget cards={dueCards} />}
+
           {/* Your standing — XP/achievements, batch, and leaderboard rank, one card.
               Batch used to be its own box; it's now a scope filter here instead,
               since "which leaderboard" and "which batch" are the same question. */}

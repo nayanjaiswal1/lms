@@ -1,13 +1,13 @@
 "use client";
 
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { SleepPoint } from "@/lib/habits/summaries";
 
 export default function SleepQualityChartInner({ points }: { points: SleepPoint[] }) {
   const today = points.at(-1)?.day;
   return (
     <ResponsiveContainer height={220} width="100%">
-      <LineChart data={points} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+      <ComposedChart data={points} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
         <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="4 4" vertical={false} />
         <XAxis
           dataKey="day"
@@ -25,6 +25,24 @@ export default function SleepQualityChartInner({ points }: { points: SleepPoint[
           tickLine={false}
           ticks={[4, 6, 8, 10]}
           width={28}
+          yAxisId="hours"
+        />
+        {/* Night-wake count on its own right-side axis — a separate scale
+            (0-5 wakes) from sleep duration, plotted as light bars behind the
+            hours line rather than crowding the same axis. */}
+        <YAxis
+          domain={[0, 5]}
+          hide
+          orientation="right"
+          ticks={[0, 5]}
+          yAxisId="wakes"
+        />
+        <Bar
+          barSize={6}
+          dataKey="wakes"
+          fill="hsl(var(--muted-foreground) / 0.35)"
+          isAnimationActive={false}
+          yAxisId="wakes"
         />
         <Line
           connectNulls
@@ -43,8 +61,9 @@ export default function SleepQualityChartInner({ points }: { points: SleepPoint[
           strokeDasharray="4 4"
           strokeWidth={1.5}
           type="linear"
+          yAxisId="hours"
         />
-      </LineChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

@@ -15,6 +15,7 @@ import { Form } from "@/components/ui/form";
 import { FormSelectField } from "@/components/ui/form-select-field";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { UserLink } from "@/components/shared/user-link";
 import { addTeamMemberAction, removeTeamMemberAction } from "@/app/(app)/projects/actions";
 import { GITLAB_ACCESS_LEVEL_OPTIONS, PROJECT_TEAM_MEMBER_ROLE_OPTIONS } from "@/lib/constants";
 import type { ProjectTeam, ProjectTeamMember } from "@/lib/projects/types";
@@ -135,7 +136,9 @@ export function TeamMembersManager({ team, assignmentId, members, availableStude
               {members.map((m) => (
                 <li className="flex items-center gap-3 px-3 py-2.5 text-sm" key={m.user_id}>
                   <span className="flex flex-1 flex-col gap-0.5 min-w-0">
-                    <span className="truncate font-medium">{m.name || m.user_id}</span>
+                    <UserLink className="truncate font-medium hover:underline" userId={m.user_id}>
+                      {m.name || m.user_id}
+                    </UserLink>
                     {m.email && <span className="truncate text-xs text-muted-foreground">{m.email}</span>}
                   </span>
                   <Badge variant={m.role === "lead" ? "default" : "secondary"}>{m.role}</Badge>

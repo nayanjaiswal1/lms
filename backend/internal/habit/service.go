@@ -41,7 +41,7 @@ const maxTagLength = 24
 // the UI would never produce.
 var builtinMetadataFields = map[HabitType][]string{
 	HabitTypeGym:     {"workout_type", "exercise", "sets", "duration_minutes", "intensity", "notes"},
-	HabitTypeSleep:   {"slept_at", "woke_up", "quality"},
+	HabitTypeSleep:   {"slept_at", "woke_up", "quality", "night_wakes", "awake_minutes", "night_notes"},
 	HabitTypeReading: {"book", "pages", "takeaway"},
 }
 
@@ -197,6 +197,13 @@ func validateWeeklyOptions(cadence Cadence, targetCount int, weekdays []int32) e
 		seen[d] = true
 	}
 	return nil
+}
+
+// Get returns a user-owned habit — exported alongside Delete/Update so
+// callers outside this package (the MCP tool layer's before-state snapshots)
+// can read a single habit without reaching into Repo directly.
+func (s *Service) Get(ctx context.Context, userID, habitID string) (Habit, error) {
+	return s.repo.Get(ctx, habitID, userID)
 }
 
 func (s *Service) Delete(ctx context.Context, userID, habitID string) error {

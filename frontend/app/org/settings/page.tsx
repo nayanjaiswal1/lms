@@ -140,13 +140,13 @@ export default async function OrgSettingsPage() {
       <div className="grid-responsive-2 gap-4">
         <Link
           className="card-interactive p-5 flex items-center gap-4"
-          href={ROUTES.ORG_SETTINGS_MEMBERS}
+          href={ROUTES.USERS}
         >
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Users aria-hidden className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="font-medium text-foreground">Members</p>
+            <p className="font-medium text-foreground">Users</p>
             <p className="text-sm text-muted-foreground">Manage team access and roles</p>
           </div>
         </Link>

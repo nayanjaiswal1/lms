@@ -7,6 +7,7 @@ import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserLink } from "@/components/shared/user-link";
 import type { MemberProgress, MemberStatus } from "@/lib/server/batches";
 import type { Terminology } from "@/lib/terminology";
 
@@ -102,7 +103,9 @@ export function BatchProgressTable({ progress, t }: BatchProgressTableProps) {
                   <tr key={s.user_id}>
                     <td className="py-2.5 pr-4">
                       <div className="flex flex-col">
-                        <span className="font-medium">{s.name}</span>
+                        <UserLink className="font-medium hover:underline" userId={s.user_id}>
+                          {s.name}
+                        </UserLink>
                         <span className="text-xs text-muted-foreground">{s.email}</span>
                       </div>
                     </td>

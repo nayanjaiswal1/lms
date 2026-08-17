@@ -72,6 +72,19 @@ export interface Invite {
 export interface InvitePage {
   invites: Invite[];
   next_cursor?: string;
+  total: number;
+}
+
+export interface SkippedInvite {
+  email: string;
+  reason: "invalid_email" | "duplicate" | "already_member";
+}
+
+/** Response of POST /api/orgs/{id}/invites/batch — invites are queued and emailed async. */
+export interface BatchInviteResult {
+  queued: number;
+  job_count: number;
+  skipped: SkippedInvite[];
 }
 
 export interface Domain {
@@ -91,7 +104,7 @@ export interface AuditLog {
   org_id: string;
   actor_user_id: string | null;
   action: string;
-  target_type: string;
+  target_type: string | null;
   target_id: string | null;
   before_state: unknown;
   after_state: unknown;

@@ -49,19 +49,21 @@ func validHabitType(t HabitType) bool {
 }
 
 // CustomFieldKind is the input shape for one field of a "custom" habit's
-// entry form — deliberately just these three; anything richer (date/range)
-// fits an existing built-in type instead.
+// entry form — the same five kinds the built-in types (gym/sleep/reading)
+// render with, just picked by the user instead of hardcoded per type.
 type CustomFieldKind string
 
 const (
 	CustomFieldText     CustomFieldKind = "text"
 	CustomFieldNumber   CustomFieldKind = "number"
 	CustomFieldTextarea CustomFieldKind = "textarea"
+	CustomFieldTime     CustomFieldKind = "time"
+	CustomFieldSlider   CustomFieldKind = "slider"
 )
 
 func validCustomFieldKind(k CustomFieldKind) bool {
 	switch k {
-	case CustomFieldText, CustomFieldNumber, CustomFieldTextarea:
+	case CustomFieldText, CustomFieldNumber, CustomFieldTextarea, CustomFieldTime, CustomFieldSlider:
 		return true
 	}
 	return false

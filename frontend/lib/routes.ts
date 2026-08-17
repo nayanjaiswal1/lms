@@ -125,6 +125,7 @@ const ROUTES = {
   ADMIN_RBAC_PERMISSIONS:  "/admin/rbac/permissions",
   ADMIN_RBAC_AUDIT:        "/admin/rbac/audit",
   USERS:                   "/users",
+  userDetail:              (id: string)                        => `/users/${id}`,
 
   // Admin — Labs
   ADMIN_LABS_WARM_POOLS:   "/admin/labs/warm-pools",
@@ -152,7 +153,6 @@ const ROUTES = {
   ORG_CREATE:              "/org/create",
   ORG_SETUP:               "/org/setup",
   ORG_SETTINGS:            "/org/settings",
-  ORG_SETTINGS_MEMBERS:    "/org/settings/members",
   ORG_SETTINGS_DOMAINS:    "/org/settings/domains",
   ORG_SETTINGS_AUTH:       "/org/settings/authentication",
   ORG_SETTINGS_AUDIT:      "/org/settings/audit-log",

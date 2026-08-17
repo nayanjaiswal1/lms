@@ -31,6 +31,13 @@ function sleepHours(sleptAt: unknown, wokeUp: unknown): number | null {
 export interface SleepPoint {
   day: number;
   hours: number | null;
+  wakes: number | null;
+}
+
+// "1"/"2" etc coerced from the number field; blank/non-numeric -> null so the
+// bar layer skips the day instead of drawing a false zero.
+function parseWakes(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 // One point per elapsed day of the month — future days are omitted rather
@@ -41,7 +48,7 @@ export function sleepSeriesForMonth(habit: Habit, month: string, metadata: Metad
   const points: SleepPoint[] = [];
   for (let day = 1; day <= days; day++) {
     const entry = metadataFor(habit.id, dateAt(month, day), metadata);
-    points.push({ day, hours: sleepHours(entry.slept_at, entry.woke_up) });
+    points.push({ day, hours: sleepHours(entry.slept_at, entry.woke_up), wakes: parseWakes(entry.night_wakes) });
   }
   return points;
 }
@@ -64,12 +71,26 @@ export function latestSleepTimes(habit: Habit, month: string, metadata: Metadata
   return null;
 }
 
-// Most recent elapsed day with any gym data recorded.
-export function latestGymEntry(habit: Habit, month: string, metadata: MetadataByKey): Record<string, unknown> | null {
+// Most recent elapsed day with any metadata recorded — type-agnostic, shared
+// by GymPerformanceCard and ReadingProgressCard.
+export function latestMetadataEntry(habit: Habit, month: string, metadata: MetadataByKey): Record<string, unknown> | null {
   const days = elapsedDays(month, daysInMonth(month));
   for (let day = days; day >= 1; day--) {
     const entry = metadataFor(habit.id, dateAt(month, day), metadata);
     if (Object.keys(entry).length > 0) return entry;
   }
   return null;
+}
+
+// Sum of a numeric field across every elapsed day of the month — e.g. total
+// pages read, for the "logged data adds up to something" view rather than
+// just the latest entry.
+export function sumNumericField(habit: Habit, month: string, metadata: MetadataByKey, field: string): number {
+  const days = elapsedDays(month, daysInMonth(month));
+  let total = 0;
+  for (let day = 1; day <= days; day++) {
+    const entry = metadataFor(habit.id, dateAt(month, day), metadata);
+    if (typeof entry[field] === "number" && Number.isFinite(entry[field])) total += entry[field] as number;
+  }
+  return total;
 }

@@ -6,6 +6,7 @@ import { BrandMark } from "@/components/shared/brand-mark";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { PLATFORM_NAV_GROUPS } from "@/lib/platform-nav";
 import { cn } from "@/lib/utils";
+import ROUTES from "@/lib/routes";
 import type { AuthUser } from "@/lib/server/auth";
 
 interface Props {
@@ -18,7 +19,9 @@ export function PlatformSidebar({ user }: Props) {
   return (
     <aside aria-label="Platform navigation" className="app-sidebar">
       <div className="px-5 py-5 border-b border-sidebar-border">
-        <BrandMark />
+        <Link aria-label="Go to your home page" href={user.default_landing_page || ROUTES.DASHBOARD}>
+          <BrandMark />
+        </Link>
         <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Platform Console
         </p>

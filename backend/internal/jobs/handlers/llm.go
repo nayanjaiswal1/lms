@@ -62,6 +62,8 @@ func (h *LLMHandler) Handle(ctx context.Context, job jobs.Job) error {
 		return h.handleRoadmapGenerate(ctx, job, p)
 	case "revision_plan_generate":
 		return h.handleRevisionPlanGenerate(ctx, job, p)
+	case "mistake_card_generate":
+		return h.handleMistakeCardGenerate(ctx, job, p)
 	default:
 		return fmt.Errorf("handlers.llm: unknown LLM task: %s", p.Task)
 	}
@@ -503,6 +505,95 @@ func (h *LLMHandler) handleRevisionPlanGenerate(ctx context.Context, job jobs.Jo
 
 	slog.InfoContext(ctx, "handlers.llm: revision plan generated and stored",
 		"revision_plan_id", plan.ID, "topics", len(topics), "model", resp.Model)
+	return nil
+}
+
+// handleMistakeCardGenerate rewrites the naive templated front/back on the SRS
+// card auto-created when a mistake is logged (mistakes.Service.LogMistake)
+// into an AI-authored flashcard, using the mistake's own original/corrected
+// text as the only input. EntityID is the mistake's learning_annotations row
+// id; the card to update is looked up by mistake_entry_id rather than passed
+// in the payload, so a stale/replayed job always targets whatever card
+// currently exists for that mistake. The templated card already works fine
+// on its own, so an unavailable AI provider is a no-op skip, not a failure.
+func (h *LLMHandler) handleMistakeCardGenerate(ctx context.Context, job jobs.Job, p LLMPayload) error {
+	var category, originalText, correctedText string
+	err := h.pool.QueryRow(ctx,
+		`SELECT (meta->>'category')::text, text, (meta->>'corrected_text')::text
+		 FROM learning_annotations
+		 WHERE id = $1 AND annotation_type = 'mistake'`, p.EntityID,
+	).Scan(&category, &originalText, &correctedText)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.InfoContext(ctx, "handlers.llm: mistake_card_generate: mistake not found, skipping",
+				"mistake_id", p.EntityID)
+			return nil
+		}
+		return fmt.Errorf("handlers.llm: mistake_card_generate: fetch mistake %s: %w", p.EntityID, err)
+	}
+
+	var cardID string
+	err = h.pool.QueryRow(ctx,
+		`SELECT id FROM srs_cards WHERE mistake_entry_id = $1 AND source_type = 'mistake' LIMIT 1`,
+		p.EntityID,
+	).Scan(&cardID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.InfoContext(ctx, "handlers.llm: mistake_card_generate: card not found (deleted?), skipping",
+				"mistake_id", p.EntityID)
+			return nil
+		}
+		return fmt.Errorf("handlers.llm: mistake_card_generate: fetch card for mistake %s: %w", p.EntityID, err)
+	}
+
+	if !h.ai.Available() {
+		slog.InfoContext(ctx, "handlers.llm: mistake_card_generate: AI provider not available, leaving templated card as-is",
+			"mistake_id", p.EntityID)
+		return nil
+	}
+
+	llmCtx, cancel := context.WithTimeout(ctx, h.cfg.LLMTimeout)
+	defer cancel()
+
+	userPrompt := fmt.Sprintf("Category: %s\nOriginal (incorrect): %s\nCorrected: %s",
+		category, ai.SanitizeAnswer(originalText), ai.SanitizeAnswer(correctedText))
+
+	resp, err := h.ai.Complete(llmCtx, ai.CompletionRequest{
+		SystemPrompt: ai.MistakeCardSystemPrompt,
+		UserPrompt:   userPrompt,
+		MaxTokens:    512,
+		Temperature:  0.4,
+		JSONMode:     true,
+	})
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return fmt.Errorf("handlers.llm: mistake_card_generate: AI timed out (mistake %s): %w", p.EntityID, err)
+		}
+		return fmt.Errorf("handlers.llm: mistake_card_generate: AI call (mistake %s): %w", p.EntityID, err)
+	}
+
+	var card struct {
+		Front string `json:"front"`
+		Back  string `json:"back"`
+	}
+	if err := json.Unmarshal([]byte(resp.Content), &card); err != nil {
+		return fmt.Errorf("handlers.llm: mistake_card_generate: parse AI response (mistake %s): %w", p.EntityID, err)
+	}
+	card.Front = strings.TrimSpace(card.Front)
+	card.Back = strings.TrimSpace(card.Back)
+	if card.Front == "" || card.Back == "" {
+		return fmt.Errorf("handlers.llm: mistake_card_generate: AI returned empty front/back (mistake %s)", p.EntityID)
+	}
+
+	if _, err := h.pool.Exec(ctx,
+		`UPDATE srs_cards SET front = $1, back = $2 WHERE id = $3`,
+		card.Front, card.Back, cardID,
+	); err != nil {
+		return fmt.Errorf("handlers.llm: mistake_card_generate: save card %s: %w", cardID, err)
+	}
+
+	slog.InfoContext(ctx, "handlers.llm: mistake card generated and stored",
+		"mistake_id", p.EntityID, "card_id", cardID, "model", resp.Model)
 	return nil
 }
 

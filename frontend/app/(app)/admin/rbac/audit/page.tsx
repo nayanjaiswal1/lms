@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
+import { UserLink } from "@/components/shared/user-link"
 import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
@@ -7,8 +8,10 @@ import { PERMISSIONS } from "@/lib/auth/permission-codes"
 interface AuditEntry {
   id: number
   actor_id: string | null
+  actor_name: string | null
+  actor_email: string | null
   action: string
-  entity_type: string
+  entity_type: string | null
   entity_id: string
   created_at: string
 }
@@ -96,12 +99,14 @@ export default async function AuditPage({
                   <Badge variant={ACTION_BADGE[e.action] ?? "outline"}>{e.action}</Badge>
                 </td>
                 <td className="py-3 pr-4">
-                  <span className="text-muted-foreground">{e.entity_type} / </span>
+                  <span className="text-muted-foreground">{e.entity_type ?? "—"} / </span>
                   <code className="text-xs">{e.entity_id}</code>
                 </td>
                 <td className="py-3 text-muted-foreground text-xs">
                   {e.actor_id ? (
-                    <code>{e.actor_id}</code>
+                    <UserLink className="hover:text-foreground hover:underline" userId={e.actor_id}>
+                      <span title={e.actor_id}>{e.actor_name ?? e.actor_email ?? e.actor_id}</span>
+                    </UserLink>
                   ) : (
                     <span className="italic">system</span>
                   )}

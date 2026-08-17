@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { UserLink } from "@/components/shared/user-link"
 import ROUTES from "@/lib/routes"
 
 interface LabUsageRow {
@@ -205,7 +206,9 @@ export function LabUsageView({
               {usage.by_student.map((row) => (
                 <tr className="border-b border-border last:border-0 whitespace-nowrap" key={row.user_id}>
                   <td className="p-4 min-w-0 max-w-64">
-                    <div className="font-medium text-foreground truncate">{row.name}</div>
+                    <UserLink className="font-medium text-foreground truncate hover:underline block" userId={row.user_id}>
+                      {row.name}
+                    </UserLink>
                     <div className="text-xs text-muted-foreground truncate">{row.email}</div>
                   </td>
                   <td className="p-4 text-right tabular-nums">{row.sessions}</td>

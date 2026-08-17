@@ -1,6 +1,8 @@
 "use client";
 
+import { X } from "lucide-react";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -32,11 +34,20 @@ export function UserFilters({ roleOptions }: Props) {
   // Value is the role NAME, not its id — `UserSummary.role_names` (user-table.tsx)
   // only exposes names per user row, so that's the only thing this filter can match against.
   const [roleName, setRoleName] = useQueryState("role", { defaultValue: "all" });
+  const hasActiveFilters = status !== "all" || roleName !== "all";
+
+  function clearFilters() {
+    void setStatus("all");
+    void setRoleName("all");
+  }
 
   return (
     <>
+      {/* h-11 matches the search Input next to it — the Select primitive's
+          own default is h-10, and this row previously clipped it to h-9,
+          leaving three controls in one row at three different heights. */}
       <Select value={status} onValueChange={(v) => void setStatus(v as (typeof STATUS_FILTERS)[number])}>
-        <SelectTrigger aria-label="Filter by status" className="h-9 w-full sm:w-40">
+        <SelectTrigger aria-label="Filter by status" className="h-11 w-full sm:w-40">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -49,7 +60,7 @@ export function UserFilters({ roleOptions }: Props) {
       </Select>
 
       <Select value={roleName} onValueChange={(v) => void setRoleName(v)}>
-        <SelectTrigger aria-label="Filter by role" className="h-9 w-full sm:w-40">
+        <SelectTrigger aria-label="Filter by role" className="h-11 w-full sm:w-40">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -61,6 +72,13 @@ export function UserFilters({ roleOptions }: Props) {
           ))}
         </SelectContent>
       </Select>
+
+      {hasActiveFilters && (
+        <Button aria-label="Clear filters" className="gap-1" size="sm" variant="ghost" onClick={clearFilters}>
+          <X aria-hidden className="h-3.5 w-3.5" />
+          Clear
+        </Button>
+      )}
     </>
   );
 }

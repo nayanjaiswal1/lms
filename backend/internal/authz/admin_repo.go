@@ -423,7 +423,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 
 	args = append(args, params.OrgID, limit, params.Offset)
 	listQ := fmt.Sprintf(`
-		SELECT u.id, m.id, u.name, u.email, u.avatar_url, m.created_at, m.status, u.status,
+		SELECT u.id, m.id, u.name, u.email, u.avatar_url, m.role, m.created_at, m.status, u.status,
 		       COALESCE(ur.role_names, '{}'::text[]) AS role_names
 		FROM org_members m
 		JOIN users u ON u.id = m.user_id
@@ -447,7 +447,7 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 	var users []UserSummary
 	for rows.Next() {
 		var u UserSummary
-		if err := rows.Scan(&u.ID, &u.MemberID, &u.Name, &u.Email, &u.AvatarURL, &u.JoinedAt, &u.Status, &u.AccountStatus, &u.RoleNames); err != nil {
+		if err := rows.Scan(&u.ID, &u.MemberID, &u.Name, &u.Email, &u.AvatarURL, &u.OrgRole, &u.JoinedAt, &u.Status, &u.AccountStatus, &u.RoleNames); err != nil {
 			return nil, 0, fmt.Errorf("admin: list users: scan: %w", err)
 		}
 		users = append(users, u)
@@ -456,6 +456,34 @@ func (r *AdminRepo) ListUsers(ctx context.Context, params ListUsersParams) ([]Us
 		return nil, 0, fmt.Errorf("admin: list users: rows: %w", err)
 	}
 	return users, total, nil
+}
+
+// GetUser returns a single tenant member by user ID, in the same shape as
+// ListUsers, for the user detail page. Returns pgx.ErrNoRows if the user
+// isn't a member of orgID.
+func (r *AdminRepo) GetUser(ctx context.Context, userID, orgID string) (*UserSummary, error) {
+	const q = `
+		SELECT u.id, m.id, u.name, u.email, u.avatar_url, m.role, m.created_at, m.status, u.status,
+		       COALESCE(ur.role_names, '{}'::text[]) AS role_names
+		FROM org_members m
+		JOIN users u ON u.id = m.user_id
+		LEFT JOIN (
+			SELECT ur.user_id, array_agg(r.name ORDER BY r.name) AS role_names
+			FROM user_roles ur
+			JOIN roles r ON r.id = ur.role_id AND r.is_active = true
+			WHERE ur.org_id = $2
+			GROUP BY ur.user_id
+		) ur ON ur.user_id = u.id
+		WHERE m.org_id = $2 AND m.status <> 'removed' AND u.id = $1`
+
+	var u UserSummary
+	err := r.pool.QueryRow(ctx, q, userID, orgID).Scan(
+		&u.ID, &u.MemberID, &u.Name, &u.Email, &u.AvatarURL, &u.OrgRole, &u.JoinedAt, &u.Status, &u.AccountStatus, &u.RoleNames,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("admin: get user: %w", err)
+	}
+	return &u, nil
 }
 
 // ─── User-role queries ────────────────────────────────────────────────────────

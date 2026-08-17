@@ -35,8 +35,10 @@ type AuditEntry struct {
 	ID         int64           `json:"id"`
 	OrgID      *string         `json:"org_id"`
 	ActorID    *string         `json:"actor_id"`
+	ActorName  *string         `json:"actor_name"`
+	ActorEmail *string         `json:"actor_email"`
 	Action     string          `json:"action"`
-	EntityType string          `json:"entity_type"`
+	EntityType *string         `json:"entity_type"`
 	EntityID   string          `json:"entity_id"`
 	Diff       json.RawMessage `json:"diff"`
 	CreatedAt  time.Time       `json:"created_at"`
@@ -125,6 +127,7 @@ type UserSummary struct {
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	AvatarURL *string   `json:"avatar_url"`
+	OrgRole   string    `json:"org_role"`
 	RoleNames []string  `json:"role_names"`
 	// Status is the caller's org-membership status (org_members.status) — scoped
 	// to this organization. AccountStatus is the platform account status

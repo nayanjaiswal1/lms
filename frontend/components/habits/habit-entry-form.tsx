@@ -87,7 +87,7 @@ function renderField(field: FieldDef, control: Control<Record<string, unknown>>)
     case "slider":
       return <FormSliderField control={control} label={field.label} name={field.key} />;
     case "time":
-      return <FormInputField control={control} label={field.label} name={field.key} type="time" />;
+      return <FormInputField className="sm:w-36" control={control} label={field.label} name={field.key} type="time" />;
     case "number":
       return <FormInputField control={control} label={field.label} name={field.key} placeholder={field.placeholder} type="number" />;
     default:

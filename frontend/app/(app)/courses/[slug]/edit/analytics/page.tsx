@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Users, TrendingUp } from "lucide-react";
 import { getCourseTree, getAllStudentProgress, getInstructorCourseBySlug, type StudentProgressRow } from "@/lib/server/courses";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
+import { UserLink } from "@/components/shared/user-link";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
@@ -88,7 +89,9 @@ export default async function CourseAnalyticsPage({ params }: Props) {
                   <tr key={row.user_id}>
                     <td className="py-3 pr-4">
                       <div className="flex flex-col">
-                        <span className="font-medium">{row.name}</span>
+                        <UserLink className="font-medium hover:underline" userId={row.user_id}>
+                          {row.name}
+                        </UserLink>
                         <span className="text-xs text-muted-foreground">{row.email}</span>
                       </div>
                     </td>

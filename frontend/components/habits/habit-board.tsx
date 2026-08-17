@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, LayoutGrid, Pencil, PieChart } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { parseAsArrayOf, parseAsBoolean, parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { toast } from "sonner";
@@ -13,11 +13,12 @@ import {
   updateHabitAppearanceAction,
   updateHabitColorAction,
   updateHabitCompletionMetadataAction,
-} from "@/app/(app)/habits/actions";
+} from "@/app/(standalone)/habits/actions";
 import { AddHabitInline } from "@/components/habits/add-habit-inline";
 import { DailyHabitWheel } from "@/components/habits/daily-habit-wheel";
 import { GymPerformanceCard } from "@/components/habits/gym-performance-card";
 import { HabitGrid } from "@/components/habits/habit-grid";
+import { ReadingProgressCard } from "@/components/habits/reading-progress-card";
 import { SleepQualityCard } from "@/components/habits/sleep-quality-chart";
 import { Button } from "@/components/ui/button";
 import type { HabitColorValue } from "@/lib/constants";
@@ -26,7 +27,7 @@ import { monthLabel, shiftMonth } from "@/lib/habits/dates";
 import type { CustomField, Habit, HabitCadence, HabitCompletion, HabitType } from "@/lib/server/habits";
 import { cn } from "@/lib/utils";
 
-const VIEWS = ["wheel", "grid"] as const;
+export const VIEWS = ["wheel", "grid"] as const;
 
 function completionKey(habitId: string, period: string): string {
   return `${habitId}:${period}`;
@@ -39,10 +40,11 @@ interface HabitBoardProps {
 }
 
 export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBoardProps) {
-  const [view, setView] = useQueryState("view", parseAsStringLiteral(VIEWS).withDefault("wheel"));
+  const [view] = useQueryState("view", parseAsStringLiteral(VIEWS).withDefault("wheel"));
   const [selectedTags, setSelectedTags] = useQueryState("tags", parseAsArrayOf(parseAsString).withDefault([]));
-  // Wheel starts read-only — it's a progress display first, editable only once toggled on.
-  const [wheelEditable, setWheelEditable] = useQueryState("edit", parseAsBoolean.withDefault(false));
+  // Wheel is a read-only progress display — no UI toggles this on anymore,
+  // ?edit=true still works as a manual override if ever needed.
+  const [wheelEditable] = useQueryState("edit", parseAsBoolean.withDefault(false));
   const [habits, setHabits] = useState(initialHabits);
   // Maps "habitId:period" -> check-in count for that period. 1 for a plain
   // daily/monthly/specific-weekday completion; up to a habit's target_count
@@ -183,58 +185,17 @@ export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBo
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="max-w-xl flex-1">
-          <AddHabitInline onAdd={handleAdd} />
-        </div>
-        <div className="flex items-center gap-2">
-          {!grid && (
-            <Button
-              aria-pressed={wheelEditable}
-              className={cn("touch-target", !wheelEditable && "text-muted-foreground")}
-              size="sm"
-              // Amber/primary while active — matches the design system's
-              // "amber = human action" convention instead of the neutral
-              // secondary tint, so the editing state reads as a deliberate
-              // mode change rather than just a selected pill.
-              variant={wheelEditable ? "default" : "outline"}
-              onClick={() => setWheelEditable((prev) => !prev)}
-            >
-              <Pencil aria-hidden className="h-4 w-4" />
-              {wheelEditable ? "Editing" : "Edit"}
-            </Button>
+      {(grid || allTags.length > 0) && (
+        <div
+          className={cn(
+            "flex flex-wrap gap-1.5",
+            grid ? "items-center" : "flex-col items-end border-l border-border/50 pl-3",
           )}
-          <div className="flex w-fit gap-1 rounded-md border border-border p-1">
-            <Button
-              aria-label="Wheel view"
-              className={cn("touch-target", view !== "wheel" && "text-muted-foreground")}
-              size="sm"
-              variant={view === "wheel" ? "secondary" : "ghost"}
-              onClick={() => setView("wheel")}
-            >
-              <PieChart aria-hidden className="h-4 w-4" />
-              Wheel
-            </Button>
-            <Button
-              aria-label="Grid view"
-              className={cn("touch-target", view !== "grid" && "text-muted-foreground")}
-              size="sm"
-              variant={view === "grid" ? "secondary" : "ghost"}
-              onClick={() => setView("grid")}
-            >
-              <LayoutGrid aria-hidden className="h-4 w-4" />
-              Grid
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        >
           {allTags.map((tag) => (
             <Button
               aria-pressed={selectedTags.includes(tag)}
-              className={cn("touch-target h-7 rounded-full px-3 text-xs", !selectedTags.includes(tag) && "text-muted-foreground")}
+              className={cn("h-7 rounded-full px-3 text-xs", !selectedTags.includes(tag) && "text-muted-foreground")}
               key={tag}
               size="sm"
               type="button"
@@ -246,7 +207,7 @@ export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBo
           ))}
           {selectedTags.length > 0 && (
             <Button
-              className="touch-target h-7 px-2 text-xs text-muted-foreground"
+              className="h-7 px-2 text-xs text-muted-foreground"
               size="sm"
               type="button"
               variant="ghost"
@@ -254,6 +215,11 @@ export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBo
             >
               Clear
             </Button>
+          )}
+          {grid && (
+            <div className="ml-auto">
+              <AddHabitInline onAdd={handleAdd} />
+            </div>
           )}
         </div>
       )}
@@ -273,6 +239,7 @@ export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBo
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <SleepQualityCard habits={visibleHabits} metadata={metadata} month={month} />
             <GymPerformanceCard habits={visibleHabits} metadata={metadata} month={month} />
+            <ReadingProgressCard habits={visibleHabits} metadata={metadata} month={month} />
           </div>
         </>
       ) : (

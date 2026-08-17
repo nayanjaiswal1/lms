@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ShieldAlert, ShieldCheck, Info, AlertTriangle } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Info, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -79,14 +79,6 @@ export default async function ProctoringLogPage({ params, searchParams }: PagePr
           { label: "Proctoring" },
         ]}
       />
-      <Link
-        className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        href={ROUTES.assessmentResults(attempt.assessment_id)}
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to results
-      </Link>
-
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

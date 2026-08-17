@@ -8,7 +8,7 @@ export type HabitType = "generic" | "gym" | "sleep" | "reading" | "custom"
 export interface CustomField {
   key: string
   label: string
-  kind: "text" | "number" | "textarea"
+  kind: "text" | "number" | "textarea" | "time" | "slider"
 }
 
 export interface Habit {

@@ -42,9 +42,6 @@ export default async function PlatformJobsPage({ searchParams }: PageProps) {
             Monitor and manage background jobs across all organisations.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href={ROUTES.PLATFORM_JOBS_WORKERS}>Worker Health</Link>
-        </Button>
       </div>
 
       <section className="mt-8">

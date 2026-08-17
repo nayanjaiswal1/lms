@@ -47,6 +47,9 @@ const BUILTIN_FIELDS: Partial<Record<HabitType, FieldDef[]>> = {
     { key: "slept_at", label: "Slept At", kind: "time" },
     { key: "woke_up", label: "Woke Up", kind: "time" },
     { key: "quality", label: "Quality (0-10)", kind: "slider" },
+    { key: "night_wakes", label: "Times Woken at Night", kind: "number" },
+    { key: "awake_minutes", label: "Minutes Awake Before Sleeping Again", kind: "number" },
+    { key: "night_notes", label: "Night Notes", kind: "textarea", placeholder: "Woke at 2am, couldn't fall back asleep..." },
   ],
   reading: [
     { key: "book", label: "Book / Topic", kind: "text", placeholder: "Title" },
@@ -107,4 +110,6 @@ export const CUSTOM_FIELD_KIND_OPTIONS: { label: string; value: CustomField["kin
   { label: "Text", value: "text" },
   { label: "Number", value: "number" },
   { label: "Long text", value: "textarea" },
+  { label: "Time", value: "time" },
+  { label: "Slider (0-10)", value: "slider" },
 ];

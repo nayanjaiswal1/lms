@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Can } from "@/components/auth/can";
+import { UserLink } from "@/components/shared/user-link";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { ClaimTicketButton } from "@/components/mentoring/claim-ticket-button";
 import { CloseTicketButton } from "@/components/mentoring/close-ticket-button";
@@ -59,7 +60,9 @@ async function TicketQueueContent() {
             return (
               <tr key={ticket.id}>
                 <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
-                  {truncateId(ticket.requester_id)}
+                  <UserLink className="hover:text-foreground hover:underline" userId={ticket.requester_id}>
+                    {truncateId(ticket.requester_id)}
+                  </UserLink>
                 </td>
                 <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
                   {ticket.course_id ? truncateId(ticket.course_id) : "—"}
@@ -73,9 +76,13 @@ async function TicketQueueContent() {
                   </div>
                 </td>
                 <td className="py-2.5 pr-4 text-muted-foreground">
-                  {ticket.assigned_to
-                    ? mentorNameById.get(ticket.assigned_to) ?? truncateId(ticket.assigned_to)
-                    : "—"}
+                  {ticket.assigned_to ? (
+                    <UserLink className="hover:text-foreground hover:underline" userId={ticket.assigned_to}>
+                      {mentorNameById.get(ticket.assigned_to) ?? truncateId(ticket.assigned_to)}
+                    </UserLink>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-2.5 pr-4 text-muted-foreground">
                   {formatDate(ticket.created_at)}
@@ -142,7 +149,9 @@ async function ChangeRequestsContent() {
             {requests.map((req) => (
               <tr key={req.id}>
                 <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
-                  {truncateId(req.student_id)}
+                  <UserLink className="hover:text-foreground hover:underline" userId={req.student_id}>
+                    {truncateId(req.student_id)}
+                  </UserLink>
                 </td>
                 <td className="max-w-xs py-2.5 pr-4 text-foreground">{req.reason}</td>
                 <td className="py-2.5 pr-4 text-muted-foreground">

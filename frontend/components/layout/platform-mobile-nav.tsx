@@ -8,6 +8,7 @@ import { BrandMark } from "@/components/shared/brand-mark";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { PLATFORM_NAV_GROUPS } from "@/lib/platform-nav";
 import { cn } from "@/lib/utils";
+import ROUTES from "@/lib/routes";
 import type { AuthUser } from "@/lib/server/auth";
 
 interface Props {
@@ -28,7 +29,9 @@ export function PlatformMobileNav({ user }: Props) {
         >
           <Menu aria-hidden className="h-5 w-5" />
         </button>
-        <BrandMark />
+        <Link aria-label="Go to your home page" href={user.default_landing_page || ROUTES.DASHBOARD}>
+          <BrandMark />
+        </Link>
       </header>
 
       {open && (
@@ -47,7 +50,13 @@ export function PlatformMobileNav({ user }: Props) {
         inert={!open}
       >
         <div className="flex items-center justify-between px-5 py-5 border-b border-sidebar-border">
-          <BrandMark />
+          <Link
+            aria-label="Go to your home page"
+            href={user.default_landing_page || ROUTES.DASHBOARD}
+            onClick={() => setOpen(false)}
+          >
+            <BrandMark />
+          </Link>
           <button
             aria-label="Close menu"
             className="touch-target flex items-center justify-center rounded-md hover:bg-accent/60 transition-colors duration-fast"

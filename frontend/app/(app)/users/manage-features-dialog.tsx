@@ -24,7 +24,7 @@ interface Props {
 
 // Opened via the `manageFeatures` URL param (set by the row's "Features"
 // button in member-table.tsx), so only one instance needs to be mounted per
-// member row — same wiring as ManageRolesDialog in app/(app)/users.
+// member row — same wiring as ManageRolesDialog in this same directory.
 export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
   const [openId, setOpenId] = useQueryState("manageFeatures");
   const open = openId === userId;

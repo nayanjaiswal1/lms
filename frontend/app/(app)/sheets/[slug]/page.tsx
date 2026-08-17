@@ -76,7 +76,7 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
   const solvedPct = totalCount > 0 ? Math.round((solvedCount / totalCount) * 100) : 0;
 
   return (
-    <main>
+    <main className="page-container">
       <Breadcrumb items={[{ label: "Sheets", href: ROUTES.SHEETS }, { label: activeSheet.name }]} />
 
       <GroupExpandProvider>
