@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: mindforge-backend
+    env: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: DEFAULT_ORG_ID
+        value: 00000000-0000-0000-0000-000000000001
+      - key: FRONTEND_URL
+        value: https://mindforge.vercel.app
+      - key: BACKEND_URL
+        value: https://mindforge-backend.onrender.com
+      - key: LLM_PROVIDER
+        value: disabled
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: 587
+      - key: EMAIL_FROM
+        value: noreply@mindforge.dev
+      - key: MINIO_ENDPOINT
+        value: s3.us-east-005.backblazeb2.com
+      - key: MINIO_PUBLIC_ENDPOINT
+        value: s3.us-east-005.backblazeb2.com
+      - key: MINIO_BUCKET
+        value: mindforge
+      - key: MINIO_USE_SSL
+        value: "true"
+      - key: MINIO_PUBLIC_USE_SSL
+        value: "true"
+      # Secrets — left blank in the Blueprint, set via the Render API/dashboard
+      # after the service is created so they never live in git.
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: COOKIE_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
