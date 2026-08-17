@@ -117,6 +117,14 @@ success "RuntimeClass sysbox-runc registered."
 # cares about.
 
 # ─── 3. Smoke test — a throwaway Pod, not the real lab image ────────────────
+# mindforge-labs is normally created by deploy-k8s.sh (via k8s/base/namespace.yaml,
+# applied through the overlay) — but this script runs BEFORE that step in
+# scripts/bootstrap-k3s-local.sh's ordering, so on a cluster that's never been
+# deployed to yet the namespace doesn't exist and the smoke test Pod below
+# fails with "namespaces mindforge-labs not found". Applying the same
+# manifest here is idempotent — deploy-k8s.sh re-applying it later is a no-op.
+kubectl apply -f k8s/base/namespace.yaml >/dev/null
+
 info "Smoke-testing with a throwaway Pod in mindforge-labs..."
 kubectl delete pod sysbox-smoketest -n mindforge-labs --ignore-not-found --now &>/dev/null
 cat <<'EOF' | kubectl apply -f -
