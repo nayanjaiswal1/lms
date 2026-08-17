@@ -215,7 +215,12 @@ func main() {
 	// of a separate cron job polling for the same condition after the fact —
 	// see Registry.OnDead / DeadLetterHook.
 	jobsRegistry.OnDead(handlers.HandlerEvalSubjective, handlers.NewEvalDeadHook(pool))
-	emailSender := mailer.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom)
+	var emailSender mailer.Sender
+	if cfg.BrevoAPIKey != "" {
+		emailSender = mailer.NewBrevoAPISender(cfg.BrevoAPIKey, cfg.EmailFrom, cfg.EmailFromName)
+	} else {
+		emailSender = mailer.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom)
+	}
 	jobsRegistry.Register(handlers.HandlerEmailSend, handlers.NewEmailHandler(cfg, emailSender))
 	// A dead email.send job used to leave nothing but last_error on the jobs
 	// row — nobody was told a user-facing email (e.g. a password reset) will

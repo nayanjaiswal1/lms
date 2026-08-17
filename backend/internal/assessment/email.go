@@ -1,11 +1,14 @@
 package assessment
 
 import (
+	"context"
 	"log/slog"
 	"net/smtp"
 	"strings"
+	"time"
 
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/mailer"
 )
 
 // sendEvalComplete notifies a student that their interview evaluation is ready.
@@ -27,6 +30,19 @@ func sendEvalComplete(cfg *config.Config, to, name, assessmentTitle, attemptID s
 		"View your score, dimension breakdown, and improvement suggestions:\n" + link +
 		"\n\n— MindForge"
 
+	const subject = "Your interview evaluation is ready"
+
+	// The Brevo API path is used when configured — needed on hosts that block
+	// outbound SMTP ports (e.g. Render's free tier; see mailer.BrevoAPISender).
+	if cfg.BrevoAPIKey != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if err := mailer.SendViaBrevoAPI(ctx, cfg.BrevoAPIKey, cfg.EmailFrom, cfg.EmailFromName, to, subject, body); err != nil {
+			slog.Warn("eval: send complete email", "to", to, "attempt", attemptID, "error", err)
+		}
+		return
+	}
+
 	addr := cfg.SMTPHost + ":" + cfg.SMTPPort
 	var auth smtp.Auth
 	if cfg.SMTPUser != "" {
@@ -36,7 +52,7 @@ func sendEvalComplete(cfg *config.Config, to, name, assessmentTitle, attemptID s
 	var sb strings.Builder
 	sb.WriteString("From: " + cfg.EmailFromHeader() + "\r\n")
 	sb.WriteString("To: " + to + "\r\n")
-	sb.WriteString("Subject: Your interview evaluation is ready\r\n")
+	sb.WriteString("Subject: " + subject + "\r\n")
 	sb.WriteString("MIME-Version: 1.0\r\n")
 	sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	sb.WriteString("\r\n")

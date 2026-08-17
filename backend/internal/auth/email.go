@@ -80,18 +80,26 @@ func SendPasskeyCloneAlert(cfg *config.Config, to string) error {
 
 // ─── internal ─────────────────────────────────────────────────────────────────
 
-// sendSMTP delegates the actual delivery to mailer.SendRaw, which bounds the
-// SMTP transaction to a fixed deadline and classifies 5xx relay rejections as
-// permanent (see mailer.IsPermanent) — this package's callers don't carry a
-// context of their own, so a fixed timeout is applied here rather than
-// leaving the call unbounded like the old direct net/smtp.SendMail did.
+// sendSMTP delivers the email via cfg.BrevoAPIKey's HTTPS API when set
+// (needed on hosts that block outbound SMTP ports, e.g. Render's free tier —
+// see mailer.BrevoAPISender), otherwise falls back to mailer.SendRaw over
+// SMTP. Either path bounds the delivery attempt to a fixed deadline and
+// classifies a permanent rejection as such (see mailer.IsPermanent) — this
+// package's callers don't carry a context of their own, so a fixed timeout is
+// applied here rather than leaving the call unbounded like the old direct
+// net/smtp.SendMail did.
 func sendSMTP(cfg *config.Config, to, subject, body string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	msg := buildMessage(cfg.EmailFromHeader(), to, subject, body)
-
-	if err := mailer.SendRaw(ctx, cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom, to, []byte(msg)); err != nil {
+	var err error
+	if cfg.BrevoAPIKey != "" {
+		err = mailer.SendViaBrevoAPI(ctx, cfg.BrevoAPIKey, cfg.EmailFrom, cfg.EmailFromName, to, subject, body)
+	} else {
+		msg := buildMessage(cfg.EmailFromHeader(), to, subject, body)
+		err = mailer.SendRaw(ctx, cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFrom, to, []byte(msg))
+	}
+	if err != nil {
 		return fmt.Errorf("auth: send email to %s: %w", to, err)
 	}
 	return nil

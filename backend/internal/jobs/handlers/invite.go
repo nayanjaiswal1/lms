@@ -172,11 +172,19 @@ func (h *InviteHandler) sendInviteEmail(ctx context.Context, inv *orgs.Invite, t
 		"Click the link below to accept your invitation:\n\n" + link + "\n\n" +
 		"This invitation expires in 7 days. If you did not expect this email, no action is needed."
 
-	// Delegates to mailer.SendRaw (shared with internal/auth's transactional
-	// emails) instead of calling net/smtp directly, so this send is bounded by
-	// the job's own timeout context rather than left unbounded.
-	msg := buildInviteMessage(h.cfg.EmailFromHeader(), inv.Email, subject, body)
-	if err := mailer.SendRaw(ctx, h.cfg.SMTPHost, h.cfg.SMTPPort, h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.EmailFrom, inv.Email, []byte(msg)); err != nil {
+	// Delegates to mailer.SendViaBrevoAPI/SendRaw (shared with internal/auth's
+	// transactional emails) instead of calling net/smtp directly, so this send
+	// is bounded by the job's own timeout context rather than left unbounded.
+	// The Brevo API path is used when configured — needed on hosts that block
+	// outbound SMTP ports (e.g. Render's free tier; see mailer.BrevoAPISender).
+	var err error
+	if h.cfg.BrevoAPIKey != "" {
+		err = mailer.SendViaBrevoAPI(ctx, h.cfg.BrevoAPIKey, h.cfg.EmailFrom, h.cfg.EmailFromName, inv.Email, subject, body)
+	} else {
+		msg := buildInviteMessage(h.cfg.EmailFromHeader(), inv.Email, subject, body)
+		err = mailer.SendRaw(ctx, h.cfg.SMTPHost, h.cfg.SMTPPort, h.cfg.SMTPUser, h.cfg.SMTPPass, h.cfg.EmailFrom, inv.Email, []byte(msg))
+	}
+	if err != nil {
 		return fmt.Errorf("smtp send to %s: %w", inv.Email, err)
 	}
 	return nil

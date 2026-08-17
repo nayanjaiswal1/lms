@@ -7,12 +7,14 @@ import (
 	"log/slog"
 	"net/smtp"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/assessment"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
+	"github.com/mindforge/backend/internal/mailer"
 )
 
 // BatchImportPayload is the JSON payload stored in jobs.payload for
@@ -184,6 +186,17 @@ func (h *BatchImportHandler) sendImportInviteEmail(to, name, token, batchName st
 		"You've been added to \"" + batchName + "\" on MindForge.\n\n" +
 		"Click the link below to accept your invitation:\n\n" + link + "\n\n" +
 		"This invitation expires in 7 days. If you did not expect this email, no action is needed."
+
+	// The Brevo API path is used when configured — needed on hosts that block
+	// outbound SMTP ports (e.g. Render's free tier; see mailer.BrevoAPISender).
+	if h.cfg.BrevoAPIKey != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if err := mailer.SendViaBrevoAPI(ctx, h.cfg.BrevoAPIKey, h.cfg.EmailFrom, h.cfg.EmailFromName, to, subject, body); err != nil {
+			slog.Warn("handlers.batch_import: send invite email", "to", to, "batch", batchName, "error", err)
+		}
+		return
+	}
 
 	addr := h.cfg.SMTPHost + ":" + h.cfg.SMTPPort
 	var smtpAuth smtp.Auth

@@ -89,6 +89,13 @@ type Config struct {
 	EmailFrom     string
 	EmailFromName string
 
+	// BrevoAPIKey switches email delivery from SMTP to Brevo's HTTPS
+	// transactional email API (see mailer.BrevoAPISender) — needed on hosts
+	// that block outbound SMTP ports (e.g. Render's free tier). Empty means
+	// deliver over SMTP as before, unchanged from every deploy that isn't on
+	// such a host.
+	BrevoAPIKey string
+
 	// DevEmailAllowlist: recipients that receive real email even in local
 	// dev (see ShouldSendRealEmail) — comma-separated via
 	// DEV_EMAIL_ALLOWLIST. Empty means local dev never sends real mail,
@@ -297,6 +304,7 @@ func Load() *Config {
 		SMTPPass:           os.Getenv("SMTP_PASS"),
 		EmailFrom:          getEnvDefault("EMAIL_FROM", "noreply@mindforge.dev"),
 		EmailFromName:      getEnvDefault("EMAIL_FROM_NAME", "MindForge"),
+		BrevoAPIKey:        os.Getenv("BREVO_API_KEY"),
 		DevEmailAllowlist:  getEnvList("DEV_EMAIL_ALLOWLIST"),
 		CORSExtraOrigins:   getEnvList("CORS_EXTRA_ORIGINS"),
 	}
