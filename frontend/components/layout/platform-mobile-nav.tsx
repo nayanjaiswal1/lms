@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
+import { NavLinkHint } from "@/components/layout/nav-link-hint";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { PLATFORM_NAV_GROUPS } from "@/lib/platform-nav";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,7 @@ export function PlatformMobileNav({ user }: Props) {
                   >
                     <item.icon aria-hidden className="h-4 w-4 shrink-0" />
                     {item.label}
+                    <NavLinkHint className="ml-auto" />
                   </Link>
                 );
               })}

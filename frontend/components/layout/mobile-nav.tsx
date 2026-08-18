@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
 import { NotificationBell } from "@/components/shared/notification-bell";
+import { NavLinkHint } from "@/components/layout/nav-link-hint";
 import { SidebarNavContent } from "@/components/layout/sidebar-nav-content";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { useVisibleNavGroups } from "@/lib/nav";
@@ -61,10 +62,10 @@ export function MobileNav({ user }: Props) {
 
       {open && (
         <button
-          type="button"
-          className="sidebar-drawer-backdrop"
-          onClick={() => setOpen(false)}
           aria-label="Close navigation"
+          className="sidebar-drawer-backdrop"
+          type="button"
+          onClick={() => setOpen(false)}
         />
       )}
 
@@ -108,7 +109,10 @@ export function MobileNav({ user }: Props) {
               href={item.href}
               key={item.href}
             >
-              <item.icon aria-hidden className="h-5 w-5" />
+              <span className="relative inline-flex">
+                <item.icon aria-hidden className="h-5 w-5" />
+                <NavLinkHint className="absolute -right-0.5 -top-0.5" />
+              </span>
               <span className="bottom-nav-item-label">{item.label}</span>
             </Link>
           );

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccessGate } from "@/components/shared/access-gate";
+import { NavLinkHint } from "@/components/layout/nav-link-hint";
 import { useVisibleNavGroups, type NavGroup } from "@/lib/nav";
 import { PLATFORM_NAV_GROUPS } from "@/lib/platform-nav";
 import { cn } from "@/lib/utils";
@@ -61,8 +62,16 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
                 title={collapsed ? item.label : undefined}
                 onClick={onNavigate}
               >
-                <item.icon aria-hidden className="h-4 w-4 shrink-0 scale-90" />
-                {!collapsed && item.label}
+                <span className="relative inline-flex shrink-0">
+                  <item.icon aria-hidden className="h-4 w-4 scale-90" />
+                  {collapsed && <NavLinkHint className="absolute -right-0.5 -top-0.5" />}
+                </span>
+                {!collapsed && (
+                  <>
+                    {item.label}
+                    <NavLinkHint className="ml-auto" />
+                  </>
+                )}
               </Link>
             );
 
