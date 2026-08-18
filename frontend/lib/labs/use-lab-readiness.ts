@@ -25,8 +25,11 @@ export function useLabReadiness(sessionId: string, { onReady, onFailed }: UseLab
   onFailedRef.current = onFailed
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
-    const es = new EventSource(`${apiUrl}/api/labs/sessions/${sessionId}/events`, {
+    // Relative same-origin URL, proxied to the backend by next.config.ts's
+    // rewrites() — a direct cross-site EventSource to NEXT_PUBLIC_API_URL
+    // never carries the SameSite=Lax auth cookie, same root cause as
+    // lib/client/api.ts's apiFetch.
+    const es = new EventSource(`/api/labs/sessions/${sessionId}/events`, {
       withCredentials: true,
     })
 

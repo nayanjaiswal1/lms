@@ -51,7 +51,6 @@ export function LabProvisioningWatcher() {
 
     const labId = session.lab_id
     const toastId = `lab-provisioning-${sessionId}`
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
 
     let countdownTimer: ReturnType<typeof setInterval> | null = null
     let safetyTimer: ReturnType<typeof setTimeout> | null = null
@@ -61,7 +60,11 @@ export function LabProvisioningWatcher() {
       if (safetyTimer) clearTimeout(safetyTimer)
     }
 
-    const es = new EventSource(`${apiUrl}/api/labs/sessions/${sessionId}/events`, {
+    // Relative same-origin URL, proxied to the backend by next.config.ts's
+    // rewrites() — a direct cross-site EventSource to NEXT_PUBLIC_API_URL
+    // never carries the SameSite=Lax auth cookie, same root cause as
+    // lib/client/api.ts's apiFetch.
+    const es = new EventSource(`/api/labs/sessions/${sessionId}/events`, {
       withCredentials: true,
     })
 

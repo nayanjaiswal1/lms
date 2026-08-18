@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { FEATURE_META, type Feature } from "@/lib/features";
-import { apiFetch, API, csrfToken } from "@/lib/client/api";
+import { apiFetch, csrfToken } from "@/lib/client/api";
 
 interface MemberFeatureFlag {
   key: Feature;
@@ -46,7 +46,7 @@ export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
 
   function toggleFlag(key: Feature, next: boolean) {
     startTransition(async () => {
-      const res = await fetch(`${API}/api/orgs/${orgId}/user-features/${userId}/${key}`, {
+      const res = await fetch(`/api/orgs/${orgId}/user-features/${userId}/${key}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
@@ -64,7 +64,7 @@ export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
 
   function resetFlag(key: Feature) {
     startTransition(async () => {
-      const res = await fetch(`${API}/api/orgs/${orgId}/user-features/${userId}/${key}`, {
+      const res = await fetch(`/api/orgs/${orgId}/user-features/${userId}/${key}`, {
         method: "DELETE",
         credentials: "include",
         headers: { "X-CSRF-Token": csrfToken() },

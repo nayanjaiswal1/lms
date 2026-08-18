@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MultiSelectDropdown } from "@/components/shared/multi-select-dropdown";
 import { useHasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { apiFetch, API, csrfToken } from "@/lib/client/api";
+import { apiFetch, csrfToken } from "@/lib/client/api";
 import type { OrgRole } from "@/lib/orgs/types";
 
 const ORG_ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
@@ -82,7 +82,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function updateOrgRole(role: OrgRole) {
     startTransition(async () => {
-      const res = await fetch(`${API}/api/orgs/${orgId}/members/${memberId}`, {
+      const res = await fetch(`/api/orgs/${orgId}/members/${memberId}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
@@ -126,7 +126,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function assignRole(roleId: string) {
     startTransition(async () => {
-      const res = await fetch(`${API}/api/admin/rbac/users/${userId}/roles`, {
+      const res = await fetch(`/api/admin/rbac/users/${userId}/roles`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
@@ -143,7 +143,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function revokeRole(roleId: string) {
     startTransition(async () => {
-      const res = await fetch(`${API}/api/admin/rbac/users/${userId}/roles/${roleId}`, {
+      const res = await fetch(`/api/admin/rbac/users/${userId}/roles/${roleId}`, {
         method: "DELETE",
         credentials: "include",
         headers: { "X-CSRF-Token": csrfToken() },
@@ -165,7 +165,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function grantPermission(permissionId: string) {
     startTransition(async () => {
-      const res = await fetch(`${API}/api/admin/rbac/users/${userId}/permission-overrides`, {
+      const res = await fetch(`/api/admin/rbac/users/${userId}/permission-overrides`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
@@ -182,7 +182,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function revokePermission(permissionId: string) {
     startTransition(async () => {
-      const res = await fetch(`${API}/api/admin/rbac/users/${userId}/permission-overrides/${permissionId}`, {
+      const res = await fetch(`/api/admin/rbac/users/${userId}/permission-overrides/${permissionId}`, {
         method: "DELETE",
         credentials: "include",
         headers: { "X-CSRF-Token": csrfToken() },

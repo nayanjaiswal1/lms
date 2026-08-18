@@ -77,7 +77,7 @@ const nextConfig: NextConfig = {
   // when Next.js is hit directly (e.g. `pnpm dev` on :3000), not just through
   // Caddy on :80. Same BACKEND_URL every server action already uses.
   async rewrites() {
-    const backendUrl = process.env.BACKEND_URL;
+    const backendUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
     if (!backendUrl) return [];
     return [
       { source: "/api/:path*", destination: `${backendUrl}/api/:path*` },

@@ -1,5 +1,3 @@
-export const API = process.env.NEXT_PUBLIC_API_URL ?? ""
-
 // csrf_token is deliberately not httpOnly (double-submit cookie pattern) so
 // client components can read and echo it back — see backend RequireCSRF.
 export function csrfToken(): string {
@@ -11,9 +9,15 @@ export function csrfToken(): string {
   )
 }
 
+// Always same-origin (relative /api/...), proxied to the backend by
+// next.config.ts's rewrites(). The auth cookie is minted first-party on the
+// frontend's own domain (see lib/server/set-cookie.ts), so a client-side
+// fetch straight to NEXT_PUBLIC_API_URL is cross-site and never carries it —
+// SameSite=Lax silently drops it, producing a 401 with no Cookie header at
+// all (see backend/internal/auth/handler.go's cookie config).
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(`${API}/api${path}`, {
+    const res = await fetch(`/api${path}`, {
       ...options,
       credentials: "include",
       headers: {
