@@ -19,6 +19,60 @@ import type { ListView, Notification, UnreadCountView } from "@/lib/notification
 
 const POLL_INTERVAL_MS = 60_000;
 
+// Module-level singleton: <NotificationBell> is mounted twice at once (desktop
+// sidebar + mobile header — see sidebar.tsx / mobile-nav.tsx, which are both
+// always in the DOM and only CSS-toggled per breakpoint, not conditionally
+// rendered). Without sharing state, each instance ran its own 60s poll,
+// doubling the request rate for the lifetime of every session. One shared
+// poll, ref-counted so it starts on first mount and stops when the last
+// <NotificationBell> unmounts.
+let sharedUnreadCount = 0;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+const listeners = new Set<() => void>();
+
+function notifyListeners() {
+  listeners.forEach((l) => l());
+}
+
+function setSharedUnreadCount(count: number) {
+  sharedUnreadCount = count;
+  notifyListeners();
+}
+
+async function pollUnreadCount() {
+  // A backgrounded/minimized tab has nobody to show the badge to — skip the
+  // network call and pick it back up on the next tick (or immediately via
+  // the visibilitychange listener below) once it's visible again.
+  if (document.visibilityState !== "visible") return;
+  const res = await apiFetch<UnreadCountView>("/notifications/unread-count");
+  if (res) setSharedUnreadCount(res.unread_count);
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") void pollUnreadCount();
+}
+
+function subscribeUnreadCount(listener: () => void): () => void {
+  listeners.add(listener);
+  if (listeners.size === 1) {
+    void pollUnreadCount();
+    pollTimer = setInterval(() => void pollUnreadCount(), POLL_INTERVAL_MS);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+  }
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    }
+  };
+}
+
+function getUnreadCountSnapshot(): number {
+  return sharedUnreadCount;
+}
+
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60_000);
@@ -36,30 +90,16 @@ interface ListState {
   items: Notification[];
 }
 
-// Bell icon + unread badge, mounted once in the app shell (desktop sidebar
-// and mobile header — see components/layout/sidebar.tsx / mobile-nav.tsx).
-// Polls GET /api/notifications/unread-count every 60s per
-// kind-herding-cookie.md §0.6's deliberate polling-over-SSE/WebSocket call —
-// the same setInterval-in-useEffect shape as EvalPoller/LabProvisioningWatcher,
-// the codebase's existing pattern for a client-side timer.
+// Bell icon + unread badge, mounted in both the desktop sidebar and mobile
+// header (see components/layout/sidebar.tsx / mobile-nav.tsx — both always
+// in the DOM, CSS-toggled per breakpoint, not conditionally rendered) so two
+// instances exist per session. Polling itself is a module-level singleton
+// above, shared across instances via useSyncExternalStore, per
+// kind-herding-cookie.md §0.6's deliberate polling-over-SSE/WebSocket call.
 export function NotificationBell() {
   const router = useRouter();
-  const [unreadCount, setUnreadCount] = React.useState(0);
+  const unreadCount = React.useSyncExternalStore(subscribeUnreadCount, getUnreadCountSnapshot, () => 0);
   const [list, setList] = React.useState<ListState>({ status: "idle", items: [] });
-
-  React.useEffect(() => {
-    let cancelled = false;
-    async function poll() {
-      const res = await apiFetch<UnreadCountView>("/notifications/unread-count");
-      if (!cancelled && res) setUnreadCount(res.unread_count);
-    }
-    void poll();
-    const id = setInterval(() => void poll(), POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
 
   async function handleOpenChange(open: boolean) {
     if (!open || list.status !== "idle") return;
@@ -70,7 +110,7 @@ export function NotificationBell() {
 
   function handleSelect(n: Notification) {
     if (!n.read_at) {
-      setUnreadCount((c) => Math.max(0, c - 1));
+      setSharedUnreadCount(Math.max(0, sharedUnreadCount - 1));
       setList((s) => ({
         ...s,
         items: s.items.map((item) =>
@@ -85,7 +125,7 @@ export function NotificationBell() {
   }
 
   function handleMarkAllRead() {
-    setUnreadCount(0);
+    setSharedUnreadCount(0);
     setList((s) => ({
       ...s,
       items: s.items.map((item) => ({ ...item, read_at: item.read_at ?? new Date().toISOString() })),
