@@ -7,9 +7,9 @@ import type { NextRequest } from "next/server"
 // annoying but obvious and easy to fix. Getting it wrong the other way (an
 // entry too broad) is the direction that actually matters, so keep entries as
 // narrow/exact as the route allows. Real authorization is still enforced by
-// the Go backend regardless of this list; this middleware only decides
-// whether the friendly silent-refresh-then-redirect flow applies before a
-// server component would otherwise hit a raw 401.
+// the Go backend regardless of this list; this proxy only decides whether
+// the friendly silent-refresh flow applies before a server component would
+// otherwise hit a raw 401.
 const PUBLIC_EXACT_PATHS = new Set([
   "/",
   "/org", // org marketing landing — distinct from the authenticated /org/create, /org/settings, /org/setup routes below
@@ -67,7 +67,7 @@ function loginRedirect(request: NextRequest): NextResponse {
   return NextResponse.redirect(url)
 }
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
   if (isPublicPath(pathname)) return NextResponse.next()
@@ -98,7 +98,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const refreshRes = await fetch(`${backendUrl}/api/auth/refresh`, {
       method: "POST",
       headers: {
-        // eslint-disable-next-line no-restricted-syntax -- middleware runs on the Edge runtime; lib/server/api.ts is server-only and can't be imported here. Both cookies are needed: refresh_token authenticates the rotation, csrf_token satisfies the CSRF guard now applied to /api/auth/refresh.
+        // eslint-disable-next-line no-restricted-syntax -- Proxy runs before Server Components render; lib/server/api.ts is server-only (next/headers-backed) and can't be imported here. Both cookies are needed: refresh_token authenticates the rotation, csrf_token satisfies the CSRF guard now applied to /api/auth/refresh.
         Cookie: `refresh_token=${refreshToken}; csrf_token=${csrfToken ?? ""}`,
         "X-CSRF-Token": csrfToken ?? "",
         // Preserve the browser's address so the backend's auth rate limiter
@@ -108,28 +108,46 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
           : {}),
       },
       cache: "no-store",
+      // Bound the stall: an unbounded fetch here blocks every navigation on
+      // this backend call with nothing on screen (no loading.tsx fires for a
+      // redirect). Timing out and sending the user to /login is strictly
+      // better than hanging the whole app for an indeterminate time.
+      signal: AbortSignal.timeout(5000),
     })
 
     if (!refreshRes.ok) {
       return loginRedirect(request)
     }
 
-    // Refresh succeeded — redirect to the same URL so the browser stores the
-    // new cookies before the page renders (server components read cookies from
-    // the incoming request; we can't update them mid-render).
-    const response = NextResponse.redirect(request.url)
-    for (const value of refreshRes.headers.getSetCookie()) {
-      response.headers.append("Set-Cookie", value)
+    // Refresh succeeded. Forward the new cookies into *this* request instead
+    // of redirecting: request.cookies.set() rewrites the Cookie header that
+    // NextResponse.next({ request }) forwards downstream, so the Server
+    // Components rendering this same response already see the fresh
+    // access_token via cookies() — no second navigation round trip. The
+    // browser still gets the real Set-Cookie headers (with their original
+    // attributes) so subsequent requests carry the refreshed token too.
+    const setCookies = refreshRes.headers.getSetCookie()
+    for (const raw of setCookies) {
+      const pair = raw.split(";", 1)[0]
+      const eq = pair.indexOf("=")
+      if (eq === -1) continue
+      request.cookies.set(pair.slice(0, eq), pair.slice(eq + 1))
+    }
+
+    const response = NextResponse.next({ request })
+    for (const raw of setCookies) {
+      response.headers.append("Set-Cookie", raw)
     }
     return response
   } catch {
-    // Backend unreachable. Send the user to /login rather than through: the
-    // session could not be refreshed, so there is nothing to let through, and
-    // an auth gate that opens when its dependency is down is not a gate.
+    // Backend unreachable or timed out. Send the user to /login rather than
+    // through: the session could not be refreshed, so there is nothing to
+    // let through, and an auth gate that opens when its dependency is down
+    // is not a gate.
     return loginRedirect(request)
   }
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|apple-icon).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|apple-icon|manifest.webmanifest).*)"],
 }

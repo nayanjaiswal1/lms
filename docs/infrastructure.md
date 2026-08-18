@@ -8,7 +8,7 @@ Project file structure, all environment variables, AI rules, payments, and secur
 
 See [README.md](../README.md)'s "Project Structure" section for the current, authoritative file tree — 37 domain packages under `backend/internal/`, generated fixtures, k8s manifests, and scripts. (An older single-package layout — `internal/db/*.go`, `internal/executor/`, `internal/ws/` — used to be documented here; it no longer matches the codebase and has been removed rather than left to drift further.)
 
-**Next.js middleware note:** `frontend/middleware.ts` is UX-only — it redirects unauthenticated browsers to prevent a flash of protected content. It is NOT a security boundary. All role and permission enforcement happens in Go middleware (`internal/auth`, `internal/authz`).
+**Next.js Proxy note:** `frontend/proxy.ts` (renamed from `middleware.ts` — Next.js 16 deprecated the `middleware` convention in favor of `proxy`) is UX-only — it redirects unauthenticated browsers to prevent a flash of protected content. It is NOT a security boundary. All role and permission enforcement happens in Go middleware (`internal/auth`, `internal/authz`).
 
 ---
 

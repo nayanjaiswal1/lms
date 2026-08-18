@@ -519,7 +519,7 @@ export default async function SomePage() {
 }
 ```
 
-### Next.js Edge Middleware (`mindforge/frontend/middleware.ts`)
+### Next.js Proxy (`mindforge/frontend/proxy.ts`, formerly `middleware.ts`)
 
 Redirects unauthenticated users from protected routes to `/login?next=<path>`. Checks for the `access_token` cookie. This is a UX guard — the actual authorization happens on the backend.
 

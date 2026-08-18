@@ -261,9 +261,9 @@ export default tseslint.config(
         // already build this header via authHeaders() (and get 429 handling
         // for free). Client components must call apiFetch from
         // lib/client/api.ts. Genuine exceptions (pre-session bootstrap, Set-
-        // Cookie forwarding, Edge middleware) are documented case-by-case with
+        // Cookie forwarding, Proxy) are documented case-by-case with
         // an inline disable comment explaining why — see lib/server/api.ts,
-        // middleware.ts, app/login/actions.ts, app/org/create/actions.ts,
+        // proxy.ts, app/login/actions.ts, app/org/create/actions.ts,
         // app/org-select/actions.ts.
         {
           selector: 'Property[key.name="Cookie"]',
@@ -271,8 +271,8 @@ export default tseslint.config(
             '[Architecture] Do not hand-build a Cookie header. ' +
             'Use apiGet/apiPost/apiAction/apiUpload (lib/server/api.ts) in server code, ' +
             'or apiFetch (lib/client/api.ts) in client components. ' +
-            'If this is a genuine exception (pre-session bootstrap, Set-Cookie forwarding, Edge ' +
-            'middleware), disable this line with a comment explaining why.',
+            'If this is a genuine exception (pre-session bootstrap, Set-Cookie forwarding, ' +
+            'Proxy), disable this line with a comment explaining why.',
         },
 
         // ── Ban: hand-rolled JWT payload decode ────────────────────────────

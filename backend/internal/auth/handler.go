@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
@@ -549,32 +551,58 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rotateTx, err := h.pool.Begin(r.Context())
-	if err != nil {
-		slog.Error("auth: refresh begin tx", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
+	type userRow struct {
+		ID             string
+		Name           string
+		Email          string
+		AvatarURL      *string
+		SessionVersion int
+		Status         string
+		OrgRole        string
 	}
-	defer rotateTx.Rollback(r.Context()) //nolint:errcheck
 
-	var tok struct {
-		ID         string
-		UserID     string
-		FamilyID   string
-		DeviceHint *string
-		IP         *string
-	}
-	err = rotateTx.QueryRow(r.Context(),
-		`UPDATE refresh_tokens
-		 SET rotated_at = now(), revoked_at = now()
-		 WHERE token_hash = $1
-		   AND rotated_at IS NULL
-		   AND revoked_at IS NULL
-		   AND expires_at > now()
-		 RETURNING id, user_id, family_id, device_hint, ip`,
-		tokenHash,
-	).Scan(&tok.ID, &tok.UserID, &tok.FamilyID, &tok.DeviceHint, &tok.IP)
+	// Rotate the old token, insert its replacement, and load the user + org
+	// role in a single round trip instead of six (BEGIN, UPDATE, INSERT,
+	// COMMIT, user SELECT, org-role SELECT). This endpoint fires on every
+	// protected navigation once the access token expires, so each extra
+	// round trip to the DB is latency every such navigation pays. Chaining
+	// the writes through CTEs keeps the same all-or-nothing guarantee an
+	// explicit transaction gave — a single statement is always atomic in
+	// Postgres — without paying for separate BEGIN/COMMIT round trips.
+	// `inserted` only fires when `rotated` actually produced a row (its
+	// SELECT source is `rotated`), so the original race safety holds: a
+	// concurrent refresh against the same token hits the same UPDATE
+	// predicate, the row lock serializes the two attempts, and the loser's
+	// UPDATE matches zero rows — same outcome as before, just without a
+	// manual transaction to express it.
+	var u userRow
+	err = h.pool.QueryRow(r.Context(),
+		`WITH rotated AS (
+			UPDATE refresh_tokens
+			SET rotated_at = now(), revoked_at = now()
+			WHERE token_hash = $1
+			  AND rotated_at IS NULL
+			  AND revoked_at IS NULL
+			  AND expires_at > now()
+			RETURNING user_id, family_id, device_hint, ip
+		), inserted AS (
+			INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
+			SELECT user_id, $2, $3, family_id, device_hint, ip FROM rotated
+		)
+		SELECT u.id, u.name, u.email, u.avatar_url, u.session_version, u.status,
+		       COALESCE(om.role, 'learner')
+		FROM rotated r
+		JOIN users u ON u.id = r.user_id
+		LEFT JOIN org_members om ON om.org_id = $4 AND om.user_id = u.id`,
+		tokenHash, refreshHash, time.Now().Add(h.cfg.RefreshTokenTTL), h.cfg.DefaultOrgID,
+	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.SessionVersion, &u.Status, &u.OrgRole)
 	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.Error("auth: refresh rotate", "error", err)
+			httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
+			return
+		}
+
 		// No row claimed. Either the token never existed or simply aged out —
 		// both unremarkable — or it was already consumed, which is the theft
 		// signal. Only the consumed case may revoke the family; letting a
@@ -606,42 +634,6 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The replacement token inherits the family and the device/network hints of
-	// the token it succeeds, so a family stays traceable to where it started.
-	if _, err := rotateTx.Exec(r.Context(),
-		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id, device_hint, ip)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		tok.UserID, refreshHash, time.Now().Add(h.cfg.RefreshTokenTTL),
-		tok.FamilyID, tok.DeviceHint, tok.IP,
-	); err != nil {
-		slog.Error("auth: refresh insert new token", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-
-	if err := rotateTx.Commit(r.Context()); err != nil {
-		slog.Error("auth: refresh commit tx", "error", err)
-		httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
-		return
-	}
-
-	type userRow struct {
-		ID             string
-		Name           string
-		Email          string
-		AvatarURL      *string
-		SessionVersion int
-		Status         string
-	}
-	var u userRow
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT id, name, email, avatar_url, session_version, status FROM users WHERE id = $1`,
-		tok.UserID,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.SessionVersion, &u.Status); err != nil {
-		httputil.WriteError(w, http.StatusUnauthorized, "User not found.")
-		return
-	}
-
 	// A locked account must not be able to extend its session. The status
 	// writer also bumps session_version, so live access tokens are already
 	// dead; this closes the refresh path behind them.
@@ -651,18 +643,10 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var orgRole string
-	if err := h.pool.QueryRow(r.Context(),
-		`SELECT role FROM org_members WHERE org_id = $1 AND user_id = $2`,
-		h.cfg.DefaultOrgID, u.ID,
-	).Scan(&orgRole); err != nil {
-		orgRole = "learner"
-	}
-
 	newAccessToken, err := CreateAccessToken(h.cfg, Claims{
 		UserID:         u.ID,
 		OrgID:          h.cfg.DefaultOrgID,
-		OrgRole:        orgRole,
+		OrgRole:        u.OrgRole,
 		AuthMethod:     "refresh",
 		SessionVersion: u.SessionVersion,
 	})
