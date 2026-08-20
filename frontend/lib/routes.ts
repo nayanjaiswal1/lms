@@ -71,6 +71,12 @@ const ROUTES = {
   PROJECTS:                "/projects",
   PROJECTS_NEW:            "/projects/new",
 
+  // Project marketplace (Phase A, Slice 1): staff-managed requirement postings
+  // and the open board any org member browses/applies to.
+  PROJECTS_REQUIREMENTS:     "/projects/requirements",
+  PROJECTS_REQUIREMENTS_NEW: "/projects/requirements/new",
+  PROJECTS_BOARD:            "/projects/board",
+
   // Assessments — student
   ASSESSMENTS:         "/assessments",
 
@@ -178,6 +184,9 @@ const ROUTES = {
   cohortGroup:              (id: string)                        => `/cohort-groups/${id}`,
   projectAssignment:        (id: string)                        => `/projects/${id}`,
   myProject:                (teamId: string)                    => `/projects/team/${teamId}`,
+  teamShowcase:             (teamId: string)                    => `/projects/team/${teamId}/showcase`,
+  projectRequirement:       (id: string)                        => `/projects/requirements/${id}`,
+  boardRequirement:         (id: string)                        => `/projects/board/${id}`,
   assessmentEdit:           (id: string)                        => `/assessments/${id}/edit`,
   assessmentEditBatches:    (id: string)                        => `/assessments/${id}/edit/batches`,
   assessmentEditSettings:   (id: string)                        => `/assessments/${id}/edit/settings`,

@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
+import { FormSelectField } from "@/components/ui/form-select-field";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { createCheckpointAction, updateCheckpointAction } from "@/app/(app)/projects/actions";
+import { CHECKPOINT_KIND_OPTIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { ProjectCheckpoint } from "@/lib/projects/types";
 
@@ -40,6 +42,7 @@ const Schema = z.object({
   due_at: z.string().optional(),
   requires_mr: z.boolean(),
   requires_ci_pass: z.boolean(),
+  kind: z.string(),
 });
 type FormData = z.infer<typeof Schema>;
 
@@ -69,6 +72,7 @@ export function CheckpointDialog({ assignmentId, checkpoint, nextPosition = 1 }:
       due_at: isoToLocalInput(checkpoint?.due_at ?? null),
       requires_mr: checkpoint?.requires_mr ?? true,
       requires_ci_pass: checkpoint?.requires_ci_pass ?? true,
+      kind: checkpoint?.kind ?? "milestone",
     },
   });
 
@@ -80,6 +84,7 @@ export function CheckpointDialog({ assignmentId, checkpoint, nextPosition = 1 }:
       due_at: localInputToIso(data.due_at ?? ""),
       requires_mr: data.requires_mr,
       requires_ci_pass: data.requires_ci_pass,
+      kind: data.kind,
     };
     // Position has no place in CheckpointPatch (backend/internal/gitlab/
     // models.go — confirmed by reading it directly, not assumed): it's only
@@ -118,6 +123,7 @@ export function CheckpointDialog({ assignmentId, checkpoint, nextPosition = 1 }:
         <Form {...form}>
           <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
             <FormInputField control={form.control} label="Title" name="title" placeholder="Checkpoint 1: API skeleton" />
+            <FormSelectField control={form.control} label="Kind" name="kind" options={CHECKPOINT_KIND_OPTIONS} />
             <FormField
               control={form.control}
               name="description"

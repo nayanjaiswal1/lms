@@ -23,6 +23,8 @@ import (
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/mailer"
 	"github.com/mindforge/backend/internal/notifications"
+	"github.com/mindforge/backend/internal/profile"
+	"github.com/mindforge/backend/internal/projectmarket"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
@@ -208,7 +210,11 @@ func main() {
 	// below) is the job that needs it: Batch 5's checkpoint/peer-review
 	// notifications fire from inside webhook ingest, which runs here.
 	notificationsSvcForJobs := notifications.NewService(pool, jobsRegistry)
-	gitlabSvcForJobs := gitlab.NewService(pool, cfg, gitlabVault, jobsRegistry, notificationsSvcForJobs)
+	gitlabSvcForJobs := gitlab.NewService(pool, cfg, gitlabVault, jobsRegistry, notificationsSvcForJobs, aiProvider)
+
+	// A standalone projectmarket.Service for the AI scoring job — same
+	// "holds no state beyond shared pointers" reasoning as the others above.
+	projectmarketSvcForJobs := projectmarket.NewService(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabSvcForJobs)
 
 	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc, coursesSvcForJobs))
 	// Fires once, exactly when an eval.subjective job permanently dies, instead
@@ -248,6 +254,8 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerGitlabTemplateSync, handlers.NewGitlabTemplateSyncHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerGitlabOriginalityScan, handlers.NewGitlabOriginalityScanHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerGitlabHandoff, handlers.NewGitlabHandoffHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerGitlabAIReviewMR, handlers.NewGitlabAIReviewMRHandler(gitlabSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerProjectmarketScoreRequirement, handlers.NewProjectmarketScoreRequirementHandler(projectmarketSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerDigestNightly, handlers.NewDigestNightlyHandler(pool))
 	jobsRegistry.Register(handlers.HandlerDigestUser, handlers.NewDigestUserHandler(pool, aiProvider, cfg, jobsRegistry))
 

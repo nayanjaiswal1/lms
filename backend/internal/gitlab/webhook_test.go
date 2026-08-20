@@ -108,7 +108,7 @@ func TestHandleWebhook_RejectsWrongToken(t *testing.T) {
 	registry := jobs.NewRegistry()
 	registry.Register(jobIngestEvent, noopJobHandler{})
 	notifSvc := notifications.NewService(pool, registry)
-	svc := NewService(pool, &config.Config{BackendURL: "http://localhost:8080"}, vault, registry, notifSvc)
+	svc := NewService(pool, &config.Config{BackendURL: "http://localhost:8080"}, vault, registry, notifSvc, nil)
 	ctx := context.Background()
 
 	seeded := seedWebhookTestTeam(t, pool, repo, vault, "correct-webhook-secret")

@@ -109,14 +109,14 @@ func (r *Repo) FlagLateCommits(ctx context.Context, teamID string, committedAt t
 const mergeRequestColumns = `
 	id, org_id, team_id, mr_iid, mr_id, title, description, state, source_branch,
 	target_branch, author_gitlab_user_id, author_user_id, web_url, approvals_count,
-	changes_count, opened_at, merged_at, closed_at, updated_at`
+	changes_count, opened_at, merged_at, closed_at, updated_at, ai_reviewed_at`
 
 func scanMergeRequest(row pgx.Row) (*GitlabMergeRequest, error) {
 	var mr GitlabMergeRequest
 	err := row.Scan(
 		&mr.ID, &mr.OrgID, &mr.TeamID, &mr.MRIID, &mr.MRID, &mr.Title, &mr.Description, &mr.State, &mr.SourceBranch,
 		&mr.TargetBranch, &mr.AuthorGitlabUserID, &mr.AuthorUserID, &mr.WebURL, &mr.ApprovalsCount,
-		&mr.ChangesCount, &mr.OpenedAt, &mr.MergedAt, &mr.ClosedAt, &mr.UpdatedAt,
+		&mr.ChangesCount, &mr.OpenedAt, &mr.MergedAt, &mr.ClosedAt, &mr.UpdatedAt, &mr.AIReviewedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -160,11 +160,102 @@ func (r *Repo) UpsertMergeRequest(ctx context.Context, mr GitlabMergeRequest) (*
 	return scanMergeRequest(row)
 }
 
+// GetMergeRequestByID resolves a mirrored MR row by its own id — used by
+// the ai_review_mr job, whose payload carries this id rather than a
+// (team_id, mr_iid) pair (see Service.enqueueAIReview).
+func (r *Repo) GetMergeRequestByID(ctx context.Context, id string) (*GitlabMergeRequest, error) {
+	row := r.pool.QueryRow(ctx, `SELECT `+mergeRequestColumns+` FROM gitlab_merge_requests WHERE id = $1`, id)
+	return scanMergeRequest(row)
+}
+
 // GetMergeRequestByTeamAndIID resolves the mirrored MR row a Note Hook's
 // merge_request.iid refers to.
 func (r *Repo) GetMergeRequestByTeamAndIID(ctx context.Context, teamID string, mrIID int64) (*GitlabMergeRequest, error) {
 	row := r.pool.QueryRow(ctx, `SELECT `+mergeRequestColumns+` FROM gitlab_merge_requests WHERE team_id = $1 AND mr_iid = $2`, teamID, mrIID)
 	return scanMergeRequest(row)
+}
+
+// MarkMergeRequestAIReviewed records that Service.ReviewMergeRequest has run
+// for this MR — the "AI called once" cache guard other callers check before
+// enqueueing gitlab.ai_review_mr again.
+func (r *Repo) MarkMergeRequestAIReviewed(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE gitlab_merge_requests SET ai_reviewed_at = now() WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("gitlab: mark merge request ai reviewed: %w", err)
+	}
+	return nil
+}
+
+// ─── gitlab_commit_files ────────────────────────────────────────────────────
+// Batch 8 — see models.go's own "Batch 8" section.
+
+// UpsertCommitFiles records one commit's changed file paths — redelivery-safe
+// (ON CONFLICT DO NOTHING on the (team_id, sha, file_path) primary key), so a
+// re-delivered push webhook never double-counts a file's change history.
+func (r *Repo) UpsertCommitFiles(ctx context.Context, orgID, teamID, sha string, authorGitlabUserID *int64, authorUserID *string, committedAt *time.Time, added, modified, removed []string) error {
+	batch := &pgx.Batch{}
+	addRow := func(path, changeType string) {
+		batch.Queue(
+			`INSERT INTO gitlab_commit_files (org_id, team_id, sha, file_path, change_type, author_gitlab_user_id, author_user_id, committed_at)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			 ON CONFLICT (team_id, sha, file_path) DO NOTHING`,
+			orgID, teamID, sha, path, changeType, authorGitlabUserID, authorUserID, committedAt,
+		)
+	}
+	for _, p := range added {
+		addRow(p, "added")
+	}
+	for _, p := range modified {
+		addRow(p, "modified")
+	}
+	for _, p := range removed {
+		addRow(p, "removed")
+	}
+	if batch.Len() == 0 {
+		return nil
+	}
+	results := r.pool.SendBatch(ctx, batch)
+	defer results.Close()
+	for i := 0; i < batch.Len(); i++ {
+		if _, err := results.Exec(); err != nil {
+			return fmt.Errorf("gitlab: upsert commit files: %w", err)
+		}
+	}
+	return nil
+}
+
+// ListFileOwnership returns, per file path this team has ever touched, the
+// author with the most added/modified changes to it — a plain aggregation,
+// no AI call (see models.go's FileOwnershipRow doc comment for the tie-break
+// and unmatched-identity caveats).
+func (r *Repo) ListFileOwnership(ctx context.Context, teamID string) ([]FileOwnershipRow, error) {
+	rows, err := r.pool.Query(ctx,
+		`WITH counts AS (
+			SELECT file_path, author_user_id, COUNT(*) AS change_count
+			FROM gitlab_commit_files
+			WHERE team_id = $1 AND change_type != 'removed'
+			GROUP BY file_path, author_user_id
+		 )
+		 SELECT DISTINCT ON (c.file_path) c.file_path, c.author_user_id, COALESCE(u.name, ''), c.change_count
+		 FROM counts c
+		 LEFT JOIN users u ON u.id = c.author_user_id
+		 ORDER BY c.file_path, c.change_count DESC`,
+		teamID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("gitlab: list file ownership: %w", err)
+	}
+	defer rows.Close()
+
+	out := []FileOwnershipRow{}
+	for rows.Next() {
+		var row FileOwnershipRow
+		if err := rows.Scan(&row.FilePath, &row.AuthorUserID, &row.AuthorName, &row.ChangeCount); err != nil {
+			return nil, fmt.Errorf("gitlab: scan file ownership row: %w", err)
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
 }
 
 // ─── gitlab_mr_reviews ──────────────────────────────────────────────────────
@@ -174,12 +265,12 @@ func (r *Repo) GetMergeRequestByTeamAndIID(ctx context.Context, teamID string, m
 // Reviewswith the same note_id replace the existing one in the array.
 func (r *Repo) UpsertMRReview(ctx context.Context, rev GitlabMRReview) error {
 	reviewJSON, err := json.Marshal(map[string]interface{}{
-		"note_id":                   rev.NoteID,
-		"reviewer_gitlab_user_id":   rev.ReviewerGitlabUserID,
-		"reviewer_user_id":          rev.ReviewerUserID,
-		"kind":                      rev.Kind,
-		"body":                      rev.Body,
-		"file_path":                 rev.FilePath,
+		"note_id":                 rev.NoteID,
+		"reviewer_gitlab_user_id": rev.ReviewerGitlabUserID,
+		"reviewer_user_id":        rev.ReviewerUserID,
+		"kind":                    rev.Kind,
+		"body":                    rev.Body,
+		"file_path":               rev.FilePath,
 	})
 	if err != nil {
 		return fmt.Errorf("gitlab: marshal mr review: %w", err)
@@ -268,18 +359,18 @@ func (r *Repo) UpsertPipeline(ctx context.Context, p GitlabPipeline) error {
 // checkpoint_id back to NULL due to the COALESCE logic in the payload construction.
 func (r *Repo) UpsertIssue(ctx context.Context, iss GitlabIssue) error {
 	payloadJSON, err := json.Marshal(map[string]interface{}{
-		"issue_iid":                   iss.IssueIID,
-		"issue_id":                    iss.IssueID,
-		"title":                       iss.Title,
-		"state":                       iss.State,
-		"milestone_id":                iss.MilestoneID,
-		"checkpoint_id":               iss.CheckpointID,
-		"assignee_gitlab_user_id":     iss.AssigneeGitlabUserID,
-		"assignee_user_id":            iss.AssigneeUserID,
-		"weight":                      iss.Weight,
-		"labels":                      iss.Labels,
-		"gl_created_at":               iss.GLCreatedAt,
-		"gl_closed_at":                iss.GLClosedAt,
+		"issue_iid":               iss.IssueIID,
+		"issue_id":                iss.IssueID,
+		"title":                   iss.Title,
+		"state":                   iss.State,
+		"milestone_id":            iss.MilestoneID,
+		"checkpoint_id":           iss.CheckpointID,
+		"assignee_gitlab_user_id": iss.AssigneeGitlabUserID,
+		"assignee_user_id":        iss.AssigneeUserID,
+		"weight":                  iss.Weight,
+		"labels":                  iss.Labels,
+		"gl_created_at":           iss.GLCreatedAt,
+		"gl_closed_at":            iss.GLClosedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("gitlab: marshal issue: %w", err)

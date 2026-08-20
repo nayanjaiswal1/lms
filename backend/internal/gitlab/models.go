@@ -234,18 +234,18 @@ const (
 // protection policy every team under it shares, and its publish lifecycle
 // (draft -> active triggers real GitLab provisioning; see service_provision.go).
 type ProjectAssignment struct {
-	ID                   string     `json:"id"`
-	OrgID                string     `json:"org_id"`
-	BatchID              string     `json:"batch_id"`
-	CourseID             *string    `json:"course_id,omitempty"`
-	LabID                *string    `json:"lab_id,omitempty"`
-	Title                string     `json:"title"`
-	Slug                 string     `json:"slug"`
-	Description          *string    `json:"description,omitempty"`
-	TemplateProjectID    *int64     `json:"template_project_id,omitempty"`
-	TemplateProjectPath  *string    `json:"template_project_path,omitempty"`
-	GitlabGroupID        *int64     `json:"gitlab_group_id,omitempty"`
-	GitlabGroupPath      *string    `json:"gitlab_group_path,omitempty"`
+	ID                  string  `json:"id"`
+	OrgID               string  `json:"org_id"`
+	BatchID             string  `json:"batch_id"`
+	CourseID            *string `json:"course_id,omitempty"`
+	LabID               *string `json:"lab_id,omitempty"`
+	Title               string  `json:"title"`
+	Slug                string  `json:"slug"`
+	Description         *string `json:"description,omitempty"`
+	TemplateProjectID   *int64  `json:"template_project_id,omitempty"`
+	TemplateProjectPath *string `json:"template_project_path,omitempty"`
+	GitlabGroupID       *int64  `json:"gitlab_group_id,omitempty"`
+	GitlabGroupPath     *string `json:"gitlab_group_path,omitempty"`
 	// InstallationID pins this assignment (and every team provisioned under
 	// it) to one specific pool installation. Nil means "follow the org's
 	// current default installation" — see Service.resolveInstallation.
@@ -404,6 +404,11 @@ type GitlabMergeRequest struct {
 	MergedAt           *time.Time
 	ClosedAt           *time.Time
 	UpdatedAt          time.Time
+	// AIReviewedAt is set once by Service.ReviewMergeRequest (Phase C of
+	// docs/project-marketplace.md) — the "AI called once" cache guard, never
+	// reset by a later webhook redelivery (see Repo.UpsertMergeRequest's own
+	// COALESCE treatment of every other sticky field).
+	AIReviewedAt *time.Time
 }
 
 // GitlabMRReview mirrors one gitlab_mr_reviews row — a single note on an MR,
@@ -663,6 +668,39 @@ const (
 	CIStatusCanceled = "canceled"
 )
 
+// Checkpoint kinds (migration 022, Phase B of docs/project-marketplace.md) —
+// the SDLC gate a checkpoint represents. "milestone" is the original,
+// default kind (every checkpoint created before this migration reads as
+// "milestone"); the other four give the requirement-doc/design/architecture/
+// MR-review stages their own label without needing separate submission
+// machinery — they still submit via a merge request like any other
+// checkpoint (or, for design_review/architecture_review, via a
+// ProjectDesignProposal instead — see CheckpointKindNeedsProposal).
+const (
+	CheckpointKindRequirementDoc     = "requirement_doc"
+	CheckpointKindDesignReview       = "design_review"
+	CheckpointKindArchitectureReview = "architecture_review"
+	CheckpointKindMRReview           = "mr_review"
+	CheckpointKindMilestone          = "milestone"
+)
+
+// CheckpointKindNeedsProposal reports whether kind is voted on via
+// ProjectDesignProposal/ProjectDesignVote rather than (or alongside) an MR.
+func CheckpointKindNeedsProposal(kind string) bool {
+	return kind == CheckpointKindDesignReview || kind == CheckpointKindArchitectureReview
+}
+
+// ValidCheckpointKinds is every value migration 022's CHECK constraint
+// accepts — handlers validate against this before it ever reaches the DB, so
+// a bad kind fails as a field error, not a constraint-violation 500.
+var ValidCheckpointKinds = map[string]bool{
+	CheckpointKindRequirementDoc:     true,
+	CheckpointKindDesignReview:       true,
+	CheckpointKindArchitectureReview: true,
+	CheckpointKindMRReview:           true,
+	CheckpointKindMilestone:          true,
+}
+
 // ProjectCheckpoint is one instructor-defined milestone within an assignment
 // (e.g. "Checkpoint 1: API skeleton"), ordered by Position — each team
 // submits against it via a merge request (see ProjectTeamCheckpoint).
@@ -680,6 +718,7 @@ type ProjectCheckpoint struct {
 	Weight            int        `json:"weight"`
 	RequiresMR        bool       `json:"requires_mr"`
 	RequiresCIPass    bool       `json:"requires_ci_pass"`
+	Kind              string     `json:"kind"`
 	GitlabMilestoneID *int64     `json:"gitlab_milestone_id,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
@@ -693,6 +732,105 @@ type CheckpointPatch struct {
 	Weight         *int       `json:"weight"`
 	RequiresMR     *bool      `json:"requires_mr"`
 	RequiresCIPass *bool      `json:"requires_ci_pass"`
+	Kind           *string    `json:"kind"`
+}
+
+// ─── Batch 7: SDLC workflow — design proposals/voting, task board ─────────
+// Phase B of docs/project-marketplace.md.
+
+// ProjectDesignProposal is one team member's proposal against a
+// design_review/architecture_review checkpoint — team members vote
+// (ProjectDesignVote) and a lead/staff marks the winner IsAccepted (at most
+// one accepted proposal per team per checkpoint — migration 022's partial
+// unique index enforces this as a real DB constraint, not app-level logic).
+type ProjectDesignProposal struct {
+	ID           string    `json:"id"`
+	OrgID        string    `json:"org_id"`
+	CheckpointID string    `json:"checkpoint_id"`
+	TeamID       string    `json:"team_id"`
+	SubmittedBy  string    `json:"submitted_by"`
+	Title        string    `json:"title"`
+	Description  *string   `json:"description,omitempty"`
+	Link         *string   `json:"link,omitempty"`
+	IsAccepted   bool      `json:"is_accepted"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// DesignProposalView is one proposal plus its vote count and whether the
+// requesting caller has already voted — GET .../proposals' response row.
+type DesignProposalView struct {
+	ProjectDesignProposal
+	VoteCount int  `json:"vote_count"`
+	MyVote    bool `json:"my_vote"`
+}
+
+// Task statuses.
+const (
+	TaskStatusTodo       = "todo"
+	TaskStatusInProgress = "in_progress"
+	TaskStatusReview     = "review"
+	TaskStatusDone       = "done"
+)
+
+// ProjectTask is one ungraded, day-to-day work item on a team's board —
+// distinct from ProjectCheckpoint, which stays the graded, instructor-defined
+// gate. CheckpointID is optional context (which gate this task supports),
+// never a grading input.
+type ProjectTask struct {
+	ID             string     `json:"id"`
+	OrgID          string     `json:"org_id"`
+	TeamID         string     `json:"team_id"`
+	CheckpointID   *string    `json:"checkpoint_id,omitempty"`
+	Title          string     `json:"title"`
+	Description    *string    `json:"description,omitempty"`
+	AssigneeUserID *string    `json:"assignee_user_id,omitempty"`
+	Status         string     `json:"status"`
+	DueAt          *time.Time `json:"due_at,omitempty"`
+	CreatedBy      string     `json:"created_by"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	// AssigneeName is populated only by Repo.ListTasksForTeam's joined
+	// query — display-only, zero-valued on rows from CreateTask/GetTask/
+	// UpdateTask/SetTaskAssignee, same convention as ProjectTeamMember's
+	// Name/Email.
+	AssigneeName string `json:"assignee_name,omitempty"`
+}
+
+// TaskPatch is PATCH .../tasks/{taskID}'s editable field set — COALESCE-based
+// like every other *Patch in this package, so a nil field leaves the current
+// value untouched. Reassigning (including explicitly unassigning) goes
+// through the dedicated PUT .../tasks/{taskID}/assignee instead — the same
+// "COALESCE can't distinguish omitted from explicit-null, so give it its own
+// endpoint" split ProjectAssignment.InstallationID already uses.
+type TaskPatch struct {
+	Title       *string    `json:"title"`
+	Description *string    `json:"description"`
+	Status      *string    `json:"status"`
+	DueAt       *time.Time `json:"due_at"`
+}
+
+// ─── Batch 8: AI MR review + feature ownership ─────────────────────────────
+// Phase C of docs/project-marketplace.md. AI review posts a comment
+// (Service.ReviewMergeRequest, triggered off the MR-opened webhook) — never
+// an auto-commit/auto-merge. Ownership is a pure aggregation over
+// gitlab_commit_files (migration 023), no AI call at all.
+
+// FileOwnershipRow is one file's top contributor — the author with the most
+// added/modified changes to that path on this team, ties broken arbitrarily.
+// AuthorUserID is nil for changes attributed to a GitLab identity MindForge
+// never matched to a real account (same "commit before the student
+// connected GitLab" gap ContributionRow already has).
+type FileOwnershipRow struct {
+	FilePath     string  `json:"file_path"`
+	AuthorUserID *string `json:"author_user_id,omitempty"`
+	AuthorName   string  `json:"author_name,omitempty"`
+	ChangeCount  int     `json:"change_count"`
+}
+
+// TeamOwnershipView is GET .../ownership's response body.
+type TeamOwnershipView struct {
+	TeamID string             `json:"team_id"`
+	Files  []FileOwnershipRow `json:"files"`
 }
 
 // ProjectTeamCheckpoint is one team's submission state against one
@@ -761,6 +899,7 @@ type MyCheckpointRow struct {
 	Weight         int        `json:"weight"`
 	RequiresMR     bool       `json:"requires_mr"`
 	RequiresCIPass bool       `json:"requires_ci_pass"`
+	Kind           string     `json:"kind"`
 	MRWebURL       *string    `json:"mr_web_url,omitempty"`
 	MRState        *string    `json:"mr_state,omitempty"`
 	ApprovalsCount *int       `json:"approvals_count,omitempty"`

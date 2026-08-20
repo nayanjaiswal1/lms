@@ -89,7 +89,7 @@ func TestTryMergeCheckpoint_RejectsInsufficientApprovals(t *testing.T) {
 	vault := testVault(t)
 	registry := jobs.NewRegistry()
 	notifSvc := notifications.NewService(pool, registry)
-	svc := NewService(pool, &config.Config{BackendURL: "http://localhost:8080"}, vault, registry, notifSvc)
+	svc := NewService(pool, &config.Config{BackendURL: "http://localhost:8080"}, vault, registry, notifSvc, nil)
 	ctx := context.Background()
 
 	orgID, teamID, checkpointID := seedCheckpointTest(t, pool, repo, 2, 1) // 1 of 2 required
@@ -126,7 +126,7 @@ func TestTryMergeCheckpoint_EnoughApprovalsProceedsPastTheGate(t *testing.T) {
 	vault := testVault(t)
 	registry := jobs.NewRegistry()
 	notifSvc := notifications.NewService(pool, registry)
-	svc := NewService(pool, &config.Config{BackendURL: "http://localhost:8080"}, vault, registry, notifSvc)
+	svc := NewService(pool, &config.Config{BackendURL: "http://localhost:8080"}, vault, registry, notifSvc, nil)
 	ctx := context.Background()
 
 	orgID, teamID, checkpointID := seedCheckpointTest(t, pool, repo, 2, 2) // 2 of 2 required

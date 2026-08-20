@@ -3,6 +3,7 @@ package gitlab
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/middleware"
@@ -11,17 +12,19 @@ import (
 )
 
 // New builds the fully-wired gitlab Handler from the shared pool, config,
-// secrets vault, jobs registry, and notifications service. vault must be the
-// same instance shared with the rest of the app (see internal/api/router.go)
-// so tokens encrypted here decrypt correctly wherever else they're read (e.g.
-// the token-refresh job in cmd/server/main.go, built as its own standalone
-// gitlab.Service the same way assessment.New's job-only instance is built
-// there). jobsRegistry is used by Batch 2's provisioning/roster-sync flows to
-// enqueue gitlab.provision_team/gitlab.sync_members jobs. notifSvc is
-// Batch 5's generic notifications domain (internal/notifications), used by
+// secrets vault, jobs registry, notifications service, and AI provider.
+// vault must be the same instance shared with the rest of the app (see
+// internal/api/router.go) so tokens encrypted here decrypt correctly
+// wherever else they're read (e.g. the token-refresh job in
+// cmd/server/main.go, built as its own standalone gitlab.Service the same
+// way assessment.New's job-only instance is built there). jobsRegistry is
+// used by Batch 2's provisioning/roster-sync flows to enqueue
+// gitlab.provision_team/gitlab.sync_members jobs. notifSvc is Batch 5's
+// generic notifications domain (internal/notifications), used by
 // service_checkpoint.go/service_webhook.go's peer-review and CI-alert flows.
-func New(pool *pgxpool.Pool, cfg *config.Config, vault *secrets.Vault, jobsRegistry *jobs.Registry, notifSvc *notifications.Service) *Handler {
-	service := NewService(pool, cfg, vault, jobsRegistry, notifSvc)
+// aiProvider is Batch 8's AI MR reviewer dependency.
+func New(pool *pgxpool.Pool, cfg *config.Config, vault *secrets.Vault, jobsRegistry *jobs.Registry, notifSvc *notifications.Service, aiProvider ai.LLMProvider) *Handler {
+	service := NewService(pool, cfg, vault, jobsRegistry, notifSvc, aiProvider)
 	return NewHandler(service)
 }
 
@@ -105,6 +108,14 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Patch("/api/projects/checkpoints/{checkpointID}/submissions/{teamID}/grade", h.GradeSubmission)
 		r.Post("/api/projects/checkpoints/{checkpointID}/submissions/{teamID}/merge", h.MergeSubmission)
 		r.Post("/api/projects/checkpoints/{checkpointID}/submissions/{teamID}/comment", h.CommentOnSubmission)
+
+		// Batch 7: settling a design/architecture review checkpoint — staff
+		// makes the final call, same split as grade/merge above. The
+		// cross-team proposal listing lives here too (not with the
+		// team-scoped one below) since staff are never project_team_members
+		// themselves.
+		r.Get("/api/projects/checkpoints/{checkpointID}/proposals", h.ListAllDesignProposals)
+		r.Post("/api/projects/proposals/{proposalID}/accept", h.AcceptDesignProposal)
 	})
 
 	// Batch 4: dashboards — staff+mentor, per kind-herding-cookie.md §2's
@@ -118,6 +129,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 		r.Get("/api/projects/assignments/{assignmentID}/dashboard", h.GetAssignmentDashboard)
 		r.Get("/api/projects/teams/{teamID}/contributions", h.GetTeamContributions)
+		r.Get("/api/projects/teams/{teamID}/ownership", h.GetTeamOwnership)
 		r.Get("/api/projects/assignments/{assignmentID}/burndown", h.GetAssignmentBurndown)
 		r.Get("/api/projects/assignments/{assignmentID}/leaderboard", h.GetAssignmentLeaderboard)
 	})
@@ -131,7 +143,24 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/my/projects/{teamID}", h.GetMyProject)
 	r.Get("/api/my/projects/{teamID}/detail", h.GetMyProjectDetail)
 	r.Get("/api/my/projects/{teamID}/contributions", h.GetMyProjectContributions)
+	r.Get("/api/my/projects/{teamID}/ownership", h.GetMyProjectOwnership)
 	r.Get("/api/my/projects/{teamID}/checkpoints", h.GetMyProjectCheckpoints)
+
+	// Batch 7: design proposals/voting + the day-to-day task board — any
+	// authenticated org member, row-scoped to their own team membership
+	// inside the service (Repo.GetMyProject), same placement as the
+	// student-facing routes above.
+	r.Post("/api/projects/teams/{teamID}/checkpoints/{checkpointID}/proposals", h.SubmitDesignProposal)
+	r.Get("/api/projects/teams/{teamID}/checkpoints/{checkpointID}/proposals", h.ListDesignProposals)
+	r.Post("/api/projects/proposals/{proposalID}/vote", h.VoteForProposal)
+	r.Delete("/api/projects/proposals/{proposalID}/vote", h.RemoveVote)
+	r.Delete("/api/projects/proposals/{proposalID}", h.DeleteDesignProposal)
+
+	r.Post("/api/projects/teams/{teamID}/tasks", h.CreateTask)
+	r.Get("/api/projects/teams/{teamID}/tasks", h.ListTasksForTeam)
+	r.Patch("/api/projects/tasks/{taskID}", h.UpdateTask)
+	r.Put("/api/projects/tasks/{taskID}/assignee", h.SetTaskAssignee)
+	r.Delete("/api/projects/tasks/{taskID}", h.DeleteTask)
 }
 
 // RegisterPublicRoutes mounts the OAuth callback — authenticated via the

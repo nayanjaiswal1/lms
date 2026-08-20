@@ -175,6 +175,13 @@ type pushEventPayload struct {
 			Name  string `json:"name"`
 			Email string `json:"email"`
 		} `json:"author"`
+		// Added/Modified/Removed are GitLab's own per-commit changed-file
+		// lists — Batch 8's feature-ownership aggregation reads these
+		// straight off the push payload (see UpsertCommitFiles), no extra
+		// GitLab API call needed.
+		Added    []string `json:"added"`
+		Modified []string `json:"modified"`
+		Removed  []string `json:"removed"`
 	} `json:"commits"`
 }
 
@@ -213,6 +220,11 @@ func (s *Service) ingestPushEvent(ctx context.Context, team *ProjectTeam, raw []
 			CommittedAt: committedAt,
 		}); err != nil {
 			return fmt.Errorf("upsert commit %s: %w", c.ID, err)
+		}
+		if len(c.Added) > 0 || len(c.Modified) > 0 || len(c.Removed) > 0 {
+			if err := s.repo.UpsertCommitFiles(ctx, team.OrgID, team.ID, c.ID, p.UserID, userID, committedAt, c.Added, c.Modified, c.Removed); err != nil {
+				slog.ErrorContext(ctx, "gitlab: upsert commit files failed", "team_id", team.ID, "sha", c.ID, "error", err)
+			}
 		}
 		if committedAt != nil {
 			if err := s.repo.FlagLateCommits(ctx, team.ID, *committedAt); err != nil {
@@ -366,6 +378,16 @@ func (s *Service) ingestMergeRequestEvent(ctx context.Context, team *ProjectTeam
 
 	if err := s.bindMRToCheckpoint(ctx, team, upserted, oa.State); err != nil {
 		return fmt.Errorf("bind mr to checkpoint: %w", err)
+	}
+
+	// Phase C: one AI code-quality comment per MR, triggered off the first
+	// "opened" webhook — AIReviewedAt is the cache guard (see
+	// service_ai_review.go), checked again inside the job itself since a
+	// redelivered webhook can enqueue before the first run has finished.
+	if oa.State == MRStateOpened && upserted.AIReviewedAt == nil {
+		if err := s.enqueueAIReview(ctx, team.OrgID, upserted.ID); err != nil {
+			slog.ErrorContext(ctx, "gitlab: enqueue ai_review_mr failed", "team_id", team.ID, "mr_iid", oa.IID, "error", err)
+		}
 	}
 	return nil
 }

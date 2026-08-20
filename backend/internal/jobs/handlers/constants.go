@@ -24,7 +24,13 @@ const (
 	HandlerGitlabHandoff          = "gitlab.handoff"
 	HandlerProjectHandoff         = "project.handoff"
 
+	// Batch 8: AI MR review (docs/project-marketplace.md Phase C).
+	HandlerGitlabAIReviewMR = "gitlab.ai_review_mr"
+
 	// Nightly AI revision digest (internal/digest).
 	HandlerDigestNightly = "digest.nightly"
 	HandlerDigestUser    = "digest.user"
+
+	// Project marketplace (internal/projectmarket) — Phase A, Slice 1 finish.
+	HandlerProjectmarketScoreRequirement = "projectmarket.score_requirement"
 )

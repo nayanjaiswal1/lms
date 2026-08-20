@@ -5,14 +5,20 @@ import { apiAction } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type {
+  ApplicationStatus,
   HandoffMode,
+  ProjectApplication,
   ProjectAssignment,
   ProjectCheckpoint,
+  ProjectDesignProposal,
   ProjectHandoff,
   ProjectOriginalityReport,
+  ProjectRequirement,
+  ProjectTask,
   ProjectTeam,
   ProjectTeamCheckpoint,
   ProjectTeamMember,
+  TaskStatus,
 } from "@/lib/projects/types";
 
 // ─── Assignments ─────────────────────────────────────────────────────────────
@@ -157,6 +163,7 @@ export interface CheckpointInput {
   weight: number;
   requires_mr: boolean;
   requires_ci_pass: boolean;
+  kind?: string;
 }
 
 export async function createCheckpointAction(
@@ -269,5 +276,192 @@ export async function requestHandoffAction(
 ): Promise<ActionResult<ProjectHandoff>> {
   const result = await apiAction<ProjectHandoff>("POST", `/api/projects/teams/${teamId}/handoff`, input);
   if (result.ok) revalidatePath(ROUTES.projectAssignment(assignmentId));
+  return result;
+}
+
+// ─── Marketplace (Phase A, Slice 1) ─────────────────────────────────────────
+
+export interface RequirementInput {
+  title: string;
+  brief: string;
+  required_skills: string[];
+  team_size_min: number;
+  team_size_max: number;
+  application_deadline: string;
+}
+
+export async function createRequirementAction(input: RequirementInput): Promise<ActionResult<{ id: string }>> {
+  const result = await apiAction<ProjectRequirement>("POST", "/api/project-marketplace/requirements", input);
+  if (!result.ok || !result.data) return { error: result.error };
+  revalidatePath(ROUTES.PROJECTS_REQUIREMENTS);
+  return { ok: true, data: { id: result.data.id } };
+}
+
+export async function updateRequirementAction(
+  requirementId: string,
+  input: Partial<RequirementInput>,
+): Promise<ActionResult<ProjectRequirement>> {
+  const result = await apiAction<ProjectRequirement>("PATCH", `/api/project-marketplace/requirements/${requirementId}`, input);
+  if (result.ok) revalidatePath(ROUTES.projectRequirement(requirementId));
+  return result;
+}
+
+export async function publishRequirementAction(requirementId: string): Promise<ActionResult<ProjectRequirement>> {
+  const result = await apiAction<ProjectRequirement>("POST", `/api/project-marketplace/requirements/${requirementId}/publish`);
+  if (result.ok) {
+    revalidatePath(ROUTES.projectRequirement(requirementId));
+    revalidatePath(ROUTES.PROJECTS_BOARD);
+  }
+  return result;
+}
+
+export async function closeRequirementAction(requirementId: string): Promise<ActionResult<ProjectRequirement>> {
+  const result = await apiAction<ProjectRequirement>("POST", `/api/project-marketplace/requirements/${requirementId}/close`);
+  if (result.ok) {
+    revalidatePath(ROUTES.projectRequirement(requirementId));
+    revalidatePath(ROUTES.PROJECTS_BOARD);
+  }
+  return result;
+}
+
+export async function reviewApplicationAction(
+  applicationId: string,
+  requirementId: string,
+  status: ApplicationStatus,
+): Promise<ActionResult<ProjectApplication>> {
+  const result = await apiAction<ProjectApplication>("PATCH", `/api/project-marketplace/applications/${applicationId}`, { status });
+  if (result.ok) revalidatePath(ROUTES.projectRequirement(requirementId));
+  return result;
+}
+
+export async function applyToRequirementAction(
+  requirementId: string,
+  motivation: string,
+  resumeText: string,
+): Promise<ActionResult<ProjectApplication>> {
+  const result = await apiAction<ProjectApplication>("POST", `/api/project-marketplace/board/${requirementId}/apply`, {
+    motivation,
+    resume_text: resumeText,
+  });
+  if (result.ok) revalidatePath(ROUTES.boardRequirement(requirementId));
+  return result;
+}
+
+export async function withdrawApplicationAction(applicationId: string, requirementId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/project-marketplace/applications/${applicationId}`);
+  if (result.ok) revalidatePath(ROUTES.boardRequirement(requirementId));
+  return result;
+}
+
+// ─── Batch 7 (Phase B): task board ──────────────────────────────────────────
+
+export interface TaskInput {
+  title: string;
+  description?: string | null;
+  checkpoint_id?: string | null;
+  due_at?: string | null;
+}
+
+export async function createTaskAction(teamId: string, input: TaskInput): Promise<ActionResult<ProjectTask>> {
+  const result = await apiAction<ProjectTask>("POST", `/api/projects/teams/${teamId}/tasks`, input);
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+export async function updateTaskStatusAction(taskId: string, teamId: string, status: TaskStatus): Promise<ActionResult<ProjectTask>> {
+  const result = await apiAction<ProjectTask>("PATCH", `/api/projects/tasks/${taskId}`, { status });
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+export async function setTaskAssigneeAction(
+  taskId: string,
+  teamId: string,
+  assigneeUserId: string | null,
+): Promise<ActionResult<ProjectTask>> {
+  const result = await apiAction<ProjectTask>("PUT", `/api/projects/tasks/${taskId}/assignee`, { assignee_user_id: assigneeUserId });
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+export async function deleteTaskAction(taskId: string, teamId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/projects/tasks/${taskId}`);
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+// ─── Batch 7 (Phase B): design proposals & voting ──────────────────────────
+
+export interface ProposalInput {
+  title: string;
+  description?: string | null;
+  link?: string | null;
+}
+
+export async function submitProposalAction(
+  teamId: string,
+  checkpointId: string,
+  input: ProposalInput,
+): Promise<ActionResult<ProjectDesignProposal>> {
+  const result = await apiAction<ProjectDesignProposal>(
+    "POST",
+    `/api/projects/teams/${teamId}/checkpoints/${checkpointId}/proposals`,
+    input,
+  );
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+export async function voteForProposalAction(proposalId: string, teamId: string): Promise<ActionResult> {
+  const result = await apiAction("POST", `/api/projects/proposals/${proposalId}/vote`);
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+export async function removeVoteAction(proposalId: string, teamId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/projects/proposals/${proposalId}/vote`);
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+export async function deleteProposalAction(proposalId: string, teamId: string): Promise<ActionResult> {
+  const result = await apiAction("DELETE", `/api/projects/proposals/${proposalId}`);
+  if (result.ok) revalidatePath(ROUTES.myProject(teamId));
+  return result;
+}
+
+// Staff-only — settles a design/architecture review checkpoint on one
+// team's winning proposal.
+export async function acceptProposalAction(proposalId: string, assignmentId: string): Promise<ActionResult<ProjectDesignProposal>> {
+  const result = await apiAction<ProjectDesignProposal>("POST", `/api/projects/proposals/${proposalId}/accept`);
+  if (result.ok) revalidatePath(ROUTES.projectAssignment(assignmentId));
+  return result;
+}
+
+// Enqueues the AI scoring job — GET .../applications (revalidated below)
+// won't show new scores until the background job finishes, same
+// fire-and-confirm shape as runOriginalityScanAction above.
+export async function requestScoringAction(requirementId: string): Promise<ActionResult> {
+  const result = await apiAction("POST", `/api/project-marketplace/requirements/${requirementId}/score`);
+  if (result.ok) revalidatePath(ROUTES.projectRequirement(requirementId));
+  return result;
+}
+
+export interface CreateTeamFromSelectionInput {
+  assignment_id: string;
+  team_name: string;
+  team_slug: string;
+}
+
+export async function createTeamFromSelectionAction(
+  requirementId: string,
+  input: CreateTeamFromSelectionInput,
+): Promise<ActionResult<{ team: ProjectTeam; added_user_ids: string[] }>> {
+  const result = await apiAction<{ team: ProjectTeam; added_user_ids: string[] }>(
+    "POST",
+    `/api/project-marketplace/requirements/${requirementId}/create-team`,
+    input,
+  );
+  if (result.ok) revalidatePath(ROUTES.projectRequirement(requirementId));
   return result;
 }

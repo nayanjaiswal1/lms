@@ -233,6 +233,10 @@ export interface MyProjectDetailView extends ProjectTeam {
 export type CheckpointStatus = "open" | "submitted" | "approved" | "merged" | "graded";
 export type CIStatus = "none" | "pending" | "running" | "success" | "failed" | "canceled";
 
+// Batch 7 (Phase B) — the SDLC gate a checkpoint represents. "milestone" is
+// the original default kind.
+export type CheckpointKind = "requirement_doc" | "design_review" | "architecture_review" | "mr_review" | "milestone";
+
 export interface ProjectCheckpoint {
   id: string;
   org_id: string;
@@ -244,6 +248,7 @@ export interface ProjectCheckpoint {
   weight: number;
   requires_mr: boolean;
   requires_ci_pass: boolean;
+  kind: CheckpointKind;
   gitlab_milestone_id: number | null;
   created_at: string;
   updated_at: string;
@@ -302,6 +307,7 @@ export interface MyCheckpointRow {
   weight: number;
   requires_mr: boolean;
   requires_ci_pass: boolean;
+  kind: CheckpointKind;
   mr_web_url: string | null;
   mr_state: MergeRequestState | null;
   approvals_count: number | null;
@@ -357,6 +363,61 @@ export interface OriginalityReportView extends ProjectOriginalityReport {
   matches: ProjectOriginalityMatch[];
 }
 
+// ─── Marketplace (Phase A, Slice 1 of docs/project-marketplace.md) ─────────
+// Mirrors backend/internal/projectmarket/models.go exactly. Deliberately not
+// linked to ProjectAssignment/ProjectTeam above — see that package's own doc
+// comment for why turning a selection into a real team stays a manual staff
+// action through the existing assignment/team flow.
+
+export type RequirementStatus = "draft" | "open" | "closed" | "archived";
+export type ApplicationStatus = "submitted" | "shortlisted" | "selected" | "rejected";
+
+export interface ProjectRequirement {
+  id: string;
+  org_id: string;
+  title: string;
+  brief: string;
+  required_skills: string[];
+  team_size_min: number;
+  team_size_max: number;
+  application_deadline: string;
+  status: RequirementStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// GET /board's response row — a requirement plus how many students have
+// applied and, when the caller has applied themselves, their own status.
+export interface RequirementBoardRow extends ProjectRequirement {
+  application_count: number;
+  // omitempty on the backend — absent (not null) when the caller hasn't
+  // applied to this requirement.
+  my_status?: ApplicationStatus;
+}
+
+export interface ProjectApplication {
+  id: string;
+  org_id: string;
+  requirement_id: string;
+  user_id: string;
+  motivation?: string;
+  resume_text?: string;
+  status: ApplicationStatus;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  applied_at: string;
+  // Set once by staff-triggered AI scoring (POST .../score) — never both
+  // present without ai_scored_at. Staff still make the actual shortlist/
+  // select/reject call; this is ranking input, not a decision.
+  ai_score?: number;
+  ai_rationale?: string;
+  ai_scored_at?: string;
+  // Name/email are populated only by the staff review list's joined query.
+  name?: string;
+  email?: string;
+}
+
 export type HandoffMode = "fork" | "transfer";
 export type HandoffStatus = "pending" | "running" | "complete" | "failed";
 
@@ -374,4 +435,62 @@ export interface ProjectHandoff {
   error: string | null;
   requested_at: string;
   completed_at: string | null;
+}
+
+// ─── Batch 7 (Phase B): design proposals/voting, task board ───────────────
+// Mirrors backend/internal/gitlab/models.go's own "Batch 7" section.
+
+export interface ProjectDesignProposal {
+  id: string;
+  org_id: string;
+  checkpoint_id: string;
+  team_id: string;
+  submitted_by: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  is_accepted: boolean;
+  created_at: string;
+}
+
+// GET .../proposals' response row — a proposal plus its vote count and
+// whether the caller has voted.
+export interface DesignProposalView extends ProjectDesignProposal {
+  vote_count: number;
+  my_vote: boolean;
+}
+
+// ─── Batch 8 (Phase C): AI MR review + feature ownership ───────────────────
+// Mirrors backend/internal/gitlab/models.go's own "Batch 8" section.
+
+export interface FileOwnershipRow {
+  file_path: string;
+  author_user_id?: string;
+  author_name?: string;
+  change_count: number;
+}
+
+export interface TeamOwnershipView {
+  team_id: string;
+  files: FileOwnershipRow[];
+}
+
+export type TaskStatus = "todo" | "in_progress" | "review" | "done";
+
+export interface ProjectTask {
+  id: string;
+  org_id: string;
+  team_id: string;
+  checkpoint_id: string | null;
+  title: string;
+  description: string | null;
+  assignee_user_id: string | null;
+  status: TaskStatus;
+  due_at: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  // Populated only by listTasksForTeam's joined query (display-only, no
+  // student-facing team roster endpoint exists to look this up otherwise).
+  assignee_name?: string;
 }

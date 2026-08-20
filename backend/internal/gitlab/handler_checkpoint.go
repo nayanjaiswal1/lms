@@ -19,6 +19,9 @@ type createCheckpointRequest struct {
 	Weight         *int       `json:"weight"`
 	RequiresMR     *bool      `json:"requires_mr"`
 	RequiresCIPass *bool      `json:"requires_ci_pass"`
+	// Kind defaults to CheckpointKindMilestone (matches migration 022's own
+	// column default) when omitted or empty.
+	Kind string `json:"kind"`
 }
 
 // CreateCheckpoint handles POST /api/projects/assignments/{assignmentID}/checkpoints.
@@ -49,10 +52,18 @@ func (h *Handler) CreateCheckpoint(w http.ResponseWriter, r *http.Request) {
 	if req.RequiresCIPass != nil {
 		requiresCIPass = *req.RequiresCIPass
 	}
+	kind := CheckpointKindMilestone
+	if req.Kind != "" {
+		if !ValidCheckpointKinds[req.Kind] {
+			httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"kind": "Not a recognized checkpoint kind."})
+			return
+		}
+		kind = req.Kind
+	}
 
 	cp, err := h.service.CreateCheckpoint(r.Context(), claims.OrgID, assignmentID, ProjectCheckpoint{
 		Title: req.Title, Description: req.Description, Position: req.Position,
-		DueAt: req.DueAt, Weight: weight, RequiresMR: requiresMR, RequiresCIPass: requiresCIPass,
+		DueAt: req.DueAt, Weight: weight, RequiresMR: requiresMR, RequiresCIPass: requiresCIPass, Kind: kind,
 	})
 	if err != nil {
 		writeDomainError(w, err)
@@ -83,6 +94,10 @@ func (h *Handler) UpdateCheckpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	var patch CheckpointPatch
 	if !decodeJSON(w, r, &patch) {
+		return
+	}
+	if patch.Kind != nil && !ValidCheckpointKinds[*patch.Kind] {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"kind": "Not a recognized checkpoint kind."})
 		return
 	}
 	cp, err := h.service.UpdateCheckpoint(r.Context(), claims.OrgID, chi.URLParam(r, "checkpointID"), patch)

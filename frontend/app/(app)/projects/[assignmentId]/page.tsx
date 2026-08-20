@@ -12,6 +12,7 @@ import {
   getOriginalityReports,
   getProjectAssignment,
   getProjectTeams,
+  listAllDesignProposals,
 } from "@/lib/projects/server";
 import { getBatch, getBatchMembers } from "@/lib/server/batches";
 import { PublishAssignmentButton } from "@/components/projects/publish-assignment-button";
@@ -24,6 +25,7 @@ import { CheckpointList } from "@/components/projects/checkpoint-list";
 import { OriginalityReport } from "@/components/projects/originality-report";
 import { AssignmentLeaderboard } from "@/components/projects/assignment-leaderboard";
 import { AssignmentBurndown } from "@/components/projects/assignment-burndown";
+import { AssignmentTabs } from "@/components/projects/assignment-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 
@@ -74,6 +76,13 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
   const activityByTeam = Object.fromEntries(dashboard.teams.map((t) => [t.team_id, t.activity]));
   const submissionsByCheckpoint = Object.fromEntries(checkpoints.map((cp) => [cp.id, cp.submissions]));
 
+  // design_review/architecture_review checkpoints are settled by proposal
+  // voting, not an MR submission — fetch every such checkpoint's proposals
+  // up front so CheckpointList never needs client-side fetching.
+  const proposalCheckpoints = checkpoints.filter((cp) => cp.kind === "design_review" || cp.kind === "architecture_review");
+  const proposalLists = await Promise.all(proposalCheckpoints.map((cp) => listAllDesignProposals(cp.id)));
+  const proposalsByCheckpoint = Object.fromEntries(proposalCheckpoints.map((cp, i) => [cp.id, proposalLists[i]]));
+
   const assignedUserIds = new Set(dashboard.teams.flatMap((t) => t.members).map((m) => m.user_id));
   const availableStudents = batchMembers.filter((m) => !assignedUserIds.has(m.user_id));
   const teamsById = Object.fromEntries(teams.map((t) => [t.id, t]));
@@ -105,53 +114,58 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
         </div>
       </header>
 
-      <div className="mt-8 flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="section-title">Teams</h2>
-          <CreateTeamPanel assignmentId={assignment.id} />
-        </div>
-        <TeamList
-          activityByTeam={activityByTeam}
-          assignmentId={assignment.id}
-          availableStudents={availableStudents}
-          dashboardByTeam={dashboardByTeam}
-          membersByTeam={membersByTeam}
-          teams={teams}
-        />
-      </div>
-
-      <div className="mt-10 flex flex-col gap-4">
-        <CheckpointList
-          assignmentId={assignment.id}
-          checkpoints={checkpoints}
-          requiredApprovals={assignment.required_approvals}
-          submissionsByCheckpoint={submissionsByCheckpoint}
-          teamsById={teamsById}
-        />
-      </div>
-
-      <div className="mt-10 flex flex-col gap-4">
-        <h2 className="section-title">Originality</h2>
-        <OriginalityReport
-          assignmentId={assignment.id}
-          reports={originalityReports}
-          teamsById={Object.fromEntries(teams.map((t) => [t.id, t.name]))}
-        />
-      </div>
-
-      <div className="mt-10 flex flex-col gap-6">
-        <h2 className="section-title">Leaderboard &amp; burndown</h2>
-        <div className="grid-responsive-2 grid gap-6">
-          <section className="card-base flex flex-col gap-4 p-6">
-            <h3 className="text-sm font-semibold">Commit leaderboard</h3>
-            <AssignmentLeaderboard leaderboard={leaderboard.leaderboard} />
-          </section>
-          <section className="card-base flex flex-col gap-4 p-6">
-            <h3 className="text-sm font-semibold">Checkpoint burndown</h3>
-            <AssignmentBurndown checkpoints={burndown.checkpoints} />
-          </section>
-        </div>
-      </div>
+      <AssignmentTabs
+        checkpointCount={checkpoints.length}
+        checkpointsTab={
+          <CheckpointList
+            assignmentId={assignment.id}
+            checkpoints={checkpoints}
+            proposalsByCheckpoint={proposalsByCheckpoint}
+            requiredApprovals={assignment.required_approvals}
+            submissionsByCheckpoint={submissionsByCheckpoint}
+            teamsById={teamsById}
+          />
+        }
+        insightsTab={
+          <div className="grid-responsive-2 grid gap-6">
+            <section className="card-base flex flex-col gap-4 p-6">
+              <h3 className="text-sm font-semibold">Commit leaderboard</h3>
+              <AssignmentLeaderboard leaderboard={leaderboard.leaderboard} />
+            </section>
+            <section className="card-base flex flex-col gap-4 p-6">
+              <h3 className="text-sm font-semibold">Checkpoint burndown</h3>
+              <AssignmentBurndown checkpoints={burndown.checkpoints} />
+            </section>
+          </div>
+        }
+        originalityTab={
+          <OriginalityReport
+            assignmentId={assignment.id}
+            reports={originalityReports}
+            teamsById={Object.fromEntries(teams.map((t) => [t.id, t.name]))}
+          />
+        }
+        teamCount={teams.length}
+        teamsTab={
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                {teams.length} team{teams.length === 1 ? "" : "s"} · {availableStudents.length} unassigned student
+                {availableStudents.length === 1 ? "" : "s"}
+              </p>
+              <CreateTeamPanel assignmentId={assignment.id} />
+            </div>
+            <TeamList
+              activityByTeam={activityByTeam}
+              assignmentId={assignment.id}
+              availableStudents={availableStudents}
+              dashboardByTeam={dashboardByTeam}
+              membersByTeam={membersByTeam}
+              teams={teams}
+            />
+          </div>
+        }
+      />
     </main>
   );
 }

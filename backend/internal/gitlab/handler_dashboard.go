@@ -39,6 +39,20 @@ func (h *Handler) GetTeamContributions(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, view)
 }
 
+// GetTeamOwnership handles GET /api/projects/teams/{teamID}/ownership.
+func (h *Handler) GetTeamOwnership(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	view, err := h.service.GetTeamOwnership(r.Context(), claims.OrgID, chi.URLParam(r, "teamID"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, view)
+}
+
 // GetAssignmentBurndown handles GET /api/projects/assignments/{assignmentID}/burndown.
 func (h *Handler) GetAssignmentBurndown(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
@@ -107,6 +121,20 @@ func (h *Handler) GetMyProjectContributions(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	view, err := h.service.GetMyProjectContributions(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "teamID"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, view)
+}
+
+// GetMyProjectOwnership handles GET /api/my/projects/{teamID}/ownership.
+func (h *Handler) GetMyProjectOwnership(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	view, err := h.service.GetMyProjectOwnership(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "teamID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

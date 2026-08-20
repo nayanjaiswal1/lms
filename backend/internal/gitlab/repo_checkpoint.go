@@ -15,13 +15,13 @@ import (
 
 const checkpointColumns = `
 	id, org_id, assignment_id, title, description, position, due_at, weight,
-	requires_mr, requires_ci_pass, gitlab_milestone_id, created_at, updated_at`
+	requires_mr, requires_ci_pass, kind, gitlab_milestone_id, created_at, updated_at`
 
 func scanCheckpoint(row pgx.Row) (*ProjectCheckpoint, error) {
 	var cp ProjectCheckpoint
 	err := row.Scan(
 		&cp.ID, &cp.OrgID, &cp.AssignmentID, &cp.Title, &cp.Description, &cp.Position, &cp.DueAt, &cp.Weight,
-		&cp.RequiresMR, &cp.RequiresCIPass, &cp.GitlabMilestoneID, &cp.CreatedAt, &cp.UpdatedAt,
+		&cp.RequiresMR, &cp.RequiresCIPass, &cp.Kind, &cp.GitlabMilestoneID, &cp.CreatedAt, &cp.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -51,10 +51,10 @@ func (r *Repo) NextCheckpointPosition(ctx context.Context, assignmentID string) 
 func (r *Repo) CreateCheckpoint(ctx context.Context, cp ProjectCheckpoint) (*ProjectCheckpoint, error) {
 	row := r.pool.QueryRow(ctx,
 		`INSERT INTO project_checkpoints
-			(org_id, assignment_id, title, description, position, due_at, weight, requires_mr, requires_ci_pass)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+			(org_id, assignment_id, title, description, position, due_at, weight, requires_mr, requires_ci_pass, kind)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		 RETURNING `+checkpointColumns,
-		cp.OrgID, cp.AssignmentID, cp.Title, cp.Description, cp.Position, cp.DueAt, cp.Weight, cp.RequiresMR, cp.RequiresCIPass,
+		cp.OrgID, cp.AssignmentID, cp.Title, cp.Description, cp.Position, cp.DueAt, cp.Weight, cp.RequiresMR, cp.RequiresCIPass, cp.Kind,
 	)
 	created, err := scanCheckpoint(row)
 	if err != nil {
@@ -93,7 +93,7 @@ func (r *Repo) GetCheckpointByID(ctx context.Context, id string) (*ProjectCheckp
 func (r *Repo) ListCheckpoints(ctx context.Context, orgID, assignmentID string) ([]CheckpointWithSubmissions, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT pc.id, pc.org_id, pc.assignment_id, pc.title, pc.description, pc.position, pc.due_at, pc.weight,
-		        pc.requires_mr, pc.requires_ci_pass, pc.gitlab_milestone_id, pc.created_at, pc.updated_at,
+		        pc.requires_mr, pc.requires_ci_pass, pc.kind, pc.gitlab_milestone_id, pc.created_at, pc.updated_at,
 		        COALESCE(s.submissions, '[]'::json)
 		 FROM project_checkpoints pc
 		 LEFT JOIN LATERAL (
@@ -122,7 +122,7 @@ func (r *Repo) ListCheckpoints(ctx context.Context, orgID, assignmentID string) 
 		var submissionsRaw []byte
 		if err := rows.Scan(
 			&cp.ID, &cp.OrgID, &cp.AssignmentID, &cp.Title, &cp.Description, &cp.Position, &cp.DueAt, &cp.Weight,
-			&cp.RequiresMR, &cp.RequiresCIPass, &cp.GitlabMilestoneID, &cp.CreatedAt, &cp.UpdatedAt,
+			&cp.RequiresMR, &cp.RequiresCIPass, &cp.Kind, &cp.GitlabMilestoneID, &cp.CreatedAt, &cp.UpdatedAt,
 			&submissionsRaw,
 		); err != nil {
 			return nil, fmt.Errorf("gitlab: scan checkpoint: %w", err)
@@ -146,10 +146,11 @@ func (r *Repo) UpdateCheckpoint(ctx context.Context, orgID, id string, p Checkpo
 			weight = COALESCE($6, weight),
 			requires_mr = COALESCE($7, requires_mr),
 			requires_ci_pass = COALESCE($8, requires_ci_pass),
+			kind = COALESCE($9, kind),
 			updated_at = now()
 		 WHERE id = $1 AND org_id = $2
 		 RETURNING `+checkpointColumns,
-		id, orgID, p.Title, p.Description, p.DueAt, p.Weight, p.RequiresMR, p.RequiresCIPass,
+		id, orgID, p.Title, p.Description, p.DueAt, p.Weight, p.RequiresMR, p.RequiresCIPass, p.Kind,
 	)
 	cp, err := scanCheckpoint(row)
 	if err != nil {
@@ -216,7 +217,7 @@ func (r *Repo) FindCheckpointByMilestone(ctx context.Context, assignmentID strin
 func (r *Repo) FindOpenCheckpointForTeam(ctx context.Context, assignmentID, teamID string) (*ProjectCheckpoint, error) {
 	row := r.pool.QueryRow(ctx,
 		`SELECT pc.id, pc.org_id, pc.assignment_id, pc.title, pc.description, pc.position, pc.due_at, pc.weight,
-		        pc.requires_mr, pc.requires_ci_pass, pc.gitlab_milestone_id, pc.created_at, pc.updated_at
+		        pc.requires_mr, pc.requires_ci_pass, pc.kind, pc.gitlab_milestone_id, pc.created_at, pc.updated_at
 		 FROM project_checkpoints pc
 		 LEFT JOIN project_team_checkpoints ptc
 		   ON ptc.checkpoint_id = pc.id AND ptc.team_id = $2
@@ -239,7 +240,7 @@ func (r *Repo) FindOpenCheckpointForTeam(ctx context.Context, assignmentID, team
 // dropped from the list.
 func (r *Repo) ListCheckpointsForTeam(ctx context.Context, assignmentID, teamID string) ([]MyCheckpointRow, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT pc.id, pc.title, pc.description, pc.position, pc.due_at, pc.weight, pc.requires_mr, pc.requires_ci_pass,
+		`SELECT pc.id, pc.title, pc.description, pc.position, pc.due_at, pc.weight, pc.requires_mr, pc.requires_ci_pass, pc.kind,
 		        ptc.mr_web_url, ptc.mr_state, ptc.approvals_count, ptc.ci_status, ptc.score, ptc.feedback, ptc.status
 		 FROM project_checkpoints pc
 		 LEFT JOIN project_team_checkpoints ptc
@@ -257,7 +258,7 @@ func (r *Repo) ListCheckpointsForTeam(ctx context.Context, assignmentID, teamID 
 	for rows.Next() {
 		var row MyCheckpointRow
 		if err := rows.Scan(
-			&row.CheckpointID, &row.Title, &row.Description, &row.Position, &row.DueAt, &row.Weight, &row.RequiresMR, &row.RequiresCIPass,
+			&row.CheckpointID, &row.Title, &row.Description, &row.Position, &row.DueAt, &row.Weight, &row.RequiresMR, &row.RequiresCIPass, &row.Kind,
 			&row.MRWebURL, &row.MRState, &row.ApprovalsCount, &row.CIStatus, &row.Score, &row.Feedback, &row.Status,
 		); err != nil {
 			return nil, fmt.Errorf("gitlab: scan my checkpoint row: %w", err)

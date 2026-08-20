@@ -5,14 +5,20 @@ import type {
   AssignmentBurndownView,
   AssignmentDashboardView,
   AssignmentLeaderboardView,
+  DesignProposalView,
   MyProjectCheckpointsView,
   MyProjectDetailView,
   MyProjectSummary,
   OriginalityReportView,
+  ProjectApplication,
   ProjectAssignment,
   ProjectCheckpointWithSubmissions,
+  ProjectRequirement,
+  ProjectTask,
   ProjectTeam,
+  RequirementBoardRow,
   TeamContributionsView,
+  TeamOwnershipView,
 } from "@/lib/projects/types";
 
 // GET /api/projects/assignments returns the array directly under "data" —
@@ -108,4 +114,64 @@ export async function getAssignmentCheckpoints(assignmentId: string): Promise<Pr
 
 export async function getOriginalityReports(assignmentId: string): Promise<OriginalityReportView[]> {
   return apiGet<OriginalityReportView[]>(`/api/projects/assignments/${assignmentId}/originality`);
+}
+
+// ─── Marketplace (Phase A, Slice 1) ─────────────────────────────────────────
+// Mirrors backend/internal/projectmarket's own array-directly-under-"data"
+// WriteJSON convention — same as getProjectAssignments/getAssignmentCheckpoints
+// above.
+
+export async function listRequirements(): Promise<ProjectRequirement[]> {
+  return apiGet<ProjectRequirement[]>(`/api/project-marketplace/requirements`);
+}
+
+export async function getRequirement(requirementId: string): Promise<ProjectRequirement> {
+  return apiGet<ProjectRequirement>(`/api/project-marketplace/requirements/${requirementId}`);
+}
+
+export async function listApplicationsForRequirement(requirementId: string): Promise<ProjectApplication[]> {
+  return apiGet<ProjectApplication[]>(`/api/project-marketplace/requirements/${requirementId}/applications`);
+}
+
+export async function getBoard(): Promise<RequirementBoardRow[]> {
+  return apiGet<RequirementBoardRow[]>(`/api/project-marketplace/board`);
+}
+
+// Same underlying handler as getRequirement (GetRequirement serves both
+// routes — see backend/internal/projectmarket/handler_requirement.go) but a
+// distinct fetcher name for the student-facing board detail page's call site.
+export async function getBoardRequirement(requirementId: string): Promise<ProjectRequirement> {
+  return apiGet<ProjectRequirement>(`/api/project-marketplace/board/${requirementId}`);
+}
+
+export async function listMyApplications(): Promise<ProjectApplication[]> {
+  return apiGet<ProjectApplication[]>(`/api/my/project-applications`);
+}
+
+// ─── Batch 7 (Phase B): task board + design proposals ──────────────────────
+
+export async function listTasksForTeam(teamId: string): Promise<ProjectTask[]> {
+  return apiGet<ProjectTask[]>(`/api/projects/teams/${teamId}/tasks`);
+}
+
+// Member-scoped — the caller's own team only (backend membership-checks via
+// Repo.GetMyProject). Use listAllDesignProposals for the staff, cross-team view.
+export async function listDesignProposals(teamId: string, checkpointId: string): Promise<DesignProposalView[]> {
+  return apiGet<DesignProposalView[]>(`/api/projects/teams/${teamId}/checkpoints/${checkpointId}/proposals`);
+}
+
+// Staff-only — every team's proposals against one checkpoint, the view
+// AcceptDesignProposal decides from.
+export async function listAllDesignProposals(checkpointId: string): Promise<DesignProposalView[]> {
+  return apiGet<DesignProposalView[]>(`/api/projects/checkpoints/${checkpointId}/proposals`);
+}
+
+// ─── Batch 8 (Phase C): feature ownership ───────────────────────────────────
+
+export async function getTeamOwnership(teamId: string): Promise<TeamOwnershipView> {
+  return apiGet<TeamOwnershipView>(`/api/projects/teams/${teamId}/ownership`);
+}
+
+export async function getMyProjectOwnership(teamId: string): Promise<TeamOwnershipView> {
+  return apiGet<TeamOwnershipView>(`/api/my/projects/${teamId}/ownership`);
 }

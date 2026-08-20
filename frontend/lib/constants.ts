@@ -701,6 +701,77 @@ export const PROVISION_VARIANT: Record<string, "default" | "secondary" | "destru
   failed:       "destructive",
 };
 
+// project_requirements.status / project_applications.status label +
+// badge-variant maps — mirrors backend/internal/projectmarket/models.go's
+// constants, same shared-mapping convention as PROVISION_VARIANT above.
+export const REQUIREMENT_STATUS_LABEL: Record<string, string> = {
+  draft:    "Draft",
+  open:     "Open",
+  closed:   "Closed",
+  archived: "Archived",
+};
+
+export const REQUIREMENT_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  draft:    "outline",
+  open:     "default",
+  closed:   "secondary",
+  archived: "destructive",
+};
+
+export const APPLICATION_STATUS_LABEL: Record<string, string> = {
+  submitted:   "Submitted",
+  shortlisted: "Shortlisted",
+  selected:    "Selected",
+  rejected:    "Rejected",
+};
+
+export const APPLICATION_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  submitted:   "outline",
+  shortlisted: "secondary",
+  selected:    "default",
+  rejected:    "destructive",
+};
+
+// project_checkpoints.kind label + select-field options (Batch 7 / Phase B) —
+// mirrors backend/internal/gitlab/models.go's CheckpointKind* constants.
+export const CHECKPOINT_KIND_LABEL: Record<string, string> = {
+  requirement_doc:      "Requirement doc",
+  design_review:        "Design review",
+  architecture_review:  "Architecture review",
+  mr_review:            "MR review",
+  milestone:            "Milestone",
+};
+
+export const CHECKPOINT_KIND_OPTIONS = [
+  { label: "Milestone",            value: "milestone" },
+  { label: "Requirement doc",      value: "requirement_doc" },
+  { label: "Design review",        value: "design_review" },
+  { label: "Architecture review",  value: "architecture_review" },
+  { label: "MR review",            value: "mr_review" },
+] as const;
+
+// project_tasks.status label + badge-variant maps (Batch 7 / Phase B).
+export const TASK_STATUS_LABEL: Record<string, string> = {
+  todo:        "To do",
+  in_progress: "In progress",
+  review:      "In review",
+  done:        "Done",
+};
+
+export const TASK_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  todo:        "outline",
+  in_progress: "secondary",
+  review:      "secondary",
+  done:        "default",
+};
+
+export const TASK_STATUS_OPTIONS = [
+  { label: "To do",       value: "todo" },
+  { label: "In progress", value: "in_progress" },
+  { label: "In review",   value: "review" },
+  { label: "Done",        value: "done" },
+] as const;
+
 // project_team_checkpoints.status / ci_status label + badge-variant maps —
 // mirrors backend/internal/gitlab/models.go's Batch 5 constants. Shared by
 // checkpoint-submissions.tsx (staff) and any student-facing surface so the

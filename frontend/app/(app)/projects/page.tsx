@@ -40,11 +40,19 @@ export default async function ProjectsPage() {
               {assignments.length} project assignment{assignments.length === 1 ? "" : "s"}
             </p>
           </div>
-          <Button asChild>
-            <Link href={ROUTES.PROJECTS_NEW}>
-              <Plus /> New assignment
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={ROUTES.PROJECTS_REQUIREMENTS}>Requirements</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={ROUTES.PROJECTS_BOARD}>Board</Link>
+            </Button>
+            <Button asChild>
+              <Link href={ROUTES.PROJECTS_NEW}>
+                <Plus /> New assignment
+              </Link>
+            </Button>
+          </div>
         </header>
 
         {assignments.length === 0 ? (
@@ -73,6 +81,9 @@ export default async function ProjectsPage() {
           </span>
           <h1 className="page-title">Projects</h1>
         </div>
+        <Button asChild variant="outline">
+          <Link href={ROUTES.PROJECTS_BOARD}>Browse open board</Link>
+        </Button>
       </header>
       <p className="mb-6 text-muted-foreground">Your GitLab team assignments across every batch.</p>
 

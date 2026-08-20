@@ -102,6 +102,34 @@ func (c *Client) MergeMergeRequest(ctx context.Context, projectID, mrIID int64) 
 	return &mr, nil
 }
 
+// MRChange is one file's diff within a merge request's changes.
+type MRChange struct {
+	OldPath     string `json:"old_path"`
+	NewPath     string `json:"new_path"`
+	Diff        string `json:"diff"`
+	NewFile     bool   `json:"new_file"`
+	RenamedFile bool   `json:"renamed_file"`
+	DeletedFile bool   `json:"deleted_file"`
+}
+
+// MRChanges is GET /projects/:id/merge_requests/:iid/changes' response body —
+// the MR's own fields plus its per-file diffs.
+type MRChanges struct {
+	MergeRequest
+	Changes []MRChange `json:"changes"`
+}
+
+// GetMergeRequestChanges calls GET
+// /projects/:id/merge_requests/:iid/changes — the file-level diffs
+// Service.ReviewMergeRequest (Phase C) feeds to the AI reviewer.
+func (c *Client) GetMergeRequestChanges(ctx context.Context, projectID, mrIID int64) (*MRChanges, error) {
+	var changes MRChanges
+	if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/projects/%d/merge_requests/%d/changes", projectID, mrIID), nil, &changes); err != nil {
+		return nil, fmt.Errorf("gitlab: get merge request changes %d on project %d: %w", mrIID, projectID, err)
+	}
+	return &changes, nil
+}
+
 // Note is the subset of a GitLab MR note/comment this package needs for the
 // activity mirror (gitlab_mr_reviews).
 type Note struct {

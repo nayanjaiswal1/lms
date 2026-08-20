@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/notifications"
@@ -28,6 +29,10 @@ type Service struct {
 	pool          *pgxpool.Pool
 	jobsRegistry  *jobs.Registry
 	notifications *notifications.Service
+	// aiProvider backs Batch 8's one-comment-per-MR reviewer
+	// (service_ai_review.go) — the same ai.LLMProvider interface every other
+	// AI-calling domain shares.
+	aiProvider ai.LLMProvider
 }
 
 // NewService builds the gitlab Service. vault must be the same *secrets.Vault
@@ -40,9 +45,10 @@ type Service struct {
 // service_webhook.go) call it directly rather than gitlab owning its own
 // notification table; nil-safety is not needed here since a notifications.Service
 // holds no optional state itself (always constructed alongside gitlab.Service —
-// see internal/api/router.go/cmd/server/main.go's wiring).
-func NewService(pool *pgxpool.Pool, cfg *config.Config, vault *secrets.Vault, jobsRegistry *jobs.Registry, notifSvc *notifications.Service) *Service {
-	return &Service{repo: NewRepo(pool), cfg: cfg, vault: vault, pool: pool, jobsRegistry: jobsRegistry, notifications: notifSvc}
+// see internal/api/router.go/cmd/server/main.go's wiring). aiProvider is
+// Batch 8's AI MR reviewer dependency — see Service's own field doc comment.
+func NewService(pool *pgxpool.Pool, cfg *config.Config, vault *secrets.Vault, jobsRegistry *jobs.Registry, notifSvc *notifications.Service, aiProvider ai.LLMProvider) *Service {
+	return &Service{repo: NewRepo(pool), cfg: cfg, vault: vault, pool: pool, jobsRegistry: jobsRegistry, notifications: notifSvc, aiProvider: aiProvider}
 }
 
 // resolveInstallation looks up the installation a caller should use:

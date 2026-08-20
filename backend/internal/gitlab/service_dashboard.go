@@ -57,6 +57,33 @@ func (s *Service) GetTeamContributions(ctx context.Context, orgID, teamID string
 	return &TeamContributionsView{TeamID: teamID, Contributions: contributions}, nil
 }
 
+// GetTeamOwnership returns the staff view of a team's per-file ownership —
+// same existence guard as GetTeamContributions.
+func (s *Service) GetTeamOwnership(ctx context.Context, orgID, teamID string) (*TeamOwnershipView, error) {
+	if _, err := s.repo.GetTeam(ctx, orgID, teamID); err != nil {
+		return nil, err
+	}
+	files, err := s.repo.ListFileOwnership(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+	return &TeamOwnershipView{TeamID: teamID, Files: files}, nil
+}
+
+// GetMyProjectOwnership returns the same view, row-scoped to a student who
+// must themselves belong to teamID — same membership guard
+// GetMyProjectContributions uses.
+func (s *Service) GetMyProjectOwnership(ctx context.Context, orgID, userID, teamID string) (*TeamOwnershipView, error) {
+	if _, err := s.repo.GetMyProject(ctx, orgID, userID, teamID); err != nil {
+		return nil, err
+	}
+	files, err := s.repo.ListFileOwnership(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+	return &TeamOwnershipView{TeamID: teamID, Files: files}, nil
+}
+
 // GetAssignmentBurndown returns an assignment's checkpoint-linked issue
 // burndown — empty until Batch 5 seeds project_checkpoints and maps issues
 // to them (see Repo.GetAssignmentBurndown's own doc comment).

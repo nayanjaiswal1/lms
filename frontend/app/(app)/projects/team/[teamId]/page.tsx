@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { ExternalLink, FolderGit2 } from "lucide-react";
 
 import ROUTES from "@/lib/routes";
 import { requireAccess } from "@/lib/server/features";
 import { FEATURES } from "@/lib/features";
-import { getMyProjectDetail } from "@/lib/projects/server";
+import { getCurrentUser } from "@/lib/server/auth";
+import { getMyProjectDetail, listDesignProposals, listTasksForTeam } from "@/lib/projects/server";
 import { PROVISION_STATUS_LABEL, PROVISION_VARIANT } from "@/lib/constants";
 import { ContributionBreakdown } from "@/components/projects/contribution-breakdown";
+import { DesignProposalPanel } from "@/components/projects/design-proposal-panel";
 import { MyCheckpointList } from "@/components/projects/my-checkpoint-list";
+import { TaskBoard } from "@/components/projects/task-board";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 
@@ -32,6 +36,14 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const currentUser = await getCurrentUser();
+  if (!currentUser) redirect(ROUTES.LOGIN);
+  const proposalCheckpoints = team.checkpoints.filter((cp) => cp.kind === "design_review" || cp.kind === "architecture_review");
+  const [tasks, proposalLists] = await Promise.all([
+    listTasksForTeam(teamId),
+    Promise.all(proposalCheckpoints.map((cp) => listDesignProposals(teamId, cp.checkpoint_id))),
+  ]);
+
   return (
     <main className="page-container">
       <Breadcrumb items={[{ label: "Projects", href: ROUTES.PROJECTS }, { label: team.name }]} />
@@ -48,6 +60,12 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Link
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
+            href={ROUTES.teamShowcase(teamId)}
+          >
+            Showcase
+          </Link>
           {team.gitlab_web_url && (
             <a
               className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted"
@@ -79,6 +97,27 @@ export default async function MyProjectDetailPage({ params }: PageProps) {
       <section className="card-base mt-6 flex flex-col gap-4 p-6">
         <h2 className="section-title">Checkpoints</h2>
         <MyCheckpointList checkpoints={team.checkpoints} requiredApprovals={team.required_approvals} />
+      </section>
+
+      {proposalCheckpoints.length > 0 && (
+        <section className="card-base mt-6 flex flex-col gap-6 p-6">
+          <h2 className="section-title">Design proposals</h2>
+          {proposalCheckpoints.map((cp, i) => (
+            <div className="flex flex-col gap-2" key={cp.checkpoint_id}>
+              <span className="text-sm font-semibold">{cp.title}</span>
+              <DesignProposalPanel
+                checkpointId={cp.checkpoint_id}
+                currentUserId={currentUser.id}
+                proposals={proposalLists[i]}
+                teamId={teamId}
+              />
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section className="mt-6">
+        <TaskBoard currentUserId={currentUser.id} tasks={tasks} teamId={teamId} />
       </section>
 
       <section className="card-base mt-6 flex flex-col gap-4 p-6">
