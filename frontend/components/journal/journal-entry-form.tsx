@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -12,6 +13,7 @@ import { FormInputField } from "@/components/ui/form-input-field";
 import { FormTextareaField } from "@/components/ui/form-textarea-field";
 import ROUTES from "@/lib/routes";
 import { createJournalEntryAction, updateJournalEntryAction } from "@/app/(app)/journal/actions";
+import { MIN_STRUCTURE_LENGTH, useJournalStructure } from "@/components/journal/use-journal-structure";
 import type { JournalCategoryNode, JournalEntry } from "@/lib/server/journal";
 
 const Schema = z.object({
@@ -42,9 +44,12 @@ interface JournalEntryFormProps {
   // Called instead of navigating to the journal list on save — lets a
   // dialog-hosted usage (paste-to-structure) close itself in place.
   onSaved?: () => void;
+  // Focuses the content textarea on mount — used when this form opens from
+  // the quick-capture input so writing continues without an extra click.
+  contentAutoFocus?: boolean;
 }
 
-export function JournalEntryForm({ entry, categories, draft, onSaved }: JournalEntryFormProps) {
+export function JournalEntryForm({ entry, categories, draft, onSaved, contentAutoFocus }: JournalEntryFormProps) {
   const router = useRouter();
   const form = useForm<FormValues>({
     resolver: zodResolver(Schema),
@@ -59,6 +64,29 @@ export function JournalEntryForm({ entry, categories, draft, onSaved }: JournalE
   const selectedCategory = form.watch("category");
   const subcategoryOptions =
     categories.find((c) => c.category.toLowerCase() === selectedCategory.trim().toLowerCase())?.subcategories ?? [];
+
+  const { isPending: isSuggesting, structure } = useJournalStructure();
+
+  // Only for a brand-new entry with no category/subcategory/title typed yet
+  // — never overwrites something the user (or an edit) already set. Content
+  // itself is left exactly as written; only the "other fields" get
+  // AI-suggested, in place, no separate box or panel.
+  function onContentBlur() {
+    if (entry) return;
+    const { category, subcategory, title, content } = form.getValues();
+    if (category.trim() || subcategory.trim() || title.trim()) return;
+    const text = content.trim();
+    if (text.length < MIN_STRUCTURE_LENGTH) return;
+    structure(
+      text,
+      (result) => {
+        form.setValue("category", result.category, { shouldValidate: true });
+        form.setValue("subcategory", result.subcategory, { shouldValidate: true });
+        form.setValue("title", result.title, { shouldValidate: true });
+      },
+      (message) => toast.error(message),
+    );
+  }
 
   async function onSubmit(data: FormValues) {
     if (entry) {
@@ -84,7 +112,10 @@ export function JournalEntryForm({ entry, categories, draft, onSaved }: JournalE
 
   return (
     <Form {...form}>
-      <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
+      <form
+        className={contentAutoFocus ? "flex h-full flex-col gap-4" : "form-stack"}
+        onSubmit={form.handleSubmit(onSubmit)}
+      >
         <FormInputField control={form.control} label="Title" name="title" placeholder="e.g. Modal Verbs (Can/Could)" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -111,10 +142,27 @@ export function JournalEntryForm({ entry, categories, draft, onSaved }: JournalE
           </div>
         </div>
         <FormInputField control={form.control} label="Date" name="entry_date" type="date" />
-        <FormTextareaField control={form.control} label="What did you learn?" name="content" rows={8} />
+        <div className={contentAutoFocus ? "flex min-h-0 flex-1 flex-col" : undefined} onBlur={onContentBlur}>
+          <FormTextareaField
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- opt-in only when opening from the quick-capture input, so writing continues in place instead of requiring an extra click
+            autoFocus={contentAutoFocus}
+            className={contentAutoFocus ? "flex-1 resize-none text-base" : undefined}
+            control={form.control}
+            label={contentAutoFocus ? undefined : "What did you learn?"}
+            name="content"
+            rows={contentAutoFocus ? undefined : 8}
+            onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+          />
+          {!entry && isSuggesting && (
+            <p className="ai-badge mt-1.5 inline-flex w-fit items-center gap-1.5 text-xs">
+              <Sparkles aria-hidden className="size-3" />
+              Suggesting category, subcategory, and title…
+            </p>
+          )}
+        </div>
         <div className="flex justify-end gap-2">
-          <Button disabled={form.formState.isSubmitting} type="submit">
-            {form.formState.isSubmitting ? "Saving…" : entry ? "Save changes" : "Add Learning"}
+          <Button disabled={form.formState.isSubmitting || isSuggesting} type="submit">
+            {form.formState.isSubmitting ? "Saving…" : isSuggesting ? "Suggesting…" : entry ? "Save changes" : "Add Learning"}
           </Button>
         </div>
       </form>

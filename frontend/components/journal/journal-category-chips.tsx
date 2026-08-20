@@ -2,6 +2,7 @@
 
 import { useQueryState } from "nuqs";
 import { Button } from "@/components/ui/button";
+import { journalTagSwatchClass } from "@/lib/journal/tag-color";
 import { cn } from "@/lib/utils";
 import type { JournalCategoryNode } from "@/lib/server/journal";
 
@@ -64,13 +65,17 @@ export function JournalCategoryChips({ categories }: JournalCategoryChipsProps) 
           {subcategories.map((s) => (
             <Button
               aria-pressed={subcategory === s}
-              className={cn("touch-target px-2.5 text-xs", subcategory === s && "bg-accent text-primary")}
+              className={cn(
+                "touch-target gap-1.5 px-2.5 text-xs",
+                subcategory === s && "bg-accent text-primary",
+              )}
               key={s}
               size="sm"
               type="button"
               variant="ghost"
               onClick={() => void setSubcategory(s)}
             >
+              <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", journalTagSwatchClass(category, s))} />
               {s}
             </Button>
           ))}

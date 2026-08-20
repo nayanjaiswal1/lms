@@ -17,7 +17,7 @@ interface FormTextareaFieldProps<TValues extends FieldValues>
   extends Omit<ComponentProps<typeof Textarea>, "name"> {
   control: Control<TValues>;
   name: FieldPath<TValues>;
-  label: string;
+  label?: string;
   description?: string;
   serverError?: string;
 }
@@ -36,7 +36,7 @@ export function FormTextareaField<TValues extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
             <Textarea {...textareaProps} {...field} />
           </FormControl>

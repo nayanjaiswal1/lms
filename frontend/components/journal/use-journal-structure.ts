@@ -25,15 +25,22 @@ export function useJournalStructure() {
   const [state, setState] = useState<JournalStructureState>(CLOSED);
   const [isPending, startTransition] = useTransition();
 
-  function structure(text: string) {
+  function structure(
+    text: string,
+    onSuccess?: (result: StructureJournalEntryResult) => void,
+    onError?: (message: string) => void,
+  ) {
     setState({ open: true, draft: null, error: null });
     startTransition(async () => {
       const result = await structureJournalEntryAction(text);
       if (!result.ok || !result.data) {
-        setState({ open: true, draft: null, error: result.error ?? "Couldn't structure this with AI." });
+        const message = result.error ?? "Couldn't structure this with AI.";
+        setState({ open: true, draft: null, error: message });
+        onError?.(message);
         return;
       }
       setState({ open: true, draft: result.data, error: null });
+      onSuccess?.(result.data);
     });
   }
 
