@@ -25,6 +25,7 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Post("/api/journal/structure", h.StructureEntry)
 		r.Get("/api/journal/{id}", h.GetEntry)
 		r.Patch("/api/journal/{id}", h.UpdateEntry)
+		r.Post("/api/journal/{id}/merge", h.MergeEntries)
 		r.Delete("/api/journal/{id}", h.DeleteEntry)
 	})
 }

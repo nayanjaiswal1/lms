@@ -12,11 +12,22 @@ export interface JournalEntry {
   content: string;
   created_at: string;
   updated_at: string;
+  // "task" = a read-only projection of a completed What Now? task onto the
+  // day it was finished, not a real journal row — no edit/delete/merge.
+  source: "journal" | "task";
+  source_task_id?: string;
 }
 
 export interface CreateJournalEntryResult {
   entry: JournalEntry;
   similar_entries: JournalEntry[];
+}
+
+/** Result of merging two same-day entries — `removed`'s full pre-delete
+ * fields are returned so the caller can hold them for a Ctrl+Z undo. */
+export interface MergeJournalEntriesResult {
+  entry: JournalEntry;
+  removed: JournalEntry;
 }
 
 export interface CreateJournalEntryInput {

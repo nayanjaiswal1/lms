@@ -18,6 +18,7 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/features"
 	"github.com/mindforge/backend/internal/feedback"
 	"github.com/mindforge/backend/internal/focuswall"
@@ -193,7 +194,8 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	whatnowRouter := whatnow.New(pool)
 	activityRouter := activity.New(pool)
 	learnHubHandler := learnhub.New(pool)
-	featuresRouter := features.New(pool)
+	entitlementsRouter := entitlements.New(pool, cfg.DefaultOrgID)
+	featuresRouter := features.New(pool, entitlementsRouter.Service)
 	pricingRouter := pricing.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
@@ -425,6 +427,13 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		featuresRouter.RegisterOrgAdminRoutes(r)
 		featuresRouter.RegisterPlatformRoutes(r)
 
+		// Entitlements — current account's quota usage (My Plan page), plus
+		// the platform admin's plan-limits editor and tier-assignment
+		// endpoints. The gate half of plan_limits is consumed inside
+		// featuresRouter's Resolve, not exposed as its own read endpoint.
+		entitlementsRouter.RegisterRoutes(r)
+		entitlementsRouter.RegisterPlatformRoutes(r)
+
 		// Pricing — platform admin (super_admin) edits the marketing pricing
 		// tiers shown on the / and /org landing pages.
 		pricingRouter.RegisterPlatformRoutes(r)
@@ -474,7 +483,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// never nil here since gitlab.Service always exists once an org has an
 		// installation; it's still a nil-safe optional dependency to labs
 		// itself (empty script -> skip) when no installation/connection exists.
-		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service)
+		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service)
 		labsHandler.RegisterRoutes(r)
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
 

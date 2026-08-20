@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect } from "react";
 import { Sparkles } from "lucide-react";
 
 import { LessonFloatingPanel } from "@/components/shared/lesson-floating-panel";
 import { JournalEntryForm } from "@/components/journal/journal-entry-form";
-import { structureJournalEntryAction } from "@/app/(app)/journal/actions";
-import type { JournalCategoryNode, StructureJournalEntryResult } from "@/lib/server/journal";
-
-// Ignores accidental short pastes (a word, a link) — only a real note-sized
-// paste is worth an AI call.
-const MIN_PASTE_LENGTH = 20;
+import { MIN_STRUCTURE_LENGTH, useJournalStructure } from "@/components/journal/use-journal-structure";
+import type { JournalCategoryNode } from "@/lib/server/journal";
 
 interface JournalPasteCaptureProps {
   categories: JournalCategoryNode[];
@@ -28,12 +24,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 // chat use (LessonFloatingPanel), not a modal — nothing saves until the
 // user reviews the prefilled form (still fully editable) and hits Save.
 export function JournalPasteCapture({ categories }: JournalPasteCaptureProps) {
-  const [state, setState] = useState<{
-    open: boolean;
-    draft: StructureJournalEntryResult | null;
-    error: string | null;
-  }>({ open: false, draft: null, error: null });
-  const [isPending, startTransition] = useTransition();
+  const { open, draft, error, isPending, structure, close } = useJournalStructure();
 
   // Global paste listener — there's no non-effect equivalent for a
   // document-level browser event (same reasoning as LabQuickOpen's global
@@ -42,28 +33,16 @@ export function JournalPasteCapture({ categories }: JournalPasteCaptureProps) {
     function onPaste(e: ClipboardEvent) {
       if (isEditableTarget(e.target)) return;
       const text = e.clipboardData?.getData("text/plain")?.trim();
-      if (!text || text.length < MIN_PASTE_LENGTH) return;
+      if (!text || text.length < MIN_STRUCTURE_LENGTH) return;
       e.preventDefault();
-
-      setState({ open: true, draft: null, error: null });
-      startTransition(async () => {
-        const result = await structureJournalEntryAction(text);
-        if (!result.ok || !result.data) {
-          setState({ open: true, draft: null, error: result.error ?? "Couldn't structure this with AI." });
-          return;
-        }
-        setState({ open: true, draft: result.data, error: null });
-      });
+      structure(text);
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- structure is stable for the listener's lifetime, re-subscribing on every render isn't needed
   }, []);
 
-  function close() {
-    setState({ open: false, draft: null, error: null });
-  }
-
-  if (!state.open) return null;
+  if (!open) return null;
 
   return (
     <LessonFloatingPanel
@@ -77,10 +56,10 @@ export function JournalPasteCapture({ categories }: JournalPasteCaptureProps) {
           <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
             <span className="ai-badge">AI</span> Structuring your paste…
           </div>
-        ) : state.error ? (
-          <p className="py-4 text-sm text-destructive">{state.error}</p>
-        ) : state.draft ? (
-          <JournalEntryForm categories={categories} draft={state.draft} onSaved={close} />
+        ) : error ? (
+          <p className="py-4 text-sm text-destructive">{error}</p>
+        ) : draft ? (
+          <JournalEntryForm categories={categories} draft={draft} onSaved={close} />
         ) : null}
       </div>
     </LessonFloatingPanel>

@@ -27,16 +27,39 @@ import (
 // sessionID, if the session actually had a container and no event has been
 // recorded for it yet. Safe to call on a session with no container (code
 // labs) or one that already has a recorded event — both are no-ops.
+//
+// The same statement also accrues the session's seconds onto the owning
+// user's usage_counters lab_hours row for the current month — the pre-flight
+// half of the individual-plan lab_hours quota lives in
+// Service.StartSession (entitlements.Service.MonthlySecondsUsed), this is
+// the accrual half (docs/entitlements.md §6's "flush periodically, not on
+// every tick"). Keyed by user_id regardless of whether the session belongs
+// to an individual or a real org account: org accounts have no lab_hours
+// plan_limits row (see migration 019), so nothing ever reads these rows for
+// them — same "extra data nothing reads yet" as any per-user usage table,
+// not something that needs its own conditional here. The second insert is
+// a no-op (0 rows) exactly when the first one was, via the usage_row CTE
+// joining back to it — a retried call cannot double-accrue.
 func (r *Repo) RecordSessionContainerUsage(ctx context.Context, sessionID string) error {
 	if _, err := r.pool.Exec(ctx, `
-		INSERT INTO lab_usage_events (org_id, session_id, event_type, quantity, image)
-		SELECT s.org_id, s.id, 'container_seconds',
-		       GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(s.completed_at, now()) - s.started_at))::bigint - s.paused_seconds),
-		       l.environment
-		FROM lab_sessions s
-		JOIN lab_definitions l ON l.id = s.lab_id
-		WHERE s.id = $1 AND s.container_id IS NOT NULL
-		ON CONFLICT (session_id) WHERE event_type = 'container_seconds' DO NOTHING`,
+		WITH src AS (
+			SELECT s.org_id, s.id AS session_id, s.user_id, l.environment,
+			       GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(s.completed_at, now()) - s.started_at))::bigint - s.paused_seconds) AS seconds
+			FROM lab_sessions s
+			JOIN lab_definitions l ON l.id = s.lab_id
+			WHERE s.id = $1 AND s.container_id IS NOT NULL
+		), usage_row AS (
+			INSERT INTO lab_usage_events (org_id, session_id, event_type, quantity, image)
+			SELECT org_id, session_id, 'container_seconds', seconds, environment FROM src
+			ON CONFLICT (session_id) WHERE event_type = 'container_seconds' DO NOTHING
+			RETURNING session_id, quantity
+		)
+		INSERT INTO usage_counters (account_id, feature_key, period_start, period_end, used_count, updated_at)
+		SELECT src.user_id, 'lab_hours', date_trunc('month', now())::date,
+		       (date_trunc('month', now()) + interval '1 month')::date, usage_row.quantity, now()
+		FROM usage_row JOIN src ON src.session_id = usage_row.session_id
+		ON CONFLICT (account_id, feature_key, period_start) DO UPDATE
+		  SET used_count = usage_counters.used_count + EXCLUDED.used_count, updated_at = now()`,
 		sessionID,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.RecordSessionContainerUsage: %w", err)
@@ -46,20 +69,39 @@ func (r *Repo) RecordSessionContainerUsage(ctx context.Context, sessionID string
 
 // RecordSessionContainerUsageBatch is RecordSessionContainerUsage for many
 // sessions in one round trip — used by the reaper, which closes out up to
-// 100 sessions per tick and would otherwise need a query per row.
+// 100 sessions per tick and would otherwise need a query per row. The extra
+// agg CTE (vs. the single-session version above) collapses multiple
+// sessions belonging to the same user into one usage_counters row before the
+// final INSERT — Postgres rejects an INSERT ... ON CONFLICT DO UPDATE that
+// would touch the same conflict target twice in one statement, which two
+// sessions for the same user closing in the same batch would otherwise do.
 func (r *Repo) RecordSessionContainerUsageBatch(ctx context.Context, sessionIDs []string) error {
 	if len(sessionIDs) == 0 {
 		return nil
 	}
 	if _, err := r.pool.Exec(ctx, `
-		INSERT INTO lab_usage_events (org_id, session_id, event_type, quantity, image)
-		SELECT s.org_id, s.id, 'container_seconds',
-		       GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(s.completed_at, now()) - s.started_at))::bigint - s.paused_seconds),
-		       l.environment
-		FROM lab_sessions s
-		JOIN lab_definitions l ON l.id = s.lab_id
-		WHERE s.id = ANY($1) AND s.container_id IS NOT NULL
-		ON CONFLICT (session_id) WHERE event_type = 'container_seconds' DO NOTHING`,
+		WITH src AS (
+			SELECT s.org_id, s.id AS session_id, s.user_id, l.environment,
+			       GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(s.completed_at, now()) - s.started_at))::bigint - s.paused_seconds) AS seconds
+			FROM lab_sessions s
+			JOIN lab_definitions l ON l.id = s.lab_id
+			WHERE s.id = ANY($1) AND s.container_id IS NOT NULL
+		), usage_row AS (
+			INSERT INTO lab_usage_events (org_id, session_id, event_type, quantity, image)
+			SELECT org_id, session_id, 'container_seconds', seconds, environment FROM src
+			ON CONFLICT (session_id) WHERE event_type = 'container_seconds' DO NOTHING
+			RETURNING session_id, quantity
+		), agg AS (
+			SELECT src.user_id AS account_id, SUM(usage_row.quantity) AS seconds
+			FROM usage_row JOIN src ON src.session_id = usage_row.session_id
+			GROUP BY src.user_id
+		)
+		INSERT INTO usage_counters (account_id, feature_key, period_start, period_end, used_count, updated_at)
+		SELECT account_id, 'lab_hours', date_trunc('month', now())::date,
+		       (date_trunc('month', now()) + interval '1 month')::date, seconds, now()
+		FROM agg
+		ON CONFLICT (account_id, feature_key, period_start) DO UPDATE
+		  SET used_count = usage_counters.used_count + EXCLUDED.used_count, updated_at = now()`,
 		sessionIDs,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.RecordSessionContainerUsageBatch: %w", err)

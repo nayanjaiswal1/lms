@@ -22,3 +22,10 @@ export async function clearOrgFeatureFlagAction(
   if (result.ok) revalidatePath(ROUTES.platformOrgFeatures(orgId));
   return result;
 }
+
+/** Moves orgId onto a different pricing tier — see backend/internal/entitlements. */
+export async function setOrgTierAction(orgId: string, tierId: string): Promise<ActionResult> {
+  const result = await apiAction("PUT", `/api/admin/orgs/${orgId}/tier`, { tier_id: tierId });
+  if (result.ok) revalidatePath(ROUTES.platformOrgFeatures(orgId));
+  return result;
+}

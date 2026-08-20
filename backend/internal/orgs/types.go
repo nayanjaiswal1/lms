@@ -121,6 +121,7 @@ type AdminOrgSummary struct {
 	Slug   string `json:"slug"`
 	Name   string `json:"name"`
 	Status string `json:"status"`
+	TierID string `json:"tier_id"`
 }
 
 type Member struct {

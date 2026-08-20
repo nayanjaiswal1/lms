@@ -5,12 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+
+	ent "github.com/mindforge/backend/internal/entitlements"
+	"github.com/mindforge/backend/internal/pricing"
 )
 
 // alwaysOrgEnabled lists every feature key a platform admin can toggle on/off
 // per org via org_feature_flags (Service.SetOrgFeatureFlag). A key with no
 // row in org_feature_flags for a given org defaults to enabled — every org
-// behaves exactly as before an admin ever touches this table.
+// behaves exactly as before an admin ever touches this table. The keys in
+// entitlements.OrgGateKeys/IndividualGateKeys are the exception: their
+// default now comes from the account's pricing tier (see Resolve), and
+// org_feature_flags/user_feature_flags still override that default exactly
+// as before.
 //
 // ai_connector and session_booking are deliberately absent: they keep their
 // own dedicated org_settings columns (see OrgAIConnectorEnabled/
@@ -94,20 +101,25 @@ var (
 )
 
 type Service struct {
-	repo *Repo
+	repo         *Repo
+	entitlements *ent.Service
 }
 
-func NewService(repo *Repo) *Service {
-	return &Service{repo: repo}
+func NewService(repo *Repo, entitlementsSvc *ent.Service) *Service {
+	return &Service{repo: repo, entitlements: entitlementsSvc}
 }
 
 // Resolve builds the full feature config for a user. Every key in
 // alwaysOrgEnabled/alwaysEntitled defaults to on, same as before
-// org_feature_flags/user_feature_flags existed; an explicit override row
-// flips that default for one org or one member. what_now/revision_digest
-// stay on the permission-grant mechanism (GrantedFeatureKeys) for
-// entitlement, gated additionally by the org-level toggle so a platform
-// admin can still kill either org-wide.
+// org_feature_flags/user_feature_flags existed, EXCEPT the keys in
+// entitlements.OrgGateKeys/IndividualGateKeys — those default to whatever
+// the account's pricing tier says (see entitlements.Service.ResolveAccount
+// for the individual-vs-org axis split), with org_feature_flags/
+// user_feature_flags still able to override that default same as always. An
+// explicit override row flips the default for one org or one member.
+// what_now/revision_digest also stay on the permission-grant mechanism
+// (GrantedFeatureKeys) for entitlement, gated additionally by the org-level
+// toggle so a platform admin can still kill either org-wide.
 func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureConfig, error) {
 	granted, err := s.repo.GrantedFeatureKeys(ctx, userID)
 	if err != nil {
@@ -119,10 +131,21 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
 	}
 
+	_, tierID, audience, err := s.entitlements.ResolveAccount(ctx, userID, orgID)
+	if err != nil {
+		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+	}
+
 	orgFeatures := []string{}
 	orgFeatureSet := map[string]bool{}
 	for _, key := range alwaysOrgEnabled {
 		enabled := true
+		if audience == pricing.AudienceOrg && slices.Contains(ent.OrgGateKeys, key) {
+			enabled, err = s.entitlements.GateEnabled(ctx, tierID, key)
+			if err != nil {
+				return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+			}
+		}
 		if v, ok := orgOverrides[key]; ok {
 			enabled = v
 		}
@@ -154,33 +177,48 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
 	}
 
-	entitlements := []string{}
+	entitlementList := []string{}
+	lockedInfo := map[string]LockedFeatureInfo{}
 	for _, key := range alwaysEntitled {
 		if !orgFeatureSet[key] {
 			continue
 		}
 		if key == "ai_connector" || key == "session_booking" {
-			entitlements = append(entitlements, key)
+			entitlementList = append(entitlementList, key)
 			continue
 		}
 		enabled := true
+		tierGated := audience == pricing.AudienceIndividual && slices.Contains(ent.IndividualGateKeys, key)
+		if tierGated {
+			enabled, err = s.entitlements.GateEnabled(ctx, tierID, key)
+			if err != nil {
+				return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+			}
+		}
 		if v, ok := userOverrides[key]; ok {
 			enabled = v
 		}
 		if enabled {
-			entitlements = append(entitlements, key)
+			entitlementList = append(entitlementList, key)
+		} else if tierGated {
+			info, err := s.entitlements.UnlockInfo(ctx, pricing.AudienceIndividual, key)
+			if err != nil {
+				return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+			}
+			lockedInfo[key] = LockedFeatureInfo{UnlockVia: info.UnlockVia, CTALabel: info.CTALabel, Reason: info.Reason}
 		}
 	}
 	for _, key := range granted {
-		if orgFeatureSet[key] && !slices.Contains(entitlements, key) {
-			entitlements = append(entitlements, key)
+		if orgFeatureSet[key] && !slices.Contains(entitlementList, key) {
+			entitlementList = append(entitlementList, key)
+			delete(lockedInfo, key)
 		}
 	}
 
 	return FeatureConfig{
 		OrgFeatures:  orgFeatures,
-		Entitlements: entitlements,
-		LockedInfo:   map[string]LockedFeatureInfo{},
+		Entitlements: entitlementList,
+		LockedInfo:   lockedInfo,
 	}, nil
 }
 

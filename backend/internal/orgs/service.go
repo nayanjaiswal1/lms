@@ -202,7 +202,7 @@ func (s *OrgService) GetMyOrgs(ctx context.Context, userID string) ([]OrgSummary
 // picker is a search-as-you-type box, not a browsable list.
 func (s *OrgService) ListAllOrgs(ctx context.Context, search string) ([]AdminOrgSummary, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, slug, name, status FROM organizations
+		`SELECT id, slug, name, status, tier_id FROM organizations
 		 WHERE $1 = '' OR name ILIKE '%' || $1 || '%' OR slug ILIKE '%' || $1 || '%' OR id::text = $1
 		 ORDER BY name ASC
 		 LIMIT 100`,
@@ -216,7 +216,7 @@ func (s *OrgService) ListAllOrgs(ctx context.Context, search string) ([]AdminOrg
 	orgs := []AdminOrgSummary{}
 	for rows.Next() {
 		var o AdminOrgSummary
-		if err := rows.Scan(&o.ID, &o.Slug, &o.Name, &o.Status); err != nil {
+		if err := rows.Scan(&o.ID, &o.Slug, &o.Name, &o.Status, &o.TierID); err != nil {
 			return nil, fmt.Errorf("orgs: list all orgs: scan: %w", err)
 		}
 		orgs = append(orgs, o)

@@ -1,12 +1,15 @@
 import { Badge } from "@/components/ui/badge";
+import type { PlanLimit } from "@/lib/server/entitlements";
 import type { PricingTier } from "@/lib/server/pricing";
+import { EditPlanLimitsDialog } from "./edit-plan-limits-dialog";
 import { EditPricingTierDialog } from "./edit-pricing-tier-dialog";
 
 interface PricingTierCardProps {
   tier: PricingTier;
+  limits: PlanLimit[];
 }
 
-export function PricingTierCard({ tier }: PricingTierCardProps) {
+export function PricingTierCard({ tier, limits }: PricingTierCardProps) {
   return (
     <article className="card-base flex flex-col gap-3 p-6">
       <div className="flex items-start justify-between gap-2">
@@ -34,7 +37,10 @@ export function PricingTierCard({ tier }: PricingTierCardProps) {
         <Badge variant={tier.cta_disabled ? "outline" : "default"}>
           {tier.cta_disabled ? "CTA disabled" : `Links to ${tier.cta_href}`}
         </Badge>
-        <EditPricingTierDialog tier={tier} />
+        <div className="flex gap-2">
+          <EditPlanLimitsDialog limits={limits} tierId={tier.id} tierName={tier.name} />
+          <EditPricingTierDialog tier={tier} />
+        </div>
       </div>
     </article>
   );

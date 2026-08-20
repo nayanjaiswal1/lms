@@ -192,6 +192,32 @@ func (r *Repo) ListPlannedUnscheduled(ctx context.Context, userID string) ([]Tas
 	return out, rows.Err()
 }
 
+// ListCompletedTasks returns every 'done' task for userID, newest completion
+// first — backs the learning journal's day-timeline merge (see
+// journal.Handler.ListEntries), which projects each into a read-only entry
+// on the day it was completed.
+func (r *Repo) ListCompletedTasks(ctx context.Context, userID string) ([]Task, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+taskColumns+` FROM whatnow_tasks
+		 WHERE user_id = $1 AND status = 'done' AND completed_at IS NOT NULL
+		 ORDER BY completed_at DESC`,
+		userID)
+	if err != nil {
+		return nil, fmt.Errorf("whatnow: list completed tasks: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Task{}
+	for rows.Next() {
+		t, err := scanTask(rows)
+		if err != nil {
+			return nil, fmt.Errorf("whatnow: scan task: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // ListDoneIDs returns the set of task IDs with status 'done', used to check
 // whether a task's dependencies have all been completed.
 func (r *Repo) ListDoneIDs(ctx context.Context, userID string) (map[string]bool, error) {

@@ -14,6 +14,13 @@ type Entry struct {
 	Content     string    `json:"content"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	// Source distinguishes a real journal row ("journal") from a completed
+	// What Now? task projected onto the day it was finished ("task") — see
+	// Handler.ListEntries. Always "journal" for anything read via the repo.
+	Source string `json:"source"`
+	// SourceTaskID is the originating whatnow_tasks.id when Source == "task",
+	// empty otherwise.
+	SourceTaskID string `json:"source_task_id,omitempty"`
 }
 
 // CreateEntryRequest is the body for POST /api/journal. EntryDate nil/empty
@@ -70,6 +77,20 @@ type GraphResponse struct {
 type CreateEntryResponse struct {
 	Entry          Entry   `json:"entry"`
 	SimilarEntries []Entry `json:"similar_entries"`
+}
+
+// MergeEntriesRequest is the body for POST /api/journal/{id}/merge — {id} is
+// the entry kept (and appended to), OtherID is the entry removed.
+type MergeEntriesRequest struct {
+	OtherID string `json:"other_id"`
+}
+
+// MergeEntriesResponse returns both the kept (updated) entry and the full
+// removed entry, so the caller can hold the removed row for a Ctrl+Z undo
+// without a second round trip.
+type MergeEntriesResponse struct {
+	Entry   Entry `json:"entry"`
+	Removed Entry `json:"removed"`
 }
 
 // StructureRequest is the body for POST /api/journal/structure — raw text

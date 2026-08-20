@@ -14,7 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/courses"
+	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/notifications"
+	"github.com/mindforge/backend/internal/pricing"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -52,6 +54,7 @@ type Service struct {
 	coursesSvc    *courses.Service
 	repoPreparer  RepoPreparer
 	notifications *notifications.Service
+	entitlements  *ent.Service
 }
 
 // NewService wires up the labs service. coursesSvc completes the course module
@@ -59,9 +62,11 @@ type Service struct {
 // repoPreparer may be nil (GitLab integration not configured for this
 // deploy) — see RepoPreparer's own doc comment. notifSvc backs
 // notifyRepeatedProvisionFailures (org owners/admins, in-app + email on a
-// lab's provisioning circuit breaker tripping).
-func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc}
+// lab's provisioning circuit breaker tripping). entitlementsSvc backs the
+// individual-tier lab_sessions_concurrent/lab_hours quota checks in
+// StartSession and the usage accrual in RecordSessionContainerUsage(Batch).
+func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service) *Service {
+	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc}
 }
 
 // WSTokenType is the wsTokenClaims.Type value labproxy requires. labproxy
@@ -192,20 +197,54 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 			return nil, ErrCapacityReached
 		}
 
-		// A user may only have one lab active at a time. Starting the same lab
-		// again is still allowed below (it resumes the existing session) —
-		// this only blocks starting a *different* lab while one is active.
-		var hasOtherActiveSession bool
+		// Individual-plan quota: how many *distinct* labs this user may run
+		// at once. Defaults to 1 (the org-account behavior below, and every
+		// account before pricing tiers existed) unless the account is an
+		// individual account (see entitlements.Service.ResolveAccount) whose
+		// tier grants more — see docs/entitlements.md §2's Individual matrix
+		// ("2 sessions at once" / "3 sessions at once" for Plus/Pro).
+		accountID, tierID, audience, err := s.entitlements.ResolveAccount(ctx, userID, orgID)
+		if err != nil {
+			return nil, fmt.Errorf("labs.Service.StartSession: resolve account tier: %w", err)
+		}
+		concurrentLimit := 1
+		if audience == pricing.AudienceIndividual {
+			if limit, _, found, err := s.entitlements.QuotaLimit(ctx, tierID, "lab_sessions_concurrent"); err != nil {
+				return nil, fmt.Errorf("labs.Service.StartSession: concurrent quota: %w", err)
+			} else if found {
+				concurrentLimit = limit
+			}
+
+			// Monthly lab-hours quota — pre-flight only: the real duration
+			// isn't known until the session ends (RecordSessionContainerUsage
+			// accrues it there). Org accounts have no lab_hours row (org
+			// tiers keep their existing org_lab_config caps instead), so
+			// this is skipped entirely for them.
+			if hoursLimit, _, found, err := s.entitlements.QuotaLimit(ctx, tierID, "lab_hours"); err != nil {
+				return nil, fmt.Errorf("labs.Service.StartSession: hours quota: %w", err)
+			} else if found {
+				usedSeconds, err := s.entitlements.MonthlySecondsUsed(ctx, accountID, "lab_hours")
+				if err != nil {
+					return nil, fmt.Errorf("labs.Service.StartSession: hours used: %w", err)
+				}
+				if usedSeconds >= int64(hoursLimit)*3600 {
+					return nil, ErrPlanQuotaExceeded
+				}
+			}
+		}
+
+		// Starting the same lab again is still allowed below (it resumes the
+		// existing session) — this only blocks starting *distinct* labs
+		// beyond concurrentLimit while they're active.
+		var otherActiveCount int
 		if err := tx.QueryRow(ctx,
-			`SELECT EXISTS (
-				SELECT 1 FROM lab_sessions
-				WHERE user_id=$1 AND lab_id<>$2 AND status IN ('provisioning','running','paused')
-			)`,
+			`SELECT COUNT(*) FROM lab_sessions
+			 WHERE user_id=$1 AND lab_id<>$2 AND status IN ('provisioning','running','paused')`,
 			userID, labID,
-		).Scan(&hasOtherActiveSession); err != nil {
+		).Scan(&otherActiveCount); err != nil {
 			return nil, fmt.Errorf("labs.Service.StartSession: check other active session: %w", err)
 		}
-		if hasOtherActiveSession {
+		if otherActiveCount >= concurrentLimit {
 			return nil, ErrUserHasActiveSession
 		}
 	}

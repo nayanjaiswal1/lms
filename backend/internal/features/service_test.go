@@ -8,9 +8,18 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/features"
 	"github.com/stretchr/testify/require"
 )
+
+// newTestService builds a features.Service backed by a real entitlements.Service
+// over the same pool — defaultOrgID "" means every test org here resolves to
+// the org axis (never the individual/DefaultOrgID axis), matching what these
+// tests actually exercise (org_feature_flags/user_feature_flags/grants).
+func newTestService(pool *pgxpool.Pool) *features.Service {
+	return features.NewService(features.NewRepo(pool), entitlements.NewService(entitlements.NewRepo(pool), ""))
+}
 
 func setupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -84,7 +93,7 @@ func TestResolve_GrantedFeatureIsEntitled(t *testing.T) {
 	orgID := createTestOrg(t, pool, fmt.Sprintf("features-test-%d", time.Now().UnixNano()))
 	grantFeature(t, pool, orgID, userID, "what_now")
 
-	service := features.NewService(features.NewRepo(pool))
+	service := newTestService(pool)
 	cfg, err := service.Resolve(ctx, userID, orgID)
 	require.NoError(t, err)
 
@@ -100,7 +109,7 @@ func TestResolve_UngrantedUserIsNotEntitled(t *testing.T) {
 	userID := createTestUser(t, pool, email)
 	orgID := createTestOrg(t, pool, fmt.Sprintf("features-test-%d", time.Now().UnixNano()))
 
-	service := features.NewService(features.NewRepo(pool))
+	service := newTestService(pool)
 	cfg, err := service.Resolve(ctx, userID, orgID)
 	require.NoError(t, err)
 
@@ -116,7 +125,7 @@ func TestResolve_OrgAdminCanDisableFeatureOrgWide(t *testing.T) {
 	userID := createTestUser(t, pool, email)
 	orgID := createTestOrg(t, pool, fmt.Sprintf("features-test-%d", time.Now().UnixNano()))
 
-	service := features.NewService(features.NewRepo(pool))
+	service := newTestService(pool)
 	require.NoError(t, service.SetOrgFeatureFlag(ctx, orgID, "wiki", false, userID))
 
 	cfg, err := service.Resolve(ctx, userID, orgID)
@@ -138,7 +147,7 @@ func TestResolve_OrgAdminCanRevokeFeaturePerUser(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	service := features.NewService(features.NewRepo(pool))
+	service := newTestService(pool)
 	require.NoError(t, service.SetUserFeatureFlag(ctx, orgID, userID, "wiki", false, userID))
 
 	cfg, err := service.Resolve(ctx, userID, orgID)
@@ -160,7 +169,7 @@ func TestSetUserFeatureFlag_RejectsFeatureOrgHasNotEnabled(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	service := features.NewService(features.NewRepo(pool))
+	service := newTestService(pool)
 	require.NoError(t, service.SetOrgFeatureFlag(ctx, orgID, "wiki", false, userID))
 
 	err = service.SetUserFeatureFlag(ctx, orgID, userID, "wiki", true, userID)

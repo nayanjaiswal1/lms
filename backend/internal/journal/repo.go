@@ -47,6 +47,7 @@ func scanEntry(row scanner) (Entry, error) {
 		return Entry{}, err
 	}
 	e.EntryDate = entryDate.Format("2006-01-02")
+	e.Source = "journal"
 	return e, nil
 }
 
@@ -240,6 +241,58 @@ func (r *Repo) UpdateEntry(ctx context.Context, userID, id string, req UpdateEnt
 		return Entry{}, fmt.Errorf("journal: update entry: %w", err)
 	}
 	return e, nil
+}
+
+// MergeEntries combines otherID's content onto keepID and deletes otherID,
+// atomically — both rows are locked first so a concurrent edit/delete can't
+// interleave. Returns the updated kept entry and the full pre-delete
+// snapshot of the removed entry (the caller holds it for a Ctrl+Z undo).
+func (r *Repo) MergeEntries(ctx context.Context, userID, keepID, otherID string) (kept Entry, removed Entry, err error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Entry{}, Entry{}, fmt.Errorf("journal: begin merge tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	keepRow := tx.QueryRow(ctx, `SELECT `+entryColumns+` FROM learning_journal_entries WHERE id = $1 AND user_id = $2 FOR UPDATE`, keepID, userID)
+	keepBefore, err := scanEntry(keepRow)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Entry{}, Entry{}, ErrNotFound
+		}
+		return Entry{}, Entry{}, fmt.Errorf("journal: lock kept entry: %w", err)
+	}
+
+	otherRow := tx.QueryRow(ctx, `SELECT `+entryColumns+` FROM learning_journal_entries WHERE id = $1 AND user_id = $2 FOR UPDATE`, otherID, userID)
+	removed, err = scanEntry(otherRow)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Entry{}, Entry{}, ErrNotFound
+		}
+		return Entry{}, Entry{}, fmt.Errorf("journal: lock merged-away entry: %w", err)
+	}
+
+	mergedContent := keepBefore.Content + "\n\n---\n\n" + removed.Content
+	updatedRow := tx.QueryRow(ctx,
+		`UPDATE learning_journal_entries SET content = $3, updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING `+entryColumns,
+		keepID, userID, mergedContent)
+	kept, err = scanEntry(updatedRow)
+	if err != nil {
+		return Entry{}, Entry{}, fmt.Errorf("journal: update kept entry: %w", err)
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM learning_journal_entries WHERE id = $1 AND user_id = $2`, otherID, userID)
+	if err != nil {
+		return Entry{}, Entry{}, fmt.Errorf("journal: delete merged-away entry: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return Entry{}, Entry{}, ErrNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Entry{}, Entry{}, fmt.Errorf("journal: commit merge: %w", err)
+	}
+	return kept, removed, nil
 }
 
 // DeleteEntry permanently deletes an entry the caller owns.

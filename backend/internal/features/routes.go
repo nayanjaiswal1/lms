@@ -3,6 +3,7 @@ package features
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	ent "github.com/mindforge/backend/internal/entitlements"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
 
@@ -13,9 +14,11 @@ type Router struct {
 }
 
 // New builds the features Router with its full dependency graph.
-func New(pool *pgxpool.Pool) *Router {
+// entitlementsSvc resolves which pricing tier gates the keys in
+// entitlements.OrgGateKeys/IndividualGateKeys — see Service.Resolve.
+func New(pool *pgxpool.Pool, entitlementsSvc *ent.Service) *Router {
 	repo := NewRepo(pool)
-	service := NewService(repo)
+	service := NewService(repo, entitlementsSvc)
 	return &Router{handler: newHandler(service), pool: pool}
 }
 

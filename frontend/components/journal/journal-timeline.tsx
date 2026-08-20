@@ -1,9 +1,11 @@
 "use client";
 
 import { MotionConfig, motion, type Variants } from "framer-motion";
-import { NotebookPen } from "lucide-react";
+import { GitMerge, NotebookPen } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { JournalEntryCard } from "@/components/journal/journal-entry-card";
+import { useJournalMerge } from "@/components/journal/use-journal-merge";
 import type { JournalEntry } from "@/lib/server/journal";
 
 // Matches globals.css --duration-slow / --ease-smooth so the mount cascade
@@ -60,6 +62,7 @@ function groupByDate(entries: JournalEntry[]): DateGroup[] {
 
 export function JournalTimeline({ entries }: JournalTimelineProps) {
   const groups = groupByDate(entries);
+  const merge = useJournalMerge(entries);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -69,30 +72,66 @@ export function JournalTimeline({ entries }: JournalTimelineProps) {
         initial="hidden"
         variants={listVariants}
       >
-        {groups.map((group) => (
-          <motion.li
-            className="relative grid grid-cols-[2.25rem_1fr] items-start gap-4"
-            key={group.date}
-            variants={groupVariants}
-          >
-            <span className="z-10 col-start-1 flex size-9 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-sm">
-              <NotebookPen aria-hidden className="h-4 w-4" />
-            </span>
-            <div className="col-start-2 flex min-w-0 flex-col gap-2">
-              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                {formatShortDate(group.date)}
+        {groups.map((group) => {
+          const mergeableCount = group.entries.filter((e) => e.source === "journal").length;
+          const inMergeMode = merge.mergeDay === group.date;
+          return (
+            <motion.li
+              className="relative grid grid-cols-[2.25rem_1fr] items-start gap-4"
+              key={group.date}
+              variants={groupVariants}
+            >
+              <span className="z-10 col-start-1 flex size-9 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-sm">
+                <NotebookPen aria-hidden className="h-4 w-4" />
               </span>
-              <div className="flex flex-wrap gap-3">
-                {group.entries.map((entry) => (
-                  <motion.div key={entry.id} variants={cardVariants}>
-                    <JournalEntryCard entry={entry} />
-                  </motion.div>
-                ))}
+              <div className="col-start-2 flex min-w-0 flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                    {formatShortDate(group.date)}
+                  </span>
+                  {mergeableCount >= 2 && (
+                    <Button
+                      className="h-7 gap-1 text-xs text-muted-foreground"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => merge.toggleMergeDay(group.date)}
+                    >
+                      <GitMerge aria-hidden className="size-3.5" />
+                      {inMergeMode ? "Cancel merge" : "Merge cards"}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {group.entries.map((entry) => (
+                    <motion.div key={entry.id} variants={cardVariants}>
+                      <JournalEntryCard
+                        entry={entry}
+                        selectable={inMergeMode && entry.source === "journal"}
+                        selected={merge.selectedIds.includes(entry.id)}
+                        onToggleSelect={() => merge.toggleSelect(entry.id)}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </motion.li>
-        ))}
+            </motion.li>
+          );
+        })}
       </motion.ol>
+
+      {merge.selectedIds.length === 2 && (
+        <div className="fixed inset-x-4 bottom-4 z-modal flex justify-center sm:inset-x-auto sm:right-4 sm:left-auto">
+          <div className="card-base flex items-center gap-3 border border-primary/20 p-3 shadow-raised">
+            <span className="text-sm text-foreground">Merge these 2 entries into one?</span>
+            <Button disabled={merge.isPending} size="sm" onClick={merge.confirmMerge}>
+              {merge.isPending ? "Merging…" : "Merge"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={merge.cancel}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
     </MotionConfig>
   );
 }

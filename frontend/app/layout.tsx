@@ -14,6 +14,7 @@ import { getActiveLabSession } from '@/lib/server/labs'
 import { getCurrentOrgType, getCurrentOrgBranding } from '@/lib/orgs/server'
 import { getPaymentsCurrency } from '@/lib/server/payments'
 import { Toaster } from '@/components/ui/sonner'
+import { AppMotionConfig } from '@/components/shared/app-motion-config'
 import { LabProvisioningWatcher } from '@/components/labs/lab-provisioning-watcher'
 import { ActiveLabsBar } from '@/components/labs/active-labs-bar'
 import './globals.css'
@@ -153,9 +154,11 @@ export default async function RootLayout({
                   <CurrencyProvider currency={currency}>
                     <PermissionProvider permissions={permissions}>
                       <LabProvisioningProvider initialSession={activeLabSession}>
-                        {children}
-                        <LabProvisioningWatcher />
-                        <ActiveLabsBar />
+                        <AppMotionConfig>
+                          {children}
+                          <LabProvisioningWatcher />
+                          <ActiveLabsBar />
+                        </AppMotionConfig>
                       </LabProvisioningProvider>
                     </PermissionProvider>
                   </CurrencyProvider>

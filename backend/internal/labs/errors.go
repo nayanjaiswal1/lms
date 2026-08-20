@@ -111,4 +111,11 @@ var (
 	// host ("bombing" it) until an instructor fixes the lab. StartSession
 	// refuses new sessions for the lab until the window rolls off.
 	ErrLabProvisioningUnstable = errors.New("labs: lab has failed to provision repeatedly and is temporarily unavailable")
+
+	// ErrPlanQuotaExceeded is returned when an individual account (see
+	// entitlements.Service.ResolveAccount) is at its pricing tier's
+	// lab_sessions_concurrent or lab_hours limit. Org accounts are unaffected
+	// — see docs/entitlements.md §1.1, lab quotas are an individual-plan
+	// concept only, orgs keep their existing org_lab_config caps.
+	ErrPlanQuotaExceeded = errors.New("labs: individual plan lab quota exceeded")
 )

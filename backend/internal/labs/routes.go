@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
+	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/redis/go-redis/v9"
 )
@@ -21,10 +22,12 @@ import (
 // nil when GitLab isn't configured (see RepoPreparer's own doc comment in
 // service.go); internal/api/router.go passes gitlabRouter.Service() here.
 // notifSvc backs notifyRepeatedProvisionFailures (see service.go).
-func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service) *Handler {
+// entitlementsSvc backs the individual-tier lab quota checks (see
+// NewService's doc comment).
+func New(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer, pistonURL string, pistonTimeout time.Duration, coursesSvc *courses.Service, container ContainerRuntime, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service) *Handler {
 	repo := NewRepo(pool)
 	piston := newLabPiston(pistonURL, pistonTimeout)
-	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer, notifSvc)
+	service := NewService(repo, container, rdb, pool, piston, coursesSvc, repoPreparer, notifSvc, entitlementsSvc)
 	return NewHandler(repo, service, pool, rdb, jwtSecret, jwtIssuer, piston)
 }
 

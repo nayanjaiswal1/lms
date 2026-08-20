@@ -39,6 +39,7 @@ export interface AdminOrgSummary {
   slug: string;
   name: string;
   status: OrgStatus;
+  tier_id: string;
 }
 
 export interface Member {

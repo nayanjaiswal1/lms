@@ -31,6 +31,7 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<t
       <SelectPrimitive.Content
         className={cn(
           "relative z-dropdown max-h-72 min-w-32 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-raised",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className,
         )}
         position="popper"

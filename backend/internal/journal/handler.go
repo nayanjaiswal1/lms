@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,18 +15,22 @@ import (
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/whatnow"
 )
 
 // Handler exposes the learning journal domain over HTTP.
 type Handler struct {
 	repo     *Repo
 	provider ai.LLMProvider
+	tasks    *whatnow.Repo
 }
 
 // NewHandler constructs the journal handler from a connection pool and the
-// shared LLM provider (used only by StructureEntry).
+// shared LLM provider (used only by StructureEntry). It also stands up a
+// whatnow.Repo over the same pool, used only to read the caller's completed
+// What Now? tasks for the day-timeline merge in ListEntries.
 func NewHandler(pool *pgxpool.Pool, provider ai.LLMProvider) *Handler {
-	return &Handler{repo: NewRepo(pool), provider: provider}
+	return &Handler{repo: NewRepo(pool), provider: provider, tasks: whatnow.NewRepo(pool)}
 }
 
 // ErrAIUnavailable is returned by StructureEntry when no LLM provider is configured.
@@ -63,23 +68,82 @@ func normalizeEntryDate(p *string) (*string, string) {
 	return p, ""
 }
 
-// ListEntries handles GET /api/journal.
+// ListEntries handles GET /api/journal. The response merges in the caller's
+// completed What Now? tasks, each projected as a read-only entry on the day
+// it was finished (see completedTaskEntries) — one unified day timeline,
+// no separate "task view" round trip needed.
 func (h *Handler) ListEntries(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	q := r.URL.Query()
-	entries, err := h.repo.ListEntries(r.Context(), claims.UserID, ListEntriesFilter{
+	filter := ListEntriesFilter{
 		Category:    q.Get("category"),
 		Subcategory: q.Get("subcategory"),
 		Search:      q.Get("q"),
-	})
+	}
+	entries, err := h.repo.ListEntries(r.Context(), claims.UserID, filter)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
+
+	tasks, err := h.tasks.ListCompletedTasks(r.Context(), claims.UserID)
+	if err != nil {
+		writeDomainError(w, fmt.Errorf("journal: list completed tasks: %w", err))
+		return
+	}
+	entries = append(entries, completedTaskEntries(tasks, filter, claims.UserID)...)
+	sort.SliceStable(entries, func(i, j int) bool { return entries[i].EntryDate > entries[j].EntryDate })
+
 	httputil.WriteJSON(w, http.StatusOK, entries)
+}
+
+// completedTaskEntries projects each done What Now? task into a read-only
+// Entry on the day its CompletedAt falls, applying the same list filters the
+// real entries got — a task has no real subcategory, so any Subcategory
+// filter excludes tasks entirely (no match is possible), and a Category
+// filter only keeps tasks when it's exactly "Task".
+func completedTaskEntries(tasks []whatnow.Task, filter ListEntriesFilter, userID string) []Entry {
+	if filter.Subcategory != "" {
+		return nil
+	}
+	if filter.Category != "" && filter.Category != "Task" {
+		return nil
+	}
+	search := strings.ToLower(filter.Search)
+
+	out := make([]Entry, 0, len(tasks))
+	for _, t := range tasks {
+		if t.CompletedAt == "" {
+			continue
+		}
+		completedAt, err := time.Parse(time.RFC3339, t.CompletedAt)
+		if err != nil {
+			continue
+		}
+		if search != "" && !strings.Contains(strings.ToLower(t.Title), search) {
+			continue
+		}
+		subcategory := t.Category
+		if subcategory == "" {
+			subcategory = "Completed"
+		}
+		out = append(out, Entry{
+			ID:           "task:" + t.ID,
+			UserID:       userID,
+			EntryDate:    completedAt.Format(entryDateFormat),
+			Category:     "Task",
+			Subcategory:  subcategory,
+			Title:        t.Title,
+			CreatedAt:    completedAt,
+			UpdatedAt:    completedAt,
+			Source:       "task",
+			SourceTaskID: t.ID,
+		})
+	}
+	return out
 }
 
 // ListCategories handles GET /api/journal/categories.
@@ -239,6 +303,54 @@ func (h *Handler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, entry)
+}
+
+// MergeEntries handles POST /api/journal/:id/merge — {id} is kept and has
+// req.OtherID's content appended onto it; req.OtherID is deleted. Both must
+// belong to the caller and share the same entry_date (merging across days
+// isn't what "merge cards for a day" means).
+func (h *Handler) MergeEntries(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	keepID := chi.URLParam(r, "id")
+
+	var req MergeEntriesRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	req.OtherID = strings.TrimSpace(req.OtherID)
+	if req.OtherID == "" || req.OtherID == keepID {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"other_id": "other_id is required and must differ from the entry being kept.",
+		})
+		return
+	}
+
+	keep, err := h.repo.GetEntry(r.Context(), claims.UserID, keepID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	other, err := h.repo.GetEntry(r.Context(), claims.UserID, req.OtherID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if keep.EntryDate != other.EntryDate {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"other_id": "Both entries must be on the same day to merge.",
+		})
+		return
+	}
+
+	kept, removed, err := h.repo.MergeEntries(r.Context(), claims.UserID, keepID, req.OtherID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, MergeEntriesResponse{Entry: kept, Removed: removed})
 }
 
 // DeleteEntry handles DELETE /api/journal/:id.
