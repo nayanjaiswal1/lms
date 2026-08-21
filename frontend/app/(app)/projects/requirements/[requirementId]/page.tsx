@@ -7,6 +7,7 @@ import { getProjectAssignments, getRequirement, listApplicationsForRequirement }
 import { REQUIREMENT_STATUS_LABEL, REQUIREMENT_STATUS_VARIANT } from "@/lib/constants";
 import { ApplicationReviewList } from "@/components/projects/application-review-list";
 import { CreateTeamFromSelectionDialog } from "@/components/projects/create-team-from-selection-dialog";
+import { EditRequirementDialog } from "@/components/projects/edit-requirement-dialog";
 import { PublishCloseRequirementButtons } from "@/components/projects/publish-close-requirement-buttons";
 import { RunScoringButton } from "@/components/projects/run-scoring-button";
 import ROUTES from "@/lib/routes";
@@ -47,7 +48,10 @@ export default async function RequirementDetailPage({ params }: RequirementDetai
             {new Date(requirement.application_deadline).toLocaleString()}
           </p>
         </div>
-        <PublishCloseRequirementButtons requirementId={requirement.id} status={requirement.status} />
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <EditRequirementDialog requirement={requirement} />
+          <PublishCloseRequirementButtons requirementId={requirement.id} status={requirement.status} />
+        </div>
       </header>
 
       <p className="prose-content mt-4 whitespace-pre-wrap">{requirement.brief}</p>

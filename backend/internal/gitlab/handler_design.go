@@ -1,6 +1,7 @@
 package gitlab
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -10,10 +11,35 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 )
 
+// Length caps on free text shared by Batch 7's proposal/task endpoints —
+// cheap to enforce at the boundary, expensive to retrofit once a giant
+// paste has already landed in the table.
+const (
+	maxTitleLen       = 200
+	maxDescriptionLen = 3000
+	maxLinkLen        = 500
+)
+
 type designProposalRequest struct {
 	Title       string  `json:"title"`
 	Description *string `json:"description"`
 	Link        *string `json:"link"`
+}
+
+func validateDesignProposalRequest(req designProposalRequest) map[string]string {
+	fields := map[string]string{}
+	if strings.TrimSpace(req.Title) == "" {
+		fields["title"] = "A title is required."
+	} else if len(req.Title) > maxTitleLen {
+		fields["title"] = fmt.Sprintf("Title must be %d characters or fewer.", maxTitleLen)
+	}
+	if req.Description != nil && len(*req.Description) > maxDescriptionLen {
+		fields["description"] = fmt.Sprintf("Description must be %d characters or fewer.", maxDescriptionLen)
+	}
+	if req.Link != nil && len(*req.Link) > maxLinkLen {
+		fields["link"] = fmt.Sprintf("Link must be %d characters or fewer.", maxLinkLen)
+	}
+	return fields
 }
 
 // SubmitDesignProposal handles POST
@@ -27,8 +53,8 @@ func (h *Handler) SubmitDesignProposal(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if strings.TrimSpace(req.Title) == "" {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"title": "A title is required."})
+	if fields := validateDesignProposalRequest(req); len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	proposal, err := h.service.SubmitDesignProposal(r.Context(), claims.OrgID, claims.UserID,

@@ -29,6 +29,16 @@ func (s *Service) CreateCheckpoint(ctx context.Context, orgID, assignmentID stri
 		}
 		cp.Position = pos
 	}
+	// The HTTP handler already defaults an omitted kind to
+	// CheckpointKindMilestone, but that default belongs here too: the
+	// column has no bare NOT NULL default fallback once a value is supplied
+	// at all (migration 022's CHECK constraint rejects "" outright), so any
+	// non-HTTP caller — a test, a future internal call — that leaves Kind
+	// unset would otherwise fail the CHECK instead of getting the sane
+	// default the handler gives every real request.
+	if cp.Kind == "" {
+		cp.Kind = CheckpointKindMilestone
+	}
 	cp.OrgID = orgID
 	cp.AssignmentID = assignmentID
 	created, err := s.repo.CreateCheckpoint(ctx, cp)

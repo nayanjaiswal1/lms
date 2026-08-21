@@ -6,12 +6,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Trash2, User } from "lucide-react";
+import { CalendarClock, Plus, Trash2, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FormInputField } from "@/components/ui/form-input-field";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -27,16 +28,21 @@ import type { ProjectTask, TaskStatus } from "@/lib/projects/types";
 const Schema = z.object({
   title: z.string().min(2, "Title is too short."),
   description: z.string().optional(),
+  due_at: z.string().optional(),
 });
 type FormData = z.infer<typeof Schema>;
 
 function NewTaskDialog({ teamId }: { teamId: string }) {
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
-  const form = useForm<FormData>({ resolver: zodResolver(Schema), defaultValues: { title: "", description: "" } });
+  const form = useForm<FormData>({ resolver: zodResolver(Schema), defaultValues: { title: "", description: "", due_at: "" } });
 
   const onSubmit = async (data: FormData) => {
-    const result = await createTaskAction(teamId, { title: data.title, description: data.description?.trim() || null });
+    const result = await createTaskAction(teamId, {
+      title: data.title,
+      description: data.description?.trim() || null,
+      due_at: data.due_at ? new Date(data.due_at).toISOString() : null,
+    });
     if (result.error) {
       toast.error(result.error);
       return;
@@ -70,6 +76,19 @@ function NewTaskDialog({ teamId }: { teamId: string }) {
                   <FormLabel>Description (optional)</FormLabel>
                   <FormControl>
                     <Textarea rows={3} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="due_at"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due (optional)</FormLabel>
+                  <FormControl>
+                    <Input type="datetime-local" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -143,6 +162,16 @@ function TaskCard({ task, teamId, currentUserId }: TaskCardProps) {
         <User aria-hidden className="h-3 w-3" />
         {task.assignee_name || "Unassigned"}
       </div>
+      {task.due_at && (
+        <div
+          className={`flex items-center gap-1.5 text-xs ${
+            task.status !== "done" && new Date(task.due_at) < new Date() ? "text-destructive" : "text-muted-foreground"
+          }`}
+        >
+          <CalendarClock aria-hidden className="h-3 w-3" />
+          Due {new Date(task.due_at).toLocaleDateString()}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Select disabled={pending} value={task.status} onValueChange={(v) => handleStatusChange(v as TaskStatus)}>

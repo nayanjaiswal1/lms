@@ -214,7 +214,7 @@ func main() {
 
 	// A standalone projectmarket.Service for the AI scoring job — same
 	// "holds no state beyond shared pointers" reasoning as the others above.
-	projectmarketSvcForJobs := projectmarket.NewService(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabSvcForJobs)
+	projectmarketSvcForJobs := projectmarket.NewService(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabSvcForJobs, notificationsSvcForJobs)
 
 	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc, coursesSvcForJobs))
 	// Fires once, exactly when an eval.subjective job permanently dies, instead
@@ -256,6 +256,7 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerGitlabHandoff, handlers.NewGitlabHandoffHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerGitlabAIReviewMR, handlers.NewGitlabAIReviewMRHandler(gitlabSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerProjectmarketScoreRequirement, handlers.NewProjectmarketScoreRequirementHandler(projectmarketSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerProjectmarketCloseExpired, handlers.NewProjectmarketCloseExpiredHandler(projectmarketSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerDigestNightly, handlers.NewDigestNightlyHandler(pool))
 	jobsRegistry.Register(handlers.HandlerDigestUser, handlers.NewDigestUserHandler(pool, aiProvider, cfg, jobsRegistry))
 
@@ -300,6 +301,10 @@ func main() {
 		// timezone, so an hourly tick is what actually gives every
 		// timezone its own local 21:00 from one cron entry.
 		{Handler: handlers.HandlerDigestNightly, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// Flips a stale "Open" badge to "Closed" once its application_deadline
+		// passes — Apply already rejects late applications regardless, this
+		// only fixes what staff see on the requirements list.
+		{Handler: handlers.HandlerProjectmarketCloseExpired, Schedule: "*/15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 	}
 
 	workerCtx, workerCancel := context.WithCancel(ctx)

@@ -8,15 +8,16 @@ import (
 	"github.com/mindforge/backend/internal/gitlab"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/middleware"
+	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/profile"
 )
 
 // New builds the fully-wired projectmarket Handler from the shared pool.
-// profileRepo/aiProvider/jobsRegistry/gitlabSvc are the shared instances the
-// rest of the app already builds (see internal/api/router.go) — see
-// NewService's own doc comment for what each backs.
-func New(pool *pgxpool.Pool, profileRepo *profile.Repo, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, gitlabSvc *gitlab.Service) *Handler {
-	return NewHandler(NewService(pool, profileRepo, aiProvider, jobsRegistry, gitlabSvc))
+// profileRepo/aiProvider/jobsRegistry/gitlabSvc/notifSvc are the shared
+// instances the rest of the app already builds (see internal/api/router.go)
+// — see NewService's own doc comment for what each backs.
+func New(pool *pgxpool.Pool, profileRepo *profile.Repo, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, gitlabSvc *gitlab.Service, notifSvc *notifications.Service) *Handler {
+	return NewHandler(NewService(pool, profileRepo, aiProvider, jobsRegistry, gitlabSvc, notifSvc))
 }
 
 // RegisterRoutes mounts the authenticated project-marketplace API onto the

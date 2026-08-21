@@ -1,6 +1,7 @@
 package gitlab
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -18,6 +19,19 @@ type createTaskRequest struct {
 	DueAt        *time.Time `json:"due_at"`
 }
 
+func validateCreateTaskRequest(req createTaskRequest) map[string]string {
+	fields := map[string]string{}
+	if strings.TrimSpace(req.Title) == "" {
+		fields["title"] = "A title is required."
+	} else if len(req.Title) > maxTitleLen {
+		fields["title"] = fmt.Sprintf("Title must be %d characters or fewer.", maxTitleLen)
+	}
+	if req.Description != nil && len(*req.Description) > maxDescriptionLen {
+		fields["description"] = fmt.Sprintf("Description must be %d characters or fewer.", maxDescriptionLen)
+	}
+	return fields
+}
+
 // CreateTask handles POST /api/projects/teams/{teamID}/tasks.
 func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
@@ -28,8 +42,8 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if strings.TrimSpace(req.Title) == "" {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"title": "A title is required."})
+	if fields := validateCreateTaskRequest(req); len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	task, err := h.service.CreateTask(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "teamID"), req.Title, req.Description, req.CheckpointID, req.DueAt)
@@ -64,8 +78,22 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &patch) {
 		return
 	}
+	fields := map[string]string{}
 	if patch.Status != nil && !validTaskStatuses[*patch.Status] {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"status": "Not a recognized task status."})
+		fields["status"] = "Not a recognized task status."
+	}
+	if patch.Title != nil {
+		if strings.TrimSpace(*patch.Title) == "" {
+			fields["title"] = "A title is required."
+		} else if len(*patch.Title) > maxTitleLen {
+			fields["title"] = fmt.Sprintf("Title must be %d characters or fewer.", maxTitleLen)
+		}
+	}
+	if patch.Description != nil && len(*patch.Description) > maxDescriptionLen {
+		fields["description"] = fmt.Sprintf("Description must be %d characters or fewer.", maxDescriptionLen)
+	}
+	if len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	task, err := h.service.UpdateTask(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "taskID"), patch)

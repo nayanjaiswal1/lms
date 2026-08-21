@@ -88,12 +88,24 @@ func (r *Repo) GetRequirement(ctx context.Context, orgID, id string) (*ProjectRe
 	return scanRequirement(row)
 }
 
+// listRowCap bounds every unpaginated list query in this package — a flat
+// ceiling, not real limit/offset pagination with a page-through UI.
+// ponytail: staff-created content (requirements) and one-posting's
+// applicants both grow at human pace, not the unbounded-catalog scale that
+// actually needs click-through pagination (see docs/ai-pattern-learnings.md's
+// "list endpoints shipped unpaginated" entry, which this deliberately still
+// guards against — a query can never return more than this many rows no
+// matter how large an org gets). Upgrade to real limit/offset (mirror
+// courses.Repo.ListPublicCourses' shape) if a single requirement or org ever
+// realistically approaches it.
+const listRowCap = 500
+
 // ListRequirements returns every requirement in the org, newest first — the
 // staff management list (all statuses).
 func (r *Repo) ListRequirements(ctx context.Context, orgID string) ([]ProjectRequirement, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT `+requirementColumns+` FROM project_requirements WHERE org_id = $1 ORDER BY created_at DESC`,
-		orgID,
+		`SELECT `+requirementColumns+` FROM project_requirements WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2`,
+		orgID, listRowCap,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("projectmarket: list requirements: %w", err)
@@ -123,8 +135,9 @@ func (r *Repo) ListBoard(ctx context.Context, orgID, userID string) ([]Requireme
 		 LEFT JOIN project_applications app ON app.requirement_id = req.id
 		 WHERE req.org_id = $1 AND req.status = 'open' AND req.application_deadline > now()
 		 GROUP BY req.id
-		 ORDER BY req.application_deadline`,
-		orgID, userID,
+		 ORDER BY req.application_deadline
+		 LIMIT $3`,
+		orgID, userID, listRowCap,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("projectmarket: list board: %w", err)
@@ -184,6 +197,25 @@ func (r *Repo) SetRequirementStatus(ctx context.Context, orgID, id, fromStatus, 
 		return nil, ErrNotFound
 	}
 	return req, err
+}
+
+// CloseExpiredRequirements bulk-transitions every "open" requirement whose
+// application_deadline has passed to "closed" — the cron sweep behind
+// gitlab.deadline_snapshot's own "past-due, needs a state flip" shape.
+// Global across every org, same as that job: this is a state-consistency
+// sweep, not a per-org action, so it takes no orgID. Applying no longer
+// matters after the deadline regardless (Service.Apply already rejects it),
+// this only fixes the *displayed* status so a stale "Open" badge doesn't
+// linger on the staff list.
+func (r *Repo) CloseExpiredRequirements(ctx context.Context) (int64, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE project_requirements SET status = 'closed', updated_at = now()
+		 WHERE status = 'open' AND application_deadline < now()`,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("projectmarket: close expired requirements: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 // ─── project_applications ──────────────────────────────────────────────────
@@ -254,8 +286,9 @@ func (r *Repo) ListApplicationsForStaff(ctx context.Context, orgID, requirementI
 		 FROM project_applications app
 		 JOIN users u ON u.id = app.user_id
 		 WHERE app.org_id = $1 AND app.requirement_id = $2
-		 ORDER BY app.ai_score DESC NULLS LAST, app.applied_at`,
-		orgID, requirementID,
+		 ORDER BY app.ai_score DESC NULLS LAST, app.applied_at
+		 LIMIT $3`,
+		orgID, requirementID, listRowCap,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("projectmarket: list applications for staff: %w", err)

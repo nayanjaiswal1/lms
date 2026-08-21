@@ -33,4 +33,5 @@ const (
 
 	// Project marketplace (internal/projectmarket) — Phase A, Slice 1 finish.
 	HandlerProjectmarketScoreRequirement = "projectmarket.score_requirement"
+	HandlerProjectmarketCloseExpired     = "projectmarket.close_expired"
 )

@@ -243,7 +243,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// cheap (Repo wraps nothing but the pool) and avoids needing profileHandler's
 	// internals, matching how gitlabRouter.Service() is shared as a plain
 	// accessor rather than a bigger dependency.
-	projectmarketRouter := projectmarket.New(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabRouter.Service())
+	projectmarketRouter := projectmarket.New(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabRouter.Service(), notificationsRouter.Service)
 
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.

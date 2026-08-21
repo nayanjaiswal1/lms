@@ -1,6 +1,11 @@
 package gitlab
 
-import "context"
+import (
+	"context"
+	"fmt"
+
+	"github.com/mindforge/backend/internal/notifications"
+)
 
 // ─── Batch 7: design proposals & voting ────────────────────────────────────
 // Submitting/listing/voting is any team member (membership verified via
@@ -76,9 +81,25 @@ func (s *Service) RemoveVote(ctx context.Context, orgID, userID, proposalID stri
 }
 
 // AcceptDesignProposal is the staff-only call that settles a design/
-// architecture review checkpoint on one team's winning proposal.
+// architecture review checkpoint on one team's winning proposal — notifies
+// the whole team, best-effort, same treatment notifyTeam's other call sites
+// give a notification failure (never blocks the accept itself).
 func (s *Service) AcceptDesignProposal(ctx context.Context, orgID, proposalID string) (*ProjectDesignProposal, error) {
-	return s.repo.AcceptDesignProposal(ctx, orgID, proposalID)
+	accepted, err := s.repo.AcceptDesignProposal(ctx, orgID, proposalID)
+	if err != nil {
+		return nil, err
+	}
+	if team, err := s.repo.GetTeamByID(ctx, accepted.TeamID); err == nil {
+		s.notifyTeam(ctx, team, notifications.New{
+			Type:       "gitlab.design_proposal_accepted",
+			Title:      fmt.Sprintf("%q was accepted", accepted.Title),
+			EntityType: strPtr("project_design_proposal"),
+			EntityID:   &accepted.ID,
+			Priority:   notifications.PriorityNormal,
+			DedupeKey:  fmt.Sprintf("gitlab.design_proposal_accepted:%s", accepted.ID),
+		})
+	}
+	return accepted, nil
 }
 
 // DeleteDesignProposal lets a team member withdraw their own proposal.

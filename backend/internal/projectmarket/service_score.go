@@ -31,17 +31,22 @@ var ErrAIUnavailable = errors.New("projectmarket: AI scoring is not available ri
 // every not-yet-scored application against requirementID. Idempotent by
 // design — ListUnscoredApplications inside the job is the "AI called once"
 // cache check, so running this again after new applications arrive only
-// scores the new ones.
+// scores the new ones. The idempotency key additionally collapses a
+// double-click into a single job: while a run for this requirement is
+// still pending/in flight, a second RequestScoring call is a silent no-op
+// rather than a second concurrent pass over the same (mostly already-
+// scored) applications.
 func (s *Service) RequestScoring(ctx context.Context, orgID, requirementID, requestedBy string) error {
 	if _, err := s.repo.GetRequirement(ctx, orgID, requirementID); err != nil {
 		return err
 	}
 	timeout := scoreRequirementTimeoutMS
+	idempotencyKey := "projectmarket.score_requirement:" + requirementID
 	if _, err := jobs.Enqueue(ctx, s.pool, s.jobsRegistry, jobs.EnqueueParams{
 		Handler: jobScoreRequirement, Priority: jobs.PriorityBackground,
 		Payload: map[string]string{"org_id": orgID, "requirement_id": requirementID}, OrgID: &orgID, TimeoutMS: &timeout,
-		CreatedBy: &requestedBy,
-	}); err != nil {
+		CreatedBy: &requestedBy, IdempotencyKey: &idempotencyKey,
+	}); err != nil && !errors.Is(err, jobs.ErrDuplicateKey) {
 		return fmt.Errorf("projectmarket: enqueue scoring: %w", err)
 	}
 	return nil

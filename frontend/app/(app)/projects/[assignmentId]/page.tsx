@@ -12,8 +12,10 @@ import {
   getOriginalityReports,
   getProjectAssignment,
   getProjectTeams,
+  getTeamOwnership,
   listAllDesignProposals,
 } from "@/lib/projects/server";
+import { OwnershipTable } from "@/components/projects/ownership-table";
 import { getBatch, getBatchMembers } from "@/lib/server/batches";
 import { PublishAssignmentButton } from "@/components/projects/publish-assignment-button";
 import { EditAssignmentPanel } from "@/components/projects/edit-assignment-panel";
@@ -83,6 +85,9 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
   const proposalLists = await Promise.all(proposalCheckpoints.map((cp) => listAllDesignProposals(cp.id)));
   const proposalsByCheckpoint = Object.fromEntries(proposalCheckpoints.map((cp, i) => [cp.id, proposalLists[i]]));
 
+  const ownershipLists = await Promise.all(teams.map((t) => getTeamOwnership(t.id)));
+  const ownershipByTeam = Object.fromEntries(teams.map((t, i) => [t.id, ownershipLists[i].files]));
+
   const assignedUserIds = new Set(dashboard.teams.flatMap((t) => t.members).map((m) => m.user_id));
   const availableStudents = batchMembers.filter((m) => !assignedUserIds.has(m.user_id));
   const teamsById = Object.fromEntries(teams.map((t) => [t.id, t]));
@@ -127,14 +132,31 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
           />
         }
         insightsTab={
-          <div className="grid-responsive-2 grid gap-6">
+          <div className="flex flex-col gap-6">
+            <div className="grid-responsive-2 grid gap-6">
+              <section className="card-base flex flex-col gap-4 p-6">
+                <h3 className="text-sm font-semibold">Commit leaderboard</h3>
+                <AssignmentLeaderboard leaderboard={leaderboard.leaderboard} />
+              </section>
+              <section className="card-base flex flex-col gap-4 p-6">
+                <h3 className="text-sm font-semibold">Checkpoint burndown</h3>
+                <AssignmentBurndown checkpoints={burndown.checkpoints} />
+              </section>
+            </div>
             <section className="card-base flex flex-col gap-4 p-6">
-              <h3 className="text-sm font-semibold">Commit leaderboard</h3>
-              <AssignmentLeaderboard leaderboard={leaderboard.leaderboard} />
-            </section>
-            <section className="card-base flex flex-col gap-4 p-6">
-              <h3 className="text-sm font-semibold">Checkpoint burndown</h3>
-              <AssignmentBurndown checkpoints={burndown.checkpoints} />
+              <h3 className="text-sm font-semibold">File ownership by team</h3>
+              {teams.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No teams yet.</p>
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {teams.map((t) => (
+                    <div className="flex flex-col gap-2" key={t.id}>
+                      <span className="text-xs font-semibold text-muted-foreground">{t.name}</span>
+                      <OwnershipTable files={ownershipByTeam[t.id] ?? []} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         }

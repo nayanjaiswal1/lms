@@ -1,6 +1,7 @@
 package projectmarket
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -8,6 +9,17 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
+
+func validateApplyRequest(req ApplyRequest) map[string]string {
+	fields := map[string]string{}
+	if len(req.Motivation) > maxMotivationLen {
+		fields["motivation"] = fmt.Sprintf("Motivation must be %d characters or fewer.", maxMotivationLen)
+	}
+	if len(req.ResumeText) > maxResumeLen {
+		fields["resume_text"] = fmt.Sprintf("Resume must be %d characters or fewer.", maxResumeLen)
+	}
+	return fields
+}
 
 // Apply handles POST /api/project-marketplace/board/{id}/apply — any org
 // member applies to an open requirement.
@@ -18,6 +30,10 @@ func (h *Handler) Apply(w http.ResponseWriter, r *http.Request) {
 	}
 	var req ApplyRequest
 	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if fields := validateApplyRequest(req); len(fields) > 0 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	app, err := h.service.Apply(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "requirementID"), req.Motivation, req.ResumeText)
