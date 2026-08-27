@@ -45,6 +45,14 @@ func PromptContext(sources Sources) string {
 		b.WriteString("\n")
 	}
 
+	if len(sources.DueCards) > 0 {
+		fmt.Fprintf(&b, "Flashcards due for review (%d):\n", len(sources.DueCards))
+		for _, c := range sources.DueCards {
+			fmt.Fprintf(&b, "- %s\n", c.Front)
+		}
+		b.WriteString("\n")
+	}
+
 	if len(sources.Activity) == 0 {
 		b.WriteString("No other recorded activity in this window.\n")
 		return b.String()
@@ -76,6 +84,16 @@ func Render(cadences []Cadence, sources Sources, aiNarrative string) (subject, b
 		b.WriteString("Next up on your sheets:\n")
 		for _, t := range sources.NextTasks {
 			b.WriteString(fmt.Sprintf("- [%s] %s\n", t.Status, t.Title))
+		}
+		b.WriteString("\n")
+	}
+
+	if len(sources.DueCards) > 0 {
+		// Front (the question) only — Back is the answer, and showing it in
+		// an email would spoil the recall test the card exists for.
+		b.WriteString(fmt.Sprintf("Cards due for review (%d):\n", len(sources.DueCards)))
+		for _, c := range sources.DueCards {
+			b.WriteString("- " + c.Front + "\n")
 		}
 		b.WriteString("\n")
 	}

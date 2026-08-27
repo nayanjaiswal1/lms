@@ -11,6 +11,7 @@ import (
 	"github.com/mindforge/backend/internal/activity"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/sheets"
+	"github.com/mindforge/backend/internal/srs"
 )
 
 // emailSendHandler is jobs/handlers' HandlerEmailSend ("email.send"),
@@ -28,10 +29,11 @@ type Repo struct {
 	pool     *pgxpool.Pool
 	activity *activity.Repo
 	sheets   *sheets.Repo
+	srs      *srs.Repo
 }
 
 func NewRepo(pool *pgxpool.Pool) *Repo {
-	return &Repo{pool: pool, activity: activity.NewRepo(pool), sheets: sheets.NewRepo(pool)}
+	return &Repo{pool: pool, activity: activity.NewRepo(pool), sheets: sheets.NewRepo(pool), srs: srs.NewRepo(pool)}
 }
 
 // AnchorDate returns userID's first-ever digest_date, or the zero Time if
@@ -103,9 +105,9 @@ func (r *Repo) HasActivity(ctx context.Context, userID, orgID string, from, to t
 }
 
 // GatherSources pulls everything one digest needs: activity in the window
-// covering every cadence being merged tonight, plus the student's next
-// sheet-tracker tasks (not window-bound — "what's next" is always current,
-// not historical).
+// covering every cadence being merged tonight, the student's next
+// sheet-tracker tasks, and their due SRS flashcards (neither is window-bound
+// — "what's next"/"what's due" are always current, not historical).
 func (r *Repo) GatherSources(ctx context.Context, userID, orgID string, cadences []Cadence, now time.Time) (Sources, error) {
 	start, end := WindowFor(cadences, now)
 	entries, err := r.activity.ListWindow(ctx, userID, orgID, start, end, 200)
@@ -116,10 +118,28 @@ func (r *Repo) GatherSources(ctx context.Context, userID, orgID string, cadences
 	if err != nil {
 		return Sources{}, fmt.Errorf("digest: gather sheet tasks: %w", err)
 	}
+	dueCards, err := r.srs.GetDueCards(ctx, userID)
+	if err != nil {
+		return Sources{}, fmt.Errorf("digest: gather due cards: %w", err)
+	}
 	return Sources{
-		Activity: entries, NextTasks: tasks, Cadences: cadences,
+		Activity: entries, NextTasks: tasks, DueCards: dueCards, Cadences: cadences,
 		WindowStart: start, WindowEnd: end,
 	}, nil
+}
+
+// HasDueCards reports whether userID has any SRS flashcard due today or
+// earlier — the nightly handler's cheap gating check, mirroring HasActivity,
+// for the same reason: folding the former standalone "Cards due for review"
+// email (handlers/srs.go) into this one means due cards must also be able to
+// trigger tonight's send on their own, not just ride along when activity or
+// a periodic cadence already earned one.
+func (r *Repo) HasDueCards(ctx context.Context, userID string) (bool, error) {
+	cards, err := r.srs.GetDueCards(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("digest: has due cards: %w", err)
+	}
+	return len(cards) > 0, nil
 }
 
 // InsertDigest persists d and enqueues its delivery email. jobs.Enqueue only

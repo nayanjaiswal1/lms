@@ -17,7 +17,7 @@ import (
 // jobs. On each tick it finds calendar_events (real and, for recurring
 // masters, expanded occurrences) starting within the next
 // CALENDAR_REMINDER_LEAD_MINUTES, and enqueues a reminder email.send job per
-// attendee — same pattern as SRSHandler/MentorEscalationHandler: a periodic
+// attendee — same pattern as MentorEscalationHandler: a periodic
 // sweep, deduplicated via idempotency_key, with no per-event scheduling call
 // required (see calendar.Service.CreateEvent's doc comment).
 type CalendarReminderHandler struct {

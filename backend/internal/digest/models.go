@@ -1,12 +1,14 @@
 // Package digest builds the nightly AI revision-digest email: one plain-text
 // (optionally AI-narrated) recap per student per night, combining that
-// night's learning activity with any 3-day/weekly/monthly spaced-repetition
-// windows that close the same night, capped at one email per user per
-// calendar day (see revision_digests' UNIQUE(user_id, digest_date) in
-// migration 002_revision_digest.sql). It reads from — and never duplicates —
-// internal/activity (notes, reflections, mistakes, completions) and
-// internal/sheets (spaced-repetition tracker) rather than owning its own
-// copy of that data.
+// night's learning activity, any 3-day/weekly/monthly spaced-repetition
+// windows that close the same night, and any due SRS flashcards, capped at
+// one email per user per calendar day (see revision_digests' UNIQUE(user_id,
+// digest_date) in migration 002_revision_digest.sql). It reads from — and
+// never duplicates — internal/activity (notes, reflections, mistakes,
+// completions), internal/sheets (spaced-repetition problem tracker), and
+// internal/srs (spaced-repetition flashcards; formerly its own separate
+// "Cards due for review" email, folded in here so a student gets one nightly
+// email, not two) rather than owning its own copy of that data.
 package digest
 
 import (
@@ -14,6 +16,7 @@ import (
 
 	"github.com/mindforge/backend/internal/activity"
 	"github.com/mindforge/backend/internal/sheets"
+	"github.com/mindforge/backend/internal/srs"
 )
 
 // Cadence identifies which revision window a digest is covering. A single
@@ -79,6 +82,7 @@ type Digest struct {
 type Sources struct {
 	Activity    []activity.Entry
 	NextTasks   []sheets.SheetItem
+	DueCards    []srs.Card
 	Cadences    []Cadence
 	WindowStart time.Time
 	WindowEnd   time.Time

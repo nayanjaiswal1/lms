@@ -173,7 +173,7 @@ export const FEATURE_META: Record<Feature, { label: string; description: string 
   practice_ai:      { label: 'AI Interview Prep',  description: 'AI-generated interview questions with personalised feedback' },
   batch_chat:       { label: 'Batch Chat',          description: 'Mentor–student messaging within cohort batches' },
   what_now:         { label: 'What Now?',           description: 'A single-question room for deciding what to work on next' },
-  revision_digest:  { label: 'Revision Digest',     description: 'Nightly AI-written recap of your notes, mistakes, and sheet progress, emailed once a day' },
+  revision_digest:  { label: 'Revision Digest',     description: 'Nightly AI-written recap of your notes, mistakes, sheet progress, and due flashcards, emailed once a day' },
   gitlab_integration: { label: 'GitLab Integration', description: 'Connect your GitLab account and your organization\'s GitLab instance' },
   ai_connector:     { label: 'AI Connector',        description: 'Connect your own Claude or ChatGPT to read lessons, save notes, and manage your calendar via MCP' },
   session_booking:  { label: 'Session Booking',     description: 'Book 1:1 and cohort mentor sessions against published availability, with session credits and cancellation rules' },

@@ -43,11 +43,14 @@ func NewDigestNightlyHandler(pool *pgxpool.Pool) *DigestNightlyHandler {
 // user who is currently at their local send hour, hasn't opted out, hasn't
 // already received a digest today (revision_digests' UNIQUE(user_id,
 // digest_date) is the authoritative cap; this is the cheap pre-check), and
-// has something worth sending — today's activity, a periodic cadence
-// closing tonight, or both merged into one digest (digest.MergeCadences).
-// Mirrors SRSHandler.Handle's raw-INSERT-with-idempotency-key pattern
-// (handlers/srs.go) rather than going through jobs.Enqueue, since this
-// handler (unlike digest.user) never needs the registry for anything else.
+// has something worth sending — today's activity, a due SRS flashcard, a
+// periodic cadence closing tonight, or several merged into one digest
+// (digest.MergeCadences). A due flashcard with no other activity still
+// counts, since this digest replaced the standalone "Cards due for review"
+// email (handlers/srs.go) that used to fire on its own.
+// Uses a raw INSERT with an idempotency key rather than going through
+// jobs.Enqueue, since this handler (unlike digest.user) never needs the
+// registry for anything else.
 func (h *DigestNightlyHandler) Handle(ctx context.Context, _ jobs.Job) error {
 	users, err := h.features.EntitledUserIDs(ctx, "revision_digest")
 	if err != nil {
@@ -87,12 +90,16 @@ func (h *DigestNightlyHandler) Handle(ctx context.Context, _ jobs.Job) error {
 		if err != nil {
 			return fmt.Errorf("handlers.digest_nightly: activity check (user %s): %w", u.UserID, err)
 		}
+		hasDueCards, err := h.digest.HasDueCards(ctx, u.UserID)
+		if err != nil {
+			return fmt.Errorf("handlers.digest_nightly: due cards check (user %s): %w", u.UserID, err)
+		}
 
 		anchor, err := h.digest.AnchorDate(ctx, u.UserID)
 		if err != nil {
 			return fmt.Errorf("handlers.digest_nightly: anchor date (user %s): %w", u.UserID, err)
 		}
-		cadences := digest.MergeCadences(hasActivityToday, digest.DueCadences(anchor, local))
+		cadences := digest.MergeCadences(hasActivityToday || hasDueCards, digest.DueCadences(anchor, local))
 		if !digest.ShouldSend(cadences) {
 			continue
 		}

@@ -235,7 +235,6 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerBulkInvite, handlers.NewInviteHandler(pool, cfg))
 	jobsRegistry.OnDead(handlers.HandlerBulkInvite, handlers.NewInviteDeadHook())
 	jobsRegistry.Register(handlers.HandlerLLM, handlers.NewLLMHandler(pool, aiProvider, cfg))
-	jobsRegistry.Register(handlers.HandlerSRSReminder, handlers.NewSRSHandler(pool, cfg))
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
 	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime, notificationsSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
@@ -261,7 +260,10 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerDigestUser, handlers.NewDigestUserHandler(pool, aiProvider, cfg, jobsRegistry))
 
 	cronDefs := []jobs.CronJobDef{
-		{Handler: handlers.HandlerSRSReminder, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// srs.review_reminder's standalone "Cards due for review" email was
+		// folded into digest.nightly (internal/digest) — due flashcards now
+		// ride along in the one nightly digest email instead of arriving as
+		// their own separate message. No cron entry for it here anymore.
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 2 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
