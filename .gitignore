@@ -58,3 +58,6 @@ coverage/
 
 # tokensave local code-graph DB
 .tokensave/
+
+# Local docker-compose port overrides for native (non-docker) backend runs
+docker-compose.override.yml

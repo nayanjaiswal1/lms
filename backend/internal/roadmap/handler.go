@@ -88,10 +88,9 @@ func (h *Handler) ListRoadmaps(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"roadmaps": roadmaps})
 }
 
+// ListPublicRoadmaps is a public route (see RegisterPublicRoutes) — anyone,
+// logged in or not, can browse the Discover gallery.
 func (h *Handler) ListPublicRoadmaps(w http.ResponseWriter, r *http.Request) {
-	if _, ok := auth.RequireClaims(w, r); !ok {
-		return
-	}
 	roadmaps, err := h.service.ListPublic(r.Context())
 	if err != nil {
 		writeDomainError(w, err)
@@ -116,13 +115,18 @@ func (h *Handler) StartRoadmap(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, rm)
 }
 
+// GetRoadmap is mounted with OptionalAuth (see RegisterOptionalAuthRoutes),
+// not RequireAuth — it serves both an owner's full editable roadmap and
+// anyone's is_public roadmap from the same URL. auth.GetClaims returns
+// ok=false for an anonymous caller; service.Get treats that the same as an
+// authenticated caller who simply doesn't own this roadmap.
 func (h *Handler) GetRoadmap(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
+	var userID string
+	if claims, ok := auth.GetClaims(r.Context()); ok {
+		userID = claims.UserID
 	}
 	id := chi.URLParam(r, "roadmapID")
-	rm, err := h.service.Get(r.Context(), id, claims.UserID)
+	rm, err := h.service.Get(r.Context(), id, userID)
 	if err != nil {
 		writeDomainError(w, err)
 		return

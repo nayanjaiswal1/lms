@@ -331,6 +331,15 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// Public: the anonymous catalog renders prices before any session exists.
 	payments.RegisterPublicRoutes(r, cfg)
 
+	// Public roadmap Discover gallery — anonymous browse of roadmaps their
+	// owners marked is_public, same pattern as the public course catalog.
+	roadmapRouter.RegisterPublicRoutes(r)
+
+	// GET /api/roadmaps/:id works both signed in and anonymous — an owner's
+	// full editable roadmap, or anyone's is_public roadmap read-only, from
+	// the same URL (no separate "public" path). See RegisterOptionalAuthRoutes.
+	roadmapRouter.RegisterOptionalAuthRoutes(r, apimiddleware.OptionalAuth(cfg, cache))
+
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache, pool)
 

@@ -1,7 +1,7 @@
 import { ModuleRow } from "@/components/roadmap/module-row";
 import type { Roadmap } from "@/lib/server/roadmap";
 
-export function RoadmapTree({ roadmap }: { roadmap: Roadmap }) {
+export function RoadmapTree({ roadmap, readOnly }: { roadmap: Roadmap; readOnly?: boolean }) {
   const phases = roadmap.phases ?? [];
 
   return (
@@ -31,7 +31,7 @@ export function RoadmapTree({ roadmap }: { roadmap: Roadmap }) {
                 )}
                 <ul aria-label={`${milestone.title} modules`} className="flex flex-col gap-2">
                   {milestone.modules.map((mod) => (
-                    <ModuleRow key={mod.id} mod={mod} roadmapId={roadmap.id} />
+                    <ModuleRow key={mod.id} mod={mod} readOnly={readOnly} roadmapId={roadmap.id} />
                   ))}
                 </ul>
               </li>

@@ -75,7 +75,7 @@ export async function listRoadmaps(): Promise<Roadmap[]> {
 }
 
 export async function listPublicRoadmaps(): Promise<Roadmap[]> {
-  const data = await apiGet<{ roadmaps: Roadmap[] }>("/api/roadmaps/public");
+  const data = await apiGet<{ roadmaps: Roadmap[] }>("/api/roadmaps/discover");
   return data.roadmaps ?? [];
 }
 

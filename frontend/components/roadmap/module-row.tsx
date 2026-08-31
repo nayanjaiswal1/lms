@@ -24,22 +24,30 @@ export function resourceHref(mod: RoadmapModule): string | null {
 interface ModuleRowProps {
   roadmapId: string;
   mod: RoadmapModule;
+  // Anonymous Discover view: no progress to toggle, no account to save it to.
+  readOnly?: boolean;
 }
 
-export function ModuleRow({ roadmapId, mod }: ModuleRowProps) {
+export function ModuleRow({ roadmapId, mod, readOnly }: ModuleRowProps) {
   const Icon = MODULE_ICON[mod.module_type] ?? FileText;
-  const href = resourceHref(mod);
+  const href = readOnly ? null : resourceHref(mod);
   const completed = Boolean(mod.completed_at);
 
   return (
     <li className="flex items-start gap-3 rounded-md border border-border p-3">
-      <ModuleProgressToggle
-        completed={completed}
-        moduleId={mod.id}
-        roadmapId={roadmapId}
-        title={mod.title}
-      />
-      <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      {readOnly ? (
+        <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      ) : (
+        <>
+          <ModuleProgressToggle
+            completed={completed}
+            moduleId={mod.id}
+            roadmapId={roadmapId}
+            title={mod.title}
+          />
+          <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        </>
+      )}
       <div className="flex flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className={completed ? "text-sm line-through text-muted-foreground" : "text-sm font-medium"}>

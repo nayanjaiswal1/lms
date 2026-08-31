@@ -232,6 +232,10 @@ const ROUTES = {
   // Hiring / public assessment (no login required)
   hireLanding:              (code: string)                      => `/hire/${code}`,
 
+  // Public roadmap Discover gallery (no login required)
+  PUBLIC_ROADMAPS:          "/roadmaps",
+  publicRoadmap:            (id: string)                        => `/roadmaps/${id}`,
+
   // Calendar invite acceptance (no login required)
   calendarInviteAccept:     (token: string)                     => `/calendar/invite/${token}`,
 } as const;

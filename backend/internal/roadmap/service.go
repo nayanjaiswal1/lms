@@ -110,9 +110,23 @@ func defaultTitle(targetRole, goal string) string {
 	return "Roadmap: " + goal
 }
 
-// Get fetches a roadmap owned by userID with its full tree.
+// Get fetches a roadmap's full tree. If userID is non-empty and owns it,
+// returns the full editable view. Otherwise (anonymous caller, or an
+// authenticated caller who isn't the owner) falls back to the public view —
+// is_public + active/completed, no ownership check — so GET /api/roadmaps/:id
+// serves both an owner's roadmap and anyone's shared one from the same URL,
+// no separate "public" path needed.
 func (s *Service) Get(ctx context.Context, id, userID string) (Roadmap, error) {
-	return s.repo.GetForUser(ctx, id, userID)
+	if userID != "" {
+		rm, err := s.repo.GetForUser(ctx, id, userID)
+		if err == nil {
+			return rm, nil
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return Roadmap{}, err
+		}
+	}
+	return s.repo.GetPublicWithTree(ctx, id)
 }
 
 // List returns the user's roadmaps without the nested tree.
