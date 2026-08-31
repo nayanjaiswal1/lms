@@ -62,6 +62,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/interview.md](docs/interview.md) | Interview board, load test simulator, Yjs sync, API, DB schema |
 | [docs/sheets.md](docs/sheets.md) | Sheet tracker, overlap view, subscribe/fork, API, DB schema |
 | [docs/learning-journal.md](docs/learning-journal.md) | Personal day-by-day learning log, free-typed categories, similar-entry detection, API, DB schema, MCP tools |
+| [docs/diary.md](docs/diary.md) | Free-form daily diary — AI habit/task detection writing into Habits/What Now?, Fix English grammar diff, API, DB schema |
 | [docs/roadmap.md](docs/roadmap.md) | AI personalized roadmaps — goal-to-plan generation, catalog matching, GENERATED/DEFINED mode, API, DB schema |
 | [docs/anonymous.md](docs/anonymous.md) | Public tests, anonymous attempts, API, DB schema |
 | [docs/calendar-sync.md](docs/calendar-sync.md) | Opt-in Google Calendar account sync — OAuth flow, push/pull, DB schema, API, edge cases |

@@ -27,6 +27,8 @@ import {
   Flag,
   Building2,
   NotebookPen,
+  PenLine,
+  Binary,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -177,6 +179,11 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:  ROUTES.MISTAKES,
     icon:  Brain,
   },
+  algo_visualizer: {
+    label: "Algorithm Visualizer",
+    href:  ROUTES.ALGO_VISUALIZER,
+    icon:  Binary,
+  },
   sheet_tracker: {
     label:               "Sheet Tracker",
     href:                ROUTES.SHEETS,
@@ -190,6 +197,13 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:                ROUTES.JOURNAL,
     icon:                NotebookPen,
     requiredPermission:  PERMISSIONS.CONTENT.LEARNING_JOURNAL,
+    mode:                "badge",
+  },
+  diary: {
+    label:               "Diary",
+    href:                ROUTES.DIARY,
+    icon:                PenLine,
+    requiredPermission:  PERMISSIONS.CONTENT.DIARY,
     mode:                "badge",
   },
   wiki: {
@@ -391,6 +405,7 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.learning_journal,
       ALL_NAV_ITEMS.wiki,
       ALL_NAV_ITEMS.interview_exp,
+      ALL_NAV_ITEMS.algo_visualizer,
     ],
   },
   // "Tools" group (System Design, Interview Board, Load Test) removed: those

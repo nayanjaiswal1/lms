@@ -37,6 +37,8 @@ const ROUTES = {
   SHEETS_COMPARE:      "/sheets/compare",
   JOURNAL:             "/journal",
   JOURNAL_NEW:         "/journal/new",
+  DIARY:               "/diary",
+  DIARY_HISTORY:       "/diary/history",
 
   // Mentoring
   MENTORING:               "/mentoring",
@@ -96,6 +98,9 @@ const ROUTES = {
 
   // Tools (feature-gated)
   WIKI:                "/wiki",
+
+  // Algorithm Visualizer — personal tool, ungated
+  ALGO_VISUALIZER:     "/algo-visualizer",
 
   // Interview Experiences — crowd-sourced company/position Q&A board.
   INTERVIEW_EXP:       "/interview-exp",

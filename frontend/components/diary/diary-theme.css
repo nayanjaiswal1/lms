@@ -1,0 +1,92 @@
+/* Scoped "Ink & Parchment" paper look for the diary view only (Write +
+   History). Overrides the same semantic tokens every shadcn primitive
+   already reads, exactly like .habits-journal in
+   components/habits/journal-theme.css — nothing outside .diary-paper is
+   touched. Values are scratchpad/stitch-diary/design-system.md's palette,
+   converted to the h s% l% triplets Tailwind's hsl(var(--x)) wiring expects. */
+
+.diary-paper {
+  --background: 45 67% 96%;
+  --foreground: 60 10% 10%;
+  --card: 45 67% 96%;
+  --card-foreground: 60 10% 10%;
+  --popover: 45 67% 96%;
+  --popover-foreground: 60 10% 10%;
+  --primary: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 42 45% 94%;
+  --secondary-foreground: 60 10% 10%;
+  --muted: 42 45% 94%;
+  --muted-foreground: 195 3% 27%;
+  --accent: 42 45% 94%;
+  --accent-foreground: 60 10% 10%;
+  --border: 180 3% 77%;
+  --input: 180 3% 77%;
+  --ring: 0 0% 0%;
+
+  /* Shape language is strictly sharp (0px) — no rounded corners anywhere
+     except icons, per design-system.md. */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+
+  /* Zero shadows — depth comes from tonal layers and line weight only. */
+  --shadow-card: 0 0 0 1px hsl(var(--border));
+  --shadow-raised: 0 0 0 1px hsl(var(--border));
+
+  --font-sans: var(--font-journal-sans), ui-sans-serif, system-ui, sans-serif;
+
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Dark "night paper": same ink/parchment shape, inverted tones — primary
+   shifts off pure black (unreadable on a near-black page) to the warm
+   paper cream instead, same swap journal-theme.css makes for its palette. */
+.dark .diary-paper {
+  --background: 60 8% 8%;
+  --foreground: 45 30% 92%;
+  --card: 60 8% 8%;
+  --card-foreground: 45 30% 92%;
+  --popover: 60 7% 10%;
+  --popover-foreground: 45 30% 92%;
+  --primary: 45 67% 96%;
+  --primary-foreground: 60 10% 10%;
+  --secondary: 60 6% 15%;
+  --secondary-foreground: 45 30% 92%;
+  --muted: 60 6% 13%;
+  --muted-foreground: 45 8% 65%;
+  --accent: 60 6% 18%;
+  --accent-foreground: 45 30% 92%;
+  --border: 60 6% 22%;
+  --input: 60 6% 22%;
+  --ring: 45 67% 96%;
+}
+
+/* Editorial serif for entry dates/headers only — body copy (and the entry
+   textarea) stays on --font-sans above. */
+.diary-paper-headline {
+  font-family: var(--font-diary-serif), Georgia, serif;
+}
+
+/* Lined-paper entry surface: 32px ruled lines behind the textarea, no box
+   border — matches the Stitch "journal-content-area" mockup. */
+.diary-lined {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 31px,
+    hsl(var(--border)) 31px,
+    hsl(var(--border)) 32px
+  );
+  line-height: 32px;
+}
+
+/* Habit/task mentions the AI resolved inline — a highlighter-pen span, not
+   a chip/badge, to keep the handwritten-page feel. */
+.diary-highlight {
+  background-color: hsl(45 93% 82%);
+  border-radius: 2px;
+  padding: 0 2px;
+}

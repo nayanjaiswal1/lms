@@ -83,6 +83,12 @@ export async function scheduleTaskAction(id: string, patch: SchedulePatch): Prom
   return result;
 }
 
+export async function completeTaskAction(id: string): Promise<ActionResult<{ unlockedTasks: PlanTask[] }>> {
+  const result = await apiAction<{ unlockedTasks: PlanTask[] }>("POST", `/api/whatnow/tasks/${id}/complete`);
+  if (result.ok) revalidatePath(ROUTES.PLAN);
+  return result;
+}
+
 // Reorders (and/or grows) the planned queue. taskIds must include every
 // currently-planned task's ID, not just the ones being reordered — the
 // backend demotes any planned task omitted from this array back to inbox.

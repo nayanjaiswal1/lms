@@ -42,6 +42,7 @@ export const PERMISSIONS = {
     CERTIFICATES:    "content.certificates",
     INTERVIEW_EXP:   "content.interview_exp",
     LEARNING_JOURNAL: "content.learning_journal",
+    DIARY:            "content.diary",
   },
   ADMIN: {
     VIEW_MEMBERS:       "admin.view_members",

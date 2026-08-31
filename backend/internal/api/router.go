@@ -18,6 +18,7 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/diary"
 	"github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/features"
 	"github.com/mindforge/backend/internal/feedback"
@@ -178,6 +179,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	mistakesRouter := mistakes.NewHandler(mistakesRepo, mistakesSvc)
 	sheetsRouter := sheets.New(pool)
 	journalRouter := journal.New(pool, aiProvider)
+	// Digital Diary — one free-form prose entry per day; AI analysis writes
+	// detected habit/task mentions into the existing habit/whatnow domains
+	// rather than owning duplicate data (see internal/diary/service.go).
+	diaryRouter := diary.New(pool, aiProvider, jobsRegistry)
 	interviewExpRouter := interviewexp.New(pool)
 	// Wiki — shares coursesRepo (read-only) with systemDesignRouter/wiki.New's
 	// other callers, to validate course_id on space create and check
@@ -402,6 +407,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Learning Journal — personal day-by-day log of what the user
 		// learned, under a free-typed category.
 		journalRouter.RegisterRoutes(r, authzHandler.Service())
+
+		// Digital Diary — one free-form "Today" prose entry per day, with
+		// AI-detected habit/task mentions and an on-demand Fix English
+		// grammar review.
+		diaryRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Interview Experiences — crowd-sourced company/position-tagged Q&A
 		// board: multi-user continuation, nested discussion, voting. Unlike
