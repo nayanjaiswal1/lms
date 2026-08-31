@@ -13,6 +13,7 @@ import type { NextRequest } from "next/server"
 const PUBLIC_EXACT_PATHS = new Set([
   "/",
   "/org", // org marketing landing — distinct from the authenticated /org/create, /org/settings, /org/setup routes below
+  "/roadmaps", // (public) route group — anonymous roadmap Discover gallery
   "/login",
   "/register",
   "/forgot-password",
@@ -32,6 +33,7 @@ const PUBLIC_PREFIXES = [
   "/calendar/invite/", // (public) route group — public calendar-invite acceptance link
   "/certificates/", // (public) route group — public certificate verification link
   "/hire/", // (public) route group — public hiring-code landing link
+  "/roadmaps/", // (public) route group — anonymous roadmap detail view
   "/api/", // Route handlers do their own auth + return JSON 401s; a redirect here would break fetch() callers expecting JSON
 ]
 

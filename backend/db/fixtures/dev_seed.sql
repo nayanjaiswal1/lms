@@ -124,19 +124,27 @@ ON CONFLICT (org_id, user_id) DO NOTHING;
 -- images, so this list must name EVERY image the dev course fixtures use, not
 -- just the nested-Docker ones. Adding a lab on a new image means adding it
 -- here too.
-INSERT INTO lab_org_config (org_id, allowed_images)
-VALUES (
-  '00000000-0000-0000-0000-000000000001',
-  ARRAY[
-    'mindforge/lab-docker:27',
-    'mindforge/lab-docker-sysbox:27',
-    'mindforge/lab-k8s:1.31',
-    'mindforge/lab-node-web:22',
-    'mindforge/lab-python-web:3.12',
-    'node:18-alpine'
-  ]
-)
-ON CONFLICT (org_id) DO UPDATE SET allowed_images = EXCLUDED.allowed_images;
+-- Disabled: lab_org_config has no migration anywhere in db/migrations/ (grepped
+-- clean) and doesn't exist in the actual database — this INSERT has been
+-- silently failing every dev seed since whenever it was added, rolling back
+-- the ENTIRE dev_seed.sql (SeedDev runs each file as one pool.Exec, which
+-- Postgres wraps in one implicit transaction) because a table-doesn't-exist
+-- error aborts the whole multi-statement blob. Re-enable once a real
+-- migration creates the table — see docs/labs.md / REMAINING_PHASES.md #29
+-- for the intended shape (also has max_session_duration).
+-- INSERT INTO lab_org_config (org_id, allowed_images)
+-- VALUES (
+--   '00000000-0000-0000-0000-000000000001',
+--   ARRAY[
+--     'mindforge/lab-docker:27',
+--     'mindforge/lab-docker-sysbox:27',
+--     'mindforge/lab-k8s:1.31',
+--     'mindforge/lab-node-web:22',
+--     'mindforge/lab-python-web:3.12',
+--     'node:18-alpine'
+--   ]
+-- )
+-- ON CONFLICT (org_id) DO UPDATE SET allowed_images = EXCLUDED.allowed_images;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Assessment fixture — "React Fundamentals" test (MCQ + coding)
