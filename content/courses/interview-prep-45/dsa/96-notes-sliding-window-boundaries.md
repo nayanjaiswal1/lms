@@ -12,19 +12,19 @@ source:
     - interview-prep-notes.md
 ---
 
-Day 3 and Day 23 already cover the sliding window templates (fixed vs variable, the have/need counter, the stale-max trick) in depth with real problems. This note adds the two things those lessons don't: how to prove sliding window even applies before reaching for it, and a checklist for the bugs that show up when it doesn't quite work.
+The core sliding window templates, fixed-size windows, variable-size windows, the have/need counter for matching subsequences, and the stale-max trick for windowed maximums, are covered in depth elsewhere in this course, worked through against real problems. This note adds two things a template walkthrough usually skips: how to prove sliding window even applies before reaching for it, and a checklist for the bugs that show up when it doesn't quite work.
 
 ## The precondition sliding window depends on: monotonicity
 
-Every sliding-window template relies on one assumption: **once a window becomes invalid, it stays invalid until you contract it** — expanding never fixes an invalid window, only contracting does. This holds when the tracked property moves in one direction as the window grows (sum only increases as you add non-negative numbers; distinct-count only increases as you add elements).
+Every sliding-window template relies on one assumption: **once a window becomes invalid, it stays invalid until you contract it**. Expanding never fixes an invalid window; only contracting does. This holds when the tracked property moves in one direction as the window grows: sum only increases as you add non-negative numbers, distinct-count only increases as you add elements.
 
-It breaks the moment that's not true. "Smallest subarray with sum ≥ target" works cleanly with non-negative numbers because growing the window can only help reach the target, and shrinking can only hurt — sum is monotonic in window size. Allow negative numbers, and adding an element to the window can *decrease* the sum, so a window that looks invalid might become valid again by expanding further, not contracting — the whole "contract while invalid" loop no longer proves anything.
+It breaks the moment that's not true. "Smallest subarray with sum ≥ target" works cleanly with non-negative numbers because growing the window can only help reach the target, and shrinking can only hurt: sum is monotonic in window size. Allow negative numbers and adding an element can *decrease* the sum, so a window that looks invalid might become valid again by expanding further rather than contracting. At that point the "contract while invalid" loop no longer proves anything.
 
-**The test before reaching for sliding window:** can you prove that once the window is invalid, it stays invalid until contracted? If you can't, sliding window doesn't crash — it silently returns a wrong answer. That's the dangerous failure mode, not an exception or a wrong-answer-on-obvious-input.
+**The test before reaching for sliding window:** can you prove that once the window is invalid, it stays invalid until contracted? If you can't, sliding window won't crash. It will silently return a wrong answer, which is the dangerous failure mode: no exception, no obviously-wrong output to tip you off.
 
 ## When sliding window isn't the tool: prefix sum + hashmap
 
-For "subarray with sum exactly equal to k" where negatives are allowed (no monotonicity to exploit), sliding window doesn't work — the standard tool is prefix sums with a hashmap of sums seen so far:
+For "subarray with sum exactly equal to k" where negatives are allowed, there's no monotonicity to exploit, so sliding window doesn't work. The standard tool instead is prefix sums with a hashmap of sums seen so far:
 
 ```python
 def subarray_sum(nums: list[int], k: int) -> int:
@@ -42,31 +42,24 @@ def subarray_sum(nums: list[int], k: int) -> int:
     return count
 ```
 
-This is O(n) time and space — same complexity class as sliding window, but it's a fundamentally different technique (no left/right pointers, no expand/contract), applicable precisely where sliding window's monotonicity requirement fails.
+This runs in O(n) time and space, the same complexity class as sliding window, but it's a fundamentally different technique: no left/right pointers, no expand/contract. It applies precisely where sliding window's monotonicity requirement fails.
 
 ## Distinguishing the three related patterns
 
 | Signal | Technique |
 |---|---|
-| Fixed size `k` given | Sliding window — fixed |
-| "Longest/shortest subarray such that..." + monotonic property | Sliding window — variable |
+| Fixed size `k` given | Sliding window (fixed) |
+| "Longest/shortest subarray such that..." + monotonic property | Sliding window (variable) |
 | Negative numbers + exact sum target | Prefix sum + hashmap |
-| Pointers start at both ends, move inward (e.g. container with most water) | Two pointers (opposite ends) — Day 2, a different technique despite the superficial "two pointers" similarity to sliding window |
+| Pointers start at both ends, move inward (e.g. container with most water) | Two pointers (opposite ends): a different technique despite the superficial "two pointers" similarity to sliding window, since both pointers move independently inward rather than a single window expanding and contracting |
 
 ## Correctness checklist
 
-Day 3/23 cover each of these individually inside specific problems; collected here as a pre-submission check:
+Each of these shows up individually inside specific sliding-window problems elsewhere in this course; collected here as a pre-submission check:
 
 - Monotonicity precondition holds (or you've switched to prefix sum instead).
 - Window size formula is `right - left + 1`, not `right - left`.
 - Contract order: remove using the current `left`, *then* `left += 1`.
-- `if` vs `while` matches whether multi-step contraction is possible — fixed-size windows contract by exactly one (`if`); variable-size windows can need zero-to-many contractions per step (`while`). Using `if` where `while` is needed leaves the window invalid after only one contraction — the most common sliding-window bug.
-- Answer recorded at the right point: longest-valid-subarray records *after* the contraction loop exits (window guaranteed valid); shortest-valid-subarray records *inside* the contraction loop, on every contraction (smallest window before it goes invalid again).
-- `left` never moves backward anywhere in the code — that's what makes the amortized-O(n) argument (`right` advances n times, `left` advances at most n times total across the whole run, not per iteration) actually hold.
-
-## Key takeaways
-
-- Sliding window requires monotonicity — prove "once invalid, stays invalid until contracted" before applying it; if you can't, it gives silently wrong answers, not a crash.
-- Negative numbers + exact-sum-target breaks that precondition — use prefix sum + hashmap instead (different technique, not a sliding-window variant).
-- `if` (fixed window, exactly one contraction) vs `while` (variable window, zero-to-many contractions) is a structural choice, not a stylistic one.
-- Longest-subarray answers record after the contraction loop; shortest-subarray answers record inside it, on every contraction.
+- `if` vs `while` matches whether multi-step contraction is possible: fixed-size windows contract by exactly one (`if`), variable-size windows can need zero-to-many contractions per step (`while`). Using `if` where `while` is needed leaves the window invalid after only one contraction, which is the most common sliding-window bug.
+- Answer recorded at the right point. For a longest-valid-subarray problem, record the answer *after* the contraction loop exits, once the window is guaranteed valid again. For a shortest-valid-subarray problem, record the answer *inside* the contraction loop, on every contraction, since that's the smallest the window gets before it goes invalid again.
+- `left` never moves backward anywhere in the code. That's what makes the amortized-O(n) argument hold: `right` advances n times, and `left` advances at most n times total across the whole run, not per iteration.

@@ -12,7 +12,7 @@ source:
     - interview-prep-notes.md
 ---
 
-Calling multiple methods on the same object one after another in a single expression — `str.trim().toLowerCase().replace(...)` instead of reassigning a variable at each step.
+Method chaining means calling multiple methods on the same object one after another in a single expression, as in `str.trim().toLowerCase().replace(...)`, instead of reassigning a variable at each step.
 
 ## How it works
 
@@ -27,7 +27,7 @@ str = str.replace("world", "john");
 let result = "  Hello World  ".trim().toLowerCase().replace("world", "john");
 ```
 
-The mechanism: each method **returns the same object** (or an object of the same interface) instead of `undefined` or void. That return value is exactly what the next `.method()` call in the chain operates on — there's no special language feature involved, just a return-value convention.
+The mechanism: each method **returns the same object** (or an object of the same interface) instead of `undefined` or void. That return value is exactly what the next `.method()` call in the chain operates on. There's no special language feature involved, just a return-value convention.
 
 ## The requirement: `return this`
 
@@ -45,16 +45,14 @@ class QueryBuilder {
 new QueryBuilder().where("age > 18").orderBy("name").build();
 ```
 
-Miss a `return this` on one method and the chain breaks at that point — the next call fails on `undefined`. This is the Builder pattern's core mechanic, and it's exactly how jQuery (`$("#btn").css(...).fadeIn(300).addClass(...)`) and array methods (`.filter().map()`) work.
+Trace the call: `new QueryBuilder()` creates an instance with `parts: []`. `.where("age > 18")` pushes `"WHERE age > 18"` into `parts` and returns `this`, the same instance, so the next call has something to land on. `.orderBy("name")` pushes `"ORDER BY name"` and again returns `this`. `.build()` finally returns `this.parts.join(" ")`, giving `"WHERE age > 18 ORDER BY name"`. Miss a `return this` on any of the middle methods and the chain breaks right there: the next call in the chain tries to call a method on `undefined` and throws.
+
+This is the Builder pattern's core mechanic, and it's exactly how jQuery (`$("#btn").css(...).fadeIn(300).addClass(...)`) and array methods (`.filter().map()`) work.
 
 ## Where it shows up
 
-- Arrays: `.filter().map().reduce()` — each returns a new array/value the next method operates on.
-- Promises: `.then().then().catch()` — each `.then()` returns a new Promise.
-- Fluent builder APIs: query builders, jQuery, test assertion libraries (`expect(x).to.be.a("string")`).
+- Arrays: `.filter().map().reduce()`, where each call returns a new array or value for the next method to operate on.
+- Promises: `.then().then().catch()`, where each `.then()` returns a new Promise.
+- Fluent builder APIs: query builders, jQuery, test assertion libraries such as `expect(x).to.be.a("string")`.
 
-## Key takeaways
-
-- Chaining requires each method to return the object itself (or an equivalent) — it's a convention, not special syntax.
-- It removes intermediate variables and reads as a left-to-right pipeline of transformations.
-- A missing `return this` (or returning `undefined` instead of the object) is the one bug that silently breaks a chain.
+A missing `return this` (or returning `undefined` instead of the object) is the one bug that silently breaks a chain, and it's worth checking first whenever a chained call throws on "cannot read properties of undefined."

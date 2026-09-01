@@ -111,6 +111,6 @@ questions:
     explanation: "One data point, one lesson, then reset: interviews are independent trials, and carrying this morning's anxiety into tomorrow is the only way it can actually hurt you. The roadmap schedules interviews on consecutive days for exactly this resilience."
 ---
 
-Final readiness check: tapering strategy, weakness-focused drilling, company
-research, in-interview recovery tactics, logistics, and interview-day psychology.
-Score 70%+ and you're cleared for Days 43–45.
+The final readiness check: tapering strategy, weakness-focused drilling,
+company research, in-interview recovery tactics, logistics, and interview-day
+psychology. Score 70% and Days 43 through 45 are yours to run.

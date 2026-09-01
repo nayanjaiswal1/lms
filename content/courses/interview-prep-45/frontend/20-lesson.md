@@ -11,7 +11,7 @@ estimated_minutes: 30
 source:
     - 45-day-interview-roadmap.md
 ---
-"How does a bundler actually work" is a favorite senior-frontend question because most engineers use Webpack/Vite daily without ever looking inside — and being able to explain module resolution, tree shaking, and HMR from first principles signals real depth. Today builds a tiny bundler and a tiny Babel-style transform from scratch, then covers what production bundlers do differently.
+"How does a bundler actually work" is a favorite senior-frontend question because most engineers use Webpack/Vite daily without ever looking inside. Being able to explain module resolution, tree shaking, and HMR from first principles signals real depth. Today builds a tiny bundler and a tiny Babel-style transform from scratch, then covers what production bundlers do differently.
 
 ## How bundlers work (Webpack, Vite, esbuild)
 
@@ -19,20 +19,20 @@ At its core, a bundler solves one problem: browsers historically couldn't effici
 
 The pipeline, regardless of tool:
 
-1. **Resolve** — starting from an entry file, follow every `import`/`require` to find the actual file on disk (handling extensions, `node_modules`, path aliases).
-2. **Parse** — turn each file's source into an AST (Abstract Syntax Tree).
-3. **Build a dependency graph** — walk each AST for import/export statements, recursively resolving and parsing until every reachable module is accounted for.
-4. **Transform** — run each module through loaders/plugins (TypeScript → JS, JSX → `React.createElement`, CSS Modules → JS objects).
-4. **Generate** — concatenate/wrap modules into one or more output bundles, resolving each module's imports to a lookup in a shared module registry at runtime.
+1. **Resolve**: starting from an entry file, follow every `import`/`require` to find the actual file on disk (handling extensions, `node_modules`, path aliases).
+2. **Parse**: turn each file's source into an AST (Abstract Syntax Tree).
+3. **Build a dependency graph**: walk each AST for import/export statements, recursively resolving and parsing until every reachable module is accounted for.
+4. **Transform**: run each module through loaders/plugins (TypeScript to JS, JSX to `React.createElement`, CSS Modules to JS objects).
+5. **Generate**: concatenate/wrap modules into one or more output bundles, resolving each module's imports to a lookup in a shared module registry at runtime.
 
 Webpack, Vite, and esbuild differ mainly in *when* this happens and what language it's written in:
 
-- **Webpack** does the full resolve/parse/graph/bundle pipeline upfront (dev and prod), highly configurable via loaders/plugins, written in JS — flexible but the slowest of the three.
+- **Webpack** does the full resolve/parse/graph/bundle pipeline upfront (dev and prod), highly configurable via loaders/plugins, written in JS. Flexible, but the slowest of the three.
 - **esbuild** does the same pipeline but written in Go, parsing and generating orders of magnitude faster than JS-based tools; used as the underlying transform engine inside Vite.
-- **Vite** doesn't bundle at all in dev — it serves native ES modules directly to the browser, transforming each file on-demand as the browser requests it (via esbuild), and only bundles for production builds (via Rollup). This is why Vite's dev server starts near-instantly regardless of app size: it never builds a full graph upfront.
+- **Vite** doesn't bundle at all in dev. It serves native ES modules directly to the browser, transforming each file on-demand as the browser requests it (via esbuild), and only bundles for production builds (via Rollup). This is why Vite's dev server starts near-instantly regardless of app size: it never builds a full graph upfront.
 
 **Interview question: "Why is Vite's dev server so much faster than Webpack's for a large app?"**
-Webpack must build and bundle the entire dependency graph before serving the first page, so dev-server startup time scales with app size. Vite serves unbundled native ESM in development — the browser itself resolves imports via HTTP requests, and Vite transforms each requested file on-demand (via esbuild) instead of upfront. Startup time is nearly constant regardless of app size because Vite never bundles until the production build.
+Webpack must build and bundle the entire dependency graph before serving the first page, so dev-server startup time scales with app size. Vite serves unbundled native ESM in development: the browser itself resolves imports via HTTP requests, and Vite transforms each requested file on-demand (via esbuild) instead of upfront. Startup time is nearly constant regardless of app size because Vite never bundles until the production build.
 
 ## Building a simple bundler
 
@@ -116,7 +116,7 @@ function bundle(graph: ModuleNode[]): string {
 }
 ```
 
-This is the same core idea every bundler uses under the hood: replace `require`/`import` with a lookup into an in-memory registry keyed by module id, so the runtime never touches the filesystem — the graph resolution happens once, at build time, and generates static integer references.
+This is the same core idea every bundler uses under the hood: replace `require`/`import` with a lookup into an in-memory registry keyed by module id, so the runtime never touches the filesystem. The graph resolution happens once, at build time, and generates static integer references.
 
 ## Building a Babel-style transform
 
@@ -161,13 +161,13 @@ Resolution is the algorithm that turns `import x from "./utils"` or `import y fr
 
 1. Relative/absolute paths (`./`, `../`, `/`) resolve directly against the current file's directory, trying the exact path, then `path.js`, `path.ts`, `path/index.js`, in extension-resolution order.
 2. Bare specifiers (`"lodash"`) trigger a walk up the directory tree looking for `node_modules/lodash`, checking each parent directory in turn until found or the filesystem root is reached.
-3. Package resolution then reads that package's `package.json` — `exports` field (modern, can restrict/remap what's importable) or `main`/`module` (legacy) — to find the actual entry file.
+3. Package resolution then reads that package's `package.json`: the `exports` field (modern, can restrict/remap what's importable) or `main`/`module` (legacy) to find the actual entry file.
 
-Bundlers add path aliases (`@/components` → `src/components`) as a resolution-time rewrite, configured separately from Node's algorithm (`tsconfig.json` `paths`, Webpack `resolve.alias`, Vite `resolve.alias`) — the bundler intercepts the specifier before falling through to standard resolution.
+Bundlers add path aliases (`@/components` mapping to `src/components`) as a resolution-time rewrite, configured separately from Node's algorithm (`tsconfig.json` `paths`, Webpack `resolve.alias`, Vite `resolve.alias`). The bundler intercepts the specifier before falling through to standard resolution.
 
 ## Tree shaking mechanism
 
-Tree shaking removes exported code that's never imported anywhere in the graph, and it depends specifically on ES module syntax (`import`/`export`) because those are statically analyzable — a bundler can determine, without running any code, exactly what's imported and from where.
+Tree shaking removes exported code that's never imported anywhere in the graph, and it depends specifically on ES module syntax (`import`/`export`) because those are statically analyzable. A bundler can determine, without running any code, exactly what's imported and from where.
 
 ```ts
 // math.ts
@@ -181,10 +181,10 @@ console.log(add(2, 3));
 // the bundler's static analysis proves `subtract` is unreachable from any entry point.
 ```
 
-CommonJS (`require`/`module.exports`) largely defeats tree shaking, because `require` calls can be conditional or dynamic (`require(someVariable)`), so the bundler can't statically prove what's used without running the code — this is the actual reason "use ESM, not CommonJS" is standard bundler-tooling advice, not just style preference.
+CommonJS (`require`/`module.exports`) largely defeats tree shaking, because `require` calls can be conditional or dynamic (`require(someVariable)`), so the bundler can't statically prove what's used without running the code. This is the actual reason "use ESM, not CommonJS" is standard bundler-tooling advice, not just style preference.
 
 **Interview question: "Why doesn't tree shaking work if you import a whole library with `import * as _ from 'lodash'`?"**
-Namespace imports (`import * as`) make every property access on `_` a dynamic property lookup from the bundler's static-analysis point of view — it can't prove which of lodash's hundreds of exports are actually used just by looking at `_.foo()` calls, since `foo` could theoretically be computed. Named imports (`import { debounce } from "lodash-es"`) are what actually enable dead-code elimination, because the bundler sees the exact symbol at the import statement itself.
+Namespace imports (`import * as`) make every property access on `_` a dynamic property lookup from the bundler's static-analysis point of view. It can't prove which of lodash's hundreds of exports are actually used just by looking at `_.foo()` calls, since `foo` could theoretically be computed. Named imports (`import { debounce } from "lodash-es"`) are what actually enable dead-code elimination, because the bundler sees the exact symbol at the import statement itself.
 
 ## Hot module replacement
 
@@ -201,15 +201,11 @@ if (import.meta.hot) {
 }
 ```
 
-React's Fast Refresh builds on this: it detects that only a component's render function changed (not its state-holding hooks' call order), swaps the function, and re-renders — preserving `useState` values across the edit. If the edit changes hook order or a non-component export changes, Fast Refresh falls back to a full remount (state lost) because it can no longer guarantee correctness.
+React's Fast Refresh builds on this: it detects that only a component's render function changed (not its state-holding hooks' call order), swaps the function, and re-renders, preserving `useState` values across the edit. If the edit changes hook order or a non-component export changes, Fast Refresh falls back to a full remount (state lost) because it can no longer guarantee correctness.
 
 **Interview question: "Why does editing a component sometimes preserve state via HMR, and sometimes reset it?"**
-Fast Refresh preserves state when it can safely re-run just the function body and confirm the hooks called are the same type, count, and order as before — the fiber's hook list stays valid. If you add/remove/reorder a hook, change what the module exports (e.g. adding a second named export), or edit a file that isn't a React component, Fast Refresh can't guarantee the existing fiber tree is still valid and falls back to a full remount, discarding state.
+Fast Refresh preserves state when it can safely re-run just the function body and confirm the hooks called are the same type, count, and order as before, so the fiber's hook list stays valid. If you add/remove/reorder a hook, change what the module exports (e.g. adding a second named export), or edit a file that isn't a React component, Fast Refresh can't guarantee the existing fiber tree is still valid and falls back to a full remount, discarding state.
 
-## Key takeaways
+## Why this matters beyond trivia
 
-- Every bundler follows the same resolve → parse → graph → transform → generate pipeline; Vite skips the "bundle" step in dev by serving native ESM on-demand instead.
-- Real transforms (Babel, TypeScript, JSX) operate on an AST via a visitor pattern, not string/regex replacement, because syntax nesting breaks regex approaches.
-- Module resolution checks relative paths directly, then walks up `node_modules` for bare specifiers, reading `package.json` `exports`/`main` to find the real entry file.
-- Tree shaking requires static ES module syntax; CommonJS and namespace imports (`import * as`) both defeat it because usage becomes dynamically unprovable.
-- HMR sends only the changed module over a persistent WebSocket connection; React Fast Refresh preserves component state only when hook call order is provably unchanged.
+None of resolve, parse, transform, tree-shake, or HMR are things you'll implement at your job. They're worth knowing because the mini-bundler and mini-transform above are the same shape of code running inside Webpack, Vite, and Babel today, just with a real parser and years of edge-case handling instead of a regex. When an interviewer asks "why doesn't tree shaking work here" or "why did HMR just do a full reload," they're really asking whether you can reason from that underlying mechanism instead of pattern-matching to a remembered answer.

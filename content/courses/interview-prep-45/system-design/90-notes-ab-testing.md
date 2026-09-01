@@ -16,17 +16,29 @@ A/B testing doesn't appear anywhere else in the course, but it's a recurring fol
 
 ## What it is and why interviewers ask
 
-An A/B test randomly splits users into two (or more) groups — a control seeing the current experience and a treatment seeing a change — and compares a target metric between groups to determine whether the change causally improved it. Interviewers ask about it to check whether you can reason about **causality vs correlation**: a metric moving after a launch doesn't prove the launch caused it (seasonality, concurrent changes, and selection bias can all produce the same signal), while a properly randomized A/B test isolates the change as the cause.
+An A/B test randomly splits users into two (or more) groups: a control seeing the current experience and a treatment seeing a change. It then compares a target metric between groups to determine whether the change causally improved it. Interviewers ask about it to check whether you can reason about causality vs correlation. A metric moving after a launch doesn't prove the launch caused it. Seasonality, concurrent changes, and selection bias can all produce the same signal, while a properly randomized A/B test isolates the change as the cause.
+
+## A worked trace: does the new checkout button actually help?
+
+Say you're testing a redesigned "Buy Now" button against checkout conversion rate. You randomly assign 200,000 users who reach the cart page: 100,000 see the old button (control), 100,000 see the new one (treatment).
+
+Over the test window, 8,200 of the control group complete checkout (an 8.2% conversion rate), and 8,600 of the treatment group do (an 8.6% conversion rate). That's a 0.4 percentage-point lift, or about 4.9% relative improvement.
+
+Before declaring victory, run the numbers through two questions:
+- **Is this likely to be real, or noise?** A significance test (e.g., a two-proportion z-test) on 8,200/100,000 vs 8,600/100,000 gives a p-value. If it's below your pre-registered threshold (typically 0.05), the difference probably isn't due to random chance in who got assigned to which group.
+- **Is this big enough to matter?** A statistically significant 0.4-point lift might still be too small to justify the engineering cost of shipping the new button, or it might be exactly the kind of compounding win worth shipping immediately. That judgment call is why you report the actual effect size (4.9% relative lift) alongside the p-value, not just "significant: yes/no."
+
+Now check the guardrails before shipping. Suppose page load time in the treatment group crept up by 200ms because the new button pulls in a heavier animation library. Even with a clean conversion win, that guardrail regression is a real cost the primary metric alone would never surface. This is why a test is never evaluated on one number.
 
 ## Core design decisions
 
-**Randomization unit.** Almost always assign by user ID (hashed into a bucket), not by session or request — a user should see a consistent experience across visits, or the test measures confusion/inconsistency instead of the actual change. Hash the user ID with a fixed salt per experiment (`hash(user_id + experiment_name) % 100`) so bucket assignment is deterministic and reproducible without needing to store an assignment per user.
+**Randomization unit.** Almost always assign by user ID (hashed into a bucket), not by session or request. A user should see a consistent experience across visits, or the test measures confusion/inconsistency instead of the actual change. Hash the user ID with a fixed salt per experiment (`hash(user_id + experiment_name) % 100`) so bucket assignment is deterministic and reproducible without needing to store an assignment per user.
 
-**Sample size and test duration.** Before launching, compute the minimum sample size needed to detect the smallest effect size worth caring about, given a target statistical power (typically 80%) and significance level (typically 5%). Running a test too short risks a false negative from noise; running it too long wastes an opportunity cost of exposing users to a losing variant. A one-week minimum is common even if sample size is reached faster, to average out day-of-week effects (weekday vs weekend behavior differs for most consumer products).
+**Sample size and test duration.** Before launching, compute the minimum sample size needed to detect the smallest effect size worth caring about, given a target statistical power (typically 80%) and significance level (typically 5%). Running a test too short risks a false negative from noise. Running it too long wastes an opportunity cost of exposing users to a losing variant. A one-week minimum is common even if sample size is reached faster, to average out day-of-week effects (weekday vs weekend behavior differs for most consumer products).
 
-**Primary metric vs guardrail metrics.** Pick one primary metric the test is designed to move (e.g. checkout conversion rate) and a small set of guardrail metrics that must not regress (e.g. page load time, error rate, revenue per user) — a test can "win" on the primary metric while quietly breaking something else, and guardrails catch that.
+**Primary metric vs guardrail metrics.** Pick one primary metric the test is designed to move (e.g. checkout conversion rate, as above) and a small set of guardrail metrics that must not regress (e.g. page load time, error rate, revenue per user). A test can "win" on the primary metric while quietly breaking something else, exactly like the page-load regression above, and guardrails catch that.
 
-**Statistical significance vs practical significance.** A result can be statistically significant (unlikely to be noise) but practically meaningless (a 0.01% lift not worth the added complexity) — or the reverse, with a real but noisy-looking effect that a longer test would confirm. Report both the p-value/confidence interval and the actual effect size, not just "significant: yes/no."
+**Statistical significance vs practical significance.** A result can be statistically significant (unlikely to be noise) but practically meaningless: a 0.01% lift not worth the added complexity. Or the reverse can happen, a real but noisy-looking effect that a longer test would confirm. Report both the p-value/confidence interval and the actual effect size, not just a pass/fail label.
 
 ## System design considerations
 
@@ -43,20 +55,18 @@ Application serves the appropriate variant
 Event Logging (impressions + downstream metric events) --> Analytics Pipeline --> Dashboard
 ```
 
-- **Assignment must be fast and available** — it sits on the critical path of every request that touches an experiment, so it's typically a local hash computation (no network call) rather than a lookup against a remote service, with experiment configs cached/pushed to app servers periodically rather than fetched per-request.
-- **Mutual exclusion between overlapping experiments.** Running many experiments simultaneously risks interaction effects (experiment A's treatment interacts badly with experiment B's treatment for the same user). Solve with **layers**: partition traffic into independent layers where experiments in the same layer are mutually exclusive (a user is in exactly one experiment per layer) but experiments in different layers can run concurrently.
-- **Logging must tie the assignment to the outcome.** Every metric event needs to be attributable back to which variant the user was in at the time — log the experiment/variant alongside (or joinable to) the business event, not just aggregate counts, so the analysis can be re-sliced later (by platform, region, user segment) without re-running the experiment.
-- **Ramp-up, not instant 50/50.** Launch a new experiment at a small treatment percentage (e.g. 1%) first to catch catastrophic bugs cheaply, then ramp to the full test split once basic health is confirmed — this is the same "canary" instinct as a canary deployment, applied to experiment rollout.
+- **Assignment must be fast and available.** It sits on the critical path of every request that touches an experiment, so it's typically a local hash computation (no network call) rather than a lookup against a remote service, with experiment configs cached/pushed to app servers periodically rather than fetched per-request.
+- **Mutual exclusion between overlapping experiments.** Running many experiments simultaneously risks interaction effects, where experiment A's treatment interacts badly with experiment B's treatment for the same user. Solve with layers: partition traffic into independent layers where experiments in the same layer are mutually exclusive (a user is in exactly one experiment per layer) but experiments in different layers can run concurrently.
+- **Logging must tie the assignment to the outcome.** Every metric event needs to be attributable back to which variant the user was in at the time. Log the experiment/variant alongside (or joinable to) the business event, not just aggregate counts, so the analysis can be re-sliced later (by platform, region, user segment) without re-running the experiment.
+- **Ramp-up, not instant 50/50.** Launch a new experiment at a small treatment percentage (e.g. 1%) first to catch catastrophic bugs cheaply, then ramp to the full test split once basic health is confirmed. This is the same "canary" instinct as a canary deployment, applied to experiment rollout.
 
 ## Common pitfalls
 
-- **Peeking** — checking results repeatedly and stopping as soon as they look significant inflates the false-positive rate (each peek is another chance to catch a random fluctuation) — decide the sample size/duration in advance and don't stop early based on interim results, unless using a sequential-testing method designed to allow it.
-- **Novelty effect** — a change might perform well simply because it's new and users are curious/exploring, with the effect fading after the initial period; a too-short test can mistake this for a durable improvement.
-- **Sample Ratio Mismatch (SRM)** — if the actual observed split (e.g. 48/52) deviates significantly from the intended split (50/50), something is broken in the assignment/logging pipeline, and the test's results shouldn't be trusted until the mismatch is root-caused — this is a standard automated sanity check before reading any other result.
+- **Peeking.** Checking results repeatedly and stopping as soon as they look significant inflates the false-positive rate, since each peek is another chance to catch a random fluctuation. Decide the sample size/duration in advance and don't stop early based on interim results, unless using a sequential-testing method designed to allow it.
+- **Novelty effect.** A change might perform well simply because it's new and users are curious/exploring, with the effect fading after the initial period. A too-short test can mistake this for a durable improvement.
+- **Sample Ratio Mismatch (SRM).** If the actual observed split (e.g. 48/52) deviates significantly from the intended split (50/50), something is broken in the assignment/logging pipeline, and the test's results shouldn't be trusted until the mismatch is root-caused. This is a standard automated sanity check before reading any other result. In the checkout example above, if the 200,000 users split 96,000/104,000 instead of roughly 100,000/100,000, that imbalance itself is a signal to investigate before trusting the 8.6% vs 8.2% conversion numbers at all.
 
 ## Key takeaways
 
-- A/B testing isolates causation by randomizing users into control/treatment groups — deterministic, salted hash-based assignment on user ID keeps the experience consistent per user without a stateful lookup.
-- Define a single primary metric plus guardrail metrics before launch; report effect size alongside statistical significance, not just a pass/fail p-value.
-- At scale, use independent experiment "layers" for mutual exclusion between concurrent tests, ramp new experiments up gradually, and always check for Sample Ratio Mismatch before trusting the results.
-- Peeking at results early and stopping based on them inflates false positives — commit to a sample size/duration in advance.
+- A/B testing isolates causation by randomizing users into control/treatment groups; deterministic, salted hash-based assignment on user ID keeps the experience consistent per user without a stateful lookup.
+- A single lift number is never the full story: pair effect size with statistical significance, and check guardrail metrics before declaring a win, since a test can improve one number while quietly breaking another.

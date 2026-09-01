@@ -11,17 +11,17 @@ estimated_minutes: 30
 source:
     - 45-day-interview-roadmap.md
 ---
-Anyone can call `useState`. What separates a mid-level candidate from a senior one is being able to explain *how* it works — where the state actually lives, why the Rules of Hooks exist, and why breaking them corrupts state silently instead of throwing. Today builds simplified versions of `useState` and `useEffect` so the internals stop being magic.
+Anyone can call `useState`. What separates a mid-level candidate from a senior one is being able to explain *how* it works, where the state actually lives, why the Rules of Hooks exist, and why breaking them corrupts state silently instead of throwing. Today builds simplified versions of `useState` and `useEffect` so the internals stop being magic.
 
 ## How useState updates trigger re-renders
 
-State does not live "in" your component function — your component function is called fresh on every render, so any local variable in it is discarded and recreated each time. State actually lives in the **Fiber node**, React's internal per-component data structure, as a linked list of hook entries.
+State does not live "in" your component function. Your component function is called fresh on every render, so any local variable in it is discarded and recreated each time. State actually lives in the **Fiber node**, React's internal per-component data structure, as a linked list of hook entries.
 
 The sequence:
 
 1. React calls your component function. It reads the next hook slot in the fiber's hook list, in call order, and returns its stored value.
 2. You call the setter with a new value. React stores the pending update and schedules a re-render for that fiber (and marks it dirty up to the root, but reconciliation confines actual DOM writes to what changed).
-3. On the scheduled render, React calls your function again. `useState` reads the *same* hook slot — now updated — and returns the new value.
+3. On the scheduled render, React calls your function again. `useState` reads the *same* hook slot, now updated, and returns the new value.
 
 ```tsx
 // Simplified mental model of what React does internally.
@@ -170,7 +170,7 @@ mount(App);
 
 ## Why hooks can't be conditional
 
-Hooks are read by **positional index**, not by name. React has no idea your third `useState` call is "the username state" — it only knows "slot 3 in this fiber's hook list." If a hook call is skipped on some renders (inside an `if`, a loop, or after an early `return`), every hook after it shifts down one slot, and React reads the wrong stored value into the wrong hook.
+Hooks are read by **positional index**, not by name. React has no idea your third `useState` call is "the username state"; it only knows "slot 3 in this fiber's hook list." If a hook call is skipped on some renders (inside an `if`, a loop, or after an early `return`), every hook after it shifts down one slot, and React reads the wrong stored value into the wrong hook.
 
 ```tsx
 // BROKEN — do not do this
@@ -184,7 +184,7 @@ function Broken({ showExtra }: { showExtra: boolean }) {
 }
 ```
 
-When `showExtra` flips between renders, `age`'s slot index changes, so React hands it `extra`'s stored value instead. This is exactly why the ESLint rule `react-hooks/rules-of-hooks` exists and should never be disabled — the bug it prevents is silent state corruption, not a crash you'd catch in testing.
+When `showExtra` flips between renders, `age`'s slot index changes, so React hands it `extra`'s stored value instead. This is exactly why the ESLint rule `react-hooks/rules-of-hooks` exists and should never be disabled: the bug it prevents is silent state corruption, not a crash you'd catch in testing.
 
 The fix is always to keep the hook call unconditional and push the condition *inside* the hook:
 
@@ -198,11 +198,3 @@ function Fixed({ showExtra }: { showExtra: boolean }) {
   // ...
 }
 ```
-
-## Key takeaways
-
-- State lives on the fiber (a persistent per-component structure), not inside the component function — the function is re-invoked every render and reads state by hook-call order.
-- `useState`'s setter compares with `Object.is`; an equal value bails out of re-rendering that component.
-- `useEffect` diffs the dependency array with `Object.is` per-element after every commit; an empty array means "once," no array means "every render."
-- Effect cleanup runs before the next effect invocation and on unmount, in that order.
-- Hooks must be called in the same order every render because React tracks them by index, not name — conditionals, loops, and early returns around hook calls corrupt state silently.

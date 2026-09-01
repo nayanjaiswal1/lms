@@ -12,7 +12,7 @@ source:
     - interview-prep-notes.md
 ---
 
-Day 6 covers Redis itself (data structures, cache-aside, invalidation, stampedes) as a general-purpose tool from Python. This note covers the layer on top of that: Django's own `CACHES` framework — the pluggable backend system, the four granularity levels, and how Django wires caching into views, templates, and HTTP headers.
+Redis itself, as a general-purpose tool used directly from Python (data structures, cache-aside, invalidation, thundering-herd stampedes), is covered elsewhere in this course. This note covers the layer on top of that: Django's own `CACHES` framework, meaning the pluggable backend system, the four granularity levels, and how Django wires caching into views, templates, and HTTP headers.
 
 ## Configuration and backends
 
@@ -30,12 +30,12 @@ CACHES = {
 
 | Backend | Persistent | Distributed | Notes |
 |---|---|---|---|
-| `LocMemCache` (default) | No — process memory | No | Zero setup; dev only, not shared across processes |
-| `django_redis.cache.RedisCache` | Yes | Yes | Production default — this is Day 6's Redis, wired into Django's cache API |
+| `LocMemCache` (default) | No, process memory | No | Zero setup; dev only, not shared across processes |
+| `django_redis.cache.RedisCache` | Yes | Yes | The production default; this is a plain Redis instance wired into Django's cache API |
 | `PyMemcacheCache` | No | Yes | Fast, distributed, no complex data types |
-| `DatabaseCache` | Yes | Yes | Uses a real table (`manage.py createcachetable`) — slower, no new infra |
+| `DatabaseCache` | Yes | Yes | Uses a real table (`manage.py createcachetable`); slower, but needs no new infra |
 | `FileBasedCache` | Yes | No | Dev/low-traffic only |
-| `DummyCache` | — | — | Accepts calls, does nothing — disable caching in a test/staging env without touching call sites |
+| `DummyCache` | N/A | N/A | Accepts calls, does nothing; use it to disable caching in a test/staging env without touching call sites |
 
 ## Four granularity levels
 
@@ -44,7 +44,7 @@ Per-site → Per-view → Template fragment → Low-level (manual)
   (all)      (one view)   (part of a page)   (any Python object)
 ```
 
-**Per-view**, the most common:
+**Per-view** is the most common:
 
 ```python
 from django.views.decorators.cache import cache_page, never_cache
@@ -58,7 +58,7 @@ def user_dashboard(request):  # personalized — never cache
     ...
 ```
 
-**Template fragment** — caches part of a page, not the whole response:
+**Template fragment** caches part of a page, not the whole response:
 
 ```django
 {% load cache %}
@@ -70,7 +70,7 @@ def user_dashboard(request):  # personalized — never cache
 {% cache 500 user_sidebar request.user.id %}...{% endcache %}
 ```
 
-**Low-level API** — manual caching of any Python object, the one that maps most directly onto Day 6's cache-aside pattern:
+**Low-level API** is manual caching of any Python object, and it's the one that maps most directly onto the general cache-aside pattern (check the cache, fall back to computing the value, then write it back):
 
 ```python
 from django.core.cache import cache
@@ -79,12 +79,12 @@ cache.set("key", value, timeout=300)
 value = cache.get("key", default=None)
 cache.delete("key")
 cache.get_or_set("key", expensive_fn, 300)   # cache-aside in one call
-cache.add("key", value, timeout=10)          # set only if NOT already present — atomic, used for locks (Day 6)
+cache.add("key", value, timeout=10)          # set only if NOT already present, atomic, used for locks
 ```
 
 ## Cache invalidation: signals, the Django-specific mechanism
 
-Day 6 covers delete-on-write as the general cache-aside invalidation strategy. Django's specific hook for that is model signals, so invalidation happens automatically wherever a model is saved — not just in the one write path you remembered to update:
+The general cache-aside invalidation strategy is delete-on-write: whenever the underlying data changes, delete the cached copy so the next read recomputes it. Django's specific hook for that is model signals, so invalidation happens automatically wherever a model is saved, not just in the one write path you remembered to update by hand:
 
 ```python
 from django.db.models.signals import post_save, post_delete
@@ -99,9 +99,9 @@ def invalidate_on_delete(sender, instance, **kwargs):
     cache.delete(f"article:detail:{instance.pk}")
 ```
 
-This is stronger than invalidating manually inside a view or serializer's save path — a signal fires regardless of *which* code path triggered the save (admin, shell, a management command, bulk operations that call `.save()` individually), so there's no forgotten call site.
+This is stronger than invalidating manually inside a view or serializer's save path. A signal fires regardless of which code path triggered the save (the admin, a shell session, a management command, or a bulk operation that calls `.save()` on each object individually), so there's no forgotten call site that leaves a stale cache entry behind.
 
-## Caching querysets — the one gotcha specific to Django
+## Caching querysets: the one gotcha specific to Django
 
 ```python
 def get_published_articles():
@@ -115,7 +115,7 @@ def get_published_articles():
     return articles
 ```
 
-Day 22 covers queryset laziness in depth — the caching-specific consequence of that laziness is: caching an unevaluated queryset either fails to serialize or (worse, depending on backend) silently re-executes the query on every cache read, defeating the cache entirely. Always `list()` it first.
+Django querysets are lazy: building one with `.filter()` doesn't hit the database, only iterating or otherwise evaluating it does. The caching-specific consequence of that laziness is that caching an unevaluated queryset either fails to serialize outright, or, worse depending on the backend, silently re-executes the underlying query every time the "cached" value is read back, which defeats the cache entirely while looking like it's working. Always call `list()` on the queryset before handing it to `cache.set`, exactly as the snippet above does, so what actually gets cached is the materialized rows, not a lazy description of how to fetch them.
 
 ## HTTP cache headers
 
@@ -134,10 +134,4 @@ def user_profile(request): ...
 def my_view(request): ...
 ```
 
-## Key takeaways
-
-- `CACHES["default"]["BACKEND"]` swaps the storage engine without touching call sites; `django_redis.cache.RedisCache` is Day 6's Redis, wired into Django's API.
-- Four levels, coarse to fine: per-site middleware, `@cache_page` per view, `{% cache %}` template fragments, and the low-level `cache.get/set/delete` API for arbitrary objects.
-- Model signals (`post_save`/`post_delete`) are Django's mechanism for the delete-on-write invalidation strategy from Day 6 — they fire regardless of which code path triggered the write.
-- Always `list()` a queryset before caching it — an unevaluated queryset doesn't serialize cleanly.
-- `@cache_control` and `@vary_on_cookie` control browser/CDN-level caching, separate from Django's own server-side cache backend.
+These decorators control caching in the browser and any CDN sitting in front of Django, which is a separate layer from everything above: `@cache_control` and `@vary_on_cookie` never touch Django's own server-side cache backend, they only set response headers that other HTTP caches read and obey.

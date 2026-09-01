@@ -12,11 +12,11 @@ source:
     - interview-prep-notes.md
 ---
 
-The JS glossary (`90-notes-js-react-interview-prep.md`) defines currying in one line — "a function that takes arguments one at a time, returning a new function each time until all are supplied." This note is the code behind that definition: why it's useful, not just what it is.
+Currying is a function that takes arguments one at a time, returning a new function each time until all are supplied. This note walks through why that's useful, not just what it is.
 
 ## The core idea
 
-Instead of calling `f(a, b, c)`, currying lets you call `f(a)(b)(c)` — each call takes one argument and returns a new function waiting for the next one.
+Instead of calling `f(a, b, c)`, currying lets you call `f(a)(b)(c)`. Each call takes one argument and returns a new function waiting for the next one.
 
 ```javascript
 // Normal
@@ -30,7 +30,7 @@ add(2)(3); // 5
 
 ## Why it's useful
 
-**Partial application** — bake in the first argument(s) to create a specialized function:
+**Partial application.** Bake in the first argument(s) to create a specialized function:
 
 ```javascript
 const add = a => b => a + b;
@@ -39,7 +39,7 @@ add10(5);  // 15
 add10(20); // 30
 ```
 
-**Composable pipelines** — small curried functions chain cleanly through `.map`/`reduce`/a `pipe` helper:
+**Composable pipelines.** Small curried functions chain cleanly through `.map`, `reduce`, or a `pipe` helper:
 
 ```javascript
 const multiply = a => b => a * b;
@@ -53,7 +53,7 @@ process(5); // ((5+1)*2)+10 = 22
 
 ## A generic curry helper
 
-Real code rarely hand-writes the nested-arrow form for every function — a `curry` helper auto-curries based on the function's declared arity (`fn.length`):
+Real code rarely hand-writes the nested-arrow form for every function. A `curry` helper auto-curries based on the function's declared arity (`fn.length`):
 
 ```javascript
 function curry(fn) {
@@ -69,20 +69,13 @@ add3(1, 2)(3);  // 6
 add3(1, 2, 3);  // 6
 ```
 
-This is what libraries like Lodash's `_.curry(fn)` do under the hood.
+Trace `add3(1)(2)(3)`: the first call runs `curried(1)`. Since `fn.length` is 3 and `args.length` is 1, it returns a new function waiting for more arguments instead of calling `fn`. Calling that with `(2)` runs `curried(1, 2)`, still short of 3, so it returns another waiting function. Calling that with `(3)` runs `curried(1, 2, 3)`, which now meets `fn.length`, so it finally calls `fn(1, 2, 3)` and returns `6`. `add3(1, 2)(3)` and `add3(1, 2, 3)` reach the same final call, just by supplying arguments in different-sized groups. This is what libraries like Lodash's `_.curry(fn)` do under the hood.
 
 ## Across languages
 
 | Language | Style |
 |---|---|
-| Haskell | All functions curried by default |
-| Python | `functools.partial` or manual nested lambdas — not automatic like JS/Haskell |
-| Scala / F# | Built-in via `=>` chaining |
-| JavaScript | Manual (nested arrows) or via a library (`_.curry`) |
-
-## Key takeaways
-
-- Currying transforms `f(a, b, c)` into `f(a)(b)(c)` — one argument per call, returning a new function until all arguments are supplied.
-- Its practical value is partial application (pre-filling arguments to specialize a function) and composability (small single-purpose functions chained through `pipe`/`.map`).
-- A generic `curry(fn)` helper auto-curries based on `fn.length`, and accepts arguments one at a time or in groups.
-- JS/Haskell/Scala support it naturally via closures or built-in currying; Python needs `functools.partial` since functions aren't curried by default.
+| Haskell | All functions curried by default. |
+| Python | Not curried automatically. Use `functools.partial` to pre-fill arguments, or write nested lambdas by hand. |
+| Scala / F# | Curried natively via `=>` chaining. |
+| JavaScript | Manual (nested arrows), or via a library like `_.curry`. |

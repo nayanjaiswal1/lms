@@ -11,16 +11,16 @@ estimated_minutes: 45
 source:
     - 45-day-interview-roadmap.md
 ---
-The Django ORM hides SQL from you until it doesn't — and the interview questions live exactly at that seam. Today you learn what `QuerySet.filter()` actually does, why it's lazy, how to read the SQL it generates, and how to kill the N+1 queries that show up in almost every backend take-home review.
+The Django ORM hides SQL from you until it doesn't, and the interview questions live exactly at that seam. Today you learn what `QuerySet.filter()` actually does, why it's lazy, how to read the SQL it generates, and how to kill the N+1 queries that show up in almost every backend take-home review.
 
-## QuerySets are lazy — nothing runs until you iterate
+## QuerySets are lazy: nothing runs until you iterate
 
-`Model.objects.filter(...)` does not hit the database. It builds a `QuerySet` object that holds a `Query` (an internal SQL-building AST). The SQL is only compiled and executed when the QuerySet is **evaluated** — which happens on:
+`Model.objects.filter(...)` does not hit the database. It builds a `QuerySet` object that holds a `Query` (an internal SQL-building AST). The SQL is only compiled and executed when the QuerySet is **evaluated**, which happens on:
 
 - Iteration (`for obj in qs`, `list(qs)`)
 - Slicing with a step, or converting to `list()`/`bool()`/`len()`
 - `repr()` (which is why `qs` printed in a shell looks like it "ran")
-- Calling `.get()`, `.count()`, `.exists()`, `.aggregate()` — these each generate a *different* SQL query, not just evaluate the existing one
+- Calling `.get()`, `.count()`, `.exists()`, `.aggregate()`: these each generate a *different* SQL query rather than evaluate the existing one
 
 ```python
 qs = User.objects.filter(is_active=True)   # no query yet
@@ -29,7 +29,7 @@ print(qs.query)                             # generates and prints SQL, but does
 users = list(qs)                            # <-- query actually executes here
 ```
 
-**Interview trap:** `qs.count()` does *not* reuse the query from a prior `list(qs)` call — each triggers its own round trip unless you cache the QuerySet result. `if qs: ...` calls `__bool__`, which internally does `self._fetch_all()` — so checking truthiness of a QuerySet still evaluates it (though Django optimizes `.exists()` into a cheap `SELECT 1 LIMIT 1` if you call it explicitly instead).
+**Interview trap:** `qs.count()` does *not* reuse the query from a prior `list(qs)` call. Each triggers its own round trip unless you cache the QuerySet result. `if qs: ...` calls `__bool__`, which internally does `self._fetch_all()`, so checking truthiness of a QuerySet still evaluates it (though Django optimizes `.exists()` into a cheap `SELECT 1 LIMIT 1` if you call it explicitly instead).
 
 ## Reading generated SQL vs writing raw SQL
 
@@ -48,7 +48,7 @@ INNER JOIN "orders_customer" ON ("orders_order"."customer_id" = "orders_customer
 WHERE ("orders_order"."status" = 'paid' AND "orders_order"."total" > 100)
 ```
 
-For anything the ORM can't express cleanly (window functions, complex CTEs, vendor-specific hints), drop to raw SQL — but stay inside the ORM's connection/transaction management:
+For anything the ORM can't express cleanly (window functions, complex CTEs, vendor-specific hints), drop to raw SQL, but stay inside the ORM's connection/transaction management:
 
 ```python
 from django.db import connection
@@ -70,7 +70,7 @@ def top_customers_by_spend(limit=10):
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
 ```
 
-Always use parameterized placeholders (`%s`), never f-strings — that's a straight SQL-injection flag in a code review.
+Always use parameterized placeholders (`%s`), never f-strings: that's a straight SQL-injection flag in a code review.
 
 ## EXPLAIN ANALYZE from the ORM
 
@@ -79,9 +79,9 @@ qs = Order.objects.filter(status="paid").select_related("customer")
 print(qs.explain(analyze=True))
 ```
 
-This runs `EXPLAIN ANALYZE` against the actual generated SQL and prints PostgreSQL's plan — look for `Seq Scan` on a large table (missing index), `Nested Loop` with a high row estimate mismatch (stale statistics), or `Hash Join` vs `Nested Loop` choice on your `select_related` join.
+This runs `EXPLAIN ANALYZE` against the actual generated SQL and prints PostgreSQL's plan. Look for `Seq Scan` on a large table (missing index), `Nested Loop` with a high row estimate mismatch (stale statistics), or the `Hash Join` vs `Nested Loop` choice on your `select_related` join.
 
-## select_related vs prefetch_related — the N+1 fix
+## select_related vs prefetch_related: the N+1 fix
 
 This pair is asked in nearly every Django interview. The difference is the join strategy:
 
@@ -145,13 +145,4 @@ with CaptureQueriesContext(connection) as ctx:
 print(len(ctx.captured_queries))  # 1
 ```
 
-`CaptureQueriesContext` is the standard tool for asserting query counts in tests — pair it with `assertNumQueries` in Django's test framework to catch N+1 regressions in CI, not just in manual profiling.
-
-## Key takeaways
-
-- QuerySets build a lazy SQL AST; nothing executes until iteration, `bool()`, `len()`, or a terminal method like `.get()`/`.count()`/`.exists()`.
-- `.count()` and `.exists()` each issue their own optimized query — they don't reuse a previously evaluated QuerySet's results.
-- `select_related` = SQL JOIN, one query, forward/one-to-one relations. `prefetch_related` = extra queries stitched in Python, for reverse/many-to-many relations.
-- `qs.explain(analyze=True)` runs real `EXPLAIN ANALYZE` against generated SQL — use it before guessing which index is missing.
-- Raw SQL via `connection.cursor()` is fine for the ORM's blind spots — always parameterize with `%s`, never string-format user input into a query.
-- `CaptureQueriesContext` / `assertNumQueries` turns "I checked N+1 once" into a regression test.
+`CaptureQueriesContext` is the standard tool for asserting query counts in tests. Pair it with `assertNumQueries` in Django's test framework to catch N+1 regressions in CI instead of relying on manual profiling.

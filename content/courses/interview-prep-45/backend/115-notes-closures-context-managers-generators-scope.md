@@ -12,11 +12,11 @@ source:
     - interview-prep-notes.md
 ---
 
-The course covers Python's object model in depth — MRO (backend/107), memory management and the GIL (backend/106), deep vs shallow copy (backend/109) — but four fundamentals candidates are expected to rattle off cold don't have a home yet: closures, context managers, generators, and LEGB scope resolution. These are quick, but they're exactly the kind of "explain this in one sentence, then show a gotcha" questions that open a Python round.
+This course covers Python's object model in depth elsewhere: method resolution order, memory management and the GIL, deep vs. shallow copy. But four fundamentals candidates are expected to rattle off cold don't have a home yet: closures, context managers, generators, and LEGB scope resolution. These are quick, but they're exactly the kind of "explain this in one sentence, then show a gotcha" questions that open a Python round.
 
 ## Closures
 
-> **One-line definition:** "An inner function that remembers a variable from its enclosing function's scope, even after the enclosing function has already returned."
+One-line definition: an inner function that remembers a variable from its enclosing function's scope, even after the enclosing function has already returned.
 
 ```python
 def make_multiplier(factor):
@@ -30,9 +30,9 @@ double(5)  # 10
 triple(5)  # 15
 ```
 
-`multiply` doesn't get a snapshot of `factor` at creation time — it keeps a live reference to the variable itself, inspectable via `double.__closure__[0].cell_contents`.
+`multiply` doesn't get a snapshot of `factor` at creation time. It keeps a live reference to the variable itself, inspectable via `double.__closure__[0].cell_contents`. Concretely: `make_multiplier(2)` runs once, creates a cell holding `2`, and returns `multiply` with that cell attached as its closure. Every later call to `double(x)` looks up `factor` in that same cell rather than re-reading anything from `make_multiplier`'s already-finished call frame, which is what lets `double` and `triple` behave differently even though they're the same function object built from the same code.
 
-**The gotcha that trips people up — closures in a loop capture the variable, not its value at iteration time:**
+The gotcha that trips people up: closures in a loop capture the variable, not its value at iteration time.
 
 ```python
 funcs = [lambda: i for i in range(3)]
@@ -42,11 +42,13 @@ funcs = [lambda i=i: i for i in range(3)]   # fix: snapshot via a default argume
 [f() for f in funcs]   # [0, 1, 2]
 ```
 
-This is the same closure-over-a-variable mechanism backend/01 mentions for Django middleware (`A(B(C(view)))` — each layer closes over the next) — a decorator's `wrapper` function is a closure over the original function for the exact same reason.
+In the broken version, all three lambdas close over the exact same `i` cell, and by the time any of them is called, the loop has already finished and `i` is stuck at its final value, `2`. The fix works because default argument values are evaluated immediately, at function-definition time, once per lambda, so `i=i` copies the current loop value into each lambda's own default argument instead of leaving it as a shared closure variable.
+
+This closure-over-a-variable mechanism is the same one behind middleware chaining in a web framework, where each layer wraps the next (`A(B(C(view)))`) by closing over it, and it's also exactly why a decorator's `wrapper` function is a closure over the original function it wraps.
 
 ## Context managers
 
-> **One-line definition:** "An object that sets something up before your code runs and cleans it up after, no matter what happens — including on an exception."
+One-line definition: an object that sets something up before your code runs and cleans it up after, no matter what happens, including on an exception.
 
 ```python
 with open("file.txt") as f:
@@ -69,7 +71,7 @@ with Timer():
     do_work()
 ```
 
-**Function-based**, via `@contextmanager` — usually the less boilerplate-heavy choice for a one-off:
+**Function-based**, via `@contextmanager`, usually the less boilerplate-heavy choice for a one-off:
 
 ```python
 from contextlib import contextmanager
@@ -84,13 +86,13 @@ with timer():
     do_work()
 ```
 
-Everything before `yield` is `__enter__`; everything after is `__exit__`. If the `with` block raises, the exception surfaces at the `yield` line — wrap it in `try/finally` inside the generator if cleanup must run even on error.
+Everything before `yield` is `__enter__`; everything after is `__exit__`. Walking through `with timer(): do_work()`: entering the `with` block runs `timer()` up to the `yield`, recording `start`; `do_work()` then runs as the body of the `with` block; and once it finishes, execution resumes in `timer()` right after `yield`, printing the elapsed time. If the `with` block raises instead, the exception surfaces at the `yield` line inside the generator, so you'd wrap it in `try/finally` there if cleanup must run even on error.
 
-**Common real uses:** `open()` (file), `threading.Lock()` (acquire/release), a DB connection (connect/disconnect), `unittest.mock.patch` (patch/restore). The `__exit__` return value matters in interviews: returning `True` suppresses the exception — a subtle footgun if you don't mean to swallow errors silently.
+Common real uses: `open()` for files, `threading.Lock()` for acquire/release, a DB connection for connect/disconnect, and `unittest.mock.patch` for patch/restore. The `__exit__` return value matters in interviews: returning `True` suppresses the exception, which is a subtle footgun if you don't mean to swallow errors silently.
 
 ## Generators
 
-A generator is a function that produces a lazy sequence via `yield` instead of building and returning a full list — nothing is computed until the caller asks for the next value.
+A generator is a function that produces a lazy sequence via `yield` instead of building and returning a full list. Nothing is computed until the caller asks for the next value.
 
 ```python
 def squares(n):
@@ -104,11 +106,11 @@ next(gen)   # 1
 total = sum(x * x for x in range(10_000_000))   # generator expression — no intermediate list materialized
 ```
 
-**Interview framing:** the payoff is memory, not raw speed — `sum(x*x for x in range(10_000_000))` never holds 10 million values in memory simultaneously, unlike the list-comprehension equivalent. This is the same reason `dict`/`Counter`/`defaultdict` construction from a generator expression scales to inputs a list comprehension can't.
+Calling `squares(5)` doesn't run any of the function body; it just creates a generator object. The first `next(gen)` runs the function up to the first `yield`, producing `0` and then pausing exactly there, with `i` still equal to `0` in the paused frame. The second `next(gen)` resumes right after that `yield`, continues the loop to `i = 1`, and yields again. The interview framing: the payoff is memory, not raw speed. `sum(x*x for x in range(10_000_000))` never holds 10 million values in memory simultaneously, unlike the list-comprehension equivalent. This is the same reason building a `dict`, `Counter`, or `defaultdict` from a generator expression scales to inputs a list comprehension can't.
 
-## LEGB — scope resolution order
+## LEGB: scope resolution order
 
-Python resolves a name by checking four scopes in order: **L**ocal → **E**nclosing → **G**lobal → **B**uilt-in — the first scope where the name exists wins.
+Python resolves a name by checking four scopes in order: Local, then Enclosing, then Global, then Built-in. The first scope where the name exists wins.
 
 ```python
 x = "global"
@@ -123,7 +125,7 @@ def outer():
 outer()
 ```
 
-To *write* to an outer scope (rather than just read it) requires an explicit declaration — this is the part people forget under pressure:
+To *write* to an outer scope, rather than just read it, requires an explicit declaration. This is the part people forget under pressure:
 
 ```python
 count = 0
@@ -133,9 +135,9 @@ def increment():
     count += 1
 ```
 
-`nonlocal` plays the same role one level up, for writing to an *enclosing* function's variable (not global) from a nested function — the same mechanism a closure needs if it wants to mutate, not just read, the captured variable.
+Without `global count`, Python sees the assignment `count += 1` anywhere in the function body and decides, at compile time, that `count` is a local variable for the whole function. That makes the read half of `count += 1` fail with `UnboundLocalError`, since the local `count` hasn't been assigned yet at the point it's read. `nonlocal` plays the same role one level up, for writing to an *enclosing* function's variable (not global) from a nested function. It's the same mechanism a closure needs if it wants to mutate, not just read, the variable it captured.
 
-## Default mutable argument — the classic gotcha
+## Default mutable argument: the classic gotcha
 
 ```python
 def add_item(item, cart=[]):   # BAD — the list literal is created ONCE, at function definition time
@@ -146,7 +148,7 @@ add_item("apple")   # ['apple']
 add_item("banana")  # ['apple', 'banana'] — the SAME list, carried over from the previous call
 ```
 
-Default argument values are evaluated **once**, when the `def` statement runs — not once per call. A mutable default (list, dict, set) is therefore shared and accumulates state across every call that doesn't explicitly pass its own.
+Default argument values are evaluated **once**, when the `def` statement runs, not once per call. So the `[]` in `cart=[]` is a single list object created when `add_item` is defined, and every call that doesn't pass its own `cart` argument shares and mutates that same list, which is why `"banana"` shows up alongside `"apple"` from the previous call instead of starting fresh.
 
 ```python
 def add_item(item, cart=None):   # GOOD — sentinel default, fresh list created inside the call
@@ -156,10 +158,4 @@ def add_item(item, cart=None):   # GOOD — sentinel default, fresh list created
     return cart
 ```
 
-## Key takeaways
-
-- Closure = inner function + captured variable from an enclosing scope, alive after that scope returns; loop-variable capture is the classic gotcha (all closures share one cell unless you snapshot via a default argument).
-- Context manager = guaranteed setup/teardown around a block, even on exception; `__exit__` returning `True` swallows the exception — usually not what you want.
-- Generators trade eagerness for memory: nothing computes until `next()` is called, so a generator expression never materializes an intermediate collection.
-- LEGB (Local → Enclosing → Global → Built-in) is the read-resolution order; writing to an outer scope needs an explicit `global`/`nonlocal`, or Python creates a new local variable instead.
-- A mutable default argument (`def f(x, cache=[])`) is created once at function-definition time and shared across every call — always default to `None` and create the mutable value inside the function body.
+Here, `None` is the (immutable, safely shared) default, and a brand new list is created inside the function body on every call that doesn't supply its own `cart`, which is what actually gives each caller a fresh list instead of one they unknowingly share with every other caller.

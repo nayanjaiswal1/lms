@@ -18,15 +18,15 @@ Three mocks today, each harder than anything in week 4 so far: a hard heap probl
 
 | Time | Segment |
 |---|---|
-| 0:00–0:40 | Mock 10: DSA (Hard) — Merge K Sorted Lists, heap approach (40 min) |
-| 0:40–0:50 | Break — write down what went wrong while it's fresh |
-| 0:50–1:30 | Mock 11: System Design — Design YouTube (40 min) |
+| 0:00–0:40 | Mock 10: DSA (Hard), Merge K Sorted Lists, heap approach (40 min) |
+| 0:40–0:50 | Break: write down what went wrong while it's fresh |
+| 0:50–1:30 | Mock 11: System Design, Design YouTube (40 min) |
 | 1:30–1:40 | Break |
-| 1:40–2:25 | Mock 12: Full Stack — REST API + frontend, error handling (45 min) |
+| 1:40–2:25 | Mock 12: Full Stack, REST API + frontend, error handling (45 min) |
 | 2:25–2:50 | Score against rubric, write debrief |
-| 2:50–4:00 | Buffer — Median of Data Stream, Sliding Window Maximum, or Top K Frequent Elements (pick one or two, cold) |
+| 2:50–4:00 | Buffer: Median of Data Stream, Sliding Window Maximum, or Top K Frequent Elements (pick one or two, cold) |
 
-## Mock Interview 10: DSA (Hard) — Merge K Sorted Lists (40 minutes)
+## Mock Interview 10: DSA (Hard), Merge K Sorted Lists (40 minutes)
 
 **Problem:** [Merge K Sorted Lists (LeetCode 23)](https://leetcode.com/problems/merge-k-sorted-lists/). You are given an array of `k` linked lists, each sorted in ascending order. Merge all the lists into one sorted linked list and return it.
 
@@ -38,9 +38,9 @@ Output: [1,1,2,3,4,4,5,6]
 **Instructions:** solve with a min-heap first, and get it to O(N log k) where N is the total number of nodes and k is the number of lists. If time remains, implement the divide-and-conquer merge as a second approach and compare.
 
 **Clarifying hints an interviewer would give if you don't ask:**
-- "Can `lists` be empty, or contain empty lists?" — Yes to both; handle `lists = []` and `lists = [[], [1]]`.
-- "Are values unique across lists?" — No, duplicates are allowed and must all appear in the output.
-- "In-place or new list?" — Either is fine; reusing existing nodes (not copying values) is the expected style for a linked-list problem.
+- "Can `lists` be empty, or contain empty lists?" Yes to both; handle `lists = []` and `lists = [[], [1]]`.
+- "Are values unique across lists?" No, duplicates are allowed and must all appear in the output.
+- "In-place or new list?" Either is fine; reusing existing nodes (not copying values) is the expected style for a linked-list problem.
 
 Budget: 3 min clarify, 7 min discuss naive vs heap vs divide-and-conquer, 22 min code the heap solution, 8 min test + discuss the alternative.
 
@@ -93,8 +93,8 @@ def merge_two_lists(a: Optional[ListNode], b: Optional[ListNode]) -> Optional[Li
 
 
 def merge_k_lists_divide_and_conquer(lists: list[Optional[ListNode]]) -> Optional[ListNode]:
-    """Pair up lists and merge two at a time, halving the count each round —
-    same O(N log k) bound as the heap, without needing a heap at all."""
+    """Pair up lists and merge two at a time, halving the count each round.
+    Same O(N log k) bound as the heap, without needing a heap at all."""
     if not lists:
         return None
     lists = list(lists)
@@ -137,14 +137,14 @@ if __name__ == "__main__":
     print("ok")
 ```
 
-**What to explain out loud:** the naive approach — collect all N values, sort, rebuild — is O(N log N) and throws away the fact that each individual list is already sorted. Merging lists one at a time (`merge(merge(merge(l1, l2), l3), l4)...`) is O(N*k) because the accumulated list gets scanned against every remaining list. The heap keeps only the k current heads in memory at once; every pop/push is O(log k), and there are N total nodes processed, giving O(N log k) — strictly better than O(N*k) whenever k is more than a small constant, which is exactly the case this problem is built to test. Divide-and-conquer gets the same bound differently: `log k` rounds, each round doing O(N) work total across all pairwise merges, so O(N log k) again — mention this is often preferred in practice because it avoids heap overhead and is easier to parallelize (each pairwise merge in a round is independent).
+**What to explain out loud:** the naive approach, collecting all N values, sorting, and rebuilding, is O(N log N) and throws away the fact that each individual list is already sorted. Merging lists one at a time (`merge(merge(merge(l1, l2), l3), l4)...`) is O(N*k) because the accumulated list gets scanned against every remaining list. The heap keeps only the k current heads in memory at once; every pop/push is O(log k), and there are N total nodes processed, giving O(N log k), strictly better than O(N*k) whenever k is more than a small constant, which is exactly the case this problem is built to test. Divide-and-conquer gets the same bound differently: `log k` rounds, each round doing O(N) work total across all pairwise merges, so O(N log k) again. Mention this is often preferred in practice because it avoids heap overhead and is easier to parallelize (each pairwise merge in a round is independent).
 
-**Extra practice for the buffer block** — three problems in the same "keep a running structure over a stream/window" family as today's heap problem:
-- **Median of Data Stream** — two heaps (a max-heap for the lower half, a min-heap for the upper half), rebalanced after every insert so their sizes differ by at most 1; median is the top of the larger heap or the average of both tops.
-- **Sliding Window Maximum** — a monotonic deque of indices, popping from the back while the incoming value is larger (they can never be the answer while a bigger, newer value exists) and from the front when the index falls out of the window.
-- **Top K Frequent Elements** — count with a hash map, then either a min-heap of size k (O(n log k)) or bucket sort by frequency (O(n), since frequency is bounded by array length).
+**Extra practice for the buffer block:** three problems in the same "keep a running structure over a stream/window" family as today's heap problem.
+- **Median of Data Stream:** two heaps (a max-heap for the lower half, a min-heap for the upper half), rebalanced after every insert so their sizes differ by at most 1; median is the top of the larger heap or the average of both tops.
+- **Sliding Window Maximum:** a monotonic deque of indices, popping from the back while the incoming value is larger (they can never be the answer while a bigger, newer value exists) and from the front when the index falls out of the window.
+- **Top K Frequent Elements:** count with a hash map, then either a min-heap of size k (O(n log k)) or bucket sort by frequency (O(n), since frequency is bounded by array length).
 
-## Mock Interview 11: System Design — Design YouTube (40 minutes)
+## Mock Interview 11: System Design, Design YouTube (40 minutes)
 
 **Prompt as the interviewer would give it:** "Design a video platform like YouTube. Users upload videos, other users watch them. Focus on the streaming path, not recommendations or comments."
 
@@ -155,14 +155,14 @@ Time budget: 5 min requirements, 10 min high-level architecture, 15 min deep div
 - Does playback need adaptive quality (auto-switch resolution based on bandwidth), or is a fixed set of quality options enough?
 - Live streaming in scope, or upload-then-watch only?
 - Global audience, or single region?
-- Rough scale — uploads/day, concurrent viewers at peak?
+- Rough scale: uploads/day, concurrent viewers at peak?
 
 ### Reference solution
 
 **Functional requirements:** upload a video, process it into streamable form, browse/search (assume a separate search service, out of scope for the deep dive), play a video with selectable/adaptive quality.
 **Non-functional requirements:** playback start latency low (<1–2s to first frame), high read availability (watching must basically never be down), durability of uploaded originals, must scale to enormous read:write skew (uploads are rare relative to views).
 
-**Capacity estimate:** say a mid-size platform gets 500 hours of video uploaded per minute — roughly 720,000 hours/day. At ~1GB/hour of raw video, that's ~720TB/day of raw ingest before transcoding, which multiplies by however many renditions you store (240p through 4K, several codecs). This is squarely "needs a blob store + CDN," not "needs a database that holds video bytes" — say that decision out loud, storing video data in a relational DB is the single fastest way to fail this design.
+**Capacity estimate:** say a mid-size platform gets 500 hours of video uploaded per minute, roughly 720,000 hours/day. At ~1GB/hour of raw video, that's ~720TB/day of raw ingest before transcoding, which multiplies by however many renditions you store (240p through 4K, several codecs). This is squarely "needs a blob store + CDN," not "needs a database that holds video bytes." Say that decision out loud: storing video data in a relational DB is the single fastest way to fail this design.
 
 **High-level architecture:**
 ```
@@ -173,9 +173,9 @@ Playback: Client -> CDN (edge) -> [cache miss] -> Origin (rendition storage)
           Client -> Metadata service -> Metadata DB (title, owner, duration, available renditions)
 ```
 
-**Upload path:** client does a chunked, resumable upload (so a dropped connection on a 2-hour 4K file doesn't restart from zero) directly to blob storage, often via a pre-signed URL so the raw bytes never round-trip through your app servers. Once the upload completes, an event (S3 event notification, or an explicit "upload complete" API call) enqueues a transcoding job. A pool of transcode workers pulls jobs, produces multiple renditions — several resolutions (240p/480p/720p/1080p/4K) and, for adaptive streaming, splits each into short segments (2–10s) with a manifest (HLS `.m3u8` or DASH `.mpd`) listing the available bitrates and their segment URLs. Renditions and manifests land back in blob storage, then get pushed/pulled into the CDN.
+**Upload path:** client does a chunked, resumable upload (so a dropped connection on a 2-hour 4K file doesn't restart from zero) directly to blob storage, often via a pre-signed URL so the raw bytes never round-trip through your app servers. Once the upload completes, an event (S3 event notification, or an explicit "upload complete" API call) enqueues a transcoding job. A pool of transcode workers pulls jobs and produces multiple renditions: several resolutions (240p/480p/720p/1080p/4K) and, for adaptive streaming, splits each into short segments (2–10s) with a manifest (HLS `.m3u8` or DASH `.mpd`) listing the available bitrates and their segment URLs. Renditions and manifests land back in blob storage, then get pushed/pulled into the CDN.
 
-**Playback path — the hot path:** client requests the manifest, the video player (HLS.js, native HLS on iOS, ExoPlayer/DASH on Android) picks a starting bitrate, then continuously measures actual download throughput and switches renditions segment-to-segment — this is adaptive bitrate streaming (ABR), and it's the reason video is delivered as many small segments instead of one file: switching quality mid-stream just means requesting the next segment from a different rendition, no re-buffering from zero. Segments are served from CDN edge nodes; a cache miss falls through to origin (your rendition storage), and the edge caches it for the next viewer in that region.
+**Playback path, the hot path:** client requests the manifest, the video player (HLS.js, native HLS on iOS, ExoPlayer/DASH on Android) picks a starting bitrate, then continuously measures actual download throughput and switches renditions segment-to-segment. This is adaptive bitrate streaming (ABR), and it's the reason video is delivered as many small segments instead of one file: switching quality mid-stream just means requesting the next segment from a different rendition, no re-buffering from zero. Segments are served from CDN edge nodes; a cache miss falls through to origin (your rendition storage), and the edge caches it for the next viewer in that region.
 
 **Data model (metadata service):**
 ```sql
@@ -198,27 +198,27 @@ CREATE TABLE renditions (
 ```
 
 **Scaling and trade-offs:**
-- **CDN caching is the whole game for reads.** View popularity is heavily Zipfian — a small number of videos take most of the traffic. Popular videos stay warm at edge nodes; long-tail videos fall back to origin more often. This is fine, and worth stating explicitly rather than trying to make every video equally cache-friendly.
+- **CDN caching is the whole game for reads.** View popularity is heavily Zipfian: a small number of videos take most of the traffic. Popular videos stay warm at edge nodes; long-tail videos fall back to origin more often. This is fine, and worth stating explicitly rather than trying to make every video equally cache-friendly.
 - **Storage tiering:** recently uploaded/actively watched renditions stay on fast storage; rarely watched old videos can move to cheaper cold storage (with a higher retrieval latency accepted as a trade-off) once access patterns show they've gone cold.
-- **Transcoding is the expensive, parallelizable part.** Each rendition of a video can transcode independently — scale the worker pool horizontally, use a priority queue so a short viral clip doesn't sit behind someone's 4-hour 4K upload.
-- **View counts** should not be a synchronous write to the metadata DB on every play — batch/aggregate view events asynchronously (a stream processor or periodic aggregation job) and eventually-consistently update the count; exact real-time accuracy isn't worth the write amplification on a hot path.
+- **Transcoding is the expensive, parallelizable part.** Each rendition of a video can transcode independently, so scale the worker pool horizontally and use a priority queue so a short viral clip doesn't sit behind someone's 4-hour 4K upload.
+- **View counts** should not be a synchronous write to the metadata DB on every play. Batch/aggregate view events asynchronously (a stream processor or periodic aggregation job) and eventually-consistently update the count; exact real-time accuracy isn't worth the write amplification on a hot path.
 
 **Failure modes to name:** a transcode job that fails partway (retry with a dead-letter queue after N attempts, don't silently mark the video "ready" with missing renditions), a CDN cache stampede when a video suddenly goes viral (mitigate with request coalescing at the origin, or pre-warming edges from trending signals), and inconsistent metadata if the "mark ready" step fails after renditions are already written (idempotent status updates, or an outbox-style pattern so the DB write and the "notify CDN" step don't drift out of sync).
 
-## Mock Interview 12: Full Stack — REST API + Frontend (45 minutes)
+## Mock Interview 12: Full Stack, REST API + Frontend (45 minutes)
 
-**Prompt:** "Build a small task list app: a REST API to create, list, toggle, and delete tasks, and a frontend that talks to it. Handle errors gracefully on both ends — don't let a failed request leave the UI in a broken or silently-stale state."
+**Prompt:** "Build a small task list app: a REST API to create, list, toggle, and delete tasks, and a frontend that talks to it. Handle errors gracefully on both ends. Don't let a failed request leave the UI in a broken or silently-stale state."
 
 Time budget: 5 min plan the API contract and component state, 20 min backend, 15 min frontend, 5 min wire up + discuss error handling.
 
 **Clarifying hints an interviewer would give:**
-- "Persistence — real database or in-memory is fine?" — In-memory is fine for a 45-minute round; say out loud what you'd change for production (a real DB, migrations).
-- "What should the UI do while a request is in flight, and if it fails?" — Show loading state; on failure, surface the error and don't leave optimistic changes applied if the server rejected them.
-- "Validation — client-side, server-side, or both?" — Both. Client-side for immediate feedback, server-side because the client can never be trusted to enforce it.
+- "Persistence: real database or in-memory is fine?" In-memory is fine for a 45-minute round; say out loud what you'd change for production (a real DB, migrations).
+- "What should the UI do while a request is in flight, and if it fails?" Show loading state; on failure, surface the error and don't leave optimistic changes applied if the server rejected them.
+- "Validation: client-side, server-side, or both?" Both. Client-side for immediate feedback, server-side because the client can never be trusted to enforce it.
 
 ### Reference solution
 
-**Backend — FastAPI, in-memory store:**
+**Backend: FastAPI, in-memory store:**
 
 ```python
 from uuid import uuid4
@@ -272,7 +272,7 @@ def delete_task(task_id: str) -> None:
 
 Note what's doing the error handling here: Pydantic rejects an empty or 201-character title before the handler body even runs (422, automatic); the 404s are explicit because "delete something that doesn't exist" is a real case, not an edge case to ignore.
 
-**Frontend — React/TSX, optimistic updates with rollback on failure:**
+**Frontend: React/TSX, optimistic updates with rollback on failure:**
 
 ```tsx
 import { useState, useEffect, useCallback, FormEvent } from "react";
@@ -392,23 +392,23 @@ export function TaskList() {
 }
 ```
 
-**Why these choices, explain out loud:** toggle and delete update local state immediately (optimistic UI — feels instant) but keep a snapshot of the prior state so a server rejection rolls the UI back exactly, rather than leaving it in a state the server never confirmed. `load` and `handleSubmit` are not optimistic — there's nothing to optimistically show before the first fetch, and a create's real ID only exists once the server assigns it. Every network call goes through one `apiFetch` helper that normalizes error extraction, so error handling isn't reimplemented five times with five different bugs. `disabled={submitting}` on the add button prevents duplicate submits from double-clicking, a real bug interviewers watch for.
+**Why these choices, explain out loud:** toggle and delete update local state immediately (optimistic UI, feels instant) but keep a snapshot of the prior state so a server rejection rolls the UI back exactly, rather than leaving it in a state the server never confirmed. `load` and `handleSubmit` are not optimistic: there's nothing to optimistically show before the first fetch, and a create's real ID only exists once the server assigns it. Every network call goes through one `apiFetch` helper that normalizes error extraction, so error handling isn't reimplemented five times with five different bugs. `disabled={submitting}` on the add button prevents duplicate submits from double-clicking, a real bug interviewers watch for.
 
 ## Scoring rubric
 
-**Mock 10 — DSA (Merge K Sorted Lists)**
+**Mock 10: DSA (Merge K Sorted Lists)**
 - Reached the heap approach and correctly bounded it at O(N log k): 5 = derived it from first principles, explained why the heap never exceeds size k; 1 = only reached the O(N*k) sequential-merge approach even after a hint.
 - Implemented divide-and-conquer as the comparison approach: 5 = coded it correctly and explained why it hits the same bound differently; 1 = didn't attempt it or couldn't explain the complexity.
 - Handled edge cases (empty `lists`, lists containing `None`, duplicate values): 5 = handled all three unprompted; 1 = crashed on an empty list.
 - Code cleanliness (heap tie-breaking, dummy-node pattern): 5 = used a tie-breaker for equal values without being told why it's needed; 1 = crashed or needed a hint on the `TypeError` from comparing `ListNode` objects directly.
 
-**Mock 11 — System Design (YouTube)**
+**Mock 11: System Design (YouTube)**
 - Recognized this needs blob storage + CDN, not a database holding video bytes: 5 = stated this unprompted in the first five minutes; 1 = proposed storing video files in a SQL table.
 - Explained adaptive bitrate streaming and why video is segmented: 5 = correctly described manifest + segment switching and why it avoids re-buffering; 1 = described it as "just pick a resolution and stream the whole file."
 - Separated the upload/transcode pipeline from the playback/CDN path: 5 = drew both flows distinctly with correct data flow; 1 = conflated them into one undifferentiated pipeline.
 - Named concrete scaling trade-offs (cache tiering, transcode parallelism, async view counts): 5 = named at least two with reasoning; 1 = no trade-offs mentioned unless asked directly.
 
-**Mock 12 — Full Stack (Task API + Frontend)**
+**Mock 12: Full Stack (Task API + Frontend)**
 - API contract was sane before code started (routes, status codes, request/response shapes): 5 = sketched the contract in under 5 minutes and stuck to it; 1 = designed the API ad hoc while writing frontend code and had to backtrack.
 - Server-side validation, not just client-side: 5 = used a schema/validation layer server-side unprompted; 1 = only validated in the browser, trusting the client.
 - Frontend handled loading and error states, not just the happy path: 5 = explicit loading/error UI plus rollback on failed mutation; 1 = only the success path renders correctly, errors are silently swallowed or crash the UI.
@@ -416,4 +416,4 @@ export function TaskList() {
 
 ## Debrief
 
-Log every stumble immediately after each mock, not at the end of the day. For Mock 10, note specifically whether the heap approach was slow to arrive at (a knowledge gap — review "top-k / stream" pattern recognition) or slow to *code* (a mechanics gap — drill `heapq` syntax cold). For Mock 11, note whether you reached for CDN + blob storage unprompted or needed a nudge — this is one of the most-repeated patterns in video/media system design and should become reflexive. For Mock 12, note the exact moment error handling was skipped (did you write the happy path first and never circle back? that's a habit to break, not a one-off). Anything scored 3/5 or below goes on tomorrow's warm-up so it gets revisited inside 48 hours.
+Log every stumble immediately after each mock, not at the end of the day. For Mock 10, note specifically whether the heap approach was slow to arrive at (a knowledge gap, review "top-k / stream" pattern recognition) or slow to *code* (a mechanics gap, drill `heapq` syntax cold). For Mock 11, note whether you reached for CDN + blob storage unprompted or needed a nudge. This is one of the most-repeated patterns in video/media system design and should become reflexive. For Mock 12, note the exact moment error handling was skipped (did you write the happy path first and never circle back? that's a habit to break, not a one-off). Anything scored 3/5 or below goes on tomorrow's warm-up so it gets revisited inside 48 hours.

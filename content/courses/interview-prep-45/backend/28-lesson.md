@@ -12,9 +12,9 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Today is schema evolution: Django migrations, how to change a large production table without an outage, data migrations, and zero-downtime deploys. Every backend engineer eventually ships a migration that locks a table in production — interviewers ask this to find out if you've learned that lesson already or are about to learn it the hard way on their system.
+Today is schema evolution: Django migrations, how to change a large production table without an outage, data migrations, and zero-downtime deploys. Every backend engineer eventually ships a migration that locks a table in production. Interviewers ask this to find out if you've learned that lesson already or are about to learn it the hard way on their system.
 
-## Django migrations — how they actually work
+## Django migrations: how they actually work
 
 `makemigrations` diffs your models against the last known state (tracked via migration files, not the live DB) and generates a Python file describing the change. `migrate` applies pending migration files in dependency order and records which ones ran in the `django_migrations` table.
 
@@ -37,10 +37,10 @@ class Migration(migrations.Migration):
 
 Best practices interviewers expect you to name:
 
-- **One logical change per migration.** Don't bundle an unrelated index add with a column rename — if it needs a rollback, you want to roll back one thing, not three.
+- **One logical change per migration.** Don't bundle an unrelated index add with a column rename. If it needs a rollback, you want to roll back one thing, not three.
 - **Never edit a migration that's already been applied anywhere** (staging, another dev's machine, prod). Migration files are treated as an append-only log; editing an applied one desyncs `django_migrations` state from reality. Write a new migration to fix a mistake.
-- **Keep migrations reversible when practical** — implement `reverse_code` for `RunPython` operations so `migrate app 0006` actually works instead of throwing `IrreversibleError`.
-- **Review the generated SQL before running in prod**: `python manage.py sqlmigrate accounts 0007`. This is the single highest-leverage habit — it turns "I think this is safe" into "I confirmed this doesn't rewrite the table."
+- **Keep migrations reversible when practical.** Implement `reverse_code` for `RunPython` operations so `migrate app 0006` actually works instead of throwing `IrreversibleError`.
+- **Review the generated SQL before running in prod**: `python manage.py sqlmigrate accounts 0007`. This is the single highest-leverage habit. It turns "I think this is safe" into "I confirmed this doesn't rewrite the table."
 
 ```bash
 python manage.py makemigrations accounts
@@ -50,25 +50,25 @@ python manage.py migrate accounts
 
 ## Why some migrations are dangerous on a large table
 
-Postgres (and MySQL similarly) needs to take a lock to change table structure. The danger isn't "will it work," it's "what lock does it take, and for how long."
+Postgres (and MySQL similarly) needs to take a lock to change table structure. The danger question to ask is "what lock does it take, and for how long," not "will it work."
 
 | Operation | Lock in Postgres | Danger on a large table |
 |---|---|---|
 | `ADD COLUMN` with no default, nullable | `ACCESS EXCLUSIVE`, but metadata-only, near-instant (Postgres 11+) | Safe |
 | `ADD COLUMN` with a non-null default | Historically rewrote the whole table; Postgres 11+ made this metadata-only too | Safe on Postgres 11+, but check your version |
-| `ADD COLUMN` with a **volatile** default (e.g. `default=uuid.uuid4`) | Full table rewrite | Dangerous — locks the whole table for the rewrite duration |
+| `ADD COLUMN` with a **volatile** default (e.g. `default=uuid.uuid4`) | Full table rewrite | Dangerous: locks the whole table for the rewrite duration |
 | `ALTER COLUMN TYPE` | `ACCESS EXCLUSIVE`, full rewrite | Dangerous on large tables |
-| `CREATE INDEX` (plain) | Blocks writes for the duration | Dangerous — use `CREATE INDEX CONCURRENTLY` |
-| `ADD CONSTRAINT NOT NULL` | Full table scan to validate, holds a lock | Dangerous — split into `CHECK ... NOT VALID` + `VALIDATE CONSTRAINT` |
+| `CREATE INDEX` (plain) | Blocks writes for the duration | Dangerous: use `CREATE INDEX CONCURRENTLY` |
+| `ADD CONSTRAINT NOT NULL` | Full table scan to validate, holds a lock | Dangerous: split into `CHECK ... NOT VALID` + `VALIDATE CONSTRAINT` |
 | `ADD FOREIGN KEY` | Scans both tables to validate | Same fix: `NOT VALID` then validate separately |
 
-The `ACCESS EXCLUSIVE` lock blocks not just writes but *reads* on that table for every other connection while it's held — on a 50M-row table, a full rewrite can take minutes, during which your app effectively has an outage on anything touching that table.
+The `ACCESS EXCLUSIVE` lock blocks both writes and *reads* on that table for every other connection while it's held. On a 50M-row table, a full rewrite can take minutes, during which your app effectively has an outage on anything touching that table.
 
 ## Implementing a safe migration for a large table
 
 Take the worst case: adding a `NOT NULL` column with a default to a huge, high-traffic table, safely. The technique is to split one risky operation into several small, non-blocking ones, deployed incrementally.
 
-**Step 1 — add the column, nullable, no default (fast metadata-only change):**
+**Step 1: add the column, nullable, no default (fast metadata-only change).**
 
 ```python
 # 0008_add_status_column.py
@@ -83,7 +83,7 @@ class Migration(migrations.Migration):
     ]
 ```
 
-**Step 2 — backfill in small batches, outside a single long transaction:**
+**Step 2: backfill in small batches, outside a single long transaction.**
 
 ```python
 # 0009_backfill_status.py
@@ -117,9 +117,9 @@ class Migration(migrations.Migration):
     ]
 ```
 
-Batching matters for two reasons: a single `UPDATE orders SET status = 'pending'` on 50M rows holds row locks and generates a massive amount of WAL/undo in one transaction, and it's all-or-nothing — if it fails at row 40M you redo all 40M. Batches of a few thousand commit independently and can resume from `last_id` on failure.
+Batching matters for two reasons: a single `UPDATE orders SET status = 'pending'` on 50M rows holds row locks and generates a massive amount of WAL/undo in one transaction, and it's all-or-nothing, so if it fails at row 40M you redo all 40M. Batches of a few thousand commit independently and can resume from `last_id` on failure.
 
-**Step 3 — add the `NOT NULL` constraint safely** (two-phase, avoids the full-table-scan lock happening as one blocking operation):
+**Step 3: add the `NOT NULL` constraint safely** (two-phase, avoids the full-table-scan lock happening as one blocking operation).
 
 ```sql
 -- Add as NOT VALID: instant, doesn't scan existing rows, only enforces on new writes
@@ -146,7 +146,7 @@ class Migration(migrations.Migration):
     ]
 ```
 
-**Step 4 — once confident (constraint validated, app always writes a value), make Django's model match reality:**
+**Step 4: once confident (constraint validated, app always writes a value), make Django's model match reality.**
 
 ```python
 # 0011_finalize_status_not_null.py
@@ -161,11 +161,11 @@ class Migration(migrations.Migration):
     ]
 ```
 
-Four small migrations instead of one big blocking one — every step is either instant or takes a non-blocking lock. This sequencing (add nullable → backfill in batches → add constraint `NOT VALID` → validate → tighten the model) is the answer to "how do you add a required column to a huge table."
+Four small migrations instead of one big blocking one: every step is either instant or takes a non-blocking lock. This sequencing (add nullable, backfill in batches, add constraint `NOT VALID`, validate, then tighten the model) is the answer to "how do you add a required column to a huge table."
 
 ## Data migrations with Django
 
-A data migration transforms existing data rather than schema. Use `RunPython` and **always fetch models via `apps.get_model`**, not by importing the real model class — the historical model reflects the schema at that point in migration history, which matters if the real model later gains fields or methods the migration doesn't expect.
+A data migration transforms existing data rather than schema. Use `RunPython` and **always fetch models via `apps.get_model`**, not by importing the real model class. The historical model reflects the schema at that point in migration history, which matters if the real model later gains fields or methods the migration doesn't expect.
 
 ```python
 # migrations/0012_split_full_name.py
@@ -195,15 +195,15 @@ class Migration(migrations.Migration):
     ]
 ```
 
-`iterator()` avoids loading the whole queryset into memory at once — important once "existing data" means millions of rows. For very large tables, batch this the same way as the backfill example above rather than one unbounded `iterator()` pass inside a single migration transaction.
+`iterator()` avoids loading the whole queryset into memory at once, which matters once "existing data" means millions of rows. For very large tables, batch this the same way as the backfill example above rather than one unbounded `iterator()` pass inside a single migration transaction.
 
-## Migrations on production — the interview answer
+## Migrations on production: the interview answer
 
 The core tension: Django wraps each migration in a transaction by default (for Postgres), which is good for atomicity but means a long-running migration holds its locks for the whole transaction. The practical rules:
 
-1. **Run `sqlmigrate` and review the SQL before every prod deploy** — know exactly what lock each statement takes.
+1. **Run `sqlmigrate` and review the SQL before every prod deploy.** Know exactly what lock each statement takes.
 2. **Separate schema changes from data backfills into different migrations**, and run backfills as a management command or Celery task outside the deploy window if they'll take more than a few seconds, rather than as a migration that blocks deploy.
-3. **Never deploy a migration that depends on application code changes shipping in the exact same instant** — see zero-downtime section below.
+3. **Never deploy a migration that depends on application code changes shipping in the exact same instant.** See the zero-downtime section below.
 4. **Take a fresh backup / ensure PITR is enabled** before any migration that touches a large or critical table, regardless of how safe you believe it is.
 5. **Run migrations before the new app code rolls out**, and make sure the *old* app code still works against the *new* schema during the rollout window (next section explains why).
 
@@ -235,13 +235,6 @@ def save_username(user, value):
 migrations.RemoveField(model_name="user", name="username")
 ```
 
-**Interview answer, condensed**: "Zero-downtime migration means old and new code both work against the schema during a rolling deploy — you get there with expand/contract: add new structure additively, dual-write and backfill while both code paths coexist, then remove the old structure only after every instance is running the new code." Naming "expand/contract" by name is what signals you've actually done this, not just read about it.
+**Interview answer, condensed**: "Zero-downtime migration means old and new code both work against the schema during a rolling deploy. You get there with expand/contract: add new structure additively, dual-write and backfill while both code paths coexist, then remove the old structure only after every instance is running the new code." Naming "expand/contract" by name is what signals you've actually done this, not just read about it.
 
-## Key takeaways
-
-- Always run `sqlmigrate` before applying a migration in production — know the exact SQL and the lock it takes, don't guess.
-- The danger in schema changes is lock type and duration, not the change itself: `CREATE INDEX CONCURRENTLY` and `ADD CONSTRAINT ... NOT VALID` + `VALIDATE CONSTRAINT` avoid blocking reads/writes that a naive version would cause.
-- Adding a required column to a huge table safely is a four-step sequence: nullable column → batched backfill → `NOT VALID` constraint → validate → tighten the model — never one big migration.
-- Data migrations use `apps.get_model` (historical models) and `iterator()`/batching for large tables, with a real `reverse_code` where feasible.
-- Zero-downtime requires the expand/contract pattern because old and new app code run simultaneously against the same schema during a rolling deploy — any migration that isn't backward-compatible with the currently-running old code causes an outage.
-- Never edit an already-applied migration; write a new one.
+Every technique in this lesson, batched backfills, `NOT VALID` constraints, expand/contract, comes down to the same move: never let a single statement hold a table-wide lock for longer than a few milliseconds, and never let a single deploy require old and new code to agree on a schema that only one of them has seen.

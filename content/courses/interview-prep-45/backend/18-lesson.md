@@ -11,18 +11,18 @@ estimated_minutes: 45
 source:
     - 45-day-interview-roadmap.md
 ---
-Kafka questions separate candidates who've used a queue from candidates who've used *this* queue — interviewers probe partitioning, consumer groups, and delivery guarantees because those are where Kafka's design diverges from RabbitMQ/SQS. Today covers the architecture, a working producer/consumer, and the ordering and duplication questions that come up in nearly every backend system-design interview.
+Kafka questions separate candidates who've used a queue from candidates who've used *this* queue. Interviewers probe partitioning, consumer groups, and delivery guarantees because those are where Kafka's design diverges from RabbitMQ/SQS. Today covers the architecture, a working producer/consumer, and the ordering and duplication questions that come up in nearly every backend system-design interview.
 
 ## Kafka architecture
 
-- **Topic** — a named stream of records, split into **partitions**. Partitioning is how Kafka parallelizes: each partition is an append-only, ordered log, and different partitions can be consumed independently.
-- **Broker** — a Kafka server; a cluster is multiple brokers, each holding a subset of partitions (and replicas of others).
-- **Producer** — writes records to a topic, choosing (directly or via a partitioner) which partition each record lands in.
-- **Consumer** — reads records from partitions, tracking its position via an **offset** (a per-partition sequence number).
-- **Consumer group** — a set of consumers that split a topic's partitions among themselves; each partition is read by exactly one consumer in the group at a time, which is how Kafka achieves parallel consumption without duplicate work.
-- **ZooKeeper / KRaft** — cluster metadata and controller election; modern Kafka (3.x+) uses KRaft (Kafka's own Raft-based consensus) instead of a separate ZooKeeper cluster.
+- **Topic**: a named stream of records, split into **partitions**. Partitioning is how Kafka parallelizes: each partition is an append-only, ordered log, and different partitions can be consumed independently.
+- **Broker**: a Kafka server; a cluster is multiple brokers, each holding a subset of partitions (and replicas of others).
+- **Producer**: writes records to a topic, choosing (directly or via a partitioner) which partition each record lands in.
+- **Consumer**: reads records from partitions, tracking its position via an **offset** (a per-partition sequence number).
+- **Consumer group**: a set of consumers that split a topic's partitions among themselves; each partition is read by exactly one consumer in the group at a time, which is how Kafka achieves parallel consumption without duplicate work.
+- **ZooKeeper / KRaft**: cluster metadata and controller election; modern Kafka (3.x+) uses KRaft (Kafka's own Raft-based consensus) instead of a separate ZooKeeper cluster.
 
-The mental model interviewers want: a topic-partition is a durable, ordered log file. Producers append; consumers read at their own pace, tracked by offset. Nothing is removed on read — Kafka retains records for a configured retention period (or size), so multiple independent consumer groups can each read the same topic from wherever they like, including replaying from the beginning.
+The mental model interviewers want: a topic-partition is a durable, ordered log file. Producers append; consumers read at their own pace, tracked by offset. Nothing is removed on read. Kafka retains records for a configured retention period (or size), so multiple independent consumer groups can each read the same topic from wherever they like, including replaying from the beginning.
 
 ## Producer and consumer
 
@@ -68,18 +68,18 @@ for message in consumer:
 
 ## Consumer groups
 
-Add a second consumer process with the same `group_id="order-notifier"` and Kafka's group coordinator rebalances: if `orders.events` has 6 partitions and you now have 2 consumers, each gets 3 partitions. Add a third consumer and it takes some from the other two. Add a *seventh* consumer with only 6 partitions available and it sits idle — **partition count is the hard upper bound on consumer parallelism** within a group, which is the detail interviewers check for when they ask about scaling consumption.
+Add a second consumer process with the same `group_id="order-notifier"` and Kafka's group coordinator rebalances: if `orders.events` has 6 partitions and you now have 2 consumers, each gets 3 partitions. Add a third consumer and it takes some from the other two. Add a *seventh* consumer with only 6 partitions available and it sits idle. **Partition count is the hard upper bound on consumer parallelism** within a group, which is the detail interviewers check for when they ask about scaling consumption.
 
-A different `group_id` reading the same topic is an entirely independent view — e.g. `order-notifier` and `order-analytics` can both consume every event from `orders.events` at their own pace, because offsets are tracked per (group, partition), not globally.
+A different `group_id` reading the same topic is an entirely independent view. For example, `order-notifier` and `order-analytics` can both consume every event from `orders.events` at their own pace, because offsets are tracked per (group, partition), not globally.
 
 ## Message ordering in Kafka
 
-**What is message ordering in Kafka?** Kafka guarantees order *within a partition only* — records with the same key always land in the same partition (via the default hash partitioner) and are delivered to that partition's consumer in write order. There is no ordering guarantee *across* partitions. So:
+**What is message ordering in Kafka?** Kafka guarantees order *within a partition only*: records with the same key always land in the same partition (via the default hash partitioner) and are delivered to that partition's consumer in write order. There is no ordering guarantee *across* partitions. So:
 
-- Need strict global ordering → use a single partition (caps throughput to one consumer).
-- Need ordering per-entity (per order, per user) → key by that entity's ID, let Kafka spread entities across partitions, accept no cross-entity ordering.
+- Need strict global ordering: use a single partition (caps throughput to one consumer).
+- Need ordering per-entity (per order, per user): key by that entity's ID, let Kafka spread entities across partitions, accept no cross-entity ordering.
 
-Almost every real system picks the second option — it's why the producer example above keys by `order_id`.
+Almost every real system picks the second option; it's why the producer example above keys by `order_id`.
 
 ## Handling message duplication
 
@@ -97,7 +97,7 @@ def process_order_event(event, db_session):
     ProcessedEvent.objects.create(key=dedupe_key)
 ```
 
-For exactly-once *semantics* end-to-end (not just exactly-once delivery), Kafka offers transactional producers (`transactional.id`) that atomically write to multiple partitions and commit consumer offsets together — but most interview-level answers are expected to name the at-least-once-plus-idempotent-consumer pattern, since that's what's actually deployed in most systems.
+For exactly-once *semantics* end-to-end (not just exactly-once delivery), Kafka offers transactional producers (`transactional.id`) that atomically write to multiple partitions and commit consumer offsets together. Most interview-level answers are expected to name the at-least-once-plus-idempotent-consumer pattern instead, since that's what's actually deployed in most systems.
 
 ## Implementation notes: producer/consumer you can run locally
 
@@ -115,13 +115,4 @@ docker run -d --name kafka -p 9092:9092 \
 pip install kafka-python
 ```
 
-Run the producer script to publish a few `orders.events`, then run the consumer script in two terminals with the same `group_id` — watch the partitions split between them, then kill one and watch a rebalance hand its partitions to the survivor.
-
-## Key takeaways
-
-- A topic-partition is an ordered, durable, append-only log; ordering is guaranteed within a partition, never across partitions.
-- Consumer groups split partitions across consumers for parallelism — partition count is the hard ceiling on how many consumers in one group can do useful work.
-- Key records by the entity that needs ordering (e.g. order ID) so related events land in one partition without forcing single-partition throughput on the whole topic.
-- Kafka is at-least-once by default; correctness requires idempotent consumers (dedupe by message ID/offset), not just an idempotent producer.
-- `enable_idempotence=True` dedupes producer retries at the broker; it does not make consumer processing exactly-once.
-- Manual offset commits after successful processing (not auto-commit on a timer) prevent silently dropping messages that failed mid-processing.
+Run the producer script to publish a few `orders.events`, then run the consumer script in two terminals with the same `group_id`. Watch the partitions split between them, then kill one and watch a rebalance hand its partitions to the survivor.

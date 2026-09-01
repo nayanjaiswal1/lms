@@ -11,11 +11,11 @@ estimated_minutes: 45
 source:
     - 45-day-interview-roadmap.md
 ---
-Docker questions in backend interviews aren't really about Docker syntax — they're about whether you understand image layering, why image size matters in production, and how to compose a multi-service local environment. Today: networking and volumes, a real multi-stage Dockerfile for a Python app, and docker-compose wiring app + database + Redis together.
+Docker questions in backend interviews aren't really about Docker syntax. They're about whether you understand image layering, why image size matters in production, and how to compose a multi-service local environment. Today: networking and volumes, a real multi-stage Dockerfile for a Python app, and docker-compose wiring app + database + Redis together.
 
 ## Images are layers; layers are cached
 
-Every instruction in a Dockerfile (`RUN`, `COPY`, `ADD`) creates a new, immutable layer stacked on the previous one. Docker caches layers by content hash — if a layer's inputs haven't changed, Docker reuses the cached layer instead of re-running the instruction. This is the entire reason Dockerfile *instruction order* matters:
+Every instruction in a Dockerfile (`RUN`, `COPY`, `ADD`) creates a new, immutable layer stacked on the previous one. Docker caches layers by content hash: if a layer's inputs haven't changed, Docker reuses the cached layer instead of re-running the instruction. This is the entire reason Dockerfile *instruction order* matters:
 
 ```dockerfile
 # BAD: any source code change invalidates the pip install cache layer,
@@ -29,7 +29,7 @@ RUN pip install -r requirements.txt
 COPY . .
 ```
 
-This ordering trick — copy the least-frequently-changing files first — is close to universally asked in some form ("how would you speed up this Dockerfile") and is worth having memorized as a pattern, not just this one example.
+This ordering trick, copying the least-frequently-changing files first, is close to universally asked in some form ("how would you speed up this Dockerfile") and is worth having memorized as a general pattern.
 
 ## Multi-stage build for a Python app
 
@@ -76,11 +76,11 @@ EXPOSE 8000
 CMD ["gunicorn", "myproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
 ```
 
-The compiler toolchain (`build-essential`, `-dev` headers) needed to build `psycopg2` or `cryptography` from source is only present in the `builder` stage — the final `runtime` image copies just the compiled `.local` package directory, not gcc, not the headers, not the apt cache. This is the mechanism behind "how do you reduce image size": multi-stage builds let you use a full build environment without shipping any of it.
+The compiler toolchain (`build-essential`, `-dev` headers) needed to build `psycopg2` or `cryptography` from source is only present in the `builder` stage. The final `runtime` image copies just the compiled `.local` package directory: not gcc, not the headers, not the apt cache. This is the mechanism behind "how do you reduce image size": multi-stage builds let you use a full build environment without shipping any of it.
 
 ## COPY vs ADD
 
-`COPY` copies files/directories from the build context into the image, literally, nothing more. `ADD` does everything `COPY` does, plus: it can fetch a **remote URL** as a source, and it **auto-extracts** local tar archives into the destination. The extra behavior is exactly why `ADD` is generally discouraged — the implicit auto-extraction and remote-fetch behavior are easy to trigger by accident and make the build step non-obvious from reading the Dockerfile. **Rule to state in an interview: use `COPY` unless you specifically need tar auto-extraction, and never use `ADD` for a remote URL — use an explicit `RUN curl`/`wget` instead, so the fetch and its error handling are visible in the Dockerfile.**
+`COPY` copies files/directories from the build context into the image, literally, nothing more. `ADD` does everything `COPY` does, plus: it can fetch a **remote URL** as a source, and it **auto-extracts** local tar archives into the destination. The extra behavior is exactly why `ADD` is generally discouraged: the implicit auto-extraction and remote-fetch behavior are easy to trigger by accident and make the build step non-obvious from reading the Dockerfile. **Rule to state in an interview: use `COPY` unless you specifically need tar auto-extraction, and never use `ADD` for a remote URL. Use an explicit `RUN curl`/`wget` instead, so the fetch and its error handling are visible in the Dockerfile.**
 
 ```dockerfile
 # COPY: explicit, no surprises
@@ -95,13 +95,13 @@ RUN curl -fsSL https://example.com/tool.tar.gz -o /tmp/tool.tar.gz \
     && rm /tmp/tool.tar.gz
 ```
 
-## Reducing image size — the full checklist
+## Reducing image size: the full checklist
 
-- Multi-stage builds (above) — the single biggest lever.
-- `python:3.12-slim` or `-alpine` base instead of the full `python:3.12` image (hundreds of MB difference); note Alpine uses `musl` libc, which occasionally breaks binary wheels that expect `glibc` — `slim` (Debian-based) is the safer default for Python.
-- `--no-cache-dir` on `pip install` — pip caches downloaded wheels by default, which is dead weight in an image that's built once and never reused for incremental installs.
-- `rm -rf /var/lib/apt/lists/*` after any `apt-get install`, in the *same* `RUN` layer (a separate `RUN rm` doesn't shrink earlier layers — layers are immutable once committed).
-- `.dockerignore` excluding `.git`, `__pycache__`, `.venv`, test fixtures, local env files — keeps the build context small and prevents accidentally baking secrets or dev artifacts into a layer.
+- Multi-stage builds (above): the single biggest lever.
+- `python:3.12-slim` or `-alpine` base instead of the full `python:3.12` image (hundreds of MB difference); note Alpine uses `musl` libc, which occasionally breaks binary wheels that expect `glibc`, so `slim` (Debian-based) is the safer default for Python.
+- `--no-cache-dir` on `pip install`: pip caches downloaded wheels by default, which is dead weight in an image that's built once and never reused for incremental installs.
+- `rm -rf /var/lib/apt/lists/*` after any `apt-get install`, in the *same* `RUN` layer (a separate `RUN rm` doesn't shrink earlier layers, since layers are immutable once committed).
+- `.dockerignore` excluding `.git`, `__pycache__`, `.venv`, test fixtures, local env files: keeps the build context small and prevents accidentally baking secrets or dev artifacts into a layer.
 
 ```
 # .dockerignore
@@ -116,9 +116,9 @@ tests/
 
 ## Docker networking and volumes
 
-**Networking:** containers on the same user-defined `bridge` network (which `docker-compose` creates automatically per project) can reach each other by **service name** as a DNS hostname — `db`, `redis`, `web` resolve automatically, no manual IP wiring. Containers are isolated from the host and from other Docker networks by default; you explicitly `EXPOSE`/publish (`-p`) only the ports that need host access.
+**Networking:** containers on the same user-defined `bridge` network (which `docker-compose` creates automatically per project) can reach each other by **service name** as a DNS hostname: `db`, `redis`, `web` resolve automatically, no manual IP wiring. Containers are isolated from the host and from other Docker networks by default; you explicitly `EXPOSE`/publish (`-p`) only the ports that need host access.
 
-**Volumes:** a named volume (`docker volume create` or declared in compose) persists data outside any single container's writable layer — essential for a database container, since the container's own filesystem is ephemeral and destroyed on `docker rm`. A bind mount (`./src:/app/src`) maps a host directory directly into the container, mainly used for local dev hot-reload; avoid bind-mounting source code in production images — production images should be immutable, self-contained builds.
+**Volumes:** a named volume (`docker volume create` or declared in compose) persists data outside any single container's writable layer. This is essential for a database container, since the container's own filesystem is ephemeral and destroyed on `docker rm`. A bind mount (`./src:/app/src`) maps a host directory directly into the container, mainly used for local dev hot-reload. Avoid bind-mounting source code in production images: production images should be immutable, self-contained builds.
 
 ## docker-compose: app + database + Redis
 
@@ -170,13 +170,4 @@ volumes:
   redis_data:
 ```
 
-`depends_on` with `condition: service_healthy` (not just plain `depends_on`, which only waits for the container to *start*, not to be *ready*) is the detail that prevents the classic "web container crashes on startup because Postgres hasn't finished initializing yet" race — plain `depends_on` guarantees start order, not readiness order, and a database container is "started" well before it's accepting connections.
-
-## Key takeaways
-
-- Docker layers are cached by content hash — order Dockerfile instructions from least- to most-frequently-changing to maximize cache hits.
-- Multi-stage builds let you use a full compiler toolchain to build dependencies, then ship only the compiled output in the final runtime image — the main lever for image size.
-- `COPY` is explicit and predictable; `ADD`'s extra behaviors (remote fetch, auto-extract) are surprising in a Dockerfile review — default to `COPY`.
-- Clean up `apt-get` cache in the *same* `RUN` layer as the install, since layers are immutable once committed — a later `rm` in a new layer doesn't shrink the old one.
-- Compose services reach each other by service name over the auto-created bridge network; named volumes persist data beyond a container's lifecycle, bind mounts are for dev-only hot reload.
-- `depends_on: condition: service_healthy` waits for actual readiness (via a healthcheck), not just container start — use it for any service with a startup lag, like Postgres.
+`depends_on` with `condition: service_healthy` (not just plain `depends_on`, which only waits for the container to *start*, not to be *ready*) is the detail that prevents the classic "web container crashes on startup because Postgres hasn't finished initializing yet" race. Plain `depends_on` guarantees start order, not readiness order, and a database container is "started" well before it's accepting connections.

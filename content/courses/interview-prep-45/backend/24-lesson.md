@@ -12,13 +12,13 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Today covers how APIs authenticate and authorize requests: JWTs, OAuth, API keys, rate limiting, and CSRF. This is the single most-asked backend topic in interviews — every company wants to know you can reason about "how does the server know who you are, and how do you stop abuse." Expect at least one system-design question and one "explain the difference between X and Y" question on this exact material.
+Today covers how APIs authenticate and authorize requests: JWTs, OAuth, API keys, rate limiting, and CSRF. This is the single most-asked backend topic in interviews. Every company wants to know you can reason about "how does the server know who you are, and how do you stop abuse." Expect at least one system-design question and one "explain the difference between X and Y" question on this exact material.
 
-## JWT, OAuth, and API keys — what each one is for
+## JWT, OAuth, and API keys: what each one is for
 
 These three solve different problems. Interviewers probe whether you know which to reach for.
 
-**JWT (JSON Web Token)** — a signed, self-contained token proving a claim ("this is user 42, expires at time T") without a DB lookup. Three base64 parts separated by dots: `header.payload.signature`.
+**JWT (JSON Web Token)**: a signed, self-contained token proving a claim ("this is user 42, expires at time T") without a DB lookup. Three base64 parts separated by dots: `header.payload.signature`.
 
 ```python
 import jwt  # PyJWT
@@ -36,16 +36,16 @@ token = jwt.encode(payload, SECRET, algorithm="HS256")
 decoded = jwt.decode(token, SECRET, algorithms=["HS256"])  # raises on bad sig or expiry
 ```
 
-The server never stores this token. Anyone with the secret (or the matching public key, for RS256) can verify it. That's the whole point — and the whole risk: a leaked signing key or an unexpired stolen token cannot be revoked without extra machinery (see refresh rotation below).
+The server never stores this token. Anyone with the secret (or the matching public key, for RS256) can verify it. That's the whole point, and also the whole risk: a leaked signing key or an unexpired stolen token cannot be revoked without extra machinery (see refresh rotation below).
 
-**OAuth 2.0** — a delegation protocol, not an auth mechanism by itself. It lets a user grant a third-party app limited access to their resources on another service ("let this app read your Google Calendar") without handing over their password. The output of an OAuth flow is usually an access token (often a JWT) plus a refresh token. Authorization Code flow (with PKCE for public clients) is the one you should be able to draw on a whiteboard:
+**OAuth 2.0**: a delegation protocol, not an auth mechanism by itself. It lets a user grant a third-party app limited access to their resources on another service ("let this app read your Google Calendar") without handing over their password. The output of an OAuth flow is usually an access token (often a JWT) plus a refresh token. Authorization Code flow (with PKCE for public clients) is the one you should be able to draw on a whiteboard:
 
 1. App redirects user to provider's `/authorize` with `client_id`, `redirect_uri`, `scope`, `state`.
 2. User logs in and approves; provider redirects back with a one-time `code`.
 3. App's backend exchanges `code` (+ `client_secret` or PKCE `code_verifier`) for an access token at `/token`.
 4. App calls the resource API with the access token.
 
-**API keys** — a static, long-lived secret identifying a *client* (a service or app), not a *user*. No expiry, no claims, just "is this string in my allowed set." Good for server-to-server and third-party integrations; bad for representing a logged-in human because they can't carry identity claims or expire gracefully.
+**API keys**: a static, long-lived secret identifying a *client* (a service or app), not a *user*. No expiry, no claims, just "is this string in my allowed set." Good for server-to-server and third-party integrations; bad for representing a logged-in human because they can't carry identity claims or expire gracefully.
 
 | | Identifies | Expires | Carries claims | Typical use |
 |---|---|---|---|---|
@@ -123,7 +123,7 @@ Key details interviewers check:
 
 ## Rate limiting decorator
 
-Rate limiting protects against brute force, scraping, and runaway clients. Token bucket and sliding window are the two algorithms interviewers expect you to name. Below is a Redis-backed fixed-window limiter as a decorator — the standard building block, extend the window logic for sliding.
+Rate limiting protects against brute force, scraping, and runaway clients. Token bucket and sliding window are the two algorithms interviewers expect you to name. Below is a Redis-backed fixed-window limiter as a decorator: the standard building block, which you'd extend with sliding-window logic for stricter needs.
 
 ```python
 import time
@@ -160,11 +160,11 @@ async def login_route(request: Request):
     ...
 ```
 
-Why Redis and not an in-process dict: a dict is per-process memory, so with 4 gunicorn workers a client gets 4x the limit and it resets on every deploy. Redis is shared and survives restarts. `INCR` + `EXPIRE` is atomic enough for fixed windows; fixed windows have a known edge-case flaw — a client can send `max_requests` right before the window boundary and `max_requests` right after, getting 2x burst at the edge. Sliding window log or sliding window counter fixes that at the cost of more Redis memory/CPU. Know the trade-off, don't over-engineer past what the interviewer asked.
+Why Redis and not an in-process dict: a dict is per-process memory, so with 4 gunicorn workers a client gets 4x the limit and it resets on every deploy. Redis is shared and survives restarts. `INCR` + `EXPIRE` is atomic enough for fixed windows, but fixed windows have a known edge-case flaw: a client can send `max_requests` right before the window boundary and `max_requests` right after, getting 2x burst at the edge. Sliding window log or sliding window counter fixes that at the cost of more Redis memory/CPU. Know the trade-off, don't over-engineer past what the interviewer asked.
 
 ## Refresh token rotation
 
-Access tokens are short-lived (minutes) so a leaked one does limited damage. Refresh tokens are long-lived (days/weeks) and used only to mint new access tokens — but a long-lived token sitting in storage is itself a juicy target. Rotation means: every time a refresh token is used, invalidate it and issue a brand new one. If a stolen refresh token gets used by an attacker *and* later by the real user (or vice versa), the reuse of an already-rotated token is a detectable signal of compromise.
+Access tokens are short-lived (minutes) so a leaked one does limited damage. Refresh tokens are long-lived (days/weeks) and used only to mint new access tokens, but a long-lived token sitting in storage is itself a juicy target. Rotation means: every time a refresh token is used, invalidate it and issue a brand new one. If a stolen refresh token gets used by an attacker *and* later by the real user (or vice versa), the reuse of an already-rotated token is a detectable signal of compromise.
 
 ```python
 import secrets
@@ -193,7 +193,7 @@ def rotate_refresh_token(db, raw_token: str) -> dict:
 
     if record.revoked:
         # Reuse of a rotated-out token: someone has a copy of an old token.
-        # Treat as compromise — revoke the whole chain for this user.
+        # Treat as compromise: revoke the whole chain for this user.
         db.refresh_tokens.revoke_all_for_user(record.user_id)
         raise HTTPException(status_code=401, detail="Token reuse detected, session revoked")
 
@@ -212,19 +212,19 @@ def rotate_refresh_token(db, raw_token: str) -> dict:
     return {"access_token": new_access, "refresh_token": new_raw}
 ```
 
-Store only the **hash** of the refresh token (like a password) — if the DB leaks, the tokens aren't directly reusable. This is the mechanism that makes JWTs (otherwise unrevokable) practically revocable: you can't kill a live access token, but you can kill its refresh chain so no new ones get minted.
+Store only the **hash** of the refresh token (like a password). If the DB leaks, the tokens aren't directly reusable. This is the mechanism that makes JWTs (otherwise unrevokable) practically revocable: you can't kill a live access token, but you can kill its refresh chain so no new ones get minted.
 
-## JWT vs session — the interview answer
+## JWT vs session: the interview answer
 
 | | Session (cookie + server store) | JWT |
 |---|---|---|
 | State | Server-side (Redis/DB) | Stateless, self-contained |
-| Revocation | Instant — delete the session record | Hard — must wait for expiry or check a blocklist |
+| Revocation | Instant: delete the session record | Hard: must wait for expiry or check a blocklist |
 | Scaling | Needs shared session store across servers | Any server can verify independently |
 | Payload size | Small (just a session ID) | Larger (claims travel with every request) |
 | Typical use | Traditional web apps, same-origin | APIs, mobile, microservices, cross-domain |
 
-The honest answer in an interview: "Sessions are simpler to revoke and reason about; JWTs scale better across services because verification doesn't need a shared store, at the cost of harder revocation — which is why refresh token rotation and short access-token TTLs exist." Don't claim one is unconditionally better.
+The honest answer in an interview: "Sessions are simpler to revoke and reason about. JWTs scale better across services because verification doesn't need a shared store, at the cost of harder revocation, which is why refresh token rotation and short access-token TTLs exist." Don't claim one is unconditionally better.
 
 ## Preventing CSRF
 
@@ -249,13 +249,6 @@ def verify_csrf(request: Request, session_csrf_token: str):
         raise HTTPException(status_code=403, detail="CSRF token invalid")
 ```
 
-Use `secrets.compare_digest` (constant-time) instead of `==` to avoid timing attacks on the comparison itself — small detail, but interviewers notice when you skip it on anything security-adjacent.
+Use `secrets.compare_digest` (constant-time) instead of `==` to avoid timing attacks on the comparison itself. It's a small detail, but interviewers notice when you skip it on anything security-adjacent.
 
-## Key takeaways
-
-- JWT, OAuth, and API keys solve different problems — identity claims, delegated access, and client identification respectively. Don't conflate them.
-- JWTs are stateless and fast to verify but hard to revoke; that's the core trade-off against server-side sessions.
-- Rate limiting needs shared state (Redis) across processes/servers — an in-memory counter only limits one worker.
-- Refresh token rotation turns an unrevokable JWT scheme into a practically revokable one: rotate on every use, detect reuse of a rotated-out token as compromise, store only hashes.
-- CSRF only affects cookie-based auth; `SameSite` cookies plus a synchronizer token cover it. Header-based JWT auth sidesteps CSRF entirely (but introduces XSS token-theft risk instead — know that trade-off too).
-- Always hash secrets and tokens at rest, use constant-time comparison for security-sensitive checks.
+JWT, OAuth, API keys, rate limiting, and CSRF defenses look like five separate topics, but they're really answers to two questions an interviewer keeps circling back to: how does the server know who's asking, and what stops that mechanism from being abused or stolen. Keeping that framing in mind is more useful under pressure than memorizing each section in isolation.

@@ -2,6 +2,7 @@ package diary
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -60,7 +61,7 @@ func TestGetOrCreateByDate_Idempotent(t *testing.T) {
 }
 
 // TestServiceApplyHighlights_HabitAndDedup exercises Service.applyHighlights
-// (the core of the diary_analyze job) against a real database: a "habit"
+// (the core of Service.Apply) against a real database: a "habit"
 // span resolves against the caller's own habit and marks it complete for the
 // entry's day, and re-running the same detected span a second time (as a
 // later analysis pass on an edited entry would) must NOT create a second
@@ -134,5 +135,88 @@ func TestServiceApplyHighlights_HabitAndDedup(t *testing.T) {
 	}
 	if len(tasksAfterSecond) != 1 {
 		t.Errorf("expected dedup to skip re-capturing the identical task_new sentence, got %d tasks: %+v", len(tasksAfterSecond), tasksAfterSecond)
+	}
+}
+
+// TestServicePreview_AIUnavailable covers Preview's guard clause: with no AI
+// provider configured (NoopProvider, the same "LLM_PROVIDER=disabled"
+// fallback production uses), Preview must fail fast with ErrAIUnavailable
+// rather than touching the DB or the frontend showing a stuck loading state.
+func TestServicePreview_AIUnavailable(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	userID := seedUser(t, ctx, pool, "diary-preview@example.com")
+
+	svc := NewService(NewRepo(pool), &ai.NoopProvider{}, habit.NewService(habit.NewRepo(pool)), whatnow.NewService(whatnow.NewRepo(pool)))
+	_, err := svc.Preview(ctx, userID, "2026-08-11", "went to the gym")
+	if !errors.Is(err, ErrAIUnavailable) {
+		t.Fatalf("expected ErrAIUnavailable, got %v", err)
+	}
+}
+
+// TestServiceApply_HabitWithMetadata exercises the public Apply entry point
+// end to end (vocabulary load + applyHighlights + SaveAnalysis): a "habit"
+// span for a Sleep-type habit carrying extracted metadata must both mark the
+// day's completion AND write the metadata onto that same completion, with an
+// unknown/hallucinated field key silently dropped rather than failing the
+// whole apply.
+func TestServiceApply_HabitWithMetadata(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	userID := seedUser(t, ctx, pool, "diary-apply@example.com")
+
+	habitSvc := habit.NewService(habit.NewRepo(pool))
+	sleep, err := habitSvc.Create(ctx, userID, habit.CreateRequest{Name: "Sleep", Cadence: habit.CadenceDaily, Type: habit.HabitTypeSleep})
+	if err != nil {
+		t.Fatalf("create sleep habit: %v", err)
+	}
+
+	svc := NewService(NewRepo(pool), &ai.NoopProvider{}, habitSvc, whatnow.NewService(whatnow.NewRepo(pool)))
+	entry, err := svc.repo.GetOrCreateByDate(ctx, userID, "2026-08-11")
+	if err != nil {
+		t.Fatalf("get or create entry: %v", err)
+	}
+	entry.Content = "slept at 23:30, woke up at 07:00"
+
+	resolved, err := svc.Apply(ctx, entry, []Highlight{
+		{
+			Start: 0, End: len(entry.Content), Text: entry.Content, Kind: HighlightHabit, RefID: sleep.ID,
+			Metadata: map[string]any{"slept_at": "23:30", "woke_up": "07:00", "made_up_field": "should be dropped"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if len(resolved) != 1 {
+		t.Fatalf("expected 1 resolved highlight, got %d: %+v", len(resolved), resolved)
+	}
+
+	view, err := habitSvc.MonthView(ctx, userID, "2026-08")
+	if err != nil {
+		t.Fatalf("MonthView: %v", err)
+	}
+	var got habit.Completion
+	found := false
+	for _, c := range view.Completions {
+		if c.HabitID == sleep.ID && c.PeriodStart == "2026-08-11" {
+			got, found = c, true
+		}
+	}
+	if !found {
+		t.Fatalf("expected sleep habit completed for 2026-08-11, completions: %+v", view.Completions)
+	}
+	if got.Metadata["slept_at"] != "23:30" || got.Metadata["woke_up"] != "07:00" {
+		t.Errorf("expected known metadata fields saved, got %+v", got.Metadata)
+	}
+	if _, ok := got.Metadata["made_up_field"]; ok {
+		t.Errorf("expected unknown metadata field dropped, got %+v", got.Metadata)
+	}
+
+	stored, err := svc.repo.GetByDate(ctx, userID, "2026-08-11")
+	if err != nil {
+		t.Fatalf("GetByDate after apply: %v", err)
+	}
+	if stored.AnalyzedHash != ContentHash(entry.Content) {
+		t.Errorf("expected analyzed_hash to match applied content, got %q", stored.AnalyzedHash)
 	}
 }

@@ -21,7 +21,7 @@ An API that works is table stakes; an API that can change without breaking every
 | **Header** | `Accept: application/vnd.myapi.v2+json` | Keeps URLs stable, resource identity doesn't change | Invisible in logs/browser, harder to test manually (curl needs explicit header), harder to cache by URL |
 | **Query param** | `/posts?version=2` | Simple to add | Easy to omit accidentally, mixes with other query semantics, least conventional |
 
-Most production APIs use **URL path versioning at the major-version level only** (`/v1`, `/v2`) and handle everything else — new optional fields, new endpoints, deprecations — without bumping the version, because a new major version means maintaining two full codepaths in parallel. That's the practical answer to "how would you version an API": version rarely, and reserve it for actual breaking changes.
+Most production APIs use **URL path versioning at the major-version level only** (`/v1`, `/v2`) and handle everything else (new optional fields, new endpoints, deprecations) without bumping the version, because a new major version means maintaining two full codepaths in parallel. That's the practical answer to "how would you version an API": version rarely, and reserve it for actual breaking changes.
 
 ## What counts as a breaking change
 
@@ -38,7 +38,7 @@ Most production APIs use **URL path versioning at the major-version level only**
 - Adding a new optional request parameter with a sensible default
 - Loosening validation (accepting requests that used to be rejected)
 
-The "additive changes are safe, removals/renames/type-changes are not" rule is the concrete answer to "how do you handle breaking changes" — plus the practice of deprecating with a `Deprecation` / `Sunset` header and a migration window before removing anything:
+The "additive changes are safe, removals/renames/type-changes are not" rule is the concrete answer to "how do you handle breaking changes," combined with the practice of deprecating with a `Deprecation` / `Sunset` header and a migration window before removing anything:
 
 ```python
 from fastapi import Response
@@ -84,11 +84,11 @@ app.include_router(v1_router)
 app.include_router(v2_router)
 ```
 
-Both routers call the same `post_service.get()` — the version boundary lives at the serialization layer (the shape returned to the client), not duplicated in business logic. That's the detail that shows you're not just going to copy-paste the whole module per version.
+Both routers call the same `post_service.get()`. The version boundary lives at the serialization layer (the shape returned to the client), not duplicated in business logic. That's the detail that shows you won't copy-paste the whole module per version.
 
 ## Standardized error response format
 
-Every endpoint, every error, same shape — so clients can write one error-handling path instead of one per endpoint.
+Every endpoint, every error, same shape, so clients can write one error-handling path instead of one per endpoint.
 
 ```python
 from fastapi import FastAPI, Request, HTTPException
@@ -147,17 +147,17 @@ The catch-all `Exception` handler is the important one for an interview: it's th
 | Code | Meaning | When |
 |---|---|---|
 | 200 | OK | Successful GET/PUT/PATCH |
-| 201 | Created | Successful POST that created a resource — include `Location` header |
+| 201 | Created | Successful POST that created a resource; include `Location` header |
 | 204 | No Content | Successful DELETE, or a PUT/PATCH with nothing to return |
 | 400 | Bad Request | Malformed request the client should fix (generic) |
 | 401 | Unauthorized | Missing/invalid authentication |
 | 403 | Forbidden | Authenticated, but not allowed to do this |
 | 404 | Not Found | Resource doesn't exist |
-| 409 | Conflict | State conflict — e.g. duplicate unique key, version mismatch on optimistic locking |
+| 409 | Conflict | State conflict, e.g. duplicate unique key or version mismatch on optimistic locking |
 | 422 | Unprocessable Entity | Syntactically valid but semantically invalid (FastAPI's default for Pydantic validation) |
-| 429 | Too Many Requests | Rate limited — include `Retry-After` |
+| 429 | Too Many Requests | Rate limited; include `Retry-After` |
 | 500 | Internal Server Error | Unhandled server-side failure |
-| 503 | Service Unavailable | Temporarily down (deploy, overload) — include `Retry-After` |
+| 503 | Service Unavailable | Temporarily down (deploy, overload); include `Retry-After` |
 
 ## Rate limiting at the API level
 
@@ -198,12 +198,4 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 app.add_middleware(RateLimitMiddleware, redis_client=redis.Redis(), limit=100, window_seconds=60)
 ```
 
-Rate limit by API key (or authenticated user ID) when available, falling back to IP only for unauthenticated traffic — IP-based limiting alone is easy to defeat (NAT'd offices share an IP; malicious clients rotate IPs) and easy to over-trigger on legitimate shared-IP traffic.
-
-## Key takeaways
-
-- Version rarely, at the major-version/URL level, and only for actual breaking changes — additive changes (new optional fields, new endpoints) don't need a version bump.
-- Route both versions to the same underlying business logic; the version boundary belongs at serialization, not duplicated deep in the codebase.
-- One error envelope shape across every endpoint, with a stable machine-readable `code` and a catch-all handler that logs details server-side but never leaks them to the client.
-- Know the status code table cold, especially the 401/403 distinction and 409 for conflicts — these come up in almost every API design discussion.
-- Rate limit by API key/user ID first, IP as a fallback only — and always return `Retry-After`.
+Rate limit by API key (or authenticated user ID) when available, falling back to IP only for unauthenticated traffic. IP-based limiting alone is easy to defeat (NAT'd offices share an IP; malicious clients rotate IPs) and easy to over-trigger on legitimate shared-IP traffic.

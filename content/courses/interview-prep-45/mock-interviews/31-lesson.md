@@ -12,24 +12,24 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Three mocks, run cold, one after another, timers running the whole way. Say your reasoning out loud even when it feels obvious — an interviewer can't grade a silent thought. No reference solutions until you've submitted or the clock hits zero.
+Three mocks, run cold, one after another, timers running the whole way. Say your reasoning out loud even when it feels obvious: an interviewer can't grade a silent thought. No reference solutions until you've submitted or the clock hits zero.
 
 ## Run of show
 
 | Time | Segment |
 |---|---|
-| 0:00–0:30 | Mock 4: DSA — Number of Islands, BFS + DFS (30 min) |
+| 0:00–0:30 | Mock 4: DSA, Number of Islands, BFS + DFS (30 min) |
 | 0:30–0:40 | Break |
-| 0:40–1:20 | Mock 5: System Design — Design Twitter (40 min) |
+| 0:40–1:20 | Mock 5: System Design, Design Twitter (40 min) |
 | 1:20–1:30 | Break |
-| 1:30–2:00 | Mock 6: Frontend — Todo App with CRUD + persistence (30 min) |
+| 1:30–2:00 | Mock 6: Frontend, Todo App with CRUD + persistence (30 min) |
 | 2:00–2:20 | Score against rubric, write debrief |
 | 2:20–2:50 | Extra practice: Clone Graph, Pacific Atlantic Water Flow, Walls and Gates (pick one, 30 min) |
-| 2:50–4:00 | Buffer — re-run your weakest segment cold |
+| 2:50–4:00 | Buffer: re-run your weakest segment cold |
 
-## Mock Interview 4: DSA — Number of Islands (30 minutes)
+## Mock Interview 4: DSA, Number of Islands (30 minutes)
 
-**Problem:** [Number of Islands (LeetCode 200)](https://leetcode.com/problems/number-of-islands/). Given an `m x n` 2D binary grid representing `'1'` (land) and `'0'` (water), return the number of islands — an island is surrounded by water and formed by connecting adjacent lands horizontally or vertically.
+**Problem:** [Number of Islands (LeetCode 200)](https://leetcode.com/problems/number-of-islands/). Given an `m x n` 2D binary grid representing `'1'` (land) and `'0'` (water), return the number of islands. An island is surrounded by water and formed by connecting adjacent lands horizontally or vertically.
 
 ```
 Input:
@@ -40,12 +40,12 @@ Input:
 Output: 3
 ```
 
-**Instructions:** solve it with BFS first, then again with DFS, and compare the two out loud — this is the whole point of the exercise, not just getting one answer.
+**Instructions:** solve it with BFS first, then again with DFS, and compare the two out loud. That comparison is the whole point of the exercise, not just getting one answer.
 
 **Clarifying hints:**
-- "Diagonal adjacency counts?" — No, only up/down/left/right.
-- "Can the grid be empty?" — Yes, return 0.
-- "Can we mutate the input grid?" — Ask; if not, you need a separate `visited` set.
+- "Diagonal adjacency counts?" No, only up/down/left/right.
+- "Can the grid be empty?" Yes, return 0.
+- "Can we mutate the input grid?" Ask; if not, you need a separate `visited` set.
 
 #### Reference solution
 
@@ -104,19 +104,19 @@ if __name__ == "__main__":
     print("ok")
 ```
 
-**BFS vs DFS comparison to state out loud:** both are O(rows × cols) time and O(rows × cols) worst-case space (grid of all land). DFS is simpler to write (fewer lines, natural recursion) but risks a stack overflow on huge grids since Python's recursion limit is finite — mention you'd convert to an explicit stack for production code on unbounded input. BFS avoids that risk and its space is bounded by the frontier size rather than the call stack, at the cost of slightly more bookkeeping (the queue). In an interview, leading with DFS for speed of writing, then noting BFS as the safer choice for large/unbounded grids, is the strongest answer.
+**BFS vs DFS comparison to state out loud:** both are O(rows × cols) time and O(rows × cols) worst-case space (grid of all land). DFS is simpler to write (fewer lines, natural recursion) but risks a stack overflow on huge grids since Python's recursion limit is finite. Mention you'd convert to an explicit stack for production code on unbounded input. BFS avoids that risk and its space is bounded by the frontier size rather than the call stack, at the cost of slightly more bookkeeping (the queue). In an interview, leading with DFS for speed of writing, then noting BFS as the safer choice for large/unbounded grids, is the strongest answer.
 
-**Extra practice — Clone Graph, Pacific Atlantic Water Flow, Walls and Gates.** All three are BFS/DFS-on-a-graph variants; treat them as reps for pattern recognition rather than full mocks. Pick one for the buffer block at the end of today, solve it cold in 25 minutes, and check the pattern: Clone Graph is DFS/BFS with a visited-map to avoid infinite recursion on cycles; Pacific Atlantic is multi-source BFS/DFS starting from both ocean borders inward; Walls and Gates is multi-source BFS starting from every gate simultaneously.
+**Extra practice: Clone Graph, Pacific Atlantic Water Flow, Walls and Gates.** All three are BFS/DFS-on-a-graph variants; treat them as reps for pattern recognition rather than full mocks. Pick one for the buffer block at the end of today, solve it cold in 25 minutes, and check the pattern: Clone Graph is DFS/BFS with a visited-map to avoid infinite recursion on cycles; Pacific Atlantic is multi-source BFS/DFS starting from both ocean borders inward; Walls and Gates is multi-source BFS starting from every gate simultaneously.
 
-## Mock Interview 5: System Design — Design Twitter (40 minutes)
+## Mock Interview 5: System Design, Design Twitter (40 minutes)
 
-**Prompt:** "Design a system like Twitter — users post short messages, follow other users, and see a feed of posts from people they follow."
+**Prompt:** "Design a system like Twitter. Users post short messages, follow other users, and see a feed of posts from people they follow."
 
-**Instructions:** set a 40-minute timer. Focus specifically on feed generation — that's where the interesting trade-offs live — and discuss trade-offs between approaches rather than settling on the first idea.
+**Instructions:** set a 40-minute timer. Focus specifically on feed generation, since that's where the interesting trade-offs live, and discuss trade-offs between approaches rather than settling on the first idea.
 
 **Clarifying questions to ask:**
 - Feed = strictly reverse-chronological from people you follow, or ranked/algorithmic?
-- Typical follower count distribution — mostly small, or do celebrities with millions of followers exist?
+- Typical follower count distribution: mostly small, or do celebrities with millions of followers exist?
 - Read vs write ratio for the timeline?
 - Do we need to support retweets/likes/replies, or just the core post+follow+feed loop?
 
@@ -125,9 +125,9 @@ if __name__ == "__main__":
 **Functional requirements:** post a tweet, follow/unfollow, view home timeline (posts from followed users, reverse chronological).
 **Non-functional requirements:** low read latency on timeline load, high write throughput at peak, eventual consistency acceptable (a tweet appearing a few seconds late in a follower's feed is fine).
 
-**The core design question — fan-out on write vs fan-out on read:**
+**The core design question: fan-out on write vs fan-out on read.**
 
-*Fan-out on write (push):* when a user posts, immediately write that post into the precomputed timeline (a list/cache) of every follower. Reading a timeline is then just "read my precomputed list" — O(1) fast reads. Problem: a celebrity with 50M followers triggers 50M writes for a single tweet — the "celebrity problem."
+*Fan-out on write (push):* when a user posts, immediately write that post into the precomputed timeline (a list/cache) of every follower. Reading a timeline is then just "read my precomputed list," an O(1) fast read. Problem: a celebrity with 50M followers triggers 50M writes for a single tweet. This is the "celebrity problem."
 
 *Fan-out on read (pull):* store each user's own posts only. To build a timeline, query the posts of everyone you follow at read time and merge-sort by timestamp. Cheap writes, expensive reads (fan-in across potentially hundreds of followed accounts every time you open the app).
 
@@ -163,19 +163,19 @@ Timeline cache: Redis sorted set per user, `ZADD timeline:{user_id} {timestamp} 
 
 **Read path:** fetch the user's precomputed Redis timeline (fast), separately fetch recent posts from any celebrities they follow (small list, cheap live query), merge-sort the two by timestamp, return top N.
 
-**Scaling notes:** the follow graph itself needs to scale — a celebrity's follower list (50M rows) must support fast "get all followers" for fan-out; shard by `followee_id`. The fan-out queue needs backpressure handling — if fan-out falls behind during a viral moment, followers just see the tweet a bit later, which is an acceptable degradation given the non-functional requirement of eventual consistency.
+**Scaling notes:** the follow graph itself needs to scale. A celebrity's follower list (50M rows) must support fast "get all followers" for fan-out, so shard by `followee_id`. The fan-out queue needs backpressure handling too: if fan-out falls behind during a viral moment, followers just see the tweet a bit later, which is an acceptable degradation given the non-functional requirement of eventual consistency.
 
-**Trade-off to name explicitly when asked "why not just always pull":** pure pull is simpler to build and has no celebrity problem, but it means every timeline load does a fan-in query across potentially hundreds of followed users — that's the latency cost regular Twitter's read-heavy traffic pattern can't tolerate at scale, which is why the hybrid exists.
+**Trade-off to name explicitly when asked "why not just always pull":** pure pull is simpler to build and has no celebrity problem, but it means every timeline load does a fan-in query across potentially hundreds of followed users. That's the latency cost regular Twitter's read-heavy traffic pattern can't tolerate at scale, which is why the hybrid exists.
 
-## Mock Interview 6: Frontend — Todo App (30 minutes)
+## Mock Interview 6: Frontend, Todo App (30 minutes)
 
 **Prompt:** "Build a Todo application: add, edit, delete, and toggle-complete tasks, with data that survives a page refresh."
 
-**Instructions:** 30-minute timer. Include all CRUD operations, add persistence, and style it properly — don't ship an unstyled list of `<li>` tags.
+**Instructions:** 30-minute timer. Include all CRUD operations, add persistence, and style it properly. Don't ship an unstyled list of `<li>` tags.
 
 **Clarifying hints:**
-- "Persistence — backend API or client-side only?" — For this mock, client-side (localStorage) is acceptable and faster to demonstrate the full loop in 30 minutes; say you'd swap it for a REST API + optimistic updates given more time.
-- "Should completed todos be distinguishable?" — Yes, visually (strikethrough/dimmed) and filterable.
+- "Persistence: backend API or client-side only?" For this mock, client-side (localStorage) is acceptable and faster to demonstrate the full loop in 30 minutes; say you'd swap it for a REST API + optimistic updates given more time.
+- "Should completed todos be distinguishable?" Yes, visually (strikethrough/dimmed) and filterable.
 
 ### Reference solution
 
@@ -329,23 +329,23 @@ function TodoRow({
 .empty { color: #999; font-style: italic; }
 ```
 
-**Why these choices:** state lives in one `todos` array (single source of truth) rather than scattered per-row state, which keeps persistence trivial — one `useEffect` on `todos` syncing to `localStorage` covers every mutation. `crypto.randomUUID()` avoids array-index keys, which break identity when items are deleted or reordered. Inline editing toggles a local `editing` flag per row rather than lifting edit-mode into the parent, keeping the parent's re-render surface small. This is a CRUD demo, not production: given more time, swap `localStorage` for a REST API with optimistic updates and rollback-on-error, and add debounced autosave for the edit field instead of committing only on blur/Enter.
+**Why these choices:** state lives in one `todos` array (single source of truth) rather than scattered per-row state, which keeps persistence trivial: one `useEffect` on `todos` syncing to `localStorage` covers every mutation. `crypto.randomUUID()` avoids array-index keys, which break identity when items are deleted or reordered. Inline editing toggles a local `editing` flag per row rather than lifting edit-mode into the parent, keeping the parent's re-render surface small. This is a CRUD demo, not production: given more time, swap `localStorage` for a REST API with optimistic updates and rollback-on-error, and add debounced autosave for the edit field instead of committing only on blur/Enter.
 
 ## Scoring rubric
 
-**Mock 4 — DSA (Number of Islands)**
+**Mock 4: DSA (Number of Islands)**
 - Solved correctly with both BFS and DFS: /5
 - Compared the two approaches' trade-offs (recursion depth risk, space characteristics) unprompted: /5
 - Handled edge cases (empty grid, all water, all land): /5
 - Code was clean in both versions: /5
 
-**Mock 5 — System Design (Twitter)**
+**Mock 5: System Design (Twitter)**
 - Focused the design on feed generation as instructed, not just generic CRUD: /5
 - Identified and explained the celebrity/fan-out problem: /5
 - Proposed and justified the hybrid push/pull approach with real trade-offs: /5
 - Data model and caching strategy were concrete, not hand-wavy: /5
 
-**Mock 6 — Frontend (Todo App)**
+**Mock 6: Frontend (Todo App)**
 - All CRUD operations implemented and working (add, edit, delete, toggle): /5
 - Persistence survives a refresh: /5
 - Component was styled properly, not bare HTML: /5

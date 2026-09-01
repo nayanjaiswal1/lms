@@ -12,7 +12,7 @@ source:
     - interview-prep-notes.md
 ---
 
-## Falsy Values (only 8 — everything else is truthy)
+## Falsy Values (only 8, everything else is truthy)
 
 ```js
 false
@@ -28,22 +28,22 @@ NaN
 ## Truthy Values (some common gotchas)
 
 ```js
-"0"          // non-empty string → truthy
-"false"      // non-empty string → truthy
-[]           // empty array → truthy!
-{}           // empty object → truthy!
+"0"          // non-empty string, truthy
+"false"      // non-empty string, truthy
+[]           // empty array, truthy!
+{}           // empty object, truthy!
 function(){} // truthy
 -1           // any non-zero number
 Infinity
-" "          // space string → truthy
+" "          // space string, truthy
 ```
 
 ## Interview Gotchas
 
 ```js
-if ([]) console.log("runs");          // ✅ runs — [] is truthy
-if ({}) console.log("runs");          // ✅ runs — {} is truthy
-if ([] == false) console.log("runs"); // ✅ runs — [] coerces to "" then 0
+if ([]) console.log("runs");          // runs, [] is truthy
+if ({}) console.log("runs");          // runs, {} is truthy
+if ([] == false) console.log("runs"); // runs, see below
 
 Boolean([]);   // true
 Boolean({});   // true
@@ -51,10 +51,12 @@ Boolean("0");  // true
 Boolean(0);    // false
 ```
 
-## Quick Trick — Double Negation
+The `[] == false` case trips people up because it looks like it contradicts `if ([])` being truthy. It doesn't: `if ([])` never converts the array via `==`, it just calls `Boolean([])`, which is `true` for any object. But `[] == false` uses the loose equality algorithm, which coerces both sides to numbers before comparing. `false` becomes `0`. `[]` first converts to a primitive string, `""`, then that string converts to a number, `0`. So the comparison actually being run is `0 == 0`, which is true. The array itself was never "falsy" here, it just coerced down to a value that happened to equal `false`'s coerced value.
+
+## Quick Trick: Double Negation
 
 ```js
-!!value   // converts value to actual boolean
+!!value   // converts value to an actual boolean
 !![]      // true
 !!""      // false
 ```
@@ -71,4 +73,4 @@ function greet(name) {
 }
 ```
 
-**Key difference:** `||` treats all falsy values as "missing." `??` (nullish coalescing) only treats `null`/`undefined` as missing — so `""` or `0` are considered valid values with `??`.
+**Key difference:** `||` treats every falsy value as "missing." `??` (nullish coalescing) only treats `null`/`undefined` as missing, so with `??`, `""` or `0` are kept as valid values instead of being replaced.

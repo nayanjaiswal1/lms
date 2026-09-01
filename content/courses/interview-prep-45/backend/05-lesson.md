@@ -15,15 +15,15 @@ Yesterday was indexing; today is everything else the query planner does before i
 
 ## How the query planner thinks
 
-PostgreSQL doesn't execute SQL as written — it parses it into a query tree, then the **planner/optimizer** enumerates candidate execution plans (which index to use, which join algorithm, which join order) and picks the one with the lowest estimated cost, using table statistics gathered by `ANALYZE` (row counts, most-common values, histogram of value distribution).
+PostgreSQL doesn't execute SQL as written. It parses it into a query tree, then the **planner/optimizer** enumerates candidate execution plans (which index to use, which join algorithm, which join order) and picks the one with the lowest estimated cost, using table statistics gathered by `ANALYZE` (row counts, most-common values, histogram of value distribution).
 
 Three join algorithms you should be able to name and reason about:
 
-- **Nested Loop** — for each row in the outer table, scan the inner table (or an index on it) for matches. Cheap when the outer set is small or the inner side has a good index. Expensive when both sides are large and unindexed — it degrades toward `O(n*m)`.
-- **Hash Join** — build an in-memory hash table from the smaller side, then probe it once per row of the larger side. Good for large, unsorted, unindexed joins; needs enough `work_mem` to avoid spilling to disk.
-- **Merge Join** — both sides are sorted (or sorted via an explicit sort step) and merged in one pass. Good when both inputs are already sorted, e.g. via an index that matches the join key.
+- **Nested Loop**: for each row in the outer table, scan the inner table (or an index on it) for matches. Cheap when the outer set is small or the inner side has a good index. Expensive when both sides are large and unindexed, since it degrades toward `O(n*m)`.
+- **Hash Join**: build an in-memory hash table from the smaller side, then probe it once per row of the larger side. Good for large, unsorted, unindexed joins; needs enough `work_mem` to avoid spilling to disk.
+- **Merge Join**: both sides are sorted (or sorted via an explicit sort step) and merged in one pass. Good when both inputs are already sorted, e.g. via an index that matches the join key.
 
-The planner picks based on estimated row counts and available indexes — this is why stale statistics (`ANALYZE` not run recently) can cause it to pick a bad plan even though the "right" plan is available.
+The planner picks based on estimated row counts and available indexes. That's why stale statistics (`ANALYZE` not run recently) can cause it to pick a bad plan even though the "right" plan is available.
 
 ## WHERE vs HAVING
 
@@ -38,7 +38,7 @@ GROUP BY customer_id
 HAVING SUM(total) > 1000;      -- applied per-group, after aggregation
 ```
 
-You cannot use an aggregate function in `WHERE` (`WHERE SUM(total) > 1000` is a syntax error) because at the point `WHERE` runs, rows haven't been grouped yet — there's nothing to sum. Conversely, `HAVING status = 'paid'` works but is wasteful: it aggregates every row first, including ones you'll throw away, instead of filtering them out before the (expensive) grouping step. Always push a per-row filter into `WHERE`.
+You cannot use an aggregate function in `WHERE` (`WHERE SUM(total) > 1000` is a syntax error) because at the point `WHERE` runs, rows haven't been grouped yet, so there's nothing to sum. Conversely, `HAVING status = 'paid'` works but is wasteful: it aggregates every row first, including ones you'll throw away, instead of filtering them out before the (expensive) grouping step. Always push a per-row filter into `WHERE`.
 
 ## JOIN types
 
@@ -64,7 +64,7 @@ FROM orders o
 FULL OUTER JOIN customers c ON o.customer_id = c.id;
 ```
 
-A classic follow-up: **"find customers with zero orders"** — this is a `LEFT JOIN ... WHERE right_side IS NULL`, the standard anti-join pattern:
+A classic follow-up, "find customers with zero orders," is a `LEFT JOIN ... WHERE right_side IS NULL`, the standard anti-join pattern:
 
 ```sql
 SELECT c.id, c.name
@@ -73,7 +73,7 @@ LEFT JOIN orders o ON o.customer_id = c.id
 WHERE o.id IS NULL;
 ```
 
-## N+1 in raw SQL — same disease as the ORM version
+## N+1 in raw SQL: same disease as the ORM version
 
 ```python
 # N+1: one query for customers, then one query PER customer for their orders
@@ -104,7 +104,7 @@ for row in rows:
         entry["orders"].append({"id": row["order_id"], "total": row["total"]})
 ```
 
-This trades N+1 round trips for exactly 1, at the cost of some row duplication over the wire (each order row repeats the customer's name) and a grouping step in Python. For most read paths that's a clear win — measure before assuming it always is; a JOIN that fans out into millions of duplicated rows can be worse than two well-indexed queries.
+This trades N+1 round trips for exactly 1, at the cost of some row duplication over the wire (each order row repeats the customer's name) and a grouping step in Python. For most read paths that's a clear win. Measure before assuming it always is: a JOIN that fans out into millions of duplicated rows can be worse than two well-indexed queries.
 
 ## Measuring the fix
 
@@ -119,16 +119,8 @@ SELECT c.id, c.name, o.id, o.total
 FROM customers c
 LEFT JOIN orders o ON o.customer_id = c.id
 WHERE c.active = true;
--- One query, ~2-5ms total even with the join — because network round-trip latency (the dominant
--- cost of N+1 at 500 separate queries) is eliminated, not just the per-query execution time.
+-- One query, ~2-5ms total even with the join: network round-trip latency (the dominant
+-- cost of N+1 at 500 separate queries) is eliminated entirely, on top of the per-query execution savings.
 ```
 
-The number that matters in an interview answer isn't query *execution* time — it's round trips. 500 queries at 0.5ms execution each but 2ms network latency each is 1.25 seconds of wall-clock time; one JOIN query is single-digit milliseconds even if its own execution cost is higher than any individual N+1 query.
-
-## Key takeaways
-
-- The planner picks a join algorithm (nested loop, hash, merge) based on estimated cardinality and available indexes — stale statistics can make it pick wrong even when a good plan exists.
-- `WHERE` filters rows before grouping; `HAVING` filters groups after aggregation — never put a per-row condition in `HAVING`.
-- `LEFT JOIN ... WHERE right.col IS NULL` is the standard anti-join pattern for "find X with no matching Y."
-- N+1 in raw SQL is the same bug as N+1 in an ORM — fix it the same way, with a JOIN and application-side grouping.
-- The real cost of N+1 is round-trip latency multiplied by query count, not per-query execution time — that's the number to quote when explaining the fix's impact.
+The number that matters in an interview answer isn't query *execution* time, it's round trips. 500 queries at 0.5ms execution each but 2ms network latency each is 1.25 seconds of wall-clock time; one JOIN query is single-digit milliseconds even if its own execution cost is higher than any individual N+1 query.

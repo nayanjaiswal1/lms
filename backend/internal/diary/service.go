@@ -14,8 +14,9 @@ import (
 )
 
 // Service holds the diary domain's AI-backed behavior: the on-demand Fix
-// English review, and the background analysis pass that resolves detected
-// habit/task mentions against the writer's real habit/whatnow.Task records.
+// English review, and the Preview/Apply pair that detects, then (once the
+// writer has reviewed/edited the result) resolves, habit/task mentions
+// against the writer's real habit/whatnow.Task records.
 type Service struct {
 	repo     *Repo
 	provider ai.LLMProvider
@@ -31,7 +32,7 @@ func NewService(repo *Repo, provider ai.LLMProvider, habits *habit.Service, task
 	return &Service{repo: repo, provider: provider, habits: habits, tasks: tasks}
 }
 
-// ErrAIUnavailable is returned by FixEnglish when no LLM provider is configured.
+// ErrAIUnavailable is returned by FixEnglish/Preview when no LLM provider is configured.
 var ErrAIUnavailable = errors.New("diary: AI provider not available")
 
 // FixEnglish asks the LLM for a grammar/spelling diff of content, as an
@@ -59,60 +60,117 @@ func (s *Service) FixEnglish(ctx context.Context, content string) ([]FixEnglishS
 	return parsed.Segments, nil
 }
 
-// Analyze is the diary_analyze background job's body (dispatched from
-// internal/jobs/handlers/llm.go). It re-scans entry.Content for habit/task
-// mentions against the writer's current habit/open-task vocabulary, applies
-// the resulting mutations (habit completion / task completion / new task
-// capture), and persists the resolved highlight list.
-//
-// A missing/unavailable AI provider is a no-op skip, not a failure — the
-// entry itself already saved fine; analysis just enriches it.
-func (s *Service) Analyze(ctx context.Context, entry Entry) error {
+// Preview runs the habit/task detection pass over content — the writer's
+// current, possibly-unsaved text — and returns the detected spans WITHOUT
+// applying anything, so the frontend can render them for review (toggle a
+// span off, correct an extracted metadata value) before Apply commits them.
+// Synchronous and unpersisted, same as FixEnglish.
+func (s *Service) Preview(ctx context.Context, userID, entryDate, content string) ([]Highlight, error) {
 	if !s.provider.Available() {
-		return nil
+		return nil, ErrAIUnavailable
 	}
-
-	entryDay, err := time.Parse("2006-01-02", entry.EntryDate)
+	habits, openTasks, err := s.vocabulary(ctx, userID, entryDate)
 	if err != nil {
-		return fmt.Errorf("diary: analyze: parse entry date: %w", err)
-	}
-
-	monthView, err := s.habits.MonthView(ctx, entry.UserID, entryDay.Format("2006-01"))
-	if err != nil {
-		return fmt.Errorf("diary: analyze: load habits: %w", err)
-	}
-	openTasks, err := s.tasks.GetInbox(ctx, entry.UserID)
-	if err != nil {
-		return fmt.Errorf("diary: analyze: load open tasks: %w", err)
+		return nil, err
 	}
 
 	resp, err := s.provider.Complete(ctx, ai.CompletionRequest{
 		SystemPrompt: ai.DiaryAnalyzeSystemPrompt,
-		UserPrompt:   buildAnalyzePrompt(entry.Content, monthView.Habits, openTasks),
+		UserPrompt:   buildAnalyzePrompt(content, habits, openTasks),
 		MaxTokens:    2048,
 		Temperature:  0.2,
 		JSONMode:     true,
 	})
 	if err != nil {
-		return fmt.Errorf("diary: analyze: AI call: %w", err)
+		return nil, fmt.Errorf("diary: preview: AI call: %w", err)
 	}
 
 	var parsed struct {
 		Highlights []Highlight `json:"highlights"`
 	}
 	if err := json.Unmarshal([]byte(resp.Content), &parsed); err != nil {
-		return fmt.Errorf("diary: analyze: parse AI response: %w", err)
+		return nil, fmt.Errorf("diary: preview: parse AI response: %w", err)
 	}
+	return cleanHighlights(parsed.Highlights, habits, openTasks), nil
+}
 
-	resolved, err := s.applyHighlights(ctx, entry, parsed.Highlights, monthView.Habits, openTasks)
+// Apply commits a writer-reviewed highlight list (a Preview result, with any
+// spans the writer unchecked already removed by the caller and any metadata
+// values already corrected) against entry: applies each mutation against the
+// CURRENT habit/open-task vocabulary — which may have moved since Preview
+// ran — and persists the resolved list.
+func (s *Service) Apply(ctx context.Context, entry Entry, edited []Highlight) ([]Highlight, error) {
+	habits, openTasks, err := s.vocabulary(ctx, entry.UserID, entry.EntryDate)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	resolved, err := s.applyHighlights(ctx, entry, edited, habits, openTasks)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.SaveAnalysis(ctx, entry.ID, resolved, ContentHash(entry.Content)); err != nil {
+		return nil, fmt.Errorf("diary: apply: save: %w", err)
+	}
+	return resolved, nil
+}
+
+// vocabulary loads the CLOSED habit/open-task lists a detection or apply
+// pass resolves ref_ids against. Preview and Apply each call this fresh
+// (rather than sharing one snapshot) since real time passes between a
+// writer reviewing and confirming.
+func (s *Service) vocabulary(ctx context.Context, userID, entryDate string) ([]habit.Habit, []whatnow.Task, error) {
+	entryDay, err := time.Parse("2006-01-02", entryDate)
+	if err != nil {
+		return nil, nil, fmt.Errorf("diary: parse entry date: %w", err)
+	}
+	monthView, err := s.habits.MonthView(ctx, userID, entryDay.Format("2006-01"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("diary: load habits: %w", err)
+	}
+	openTasks, err := s.tasks.GetInbox(ctx, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("diary: load open tasks: %w", err)
+	}
+	return monthView.Habits, openTasks, nil
+}
+
+// cleanHighlights trims and validates a raw AI response for Preview's
+// display — the same span/ref checks applyHighlights enforces before
+// mutating anything, so the review UI never shows a span Apply would
+// silently drop.
+func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []whatnow.Task) []Highlight {
+	habitByID := make(map[string]bool, len(habits))
+	for _, h := range habits {
+		habitByID[h.ID] = true
+	}
+	openTaskByID := make(map[string]bool, len(openTasks))
+	for _, t := range openTasks {
+		openTaskByID[t.ID] = true
 	}
 
-	if err := s.repo.SaveAnalysis(ctx, entry.ID, resolved, ContentHash(entry.Content)); err != nil {
-		return fmt.Errorf("diary: analyze: save: %w", err)
+	cleaned := make([]Highlight, 0, len(detected))
+	for _, h := range detected {
+		h.Text = strings.TrimSpace(h.Text)
+		if h.Text == "" || h.End <= h.Start {
+			continue
+		}
+		switch h.Kind {
+		case HighlightHabit:
+			if !habitByID[h.RefID] {
+				continue
+			}
+		case HighlightTaskDone:
+			if !openTaskByID[h.RefID] {
+				continue
+			}
+		case HighlightTaskNew, HighlightBuyNew:
+			// ref_id is only assigned once Apply actually captures the task.
+		default:
+			continue
+		}
+		cleaned = append(cleaned, h)
 	}
-	return nil
+	return cleaned
 }
 
 // applyHighlights resolves each AI-detected span against the closed
@@ -153,10 +211,19 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			if !ok {
 				continue // model referenced an id outside the given vocabulary
 			}
+			period := alignPeriod(entryDate(entry), hab.Cadence)
 			if !alreadyApplied {
-				period := alignPeriod(entryDate(entry), hab.Cadence)
 				if err := s.habits.SetCompletion(ctx, entry.UserID, hab.ID, period.Format("2006-01-02")); err != nil {
 					return nil, fmt.Errorf("diary: analyze: set habit completion: %w", err)
+				}
+			}
+			// Metadata is applied every pass, not just !alreadyApplied — an
+			// upsert is idempotent (unlike SetCompletion/CaptureTask, which
+			// would create a duplicate), so a re-analysis with more detail in
+			// the same sentence keeps refining the stored fields.
+			if meta := allowedHabitMetadata(hab, h.Metadata); len(meta) > 0 {
+				if err := s.habits.SetCompletionMetadata(ctx, entry.UserID, hab.ID, period.Format("2006-01-02"), meta); err != nil {
+					return nil, fmt.Errorf("diary: analyze: set habit metadata: %w", err)
 				}
 			}
 
@@ -204,6 +271,31 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 	return resolved, nil
 }
 
+// allowedHabitMetadata filters the AI-extracted metadata down to keys that
+// are actually part of hab's field schema — SetCompletionMetadata rejects
+// the whole call on an unknown key, and the model is only ever shown the
+// schema as guidance, not a hard constraint it's guaranteed to respect.
+func allowedHabitMetadata(hab habit.Habit, extracted map[string]any) map[string]any {
+	if len(extracted) == 0 {
+		return nil
+	}
+	fields := habit.FieldsForHabit(hab)
+	if len(fields) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		allowed[f.Key] = true
+	}
+	out := make(map[string]any, len(extracted))
+	for k, v := range extracted {
+		if allowed[k] {
+			out[k] = v
+		}
+	}
+	return out
+}
+
 func dedupKey(kind HighlightKind, text string) string {
 	return string(kind) + "|" + strings.ToLower(strings.TrimSpace(text))
 }
@@ -239,12 +331,23 @@ func alignPeriod(entryDate time.Time, cadence habit.Cadence) time.Time {
 // exactly this same string on the way back out.
 func buildAnalyzePrompt(content string, habits []habit.Habit, openTasks []whatnow.Task) string {
 	var sb strings.Builder
-	sb.WriteString("Existing habits (id: name, cadence):\n")
+	sb.WriteString("Existing habits (id: name, cadence, optional entry fields):\n")
 	if len(habits) == 0 {
 		sb.WriteString("(none)\n")
 	}
 	for _, h := range habits {
-		fmt.Fprintf(&sb, "- %s: %s (%s)\n", h.ID, h.Name, h.Cadence)
+		fmt.Fprintf(&sb, "- %s: %s (%s)", h.ID, h.Name, h.Cadence)
+		if fields := habit.FieldsForHabit(h); len(fields) > 0 {
+			sb.WriteString(" [fields: ")
+			for i, f := range fields {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				fmt.Fprintf(&sb, "%s (%s)", f.Key, f.Kind)
+			}
+			sb.WriteString("]")
+		}
+		sb.WriteString("\n")
 	}
 	sb.WriteString("\nExisting open tasks (id: title):\n")
 	if len(openTasks) == 0 {

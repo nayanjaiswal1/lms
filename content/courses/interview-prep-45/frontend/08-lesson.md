@@ -11,7 +11,7 @@ estimated_minutes: 30
 source:
     - 45-day-interview-roadmap.md
 ---
-"How would you find out why this page is slow to load?" is a diagnostic question, and the answer starts with reading a network waterfall, not guessing. Today is about measuring — the Performance API, waterfall charts, and the resource hints (`preload`/`prefetch`) and image techniques that turn a diagnosis into a fix. Day 9 builds on this with the bundling side (code splitting).
+"How would you find out why this page is slow to load?" is a diagnostic question, and the answer starts with reading a network waterfall, not guessing. Today is about measuring: the Performance API, waterfall charts, and the resource hints (`preload`/`prefetch`) and image techniques that turn a diagnosis into a fix. Day 9 builds on this with the bundling side (code splitting).
 
 ## Network waterfall visualization
 
@@ -23,14 +23,14 @@ Queued → Stalled → DNS Lookup → Initial Connection → SSL → Request Sen
 
 What to look for, in priority order:
 
-- **Long "Stalled" bars on many requests at once** — the browser caps parallel connections per origin (historically 6 for HTTP/1.1); requests queue behind each other. HTTP/2 multiplexing (multiple requests over one connection) fixes this — check the `Protocol` column.
-- **A long TTFB (Time to First Byte) on the document request** — server-side problem (slow backend, cold start, no caching), not a frontend problem. Nothing renders until this returns.
-- **A "waterfall staircase"** — request B doesn't start until request A finishes, when they could have started in parallel. Usually caused by a synchronous chain: HTML → discover CSS → discover font referenced in CSS → discover JS that fetches data. Each hop costs a full round trip.
-- **Render-blocking resources at the top** — `<script>` tags without `defer`/`async` in `<head>`, and `<link rel="stylesheet">`, both block the parser/first paint until downloaded and (for scripts) executed.
+- **Long "Stalled" bars on many requests at once**: the browser caps parallel connections per origin (historically 6 for HTTP/1.1); requests queue behind each other. HTTP/2 multiplexing (multiple requests over one connection) fixes this. Check the `Protocol` column.
+- **A long TTFB (Time to First Byte) on the document request**: a server-side problem (slow backend, cold start, no caching), not a frontend problem. Nothing renders until this returns.
+- **A "waterfall staircase"**: request B doesn't start until request A finishes, when they could have started in parallel. Usually caused by a synchronous chain: HTML → discover CSS → discover font referenced in CSS → discover JS that fetches data. Each hop costs a full round trip.
+- **Render-blocking resources at the top**: `<script>` tags without `defer`/`async` in `<head>`, and `<link rel="stylesheet">`, both block the parser/first paint until downloaded and (for scripts) executed.
 
 ## Measure request performance with the Performance API
 
-The `Performance` API gives you programmatic, precise timing — the same data the waterfall visualizes, but queryable in code (and shippable to real-user-monitoring/analytics):
+The `Performance` API gives you programmatic, precise timing: the same data the waterfall visualizes, but queryable in code (and shippable to real-user-monitoring/analytics):
 
 ```tsx
 // Navigation timing: how the initial document load broke down
@@ -71,11 +71,11 @@ new PerformanceObserver((list) => {
 }).observe({ type: 'layout-shift', buffered: true });
 ```
 
-**Interview question: "What are the Core Web Vitals and why do they matter?"** LCP (Largest Contentful Paint — perceived load speed), INP (Interaction to Next Paint, replaced FID in 2024 — responsiveness), and CLS (Cumulative Layout Shift — visual stability). They matter because Google uses them as a search ranking signal and because they're the closest proxy metrics have to actual user-perceived quality.
+**Interview question: "What are the Core Web Vitals and why do they matter?"** LCP (Largest Contentful Paint, perceived load speed), INP (Interaction to Next Paint, replaced FID in 2024; responsiveness), and CLS (Cumulative Layout Shift, visual stability). They matter because Google uses them as a search ranking signal and because they're the closest proxy metrics have to actual user-perceived quality.
 
 ## Preload vs prefetch
 
-Both are `<link rel="...">` resource hints that tell the browser about a resource before it would normally discover it — but they signal different priority and timing:
+Both are `<link rel="...">` resource hints that tell the browser about a resource before it would normally discover it, but they signal different priority and timing:
 
 ```html
 <!-- preload: fetch NOW, high priority — for a resource THIS page needs soon
@@ -88,7 +88,7 @@ Both are `<link rel="...">` resource hints that tell the browser about a resourc
 <link rel="prefetch" href="/dashboard-chunk.js" as="script">
 ```
 
-`preload` competes with the current page's critical resources for bandwidth — overusing it (preloading everything) can slow down the actual critical path, which is a common mistake candidates make when asked to "optimize" a page. `prefetch` is opportunistic and low-priority by design, so it's safe to be more liberal with it, but it's still wasted bandwidth if the guess about "next page" is wrong.
+`preload` competes with the current page's critical resources for bandwidth. Overusing it (preloading everything) can slow down the actual critical path, which is a common mistake candidates make when asked to "optimize" a page. `prefetch` is opportunistic and low-priority by design, so it's safe to be more liberal with it, but it's still wasted bandwidth if the guess about "next page" is wrong.
 
 ## Image optimization techniques
 
@@ -115,11 +115,3 @@ Images are usually the largest payload on a page, so this is high-leverage:
 ```
 
 Key levers: `loading="lazy"` defers offscreen images until they near the viewport (native, no JS needed); always set explicit `width`/`height` (or `aspect-ratio` in CSS) so the browser reserves the right space before the image loads, preventing layout shift (CLS); AVIF/WebP are 25-50% smaller than JPEG/PNG at equivalent visual quality; `srcset`/`sizes` avoid shipping a 2000px image to a 400px mobile viewport.
-
-## Key takeaways
-
-- Read the waterfall for stalled/queued requests (connection limits or HTTP/1.1), staircase patterns (unnecessary sequential dependency chains), and render-blocking resources at the top.
-- The `Performance` API (`getEntriesByType('navigation'/'resource')`, `mark`/`measure`, `PerformanceObserver`) gives programmatic timing for both diagnosis and real-user-monitoring.
-- Core Web Vitals — LCP (load speed), INP (responsiveness), CLS (visual stability) — are the standard proxy metrics for perceived performance and a search ranking factor.
-- `preload` = fetch now, high priority, for this page's late-discovered critical resources; `prefetch` = fetch when idle, low priority, for the next page's likely resources — don't over-preload, it competes with the current critical path.
-- `loading="lazy"`, explicit `width`/`height`, and modern formats (AVIF/WebP via `<picture>`) are the highest-leverage image optimizations.

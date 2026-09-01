@@ -12,15 +12,15 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Database design interviews test a different muscle than algorithms — modeling relationships correctly, knowing when normalization helps vs hurts, and writing joins/subqueries fluently under time pressure. Today covers ER modeling, the normal forms, denormalization trade-offs, and hands-on schema + query practice using a blog system as the running example.
+Database design interviews test a different muscle than algorithms: modeling relationships correctly, knowing when normalization helps vs hurts, and writing joins/subqueries fluently under time pressure. Today covers ER modeling, the normal forms, denormalization trade-offs, and hands-on schema + query practice using a blog system as the running example.
 
 ## ER diagrams
 
-An **Entity-Relationship diagram** models the real-world things (entities) a system tracks and how they relate. In interviews you rarely draw an actual diagram — you describe entities, their attributes, and relationship cardinality out loud or in a schema.
+An **Entity-Relationship diagram** models the real-world things (entities) a system tracks and how they relate. In interviews you rarely draw an actual diagram; you describe entities, their attributes, and relationship cardinality out loud or in a schema.
 
-**Entity:** a table — e.g., `users`, `posts`, `comments`.
+**Entity:** a table, e.g., `users`, `posts`, `comments`.
 
-**Relationship cardinality** — the critical decision that shapes your schema:
+**Relationship cardinality** is the critical decision that shapes your schema:
 
 | Cardinality | Example | Schema implication |
 |---|---|---|
@@ -55,13 +55,13 @@ CREATE TABLE post_tags (
 );
 ```
 
-**The interview tell:** whenever you see "many-to-many," you need a junction table — trying to model it with a foreign key on either "side" table directly (e.g., a `tag_ids` array column) is the classic beginner mistake and a normalization violation (see 1NF below).
+**The interview tell:** whenever you see "many-to-many," you need a junction table. Trying to model it with a foreign key on either "side" table directly (e.g., a `tag_ids` array column) is the classic beginner mistake and a normalization violation (see 1NF below).
 
 ## Normalization (1NF, 2NF, 3NF)
 
 Normalization removes redundancy by splitting data into related tables, each normal form building on the previous.
 
-**1NF (First Normal Form):** every column holds a single atomic value — no repeating groups, no comma-separated lists in one cell.
+**1NF (First Normal Form):** every column holds a single atomic value. No repeating groups, no comma-separated lists in one cell.
 
 ```sql
 -- Violates 1NF: tags crammed into one column
@@ -101,7 +101,7 @@ Normalization removes redundancy by splitting data into related tables, each nor
 | 2NF | Non-key columns depend on the *whole* composite key | Partial key dependency |
 | 3NF | Non-key columns depend only on the key, not on each other | Transitive dependency |
 
-**In an interview:** you don't need to cite "this violates 2NF" by name every time — but you do need to *design* a schema that avoids these issues instinctively, and be able to explain why a given design is normalized when asked.
+**In an interview:** you don't need to cite "this violates 2NF" by name every time, but you do need to design a schema that avoids these issues instinctively, and be able to explain why a given design is normalized when asked.
 
 ## Denormalization trade-offs
 
@@ -109,18 +109,18 @@ Normalization optimizes for **write correctness and storage efficiency** (update
 
 | | Normalized | Denormalized |
 |---|---|---|
-| Writes | Simple, single source of truth | More complex — must keep duplicated data in sync |
-| Reads | May require multiple joins | Fewer/no joins — faster for hot read paths |
+| Writes | Simple, single source of truth | More complex; must keep duplicated data in sync |
+| Reads | May require multiple joins | Fewer/no joins, faster for hot read paths |
 | Storage | Minimal redundancy | Redundant data trades space for speed |
 | Risk | None from redundancy | Data can drift out of sync if updates miss a copy |
 
-**When to denormalize:** a read-heavy path where join cost is measurably a bottleneck — e.g., storing `comment_count` directly on the `posts` table (updated via trigger or application logic on insert/delete) instead of running `COUNT(*)` on `comments` every time a post list renders. This is a common real-world pattern, not a violation of good design — it's a deliberate trade-off, and the interview answer is strongest when you name *why* you're accepting the write-side complexity for a specific read-side win, rather than denormalizing by default.
+**When to denormalize:** a read-heavy path where join cost is measurably a bottleneck. For example, storing `comment_count` directly on the `posts` table (updated via trigger or application logic on insert/delete) instead of running `COUNT(*)` on `comments` every time a post list renders. This is a common real-world pattern, not a violation of good design. It's a deliberate trade-off, and the interview answer is strongest when you name why you're accepting the write-side complexity for a specific read-side win, rather than denormalizing by default.
 
 ## Design SQL Schema (various)
 
 **Intuition:** The interview format is usually "design a schema for X" (blog, e-commerce, ride-sharing). The process is the same every time: list entities, decide cardinalities, normalize to 3NF as a starting point, then call out any deliberate denormalization for known hot paths.
 
-**Approach — worked example, blog system:**
+**Approach, worked example, blog system:**
 
 ```sql
 CREATE TABLE users (
@@ -163,11 +163,11 @@ CREATE INDEX idx_posts_author ON posts(author_id);
 CREATE INDEX idx_comments_post ON comments(post_id);
 ```
 
-**Common mistakes:** Forgetting foreign key constraints (`REFERENCES`), which lets orphaned rows accumulate; skipping indexes on foreign key columns — joins on `posts.author_id` or `comments.post_id` will be full table scans without them; not deciding cardinality explicitly before writing `CREATE TABLE` statements (users ↔ posts is one-to-many, posts ↔ tags is many-to-many — get this right first, the DDL follows directly).
+**Common mistakes:** Forgetting foreign key constraints (`REFERENCES`), which lets orphaned rows accumulate; skipping indexes on foreign key columns (joins on `posts.author_id` or `comments.post_id` will be full table scans without them); not deciding cardinality explicitly before writing `CREATE TABLE` statements. Users to posts is one-to-many, posts to tags is many-to-many. Get this right first and the DDL follows directly.
 
 ## SQL queries for typical problems
 
-**Intuition:** Beyond schema design, you're expected to write correct, efficient queries against a given schema — aggregations, filtering, ranking are the most common asks.
+**Intuition:** Beyond schema design, you're expected to write correct, efficient queries against a given schema. Aggregations, filtering, and ranking are the most common asks.
 
 ```sql
 -- Posts per user, most active authors first
@@ -191,17 +191,17 @@ GROUP BY p.id, p.title
 HAVING COUNT(c.id) > 5;
 ```
 
-**Common mistakes:** Using `WHERE` instead of `HAVING` to filter on an aggregate — `WHERE` filters rows before grouping, `HAVING` filters groups after aggregation, and they are not interchangeable; forgetting `GROUP BY` must include every non-aggregated selected column (`p.id, p.title` above, not just `p.title`, in strict SQL modes).
+**Common mistakes:** Using `WHERE` instead of `HAVING` to filter on an aggregate: `WHERE` filters rows before grouping, `HAVING` filters groups after aggregation, and they are not interchangeable. Also, forgetting `GROUP BY` must include every non-aggregated selected column (`p.id, p.title` above, not just `p.title`, in strict SQL modes).
 
 ## Join exercises
 
-**Intuition:** Four join types answer four different questions about how two tables relate; picking the wrong one is the most common SQL interview mistake.
+**Intuition:** Four join types answer four different questions about how two tables relate. Picking the wrong one is the most common SQL interview mistake.
 
 | Join type | Returns | Use when |
 |---|---|---|
 | `INNER JOIN` | Only rows with matches in both tables | You only care about pairs that exist on both sides |
 | `LEFT JOIN` | All rows from the left table, matched or not (`NULL` on the right if unmatched) | "Show me everything, with related data if it exists" |
-| `RIGHT JOIN` | All rows from the right table, matched or not | Rare in practice — usually rewritten as a `LEFT JOIN` with tables swapped |
+| `RIGHT JOIN` | All rows from the right table, matched or not | Rare in practice, usually rewritten as a `LEFT JOIN` with tables swapped |
 | `FULL OUTER JOIN` | All rows from both tables, matched where possible | You need unmatched rows from *both* sides |
 
 ```sql
@@ -217,11 +217,11 @@ LEFT JOIN post_tags pt ON pt.post_id = p.id
 LEFT JOIN tags t ON t.id = pt.tag_id;
 ```
 
-**Common mistakes:** Reaching for `LEFT JOIN` by default "to be safe" when an `INNER JOIN` is what the question actually asks for — this silently returns extra `NULL`-padded rows that can break downstream aggregation logic (`COUNT(c.id)` counting a `NULL` from an unmatched `LEFT JOIN` if you forget the `IS NOT NULL` guard); chaining multiple joins without checking whether each one could fan out row counts unexpectedly (e.g., joining `posts` to both `comments` and `post_tags` in the same query multiplies rows — a classic silent bug).
+**Common mistakes:** Reaching for `LEFT JOIN` by default "to be safe" when an `INNER JOIN` is what the question actually asks for. This silently returns extra `NULL`-padded rows that can break downstream aggregation logic (`COUNT(c.id)` counting a `NULL` from an unmatched `LEFT JOIN` if you forget the `IS NOT NULL` guard). Also, chaining multiple joins without checking whether each one could fan out row counts unexpectedly: joining `posts` to both `comments` and `post_tags` in the same query multiplies rows, a classic silent bug.
 
 ## Subquery practice
 
-**Intuition:** Subqueries let you filter or compute using an intermediate result set — sometimes the only clean way to express "compare against an aggregate," sometimes replaceable by a join for better performance.
+**Intuition:** Subqueries let you filter or compute using an intermediate result set. Sometimes it's the only clean way to express "compare against an aggregate," sometimes it's replaceable by a join for better performance.
 
 ```sql
 -- Posts by the most prolific author (subquery in WHERE)
@@ -258,12 +258,10 @@ JOIN post_counts pc ON pc.author_id = u.id
 WHERE pc.post_count > (SELECT AVG(post_count) FROM post_counts);
 ```
 
-**Common mistakes:** Writing a **correlated subquery** (one that references the outer query's row on every evaluation) when an uncorrelated one or a join would work — correlated subqueries re-execute once per outer row and can be a serious performance problem on large tables; not considering a CTE (`WITH ... AS`) as a readability upgrade over deeply nested subqueries, especially when the same subquery result is needed more than once in the outer query.
+**Common mistakes:** Writing a **correlated subquery** (one that references the outer query's row on every evaluation) when an uncorrelated one or a join would work. Correlated subqueries re-execute once per outer row and can be a serious performance problem on large tables. Also worth considering: a CTE (`WITH ... AS`) as a readability upgrade over deeply nested subqueries, especially when the same subquery result is needed more than once in the outer query.
 
 ## Key takeaways
 
-- Relationship cardinality (one-to-one, one-to-many, many-to-many) determines your schema shape before you write any DDL — many-to-many always needs a junction table.
-- 1NF/2NF/3NF build on each other: atomic columns, then full-key dependency, then no transitive dependency between non-key columns.
-- Denormalization is a deliberate read-performance trade-off for a specific hot path, not a default — always name which reads you're optimizing for and how you'll keep the duplicated data consistent.
-- `WHERE` filters rows before grouping; `HAVING` filters groups after aggregation — mixing these up is one of the most common SQL interview mistakes.
-- Reach for `INNER JOIN` unless you specifically need unmatched rows preserved — defaulting to `LEFT JOIN` "to be safe" silently changes result semantics and can corrupt aggregate counts.
+- Relationship cardinality determines your schema shape before you write any DDL. Many-to-many always needs a junction table, and 1NF/2NF/3NF build on each other: atomic columns, then full-key dependency, then no transitive dependency between non-key columns.
+- Denormalization is a deliberate read-performance trade-off for a specific hot path, not a default. Always name which reads you're optimizing for and how you'll keep the duplicated data consistent.
+- The two most common SQL interview slips are mixing up `WHERE` (filters rows before grouping) with `HAVING` (filters groups after aggregation), and defaulting to `LEFT JOIN` "to be safe" when an `INNER JOIN` is what the question actually calls for, which silently changes result semantics and can corrupt aggregate counts.

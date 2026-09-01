@@ -11,15 +11,15 @@ estimated_minutes: 135
 source:
     - 45-day-interview-roadmap.md
 ---
-Backtracking is how you enumerate every valid configuration of something — subsets, permutations, combinations — without brute-forcing all of them blindly. It's one of the highest-frequency interview patterns because the code shape is nearly identical across problems, and interviewers use small variations (duplicates, unbounded reuse, fixed length) to test whether you actually understand the recursion tree or just memorized one template.
+Backtracking is how you enumerate every valid configuration of something (subsets, permutations, combinations) without brute-forcing all of them blindly. It's one of the highest-frequency interview patterns because the code shape is nearly identical across problems, and interviewers use small variations, like duplicates, unbounded reuse, or fixed length, to test whether you actually understand the recursion tree or just memorized one template.
 
 ## Choice, constraints, goal framework
 
 Every backtracking problem decomposes into three questions:
 
-1. **Choice** — at this point in the recursion, what are the options I can pick from next?
-2. **Constraints** — which of those options are actually valid given what I've already picked?
-3. **Goal** — when do I have a complete, valid answer worth recording?
+1. **Choice**: at this point in the recursion, what are the options I can pick from next?
+2. **Constraints**: which of those options are actually valid given what I've already picked?
+3. **Goal**: when do I have a complete, valid answer worth recording?
 
 ```python
 def backtrack(path, choices):
@@ -34,7 +34,7 @@ def backtrack(path, choices):
         path.pop()               # undo — this is the "back" in backtracking
 ```
 
-The `path.pop()` after the recursive call is the entire idea in one line: you try a choice, explore everything downstream of it, then undo it so the next sibling choice starts from a clean slate. Forgetting the undo is the single most common backtracking bug — it silently corrupts every subsequent branch.
+The `path.pop()` after the recursive call is the entire idea in one line: you try a choice, explore everything downstream of it, then undo it so the next sibling choice starts from a clean slate. Forgetting the undo is the single most common backtracking bug, and it silently corrupts every subsequent branch.
 
 ## Pruning optimization
 
@@ -58,7 +58,7 @@ def backtrack(path, remaining_sum, candidates, start):
         path.pop()
 ```
 
-Sorting the input first often unlocks pruning that wouldn't otherwise be possible (as in the `break` above — once one candidate is too large, every candidate after it is too, since the array is sorted). This turns a correctness feature (skip invalid branches) into a real performance win.
+Sorting the input first often unlocks pruning that wouldn't otherwise be possible, as in the `break` above: once one candidate is too large, every candidate after it is too, since the array is sorted. This turns a correctness feature, skipping invalid branches, into a real performance win.
 
 ## Combination vs permutation
 
@@ -81,11 +81,11 @@ for i in range(len(nums)):
     backtrack()   # next call scans from 0 again
 ```
 
-Mixing these up is the classic bug: using a `start` index for a permutation problem silently produces only sorted-order results, or using a full scan for a combination problem produces duplicates.
+Mixing these up is the classic bug. A `start` index used for a permutation problem silently produces only sorted-order results; a full scan used for a combination problem produces duplicates.
 
 ### Subsets
 
-[LeetCode 78 — Subsets](https://leetcode.com/problems/subsets/) — Backtracking — Generate all subsets
+[LeetCode 78 · Subsets](https://leetcode.com/problems/subsets/) · Backtracking · Generate all subsets
 
 **Intuition:** Every element is either "in" or "out" of a given subset. Backtracking naturally enumerates this by recording the current path at every recursive call (not just at leaves), since every prefix is itself a valid subset.
 
@@ -109,13 +109,13 @@ def subsets(nums: list[int]) -> list[list[int]]:
 
 **Complexity:** O(n * 2^n) time (2^n subsets, O(n) to copy each), O(n) recursion depth excluding output.
 
-**Common mistakes:** appending `path` directly instead of `path[:]` — this stores a reference that gets mutated later, corrupting every previously recorded subset; forgetting that every recursive call (not just leaves) produces a valid answer.
+**Common mistakes:** appending `path` directly instead of `path[:]`, which stores a reference that gets mutated later and corrupts every previously recorded subset; forgetting that every recursive call, not only the leaves, produces a valid answer.
 
 ### Subsets II
 
-[LeetCode 90 — Subsets II](https://leetcode.com/problems/subsets-ii/) — Backtracking — Handle duplicates
+[LeetCode 90 · Subsets II](https://leetcode.com/problems/subsets-ii/) · Backtracking · Handle duplicates
 
-**Intuition:** Input may contain duplicate values. Sort first, then at each recursion level, skip a candidate if it's equal to the previous candidate *at the same level* (not globally) — that previous one already explored every subset this one would produce.
+**Intuition:** Input may contain duplicate values. Sort first, then at each recursion level, skip a candidate if it's equal to the previous candidate *at the same level*, not globally. That previous one already explored every subset this one would produce.
 
 **Approach:** Sort `nums`. In the loop, skip `nums[i]` when `i > start and nums[i] == nums[i-1]`.
 
@@ -140,11 +140,11 @@ def subsets_with_dup(nums: list[int]) -> list[list[int]]:
 
 **Complexity:** O(n * 2^n) time worst case, O(n) recursion depth.
 
-**Common mistakes:** skipping duplicates with a global `seen` set instead of the `i > start` same-level check — a global set incorrectly blocks valid subsets that reuse a value at a *different* branch of the tree; forgetting to sort first, which the same-level dedup depends on.
+**Common mistakes:** skipping duplicates with a global `seen` set instead of the `i > start` same-level check: a global set incorrectly blocks valid subsets that reuse a value at a *different* branch of the tree; forgetting to sort first, which the same-level dedup depends on.
 
 ### Combination Sum
 
-[LeetCode 39 — Combination Sum](https://leetcode.com/problems/combination-sum/) — Backtracking — Unbounded knapsack
+[LeetCode 39 · Combination Sum](https://leetcode.com/problems/combination-sum/) · Backtracking · Unbounded knapsack
 
 **Intuition:** Same number can be reused unlimited times, so the recursive call passes `i` (not `i + 1`) to allow re-picking the current candidate.
 
@@ -173,15 +173,15 @@ def combination_sum(candidates: list[int], target: int) -> list[list[int]]:
 
 **Complexity:** O(n^(target/min_candidate)) time worst case (exponential, bounded by target), O(target / min_candidate) recursion depth.
 
-**Common mistakes:** passing `i + 1` instead of `i` (this is the classic bug — it silently turns "unbounded" into "each number used at most once," which is actually [Combination Sum II](https://leetcode.com/problems/combination-sum-ii/)); forgetting to sort before using `break` as a pruning strategy.
+**Common mistakes:** passing `i + 1` instead of `i` (this is the classic bug: it silently turns "unbounded" into "each number used at most once," which is actually [Combination Sum II](https://leetcode.com/problems/combination-sum-ii/)); forgetting to sort before using `break` as a pruning strategy.
 
 ### Permutations
 
-[LeetCode 46 — Permutations](https://leetcode.com/problems/permutations/) — Backtracking — Generate permutations
+[LeetCode 46 · Permutations](https://leetcode.com/problems/permutations/) · Backtracking · Generate permutations
 
-**Intuition:** Unlike combinations, order matters and every index can appear in every position — so the loop scans the full array each time, skipping only what's already placed in the current path.
+**Intuition:** Unlike combinations, order matters and every index can appear in every position, so the loop scans the full array each time, skipping only what's already placed in the current path.
 
-**Approach:** Track a `used` boolean array (or set) instead of a `start` index, since permutations don't have a "already passed this index" notion — they have "already placed this value."
+**Approach:** Track a `used` boolean array (or set) instead of a `start` index, since permutations don't have an "already passed this index" notion; they have "already placed this value."
 
 ```python
 def permute(nums: list[int]) -> list[list[int]]:
@@ -208,13 +208,6 @@ def permute(nums: list[int]) -> list[list[int]]:
 
 **Complexity:** O(n * n!) time (n! permutations, O(n) to copy each), O(n) space for `used` plus recursion depth.
 
-**Common mistakes:** using a `start` index like a combination problem — this produces only 1 ordering instead of n!; forgetting to reset `used[i] = False` on backtrack, which corrupts sibling branches.
+**Common mistakes:** using a `start` index like a combination problem, which produces only 1 ordering instead of n!; forgetting to reset `used[i] = False` on backtrack, which corrupts sibling branches.
 
-## Key takeaways
-
-- Every backtracking problem is choice, constraints, goal — write those three down before coding.
-- The undo step (`path.pop()`, `used[i] = False`) after the recursive call is not optional — it's what makes backtracking correct across sibling branches.
-- Sort the input first when you need pruning via `break` or same-level duplicate skipping.
-- Combinations use a `start` index that only moves forward; permutations use a `used` set and re-scan from 0 every call — mixing these up is the #1 conceptual bug.
-- Unbounded reuse (Combination Sum) passes `i` to the recursive call instead of `i + 1`.
-- Record results at the right point: every node for subsets, only complete-length paths for permutations, only zero-remaining paths for combination-sum style problems.
+Notice that where each problem records its answer follows directly from its goal condition: Subsets records at every node because every prefix is valid, Combination Sum records only when `remaining == 0`, and Permutations records only once `path` reaches full length. Get the goal condition right and the recording point falls out for free.

@@ -13,7 +13,7 @@ source:
 ---
 A recurring pattern: given a collection, find the K elements that occur most often. Three approaches, in order of when to reach for each.
 
-## Step 1 — always start with a frequency map
+## Step 1: always start with a frequency map
 
 ```python
 from collections import Counter
@@ -22,17 +22,17 @@ freq = Counter(arr)  # O(n) — {element: count}
 
 Every approach below builds on this. The difference is only in how you extract the top K *from* the map.
 
-## Approach A — sort by count: O(n log n)
+## Approach A: sort by count, O(n log n)
 
 ```python
 top_k = sorted(freq.items(), key=lambda x: -x[1])[:k]
 ```
 
-Simplest to write, correct, but does more work than necessary — you're fully sorting all n elements to read off k of them.
+Simplest to write and correct, but it does more work than necessary: it fully sorts all n elements just to read off k of them.
 
-## Approach B — min-heap of size K: O(n log k)
+## Approach B: min-heap of size K, O(n log k)
 
-Better when `k` is small relative to `n`. Keep a heap of exactly `k` elements: push each new candidate, and if the heap grows past `k`, pop the smallest (least frequent) — so the heap always holds the current top-k by the time you've scanned everything.
+Better when `k` is small relative to `n`. Keep a heap of exactly `k` elements: push each new candidate, and when the heap grows past `k`, pop the smallest (least frequent) one. By the time you've scanned everything, the heap holds the current top k.
 
 ```python
 import heapq
@@ -47,9 +47,9 @@ def top_k_frequent(arr, k):
     return [num for count, num in heap]
 ```
 
-`heapq` is a min-heap by default — pushing `(count, num)` tuples means the smallest count sits at the root, which is exactly the one you want to evict when the heap overflows past `k`.
+`heapq` is a min-heap by default, so pushing `(count, num)` tuples puts the smallest count at the root. That's exactly the entry you want to evict when the heap overflows past `k`.
 
-## Approach C — bucket sort by frequency: O(n), optimal
+## Approach C: bucket sort by frequency, O(n) and optimal
 
 The insight: frequency can never exceed `n` (the array length), so instead of comparing/sorting, index directly by frequency.
 
@@ -69,16 +69,10 @@ def top_k_frequent(arr, k):
     return result
 ```
 
-This is the answer to give when an interviewer pushes for better than `O(n log n)` — bucket sort trades the general-purpose comparison sort for an array indexed by the bounded range of possible frequencies (`0..n`), giving true linear time.
+This is the answer to give when an interviewer pushes for better than `O(n log n)`. Bucket sort trades the general-purpose comparison sort for an array indexed by the bounded range of possible frequencies (`0..n`), which gives true linear time.
 
 ## Which to reach for
 
-- Default/safe answer: Approach A (sorted) — correct, easy to write under pressure, and honest about the complexity.
-- If asked to optimize: Approach B (heap) — standard "top-k" interview answer, `O(n log k)`.
-- If pushed further ("can you do better than log k?"): Approach C (bucket sort) — `O(n)`, because frequency is bounded by array length.
-
-## Key takeaways
-
-- Every top-K-by-frequency problem starts with a `Counter`/hash map — the only question is how you extract the top k from it.
-- Min-heap of size k (`O(n log k)`) beats full sort (`O(n log n)`) whenever `k << n`.
-- Bucket sort indexed by frequency hits `O(n)` because frequency is bounded by array length, not by the value range.
+- Default, safe answer: Approach A (sorted). Correct, easy to write under pressure, and honest about the complexity.
+- If asked to optimize: Approach B (heap), the standard "top-k" interview answer at `O(n log k)`.
+- If pushed further ("can you do better than log k?"): Approach C (bucket sort) at `O(n)`, since frequency is bounded by array length.

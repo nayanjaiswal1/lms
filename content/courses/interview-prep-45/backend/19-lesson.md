@@ -11,11 +11,11 @@ estimated_minutes: 45
 source:
     - 45-day-interview-roadmap.md
 ---
-Every Python backend interview eventually asks "how do you handle work that shouldn't block the request" — Celery is the standard answer, and interviewers push past "I used `@shared_task`" into routing, chaining, and what happens when a task hangs. Today covers task routing and priority queues, chains/chords, custom task states, and building a real multi-stage pipeline.
+Every Python backend interview eventually asks "how do you handle work that shouldn't block the request." Celery is the standard answer, and interviewers push past "I used `@shared_task`" into routing, chaining, and what happens when a task hangs. Today covers task routing and priority queues, chains/chords, custom task states, and building a real multi-stage pipeline.
 
 ## Task routing and priority queues
 
-By default every Celery task goes to one queue and any worker can pick it up. Routing lets you send different tasks to different queues, so you can dedicate workers to slow tasks (video processing) separately from fast ones (sending an email) — otherwise one slow task blocks a worker that could've cleared ten fast ones.
+By default every Celery task goes to one queue and any worker can pick it up. Routing lets you send different tasks to different queues, so you can dedicate workers to slow tasks (video processing) separately from fast ones (sending an email). Otherwise one slow task blocks a worker that could've cleared ten fast ones.
 
 ```python
 # celeryconfig.py
@@ -38,8 +38,8 @@ Celery doesn't have true priority *within* a queue by default on Redis (it's FIF
 
 ## Chains and chords
 
-- **`chain`** — run tasks sequentially, each receiving the previous task's return value as its first argument.
-- **`chord`** — run a group of tasks in parallel, then run a callback once *all* of them finish, with their results collected as a list.
+- **`chain`**: run tasks sequentially, each receiving the previous task's return value as its first argument.
+- **`chord`**: run a group of tasks in parallel, then run a callback once *all* of them finish, with their results collected as a list.
 
 ```python
 from celery import shared_task, chain, chord
@@ -76,11 +76,11 @@ job = chord(
 job.apply_async()
 ```
 
-A `chord`'s callback is itself just another task — Celery tracks completion via a counter in the result backend, decrementing as each group member finishes and firing the callback when it hits zero. This is why **a chord requires a result backend** (Redis or an RDBMS) — without one there's no way to know when the group is done.
+A `chord`'s callback is itself just another task. Celery tracks completion via a counter in the result backend, decrementing as each group member finishes and firing the callback when it hits zero. This is why **a chord requires a result backend** (Redis or an RDBMS): without one there's no way to know when the group is done.
 
 ## Custom task states
 
-Beyond Celery's built-in states (`PENDING`, `STARTED`, `SUCCESS`, `FAILURE`, `RETRY`), you can report custom progress via `update_state` — essential for long tasks a frontend needs to show progress for.
+Beyond Celery's built-in states (`PENDING`, `STARTED`, `SUCCESS`, `FAILURE`, `RETRY`), you can report custom progress via `update_state`. This is essential for long tasks a frontend needs to show progress for.
 
 ```python
 from celery import shared_task, states
@@ -118,9 +118,9 @@ def task_status(request, task_id):
 
 **How do you handle tasks that take too long?** Layered defenses:
 
-1. **Time limits** — `task_time_limit` (hard, SIGKILL) and `task_soft_time_limit` (raises `SoftTimeLimitExceeded` inside the task, so it can clean up) prevent one runaway task from occupying a worker slot forever.
-2. **`acks_late` + `reject_on_worker_lost`** — by default Celery acks a task as soon as a worker *starts* it, so a worker crash mid-task loses the task silently. `task_acks_late=True` acks only after completion, so a crashed worker's in-flight task gets redelivered to another worker.
-3. **Chunking** — break a task that processes 100k rows into a chord of 100 tasks each processing 1k rows, so no single task runs long enough to hit limits, and partial progress survives a worker restart.
+1. **Time limits**: `task_time_limit` (hard, SIGKILL) and `task_soft_time_limit` (raises `SoftTimeLimitExceeded` inside the task, so it can clean up) prevent one runaway task from occupying a worker slot forever.
+2. **`acks_late` + `reject_on_worker_lost`**: by default Celery acks a task as soon as a worker *starts* it, so a worker crash mid-task loses the task silently. `task_acks_late=True` acks only after completion, so a crashed worker's in-flight task gets redelivered to another worker.
+3. **Chunking**: break a task that processes 100k rows into a chord of 100 tasks each processing 1k rows, so no single task runs long enough to hit limits, and partial progress survives a worker restart.
 
 ```python
 @shared_task(bind=True, time_limit=300, soft_time_limit=270, acks_late=True)
@@ -134,7 +134,7 @@ def export_large_dataset(self, dataset_id):
 
 ## Result backend
 
-**What is result backend?** The store Celery writes task state and return values to (commonly Redis or Postgres), separate from the broker (which only queues the task *messages*, not results). Without a result backend configured, `task.delay()` still runs the task, but `AsyncResult` can't tell you anything — `.status` stays `PENDING` forever and `.get()` hangs.
+**What is result backend?** The store Celery writes task state and return values to (commonly Redis or Postgres), separate from the broker (which only queues the task *messages*, not results). Without a result backend configured, `task.delay()` still runs the task, but `AsyncResult` can't tell you anything: `.status` stays `PENDING` forever and `.get()` hangs.
 
 ```python
 app.conf.broker_url = "redis://localhost:6379/0"          # queues pending work
@@ -142,7 +142,7 @@ app.conf.result_backend = "redis://localhost:6379/1"      # stores results/state
 app.conf.result_expires = 3600                              # auto-clean old results after 1 hour
 ```
 
-Broker and result backend are conceptually separate even when both point at Redis — the broker is a queue Celery consumes destructively (a task message is gone once delivered), while the result backend is a key-value store Celery writes to and the caller polls, unrelated to task delivery.
+Broker and result backend are conceptually separate even when both point at Redis. The broker is a queue Celery consumes destructively (a task message is gone once delivered), while the result backend is a key-value store Celery writes to and the caller polls, unrelated to task delivery.
 
 ## Implementation: fetch → process → save → notify pipeline
 
@@ -186,13 +186,6 @@ def run_import_pipeline(source_url: str):
     return pipeline.apply_async()
 ```
 
-Each stage is independently retryable (`fetch_data` retries on network failure) and independently observable via the result backend — you can inspect `pipeline.parent.parent...` or just track the final `AsyncResult` id and let each stage log its own state.
+Each stage is independently retryable (`fetch_data` retries on network failure) and independently observable via the result backend. You can inspect `pipeline.parent.parent...` or just track the final `AsyncResult` id and let each stage log its own state.
 
-## Key takeaways
-
-- Celery routing sends different task types to different queues/worker pools; "priority" on the default Redis broker is implemented as queue separation, not a priority field.
-- `chain` runs tasks sequentially passing return values forward; `chord` runs a group in parallel and fires a callback once all finish — chords require a result backend to track completion.
-- `update_state`/`self.update_state` reports custom progress for long tasks; the frontend polls `AsyncResult.state`/`.info`.
-- Long-running tasks need `task_time_limit`/`task_soft_time_limit` for runaway protection and `acks_late=True` so a worker crash redelivers in-flight work instead of losing it.
-- The result backend (Redis/Postgres) is separate from the broker — the broker queues messages, the backend stores state/return values for polling.
-- Multi-stage pipelines built from independent, retryable tasks (via `chain`) isolate failures to one stage instead of forcing a full pipeline restart on any error.
+The pattern to remember across all four sections: routing, chords, custom states, and the result backend are all ways of answering "what is this task doing right now, and can I trust that it will finish." A production Celery setup is really a small distributed system, and the interview questions above are testing whether you've internalized that, not whether you can recite decorator syntax.

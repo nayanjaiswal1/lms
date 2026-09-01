@@ -12,15 +12,15 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Today is a targeted-repair day, not a survey day. You already know the easy 80% of DP, system design, and frontend. This is about the 20% that's actually failing you in interviews — string-matching DP, your three weakest system designs, and whatever React concept you keep hand-waving through. Three 80-minute blocks, each ending with a concrete self-check.
+Today is a targeted-repair day, not a survey day. You already know the easy 80% of DP, system design, and frontend. This is about the 20% that's actually failing you in interviews: string-matching DP, your three weakest system designs, and whatever React concept you keep hand-waving through. Three 80-minute blocks, each ending with a concrete self-check.
 
-## Block 1 (80 min): DP Weakness — String Matching & Edit Distance
+## Block 1 (80 min): DP Weakness, String Matching & Edit Distance
 
 These three problems (Edit Distance, Wildcard Matching, Regex Matching) fail candidates for the same reason every time: they don't nail the **state definition** before coding. Get the state right and the transitions almost write themselves.
 
 ### The universal 2-string DP template
 
-For any "compare two strings" DP, define `dp[i][j]` as **the answer for the first `i` characters of `s` and the first `j` characters of `t`**. Build a `(len(s)+1) x (len(t)+1)` table so row/col 0 represent empty prefixes — this kills off-by-one bugs.
+For any "compare two strings" DP, define `dp[i][j]` as **the answer for the first `i` characters of `s` and the first `j` characters of `t`**. Build a `(len(s)+1) x (len(t)+1)` table so row/col 0 represent empty prefixes; that convention alone kills most off-by-one bugs.
 
 ```python
 def edit_distance(word1: str, word2: str) -> int:
@@ -72,7 +72,7 @@ def is_match_wildcard(s: str, p: str) -> bool:
     return dp[m][n]
 ```
 
-Regex Matching (`.` = any one char, `*` = zero or more of the **preceding** char — the trap that breaks most people):
+Regex Matching (`.` = any one char, `*` = zero or more of the **preceding** char, the detail that breaks most people):
 
 ```python
 def is_match_regex(s: str, p: str) -> bool:
@@ -102,12 +102,12 @@ def is_match_regex(s: str, p: str) -> bool:
 ### When to reach for this pattern
 
 - Two sequences being compared, transformed, or aligned (edit distance, LCS, interleaving strings).
-- The answer at position `(i, j)` only depends on `(i-1, j)`, `(i, j-1)`, `(i-1, j-1)` — a "look one step back in each string" relationship.
+- The answer at position `(i, j)` only depends on `(i-1, j)`, `(i, j-1)`, `(i-1, j-1)`: a "look one step back in each string" relationship.
 - `*`/`?` wildcard or regex-like matching against a pattern string.
 
 ### Space optimization
 
-Every template above only reads the **previous row** of `dp`. Once it works, compress to two 1D arrays (or one array updated carefully right-to-left) — mention this proactively in interviews, it signals you understand the recurrence, not just the code.
+Every template above only reads the **previous row** of `dp`. Once it works, compress to two 1D arrays (or one array updated carefully right-to-left), and mention the optimization proactively in interviews. It signals you understand the recurrence itself, beyond the code that implements it.
 
 ```python
 def edit_distance_optimized(word1: str, word2: str) -> int:
@@ -124,11 +124,11 @@ def edit_distance_optimized(word1: str, word2: str) -> int:
     return prev[n]
 ```
 
-**Verify you're actually strong here:** close this lesson and re-solve Edit Distance from a blank file in under 20 minutes, no notes. If you hesitate on the base case or the three-way `min`, you're not done — do Wildcard Matching next, cold, same rule.
+**Verify you're actually strong here:** close this lesson and re-solve Edit Distance from a blank file in under 20 minutes, no notes. If you hesitate on the base case or the three-way `min`, you're not done. Do Wildcard Matching next, cold, same rule.
 
 ## Block 2 (80 min): System Design Weakness
 
-Pick your **three weakest designs** from everything you've drilled so far (Days 1-35). Don't pick three you're comfortable with — that's avoidance, not practice.
+Pick your **three weakest designs** from everything you've drilled so far (Days 1-35). Picking three you're already comfortable with is avoidance dressed up as practice.
 
 ### Reusable building blocks (the vocabulary every design draws from)
 
@@ -148,20 +148,20 @@ Pick your **three weakest designs** from everything you've drilled so far (Days 
 
 Run every one of your three weak designs through this in order, out loud, against a timer:
 
-1. **Requirements** — functional (3-5 core features) and non-functional (scale numbers: DAU, QPS, read:write ratio, latency target).
-2. **Capacity estimate** — back-of-envelope storage/bandwidth from the numbers in step 1. Say the math out loud.
-3. **API design** — 3-5 endpoints, request/response shape.
-4. **High-level architecture** — draw the boxes (client, LB, service, cache, DB, queue) and the data flow through them.
-5. **Deep dive** — pick the ONE hardest part of this system (e.g., feed ranking, message ordering, deduplication) and go deep.
-6. **Bottlenecks & tradeoffs** — where does this break at 10x scale? What did you trade away (consistency, cost, complexity)?
+1. **Requirements:** functional (3-5 core features) and non-functional (scale numbers: DAU, QPS, read:write ratio, latency target).
+2. **Capacity estimate:** back-of-envelope storage/bandwidth from the numbers in step 1. Say the math out loud.
+3. **API design:** 3-5 endpoints, request/response shape.
+4. **High-level architecture:** draw the boxes (client, LB, service, cache, DB, queue) and the data flow through them.
+5. **Deep dive:** pick the ONE hardest part of this system (e.g., feed ranking, message ordering, deduplication) and go deep.
+6. **Bottlenecks & tradeoffs:** where does this break at 10x scale? What did you trade away (consistency, cost, complexity)?
 
-Compare each redesign against a reference solution afterward. Don't just read the reference — write down the **specific gap**: did you miss a bottleneck, skip capacity estimation, or under-specify the data model? That gap is the thing to drill again before Day 45.
+Compare each redesign against a reference solution afterward. Don't just read the reference: write down the **specific gap**. Did you miss a bottleneck, skip capacity estimation, or under-specify the data model? That gap is the thing to drill again before Day 45.
 
-**Verify you're actually strong here:** explain one of the three, start to finish, out loud, in under 10 minutes with no pauses longer than 3 seconds. If you get stuck at the deep-dive step, that's your actual weak point — not the system as a whole.
+**Verify you're actually strong here:** explain one of the three, start to finish, out loud, in under 10 minutes with no pauses longer than 3 seconds. If you get stuck at the deep-dive step, that step is your actual weak point, not the system as a whole.
 
 ## Block 3 (80 min): Frontend Weakness
 
-Frontend weaknesses are almost always one of these four. Build a tiny example for whichever ones you're shaky on — reading docs without writing code doesn't fix interview performance.
+Frontend weaknesses are almost always one of these four. Build a tiny example for whichever ones you're shaky on; reading docs without writing code doesn't fix interview performance.
 
 ### useEffect dependency arrays
 
@@ -179,9 +179,9 @@ useEffect(() => {
 }, [userId]);
 ```
 
-Say out loud: "the dependency array is not an optimization, it's correctness — it tells React when the closure's captured values are stale."
+Say out loud: "the dependency array enforces correctness, not performance. It tells React when the closure's captured values are stale."
 
-### useMemo / useCallback — when they matter and when they don't
+### useMemo / useCallback: when they matter and when they don't
 
 ```tsx
 // Only memoize when the computation is expensive OR the identity
@@ -198,7 +198,7 @@ The common wrong answer: "I memoize everything for performance." The right answe
 ### Reconciliation and keys
 
 ```tsx
-// WRONG: index as key when list order can change — causes state to
+// WRONG: index as key when list order can change; causes state to
 // attach to the wrong item after reorder/delete
 {items.map((item, i) => <Row key={i} {...item} />)}
 
@@ -229,11 +229,4 @@ Know the tradeoff: controlled gives you validation-per-keystroke and predictable
 
 **Verify you're actually strong here:** pick your weakest of the four topics above, then explain the "watch-out" in your own words out loud in under 60 seconds, no re-reading. If you can't, build the tiny example yourself (don't copy the snippet) before moving on.
 
-## Key takeaways
-
-- DP on two strings is one template — `dp[i][j]` over prefixes — reused for Edit Distance, Wildcard, and Regex matching; the only thing that changes is the transition logic.
-- Regex Matching's `*` means "zero or more of the previous character," not "match anything" — that misunderstanding is the #1 cause of wrong solutions.
-- System design weakness is rarely "I don't know the building blocks" — it's skipping capacity estimation or not going deep enough on the one hard part.
-- Every system design should run through the same six-step checklist so nothing gets skipped under interview pressure.
-- `useEffect` dependency arrays are a correctness tool, not a performance knob — treat missing dependencies as bugs.
-- Verification beats review: re-solving cold and explaining out loud exposes gaps that re-reading a solution hides.
+All three blocks share the same underlying test: can you produce the thing cold, not just recognize it when you see it. That's a higher bar than most study sessions aim for, and it's the only one that transfers to an actual interview room.

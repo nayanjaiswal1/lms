@@ -18,7 +18,7 @@ type Entry struct {
 }
 
 // HighlightKind classifies one detected span in an entry's content, and what
-// it resolved to in the habit/whatnow domains (see Service.Analyze).
+// it resolved to in the habit/whatnow domains (see Service.Preview/Apply).
 type HighlightKind string
 
 const (
@@ -46,6 +46,13 @@ type Highlight struct {
 	// task_new/buy_new) this span resolved to. Empty only if resolution
 	// failed and the span was dropped before storage.
 	RefID string `json:"ref_id,omitempty"`
+	// Metadata is set only for kind=habit, when the habit's type has a
+	// structured entry form (gym/sleep/reading/custom) and the AI extracted
+	// values for one or more of its fields from this span's text (e.g. a
+	// sleep habit's slept_at/woke_up times). Keys are validated against the
+	// habit's own field schema before being written — see
+	// Service.applyHighlights.
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // aiAnalysis is the shape stored in diary_entries.ai_analysis.
@@ -74,6 +81,25 @@ type ListEntriesResponse struct {
 // UpdateContentRequest is the body of PATCH /api/diary/{date}.
 type UpdateContentRequest struct {
 	Content string `json:"content"`
+}
+
+// AnalyzePreviewRequest is the body of POST /api/diary/{date}/analyze/preview.
+type AnalyzePreviewRequest struct {
+	Content string `json:"content"`
+}
+
+// AnalyzePreviewResponse is the body of POST /api/diary/{date}/analyze/preview
+// — detected spans the writer reviews (and may edit or drop) before anything
+// is written to the habit/whatnow domains.
+type AnalyzePreviewResponse struct {
+	Highlights []Highlight `json:"highlights"`
+}
+
+// ApplyAnalysisRequest is the body of POST /api/diary/{date}/analyze/apply —
+// the reviewer's edited/filtered copy of a prior preview's highlights, e.g.
+// with a habit's extracted metadata corrected or an unwanted span removed.
+type ApplyAnalysisRequest struct {
+	Highlights []Highlight `json:"highlights"`
 }
 
 // FixEnglishRequest is the body of POST /api/diary/{date}/fix-english.

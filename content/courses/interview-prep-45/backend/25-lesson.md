@@ -12,11 +12,11 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Today is real-time communication: the WebSocket protocol, building a WebSocket endpoint in FastAPI, managing connections, and — the part interviewers actually care about — what happens when it breaks and how you scale it past one process. Chat, live notifications, collaborative editing, and trading dashboards all rest on this.
+Today is real-time communication: the WebSocket protocol, building a WebSocket endpoint in FastAPI, managing connections, and the part interviewers actually care about, which is what happens when it breaks and how you scale it past one process. Chat, live notifications, collaborative editing, and trading dashboards all rest on this.
 
 ## The WebSocket protocol
 
-HTTP is request-response: client asks, server answers, connection (mostly) closes. WebSocket is a persistent, full-duplex connection — either side can push a message at any time without the other asking first. It starts as an HTTP request and gets **upgraded**:
+HTTP is request-response: client asks, server answers, connection (mostly) closes. WebSocket is a persistent, full-duplex connection where either side can push a message at any time without the other asking first. It starts as an HTTP request and gets **upgraded**:
 
 ```
 GET /ws/chat HTTP/1.1
@@ -27,9 +27,9 @@ Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
 Sec-WebSocket-Version: 13
 ```
 
-Server responds `101 Switching Protocols` and from then on both sides speak the WebSocket framing protocol over the same TCP socket — no more HTTP headers per message, just lightweight frames (data frames, plus control frames for ping/pong/close). This is why WebSocket is cheaper than polling: one TCP connection, one handshake, no repeated HTTP overhead per message.
+Server responds `101 Switching Protocols` and from then on both sides speak the WebSocket framing protocol over the same TCP socket. There are no more HTTP headers per message, just lightweight frames (data frames, plus control frames for ping/pong/close). This is why WebSocket is cheaper than polling: one TCP connection, one handshake, no repeated HTTP overhead per message.
 
-**Interview point**: WebSocket is not "HTTP but faster" — it's a different protocol layered on the same initial handshake. Also know the alternatives and when each fits:
+**Interview point**: WebSocket is not "HTTP but faster." It's a different protocol layered on the same initial handshake. Also know the alternatives and when each fits:
 
 | Approach | Direction | Overhead | Use when |
 |---|---|---|---|
@@ -57,11 +57,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         print(f"{client_id} disconnected")
 ```
 
-`await websocket.accept()` completes the HTTP-to-WebSocket upgrade. The `while True` loop is the connection's lifetime — it runs until the client disconnects, which raises `WebSocketDisconnect` rather than returning normally. This is a common gotcha: forgetting the try/except means an unhandled exception on every disconnect, spamming your logs and error tracker.
+`await websocket.accept()` completes the HTTP-to-WebSocket upgrade. The `while True` loop is the connection's lifetime: it runs until the client disconnects, which raises `WebSocketDisconnect` rather than returning normally. This is a common gotcha: forgetting the try/except means an unhandled exception on every disconnect, spamming your logs and error tracker.
 
 ## Connection management
 
-A single endpoint handling one socket isn't a system — you need a registry so you can broadcast, target a specific user, and clean up on disconnect.
+A single endpoint handling one socket isn't a system. You need a registry so you can broadcast, target a specific user, and clean up on disconnect.
 
 ```python
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -113,7 +113,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         await manager.broadcast(f"{user_id} left the chat")
 ```
 
-Notice the `disconnect` always runs in the `except` block — cleanup on disconnect is not optional, it's how you avoid a slow memory leak of dead socket references that never get sent to (and error) again.
+Notice the `disconnect` always runs in the `except` block. Cleanup on disconnect is not optional; it's how you avoid a slow memory leak of dead socket references that never get sent to (and error) again.
 
 ## Handling WebSocket failures
 
@@ -135,14 +135,14 @@ async def heartbeat(websocket: WebSocket, interval: int = 30, timeout: int = 10)
 ```
 
 - **Client-side reconnect with exponential backoff.** The client should assume disconnects are normal and reconnect automatically, backing off (1s, 2s, 4s, 8s... capped) to avoid hammering a struggling server.
-- **Message delivery guarantees.** WebSocket itself gives you no "at least once" guarantee — if the socket drops mid-send, the message is gone. For anything that must not be lost (chat history, order events), persist the message server-side *before* pushing it, and give the client a way to request "messages since sequence N" on reconnect so it can catch up.
+- **Message delivery guarantees.** WebSocket itself gives you no "at least once" guarantee. If the socket drops mid-send, the message is gone. For anything that must not be lost (chat history, order events), persist the message server-side *before* pushing it, and give the client a way to request "messages since sequence N" on reconnect so it can catch up.
 - **Backpressure.** A slow client (bad network) can't drain messages as fast as the server produces them. Unbounded `send_text` calls queue up in memory. Use a bounded queue per connection and drop or disconnect a client that falls too far behind rather than let server memory grow unbounded.
 
 ## Scaling WebSockets
 
 This is the question that separates "I built a demo" from "I understand production systems."
 
-The core problem: WebSocket connections are **stateful and sticky** — a client is connected to exactly one server process, unlike stateless HTTP where any server in a pool can handle any request. A naive `ConnectionManager` like the one above only knows about sockets on *its own process*. If user A is connected to server 1 and user B to server 2, server 1's in-memory broadcast never reaches user B.
+The core problem: WebSocket connections are **stateful and sticky**. A client is connected to exactly one server process, unlike stateless HTTP where any server in a pool can handle any request. A naive `ConnectionManager` like the one above only knows about sockets on *its own process*. If user A is connected to server 1 and user B to server 2, server 1's in-memory broadcast never reaches user B.
 
 Fix: a shared **pub/sub backbone** (Redis Pub/Sub, or Kafka for higher durability) that every server instance subscribes to. When a server needs to deliver a message to a user who might be connected to a different instance, it publishes to the shared channel; every instance receives it and forwards to any locally-connected sockets for that user.
 
@@ -177,7 +177,7 @@ class ScalableConnectionManager:
 Other pieces of the scaling picture, worth naming even if you don't code them in an interview:
 
 - **Sticky sessions at the load balancer** so a reconnect from the same client lands on the same instance where useful, though the pub/sub approach above removes the hard requirement for this.
-- **Connection count is the bottleneck, not CPU.** A single process can hold tens of thousands of idle WebSocket connections (each is cheap — a socket + small buffer), so scaling is about connection count and message fan-out volume, not raw compute. Horizontal scaling adds more connection capacity.
+- **Connection count is the bottleneck, not CPU.** A single process can hold tens of thousands of idle WebSocket connections (each is cheap: a socket plus a small buffer), so scaling is about connection count and message fan-out volume, not raw compute. Horizontal scaling adds more connection capacity.
 - **Presence/session state goes in Redis**, not in-process, so any instance can answer "is user X online" and route accordingly.
 
 ## Building a real-time chat app
@@ -219,13 +219,4 @@ async def _broadcast(room_id: str, payload: dict):
         rooms[room_id].discard(ws)
 ```
 
-This single-process version is what you'd write in a 45-minute interview. Say out loud that production requires the Redis pub/sub layer above to fan out across multiple server instances — that's the detail that shows you know where the demo stops and the real system begins.
-
-## Key takeaways
-
-- WebSocket upgrades from a single HTTP handshake into a persistent full-duplex connection — cheap per-message overhead, but the connection itself is stateful.
-- Always wrap the receive loop in `try/except WebSocketDisconnect` and clean up the connection registry in the except block, or you leak dead sockets.
-- WebSocket gives no delivery guarantee — persist anything that must survive a dropped connection, and support "catch up since sequence N" on reconnect.
-- Use ping/pong heartbeats to detect half-dead connections the OS hasn't noticed yet, and bound per-connection send queues to handle slow clients.
-- Scaling past one process requires a shared pub/sub layer (Redis or Kafka) because a socket lives on exactly one server instance — that's the answer interviewers are fishing for.
-- Connection count, not CPU, is usually the WebSocket server's bottleneck.
+This single-process version is what you'd write in a 45-minute interview. Say out loud that production requires the Redis pub/sub layer above to fan out across multiple server instances. That's the detail that shows you know where the demo stops and the real system begins.

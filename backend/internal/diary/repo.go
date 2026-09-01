@@ -112,21 +112,6 @@ func (r *Repo) GetByDate(ctx context.Context, userID, entryDate string) (Entry, 
 	return e, nil
 }
 
-// GetByID returns the entry at id, unscoped by user — used only by the
-// diary_analyze background job, which is handed the entry id via the job
-// payload, not a caller's claims.
-func (r *Repo) GetByID(ctx context.Context, id string) (Entry, error) {
-	row := r.pool.QueryRow(ctx, `SELECT `+entryColumns+` FROM diary_entries WHERE id = $1`, id)
-	e, err := scanEntry(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Entry{}, ErrNotFound
-		}
-		return Entry{}, fmt.Errorf("diary: get by id: %w", err)
-	}
-	return e, nil
-}
-
 // UpdateContent overwrites id's content. Ownership is enforced by the WHERE
 // clause.
 func (r *Repo) UpdateContent(ctx context.Context, userID, id, content string) (Entry, error) {
@@ -147,8 +132,8 @@ func (r *Repo) UpdateContent(ctx context.Context, userID, id, content string) (E
 }
 
 // SaveAnalysis persists the resolved highlight list and the content hash
-// they were computed from, and stamps analyzed_at — called by
-// Service.Analyze once habit/whatnow mutations have already been applied.
+// they were computed from, and stamps analyzed_at — called by Service.Apply
+// once habit/whatnow mutations have already been applied.
 func (r *Repo) SaveAnalysis(ctx context.Context, id string, highlights []Highlight, hash string) error {
 	if highlights == nil {
 		highlights = []Highlight{}

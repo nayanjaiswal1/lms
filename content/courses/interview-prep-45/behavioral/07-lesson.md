@@ -13,7 +13,7 @@ source:
 ---
 ## Why this review matters
 
-You've written five stories in six days. The mistake most candidates make at this point is moving forward without checking whether those stories actually cover the questions they'll get asked. A review day isn't busywork — it's the difference between walking into Week 2 with five stories you *think* are good and five stories you've verified against real interview questions.
+You've written five stories in six days. The mistake most candidates make at this point is moving forward without checking whether those stories actually cover the questions they'll get asked. A review day isn't busywork. It's the difference between walking into Week 2 with five stories you *think* are good and five stories you've verified against real interview questions.
 
 ## The technique: coverage audit, not just re-reading
 
@@ -27,22 +27,16 @@ Don't just reread your stories. Map each one against the question categories int
 | Production failure | "Tell me about a mistake," "Time something broke in production" |
 | Leadership | "Time you took initiative," "Time you led without being asked" |
 
-Now check: which category has **zero** stories? That's your gap, and it's worth noting even though you'll build more stories in Week 2 — don't wait until Day 21 to discover you have nothing for "time you influenced a decision without authority" or "time you dealt with a difficult stakeholder."
+Now check which category has **zero** stories. That's your gap, and it's worth noting even though you'll build more stories in Week 2. Don't wait until Day 21 to discover you have nothing for "time you influenced a decision without authority" or "time you dealt with a difficult stakeholder."
 
 ## Doing the review
 
 For each of your five stories, score it honestly on three things:
 
-1. **Timing** — did you actually say it out loud, and was it under 3 minutes?
-2. **Specificity** — does it have at least one real number or concrete detail, or is it still vague?
-3. **Ownership** — does it use "I" for the actions that were yours, not just "we"?
+1. **Timing**: did you actually say it out loud, and was it under 3 minutes?
+2. **Specificity**: does it have at least one real number or concrete detail, or is it still vague?
+3. **Ownership**: does it use "I" for the actions that were yours, not just "we"?
 
-Any story that fails two of the three isn't done — it's a draft. Flag it for a rewrite pass before Week 2 builds on top of it.
+A story that fails two of the three isn't done. It's a draft. Flag it for a rewrite pass before Week 2 builds on top of it.
 
-## Do / Don't
-
-| Do | Don't |
-|---|---|
-| Score each story against timing, specificity, ownership | Assume writing it once means it's interview-ready |
-| Note which common questions have no story yet | Only notice the gap mid-interview |
-| Rewrite anything that failed the checks | Carry a weak story forward unchanged |
+Nobody's five stories survive this check untouched on the first pass, and that's the point of doing it now instead of the night before an onsite.

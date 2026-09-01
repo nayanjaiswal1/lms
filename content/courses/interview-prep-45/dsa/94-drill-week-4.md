@@ -184,7 +184,8 @@ questions:
         weight: 1
 ---
 
-Week 4 coding drill: the breadth week's three sharpest tools — interval merging
-(sort by start + linear pass), binary search on a rotated array (pick the sorted
-half), and in-place matrix rotation (transpose + reverse rows). Starter code
-handles stdin/stdout; implement only the marked function. Pass 60% to continue.
+Week 4 coding drill covers the breadth week's three sharpest tools: interval merging
+(sort by start, then a linear pass), binary search on a rotated array (pick the
+sorted half), and in-place matrix rotation (transpose, then reverse rows). Starter
+code handles stdin/stdout, so just implement the marked function. Pass 60% to
+continue.

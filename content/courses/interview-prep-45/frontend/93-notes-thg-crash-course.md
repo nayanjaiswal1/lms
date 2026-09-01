@@ -12,7 +12,7 @@ source:
     - interview-prep-notes.md
 ---
 
-**Role:** Frontend Engineer — Logistics & Finance | **R1:** Live Coding (Joshua) | **R2:** Architecture (Simon)
+**Role:** Frontend Engineer, Logistics & Finance. **R1:** Live Coding (Joshua). **R2:** Architecture (Simon).
 
 ---
 
@@ -51,6 +51,7 @@ class MyPromise {
   }
 }
 ```
+Trace what happens on `new MyPromise(executor).then(f)`: the constructor runs `executor` immediately and synchronously, so if the executor calls `resolve` right away, `state` flips to `"fulfilled"` before `.then` is even called. When `.then(f)` runs afterward, it sees `state === "pending"` is false, so it calls `handle()` immediately, which calls `resolve(f(this.value))` on the new promise it returns. If instead the executor is async (say it resolves inside a `setTimeout`), `.then(f)` runs first, finds `state === "pending"`, and just pushes `{ onFulfilled: handle }` onto `callbacks` to wait. When `resolve` eventually fires, it loops over `callbacks` and invokes each `handle`, which is what finally calls `f`.
 
 **bind / call / apply**
 ```js
@@ -65,6 +66,7 @@ Function.prototype.myCall = function (ctx, ...args) {
   return result;
 };
 ```
+`myBind` doesn't call the function at all: it captures `this` (the original function) in a closure and returns a brand-new function that, whenever it's eventually called, applies the original with `ctx` as `this` and both argument lists merged. `myCall` calls immediately instead: it temporarily attaches the function as a property of `ctx` so that calling it as `ctx.fn(...)` makes `this` inside the function equal `ctx`, then deletes that temporary property so it doesn't leak.
 
 **debounce / throttle**
 ```js
@@ -79,6 +81,7 @@ function throttle(fn, limit) {
   };
 }
 ```
+Call the debounced function five times in quick succession and only the last call's timer survives, since every new call clears the previous timer before starting a new one; `fn` only ever runs once, `delay` ms after the last call. Call the throttled function five times in quick succession and only the first call runs `fn` immediately; the rest are dropped until `limit` ms passes and `inThrottle` resets to false.
 
 **Race condition fix (React)**
 ```js
@@ -88,54 +91,55 @@ useEffect(() => {
   return () => controller.abort();
 }, [query]);
 ```
+If `query` changes again before the first fetch resolves, React runs the cleanup function for the old effect before running the new one, which calls `controller.abort()` on the stale request. That aborted fetch's promise rejects instead of resolving, so its `setData` call never fires, and only the response for the latest `query` ever reaches state.
 
 ---
 
-## 2. Live Coding — Practice These 2 Problems (timed, 25 min each)
-1. **Typeahead/autocomplete**: debounce input → cancel stale requests → loading/error/empty states → keyboard nav
-2. **Infinite scroll list**: IntersectionObserver → avoid duplicate fetches → mention virtualization for large data
+## 2. Live Coding: Practice These 2 Problems (timed, 25 min each)
+1. **Typeahead/autocomplete**: debounce the input, cancel stale requests, handle loading/error/empty states, support keyboard navigation.
+2. **Infinite scroll list**: use IntersectionObserver, avoid duplicate fetches, and be ready to mention virtualization for large data sets.
 
-**Behavior rules:** think out loud, ask clarifying questions first, brute-force then optimize, narrate uncovered edge cases (money formatting, timezones — relevant for Finance/Logistics domain).
-
----
-
-## 3. React Performance & State — Talking Points
-- `useMemo`/`useCallback`: only worth it for expensive computation or referential stability (deps arrays, `React.memo` children) — not free.
-- `React.memo`: shallow prop compare; breaks if you pass new object/array literals each render.
-- Reconciliation: fiber diffing + keys match elements between renders; updates are batched.
-- **React Query vs Redux Toolkit**: React Query = server state (cache/refetch/stale-while-revalidate); Redux Toolkit = client/UI state. Have one real example ready of splitting these.
+**Behavior rules:** think out loud, ask clarifying questions first, brute-force then optimize, and narrate edge cases you'd otherwise miss, like money formatting and timezones, since those are directly relevant to a Finance/Logistics domain.
 
 ---
 
-## 4. Architecture Round — Structure Every Answer As:
-**Requirements → Data flow → Component breakdown → State management → Performance → Edge cases**
+## 3. React Performance & State: Talking Points
+- `useMemo`/`useCallback` are only worth it for expensive computation or for referential stability (stable dependency arrays, stable props into a `React.memo` child). They aren't free, so don't reach for them by default.
+- `React.memo` does a shallow prop compare, so it breaks if you pass a new object or array literal on every render.
+- Reconciliation uses fiber diffing plus keys to match elements between renders, and applies the resulting updates in a batch.
+- **React Query vs Redux Toolkit**: React Query owns server state, meaning cache, refetch, and stale-while-revalidate behavior. Redux Toolkit owns client/UI state. Have one real example ready where you split these two apart.
+
+---
+
+## 4. Architecture Round: Structure Every Answer As
+**Requirements, then data flow, then component breakdown, then state management, then performance, then edge cases.**
 
 Prep this ONE in full: *"Design a real-time shipment tracking dashboard."*
-- Data: polling vs WebSocket/SSE for live updates
-- State: React Query for server cache, Redux Toolkit/local state for UI-only
-- Large lists: virtualization, server-side pagination/filtering
-- Optimistic updates for status-change actions, rollback on failure
-- Errors/loading/empty states handled consistently across app
+- Data: decide between polling and WebSocket/SSE for live updates.
+- State: React Query for server cache, Redux Toolkit or local state for UI-only concerns.
+- Large lists: virtualization plus server-side pagination/filtering.
+- Optimistic updates for status-change actions, with rollback on failure.
+- Errors, loading, and empty states handled consistently across the app.
 
 **Know briefly (2-min explanations):**
-- Module Federation — sharing components across independently deployed micro-frontends
-- Code splitting: route-based + `React.lazy`/`Suspense`
-- Money handling: avoid floats, use integers/cents or decimal libs
-- API collaboration: contract-first (OpenAPI), standardized error shapes between FE/BE
+- Module Federation: sharing components across independently deployed micro-frontends.
+- Code splitting: route-based splitting plus `React.lazy`/`Suspense`.
+- Money handling: avoid floats, use integers/cents or a decimal library.
+- API collaboration: contract-first via OpenAPI, with standardized error shapes agreed between frontend and backend.
 
 ---
 
-## 5. Your Stories (rehearse out loud, <90 sec each)
-1. **Coriolis**: a frontend/backend collaboration moment — shaping an API contract or performance fix.
-2. **IntelliFinance AI**: OpenAI integration — handling latency/loading UX, retries, error handling for third-party API failures; React frontend against Django REST Framework; Docker/AWS deployment reasoning.
+## 5. Your Stories (rehearse out loud, under 90 sec each)
+1. **Coriolis**: a frontend/backend collaboration moment, either shaping an API contract or landing a performance fix.
+2. **IntelliFinance AI**: an OpenAI integration story covering latency/loading UX, retries, and error handling for third-party API failures, built as a React frontend against a Django REST Framework backend, with Docker/AWS deployment reasoning.
 
 ---
 
 ## 6. Questions to Ask Simon Harris
-- How is frontend structured across Logistics/Finance — shared library, monorepo, separate deployables?
+- How is frontend structured across Logistics/Finance: shared library, monorepo, or separate deployables?
 - What does the real-time data pipeline look like for logistics tracking?
-- Biggest current frontend scaling/performance challenge?
-- Spec-first process for FE/BE API contracts?
+- What's the biggest current frontend scaling/performance challenge?
+- Is there a spec-first process for FE/BE API contracts?
 
 ---
 
@@ -143,18 +147,18 @@ Prep this ONE in full: *"Design a real-time shipment tracking dashboard."*
 
 | Topic | One-liner |
 |---|---|
-| Closures | Function + captured scope; `let` in loops = per-iteration binding |
-| bind/call/apply | call/apply invoke now (args list vs array), bind returns new fn |
-| Promises | pending/fulfilled/rejected, `.then` via microtask queue |
-| Race conditions | AbortController in useEffect cleanup |
-| Reconciliation | Fiber diff + keys, batched updates |
-| useMemo/useCallback | Only for expensive compute / referential stability |
-| React.memo | Shallow compare, breaks with new literals per render |
-| React Query vs RTK | Server cache vs client/UI state |
-| Module Federation | Share code across independently deployed micro-frontends |
-| Optimistic UI | Update now, rollback on failure |
-| Money | Integers/cents or decimal lib, never raw floats |
-| Virtualization | Render only visible rows (react-window) |
+| Closures | A function plus its captured scope. `let` in a loop gives each iteration its own binding. |
+| bind/call/apply | `call`/`apply` invoke the function right away, differing only in args-as-list vs args-as-array. `bind` returns a new function instead of invoking anything. |
+| Promises | States are pending, fulfilled, rejected. `.then` callbacks run via the microtask queue. |
+| Race conditions | Fix with an `AbortController` created inside `useEffect` and aborted in its cleanup. |
+| Reconciliation | Fiber diffing plus keys, with updates applied in a batch. |
+| useMemo/useCallback | Worth it only for expensive computation or referential stability, not by default. |
+| React.memo | Shallow prop compare. Breaks if you pass a new literal on every render. |
+| React Query vs RTK | Server cache vs client/UI state. |
+| Module Federation | Share code across independently deployed micro-frontends. |
+| Optimistic UI | Update the UI immediately, roll back on failure. |
+| Money | Integers/cents or a decimal library, never raw floats. |
+| Virtualization | Render only visible rows (e.g. react-window). |
 
 ## 12-Hour Time Allocation
-1–2h: JS rebuild | 3–5h: live coding practice | 6–7h: perf/state talking points | 8–9h: architecture answer | 10–11h: stories | 12h: cheat sheet skim + rest
+Hours 1-2: JS rebuild. Hours 3-5: live coding practice. Hours 6-7: perf/state talking points. Hours 8-9: architecture answer. Hours 10-11: stories. Hour 12: cheat sheet skim and rest.

@@ -25,7 +25,7 @@ This distinction is the core of today's material and a direct, frequent intervie
 | Retry / scheduling | None built in | Built in (Day 8) |
 | Best for | Fire-and-forget, sub-second, non-critical (send a log line, fire a metric, warm a cache) | Anything that must complete, is slow, or needs retry/scheduling |
 
-**The interview trap:** using `BackgroundTasks` for something that must not be lost — sending a password-reset email, charging a card, processing an uploaded file the user is waiting on. If the worker process restarts (a deploy, a crash, an autoscaler killing an instance) mid-task, that work simply vanishes with no error surfaced anywhere. `BackgroundTasks` is appropriate for genuinely disposable work only.
+**The interview trap:** using `BackgroundTasks` for something that must not be lost: sending a password-reset email, charging a card, processing an uploaded file the user is waiting on. If the worker process restarts (a deploy, a crash, an autoscaler killing an instance) mid-task, that work simply vanishes with no error surfaced anywhere. `BackgroundTasks` is appropriate for genuinely disposable work only.
 
 ## Offloading heavy computation
 
@@ -77,7 +77,7 @@ async def get_job_status(job_id: str):
     return job
 ```
 
-The shape here — return a job ID immediately, let the client poll a status endpoint — is the standard pattern for any "long-running work behind an HTTP API" question, independent of whether the actual execution is `BackgroundTasks`, Celery, or a cloud job service. Interviewers care more about this shape than the specific execution mechanism.
+The shape here, return a job ID immediately and let the client poll a status endpoint, is the standard pattern for any "long-running work behind an HTTP API" question, independent of whether the actual execution is `BackgroundTasks`, Celery, or a cloud job service. Interviewers care more about this shape than the specific execution mechanism.
 
 ## Making it production-real: swap in Redis for job state
 
@@ -114,7 +114,7 @@ def process_file_durable(job_id: str, contents: bytes) -> None:
         set_job(job_id, {"status": "failed", "error": str(exc)})
 ```
 
-This still runs in-process via `BackgroundTasks` (so it's still lost on a crash mid-task) — the fix for *that* is routing `process_file_durable`'s work through a Celery task instead, which is the natural next step once "must survive a crash" becomes a real requirement. Know both layers: Redis fixes the *state visibility* problem, Celery fixes the *durability* problem, and they're often used together (Celery task writes progress into Redis, FastAPI reads it back for the status endpoint).
+This still runs in-process via `BackgroundTasks` (so it's still lost on a crash mid-task). The fix for *that* is routing `process_file_durable`'s work through a Celery task instead, which is the natural next step once "must survive a crash" becomes a real requirement. Know both layers: Redis fixes the *state visibility* problem, Celery fixes the *durability* problem, and they're often used together (Celery task writes progress into Redis, FastAPI reads it back for the status endpoint).
 
 ## Progress tracking with Celery (the durable version)
 
@@ -154,12 +154,4 @@ async def get_durable_job_status(job_id: str):
     return {"status": result.state.lower()}
 ```
 
-`self.update_state` with a custom `"PROGRESS"` state is Celery's built-in mechanism for exactly this — no need to hand-roll a Redis progress key when you're already on Celery, since the result backend already gives you this for free.
-
-## Key takeaways
-
-- `BackgroundTasks` is in-process and non-durable — use it only for genuinely disposable work; anything that must survive a crash belongs in a real task queue.
-- The "return a job ID, poll a status endpoint" shape is the interview-relevant pattern, independent of the execution mechanism behind it.
-- In-memory job state breaks under multiple app instances or a restart — move it to Redis (or the DB) the moment you need it visible across processes.
-- Celery's `self.update_state(state="PROGRESS", meta={...})` plus `AsyncResult` gives you progress tracking and durability in one mechanism, without hand-rolling a separate store.
-- Know when to reach for which layer: `BackgroundTasks` for fire-and-forget, Redis for shared state visibility, Celery for durability, retry, and scheduling.
+`self.update_state` with a custom `"PROGRESS"` state is Celery's built-in mechanism for exactly this. No need to hand-roll a Redis progress key when you're already on Celery, since the result backend already gives you this for free.

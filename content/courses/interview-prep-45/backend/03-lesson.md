@@ -15,7 +15,7 @@ FastAPI's whole pitch is async performance, and interviewers will push on whethe
 
 ## WSGI vs ASGI
 
-**WSGI** (Web Server Gateway Interface) is synchronous and one-request-per-thread: the server hands your app a request, your app blocks until it produces a response, the thread is unavailable to anyone else in the meantime. Concurrency comes from spinning up more worker processes/threads (Gunicorn workers).
+**WSGI** (Web Server Gateway Interface) is synchronous and one-request-per-thread: the server hands your app a request, your app blocks until it produces a response, and the thread is unavailable to anyone else in the meantime. Concurrency comes from spinning up more worker processes/threads (Gunicorn workers).
 
 **ASGI** (Asynchronous Server Gateway Interface) lets a single worker handle many concurrent connections by cooperatively yielding control during I/O waits. When your code hits an `await` on a DB call or HTTP request, the event loop parks that coroutine and runs another one until the I/O completes.
 
@@ -24,9 +24,9 @@ FastAPI's whole pitch is async performance, and interviewers will push on whethe
 | Concurrency model | OS threads/processes | Single-threaded event loop + coroutines |
 | Scales with | More workers | More concurrent I/O-bound requests per worker |
 | Best for | CPU-bound, simple sync code | I/O-bound: many concurrent DB/HTTP calls |
-| Blocking a sync function | Blocks one worker | Blocks the *entire event loop* — the big footgun |
+| Blocking a sync function | Blocks one worker | Blocks the *entire event loop* (the big footgun) |
 
-**The footgun interviewers probe for:** calling a blocking, synchronous function (e.g. `requests.get()`, `time.sleep()`, a sync DB driver) inside an `async def` route freezes the whole event loop — every other concurrent request on that worker stalls. FastAPI mitigates this for `def` (non-async) routes by running them in a thread pool automatically, but if you write `async def` and then call blocking code inside it, you own the bug.
+**The footgun interviewers probe for:** calling a blocking, synchronous function (e.g. `requests.get()`, `time.sleep()`, a sync DB driver) inside an `async def` route freezes the whole event loop: every other concurrent request on that worker stalls. FastAPI mitigates this for `def` (non-async) routes by running them in a thread pool automatically, but if you write `async def` and then call blocking code inside it, you own the bug.
 
 ```python
 # WRONG — blocks the entire event loop for every concurrent request
@@ -49,7 +49,7 @@ async def async_sleep():
 
 ## async / await, precisely
 
-`async def` defines a **coroutine function** — calling it returns a coroutine object immediately, it does not run the body. `await` is what actually drives the coroutine forward and yields control back to the event loop whenever the awaited thing isn't ready.
+`async def` defines a **coroutine function**: calling it returns a coroutine object immediately; it does not run the body. `await` is what actually drives the coroutine forward and yields control back to the event loop whenever the awaited thing isn't ready.
 
 ```python
 async def fetch_user(user_id: int) -> dict:
@@ -59,7 +59,7 @@ coro = fetch_user(1)      # nothing has run yet — this is a coroutine object
 result = await coro       # NOW the body executes, with control returned to the loop on any internal await
 ```
 
-Interview one-liner: **`await` doesn't block a thread — it suspends the current coroutine and lets the event loop run something else until the awaited operation completes, then resumes exactly where it left off.**
+Interview one-liner: **`await` doesn't block a thread. It suspends the current coroutine and lets the event loop run something else until the awaited operation completes, then resumes exactly where it left off.**
 
 ## Concurrent I/O with asyncio.gather
 
@@ -103,7 +103,7 @@ async def aggregate_endpoint():
 
 Sequential version of the same three calls takes `sum(latency)`; `asyncio.gather` takes `max(latency)` because all three requests are in flight at once. That's the number to quote in an interview: three 200ms calls sequentially is 600ms, concurrently it's ~200ms plus overhead.
 
-**`return_exceptions` matters:** by default (`False`), the first exception raised by any task propagates immediately and cancels the rest is *not* automatic — the other tasks keep running in the background unless you handle cancellation explicitly. Setting `return_exceptions=True` instead collects exceptions as results instead of raising, letting you inspect which calls failed without aborting the whole batch:
+**`return_exceptions` matters:** by default (`False`), the first exception raised by any task propagates immediately, but canceling the other tasks is not automatic. They keep running in the background unless you handle cancellation explicitly. Setting `return_exceptions=True` instead collects exceptions as results rather than raising, so you can inspect which calls failed without aborting the whole batch:
 
 ```python
 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -129,7 +129,7 @@ async def confirm_order(order_id: int, background_tasks: BackgroundTasks):
     return {"status": "confirmed"}
 ```
 
-`BackgroundTasks` runs after the response is returned to the client but still inside the same worker process — it is not durable (a worker crash loses the task) and not distributed. That distinction — durable queue vs in-process background task — is exactly what Day 11 digs into.
+`BackgroundTasks` runs after the response is returned to the client but still inside the same worker process. It is not durable (a worker crash loses the task) and not distributed. That distinction, durable queue versus in-process background task, is exactly what Day 11 digs into.
 
 ## Measuring sync vs async
 
@@ -153,12 +153,3 @@ def timed_sequential(urls):
 ```
 
 Run both against the same set of URLs with artificial latency (e.g. `httpbin.org/delay/1`) and you'll see the sequential version scale linearly with the number of URLs while the concurrent version stays close to the slowest single call.
-
-## Key takeaways
-
-- WSGI = one worker per in-flight request; ASGI = one event loop juggling many coroutines during I/O waits.
-- A blocking call inside `async def` freezes the entire event loop for every concurrent request on that worker — that's the #1 async bug to name in interviews.
-- `await` suspends a coroutine and returns control to the event loop; it does not block an OS thread.
-- `asyncio.gather` turns `sum(latency)` into `max(latency)` for independent I/O calls — quote real numbers when explaining the win.
-- `return_exceptions=True` on `gather` is how you avoid one failed call aborting a whole batch.
-- `BackgroundTasks` is in-process and non-durable — for anything that must survive a worker crash, use a real queue (Celery/RQ), not `BackgroundTasks`.

@@ -16,7 +16,7 @@ Math and geometry problems test something different from graph/DP fluency: caref
 
 ## Prime numbers
 
-A prime is only divisible by 1 and itself. The naive check tests divisors up to `n`, but you only need to check up to `sqrt(n)` — if `n = a * b` with both `a, b > sqrt(n)`, then `a * b > n`, a contradiction, so at least one factor must be ≤ `sqrt(n)`.
+A prime is only divisible by 1 and itself. The naive check tests divisors up to `n`, but you only need to check up to `sqrt(n)`. Here's why: if `n = a * b` with both `a, b > sqrt(n)`, then `a * b > n`, a contradiction, so at least one factor must be ≤ `sqrt(n)`.
 
 ```python
 def is_prime(n: int) -> bool:
@@ -54,9 +54,9 @@ def lcm(a: int, b: int) -> int:
     return a * b // gcd(a, b)
 ```
 
-**Complexity:** GCD is O(log(min(a, b))) — each step roughly halves the smaller number in the worst case (Fibonacci-adjacent numbers are the slow case, still logarithmic). Python's stdlib has `math.gcd` and `math.lcm` directly — mention the built-in, but be ready to derive it from scratch, since implementing Euclid's algorithm is a common ask.
+**Complexity:** GCD is O(log(min(a, b))): each step roughly halves the smaller number in the worst case (Fibonacci-adjacent numbers are the slow case, still logarithmic). Python's stdlib has `math.gcd` and `math.lcm` directly. Mention the built-in, but be ready to derive it from scratch, since implementing Euclid's algorithm is a common ask.
 
-**Pitfall:** compute `a * b // gcd(a, b)`, not `(a * b) // gcd(a, b)` after already reducing — order of operations matters if you're trying to avoid overflow in a fixed-width-integer language (not a Python concern, but interviewers sometimes probe this).
+**Pitfall:** compute `a * b // gcd(a, b)`, not `(a * b) // gcd(a, b)` after already reducing. Order of operations matters if you're trying to avoid overflow in a fixed-width-integer language. Not a Python concern, but interviewers sometimes probe this.
 
 ## Matrix rotation
 
@@ -76,15 +76,15 @@ def rotate_90_clockwise(matrix: list[list[int]]) -> None:
         row.reverse()
 ```
 
-**Why transpose + reverse rows = 90° clockwise:** transposing flips the matrix across its main diagonal (rows become columns); reversing each row then flips left-right, which combined equals a clockwise quarter turn. Trace a 3x3 example by hand once — it's much easier to verify visually than to reason about abstractly.
+Why transpose + reverse rows equals 90° clockwise: transposing flips the matrix across its main diagonal, turning rows into columns. Reversing each row then flips left-right, and the two combined equal a clockwise quarter turn. Trace a 3x3 example by hand once; it's much easier to verify visually than to reason about abstractly.
 
-The alternative **4-way (layer-by-layer) swap** rotates the outer ring, then the next ring inward, cycling four cells at a time (`top -> right -> bottom -> left -> top`). Both achieve O(1) extra space; transpose+reverse is shorter to write correctly under pressure, so default to it unless the interviewer specifically wants the layer-cycling approach.
+The alternative **4-way (layer-by-layer) swap** rotates the outer ring, then the next ring inward, cycling four cells at a time (`top -> right -> bottom -> left -> top`). Both achieve O(1) extra space. Transpose+reverse is shorter to write correctly under pressure, so default to it unless the interviewer specifically wants the layer-cycling approach.
 
 ## Rotate Image
 
 [LeetCode 48](https://leetcode.com/problems/rotate-image/) — Matrix
 
-**Intuition:** Direct application of the transpose + reverse-rows technique from the concept section — this problem *is* that technique, asked standalone.
+**Intuition:** Direct application of the transpose + reverse-rows technique from the concept section. This problem *is* that technique, asked standalone.
 
 **Approach:** Transpose in place, then reverse each row in place.
 
@@ -98,9 +98,9 @@ def rotate(matrix: list[list[int]]) -> None:
         row.reverse()
 ```
 
-**Complexity:** Time O(n²), space O(1) — the whole point of this problem is the in-place constraint.
+**Complexity:** Time O(n²), space O(1); the whole point of this problem is the in-place constraint.
 
-**Common mistakes:** Transposing the full `n x n` range instead of only the upper triangle (`j in range(i+1, n)`) — transposing twice undoes the operation; allocating a new matrix and copying rotated values in, which works but violates the "in place" requirement the problem explicitly tests for.
+**Common mistakes:** Transposing the full `n x n` range instead of only the upper triangle (`j in range(i+1, n)`), which transposes twice and undoes the operation. Also, allocating a new matrix and copying rotated values in, which works but violates the "in place" requirement the problem explicitly tests for.
 
 ## Spiral Matrix
 
@@ -141,15 +141,15 @@ def spiralOrder(matrix: list[list[int]]) -> list[int]:
     return result
 ```
 
-**Complexity:** Time O(rows × cols) — every cell visited exactly once. Space O(1) extra (excluding the output list).
+**Complexity:** Time O(rows × cols), since every cell is visited exactly once. Space O(1) extra (excluding the output list).
 
-**Common mistakes:** Omitting the `if top <= bottom` / `if left <= right` guards before the bottom-row and left-column traversals — without them, a single-row or single-column matrix gets its edge cells double-counted; off-by-one on boundary updates (`top += 1` after finishing the top row, not before).
+**Common mistakes:** Omitting the `if top <= bottom` / `if left <= right` guards before the bottom-row and left-column traversals. Without them, a single-row or single-column matrix gets its edge cells double-counted. Also, off-by-one on boundary updates (`top += 1` after finishing the top row, not before).
 
 ## Count Primes
 
 [LeetCode 204](https://leetcode.com/problems/count-primes/) — Math
 
-**Intuition:** Counting primes below `n` one-by-one with `is_prime` is O(n·sqrt(n)) — too slow for large n. The **Sieve of Eratosthenes** flips this: instead of testing each number for primality, start with everything marked "possibly prime" and cross out multiples of each prime as you find one, in O(n log log n) total.
+**Intuition:** Counting primes below `n` one-by-one with `is_prime` is O(n·sqrt(n)), too slow for large n. The **Sieve of Eratosthenes** flips this: instead of testing each number for primality, start with everything marked "possibly prime" and cross out multiples of each prime as you find one, in O(n log log n) total.
 
 **Approach:** Build a boolean array of size `n`, all `True` initially. Starting from 2, for every number still marked prime, cross out all its multiples. Count remaining `True` entries.
 
@@ -171,11 +171,11 @@ def countPrimes(n: int) -> int:
 
 **Complexity:** Time O(n log log n), space O(n).
 
-**Common mistakes:** Starting the inner crossing-out loop at `2*i` instead of `i*i` — correct either way, but `i*i` is the standard optimization since smaller multiples of `i` were already crossed out by smaller primes; forgetting the outer loop only needs to run up to `sqrt(n)` (any composite number below n has a factor ≤ sqrt(n), so all composites are caught by then).
+**Common mistakes:** Starting the inner crossing-out loop at `2*i` instead of `i*i` is correct either way, but `i*i` is the standard optimization since smaller multiples of `i` were already crossed out by smaller primes. Also, forgetting the outer loop only needs to run up to `sqrt(n)`: any composite number below n has a factor ≤ sqrt(n), so all composites are caught by then.
 
 ## Sieve of Eratosthenes (implementation)
 
-Referenced as a standalone implementation task — the full sieve, returning the list of primes rather than just a count.
+Referenced as a standalone implementation task: the full sieve, returning the list of primes rather than just a count.
 
 ```python
 def sieve_of_eratosthenes(n: int) -> list[int]:
@@ -198,7 +198,7 @@ def sieve_of_eratosthenes(n: int) -> list[int]:
 
 [LeetCode 50](https://leetcode.com/problems/powx-n/) — Math — Binary exponentiation
 
-**Intuition:** Computing `x^n` by multiplying `x` by itself `n` times is O(n). **Binary (fast) exponentiation** exploits `x^n = (x^(n//2))^2` (times an extra `x` if `n` is odd) to halve the problem size at every step, giving O(log n).
+**Intuition:** Computing `x^n` by multiplying `x` by itself `n` times is O(n). **Binary (fast) exponentiation** exploits `x^n = (x^(n//2))^2`, times an extra `x` if `n` is odd, to halve the problem size at every step, giving O(log n).
 
 **Approach:** Recursively (or iteratively) square the base and halve the exponent. Handle negative exponents by inverting at the start (`x^-n = 1 / x^n`).
 
@@ -218,14 +218,8 @@ def myPow(x: float, n: int) -> float:
     return result
 ```
 
-**Complexity:** Time O(log n), space O(1) (iterative version — the recursive version is O(log n) time but O(log n) space for the call stack).
+**Complexity:** Time O(log n), space O(1) for the iterative version; the recursive version is O(log n) time but O(log n) space for the call stack.
 
-**Common mistakes:** Naive O(n) repeated multiplication (correct but too slow — always mention the fast-exponentiation follow-up even if you start with the naive version); mishandling `n = 0` (any `x^0 = 1`, including `0^0` by this problem's convention) or negative `n` (invert `x` and negate `n` *before* the loop, not after); floating-point precision drift on very large `n` — acceptable for LeetCode's tolerance, but worth naming as a real-world caveat.
+**Common mistakes:** Naive O(n) repeated multiplication is correct but too slow, so always mention the fast-exponentiation follow-up even if you start with the naive version. Mishandling `n = 0` (any `x^0 = 1`, including `0^0` by this problem's convention) or negative `n` (invert `x` and negate `n` *before* the loop, not after) is another common slip. Floating-point precision drift on very large `n` is acceptable for LeetCode's tolerance, but worth naming as a real-world caveat.
 
-## Key takeaways
-
-- Primality testing only needs divisors up to `sqrt(n)`; for testing *many* numbers, the Sieve of Eratosthenes (O(n log log n) total) beats calling `is_prime` repeatedly.
-- GCD via the Euclidean algorithm is O(log(min(a,b))); LCM derives from GCD as `a * b // gcd(a, b)`.
-- In-place 90° matrix rotation = transpose + reverse each row — trace a small example by hand to internalize why, rather than memorizing it as a rule.
-- Spiral traversal is four shrinking boundaries (`top`, `bottom`, `left`, `right`) walked in a fixed order, with guards to prevent double-counting on single-row/column remnants.
-- Binary exponentiation turns O(n) power computation into O(log n) by squaring the base and halving the exponent each step — a general technique that reappears in matrix exponentiation and modular arithmetic problems.
+Binary exponentiation isn't a one-off trick. The same squaring-and-halving idea reappears whenever you need to raise something to a large power fast: matrix exponentiation for linear recurrences, modular exponentiation in cryptography. Once you've internalized it here, you'll recognize it everywhere.

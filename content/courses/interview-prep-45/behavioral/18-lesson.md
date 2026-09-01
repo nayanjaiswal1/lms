@@ -17,16 +17,16 @@ This is the most direct test of technical grit: can you describe getting genuine
 
 ## The framework: STAR, weighted on the actual struggle
 
-- **Situation** — the technical problem, with enough detail that the difficulty is credible.
-- **Task** — what you were responsible for delivering despite the obstacle.
-- **Action** — the sequence of things you tried, including the ones that didn't work. This is where most candidates under-explain — the dead ends are what make the story credible.
-- **Result** — how you solved it, and what changed in how you approach similar problems now.
+- **Situation**: the technical problem, with enough detail that the difficulty is credible.
+- **Task**: what you were responsible for delivering despite the obstacle.
+- **Action**: the sequence of things you tried, including the ones that didn't work. This is where most candidates under-explain: the dead ends are what make the story credible.
+- **Result**: how you solved it, and what changed in how you approach similar problems now.
 
 ## Worked example
 
-> **Situation**: "I was migrating a service from a single Postgres instance to a sharded setup, and after cutover, a specific class of queries that joined across two tables started timing out intermittently — maybe 1 in 200 requests. **Task**: I owned the migration, and it was blocking the rest of the team from shipping features against the new schema. **Action**: My first theory was connection pool exhaustion, so I bumped pool size — no change. Then I suspected lock contention, added query logging — nothing obvious. It took two days of adding timing instrumentation around every step before I found it: the shard-routing layer was occasionally computing the wrong shard key for a join when one of the joined rows had been recently moved during a rebalance, causing a cross-shard fallback that used a much slower query path. **Result**: I fixed the routing layer to check for in-flight rebalances before computing shard keys, added an alert on cross-shard fallback rate, and documented the rebalance race condition for anyone building sharded features on that system. It's the reason I now always add fallback-path monitoring for any routing logic, even if the fallback 'shouldn't' trigger often."
+> **Situation**: "I was migrating a service from a single Postgres instance to a sharded setup, and after cutover, a specific class of queries that joined across two tables started timing out intermittently, maybe 1 in 200 requests. **Task**: I owned the migration, and it was blocking the rest of the team from shipping features against the new schema. **Action**: My first theory was connection pool exhaustion, so I bumped pool size. No change. Then I suspected lock contention and added query logging. Nothing obvious. It took two days of adding timing instrumentation around every step before I found it: the shard-routing layer was occasionally computing the wrong shard key for a join when one of the joined rows had been recently moved during a rebalance, causing a cross-shard fallback that used a much slower query path. **Result**: I fixed the routing layer to check for in-flight rebalances before computing shard keys, added an alert on cross-shard fallback rate, and documented the rebalance race condition for anyone building sharded features on that system. It's the reason I now always add fallback-path monitoring for any routing logic, even if the fallback 'shouldn't' trigger often."
 
-The two wrong theories before the real cause are what make this credible — a story where the first guess is correct reads as too easy.
+The two wrong theories before the real cause are what make this credible. A story where the first guess is correct reads as too easy.
 
 ## Your template
 

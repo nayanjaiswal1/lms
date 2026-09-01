@@ -11,11 +11,11 @@ estimated_minutes: 135
 source:
     - 45-day-interview-roadmap.md
 ---
-Today pushes DP past the easy "fill a 1D table" problems into 2D string-matching DP, where the transition itself is the hard part. Regex and wildcard matching show up in senior interviews specifically because a wrong transition looks plausible but fails on edge cases — interviewers use them to see if you actually understand the state, not just pattern-matched a template.
+Today pushes DP past the easy "fill a 1D table" problems into 2D string-matching DP, where the transition itself is the hard part. Regex and wildcard matching show up in senior interviews specifically because a wrong transition looks plausible but fails on edge cases. Interviewers use them to check whether you actually understand the state, rather than having pattern-matched a template.
 
 ## State reduction
 
-State reduction means shrinking `dp[i][j][k]...` down to the smallest set of indices that fully describes a subproblem. Every DP problem starts with too much information in your head ("position in string, position in pattern, whether we're mid-star, how many stars used so far") — the skill is proving most of that is redundant.
+State reduction means shrinking `dp[i][j][k]...` down to the smallest set of indices that fully describes a subproblem. Every DP problem starts with too much information in your head ("position in string, position in pattern, whether we're mid-star, how many stars used so far"). The skill is proving most of that is redundant.
 
 For string matching problems, the state is almost always `(i, j)` = "does `s[:i]` match `p[:j]`?" You don't need to track *how* it matched, only *whether* it did, because the sub-problem going forward only depends on that boolean plus the remaining suffixes. That's the reduction: from "the full matching history" down to "one bit per `(i, j)` pair."
 
@@ -31,7 +31,7 @@ Rule of thumb: if two different "histories" lead to the same future behavior, th
 
 ## Space optimization
 
-Once you have a correct `dp[i][j]` table, look at the transition. If `dp[i][j]` only ever reads from row `i-1` (and maybe row `i`), you don't need the full 2D table — two 1D rows (`prev`, `curr`) suffice, or even one row updated carefully in place.
+Once you have a correct `dp[i][j]` table, look at the transition. If `dp[i][j]` only ever reads from row `i-1` (and maybe row `i`), you don't need the full 2D table: two 1D rows (`prev`, `curr`) suffice, or even one row updated carefully in place.
 
 ```python
 # 2D table: O(m*n) space
@@ -47,19 +47,19 @@ for i in range(1, m + 1):
     prev, curr = curr, prev
 ```
 
-This matters in interviews for two reasons: it shows you understand the *dependency structure* of your own recurrence (not just that you wrote one), and it's a real production concern — a 10,000 x 10,000 DP table is 100M cells; a rolling array is 10,000 cells.
+This matters in interviews for two reasons: it shows you understand the *dependency structure* of your own recurrence, rather than merely having written one, and it's a real production concern. A 10,000 x 10,000 DP table is 100M cells; a rolling array is 10,000 cells.
 
 Pitfall: when you roll the array, any base-case reset (`dp[i][0]`) has to happen explicitly inside the loop, since you're reusing the same memory. Forgetting this is the #1 bug in rolling-array code.
 
 ## Complex transitions
 
-The wildcard/regex family has "look-behind" transitions — `p[j-1] == '*'` doesn't just compare one pair of characters, it branches into "match zero of the preceding element" vs. "match one more of the current string." Both branches must be OR'd together. This is the part candidates get wrong under pressure: they handle the straightforward character-match case fine, then panic on `*` and either miss a branch or transpose `i`/`j`.
+The wildcard/regex family has "look-behind" transitions. `p[j-1] == '*'` involves more than comparing one pair of characters: it branches into "match zero of the preceding element" versus "match one more of the current string," and both branches must be OR'd together. This is the part candidates get wrong under pressure: they handle the straightforward character-match case fine, then panic on `*` and either miss a branch or transpose `i`/`j`.
 
-The reliable process: write the recurrence in English first ("if the pattern char is `*`, either the string char is unused entirely — the `*` matched zero times — or the string char is consumed and we stay on the same pattern position because `*` can match more"), then transcribe directly. Do not try to code the branch logic without saying it out loud first.
+The reliable process: write the recurrence in English first ("if the pattern char is `*`, either the string char is unused entirely, since the `*` matched zero times, or the string char is consumed and we stay on the same pattern position because `*` can match more"), then transcribe directly. Do not try to code the branch logic without saying it out loud first.
 
 ### Regular Expression Matching
 
-[LeetCode 10 — Regular Expression Matching](https://leetcode.com/problems/regular-expression-matching/) — DP — Hard
+[LeetCode 10 · Regular Expression Matching](https://leetcode.com/problems/regular-expression-matching/) · DP · Hard
 
 **Intuition:** `.` matches any single character; `*` matches zero or more of the *preceding* element (not the character before `*` literally being repeated, but as a pattern unit). Because `*` looks back one pattern character, `dp[i][j]` must consider `p[j-2]` whenever `p[j-1] == '*'`.
 
@@ -95,13 +95,13 @@ def is_match(s: str, p: str) -> bool:
 
 **Complexity:** O(m*n) time, O(m*n) space (can be rolled to O(n), see Space optimization above).
 
-**Common mistakes:** forgetting the `dp[0][j]` base case for patterns that can match empty string; indexing `p[j-2]` when `j < 2` (guaranteed safe here because `*` can never be the first pattern character in a valid regex, but double-check input assumptions in an interview); confusing "zero occurrences" (`dp[i][j-2]`) with "one occurrence" (`dp[i-1][j]`) — both must be considered, not just one.
+**Common mistakes:** forgetting the `dp[0][j]` base case for patterns that can match empty string; indexing `p[j-2]` when `j < 2` (guaranteed safe here because `*` can never be the first pattern character in a valid regex, but double-check input assumptions in an interview); confusing "zero occurrences" (`dp[i][j-2]`) with "one occurrence" (`dp[i-1][j]`), when in fact both must be considered.
 
 ### Wildcard Matching
 
-[LeetCode 44 — Wildcard Matching](https://leetcode.com/problems/wildcard-matching/) — DP — Hard
+[LeetCode 44 · Wildcard Matching](https://leetcode.com/problems/wildcard-matching/) · DP · Hard
 
-**Intuition:** `?` matches exactly one character, `*` matches any sequence (including empty) of characters. This is simpler than regex because `*` doesn't look back at a preceding element — it's a free-standing wildcard.
+**Intuition:** `?` matches exactly one character, `*` matches any sequence (including empty) of characters. This is simpler than regex because `*` doesn't look back at a preceding element: it's a free-standing wildcard.
 
 **Approach:** `dp[i][j]` = "does `s[:i]` match `p[:j]`". When `p[j-1] == '*'`, it can either match zero characters of `s` (`dp[i][j-1]`) or consume one more character of `s` and stay matched against the same `*` (`dp[i-1][j]`). This is the required O(m*n) time, O(n) space version.
 
@@ -130,17 +130,17 @@ def is_match(s: str, p: str) -> bool:
     return prev[n]
 ```
 
-**Complexity:** O(m*n) time, O(n) space — this is the target profile called out in today's implementation task.
+**Complexity:** O(m*n) time, O(n) space. This is the target profile called out in today's implementation task.
 
-**Common mistakes:** conflating `*`'s "zero or more characters" semantics here with regex's "zero or more of preceding element" from Problem 1 above — they look similar but the transition is different (no look-back); forgetting to reset `curr[0] = False` each row when rolling the array; off-by-one errors when consecutive `*` characters appear in the pattern (they should collapse to the same matching power as one `*`, and the DP handles this correctly without needing to pre-collapse the pattern, but it's worth knowing the DP already handles it).
+**Common mistakes:** conflating `*`'s "zero or more characters" semantics here with regex's "zero or more of preceding element" from Problem 1 above (they look similar, but the transition differs since there's no look-back); forgetting to reset `curr[0] = False` each row when rolling the array; assuming consecutive `*` characters need special handling, when the DP already collapses them to the same matching power as one `*` with no pre-processing required.
 
 ### Minimum Path Sum
 
-[LeetCode 64 — Minimum Path Sum](https://leetcode.com/problems/minimum-path-sum/) — DP — 2D
+[LeetCode 64 · Minimum Path Sum](https://leetcode.com/problems/minimum-path-sum/) · DP · 2D
 
-**Intuition:** Only two moves are allowed — right or down — so the minimum cost to reach `(i, j)` is the cell's own cost plus the cheaper of "coming from above" or "coming from the left."
+**Intuition:** Only two moves are allowed, right or down, so the minimum cost to reach `(i, j)` is the cell's own cost plus the cheaper of "coming from above" or "coming from the left."
 
-**Approach:** In-place DP directly on the input grid avoids extra space entirely — this is the "state reduction" idea applied aggressively: you don't even need a separate table, because each cell's dependency (`up`, `left`) is already computed and won't be needed again.
+**Approach:** In-place DP directly on the input grid avoids extra space entirely. It's the "state reduction" idea applied aggressively: you don't even need a separate table, because each cell's dependency (`up`, `left`) is already computed and won't be needed again.
 
 ```python
 def min_path_sum(grid: list[list[int]]) -> int:
@@ -158,17 +158,17 @@ def min_path_sum(grid: list[list[int]]) -> int:
     return grid[m - 1][n - 1]
 ```
 
-**Complexity:** O(m*n) time, O(1) extra space (mutates input in place — mention this trade-off out loud in an interview, since mutating input isn't always acceptable).
+**Complexity:** O(m*n) time, O(1) extra space (mutates input in place, so mention this trade-off out loud in an interview, since mutating input isn't always acceptable).
 
 **Common mistakes:** forgetting the first row/column special cases (they only have one possible direction of approach, not two); mutating the grid when the interviewer expects the input preserved (ask, or allocate a copy if unsure).
 
 ### Longest Palindromic Substring
 
-[LeetCode 5 — Longest Palindromic Substring](https://leetcode.com/problems/longest-palindromic-substring/) — DP
+[LeetCode 5 · Longest Palindromic Substring](https://leetcode.com/problems/longest-palindromic-substring/) · DP
 
 **Intuition:** A substring `s[i:j]` is a palindrome if `s[i] == s[j-1]` and the inner substring `s[i+1:j-1]` is also a palindrome. That's a valid DP, but the expand-around-center technique gets the same O(n^2) time with O(1) space, which is the version to lead with in an interview.
 
-**Approach (expand around center):** Every palindrome has a center — either a single character (odd length) or a gap between two characters (even length). Try all `2n - 1` centers and expand outward while characters match.
+**Approach (expand around center):** Every palindrome has a center, either a single character (odd length) or a gap between two characters (even length). Try all `2n - 1` centers and expand outward while characters match.
 
 ```python
 def longest_palindrome(s: str) -> str:
@@ -194,15 +194,8 @@ def longest_palindrome(s: str) -> str:
     return s[start:end + 1]
 ```
 
-**Complexity:** O(n^2) time, O(1) space. The classic DP table version is O(n^2) time and O(n^2) space — worth knowing both so you can explain the trade-off if asked.
+**Complexity:** O(n^2) time, O(1) space. The classic DP table version is O(n^2) time and O(n^2) space, worth knowing both so you can explain the trade-off if asked.
 
-**Common mistakes:** forgetting the even-length center case (a gap, not a character) — this silently misses palindromes like `"abba"`; off-by-one in the return of `expand` (the loop exits one step past the actual palindrome boundary, so you must correct by ±1).
+**Common mistakes:** forgetting the even-length center case (a gap, not a character), which silently misses palindromes like `"abba"`; off-by-one in the return of `expand` (the loop exits one step past the actual palindrome boundary, so you must correct by ±1).
 
-## Key takeaways
-
-- State reduction: keep only the information the *future* recurrence needs, not the full history.
-- Space optimization from O(m*n) to O(n) is safe whenever a row only depends on the row directly above it — reset base cells explicitly when rolling.
-- `*` means different things in regex (look-back at the preceding pattern element) vs. wildcard matching (free-standing, no look-back) — don't let the two transitions blur together.
-- In-place DP on the input (Minimum Path Sum) is the ultimate space optimization, but confirm mutating input is acceptable.
-- Expand-around-center beats table-based DP for palindrome problems when O(1) space matters.
-- Say the recurrence in English before writing code — this is what prevents dropped branches under interview pressure.
+The two `*` semantics in this lesson are easy to blur together once you've seen both: regex's `*` looks back at the preceding pattern element, wildcard's `*` is free-standing and never looks back. If you catch yourself writing the same transition for both problems, stop and re-derive it from the English description first.

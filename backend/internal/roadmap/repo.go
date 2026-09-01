@@ -216,12 +216,17 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 		}
 	}
 
-	// Collect all module IDs to fetch completion status in one query
+	// Collect all module IDs to fetch completion status in one query.
+	// Skip blank IDs: module_key is a uuid column, and a malformed/legacy
+	// structure entry with "" would fail the ANY($2) cast for every module
+	// in the roadmap, not just the bad one.
 	var moduleKeys []string
 	for _, p := range s.Phases {
 		for _, m := range p.Milestones {
 			for _, mod := range m.Modules {
-				moduleKeys = append(moduleKeys, mod.ID)
+				if mod.ID != "" {
+					moduleKeys = append(moduleKeys, mod.ID)
+				}
 			}
 		}
 	}
@@ -262,7 +267,7 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 		for _, p := range s.Phases {
 			for _, m := range p.Milestones {
 				for _, mod := range m.Modules {
-					if mod.ResourceType != nil && mod.ResourceID != nil {
+					if mod.ResourceType != nil && mod.ResourceID != nil && *mod.ResourceID != "" {
 						resKey := *mod.ResourceType + ":" + *mod.ResourceID
 						resourceSet[resKey] = resource{rType: *mod.ResourceType, rID: *mod.ResourceID}
 					}

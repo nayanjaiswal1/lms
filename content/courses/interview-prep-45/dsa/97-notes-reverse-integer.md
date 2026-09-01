@@ -12,9 +12,9 @@ source:
     - interview-prep-notes.md
 ---
 
-[Reverse Integer (LeetCode 7)](https://leetcode.com/problems/reverse-integer/) — reverse the digits of a 32-bit signed integer, returning `0` if the result overflows `[-2³¹, 2³¹ - 1]`. A good pairing with Day 25's `Pow(x, n)` — both are "the naive version works, the interview is about the overflow/edge-case handling."
+[Reverse Integer (LeetCode 7)](https://leetcode.com/problems/reverse-integer/) asks you to reverse the digits of a 32-bit signed integer, returning `0` if the result overflows `[-2³¹, 2³¹ - 1]`. It's the same shape of problem as `Pow(x, n)`-style overflow questions elsewhere in this course: in both, the naive version works fine, and the interview is really about the overflow and edge-case handling.
 
-## Approach 1 — string conversion (works, but not the answer they want)
+## Approach 1: string conversion (works, but not the answer they want)
 
 ```python
 def reverse(x: int) -> int:
@@ -23,9 +23,9 @@ def reverse(x: int) -> int:
     return rev if -(2**31) <= rev <= 2**31 - 1 else 0
 ```
 
-Correct, but relies on string allocation and Python's unbounded integers doing the overflow check *after the fact* — most interviewers push you toward the math approach next.
+Correct, but it relies on string allocation, and it only catches overflow *after the fact* because Python integers are unbounded. Most interviewers will push you toward the math approach next.
 
-## Approach 2 — digit extraction with overflow check before it happens (the expected answer)
+## Approach 2: digit extraction with an overflow check before it happens (the expected answer)
 
 ```python
 def reverse(x: int) -> int:
@@ -47,18 +47,12 @@ def reverse(x: int) -> int:
     return sign * result
 ```
 
-**Why check before, not after:** in a language with fixed-width integers (Java/C++), `result * 10 + digit` overflows *during* the computation — by the time you could check the result, it's already wrong (undefined behavior in C++, wraps in Java). Checking `result > INT_MAX // 10` (would overflow on the next multiply) beforehand avoids ever computing the overflowed value.
+**Why check before, not after:** in a language with fixed-width integers (Java/C++), `result * 10 + digit` overflows *during* the computation. By the time you could check the result, it's already wrong: undefined behavior in C++, silent wraparound in Java. Checking `result > INT_MAX // 10` beforehand, since that condition means the next multiply would overflow, avoids ever computing the bad value.
 
-**Why `digit > 7` specifically:** `2^31 - 1 = 2147483647` — its last digit is `7`. If `result == INT_MAX // 10` exactly, the only digit that keeps the result in bounds is `≤ 7`; anything higher overflows.
+**Why `digit > 7` specifically:** `2^31 - 1 = 2147483647`, and its last digit is `7`. If `result == INT_MAX // 10` exactly, the only digit that keeps the result in bounds is `≤ 7`; anything higher overflows.
 
-**Complexity:** Time O(log₁₀ x) — one iteration per digit. Space O(1).
+**Complexity:** Time O(log₁₀ x), one iteration per digit. Space O(1).
 
 ## The portability point (worth naming explicitly)
 
-Python integers are unbounded, so a Python-only solution could reverse first and clamp after (`rev = sign * int(str(abs(x))[::-1]); return rev if bounds else 0`) and it would still be "correct" for this problem — but say out loud that this wouldn't compile the same way in Java/C++, where the multiply-add itself overflows before you get a chance to check anything. Approach 2's before-the-fact check is the one that translates directly to a fixed-width-integer language, which is usually what the interviewer is actually testing.
-
-## Key takeaways
-
-- Check for overflow *before* the operation that would cause it (`result > INT_MAX // 10`), not after — the after-the-fact check only works because Python integers don't actually overflow.
-- The `digit > 7` boundary comes directly from `INT_MAX`'s last digit (`2147483647`).
-- Naming the string-vs-math tradeoff, and why the math version is the one that generalizes to fixed-width-integer languages, is the signal interviewers are listening for.
+Python integers are unbounded, so a Python-only solution could reverse first and clamp after (`rev = sign * int(str(abs(x))[::-1]); return rev if bounds else 0`) and it would still be "correct" for this problem. Say that out loud in the interview, though, along with the fact that it wouldn't hold up in Java or C++, where the multiply-add itself overflows before you get a chance to check anything. Approach 2's before-the-fact check is the one that translates directly to a fixed-width-integer language, and that's usually what the interviewer is actually testing.

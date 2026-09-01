@@ -15,7 +15,7 @@ source:
 
 ## Why interviewers ask this
 
-Chat systems force you to reason about real-time bidirectional connections (not just request/response), message ordering and delivery guarantees, and offline handling — three things most CRUD-style designs never touch. It's one of the best questions for separating candidates who've only built REST APIs from those who understand stateful connection management at scale.
+Chat systems force you to reason about real-time bidirectional connections (not just request/response), message ordering and delivery guarantees, and offline handling: three things most CRUD-style designs never touch. It's one of the best questions for separating candidates who've only built REST APIs from those who understand stateful connection management at scale.
 
 ## Requirements
 
@@ -27,8 +27,8 @@ Chat systems force you to reason about real-time bidirectional connections (not 
 - Typing indicators, online/last-seen status (stretch).
 
 ### Non-functional
-- **Real-time delivery** — sub-second latency for online recipients.
-- **Offline support** — messages persist and deliver reliably once the recipient reconnects; nothing is lost.
+- **Real-time delivery.** Sub-second latency for online recipients.
+- **Offline support.** Messages persist and deliver reliably once the recipient reconnects; nothing is lost.
 - Message ordering within a conversation must be consistent for all participants.
 - High availability, horizontal scalability to hundreds of millions of concurrent connections (WhatsApp scale).
 
@@ -37,9 +37,9 @@ Chat systems force you to reason about real-time bidirectional connections (not 
 Assume 500M daily active users, each sending ~40 messages/day.
 
 - **Messages/day:** 500M × 40 = 20B messages/day.
-- **Messages/sec average:** 20,000,000,000 / 86,400 ≈ **231,000/sec**; peak (evenings, holidays) 3-5x ≈ ~1M/sec.
+- **Messages/sec average:** 20,000,000,000 / 86,400 ≈ **231,000/sec**; peak (evenings, holidays) 3-5x, so roughly 1M/sec.
 - **Concurrent WebSocket connections:** if ~150M users are online at any moment, and one server handles ~50,000-100,000 concurrent connections (typical for a tuned WebSocket server), you need 150,000,000 / 75,000 ≈ **2,000 connection-handling servers**.
-- **Storage:** message ~100 bytes (metadata) to a few KB (with small media refs) × 20B/day ≈ 2-4 TB/day of message data — this is why chat systems typically shard message storage aggressively and often move older messages to cold storage.
+- **Storage:** a message runs from ~100 bytes (metadata) to a few KB (with small media refs) × 20B/day ≈ 2-4 TB/day of message data. This is why chat systems typically shard message storage aggressively and often move older messages to cold storage.
 
 ## API / protocol sketch
 
@@ -92,7 +92,7 @@ message_status
   PRIMARY KEY (message_id, user_id)
 ```
 
-Use a **Snowflake-style ID** (timestamp bits + shard bits + sequence bits) for `message_id` so IDs are globally unique, roughly time-sortable, and generated without a central coordinator — this directly gives you ordering without needing a separate "sequence number" concept.
+Use a **Snowflake-style ID** (timestamp bits + shard bits + sequence bits) for `message_id` so IDs are globally unique, roughly time-sortable, and generated without a central coordinator. This directly gives you ordering without needing a separate "sequence number" concept.
 
 ## High-level architecture
 
@@ -109,40 +109,44 @@ Client C --WS--> Gateway Server C -/                v
                                             Push Notification Service (offline recipients, via APNs/FCM)
 ```
 
-- Each client holds a persistent **WebSocket connection** to one of many stateless-ish **gateway servers**.
-- A **connection registry** (Redis: `user_id -> gateway_server_id`) lets any server know where to route a message for a given recipient — since sender and recipient may be connected to different gateway servers.
-- Messages flow: client sends over its WebSocket → gateway server publishes to a **message broker** (Kafka, partitioned by `conversation_id` for ordering) → a persistence worker writes to the DB → the router looks up the recipient's gateway server (via the registry) and pushes the message down their WebSocket if online, or triggers a push notification if offline.
+Each client holds a persistent **WebSocket connection** to one of many stateless-ish **gateway servers**. A **connection registry** (Redis: `user_id -> gateway_server_id`) lets any server know where to route a message for a given recipient, since sender and recipient may be connected to different gateway servers.
+
+Messages flow like this: the client sends over its WebSocket, the gateway server publishes to a **message broker** (Kafka, partitioned by `conversation_id` for ordering), a persistence worker writes to the DB, and the router looks up the recipient's gateway server (via the registry) and pushes the message down their WebSocket if online, or triggers a push notification if offline.
 
 ## Component deep dives
 
 ### WebSocket connection handling
 
-- Gateway servers are **stateful** (hold live connections) but the routing/business logic behind them is stateless — this is the key architectural distinction from a normal REST service.
-- On connect, the server authenticates (JWT), registers `user_id -> server_id` in Redis, and subscribes to that user's inbound message stream.
-- On disconnect (including ungraceful — client crash, network drop), a heartbeat/ping-pong mechanism detects staleness and cleans up the registry entry after a timeout.
-- Use **sticky sessions are not required** here — because routing goes through the shared registry, a reconnect can land on any gateway server.
+Gateway servers are **stateful** (they hold live connections) but the routing and business logic behind them is stateless. That's the key architectural distinction from a normal REST service.
+
+On connect, the server authenticates (JWT), registers `user_id -> server_id` in Redis, and subscribes to that user's inbound message stream. On disconnect, including ungraceful ones (client crash, network drop), a heartbeat/ping-pong mechanism detects staleness and cleans up the registry entry after a timeout.
+
+Sticky sessions aren't required here, because routing goes through the shared registry, so a reconnect can land on any gateway server.
 
 ### Message ordering and consistency
 
-- Ordering is enforced **per conversation**, not globally — partition the Kafka topic by `conversation_id` so all messages in one conversation are processed by the same partition/consumer in order.
-- Client-side: each client tags outgoing messages with a `client_msg_id` for de-duplication (in case of retry) and displays messages sorted by the server-assigned time-sortable `message_id`.
-- For groups, "everyone sees the same order" is achieved by the server being the single source of truth for order — clients never locally reorder based on receipt time.
+Ordering is enforced **per conversation**, not globally. Partition the Kafka topic by `conversation_id` so all messages in one conversation are processed by the same partition/consumer in order.
+
+On the client side, each client tags outgoing messages with a `client_msg_id` for de-duplication (in case of retry) and displays messages sorted by the server-assigned time-sortable `message_id`. For groups, "everyone sees the same order" is achieved by the server being the single source of truth for order; clients never locally reorder based on receipt time.
 
 ### Message delivery guarantees
 
 Three-state delivery model, same as WhatsApp's checkmarks:
-1. **Sent** — server has durably persisted the message (write to DB acknowledged).
-2. **Delivered** — recipient's device has received it (their gateway server pushed it down an active WebSocket, or a background sync confirmed receipt).
-3. **Read** — recipient's client sent a `read_receipt` event.
+1. **Sent.** Server has durably persisted the message (write to DB acknowledged).
+2. **Delivered.** Recipient's device has received it (their gateway server pushed it down an active WebSocket, or a background sync confirmed receipt).
+3. **Read.** Recipient's client sent a `read_receipt` event.
 
-Offline delivery: if the recipient isn't connected to any gateway server, the message stays in the DB with status `sent`; a push notification (FCM/APNs) alerts the device; on next app open/reconnect, the client fetches undelivered messages via `GET /conversations/{id}/messages` and the server marks them `delivered` once fetched.
+Offline delivery: if the recipient isn't connected to any gateway server, the message stays in the DB with status `sent`. A push notification (FCM/APNs) alerts the device, and on next app open or reconnect, the client fetches undelivered messages via `GET /conversations/{id}/messages` and the server marks them `delivered` once fetched.
 
 ## Scaling & trade-offs
 
-- **At-least-once delivery + client-side dedupe** (via `client_msg_id`) is more practical than trying for exactly-once across a WebSocket that can drop mid-flight.
-- **Fan-out for groups:** for large groups, fan-out-on-write (push to every member's queue immediately) works for small/medium groups; extremely large groups (broadcast channels) may switch to fan-out-on-read to avoid write amplification — same trade-off as the social feed problem (Day 9/10).
-- **Sharding messages by `conversation_id`** keeps all of one conversation's history co-located for fast pagination, at the cost of potential hot shards for extremely active group chats.
-- **End-to-end encryption** (mentioned for completeness): if required, the server only routes opaque encrypted blobs and never sees plaintext — this doesn't change the architecture above, just what's inside the `body` field.
+**At-least-once delivery plus client-side dedupe** (via `client_msg_id`) is more practical than trying for exactly-once across a WebSocket that can drop mid-flight.
+
+**Fan-out for groups:** for large groups, fan-out-on-write (push to every member's queue immediately) works for small/medium groups. Extremely large groups (broadcast channels) may switch to fan-out-on-read to avoid write amplification, the same trade-off as the social feed problem (Day 9/10).
+
+**Sharding messages by `conversation_id`** keeps all of one conversation's history co-located for fast pagination, at the cost of potential hot shards for extremely active group chats.
+
+**End-to-end encryption**, mentioned for completeness: if required, the server only routes opaque encrypted blobs and never sees plaintext. This doesn't change the architecture above, just what's inside the `body` field.
 
 ## Likely follow-up questions — with answers
 
@@ -150,14 +154,7 @@ Offline delivery: if the recipient isn't connected to any gateway server, the me
 A: A shared presence/connection registry (Redis) maps `user_id -> gateway_server_id`. The sender's server looks up the recipient's server and forwards the message to it (via internal RPC or the message broker), which then pushes it down the recipient's live WebSocket.
 
 **Q: What happens if a user is connected but the push to their WebSocket fails mid-flight?**
-A: The message is already durably persisted before any push attempt, so nothing is lost — it just remains in `sent` status. The client's periodic reconnect/sync logic (or a retry from the gateway) will re-attempt delivery, and the client's dedupe on `message_id` prevents duplicates from showing twice.
+A: The message is already durably persisted before any push attempt, so nothing is lost; it just remains in `sent` status. The client's periodic reconnect/sync logic (or a retry from the gateway) will re-attempt delivery, and the client's dedupe on `message_id` prevents duplicates from showing twice.
 
 **Q: How would you scale to support group chats with 100,000+ members (broadcast-style)?**
-A: Switch that conversation type to fan-out-on-read: don't write a copy of the message to every member's queue; instead store it once and have each member's client pull recent messages for the channel, similar to how large Slack/Discord channels or Twitter fan-out for celebrity accounts works (see Day 10).
-
-## Key takeaways
-- Gateway servers hold stateful WebSocket connections; a shared registry (Redis) decouples "who's connected where" from message routing logic.
-- Order is enforced per-conversation via partitioned message brokers, not globally.
-- Sent/delivered/read is a three-state model — persistence gives you "sent" durability independent of whether the recipient is online.
-- At-least-once delivery plus client-side `client_msg_id` dedupe is the realistic guarantee, not exactly-once.
-- Large group broadcasts need fan-out-on-read instead of fan-out-on-write to avoid write amplification.
+A: Switch that conversation type to fan-out-on-read. Don't write a copy of the message to every member's queue; instead store it once and have each member's client pull recent messages for the channel, similar to how large Slack/Discord channels or Twitter fan-out for celebrity accounts works (see Day 10).

@@ -171,5 +171,5 @@ questions:
 ---
 
 Day 1 coding drill: solve the three Arrays & Hashing problems from the roadmap in the
-in-browser editor. Each problem reads from stdin and prints to stdout — the starter code
+in-browser editor. Each problem reads from stdin and prints to stdout; the starter code
 already handles I/O, so implement only the marked function. Pass at least 60% to continue.

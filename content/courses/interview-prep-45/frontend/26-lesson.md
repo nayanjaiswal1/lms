@@ -12,17 +12,17 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Internationalization (i18n) questions test whether you understand that "translate the strings" is the easy 10% — the hard parts are pluralization rules, locale-aware formatting, RTL layout, and not shipping every locale's translations to every user. Today covers the standard approaches, react-intl, the `Intl` browser API, and RTL support.
+Internationalization (i18n) questions test whether you understand that "translate the strings" is the easy 10%. The hard parts are pluralization rules, locale-aware formatting, RTL layout, and not shipping every locale's translations to every user. Today covers the standard approaches, react-intl, the `Intl` browser API, and RTL support.
 
 ## i18n approaches: the landscape
 
 | Approach | How it works | Trade-off |
 |---|---|---|
-| Key-based lookup (react-intl/FormatJS, react-i18next) | `t("welcome.message")` maps to a translated string per locale | Requires discipline to keep keys/translations in sync; tooling can catch missing keys |
-| ICU MessageFormat | Rich format strings inside the value handle plurals/gender/interpolation | More powerful pluralization, steeper syntax to learn |
-| Native `Intl` API | Browser-built-in for numbers, dates, lists, relative time, pluralization rules | No translation string management — only formatting, not fluent phrases |
+| Key-based lookup (react-intl/FormatJS, react-i18next) | `t("welcome.message")` maps to a translated string per locale | Requires discipline to keep keys and translations in sync, though tooling can catch missing keys |
+| ICU MessageFormat | Rich format strings inside the value handle plurals, gender, and interpolation | More powerful pluralization, with steeper syntax to learn |
+| Native `Intl` API | Browser-built-in for numbers, dates, lists, relative time, pluralization rules | No translation string management, only formatting, not fluent phrases |
 
-Most real apps combine the first and third: a translation library for UI copy, and the native `Intl` API for locale-aware formatting of dates/numbers/currency, because `Intl` already knows every locale's formatting rules and shipping your own would be redundant and error-prone.
+Most real apps combine the first and third: a translation library for UI copy, and the native `Intl` API for locale-aware formatting of dates, numbers, and currency. `Intl` already knows every locale's formatting rules, so shipping your own would be redundant and error-prone.
 
 ## react-intl (FormatJS) setup
 
@@ -82,11 +82,11 @@ function Dashboard() {
 }
 ```
 
-The `{count, plural, =0 {...} one {...} other {...}}` syntax is **ICU MessageFormat** — the key reason to reach for react-intl instead of a simpler key-value library. Pluralization is not "singular vs. plural" in most languages; some languages have distinct forms for one, two, few, many, and other. ICU's plural categories (`zero`, `one`, `two`, `few`, `many`, `other`) map onto whichever subset a given locale actually uses, applying the correct grammatical rule for that language automatically via `Intl.PluralRules` under the hood.
+The `{count, plural, =0 {...} one {...} other {...}}` syntax is **ICU MessageFormat**, the key reason to reach for react-intl instead of a simpler key-value library. Pluralization is not "singular vs. plural" in most languages; some languages have distinct forms for one, two, few, many, and other. ICU's plural categories (`zero`, `one`, `two`, `few`, `many`, `other`) map onto whichever subset a given locale actually uses, applying the correct grammatical rule for that language automatically via `Intl.PluralRules` under the hood.
 
 ## Translation loading
 
-Shipping every locale's translation bundle to every user is wasted bytes — a user viewing the English site doesn't need the French, German, and Japanese bundles downloaded too. Load translations lazily, per-locale, the same way you'd code-split a route.
+Shipping every locale's translation bundle to every user is wasted bytes: a user viewing the English site doesn't need the French, German, and Japanese bundles downloaded too. Load translations lazily, per locale, the same way you'd code-split a route.
 
 ```tsx
 import { lazy, Suspense, useState, useEffect } from "react";
@@ -121,11 +121,11 @@ function detectLocale(): string {
 }
 ```
 
-In a framework like Next.js, this is handled by the routing layer itself (`[locale]` dynamic segments, `next-intl`), which resolves the locale from the URL path or `Accept-Language` header on the server and only serves that locale's bundle — avoiding a client-side fetch waterfall entirely for the initial page load.
+In a framework like Next.js, this is handled by the routing layer itself (`[locale]` dynamic segments, `next-intl`), which resolves the locale from the URL path or `Accept-Language` header on the server and only serves that locale's bundle, avoiding a client-side fetch waterfall entirely for the initial page load.
 
 ## Date/number formatting with `Intl`
 
-The native `Intl` API is the correct tool for formatting — never hand-roll date/currency formatting, because locale rules (decimal separators, thousands separators, date field order, currency symbol placement) vary in ways that are easy to get wrong and expensive to maintain yourself.
+The native `Intl` API is the correct tool for formatting. Never hand-roll date or currency formatting, because locale rules (decimal separators, thousands separators, date field order, currency symbol placement) vary in ways that are easy to get wrong and expensive to maintain yourself.
 
 ```ts
 // Numbers — note the different separators
@@ -175,15 +175,15 @@ react-intl's `FormattedDate`, `FormattedNumber`, and `FormattedRelativeTime` com
 
 ## RTL support
 
-Roughly a dozen widely-used languages (Arabic, Hebrew, Persian, Urdu) are right-to-left, and getting RTL right is more than mirroring text — the whole layout direction flips.
+Roughly a dozen widely-used languages (Arabic, Hebrew, Persian, Urdu) are right-to-left, and getting RTL right involves more than mirroring text: the whole layout direction flips.
 
 ```html
 <html dir="rtl" lang="ar">
 ```
 
-Setting `dir="rtl"` on `<html>` (or any container) flips: text alignment, flexbox/grid item order (without changing your JSX), the direction `margin`/`padding`/`border` shorthand apply visually, and native form control alignment — all automatically, because these are direction-aware by the CSS spec, not something you write JS to flip.
+Setting `dir="rtl"` on `<html>` (or any container) flips text alignment, flexbox/grid item order (without changing your JSX), the direction `margin`/`padding`/`border` shorthand apply visually, and native form control alignment. All of this happens automatically, because these are direction-aware by the CSS spec, not something you write JS to flip.
 
-**The CSS mistake to avoid:** physical properties (`margin-left`, `padding-right`, `text-align: left`) don't flip with `dir="rtl"` — they stay pinned to the physical left/right regardless of reading direction, which breaks the layout in RTL locales. **Logical properties** flip automatically because they're defined relative to text flow direction, not physical screen sides:
+**The CSS mistake to avoid:** physical properties (`margin-left`, `padding-right`, `text-align: left`) don't flip with `dir="rtl"`. They stay pinned to the physical left/right regardless of reading direction, which breaks the layout in RTL locales. **Logical properties** flip automatically because they're defined relative to text flow direction, not physical screen sides:
 
 ```css
 /* Bad: pinned to physical left, breaks visually in RTL */
@@ -209,7 +209,7 @@ Setting `dir="rtl"` on `<html>` (or any container) flips: text alignment, flexbo
 | `text-align: left/right` | `text-align: start/end` |
 | `border-left` / `border-right` | `border-inline-start` / `border-inline-end` |
 
-Icons that convey direction (a "back" arrow, a "next" chevron) also need to mirror in RTL — this is not automatic and needs explicit handling, typically a CSS rule scoped to `[dir="rtl"]`:
+Icons that convey direction (a "back" arrow, a "next" chevron) also need to mirror in RTL. This is not automatic and needs explicit handling, typically a CSS rule scoped to `[dir="rtl"]`:
 
 ```css
 [dir="rtl"] .back-arrow-icon {
@@ -219,17 +219,8 @@ Icons that convey direction (a "back" arrow, a "next" chevron) also need to mirr
 
 ## Locale-specific formatting beyond dates and numbers
 
-A few details interviewers use to check depth beyond the obvious date/currency examples:
+A few details interviewers use to check depth beyond the obvious date/currency examples. Pluralization is not binary in many languages: Russian and Polish have multiple plural forms depending on the exact count, and `Intl.PluralRules`/ICU MessageFormat handle this correctly where a manual `count === 1 ? "item" : "items"` check does not generalize. Name order and formality vary too: some locales expect family name before given name, or require formal and informal address forms that don't exist in English at all. Text expansion is a layout concern worth naming explicitly: German and Finnish UI strings routinely run 30-40% longer than the English original, and layouts hardcoded to English string lengths break visibly when translated, so fixed-width buttons and labels should be designed to tolerate that, not to fit English exactly.
 
-- **Pluralization is not binary** in many languages — Russian and Polish have multiple plural forms depending on the exact count; `Intl.PluralRules`/ICU MessageFormat handle this correctly, manual `count === 1 ? "item" : "items"` logic does not generalize.
-- **Name order and formality** — some locales expect family name before given name, or require formal/informal address forms that don't exist in English at all.
-- **Text expansion** — German and Finnish UI strings routinely run 30-40% longer than the English original; layouts hardcoded to English string lengths break visibly when translated. Design fixed-width buttons/labels to tolerate this, not to fit English exactly.
+## Where this actually breaks in production
 
-## Key takeaways
-
-- Combine a translation library (react-intl/FormatJS) for UI copy with the native `Intl` API for date/number/currency/list formatting — don't hand-roll formatting logic the browser already implements correctly per locale.
-- ICU MessageFormat's plural categories (`zero`, `one`, `two`, `few`, `many`, `other`) handle real pluralization rules that a simple `count === 1` ternary cannot generalize across languages.
-- Load translation bundles lazily per active locale (dynamic `import()`, or server-resolved in a framework like Next.js) — never ship every locale's strings to every user.
-- Memoize `Intl` formatter instances (`useMemo`) — construction has real cost and they're commonly created in render loops (list of prices, list of dates).
-- `dir="rtl"` on `<html>` automatically flips flex/grid order and direction-aware CSS; CSS logical properties (`margin-inline-start`, `text-align: start`) are what make that flip correct — physical properties (`margin-left`) stay pinned regardless.
-- Directional icons need explicit RTL mirroring; translated text needs layout tolerance for expansion (German/Finnish routinely 30-40% longer than English).
+The failures that show up in real apps rarely come from missing a translation key. They come from formatting logic that was hardcoded for one locale and never revisited: a price built with string concatenation instead of `Intl.NumberFormat`, a plural check that only handles English, or a fixed-width button that clips German text. Treating `Intl` and ICU pluralization as the default from day one, rather than a retrofit once a second locale ships, is what separates code that scales to new markets from code that needs a rewrite to get there.

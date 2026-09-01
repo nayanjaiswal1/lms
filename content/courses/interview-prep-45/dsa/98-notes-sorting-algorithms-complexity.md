@@ -12,7 +12,7 @@ source:
     - interview-prep-notes.md
 ---
 
-No day in this course dedicates a lesson to sorting itself — it shows up as a tool (`nums.sort()` before two pointers, day 2; a heap for the top-k pattern, day 11) rather than something explained on its own. This note is the reference for when an interviewer asks about sorting directly: complexity, stability, and why `Quick Sort` is O(n log n) average but O(n²) worst case.
+No lesson in this course dedicates itself to sorting alone. It shows up as a supporting tool instead: calling `nums.sort()` before running a two-pointer sweep on a sorted array, or reaching for a heap in the top-k frequency pattern. This note fills that gap for when an interviewer asks about sorting directly: complexity, stability, and why `Quick Sort` is O(n log n) average but O(n²) worst case.
 
 ## Comparison-based sorts
 
@@ -30,20 +30,30 @@ No day in this course dedicates a lesson to sorting itself — it shows up as a 
 | Algorithm | Best / Average / Worst | Space | Constraint |
 |---|---|---|---|
 | Counting Sort | O(n + k) | O(k) | Integers in a known, bounded range `k` |
-| Radix Sort | O(nk) | O(n + k) | Fixed-width integers/strings — sorts digit-by-digit |
+| Radix Sort | O(nk) | O(n + k) | Fixed-width integers/strings; sorts digit-by-digit |
 | Bucket Sort | O(n + k) best/avg, O(n²) worst | O(n + k) | Uniformly distributed input |
 
-These beat the O(n log n) comparison-sort lower bound because they don't compare elements pairwise — they exploit structure in the values themselves (a bounded range, fixed digit count), which is exactly why they don't generalize to arbitrary comparable objects.
+These beat the O(n log n) comparison-sort lower bound because they don't compare elements pairwise. They exploit structure in the values themselves, a bounded range or a fixed digit count, which is exactly why they don't generalize to arbitrary comparable objects.
 
 ## Why Quick Sort's worst case is O(n²)
 
-Quick Sort partitions around a pivot; if the pivot is always the min or max of the current subarray (e.g. always picking the first element on already-sorted input), one side of the partition is empty and the other has everything else — recursion depth becomes O(n) instead of O(log n), giving O(n²) total. Fix: randomize the pivot choice (or use median-of-three), which makes the worst case astronomically unlikely rather than triggered by a common input shape like "already sorted."
+Quick Sort partitions around a pivot. If the pivot is always the min or max of the current subarray (always picking the first element on already-sorted input, say), one side of the partition is empty and the other has everything else. Recursion depth becomes O(n) instead of O(log n), giving O(n²) total.
 
-## Merge Sort vs Quick Sort vs Heap Sort — the interview framing
+Trace it on the already-sorted array `[1, 2, 3, 4, 5]` with "always pick the first element" as the pivot rule: pivot `1` partitions into `[]` and `[2, 3, 4, 5]`, pivot `2` partitions into `[]` and `[3, 4, 5]`, and so on. Every partition peels off exactly one element instead of splitting the array roughly in half, so the recursion is 5 levels deep instead of the ~2-3 levels a balanced split would give. On an array of size n this becomes n levels deep, each doing O(n) partition work, hence O(n²) total. The fix is to randomize the pivot choice (or use median-of-three), which makes this worst case astronomically unlikely rather than triggered by a common input shape like "already sorted."
 
-- **Merge Sort** — the only stable O(n log n) option here; needs O(n) auxiliary space for the merge step. Preferred when stability matters (e.g., sorting by a secondary key after already sorting by a primary one) or for linked lists (merging is O(1) extra space there, no array shifting).
-- **Quick Sort** — in-place (O(log n) space for the recursion stack, not O(n)), typically fastest in practice due to cache locality, but not stable and has the O(n²) worst case above.
-- **Heap Sort** — O(1) space, no worst-case blowup, but poor cache locality (jumps around the array via heap indices) makes it slower in practice than Quick Sort despite the same O(n log n) bound — the classic "same Big-O, different real-world speed" example.
+## Merge Sort vs. Quick Sort vs. Heap Sort: the interview framing
+
+- **Merge Sort**: the only stable O(n log n) option here.
+  - It needs O(n) auxiliary space for the merge step.
+  - Preferred when stability matters, for example sorting by a secondary key after already sorting by a primary one.
+  - Also preferred for linked lists, where merging costs O(1) extra space instead of the array shifting Quick Sort or Heap Sort would need.
+- **Quick Sort**: in-place, meaning O(log n) space for the recursion stack rather than O(n).
+  - Typically fastest in practice thanks to cache locality.
+  - Not stable.
+  - Carries the O(n²) worst case traced above.
+- **Heap Sort**: O(1) space and no worst-case blowup.
+  - Poor cache locality, since it jumps around the array via heap indices, makes it slower in practice than Quick Sort despite the same O(n log n) bound.
+  - It's the classic "same Big-O, different real-world speed" example.
 
 ## Python's built-in sort: Timsort
 
@@ -52,14 +62,14 @@ arr.sort()      # in-place, O(n log n) worst case, O(n) space
 sorted(arr)     # returns a new list, same complexity
 ```
 
-Timsort is a hybrid of Merge Sort and Insertion Sort: it finds already-sorted runs in the input, uses Insertion Sort to extend/create small runs efficiently, then merges runs with Merge Sort's approach. It's stable and O(n log n) worst case — Insertion Sort's O(n) best case on nearly-sorted data is exactly why it's used for the small-run part, not as a fallback for the whole sort.
+Timsort is a hybrid of Merge Sort and Insertion Sort: it finds already-sorted runs in the input, uses Insertion Sort to extend or create small runs efficiently, then merges those runs with Merge Sort's approach. It's stable and O(n log n) worst case. Insertion Sort's O(n) best case on nearly-sorted data is exactly why it handles the small-run part, not because it's a fallback for the whole sort.
 
 ## O(log n) vs O(n log n)
 
-Day 4 covers *why* binary search is O(log n) (halving the search space each step) in depth. The generalization worth stating explicitly:
+Binary search is O(log n) because it halves the search space each step, a mechanism covered in depth elsewhere in this course. The generalization worth stating explicitly:
 
-- **O(log n)** — the algorithm itself halves the problem each step. Binary search, BST lookup, a single heap push/pop.
-- **O(n log n)** — an O(log n)-per-element operation repeated for all n elements. Merge Sort does O(log n) merge levels, each processing all n elements — that's `n` × `log n`, not `log n` alone. Same shape in Heap Sort: n heap operations, each O(log n).
+- **O(log n)**: the algorithm itself halves the problem each step. Binary search, BST lookup, a single heap push/pop.
+- **O(n log n)**: an O(log n)-per-element operation repeated for all n elements. Merge Sort does O(log n) merge levels, each processing all n elements, which is `n` × `log n`, not `log n` alone. Heap Sort has the same shape: n heap operations, each O(log n).
 
 | n | log n | n log n |
 |---|---|---|
@@ -68,11 +78,3 @@ Day 4 covers *why* binary search is O(log n) (halving the search space each step
 | 1,000,000 | ~20 | ~20,000,000 |
 
 One-line version: O(log n) = divide and ignore half; O(n log n) = divide and do O(log n) work for every one of the n elements.
-
-## Key takeaways
-
-- No comparison-based sort beats O(n log n) worst case — Counting/Radix/Bucket sort beat that bound only because they exploit a constraint on the input values (bounded range, fixed digit width), not because they're smarter comparisons.
-- Merge Sort is the only stable O(n log n) sort here; Quick Sort and Heap Sort both trade stability for better space or practical speed.
-- Quick Sort's O(n²) worst case comes from consistently unbalanced partitions (e.g. always-first-element pivot on sorted input) — randomized pivot selection is the standard fix.
-- Python's `sort()`/`sorted()` is Timsort — Merge Sort's structure with Insertion Sort handling small/already-sorted runs, stable, O(n log n) worst case.
-- O(n log n) is not a distinct kind of growth from O(log n) — it's O(log n) work multiplied across n elements.

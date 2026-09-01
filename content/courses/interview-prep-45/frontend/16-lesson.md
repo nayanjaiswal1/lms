@@ -11,23 +11,23 @@ estimated_minutes: 30
 source:
     - 45-day-interview-roadmap.md
 ---
-Real-time features — chat, live dashboards, collaborative editors, notifications — are a staple "build a feature" interview prompt, and the follow-up questions almost always probe whether you understand *why* WebSockets exist versus polling, and what happens when the connection drops. Today covers the transport options, a production-shaped React WebSocket hook with reconnection, and the scaling questions that come after the live-coding portion.
+Real-time features (chat, live dashboards, collaborative editors, notifications) are a staple "build a feature" interview prompt, and the follow-up questions almost always probe whether you understand why WebSockets exist versus polling, and what happens when the connection drops. Today covers the transport options, a production-shaped React WebSocket hook with reconnection, and the scaling questions that come after the live-coding portion.
 
 ## WebSocket vs HTTP long-polling vs SSE
 
 | | How it works | Direction | Overhead | Use when |
 |---|---|---|---|---|
-| **Short polling** | Client requests every N seconds | Client → Server only | High — most requests return nothing new | Simple, infrequent updates, no real-time requirement |
-| **Long polling** | Client requests, server holds the connection open until there's data or a timeout, client immediately re-requests | Client → Server only | Medium — fewer wasted round trips, but a new TCP/TLS handshake per cycle | Need near-real-time without WebSocket infra (proxies/firewalls that block upgrades) |
-| **SSE (Server-Sent Events)** | Single long-lived HTTP connection, server streams `text/event-stream` | Server → Client only | Low — one connection, built-in auto-reconnect | Live feeds, notifications, stock tickers — anything one-directional |
-| **WebSocket** | HTTP upgrade to a persistent full-duplex TCP connection | Bidirectional | Lowest per-message overhead — no HTTP headers per message after the handshake | Chat, collaborative editing, multiplayer — anything needing client → server pushes too |
+| **Short polling** | Client requests every N seconds | Client → Server only | High: most requests return nothing new | Simple, infrequent updates, no real-time requirement |
+| **Long polling** | Client requests, server holds the connection open until there's data or a timeout, client immediately re-requests | Client → Server only | Medium: fewer wasted round trips, but a new TCP/TLS handshake per cycle | Need near-real-time without WebSocket infra (proxies/firewalls that block upgrades) |
+| **SSE (Server-Sent Events)** | Single long-lived HTTP connection, server streams `text/event-stream` | Server → Client only | Low: one connection, built-in auto-reconnect | Live feeds, notifications, stock tickers, anything one-directional |
+| **WebSocket** | HTTP upgrade to a persistent full-duplex TCP connection | Bidirectional | Lowest per-message overhead, no HTTP headers per message after the handshake | Chat, collaborative editing, multiplayer, anything needing client to server pushes too |
 
 **Interview question: "Why not just use WebSockets for everything?"**
-SSE is simpler to operate — it's plain HTTP, so it works through existing proxies/load balancers/CDNs without special configuration, has automatic reconnection built into `EventSource`, and text-based, so it's easy to debug. If the client never needs to push data mid-stream (a dashboard, a notification feed), SSE is less infrastructure for the same result. Reach for WebSockets when the client also needs to send, or you need lower per-message latency at high message rates.
+SSE is simpler to operate. It's plain HTTP, so it works through existing proxies, load balancers, and CDNs without special configuration, has automatic reconnection built into `EventSource`, and is text-based, so it's easy to debug. If the client never needs to push data mid-stream (a dashboard, a notification feed), SSE is less infrastructure for the same result. Reach for WebSockets when the client also needs to send, or you need lower per-message latency at high message rates.
 
 ## A React WebSocket component
 
-The naive approach — opening a `WebSocket` in `useEffect` — breaks the moment the network blips. A real implementation needs reconnection, cleanup, and a way to expose connection state to the UI.
+The naive approach, opening a `WebSocket` in `useEffect`, breaks the moment the network blips. A real implementation needs reconnection, cleanup, and a way to expose connection state to the UI.
 
 ```tsx
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -131,9 +131,9 @@ function ChatRoom({ roomId }: { roomId: string }) {
 
 Key details an interviewer will probe:
 
-- **`onMessageRef`** avoids stale closures without forcing `connect` to be recreated (and the socket to be torn down and rebuilt) every time the parent re-renders with a new inline `onMessage`.
-- **Exponential backoff with a cap** (`1000 * 2^attempt`, capped at `maxReconnectDelayMs`) prevents a reconnect storm from hammering the server when it's down — this is the single most common thing missing from candidate implementations.
-- **Close code 1000** is normal closure; anything else (abnormal closure, server restart, network drop) should trigger a reconnect. Not distinguishing these means you reconnect forever even after an intentional `ws.close()`, or you silently fail to recover from an actual drop.
+- **`onMessageRef`** avoids stale closures without forcing `connect` to be recreated, and the socket torn down and rebuilt, every time the parent re-renders with a new inline `onMessage`.
+- **Exponential backoff with a cap** (`1000 * 2^attempt`, capped at `maxReconnectDelayMs`) prevents a reconnect storm from hammering the server when it's down. This is the single most common thing missing from candidate implementations.
+- **Close code 1000** is normal closure; anything else (abnormal closure, server restart, network drop) should trigger a reconnect. Not distinguishing these means you either reconnect forever even after an intentional `ws.close()`, or silently fail to recover from an actual drop.
 - **Cleanup in the `useEffect` return** closes the socket with code 1000 on unmount so the server doesn't treat the tab closing as an abnormal disconnect requiring cleanup logic.
 
 ## Heartbeat / ping-pong
@@ -148,11 +148,11 @@ useEffect(() => {
 }, [state, send]);
 ```
 
-The server replies with `pong`; if no pong arrives within a timeout, the client treats the connection as dead and reconnects proactively instead of waiting for the OS-level timeout, which can take minutes.
+The server replies with `pong`. If no pong arrives within a timeout, the client treats the connection as dead and reconnects proactively instead of waiting for the OS-level timeout, which can take minutes.
 
 ## Message acknowledgment
 
-At-most-once delivery (fire and forget) loses messages on a drop mid-send. For chat/collaboration you typically want at-least-once with client-side dedup:
+At-most-once delivery (fire and forget) loses messages on a drop mid-send. For chat or collaboration you typically want at-least-once with client-side dedup:
 
 ```tsx
 interface OutgoingMessage {
@@ -168,19 +168,11 @@ The client tags every outgoing message with a UUID, keeps it in a "pending" map 
 
 ## Scaling WebSocket servers
 
-A single WebSocket server holds an open TCP connection per client, so it can't be scaled the way stateless HTTP servers are (round-robin behind a load balancer with no shared state) — a message for user B has to reach whichever server instance holds user B's socket.
+A single WebSocket server holds an open TCP connection per client, so it can't be scaled the way stateless HTTP servers are, with round-robin behind a load balancer and no shared state. A message for user B has to reach whichever server instance holds user B's socket.
 
 - **Sticky sessions** at the load balancer route a client to the same server for the life of the connection, but that only solves connection stability, not cross-server messaging.
-- **Pub/sub fan-out** (Redis Pub/Sub, NATS, Kafka) — each server instance subscribes to a shared channel; when server A needs to notify user B connected to server C, it publishes to the channel and server C delivers it over its local socket. This is the standard pattern.
-- **Connection limits per instance** — each OS process has a file-descriptor ceiling per open socket, so horizontal scaling (more instances) is required well before CPU becomes the bottleneck.
+- **Pub/sub fan-out** (Redis Pub/Sub, NATS, Kafka) is the standard pattern: each server instance subscribes to a shared channel, and when server A needs to notify user B connected to server C, it publishes to the channel and server C delivers it over its local socket.
+- **Connection limits per instance** matter too. Each OS process has a file-descriptor ceiling per open socket, so horizontal scaling (more instances) is required well before CPU becomes the bottleneck.
 
 **Interview question: "Server A needs to tell a user connected to Server B that they have a new message. How?"**
-Server A doesn't hold that socket, so it can't write to it directly. It publishes the event to a shared pub/sub layer (Redis Pub/Sub is the usual answer); every server instance subscribes and checks whether the target user's socket is local; the instance that owns the connection (Server B) delivers it. This decouples "which server received the event" from "which server holds the socket."
-
-## Key takeaways
-
-- SSE is the right default for one-directional streams (simpler infra, auto-reconnect); WebSocket is for bidirectional, low-latency needs.
-- A production WebSocket hook needs exponential backoff reconnection, a ref for the latest callback to avoid stale closures, and to distinguish close code 1000 from abnormal closures.
-- Heartbeats (ping/pong) detect half-dead TCP connections that never fire a close event.
-- At-least-once delivery needs client-generated idempotency keys and server-side dedup, not "just send it."
-- WebSocket servers are stateful — scaling requires sticky sessions plus a pub/sub layer (Redis, NATS) so any instance can reach a socket held by another instance.
+Server A doesn't hold that socket, so it can't write to it directly. It publishes the event to a shared pub/sub layer, Redis Pub/Sub being the usual answer; every server instance subscribes and checks whether the target user's socket is local; the instance that owns the connection (Server B) delivers it. This decouples which server received the event from which server holds the socket.

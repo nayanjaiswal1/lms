@@ -38,11 +38,43 @@ const maxTagLength = 24
 // builtinMetadataFields is the fixed field set for each non-custom,
 // non-generic habit type — the server-side mirror of frontend/lib/habits/
 // type-schemas.ts, so metadata is validated even if a client sends something
-// the UI would never produce.
-var builtinMetadataFields = map[HabitType][]string{
-	HabitTypeGym:     {"workout_type", "exercise", "sets", "duration_minutes", "intensity", "notes"},
-	HabitTypeSleep:   {"slept_at", "woke_up", "quality", "night_wakes", "awake_minutes", "night_notes"},
-	HabitTypeReading: {"book", "pages", "takeaway"},
+// the UI would never produce. Kind drives how a caller outside this package
+// (the diary AI-analysis prompt) should format an extracted value.
+var builtinMetadataFields = map[HabitType][]CustomField{
+	HabitTypeGym: {
+		{Key: "workout_type", Label: "Workout Type", Kind: CustomFieldText},
+		{Key: "exercise", Label: "Exercise Name", Kind: CustomFieldText},
+		{Key: "sets", Label: "Sets", Kind: CustomFieldNumber},
+		{Key: "duration_minutes", Label: "Duration (mins)", Kind: CustomFieldNumber},
+		{Key: "intensity", Label: "Intensity (1-5)", Kind: CustomFieldNumber},
+		{Key: "notes", Label: "Performance Notes", Kind: CustomFieldTextarea},
+	},
+	HabitTypeSleep: {
+		{Key: "slept_at", Label: "Slept At", Kind: CustomFieldTime},
+		{Key: "woke_up", Label: "Woke Up", Kind: CustomFieldTime},
+		{Key: "quality", Label: "Quality (0-10)", Kind: CustomFieldSlider},
+		{Key: "night_wakes", Label: "Times Woken at Night", Kind: CustomFieldNumber},
+		{Key: "awake_minutes", Label: "Minutes Awake Before Sleeping Again", Kind: CustomFieldNumber},
+		{Key: "night_notes", Label: "Night Notes", Kind: CustomFieldTextarea},
+	},
+	HabitTypeReading: {
+		{Key: "book", Label: "Book / Topic", Kind: CustomFieldText},
+		{Key: "pages", Label: "Pages Read", Kind: CustomFieldNumber},
+		{Key: "takeaway", Label: "Key Takeaway", Kind: CustomFieldTextarea},
+	},
+}
+
+// FieldsForHabit returns h's structured entry-form field set — the built-in
+// schema for gym/sleep/reading, h.CustomFields for a custom habit, or nil for
+// generic (no form). Exported so the diary AI-analysis prompt (which needs
+// each habit's fields, not just its name/cadence, to extract structured
+// details like a sleep habit's start/end time) can build its own vocabulary
+// without duplicating this schema.
+func FieldsForHabit(h Habit) []CustomField {
+	if h.Type == HabitTypeCustom {
+		return h.CustomFields
+	}
+	return builtinMetadataFields[h.Type]
 }
 
 type Service struct {
@@ -151,20 +183,13 @@ func validateCustomFields(fields []CustomField) error {
 // permits, or ErrHabitHasNoFields if it has none (generic, or an unknown
 // stored type).
 func allowedMetadataKeys(h Habit) (map[string]bool, error) {
-	if h.Type == HabitTypeCustom {
-		keys := make(map[string]bool, len(h.CustomFields))
-		for _, f := range h.CustomFields {
-			keys[f.Key] = true
-		}
-		return keys, nil
-	}
-	fields, ok := builtinMetadataFields[h.Type]
-	if !ok {
+	fields := FieldsForHabit(h)
+	if len(fields) == 0 {
 		return nil, ErrHabitHasNoFields
 	}
 	keys := make(map[string]bool, len(fields))
 	for _, f := range fields {
-		keys[f] = true
+		keys[f.Key] = true
 	}
 	return keys, nil
 }

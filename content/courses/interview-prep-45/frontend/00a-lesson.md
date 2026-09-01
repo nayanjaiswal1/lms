@@ -11,7 +11,7 @@ estimated_minutes: 25
 source:
     - interview-prep-notes.md
 ---
-"Implement `bind` from scratch" is one of the most reliable senior-frontend whiteboard questions, precisely because it forces you to demonstrate the prototype-chain and `this`-binding mechanics from the last lesson instead of just reciting them. This lesson builds `call`, `apply`, and `bind` yourself, then covers the `in` operator — a small piece of syntax that leans on the exact same delegation mechanism.
+"Implement `bind` from scratch" is one of the most reliable senior-frontend whiteboard questions, precisely because it forces you to demonstrate the prototype-chain and `this`-binding mechanics from the last lesson instead of just reciting them. This lesson builds `call`, `apply`, and `bind` yourself, then covers the `in` operator, a small piece of syntax that leans on the exact same delegation mechanism.
 
 ## Polyfills: call, apply, bind
 
@@ -65,19 +65,19 @@ const bound = greet.myBind(obj, 'Hey');
 bound('?');                           // Hey, Nayan?
 ```
 
-Notice `myBind` is implemented in terms of `apply`, not the other way around — `bind`'s whole job is to defer a call, and once it's time to actually call, it needs the exact same "invoke with this args" mechanism `apply` already provides. Also notice `myCall`/`myApply` use a `Symbol` key rather than a plain string property name: a string like `"fn"` could collide with a real property already on `context`, silently clobbering it for the duration of the call. `Symbol()` always produces a value that can't collide with anything.
+Notice `myBind` is implemented in terms of `apply`, not the other way around. `bind`'s whole job is to defer a call, and once it's time to actually call, it needs the exact same "invoke with this args" mechanism `apply` already provides. Also notice `myCall`/`myApply` use a `Symbol` key rather than a plain string property name: a string like `"fn"` could collide with a real property already on `context`, silently clobbering it for the duration of the call. `Symbol()` always produces a value that can't collide with anything.
 
-**Interview trap: `call`/`apply`/`bind` don't work on arrow functions the way you'd expect.** Arrow functions don't have their own `this` binding — they close over `this` from their enclosing scope at definition time, and nothing can override that afterward. Calling `.call()`/`.apply()`/`.bind()` on an arrow function still runs it, but the `context` argument is silently ignored.
+**Interview trap: `call`/`apply`/`bind` don't work on arrow functions the way you'd expect.** Arrow functions don't have their own `this` binding: they close over `this` from their enclosing scope at definition time, and nothing can override that afterward. Calling `.call()`/`.apply()`/`.bind()` on an arrow function still runs it, but the `context` argument is silently ignored.
 
 ### Follow-up questions to test understanding
 
-- Exact difference between `call` and `apply`? — Identical behavior, different argument shape: `call` takes args comma-separated, `apply` takes a single array.
-- What happens if `bind` is called twice (`fn.bind(a).bind(b)`)? — The `this` from the *first* bind wins. `fn.bind(a)` returns a new function with `this` already hard-locked to `a`; calling `.bind(b)` on that function can prepend more arguments, but it cannot override a `this` that's already bound.
-- Do `call`/`apply`/`bind` work on arrow functions? — They run the function, but can't change its `this` (see the trap above).
+- Exact difference between `call` and `apply`? Identical behavior, different argument shape: `call` takes args comma-separated, `apply` takes a single array.
+- What happens if `bind` is called twice (`fn.bind(a).bind(b)`)? The `this` from the *first* bind wins. `fn.bind(a)` returns a new function with `this` already hard-locked to `a`; calling `.bind(b)` on that function can prepend more arguments, but it cannot override a `this` that's already bound.
+- Do `call`/`apply`/`bind` work on arrow functions? They run the function, but can't change its `this` (see the trap above).
 
 ## The in Operator
 
-`in` checks whether a **property exists on an object** (even if its value is `undefined`) — it returns `true`/`false`.
+`in` checks whether a **property exists on an object** (even if its value is `undefined`), returning `true` or `false`.
 
 ```javascript
 const user = { name: 'Nayan', age: undefined };
@@ -92,7 +92,7 @@ console.log('age' in user);           // true (this is the correct existence che
 
 ### Key points
 
-**`in` walks the prototype chain** — the same delegation mechanism from the previous lesson. It checks own properties first, and if it doesn't find the key, keeps walking `[[Prototype]]` links exactly like a normal property read does:
+**`in` walks the prototype chain**, the same delegation mechanism from the previous lesson. It checks own properties first, and if it doesn't find the key, keeps walking `[[Prototype]]` links exactly like a normal property read does:
 
 ```javascript
 const arr = [1, 2, 3];
@@ -103,7 +103,7 @@ console.log(0 in arr);          // true — an array index is just a string key
 console.log(5 in arr);          // false — out of bounds
 ```
 
-**`in` vs `hasOwnProperty`** — this is the same own-vs-inherited distinction the prototype-chain lesson covered with `hasOwnProperty()`: `in` counts inherited properties, `hasOwnProperty` only counts properties the object itself carries.
+**`in` vs `hasOwnProperty`**: this is the same own-vs-inherited distinction the prototype-chain lesson covered with `hasOwnProperty()`. `in` counts inherited properties; `hasOwnProperty` only counts properties the object itself carries.
 
 ```javascript
 const user = { name: 'Nayan' };
@@ -126,16 +126,8 @@ if ('retries' in config) {
 }
 ```
 
-`config.retries` is `undefined`, which is falsy, so `if (config.retries)` says "no retries configured" — but the key is very much there, just explicitly set to `undefined`. Any falsy-but-present value (`0`, `""`, `false`, `null`, `undefined`) breaks a truthiness check used as an existence check. `in` is the only one of the three common options that answers "does this key exist" and nothing else.
+`config.retries` is `undefined`, which is falsy, so `if (config.retries)` says "no retries configured." But the key is very much there, just explicitly set to `undefined`. Any falsy-but-present value (`0`, `""`, `false`, `null`, `undefined`) breaks a truthiness check used as an existence check. `in` is the only one of the three common options that answers "does this key exist" and nothing else.
 
 ### Follow-up question
 
-Difference between `in`, `hasOwnProperty`, and `Object.keys().includes()`? `in` walks the whole prototype chain. `hasOwnProperty` checks only the object's own properties. `Object.keys(obj).includes(key)` also checks only own *enumerable* properties — so it agrees with `hasOwnProperty` for normal object literals, but disagrees if a property was defined with `enumerable: false` via `Object.defineProperty`.
-
-## Key takeaways
-
-- `call`/`apply` invoke immediately with a chosen `this`; `bind` returns a new function with `this` locked in for later. `apply` takes an args array, `call` takes comma-separated args.
-- A correct `bind` polyfill is built on `apply`, and must special-case being called with `new` (in which case the bound `this` is ignored in favor of the newly constructed object).
-- None of the three can override `this` on an arrow function — arrow functions close over `this` lexically at definition time.
-- `in` checks property existence by walking the prototype chain, the same delegation mechanism as normal property lookup — `hasOwnProperty` stops at the object itself.
-- Never use a truthiness check (`if (obj.key)`) to test whether a key exists — falsy-but-present values (`undefined`, `0`, `""`, `false`, `null`) make it lie. Use `in`.
+Difference between `in`, `hasOwnProperty`, and `Object.keys().includes()`? `in` walks the whole prototype chain. `hasOwnProperty` checks only the object's own properties. `Object.keys(obj).includes(key)` also checks only own *enumerable* properties, so it agrees with `hasOwnProperty` for normal object literals, but disagrees if a property was defined with `enumerable: false` via `Object.defineProperty`.

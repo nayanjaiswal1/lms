@@ -12,11 +12,11 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-"Design" questions blend two skills: knowing the classic OOP patterns well enough to apply them under time pressure, and combining basic data structures to satisfy specific operation-complexity requirements. Today covers the patterns you'll actually be asked to reason about or implement — Singleton, Factory, Observer, Strategy, Repository, Builder — then applies that thinking to four "implement this data structure" problems, ending with LRU Cache, the single most-asked design problem in tech interviews.
+"Design" questions blend two skills: knowing the classic OOP patterns well enough to apply them under time pressure, and combining basic data structures to satisfy specific operation-complexity requirements. Today covers the patterns you'll actually be asked to reason about or implement (Singleton, Factory, Observer, Strategy, Repository, Builder), then applies that thinking to four "implement this data structure" problems, ending with LRU Cache, the single most-asked design problem in tech interviews.
 
 ## Singleton, Factory, Observer
 
-**Singleton** — ensure a class has exactly one instance, globally accessible. Useful for shared resources (config, connection pools, loggers) — but overused in interviews as an example, since global mutable state is usually an anti-pattern in real systems. Know it, but be ready to critique it too.
+**Singleton.** Ensure a class has exactly one instance, globally accessible. Useful for shared resources (config, connection pools, loggers), but overused in interviews as an example, since global mutable state is usually an anti-pattern in real systems. Know it, but be ready to critique it too.
 
 ```python
 class Singleton:
@@ -32,7 +32,7 @@ s2 = Singleton()
 assert s1 is s2  # same object
 ```
 
-**Factory** — centralize object creation logic so callers don't need to know concrete classes, just a category/type string.
+**Factory.** Centralize object creation logic so callers don't need to know concrete classes, just a category/type string.
 
 ```python
 class Dog:
@@ -50,7 +50,7 @@ animal = AnimalFactory.create("dog")
 print(animal.speak())  # Woof
 ```
 
-**Observer** — objects (observers) subscribe to a subject and get notified automatically when its state changes. This is the pattern behind event systems, pub/sub, and reactive UI updates.
+**Observer.** Objects (observers) subscribe to a subject and get notified automatically when its state changes. This is the pattern behind event systems, pub/sub, and reactive UI updates.
 
 ```python
 class Subject:
@@ -75,7 +75,7 @@ subject.notify("user_created")  # Logged: user_created
 
 ## Strategy, Repository, Builder
 
-**Strategy** — encapsulate interchangeable algorithms behind a common interface, selected at runtime. This is how you avoid a wall of `if/elif` branches for "which algorithm to run."
+**Strategy.** Encapsulate interchangeable algorithms behind a common interface, selected at runtime. This is how you avoid a wall of `if/elif` branches for "which algorithm to run."
 
 ```python
 class SortStrategy:
@@ -97,7 +97,7 @@ class Sorter:
 print(Sorter(DescendingSort()).execute([3, 1, 2]))  # [3, 2, 1]
 ```
 
-**Repository** — abstract data access behind an interface, so business logic doesn't depend on whether data comes from a DB, an API, or memory. This is what lets you swap Postgres for a mock in tests without touching business logic.
+**Repository.** Abstract data access behind an interface, so business logic doesn't depend on whether data comes from a DB, an API, or memory. This is what lets you swap Postgres for a mock in tests without touching business logic.
 
 ```python
 class UserRepository:
@@ -115,7 +115,7 @@ class InMemoryUserRepository(UserRepository):
         self._users[user["id"]] = user
 ```
 
-**Builder** — construct a complex object step by step, instead of a constructor with a dozen optional parameters.
+**Builder.** Construct a complex object step by step, instead of a constructor with a dozen optional parameters.
 
 ```python
 class Pizza:
@@ -169,15 +169,15 @@ class ThreadSafeSingleton:
         return cls._instance
 ```
 
-**Complexity:** O(1) instance access after first creation. The double-checked lock avoids taking the lock on every access (only the first, racing creation needs it).
+**Complexity:** O(1) instance access after first creation. The double-checked lock avoids taking the lock on every access; only the first, racing creation needs it.
 
-**Common mistakes:** Forgetting thread-safety when asked about concurrent access — a naive `if cls._instance is None: cls._instance = ...` has a race condition where two threads can both pass the check before either assigns; over-using Singleton for things that don't need global uniqueness (mention this critique if asked "when would you *not* use this").
+**Common mistakes:** Forgetting thread-safety when asked about concurrent access. A naive `if cls._instance is None: cls._instance = ...` has a race condition where two threads can both pass the check before either assigns. Also, over-using Singleton for things that don't need global uniqueness (mention this critique if asked "when would you *not* use this").
 
 ## Design Tic-Tac-Toe
 
-[LeetCode 348](https://leetcode.com/problems/design-tic-tac-toe/) — Design
+[LeetCode 348](https://leetcode.com/problems/design-tic-tac-toe/), Design
 
-**Intuition:** Naively checking the whole board for a win after every move is O(n²) per move. Instead, track running sums per row, column, and both diagonals — a move only ever affects one row, one column, and possibly the diagonals, so update and check in O(1).
+**Intuition:** Naively checking the whole board for a win after every move is O(n²) per move. Instead, track running sums per row, column, and both diagonals. A move only ever affects one row, one column, and possibly the diagonals, so update and check in O(1).
 
 **Approach:** Maintain `rows[n]`, `cols[n]`, and two diagonal counters. Player 1 adds +1, player 2 adds -1 to each relevant counter. A win is detected the instant any counter reaches `±n`.
 
@@ -207,15 +207,15 @@ class TicTacToe:
         return 0
 ```
 
-**Complexity:** Time O(1) per move, space O(n) — a massive improvement over rescanning the full board (O(n²)) on every move.
+**Complexity:** Time O(1) per move, space O(n): a massive improvement over rescanning the full board (O(n²)) on every move.
 
-**Common mistakes:** Actually storing the full board and re-scanning for a winner each move — works but fails the implicit "can you do better" bar this problem is designed to test; forgetting a move can be on a diagonal *and* the anti-diagonal simultaneously only when `n` is odd and the move is at the center — the `if` checks above handle this correctly without an `elif`.
+**Common mistakes:** Actually storing the full board and re-scanning for a winner each move works but fails the implicit "can you do better" bar this problem is designed to test. Also, forgetting a move can be on a diagonal and the anti-diagonal simultaneously, which only happens when `n` is odd and the move is at the center. The `if` checks above handle this correctly without an `elif`.
 
 ## Design HashMap
 
-[LeetCode 706](https://leetcode.com/problems/design-hashmap/) — Design
+[LeetCode 706](https://leetcode.com/problems/design-hashmap/), Design
 
-**Intuition:** Implement a hash map without using the language's built-in dict — this tests whether you understand what a hash map actually does under the hood: bucket by hash, handle collisions via chaining.
+**Intuition:** Implement a hash map without using the language's built-in dict. This tests whether you understand what a hash map actually does under the hood: bucket by hash, handle collisions via chaining.
 
 **Approach:** Fixed-size array of buckets; each bucket is a list of `(key, value)` pairs. Hash the key to pick a bucket; search/replace/remove within that bucket's list.
 
@@ -251,15 +251,15 @@ class MyHashMap:
                 return
 ```
 
-**Complexity:** Average O(1) per operation if the bucket count keeps chains short (this implementation uses a fixed 1000 buckets, so worst case degrades to O(n/1000) per bucket — a production hash map would resize dynamically when load factor grows too high). Space O(n).
+**Complexity:** Average O(1) per operation if the bucket count keeps chains short (this implementation uses a fixed 1000 buckets, so worst case degrades to O(n/1000) per bucket; a production hash map would resize dynamically when load factor grows too high). Space O(n).
 
 **Common mistakes:** Forgetting to handle key updates (`put` on an existing key should overwrite, not append a duplicate); using a bucket count that's too small for the problem's key range, causing long chains and effectively O(n) operations.
 
 ## LRU Cache
 
-[LeetCode 146](https://leetcode.com/problems/lru-cache/) — Design
+[LeetCode 146](https://leetcode.com/problems/lru-cache/), Design
 
-**Intuition:** You need O(1) get and put, while evicting the *least recently used* entry when capacity is exceeded. A hash map alone gives O(1) lookup but no ordering; a linked list alone gives ordering but O(n) lookup. Combine them: hash map for O(1) node lookup, doubly linked list for O(1) reordering (move-to-front on access, evict-from-back on overflow).
+**Intuition:** You need O(1) get and put, while evicting the least recently used entry when capacity is exceeded. A hash map alone gives O(1) lookup but no ordering; a linked list alone gives ordering but O(n) lookup. Combine them: hash map for O(1) node lookup, doubly linked list for O(1) reordering (move-to-front on access, evict-from-back on overflow).
 
 **Approach:** Doubly linked list with sentinel head/tail nodes (avoids null-checking edge cases at the boundaries). Hash map from key to its node in the list. On `get`, move the accessed node to the front (most recently used side). On `put`, insert at the front; if over capacity, remove the node just before the tail sentinel (least recently used).
 
@@ -315,12 +315,9 @@ class LRUCache:
 
 **Complexity:** O(1) time for both `get` and `put`, O(capacity) space.
 
-**Common mistakes:** Using `OrderedDict` (which does solve this in a few lines via `move_to_end` and `popitem(last=False)`) without being able to explain or implement the underlying doubly-linked-list + hash-map mechanism — interviewers almost always want the from-scratch version for this specific problem, since it's the whole point of the exercise; forgetting sentinel head/tail nodes and instead null-checking `prev`/`next` at every boundary, which is a frequent source of bugs; not removing the old node before re-inserting on `put` for an existing key, which leaves stale links.
+**Common mistakes:** Using `OrderedDict` (which does solve this in a few lines via `move_to_end` and `popitem(last=False)`) without being able to explain or implement the underlying doubly-linked-list plus hash-map mechanism. Interviewers almost always want the from-scratch version for this specific problem, since it's the whole point of the exercise. Also common: forgetting sentinel head/tail nodes and instead null-checking `prev`/`next` at every boundary, a frequent source of bugs, and not removing the old node before re-inserting on `put` for an existing key, which leaves stale links.
 
 ## Key takeaways
 
-- Singleton, Factory, Observer, Strategy, Repository, and Builder each solve one specific structural problem — know the problem each solves, not just the code shape, since "when would you use this" is asked as often as "implement this."
-- Design questions on LeetCode (Tic-Tac-Toe, HashMap, LRU) are really "which combination of basic data structures gives the required operation complexity" — identify the complexity target first, then pick structures that satisfy it.
-- O(1) win detection in Tic-Tac-Toe comes from maintaining running row/column/diagonal counters instead of rescanning the board.
-- A hash map from scratch is buckets (array) + chaining (list of pairs per bucket) + a hash function — the same idea as language-builtin dicts, just without dynamic resizing unless you implement it.
-- LRU Cache's O(1) get/put requires combining a hash map (O(1) lookup) with a doubly linked list (O(1) reordering) — sentinel head/tail nodes eliminate edge-case null checks and are worth using by default in linked-list-heavy design problems.
+- Design questions on LeetCode (Tic-Tac-Toe, HashMap, LRU) are really "which combination of basic data structures gives the required operation complexity." Identify the complexity target first, then pick structures that satisfy it: running counters over a board scan, buckets plus chaining for a hash map, a hash map plus a doubly linked list for O(1) LRU eviction.
+- For the six OOP patterns, know the problem each one solves, not just the code shape. "When would you use this" is asked as often as "implement this," and Singleton in particular is worth being ready to critique, not just demonstrate.

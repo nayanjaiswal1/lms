@@ -18,6 +18,7 @@ import { AddHabitInline } from "@/components/habits/add-habit-inline";
 import { DailyHabitWheel } from "@/components/habits/daily-habit-wheel";
 import { GymPerformanceCard } from "@/components/habits/gym-performance-card";
 import { HabitGrid } from "@/components/habits/habit-grid";
+import { HabitPrintExport } from "@/components/habits/habit-print-export";
 import { ReadingProgressCard } from "@/components/habits/reading-progress-card";
 import { SleepQualityCard } from "@/components/habits/sleep-quality-chart";
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,8 @@ export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBo
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <>
+    <div className="flex flex-col gap-6 print:hidden">
       <div className="flex items-center justify-center gap-4">
         <Button asChild aria-label="Previous month" className="touch-target" size="icon" variant="ghost">
           <Link href={`/habits?month=${shiftMonth(month, -1)}`}>
@@ -254,5 +256,7 @@ export function HabitBoard({ month, initialHabits, initialCompletions }: HabitBo
         />
       )}
     </div>
+    <HabitPrintExport counts={counts} habits={visibleHabits} metadata={metadata} month={month} />
+    </>
   );
 }

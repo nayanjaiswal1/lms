@@ -13,23 +13,23 @@ source:
 ---
 ## Why interviewers care about polish
 
-A great story badly delivered reads as a mediocre story. Interviewers are pattern-matching against dozens of candidates a week — rambling, filler words, and unclear timing all read as "this person hasn't thought this through," even when the underlying substance is strong. Refinement is not cosmetic; it's the difference between a story landing and a story getting lost.
+A great story badly delivered reads as a mediocre story. Interviewers are pattern-matching against dozens of candidates a week, and rambling, filler words, and unclear timing all read as "this person hasn't thought this through," even when the underlying substance is strong. Refinement isn't cosmetic. It's the difference between a story landing and a story getting lost.
 
 ## The technique: cut, time, and clean
 
-You have five STAR stories from Week 1. Today isn't about writing new content — it's editing what exists down to something you could deliver cold, under pressure, without losing the thread.
+You have five STAR stories from Week 1. Today isn't about writing new content. It's editing what exists down to something you could deliver cold, under pressure, without losing the thread.
 
-**1. Cut the Situation to two sentences, max.** Interviewers don't need the full backstory — they need just enough to understand the stakes. If your Situation takes 45 seconds, you're burning your time budget before the Action even starts, which is the part they actually care about.
+**1. Cut the Situation to two sentences, max.** Interviewers don't need the full backstory, just enough to understand the stakes. If your Situation takes 45 seconds, you're burning your time budget before the Action even starts, which is the part they actually care about.
 
-**2. Make sure Action is 60% of the story.** Time yourself. If your Situation and Result together are longer than your Action, rebalance — add detail to what you *did*, step by step, and trim everything else.
+**2. Make sure Action is 60% of the story.** Time yourself. If your Situation and Result together are longer than your Action, rebalance: add detail to what you *did*, step by step, and trim everything else.
 
-**3. Quantify the Result, even roughly.** "It went well" is not a result. "Error rate dropped from 4% to 0.3%" is. If you don't have an exact number, use a defensible estimate — "roughly half," "about a week faster" — rather than nothing.
+**3. Quantify the Result, even roughly.** "It went well" is not a result. "Error rate dropped from 4% to 0.3%" is. If you don't have an exact number, use a defensible estimate, like "roughly half" or "about a week faster," rather than nothing.
 
-**4. Remove filler words.** "Basically," "so yeah," "kind of," "I guess," "honestly" — these creep in under interview nerves and make a strong story sound unsure. The only way to catch them is to hear yourself say the story out loud.
+**4. Remove filler words.** "Basically," "so yeah," "kind of," "I guess," "honestly": these creep in under interview nerves and make a strong story sound unsure. The only way to catch them is to hear yourself say the story out loud.
 
 ## The practice loop
 
-Record yourself (phone voice memo is enough) delivering each story cold — no notes. Play it back and note:
+Record yourself (phone voice memo is enough) delivering each story cold, no notes. Play it back and note:
 
 - Total time (target: 2-3 minutes per story)
 - Every filler word you said

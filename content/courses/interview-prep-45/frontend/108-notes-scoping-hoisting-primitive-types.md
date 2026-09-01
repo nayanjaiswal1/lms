@@ -12,7 +12,7 @@ source:
     - interview-prep-notes.md
 ---
 
-Frontend/90's theory reference reduces `var`/`let`/`const` and hoisting to a single summary line, and primitive vs non-primitive types don't appear anywhere in the course — both are assumed background for the React/hooks/TypeScript lessons but never taught directly. This note fills that in, since it's exactly the kind of foundational question that opens a frontend round before the conversation moves to React specifics.
+`var`/`let`/`const` scoping and hoisting, and primitive vs non-primitive types, are foundational background that most React and TypeScript material assumes you already know rather than teaching directly. This note fills that gap, since it's exactly the kind of question that opens a frontend interview before the conversation moves to React specifics.
 
 ## var vs let vs const: scope, hoisting, and the temporal dead zone
 
@@ -24,14 +24,18 @@ console.log(b); // ReferenceError: Cannot access 'b' before initialization
 let b = 2;
 ```
 
-- **`var`** — function-scoped (not block-scoped): a `var` declared inside an `if` or `for` block is visible throughout the entire enclosing function. Can be redeclared and reassigned freely. Hoisted to the top of its scope with the value `undefined` — so reading it before the declaration line gives `undefined`, not an error.
-- **`let`** — block-scoped: only visible within the nearest enclosing `{}`. Cannot be redeclared in the same scope; can be reassigned. Hoisted like `var`, but *not* initialized to `undefined` — accessing it before its declaration line throws a `ReferenceError`.
-- **`const`** — block-scoped like `let`, cannot be redeclared *or* reassigned. Must be initialized at declaration (`const x;` alone is a syntax error). Note this only prevents *rebinding the variable* — `const obj = {}` still allows `obj.key = 1` (mutating the object's contents), it just forbids `obj = {}` (pointing the variable at a different object).
+**`var` is function-scoped, not block-scoped.** A `var` declared inside an `if` or `for` block is visible throughout the entire enclosing function. It can be redeclared and reassigned freely, and it's hoisted to the top of its scope with the value `undefined`, so reading it before the declaration line gives `undefined` rather than an error.
 
-**The Temporal Dead Zone (TDZ)** is the gap between the top of the scope (where `let`/`const` are hoisted to, same as `var`) and the actual declaration line. Accessing the variable anywhere in that gap throws, rather than silently returning `undefined` — this is a deliberate design choice that turns a whole class of "used before declared" bugs into an immediate, loud error instead of a silent `undefined` that fails mysteriously somewhere else.
+**`let` is block-scoped**, visible only within the nearest enclosing `{}`. It cannot be redeclared in the same scope, but it can be reassigned. It's hoisted the same way `var` is, but it isn't initialized to `undefined`: accessing it before its declaration line throws a `ReferenceError`.
 
-**Why this matters practically:**
-- **Block scope prevents loop-variable leakage** — the classic interview gotcha:
+**`const` is block-scoped like `let`**, and it cannot be redeclared or reassigned. It must be initialized at declaration; `const x;` alone is a syntax error. This restriction only prevents rebinding the variable, not mutating what it points to: `const obj = {}` still allows `obj.key = 1`, but forbids `obj = {}`.
+
+**The Temporal Dead Zone (TDZ)** is the gap between the top of the scope, where `let`/`const` are hoisted to just like `var`, and the actual declaration line. Accessing the variable anywhere in that gap throws instead of silently returning `undefined`. This is a deliberate design choice: it turns a whole class of "used before declared" bugs into an immediate, loud error instead of a silent `undefined` that fails mysteriously somewhere else.
+
+### Why this matters practically
+
+Block scope prevents loop-variable leakage, the classic interview gotcha:
+
 ```js
 for (var i = 0; i < 3; i++) {
   setTimeout(() => console.log(i), 0); // 3, 3, 3 — one shared `i`, all closures see its final value
@@ -40,19 +44,21 @@ for (let j = 0; j < 3; j++) {
   setTimeout(() => console.log(j), 0); // 0, 1, 2 — each iteration gets its own `j` binding
 }
 ```
-`let` in a `for` loop creates a *new binding per iteration*, which is exactly why the second loop's closures each capture a different value — this single example is the fastest way to demonstrate the practical difference between function scope and block scope.
-- **Prefer `const` by default, `let` when reassignment is actually needed, and avoid `var` in new code entirely** — this is the accepted modern convention specifically because `const`'s inability to rebind makes code easier to reason about (you know the variable never points somewhere else later), and block scoping avoids the loop-leakage class of bugs above.
+
+In the first loop, all three `setTimeout` callbacks close over the *same* `i`. By the time any of them runs, the loop has already finished and `i` is `3`, so all three print `3`. In the second loop, `let` creates a fresh binding of `j` for each iteration, so each callback closes over its own copy holding `0`, `1`, or `2` respectively. That's the fastest way to demonstrate the practical difference between function scope and block scope.
+
+The accepted modern convention is to prefer `const` by default, use `let` only when reassignment is actually needed, and avoid `var` in new code entirely. `const`'s inability to rebind makes code easier to reason about, since you know the variable never points somewhere else later, and block scoping avoids the loop-leakage bug above.
 
 ## Primitive vs non-primitive (reference) types
 
-JavaScript has exactly **7 primitive types**: `string`, `number`, `boolean`, `null`, `undefined`, `BigInt`, and `Symbol`. Everything else — `Object`, `Array`, `Function` — is a **non-primitive (reference) type**.
+JavaScript has exactly 7 primitive types: `string`, `number`, `boolean`, `null`, `undefined`, `BigInt`, and `Symbol`. Everything else, including `Object`, `Array`, and `Function`, is a non-primitive (reference) type.
 
 | | Primitives | Non-primitives |
 |---|---|---|
-| Storage | Stored directly, typically on the stack | Variable holds a *reference* (pointer) to data on the heap |
-| Mutability | Immutable — you can't change a string in place, only create a new one | Mutable — array/object contents can change in place |
-| Copy behavior | Assigning copies the **value** — two independent copies | Assigning copies the **reference** — both variables point at the same object |
-| Equality (`===`) | Compares value | Compares reference identity, not contents |
+| Storage | Stored directly, typically on the stack. | The variable holds a *reference* (pointer) to data on the heap. |
+| Mutability | Immutable. You can't change a string in place, only create a new one. | Mutable. Array and object contents can change in place. |
+| Copy behavior | Assigning copies the **value**, giving two independent copies. | Assigning copies the **reference**, so both variables point at the same object. |
+| Equality (`===`) | Compares value. | Compares reference identity, not contents. |
 
 ```js
 let a = 5;
@@ -69,16 +75,10 @@ console.log({ x: 1 } === { x: 1 }); // false — different objects, same shape
 console.log(obj1 === obj2);          // true — same reference
 ```
 
-**Stack vs heap, briefly:** primitives live on the stack (fixed-size, LIFO, automatic cleanup when a function returns) because their fixed, small size makes that cheap; objects live on the heap (dynamically sized, garbage-collected) because their size can grow and they need to outlive a single function call if referenced elsewhere. This is engine-implementation detail rather than a language guarantee, but it's the standard mental model interviewers expect.
+In the first block, `b = a` copies the value `5`, so reassigning `b` to `10` has no effect on `a`. In the second block, `obj2 = obj1` copies the reference, not the object, so `obj1` and `obj2` point at the exact same object in memory; mutating `count` through `obj2` is visible through `obj1` too, because there's only one object to begin with.
 
-**Why this matters for React specifically** (connecting back to frontend/02's `useState` lesson): React's `useState`/`useEffect` dependency comparisons use `Object.is` (reference equality) under the hood. Mutating an object or array in place (`state.items.push(x)`) doesn't change its reference, so React won't detect the change and won't re-render — this is exactly why the course's hook examples always spread/reconstruct (`setState([...items, x])`) instead of mutating: a new reference is required to signal "this changed."
+**Stack vs heap, briefly.** Primitives live on the stack, which is fixed-size, LIFO, and automatically cleaned up when a function returns, because their fixed, small size makes that cheap. Objects live on the heap, which is dynamically sized and garbage-collected, because their size can grow and they need to outlive a single function call if referenced elsewhere. This is an engine-implementation detail rather than a language guarantee, but it's the standard mental model interviewers expect.
 
-One classic gotcha worth knowing: `typeof null === "object"` — a long-standing bug in the language (null was originally represented with a type tag that collided with objects) that's now permanent for backwards compatibility. `null` is still a primitive despite `typeof` reporting otherwise; use `value === null` to actually check for it.
+**Why this matters for React specifically.** React's `useState`/`useEffect` dependency comparisons use `Object.is` (reference equality) under the hood. Mutating an object or array in place, such as `state.items.push(x)`, doesn't change its reference, so React won't detect the change and won't re-render. This is exactly why idiomatic React code spreads or reconstructs state (`setState([...items, x])`) instead of mutating it: a new reference is required to signal "this changed."
 
-## Key takeaways
-
-- `var` is function-scoped and hoisted to `undefined`; `let`/`const` are block-scoped and hoisted into a Temporal Dead Zone that throws if accessed before declaration — prefer `const`, then `let`, avoid `var`.
-- `let` in a `for` loop creates a fresh binding per iteration (fixing the classic `setTimeout` closure bug); `var` shares one binding across the whole loop.
-- 7 primitives (`string`, `number`, `boolean`, `null`, `undefined`, `BigInt`, `Symbol`) are copied by value and immutable; objects/arrays/functions are copied by reference and mutable.
-- React's change detection relies on reference equality — mutating state in place doesn't produce a new reference, so the component won't re-render; always create a new object/array to trigger updates.
-- `typeof null === "object"` is a known language bug, not a reflection of `null`'s actual (primitive) type.
+One classic gotcha worth knowing: `typeof null === "object"`. This is a long-standing bug in the language, where `null` was originally represented with a type tag that collided with objects, and it's now permanent for backwards compatibility. `null` is still a primitive despite `typeof` reporting otherwise; use `value === null` to actually check for it.

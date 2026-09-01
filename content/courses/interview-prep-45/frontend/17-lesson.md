@@ -11,7 +11,7 @@ estimated_minutes: 30
 source:
     - 45-day-interview-roadmap.md
 ---
-Every Next.js interview eventually asks "when do you use each rendering strategy, and why?" — a question that's really testing whether you understand the trade-off between build time, request time, and client time. Today covers the four rendering strategies, hydration (the part everyone hand-waves), streaming SSR, and edge functions.
+Every Next.js interview eventually asks "when do you use each rendering strategy, and why?" It's really testing whether you understand the trade-off between build time, request time, and client time. Today covers the four rendering strategies, hydration (the part everyone hand-waves), streaming SSR, and edge functions.
 
 ## Next.js rendering strategies
 
@@ -74,7 +74,7 @@ export async function getStaticProps({ params }: { params: { id: string } }) {
 ```
 
 **Interview question: "You have a product catalog with 100,000 SKUs. Which strategy?"**
-ISR with `fallback: "blocking"` (Pages Router) or `generateStaticParams` returning only the hottest SKUs plus dynamic rendering for the rest (App Router). Pre-building all 100,000 pages at build time is wasteful — most will never be visited. Build the popular ones statically, generate the long tail on first request, then cache it, and revalidate on a timer so prices/stock don't go permanently stale.
+ISR with `fallback: "blocking"` (Pages Router) or `generateStaticParams` returning only the hottest SKUs plus dynamic rendering for the rest (App Router). Pre-building all 100,000 pages at build time is wasteful, since most will never be visited. Build the popular ones statically, generate the long tail on first request, then cache it, and revalidate on a timer so prices/stock don't go permanently stale.
 
 ## Page with server-rendered data and dynamic routes
 
@@ -136,7 +136,7 @@ function Clock() {
 **Hydration mismatch** is the classic bug: if the server-rendered HTML doesn't match what the client would produce on first render, React either warns and patches the DOM (slow, can flash) or in some cases throws away the tree and re-renders from scratch client-side, losing the point of SSR entirely. Common causes: `Date.now()` or `Math.random()` used directly in render, browser-only APIs (`window`, `localStorage`) read during render instead of in `useEffect`, and locale/timezone differences between server and client.
 
 **Interview question: "What's a hydration mismatch and how do you avoid one?"**
-It's when server HTML and the client's first render produce different output, so React's DOM reconciliation on mount doesn't line up. Avoid it by keeping first-render output deterministic and identical on both sides — defer anything environment-dependent (`Date`, `window`, random IDs) to `useEffect`, or use `suppressHydrationWarning` only for genuinely-expected, cosmetic differences like a rendered timestamp.
+It's when server HTML and the client's first render produce different output, so React's DOM reconciliation on mount doesn't line up. Avoid it by keeping first-render output deterministic and identical on both sides: defer anything environment-dependent (`Date`, `window`, random IDs) to `useEffect`, or use `suppressHydrationWarning` only for genuinely-expected, cosmetic differences like a rendered timestamp.
 
 ## Streaming SSR
 
@@ -160,14 +160,14 @@ export default function Dashboard() {
 }
 ```
 
-The browser gets the `<Header>` and the loading skeletons in the first flush, then React streams additional HTML chunks (wrapped in `<template>`/script tags) as each Suspense boundary resolves, swapping the fallback for the real content in place — no client-side re-fetch, no layout jump from a full page replace.
+The browser gets the `<Header>` and the loading skeletons in the first flush, then React streams additional HTML chunks (wrapped in `<template>`/script tags) as each Suspense boundary resolves, swapping the fallback for the real content in place. There's no client-side re-fetch and no layout jump from a full page replace.
 
 **Interview question: "How does streaming SSR improve Time to First Byte vs traditional SSR?"**
 Traditional SSR computes the entire page (including the slowest data fetch) before writing anything to the response. Streaming sends the static shell as soon as it's ready and pipes in the rest of the HTML incrementally as async boundaries resolve, so TTFB and First Contentful Paint are decoupled from your slowest dependency.
 
 ## Edge functions
 
-Edge functions run your server code in Points of Presence close to the user, geographically distributed, rather than a single origin region — they trade a smaller, faster (V8 isolate, not a full Node process) runtime for lower latency worldwide.
+Edge functions run your server code in Points of Presence close to the user, geographically distributed, rather than a single origin region. They trade a smaller, faster (V8 isolate, not a full Node process) runtime for lower latency worldwide.
 
 ```tsx
 // app/api/geo/route.ts
@@ -179,15 +179,11 @@ export async function GET(request: Request) {
 }
 ```
 
-Trade-offs: edge runtimes don't support the full Node.js API (no `fs`, limited `net`), have tighter memory/CPU limits, and cold starts are typically much faster than a traditional serverless function — which makes edge a good fit for auth checks, redirects, A/B routing, and geolocation, and a bad fit for heavy computation or anything needing full Node APIs.
+Trade-offs: edge runtimes don't support the full Node.js API (no `fs`, limited `net`), have tighter memory/CPU limits, and cold starts are typically much faster than a traditional serverless function. That makes edge a good fit for auth checks, redirects, A/B routing, and geolocation, and a bad fit for heavy computation or anything needing full Node APIs.
 
-**Interview question: "Middleware runs on every request — why does Next.js run it at the edge by default?"**
+**Interview question: "Middleware runs on every request. Why does Next.js run it at the edge by default?"**
 Middleware (auth redirects, locale detection, feature flag routing) needs to run before the response starts and should add minimal latency on every single request. Running it at the edge, geographically close to the user, keeps that per-request tax small; running it in a single origin region would add a network round-trip on top of every page load, everywhere in the world except near that region.
 
-## Key takeaways
+## Tying it together
 
-- Pick rendering strategy per data-freshness need: SSG/ISR for content that changes rarely, SSR for personalized/always-fresh data, CSR for interactive-only widgets.
-- App Router infers the strategy from your `fetch` cache options (`revalidate: false`, a number, or `no-store`) instead of separate exported functions.
-- Hydration mismatches come from non-deterministic first renders — defer `Date`, `Math.random`, and `window` reads to `useEffect`.
-- Streaming SSR with `Suspense` decouples TTFB from your slowest data dependency by sending the shell first and streaming the rest.
-- Edge functions trade full Node API support for lower, globally-distributed latency — good for middleware/auth/routing, not heavy computation.
+The four rendering strategies, hydration, streaming, and edge all answer the same underlying question: how much of the work can move earlier (build time, or a nearby edge location) versus how much has to wait for the actual request. An interviewer probing any one of these topics is usually checking whether you can place a given feature (a dashboard, a product page, an auth check) correctly on that spectrum, not just recite the API names.

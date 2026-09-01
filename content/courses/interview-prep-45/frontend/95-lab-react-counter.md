@@ -151,5 +151,5 @@ tasks:
 
 Hands-on lab for Day 1's frontend deep dive: a Vite + React dev server is
 already running on port 5173 with hot reload. Implement a `useState` counter
-component and compose it into the app — the checker compiles and
+component and compose it into the app. The checker compiles and
 server-renders your actual components.

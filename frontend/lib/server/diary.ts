@@ -10,6 +10,14 @@ export interface DiaryHighlight {
   text: string;
   kind: HighlightKind;
   ref_id: string | null;
+  // Set only for kind "habit", when the habit has a structured entry form
+  // (gym/sleep/reading/custom) and the AI extracted values for one or more
+  // of its fields from this span — see docs/diary.md.
+  metadata?: Record<string, unknown>;
+}
+
+export interface AnalyzePreviewResponse {
+  highlights: DiaryHighlight[];
 }
 
 export interface DiaryEntry {

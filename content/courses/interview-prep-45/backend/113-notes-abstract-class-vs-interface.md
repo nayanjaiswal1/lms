@@ -12,26 +12,27 @@ source:
     - interview-prep-notes.md
 ---
 
-Day 27/29 cover Singleton/Factory/Observer/Strategy/Repository/Builder, and backend/108 covers SOLID, polymorphism, and abstraction-vs-encapsulation — but none of those name the specific question that opens almost every LLD round: *"when do you reach for an abstract class instead of an interface?"* This note is that answer, framed the way interviewers actually ask it.
+This course covers design patterns like Singleton, Factory, Observer, Strategy, Repository, and Builder elsewhere, along with SOLID, polymorphism, and abstraction vs encapsulation, but none of that material names the specific question that opens almost every low-level-design round: "when do you reach for an abstract class instead of an interface?" This note is that answer, framed the way interviewers actually ask it.
 
 ## The one-line distinction
 
-- **Abstract class → "IS-A"**: use it when subclasses share both a *type relationship* and *some common implementation*. A `Dog` **is an** `Animal`.
-- **Interface → "CAN-DO"**: use it when unrelated classes need to promise the same *capability*, with no shared code. A `Dog` **can** `Swim`; so can a `Boat`, which is not an `Animal`.
+**Abstract class means "IS-A."** Use it when subclasses share both a *type relationship* and *some common implementation*. A `Dog` **is an** `Animal`.
+
+**Interface means "CAN-DO."** Use it when unrelated classes need to promise the same *capability*, with no shared code. A `Dog` **can** `Swim`; so can a `Boat`, which is not an `Animal`.
 
 ## Side by side
 
 | | Abstract class | Interface |
 |---|---|---|
 | Instantiable directly | No | No |
-| Method implementation | Can mix concrete + abstract methods | Python `Protocol`/`ABC` with no body — contract only |
-| State (fields) | Yes — shared instance state | No (Python `Protocol` structural types carry no state) |
-| Inheritance | Single (most languages) | A class can satisfy many |
+| Method implementation | Can mix concrete and abstract methods | Python `Protocol`/`ABC` with no body; contract only |
+| State (fields) | Yes, shared instance state | No (Python `Protocol` structural types carry no state) |
+| Inheritance | Single, in most languages | A class can satisfy many |
 | Answers | "What are you, and what do you already do?" | "What can you do, regardless of what you are?" |
 
 ## Python: `abc.ABC` as the abstract-class mechanism
 
-Python doesn't have a separate `abstract class` keyword like Java/C# — `abc.ABC` + `@abstractmethod` gives the same contract-enforcement:
+Python doesn't have a separate `abstract class` keyword like Java or C#. `abc.ABC` plus `@abstractmethod` gives the same contract-enforcement:
 
 ```python
 from abc import ABC, abstractmethod
@@ -58,11 +59,11 @@ Shape("red")     # TypeError: Can't instantiate abstract class Shape
 Circle("red", 2).describe()   # "A red shape with area 12.57"
 ```
 
-Trying to instantiate `Shape` directly raises `TypeError` at the moment of instantiation — Python enforces the abstract contract at runtime, not compile time (there is no compile step). A subclass that forgets to implement `area()` is *also* abstract and *also* can't be instantiated — the error surfaces the first time someone tries to construct it, not when the subclass is defined.
+Trying to instantiate `Shape` directly raises `TypeError` at the moment of instantiation. Python enforces the abstract contract at runtime, not compile time, since there is no compile step. A subclass that forgets to implement `area()` is also abstract and also can't be instantiated; the error surfaces the first time someone tries to construct it, not when the subclass is defined.
 
 ## Python's actual "interface": `Protocol`, not a keyword
 
-Python has no `interface` keyword. The closest equivalent is `typing.Protocol` — **structural** typing ("if it has the right shape, it satisfies the protocol") instead of the **nominal** typing Java's `implements` requires:
+Python has no `interface` keyword. The closest equivalent is `typing.Protocol`, which uses **structural** typing ("if it has the right shape, it satisfies the protocol") instead of the **nominal** typing Java's `implements` requires:
 
 ```python
 from typing import Protocol
@@ -85,9 +86,9 @@ race(Dog())   # works — Dog never declared "implements Swimmer", it just has t
 race(Boat())  # works too — Boat is unrelated to Dog entirely
 ```
 
-Neither `Dog` nor `Boat` inherits from `Swimmer` — they satisfy it just by having a matching method signature. This is the concrete Python answer to "CAN-DO": no shared ancestor, no shared code, just a shared capability checked structurally (by a type checker like mypy, or duck-typing at runtime).
+Neither `Dog` nor `Boat` inherits from `Swimmer`. They satisfy it just by having a matching method signature. When `race(Dog())` runs, Python doesn't check any declared relationship at all; it just calls `swimmer.swim()` and trusts that whatever object was passed in has a `swim` method, which both `Dog` and `Boat` happen to define. This is the concrete Python answer to "CAN-DO": no shared ancestor, no shared code, just a shared capability checked structurally, either by a type checker like mypy or by duck-typing at runtime.
 
-## Template Method — the pattern abstract classes exist to enable
+## Template Method: the pattern abstract classes exist to enable
 
 The **Template Method** pattern is the reason abstract classes are useful beyond "a place to put shared fields": the abstract class defines the *skeleton* of an algorithm, and subclasses fill in only the steps that vary.
 
@@ -111,21 +112,15 @@ class CsvPipeline(DataPipeline):
     def load(self, data): open("out.csv", "w").write(data)
 ```
 
-`run()` is never overridden — the algorithm's *shape* is fixed in the base class, only its *steps* vary per subclass. This is the pattern interviewers are checking for when they ask "why not just use an interface with three methods and call them in the right order from the caller" — the answer is that the abstract class owns and guarantees the calling order itself, so no subclass can call the steps out of sequence or forget one.
+`run()` is never overridden. The algorithm's *shape* is fixed in the base class, and only its *steps* vary per subclass: calling `CsvPipeline().run()` executes `DataPipeline.run`, which calls `self.extract()`, `self.transform()`, and `self.load()` in that fixed order, but each of those three calls resolves to `CsvPipeline`'s own implementation. This is the pattern interviewers are checking for when they ask "why not just use an interface with three methods and call them in the right order from the caller." The answer is that the abstract class owns and guarantees the calling order itself, so no subclass can call the steps out of sequence or forget one.
 
 ## Interview Q&A
 
-**Q: Abstract class vs interface — when do you pick which?**
-> "Abstract class when subclasses share both an IS-A relationship and some common state or implementation — put the shared part there once. Interface (or in Python, a `Protocol`) when unrelated classes need to promise the same capability with no shared code — a `Dog` and a `Boat` can both `swim()` without being related types."
+**Q: Abstract class vs interface, when do you pick which?**
+> "Abstract class when subclasses share both an IS-A relationship and some common state or implementation, so you put the shared part there once. Interface, or in Python a `Protocol`, when unrelated classes need to promise the same capability with no shared code. A `Dog` and a `Boat` can both `swim()` without being related types."
 
 **Q: Can an abstract class have a constructor if it can't be instantiated?**
-> "Yes — the constructor runs when a subclass instance is created, via `super().__init__()`. It can't be instantiated *directly*, but its `__init__` is still part of every subclass's construction."
+> "Yes. The constructor runs when a subclass instance is created, via `super().__init__()`. It can't be instantiated directly, but its `__init__` is still part of every subclass's construction."
 
-**Q: Why not just use a Strategy (Day 27) instead of an abstract base class?**
-> "Strategy swaps a whole algorithm at runtime via composition — you inject a different strategy object. Template Method fixes the algorithm's shape at compile/definition time and only lets subclasses vary specific steps. Pick Template Method when the *sequence* must never change; pick Strategy when you need to swap the *entire* algorithm dynamically."
-
-## Key takeaways
-
-- Abstract class = IS-A + shared implementation; interface/`Protocol` = CAN-DO + contract only, no shared code, no common ancestor required.
-- Python has no `interface` keyword — `abc.ABC`/`@abstractmethod` plays the abstract-class role; `typing.Protocol` plays the interface role via structural (not nominal) typing.
-- Template Method is the concrete reason abstract classes exist beyond convenience: the base class fixes the algorithm's *sequence*, subclasses fill in only the *steps* — this is what to name when asked "why not just an interface with three separate methods."
+**Q: Why not just use a Strategy pattern instead of an abstract base class?**
+> "Strategy swaps a whole algorithm at runtime via composition; you inject a different strategy object. Template Method fixes the algorithm's shape at definition time and only lets subclasses vary specific steps. Pick Template Method when the sequence must never change; pick Strategy when you need to swap the entire algorithm dynamically."

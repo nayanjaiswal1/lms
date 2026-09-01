@@ -105,3 +105,112 @@
   outline: none;
   border-bottom-color: hsl(var(--primary));
 }
+
+/* Export button (habit-export-button.tsx) triggers the browser's native
+   print dialog on HabitPrintExport's always-mounted off-screen block — this
+   just paginates it, one chart per page. Wheel and table pages are switched
+   to landscape (named page below) since they're the two layouts wide enough
+   to get clipped in portrait; habit-print-fill(-body) + the beforeprint
+   handler in habit-print-export.tsx scale each one to actually fill that
+   page instead of leaving it stranded small in one corner. */
+@page {
+  margin: 0.4in;
+}
+@page habit-landscape {
+  size: landscape;
+  margin: 0.4in;
+}
+/* Everything below (fill box, table shape, hidden columns, row height) is
+   scoped to .habit-print-* classes that only ever render inside
+   HabitPrintExport's always-off-screen block — never on the live grid —
+   so it's safe, and necessary, to apply unconditionally rather than only
+   under @media print. The beforeprint handler in habit-print-export.tsx
+   measures this subtree to compute its zoom scale; if these rules only
+   applied once print media actually engaged, the element could get
+   measured in its pre-reflow (on-screen) shape and then silently change
+   shape (table snapping to its natural width, rows growing taller) right
+   as printing starts — invalidating the already-computed scale and
+   spilling content onto extra pages. Applying them always means the
+   measured shape and the printed shape are identical. */
+
+/* Gives habit-print-fill-body a real page-height box to center its
+   (naturally-sized) child in — the beforeprint handler then measures
+   that child and scales it up or down to fill this box. */
+.habit-print-fill {
+  display: flex;
+  flex-direction: column;
+  height: 7.47in;
+}
+.habit-print-fill-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+/* HabitGrid's table is w-full on screen (fills its scroll container) —
+   for print it needs its own natural (min-w-max) width instead, both so
+   it isn't stretched to the page width before scaling and so the
+   beforeprint handler measures its real intrinsic size. */
+.habit-print-fill-body table {
+  width: max-content !important;
+}
+.habit-print-landscape .table-responsive {
+  overflow: visible;
+}
+.habit-print-landscape th.sticky,
+.habit-print-landscape td.sticky {
+  position: static;
+}
+/* Actions (delete/customize dropdown, meaningless on a static printed
+   page) and Completion (redundant with the row's own check/X marks) are
+   always the last and third-last cell in both the header and body rows —
+   dropping them frees width the day columns / zoom scale can use instead. */
+.habit-print-landscape table tr > :nth-last-child(1),
+.habit-print-landscape table tr > :nth-last-child(3) {
+  display: none;
+}
+/* A short table (few habits) at 36px (h-9) rows is far wider than it is
+   tall, so a uniform width-fit zoom leaves most of the page height
+   blank. scaleGrid in habit-print-export.tsx computes and sets
+   --habit-print-row-height right before printing, growing rows enough
+   that the table's own proportions approach the landscape page's before
+   zoom ever runs, so more of that height actually gets used instead of
+   sitting empty. The 52px fallback only matters before that JS runs. */
+.habit-print-landscape .h-9 {
+  height: var(--habit-print-row-height, 52px);
+}
+
+@media print {
+  .habit-print-page {
+    break-after: page;
+  }
+  .habit-print-landscape {
+    page: habit-landscape;
+  }
+
+  /* Printed pages always use the light paper palette — the dark theme's
+     near-black --card/--background made the wheel and grid print as a
+     near-solid black shape. Same selector/values as the .dark override
+     above, just re-asserted for print so it wins on source order. */
+  .dark .habits-journal {
+    --background: 42 39% 94%;
+    --foreground: 0 0% 10%;
+    --card: 42 39% 94%;
+    --card-foreground: 0 0% 10%;
+    --popover: 42 39% 94%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 21 79% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 51 20% 87%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 51 20% 90%;
+    --muted-foreground: 0 0% 33%;
+    --accent: 51 20% 87%;
+    --accent-foreground: 0 0% 10%;
+    --border: 51 20% 87%;
+    --input: 51 20% 87%;
+    --ring: 21 79% 38%;
+  }
+}

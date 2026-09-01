@@ -11,15 +11,15 @@ estimated_minutes: 45
 source:
     - 45-day-interview-roadmap.md
 ---
-Week 2 starts with the piece that turns "call an API" into "run a real distributed system": task queues. Celery interview questions cluster around two things — idempotency and worker failure — because those are exactly the two things that break in production and never break in a demo. Today you set up Celery with a Redis broker, add retry with backoff, schedule periodic work, and answer both classic questions with actual mechanisms, not hand-waving.
+Week 2 starts with the piece that turns "call an API" into "run a real distributed system": task queues. Celery interview questions cluster around two things: idempotency and worker failure. Those are exactly the two things that break in production and never break in a demo. Today you set up Celery with a Redis broker, add retry with backoff, schedule periodic work, and answer both classic questions with actual mechanisms, not hand-waving.
 
 ## Celery architecture
 
 Celery is a distributed task queue with three moving pieces:
 
-- **Broker** (Redis or RabbitMQ) — a message queue that holds tasks waiting to run. The Celery client pushes a task message here; it doesn't run the task itself.
-- **Worker(s)** — separate processes that pull messages off the broker and execute the task function. You can run many workers, on many machines, consuming from the same queue.
-- **Result backend** (optional — Redis, a DB) — stores the return value/state of a task if you need to check on it later (`task.get()`, `task.status`).
+- **Broker** (Redis or RabbitMQ): a message queue that holds tasks waiting to run. The Celery client pushes a task message here; it doesn't run the task itself.
+- **Worker(s)**: separate processes that pull messages off the broker and execute the task function. You can run many workers, on many machines, consuming from the same queue.
+- **Result backend** (optional: Redis, a DB): stores the return value/state of a task if you need to check on it later (`task.get()`, `task.status`).
 
 ```python
 # celery_app.py
@@ -40,7 +40,7 @@ app.conf.update(
 )
 ```
 
-The client (your Django/FastAPI app) never talks directly to a worker — it serializes the task name and arguments into a message and publishes it to the broker. A worker somewhere, possibly on a different machine, picks it up whenever it's free. That decoupling is the entire point: the web request returns immediately, the actual work happens asynchronously and can be scaled independently of your web tier.
+The client (your Django/FastAPI app) never talks directly to a worker. It serializes the task name and arguments into a message and publishes it to the broker. A worker somewhere, possibly on a different machine, picks it up whenever it's free. That decoupling is the entire point: the web request returns immediately, and the actual work happens asynchronously and can be scaled independently of your web tier.
 
 ## Retry logic with exponential backoff
 
@@ -63,7 +63,7 @@ def send_webhook(self, url: str, payload: dict):
     return response.status_code
 ```
 
-`retry_jitter` is the detail interviewers listen for: without jitter, if 1000 tasks fail at the same moment (e.g. a downstream service blip), they all retry at exactly the same backed-off intervals — a synchronized retry storm that can re-crash the service they're retrying against. Jitter spreads that storm out.
+`retry_jitter` is the detail interviewers listen for: without jitter, if 1000 tasks fail at the same moment (e.g. a downstream service blip), they all retry at exactly the same backed-off intervals, producing a synchronized retry storm that can re-crash the service they're retrying against. Jitter spreads that storm out.
 
 For cases needing custom retry logic instead of `autoretry_for`:
 
@@ -80,9 +80,9 @@ def process_payment(self, payment_id: int):
         raise
 ```
 
-## Idempotency — the #1 Celery interview question
+## Idempotency: the #1 Celery interview question
 
-**"How do you ensure idempotency?"** — because at-least-once delivery is Celery's default guarantee, not exactly-once. A task can run more than once: the worker might execute a task, crash before acknowledging it to the broker, and the broker redelivers it to another worker — now it's run twice.
+**"How do you ensure idempotency?"** The premise behind the question is that at-least-once delivery is Celery's default guarantee, not exactly-once. A task can run more than once: the worker might execute a task, crash before acknowledging it to the broker, and the broker redelivers it to another worker, so now it's run twice.
 
 The fix is making the task's *effect* idempotent, not trying to prevent redelivery (you can't, reliably):
 
@@ -104,15 +104,15 @@ def charge_customer(self, order_id: int, idempotency_key: str):
 
 Two standard mechanisms for this:
 
-1. **Idempotency key + dedup store** (shown above) — the caller generates a unique key per logical operation (not per Celery retry), and the task checks a fast store (Redis `SETNX`, or a unique DB constraint) before performing the side effect.
-2. **Natural idempotency** — design the operation so running it twice has the same result as running it once: `UPDATE orders SET status = 'shipped' WHERE id = %s` is naturally idempotent; `INSERT INTO shipments ...` is not, unless you add a unique constraint on `order_id` and catch the conflict.
+1. **Idempotency key + dedup store** (shown above): the caller generates a unique key per logical operation (not per Celery retry), and the task checks a fast store (Redis `SETNX`, or a unique DB constraint) before performing the side effect.
+2. **Natural idempotency**: design the operation so running it twice has the same result as running it once. `UPDATE orders SET status = 'shipped' WHERE id = %s` is naturally idempotent; `INSERT INTO shipments ...` is not, unless you add a unique constraint on `order_id` and catch the conflict.
 
 ## What happens when a worker dies
 
 The second classic question. It depends on **acknowledgment mode**:
 
-- **Late acknowledgment (`task_acks_late=True`)** — the worker acknowledges the message *after* the task finishes, not when it starts. If the worker crashes mid-task, the broker never received an ack, so it redelivers the message to another worker. Safer for critical work, but means a task that crashes the worker itself (OOM, segfault) will be retried — which is exactly why the task body must be idempotent.
-- **Early acknowledgment (default)** — the worker acks as soon as it *starts* the task. If the worker dies mid-task, the message is gone — the task is silently lost. Fine for non-critical, best-effort work; wrong for anything that must complete.
+- **Late acknowledgment (`task_acks_late=True`)**: the worker acknowledges the message *after* the task finishes, not when it starts. If the worker crashes mid-task, the broker never received an ack, so it redelivers the message to another worker. Safer for critical work, but it means a task that crashes the worker itself (OOM, segfault) will be retried, which is exactly why the task body must be idempotent.
+- **Early acknowledgment (default)**: the worker acks as soon as it *starts* the task. If the worker dies mid-task, the message is gone: the task is silently lost. Fine for non-critical, best-effort work; wrong for anything that must complete.
 
 ```python
 app.conf.task_acks_late = True
@@ -139,7 +139,7 @@ app.conf.beat_schedule = {
 }
 ```
 
-`celery beat` is a separate process from the workers — it's a scheduler that pushes tasks onto the broker at the configured times; the actual execution still goes through normal workers. Run exactly one `beat` process (or use a lock/leader-election if running it redundantly) — two `beat` processes will double-schedule everything.
+`celery beat` is a separate process from the workers. It's a scheduler that pushes tasks onto the broker at the configured times; the actual execution still goes through normal workers. Run exactly one `beat` process (or use a lock/leader-election if running it redundantly): two `beat` processes will double-schedule everything.
 
 ## Setting up the broker and running it
 
@@ -153,11 +153,3 @@ celery -A celery_app worker --loglevel=info --concurrency=4
 # Start beat for periodic tasks (separate process)
 celery -A celery_app beat --loglevel=info
 ```
-
-## Key takeaways
-
-- Celery gives at-least-once delivery, not exactly-once — every task must be written to be safely re-runnable.
-- Idempotency comes from a dedup key checked before the side effect, or from designing the operation itself to be naturally idempotent (UPDATE-style, unique constraints).
-- `task_acks_late=True` protects against losing work when a worker crashes mid-task, but requires idempotent tasks since it also causes more retries.
-- `retry_jitter=True` prevents synchronized retry storms when many tasks fail at once.
-- `celery beat` schedules, workers execute — they're separate processes, and only one `beat` should run at a time.

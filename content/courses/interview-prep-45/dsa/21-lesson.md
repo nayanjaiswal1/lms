@@ -11,27 +11,27 @@ estimated_minutes: 90
 source:
     - 45-day-interview-roadmap.md
 ---
-Week 3 covered the hardest algorithmic material in this course: hard DP, backtracking, greedy, DSU, and bit manipulation. Today is consolidation, not new material — the goal is converting "I solved it once with hints" into "I can re-derive it cold," because only the second state survives interview pressure.
+Week 3 covered the hardest algorithmic material in this course: hard DP, backtracking, greedy, DSU, and bit manipulation. Today is consolidation, not new material. The goal is converting "I solved it once with hints" into "I can re-derive it cold," because only the second state survives interview pressure.
 
 ## What week 3 covered
 
 | Day | Topic | Problems | Core pattern |
 |-----|-------|----------|--------------|
-| 15 | DP — Hard | 4 | 2D string-matching DP, rolling-array space optimization |
+| 15 | DP - Hard | 4 | 2D string-matching DP, rolling-array space optimization |
 | 16 | Backtracking | 4 | Choice/constraints/goal, combinations vs. permutations |
-| 17 | Backtracking — Advanced | 4 | Constraint satisfaction, three-set N-Queens trick |
+| 17 | Backtracking - Advanced | 4 | Constraint satisfaction, three-set N-Queens trick |
 | 18 | Greedy | 4 | Greedy choice property, exchange arguments |
 | 19 | Union Find / DSU | 4 | Path compression + union by rank, cycle detection |
 | 20 | Bit Manipulation | 4 | XOR cancellation, `n & (n-1)` |
 
 Running total through Day 20: **66 LeetCode problems solved**.
 
-## Self-test — can you re-derive these cold?
+## Self-test: can you re-derive these cold?
 
 Work through each without notes. Stalling more than two minutes on any item puts that topic on today's re-solve list.
 
 **DP Hard:**
-- Write the wildcard-matching transition for `p[j-1] == '*'` in one line. (Answer: `dp[i][j] = dp[i][j-1] or dp[i-1][j]` — star matches zero chars, or consumes one more.)
+- Write the wildcard-matching transition for `p[j-1] == '*'` in one line. (Answer: `dp[i][j] = dp[i][j-1] or dp[i-1][j]`: star matches zero chars, or consumes one more.)
 - Why is O(n) space possible for a 2D string DP? (Each row only reads the row directly above it.)
 
 **Backtracking:**
@@ -45,7 +45,7 @@ Work through each without notes. Stalling more than two minutes on any item puts
 
 **DSU:**
 - Write `find` with path compression from memory (three lines).
-- Why is Graph Valid Tree not just a cycle check? (A forest is acyclic but disconnected — the `n - 1` edge-count check rules that out.)
+- Why does Graph Valid Tree need more than a cycle check? (A forest is acyclic but disconnected; the `n - 1` edge-count check rules that out.)
 
 **Bit manipulation:**
 - What does `n & (n - 1)` do, and which two problems does it solve? (Clears the lowest set bit; popcount and power-of-2 check.)
@@ -55,21 +55,17 @@ Work through each without notes. Stalling more than two minutes on any item puts
 
 For each problem you re-solve today:
 
-1. Read only the problem statement — no notes, no previous solution.
+1. Read only the problem statement: no notes, no previous solution.
 2. State the approach out loud (or write it in two sentences) *before* coding. If you can't, re-study that day's lesson first, then return.
 3. Code it completely; run it against the examples plus one edge case you invent yourself.
 4. Compare against the reference solution. Any *structural* difference (not style) means schedule another re-solve in 2 days.
 
 Priority order (weak areas first, per the roadmap):
 
-1. **DP Hard** — Wildcard Matching (LeetCode 44) with the O(n)-space rolling array; Regular Expression Matching (LeetCode 10) if time allows.
-2. **Backtracking** — N-Queens (LeetCode 51) and Subsets II (LeetCode 90); together they cover the constraint-set trick and duplicate handling.
+1. **DP Hard**: Wildcard Matching (LeetCode 44) with the O(n)-space rolling array; Regular Expression Matching (LeetCode 10) if time allows.
+2. **Backtracking**: N-Queens (LeetCode 51) and Subsets II (LeetCode 90); together they cover the constraint-set trick and duplicate handling.
 3. If both go cleanly: one quick confirmation each from Greedy (Task Scheduler), DSU (Graph Valid Tree), and Bits (Missing Number).
 
-## Key takeaways
+## The meta-skill under all five topics
 
-- Re-solving without notes is the only reliable retention test — recognition is not recall.
-- The week's five topics share one meta-skill: identifying *which* tool a fresh problem calls for is worth more than depth in any single tool.
-- DP Hard and Backtracking are the designated weak areas — they get today's first and largest time blocks.
-- Structural differences from a reference solution signal a real gap; re-solve those problems again in 2 days.
-- At 66 problems, most new mediums should map onto a pattern you already know — practice making that mapping explicit before coding.
+DP, backtracking, greedy, DSU, and bit manipulation look like five separate toolkits, but the self-test above is really testing one skill five times: recognizing *which* tool a fresh problem calls for before you start coding. A candidate who knows all five deeply but guesses wrong on which one applies will underperform one who knows four solidly and reads the problem correctly. At 66 problems solved, most new mediums you'll see from here on should map onto a pattern from this week; the practice from today onward is making that mapping explicit and fast, not learning new patterns from scratch.

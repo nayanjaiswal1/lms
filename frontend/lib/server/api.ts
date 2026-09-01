@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export interface ActionResult<T = undefined> {
   ok?: boolean;
@@ -58,6 +59,7 @@ export async function apiGet<T>(path: string): Promise<T> {
     headers: await authHeaders(),
     cache: "no-store",
   });
+  if (res.status === 401) redirect("/login");
   if (res.status === 429) {
     const wait = retryAfterSeconds(res);
     throw new Error(`Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} and refresh.`);
@@ -77,6 +79,7 @@ export async function apiPost<T>(path: string, payload?: unknown): Promise<T> {
     body: payload !== undefined ? JSON.stringify(payload) : undefined,
     cache: "no-store",
   });
+  if (res.status === 401) redirect("/login");
   if (res.status === 429) {
     const wait = retryAfterSeconds(res);
     throw new Error(`Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} and refresh.`);

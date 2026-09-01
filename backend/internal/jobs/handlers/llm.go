@@ -12,12 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
-	"github.com/mindforge/backend/internal/diary"
-	"github.com/mindforge/backend/internal/habit"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/revisionplan"
 	"github.com/mindforge/backend/internal/roadmap"
-	"github.com/mindforge/backend/internal/whatnow"
 )
 
 // LLMPayload is the JSON payload for llm.task jobs.
@@ -67,8 +64,6 @@ func (h *LLMHandler) Handle(ctx context.Context, job jobs.Job) error {
 		return h.handleRevisionPlanGenerate(ctx, job, p)
 	case "mistake_card_generate":
 		return h.handleMistakeCardGenerate(ctx, job, p)
-	case "diary_analyze":
-		return h.handleDiaryAnalyze(ctx, job, p)
 	default:
 		return fmt.Errorf("handlers.llm: unknown LLM task: %s", p.Task)
 	}
@@ -602,51 +597,6 @@ func (h *LLMHandler) handleMistakeCardGenerate(ctx context.Context, job jobs.Job
 	return nil
 }
 
-// handleDiaryAnalyze re-scans a saved diary entry (EntityID) for habit/task
-// mentions and writes the resulting habit completions / whatnow task
-// mutations into the writer's real records — see
-// internal/diary.Service.Analyze for the actual resolution/dedup logic;
-// this handler only fetches the entry, re-checks the content hash (a rapid
-// series of saves can enqueue several diary_analyze jobs for the same entry;
-// only the latest content is worth an AI call), and delegates.
-func (h *LLMHandler) handleDiaryAnalyze(ctx context.Context, job jobs.Job, p LLMPayload) error {
-	repo := diary.NewRepo(h.pool)
-	entry, err := repo.GetByID(ctx, p.EntityID)
-	if err != nil {
-		if errors.Is(err, diary.ErrNotFound) {
-			slog.InfoContext(ctx, "handlers.llm: diary_analyze: entry not found, skipping",
-				"entry_id", p.EntityID)
-			return nil
-		}
-		return fmt.Errorf("handlers.llm: diary_analyze: fetch entry %s: %w", p.EntityID, err)
-	}
-
-	if entry.AnalyzedHash == diary.ContentHash(entry.Content) {
-		slog.InfoContext(ctx, "handlers.llm: diary_analyze: content unchanged since last analysis, skipping",
-			"entry_id", p.EntityID)
-		return nil
-	}
-
-	if !h.ai.Available() {
-		slog.InfoContext(ctx, "handlers.llm: diary_analyze: AI provider not available, skipping",
-			"entry_id", p.EntityID)
-		return nil
-	}
-
-	llmCtx, cancel := context.WithTimeout(ctx, h.cfg.LLMTimeout)
-	defer cancel()
-
-	svc := diary.NewService(repo, h.ai, habit.NewService(habit.NewRepo(h.pool)), whatnow.NewService(whatnow.NewRepo(h.pool)))
-	if err := svc.Analyze(llmCtx, entry); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return fmt.Errorf("handlers.llm: diary_analyze: AI timed out (entry %s): %w", p.EntityID, err)
-		}
-		return fmt.Errorf("handlers.llm: diary_analyze: entry %s: %w", p.EntityID, err)
-	}
-
-	slog.InfoContext(ctx, "handlers.llm: diary entry analyzed", "entry_id", p.EntityID)
-	return nil
-}
 
 // buildRoadmapPrompt turns a roadmap's stored inputs into the user prompt for
 // ai.RoadmapSystemPrompt. All free-text fields are sanitized the same way as

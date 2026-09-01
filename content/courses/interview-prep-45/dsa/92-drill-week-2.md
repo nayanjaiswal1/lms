@@ -179,6 +179,6 @@ questions:
         weight: 1
 ---
 
-Week 2 coding drill: one problem each from the week's pillars — DP basics (Climbing
+Week 2 coding drill: one problem each from the week's pillars, DP basics (Climbing
 Stairs), heaps (Kth Largest), and graph traversal (Number of Islands). The starter code
 handles stdin/stdout; implement only the marked function. Pass at least 60% to continue.

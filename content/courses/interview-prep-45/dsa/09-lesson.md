@@ -12,13 +12,13 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Graph traversal is the single most reused pattern in interviews — grids, dependency chains, social networks, and state-space search all reduce to "visit nodes without revisiting them." Today you build the adjacency list, BFS, and DFS primitives you'll reuse for the rest of the course, then apply them to four classic problems.
+Graph traversal is the single most reused pattern in interviews. Grids, dependency chains, social networks, and state-space search all reduce to "visit nodes without revisiting them." Today you build the adjacency list, BFS, and DFS primitives you'll reuse for the rest of the course, then apply them to four classic problems.
 
 ## Graph representation: adjacency list vs matrix
 
 A graph is a set of nodes (vertices) connected by edges. You almost always represent it one of two ways.
 
-**Adjacency list** — a dict/array mapping each node to its neighbors.
+**Adjacency list**: a dict or array mapping each node to its neighbors.
 
 ```python
 from collections import defaultdict
@@ -33,7 +33,7 @@ print(dict(graph))
 # {0: [1, 2], 1: [0, 2], 2: [0, 1, 3], 3: [2]}
 ```
 
-**Adjacency matrix** — an `n x n` grid where `matrix[i][j] = 1` if an edge exists.
+**Adjacency matrix**: an `n x n` grid where `matrix[i][j] = 1` if an edge exists.
 
 ```python
 n = 4
@@ -50,7 +50,7 @@ for u, v in edges:
 | Iterate neighbors of u | O(degree(u)) | O(V) |
 | Best for | Sparse graphs (most interview problems) | Dense graphs, small V, or when you need O(1) edge lookup |
 
-**Pitfall:** LeetCode grid problems (Number of Islands, Rotting Oranges) don't hand you a graph at all — the 2D grid *is* the implicit adjacency structure, with neighbors being the 4 (or 8) adjacent cells. Recognizing "this grid is a graph" is half the battle.
+**Pitfall:** LeetCode grid problems (Number of Islands, Rotting Oranges) don't hand you a graph at all. The 2D grid is itself the implicit adjacency structure, with neighbors being the 4 (or 8) adjacent cells. Recognizing that the grid is a graph is half the battle.
 
 ## When to use BFS vs DFS
 
@@ -61,7 +61,7 @@ Both visit every reachable node exactly once, but they explore in different orde
 | Data structure | Queue (FIFO) | Stack (explicit) or recursion (call stack) |
 | Explores | Level by level, outward from source | One path all the way down before backtracking |
 | Use for | Shortest path in unweighted graph, "minimum steps", multi-source spread | Path existence, connected components, cycle detection, backtracking, topological order |
-| Space | O(V) — can hold a full level | O(V) worst case (deep recursion) — but often less for wide, shallow graphs |
+| Space | O(V), can hold a full level | O(V) worst case (deep recursion), but often less for wide, shallow graphs |
 
 Rule of thumb: **if the question says "shortest," "minimum," or "fewest steps," reach for BFS.** If it says "does a path exist," "find all paths," or "explore everything," DFS (often recursive) is simpler to write and reason about.
 
@@ -86,13 +86,13 @@ def bfs(graph, start):
     return order
 ```
 
-If you mark visited only when you pop, the same node can be pushed onto the queue multiple times before it's ever processed — wasted work, and in weighted-BFS variants (like multi-source problems) it can produce wrong answers. For grids, `visited` is usually a 2D boolean array or you mutate the grid in place (e.g., flip `'1'` to `'0'`) to save space.
+Mark visited only at pop time, and the same node can be pushed onto the queue multiple times before it's ever processed. That's wasted work at best, and in multi-source variants it can produce wrong answers. For grids, `visited` is usually a 2D boolean array, or you mutate the grid in place (flipping `'1'` to `'0'`, say) to save space.
 
 ## Number of Islands
 
-[LeetCode 200](https://leetcode.com/problems/number-of-islands/) — DFS/BFS — Grid traversal
+[LeetCode 200](https://leetcode.com/problems/number-of-islands/), DFS/BFS, Grid traversal
 
-**Intuition:** Each connected group of `'1'`s is one island. Scan every cell; whenever you find an unvisited `'1'`, that's a new island — flood-fill (DFS or BFS) to mark every connected land cell so you don't count it again.
+**Intuition:** Each connected group of `'1'`s is one island. Scan every cell; whenever you find an unvisited `'1'`, that's a new island, so flood-fill it (DFS or BFS) to mark every connected land cell and avoid counting it again.
 
 **Approach:** Iterate all cells. On an unvisited land cell, increment the island count and run DFS/BFS to sink the entire connected component (mutate to `'0'` as "visited").
 
@@ -120,15 +120,15 @@ def numIslands(grid: list[list[str]]) -> int:
     return islands
 ```
 
-**Complexity:** Time O(rows × cols) — each cell visited a constant number of times. Space O(rows × cols) worst case for the recursion stack (a grid that's entirely land).
+**Complexity:** Time O(rows × cols), since each cell is visited a constant number of times. Space O(rows × cols) worst case for the recursion stack, when the grid is entirely land.
 
-**Common mistakes:** Forgetting boundary checks before indexing (index-out-of-range crash); mutating the grid without realizing the interviewer may not want the input destroyed (mention the trade-off, offer a separate `visited` set as an alternative); using DFS recursion on a huge grid can hit Python's recursion limit — BFS with an explicit queue avoids that risk entirely.
+**Common mistakes:** Forgetting boundary checks before indexing, which crashes with an index-out-of-range error. Mutating the grid without realizing the interviewer may not want the input destroyed; mention the trade-off and offer a separate `visited` set as an alternative. Using DFS recursion on a huge grid can hit Python's recursion limit, something BFS with an explicit queue avoids entirely.
 
 ## Clone Graph
 
-[LeetCode 133](https://leetcode.com/problems/clone-graph/) — BFS/DFS — Deep copy
+[LeetCode 133](https://leetcode.com/problems/clone-graph/), BFS/DFS, Deep copy
 
-**Intuition:** You must create a completely new graph with new node objects, preserving the same connectivity. The trick is avoiding infinite loops on cycles — you need a map from original node → cloned node so you never clone the same node twice.
+**Intuition:** You must create a completely new graph with new node objects, preserving the same connectivity. The trick is avoiding infinite loops on cycles: you need a map from original node to cloned node so you never clone the same node twice.
 
 **Approach:** BFS or DFS from the given start node. Use a hash map `old -> new`. Whenever you encounter a neighbor you haven't cloned yet, create its clone and enqueue it; either way, append the clone to the current node's clone's neighbor list.
 
@@ -158,13 +158,13 @@ def cloneGraph(node: 'Node') -> 'Node':
 
 **Complexity:** Time O(V + E), space O(V) for the map and queue.
 
-**Common mistakes:** Cloning a neighbor's *value* instead of wiring up the *clone object*; not handling the single-node-with-no-neighbors edge case; re-cloning a node already in the map (always check `old_to_new` before creating a new `Node`).
+**Common mistakes:** Cloning a neighbor's value instead of wiring up the clone object. Not handling the single-node-with-no-neighbors edge case. Re-cloning a node already in the map; always check `old_to_new` before creating a new `Node`.
 
 ## Rotting Oranges
 
-[LeetCode 994](https://leetcode.com/problems/rotting-oranges/) — BFS — Multi-source BFS
+[LeetCode 994](https://leetcode.com/problems/rotting-oranges/), BFS, Multi-source BFS
 
-**Intuition:** Every rotten orange rots its fresh neighbors simultaneously, one minute at a time. This is BFS from *multiple sources at once* — seed the queue with all initially-rotten oranges, then expand level by level; each level = one minute.
+**Intuition:** Every rotten orange rots its fresh neighbors simultaneously, one minute at a time. This is BFS from multiple sources at once: seed the queue with all initially-rotten oranges, then expand level by level, where each level equals one minute.
 
 **Approach:** Push all rotten cells into the queue first (minute 0). Track `fresh` count. BFS level by level; each popped-and-expanded level that rots at least one orange increments the minute counter. If `fresh > 0` after BFS exhausts, return -1.
 
@@ -200,11 +200,11 @@ def orangesRotting(grid: list[list[int]]) -> int:
 
 **Complexity:** Time O(rows × cols), space O(rows × cols) for the queue.
 
-**Common mistakes:** Incrementing `minutes` even on the final level when nothing new rotted (the `for _ in range(len(queue))` level-batching pattern handles this correctly — verify against the "no fresh oranges at all" edge case, which should return 0); forgetting multi-source seeding and instead running BFS from a single rotten cell.
+**Common mistakes:** Incrementing `minutes` even on the final level when nothing new rotted. The `for _ in range(len(queue))` level-batching pattern handles this correctly; verify it against the "no fresh oranges at all" edge case, which should return 0. Forgetting multi-source seeding and instead running BFS from a single rotten cell.
 
 ## Walls and Gates
 
-[LeetCode 286](https://leetcode.com/problems/walls-and-gates/) — BFS — Fill distances
+[LeetCode 286](https://leetcode.com/problems/walls-and-gates/), BFS, Fill distances
 
 **Intuition:** Same multi-source BFS pattern as Rotting Oranges, but instead of counting minutes you're writing the BFS depth directly into each empty room as its distance to the nearest gate.
 
@@ -236,12 +236,4 @@ def wallsAndGates(rooms: list[list[int]]) -> None:
 
 **Complexity:** Time O(rows × cols), space O(rows × cols).
 
-**Common mistakes:** Running BFS separately from every gate instead of seeding all gates into one shared queue (that gives the *correct* answer too, but is O(gates × cells) instead of O(cells) — mention the multi-source optimization explicitly, interviewers look for it); walls (`-1`) must simply be skipped, not treated as an error case.
-
-## Key takeaways
-
-- Adjacency list is the default representation for interview-scale graphs; matrices only earn their O(V²) space when you need O(1) edge lookups on a dense/small graph.
-- BFS = shortest path / minimum steps in unweighted graphs. DFS = does-a-path-exist, enumerate-all-paths, or components — pick based on what the question asks for.
-- Mark nodes visited at enqueue/push time, never at pop/process time, or you'll do duplicate work (and get wrong answers in weighted variants).
-- Grid problems are graphs in disguise — 4-directional (or 8-directional) neighbor checks replace `graph[node]` lookups.
-- Multi-source BFS (seed the queue with *all* starting points before the first pop) is the pattern behind Rotting Oranges and Walls and Gates — recognize it whenever "simultaneously" or "nearest of several sources" appears.
+**Common mistakes:** Running BFS separately from every gate instead of seeding all gates into one shared queue. That still gives the correct answer, but costs O(gates × cells) instead of O(cells); mention the multi-source optimization explicitly, since interviewers look for it. Walls (`-1`) should simply be skipped, not treated as an error case.

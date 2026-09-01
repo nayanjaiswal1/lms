@@ -111,6 +111,6 @@ questions:
     explanation: "Inorder visits left subtree, node, right subtree — for a BST that is exactly ascending sorted order, which is also how you validate one."
 ---
 
-Checkpoint quiz for Week 1: arrays and hashing, two pointers, sliding window,
-binary search, stacks, trees, plus the week's system design and backend topics.
-Score 70% or higher to confirm you're ready for Week 2.
+This covers Week 1 in full: arrays and hashing, two pointers, sliding window,
+binary search, stacks, and trees, plus the system design and backend topics
+you hit along the way. Hit 70% and you're clear to start Week 2.

@@ -23,21 +23,21 @@ Default to the narrowest scope that works, and only lift when you have a concret
 | Several sibling components need it, but it doesn't cross large parts of the tree | Lift state to their common parent, pass down as props |
 | Truly cross-cutting (theme, auth session, locale) that rarely changes | React Context |
 | Complex, frequently-updated, shared across distant parts of the app, needs middleware/devtools/time-travel | Redux / Zustand / Jotai (external store) |
-| Comes from the server and just needs caching + revalidation | React Query / SWR / TanStack Query — not Redux |
+| Comes from the server and just needs caching + revalidation | React Query / SWR / TanStack Query, not Redux |
 
-**Interview trap: "Context is a state management solution."** It isn't — Context is a *dependency injection* mechanism for avoiding prop drilling. It has no built-in way to prevent unrelated consumers from re-rendering on unrelated value changes (every consumer of a Context re-renders on ANY change to that Context's value, unless you split contexts or memoize), and no middleware/devtools/selectors. Redux (or Zustand) solves a different problem: efficient, selective subscriptions to slices of a large, frequently-changing store.
+**Interview trap: "Context is a state management solution."** It isn't. Context is a *dependency injection* mechanism for avoiding prop drilling. It has no built-in way to prevent unrelated consumers from re-rendering on unrelated value changes (every consumer of a Context re-renders on ANY change to that Context's value, unless you split contexts or memoize), and no middleware/devtools/selectors. Redux (or Zustand) solves a different problem: efficient, selective subscriptions to slices of a large, frequently-changing store.
 
 | | Redux | Context API | Zustand |
 |---|---|---|---|
-| Boilerplate | High (actions, reducers, dispatch) — much less with Redux Toolkit | Low | Very low |
-| Re-render granularity | Fine — `useSelector` only re-renders on the selected slice changing | Coarse — any Context value change re-renders every consumer | Fine — selector-based, like Redux |
+| Boilerplate | High (actions, reducers, dispatch), much less with Redux Toolkit | Low | Very low |
+| Re-render granularity | Fine: `useSelector` only re-renders on the selected slice changing | Coarse: any Context value change re-renders every consumer | Fine: selector-based, like Redux |
 | DevTools / time-travel | Yes, excellent | No | Yes, via middleware |
 | Async / middleware | Thunks, Sagas, RTK Query | None built-in, DIY | Simple built-in async actions |
 | Best for | Large apps, complex cross-cutting state, need for strict predictability | Rarely-changing app-wide values: theme, auth, locale | Most apps that outgrew Context but don't need Redux's ceremony |
 
 ## Build: a simple Redux-like store
 
-This is the core of what `createStore` does — a subscription list, a reducer, and dispatch that runs the reducer and notifies subscribers:
+This is the core of what `createStore` does: a subscription list, a reducer, and dispatch that runs the reducer and notifies subscribers:
 
 ```tsx
 type Action = { type: string; payload?: unknown };
@@ -115,7 +115,7 @@ function Counter() {
 
 ## useReducer for complex local state
 
-`useReducer` is `createStore` scaled down to a single component — same reducer pattern, no external store. Reach for it over multiple `useState` calls when state fields update together, or when the "next state" depends on complex logic that's easier to read as a switch statement than a pile of setters.
+`useReducer` is `createStore` scaled down to a single component: same reducer pattern, no external store. Reach for it over multiple `useState` calls when state fields update together, or when the "next state" depends on complex logic that's easier to read as a switch statement than a pile of setters.
 
 ```tsx
 type FormState = {
@@ -175,7 +175,7 @@ Why this beats five `useState` calls: every field update is one `dispatch` with 
 
 ## Immutable update patterns
 
-React (and Redux) detect changes with reference equality (`Object.is`/`===`), not deep equality. Mutating state in place doesn't change the reference, so React never notices — the UI silently goes stale.
+React (and Redux) detect changes with reference equality (`Object.is`/`===`), not deep equality. Mutating state in place doesn't change the reference, so React never notices: the UI silently goes stale.
 
 ```tsx
 // WRONG — mutates, reference stays the same, React won't re-render
@@ -195,7 +195,7 @@ const removed = items.filter(item => item.id !== targetId);
 const updated = items.map(item => item.id === targetId ? { ...item, done: true } : item);
 ```
 
-For deeply nested state, spreading by hand at every level gets unreadable fast — that's what libraries like Immer (which Redux Toolkit uses under the hood) solve: you write code that *looks* mutable, and it produces a new immutable tree behind the scenes via a proxy.
+For deeply nested state, spreading by hand at every level gets unreadable fast. That's what libraries like Immer (which Redux Toolkit uses under the hood) solve: you write code that *looks* mutable, and it produces a new immutable tree behind the scenes via a proxy.
 
 ## State normalization
 
@@ -230,12 +230,3 @@ function editComment(state: NormalizedState, commentId: string, text: string): N
   };
 }
 ```
-
-## Key takeaways
-
-- Default to the narrowest scope: local state → lift to parent → Context (rarely-changing, cross-cutting) → external store (frequent, complex, cross-cutting).
-- Context is dependency injection, not a state manager — every consumer re-renders on any value change, with no built-in selectors.
-- A store is: state + pure reducer + subscriber list + dispatch that runs the reducer and notifies subscribers. `useSyncExternalStore` is the correct React hook for binding to it.
-- `useReducer` beats multiple `useState` calls when fields update together or transition logic is complex — same reducer pattern as Redux, scoped to one component.
-- React detects changes by reference equality — always produce new object/array references on update, never mutate in place.
-- Normalize nested/duplicated state into flat `byId`/`allIds` tables for O(1) lookups and single-source-of-truth updates.

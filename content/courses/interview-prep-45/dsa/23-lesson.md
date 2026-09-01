@@ -12,11 +12,11 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-You've used basic sliding window before; today's problems push it further — windows that track auxiliary data structures (frequency counts) and windows that must satisfy multiple simultaneous conditions. This is the pattern behind most "longest/shortest substring/subarray with property X" interview questions.
+You've used basic sliding window before. Today's problems push it further: windows that track auxiliary data structures like frequency counts, and windows that must satisfy multiple simultaneous conditions. This is the pattern behind most "longest/shortest substring/subarray with property X" interview questions.
 
 ## Fixed window with data structures
 
-A **fixed-size window** slides one element at a time, and instead of just a running sum, you often maintain a frequency map or count that updates incrementally as elements enter and leave.
+A **fixed-size window** slides one element at a time. Instead of just a running sum, you often maintain a frequency map or count that updates incrementally as elements enter and leave.
 
 ```python
 from collections import Counter
@@ -34,11 +34,11 @@ def max_distinct_in_window(nums: list[int], k: int) -> int:
     return best
 ```
 
-**The pattern:** every fixed-window problem does exactly two things per step — add the incoming element's effect, remove the outgoing element's effect. The "effect" can be a sum, a frequency count, a max-tracking deque, or any other incrementally-maintainable structure. Never recompute the whole window from scratch each step; that turns an O(n) sliding window into O(n·k).
+The pattern: every fixed-window problem does exactly two things per step, add the incoming element's effect, remove the outgoing element's effect. The "effect" can be a sum, a frequency count, a max-tracking deque, or any other incrementally-maintainable structure. Never recompute the whole window from scratch each step, since that turns an O(n) sliding window into O(n·k).
 
 ## Variable window tracking multiple conditions
 
-A **variable-size window** grows by advancing `right` and shrinks by advancing `left`, expanding while a condition holds and contracting when it's violated. The advanced version tracks *several* conditions at once (e.g., "at most 2 distinct characters AND window length ≤ some bound").
+A **variable-size window** grows by advancing `right` and shrinks by advancing `left`, expanding while a condition holds and contracting when it's violated. The advanced version tracks *several* conditions at once, for example "at most 2 distinct characters AND window length ≤ some bound."
 
 ```python
 def variable_window_skeleton(s: str, is_valid) -> int:
@@ -63,15 +63,15 @@ def variable_window_skeleton(s: str, is_valid) -> int:
     return best
 ```
 
-**Critical invariant:** `left` only ever moves forward — it never resets to 0 and re-scans. This is what makes the whole algorithm O(n) instead of O(n²): each index enters and leaves the window at most once across the entire run, so total work across all iterations of the inner `while` is bounded by n, not n per outer step.
+Critical invariant: `left` only ever moves forward. It never resets to 0 and re-scans. This is what makes the whole algorithm O(n) instead of O(n²): each index enters and leaves the window at most once across the entire run, so total work across all iterations of the inner `while` is bounded by n, not n per outer step.
 
 ## Longest Repeating Character Replacement
 
 [LeetCode 424](https://leetcode.com/problems/longest-repeating-character-replacement/) — Sliding window
 
-**Intuition:** You can change up to `k` characters in a window to make all characters the same. A window is valid if `window_length - count_of_most_frequent_char <= k` — that's exactly the number of characters you'd need to replace.
+**Intuition:** You can change up to `k` characters in a window to make all characters the same. A window is valid if `window_length - count_of_most_frequent_char <= k`, which is exactly the number of characters you'd need to replace.
 
-**Approach:** Expand `right`, tracking a frequency count and the running max frequency seen (`max_freq` never needs to decrease even as the window shrinks — it only ever underestimates slightly, but that's safe because the answer only grows when a *new* max_freq is achieved, so a stale-but-not-overestimating max_freq can't produce a wrong larger answer). Shrink `left` only when the window becomes invalid.
+**Approach:** Expand `right`, tracking a frequency count and the running max frequency seen. `max_freq` never needs to decrease even as the window shrinks; it only ever underestimates slightly, but that's safe because the answer only grows when a *new* max_freq is achieved, so a stale-but-not-overestimating max_freq can't produce a wrong larger answer. Shrink `left` only when the window becomes invalid.
 
 ```python
 def characterReplacement(s: str, k: int) -> int:
@@ -96,7 +96,7 @@ def characterReplacement(s: str, k: int) -> int:
 
 **Complexity:** Time O(n), space O(1) (at most 26 letters in `counts`).
 
-**Common mistakes:** Trying to decrement `max_freq` when the window shrinks — unnecessary and actually breaks the O(n) guarantee if done via a full rescan; forgetting that `best` should be computed from the (possibly still invalid-shrinking) window length, since the window size never needs to shrink below the best-so-far — it can only stay the same or grow.
+**Common mistakes:** Trying to decrement `max_freq` when the window shrinks is unnecessary and actually breaks the O(n) guarantee if done via a full rescan. Also, forgetting that `best` should be computed from the window length even mid-shrink, since the window size never needs to shrink below the best-so-far; it can only stay the same or grow.
 
 ## Fruit Into Baskets
 
@@ -129,15 +129,15 @@ def totalFruit(fruits: list[int]) -> int:
 
 **Complexity:** Time O(n), space O(1) (at most 3 keys in `counts` at any moment, since we shrink the instant it hits 3).
 
-**Common mistakes:** Not recognizing the "2 baskets" framing as "at most 2 distinct values" — translating word problems into the underlying pattern is the actual skill being tested; forgetting to delete zero-count entries from the dict, which corrupts the `len(counts) > 2` check.
+**Common mistakes:** Not recognizing the "2 baskets" framing as "at most 2 distinct values." Translating word problems into the underlying pattern is the actual skill being tested here. Also, forgetting to delete zero-count entries from the dict, which corrupts the `len(counts) > 2` check.
 
 ## Minimum Size Subarray Sum
 
 [LeetCode 209](https://leetcode.com/problems/minimum-size-subarray-sum/) — Sliding window
 
-**Intuition:** Find the *shortest* contiguous subarray with sum ≥ target — this flips the usual "maximize window" pattern to "minimize window while a condition holds," but the two-pointer mechanics are identical.
+**Intuition:** Find the *shortest* contiguous subarray with sum ≥ target. This flips the usual "maximize window" pattern to "minimize window while a condition holds," but the two-pointer mechanics are identical.
 
-**Approach:** Expand `right`, adding to a running sum. While the sum meets or exceeds `target`, record the window length and shrink `left` (trying to shrink further while still valid, since a smaller valid window is always better here).
+**Approach:** Expand `right`, adding to a running sum. While the sum meets or exceeds `target`, record the window length and shrink `left`, continuing to shrink while still valid since a smaller valid window is always better here.
 
 ```python
 def minSubArrayLen(target: int, nums: list[int]) -> int:
@@ -158,11 +158,11 @@ def minSubArrayLen(target: int, nums: list[int]) -> int:
 
 **Complexity:** Time O(n), space O(1).
 
-**Common mistakes:** Using `if` instead of `while` when shrinking — a single conditional shrink misses shorter valid windows that remain valid after one shrink step; forgetting the "no valid subarray exists" case, which requires returning 0, not `inf` or -1.
+**Common mistakes:** Using `if` instead of `while` when shrinking. A single conditional shrink misses shorter valid windows that remain valid after one shrink step. Also, forgetting the "no valid subarray exists" case, which requires returning 0, not `inf` or -1.
 
 ## Longest Subarray with Ones after Replacement
 
-LeetCode 424 variant — the array analogue of Longest Repeating Character Replacement, sometimes phrased as "Max Consecutive Ones III" ([LeetCode 1004](https://leetcode.com/problems/max-consecutive-ones-iii/))
+LeetCode 424 variant: the array analogue of Longest Repeating Character Replacement, sometimes phrased as "Max Consecutive Ones III" ([LeetCode 1004](https://leetcode.com/problems/max-consecutive-ones-iii/))
 
 **Intuition:** You can flip up to `k` zeros to ones. Find the longest subarray achievable. This is structurally identical to Longest Repeating Character Replacement: a window is valid if `zero_count_in_window <= k`.
 
@@ -190,12 +190,6 @@ def longestOnes(nums: list[int], k: int) -> int:
 
 **Complexity:** Time O(n), space O(1).
 
-**Common mistakes:** Rebuilding a full frequency count when a simple zero counter suffices (only two values exist, 0 and 1 — no need for a dict here, unlike the character-replacement version with 26 possible letters); off-by-one when computing window length after the shrink loop exits.
+**Common mistakes:** Rebuilding a full frequency count when a simple zero counter suffices. Only two values exist here, 0 and 1, so there's no need for a dict, unlike the character-replacement version with 26 possible letters. Also, off-by-one when computing window length after the shrink loop exits.
 
-## Key takeaways
-
-- Fixed windows do exactly two incremental updates per step (element entering, element leaving) — never recompute the window from scratch.
-- Variable windows expand `right` every iteration and contract `left` only while a condition is violated; `left` never resets, which is what guarantees O(n) total work.
-- "At most K distinct" and "longest with condition X after up to K changes" are the two dominant advanced sliding-window templates — most problems are one of these two wearing different words.
-- A frequency map that's only *approximately* accurate in one direction (like `max_freq` in Character Replacement, which is allowed to be stale-low but never stale-high) is a common and valid optimization — understand why it's still correct before using it.
-- Minimizing a window (shortest subarray satisfying a condition) uses the identical two-pointer skeleton as maximizing one — only the direction of "is this window good, should I shrink or expand" flips.
+Step back and the six problems above split into just two templates: "at most K distinct" (Fruit Into Baskets) and "longest valid window after up to K changes" (Character Replacement, Max Consecutive Ones III). Minimum Size Subarray Sum is the mirror image of both, shrinking instead of growing. Once you can name which template a new problem matches, the two-pointer skeleton writes itself.

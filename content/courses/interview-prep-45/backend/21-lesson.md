@@ -11,20 +11,20 @@ estimated_minutes: 27
 source:
     - 45-day-interview-roadmap.md
 ---
-No new material today — this is a consolidation checkpoint. Weeks stack up fast in a 45-day plan, and the topics from Days 15-20 (transactions, Redis, distributed systems, Kafka, Celery, locks) are exactly the ones that blur together under interview pressure if you don't actively re-test yourself. Use today to close the gaps before moving on.
+No new material today. This is a consolidation checkpoint. Weeks stack up fast in a 45-day plan, and the topics from Days 15-20 (transactions, Redis, distributed systems, Kafka, Celery, locks) are exactly the ones that blur together under interview pressure if you don't actively re-test yourself. Use today to close the gaps before moving on.
 
 ## How to run this review
 
-Don't re-read the lessons passively — that produces false confidence. For each topic below, do this in order:
+Don't re-read the lessons passively, since that produces false confidence. For each topic below, do this in order:
 
-1. **Closed-book recall (5 min per topic).** Write down, from memory, the core mechanism and one piece of code you'd want in a whiteboard answer. If you can't produce it without looking, that's the gap — mark it.
-2. **Answer the interview questions out loud**, as if a person asked them. Silently "knowing" the answer and being able to say it fluently under time pressure are different skills — this is the one interviews actually test.
+1. **Closed-book recall (5 min per topic).** Write down, from memory, the core mechanism and one piece of code you'd want in a whiteboard answer. If you can't produce it without looking, that's the gap, so mark it.
+2. **Answer the interview questions out loud**, as if a person asked them. Silently "knowing" the answer and being able to say it fluently under time pressure are different skills, and it's the second one that interviews actually test.
 3. **Re-read only the lesson sections tied to what you flagged in step 1.** Don't re-read everything; that's how a review session eats your whole day and teaches you nothing new.
 
 ## Self-check: PostgreSQL Transactions
 
 - Recall the four ACID properties and which failure mode each one addresses.
-- Explain, without looking, why Postgres never produces a dirty read (MVCC — readers see committed snapshots only).
+- Explain, without looking, why Postgres never produces a dirty read (MVCC: readers see committed snapshots only).
 - State the difference between Read Committed and Serializable, including what happens when Serializable detects a conflict.
 - Recall why `select_for_update()` plus sorted lock ordering avoids deadlocks in the bank transfer example.
 
@@ -65,12 +65,8 @@ Don't re-read the lessons passively — that produces false confidence. For each
 
 Before moving into Days 22-28 (Django ORM, FastAPI, security, WebSockets, async pipelines, testing, migrations), close out the loose ends from this week:
 
-- **Complete remaining DSA topics** — if your DSA track has fallen behind the backend track, this is the checkpoint to catch up before system-design-heavy days compound the gap.
-- **Add more system designs** — CAP, eventual consistency, and distributed locks are exactly the building blocks system-design interviews expect you to compose from memory; sketch one design (e.g. a rate limiter service, a leaderboard service) using only this week's material.
-- **Start frontend deep dives** — if the roadmap's frontend track hasn't started yet, this is the natural point to interleave it, since backend Week 4 shifts toward framework-specific (Django/FastAPI) rather than infrastructure topics.
+- **Complete remaining DSA topics.** If your DSA track has fallen behind the backend track, this is the checkpoint to catch up before system-design-heavy days compound the gap.
+- **Add more system designs.** CAP, eventual consistency, and distributed locks are exactly the building blocks system-design interviews expect you to compose from memory; sketch one design (e.g. a rate limiter service, a leaderboard service) using only this week's material.
+- **Start frontend deep dives.** If the roadmap's frontend track hasn't started yet, this is the natural point to interleave it, since backend Week 4 shifts toward framework-specific (Django/FastAPI) rather than infrastructure topics.
 
-## Key takeaways
-
-- A review day's value comes from recall-under-pressure practice, not re-reading — treat each self-check like a live interview question.
-- Track every gap you find in step 1; those are your actual study list for the next pass, not the full lesson set.
-- Week 4 shifts from distributed-systems infrastructure to framework-specific backend work — make sure this week's concepts (transactions, locks, queues) are solid before that context switch.
+A review day's value comes from recall-under-pressure practice, not re-reading, so treat each self-check like a live interview question and track every gap you find in step 1. Those gaps are your actual study list for the next pass, not the full lesson set again.

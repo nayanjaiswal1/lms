@@ -385,9 +385,13 @@
   td    { @apply border-b border-border px-4 py-3; }
 
   /* ── Focus ─────────────────────────────────────────────────────── */
-  /* Single definition, never overridden in components.
+  /* Single definition, never overridden in components — except
+     .diary-write-area (the diary "paper" entry textarea), where a ring
+     around the full write surface breaks the paper illusion. That one
+     input keeps a caret as its only focus indicator; every other
+     focusable element in the app still gets the ring below.
      Amber ring = brand colour, not the browser default blue. */
-  :focus-visible {
+  :focus-visible:not(.diary-write-area) {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
@@ -446,6 +450,12 @@
   }
   .card-raised {
     @apply bg-card rounded-xl border border-border p-6;
+    box-shadow: var(--shadow-raised);
+  }
+  /* Soft gradient variant of card-raised for the algo-visualizer's step preview.
+     Primary-only tint (never `ai`) — this panel isn't AI-generated content. */
+  .live-preview-card {
+    @apply rounded-xl border border-border bg-gradient-to-br from-primary/5 via-card to-card p-6;
     box-shadow: var(--shadow-raised);
   }
   /* Hover lift — 2D implied depth, no scale, no glow */

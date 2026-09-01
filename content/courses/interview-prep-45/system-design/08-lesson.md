@@ -12,7 +12,7 @@ estimated_minutes: 60
 source:
     - 45-day-interview-roadmap.md
 ---
-Today you design a distributed job queue — the system behind Sidekiq, Celery, SQS, and every "process this asynchronously" button in a real product. Interviewers ask this because it tests whether you understand delivery guarantees (at-least-once vs exactly-once), retry logic, and how ordering breaks down once you have more than one worker. It's a deceptively deep topic disguised as a simple CRUD-looking system.
+Today you design a distributed job queue: the system behind Sidekiq, Celery, SQS, and every "process this asynchronously" button in a real product. Interviewers ask this because it tests whether you understand delivery guarantees (at-least-once vs exactly-once), retry logic, and how ordering breaks down once you have more than one worker. It's a deceptively deep topic disguised as a simple CRUD-looking system.
 
 ## Requirements
 
@@ -26,21 +26,21 @@ Today you design a distributed job queue — the system behind Sidekiq, Celery, 
 
 **Non-functional**
 - At-least-once delivery (never silently drop a job).
-- Horizontal scalability of workers — thousands of workers pulling from the same queues.
+- Horizontal scalability of workers: thousands of workers pulling from the same queues.
 - Low enqueue latency (producers shouldn't block).
 - Visibility: someone can see queue depth, failure rate, and inspect a stuck job.
-- Idempotent job handlers (a design requirement we push onto the API, since at-least-once implies duplicates).
+- Idempotent job handlers, a design requirement we push onto the API, since at-least-once implies duplicates.
 
 ## Capacity estimates
 
 Assume a mid-size product: 50M jobs/day.
 - Average rate: 50,000,000 / 86,400 ≈ 580 jobs/sec.
 - Peak (3x average during business hours): ~1,750 jobs/sec.
-- Average payload: 1 KB → 50M × 1 KB = 50 GB/day of job data if retained for replay/audit.
-- If jobs are retained 7 days for debugging: 350 GB — fits comfortably in a single Postgres instance or a Kafka topic with retention.
+- Average payload: 1 KB, so 50M × 1 KB = 50 GB/day of job data if retained for replay/audit.
+- If jobs are retained 7 days for debugging: 350 GB, which fits comfortably in a single Postgres instance or a Kafka topic with retention.
 - Worker fleet: if a job takes 200ms average, one worker handles 5 jobs/sec. To sustain 1,750 jobs/sec you need ~350 concurrent workers (with headroom, provision 500+).
 
-These numbers exist to justify architecture choices below — don't skip the arithmetic in the interview, say it out loud.
+These numbers exist to justify architecture choices below. Don't skip the arithmetic in the interview, say it out loud.
 
 ## API sketch
 
@@ -60,7 +60,7 @@ GET /queues/{queue}/stats
 POST /dlq/{job_id}/requeue
 ```
 
-Workers don't call an HTTP API to fetch jobs — they use the broker's native pull/poll protocol (Redis `BLPOP`, SQS `ReceiveMessage`, or a DB `SELECT ... FOR UPDATE SKIP LOCKED`). The HTTP surface above is for producers and operators only.
+Workers don't call an HTTP API to fetch jobs. They use the broker's native pull/poll protocol (Redis `BLPOP`, SQS `ReceiveMessage`, or a DB `SELECT ... FOR UPDATE SKIP LOCKED`). The HTTP surface above is for producers and operators only.
 
 ## Data model
 
@@ -83,7 +83,7 @@ jobs
 INDEX (queue, status, priority, scheduled_at)   -- the "give me the next job" query
 ```
 
-If you use a broker like Redis/SQS/Kafka instead of a DB-backed queue, the "table" above becomes the job's metadata record in Postgres for status tracking and the DLQ, while the broker itself holds the ephemeral queue of message pointers. Many real systems (Sidekiq, SQS) do exactly this hybrid: lightweight broker for delivery, DB for durable job state.
+If you use a broker like Redis/SQS/Kafka instead of a DB-backed queue, the "table" above becomes the job's metadata record in Postgres for status tracking and the DLQ, while the broker itself holds the ephemeral queue of message pointers. Many real systems (Sidekiq, SQS) do exactly this hybrid: a lightweight broker for delivery, a DB for durable job state.
 
 ## High-level architecture
 
@@ -98,19 +98,19 @@ Worker pool <--- pull/lease -----------------------------------+
 Scheduler (cron-like) --> polls "scheduled_at <= now() AND status = queued" --> pushes into broker
 ```
 
-Three moving pieces: the **broker** (delivery), the **metadata store** (state/audit/DLQ), and **workers** (execution). Some systems collapse broker + metadata into one DB-backed queue (simpler ops, lower throughput ceiling); others split them (Kafka for delivery, Postgres for state) for higher throughput at the cost of two systems to keep consistent.
+Three moving pieces: the **broker** (delivery), the **metadata store** (state/audit/DLQ), and **workers** (execution). Some systems collapse broker and metadata into one DB-backed queue (simpler ops, lower throughput ceiling); others split them (Kafka for delivery, Postgres for state) for higher throughput at the cost of two systems to keep consistent.
 
 ## Component deep dives
 
-**Delivery guarantee — at-least-once, not exactly-once.** True exactly-once delivery is not achievable in a distributed system with independent producer/consumer failures — you always get at-least-once (with dedup) or at-most-once (with loss). The practical answer: make handlers idempotent. Store a `dedup_key` (e.g., `send_email:user_id:template_id:day`) and have the handler check/insert it atomically before doing work. This turns "at-least-once delivery" into "effectively exactly-once side effects."
+**Delivery guarantee: at-least-once, not exactly-once.** True exactly-once delivery isn't achievable in a distributed system with independent producer/consumer failures. You always get at-least-once (with dedup) or at-most-once (with loss). The practical answer is to make handlers idempotent: store a `dedup_key` (e.g., `send_email:user_id:template_id:day`) and have the handler check/insert it atomically before doing work. This turns at-least-once delivery into effectively exactly-once side effects.
 
-**Leasing, not locking forever.** A worker doesn't hold a row lock while it processes a job (that would block visibility and crash-recovery). Instead it does a visibility timeout: `UPDATE jobs SET status='in_progress', locked_by=$1, locked_at=now() WHERE id=$2 AND status='queued'`. If the worker crashes mid-job, a reaper process periodically finds jobs where `locked_at < now() - visibility_timeout` and requeues them. SQS calls this the "visibility timeout"; Sidekiq calls it a "watchdog."
+**Leasing, not locking forever.** A worker doesn't hold a row lock while it processes a job, since that would block visibility and crash-recovery. Instead it does a visibility timeout: `UPDATE jobs SET status='in_progress', locked_by=$1, locked_at=now() WHERE id=$2 AND status='queued'`. If the worker crashes mid-job, a reaper process periodically finds jobs where `locked_at < now() - visibility_timeout` and requeues them. SQS calls this the "visibility timeout"; Sidekiq calls it a "watchdog."
 
-**Retry with exponential backoff + jitter.** `delay = base * 2^attempts + random_jitter`, capped at some max (e.g., 15 min). Jitter prevents thundering-herd retries when a downstream dependency (say, an email provider) comes back up after an outage — without jitter, every failed job retries at the exact same instant and re-triggers the outage.
+**Retry with exponential backoff plus jitter.** `delay = base * 2^attempts + random_jitter`, capped at some max (e.g., 15 min). Jitter prevents thundering-herd retries when a downstream dependency (say, an email provider) comes back up after an outage. Without jitter, every failed job retries at the exact same instant and re-triggers the outage.
 
-**Dead letter queue.** After `max_attempts` is exceeded, move the job to `status = 'dead'` and stop retrying automatically. A human or automated process inspects DLQ jobs, fixes the root cause (bad payload, downstream bug), and requeues via `POST /dlq/{id}/requeue`. Never retry forever — infinite retries on a permanently broken job (e.g., malformed payload) waste capacity and can mask real outages in dashboards.
+**Dead letter queue.** After `max_attempts` is exceeded, move the job to `status = 'dead'` and stop retrying automatically. A human or automated process inspects DLQ jobs, fixes the root cause (bad payload, downstream bug), and requeues via `POST /dlq/{id}/requeue`. Never retry forever: infinite retries on a permanently broken job (e.g., malformed payload) waste capacity and can mask real outages in dashboards.
 
-**Priorities.** Cheapest implementation: separate queues per priority (`queue:high`, `queue:default`, `queue:low`) and have workers poll high before default before low (weighted round-robin to avoid low-priority starvation). Avoid a single queue with a "priority" sort column under high contention — sorting on every dequeue under load is slower than just having separate queues.
+**Priorities.** The cheapest implementation is separate queues per priority (`queue:high`, `queue:default`, `queue:low`) with workers polling high before default before low (weighted round-robin to avoid low-priority starvation). Avoid a single queue with a "priority" sort column under high contention; sorting on every dequeue under load is slower than just having separate queues.
 
 **Ordering.** Full global ordering across a sharded/multi-worker queue is expensive and rarely needed. If a specific ordering guarantee is required (e.g., "events for the same user must process in order"), use a partition key (Kafka partitions, or a per-key single-worker assignment) so all jobs for that key land on the same worker/partition and process sequentially, while different keys parallelize freely.
 
@@ -119,7 +119,7 @@ Three moving pieces: the **broker** (delivery), the **metadata store** (state/au
 | Choice | Pro | Con |
 |---|---|---|
 | DB-backed queue (Postgres `SKIP LOCKED`) | Simple ops, transactional with business data, easy DLQ | Throughput ceiling in the low thousands/sec; polling adds latency |
-| Redis-backed (Sidekiq-style) | Very high throughput, low latency, simple pub/sub primitives | In-memory — durability depends on persistence config (AOF/RDB); not a great long-term audit log |
+| Redis-backed (Sidekiq-style) | Very high throughput, low latency, simple pub/sub primitives | In-memory: durability depends on persistence config (AOF/RDB); not a great long-term audit log |
 | Managed broker (SQS) | No ops burden, built-in visibility timeout, DLQ | Vendor lock-in, per-message cost at scale, at-least-once only |
 | Kafka | Massive throughput, replay, ordering per partition | Heavier operationally, overkill for a simple task queue, consumer offset management adds complexity |
 
@@ -128,19 +128,10 @@ Pick based on scale: under ~1K jobs/sec, DB-backed or Redis is the pragmatic ans
 ## Likely follow-up questions — with answers
 
 **Q: How do you guarantee exactly-once processing if the network can duplicate delivery?**
-A: You don't guarantee it at the delivery layer — you guarantee it at the application layer via idempotency keys. The handler checks a dedup table/row (`INSERT ... ON CONFLICT DO NOTHING` keyed on a deterministic idempotency key derived from the job) before executing the side effect. Delivery stays at-least-once; the *effect* becomes exactly-once.
+A: You don't guarantee it at the delivery layer. You guarantee it at the application layer via idempotency keys. The handler checks a dedup table/row (`INSERT ... ON CONFLICT DO NOTHING` keyed on a deterministic idempotency key derived from the job) before executing the side effect. Delivery stays at-least-once; the effect becomes exactly-once.
 
 **Q: A worker crashes mid-job. What happens to that job?**
-A: It stays `in_progress` with a `locked_at` timestamp. A reaper (cron or background loop) scans for jobs whose `locked_at` is older than the visibility timeout and requeues them (increment attempts, reset status to `queued`). This is why handlers must be idempotent — the job may partially execute twice.
+A: It stays `in_progress` with a `locked_at` timestamp. A reaper (cron or background loop) scans for jobs whose `locked_at` is older than the visibility timeout and requeues them (increment attempts, reset status to `queued`). This is why handlers must be idempotent: the job may partially execute twice.
 
 **Q: How do you prevent one noisy queue from starving others?**
 A: Separate queues per tenant/type with weighted round-robin worker polling, or dedicated worker pools per queue (isolate by autoscaling group). Rate-limit enqueue on the producer side if one tenant is flooding the system.
-
-## Key takeaways
-
-- Real-world queues give at-least-once delivery; exactly-once *effects* come from idempotent handlers plus a dedup key, not from the broker.
-- Leasing with a visibility timeout (not a permanent lock) is how you recover from crashed workers without losing jobs.
-- Exponential backoff with jitter on retries prevents retry storms from re-triggering the outage that caused the failures.
-- A dead letter queue with a max-attempts cap is mandatory — infinite retries hide bugs and burn capacity.
-- Priority queues are best implemented as separate physical queues with weighted polling, not a sort column.
-- Choose the broker by throughput need: Postgres/Redis for most products, Kafka only when you need per-key ordering or replay at scale.

@@ -12,20 +12,20 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Render a 10,000-row table the naive way and you'll create 10,000 DOM nodes, most of which the user never sees. Virtualization is the technique that keeps the DOM small regardless of data size, and it's a near-guaranteed interview question for anyone claiming React performance experience — either "how would you render a huge list?" or "implement a virtualized list from scratch."
+Render a 10,000-row table the naive way and you'll create 10,000 DOM nodes, most of which the user never sees. Virtualization is the technique that keeps the DOM small regardless of data size, and it's a near-guaranteed interview question for anyone claiming React performance experience, either "how would you render a huge list?" or "implement a virtualized list from scratch."
 
 ## Windowing vs. virtualization
 
 The terms are used almost interchangeably, but there's a useful distinction:
 
 - **Windowing** is the general idea: only render the "window" of items currently visible (plus a buffer), and reuse/recycle DOM nodes as the window moves.
-- **Virtualization** is the broader concept applied beyond lists — virtual scrolling for grids, virtualized tables with sticky columns, virtualized trees. Windowing is virtualization applied specifically to a scrollable list.
+- **Virtualization** is the broader concept applied beyond lists: virtual scrolling for grids, virtualized tables with sticky columns, virtualized trees. Windowing is virtualization applied specifically to a scrollable list.
 
 In practice, when someone says "virtualize this list," they mean: keep the number of rendered DOM nodes roughly constant no matter how many items are in the underlying data.
 
 ## The core idea, built from scratch
 
-Before reaching for a library, understand the mechanism — this is what interviewers actually want to see.
+Before reaching for a library, understand the mechanism. This is what interviewers actually want to see.
 
 ```tsx
 import { useState, useRef, useMemo, type CSSProperties } from "react";
@@ -94,7 +94,7 @@ function FixedHeightVirtualList<T>({
 
 The mechanism, in three parts:
 
-1. **Outer scroll container** with a fixed height and `overflow: auto` — this is what actually scrolls.
+1. **Outer scroll container** with a fixed height and `overflow: auto`: this is what actually scrolls.
 2. **Inner spacer** sized to `items.length * itemHeight` so the scrollbar behaves as if all rows were rendered.
 3. **Absolutely positioned rows**, only for the visible slice, positioned with `top: index * itemHeight` so they land in the correct spot inside the spacer.
 
@@ -102,7 +102,7 @@ This is exactly what `react-window`'s `FixedSizeList` does internally, minus edg
 
 ## Using react-window
 
-For production code, don't hand-roll this — use a maintained library. `react-window` is the lightweight, modern choice (successor to `react-virtualized`).
+For production code, don't hand-roll this. Use a maintained library: `react-window` is the lightweight, modern choice (successor to `react-virtualized`).
 
 ```bash
 npm install react-window
@@ -145,7 +145,7 @@ function BigList({ rows }: { rows: Row[] }) {
 }
 ```
 
-`react-window` gives you the `style` prop already computed (absolute position + height) — you just apply it to your row's outer element. Passing data via `itemData` (rather than closing over `rows` in the render function) avoids recreating the row renderer on every render, which matters because `react-window` uses `React.memo` internally on rows.
+`react-window` gives you the `style` prop already computed (absolute position + height); you just apply it to your row's outer element. Passing data via `itemData` (rather than closing over `rows` in the render function) avoids recreating the row renderer on every render, which matters because `react-window` uses `React.memo` internally on rows.
 
 ## Variable-height items
 
@@ -153,7 +153,7 @@ Fixed-height virtualization is the easy case. Real lists (chat messages, comment
 
 Two approaches:
 
-**1. Known-but-varying heights** — if you can compute height ahead of render (e.g., from data), use `VariableSizeList`:
+**1. Known-but-varying heights**: if you can compute height ahead of render (e.g., from data), use `VariableSizeList`:
 
 ```tsx
 import { VariableSizeList } from "react-window";
@@ -172,7 +172,7 @@ function getItemSize(index: number) {
 </VariableSizeList>;
 ```
 
-**2. Unknown heights until rendered** — the common real case: text wraps differently depending on content and container width. Here you need to measure after render and cache the result. `@tanstack/react-virtual` is built for exactly this, using `ResizeObserver` under the hood:
+**2. Unknown heights until rendered**: the common real case. Text wraps differently depending on content and container width, so you need to measure after render and cache the result. `@tanstack/react-virtual` is built for exactly this, using `ResizeObserver` under the hood:
 
 ```bash
 npm install @tanstack/react-virtual
@@ -221,24 +221,15 @@ The `estimateSize` is a starting guess; `measureElement` (via `ResizeObserver`) 
 
 ## Overscan
 
-Overscan is the number of extra items rendered outside the visible viewport, in the scroll direction. It exists to hide the "blank flash" that happens when a fast scroll outruns the render — without overscan, scrolling quickly reveals a frame of empty space before new rows paint.
+Overscan is the number of extra items rendered outside the visible viewport, in the scroll direction. It exists to hide the "blank flash" that happens when a fast scroll outruns the render: without overscan, scrolling quickly reveals a frame of empty space before new rows paint.
 
 Trade-off: overscan is a direct multiplier on DOM node count. `overscan={5}` on both edges means you're rendering `visibleCount + 10` nodes instead of `visibleCount`. Too low → visible flashing on fast scroll. Too high → you're back to rendering most of the list, defeating the point of virtualizing. Typical values are 3–10 depending on row complexity and expected scroll speed.
 
 ## Performance trade-offs
 
-Virtualization isn't free — know the costs an interviewer expects you to name:
+Virtualization isn't free. Know the costs an interviewer expects you to name:
 
 - **Broken native browser behaviors.** `Ctrl+F` / in-page find won't find text in unrendered rows. `Cmd+A` select-all-and-copy only copies what's mounted. Anchor-link scrolling to an item by ID doesn't work if that item isn't rendered yet.
 - **SEO/accessibility cost.** Screen readers relying on the full DOM tree see only the rendered window; you often need `aria-setsize` / `aria-posinset` on rows to communicate true list position.
-- **Complexity cost.** Variable-height virtualization with dynamic content, sticky headers, and grouped sections is genuinely hard to get right — bugs show up as jumpy scroll position or items rendering at the wrong offset.
-- **When it's not worth it.** Lists under a few hundred items rarely need virtualization — the DOM can handle that fine, and the added complexity isn't justified. Profile first; virtualize when the row count is unbounded or in the thousands.
-
-## Key takeaways
-
-- Virtualization keeps rendered DOM node count roughly constant by rendering only the visible "window" plus overscan, using an absolutely-positioned spacer to preserve correct scrollbar size and item offsets.
-- Fixed-height lists are simple math (`index × itemHeight`); variable-height lists need either precomputed sizes (`VariableSizeList`) or post-render measurement (`@tanstack/react-virtual` + `ResizeObserver`).
-- `react-window` is the standard lightweight library; reach for `@tanstack/react-virtual` when row heights are unknown until content renders.
-- Overscan trades DOM node count for scroll smoothness — too little flashes blank space, too much defeats the purpose.
-- Virtualization breaks native find-in-page, select-all, and anchor scrolling — call this out unprompted, it's the kind of trade-off senior interviewers want to hear you volunteer.
-- Don't virtualize lists that don't need it — a few hundred simple rows is fine unvirtualized; measure before adding the complexity.
+- **Complexity cost.** Variable-height virtualization with dynamic content, sticky headers, and grouped sections is genuinely hard to get right: bugs show up as jumpy scroll position or items rendering at the wrong offset.
+- **When it's not worth it.** Lists under a few hundred items rarely need virtualization: the DOM can handle that fine, and the added complexity isn't justified. Profile first; virtualize when the row count is unbounded or in the thousands.

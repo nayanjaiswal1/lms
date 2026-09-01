@@ -11,11 +11,11 @@ estimated_minutes: 15
 source:
     - interview-prep-notes.md
 ---
-This builds on the prototype-chain lesson (Day 0) — two mechanisms that lesson doesn't cover: how `instanceof` actually resolves, and the manual (pre-`extends`) way of chaining constructors.
+This assumes you already know the basics of the prototype chain: every object has an internal link to another object it delegates property lookups to, and that chain of links is how `obj.someMethod()` can find a method defined on a shared prototype instead of on `obj` itself. This note covers two things that basic picture doesn't: how `instanceof` actually resolves, and the manual, pre-`extends` way of chaining constructors together.
 
 ## How instanceof actually works
 
-`obj instanceof Fn` walks `obj`'s prototype chain checking whether `Fn.prototype` appears anywhere in it — it does **not** check the constructor name or any tag, only object identity of `Fn.prototype`.
+`obj instanceof Fn` walks `obj`'s prototype chain checking whether `Fn.prototype` appears anywhere in it. It does **not** check the constructor's name or any type tag, only the object identity of `Fn.prototype`.
 
 ```js
 function isInstance(obj, Fn) {
@@ -28,7 +28,7 @@ function isInstance(obj, Fn) {
 }
 ```
 
-**Gotcha:** reassigning `Fn.prototype` to a brand-new object *after* instances were already created breaks `instanceof` for those existing instances — they still hold a live link to the *old* prototype object, not the new one.
+**Gotcha:** reassigning `Fn.prototype` to a brand-new object *after* instances were already created breaks `instanceof` for those existing instances. They still hold a live link to the *old* prototype object, not the new one.
 
 ```js
 function Foo() {}
@@ -36,12 +36,13 @@ const f = new Foo();
 
 Foo.prototype = {}; // new object, unrelated to what f links to
 
-f instanceof Foo; // false — f.__proto__ still points to the original Foo.prototype
+f instanceof Foo; // false: f.__proto__ still points to the original Foo.prototype
 ```
+Walking through `isInstance(f, Foo)` after that reassignment: `proto` starts as `f`'s original prototype object, the one `Foo.prototype` used to point to. The loop compares it against `Foo.prototype`, but that now refers to the new `{}` object instead, so the check fails. `proto` moves up to `Object.prototype`, fails again, then hits `null` and the loop returns `false`. Nothing about `f` changed; only what `Foo.prototype` points to did.
 
-## Legacy prototype chaining — before extends existed
+## Legacy prototype chaining: before extends existed
 
-`class`/`extends` (Day 0) auto-wires the constructor reference. The manual pattern it replaced does not, and forgetting the fix is the classic whiteboard trap:
+Modern `class`/`extends` syntax auto-wires the constructor reference for you. The manual pattern it replaced does not, and forgetting to fix it by hand is a classic whiteboard trap:
 
 ```js
 function Animal() {}
@@ -55,10 +56,4 @@ const d = new Dog();
 d.constructor === Dog; // true, only because of the line above
 ```
 
-Skip that fix and `d.constructor` silently points to `Animal` instead of `Dog` — breaks any code relying on `obj.constructor` for cloning or factory patterns (`new obj.constructor()`).
-
-## Key takeaways
-
-- `instanceof` checks object identity of `Fn.prototype` in the chain — not a name, not a type tag.
-- Reassigning `Fn.prototype` after instances exist orphans those instances from `instanceof` checks against the new prototype.
-- `Object.create(Parent.prototype)` does not preserve `.constructor` — set it back manually, or use `class extends`, which does this for you.
+Skip that fix and `d.constructor` silently points to `Animal` instead of `Dog`, which breaks any code relying on `obj.constructor` for cloning or factory patterns like `new obj.constructor()`. `class extends` sidesteps this whole problem by setting up the constructor link correctly on its own.

@@ -12,11 +12,11 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Every production frontend fails in the field — a network drops, an API returns malformed JSON, a third-party script throws. Interviewers ask about error handling to see whether you design for that reality or only for the happy path. Today covers React error boundaries, global error capture, retry strategies, and how to turn a caught error into something a user can actually act on.
+Every production frontend fails in the field: a network drops, an API returns malformed JSON, a third-party script throws. Interviewers ask about error handling to see whether you design for that reality or only for the happy path. Today covers React error boundaries, global error capture, retry strategies, and how to turn a caught error into something a user can actually act on.
 
 ## Error boundaries
 
-An error boundary is a component that catches JavaScript errors thrown during rendering, in lifecycle methods, and in constructors of its child tree, and renders a fallback UI instead of crashing the whole app. It is still, as of React 19, only implementable as a **class component** — there is no hook equivalent, because the underlying mechanism (`getDerivedStateFromError`/`componentDidCatch`) requires the component instance semantics classes provide.
+An error boundary is a component that catches JavaScript errors thrown during rendering, in lifecycle methods, and in constructors of its child tree, and renders a fallback UI instead of crashing the whole app. It is still, as of React 19, only implementable as a **class component**. There is no hook equivalent, because the underlying mechanism (`getDerivedStateFromError`/`componentDidCatch`) requires the component instance semantics classes provide.
 
 ```tsx
 import { Component, type ErrorInfo, type ReactNode } from "react";
@@ -69,14 +69,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 </ErrorBoundary>
 ```
 
-**What error boundaries do NOT catch — this is the single most common interview trap:**
+**What error boundaries do NOT catch, the single most common interview trap:**
 
-- Errors in event handlers (`onClick` throwing) — these are regular JS errors, catch them with `try`/`catch` in the handler itself.
-- Errors in asynchronous code (`setTimeout`, promises, `fetch` callbacks) — by the time the async callback runs, React is no longer "inside" a render it can intercept.
+- Errors in event handlers (`onClick` throwing). These are regular JS errors; catch them with `try`/`catch` in the handler itself.
+- Errors in asynchronous code (`setTimeout`, promises, `fetch` callbacks). By the time the async callback runs, React is no longer "inside" a render it can intercept.
 - Errors thrown during server-side rendering.
-- Errors thrown in the error boundary's own `render` — a boundary can't catch its own failure; nest a second boundary above it if you need that covered.
+- Errors thrown in the error boundary's own `render`. A boundary can't catch its own failure; nest a second boundary above it if you need that covered.
 
-For the async and event-handler gaps, React 19 added `useSyncExternalStore`-free primitives are still not a fix — the actual answer is: catch those manually and route them into the boundary yourself if you want unified handling.
+For the async and event-handler gaps, there's no framework-level fix: catch those manually and, if you want the boundary to handle them, re-throw during a state update so the next render is what actually throws.
 
 ```tsx
 function DangerousButton() {
@@ -100,7 +100,7 @@ function DangerousButton() {
 
 ## `react-error-boundary`
 
-In production code, most teams use the `react-error-boundary` package instead of hand-rolling the class above — same underlying mechanism, better ergonomics (a `useErrorBoundary` hook for the manual-throw pattern, and a `resetKeys` prop to auto-reset when relevant props change).
+In production code, most teams use the `react-error-boundary` package instead of hand-rolling the class above. It's the same underlying mechanism, with better ergonomics: a `useErrorBoundary` hook for the manual-throw pattern, and a `resetKeys` prop to auto-reset when relevant props change.
 
 ```bash
 npm install react-error-boundary
@@ -151,11 +151,11 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 ```
 
-In practice, most teams don't hand-roll this either — Sentry, Bugsnag, and similar tools install both listeners for you and add source-map-resolved stack traces, breadcrumbs (a trail of recent user actions/console logs leading up to the error), and release/environment tagging automatically. Knowing *what* they hook into (`error`, `unhandledrejection`, plus `componentDidCatch` for React) is the part interviewers actually probe — not which vendor you use.
+In practice, most teams don't hand-roll this either. Sentry, Bugsnag, and similar tools install both listeners for you and add source-map-resolved stack traces, breadcrumbs (a trail of recent user actions and console logs leading up to the error), and release/environment tagging automatically. Knowing what they hook into (`error`, `unhandledrejection`, plus `componentDidCatch` for React) is the part interviewers actually probe, not which vendor you use.
 
 ## Retry logic for failed requests
 
-Network calls fail transiently — a blip, a timeout, a momentarily overloaded server. Retrying with **exponential backoff and jitter** is the standard pattern: back off exponentially so you don't hammer a struggling server, add jitter so many clients retrying at once don't all collide on the same schedule (the "thundering herd" problem).
+Network calls fail transiently: a blip, a timeout, a momentarily overloaded server. Retrying with **exponential backoff and jitter** is the standard pattern. Back off exponentially so you don't hammer a struggling server, and add jitter so many clients retrying at once don't all collide on the same schedule (the "thundering herd" problem).
 
 ```ts
 interface RetryOptions {
@@ -195,16 +195,18 @@ async function fetchWithRetry(
 }
 ```
 
+Trace one failing call through this: attempt 0 gets a 503, so `lastError` is set and the loop waits `~300ms` (plus jitter) before attempt 1. If attempt 1 also fails, the wait roughly doubles to `~600ms`, capped at `maxDelayMs`. Once `attempt` exceeds `maxRetries`, the loop exits and the last recorded error is thrown, so the caller sees a real error object rather than a silent `undefined`.
+
 Key details interviewers listen for:
 
-- **Which failures are retryable.** A 404 or 400 will fail identically on retry — don't retry client errors. 5xx and 429 (with a `Retry-After` header respected if present) are the retryable cases.
-- **A retry ceiling.** Unbounded retries turn a transient blip into an indefinite hang from the user's perspective — always cap attempts and surface a final failure state.
-- **Idempotency.** Retrying a `POST` that creates a resource can create duplicates if the first attempt actually succeeded but the response was lost — safe to retry `GET`/`PUT`/`DELETE` (idempotent by HTTP semantics), risky for `POST` without an idempotency key.
-- **Libraries** (TanStack Query, SWR) implement this exact pattern out of the box — mention that reaching for a data-fetching library is often the right call over hand-rolling retry logic in a real project, unless you're specifically being asked to implement it in the interview.
+- **Which failures are retryable.** A 404 or 400 will fail identically on retry, so don't retry client errors. 5xx and 429 (with a `Retry-After` header respected if present) are the retryable cases.
+- **A retry ceiling.** Unbounded retries turn a transient blip into an indefinite hang from the user's perspective. Always cap attempts and surface a final failure state.
+- **Idempotency.** Retrying a `POST` that creates a resource can create duplicates if the first attempt actually succeeded but the response was lost. It's safe to retry `GET`/`PUT`/`DELETE` (idempotent by HTTP semantics), but risky for `POST` without an idempotency key.
+- **Libraries** (TanStack Query, SWR) implement this exact pattern out of the box. In a real project, reaching for a data-fetching library is often the right call over hand-rolling retry logic, unless you're specifically being asked to implement it in the interview.
 
 ## Graceful degradation and user feedback
 
-The goal isn't "never fail" — it's "fail in a way the user can understand and recover from."
+The goal isn't "never fail." It's to fail in a way the user can understand and recover from.
 
 ```tsx
 function DataPanel({ userId }: { userId: string }) {
@@ -237,9 +239,9 @@ function DataPanel({ userId }: { userId: string }) {
 
 Principles worth stating explicitly in an interview:
 
-- **Specific error messages, not "Something went wrong."** Distinguish "you're offline," "you're not authorized," and "the server failed" — each has a different correct next action.
-- **Always offer a next step** — retry, sign in again, contact support — an error state with no action is a dead end.
-- **Degrade partial failures gracefully.** If a dashboard has five independent widgets and one API call fails, the other four should still render — isolate error boundaries per-widget rather than wrapping the whole page in one boundary that takes everything down together.
+- **Specific error messages, not "Something went wrong."** Distinguish "you're offline," "you're not authorized," and "the server failed," since each has a different correct next action.
+- **Always offer a next step**: retry, sign in again, contact support. An error state with no action is a dead end.
+- **Degrade partial failures gracefully.** If a dashboard has five independent widgets and one API call fails, the other four should still render. Isolate error boundaries per widget rather than wrapping the whole page in one boundary that takes everything down together.
 
 ```tsx
 // Isolated boundaries — one failing widget doesn't take down the dashboard
@@ -257,11 +259,4 @@ function Dashboard() {
 }
 ```
 
-## Key takeaways
-
-- Error boundaries are class-only (no hook equivalent) and only catch render/lifecycle/constructor errors — event handlers and async code need manual `try`/`catch`, then re-throw during render if you want the boundary to handle it.
-- `react-error-boundary` is the standard production choice over a hand-rolled class boundary, with `resetKeys` and a `useErrorBoundary` hook for the manual-throw pattern.
-- Global `error` and `unhandledrejection` listeners cover what boundaries structurally can't; Sentry/Bugsnag wrap these plus `componentDidCatch` automatically.
-- Retry only idempotent/retryable failures (5xx, 429) with exponential backoff and jitter, never client errors (4xx), and always cap retry count.
-- Distinguish error causes (offline, unauthorized, server error) in the UI — a generic "Something went wrong" with no next step is a dead end for the user.
-- Scope error boundaries per independent unit (widget, panel) rather than wrapping an entire page, so one failure doesn't take down everything else on screen.
+The thread connecting all of this: React's boundaries, the browser's global listeners, and a retry policy each cover a different failure surface, and a production app needs all three plus UI that tells the user something specific and actionable happened.

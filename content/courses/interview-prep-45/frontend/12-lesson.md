@@ -34,11 +34,9 @@ function Button({ label, onClick, variant = "primary", disabled, children }: But
 }
 ```
 
-Prefer `interface` for props (extendable, better error messages) over `type`, though both work — this is a style convention, not a hard rule, and interviewers care more that you're consistent than which one you pick.
+Prefer `interface` for props (extendable, better error messages) over `type`, though both work. This is a style convention, not a hard rule; interviewers care more that you're consistent than which one you pick.
 
-`React.ReactNode` vs `React.ReactElement` is a common trip-up:
-- `ReactNode` — anything renderable: elements, strings, numbers, arrays, `null`, `undefined`, booleans. Use for `children`.
-- `ReactElement` — specifically the result of `<Foo />` or `React.createElement`. Use when you need to clone or inspect an element (e.g., `React.cloneElement`), not for general children.
+`React.ReactNode` vs `React.ReactElement` is a common trip-up. `ReactNode` covers anything renderable: elements, strings, numbers, arrays, `null`, `undefined`, booleans. Use it for `children`. `ReactElement` is specifically the result of `<Foo />` or `React.createElement`. Reach for it only when you need to clone or inspect an actual element, such as with `React.cloneElement`, not for general children.
 
 ## Generic components
 
@@ -94,7 +92,7 @@ function UserPicker({ users, selected, onSelect }: {
 }
 ```
 
-**Interview detail:** generic component syntax in `.tsx` files needs a trailing comma (`<T,>`) or a `extends unknown` constraint in arrow-function form to disambiguate from JSX:
+**Interview detail:** generic component syntax in `.tsx` files needs a trailing comma (`<T,>`) or an `extends unknown` constraint in arrow-function form, so the parser doesn't mistake the type parameter for a JSX tag:
 
 ```tsx
 // Arrow function generic component — needs the comma or constraint
@@ -151,7 +149,7 @@ function renderProduct(p: Readonly<Product>) { /* p.price = 0; // error */ }
 
 ## Event handler types
 
-React's synthetic event types are specific to the element and event kind — using plain `Event` loses the properties you actually need (`target.value`, etc.).
+React's synthetic event types are specific to the element and event kind. Using plain `Event` loses the properties you actually need, like `target.value`.
 
 ```tsx
 function SearchForm() {
@@ -187,11 +185,11 @@ function SearchForm() {
 }
 ```
 
-The generic parameter (`HTMLInputElement`, `HTMLFormElement`, `HTMLButtonElement`) matters — it types `e.currentTarget` correctly. A common mistake is typing every handler as `React.ChangeEvent<HTMLElement>`, which loses `.value` on non-input elements and produces confusing errors down the line.
+The generic parameter (`HTMLInputElement`, `HTMLFormElement`, `HTMLButtonElement`) matters: it types `e.currentTarget` correctly. A common mistake is typing every handler as `React.ChangeEvent<HTMLElement>`, which loses `.value` on non-input elements and produces confusing errors down the line.
 
 ## Type-safe API response handling
 
-The goal: never let `any` leak in from `fetch`, and fail loudly (with a typed error) rather than silently passing malformed data downstream.
+The goal is to never let `any` leak in from `fetch`, and to fail loudly with a typed error rather than silently passing malformed data downstream.
 
 ```ts
 interface ApiSuccess<T> {
@@ -236,7 +234,7 @@ async function loadUser(id: string) {
 }
 ```
 
-**Interview-important caveat:** `as T` after `res.json()` is a type assertion, not runtime validation — TypeScript trusts you, but the network can send anything. For real trust boundaries (user input, third-party APIs), validate at runtime with a schema library like Zod, and derive the TypeScript type from the schema so they can't drift apart:
+**Interview-important caveat:** `as T` after `res.json()` is a type assertion, not runtime validation. TypeScript trusts you, but the network can send anything. For real trust boundaries, like user input or third-party APIs, validate at runtime with a schema library like Zod, and derive the TypeScript type from the schema so the two can't drift apart:
 
 ```ts
 import { z } from "zod";
@@ -256,7 +254,7 @@ async function loadUser(id: string): Promise<User> {
 
 ## Discriminated unions for component state
 
-A pattern worth knowing cold: model mutually-exclusive states as a discriminated union instead of several independent booleans, so impossible states (`loading: true, error: "x"` at the same time) can't be represented.
+A pattern worth knowing cold: model mutually-exclusive states as a discriminated union instead of several independent booleans, so impossible states, like `loading: true` and `error: "x"` at the same time, can't be represented.
 
 ```tsx
 type FetchState<T> =
@@ -294,13 +292,6 @@ function UserProfile({ url }: { url: string }) {
 }
 ```
 
-TypeScript narrows `state` inside each `case` based on the `status` literal — this is why you get autocomplete for `.error` only in the error branch and `.data` only in the success branch.
+TypeScript narrows `state` inside each `case` based on the `status` literal. That's why you get autocomplete for `.error` only in the error branch and `.data` only in the success branch, and why the compiler stops you from reading `state.data` in a branch where it might not exist.
 
-## Key takeaways
-
-- Type props with `interface`, use `ReactNode` for children and `ReactElement` only when you need to inspect/clone an actual element.
-- Generic components need the trailing-comma (`<T,>`) or `extends` trick in arrow-function form to avoid JSX ambiguity.
-- `Partial`, `Pick`, `Omit`, `Record` cover the vast majority of real prop-shape reuse — know when each applies before reaching for a custom type.
-- Type event handlers with the specific React synthetic event generic (`React.ChangeEvent<HTMLInputElement>`, etc.) to get correctly-typed `target`/`currentTarget`.
-- `as T` after `.json()` is an assertion, not validation — use a schema library like Zod at real trust boundaries so the TypeScript type and runtime shape can't drift apart.
-- Model mutually-exclusive UI state as a discriminated union so impossible combinations (loading + error simultaneously) can't be constructed.
+If you only remember one thing from today, make it the discriminated union pattern above. It shows up constantly in live-coding rounds because it's a compact way to prove you think about state shape before you think about JSX.

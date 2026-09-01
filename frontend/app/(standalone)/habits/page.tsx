@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Compass } from "lucide-react";
 import { HabitBoard } from "@/components/habits/habit-board";
+import { HabitExportButton } from "@/components/habits/habit-export-button";
 import { journalSans, journalSerif } from "@/components/habits/journal-fonts";
 import { HabitViewSwitch } from "@/components/habits/habit-view-switch";
 import "@/components/habits/journal-theme.css";
@@ -33,7 +34,8 @@ export default async function HabitsPage({ searchParams }: HabitsPageProps) {
       )}
     >
       <main className="page-container relative">
-        <div className="absolute right-4 top-4 z-raised flex items-center gap-2 sm:right-6 sm:top-6">
+        <div className="absolute right-4 top-4 z-raised flex items-center gap-2 print:hidden sm:right-6 sm:top-6">
+          <HabitExportButton />
           <HabitViewSwitch />
           <Link
             aria-label="Open What Now?"
@@ -44,7 +46,7 @@ export default async function HabitsPage({ searchParams }: HabitsPageProps) {
             <Compass aria-hidden className="h-5 w-5" />
           </Link>
         </div>
-        <div className="page-header py-2">
+        <div className="page-header py-2 print:hidden">
           <h1 className="page-title text-xl">Habit Tracker</h1>
         </div>
         {/* Keyed by month so switching months remounts with fresh state instead

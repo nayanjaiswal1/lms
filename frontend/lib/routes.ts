@@ -38,7 +38,7 @@ const ROUTES = {
   JOURNAL:             "/journal",
   JOURNAL_NEW:         "/journal/new",
   DIARY:               "/diary",
-  DIARY_HISTORY:       "/diary/history",
+  diaryEntry:          (date: string) => `/diary/${date}`,
 
   // Mentoring
   MENTORING:               "/mentoring",

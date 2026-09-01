@@ -111,6 +111,6 @@ questions:
     explanation: "Transpose swaps rows with columns; reversing each row then completes the clockwise rotation — all in place with O(1) extra space. (Counter-clockwise: transpose then reverse columns.)"
 ---
 
-Checkpoint for Week 4's breadth topics: tries, advanced sliding window, intervals,
-math and geometry edge cases, design patterns, and database design. Score 70% or
-higher to confirm you're ready for mock-interview week.
+Week 4 was the breadth week: tries, advanced sliding window, intervals, math
+and geometry edge cases, design patterns, and database design. Reach 70% and
+mock-interview week is next.

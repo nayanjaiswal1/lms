@@ -182,7 +182,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// Digital Diary — one free-form prose entry per day; AI analysis writes
 	// detected habit/task mentions into the existing habit/whatnow domains
 	// rather than owning duplicate data (see internal/diary/service.go).
-	diaryRouter := diary.New(pool, aiProvider, jobsRegistry)
+	diaryRouter := diary.New(pool, aiProvider)
 	interviewExpRouter := interviewexp.New(pool)
 	// Wiki — shares coursesRepo (read-only) with systemDesignRouter/wiki.New's
 	// other callers, to validate course_id on space create and check

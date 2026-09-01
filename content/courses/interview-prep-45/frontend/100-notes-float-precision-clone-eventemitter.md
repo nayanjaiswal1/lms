@@ -18,15 +18,15 @@ source:
 0.1 + 0.2 === 0.3; // false
 ```
 
-JS numbers are IEEE 754 double-precision floats — binary fractions. `0.1` and `0.2` have no exact binary representation (same reason `1/3` has no exact decimal representation), so each is stored as the closest approximate double, and adding the approximations doesn't land exactly on `0.3`'s own approximation.
+JS numbers are IEEE 754 double-precision floats: binary fractions under the hood. `0.1` and `0.2` have no exact binary representation, for the same reason `1/3` has no exact decimal representation, so each is stored as the closest approximate double. Adding those two approximations doesn't land exactly on `0.3`'s own stored approximation.
 
-Fix: never compare floats for exact equality.
+Fix: never compare floats for exact equality, compare within a tolerance instead.
 
 ```js
-Math.abs((0.1 + 0.2) - 0.3) < Number.EPSILON; // true — tolerance-based comparison
+Math.abs((0.1 + 0.2) - 0.3) < Number.EPSILON; // true, tolerance-based comparison
 ```
 
-For money specifically: don't use floats at all — store cents as integers, or use a decimal library.
+For money specifically, don't use floats at all: store cents as integers, or use a decimal library.
 
 ## Deep clone: JSON.parse(JSON.stringify(x)) vs structuredClone
 
@@ -41,7 +41,7 @@ For money specifically: don't use floats at all — store cents as integers, or 
 | `Map` / `Set` | becomes `{}` |
 | Circular reference | throws `TypeError` |
 
-`structuredClone(obj)` (native, no import needed) handles `Date`, `Map`, `Set`, circular references, and typed arrays correctly — it's the structured clone algorithm browsers already use for `postMessage`. Default to `structuredClone` unless you specifically need JSON's "strip anything non-serializable" behavior (e.g., sanitizing an object before sending it somewhere JSON-only).
+`structuredClone(obj)` is native, no import needed, and handles `Date`, `Map`, `Set`, circular references, and typed arrays correctly. It's the same structured clone algorithm browsers already use for `postMessage`. Default to `structuredClone` unless you specifically need JSON's "strip anything non-serializable" behavior, such as sanitizing an object before sending it somewhere JSON-only.
 
 ```js
 const original = { date: new Date(), tags: new Set(['a']) };
@@ -49,9 +49,11 @@ structuredClone(original); // Date and Set survive intact
 JSON.parse(JSON.stringify(original)); // date -> string, tags -> {}
 ```
 
+Run both on the same `original` and they diverge immediately: `structuredClone` walks the object graph and reconstructs a real `Date` instance and a real `Set` instance on the clone, so `clone.date.getFullYear()` still works. `JSON.stringify` has no representation for either type, so it serializes the `Date` via its `toJSON` method into a plain string and serializes the `Set` as `{}` since `JSON.stringify` only sees enumerable own properties, and a `Set`'s entries aren't stored that way.
+
 ## EventEmitter pattern
 
-The core of Node's `events` module (and conceptually, how React's synthetic event system dispatches) — a plain object holding a map of event name → array of listeners:
+This is the core of Node's `events` module, and conceptually close to how React's synthetic event system dispatches: a plain object holding a map from event name to an array of listeners.
 
 ```js
 class EventEmitter {
@@ -77,10 +79,4 @@ bus.emit('greet', 'Nayan'); // "hi Nayan"
 bus.off('greet', onGreet);
 ```
 
-`emit` is synchronous — listeners run in registration order, on the same call stack as the `emit` call itself, not deferred to a microtask/macrotask.
-
-## Key takeaways
-
-- Float equality must be tolerance-based (`Number.EPSILON`), never `===` — binary floats can't represent most decimal fractions exactly.
-- `structuredClone` is the correct default for deep-cloning; `JSON.parse(JSON.stringify())` silently loses functions, `undefined`, `Date` fidelity, `Map`/`Set`, and throws on cycles.
-- An EventEmitter is just a `Map`/object of arrays plus `on`/`off`/`emit` — `emit` calls listeners synchronously in registration order.
+Tracing the calls above: `bus.on('greet', onGreet)` pushes `onGreet` onto `listeners.greet` (creating that array on first use via `??=`) and returns `bus` itself so calls can chain. `bus.emit('greet', 'Nayan')` then looks up `listeners.greet` and calls every function in it with `'Nayan'` as the argument, synchronously, on the same call stack as the `emit` call itself, not deferred to a microtask or macrotask. `bus.off('greet', onGreet)` replaces the array with a filtered copy that excludes `onGreet`, so a later `emit` would call no one.

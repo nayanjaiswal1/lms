@@ -2,9 +2,7 @@ package diary
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -16,16 +14,13 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/habit"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/whatnow"
 )
 
 // Handler exposes the diary domain over HTTP.
 type Handler struct {
-	repo     *Repo
-	service  *Service
-	pool     *pgxpool.Pool
-	registry *jobs.Registry
+	repo    *Repo
+	service *Service
 }
 
 // NewHandler constructs the diary handler. It stands up its own
@@ -33,10 +28,10 @@ type Handler struct {
 // wrappers (Service holds only a *Repo), the same pattern
 // journal.NewHandler already uses for its own whatnow.Repo, so this doesn't
 // need the router's existing habit/whatnow instances threaded through.
-func NewHandler(pool *pgxpool.Pool, provider ai.LLMProvider, jobsRegistry *jobs.Registry) *Handler {
+func NewHandler(pool *pgxpool.Pool, provider ai.LLMProvider) *Handler {
 	repo := NewRepo(pool)
 	svc := NewService(repo, provider, habit.NewService(habit.NewRepo(pool)), whatnow.NewService(whatnow.NewRepo(pool)))
-	return &Handler{repo: repo, service: svc, pool: pool, registry: jobsRegistry}
+	return &Handler{repo: repo, service: svc}
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
@@ -67,21 +62,6 @@ func validateDate(w http.ResponseWriter, date string) bool {
 		return false
 	}
 	return true
-}
-
-// llmJobHandler mirrors handlers.HandlerLLM ("llm.task",
-// internal/jobs/handlers/constants.go) — duplicated locally rather than
-// imported, since jobs/handlers imports this package (for the diary_analyze
-// job body) and importing back would cycle. Same precedent as
-// internal/digest and internal/notifications' own local emailSendHandler
-// consts mirroring handlers.HandlerEmailSend.
-const llmJobHandler = "llm.task"
-
-// llmJobPayload mirrors handlers.LLMPayload's wire shape (task/entity_id) —
-// duplicated for the same import-cycle reason as llmJobHandler above.
-type llmJobPayload struct {
-	Task     string `json:"task"`
-	EntityID string `json:"entity_id"`
 }
 
 // GetToday handles GET /api/diary/today — gets or creates the caller's
@@ -162,10 +142,8 @@ func normalizeLimit(n int) int {
 }
 
 // UpdateContent handles PATCH /api/diary/{date} — upserts the day's entry
-// content and, if it actually changed since the last completed analysis
-// pass, enqueues a diary_analyze background job (see
-// internal/jobs/handlers/llm.go) to detect habit/task mentions and write
-// them into the caller's real habit/whatnow records.
+// content. Analysis is triggered separately by the writer via AnalyzePreview/
+// AnalyzeApply below, not automatically on every save.
 func (h *Handler) UpdateContent(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -197,20 +175,82 @@ func (h *Handler) UpdateContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if hash := ContentHash(entry.Content); hash != existing.AnalyzedHash {
-		_, enqErr := jobs.Enqueue(r.Context(), h.pool, h.registry, jobs.EnqueueParams{
-			Handler:  llmJobHandler,
-			Priority: jobs.PriorityLow,
-			Payload:  llmJobPayload{Task: "diary_analyze", EntityID: entry.ID},
+	httputil.WriteJSON(w, http.StatusOK, entry)
+}
+
+// AnalyzePreview handles POST /api/diary/{date}/analyze/preview — a
+// synchronous, unpersisted habit/task detection pass over the posted
+// content (the writer's current text, which may not be saved yet — same
+// convention as FixEnglish). Nothing is written to the habit/whatnow domains
+// here; the caller reviews the returned highlights, edits or drops any of
+// them, and POSTs the result to AnalyzeApply below.
+func (h *Handler) AnalyzePreview(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	date := chi.URLParam(r, "date")
+	if !validateDate(w, date) {
+		return
+	}
+	var req AnalyzePreviewRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Content == "" || len(req.Content) > maxContentLength {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"content": fmt.Sprintf("content is required and must be at most %d characters.", maxContentLength),
 		})
-		if enqErr != nil && !errors.Is(enqErr, jobs.ErrDuplicateKey) {
-			// Best-effort enrichment — the entry itself already saved, so a
-			// failed enqueue doesn't fail the request.
-			slog.ErrorContext(r.Context(), "diary: enqueue analyze job", "entry_id", entry.ID, "error", enqErr)
-		}
+		return
 	}
 
-	httputil.WriteJSON(w, http.StatusOK, entry)
+	highlights, err := h.service.Preview(r.Context(), claims.UserID, date, req.Content)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, AnalyzePreviewResponse{Highlights: highlights})
+}
+
+// AnalyzeApply handles POST /api/diary/{date}/analyze/apply — commits the
+// writer-reviewed highlight list from a prior AnalyzePreview: applies each
+// kept span's mutation (habit completion + any extracted metadata, task
+// completion, new task capture) and persists the resolved list on the day's
+// saved entry.
+func (h *Handler) AnalyzeApply(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	date := chi.URLParam(r, "date")
+	if !validateDate(w, date) {
+		return
+	}
+	var req ApplyAnalysisRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	entry, err := h.repo.GetByDate(r.Context(), claims.UserID, date)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	if _, err := h.service.Apply(r.Context(), entry, req.Highlights); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	// Re-fetch rather than patching entry in place — Apply's SaveAnalysis
+	// also stamps analyzed_at/analyzed_hash in the DB, and the response
+	// should reflect exactly what's now stored.
+	updated, err := h.repo.GetByDate(r.Context(), claims.UserID, date)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, updated)
 }
 
 // FixEnglish handles POST /api/diary/{date}/fix-english — a synchronous,

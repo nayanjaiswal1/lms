@@ -22,7 +22,7 @@ There are two queues that matter most for interviews:
 - **Microtask queue**: `Promise.then/catch/finally` callbacks, `queueMicrotask`, `async/await` continuations, `MutationObserver` callbacks.
 - **Macrotask queue** (a.k.a. "task queue"): `setTimeout`, `setInterval`, I/O callbacks, UI events, `postMessage`.
 
-The rule that answers 90% of ordering questions: **after each single macrotask finishes, the event loop drains the ENTIRE microtask queue before running the next macrotask** — including microtasks that were queued by other microtasks during that drain.
+The rule that answers 90% of ordering questions: **after each single macrotask finishes, the event loop drains the ENTIRE microtask queue before running the next macrotask**, including microtasks that were queued by other microtasks during that drain.
 
 ```tsx
 console.log('1: sync');
@@ -62,7 +62,7 @@ console.log('end');
 
 ## requestAnimationFrame
 
-`requestAnimationFrame` (rAF) is a third scheduling mechanism, separate from both queues above. Its callback runs **before the browser paints the next frame**, synced to the display's refresh rate (typically 60Hz → ~16.6ms per frame). It is the correct primitive for anything that changes the screen every frame — animations, canvas drawing, scroll-linked effects — because it never schedules work faster than the browser can actually paint, unlike `setInterval`.
+`requestAnimationFrame` (rAF) is a third scheduling mechanism, separate from both queues above. Its callback runs **before the browser paints the next frame**, synced to the display's refresh rate (typically 60Hz → ~16.6ms per frame). It is the correct primitive for anything that changes the screen every frame (animations, canvas drawing, scroll-linked effects) because it never schedules work faster than the browser can actually paint, unlike `setInterval`.
 
 ```tsx
 function animate(element: HTMLElement) {
@@ -84,7 +84,7 @@ function animate(element: HTMLElement) {
 }
 ```
 
-Ordering relative to the other queues, per frame: macrotask/microtasks drain first (whatever triggered this frame), then `requestAnimationFrame` callbacks run, then the browser recalculates style/layout/paint/composite, then it presents the frame. `requestIdleCallback` runs after all of that, only if there's leftover time before the next frame — good for genuinely low-priority work like analytics beacons.
+Ordering relative to the other queues, per frame: macrotask/microtasks drain first (whatever triggered this frame), then `requestAnimationFrame` callbacks run, then the browser recalculates style/layout/paint/composite, then it presents the frame. `requestIdleCallback` runs after all of that, only if there's leftover time before the next frame, good for genuinely low-priority work like analytics beacons.
 
 ## Layout and paint phases
 
@@ -96,11 +96,11 @@ JavaScript → Style → Layout → Paint → Composite
 
 1. **JavaScript**: your code runs, may mutate the DOM or `style` properties.
 2. **Style (recalculate style)**: browser figures out which CSS rules apply to which elements ("computed style").
-3. **Layout (a.k.a. reflow)**: browser computes the geometry — exact size and position of every element. Expensive, and it cascades: changing one element's size can shift everything after it.
-4. **Paint**: browser fills in pixels — text, colors, borders, shadows — onto layers (rasterization).
+3. **Layout (a.k.a. reflow)**: browser computes the geometry, the exact size and position of every element. Expensive, and it cascades: changing one element's size can shift everything after it.
+4. **Paint**: browser fills in pixels (text, colors, borders, shadows) onto layers (rasterization).
 5. **Composite**: browser combines the painted layers into the final image shown on screen, applying transforms.
 
-The cost model: changing `width`, `height`, `top`, `left`, `margin`, or adding/removing DOM nodes triggers **layout → paint → composite** (the expensive full pipeline). Changing `color` or `background` (without a shape change) skips layout but still triggers **paint → composite**. Changing `transform` or `opacity` only triggers **composite** — no layout, no paint — because those properties can be applied purely on the GPU compositor thread. This is why Day 11's "composite-only properties" advice (animate `transform`, not `top`/`left`) exists.
+The cost model: changing `width`, `height`, `top`, `left`, `margin`, or adding/removing DOM nodes triggers **layout → paint → composite** (the expensive full pipeline). Changing `color` or `background` (without a shape change) skips layout but still triggers **paint → composite**. Changing `transform` or `opacity` only triggers **composite**, with no layout and no paint, because those properties can be applied purely on the GPU compositor thread. This is why Day 11's "composite-only properties" advice (animate `transform`, not `top`/`left`) exists.
 
 ```tsx
 // Cheap: composite-only, handled by the GPU compositor thread
@@ -126,11 +126,3 @@ elements.forEach((el, i) => {
   el.style.width = widths[i] + 10 + 'px'; // all writes after
 });
 ```
-
-## Key takeaways
-
-- One call stack; the event loop picks the next task once it's empty. Microtasks (Promises) always fully drain before the next macrotask (`setTimeout`), regardless of delay values.
-- Code before `await` runs synchronously; code after `await` is a microtask continuation.
-- `requestAnimationFrame` runs right before paint, synced to the display refresh rate — use it for anything that visually animates every frame; `requestIdleCallback` for genuinely low-priority background work.
-- The render pipeline is Style → Layout → Paint → Composite; `transform`/`opacity` skip layout and paint entirely (composite-only, GPU-accelerated).
-- Layout thrashing comes from interleaving DOM reads and writes in a loop — batch reads, then batch writes.

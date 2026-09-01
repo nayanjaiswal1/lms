@@ -111,6 +111,6 @@ questions:
     explanation: "Acknowledge only after completion; if the worker's lease or heartbeat lapses, the broker redelivers. Because redelivery means possible re-execution, handlers must be idempotent — the core Celery interview answer."
 ---
 
-Checkpoint quiz for Week 2: BSTs, graphs, topological sort, heaps, DP basics,
-plus feed design, REST semantics, Django ORM, and task queues.
-Score 70% or higher to confirm you're ready for Week 3.
+Week 2's material in one pass: BSTs, graphs, topological sort, heaps, and the
+first DP basics, plus feed design, REST semantics, the Django ORM, and task
+queues. A 70% score clears you for Week 3.

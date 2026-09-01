@@ -12,7 +12,7 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Bundle size is one of the few frontend metrics that shows up directly in Lighthouse scores, Core Web Vitals, and real user complaints — which makes it a favorite interview topic. Today you'll learn how bundlers decide what ships, how to split that output into smaller chunks React can load on demand, and how to prove the improvement with real measurements instead of vibes.
+Bundle size is one of the few frontend metrics that shows up directly in Lighthouse scores, Core Web Vitals, and real user complaints, which makes it a favorite interview topic. Today you'll learn how bundlers decide what ships, how to split that output into smaller chunks React can load on demand, and how to prove the improvement with real measurements instead of vibes.
 
 ## Why bundle size matters
 
@@ -22,7 +22,7 @@ Interviewers ask about this because it separates people who've shipped to produc
 
 ## Tree shaking
 
-Tree shaking is dead-code elimination based on ES module `import`/`export` static analysis. Bundlers (webpack, Rollup, esbuild, Vite) can only shake code that is statically analyzable — this is why ES modules (not CommonJS `require`) are required for it to work reliably.
+Tree shaking is dead-code elimination based on ES module `import`/`export` static analysis. Bundlers (webpack, Rollup, esbuild, Vite) can only shake code that is statically analyzable, which is why ES modules (not CommonJS `require`) are required for it to work reliably.
 
 ```ts
 // utils.ts — a library with multiple named exports
@@ -38,7 +38,7 @@ import { formatDate } from "./utils";
 
 Two things break tree shaking in practice:
 
-1. **CommonJS imports** (`const { formatDate } = require("./utils")`) — the bundler can't statically prove which exports are used.
+1. **CommonJS imports** (`const { formatDate } = require("./utils")`): the bundler can't statically prove which exports are used.
 2. **Side effects at module scope.** If a module runs code when imported (e.g., `library.registerPlugin()` at the top level), the bundler can't safely remove it even if you don't use its exports. Mark your package as side-effect-free:
 
 ```json
@@ -106,8 +106,8 @@ Key details interviewers probe:
   );
   ```
 - `Suspense` must wrap the lazy component (or an ancestor); without it, React throws because the promise has nothing to suspend against.
-- If the dynamic import rejects (network failure), you need an error boundary around the `Suspense` — `Suspense` handles the pending state, not the error state.
-- In React 19, `lazy` works the same way but composes cleanly with Server Components — a lazy client component still needs `Suspense` on the client render path.
+- If the dynamic import rejects (network failure), you need an error boundary around the `Suspense`: `Suspense` handles the pending state, not the error state.
+- In React 19, `lazy` works the same way but composes cleanly with Server Components; a lazy client component still needs `Suspense` on the client render path.
 
 ## Route-based code splitting
 
@@ -134,7 +134,7 @@ export function AppRoutes() {
 }
 ```
 
-Frameworks like Next.js do this automatically per-page via file-based routing — every page under `app/` is already its own chunk without a manual `lazy()` call.
+Frameworks like Next.js do this automatically per-page via file-based routing: every page under `app/` is already its own chunk without a manual `lazy()` call.
 
 ## Prefetching to hide the loading cost
 
@@ -188,13 +188,13 @@ export default {
 
 What to look for in the output:
 
-- A single dependency (e.g., `moment.js`, an icon library imported in full) dominating a chunk — swap for a lighter alternative or import only what's used.
-- Duplicate versions of the same library across chunks (usually a dependency mismatch) — check with `npm ls <package>`.
-- Vendor code that never changes bundled together with app code that changes every deploy — split them so vendor chunks stay cached across deploys.
+- A single dependency (e.g., `moment.js`, an icon library imported in full) dominating a chunk: swap for a lighter alternative or import only what's used.
+- Duplicate versions of the same library across chunks (usually a dependency mismatch): check with `npm ls <package>`.
+- Vendor code that never changes bundled together with app code that changes every deploy: split them so vendor chunks stay cached across deploys.
 
 ## Bundle budgets
 
-A bundle budget is a CI-enforced ceiling on chunk size that fails the build if exceeded — it turns "we should keep an eye on bundle size" into something that can't silently regress.
+A bundle budget is a CI-enforced ceiling on chunk size that fails the build if exceeded. It turns "we should keep an eye on bundle size" into something that can't silently regress.
 
 ```json
 // package.json (Create React App / craco) or a CI step
@@ -222,12 +222,3 @@ module.exports = {
 ```
 
 The interview point: budgets should be enforced in CI, not checked manually before a release. A budget nobody enforces is a suggestion, not a budget.
-
-## Key takeaways
-
-- Tree shaking requires ES modules and side-effect-free code; CommonJS and top-level side effects defeat it silently.
-- `React.lazy` + `Suspense` split code at the component level; it needs a default export and an error boundary for failure cases.
-- Route-level splitting is the highest-leverage split point — frameworks like Next.js do it automatically per page.
-- Prefetch on hover/focus/viewport intent to hide the chunk-loading waterfall behind user hesitation time.
-- Never optimize what you haven't measured — `source-map-explorer` or a bundle visualizer tells you exactly what's taking up space.
-- Enforce bundle budgets in CI so regressions fail the build instead of shipping unnoticed.

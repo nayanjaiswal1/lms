@@ -12,7 +12,7 @@ source:
     - interview-prep-notes.md
 ---
 
-Day 24 already covers JWT/OAuth/API keys, rate limiting, refresh rotation, and CSRF in depth; Day 15 (frontend) covers XSS, CORS, and CSP. This note is the remaining backend-security ground those two don't touch: SQL injection, secrets management practice, and a named checklist (OWASP API Top 10) for tying the pieces together in an interview answer.
+This course covers JWT/OAuth/API keys, rate limiting, refresh rotation, and CSRF in depth elsewhere, along with frontend-side XSS, CORS, and CSP. This note is the remaining backend-security ground those two don't touch: SQL injection, secrets management practice, and a named checklist (the OWASP API Top 10) for tying the pieces together in an interview answer.
 
 ## SQL injection and parameterized queries
 
@@ -23,44 +23,40 @@ Injection happens when user input is concatenated directly into a query string i
 query = f"SELECT * FROM users WHERE email = '{email}'"
 cursor.execute(query)
 # email = "' OR '1'='1" returns every row
+```
 
+The vulnerable version fails because the string `' OR '1'='1` doesn't stay data. Once it's spliced into the query text, the database parses it as SQL, and `WHERE email = '' OR '1'='1'` is always true, so the query returns every row in the table regardless of what email was actually being searched for.
+
+```python
 # SAFE — parameterized: the driver sends value and query separately,
 # the DB never interprets the value as SQL syntax
 cursor.execute("SELECT * FROM users WHERE email = %s", [email])
 ```
 
-Django's ORM (`Model.objects.filter(email=email)`) parameterizes automatically — this is *why* raw `.raw()` queries or `str.format()`-built SQL are the actual risk surface in a Django codebase, not the ORM itself. The interview framing: "the ORM isn't magic, it's just consistently doing parameterization for you — the risk reappears the moment someone drops to raw SQL for a 'quick' query and string-formats it."
+In the safe version, the query text (`"SELECT * FROM users WHERE email = %s"`) and the value (`email`) travel to the database as two separate things. The database compiles the query shape once, with a placeholder, and then substitutes the value in afterward purely as data. No matter what characters `email` contains, the database never re-parses it as part of the SQL grammar, so there's no way for it to change what the query does.
+
+Django's ORM (`Model.objects.filter(email=email)`) parameterizes automatically. This is why raw `.raw()` queries or SQL built with `str.format()` are the actual risk surface in a Django codebase, not the ORM itself. The interview framing: the ORM's safety comes from consistently doing parameterization for you, not from any special magic, and the risk reappears the moment someone drops to raw SQL for a "quick" query and string-formats it instead of using a bound parameter.
 
 ## Secrets management
 
-Never hardcode secrets in code or commit them in `.env` files — a secret that reaches git history is compromised even if the commit is later reverted, since history persists. Standard practice:
+Never hardcode secrets in code or commit them in `.env` files. A secret that reaches git history is compromised even if the commit is later reverted, since the history still persists and remains fetchable. Standard practice:
 
-- Use a managed secrets store (Vault, AWS Secrets Manager, GCP Secret Manager) rather than environment files checked into a repo — the app fetches secrets at startup/runtime, not from a committed file.
-- Rotate keys on a schedule and immediately on suspected breach — a secret that can't be rotated without a deploy is a design flaw, not just an inconvenience.
-- Use `.gitignore` plus a pre-commit secret-scanning hook (e.g., detect-secrets, gitleaks) to catch a leak before it's pushed, not after.
-- Mask sensitive fields in logs — tokens, passwords, PII should never appear in plaintext log output, since logs are often retained and searched with less access control than the primary datastore.
+- Use a managed secrets store (Vault, AWS Secrets Manager, GCP Secret Manager) rather than environment files checked into a repo, so the app fetches secrets at startup/runtime instead of reading them from a committed file.
+- Rotate keys on a schedule, and immediately on suspected breach. A secret that can't be rotated without a full deploy is a design flaw, not just an inconvenience.
+- Use `.gitignore` plus a pre-commit secret-scanning hook (tools like detect-secrets or gitleaks) to catch a leak before it's pushed, rather than after.
+- Mask sensitive fields in logs. Tokens, passwords, and PII should never appear in plaintext log output, since logs are often retained and searched with less access control than the primary datastore.
 
-## OWASP API Security Top 10 — as an interview checklist
+## OWASP API Security Top 10 as an interview checklist
 
-A named list to reach for when asked "how would you secure this API," each mapped to material already covered in this course where applicable:
+This is a named list to reach for when asked "how would you secure this API." Two items on it, BOLA and Mass Assignment, are the ones most likely to come up as a live code-review exercise ("here's an endpoint, what's wrong with it"), because both fail from authorization being checked at the wrong granularity rather than being missing outright.
 
-| # | Risk | Where it's covered / how to say it |
-|---|---|---|
-| 1 | Broken Object Level Authorization (BOLA) | Not fixed by authentication alone — every object-fetching endpoint must check the *authenticated user* owns/can-access *this specific* object ID, not just that they're logged in. The classic bug: `/orders/{id}` returns any order if you're logged in as anyone. |
-| 2 | Broken Authentication | Day 24 — JWT/OAuth/session correctness, refresh rotation |
-| 3 | Excessive Data Exposure | Serializers returning full model objects instead of an explicit field allowlist — say "allowlist fields in the serializer, don't rely on the client to ignore extra fields" |
-| 4 | Lack of Resources & Rate Limiting | Day 24 — Redis-backed rate limiter |
-| 5 | Broken Function Level Authorization | Day 24/RBAC docs — role checks on the *action*, not just resource-level checks; an admin-only endpoint must reject a non-admin token even if the object-level check would otherwise pass |
-| 6 | Mass Assignment | Accepting a full JSON body into a model/serializer without an explicit allowed-fields list — a request body with `{"is_admin": true}` silently escalating privilege if the endpoint blindly deserializes into the model |
-| 7 | Security Misconfiguration | Default credentials, verbose error messages leaking stack traces, debug mode left on in production |
-| 8 | Injection | SQL injection (above), plus the general principle: never let unsanitized input reach an interpreter (SQL, shell, template engine) |
-| 9 | Improper Assets Management | Old/undocumented API versions still live and unpatched — a `/v1/` endpoint nobody remembers exists is still attackable |
-| 10 | Insufficient Logging & Monitoring | Log auth failures, rate-limit hits, and unusual access patterns; alerting on a spike in 401/403s is often how a credential-stuffing attack is actually caught |
-
-Mass Assignment and BOLA are the two most likely to come up as a live code-review exercise ("here's an endpoint, what's wrong with it") — both are about *authorization scoped to the specific object/field*, not just "is this request authenticated."
-
-## Key takeaways
-
-- Parameterized queries (or the ORM, which parameterizes for you) are the fix for SQL injection — the risk reappears specifically where raw SQL is string-built by hand.
-- Secrets live in a managed store (Vault/Secrets Manager) with rotation and pre-commit scanning, never in a committed `.env`.
-- BOLA and Mass Assignment are the two OWASP API risks most likely to appear as a "spot the bug in this endpoint" exercise — both fail because authorization was checked at the wrong granularity (user-is-logged-in instead of user-owns-this-object; request-is-valid-JSON instead of request-only-sets-allowed-fields).
+1. **Broken Object Level Authorization (BOLA).** Not fixed by authentication alone. Every object-fetching endpoint must check that the *authenticated user* owns or can access *this specific* object ID, not just that they're logged in as someone. The classic bug: `/orders/{id}` returns any order to anyone who's logged in, regardless of whose order it actually is.
+2. **Broken Authentication.** Covered by the JWT/OAuth/session correctness and refresh-token-rotation material elsewhere in this course.
+3. **Excessive Data Exposure.** Serializers that return a full model object instead of an explicit field allowlist. The fix to say out loud: allowlist fields in the serializer, and don't rely on the client to politely ignore extra fields it receives.
+4. **Lack of Resources & Rate Limiting.** Covered by the Redis-backed rate limiter material elsewhere in this course.
+5. **Broken Function Level Authorization.** A role check on the *action* being performed, not just a resource-level ownership check. An admin-only endpoint must reject a non-admin token even when the object-level check would otherwise pass, because the user does technically own the object they're trying to act on.
+6. **Mass Assignment.** Accepting a full JSON body into a model or serializer without an explicit allowed-fields list. A request body containing `{"is_admin": true}` can silently escalate privilege if the endpoint blindly deserializes the whole body into the model.
+7. **Security Misconfiguration.** Default credentials left in place, verbose error messages that leak stack traces, or debug mode accidentally left on in production.
+8. **Injection.** SQL injection, as above, plus the general principle: never let unsanitized input reach an interpreter, whether that's SQL, a shell command, or a template engine.
+9. **Improper Assets Management.** Old or undocumented API versions still live and unpatched. A `/v1/` endpoint nobody remembers exists is still just as attackable as the current one.
+10. **Insufficient Logging & Monitoring.** Log auth failures, rate-limit hits, and unusual access patterns. Alerting on a spike in 401/403 responses is often how a credential-stuffing attack actually gets caught in practice.

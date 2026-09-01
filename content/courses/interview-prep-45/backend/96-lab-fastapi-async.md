@@ -149,5 +149,5 @@ tasks:
 
 Hands-on lab for Day 3's backend deep dive: a FastAPI app is already running
 on port 8000 with auto-reload. Add a health route, then implement a concurrent
-fan-out endpoint with `asyncio.gather` — the checker measures wall-clock time,
+fan-out endpoint with `asyncio.gather`. The checker measures wall-clock time,
 so only a genuinely concurrent implementation passes.

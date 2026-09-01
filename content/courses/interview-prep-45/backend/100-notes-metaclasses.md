@@ -12,11 +12,11 @@ source:
     - interview-prep-notes.md
 ---
 
-Not something you'll write day-to-day, but it explains framework "magic" you use constantly in this course — Django's ORM `Model` class and Pydantic's field validation are both metaclass-driven.
+You won't write a metaclass day-to-day, but it explains framework "magic" you use constantly in this course: Django's ORM `Model` class and Pydantic's field validation are both metaclass-driven.
 
 ## What a metaclass is
 
-A class is a blueprint for objects. A metaclass is a blueprint for classes. In Python, classes are themselves objects — every class is an instance of some metaclass, and by default that metaclass is `type`.
+A class is a blueprint for objects. A metaclass is a blueprint for classes. In Python, classes are themselves objects: every class is an instance of some metaclass, and by default that metaclass is `type`.
 
 ```python
 class Dog:
@@ -30,7 +30,7 @@ print(type(42))   # <class 'int'>
 
 ## Writing a custom metaclass
 
-Subclass `type` and override `__new__`, which runs when the **class itself** is being created — not when an instance of it is created:
+Subclass `type` and override `__new__`, which runs when the **class itself** is being created, not when an instance of it is created:
 
 ```python
 class UpperMeta(type):
@@ -52,7 +52,7 @@ print(dog.__name__)  # DOG
 | Pydantic / FastAPI | Scans annotated fields to build validation and schema generation |
 | `abc.ABCMeta` | Enforces that subclasses implement abstract methods, checked at class-creation time |
 
-`ABCMeta` is the most practical everyday use — enforcing an interface:
+`ABCMeta` is the most practical everyday use, enforcing an interface:
 
 ```python
 from abc import ABC, abstractmethod
@@ -72,12 +72,4 @@ class StripeGateway(PaymentGateway):
 
 ## When to actually reach for one
 
-Rarely, in application code. If a decorator or `__init_subclass__` (a simpler hook that runs when a class is *subclassed*, without the full metaclass machinery) solves the problem, prefer that. Metaclasses are best left to framework/library authors — but recognizing one explains a lot of "how does Django know about my model fields" moments.
-
-## Key takeaways
-
-- A metaclass is a class of a class; `type` is Python's default metaclass, and every class is an instance of it.
-- Custom metaclasses override `type.__new__`, which fires at class-creation time, not instance-creation time.
-- Django's ORM and Pydantic both use metaclasses to scan declared fields and auto-register them — that's the "magic" behind `models.Model` and Pydantic `BaseModel`.
-- `ABCMeta` is the most common practical use: enforcing that subclasses implement required methods, checked when the class is defined.
-- Prefer a decorator or `__init_subclass__` over a full metaclass when either one solves the problem — metaclasses are a framework-author tool, not an everyday one.
+Rarely, in application code. If a decorator or `__init_subclass__` (a simpler hook that runs when a class is *subclassed*, without the full metaclass machinery) solves the problem, prefer that. Metaclasses are best left to framework/library authors, though recognizing one explains a lot of "how does Django know about my model fields" moments.

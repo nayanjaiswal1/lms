@@ -12,21 +12,21 @@ source:
     - 45-day-interview-roadmap.md
 ---
 
-Run this alone, like the real thing. Start a timer for each segment and do not pause it, talk out loud the entire time even though no one is listening, and do not open the reference solution until you've submitted your own answer or the clock runs out. If you get stuck, say what you'd ask an interviewer instead of guessing silently — that's the skill being graded.
+Run this alone, like the real thing. Start a timer for each segment and do not pause it, talk out loud the entire time even though no one is listening, and do not open the reference solution until you've submitted your own answer or the clock runs out. If you get stuck, say what you'd ask an interviewer instead of guessing silently. That's the skill being graded.
 
 ## Run of show
 
 | Time | Segment |
 |---|---|
 | 0:00–0:35 | Coding: Two Sum (15 min) + Longest Substring Without Repeating (20 min) |
-| 0:35–0:45 | Break — write down what went wrong while it's fresh |
+| 0:35–0:45 | Break, write down what went wrong while it's fresh |
 | 0:45–1:25 | System Design: URL Shortener (40 min) |
 | 1:25–1:35 | Break |
 | 1:35–2:05 | Frontend: build an Autocomplete Search component (30 min) |
 | 2:05–2:30 | Score yourself against the rubric below, write debrief notes |
-| 2:30–4:00 | Buffer — redo the segment you scored weakest on, from scratch, no notes |
+| 2:30–4:00 | Buffer, redo the segment you scored weakest on, from scratch, no notes |
 
-## Segment 1: Coding — Arrays and Strings
+## Segment 1: Coding, Arrays and Strings
 
 ### Problem 1: Two Sum (15 minutes)
 
@@ -38,10 +38,10 @@ Output: [0, 1]   # nums[0] + nums[1] == 9
 ```
 
 **Clarifying hints an interviewer would give if you don't ask:**
-- "Can the array be unsorted?" — Yes, don't assume order.
-- "Are there duplicate values?" — Yes, handle `[3, 3]` with `target = 6`.
-- "Return indices or values?" — Indices, in any order.
-- "What if no solution exists?" — Out of scope here; assume guaranteed exactly one, but say out loud what you'd do (raise/return empty) if asked.
+- "Can the array be unsorted?" Yes, don't assume order.
+- "Are there duplicate values?" Yes, handle `[3, 3]` with `target = 6`.
+- "Return indices or values?" Indices, in any order.
+- "What if no solution exists?" Out of scope here; assume guaranteed exactly one, but say out loud what you'd do (raise/return empty) if asked.
 
 Budget: 2 min clarify, 3 min brute-force-then-optimize discussion, 7 min code, 3 min test out loud.
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     print("ok")
 ```
 
-Time: O(n), one pass. Space: O(n) for the hash map. Brute force is O(n^2)/O(1) — mention it, then justify the trade-up to hashing since interviews reward the reasoning, not just the answer.
+Time: O(n), one pass. Space: O(n) for the hash map. Brute force is O(n^2)/O(1); mention it, then justify the trade-up to hashing, since interviews reward the reasoning as much as the answer.
 
 ### Problem 2: Longest Substring Without Repeating Characters (20 minutes)
 
@@ -81,9 +81,9 @@ Output: 3   # "wke"
 ```
 
 **Clarifying hints:**
-- "What character set?" — Assume ASCII/Unicode, don't assume lowercase-only.
-- "Empty string?" — Return 0.
-- "Substring vs subsequence?" — Substring: must be contiguous.
+- "What character set?" Assume ASCII/Unicode, don't assume lowercase-only.
+- "Empty string?" Return 0.
+- "Substring vs subsequence?" Substring: must be contiguous.
 
 Budget: 2 min clarify, 5 min approach (naive O(n^3) then sliding window), 10 min code, 3 min test.
 
@@ -110,9 +110,9 @@ if __name__ == "__main__":
     print("ok")
 ```
 
-Time: O(n) — sliding window, each index enters/exits the window once. Space: O(min(n, charset size)) for the map. Naive substring-by-substring check is O(n^3); mention it and explain why the window collapses it.
+Time: O(n) via sliding window, since each index enters/exits the window once. Space: O(min(n, charset size)) for the map. Naive substring-by-substring check is O(n^3); mention it and explain why the window collapses it.
 
-## Segment 2: System Design — URL Shortener (40 minutes)
+## Segment 2: System Design, URL Shortener (40 minutes)
 
 **Prompt as the interviewer would give it:** "Design a service like bit.ly. Users submit a long URL and get back a short one; visiting the short URL redirects to the original."
 
@@ -123,14 +123,14 @@ Time budget: 5 min requirements, 10 min high-level architecture, 15 min deep div
 - Expected read:write ratio? (Typically read-heavy, 100:1 or more.)
 - Do short URLs expire?
 - Do we need click analytics?
-- Scale target — QPS, total URLs stored?
+- Scale target: QPS, total URLs stored?
 
 ### Reference solution
 
 **Functional requirements:** create short URL from long URL, redirect short → long, optional custom alias, optional expiration.
 **Non-functional requirements:** low redirect latency (<100ms), high availability for redirects, uniqueness of short codes, eventual consistency acceptable for analytics.
 
-**Capacity estimate:** 100M new URLs/month ≈ 40 writes/sec average. Read:write of 100:1 ≈ 4,000 reads/sec average, spike to 10x at peak. Each record ~500 bytes → 100M × 500B = 50GB/month, a few TB over years — fits a normal relational store with an index, no exotic storage needed.
+**Capacity estimate:** 100M new URLs/month ≈ 40 writes/sec average. Read:write of 100:1 ≈ 4,000 reads/sec average, spike to 10x at peak. Each record ~500 bytes → 100M × 500B = 50GB/month, a few TB over years. This fits a normal relational store with an index; no exotic storage needed.
 
 **High-level architecture:**
 ```
@@ -138,7 +138,7 @@ Client -> API Gateway/LB -> App servers (stateless) -> Cache (Redis) -> DB (Post
                                                      -> Async analytics pipeline (Kafka -> aggregator)
 ```
 
-**Encoding short codes:** take an auto-increment ID from the DB (or a distributed ID generator like Snowflake if multiple writers), base62-encode it (`[a-zA-Z0-9]`, 62 symbols). 7 characters of base62 gives 62^7 ≈ 3.5 trillion codes — more than enough. Base62 over random-string-and-check-collision avoids retry loops under contention.
+**Encoding short codes:** take an auto-increment ID from the DB (or a distributed ID generator like Snowflake if multiple writers), base62-encode it (`[a-zA-Z0-9]`, 62 symbols). 7 characters of base62 gives 62^7 ≈ 3.5 trillion codes, far more than enough. Base62 over random-string-and-check-collision avoids retry loops under contention.
 
 ```python
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -167,29 +167,29 @@ CREATE TABLE urls (
 CREATE INDEX idx_urls_short_code ON urls(short_code);
 ```
 
-**Write path:** client POSTs long URL → app server inserts row, gets auto-increment ID → base62-encode → update row with short_code (or reserve ID ranges per app server to avoid a second write). Return short URL.
+**Write path:** client POSTs long URL, app server inserts a row and gets an auto-increment ID, base62-encodes it, then updates the row with short_code (or reserves ID ranges per app server to avoid a second write). Return the short URL.
 
-**Read path (the hot path):** GET `/{code}` → check Redis cache for `code -> long_url` → cache hit: 301/302 redirect immediately → cache miss: query Postgres, populate cache with TTL, redirect. Use 302 (not 301) if you want every hit to hit your server for analytics; 301 lets browsers cache it and reduces your load but loses click data — this is the trade-off to state explicitly.
+**Read path (the hot path):** GET `/{code}` checks Redis cache for `code -> long_url`. Cache hit: 301/302 redirect immediately. Cache miss: query Postgres, populate cache with TTL, redirect. Use 302 (not 301) if you want every hit to hit your server for analytics; 301 lets browsers cache it and reduces your load but loses click data. State that trade-off explicitly.
 
 **Scaling:**
 - Read replicas + cache absorb the 100:1 read skew; cache hit rate should be >95% given Zipfian popularity of URLs.
-- Shard the DB by `short_code` hash once a single Postgres instance can't hold the write/index volume — but at 40 writes/sec this is a "not yet" and you should say so rather than over-designing.
+- Shard the DB by `short_code` hash once a single Postgres instance can't hold the write/index volume, but at 40 writes/sec this is a "not yet," and you should say so rather than over-designing.
 - CDN edge caching for extremely hot redirects if latency to origin matters globally.
 - Async pipeline (Kafka → aggregator → analytics DB) for click counts so the redirect path never blocks on write-heavy analytics.
 
-**Failure modes to mention:** cache stampede on a cold cache after deploy (mitigate with request coalescing or pre-warming), ID generator becoming a single point of failure (mitigate with Snowflake-style distributed IDs or reserved ID blocks per server), duplicate long URLs (decide: dedupe with a reverse index, or allow duplicates — state the trade-off, don't just pick one silently).
+**Failure modes to mention:** cache stampede on a cold cache after deploy (mitigate with request coalescing or pre-warming), ID generator becoming a single point of failure (mitigate with Snowflake-style distributed IDs or reserved ID blocks per server), duplicate long URLs (decide: dedupe with a reverse index, or allow duplicates, and state the trade-off rather than picking one silently).
 
-## Segment 3: Frontend — Autocomplete Search Component (30 minutes)
+## Segment 3: Frontend, Autocomplete Search Component (30 minutes)
 
 **Prompt:** "Build a search input that fetches suggestions as the user types, shows a dropdown, and lets them select a result with mouse or keyboard."
 
 Time budget: 5 min plan component structure/state, 20 min implement, 5 min discuss performance/accessibility.
 
 **Clarifying hints:**
-- "Debounce or throttle the API calls?" — Debounce; you don't want a request per keystroke.
-- "What happens on slow network / stale response arriving late?" — Must guard against out-of-order responses overwriting fresher ones.
-- "Keyboard navigation required?" — Yes: arrow keys, Enter to select, Escape to close.
-- "Accessibility?" — ARIA combobox pattern, screen-reader announcements.
+- "Debounce or throttle the API calls?" Debounce; you don't want a request per keystroke.
+- "What happens on slow network / stale response arriving late?" Must guard against out-of-order responses overwriting fresher ones.
+- "Keyboard navigation required?" Yes: arrow keys, Enter to select, Escape to close.
+- "Accessibility?" ARIA combobox pattern, screen-reader announcements.
 
 ### Reference solution
 
@@ -317,7 +317,7 @@ export function AutocompleteSearch({ onSelect }: { onSelect: (s: Suggestion) => 
 
 ## Scoring rubric
 
-Score each /5. Be honest — this only works if you grade like an interviewer, not like your own cheerleader.
+Score each /5. Be honest: this only works if you grade like an interviewer, not like your own cheerleader.
 
 **Coding (Two Sum + Longest Substring)**
 - Clarified the problem before coding (asked about duplicates, edge cases, input assumptions): 5 = asked unprompted before writing a line; 1 = started coding immediately, clarified nothing.
@@ -338,4 +338,4 @@ Score each /5. Be honest — this only works if you grade like an interviewer, n
 
 ## Debrief
 
-Immediately after each segment — not at the end of the day, while it's fresh — write down every place you hesitated, guessed, or needed the reference solution. For each one, record: what the mistake was, what the root cause was (knowledge gap vs. nerves vs. time pressure), and the specific fix (a problem to redo, a concept to re-read, a pattern to drill). Add anything scored 3/5 or below into tomorrow's warm-up so it gets revisited within 48 hours — that's the window where spaced repetition actually sticks.
+Immediately after each segment, not at the end of the day, while it's fresh, write down every place you hesitated, guessed, or needed the reference solution. For each one, record what the mistake was, what the root cause was (knowledge gap vs. nerves vs. time pressure), and the specific fix (a problem to redo, a concept to re-read, a pattern to drill). Add anything scored 3/5 or below into tomorrow's warm-up so it gets revisited within 48 hours, the window where spaced repetition actually sticks.

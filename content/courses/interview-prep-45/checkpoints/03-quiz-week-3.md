@@ -111,6 +111,6 @@ questions:
     explanation: "The standard design reserves the seat atomically (SELECT ... FOR UPDATE or an expiring hold in Redis) for a payment window; if payment doesn't complete, the hold lapses and the seat returns to inventory."
 ---
 
-Checkpoint quiz for Week 3: backtracking, greedy, union-find, bit manipulation,
-plus distributed systems, locks, and high-concurrency booking design.
-Score 70% or higher before moving into breadth topics and mock interviews.
+Week 3 focused on backtracking, greedy algorithms, union-find, and bit
+manipulation, alongside distributed systems, locking, and high-concurrency
+booking design. Get to 70% before you move into breadth topics and mocks.

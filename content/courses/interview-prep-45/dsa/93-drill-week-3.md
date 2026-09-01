@@ -176,6 +176,7 @@ questions:
         weight: 1
 ---
 
-Week 3 coding drill: the week's three hardest muscles — bottom-up DP (Coin Change),
-the greedy-choice property (Jump Game), and XOR bit tricks (Single Number). Starter
-code handles stdin/stdout; implement only the marked function. Pass 60% to continue.
+Week 3 coding drill covers the three hardest muscles from this stretch: bottom-up DP
+(Coin Change), the greedy-choice property (Jump Game), and XOR bit tricks (Single
+Number). Starter code handles stdin/stdout, so just implement the marked function.
+Pass 60% to continue.

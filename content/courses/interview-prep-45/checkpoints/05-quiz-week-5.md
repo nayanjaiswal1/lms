@@ -111,6 +111,7 @@ questions:
     explanation: "Schema and API contract are the load-bearing decisions — UI follows from them. Mentioning optimistic updates with rollback shows you've handled real client-server state, which is what the question probes."
 ---
 
-Checkpoint for mock-interview week: coding-interview process, system design method
-(estimation, feed fan-out, video serving), STAR behavioral answers, and how to
-convert mock feedback into a weakness plan. Score 70%+ before final prep week.
+This one checks what mock-interview week was supposed to teach: the
+coding-interview process, the system design method (estimation, feed fan-out,
+video serving), STAR for behavioral answers, and how to turn mock feedback
+into an actual weakness plan. Clear 70% before final prep week starts.
