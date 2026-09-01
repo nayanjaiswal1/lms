@@ -37,6 +37,20 @@ const PUBLIC_PREFIXES = [
   "/api/", // Route handlers do their own auth + return JSON 401s; a redirect here would break fetch() callers expecting JSON
 ]
 
+// A course's learn pages are public only when the course itself opted in
+// (courses.is_public) — unlike PUBLIC_PREFIXES' static list, that can't be
+// decided from the path alone, so it isn't handled by isPublicPath. Instead
+// proxy() below lets a visitor with NO session cookies at all through
+// unauthenticated, and the page itself (getPublicCourseTree) does the real
+// is_public check, notFound()-ing for anything else — same trust model as
+// the /roadmaps/ prefix, this proxy was never the source of truth for
+// access. Anyone who has ever logged in (an access or refresh token cookie
+// present, even expired) still goes through the normal silent-refresh /
+// login-redirect flow below, so an authenticated visitor's expired token on
+// this route still gets refreshed like on any other protected page instead
+// of silently being treated as anonymous.
+const COURSE_LEARN_PATH = /^\/courses\/[^/]+\/learn(\/.*)?$/
+
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_EXACT_PATHS.has(pathname)) return true
   return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
@@ -72,11 +86,12 @@ function loginRedirect(request: NextRequest): NextResponse {
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
-  if (isPublicPath(pathname)) return NextResponse.next()
-
   const accessToken  = request.cookies.get("access_token")?.value
   const refreshToken = request.cookies.get("refresh_token")?.value
   const csrfToken    = request.cookies.get("csrf_token")?.value
+
+  if (COURSE_LEARN_PATH.test(pathname) && !accessToken && !refreshToken) return NextResponse.next()
+  if (isPublicPath(pathname)) return NextResponse.next()
 
   // Token present and not expired — let through immediately.
   if (accessToken && !jwtExpired(accessToken)) return NextResponse.next()

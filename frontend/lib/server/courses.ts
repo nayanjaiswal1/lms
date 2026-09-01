@@ -112,6 +112,25 @@ export async function getPublicCourses(
   }
 }
 
+// Anonymous course-learning flow (docs/anonymous.md) — returns a tree only
+// for a published, is_public course; never throws, mirroring getPublicCourses,
+// since a missing backend and "not a public course" both just mean the page
+// below renders notFound().
+export async function getPublicCourseTree(slug: string): Promise<CourseTree | null> {
+  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
+  if (!url) return null;
+  try {
+    const res = await fetch(`${url}/api/public/courses/${slug}/tree`, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { data?: CourseTree };
+    return body.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCourses(query = ""): Promise<Course[]> {
   const data = await apiGet<{ courses: Course[] }>(`/api/courses${query}`);
   return data.courses ?? [];

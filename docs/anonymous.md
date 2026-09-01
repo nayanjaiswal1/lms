@@ -99,3 +99,44 @@ assessment_attempts (
 ```
 
 **Key design:** No separate `public_tests` or `anonymous_attempts` tables. Assessments are polymorphic — the same data model handles both authenticated and anonymous taking. Rate limiting by IP uses `ip_hash`; email/name are optional capture fields.
+
+---
+
+## Anonymous Course Learning
+
+A course opted into `courses.is_public` (see `docs/courses.md`'s kind table) can be fully read — and "completed" — without an account. Unlike assessment attempts above, nothing here touches the database until the visitor logs in: completion/notes/reflections live entirely in the browser's `localStorage` (`frontend/lib/courses/anon-progress.ts`, key `mf_anon_progress:{courseId}`) until migrated.
+
+**Scope:** only `notes` and `system_design` modules render for an anonymous visitor — `video`/`pdf`/`assessment`/`lab` need a signed URL or a server-tracked session tied to a real user, so those show a "Sign in to continue" prompt instead. Within a rendered lesson, interactive segments that need grading or session state (`sql-challenge`, `knowledge-check`, `lab-task`) similarly prompt sign-in; `html`/`code` (static, never the live runner)/`image`/`sql-try` (client-only, no auth) render normally. Course.yaml's `is_public: true` (wired through `contentpipeline/canonical` → `contentpipeline/generator`) is how a canonical-markdown course opts in; `interview-prep-45` is the first course using it.
+
+```
+Anonymous visitor opens /courses/{slug}/learn
+  └─ frontend/proxy.ts lets the request through unauthenticated (no
+     access/refresh token cookie) for any /courses/{slug}/learn* path —
+     real authorization still happens below, this only skips the
+     redirect-to-login a protected route would otherwise get
+  └─ GET /api/public/courses/{slug}/tree (no auth) — 404 unless the course
+     is published + is_public + kind='org'
+  └─ Reads/marks-complete/notes/reflects entirely client-side
+     (lib/courses/anon-progress.ts) — no server write happens yet
+
+Visitor logs in or registers (any page, not just the course)
+  └─ <AnonProgressMigrator>, mounted in app/(app)/layout.tsx, finds
+     leftover localStorage progress on mount
+  └─ POST /api/courses/{courseID}/anon-progress/migrate — enrolls (free
+     courses only), replays each completion through the same
+     Service.CompleteModule an authenticated click would use (so XP/streak/
+     course-completion rewards fire normally), upserts notes/reflections
+  └─ localStorage cleared for that course on success
+```
+
+**Constraints:**
+- A visitor who has ever logged in (an access or refresh token cookie present, even expired) never gets the anonymous bypass — they go through the normal silent-refresh/login-redirect flow on these routes exactly like any other protected page.
+- Migration is idempotent (`CreateEnrollment`'s `ON CONFLICT DO NOTHING`, `CompleteModule`'s already-completed check) — safe to call more than once for the same course.
+- A note/reflection left on a paid `is_public` course (course is public but not free — an unusual combination) migrates the reflection but skips the note, since `SaveLessonNote` requires enrollment and paid courses aren't auto-enrolled here.
+
+**API:**
+
+```
+GET  /api/public/courses/{slug}/tree              public course tree (sections+modules, content_body inline) — no auth, 404 unless is_public+published
+POST /api/courses/{courseID}/anon-progress/migrate  body: {completed_module_ids, notes: {moduleId: content}, reflections: {moduleId: response}} — authenticated, folds anonymous progress into the real account
+```

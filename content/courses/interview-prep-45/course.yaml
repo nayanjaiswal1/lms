@@ -18,4 +18,5 @@ tags:
   - postgresql
   - behavioral
 is_free: true
+is_public: true
 cover_url: "/course-covers/interview-prep-45.svg"

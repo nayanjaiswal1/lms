@@ -323,6 +323,22 @@ func (h *Handler) ListPublicCourses(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"courses": courses, "total": total})
 }
 
+// GetPublicCourseTree serves a public (is_public, published) course's full
+// section/module tree with no auth — backs the anonymous course-learning
+// flow (docs/anonymous.md). content_body comes back inline exactly like the
+// authenticated tree; the frontend only renders it for notes/system_design
+// modules and prompts sign-in for video/pdf/assessment/lab, since those need
+// a signed URL or a session tied to a real user that an anonymous visitor
+// doesn't have.
+func (h *Handler) GetPublicCourseTree(w http.ResponseWriter, r *http.Request) {
+	tree, err := h.repo.GetPublicCourseTreeBySlug(r.Context(), urlParam(r, "slug"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, tree)
+}
+
 type courseUpdateReq struct {
 	Title          string     `json:"title"`
 	Description    *string    `json:"description"`

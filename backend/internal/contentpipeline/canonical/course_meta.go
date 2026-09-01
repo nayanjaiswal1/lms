@@ -22,7 +22,8 @@ type CourseMeta struct {
 	Description string   `yaml:"description"`
 	Difficulty  string   `yaml:"difficulty"` // beginner|intermediate|advanced|expert
 	Tags        []string `yaml:"tags"`
-	IsFree      *bool    `yaml:"is_free"` // pointer: nil (unset) defaults to true, distinct from an explicit false
+	IsFree      *bool    `yaml:"is_free"`   // pointer: nil (unset) defaults to true, distinct from an explicit false
+	IsPublic    *bool    `yaml:"is_public"` // pointer: nil (unset) defaults to false, distinct from an explicit true
 	CoverURL    string   `yaml:"cover_url"`
 }
 

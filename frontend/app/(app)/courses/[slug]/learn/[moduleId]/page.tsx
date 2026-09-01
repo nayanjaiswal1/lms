@@ -1,10 +1,12 @@
 import { Fragment } from "react";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { Clock, CheckCircle2, Brain, Terminal } from "lucide-react";
 import { apiGet } from "@/lib/server/api";
 import { cn } from "@/lib/utils";
-import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote } from "@/lib/server/courses";
+import { findCourseBySlug, getCourses, getCourseTree, getCourseProgress, getEnrollments, getMyCheckProgress, getMyReflection, getMyLessonNote, getPublicCourseTree } from "@/lib/server/courses";
+import { AnonLessonPage } from "@/components/courses/anon-lesson-page";
 import { getMyFeedback } from "@/lib/server/feedback";
 import { getDueCards } from "@/lib/server/srs";
 import { getModuleLab } from "@/lib/server/labs";
@@ -63,6 +65,15 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function ModuleLearnPage({ params }: Props) {
   const { slug, moduleId } = await params;
+
+  const cookieStore = await cookies();
+  if (!cookieStore.get("access_token")?.value) {
+    const tree = await getPublicCourseTree(slug);
+    if (!tree) notFound();
+    const moduleExists = tree.sections.some((s) => s.modules.some((m) => m.id === moduleId));
+    if (!moduleExists) notFound();
+    return <AnonLessonPage course={tree} currentModuleId={moduleId} />;
+  }
 
   const [courses, enrollments] = await Promise.all([getCourses(), getEnrollments().catch(() => [])]);
   const course = findCourseBySlug(courses, enrollments, slug);

@@ -79,6 +79,7 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 	if meta.IsFree != nil {
 		isFree = *meta.IsFree
 	}
+	isPublic := meta.IsPublic != nil && *meta.IsPublic
 
 	totalMinutes := 0
 	for _, doc := range docs {
@@ -91,7 +92,7 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 
 	fmt.Fprintf(out, "-- ─── Course: %s ─────────────────────────────────────────────\n", title)
 	fmt.Fprintf(out,
-		"INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, estimated_hours)\nVALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.1f)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();\n\n",
+		"INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)\nVALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %.1f)\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();\n\n",
 		sqlString(courseID),
 		sqlString(seededOrgID),
 		sqlString(seededInstructorID),
@@ -103,6 +104,7 @@ func renderCourse(out *strings.Builder, slug string, docs []*canonical.Document,
 		sqlStringArray(tags),
 		sqlString("published"),
 		sqlBool(isFree),
+		sqlBool(isPublic),
 		estimatedHours,
 	)
 

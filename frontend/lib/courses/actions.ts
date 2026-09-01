@@ -31,6 +31,16 @@ export async function enrollAction(courseID: string): Promise<ActionResult> {
   return result;
 }
 
+// Folds an anonymous visitor's client-side-only progress (lib/courses/anon-progress.ts)
+// into their real account, called once by <AnonProgressMigrator> right after
+// login/register finds leftover localStorage progress for this course.
+export async function migrateAnonProgressAction(
+  courseID: string,
+  input: { completed_module_ids: string[]; notes: Record<string, string>; reflections: Record<string, string> },
+): Promise<ActionResult> {
+  return apiAction("POST", `/api/courses/${courseID}/anon-progress/migrate`, input);
+}
+
 // Refetches the "surprise me" random-topic pick — used by the client-side
 // "Try another" button, since a fresh random pick can't come from a cached
 // server-rendered prop.

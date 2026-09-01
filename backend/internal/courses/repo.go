@@ -345,6 +345,49 @@ func (r *Repo) GetCourseBySlug(ctx context.Context, orgID, slug string) (Course,
 	return c, nil
 }
 
+// GetPublicCourseBySlug looks up a course for anonymous (no-auth) access —
+// visible only if published, is_public, and kind='org' (self-courses have no
+// path to set is_public, but the filter is kept explicit for the same reason
+// as ListPublicCourses: this is the one place a leak would be worst). Slug is
+// only unique per-org in the schema, so an org-less lookup could theoretically
+// match more than one course; ORDER BY + LIMIT 1 picks the oldest deterministically
+// rather than erroring, since a real slug collision across orgs isn't expected
+// in this single-tenant-per-deployment product.
+func (r *Repo) GetPublicCourseBySlug(ctx context.Context, slug string) (Course, error) {
+	var c Course
+	err := r.pool.QueryRow(ctx,
+		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
+		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
+		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
+		        c.kind, c.owner_id, c.certificate_threshold_percent, c.created_at, c.updated_at
+		 FROM courses c
+		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
+		 WHERE c.slug = $1 AND c.status = 'published' AND c.is_public AND c.kind = 'org'
+		 ORDER BY c.created_at LIMIT 1`, slug,
+	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
+		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
+		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
+		&c.Kind, &c.OwnerID, &c.CertificateThresholdPercent, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Course{}, ErrNotFound
+		}
+		return Course{}, fmt.Errorf("courses: get public by slug: %w", err)
+	}
+	return c, nil
+}
+
+// GetPublicCourseTreeBySlug is the anonymous counterpart to
+// GetCourseTreeBySlug — no org/user scoping, gated entirely by
+// GetPublicCourseBySlug's is_public/published/kind='org' filter.
+func (r *Repo) GetPublicCourseTreeBySlug(ctx context.Context, slug string) (CourseTree, error) {
+	c, err := r.GetPublicCourseBySlug(ctx, slug)
+	if err != nil {
+		return CourseTree{}, err
+	}
+	return r.buildCourseTree(ctx, c)
+}
+
 // GetCourseTree loads a course with all its sections and modules in a single
 // query. userID gates visibility: a kind='self' course is only ever visible
 // to its own owner — anyone else gets ErrNotFound (never ErrForbidden, so a

@@ -98,10 +98,12 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Put("/api/modules/{moduleID}/notes", h.SaveLessonNote)
 	r.Get("/api/modules/{moduleID}/notes/me", h.GetMyLessonNote)
 	r.Get("/api/courses/{courseID}/progress/me", h.GetMyProgress)
+	r.Post("/api/courses/{courseID}/anon-progress/migrate", h.MigrateAnonProgress)
 }
 
 // RegisterPublicRoutes mounts routes that require no authentication. The
 // handler only returns published courses explicitly opted in via is_public.
 func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 	r.Get("/api/public/courses", h.ListPublicCourses)
+	r.Get("/api/public/courses/{slug}/tree", h.GetPublicCourseTree)
 }
