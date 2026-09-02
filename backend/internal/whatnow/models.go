@@ -42,23 +42,35 @@ const (
 
 // Task is one item on the user's What Now? shelf.
 type Task struct {
-	ID           string     `json:"id"`
-	Title        string     `json:"title"`
-	Status       TaskStatus `json:"status"`
-	Rationale    string     `json:"rationale,omitempty"`
-	Trigger      string     `json:"trigger,omitempty"`
-	DurationMin  *int       `json:"durationMin,omitempty"`
-	Deadline     string     `json:"deadline,omitempty"`
-	Category     string     `json:"category,omitempty"`
-	Vague        bool       `json:"vague,omitempty"`
-	Chips        []Chip     `json:"chips,omitempty"`
-	ResumeNote   string     `json:"resumeNote,omitempty"`
-	DependsOn    []string   `json:"dependsOn,omitempty"`
-	CreatedAt    string     `json:"createdAt,omitempty"`
-	CompletedAt  string     `json:"completedAt,omitempty"`
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Status      TaskStatus `json:"status"`
+	Rationale   string     `json:"rationale,omitempty"`
+	Trigger     string     `json:"trigger,omitempty"`
+	DurationMin *int       `json:"durationMin,omitempty"`
+	Deadline    string     `json:"deadline,omitempty"`
+	Category    string     `json:"category,omitempty"`
+	Vague       bool       `json:"vague,omitempty"`
+	Chips       []Chip     `json:"chips,omitempty"`
+	ResumeNote  string     `json:"resumeNote,omitempty"`
+	DependsOn   []string   `json:"dependsOn,omitempty"`
+	CreatedAt   string     `json:"createdAt,omitempty"`
+	CompletedAt string     `json:"completedAt,omitempty"`
 	// ScheduledStart is the RFC3339 start time of this task's time block on
 	// the Plan Day timeline. Empty when the task is unscheduled.
 	ScheduledStart string `json:"scheduledStart,omitempty"`
+
+	// Board fields (Linked Task Board): free-form tags, general notes (also
+	// holds template-instantiated Q&A), and the 2x2 matrix axes. Urgency and
+	// Importance are independently optional — a task missing either stays
+	// list-only in the board UI, never forced into a quadrant.
+	Tags       []string `json:"tags,omitempty"`
+	Body       string   `json:"body,omitempty"`
+	Urgency    string   `json:"urgency,omitempty"`
+	Importance string   `json:"importance,omitempty"`
+	// Links is populated by the service layer (batched from task_links), not
+	// scanned directly off whatnow_tasks.
+	Links []TaskLink `json:"links,omitempty"`
 
 	// Internal fields — not exposed on the wire, used to drive PickNow/sweep/recap.
 	touchedAt      time.Time
@@ -86,10 +98,10 @@ type CompleteResponse struct {
 type StuckReason string
 
 const (
-	StuckTooBig            StuckReason = "too_big"
-	StuckNotSureItMatters   StuckReason = "not_sure_it_matters"
-	StuckDeadlineUnreal    StuckReason = "deadline_unreal"
-	StuckCantFocus         StuckReason = "cant_focus"
+	StuckTooBig           StuckReason = "too_big"
+	StuckNotSureItMatters StuckReason = "not_sure_it_matters"
+	StuckDeadlineUnreal   StuckReason = "deadline_unreal"
+	StuckCantFocus        StuckReason = "cant_focus"
 )
 
 // StuckResolution is the canned response to a stuck report.
@@ -143,6 +155,13 @@ type TaskPatch struct {
 	// block; an empty string clears it (unschedules), same NULLIF convention
 	// as Deadline. Nil leaves it unchanged.
 	ScheduledStart *string `json:"scheduledStart,omitempty"`
+
+	// Board fields — nil leaves unchanged, empty string on the pointer
+	// fields clears (same NULLIF convention as Deadline/ScheduledStart).
+	Tags       []string `json:"tags,omitempty"`
+	Body       *string  `json:"body,omitempty"`
+	Urgency    *string  `json:"urgency,omitempty"`
+	Importance *string  `json:"importance,omitempty"`
 }
 
 // DayPlan is the Plan Day view for one calendar day: tasks already time-
@@ -182,4 +201,98 @@ type EnergyRequest struct {
 type NowQuery struct {
 	Energy       Energy
 	AvailableMin *int
+}
+
+// ─── Linked Task Board ──────────────────────────────────────────────────────
+
+// BoardResponse is returned by GET /whatnow/board — a flat list of every
+// non-decayed task (including done ones, struck through client-side, never
+// removed). Quadrant bucketing for the matrix view is a frontend concern so
+// there is only one server shape to keep in sync with the list view.
+type BoardResponse struct {
+	Tasks []Task `json:"tasks"`
+}
+
+// Quadrant is a derived (never stored) label for the 2x2 matrix view —
+// urgency+importance on the Task remain the source of truth.
+type Quadrant string
+
+const (
+	QuadrantDoFirst   Quadrant = "do_first"
+	QuadrantSchedule  Quadrant = "schedule"
+	QuadrantDelegate  Quadrant = "delegate"
+	QuadrantEliminate Quadrant = "eliminate"
+)
+
+// LinkTargetType is what a TaskLink points at.
+type LinkTargetType string
+
+const (
+	LinkTargetTask         LinkTargetType = "task"
+	LinkTargetDiaryEntry   LinkTargetType = "diary_entry"
+	LinkTargetJournalEntry LinkTargetType = "journal_entry"
+	LinkTargetProject      LinkTargetType = "project"
+)
+
+func validLinkTargetType(t LinkTargetType) bool {
+	switch t {
+	case LinkTargetTask, LinkTargetDiaryEntry, LinkTargetJournalEntry, LinkTargetProject:
+		return true
+	}
+	return false
+}
+
+// TaskLink is a one-directional link from a task to another task, a note
+// (diary or learning-journal entry), or a project — rendered as a clickable
+// chip under the source task.
+type TaskLink struct {
+	ID           string         `json:"id"`
+	SourceTaskID string         `json:"sourceTaskId"`
+	TargetType   LinkTargetType `json:"targetType"`
+	TargetID     string         `json:"targetId"`
+	TargetLabel  string         `json:"targetLabel"`
+	CreatedAt    string         `json:"createdAt,omitempty"`
+}
+
+// TaskLinkCreateRequest is the body for POST /whatnow/tasks/{id}/links.
+type TaskLinkCreateRequest struct {
+	TargetType  LinkTargetType `json:"targetType"`
+	TargetID    string         `json:"targetId"`
+	TargetLabel string         `json:"targetLabel"`
+}
+
+// TemplateFieldKind is the input type rendered for one template field.
+type TemplateFieldKind string
+
+const (
+	TemplateFieldText     TemplateFieldKind = "text"
+	TemplateFieldTextarea TemplateFieldKind = "textarea"
+)
+
+// TemplateField is one question/field in a saved template's form.
+type TemplateField struct {
+	ID    string            `json:"id"`
+	Label string            `json:"label"`
+	Kind  TemplateFieldKind `json:"kind"`
+}
+
+// TaskTemplate is a saved, reusable field set (e.g. the "stuck protocol").
+// Instantiating one only reads it — it is never mutated by use.
+type TaskTemplate struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Fields    []TemplateField `json:"fields"`
+	CreatedAt string          `json:"createdAt,omitempty"`
+}
+
+// TemplateCreateRequest is the body for POST /whatnow/templates.
+type TemplateCreateRequest struct {
+	Name   string          `json:"name"`
+	Fields []TemplateField `json:"fields"`
+}
+
+// TemplateInstantiateRequest is the body for POST /whatnow/templates/{id}/instantiate
+// — field id -> the value the user filled in.
+type TemplateInstantiateRequest struct {
+	Values map[string]string `json:"values"`
 }

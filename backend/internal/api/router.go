@@ -48,6 +48,7 @@ import (
 	"github.com/mindforge/backend/internal/pricing"
 	"github.com/mindforge/backend/internal/privacy"
 	"github.com/mindforge/backend/internal/profile"
+	"github.com/mindforge/backend/internal/project"
 	"github.com/mindforge/backend/internal/projectmarket"
 	"github.com/mindforge/backend/internal/revisionplan"
 	"github.com/mindforge/backend/internal/rewards"
@@ -198,6 +199,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// cycle is introduced.
 	certificatesRouter := certificates.New(pool, coursesRepo, assessment.NewExecutor(cfg), mentoringRouter.Service, mentoringRouter.Service)
 	whatnowRouter := whatnow.New(pool)
+	projectRouter := project.New(pool)
 	activityRouter := activity.New(pool)
 	learnHubHandler := learnhub.New(pool)
 	entitlementsRouter := entitlements.New(pool, cfg.DefaultOrgID)
@@ -433,8 +435,13 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		wikiRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// What Now? — deterministic task-triage: capture, pick-now scoring,
-		// plan-today, breakdown, stuck resolution, weekly recap.
+		// plan-today, breakdown, stuck resolution, weekly recap. Also backs
+		// the Linked Task Board (board/links/templates routes).
 		whatnowRouter.RegisterRoutes(r)
+
+		// Project — lightweight personal project list, used as a task_links
+		// target on the Linked Task Board. Not projectmarket (org marketplace).
+		projectRouter.RegisterRoutes(r)
 
 		// Activity — read-only cross-domain timeline (module/course
 		// completions, quiz attempts, MCP reflections, sheet problems solved,

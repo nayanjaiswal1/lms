@@ -20,6 +20,12 @@ const (
 	pinDuration = 4 * time.Hour
 )
 
+var (
+	ErrInvalidLinkTarget = errors.New("whatnow: invalid link target type")
+	ErrTemplateNameEmpty = errors.New("whatnow: template name is required")
+	ErrTemplateNoFields  = errors.New("whatnow: template must have at least one field")
+)
+
 // Service holds the deterministic What Now? business logic — a direct port
 // of frontend/lib/whatnow/store.ts. No AI calls: parsing is regex, scoring is
 // a fixed table, and breakdown/stuck resolutions are canned templates.
@@ -32,12 +38,12 @@ func NewService(repo *Repo) *Service {
 }
 
 var (
-	weekdays  = []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
-	vagueRe   = regexp.MustCompile(`(?i)\b(figure out|look into|think about|research|explore|someday|maybe|eventually|sort out|deal with)\b`)
-	durationRe = regexp.MustCompile(`(?i)\b(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours?|m|min|mins|minutes?)\b`)
-	deadlineRe = regexp.MustCompile(`(?i)\b(?:by\s+)?(today|tonight|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b`)
-	categoryRe = regexp.MustCompile(`#([\w-]+)`)
-	hourUnitRe = regexp.MustCompile(`(?i)^h`)
+	weekdays        = []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
+	vagueRe         = regexp.MustCompile(`(?i)\b(figure out|look into|think about|research|explore|someday|maybe|eventually|sort out|deal with)\b`)
+	durationRe      = regexp.MustCompile(`(?i)\b(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours?|m|min|mins|minutes?)\b`)
+	deadlineRe      = regexp.MustCompile(`(?i)\b(?:by\s+)?(today|tonight|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b`)
+	categoryRe      = regexp.MustCompile(`#([\w-]+)`)
+	hourUnitRe      = regexp.MustCompile(`(?i)^h`)
 	multiSpaceRe    = regexp.MustCompile(`\s{2,}`)
 	trailingPunctRe = regexp.MustCompile(`[,;]\s*$`)
 )
@@ -360,6 +366,18 @@ func applyPatch(t *Task, patch TaskPatch) {
 		} else {
 			t.pinnedUntil = nil
 		}
+	}
+	if patch.Tags != nil {
+		t.Tags = patch.Tags
+	}
+	if patch.Body != nil {
+		t.Body = *patch.Body
+	}
+	if patch.Urgency != nil {
+		t.Urgency = *patch.Urgency
+	}
+	if patch.Importance != nil {
+		t.Importance = *patch.Importance
 	}
 	if patch.ScheduledStart != nil {
 		if *patch.ScheduledStart == "" {
@@ -698,4 +716,95 @@ func (s *Service) GetWeeklyRecap(ctx context.Context, userID string) (WeeklyReca
 
 func (s *Service) PutEnergy(ctx context.Context, userID string, energy Energy) error {
 	return s.repo.UpsertUserState(ctx, userID, energy)
+}
+
+// ─── Linked Task Board ──────────────────────────────────────────────────────
+
+// GetBoard returns every non-decayed task with its links attached, for the
+// board's flat list view. Quadrant bucketing for the matrix tab happens
+// client-side off the same Urgency/Importance fields.
+func (s *Service) GetBoard(ctx context.Context, userID string) (BoardResponse, error) {
+	if err := s.repo.SweepDecayed(ctx, userID); err != nil {
+		return BoardResponse{}, err
+	}
+	tasks, err := s.repo.ListBoardTasks(ctx, userID)
+	if err != nil {
+		return BoardResponse{}, fmt.Errorf("whatnow: get board: %w", err)
+	}
+	ids := make([]string, len(tasks))
+	for i, t := range tasks {
+		ids[i] = t.ID
+	}
+	links, err := s.repo.ListLinksForTasks(ctx, userID, ids)
+	if err != nil {
+		return BoardResponse{}, fmt.Errorf("whatnow: get board: %w", err)
+	}
+	for i := range tasks {
+		tasks[i].Links = links[tasks[i].ID]
+	}
+	return BoardResponse{Tasks: tasks}, nil
+}
+
+// CreateLink links sourceTaskID (which must belong to userID) to another
+// task, note, or project. No existence check against the target table —
+// a link to a since-deleted target just becomes a dead chip.
+func (s *Service) CreateLink(ctx context.Context, userID, sourceTaskID string, req TaskLinkCreateRequest) (TaskLink, error) {
+	if !validLinkTargetType(req.TargetType) {
+		return TaskLink{}, ErrInvalidLinkTarget
+	}
+	if _, err := s.repo.GetTask(ctx, sourceTaskID, userID); err != nil {
+		return TaskLink{}, err
+	}
+	return s.repo.CreateLink(ctx, userID, sourceTaskID, req)
+}
+
+func (s *Service) DeleteLink(ctx context.Context, userID, linkID string) error {
+	return s.repo.DeleteLink(ctx, linkID, userID)
+}
+
+func (s *Service) ListTemplates(ctx context.Context, userID string) ([]TaskTemplate, error) {
+	return s.repo.ListTemplates(ctx, userID)
+}
+
+func (s *Service) CreateTemplate(ctx context.Context, userID string, req TemplateCreateRequest) (TaskTemplate, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return TaskTemplate{}, ErrTemplateNameEmpty
+	}
+	if len(req.Fields) == 0 {
+		return TaskTemplate{}, ErrTemplateNoFields
+	}
+	for i := range req.Fields {
+		if req.Fields[i].ID == "" {
+			req.Fields[i].ID = uuid.NewString()
+		}
+		if req.Fields[i].Kind != TemplateFieldTextarea {
+			req.Fields[i].Kind = TemplateFieldText
+		}
+	}
+	return s.repo.CreateTemplate(ctx, userID, name, req.Fields)
+}
+
+// InstantiateTemplate loads a template (read-only — it is never mutated by
+// use) and creates a new inbox task whose Body is the filled Q&A. The only
+// genuinely new "compose" endpoint; everything else on the board rides the
+// existing PatchTask/InsertTask paths.
+func (s *Service) InstantiateTemplate(ctx context.Context, userID, templateID string, req TemplateInstantiateRequest) (Task, error) {
+	tpl, err := s.repo.GetTemplate(ctx, templateID, userID)
+	if err != nil {
+		return Task{}, err
+	}
+	var body strings.Builder
+	for i, f := range tpl.Fields {
+		if i > 0 {
+			body.WriteString("\n\n")
+		}
+		body.WriteString("Q: " + f.Label + "\nA: " + req.Values[f.ID])
+	}
+	t := Task{
+		Title:  tpl.Name,
+		Status: StatusInbox,
+		Body:   body.String(),
+	}
+	return s.repo.InsertTask(ctx, userID, t)
 }

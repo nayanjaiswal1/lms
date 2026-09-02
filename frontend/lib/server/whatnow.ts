@@ -97,3 +97,126 @@ export async function reorderBacklogAction(taskIds: string[]): Promise<ActionRes
   if (result.ok) revalidatePath(ROUTES.PLAN);
   return result;
 }
+
+// ─────────────────────────────────────────────
+// Linked Task Board — same whatnow_tasks data as PlanTask above (one source
+// of truth shared with the Diary), extended with tags/urgency/importance/
+// body/links. A distinct BoardTask type (not a PlanTask extension) so /plan's
+// type doesn't widen with fields it never uses.
+// ─────────────────────────────────────────────
+
+export type LinkTargetType = "task" | "diary_entry" | "journal_entry" | "project";
+
+export interface TaskLink {
+  id: string;
+  sourceTaskId: string;
+  targetType: LinkTargetType;
+  targetId: string;
+  targetLabel: string;
+}
+
+export interface BoardTask {
+  id: string;
+  title: string;
+  status: PlanTaskStatus;
+  category?: string;
+  tags?: string[];
+  body?: string;
+  urgency?: "urgent" | "not_urgent";
+  importance?: "important" | "not_important";
+  links?: TaskLink[];
+}
+
+export type TemplateFieldKind = "text" | "textarea";
+
+export interface TemplateField {
+  id: string;
+  label: string;
+  kind: TemplateFieldKind;
+}
+
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  fields: TemplateField[];
+}
+
+export async function getBoardAction(): Promise<ActionResult<{ tasks: BoardTask[] }>> {
+  try {
+    const board = await apiGet<{ tasks: BoardTask[] }>("/api/whatnow/board");
+    return { ok: true, data: board };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not load the board." };
+  }
+}
+
+export interface BoardTaskPatch {
+  status?: PlanTaskStatus;
+  category?: string;
+  tags?: string[];
+  body?: string;
+  urgency?: "urgent" | "not_urgent" | "";
+  importance?: "important" | "not_important" | "";
+}
+
+export async function patchBoardTaskAction(id: string, patch: BoardTaskPatch): Promise<ActionResult<BoardTask>> {
+  const result = await apiAction<BoardTask>("PATCH", `/api/whatnow/tasks/${id}`, patch);
+  if (result.ok) revalidatePath(ROUTES.BOARD);
+  return result;
+}
+
+// Quick-add: same free-text capture as /now (deadline/duration/#category
+// parsing included) — no separate create endpoint for plain board tasks.
+export async function captureBoardTaskAction(raw: string): Promise<ActionResult<BoardTask>> {
+  const result = await apiAction<BoardTask>("POST", "/api/whatnow/tasks", { raw });
+  if (result.ok) revalidatePath(ROUTES.BOARD);
+  return result;
+}
+
+export async function createLinkAction(
+  taskId: string,
+  targetType: LinkTargetType,
+  targetId: string,
+  targetLabel: string,
+): Promise<ActionResult<TaskLink>> {
+  const result = await apiAction<TaskLink>("POST", `/api/whatnow/tasks/${taskId}/links`, {
+    targetType,
+    targetId,
+    targetLabel,
+  });
+  if (result.ok) revalidatePath(ROUTES.BOARD);
+  return result;
+}
+
+export async function deleteLinkAction(linkId: string): Promise<ActionResult<undefined>> {
+  const result = await apiAction<undefined>("DELETE", `/api/whatnow/links/${linkId}`);
+  if (result.ok) revalidatePath(ROUTES.BOARD);
+  return result;
+}
+
+export async function listTemplatesAction(): Promise<ActionResult<TaskTemplate[]>> {
+  try {
+    const templates = await apiGet<TaskTemplate[]>("/api/whatnow/templates");
+    return { ok: true, data: templates };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not load templates." };
+  }
+}
+
+export async function createTemplateAction(
+  name: string,
+  fields: { label: string; kind: TemplateFieldKind }[],
+): Promise<ActionResult<TaskTemplate>> {
+  const result = await apiAction<TaskTemplate>("POST", "/api/whatnow/templates", { name, fields });
+  if (result.ok) revalidatePath(ROUTES.BOARD);
+  return result;
+}
+
+export async function instantiateTemplateAction(
+  templateId: string,
+  values: Record<string, string>,
+): Promise<ActionResult<BoardTask>> {
+  const result = await apiAction<BoardTask>("POST", `/api/whatnow/templates/${templateId}/instantiate`, { values });
+  if (result.ok) revalidatePath(ROUTES.BOARD);
+  return result;
+}

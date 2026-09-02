@@ -28,4 +28,13 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/api/whatnow/tasks/{id}/breakdown/confirm", h.ConfirmBreakdown)
 	r.Patch("/api/whatnow/tasks/{id}", h.PatchTask)
 	r.Put("/api/whatnow/me/energy", h.PutEnergy)
+
+	// Linked Task Board — flat/matrix view over the same whatnow_tasks data,
+	// plus links (task -> task/note/project) and reusable templates.
+	r.Get("/api/whatnow/board", h.GetBoard)
+	r.Post("/api/whatnow/tasks/{id}/links", h.CreateLink)
+	r.Delete("/api/whatnow/links/{linkId}", h.DeleteLink)
+	r.Get("/api/whatnow/templates", h.ListTemplates)
+	r.Post("/api/whatnow/templates", h.CreateTemplate)
+	r.Post("/api/whatnow/templates/{id}/instantiate", h.InstantiateTemplate)
 }

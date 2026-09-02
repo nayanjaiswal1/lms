@@ -29,7 +29,8 @@ var ErrNotFound = errors.New("whatnow: not found")
 const taskColumns = `id, user_id, title, status, duration_min,
 	to_char(deadline, 'YYYY-MM-DD'), category, vague, chips, task_trigger,
 	resume_note, depends_on, plan_position, pinned_until, created_at,
-	touched_at, completed_at, revived_at, decayed_at, scheduled_start`
+	touched_at, completed_at, revived_at, decayed_at, scheduled_start,
+	tags, body, urgency, importance`
 
 type scanner interface {
 	Scan(dest ...any) error
@@ -43,12 +44,14 @@ func scanTask(row scanner) (Task, error) {
 	var dependsOn []string
 	var completedAt *time.Time
 	var createdAt time.Time
+	var body, urgency, importance *string
 
 	if err := row.Scan(
 		&t.ID, &t.userID, &t.Title, &t.Status, &duration,
 		&deadline, &category, &t.Vague, &chipsJSON, &trigger,
 		&resumeNote, &dependsOn, &t.planPosition, &t.pinnedUntil, &createdAt,
 		&t.touchedAt, &completedAt, &t.revivedAt, &t.decayedAt, &t.scheduledStart,
+		&t.Tags, &body, &urgency, &importance,
 	); err != nil {
 		return Task{}, err
 	}
@@ -78,6 +81,15 @@ func scanTask(row scanner) (Task, error) {
 		if err := json.Unmarshal(chipsJSON, &t.Chips); err != nil {
 			return Task{}, fmt.Errorf("whatnow: unmarshal chips: %w", err)
 		}
+	}
+	if body != nil {
+		t.Body = *body
+	}
+	if urgency != nil {
+		t.Urgency = *urgency
+	}
+	if importance != nil {
+		t.Importance = *importance
 	}
 	return t, nil
 }
@@ -117,6 +129,13 @@ func (r *Repo) ListByStatuses(ctx context.Context, userID string, statuses []Tas
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// ListBoardTasks returns every task for the Linked Task Board: everything
+// except decayed (abandoned, housekeeping-only) tasks. Done tasks are
+// included — the board renders them struck through, never removes them.
+func (r *Repo) ListBoardTasks(ctx context.Context, userID string) ([]Task, error) {
+	return r.ListByStatuses(ctx, userID, []TaskStatus{StatusInbox, StatusPlanned, StatusActive, StatusPaused, StatusDone})
 }
 
 // ListPlanned returns planned tasks ordered by plan_position (nulls last,
@@ -245,11 +264,16 @@ func (r *Repo) InsertTask(ctx context.Context, userID string, t Task) (Task, err
 	if err != nil {
 		return Task{}, fmt.Errorf("whatnow: marshal chips: %w", err)
 	}
+	tags := t.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 	row := r.pool.QueryRow(ctx,
-		`INSERT INTO whatnow_tasks (user_id, title, status, duration_min, deadline, category, vague, chips)
-		 VALUES ($1, $2, $3, $4, NULLIF($5, '')::date, NULLIF($6, ''), $7, $8)
+		`INSERT INTO whatnow_tasks (user_id, title, status, duration_min, deadline, category, vague, chips, tags, body, urgency, importance)
+		 VALUES ($1, $2, $3, $4, NULLIF($5, '')::date, NULLIF($6, ''), $7, $8, $9, NULLIF($10, ''), NULLIF($11, ''), NULLIF($12, ''))
 		 RETURNING `+taskColumns,
-		userID, t.Title, t.Status, t.DurationMin, t.Deadline, t.Category, t.Vague, chipsJSON)
+		userID, t.Title, t.Status, t.DurationMin, t.Deadline, t.Category, t.Vague, chipsJSON,
+		tags, t.Body, t.Urgency, t.Importance)
 	created, err := scanTask(row)
 	if err != nil {
 		return Task{}, fmt.Errorf("whatnow: insert task: %w", err)
@@ -273,6 +297,10 @@ func (r *Repo) UpdateTask(ctx context.Context, t Task) error {
 		}
 		completedAt = parsed
 	}
+	tags := t.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE whatnow_tasks SET
@@ -281,7 +309,8 @@ func (r *Repo) UpdateTask(ctx context.Context, t Task) error {
 			chips = $8, task_trigger = NULLIF($9, ''), resume_note = NULLIF($10, ''),
 			depends_on = $11, plan_position = $12, pinned_until = $13,
 			touched_at = $14, completed_at = $15, revived_at = $16, decayed_at = $17,
-			scheduled_start = $19
+			scheduled_start = $19, tags = $20, body = NULLIF($21, ''),
+			urgency = NULLIF($22, ''), importance = NULLIF($23, '')
 		 WHERE id = $1 AND user_id = $18`,
 		t.ID, t.Title, t.Status, t.DurationMin,
 		t.Deadline, t.Category, t.Vague,
@@ -289,6 +318,7 @@ func (r *Repo) UpdateTask(ctx context.Context, t Task) error {
 		t.DependsOn, t.planPosition, t.pinnedUntil,
 		t.touchedAt, completedAt, t.revivedAt, t.decayedAt,
 		t.userID, t.scheduledStart,
+		tags, t.Body, t.Urgency, t.Importance,
 	)
 	if err != nil {
 		return fmt.Errorf("whatnow: update task: %w", err)
@@ -430,4 +460,151 @@ func (r *Repo) UpsertUserState(ctx context.Context, userID string, energy Energy
 		return fmt.Errorf("whatnow: upsert user state: %w", err)
 	}
 	return nil
+}
+
+// ─── Task Links ─────────────────────────────────────────────────────────────
+
+const taskLinkColumns = `id, source_task_id, target_type, target_id, target_label, created_at`
+
+func scanTaskLink(row scanner) (TaskLink, error) {
+	var l TaskLink
+	var createdAt time.Time
+	if err := row.Scan(&l.ID, &l.SourceTaskID, &l.TargetType, &l.TargetID, &l.TargetLabel, &createdAt); err != nil {
+		return TaskLink{}, err
+	}
+	l.CreatedAt = createdAt.Format(time.RFC3339)
+	return l, nil
+}
+
+// ListLinksForTasks returns every link whose source is one of taskIDs,
+// grouped by source_task_id — one batched query to avoid N+1 when rendering
+// the board list.
+func (r *Repo) ListLinksForTasks(ctx context.Context, userID string, taskIDs []string) (map[string][]TaskLink, error) {
+	out := map[string][]TaskLink{}
+	if len(taskIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+taskLinkColumns+` FROM task_links
+		 WHERE user_id = $1 AND source_task_id = ANY($2)
+		 ORDER BY created_at`,
+		userID, taskIDs)
+	if err != nil {
+		return nil, fmt.Errorf("whatnow: list links for tasks: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		l, err := scanTaskLink(rows)
+		if err != nil {
+			return nil, fmt.Errorf("whatnow: scan task link: %w", err)
+		}
+		out[l.SourceTaskID] = append(out[l.SourceTaskID], l)
+	}
+	return out, rows.Err()
+}
+
+// CreateLink inserts a new task link. Returns ErrNotFound if sourceTaskID
+// does not belong to userID (checked by the caller via GetTask beforehand;
+// this insert also carries a FK on source_task_id as a backstop).
+func (r *Repo) CreateLink(ctx context.Context, userID, sourceTaskID string, req TaskLinkCreateRequest) (TaskLink, error) {
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO task_links (user_id, source_task_id, target_type, target_id, target_label)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING `+taskLinkColumns,
+		userID, sourceTaskID, req.TargetType, req.TargetID, req.TargetLabel)
+	l, err := scanTaskLink(row)
+	if err != nil {
+		return TaskLink{}, fmt.Errorf("whatnow: create link: %w", err)
+	}
+	return l, nil
+}
+
+// DeleteLink removes a user-owned link. Returns ErrNotFound if it does not
+// exist or belongs to another user.
+func (r *Repo) DeleteLink(ctx context.Context, linkID, userID string) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM task_links WHERE id = $1 AND user_id = $2`, linkID, userID)
+	if err != nil {
+		return fmt.Errorf("whatnow: delete link: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ─── Task Templates ─────────────────────────────────────────────────────────
+
+const templateColumns = `id, name, fields, created_at`
+
+func scanTemplate(row scanner) (TaskTemplate, error) {
+	var tpl TaskTemplate
+	var fieldsJSON []byte
+	var createdAt time.Time
+	if err := row.Scan(&tpl.ID, &tpl.Name, &fieldsJSON, &createdAt); err != nil {
+		return TaskTemplate{}, err
+	}
+	tpl.CreatedAt = createdAt.Format(time.RFC3339)
+	if len(fieldsJSON) > 0 {
+		if err := json.Unmarshal(fieldsJSON, &tpl.Fields); err != nil {
+			return TaskTemplate{}, fmt.Errorf("whatnow: unmarshal template fields: %w", err)
+		}
+	}
+	return tpl, nil
+}
+
+// ListTemplates returns every template owned by userID, newest first.
+func (r *Repo) ListTemplates(ctx context.Context, userID string) ([]TaskTemplate, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+templateColumns+` FROM task_templates WHERE user_id = $1 ORDER BY created_at DESC`,
+		userID)
+	if err != nil {
+		return nil, fmt.Errorf("whatnow: list templates: %w", err)
+	}
+	defer rows.Close()
+
+	out := []TaskTemplate{}
+	for rows.Next() {
+		tpl, err := scanTemplate(rows)
+		if err != nil {
+			return nil, fmt.Errorf("whatnow: scan template: %w", err)
+		}
+		out = append(out, tpl)
+	}
+	return out, rows.Err()
+}
+
+// GetTemplate returns one template by ID, verifying it belongs to userID.
+func (r *Repo) GetTemplate(ctx context.Context, id, userID string) (TaskTemplate, error) {
+	row := r.pool.QueryRow(ctx,
+		`SELECT `+templateColumns+` FROM task_templates WHERE id = $1 AND user_id = $2`,
+		id, userID)
+	tpl, err := scanTemplate(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return TaskTemplate{}, ErrNotFound
+		}
+		return TaskTemplate{}, fmt.Errorf("whatnow: get template: %w", err)
+	}
+	return tpl, nil
+}
+
+// CreateTemplate saves a new reusable field set. Never called again by
+// instantiate — the saved row is read-only from that point on.
+func (r *Repo) CreateTemplate(ctx context.Context, userID, name string, fields []TemplateField) (TaskTemplate, error) {
+	fieldsJSON, err := json.Marshal(fields)
+	if err != nil {
+		return TaskTemplate{}, fmt.Errorf("whatnow: marshal template fields: %w", err)
+	}
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO task_templates (user_id, name, fields)
+		 VALUES ($1, $2, $3)
+		 RETURNING `+templateColumns,
+		userID, name, fieldsJSON)
+	tpl, err := scanTemplate(row)
+	if err != nil {
+		return TaskTemplate{}, fmt.Errorf("whatnow: create template: %w", err)
+	}
+	return tpl, nil
 }

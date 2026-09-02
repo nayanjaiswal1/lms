@@ -23,7 +23,10 @@ func NewHandler(pool *pgxpool.Pool) *Handler {
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
-	ErrNotFound: {Status: http.StatusNotFound, Message: "Not found."},
+	ErrNotFound:          {Status: http.StatusNotFound, Message: "Not found."},
+	ErrInvalidLinkTarget: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"targetType": "must be one of task, diary_entry, journal_entry, project."}},
+	ErrTemplateNameEmpty: {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"name": "is required."}},
+	ErrTemplateNoFields:  {Status: http.StatusUnprocessableEntity, Fields: map[string]string{"fields": "at least one field is required."}},
 }
 
 // writeDomainError maps domain errors to HTTP responses.
@@ -331,4 +334,102 @@ func (h *Handler) PutEnergy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]string{"energy": string(req.Energy)})
+}
+
+// GetBoard handles GET /api/whatnow/board.
+func (h *Handler) GetBoard(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	board, err := h.service.GetBoard(r.Context(), claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, board)
+}
+
+// CreateLink handles POST /api/whatnow/tasks/{id}/links.
+func (h *Handler) CreateLink(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var req TaskLinkCreateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	link, err := h.service.CreateLink(r.Context(), claims.UserID, id, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, link)
+}
+
+// DeleteLink handles DELETE /api/whatnow/links/{linkId}.
+func (h *Handler) DeleteLink(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	linkID := chi.URLParam(r, "linkId")
+	if err := h.service.DeleteLink(r.Context(), claims.UserID, linkID); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListTemplates handles GET /api/whatnow/templates.
+func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	templates, err := h.service.ListTemplates(r.Context(), claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, templates)
+}
+
+// CreateTemplate handles POST /api/whatnow/templates.
+func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	var req TemplateCreateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	tpl, err := h.service.CreateTemplate(r.Context(), claims.UserID, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, tpl)
+}
+
+// InstantiateTemplate handles POST /api/whatnow/templates/{id}/instantiate.
+func (h *Handler) InstantiateTemplate(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var req TemplateInstantiateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	task, err := h.service.InstantiateTemplate(r.Context(), claims.UserID, id, req)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, task)
 }

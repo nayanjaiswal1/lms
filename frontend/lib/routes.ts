@@ -27,6 +27,7 @@ const ROUTES = {
   TEACH:               "/teach",
   NOW:                 "/now",
   PLAN:                "/plan",
+  BOARD:               "/board",
   HABITS:              "/habits",
   CALENDAR:            "/calendar",
   LEADERBOARD:         "/leaderboard",
