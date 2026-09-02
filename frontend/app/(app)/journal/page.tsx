@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { NotebookPen } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, NotebookPen } from "lucide-react";
 
+import ROUTES from "@/lib/routes";
 import { getJournalCategories, getJournalEntries } from "@/lib/server/journal";
 import { JournalPasteCapture } from "@/components/journal/journal-paste-capture";
 import { JournalTimeline } from "@/components/journal/journal-timeline";
@@ -27,6 +29,15 @@ export default async function JournalPage({ searchParams }: JournalPageProps) {
           <p className="text-sm text-muted-foreground">What you learned, day by day.</p>
         </div>
       </div>
+
+      <Link
+        className="ai-surface mb-4 flex items-center gap-2 rounded-md p-3 text-sm text-foreground hover:underline"
+        href={ROUTES.JOURNAL_LOG}
+      >
+        <span className="ai-badge">New</span>
+        Things you write in your Diary now also file themselves into your Learning Log
+        <ArrowRight aria-hidden className="ml-auto size-4" />
+      </Link>
 
       <JournalToolbar categories={categories} />
       <JournalPasteCapture categories={categories} />

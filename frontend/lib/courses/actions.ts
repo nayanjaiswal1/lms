@@ -19,6 +19,8 @@ export async function createCourseAction(input: {
   difficulty?: string;
   tags?:       string[];
   is_free?:    boolean;
+  disable_code_run?: boolean;
+  disable_reflection?: boolean;
 }): Promise<ActionResult<{ id: string; slug: string }>> {
   const result = await apiAction<{ id: string; slug: string }>("POST", "/api/courses", input);
   if (result.ok) revalidatePath(ROUTES.COURSES);
@@ -132,6 +134,8 @@ export async function updateCourseAction(
     difficulty: string;
     tags: string[];
     is_free: boolean;
+    disable_code_run: boolean;
+    disable_reflection: boolean;
   },
 ): Promise<ActionResult> {
   const body: Record<string, unknown> = {
@@ -139,6 +143,8 @@ export async function updateCourseAction(
     difficulty: input.difficulty,
     tags: input.tags,
     is_free: input.is_free,
+    disable_code_run: input.disable_code_run,
+    disable_reflection: input.disable_reflection,
     price_cents: 0,
   };
   if (input.description !== undefined) body.description = input.description;

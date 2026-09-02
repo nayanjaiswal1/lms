@@ -32,8 +32,17 @@ const (
 	// matching existing task — RefID is the newly captured task's id.
 	HighlightTaskNew HighlightKind = "task_new"
 	// HighlightBuyNew is HighlightTaskNew for a shopping/errand item —
-	// captured as a What Now? task tagged "#buy".
+	// captured as a diary Task with Kind=TaskKindBuy.
 	HighlightBuyNew HighlightKind = "buy_new"
+	// HighlightLearned marks a sentence describing something the writer
+	// learned/figured out today — routed into a module of the writer's
+	// "Learning Log" self-course (get-or-created). RefID is that module's id.
+	HighlightLearned HighlightKind = "learned"
+	// HighlightGoal marks a sentence describing a NEW recurring intention
+	// that doesn't match an existing habit — a habit is created for it.
+	// RefID is the newly created (or matched, if the writer actually meant
+	// an existing habit) habit's id.
+	HighlightGoal HighlightKind = "goal"
 )
 
 // Highlight is one AI-detected span of an entry's content.
@@ -53,6 +62,14 @@ type Highlight struct {
 	// habit's own field schema before being written — see
 	// Service.applyHighlights.
 	Metadata map[string]any `json:"metadata,omitempty"`
+	// Category and Title are set only for kind=learned: Category is the
+	// section title (topic area) and Title the module title within the
+	// writer's "Learning Log" self-course — see Service.applyHighlights.
+	Category string `json:"category,omitempty"`
+	Title    string `json:"title,omitempty"`
+	// Cadence is set only for kind=goal: "daily", "weekly", or "monthly",
+	// matching habit.Cadence's wire values — see Service.applyHighlights.
+	Cadence string `json:"cadence,omitempty"`
 }
 
 // aiAnalysis is the shape stored in diary_entries.ai_analysis.
@@ -130,4 +147,78 @@ type FixEnglishSegment struct {
 // either "add" (accepted) or "del" (rejected).
 type FixEnglishResponse struct {
 	Segments []FixEnglishSegment `json:"segments"`
+}
+
+// ReviewResponse is the body of POST /api/diary/{date}/review — the combined
+// Fix English + Analyze pass: correct the text, then detect highlights over
+// the corrected text in one round trip. See Service.ReviewDump.
+type ReviewResponse struct {
+	Content    string      `json:"content"`
+	Highlights []Highlight `json:"highlights"`
+}
+
+// TaskKind distinguishes a diary-owned todo item from a shopping/errand item.
+type TaskKind string
+
+const (
+	TaskKindTodo TaskKind = "todo"
+	TaskKindBuy  TaskKind = "buy"
+)
+
+// Task is one item on the diary's own todo/buy checklist — the diary domain
+// owns this data directly (see 027_diary_tasks.sql); it does not depend on
+// internal/whatnow at all. Checking one off sets Done rather than deleting
+// the row, so the frontend can render it struck through instead of removed.
+type Task struct {
+	ID            string    `json:"id"`
+	Title         string    `json:"title"`
+	Kind          TaskKind  `json:"kind"`
+	Tags          []string  `json:"tags"`
+	Done          bool      `json:"done"`
+	SourceEntryID *string   `json:"source_entry_id,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// TaskCreateRequest is the body of POST /api/diary/tasks.
+type TaskCreateRequest struct {
+	Title string   `json:"title"`
+	Kind  TaskKind `json:"kind"`
+	Tags  []string `json:"tags"`
+}
+
+// TaskPatchRequest is the body of PATCH /api/diary/tasks/{id}. Nil fields are
+// left unchanged.
+type TaskPatchRequest struct {
+	Title *string  `json:"title,omitempty"`
+	Done  *bool    `json:"done,omitempty"`
+	Tags  []string `json:"tags,omitempty"`
+}
+
+// TaskListResponse is the body of GET /api/diary/tasks.
+type TaskListResponse struct {
+	Tasks []Task `json:"tasks"`
+}
+
+// GoalStatus is a minimal habit projection for the diary page's "Goals"
+// section — every habit (not just completed ones), grouped by cadence, so
+// the writer can see their daily/weekly/monthly goal structure without
+// leaving the diary page. Deliberately not habit.Habit itself: the diary
+// page only needs id/name/cadence/done to render and link a goal chip, not
+// the tracker's full appearance/schedule fields.
+type GoalStatus struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Cadence string `json:"cadence"`
+	Done    bool   `json:"done"`
+}
+
+// EntryResponse wraps an Entry with the writer's current goal structure — a
+// read-only display join computed at request time from
+// habit.Service.MonthView, never stored on diary_entries itself and never
+// written back into it (see the package doc in service.go on why this
+// direction of habit<->diary sync is display-only, not a content mutation).
+type EntryResponse struct {
+	Entry
+	Goals []GoalStatus `json:"goals"`
 }

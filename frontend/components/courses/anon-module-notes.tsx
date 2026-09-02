@@ -2,7 +2,7 @@ import { Lock, Boxes } from "lucide-react";
 import type { Segment } from "@/lib/courses/markdown";
 import { LessonHtml } from "@/components/courses/lesson-html";
 import { LessonFigure } from "@/components/courses/lesson-figure";
-import { LessonStaticCodeBlock } from "@/components/courses/lesson-static-code-block";
+import { LessonCodeBlock } from "@/components/courses/lesson-code-block";
 import { LessonSqlRunner } from "@/components/courses/lesson-sql-runner";
 import { AnonLessonReflection } from "@/components/courses/anon-lesson-reflection";
 
@@ -12,6 +12,9 @@ interface AnonModuleNotesProps {
   segments: Segment[];
   initialReflection: string | null;
   isSystemDesign?: boolean;
+  /** Course-level kill switch (courses.disable_reflection) — hides the Reflect box and lifts its Mark Complete gate. */
+  disableReflection?: boolean;
+  onReflectionSaved?: (response: string) => void;
 }
 
 // Placeholder for segment types that need a real account to be meaningful —
@@ -32,7 +35,15 @@ function SignInToTry({ what }: { what: string }) {
 // instead, and code blocks never get the live in-page runner. Reflect is the
 // one interactive piece anonymous visitors keep, saved to localStorage via
 // AnonLessonReflection.
-export function AnonModuleNotes({ courseId, moduleId, segments, initialReflection, isSystemDesign }: AnonModuleNotesProps) {
+export function AnonModuleNotes({
+  courseId,
+  moduleId,
+  segments,
+  initialReflection,
+  isSystemDesign,
+  disableReflection,
+  onReflectionSaved,
+}: AnonModuleNotesProps) {
   return (
     <article className="flex flex-col gap-4">
       <div className="flex flex-col gap-8">
@@ -47,7 +58,7 @@ export function AnonModuleNotes({ courseId, moduleId, segments, initialReflectio
             case "html":
               return <LessonHtml html={segment.html} key={index} segmentIndex={index} />;
             case "code":
-              return <LessonStaticCodeBlock code={segment.code} key={index} language={segment.language} />;
+              return <LessonCodeBlock locked code={segment.code} key={index} language={segment.language} />;
             case "sql-try":
               return <LessonSqlRunner initialQuery={segment.query} key={index} />;
             case "sql-challenge":
@@ -67,7 +78,14 @@ export function AnonModuleNotes({ courseId, moduleId, segments, initialReflectio
               return <SignInToTry key={index} what="this lab task" />;
           }
         })}
-        <AnonLessonReflection courseId={courseId} initialResponse={initialReflection} moduleId={moduleId} />
+        {!disableReflection && (
+          <AnonLessonReflection
+            courseId={courseId}
+            initialResponse={initialReflection}
+            moduleId={moduleId}
+            onSaved={onReflectionSaved}
+          />
+        )}
       </div>
     </article>
   );

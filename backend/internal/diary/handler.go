@@ -1,6 +1,7 @@
 package diary
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,26 +13,28 @@ import (
 
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/auth"
+	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/habit"
 	"github.com/mindforge/backend/internal/httputil"
-	"github.com/mindforge/backend/internal/whatnow"
 )
 
 // Handler exposes the diary domain over HTTP.
 type Handler struct {
 	repo    *Repo
 	service *Service
+	habits  *habit.Service
 }
 
 // NewHandler constructs the diary handler. It stands up its own
-// habit.Service/whatnow.Service over the shared pool — both are stateless
-// wrappers (Service holds only a *Repo), the same pattern
-// journal.NewHandler already uses for its own whatnow.Repo, so this doesn't
-// need the router's existing habit/whatnow instances threaded through.
+// habit.Service/courses.Repo over the shared pool — both are stateless
+// wrappers, the same pattern journal.NewHandler already uses for its own
+// whatnow.Repo, so this doesn't need the router's existing instances
+// threaded through. Diary has no dependency on internal/whatnow.
 func NewHandler(pool *pgxpool.Pool, provider ai.LLMProvider) *Handler {
 	repo := NewRepo(pool)
-	svc := NewService(repo, provider, habit.NewService(habit.NewRepo(pool)), whatnow.NewService(whatnow.NewRepo(pool)))
-	return &Handler{repo: repo, service: svc}
+	habits := habit.NewService(habit.NewRepo(pool))
+	svc := NewService(repo, provider, habits, courses.NewRepo(pool))
+	return &Handler{repo: repo, service: svc, habits: habits}
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
@@ -77,7 +80,12 @@ func (h *Handler) GetToday(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, entry)
+	resp, err := h.withGoals(r.Context(), claims.UserID, entry)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, resp)
 }
 
 // GetByDate handles GET /api/diary/{date}.
@@ -95,7 +103,41 @@ func (h *Handler) GetByDate(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, entry)
+	resp, err := h.withGoals(r.Context(), claims.UserID, entry)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, resp)
+}
+
+// withGoals joins entry with the writer's full goal structure — every habit,
+// grouped by cadence, with whether it's done for the period covering entry's
+// date — a read-only display projection (see EntryResponse) reused by
+// GetToday and GetByDate so the diary page can show daily/weekly/monthly
+// goal planning without a separate trip to the habit tracker.
+func (h *Handler) withGoals(ctx context.Context, userID string, entry Entry) (EntryResponse, error) {
+	day, err := time.Parse(entryDateFormat, entry.EntryDate)
+	if err != nil {
+		return EntryResponse{}, fmt.Errorf("diary: parse entry date: %w", err)
+	}
+	monthView, err := h.habits.MonthView(ctx, userID, day.Format("2006-01"))
+	if err != nil {
+		return EntryResponse{}, fmt.Errorf("diary: load habits for goals section: %w", err)
+	}
+	completedPeriods := make(map[string]bool, len(monthView.Completions))
+	for _, c := range monthView.Completions {
+		completedPeriods[c.HabitID+"|"+c.PeriodStart] = true
+	}
+	goals := make([]GoalStatus, 0, len(monthView.Habits))
+	for _, hb := range monthView.Habits {
+		period := alignPeriod(day, hb.Cadence).Format(entryDateFormat)
+		goals = append(goals, GoalStatus{
+			ID: hb.ID, Name: hb.Name, Cadence: string(hb.Cadence),
+			Done: completedPeriods[hb.ID+"|"+period],
+		})
+	}
+	return EntryResponse{Entry: entry, Goals: goals}, nil
 }
 
 // ListEntries handles GET /api/diary?from=&to=&cursor=&limit=.
@@ -237,7 +279,7 @@ func (h *Handler) AnalyzeApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.service.Apply(r.Context(), entry, req.Highlights); err != nil {
+	if _, err := h.service.Apply(r.Context(), entry, claims.OrgID, req.Highlights); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -282,4 +324,135 @@ func (h *Handler) FixEnglish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, FixEnglishResponse{Segments: segments})
+}
+
+// Review handles POST /api/diary/{date}/review — the combined "AI" button:
+// FixEnglish then Analyze-Preview over the corrected text, in one call.
+// Synchronous and unpersisted, same as FixEnglish/AnalyzePreview; the caller
+// still PATCHes the corrected content and POSTs to AnalyzeApply separately
+// once they've reviewed the highlights.
+func (h *Handler) Review(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	date := chi.URLParam(r, "date")
+	if !validateDate(w, date) {
+		return
+	}
+	var req AnalyzePreviewRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Content == "" || len(req.Content) > maxContentLength {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
+			"content": fmt.Sprintf("content is required and must be at most %d characters.", maxContentLength),
+		})
+		return
+	}
+
+	content, highlights, err := h.service.ReviewDump(r.Context(), claims.UserID, claims.OrgID, date, req.Content)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, ReviewResponse{Content: content, Highlights: highlights})
+}
+
+// ─── Diary-owned tasks ──────────────────────────────────────────────────────
+
+// ListTasks handles GET /api/diary/tasks?tag=&done=.
+func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	var done *bool
+	if raw := q.Get("done"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"done": "done must be true or false."})
+			return
+		}
+		done = &parsed
+	}
+	tasks, err := h.repo.ListTasks(r.Context(), claims.UserID, q.Get("tag"), done)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, TaskListResponse{Tasks: tasks})
+}
+
+// CreateTask handles POST /api/diary/tasks — a manually-added todo/buy item
+// (AI-captured ones go through AnalyzeApply instead).
+func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	var req TaskCreateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Title) == 0 || len(req.Title) > 300 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"title": "title must be 1-300 characters."})
+		return
+	}
+	kind := req.Kind
+	if kind == "" {
+		kind = TaskKindTodo
+	}
+	if kind != TaskKindTodo && kind != TaskKindBuy {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"kind": "kind must be 'todo' or 'buy'."})
+		return
+	}
+	task, err := h.repo.CreateTask(r.Context(), claims.UserID, req.Title, string(kind), nil, req.Tags)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusCreated, task)
+}
+
+// PatchTask handles PATCH /api/diary/tasks/{id} — toggling done, editing
+// title/tags. Nil fields are left unchanged.
+func (h *Handler) PatchTask(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var req TaskPatchRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	task, err := h.repo.UpdateTask(r.Context(), claims.UserID, id, req.Title, req.Tags)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	if req.Done != nil {
+		task, err = h.repo.SetTaskDone(r.Context(), claims.UserID, id, *req.Done)
+		if err != nil {
+			writeDomainError(w, err)
+			return
+		}
+	}
+	httputil.WriteJSON(w, http.StatusOK, task)
+}
+
+// DeleteTask handles DELETE /api/diary/tasks/{id}.
+func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	if err := h.repo.DeleteTask(r.Context(), claims.UserID, chi.URLParam(r, "id")); err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

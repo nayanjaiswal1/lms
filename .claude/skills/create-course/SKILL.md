@@ -110,6 +110,39 @@ Shape (`backend/internal/contentpipeline/generator/render_lesson.go` `parseKnowl
   content; retrofit older courses to the per-concept shape opportunistically, don't leave new
   courses matching the old pattern.
 
+#### Fenced code blocks — the language tag decides Run, nothing else does
+
+Every fenced code block in a lesson body becomes its own segment
+(`frontend/lib/courses/markdown.ts` `markdownToSegments`), rendered by
+`LessonCodeBlock` (`frontend/components/courses/lesson-code-block.tsx`). The
+fence's language tag is the **only** signal that drives whether it gets a
+live editor + Run button or stays a read-only block — there is no separate
+"is this runnable" flag to set:
+
+- Tag it `javascript`/`python`/`typescript`/`go`/`java` (the Piston-backed
+  set — `frontend/lib/courses/runnable-languages.ts`, must stay in sync with
+  `pistonLabLanguages` in `backend/internal/labs/piston.go`) **only when the
+  snippet is complete enough to run standalone** — no missing imports, no
+  `...` elisions, no half a class. The reader also gets a language switcher
+  in the block header and can pick a different one of those five live; it
+  only relabels the same source text, it never rewrites it, so don't rely on
+  the switcher to make an incomplete snippet runnable.
+- Tag anything else (`bash`, `sql`, `yaml`, `dockerfile`, `tsx`, or no
+  language at all for command/terminal output) and it renders static — copy
+  button only, no Run, regardless of what the switcher's language list
+  contains. This is the fix for the recurring mistake of tagging a
+  real-language fragment (e.g. a JUnit test excerpt, a partial function) as
+  runnable just because the syntax happens to be Python/JS/Go/Java — tag it
+  by "can a reader paste this alone and run it," not by "what language is
+  this text."
+- A whole course can lock Run on every code block regardless of tag
+  (`courses.disable_code_run`, toggled in the course Settings tab) — use
+  that instead of downgrading individual blocks when no code in the course
+  should ever execute (e.g. a security course showing exploit snippets). The
+  canonical markdown pipeline (`course.yaml`) doesn't expose this field yet;
+  it's Settings-tab/API-only, so a canonically-authored course needing it
+  has to be toggled once through the UI after generation.
+
 **`kind: quiz`** -> `assessments` + `questions` + `question_versions` + `assessment_questions`
 + `course_modules(type='assessment')`. Extra fields: `pass_percentage`, `duration_minutes`,
 `questions: []` where each question has `id_key, type (mcq|coding|subjective), difficulty,

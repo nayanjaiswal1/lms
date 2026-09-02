@@ -61,6 +61,7 @@ CREATE TABLE courses (
   estimated_hours NUMERIC(5,1) CHECK (estimated_hours > 0),
   kind            TEXT         NOT NULL DEFAULT 'org' CHECK (kind IN ('org', 'self')), -- added in 016
   owner_id        UUID         REFERENCES users(id) ON DELETE CASCADE, -- set only when kind='self'; added in 016
+  disable_code_run BOOLEAN     NOT NULL DEFAULT false, -- locks Run on every lesson code block for this course; added in 028
   created_at      TIMESTAMPTZ  DEFAULT now(),
   updated_at      TIMESTAMPTZ  DEFAULT now(),
   UNIQUE (org_id, slug),

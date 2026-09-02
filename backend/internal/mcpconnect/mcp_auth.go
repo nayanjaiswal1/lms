@@ -2,6 +2,7 @@ package mcpconnect
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -42,8 +43,17 @@ func (rt *Router) requireMCPAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		conn, err := rt.repo.GetConnectionByAccessHash(r.Context(), auth.HashToken(token))
 		if err != nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="mindforge"`)
-			writeOAuthError(w, http.StatusUnauthorized, "invalid_token", "Access token is invalid, expired, or revoked.")
+			if errors.Is(err, ErrInvalidGrant) {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="mindforge"`)
+				writeOAuthError(w, http.StatusUnauthorized, "invalid_token", "Access token is invalid, expired, or revoked.")
+				return
+			}
+			// A transient DB error (e.g. a stale pooled connection after
+			// Render's free-tier process wakes from idle) must never be
+			// reported as invalid_token: MCP clients treat that as "discard
+			// this token and re-run the OAuth flow," forcing an unnecessary
+			// reauth for what a retry would have fixed.
+			writeOAuthError(w, http.StatusInternalServerError, "server_error", "Temporarily unable to verify the access token.")
 			return
 		}
 

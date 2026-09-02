@@ -23,6 +23,8 @@ export interface Course {
   review_count: number;
   kind: "org" | "self";
   owner_id: string | null;
+  disable_code_run: boolean;
+  disable_reflection: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -138,6 +140,15 @@ export async function getCourses(query = ""): Promise<Course[]> {
 
 export async function getCourseTree(courseID: string): Promise<CourseTree> {
   return apiGet<CourseTree>(`/api/courses/${courseID}`);
+}
+
+// Get-or-creates the caller's "Learning Log" self-course — the destination
+// diary's "learned" highlights file into (see internal/diary's
+// HighlightLearned). Used only by the /journal/log redirect entry point;
+// the returned course renders through the normal course-viewer pages like
+// any other self-course.
+export async function getOrCreateLearningLogCourse(): Promise<Course> {
+  return apiGet<Course>("/api/self-courses/learning-log");
 }
 
 export interface CourseDetailForViewer extends CourseTree {

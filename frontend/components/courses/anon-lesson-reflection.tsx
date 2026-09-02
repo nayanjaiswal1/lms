@@ -11,12 +11,14 @@ interface AnonLessonReflectionProps {
   courseId: string;
   moduleId: string;
   initialResponse: string | null;
+  /** Reports the saved text up to AnonLessonPage, which gates AnonModuleCompleteButton on it. */
+  onSaved?: (response: string) => void;
 }
 
 // Anonymous counterpart to lesson-reflection.tsx — same box, saved to
 // localStorage instead of the server. Migrated into the real
 // lesson_reflections row on login (see anon-progress-migrator.tsx).
-export function AnonLessonReflection({ courseId, moduleId, initialResponse }: AnonLessonReflectionProps) {
+export function AnonLessonReflection({ courseId, moduleId, initialResponse, onSaved }: AnonLessonReflectionProps) {
   const [response, setResponse] = useState(initialResponse ?? "");
   const [saved, setSaved] = useState(Boolean(initialResponse));
 
@@ -28,6 +30,7 @@ export function AnonLessonReflection({ courseId, moduleId, initialResponse }: An
     }
     setAnonReflection(courseId, moduleId, trimmed);
     setSaved(true);
+    onSaved?.(trimmed);
     toast.success("Reflection saved to this browser.");
   }
 

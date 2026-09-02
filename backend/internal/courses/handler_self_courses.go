@@ -79,6 +79,25 @@ func (h *Handler) ForkSelfCourse(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusCreated, fork)
 }
 
+// GetOrCreateLearningLog handles GET /api/self-courses/learning-log — the
+// diary domain's "learned" highlights (see internal/diary) route into this
+// same course, so a manual visit and an AI-filed note land in the same
+// place. Thin wrapper so the frontend's "Learning Log" entry point (a
+// redirect into the existing course-viewer pages) doesn't need to know the
+// course id up front.
+func (h *Handler) GetOrCreateLearningLog(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	course, err := h.repo.GetOrCreateLearningLogCourse(r.Context(), claims.OrgID, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, course)
+}
+
 type selfCourseModuleReq struct {
 	SectionID   string `json:"section_id"`
 	Title       string `json:"title"`

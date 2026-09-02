@@ -68,6 +68,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	// ForkSelfCourseFromOrgCourse/AddSelfCourseModule/UpdateSelfCourseModule
 	// enforce.
 	r.Get("/api/learning-context", h.GetLearningContext)
+	r.Get("/api/self-courses/learning-log", h.GetOrCreateLearningLog)
 	r.Post("/api/self-courses", h.CreateSelfCourse)
 	r.Post("/api/self-courses/fork", h.ForkSelfCourse)
 	r.Post("/api/self-courses/{courseID}/modules", h.AddSelfCourseModule)

@@ -1,5 +1,4 @@
-import { getEntryByDate, getDiaryHistory } from "@/lib/server/diary";
-import { getPlanInboxAction } from "@/lib/server/whatnow";
+import { getEntryByDate, getDiaryHistory, getDiaryTasks } from "@/lib/server/diary";
 import { DiaryPageShell } from "@/components/diary/diary-page-shell";
 
 export const metadata = { title: "Diary" };
@@ -14,12 +13,11 @@ interface DiaryDatePageProps {
 // error.tsx, same as every other apiGet-backed page in this app.
 export default async function DiaryDatePage({ params }: DiaryDatePageProps) {
   const { date } = await params;
-  const [entry, inboxResult, history] = await Promise.all([
+  const [entry, taskList, history] = await Promise.all([
     getEntryByDate(date),
-    getPlanInboxAction(),
+    getDiaryTasks({ done: false }),
     getDiaryHistory({ limit: 60 }),
   ]);
-  const inbox = inboxResult.ok ? (inboxResult.data ?? []) : [];
 
-  return <DiaryPageShell entry={entry} historyEntries={history.entries} inbox={inbox} />;
+  return <DiaryPageShell entry={entry} historyEntries={history.entries} tasks={taskList.tasks} />;
 }

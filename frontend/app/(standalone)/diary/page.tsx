@@ -1,16 +1,14 @@
-import { getTodayEntry, getDiaryHistory } from "@/lib/server/diary";
-import { getPlanInboxAction } from "@/lib/server/whatnow";
+import { getTodayEntry, getDiaryHistory, getDiaryTasks } from "@/lib/server/diary";
 import { DiaryPageShell } from "@/components/diary/diary-page-shell";
 
 export const metadata = { title: "Diary" };
 
 export default async function DiaryPage() {
-  const [entry, inboxResult, history] = await Promise.all([
+  const [entry, taskList, history] = await Promise.all([
     getTodayEntry(),
-    getPlanInboxAction(),
+    getDiaryTasks({ done: false }),
     getDiaryHistory({ limit: 60 }),
   ]);
-  const inbox = inboxResult.ok ? (inboxResult.data ?? []) : [];
 
-  return <DiaryPageShell entry={entry} historyEntries={history.entries} inbox={inbox} />;
+  return <DiaryPageShell entry={entry} historyEntries={history.entries} tasks={taskList.tasks} />;
 }

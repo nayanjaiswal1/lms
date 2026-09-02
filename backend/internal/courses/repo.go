@@ -78,12 +78,12 @@ func (r *Repo) CreateCourse(ctx context.Context, c Course) (Course, error) {
 	}
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx,
-			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours, starts_at, ends_at, kind, owner_id)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+			`INSERT INTO courses (org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, price_cents, is_free, estimated_hours, starts_at, ends_at, kind, owner_id, disable_code_run, disable_reflection)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
 			 RETURNING id, created_at, updated_at`,
 			c.OrgID, c.CreatorID, c.Title, c.Slug, c.Description, c.CoverURL, c.Difficulty,
 			c.Tags, c.Status, c.PriceCents, c.IsFree, c.EstimatedHours, c.StartsAt, c.EndsAt,
-			c.Kind, c.OwnerID,
+			c.Kind, c.OwnerID, c.DisableCodeRun, c.DisableReflection,
 		).Scan(&c.ID, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
 			return fmt.Errorf("courses: create: %w", err)
@@ -109,14 +109,14 @@ func (r *Repo) GetCourse(ctx context.Context, orgID, id string) (Course, error) 
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
 		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
-		        c.kind, c.owner_id, c.certificate_threshold_percent, c.created_at, c.updated_at
+		        c.kind, c.owner_id, c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.id = $1 AND c.org_id = $2`, id, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
-		&c.Kind, &c.OwnerID, &c.CertificateThresholdPercent, &c.CreatedAt, &c.UpdatedAt)
+		&c.Kind, &c.OwnerID, &c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -276,11 +276,12 @@ func (r *Repo) ListPublicCourses(ctx context.Context, limit, offset int) ([]Cour
 func (r *Repo) UpdateCourse(ctx context.Context, orgID string, c Course) (Course, error) {
 	err := r.pool.QueryRow(ctx,
 		`UPDATE courses SET title=$3, description=$4, cover_url=$5, difficulty=$6, tags=$7,
-		        estimated_hours=$8, price_cents=$9, is_free=$10, is_public=$11, starts_at=$12, ends_at=$13, updated_at=now()
+		        estimated_hours=$8, price_cents=$9, is_free=$10, is_public=$11, starts_at=$12, ends_at=$13,
+		        disable_code_run=$14, disable_reflection=$15, updated_at=now()
 		 WHERE id=$1 AND org_id=$2
 		 RETURNING updated_at`,
 		c.ID, orgID, c.Title, c.Description, c.CoverURL, c.Difficulty, c.Tags,
-		c.EstimatedHours, c.PriceCents, c.IsFree, c.IsPublic, c.StartsAt, c.EndsAt,
+		c.EstimatedHours, c.PriceCents, c.IsFree, c.IsPublic, c.StartsAt, c.EndsAt, c.DisableCodeRun, c.DisableReflection,
 	).Scan(&c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -328,14 +329,14 @@ func (r *Repo) GetCourseBySlug(ctx context.Context, orgID, slug string) (Course,
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
 		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
-		        c.kind, c.owner_id, c.certificate_threshold_percent, c.created_at, c.updated_at
+		        c.kind, c.owner_id, c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.slug = $1 AND c.org_id = $2`, slug, orgID,
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
-		&c.Kind, &c.OwnerID, &c.CertificateThresholdPercent, &c.CreatedAt, &c.UpdatedAt)
+		&c.Kind, &c.OwnerID, &c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -359,7 +360,7 @@ func (r *Repo) GetPublicCourseBySlug(ctx context.Context, slug string) (Course, 
 		`SELECT c.id, c.org_id, c.creator_id, c.title, c.slug, c.description, c.cover_url, c.difficulty, c.tags,
 		        c.status, c.forked_from_id, c.price_cents, c.is_free, c.is_public, c.estimated_hours,
 		        u.name, cr.avg_rating, COALESCE(cr.review_count, 0), c.starts_at, c.ends_at,
-		        c.kind, c.owner_id, c.certificate_threshold_percent, c.created_at, c.updated_at
+		        c.kind, c.owner_id, c.certificate_threshold_percent, c.disable_code_run, c.disable_reflection, c.created_at, c.updated_at
 		 FROM courses c
 		 JOIN users u ON u.id = c.creator_id`+courseRatingJoin+`
 		 WHERE c.slug = $1 AND c.status = 'published' AND c.is_public AND c.kind = 'org'
@@ -367,7 +368,7 @@ func (r *Repo) GetPublicCourseBySlug(ctx context.Context, slug string) (Course, 
 	).Scan(&c.ID, &c.OrgID, &c.CreatorID, &c.Title, &c.Slug, &c.Description, &c.CoverURL,
 		&c.Difficulty, &c.Tags, &c.Status, &c.ForkedFromID, &c.PriceCents, &c.IsFree, &c.IsPublic,
 		&c.EstimatedHours, &c.InstructorName, &c.AvgRating, &c.ReviewCount, &c.StartsAt, &c.EndsAt,
-		&c.Kind, &c.OwnerID, &c.CertificateThresholdPercent, &c.CreatedAt, &c.UpdatedAt)
+		&c.Kind, &c.OwnerID, &c.CertificateThresholdPercent, &c.DisableCodeRun, &c.DisableReflection, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Course{}, ErrNotFound
@@ -1415,6 +1416,99 @@ func (r *Repo) FindSimilarSelfCourse(ctx context.Context, orgID, ownerID, title 
 		return Course{}, false, err
 	}
 	return c, true, nil
+}
+
+// learningLogCourseTitle is the fixed title of a user's diary-fed learning
+// log self-course — see GetOrCreateLearningLogCourse.
+const learningLogCourseTitle = "Learning Log"
+
+// GetOrCreateLearningLogCourse returns ownerID's "Learning Log" self-course
+// (creating it on first use) — the get-or-create target internal/diary
+// routes "learned" highlights into. A fixed title match (not
+// FindSimilarSelfCourse's fuzzy similarity) since this is one well-known
+// course per user, not a dedup problem.
+func (r *Repo) GetOrCreateLearningLogCourse(ctx context.Context, orgID, ownerID string) (Course, error) {
+	var id string
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM courses WHERE org_id=$1 AND kind='self' AND owner_id=$2 AND title=$3`,
+		orgID, ownerID, learningLogCourseTitle,
+	).Scan(&id)
+	if err == nil {
+		return r.GetCourse(ctx, orgID, id)
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return Course{}, fmt.Errorf("courses: get learning log course: %w", err)
+	}
+	return r.CreateSelfCourse(ctx, orgID, ownerID, learningLogCourseTitle, nil, DifficultyBeginner, nil)
+}
+
+// FindSectionByTitle looks for a case-insensitive exact title match among
+// courseID's sections — used to reuse an existing section (a diary
+// "learned" highlight's category) instead of creating a sibling duplicate.
+func (r *Repo) FindSectionByTitle(ctx context.Context, courseID, title string) (CourseSection, bool, error) {
+	var s CourseSection
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, course_id, title, position, created_at FROM course_sections
+		 WHERE course_id=$1 AND lower(title)=lower($2) LIMIT 1`,
+		courseID, title,
+	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseSection{}, false, nil
+		}
+		return CourseSection{}, false, fmt.Errorf("courses: find section by title: %w", err)
+	}
+	return s, true, nil
+}
+
+// FileLearningLogNote routes one piece of text into ownerID's "Learning Log"
+// self-course: resolve/create the section named category, then dedup the
+// module by title (FindSimilarModuleInCourse) — a match gets text appended,
+// a miss gets a new module. Returns the resulting module's id. Shared by
+// internal/diary's "learned" highlight (one note at a time, as the writer's
+// AI-reviewed dump is applied) and cmd/migrate-journal-to-learninglog (bulk,
+// backfilling existing internal/journal entries into the same destination).
+func (r *Repo) FileLearningLogNote(ctx context.Context, orgID, ownerID, category, title, text string) (string, error) {
+	course, err := r.GetOrCreateLearningLogCourse(ctx, orgID, ownerID)
+	if err != nil {
+		return "", fmt.Errorf("get or create learning log course: %w", err)
+	}
+
+	section, ok, err := r.FindSectionByTitle(ctx, course.ID, category)
+	if err != nil {
+		return "", fmt.Errorf("find section: %w", err)
+	}
+	if !ok {
+		section, err = r.CreateSection(ctx, CourseSection{CourseID: course.ID, Title: category})
+		if err != nil {
+			return "", fmt.Errorf("create section: %w", err)
+		}
+	}
+
+	existing, found, err := r.FindSimilarModuleInCourse(ctx, orgID, course.ID, title)
+	if err != nil {
+		return "", fmt.Errorf("find similar module: %w", err)
+	}
+	if found {
+		body := text
+		if existing.ContentBody != nil && *existing.ContentBody != "" {
+			body = *existing.ContentBody + "\n\n" + text
+		}
+		existing.ContentBody = &body
+		updated, err := r.UpdateModule(ctx, orgID, existing)
+		if err != nil {
+			return "", fmt.Errorf("update module: %w", err)
+		}
+		return updated.ID, nil
+	}
+
+	created, err := r.CreateModule(ctx, CourseModule{
+		CourseID: course.ID, SectionID: section.ID, Title: title, Type: ModuleTypeNotes, ContentBody: &text,
+	})
+	if err != nil {
+		return "", fmt.Errorf("create module: %w", err)
+	}
+	return created.ID, nil
 }
 
 // FindSimilarModuleInCourse looks for a module already in courseID whose

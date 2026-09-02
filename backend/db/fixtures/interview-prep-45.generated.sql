@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-09-01T13:15:22Z
+-- Generated at: 2026-09-02T18:04:51Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: 45-Day Interview Preparation Bootcamp ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), 20+ system design exercises plus low-level/OOP design, backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 'published', true, true, 201.3)
+VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), 20+ system design exercises plus low-level/OOP design, backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 'published', true, true, 200.2)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 -- Section: DSA — Data Structures & Algorithms
@@ -15491,124 +15491,779 @@ VALUES ('cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', '57f5e0f7-67b7-55ab-a3e7-4699471
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a7756340-15e9-5632-921d-0df63e66f5dc', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'JavaScript Prototype Chain and Inheritance', 'notes', 1, $md$Before touching React internals, you need the JS mechanism React itself is built on. Class components, `this` binding, and even how `class`/`extends` behave under the hood all rest on prototypal inheritance, which works nothing like the classical, class-based inheritance in Java or C#. "Explain the prototype chain" and "what does `new` actually do" are two of the most common frontend-fundamentals questions, and they test whether you understand how JavaScript looks up properties, not whether you've memorized syntax.
+VALUES ('9ca80923-6288-5abd-a381-a3175d743473', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'HTML Document Structure and Semantics', 'notes', 1, $md$Everything else in this track, CSS, React, rendering performance, sits on top of HTML. That's not a formality: the tags you choose decide what a screen reader announces, what a search crawler indexes, and how much JavaScript you need to write to make something as basic as a button behave like a button. This lesson is the on-ramp the rest of the course assumes you already climbed.
 
-## Property lookup and the prototype chain
+## A minimal document, piece by piece
 
-Every JavaScript object has an internal link, `[[Prototype]]`, to another object (or to `null`). When you access a property, the engine doesn't just check the object itself. If the property isn't found there, it walks up the `[[Prototype]]` link and checks that object, then its `[[Prototype]]`, and so on, until it finds the property or hits `null`.
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Catalog</title>
+</head>
+<body>
+  <h1>Welcome</h1>
+</body>
+</html>
+```
 
-This walk is the **prototype chain**, and the mechanism is called **delegation**: an object doesn't copy its parent's properties, it delegates the lookup upward when it doesn't have something itself.
+`<!DOCTYPE html>` isn't optional decoration. Without it, browsers fall back to "quirks mode," an old compatibility mode that changes how box sizing and a handful of CSS properties are calculated to match 1990s-era browser bugs. You don't want that turned on by accident.
+
+`lang="en"` tells screen readers which pronunciation rules to use and tells translation tools what they're translating from. `<meta charset="UTF-8">` should be the first thing inside `<head>` (within the first 1024 bytes of the file), because the browser has to know the encoding before it can correctly parse any text after it, including the `<title>`. `<meta name="viewport" ...>` is what makes a page render at mobile width instead of a zoomed-out desktop layout; skip it and every phone shows your site shrunk to fit a 980px-wide assumption.
+
+## Semantic tags versus div soup
+
+Every one of these can be built with a `<div>`. The reason not to is that `<div>` and `<span>` carry zero meaning, they're invisible to anything but a human staring at your CSS classes.
+
+```html
+<header>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/products">Products</a>
+  </nav>
+</header>
+
+<main>
+  <article>
+    <h1>How Caching Works</h1>
+    <section>
+      <h2>Cache-Control headers</h2>
+      <p>...</p>
+    </section>
+  </article>
+
+  <aside>Related posts</aside>
+</main>
+
+<footer>© 2026</footer>
+```
+
+`<header>`, `<nav>`, `<main>`, `<article>`, `<section>`, `<aside>`, and `<footer>` are landmark elements. Three things fall out of using real landmarks instead of `<div class="header">`:
+
+- **Screen readers navigate by landmark.** A user can jump straight to "main" or "navigation" with a keyboard shortcut instead of tabbing through everything above it. A `<div>` never shows up in that list, no matter what class name you give it.
+- **Search crawlers weight semantic structure.** `<article>` and `<h1>`-`<h6>` tell a crawler what the actual content of the page is versus chrome around it, which affects how accurately your page gets summarized in results.
+- **The next person reading your markup doesn't have to guess.** `<nav>` documents itself. A `<div className="top-bar-wrapper-2">` doesn't.
+
+`<article>` versus `<section>` is the one distinction people mix up: `<article>` is content that would make sense distributed on its own, a blog post, a product card, a forum comment. `<section>` is a thematic grouping *within* something else, a chapter, a tab panel. A blog post is an `<article>`; the "Comments" heading and its list inside that post is a `<section>`.
+
+## Forms: the parts that aren't just inputs
+
+```html
+<form action="/search" method="get">
+  <label for="query">Search</label>
+  <input type="search" id="query" name="q" required minlength="2" />
+
+  <fieldset>
+    <legend>Sort by</legend>
+    <label><input type="radio" name="sort" value="relevance" checked /> Relevance</label>
+    <label><input type="radio" name="sort" value="price" /> Price</label>
+  </fieldset>
+
+  <button type="submit">Search</button>
+</form>
+```
+
+`<label for="query">` paired with `id="query"` on the input does two things at once: clicking the label focuses the input (a bigger, more forgiving click target than the input alone), and a screen reader announces "Search, edit text" when the input receives focus instead of announcing nothing at all. This is the single most common accessibility bug in real forms, an input with a `placeholder` standing in for a label. Placeholder text disappears the moment you start typing, and it's never read the same way a real label is.
+
+`required`, `minlength`, `type="email"`, `type="number"` — these give you free client-side validation and, just as importantly, the correct on-screen keyboard on mobile (a numeric pad for `type="number"`, an `@`-friendly layout for `type="email"`). `<fieldset>` and `<legend>` group related radio buttons or checkboxes and give that group its own announced label, "Sort by," which a bare row of `<input type="radio">` elements has no way to express.
+
+`<button>` versus `<div onClick>` isn't a style choice. A real `<button>` is keyboard-focusable, triggers on both Enter and Space, has `role="button"` for free, and shows up correctly in a screen reader's list of interactive controls. A clickable `<div>` gets none of that until you manually add `tabIndex`, a `role`, and keydown handlers to reinvent what `<button>` already does.
+
+## Accessibility trees and the DOM aren't the same tree
+
+The browser builds a second tree alongside the DOM, called the accessibility tree, and it's what screen readers actually read from. Every element gets a computed **role** (its type, like `button` or `heading`), a computed **name** (what gets announced, usually from text content, a `<label>`, or an `aria-label`), and a computed **state** (`checked`, `expanded`, `disabled`).
+
+Semantic HTML fills in role and name automatically. `<button>Save</button>` has role `button` and name `"Save"` with zero extra work. The moment you build a control out of a `<div>`, you're on the hook for supplying all of that yourself with ARIA attributes, and it's easy to get subtly wrong in a way that looks fine visually but announces nonsense (or nothing) to a screen reader. The rule worth internalizing now, since accessibility gets its own full lesson later in this course: reach for the native element first, and only add ARIA for the handful of widgets, like a custom dropdown, that HTML genuinely has no element for.
+
+## Where this shows up in an interview
+
+"Why does this matter if I'm just going to build everything in React with `<div>`s and Tailwind classes" is a fair question, and it's usually what's actually being tested when semantic HTML comes up. The honest answer: React doesn't change any of this. JSX compiles down to the exact same DOM nodes, so a `<div onClick>` in a React component has precisely the same accessibility gap as one in raw HTML, it's not something the framework fixes for you. Knowing when to reach for `<button>` versus `<div>`, or `<nav>` versus `<div className="nav">`, is a decision you make in every component you write, framework or not.
+$md$, 25, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('e594280e-e4e4-5beb-88ad-84222feac163', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'CSS Box Model, Flexbox and Grid', 'notes', 2, $md$Every element on a page is a rectangle, whether you asked for one or not. This lesson is about what's actually inside that rectangle, why `width: 200px` sometimes doesn't mean 200px, and the two layout systems, Flexbox and Grid, you'll reach for constantly once you leave the default document flow.
+
+## The box model: four layers, from the inside out
+
+Content, then padding, then border, then margin. Content is what `width`/`height` size by default. Padding is breathing room inside the border, and it shares the element's background. Border wraps around the padding. Margin is transparent space outside the border, and it's the one layer that can collapse with a neighbor's margin instead of adding to it.
+
+```css
+.card {
+  width: 200px;
+  padding: 20px;
+  border: 5px solid black;
+}
+/* Rendered width = 200 + 40 (padding, both sides) + 10 (border, both sides) = 250px */
+```
+
+That 250px is the trap. You asked for 200px and got 250px, because by default (`box-sizing: content-box`), `width` only ever describes the content box. Padding and border get added on top of it, not absorbed into it.
+
+```css
+.card {
+  box-sizing: border-box;
+  width: 200px;
+  padding: 20px;
+  border: 5px solid black;
+}
+/* Rendered width stays 200px — the content area shrinks to 150px to make room */
+```
+
+`border-box` flips the meaning of `width`: now it's the *final* size, and the browser works backward, shrinking the content area to fit padding and border inside it. This is why almost every production codebase opens its stylesheet with:
+
+```css
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+```
+
+Once that's set globally, a declared width is always the actual rendered width, everywhere, which is one less thing to do math on when you're building anything with percentage widths or a grid.
+
+Two things worth being able to say cold, since they come up as quick follow-ups: margins on adjacent block elements collapse into whichever one is bigger rather than stacking (a 20px margin-bottom next to a 30px margin-top produces 30px of gap, not 50px), and only `margin` accepts negative values, never `padding` or `border-width`.
+
+## Block, inline, and the display value that sits between them
+
+Every element has a default `display` that determines two things: does it start a new line, and does it respect `width`/`height` at all.
+
+| | Block | Inline | Inline-block |
+|---|---|---|---|
+| Starts a new line | Yes | No | No |
+| Respects width/height | Yes | No, sized by content | Yes |
+| Vertical margin/padding | Respected | Ignored visually | Respected |
+| Examples | `div`, `p`, `h1`–`h6`, `ul`/`li` | `span`, `a`, `strong`, `em` | `img`, `button`, `input` |
+
+`inline-block` exists to solve one specific problem: you want something to sit in the middle of a line of text, the way `inline` does, but you also need to give it a fixed width or vertical padding, which plain `inline` refuses to honor. A `<span>` you've styled with `display: inline-block` can now take `width: 100px` and have it actually apply, while still flowing next to text instead of forcing a line break.
+
+## Flexbox: one axis
+
+Flexbox lays out children along a single line, a row or a column, and lets them grow or shrink to fill the space along that line.
+
+```css
+.navbar {
+  display: flex;
+  justify-content: space-between; /* main axis: spreads children apart */
+  align-items: center;             /* cross axis: centers them vertically */
+}
+```
+
+`justify-content` controls spacing along the direction items flow (the main axis); `align-items` controls alignment perpendicular to that (the cross axis). Reach for Flexbox anywhere the layout problem is genuinely one-dimensional: a nav bar, a toolbar, a row of buttons, centering one thing inside another.
+
+## Grid: two axes at once
+
+Grid is the tool for when you have both rows and columns to think about simultaneously, not one line of items but an actual 2D structure.
+
+```css
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+}
+```
+
+That declaration builds the structure before a single child exists: three equal-width columns, a first row sized to its own content (typically a header, `auto`), a second row that consumes whatever space is left (`1fr`), all separated by a 16px gutter. Drop any element into `.dashboard` and it lands in the next open cell automatically, no per-item positioning required unless you want to override where something sits.
+
+The rule of thumb that settles the "Flex or Grid" question fast: if you catch yourself fighting `flex-wrap` and a pile of fixed widths trying to fake rows and columns, that's Grid's job, not Flexbox's. One axis, Flexbox. Two axes, Grid.
+
+## Responsive images: letting the browser choose
+
+Sizing a layout is only half of "responsive." The other half is not shipping a 2000px photo to a 400px phone screen.
+
+```html
+<img
+  src="/photo-800.jpg"
+  srcset="/photo-400.jpg 400w, /photo-800.jpg 800w, /photo-1200.jpg 1200w"
+  sizes="(max-width: 600px) 400px, 800px"
+  alt="Product photo"
+  loading="lazy"
+/>
+```
+
+`srcset` lists the same image at several resolutions; `sizes` tells the browser how wide the image will actually be rendered at different viewport widths. The browser combines those two facts with the device's own pixel density and picks whichever candidate wastes the least bandwidth, entirely on its own, no JavaScript involved. `loading="lazy"` is the other half of the win: it defers offscreen images until they're about to enter the viewport, so a long product listing doesn't pay the download cost for images the user never scrolls to.
+
+`<picture>` solves a different problem, art direction rather than resolution: swapping to a genuinely different crop of the same photo at different breakpoints, not just a smaller version of the same crop. Reach for `srcset` when it's the same image at different sizes; reach for `<picture>` when the mobile version needs a tighter crop than the desktop one.
+$md$, 25, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a7a4581f-2f30-5c9e-8e9f-45f1b6b052fd', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'CSS Architecture and Theming', 'notes', 3, $md$A five-file prototype survives any CSS approach. What separates the options covered here is what happens at file two hundred: whether class names collide, whether a theme change means a re-render, whether the CSS bundle grows forever or plateaus. None of these approaches is "the best" one, and pretending otherwise is usually the wrong answer in an interview. What matters is knowing the actual trade-offs well enough to pick the right one for a given team and app.
+
+## BEM: discipline, not tooling
+
+Block-Element-Modifier is just a naming convention. It needs no build step and works in a plain `.css` file, which is exactly why it predates every other option here.
+
+```css
+.card { border-radius: 8px; padding: 16px; }               /* Block */
+.card__title { font-size: 1.25rem; font-weight: 600; }     /* Element, connected with __ */
+.card--featured { border: 2px solid gold; }                /* Modifier, connected with -- */
+```
+
+```tsx
+<div className="card card--featured">
+  <h3 className="card__title">Featured Post</h3>
+</div>
+```
+
+The strength is zero tooling and self-documenting relationships in the class name itself. The weakness is that nothing actually enforces scoping: another file can define its own `.card__title` and silently collide with yours. BEM only works as well as everyone's discipline holds, and that discipline is the first thing to erode once a codebase has more than one team touching it.
+
+## CSS Modules: scoping enforced by the build
+
+CSS Modules solve exactly the problem BEM can't: every class name is scoped to its own file automatically, compiled to a hashed name at build time.
+
+```css
+/* Card.module.css */
+.card { border-radius: 8px; padding: 16px; }
+.featured { border: 2px solid gold; }
+```
+
+```tsx
+import styles from "./Card.module.css";
+import clsx from "clsx";
+
+function Card({ featured }: { featured?: boolean }) {
+  return <div className={clsx(styles.card, featured && styles.featured)}>...</div>;
+}
+```
+
+`.card` compiles to something like `.Card_card__a1b2c`, so a class named `card` in a completely unrelated file can never collide with this one, no naming convention required to make that true. It's the default in both Next.js and Vite with zero configuration, which is a big part of why it's such a common starting point.
+
+## CSS-in-JS, and the runtime cost that changed the ecosystem
+
+Libraries like styled-components and Emotion let you write CSS directly in TypeScript, colocated with the component, with full access to props and theme values.
+
+```tsx
+const Card = styled.div<{ $featured?: boolean }>`
+  border-radius: 8px;
+  border: ${(props) => (props.$featured ? "2px solid gold" : "1px solid #ddd")};
+`;
+```
+
+The part worth naming precisely, because it's what actually pushed the ecosystem to change: the classic version of this approach parses those template literals and injects `<style>` tags at runtime, in the browser, on every render where a dynamic style changes. That costs real JS parsing time on the client, complicates SSR (style extraction has to happen server-side and reconcile with what the client injects, which is why styled-components needed its own Babel plugin just to avoid a flash of unstyled content), and makes bundlers' job harder, since dynamically generated class names resist tree shaking and critical-CSS extraction.
+
+That cost is exactly why the industry moved toward **zero-runtime CSS-in-JS**, vanilla-extract, Panda CSS, and styled-components' own newer compiler mode among them, which extract styles to static CSS files at build time instead of runtime. You keep the ergonomics of writing CSS next to your component; you lose the browser-side parsing tax. Being able to name this shift, and why it happened, reads as someone who's tracked the ecosystem rather than someone reciting which library is currently popular.
+
+## Atomic CSS: composing utilities instead of writing new rules
+
+Tailwind is the dominant example: small, single-purpose classes composed directly in markup, instead of authoring new CSS per component.
+
+```tsx
+<div className={`rounded-lg p-4 ${featured ? "border-2 border-yellow-400" : "border border-gray-200"}`}>
+  <h3 className="text-xl font-semibold">Title</h3>
+</div>
+```
+
+The upside is real: the utility set is finite and shared across the entire app, so unlike a hand-written stylesheet, the CSS bundle plateaus instead of growing linearly with every new component (Tailwind also purges anything unused at build time). There's also no more debating what to name a wrapper `<div>`, and no specificity conflicts, since utility classes are single-property and roughly equal weight. The cost is markup that reads noisier, and a genuine onboarding curve for anyone used to styling in a separate stylesheet rather than inline in JSX.
+
+## Design tokens and a theme that doesn't need a re-render
+
+Design tokens are the named, centralized values, colors, spacing, radii, that both design and code point to instead of scattering hardcoded values through the codebase. CSS custom properties are the natural way to implement a theme that can change at runtime, because unlike a Sass variable, a `--variable` is resolved in the browser, not baked in at build time.
+
+```css
+:root {
+  --color-bg: #ffffff;
+  --color-text: #1a1a1a;
+  --space-3: 16px;
+}
+[data-theme="dark"] {
+  --color-bg: #0f0f0f;
+  --color-text: #f5f5f5;
+}
+```
+
+```css
+.card {
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: var(--space-3);
+}
+```
+
+```tsx
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+  return <button onClick={() => setTheme(t => t === "light" ? "dark" : "light")}>Toggle theme</button>;
+}
+```
+
+Notice there's no React re-render anywhere in that theme switch. Flipping the `data-theme` attribute makes the browser recompute styles for every element referencing a changed custom property, on its own, without React knowing or caring. Compare that to a JS-driven theme object passed through Context, where every consuming component genuinely re-renders on every theme change. For a value that changes as rarely as a light/dark toggle, CSS variables are the cheaper mechanism by a wide margin.
+
+## A responsive card grid, using both ideas at once
+
+```css
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+@container (min-width: 320px) {
+  .card { flex-direction: row; align-items: center; }
+}
+```
+
+Two distinct responsive mechanisms are stacked here, and it's worth being able to tell them apart. `repeat(auto-fill, minmax(220px, 1fr))` gives you a reflowing grid with zero media queries: the number of columns is whatever fits, driven purely by available width. Container queries (`@container`) solve a different problem entirely: they let one component respond to *its own* box size, not the viewport's, which a media query structurally cannot do. A card component that needs to lay out differently depending on whether its parent gave it 300px or 900px, regardless of the overall screen size, is exactly the case container queries exist for.
+
+## Actually picking one
+
+If an interviewer asks which CSS approach is "correct," the useful answer names the actual constraints rather than a favorite: CSS Modules for a small team with no design-system ambitions and a Next.js or Vite setup that already supports it for free; Tailwind for a team that wants to move fast and skip naming debates entirely; a zero-runtime CSS-in-JS library for a design system that needs runtime theming without paying the classic styled-components performance tax. Scoping guarantees, runtime cost, markup verbosity, and theming story are the four axes the decision actually runs on, and naming those four is worth more than naming a winner.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('e1ab3626-3c6e-5cab-9c7b-e4451e90a78b', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'CSS and Rendering Performance', 'notes', 4, $md$JavaScript gets most of the blame for a janky page, but a large share of real-world jank traces back to CSS and what the browser has to do in response to it. This lesson is about what actually happens between a style change and pixels landing on screen, and the small set of properties and APIs that let you control that deliberately.
+
+## Four stages, and which ones a given change skips
+
+Every frame the browser paints goes through some or all of: **Style** (which CSS rules apply to which elements), **Layout** (the size and position of every affected element, also called reflow), **Paint** (filling in pixels: text, colors, shadows), and **Composite** (combining painted layers into the final image, on the GPU).
+
+| Change | Layout | Paint | Composite |
+|---|---|---|---|
+| `width`, `height`, `top`, `left`, `margin` | yes | yes | yes |
+| `color`, `background`, `box-shadow` | no | yes | yes |
+| `transform`, `opacity` | no | no | yes |
+
+The expensive path is the top row: a layout-affecting property forces the browser to redo geometry for that element, potentially its ancestors and siblings too, then repaint, then recomposite. `transform` and `opacity` are the outlier, they can be handled entirely on the GPU's compositor thread, skipping Layout and Paint completely. That's not a minor optimization footnote; it's the entire reason those two properties are the default choice for animation, covered in more depth later in this course.
+
+```css
+/* Forces reflow every frame */
+.card { transition: top 0.3s, left 0.3s; }
+.card.moved { top: 100px; left: 50px; }
+
+/* Same visual result, compositor-only */
+.card { transition: transform 0.3s; }
+.card.moved { transform: translate(50px, 100px); }
+```
+
+## will-change is a promise, and promises aren't free
+
+`will-change` tells the browser to promote an element onto its own compositor layer *before* the change happens, so the layer doesn't have to be created mid-animation.
+
+```css
+.card { will-change: transform; }
+```
+
+The trap is treating it as a blanket performance boost instead of a targeted one. Every promoted layer consumes GPU memory, and leaving `will-change` on permanently, rather than toggling it on right before an animation and off right after, can fragment the page into so many layers that it makes things slower, not faster.
+
+```ts
+element.style.willChange = "transform";
+element.addEventListener("transitionend", () => {
+  element.style.willChange = "auto";
+}, { once: true });
+```
+
+## Layout thrashing: reading and writing in the wrong order
+
+This happens when JavaScript interleaves reads and writes of layout-dependent properties inside a loop, forcing the browser to synchronously recompute layout on every single iteration instead of batching the whole thing into one recalculation per frame.
+
+```ts
+// Bad: read, write, read, write — forces a synchronous layout flush every time
+boxes.forEach((box) => {
+  const width = box.offsetWidth; // read
+  box.style.width = `${width * 2}px`; // write invalidates the layout cache
+});
+
+// Good: batch all reads first, then all writes
+const widths = boxes.map((box) => box.offsetWidth);
+boxes.forEach((box, i) => { box.style.width = `${widths[i] * 2}px`; });
+```
+
+`offsetWidth`, `offsetHeight`, `getBoundingClientRect()`, `scrollTop`, and `getComputedStyle()` are the usual culprits on the read side, since each one forces the browser to guarantee an up-to-date layout before it can answer. Open Chrome DevTools' Performance tab, record the interaction, and look for a tight, repeated sequence of purple "Layout" blocks, or check the summary for a "Forced reflow" warning, DevTools flags this pattern explicitly.
+
+## contain and content-visibility: telling the browser what it can skip
+
+`contain` declares that an element's internals are isolated from the rest of the page, so a change inside it can't ripple outward, and the browser doesn't need to recheck anything outside its boundary.
+
+```css
+.list-item { contain: content; }   /* layout + paint + style */
+.chart-widget { contain: strict; } /* content + a fixed size, the strongest guarantee */
+```
+
+For a dashboard built from many independent widgets, wrapping each in `contain: content` means updating one widget's DOM never forces the browser to re-check layout for its siblings.
+
+`content-visibility: auto` builds on the same idea for anything currently off-screen:
+
+```css
+.long-article section {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px; /* a placeholder size, used before first real render */
+}
+```
+
+Sections outside the viewport skip rendering work entirely until they scroll into view, no JavaScript required. It's the same underlying goal as list virtualization, do the least work possible for content the user can't currently see, just handled natively by the browser instead of hand-rolled.
+
+## Getting out of the way of first paint
+
+By default, `<link rel="stylesheet">` blocks rendering: nothing paints until every linked stylesheet has downloaded and parsed, even if the HTML itself was ready instantly.
+
+**Critical CSS** inlines just enough CSS for the above-the-fold view directly in `<head>`, and defers the rest:
+
+```html
+<head>
+  <style>
+    .header { ... }
+    .hero { ... }
+  </style>
+  <link rel="preload" href="/styles/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="/styles/main.css" /></noscript>
+</head>
+```
+
+Tools like `critical` or `critters` automate extracting that above-the-fold slice at build time; Next.js does the equivalent automatically for CSS Modules in production. Two other render-blocking culprits worth naming in the same breath: a synchronous `<script>` in `<head>` blocks HTML parsing entirely until it downloads and runs, `defer` and `async` both fix that for non-critical scripts, and unstyled web fonts either flash invisible text or shift the layout when the real font swaps in, which `font-display: swap` mitigates by showing the fallback immediately.
+
+```css
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter.woff2") format("woff2");
+  font-display: swap;
+}
+```
+
+## The habit worth building
+
+The pattern an interviewer is actually checking for, more than any individual fact above, is whether you connect a specific property to a specific pipeline stage to a specific fix. "This animates `top`, which forces layout on every frame, so switch it to `transform` and it becomes compositor-only" is the shape of a senior answer. Reciting the four stage names without wiring them to an actual property isn't.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('694cc2b1-c7ae-5c85-9cd1-c832c574aee1', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Variables, Scope, Hoisting, and Truthiness', 'notes', 5, $md$Most React and TypeScript material assumes you already have this settled and jumps straight past it. It shows up anyway, usually as the very first question in an interview, before the conversation ever gets to a framework. This lesson is the foundation everything after it, closures, hooks, async code, quietly depends on.
+
+## var, let, const: three different promises
+
+```js
+console.log(a); // undefined — the declaration was hoisted, not the assignment
+var a = 1;
+
+console.log(b); // ReferenceError: Cannot access 'b' before initialization
+let b = 2;
+```
+
+`var` is **function-scoped**, not block-scoped. Declare one inside an `if` or a `for` loop and it's visible across the whole enclosing function regardless. It can be redeclared and reassigned freely, and it's hoisted to the top of its scope already initialized to `undefined`, which is why reading it early gives you `undefined` instead of an error.
+
+`let` is **block-scoped**, visible only inside the nearest `{}`. It can't be redeclared in the same scope but can be reassigned. It's hoisted the same way `var` is, in the sense that the engine knows about it early, but it isn't initialized: touching it before its own declaration line throws instead of quietly returning `undefined`.
+
+`const` is block-scoped like `let`, and can be neither redeclared nor reassigned. It has to be initialized at the point of declaration; `const x;` alone is a syntax error. What it actually locks down is the *binding*, not the value: `const obj = {}` still lets you write `obj.key = 1`, it only forbids `obj = {}` later.
+
+The gap between the top of a `let`/`const` variable's scope and its actual declaration line is called the **temporal dead zone**. Touching the variable anywhere in that gap throws a `ReferenceError` rather than handing back a silent `undefined`. That's deliberate: it turns "used the variable before it existed" from a bug that fails somewhere else, mysteriously, into an error at the exact line that caused it.
+
+## Where the difference actually bites
+
+```js
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0); // 3, 3, 3
+}
+for (let j = 0; j < 3; j++) {
+  setTimeout(() => console.log(j), 0); // 0, 1, 2
+}
+```
+
+Every callback in the first loop closes over the *same* `i`, because `var` gives the whole loop one shared binding. By the time any callback actually runs, the loop already finished and `i` is `3`, so all three print `3`. The second loop gives every iteration its *own* `j`, a fresh binding each time around, so each callback closes over its own copy holding whatever value it saw. This is the fastest way to demonstrate function scope versus block scope out loud, and it's exactly the kind of thing a `useEffect` closure bug (covered later in this course) turns out to be a variant of.
+
+The convention worth defaulting to: `const` unless you specifically need to reassign, `let` when you do, and no `var` in new code at all. `const`'s refusal to rebind means you can trust a variable never points somewhere else later, and block scoping sidesteps the loop-leakage bug above entirely.
+
+## Primitive versus reference: what a variable actually holds
+
+JavaScript has exactly seven primitive types: `string`, `number`, `boolean`, `null`, `undefined`, `BigInt`, `Symbol`. Everything else, objects, arrays, functions, is a reference type.
+
+```js
+let a = 5;
+let b = a;   // b gets a COPY of the value
+b = 10;
+console.log(a); // 5 — untouched
+
+let obj1 = { count: 5 };
+let obj2 = obj1;   // obj2 gets a COPY of the REFERENCE, not a new object
+obj2.count = 10;
+console.log(obj1.count); // 10 — same object, both variables point at it
+
+console.log({ x: 1 } === { x: 1 }); // false — different objects, same shape
+console.log(obj1 === obj2);          // true — same reference
+```
+
+`b = a` copies a value, so reassigning `b` never touches `a`. `obj2 = obj1` copies a reference, not an object, so both variables point at the exact same thing in memory, and a mutation through either one is visible through both. This is the whole reason idiomatic React code writes `setState([...items, x])` instead of `state.items.push(x)`: React and useState detect change with reference equality, and mutating in place never produces a new reference for that check to notice.
+
+Briefly, on where these actually live: primitives sit on the **stack**, fixed-size, last-in-first-out, and automatically cleaned up the instant a function returns, which is cheap precisely because their size is small and fixed. Objects live on the **heap**, dynamically sized and garbage-collected, because their size can grow and they often need to outlive the single function call that created them, referenced elsewhere after that call is long gone. This is an engine-implementation detail rather than something the language spec guarantees, but it's the standard mental model interviewers expect when they ask where a value "lives."
+
+`typeof null` famously returns `"object"`, a decades-old bug in the language's original type-tagging scheme that's now permanent for backwards compatibility. `null` is still a primitive despite what `typeof` claims; use `value === null` to actually test for it, and remember that `typeof NaN` returns `"number"`, since `NaN` is a special value *of* the Number type, not a type of its own. Testing for it needs `Number.isNaN(x)`, never `x === NaN`, because by spec `NaN` is unequal to itself, so an equality check against it always fails no matter what `x` is.
+
+## The eight falsy values, and where truthiness lies to you
+
+```js
+false, 0, -0, 0n, "", null, undefined, NaN
+```
+
+That's the complete list. Everything else is truthy, including a few values people reliably get wrong:
+
+```js
+Boolean([]);   // true — an empty array is still an object
+Boolean({});   // true — same reason
+Boolean("0");  // true — a non-empty string, regardless of what's inside it
+```
+
+`if ([]) console.log("runs")` runs, because `if` only calls `Boolean()` on its condition, and `Boolean()` on any object is always `true`. But `[] == false` is also `true`, and it looks like a contradiction until you notice `==` isn't doing the same thing at all. Loose equality coerces both sides to numbers before comparing: `false` becomes `0`, and `[]` first converts to the primitive string `""`, which then converts to the number `0`. The comparison that actually runs is `0 == 0`. The array itself was never "falsy" in that expression; it just coerced down to a value that happened to equal the other side's coerced value. The same coercion machinery explains `[1, 2] + [3, 4]`: `+` on two objects triggers `ToPrimitive`, which for an array means `.toString()`, giving `"1,2"` and `"3,4"`, and from there `+` is plain string concatenation, landing on `"1,23,4"`.
+
+The practical payoff is the `||` versus `??` decision:
+
+```js
+function greet(name) {
+  name = name || "Guest";  // falls back on ANY falsy value: 0, "", null, undefined
+}
+function greet(name) {
+  name = name ?? "Guest";  // falls back ONLY on null or undefined
+}
+```
+
+`||` treats every falsy value as "missing," which quietly breaks the moment `0` or `""` is a legitimate value you meant to keep. `??` (nullish coalescing) only treats `null`/`undefined` as missing, which is almost always what you actually mean when you write a fallback. This exact gap is what makes a naive `localStorage.getItem(key) || initialValue` pattern wrong the moment a stored value is legitimately `0` or `false`; reach for `??`, or an explicit `!== null` check, instead.
+$md$, 25, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('df4078ed-0a20-5307-8498-6a0203da4c0f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Functions, this, and Binding', 'notes', 6, $md$"Implement `bind` from scratch" is one of the most reliable whiteboard questions there is, precisely because it forces you to actually understand `this`-binding mechanics instead of just knowing which method to reach for. This lesson builds `call`, `apply`, and `bind` by hand, then covers three smaller patterns, the `in` operator, currying, and method chaining, that all lean on the same idea: a function call is just an expression, and what it returns is entirely up to you.
+
+## call, apply, bind: three ways to control this
+
+All three exist to answer one question: what should `this` be inside a function call? `call` and `apply` answer it immediately, invoking the function right away with a chosen `this`. `bind` answers it lazily, returning a new function with `this` permanently fixed, to be called whenever you're ready.
+
+```javascript
+Function.prototype.myCall = function (context, ...args) {
+  context = context || globalThis;
+  const fnKey = Symbol('fn'); // a unique key so no existing property gets clobbered
+  context[fnKey] = this;
+  const result = context[fnKey](...args);
+  delete context[fnKey];
+  return result;
+};
+
+Function.prototype.myApply = function (context, argsArray) {
+  context = context || globalThis;
+  const fnKey = Symbol('fn');
+  context[fnKey] = this;
+  const result = argsArray ? context[fnKey](...argsArray) : context[fnKey]();
+  delete context[fnKey];
+  return result;
+};
+
+Function.prototype.myBind = function (context, ...boundArgs) {
+  const fn = this;
+  return function (...callArgs) {
+    if (this instanceof fn) return fn.apply(this, [...boundArgs, ...callArgs]); // called with `new`
+    return fn.apply(context, [...boundArgs, ...callArgs]);
+  };
+};
+
+const obj = { name: 'Nayan' };
+function greet(greeting, punctuation) {
+  console.log(greeting + ', ' + this.name + punctuation);
+}
+greet.myCall(obj, 'Hi', '!');        // Hi, Nayan!
+greet.myApply(obj, ['Hello', '.']);  // Hello, Nayan.
+greet.myBind(obj, 'Hey')('?');       // Hey, Nayan?
+```
+
+Two details worth noticing in that implementation, because they're exactly what an interviewer probes for. First, `myBind` is written in terms of `apply`, not the other way around, because `bind`'s whole job is deferring a call, and once it's finally time to make that call, it needs the same "invoke with this and args" mechanism `apply` already provides. Second, `myCall`/`myApply` attach the function to `context` under a `Symbol` key rather than a plain string like `"fn"`, because a string could collide with a real property already on `context` and silently overwrite it for the duration of the call. A `Symbol()` can never collide with anything.
+
+The trap worth knowing before it costs you in an interview: none of the three work on arrow functions the way you'd expect. Arrow functions don't have their own `this`, they close over `this` from whatever scope they were defined in, permanently, at definition time. Calling `.call()`/`.apply()`/`.bind()` on one still runs it, but the `context` argument is silently ignored. And if `bind` gets called twice, `fn.bind(a).bind(b)`, the *first* bind wins: `fn.bind(a)` already hard-locks `this` to `a`, so a second `.bind(b)` on that result can only prepend more arguments, it can never override a `this` that's already locked in.
+
+## The in operator: existence, not truthiness
+
+`in` checks whether a property exists on an object at all, even if its value is `undefined`, which is a different question than whether the value is truthy.
+
+```javascript
+const config = { retries: undefined };
+
+if (config.retries) {
+  // never runs — undefined is falsy, so this looks like "no retries configured"
+}
+if ('retries' in config) {
+  // runs — the key IS there, it's just explicitly set to undefined
+}
+```
+
+`config.retries` is `undefined`, which is falsy, so a naive truthiness check reads that as "missing." But the key is genuinely present; it was just deliberately set to `undefined`. Any falsy-but-present value, `0`, `""`, `false`, `null`, `undefined`, breaks a truthiness check used as an existence check, and `in` is the one option of the three common ones (`in`, `hasOwnProperty`, truthiness) that answers "does this key exist" and nothing else.
+
+`in` also walks the prototype chain, the same delegation mechanism the next lesson covers in depth, which is the practical difference between `in` and `hasOwnProperty`:
+
+```javascript
+const arr = [1, 2, 3];
+console.log('length' in arr);   // true — own property
+console.log('push' in arr);     // true — inherited from Array.prototype
+console.log(5 in arr);          // false — out of bounds
+
+const user = { name: 'Nayan' };
+console.log(user.hasOwnProperty('toString')); // false — inherited, not own
+console.log('toString' in user);              // true — in counts inherited too
+```
+
+`Object.keys(obj).includes(key)` agrees with `hasOwnProperty` for a normal object literal, since both only look at own, enumerable keys, but the two can diverge for a property explicitly defined with `enumerable: false` via `Object.defineProperty`.
+
+## Currying: one argument at a time
+
+Currying turns a function that takes several arguments into a chain of functions that each take one, returning a new function until every argument has finally arrived.
+
+```javascript
+// Normal
+function add(a, b) { return a + b; }
+add(2, 3); // 5
+
+// Curried
+const add = a => b => a + b;
+add(2)(3); // 5
+```
+
+The immediate payoff is partial application, baking in the first argument to get a specialized function back:
+
+```javascript
+const add10 = add(10);
+add10(5);  // 15
+add10(20); // 30
+```
+
+which makes curried functions natural to chain through `.map` or a `pipe` helper:
+
+```javascript
+const multiply = a => b => a * b;
+[1, 2, 3].map(multiply(2)); // [2, 4, 6]
+
+const pipe = (...fns) => x => fns.reduce((v, f) => f(v), x);
+const process = pipe(add(1), multiply(2), add(10));
+process(5); // ((5+1)*2)+10 = 22
+```
+
+Real code rarely hand-writes the nested-arrow form for every function; a generic `curry` helper auto-curries based on how many arguments the original function declared:
+
+```javascript
+function curry(fn) {
+  return function curried(...args) {
+    if (args.length >= fn.length) return fn(...args);
+    return (...more) => curried(...args, ...more);
+  };
+}
+
+const add3 = curry((a, b, c) => a + b + c);
+add3(1)(2)(3);  // 6
+add3(1, 2)(3);  // 6 — same destination, arguments just supplied in different-sized groups
+```
+
+Trace `add3(1)(2)(3)` through the helper: the first call is `curried(1)`. Since `fn.length` is 3 and only one argument arrived, it returns a new function still waiting. Calling that with `(2)` runs `curried(1, 2)`, still short, returns another waiting function. Calling that with `(3)` finally runs `curried(1, 2, 3)`, which meets `fn.length`, so it calls the original `fn(1, 2, 3)` and returns `6`. This is exactly what `_.curry` does under the hood in Lodash. Across languages, the default varies: Haskell curries every function automatically; Scala and F# curry natively too, via `=>` chaining; Python has no automatic equivalent and reaches for `functools.partial` instead, or nested lambdas by hand; JavaScript sits in between, manual by default, with libraries filling the gap.
+
+## Method chaining: return this, or the chain breaks
+
+Chaining, `str.trim().toLowerCase().replace(...)`, isn't a language feature. It's a return-value convention: each method returns the same object (or one with a compatible interface) instead of `undefined`, and that return value is exactly what the next `.method()` call in line operates on.
+
+```javascript
+class QueryBuilder {
+  constructor() { this.parts = []; }
+  where(cond)  { this.parts.push(`WHERE ${cond}`); return this; }
+  orderBy(col) { this.parts.push(`ORDER BY ${col}`); return this; }
+  build()      { return this.parts.join(" "); }
+}
+
+new QueryBuilder().where("age > 18").orderBy("name").build();
+// "WHERE age > 18 ORDER BY name"
+```
+
+Walk it through: `new QueryBuilder()` starts with `parts: []`. `.where(...)` pushes onto `parts` and returns `this`, the same instance, giving the next call something to land on. `.orderBy(...)` does the same. `.build()` finally returns a plain string instead of `this`, which is fine, because it's the last call in the chain and nothing needs to call a method on its result. Miss a `return this` on any of the middle methods and the chain breaks exactly there, the next call in line tries to call a method on `undefined` and throws. That's the one bug worth checking first whenever a chained call throws "cannot read properties of undefined": this is the Builder pattern's entire mechanism, and it's how jQuery, `expect(x).to.be.a("string")`-style assertion libraries, and array methods like `.filter().map()` all work.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a7756340-15e9-5632-921d-0df63e66f5dc', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Objects and Prototypal Inheritance', 'notes', 7, $md$Before React internals make any sense, you need the mechanism React itself is built on. Class components, `this` binding, and even how `class`/`extends` behave under the hood all rest on prototypal inheritance, which works nothing like the classical, class-based inheritance in Java or C#. "Explain the prototype chain" and "what does `new` actually do" are two of the most reliable frontend-fundamentals questions there are, and they test whether you understand how JavaScript looks things up, not whether you've memorized syntax.
+
+## Property lookup is a walk, not a lookup table
+
+Every JavaScript object carries an internal link, `[[Prototype]]`, to another object, or to `null`. When you read a property, the engine doesn't stop at the object itself if it's not there: it walks up the `[[Prototype]]` link and checks that object, then its own `[[Prototype]]`, and so on, until it finds the property or hits `null`.
 
 ```tsx
 const grandparent = { surname: 'Sharma' };
 const parent = Object.create(grandparent);
 parent.car = 'Swift';
-
 const child = Object.create(parent);
 child.name = 'Nayan';
 
-console.log(child.name);     // "Nayan" — found on child itself
-console.log(child.car);      // "Swift" — not on child, found one link up
-console.log(child.surname);  // "Sharma" — not on child or parent, found two links up
-console.log(child.toString); // function — found at the top of the chain, Object.prototype
+child.name;     // "Nayan" — found on child itself
+child.car;      // "Swift" — one link up
+child.surname;  // "Sharma" — two links up
+child.toString; // function — found at the top, Object.prototype
 ```
 
-`child` doesn't own `car` or `surname`; the engine finds them by walking `[[Prototype]]` links each time you ask. Every object's chain eventually reaches `Object.prototype` (the source of `.toString()`, `.hasOwnProperty()`, etc.), whose own `[[Prototype]]` is `null`. That's the end of every chain.
+That walk is the **prototype chain**, and the mechanism behind it is called **delegation**: an object doesn't copy its parent's properties in, it defers the lookup upward whenever it doesn't have something itself. Every chain eventually reaches `Object.prototype`, the source of `.toString()` and `.hasOwnProperty()`, whose own `[[Prototype]]` is `null`. That's where every chain ends. JavaScript's inheritance is prototypal, not class-based: objects link directly to other objects, and `class` syntax, covered further down, is sugar layered on top of that same mechanism, not a separate runtime concept.
 
-**Interview question: "Is JavaScript inheritance class-based like Java?"**
-No, it's prototypal. Objects link to and delegate to other objects directly. `class` syntax (covered below) is sugar over this same mechanism; there's no separate "class" runtime concept underneath it.
+## __proto__ versus .prototype: two different questions
 
-## `__proto__` vs `.prototype`
-
-These names look related and get confused constantly, but they answer different questions and live on different kinds of things.
+These two names get confused constantly because they look related, but they answer different questions and live on different kinds of things.
 
 | | `__proto__` | `.prototype` |
 |---|---|---|
-| What it is | An accessor property exposing an object's `[[Prototype]]` link | A plain data property |
+| What it is | An accessor exposing an object's `[[Prototype]]` link | A plain data property |
 | Exists on | Every object | Only on regular functions (constructors) |
-| Exists on arrow functions? | Yes (arrow functions are objects too) | No |
 | Answers | "What is this object's parent?" | "What should the parent of objects built by `new` on this function be?" |
-| Enumerable | No, won't show up in `for...in` or `Object.keys()` | — |
 
 ```tsx
-function Person(name) {
-  this.name = name;
-}
-Person.prototype.greet = function () {
-  return `${this.name} says hi`;
-};
+function Person(name) { this.name = name; }
+Person.prototype.greet = function () { return `${this.name} says hi`; };
 
 const p = new Person('Nayan');
 p.greet();
-console.log(p.__proto__ === Person.prototype); // true
+p.__proto__ === Person.prototype; // true
 ```
 
-The two connect through `new`: an object created with `new Person()` gets its `__proto__` set to `Person.prototype`, which is exactly what gives every instance access to `greet` without each instance carrying its own copy.
+`new` is what connects them: an object built with `new Person()` gets its `__proto__` set to `Person.prototype`, and that link is exactly what gives every instance access to `greet` without each one carrying its own copy.
 
-## What `new` actually does
+## What new actually does, in four steps
 
-`new Person('Nayan')` is four steps, not one:
+`new Person('Nayan')` isn't one atomic operation. It's four:
 
 1. A new, empty object is created.
-2. That object's `[[Prototype]]` (`__proto__`) is set to `Person.prototype`.
-3. `Person` is called with `this` bound to the new object, and the arguments passed through.
-4. If `Person` doesn't explicitly return an object of its own, the new object from step 1 is returned automatically.
+2. That object's `[[Prototype]]` is set to `Person.prototype`.
+3. `Person` runs with `this` bound to the new object, and the arguments passed through.
+4. If `Person` doesn't explicitly return an object of its own, the object from step 1 is returned automatically.
 
-Every one of those steps is skippable if you reach for `Object.create` and a plain function call instead. `new` is just a convenient bundling of them.
-
-## `Object.create()`
-
-`Object.create(proto)` builds a new object whose `[[Prototype]]` is set directly to `proto`: no constructor function, no `new`, just an explicit parent link.
+Every one of those steps is skippable by hand, using `Object.create` and a plain function call instead; `new` is just a convenient bundling of the same four steps. `Object.create(proto)` in particular makes the "link to a parent object" idea explicit, with no constructor function and no `new` involved at all:
 
 ```tsx
 const animal = { eats: true };
 const rabbit = Object.create(animal);
 rabbit.jumps = true;
 
-console.log(rabbit.eats);  // true — delegated from animal
-console.log(rabbit.jumps); // true — own property
+rabbit.eats;  // true — delegated from animal
+rabbit.jumps; // true — own property
 ```
 
-This is the most direct way to demonstrate that prototypal inheritance is fundamentally "link to a parent object," independent of `class`/`new` syntax.
+`Object.create(proto)` creates a brand-new object with its parent already wired up; `Object.setPrototypeOf(obj, proto)` mutates an *existing* object's parent link after the fact. They can land on the same end state, but changing a prototype after creation deoptimizes property lookups in every major engine, since they can no longer speculate confidently on that object's shape. Prefer `Object.create`, or set the parent at construction time, and avoid `setPrototypeOf` anywhere performance-sensitive.
 
-## Checking where a property actually lives
+## hasOwnProperty, in, and the two ways to iterate
 
-`hasOwnProperty()` only checks the object itself; it never walks the chain. The `in` operator checks the whole chain.
+`hasOwnProperty()` only checks the object itself, it never walks the chain. `in` checks the whole chain.
 
 ```tsx
 const base = Object.create({ inherited: true });
 base.own = true;
 
 base.hasOwnProperty('own');       // true
-base.hasOwnProperty('inherited'); // false — it's up the chain, not on base
+base.hasOwnProperty('inherited'); // false — up the chain, not on base
 'inherited' in base;              // true — in walks the whole chain
 ```
 
-The same distinction shows up in iteration. `for...in` walks the whole chain and yields every *enumerable* property, own or inherited, which is almost never what you want. `Object.keys()` (and `Object.entries()`) return only the object's own enumerable keys, which is why it's the safer default for iterating "the properties I actually put on this object."
+The same own-versus-inherited split shows up in iteration. `for...in` walks the whole chain and yields every *enumerable* property, own or inherited, which is almost never what you actually want. `Object.keys()`/`Object.entries()` return only an object's own enumerable keys, which is why they're the safer default:
 
 ```tsx
 for (const key in base) {
   if (!base.hasOwnProperty(key)) continue; // filter out inherited keys
   console.log(key);
 }
-
-Object.keys(base); // ['own'] — inherited keys never show up here at all
+Object.keys(base); // ['own'] — inherited keys never appear here at all
 ```
 
-## `Object.setPrototypeOf` vs `Object.create`
+## class/extends is the same wiring, better syntax
 
-`Object.create(proto)` creates a **new** object with the given parent already wired up. `Object.setPrototypeOf(obj, proto)` **mutates** an existing object's parent link after the fact. They can produce the same end state, but changing an object's prototype after creation deoptimizes property lookups in every engine that tries to speculate on object shape. Prefer `Object.create` (or set the parent at construction time), and avoid `setPrototypeOf` on hot paths.
-
-## `class`/`extends` is prototype wiring with better syntax
-
-ES6 `class` doesn't introduce a new inheritance model. It's syntactic sugar over exactly the mechanism above: `extends` wires up the prototype chain for you instead of you doing it by hand.
+ES6 `class` introduces no new inheritance model. `extends` wires up the prototype chain for you instead of you doing it by hand:
 
 ```tsx
-class Animal {
-  speak() {
-    return 'some sound';
-  }
-}
+class Animal { speak() { return 'some sound'; } }
 class Dog extends Animal {}
 
 const d = new Dog();
@@ -15616,170 +16271,256 @@ d.__proto__ === Dog.prototype;                // true
 Dog.prototype.__proto__ === Animal.prototype; // true
 ```
 
-`extends` is doing the equivalent of `Dog.prototype.__proto__ = Animal.prototype`; that single line is the entire inheritance relationship. Everything else `class` gives you (constructor calling order, `super`, method syntax) is ergonomics layered on top of that one link.
+`extends` is doing the equivalent of `Dog.prototype.__proto__ = Animal.prototype`, and that single link is the entire inheritance relationship. Everything else `class` gives you, constructor call order, `super`, method syntax, is ergonomics stacked on top of that one line.
 
-## Chain depth is a real cost, not just theory
+Before `extends` existed, that wiring was manual, and it's a classic whiteboard trap because one step is easy to forget:
 
-Every property lookup that misses walks one more link. A two- or three-level chain is free in practice, but deep inheritance hierarchies make every miss more expensive, and they couple every level to the ones above it. This is the standard case for **composition over inheritance**: build objects out of smaller pieces they own directly instead of stacking `extends` chains five levels deep. It's a performance argument and a maintainability argument at once.
+```js
+function Animal() {}
+Animal.prototype.eat = function () { return "eating"; };
 
-## The gotcha: prototype methods are shared, not copied
+function Dog() {}
+Dog.prototype = Object.create(Animal.prototype); // link the chain
+Dog.prototype.constructor = Dog;                  // MUST fix by hand
 
-This is the example that trips people up in interviews, because the output looks wrong until you remember delegation is live, not a snapshot.
+const d = new Dog();
+d.constructor === Dog; // true, only because of the line above
+```
+
+Skip that last line and `d.constructor` silently points at `Animal` instead of `Dog`, which breaks anything relying on `obj.constructor` for cloning or a factory pattern like `new obj.constructor()`. `class extends` sidesteps the whole problem by wiring the constructor link correctly on its own, which is a real part of why it replaced the manual pattern rather than just being nicer to read.
+
+## Chain depth is a real cost, and instanceof depends on identity, not names
+
+Every property lookup that misses walks one more link. A two- or three-level chain is free in practice, but a genuinely deep hierarchy makes every miss more expensive and couples every level to the ones above it, the standard argument for **composition over inheritance**: build objects out of pieces they own directly rather than stacking `extends` five levels deep.
+
+`obj instanceof Fn` is built directly on this walk. It checks whether `Fn.prototype` appears anywhere in `obj`'s prototype chain, by object identity, not by checking a constructor's name or any stored type tag:
+
+```js
+function isInstance(obj, Fn) {
+  let proto = Object.getPrototypeOf(obj);
+  while (proto !== null) {
+    if (proto === Fn.prototype) return true;
+    proto = Object.getPrototypeOf(proto);
+  }
+  return false;
+}
+```
+
+That identity check is exactly what makes this gotcha possible: reassigning `Fn.prototype` to a brand-new object *after* instances already exist breaks `instanceof` for those existing instances, because they still hold a live link to the *original* prototype object, not the new one.
+
+```js
+function Foo() {}
+const f = new Foo();
+Foo.prototype = {}; // a new object, unrelated to what f links to
+f instanceof Foo; // false — f still links to the ORIGINAL Foo.prototype
+```
+
+Nothing about `f` itself changed here; only what `Foo.prototype` currently points to did. `isInstance(f, Foo)` walks `f`'s original prototype, compares it against the new `Foo.prototype`, fails, climbs to `Object.prototype`, fails again, and returns `false` at `null`. That's the mechanical reason "reassigning `.prototype` breaks existing instances" is true, not just a rule to memorize.
+
+## The gotcha that trips people up live
 
 ```tsx
 function Person() {}
-Person.prototype.greet = function () {
-  return 'hi';
-};
-
+Person.prototype.greet = function () { return 'hi'; };
 const p1 = new Person();
-
-Person.prototype.greet = function () {
-  return 'hello';
-};
-
-console.log(p1.greet()); // "hello"
+Person.prototype.greet = function () { return 'hello'; };
+p1.greet(); // "hello"
 ```
 
-`p1` never stored its own copy of `greet`; it doesn't have one. Every call to `p1.greet()` walks the chain and reads whatever `Person.prototype.greet` currently is, at call time. Reassigning the prototype method changes what every existing *and future* instance sees, because the chain is a live reference, not a copy taken at construction time.
-
-**Interview question: "If I add a method to a constructor's `.prototype` after instances already exist, do those instances get it?"**
-Yes. They don't own a copy: they delegate to the prototype object every time, and that lookup happens at call time, not at construction time.
-$md$, 25, $json$[]$json$::jsonb)
+`p1` never stored its own copy of `greet`, it doesn't have one. Every call walks the chain and reads whatever `Person.prototype.greet` currently is, at call time, not at construction time. Reassigning the prototype method changes what every existing *and future* instance sees, because the chain is a live reference, not a snapshot taken when the instance was created. If a hook can add a method to a constructor's `.prototype` after instances already exist, those instances get it too, for exactly the same reason: they were never going to see anything but whatever's currently there.
+$md$, 30, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('df4078ed-0a20-5307-8498-6a0203da4c0f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'JavaScript Internals — call, apply, bind & the in Operator', 'notes', 2, $md$"Implement `bind` from scratch" is one of the most reliable senior-frontend whiteboard questions, precisely because it forces you to demonstrate the prototype-chain and `this`-binding mechanics from the last lesson instead of just reciting them. This lesson builds `call`, `apply`, and `bind` yourself, then covers the `in` operator, a small piece of syntax that leans on the exact same delegation mechanism.
+VALUES ('6666b725-143a-56af-93f2-372e1b635dfc', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'JavaScript Utility Patterns: Cloning, Caching, and Memory', 'notes', 8, $md$This lesson is a grab bag on purpose, the kind of thing that comes up as a rapid-fire warm-up round before the "real" interview questions start: cloning an object correctly, why `0.1 + 0.2` isn't `0.3`, building a cache that evicts the right entry, and knowing when a `Map` isn't the tool you want. None of these need much setup. All of them are the sort of thing that's either instant recall or an embarrassing pause.
 
-## Polyfills: call, apply, bind
+## Why 0.1 + 0.2 isn't 0.3
 
-All three exist to control what `this` is inside a function call. `call` and `apply` invoke the function immediately with a chosen `this`; `bind` returns a new function with `this` permanently fixed, to be called later.
+```js
+0.1 + 0.2;          // 0.30000000000000004
+0.1 + 0.2 === 0.3;  // false
+```
 
-```javascript
-// call() - arguments comma-separated, function invoked immediately
-Function.prototype.myCall = function (context, ...args) {
-  context = context || globalThis;
-  const fnKey = Symbol('fn'); // unique key so no existing property is overwritten
-  context[fnKey] = this; // 'this' = the function myCall was invoked on
+JS numbers are IEEE 754 double-precision floats, binary fractions under the hood. `0.1` and `0.2` have no exact binary representation, the same reason `1/3` has no exact decimal one, so each gets stored as the closest double the format can represent. Adding those two approximations doesn't land exactly on `0.3`'s own stored approximation.
 
-  const result = context[fnKey](...args);
-  delete context[fnKey]; // cleanup
-  return result;
-};
+Never compare floats for exact equality; compare within a tolerance instead:
 
-// apply() - same as call, but arguments passed as an array/array-like
-Function.prototype.myApply = function (context, argsArray) {
-  context = context || globalThis;
-  const fnKey = Symbol('fn');
-  context[fnKey] = this;
+```js
+Math.abs((0.1 + 0.2) - 0.3) < Number.EPSILON; // true
+```
 
-  const result = argsArray ? context[fnKey](...argsArray) : context[fnKey]();
-  delete context[fnKey];
-  return result;
-};
+For money specifically, skip floats entirely: store cents as integers, or reach for a decimal library. This isn't a style preference, it's the difference between a price that's occasionally off by a fraction of a cent and one that never is.
 
-// bind() - returns a new function, does NOT invoke immediately
-Function.prototype.myBind = function (context, ...boundArgs) {
-  const fn = this; // original function
+## Cloning: three tools with three different gaps
 
-  return function (...callArgs) {
-    // handle usage with 'new'
-    if (this instanceof fn) {
-      return fn.apply(this, [...boundArgs, ...callArgs]);
-    }
-    return fn.apply(context, [...boundArgs, ...callArgs]);
+`JSON.parse(JSON.stringify(obj))` deep-clones plain data, but it silently mangles or drops anything JSON has no representation for:
+
+| Type | What happens |
+|---|---|
+| `undefined` | key dropped entirely |
+| Functions | dropped entirely |
+| `Symbol` | dropped entirely |
+| `Date` | becomes a string, loses its methods |
+| `Map` / `Set` | becomes `{}` |
+| Circular reference | throws `TypeError` |
+
+`structuredClone(obj)` is native, needs no import, and correctly handles `Date`, `Map`, `Set`, circular references, and typed arrays, the same algorithm browsers already use internally for `postMessage`.
+
+```js
+const original = { date: new Date(), tags: new Set(['a']) };
+structuredClone(original);           // Date and Set survive intact
+JSON.parse(JSON.stringify(original)); // date -> string, tags -> {}
+```
+
+Run both on the same object and they diverge immediately: `structuredClone` walks the graph and rebuilds a real `Date` and a real `Set` on the clone, so `clone.date.getFullYear()` still works. `JSON.stringify` has no representation for either, so it serializes the `Date` through its `toJSON` method into a plain string, and the `Set` becomes `{}`, since `JSON.stringify` only sees enumerable own properties and a `Set`'s entries aren't stored that way.
+
+`structuredClone` isn't the final word, though. It throws on functions, and it loses the prototype chain of class instances entirely, a cloned instance comes back as a plain object, not an instance of that class. That's the one gap Lodash's `cloneDeep` still fills:
+
+```js
+import cloneDeep from 'lodash/cloneDeep';
+const clone = cloneDeep(original); // preserves class instances and functions, at the cost of a dependency
+```
+
+Default to `structuredClone` for plain data. Reach for `cloneDeep` specifically when the object graph contains functions or class instances that need to survive the clone. For a shallow copy, spread (`{ ...original }`) and `Object.assign({}, original)` do the same thing, top-level keys only, any nested object or array is still the *same reference* in the copy, so mutating a nested field mutates the original too.
+
+## What a hand-rolled deep clone actually looks like
+
+Worth knowing as the "explain the mechanism" answer, not as something to ship over `structuredClone`:
+
+```js
+function deepClone(value) {
+  if (typeof value !== "object" || value === null) return value; // primitives AND null
+  if (Array.isArray(value)) return value.map(deepClone);
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, deepClone(v)]));
+}
+```
+
+`typeof null` returns `"object"`, so the null check has to be explicit, or the function crashes trying to enumerate `null`'s entries. Trace it on `{ a: 1, b: { c: 2 } }`: `a` hits the primitive base case and returns unchanged; `b` recurses into the object branch and builds a brand-new `{ c: 2 }`, not the original reference. Every level of nesting ends up with its own new object or array instead of a shared one, which is exactly the property `JSON.stringify` and `structuredClone` both give you natively, and this function doesn't: no `Date`, `Map`, `Set`, or circular-reference handling, which is exactly why the native primitive exists instead of everyone hand-rolling this.
+
+## Two more classic polyfills, and the bugs that hide in them
+
+```js
+function memoize(cb) {
+  const cache = {};
+  return function (...args) {
+    const key = JSON.stringify(args);
+    if (key in cache) return cache[key]; // `in`, not truthiness — handles a cached 0 correctly
+    const result = cb(...args); // spread, not the raw array
+    cache[key] = result;
+    return result;
   };
-};
-
-// Quick test
-const obj = { name: 'Nayan' };
-function greet(greeting, punctuation) {
-  console.log(greeting + ', ' + this.name + punctuation);
-}
-
-greet.myCall(obj, 'Hi', '!');         // Hi, Nayan!
-greet.myApply(obj, ['Hello', '.']);   // Hello, Nayan.
-const bound = greet.myBind(obj, 'Hey');
-bound('?');                           // Hey, Nayan?
-```
-
-Notice `myBind` is implemented in terms of `apply`, not the other way around. `bind`'s whole job is to defer a call, and once it's time to actually call, it needs the exact same "invoke with this args" mechanism `apply` already provides. Also notice `myCall`/`myApply` use a `Symbol` key rather than a plain string property name: a string like `"fn"` could collide with a real property already on `context`, silently clobbering it for the duration of the call. `Symbol()` always produces a value that can't collide with anything.
-
-**Interview trap: `call`/`apply`/`bind` don't work on arrow functions the way you'd expect.** Arrow functions don't have their own `this` binding: they close over `this` from their enclosing scope at definition time, and nothing can override that afterward. Calling `.call()`/`.apply()`/`.bind()` on an arrow function still runs it, but the `context` argument is silently ignored.
-
-### Follow-up questions to test understanding
-
-- Exact difference between `call` and `apply`? Identical behavior, different argument shape: `call` takes args comma-separated, `apply` takes a single array.
-- What happens if `bind` is called twice (`fn.bind(a).bind(b)`)? The `this` from the *first* bind wins. `fn.bind(a)` returns a new function with `this` already hard-locked to `a`; calling `.bind(b)` on that function can prepend more arguments, but it cannot override a `this` that's already bound.
-- Do `call`/`apply`/`bind` work on arrow functions? They run the function, but can't change its `this` (see the trap above).
-
-## The in Operator
-
-`in` checks whether a **property exists on an object** (even if its value is `undefined`), returning `true` or `false`.
-
-```javascript
-const user = { name: 'Nayan', age: undefined };
-
-console.log('name' in user);    // true
-console.log('age' in user);     // true  -> property exists, value is undefined
-console.log('salary' in user);  // false -> property doesn't exist
-
-console.log(user.age === undefined); // true (doesn't tell you if the property exists)
-console.log('age' in user);           // true (this is the correct existence check)
-```
-
-### Key points
-
-**`in` walks the prototype chain**, the same delegation mechanism from the previous lesson. It checks own properties first, and if it doesn't find the key, keeps walking `[[Prototype]]` links exactly like a normal property read does:
-
-```javascript
-const arr = [1, 2, 3];
-console.log('length' in arr);   // true — own property
-console.log('push' in arr);     // true — inherited from Array.prototype
-console.log('toString' in arr); // true — inherited from Object.prototype
-console.log(0 in arr);          // true — an array index is just a string key
-console.log(5 in arr);          // false — out of bounds
-```
-
-**`in` vs `hasOwnProperty`**: this is the same own-vs-inherited distinction the prototype-chain lesson covered with `hasOwnProperty()`. `in` counts inherited properties; `hasOwnProperty` only counts properties the object itself carries.
-
-```javascript
-const user = { name: 'Nayan' };
-
-console.log(user.hasOwnProperty('name'));     // true
-console.log(user.hasOwnProperty('toString')); // false -> inherited, not own
-console.log('toString' in user);              // true -> in counts inherited too
-```
-
-**Interview trap: checking existence with a truthiness check instead of `in`.**
-
-```javascript
-const config = { retries: undefined };
-
-if (config.retries) {
-  console.log('has retries — this branch is WRONG, never runs');
-}
-if ('retries' in config) {
-  console.log('key exists — this is the correct check'); // runs
 }
 ```
 
-`config.retries` is `undefined`, which is falsy, so `if (config.retries)` says "no retries configured." But the key is very much there, just explicitly set to `undefined`. Any falsy-but-present value (`0`, `""`, `false`, `null`, `undefined`) breaks a truthiness check used as an existence check. `in` is the only one of the three common options that answers "does this key exist" and nothing else.
+Two bugs this version avoids on purpose: `cb(args)` would pass the whole array as a single argument, so the call has to spread it; and `if (cache[key])` would fail for a legitimately falsy cached result like `0`, so the lookup uses `key in cache` instead of a truthiness check, the same `in`-versus-truthiness distinction from the previous lesson.
 
-### Follow-up question
+```js
+function flatten(val, result = []) {
+  if (Array.isArray(val)) {
+    val.forEach((entry) => flatten(entry, result)); // must pass the SAME result array through
+  } else {
+    result.push(val);
+  }
+  return result;
+}
+```
 
-Difference between `in`, `hasOwnProperty`, and `Object.keys().includes()`? `in` walks the whole prototype chain. `hasOwnProperty` checks only the object's own properties. `Object.keys(obj).includes(key)` also checks only own *enumerable* properties, so it agrees with `hasOwnProperty` for normal object literals, but disagrees if a property was defined with `enumerable: false` via `Object.defineProperty`.
-$md$, 25, $json$[]$json$::jsonb)
+The bug to avoid here: forgetting to pass `result` through the recursive call means each call creates its own fresh `[]` from the default parameter, and nothing ever accumulates. Trace `flatten([1, [2, [3, 4]], 5])`: hitting `1` pushes it into the shared `result`; hitting the nested `[2, [3, 4]]` recurses with that *same* array rather than a new one, so those pushes land in the outer array too. By the time recursion unwinds, `result` is `[1, 2, 3, 4, 5]`. Notice `deepClone` builds a new value at every level, an immutable style, while `flatten` mutates one shared accumulator, a mutable style; knowing the difference between the two recursion patterns is worth naming explicitly if it comes up.
+
+## LRU cache: Map's insertion order does the work for you
+
+An LRU cache has a fixed capacity, and once full, it evicts whichever entry hasn't been touched the longest to make room for a new one.
+
+```js
+class LRUCache {
+  constructor(capacity) {
+    this.capacity = capacity;
+    this.cache = new Map(); // Map preserves insertion order
+  }
+  get(key) {
+    if (!this.cache.has(key)) return -1;
+    const value = this.cache.get(key);
+    this.cache.delete(key);
+    this.cache.set(key, value); // delete + re-set moves this key to the "end" = most recently used
+    return value;
+  }
+  put(key, value) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) {
+      const oldestKey = this.cache.keys().next().value; // Map's first key is always least-recently-used
+      this.cache.delete(oldestKey);
+    }
+    this.cache.set(key, value);
+  }
+}
+```
+
+`Map` is the right tool here specifically because it preserves insertion order, and re-inserting a key via delete-then-set moves it to the end, an O(1) way to track recency with no separate linked list to maintain. Trace it with capacity 3 and keys inserted `a, b, c`: calling `get('a')` deletes and re-inserts `a`, so iteration order becomes `b, c, a`. A subsequent `put('d', ...)` sees the cache is full, reads the first key via the iterator, now `b`, and evicts it, correctly keeping `a` around because it was touched more recently.
+
+## WeakMap and WeakSet: when you don't want to be the reason something can't be garbage collected
+
+| | `Map`/`Set` | `WeakMap`/`WeakSet` |
+|---|---|---|
+| Keys/values | Any type | Objects only |
+| Iteration | `.forEach`, `.keys()`, `.size` | Not available, GC timing is unpredictable |
+| Memory | Strong reference, prevents GC | Weak reference, entry is auto-removed once GC'd |
+
+```js
+let obj = { name: "Nayan" };
+const wm = new WeakMap();
+wm.set(obj, "metadata");
+obj = null; // no other references left → the WeakMap entry becomes eligible for GC automatically
+```
+
+Once `obj = null` runs, nothing in the program still holds a strong reference to that object, since the `WeakMap` only ever held a weak one. The garbage collector is now free to reclaim it, and its entry in `wm` disappears at some unspecified future point, with no way to observe exactly when. That unobservability is exactly why `WeakMap` exposes no iteration and no `size`: the contents can change out from under you at any time the GC decides to run. The use case worth having ready: associating extra data with a DOM element or other object without risking a memory leak if that object is later removed from the page.
+
+## Avoiding accidental O(n²) on large arrays
+
+Two patterns that quietly turn a linear operation quadratic, worth catching in a code review as much as in an interview:
+
+- `.includes()` or `.indexOf()` called inside a loop over another array is a hidden nested loop. Swap the array being searched into a `Set` or `Map` so each lookup becomes O(1) instead of O(n).
+- CPU-heavy work that blocks the main thread, as distinct from I/O-bound work, belongs in a **Web Worker**, not artificially chunked with `setTimeout` calls to fake non-blocking behavior.
+
+A `.map().filter().reduce()` chain is fine for readability at normal sizes, since each step just allocates one intermediate array, but for genuinely large arrays a single `for` loop, or one `reduce` doing everything, avoids the repeated allocation.
+
+**Top-K frequency**, the algorithmic pattern this shows up as most often: build a frequency map first, `O(n)`, then pick an approach for extracting the top K. Sorting by count is `O(n log n)` and the simplest to write correctly under interview pressure. A min-heap of size K is `O(n log k)`, worth it specifically when `k` is small relative to `n`, since you never hold more than K elements at once. Bucket sort by frequency, where the bucket index is the count itself, is `O(n)` and optimal, but more code to get exactly right; naming it shows you know it exists, and reaching for actually writing it is worth doing only if the interviewer pushes on complexity.
+
+## EventEmitter: the pattern under pub/sub
+
+This is the core of Node's `events` module, and conceptually the same shape React's own synthetic event system dispatches through: a plain object mapping event names to arrays of listeners.
+
+```js
+class EventEmitter {
+  constructor() { this.listeners = {}; }
+  on(event, cb) { (this.listeners[event] ??= []).push(cb); return this; } // chainable
+  off(event, cb) { this.listeners[event] = (this.listeners[event] || []).filter(fn => fn !== cb); }
+  emit(event, ...args) { (this.listeners[event] || []).forEach(cb => cb(...args)); }
+}
+
+const bus = new EventEmitter();
+const onGreet = (name) => console.log(`hi ${name}`);
+bus.on('greet', onGreet);
+bus.emit('greet', 'Nayan'); // "hi Nayan"
+bus.off('greet', onGreet);
+```
+
+`bus.on(...)` pushes onto `listeners.greet`, creating that array on first use via `??=`, and returns `bus` itself so calls can chain, the exact method-chaining convention from the previous lesson. `bus.emit(...)` calls every listener synchronously, on the same call stack as the `emit` call, not deferred to a microtask or macrotask the way a Promise callback would be. `bus.off(...)` replaces the array with a filtered copy, so a later `emit` calls no one that was removed.
+$md$, 35, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e69941f5-f3cf-52fc-be10-94ed8b9f05f5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'JavaScript Internals — Promise Polyfill from Scratch', 'notes', 3, $md$"Implement Promise from scratch" is the natural next step after `call`/`apply`/`bind`: it's the same "prove you understand the primitive, not just the API" question, one level up. This lesson builds a working Promise (`then`, `catch`, `finally`, `resolve`, `reject`, `all`, `race`) using only closures, no `class`, no `this`. The microtask scheduling it leans on (`queueMicrotask`) is exactly what Day 3 covers in depth; this lesson uses that mechanism rather than re-explaining it.
+VALUES ('e69941f5-f3cf-52fc-be10-94ed8b9f05f5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Promises From Scratch', 'notes', 9, $md$"Implement Promise from scratch" is the natural next step after `call`/`apply`/`bind`: the same "prove you understand the primitive, not just the API" question, one level up. This lesson builds a working Promise, `then`, `catch`, `finally`, `resolve`, `reject`, `all`, `race`, `allSettled`, `any`, using only closures, no `class`, no `this`.
+
+## One fact that explains a lot of confusing behavior later: the executor runs synchronously
+
+The function you pass to `new Promise((resolve, reject) => {...})` runs **immediately**, the instant the constructor is called, not later, not on a microtask. If that executor calls `resolve` synchronously, the promise is already fulfilled before `new Promise(...)` even finishes returning. This single fact is what makes the trace at the end of this lesson make sense, so hold onto it.
 
 ## Why closures, not a class
 
-A `class`-based Promise would store `state`/`value`/`callbacks` as `this.state`, etc., immediately reopening every `this`-binding footgun from the last two lessons (a detached method loses its `this`). A closure-based implementation sidesteps that entirely: `state`, `value`, and `callbacks` live in the enclosing function's scope, captured by every inner function (`resolve`, `reject`, `then`, ...) regardless of how those functions are later called or passed around. This is the same "prototype chain vs closure" tradeoff interviewers are probing when they ask you to build this without `class`.
+A `class`-based Promise would store `state`/`value`/`callbacks` as `this.state`, immediately reopening every `this`-binding footgun from the last two lessons, a detached method loses its `this`. A closure-based implementation sidesteps that entirely: the state lives in the enclosing function's own scope, captured by every inner function regardless of how those functions later get called or passed around. This is the same closure-versus-`this` tradeoff interviewers are probing for when they ask you to build this without `class`.
 
-## Core implementation
+## The core implementation
 
 ```javascript
 function myPromise(executor) {
@@ -15789,10 +16530,10 @@ function myPromise(executor) {
 
   function resolve(val) {
     if (val && typeof val.then === 'function') {
-      val.then(resolve, reject);
+      val.then(resolve, reject); // resolved with a thenable — chain into it instead
       return;
     }
-    if (state !== 'pending') return;
+    if (state !== 'pending') return; // settling is permanent: a second call is a silent no-op
     state = 'fulfilled';
     value = val;
     flush();
@@ -15818,11 +16559,8 @@ function myPromise(executor) {
       if (state === 'fulfilled') {
         resolveNext(typeof onFulfilled === 'function' ? onFulfilled(value) : value);
       } else if (state === 'rejected') {
-        if (typeof onRejected === 'function') {
-          resolveNext(onRejected(value));
-        } else {
-          rejectNext(value);
-        }
+        if (typeof onRejected === 'function') resolveNext(onRejected(value));
+        else rejectNext(value);
       }
     } catch (err) {
       rejectNext(err);
@@ -15832,61 +16570,40 @@ function myPromise(executor) {
   function then(onFulfilled, onRejected) {
     return myPromise((resolveNext, rejectNext) => {
       const cb = { onFulfilled, onRejected, resolveNext, rejectNext };
-      if (state === 'pending') {
-        callbacks.push(cb);
-      } else {
-        queueMicrotask(() => handleCallback(cb));
-      }
+      if (state === 'pending') callbacks.push(cb);
+      else queueMicrotask(() => handleCallback(cb));
     });
   }
 
-  function catchFn(onRejected) {
-    return then(null, onRejected);
-  }
-
+  function catchFn(onRejected) { return then(null, onRejected); }
   function finallyFn(onFinally) {
     return then(
       val => { onFinally(); return val; },
-      err => { onFinally(); throw err; }
+      err => { onFinally(); throw err; },
     );
   }
 
   try {
     executor(resolve, reject);
   } catch (err) {
-    reject(err);
+    reject(err); // a synchronous throw in the executor auto-converts to a rejection
   }
 
   return { then, catch: catchFn, finally: finallyFn };
 }
-
-// Quick test
-const p = myPromise((resolve) => {
-  setTimeout(() => resolve('done'), 10);
-});
-p.then(v => console.log('resolved with', v));
 ```
 
-Walking the pieces:
+Walking the pieces: state lives in closure scope, so every inner function shares it by reference with no `this` involved anywhere. `resolve` unwraps thenables, if you resolve with another promise (or anything with a `.then` method), it chains into that instead of treating it as a final value, a simplified version of the spec's actual Promise Resolution Procedure. Callbacks queue while the promise is pending; `then` always returns a *new* `myPromise`, which is what makes `.then().then().then()` chaining possible, each call hands back a fresh promise that settles based on whatever the previous handler returned or threw. `queueMicrotask` schedules the async part: real Promise callbacks never run synchronously, even if the promise was already settled when `.then()` was called, and the reference implementation above deliberately still wraps that already-settled path in `queueMicrotask` rather than calling `handleCallback` immediately. Skipping that would make `.then()` sometimes synchronous and sometimes not, depending purely on timing, exactly the class of bug the guarantee exists to prevent.
 
-- **State lives in closure scope.** `state`, `value`, `callbacks` are plain local variables, and every inner function shares them by reference, with no `this` involved anywhere.
-- **`resolve` unwraps thenables.** If you resolve a `myPromise` with another promise (or anything with a `.then` method), it chains into that promise instead of treating it as a final value. This is a simplified version of the real spec's Promise Resolution Procedure.
-- **Callbacks queue while pending.** If `then` is called before the promise settles, its callback goes into `callbacks` and waits for `flush()`.
-- **`then` always returns a new `myPromise`.** This is what makes `.then().then().then()` chaining possible: each `then` call hands back a fresh promise that settles based on what the previous handler returned or threw.
-- **`queueMicrotask` schedules the async part.** Real Promise callbacks never run synchronously, even if the promise is already settled when `.then()` is called. Day 3 covers exactly why that consistency matters: it's what prevents "sometimes sync, sometimes async" bugs.
+## Chaining: why then always needs to return a new promise
 
-**Interview trap: forgetting to make `then` itself asynchronous when the promise is already settled.** If `then` is called on an already-fulfilled promise, it's tempting to just call `handleCallback` immediately, synchronously. The reference implementation above still wraps that path in `queueMicrotask`. Real Promises guarantee `.then()` callbacks are *always* asynchronous, never synchronous, so behavior doesn't depend on timing.
+`.then()` can be called before a promise settles (the async case, waiting inside a `setTimeout`) or after it already has (the sync case). Both need handling: already-settled calls the callback right away; still-pending pushes it onto a queue that `resolve`/`reject` will drain once the state changes. For chaining specifically, the callback's return value has to become the *next* promise's resolved value if it returns a plain value, or the next promise's rejection if it throws, mirroring exactly how a synchronous `try`/`catch` propagates. That's what lets an error thrown three `.then()` calls deep still land in a single `.catch()` at the very end of the chain.
 
 ## Static methods: resolve, reject, all, race
 
 ```javascript
-myPromise.resolve = function (val) {
-  return myPromise(resolve => resolve(val));
-};
-
-myPromise.reject = function (reason) {
-  return myPromise((_, reject) => reject(reason));
-};
+myPromise.resolve = function (val) { return myPromise(resolve => resolve(val)); };
+myPromise.reject = function (reason) { return myPromise((_, reject) => reject(reason)); };
 
 myPromise.all = function (promises) {
   return myPromise((resolve, reject) => {
@@ -15905,63 +16622,394 @@ myPromise.all = function (promises) {
 
 myPromise.race = function (promises) {
   return myPromise((resolve, reject) => {
-    promises.forEach(p => {
-      myPromise.resolve(p).then(resolve, reject);
-    });
+    promises.forEach(p => myPromise.resolve(p).then(resolve, reject));
   });
 };
-
-// Quick test
-myPromise.all([
-  myPromise.resolve(1),
-  myPromise.resolve(2),
-  myPromise.resolve(3),
-]).then(values => console.log('all resolved:', values));
 ```
 
-**Interview question: "Why does `all` reject as soon as any one promise rejects, but keep waiting for the rest anyway?"**
-Because `.then(val => {...}, reject)` wires every individual promise's rejection straight to the outer promise's `reject`. The first rejection to fire wins and settles the outer promise immediately (`resolve`/`reject` are no-ops after the first call, enforced by the `state !== 'pending'` guard). The other promises in the array are still `.then()`-ed and will still run their side effects; `all` just stops caring about their results once it has already settled.
+`all` rejects the instant any one promise rejects, because `.then(val => {...}, reject)` wires every individual promise's rejection straight to the outer promise's `reject`, and the first rejection to fire wins, `resolve`/`reject` are no-ops after the first call by the `state !== 'pending'` guard earlier. The other promises in the array keep running, they're still `.then()`-ed, `all` just stops caring about their eventual results once it has already settled.
+
+## The other two combinators, and where each one actually settles
+
+`Promise.all`, `.race`, `.allSettled`, and `.any` all sound similar and get mixed up constantly. The difference is exactly what condition ends the wait:
+
+| Combinator | Settles when | Empty array |
+|---|---|---|
+| `all` | any one rejects, or every one resolves | resolves `[]` |
+| `race` | the very first promise settles, win or lose | stays pending forever |
+| `allSettled` | always waits for every promise, regardless of outcome | resolves `[]` |
+| `any` | the first promise resolves | rejects with an `AggregateError` |
+
+```javascript
+function allSettled(promises) {
+  const result = [];
+  let count = 0;
+  return new Promise((resolve) => {
+    if (promises.length === 0) return resolve([]);
+    promises.forEach((promise, index) => {
+      promise
+        .then(value => { result[index] = { status: "fulfilled", value }; })
+        .catch(reason => { result[index] = { status: "rejected", reason }; })
+        .finally(() => { count++; if (count === promises.length) resolve(result); });
+    });
+  });
+}
+```
+
+`allSettled` never fails fast: it waits for every promise no matter the outcome, recording a `fulfilled` or `rejected` entry for each. `.finally()` is doing the real work here, incrementing the shared counter on both the resolve and reject branches so that logic doesn't need to be duplicated in each `.then()`/`.catch()` separately.
+
+```javascript
+function any(promises) {
+  const errors = [];
+  let count = 0;
+  return new Promise((resolve, reject) => {
+    if (promises.length === 0) return reject(new AggregateError([], "All promises were rejected"));
+    promises.forEach((promise, index) => {
+      promise
+        .then(value => resolve(value))
+        .catch(reason => { errors[index] = reason; })
+        .finally(() => { count++; if (count === promises.length) reject(new AggregateError(errors)); });
+    });
+  });
+}
+```
+
+The key fact that makes this implementation safe: once a promise settles, calling `resolve` or `reject` on it again is a silent no-op. If one promise resolves early, `resolve(value)` fires once and wins; even if `count` later reaches `promises.length` and the code tries to `reject`, that second call does nothing at all, because the promise already settled. `race` answers "whoever finishes first, win or lose"; `any` answers "give me the first success, and only give up once nothing succeeded."
+
+## Tracing the output order
+
+```tsx
+async function asyncOrder() {
+  console.log('A: start');
+  await Promise.resolve();
+  console.log('B: after await');
+}
+
+console.log('start');
+asyncOrder();
+console.log('end');
+
+// Output: start, A: start, end, B: after await
+```
+
+Everything in `asyncOrder` before the `await` runs synchronously, the instant the function is called, exactly like the executor fact this lesson opened with. The code after `await` is scheduled as a microtask continuation, equivalent to `Promise.resolve().then(() => { ...rest of function... })`, which is why `end` (still on the synchronous call stack) prints before `B: after await` (deferred to the microtask queue), even though `asyncOrder()` was called before the final `console.log('end')` in the source.
+$md$, 35, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('52066bde-c6e6-59dd-9fbc-514d86e28a3c', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'The Event Loop and Browser Rendering Pipeline', 'notes', 10, $md$"What's the output order?" questions involving `setTimeout`, `Promise.then`, and `async/await` show up in nearly every frontend interview loop, and they're really testing whether you understand the event loop, not JavaScript syntax. The previous lesson traced one example of this; this lesson generalizes the rule, then covers how the browser turns JS and CSS into actual pixels, so you can answer both "explain the event loop" and "why is my animation janky" with the same underlying model.
+
+## Two queues, and one rule that resolves almost everything
+
+JavaScript is single-threaded: one call stack, one thing executing at a time. The event loop's job is deciding what runs next once that stack empties.
+
+- **Microtask queue**: `Promise.then/catch/finally` callbacks, `queueMicrotask`, `async/await` continuations, `MutationObserver` callbacks.
+- **Macrotask queue**: `setTimeout`, `setInterval`, I/O callbacks, UI events, `postMessage`.
+
+The rule that answers almost every ordering question you'll be asked: **after each single macrotask finishes, the event loop drains the entire microtask queue before running the next macrotask**, including microtasks that were queued by other microtasks during that same drain.
+
+```tsx
+console.log('1: sync');
+setTimeout(() => console.log('2: macrotask'), 0);
+Promise.resolve().then(() => console.log('3: microtask'));
+queueMicrotask(() => console.log('4: microtask'));
+console.log('5: sync');
+
+// Output: 1, 5, 3, 4, 2
+```
+
+Sync code runs first, in order (`1`, `5`). Once the stack is empty, *every* queued microtask drains (`3`, `4`) before the event loop even glances at the macrotask queue (`2`), regardless of the `setTimeout` delay being `0`. A nested `setTimeout(fn, 0)` chain never "catches up" to microtasks for the same reason: if a macrotask queues a new microtask, that microtask still drains completely before the *next* macrotask runs, even if the macrotask queue already had other work waiting. Microtasks always win the race against whatever macrotask comes next.
+
+## requestAnimationFrame is a third lane
+
+`requestAnimationFrame` (rAF) isn't part of either queue above. Its callback runs right before the browser paints the next frame, synced to the display's refresh rate, typically 60Hz, about 16.6ms per frame. It's the correct primitive for anything that changes the screen every frame, animation, canvas drawing, scroll-linked effects, because it never schedules work faster than the browser can actually paint, which `setInterval` has no way to guarantee.
+
+```tsx
+function animate(element: HTMLElement) {
+  let start: number | null = null;
+  function step(timestamp: number) {
+    if (start === null) start = timestamp;
+    const progress = Math.min((timestamp - start) / 1000, 1);
+    element.style.transform = `translateX(${progress * 200}px)`;
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+```
+
+Per frame, the order is: whatever macrotask or microtasks triggered this frame drain first, then `requestAnimationFrame` callbacks run, then the browser recalculates style, layout, paint, and composite, then it presents the frame. `requestIdleCallback` runs after all of that, and only if there's leftover time before the next frame is due, the right spot for genuinely low-priority work like an analytics beacon.
+
+## From a style change to pixels: the render pipeline
+
+```
+JavaScript → Style → Layout → Paint → Composite
+```
+
+Your code runs and mutates the DOM or `style` properties. The browser recalculates which CSS rules apply to which elements (**Style**). It computes exact geometry, size and position, for every affected element (**Layout**, also called reflow, and it cascades: one element's size changing can shift everything after it). It fills in pixels onto layers (**Paint**). Then it combines those painted layers into the final image, applying transforms on the GPU (**Composite**).
+
+The cost model that follows directly from this: changing `width`, `height`, `top`, `left`, or `margin` forces layout, then paint, then composite, the full expensive pipeline. Changing `color` or `background` skips layout but still triggers paint and composite. Changing `transform` or `opacity` triggers composite only, no layout, no paint, because both can be applied purely on the GPU's compositor thread.
+
+```tsx
+// Cheap: composite-only
+element.style.transform = 'translateX(100px)';
+element.style.opacity = '0.5';
+
+// Expensive: forces the full layout → paint → composite pipeline
+element.style.left = '100px';
+element.style.width = '300px';
+```
+
+## Layout thrashing, one more time, from the JS side
+
+Interleaving reads and writes of layout-dependent properties inside a loop forces the browser to synchronously recompute layout on every single iteration, because each write invalidates the layout cache the very next read has to rebuild.
+
+```tsx
+// Bad: forces a synchronous layout recalculation on every iteration
+elements.forEach(el => {
+  el.style.width = el.offsetWidth + 10 + 'px'; // read, then write, repeated
+});
+
+// Good: batch all reads, then all writes — one layout recalculation total
+const widths = elements.map(el => el.offsetWidth);
+elements.forEach((el, i) => { el.style.width = widths[i] + 10 + 'px'; });
+```
+
+The fix, batch every read before any write, is sometimes called the "FastDOM" pattern, and it's worth being able to name specifically because it's the same underlying discipline the CSS-performance lesson covers from the stylesheet side: know which properties force layout, and don't ask for that answer more often than the frame budget can afford.
 $md$, 30, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('dbc33b52-a126-5484-9271-7c041dc61925', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Rendering Fundamentals', 'notes', 4, $md$Today is about what actually happens between `setState` and pixels on screen. Nearly every "why did my component re-render twice" or "explain reconciliation" interview question traces back to the concepts here, get the mental model right now and the rest of the React track builds on it cleanly.
+VALUES ('0b479a5a-e8fe-54bd-94ae-e303c7c639ad', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Checkpoint: HTML, CSS, and JavaScript Fundamentals', 'notes', 11, $md$No new material today. This is a consolidation pass over everything from HTML and CSS through JavaScript's core mechanics, scope, prototypes, promises, and the event loop. Interviewers rarely test one of these in isolation; they chain them ("your list re-renders on every keystroke, walk me through why, starting from the DOM up"). Use this review to move between topics without losing the thread, before React enters the picture next.
 
-## Virtual DOM vs Real DOM
+## HTML and CSS: the one-paragraph version
 
-The real DOM is a tree of live browser objects. Every read (`offsetHeight`, `getComputedStyle`) can force a synchronous layout recalculation, and every write can trigger layout, paint, and composite. It's expensive to touch a lot.
+Reach for the semantic element first: `<button>` over `<div onClick>`, `<nav>`/`<main>`/`<article>` over `<div className="...">`. Native elements give you keyboard operability, screen-reader announcement, and correct accessibility-tree role and name for free; a `<div>` gets none of it until you rebuild it by hand. `box-sizing: border-box` makes a declared width the actual rendered width; without it, padding and border add on top of what you asked for. Flexbox is one axis, Grid is two; if you're fighting `flex-wrap` and fixed widths to fake rows and columns, that's the sign you wanted Grid. `transform` and `opacity` are the only two properties that can skip layout and paint entirely and go straight to the GPU compositor, which is why they're the default choice for anything animated.
 
-The virtual DOM (VDOM) is a plain JavaScript object tree that mirrors what the UI *should* look like. It's cheap to create and diff because it's just objects, no browser work involved.
+**Say this out loud, unprompted, if asked to review a component for accessibility:** check for a native element first, then a label/name for every interactive control, then whether the whole thing is operable with just a keyboard.
+
+## Scope, hoisting, and types: the one-paragraph version
+
+`var` is function-scoped and hoisted to `undefined`; `let`/`const` are block-scoped and sit in the temporal dead zone until their declaration line, so touching them early throws instead of silently returning `undefined`. Primitives copy by value; objects and arrays copy by reference, which is the entire reason React and Redux detect change with reference equality rather than deep comparison, mutating in place never produces a new reference. Only eight values are falsy; everything else, including `[]` and `{}`, is truthy. `??` falls back only on `null`/`undefined`; `||` falls back on any falsy value, which silently breaks the moment `0` or `""` is a value you meant to keep.
+
+**Say this out loud, unprompted, if asked why a loop of `setTimeout` callbacks all log the same final value:** `var` gives the whole loop one shared binding, so every closure captures the same variable; `let` gives each iteration its own binding instead.
+
+## Functions, prototypes, and this: the one-paragraph version
+
+`call`/`apply` invoke a function immediately with a chosen `this`; `bind` returns a new function with `this` locked in, to be called later, and none of the three can override an arrow function's `this`, since arrow functions close over `this` lexically at definition time. Every object links to a parent via `[[Prototype]]`, and property lookup walks that chain until it finds a match or hits `null`; `class`/`extends` is sugar over exactly that same link, not a separate inheritance model. `instanceof` checks whether a constructor's `.prototype` appears anywhere in that chain, by object identity, which is why reassigning `.prototype` after instances already exist breaks `instanceof` for those existing instances.
+
+**Say this out loud, unprompted, if asked to build bind from scratch:** it doesn't call the function immediately, it captures it in a closure and returns a new function that applies the original with the bound `this` and merged arguments whenever it's eventually invoked.
+
+## Promises and the event loop: the one-paragraph version
+
+The executor passed to `new Promise(...)` runs synchronously, the instant the constructor is called. Once settled, a promise stays settled forever; a second `resolve`/`reject` call is a silent no-op, which is exactly what makes `Promise.any`'s implementation safe. `all` rejects on the first rejection but keeps running the rest; `allSettled` always waits for everyone regardless of outcome; `race` settles on whoever finishes first, win or lose; `any` settles on the first success and only gives up once everyone has failed. After the call stack empties, the *entire* microtask queue drains, including microtasks queued by other microtasks during that drain, before the next macrotask runs, which is why `Promise.resolve().then()` always fires before `setTimeout(fn, 0)` no matter what delay you give the timeout.
+
+**Say this out loud, unprompted, if asked to predict a console.log order involving both:** identify synchronous code first, then every microtask in queue order, then macrotasks last, and never let a `setTimeout` delay value change that ordering.
+
+## Self-test — answer without looking back
+
+1. Why does `[] == false` evaluate to `true` even though `if ([])` is truthy?
+2. A loop mutates `Person.prototype.greet` after several `Person` instances already exist. Do those instances see the new method? Why?
+3. Write the console.log output order for: a sync log, then `setTimeout(fn, 0)`, then `Promise.resolve().then(fn)`, then another sync log.
+4. Why does animating `top`/`left` cost more than animating `transform`, in terms of the render pipeline?
+5. A cache lookup uses `if (cache[key])` instead of `key in cache`. What specific input breaks it, and why?
+6. You need one thing to happen the instant the *first* of several promises succeeds, and to only give up if every one of them fails. Which combinator, and why not `Promise.race`?
+$md$, 18, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('05b7c165-0a1a-5fc1-87ed-202e3e55ba0b', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'The DOM: Nodes, Events, and Traversal', 'notes', 12, $md$Before React, before any framework, there's the DOM: the browser's live, in-memory object tree built from your parsed HTML. It is not the HTML itself, and `document` is its root. Everything a framework does, eventually, is a more convenient way of mutating this tree. This lesson covers it directly: node types, traversal, events, and the one browser API, Intersection Observer, that replaced a genuinely bad older pattern for watching scroll position.
+
+## Node types, and the whitespace gotcha
+
+Every node in the DOM has a numeric `nodeType`: `1` for an element, `3` for text (and yes, the whitespace between your tags counts as a text node too), `8` for a comment, `9` for the document itself, `11` for a document fragment. That whitespace detail matters the moment you start writing raw DOM traversal code, `firstChild` on an element with any leading whitespace in the source often hands you a text node, not the element you expected.
+
+## Two traversal vocabularies
+
+There's an "all nodes" set of properties, `parentNode`, `childNodes`, `firstChild`, `nextSibling`, which includes text and comment nodes, and an "elements only" set, `parentElement`, `children`, `firstElementChild`, `nextElementSibling`, which skips them. `closest(selector)` walks *up* from an element until it finds a match, or returns `null` if it never does, the inverse of `querySelector`, which only ever looks downward.
+
+| Method | Returns |
+|---|---|
+| `getElementById` | a single element |
+| `getElementsByClassName` / `TagName` | a **live** `HTMLCollection` |
+| `querySelector` / `querySelectorAll` | a single element / a **static** `NodeList` |
+
+The word "live" there isn't decoration. A live collection auto-updates as the DOM changes, which means mutating it while looping over it skips elements, since the collection is shrinking or growing under you mid-iteration. A `querySelectorAll` result is a frozen snapshot instead; if you need to safely mutate while iterating a live collection, convert it first with `Array.from()`.
+
+## Creating and mutating
+
+`createElement`, `appendChild`/`append` (which, unlike `appendChild`, accepts multiple nodes or plain strings at once), `prepend`, `insertBefore`, `replaceChild`, and `.remove()` cover most of what you'll write by hand. `cloneNode(deep)` copies markup but never copies attached event listeners, a common source of "why did my clicks stop working" bugs. `createDocumentFragment()` exists specifically so you can build a batch of nodes off-screen and insert them all at once, one reflow instead of one reflow per insertion, which matters a lot once you're inserting dozens of rows in a loop.
+
+## Attribute versus property: two different snapshots in time
+
+An **attribute** is the string that came from your HTML source, and it's frozen at load time, `getAttribute`/`setAttribute` read and write it directly. A **property** is the live current state, `el.value`, `el.checked`, and it changes as the user interacts with the page. These diverge the moment a user does anything:
+
+```js
+// <input value="hi">
+el.value;               // whatever the user has typed now
+el.getAttribute('value'); // still "hi", forever, regardless of what el.value says
+```
+
+Boolean attributes, `checked`, `disabled`, `required`, `readonly`, `selected`, work on presence, not on a string value: their mere existence in the markup means `true`, and their absence means `false`. When present, `getAttribute` returns `""`, not `"true"`; when absent, it returns `null`, never `"false"`. To disable a button in JavaScript, set the property directly: `button.disabled = true`.
+
+## innerHTML, textContent, and innerText aren't interchangeable
+
+`innerHTML` parses whatever you assign it as HTML, which is a genuine XSS risk the moment the string could contain user input, and it re-renders the entire subtree. `textContent` is plain text, safe by construction, includes hidden text, and needs no reflow to read. `innerText` respects CSS visibility (it won't include text hidden with `display: none`) but forces a reflow to compute that, making it the slowest of the three. One more trap worth knowing: `innerHTML +=` destroys and rebuilds every child node from scratch, which silently kills any event listeners already attached to them, even ones on children you didn't intend to touch.
+
+## Events: capturing, target, bubbling
+
+The event flow has three phases: capturing (top of the tree down to the target), then the target itself, then bubbling (target back up to the top). Regular listeners run during the bubbling phase by default; pass `{ capture: true }` to run during capturing instead. `e.target` is the actual element that was clicked; `e.currentTarget` is the element the listener is attached to, and they're often different once you're delegating.
+
+`stopPropagation()` halts further bubbling or capturing. `stopImmediatePropagation()` does that *and* stops any other listeners on the same element from firing at all. `preventDefault()` cancels the browser's default action only, form submission, link navigation, and has nothing to do with propagation; the two are commonly confused but entirely unrelated. `{ once: true }` auto-removes a listener after it fires once. `removeEventListener` only works when passed the exact same function reference given to `addEventListener`, an anonymous inline arrow function can never be removed later. `{ passive: true }` is a promise to the browser that the listener won't call `preventDefault()`, which lets it start scrolling immediately instead of waiting to find out; calling `preventDefault()` anyway inside a passive listener is silently ignored.
+
+### Event delegation
+
+Put one listener on a parent instead of one on every child, and use `e.target.closest(selector)` inside it to find whichever descendant actually triggered the event:
+
+```js
+document.querySelectorAll('.box').forEach(box => {
+  box.addEventListener('click', (e) => {
+    console.log(e.currentTarget.dataset.id);
+  });
+});
+```
+
+That specific example attaches a listener per box up front. Delegation's real advantage shows up for elements that don't exist yet at setup time: attach one listener to a stable ancestor, use `closest()` inside it, and it works for children added to the DOM later, since bubbling doesn't care when an element was created, only that it exists in the tree when the click happens. The one trap: if a child's own listener calls `stopPropagation()`, the event never reaches a delegated parent listener at all, and the parent's logic silently never runs.
+
+You aren't limited to built-in event types. `new CustomEvent('name', { detail, bubbles: true })` plus `dispatchEvent()` lets any part of the app announce something happened, with its own payload in `detail`, and, with `bubbles: true`, lets it be caught via delegation exactly like a native click.
+
+## Shadow DOM: a subtree the rest of the page can't see into
+
+A Shadow DOM is an encapsulated subtree attached to an element, with its own scoped styles and markup, the mechanism behind Web Components (and behind native elements like `<video>`'s built-in controls, which are themselves shadow trees). Styles defined inside a shadow root don't leak out to the rest of the page, and page-level styles don't leak in, which is what makes a Web Component genuinely drop-in safe to reuse: no class-name collision is possible, because the shadow boundary isn't just a naming convention, it's an actual DOM isolation barrier.
+
+## DOMContentLoaded versus window.onload
+
+`DOMContentLoaded` fires once the HTML has been parsed and the DOM tree is ready, before images, stylesheets, and other subresources have necessarily finished loading. `window.onload` (or `window.addEventListener('load', ...)`) waits for everything on the page, images and CSS included, to finish loading too. Reach for `DOMContentLoaded` when a script only needs to query or manipulate the DOM structure itself; reach for `load` when it genuinely depends on a resource, measuring a loaded image's natural dimensions, for instance.
+
+## Watching visibility without a scroll listener
+
+The old way to detect "has this element entered the viewport" combined a `scroll` event listener with `getBoundingClientRect()`. Scroll events fire constantly, and `getBoundingClientRect()` forces a layout reflow every time it's called, a direct instance of the layout-thrashing pattern from the rendering-performance lesson, just triggered by a library instead of a hand-written loop.
+
+**Intersection Observer** replaces that entirely. It runs asynchronously, off the main thread's critical path, and only fires when an element's visibility actually changes.
+
+```js
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) console.log('Element visible:', entry.target);
+  });
+}, {
+  root: null,        // the viewport, by default
+  rootMargin: '0px',  // grows or shrinks the root's box for triggering purposes
+  threshold: 0.5,      // fraction of the target that must be visible to fire
+});
+
+observer.observe(document.querySelector('.box'));
+```
+
+`rootMargin: '100px'` triggers the callback *before* an element is actually visible, useful for preloading a little ahead of the scroll position. `threshold` can be a single number or an array like `[0, 0.5, 1]` to fire at several visibility steps, handy for scroll-depth analytics. One observer instance can watch multiple elements at once; `entries` in the callback tells you which one fired, via `entry.target`. Beyond `isIntersecting` and `target`, each entry also carries `intersectionRatio` (exactly what percentage of the target is currently visible) and `boundingClientRect`/`rootBounds` (the raw geometry of the target and the root, for anything needing the actual pixel rect rather than just a boolean or a ratio).
+
+Beyond infinite scroll and lazy-loaded images, the same primitive covers scroll-triggered animations (add a CSS class the instant an element enters view), ad viewability tracking (the industry-standard definition of a "viewable" impression is 50% visible for at least one continuous second, which `threshold` plus a bit of timing logic measures directly), and active nav highlighting (observe every section on the page and highlight whichever one's entry currently reports the highest `isIntersecting`/`intersectionRatio`).
+
+```jsx
+function LazyImage({ src, alt }) {
+  const imgRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    if (imgRef.current) observer.observe(imgRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return <img ref={imgRef} src={isVisible ? src : undefined} alt={alt} />;
+}
+```
+
+Trace it: the `<img>` renders with no `src` at all on mount, since `isVisible` starts `false`. The effect attaches an observer to the real DOM node via `imgRef.current`, and nothing loads until the image scrolls within 10% visibility, at which point `setIsVisible(true)` triggers a re-render that finally sets `src`, and `observer.disconnect()` stops watching, since a one-time lazy load has no reason to keep firing. If the component unmounts before that ever happens, the cleanup function disconnects the observer anyway, so nothing leaks.
+
+## The pattern this API makes possible: infinite scroll
+
+An invisible "sentinel" element sits at the very end of a list. An observer watches it, and when it becomes visible, the user has scrolled to the bottom, so the code fetches the next page and appends it.
+
+```jsx
+function InfiniteList() {
+  const [items, setItems] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef(null);
+
+  const fetchMore = useCallback(async () => {
+    if (loading || !hasMore) return; // guard against double-fetch or fetching past the end
+    setLoading(true);
+    const res = await fetch(`/api/items?page=${page}`);
+    const newItems = await res.json();
+    if (newItems.length === 0) setHasMore(false);
+    else {
+      setItems(prev => [...prev, ...newItems]);
+      setPage(prev => prev + 1);
+    }
+    setLoading(false);
+  }, [page, loading, hasMore]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) fetchMore(); },
+      { threshold: 1.0 },
+    );
+    const current = sentinelRef.current;
+    if (current) observer.observe(current);
+    return () => { if (current) observer.unobserve(current); };
+  }, [fetchMore]);
+
+  return (
+    <div>
+      {items.map(item => <div key={item.id}>{item.name}</div>)}
+      <div ref={sentinelRef}>{loading && "Loading more..."}</div>
+    </div>
+  );
+}
+```
+
+The `loading`/`hasMore` guard at the top of `fetchMore` matters as much as the observer itself: without it, a sentinel that's still visible while a request is in flight would fire the fetch again immediately on the next intersection check, and a sentinel for a list that's already exhausted would keep trying forever. For a genuinely large list on top of infinite scroll, pair this with virtualization, covered later in this course, since fetching more pages is a separate problem from rendering all of them at once.
+
+## Performance and cleanup, in one place
+
+Cost ranking, most to least expensive: **Reflow** (a full layout recalculation), **Repaint** (pixels only, no layout change), **Composite** (GPU only, `transform`/`opacity`), the same hierarchy from the rendering-pipeline lesson, now grounded in DOM APIs specifically. Debounce fires once after activity pauses, good for a search input; throttle fires at fixed intervals during continuous activity, good for scroll tracking, both covered in depth later in this course. `observer.unobserve(target)` stops watching one element; `observer.disconnect()` stops watching everything, and forgetting either inside a `useEffect` cleanup function is how an Intersection Observer quietly leaks.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('dbc33b52-a126-5484-9271-7c041dc61925', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Rendering Fundamentals', 'notes', 13, $md$With JavaScript's core mechanics covered, it's time for what actually happens between `setState` and pixels on screen. Nearly every "why did my component re-render twice" or "explain reconciliation" question traces back to what's in this lesson, get the mental model right here and the rest of the React material builds on it cleanly.
+
+## Virtual DOM versus real DOM
+
+The real DOM is a tree of live browser objects. Every read (`offsetHeight`, `getComputedStyle`) can force a synchronous layout recalculation, and every write can trigger layout, paint, and composite, the exact pipeline from the rendering-performance lesson. It's expensive to touch a lot.
+
+The virtual DOM is a plain JavaScript object tree mirroring what the UI *should* look like. It's cheap to build and diff because it's just objects, no browser work involved.
 
 ```tsx
 // This JSX...
 const element = <h1 className="title">Hello</h1>;
 
-// ...compiles to something like this plain object:
-const element = {
-  type: 'h1',
-  props: {
-    className: 'title',
-    children: 'Hello',
-  },
-};
+// ...compiles to roughly this plain object:
+const element = { type: 'h1', props: { className: 'title', children: 'Hello' } };
 ```
 
-React keeps a VDOM tree from the previous render and a new one from the current render, diffs them, and computes the minimal set of real DOM mutations needed. That diff-then-patch step is the whole point: it turns "re-render everything" into "mutate the three nodes that actually changed."
+React keeps the VDOM tree from the previous render and builds a new one on the current render, diffs the two, and computes the minimal set of real DOM mutations needed. That diff-then-patch step is the whole point: it turns "re-render everything" into "mutate the three nodes that actually changed." Is the virtual DOM always faster than hand-tuned direct DOM manipulation? No, a surgical DOM update can always win a synthetic benchmark against a diff-and-patch cycle. What the VDOM actually buys you is ergonomics at scale: you write declarative "what the UI looks like now" code, and React works out the efficient mutation path, instead of hand-rolling DOM diffing for every feature yourself.
 
-**Interview question: "Is the virtual DOM always faster than direct DOM manipulation?"**
-No. A hand-tuned, surgical DOM update can always beat a diff + patch cycle in a synthetic benchmark. The VDOM's real win is developer ergonomics at scale: you write declarative "what the UI looks like now" code, and React figures out the efficient mutation path, so you don't hand-roll DOM diffing for every feature.
+## Why React re-renders at all
 
-## Why React re-renders
+A component re-renders when its own state changes (a `useState` setter fires), when its parent re-renders (by default this cascades to every child regardless of whether that child's own props changed), when a context it consumes changes (any component calling `useContext(SomeContext)` re-renders on that context's value changing), or when a hook forces an update (`useReducer` dispatch, `useSyncExternalStore` emitting a new snapshot).
 
-A component re-renders when:
-
-1. **Its own state changes**: `setState`/`useState` setter is called with a new value.
-2. **Its parent re-renders**: by default, a re-render cascades to every child, regardless of whether that child's props changed.
-3. **Context it consumes changes**: any component calling `useContext(SomeContext)` re-renders when that context's value changes.
-4. **Hooks it uses force an update**: `useReducer` dispatch, `useSyncExternalStore` emitting a new snapshot, etc.
-
-Critically: **re-render does not mean the DOM changes**. A re-render calls your component function again to produce a new VDOM tree; reconciliation then diffs it against the last tree and only touches the DOM where something actually differs. This distinction, "render phase" (call component functions, build VDOM) versus "commit phase" (apply the diff to the real DOM), is the backbone of the whole rendering model and of why `React.memo`/`useMemo`/`useCallback` exist (Day 5).
+Critically, a re-render is not the same thing as the DOM changing. A re-render calls your component function again to produce a new VDOM tree; reconciliation then diffs it against the previous tree and only touches the real DOM where something actually differs. This split, "render phase" (call component functions, build VDOM) versus "commit phase" (apply the diff to the real DOM), is the backbone of the whole model, and it's the entire reason `React.memo`/`useMemo`/`useCallback` exist at all, covered in the next React lesson.
 
 ```tsx
 function Parent() {
@@ -15975,46 +17023,37 @@ function Parent() {
 }
 ```
 
-## Reconciliation: how the diff actually works
+## Reconciliation: how the diff is actually computed
 
-Reconciliation is the algorithm behind the diff step from the last section: how React decides which minimal DOM mutations to make when it compares the old VDOM tree to the new one. Walking through it precisely is the actual answer to "explain reconciliation," not just naming that it happens.
+Reconciliation is the algorithm behind that diff step, how React decides which minimal DOM mutations to make comparing old VDOM to new. Walking through it precisely is the real answer to "explain reconciliation," not just naming that it happens.
 
-Full tree diffing (compare every node against every other node) is O(n³) for n elements, too slow to run on every render. React makes the diff tractable with two heuristics that trade some theoretical correctness for speed:
-
-1. **A different element type means React tears down and rebuilds.** If the root of a subtree changes type (`<div>` becomes `<span>`, or `<Foo>` becomes `<Bar>`), React doesn't try to reconcile the children at all. It unmounts the old subtree (running cleanup effects, `componentWillUnmount`) and mounts a brand new one from scratch. Matching type is a precondition to even start diffing children.
-2. **Keys identify stable elements across renders.** For a list of siblings, React needs to know "is this the same logical item, just reordered/updated, or is it new?" Without a `key`, React falls back to matching children by *index*. Insert an item at the front of a list and every remaining item is now "at the wrong index," so React diffs (and can throw away local state for) every sibling instead of just the one that actually changed.
+Full tree diffing, comparing every node against every other node, is O(n³) for n elements, far too slow to run on every render. React makes it tractable with two heuristics that trade a little theoretical correctness for a lot of speed. First, a different element type means React tears the subtree down and rebuilds it. If the root of a subtree changes type, `<div>` becomes `<span>`, or `<Foo>` becomes `<Bar>`, React doesn't try to reconcile the children at all; it unmounts the old subtree entirely, running cleanup effects, and mounts a fresh one. Matching type is a precondition to even start diffing children. Second, keys identify stable elements across renders. For a list of siblings, React needs to know whether a given item is the same logical thing, just reordered or updated, or genuinely new. Without a `key`, it falls back to matching children by index, and inserting an item at the front of a list makes every remaining item "at the wrong index," so React diffs, and can discard local state for, every sibling instead of just the one that actually changed.
 
 ```tsx
-// Without keys: inserting at the front makes React think
-// every row changed, because it matches by position.
+// Without keys: inserting at the front makes React think every row changed
 {items.map(item => <Row data={item} />)}
 
-// With keys: React matches by identity, so it recognizes
-// existing rows and only mounts the genuinely new one.
+// With keys: React matches by identity and only mounts the genuinely new one
 {items.map(item => <Row key={item.id} data={item} />)}
 ```
 
-**Fiber (React 16+).** Before Fiber, reconciliation walked the tree recursively and synchronously. Once it started, it couldn't stop until the whole tree was diffed, even if that blocked the main thread long enough to drop frames. Fiber restructured each element into a "fiber" object, a unit of work with pointers to its child, sibling, and parent, so the render phase can be paused, resumed, or abandoned mid-tree. This is *why* the render phase is interruptible while the commit phase isn't (the distinction from the section above): once React starts flushing DOM mutations it can't leave the UI half-updated, but the diffing that happens before that can yield to the browser and resume later. That interruptibility is the mechanism underneath `useTransition` and `Suspense`, which mark work as lower priority so Fiber can pause it when something more urgent (a keystroke, a click) comes in.
+**Fiber**, React 16 and later. Before Fiber, reconciliation walked the tree recursively and synchronously, and once it started, it couldn't stop until the whole tree was diffed, even if that meant blocking the main thread long enough to drop frames. Fiber restructures each element into a "fiber" object, a unit of work with pointers to its child, sibling, and parent, so the render phase can be paused, resumed, or abandoned mid-tree. That's precisely why the render phase is interruptible while the commit phase isn't, from the split above: once React starts flushing DOM mutations it can't leave the UI half-updated, but the diffing that happens before that can yield to the browser and pick back up later. That interruptibility is the mechanism underneath `useTransition` and `Suspense`, both of which mark work as lower priority so Fiber can pause it when something more urgent, a keystroke, a click, comes in.
 
-**Interview question: "What does changing a key on an element actually do?"**
-It forces React to treat the old and new elements as unrelated: a full unmount of the old instance (losing all local state, running its cleanup effects) followed by a full mount of a "new" one, even though it's the same component function at the same position in the tree. This is a deliberate technique, not just a list requirement. `<Form key={userId} />` resets a form's entire internal state when `userId` changes, in one line, instead of a `useEffect` that manually resets every piece of state.
+Changing a `key` on an element does something specific and deliberate: it forces React to treat the old and new elements as unrelated, a full unmount of the old instance, losing all local state and running its cleanup effects, followed by a full mount of what looks like a "new" one, even though it's the same component function at the same tree position. `<Form key={userId} />` resets a form's entire internal state the instant `userId` changes, in one line, instead of a `useEffect` manually clearing every field.
 
-Two practical gotchas that fall directly out of the heuristics above:
-
-- **Changing a key forces a remount** (see above): useful intentionally, a bug if it happens by accident (e.g. using array index as a key while reordering the array).
-- **Defining a component function inside another component's render body changes its type identity every render.** `type` is compared by reference, and a function declared inside `Parent`'s body is a *new function*, and therefore a *new type*, on every render of `Parent`, even though it "looks like" the same component. Heuristic #1 then applies: React tears down and rebuilds that entire subtree every time, instead of just updating it.
+Two practical gotchas fall directly out of the two heuristics above. Changing a key forces a remount, useful when it's intentional, a real bug when it happens by accident, like using an array index as a key while the array reorders. And defining a component function *inside* another component's render body changes its type identity on every single render: `type` is compared by reference, and a function declared inside `Parent`'s body is a genuinely new function, and therefore a new type, every time `Parent` re-renders, even though it "looks like" the same component to a human reader.
 
 ```tsx
 function Parent() {
-  // New function identity every render -> React unmounts/remounts
-  // ChildComponent's entire subtree on every Parent re-render.
+  // New function identity every render → React unmounts/remounts this
+  // entire subtree on every Parent re-render.
   function ChildComponent() {
-    return <input />; // loses focus and any local state on every keystroke in Parent
+    return <input />; // loses focus and local state on every keystroke in Parent
   }
   return <ChildComponent />;
 }
 
-// Fix: declare it once, outside Parent, so its type identity is stable.
+// Fix: declare it once, outside Parent, so its type identity stays stable
 function ChildComponent() {
   return <input />;
 }
@@ -16023,18 +17062,18 @@ function Parent() {
 }
 ```
 
-(Reducing *how often* a matched element re-renders, via `React.memo`, `useMemo`, `useCallback`, is Day 5's territory. What's above is reconciliation correctly identifying *which* elements are the same across renders in the first place, a separate concern from whether a matched element bothers re-rendering.)
+Reducing *how often* a matched element re-renders, via `React.memo`, `useMemo`, `useCallback`, is a separate concern covered in the next lesson. What's here is reconciliation correctly identifying *which* elements are the same across renders in the first place, which has to happen before "should it re-render" is even a meaningful question.
 
-## Component lifecycle phases
+## Component lifecycle, class and function side by side
 
-Class components expose lifecycle explicitly; function components achieve the same phases through hooks. Know both, interviewers still ask about class lifecycle because a lot of production code (and every "explain the old API" question) still uses it.
+Class components expose lifecycle explicitly; function components reach the same phases through hooks. Interviewers still ask about the class version because plenty of production code, and every "explain the old API" question, still touches it.
 
 | Phase | Class component | Function component |
 |---|---|---|
 | Mount | `constructor` → `render` → `componentDidMount` | render body runs → `useEffect(fn, [])` runs after paint |
 | Update | `render` → `componentDidUpdate` | render body runs → `useEffect(fn, [deps])` runs if deps changed |
 | Unmount | `componentWillUnmount` | cleanup function returned from `useEffect` |
-| Error | `componentDidCatch` / `getDerivedStateFromError` | no hook equivalent; still requires a class-based Error Boundary |
+| Error | `componentDidCatch` / `getDerivedStateFromError` | no hook equivalent, still needs a class-based Error Boundary |
 
 ```tsx
 class Timer extends React.Component<{}, { seconds: number }> {
@@ -16047,91 +17086,67 @@ class Timer extends React.Component<{}, { seconds: number }> {
       this.setState(prev => ({ seconds: prev.seconds + 1 }));
     }, 1000);
   }
-
   componentDidUpdate(prevProps: {}, prevState: { seconds: number }) {
-    // runs after every re-render caused by a state/prop change
     if (prevState.seconds !== this.state.seconds && this.state.seconds % 10 === 0) {
       console.log('checkpoint:', this.state.seconds);
     }
   }
-
   componentWillUnmount() {
-    // runs once, right before the component is removed from the DOM
     window.clearInterval(this.interval);
   }
-
   render() {
     return <p>{this.state.seconds}s elapsed</p>;
   }
 }
 ```
 
-Note the render cycle: `constructor` runs once, then `render()` produces the VDOM (no side effects allowed here; it can run multiple times per commit in Strict Mode), then React commits to the DOM, then `componentDidMount` fires. Every subsequent state or prop change re-enters at `render()` and, after commit, calls `componentDidUpdate`.
+Note the order: `constructor` runs once, then `render()` produces the VDOM, with no side effects allowed there, it can even run more than once per commit under Strict Mode, then React commits to the real DOM, then `componentDidMount` fires. Every later state or prop change re-enters at `render()` and, after commit, calls `componentDidUpdate`.
 
-## Build: a counter that shows its render count
+## Watching it happen: a render counter
 
-This is the fastest way to *see* re-renders happening instead of reasoning about them abstractly. `useRef` is the right tool here because incrementing it does not itself trigger a re-render (unlike `useState`), so it purely observes without interfering.
+The fastest way to *see* re-renders instead of reasoning about them abstractly. `useRef` is the right tool here because incrementing it doesn't itself trigger a re-render, unlike `useState`, so it purely observes without interfering with what it's measuring.
 
 ```tsx
-import { useRef, useState } from 'react';
-
 function RenderCounter() {
   const [count, setCount] = useState(0);
   const renderCount = useRef(0);
-
-  // This line runs on every single call to the component function —
-  // i.e. every render, whether or not the DOM ends up changing.
-  renderCount.current += 1;
-  console.log(`RenderCounter rendered ${renderCount.current} times`);
+  renderCount.current += 1; // runs on every call to the component function, i.e. every render
 
   return (
     <div>
       <p>Count: {count}</p>
       <p>Renders: {renderCount.current}</p>
       <button onClick={() => setCount(c => c + 1)}>Increment</button>
-      <button onClick={() => setCount(c => c)}>
-        Set to same value (still re-renders in React 18, bails out of commit in React 19)
-      </button>
     </div>
   );
 }
 ```
 
-Click "Increment" and watch the console: each click bumps `renderCount.current` by exactly one, proving each `setCount` call schedules exactly one render for this component (React batches multiple `setState` calls within the same event handler into a single render; try calling `setCount` twice in one handler and confirm the render count still only goes up by one).
+Click "Increment" and watch `renderCount.current` climb by exactly one per click, proving each `setCount` call schedules exactly one render. Call `setCount` twice inside the same handler, and the count still only climbs by one, since React batches multiple `setState` calls within the same event handler into a single render.
 $md$, 30, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('131e85f0-5b08-5c74-9249-570eb5901c1d', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Hooks Internals', 'notes', 5, $md$Anyone can call `useState`. What separates a mid-level candidate from a senior one is being able to explain *how* it works, where the state actually lives, why the Rules of Hooks exist, and why breaking them corrupts state silently instead of throwing. Today builds simplified versions of `useState` and `useEffect` so the internals stop being magic.
+VALUES ('131e85f0-5b08-5c74-9249-570eb5901c1d', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Hooks Internals', 'notes', 14, $md$Anyone can call `useState`. What separates a mid-level candidate from a senior one is being able to explain *how* it works, where the state actually lives, why the Rules of Hooks exist, and why breaking them corrupts state silently instead of throwing a helpful error. This lesson builds simplified versions of `useState` and `useEffect` so the internals stop being magic.
 
-## How useState updates trigger re-renders
+## Where state actually lives
 
-State does not live "in" your component function. Your component function is called fresh on every render, so any local variable in it is discarded and recreated each time. State actually lives in the **Fiber node**, React's internal per-component data structure, as a linked list of hook entries.
+State doesn't live "in" your component function. Your function gets called fresh on every render, so any local variable inside it is discarded and recreated each time. State actually lives on the **Fiber node**, React's internal per-component data structure, as a linked list of hook entries.
 
-The sequence:
-
-1. React calls your component function. It reads the next hook slot in the fiber's hook list, in call order, and returns its stored value.
-2. You call the setter with a new value. React stores the pending update and schedules a re-render for that fiber (and marks it dirty up to the root, but reconciliation confines actual DOM writes to what changed).
-3. On the scheduled render, React calls your function again. `useState` reads the *same* hook slot, now updated, and returns the new value.
+The sequence: React calls your component function, reads the next hook slot in the fiber's hook list, in call order, and returns whatever's stored there. You call the setter with a new value; React stores the pending update and schedules a re-render for that fiber. On the scheduled render, React calls your function again, and `useState` reads the *same* hook slot, now updated, and hands back the new value.
 
 ```tsx
-// Simplified mental model of what React does internally.
-// This is NOT real React source — it's a teaching approximation.
-
+// A teaching approximation, not real React source.
 let hooks: any[] = [];
 let currentHookIndex = 0;
-let rerenderScheduled = false;
 
-function useStateSimplified<T>(initialValue: T): [T, (newValue: T | ((prev: T) => T)) => void] {
+function useStateSimplified<T>(initialValue: T): [T, (v: T | ((prev: T) => T)) => void] {
   const hookIndex = currentHookIndex;
   hooks[hookIndex] = hooks[hookIndex] ?? initialValue;
 
   const setState = (newValue: T | ((prev: T) => T)) => {
-    hooks[hookIndex] =
-      typeof newValue === 'function'
-        ? (newValue as (prev: T) => T)(hooks[hookIndex])
-        : newValue;
-    scheduleRerender(); // tells React "this fiber is dirty, re-render it"
+    hooks[hookIndex] = typeof newValue === 'function' ? (newValue as (prev: T) => T)(hooks[hookIndex]) : newValue;
+    scheduleRerender();
   };
 
   currentHookIndex++;
@@ -16139,56 +17154,45 @@ function useStateSimplified<T>(initialValue: T): [T, (newValue: T | ((prev: T) =
 }
 
 function scheduleRerender() {
-  if (rerenderScheduled) return;
-  rerenderScheduled = true;
   queueMicrotask(() => {
-    rerenderScheduled = false;
-    currentHookIndex = 0; // reset so the next render reads hooks in the same order
+    currentHookIndex = 0; // reset so the next render reads hooks back in the same order
     renderApp();
   });
 }
 ```
 
-The key insight: `hooks[hookIndex]` persists across calls because it lives outside the function that gets re-invoked. Real React stores this per-fiber, not in one global array, but the "index into a persistent list" model is exactly right.
+The key insight is that `hooks[hookIndex]` persists across calls, because it lives outside the function that gets re-invoked each time. Real React stores this per-fiber rather than in one global array, but "index into a persistent list" is exactly the right model. Does calling the setter with the same value still trigger a re-render? In React 18+, function-component `useState` bails out of re-rendering when the new value is `Object.is`-equal to the current one, it still calls the function once to check, then skips the commit if nothing changed. Note it's `Object.is`, not `===`, which matters for `NaN` and `-0`.
 
-**Interview question: "Does calling the setter with the same value still re-render?"**
-In React 18, yes for class-style comparisons in some paths, but function-component `useState` with `Object.is`-equal values bails out of re-rendering that component (it still runs the function once to check, then skips the commit). Know that `Object.is` is the comparison, not `===` (this matters for `NaN` and `-0`).
+## How useEffect tracks its dependency array
 
-## How useEffect handles dependencies
-
-`useEffect` also gets a slot in the fiber's hook list, storing two things: the effect function and the last dependency array. After every commit, React compares the new dependency array to the stored one, element by element with `Object.is`. If any element differs (or there was no previous array), the old cleanup runs, then the new effect runs.
+`useEffect` also claims a slot in the fiber's hook list, storing both the effect function and the last dependency array. After every commit, React compares the new array to the stored one, element by element, with `Object.is`. If any element differs, or there was no previous array at all, the old cleanup runs first, then the new effect runs.
 
 ```tsx
 function useEffectSimplified(effect: () => void | (() => void), deps?: unknown[]) {
   const hookIndex = currentHookIndex;
   const prevDeps = hooks[hookIndex]?.deps;
-  const hasChanged =
-    !prevDeps || !deps || deps.some((dep, i) => !Object.is(dep, prevDeps[i]));
+  const hasChanged = !prevDeps || !deps || deps.some((dep, i) => !Object.is(dep, prevDeps[i]));
 
   if (hasChanged) {
-    // schedule effect to run after this commit, not synchronously
     scheduleEffect(() => {
       hooks[hookIndex]?.cleanup?.();
       const cleanup = effect();
       hooks[hookIndex] = { deps, cleanup };
     });
   }
-
   currentHookIndex++;
 }
 ```
 
-The three dependency-array shapes and what they mean:
+The three shapes of dependency array mean three different things: no array at all runs the effect after *every* render; an empty array runs it once, after the first commit; a populated array runs it whenever any listed value changes, by `Object.is`.
 
 ```tsx
-useEffect(() => { /* ... */ });           // no array: runs after EVERY render
-useEffect(() => { /* ... */ }, []);        // empty array: runs once, after first commit
-useEffect(() => { /* ... */ }, [userId]);  // runs when userId changes (Object.is)
+useEffect(() => { /* ... */ });           // every render
+useEffect(() => { /* ... */ }, []);        // once, after first commit
+useEffect(() => { /* ... */ }, [userId]);  // whenever userId changes
 ```
 
-## Build: useState from scratch (runnable version)
-
-A self-contained version you can actually execute outside React to see the mechanism, with a real cleanup-capable `useEffect` alongside it:
+## A version you can actually run
 
 ```tsx
 type EffectRecord = { deps?: unknown[]; cleanup?: (() => void) | void };
@@ -16205,10 +17209,7 @@ function createHookSystem() {
     if (state[i] === undefined) state[i] = initial;
     const setValue = (v: T | ((p: T) => T)) => {
       const next = typeof v === 'function' ? (v as (p: T) => T)(state[i] as T) : v;
-      if (!Object.is(state[i], next)) {
-        state[i] = next;
-        rerender();
-      }
+      if (!Object.is(state[i], next)) { state[i] = next; rerender(); }
     };
     return [state[i] as T, setValue];
   }
@@ -16228,40 +17229,26 @@ function createHookSystem() {
     }
   }
 
-  function rerender() {
-    stateIndex = 0;
-    effectIndex = 0;
-    renderFn();
-  }
-
-  function mount(fn: () => void) {
-    renderFn = fn;
-    rerender();
-  }
-
+  function rerender() { stateIndex = 0; effectIndex = 0; renderFn(); }
+  function mount(fn: () => void) { renderFn = fn; rerender(); }
   return { useState, useEffect, mount };
 }
 
-// Usage:
 const { useState, useEffect, mount } = createHookSystem();
-
 function App() {
   const [seconds, setSeconds] = useState(0);
-
   useEffect(() => {
     const id = setInterval(() => setSeconds(s => s + 1), 1000);
-    return () => clearInterval(id); // cleanup — runs before the next effect and on unmount
+    return () => clearInterval(id); // runs before the next effect, and on unmount
   }, []); // empty deps: subscribe once
-
   console.log('seconds:', seconds);
 }
-
 mount(App);
 ```
 
 ## Why hooks can't be conditional
 
-Hooks are read by **positional index**, not by name. React has no idea your third `useState` call is "the username state"; it only knows "slot 3 in this fiber's hook list." If a hook call is skipped on some renders (inside an `if`, a loop, or after an early `return`), every hook after it shifts down one slot, and React reads the wrong stored value into the wrong hook.
+Hooks are read by **positional index**, never by name. React has no idea your third `useState` call is "the username state," it only knows "slot 3 in this fiber's hook list." If a hook call gets skipped on some renders, inside an `if`, a loop, or after an early `return`, every hook after it shifts down one slot, and React reads the wrong stored value into the wrong hook.
 
 ```tsx
 // BROKEN — do not do this
@@ -16271,464 +17258,98 @@ function Broken({ showExtra }: { showExtra: boolean }) {
     const [extra, setExtra] = useState('b'); // hook 2 only exists sometimes
   }
   const [age, setAge] = useState(0); // this is hook slot 2 OR 3 depending on showExtra!
-  // ...
 }
 ```
 
-When `showExtra` flips between renders, `age`'s slot index changes, so React hands it `extra`'s stored value instead. This is exactly why the ESLint rule `react-hooks/rules-of-hooks` exists and should never be disabled: the bug it prevents is silent state corruption, not a crash you'd catch in testing.
-
-The fix is always to keep the hook call unconditional and push the condition *inside* the hook:
+When `showExtra` flips between renders, `age`'s slot index shifts with it, so React hands it whatever value `extra` had stored instead. This is exactly why the ESLint rule `react-hooks/rules-of-hooks` exists and should never be disabled: the bug it prevents is silent state corruption, not a crash you'd catch in normal testing. The fix is always to keep every hook call unconditional and push the condition *inside* the hook instead:
 
 ```tsx
 function Fixed({ showExtra }: { showExtra: boolean }) {
   const [name, setName] = useState('a');
   const [extra, setExtra] = useState('b'); // always called
   const [age, setAge] = useState(0);
-
   const displayExtra = showExtra ? extra : null; // condition applied to the VALUE, not the call
-  // ...
 }
 ```
 $md$, 30, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('52066bde-c6e6-59dd-9fbc-514d86e28a3c', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Event Loop and Browser Rendering', 'notes', 6, $md$"What's the output order?" questions involving `setTimeout`, `Promise.then`, and `async/await` show up in nearly every frontend interview loop, and they're really testing whether you understand the event loop, not JavaScript syntax. Pair that with how the browser turns JS + CSS into pixels, and you can answer both "explain the event loop" and "why is my animation janky" questions confidently.
+VALUES ('ab0d3724-8570-51cc-8b67-bf5bae299e47', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Performance Optimization', 'notes', 15, $md$"How would you optimize a slow React app?" is a near-guaranteed senior-level question, and "wrap everything in `useMemo`" is the wrong answer. This lesson covers `React.memo`, `useMemo`, and `useCallback` correctly, including the real cost of memoization, the part most candidates skip entirely, plus how to actually measure before you optimize anything at all.
 
-## Task queue vs microtask queue
+## When memoization is worth reaching for
 
-JavaScript is single-threaded: one call stack, one thing executing at a time. The event loop's job is deciding what runs next once the call stack empties.
+From the rendering lesson: a parent re-rendering re-renders every child by default, and re-rendering a function component just means calling the function again to produce a new VDOM subtree, which reconciliation then diffs. For cheap components that's essentially free, diffing a `<span>` costs nanoseconds. Memoization only pays off when re-rendering is measurably expensive: large lists, heavy computation inside the render body, or a component with an expensive subtree whose props are stable most of the time.
 
-There are two queues that matter most for interviews:
-
-- **Microtask queue**: `Promise.then/catch/finally` callbacks, `queueMicrotask`, `async/await` continuations, `MutationObserver` callbacks.
-- **Macrotask queue** (a.k.a. "task queue"): `setTimeout`, `setInterval`, I/O callbacks, UI events, `postMessage`.
-
-The rule that answers 90% of ordering questions: **after each single macrotask finishes, the event loop drains the ENTIRE microtask queue before running the next macrotask**, including microtasks that were queued by other microtasks during that drain.
-
-```tsx
-console.log('1: sync');
-
-setTimeout(() => console.log('2: macrotask (setTimeout)'), 0);
-
-Promise.resolve().then(() => console.log('3: microtask (promise)'));
-
-queueMicrotask(() => console.log('4: microtask (queueMicrotask)'));
-
-console.log('5: sync');
-
-// Output order: 1, 5, 3, 4, 2
-// Sync code runs first (1, 5). Then the stack is empty, so ALL microtasks
-// drain (3, 4) before the event loop even looks at the macrotask queue (2),
-// regardless of the setTimeout delay being 0.
-```
-
-```tsx
-async function asyncOrder() {
-  console.log('A: start');
-  await Promise.resolve();
-  console.log('B: after await'); // this line is a microtask continuation
-}
-
-console.log('start');
-asyncOrder();
-console.log('end');
-
-// Output: start, A: start, end, B: after await
-// Everything before "await" in an async function runs SYNCHRONOUSLY.
-// The code after "await" is scheduled as a microtask continuation —
-// equivalent to Promise.resolve().then(() => { ...rest of function... }).
-```
-
-**Interview trap: nested `setTimeout(fn, 0)` chains never "catch up" to microtasks.** If a macrotask queues a new microtask, that microtask still drains completely before the *next* macrotask, even if the macrotask queue already had other items waiting. Microtasks always win the race against the next macrotask.
-
-## requestAnimationFrame
-
-`requestAnimationFrame` (rAF) is a third scheduling mechanism, separate from both queues above. Its callback runs **before the browser paints the next frame**, synced to the display's refresh rate (typically 60Hz → ~16.6ms per frame). It is the correct primitive for anything that changes the screen every frame (animations, canvas drawing, scroll-linked effects) because it never schedules work faster than the browser can actually paint, unlike `setInterval`.
-
-```tsx
-function animate(element: HTMLElement) {
-  let start: number | null = null;
-
-  function step(timestamp: number) {
-    if (start === null) start = timestamp;
-    const elapsed = timestamp - start;
-    const progress = Math.min(elapsed / 1000, 1); // 1 second animation
-
-    element.style.transform = `translateX(${progress * 200}px)`;
-
-    if (progress < 1) {
-      requestAnimationFrame(step); // schedule next frame; browser paints between calls
-    }
-  }
-
-  requestAnimationFrame(step);
-}
-```
-
-Ordering relative to the other queues, per frame: macrotask/microtasks drain first (whatever triggered this frame), then `requestAnimationFrame` callbacks run, then the browser recalculates style/layout/paint/composite, then it presents the frame. `requestIdleCallback` runs after all of that, only if there's leftover time before the next frame, good for genuinely low-priority work like analytics beacons.
-
-## Layout and paint phases
-
-This is the "browser rendering pipeline," and it directly explains why some CSS properties are cheap to animate and others tank frame rate.
-
-```
-JavaScript → Style → Layout → Paint → Composite
-```
-
-1. **JavaScript**: your code runs, may mutate the DOM or `style` properties.
-2. **Style (recalculate style)**: browser figures out which CSS rules apply to which elements ("computed style").
-3. **Layout (a.k.a. reflow)**: browser computes the geometry, the exact size and position of every element. Expensive, and it cascades: changing one element's size can shift everything after it.
-4. **Paint**: browser fills in pixels (text, colors, borders, shadows) onto layers (rasterization).
-5. **Composite**: browser combines the painted layers into the final image shown on screen, applying transforms.
-
-The cost model: changing `width`, `height`, `top`, `left`, `margin`, or adding/removing DOM nodes triggers **layout → paint → composite** (the expensive full pipeline). Changing `color` or `background` (without a shape change) skips layout but still triggers **paint → composite**. Changing `transform` or `opacity` only triggers **composite**, with no layout and no paint, because those properties can be applied purely on the GPU compositor thread. This is why Day 11's "composite-only properties" advice (animate `transform`, not `top`/`left`) exists.
-
-```tsx
-// Cheap: composite-only, handled by the GPU compositor thread
-element.style.transform = 'translateX(100px)';
-element.style.opacity = '0.5';
-
-// Expensive: forces full layout recalculation, then paint, then composite
-element.style.left = '100px';
-element.style.width = '300px';
-```
-
-**Layout thrashing** happens when you interleave reads and writes to layout-dependent properties in a loop, forcing the browser to synchronously recompute layout on every read because a prior write invalidated its cache:
-
-```tsx
-// BAD: forces a synchronous layout recalculation on every iteration
-elements.forEach(el => {
-  el.style.width = el.offsetWidth + 10 + 'px'; // read (offsetWidth) then write (width), repeated
-});
-
-// GOOD: batch all reads, then all writes — one layout recalculation total
-const widths = elements.map(el => el.offsetWidth); // all reads first
-elements.forEach((el, i) => {
-  el.style.width = widths[i] + 10 + 'px'; // all writes after
-});
-```
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a30bc084-640c-5928-b605-d84a9a4d7064', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'State Management', 'notes', 7, $md$"When would you reach for Redux vs Context vs local state?" is one of the most common system-design-flavored frontend questions, because the honest answer reveals whether you've actually shipped something at scale or just followed tutorials. Today you'll build a Redux-like store from scratch so "how does Redux work internally" stops being a black box, and nail down `useReducer` for local complex state.
-
-## When to use local state vs global state
-
-Default to the narrowest scope that works, and only lift when you have a concrete reason:
-
-| Signal | Use |
-|---|---|
-| Only one component (and maybe its direct children) needs the value | `useState` / `useReducer` in that component |
-| Several sibling components need it, but it doesn't cross large parts of the tree | Lift state to their common parent, pass down as props |
-| Truly cross-cutting (theme, auth session, locale) that rarely changes | React Context |
-| Complex, frequently-updated, shared across distant parts of the app, needs middleware/devtools/time-travel | Redux / Zustand / Jotai (external store) |
-| Comes from the server and just needs caching + revalidation | React Query / SWR / TanStack Query, not Redux |
-
-**Interview trap: "Context is a state management solution."** It isn't. Context is a *dependency injection* mechanism for avoiding prop drilling. It has no built-in way to prevent unrelated consumers from re-rendering on unrelated value changes (every consumer of a Context re-renders on ANY change to that Context's value, unless you split contexts or memoize), and no middleware/devtools/selectors. Redux (or Zustand) solves a different problem: efficient, selective subscriptions to slices of a large, frequently-changing store.
-
-| | Redux | Context API | Zustand |
-|---|---|---|---|
-| Boilerplate | High (actions, reducers, dispatch), much less with Redux Toolkit | Low | Very low |
-| Re-render granularity | Fine: `useSelector` only re-renders on the selected slice changing | Coarse: any Context value change re-renders every consumer | Fine: selector-based, like Redux |
-| DevTools / time-travel | Yes, excellent | No | Yes, via middleware |
-| Async / middleware | Thunks, Sagas, RTK Query | None built-in, DIY | Simple built-in async actions |
-| Best for | Large apps, complex cross-cutting state, need for strict predictability | Rarely-changing app-wide values: theme, auth, locale | Most apps that outgrew Context but don't need Redux's ceremony |
-
-## Build: a simple Redux-like store
-
-This is the core of what `createStore` does: a subscription list, a reducer, and dispatch that runs the reducer and notifies subscribers:
-
-```tsx
-type Action = { type: string; payload?: unknown };
-type Reducer<S> = (state: S, action: Action) => S;
-type Listener = () => void;
-
-function createStore<S>(reducer: Reducer<S>, initialState: S) {
-  let state = initialState;
-  const listeners = new Set<Listener>();
-
-  function getState(): S {
-    return state;
-  }
-
-  function dispatch(action: Action): Action {
-    state = reducer(state, action); // reducer MUST be pure: same inputs -> same output, no mutation
-    listeners.forEach(listener => listener()); // notify every subscriber, unconditionally
-    return action;
-  }
-
-  function subscribe(listener: Listener): () => void {
-    listeners.add(listener);
-    return () => listeners.delete(listener); // unsubscribe function
-  }
-
-  return { getState, dispatch, subscribe };
-}
-
-// Usage:
-type CounterState = { count: number };
-type CounterAction = { type: 'increment' } | { type: 'decrement' } | { type: 'reset' };
-
-function counterReducer(state: CounterState, action: CounterAction): CounterState {
-  switch (action.type) {
-    case 'increment':
-      return { count: state.count + 1 }; // new object — never mutate state directly
-    case 'decrement':
-      return { count: state.count - 1 };
-    case 'reset':
-      return { count: 0 };
-    default:
-      return state;
-  }
-}
-
-const store = createStore(counterReducer, { count: 0 });
-const unsubscribe = store.subscribe(() => console.log('new state:', store.getState()));
-store.dispatch({ type: 'increment' }); // logs: new state: { count: 1 }
-store.dispatch({ type: 'increment' }); // logs: new state: { count: 2 }
-unsubscribe();
-```
-
-A React binding for this store (roughly what `react-redux`'s `useSelector` does) uses `useSyncExternalStore`, the hook purpose-built for subscribing to external (non-React) state sources without tearing:
-
-```tsx
-import { useSyncExternalStore } from 'react';
-
-function useStoreSelector<S, T>(store: { getState: () => S; subscribe: (l: () => void) => () => void }, selector: (state: S) => T): T {
-  return useSyncExternalStore(
-    store.subscribe,
-    () => selector(store.getState()),
-  );
-}
-
-function Counter() {
-  const count = useStoreSelector(store, s => s.count);
-  return (
-    <div>
-      <p>{count}</p>
-      <button onClick={() => store.dispatch({ type: 'increment' })}>+</button>
-    </div>
-  );
-}
-```
-
-## useReducer for complex local state
-
-`useReducer` is `createStore` scaled down to a single component: same reducer pattern, no external store. Reach for it over multiple `useState` calls when state fields update together, or when the "next state" depends on complex logic that's easier to read as a switch statement than a pile of setters.
-
-```tsx
-type FormState = {
-  values: { email: string; password: string };
-  errors: { email?: string; password?: string };
-  isSubmitting: boolean;
-};
-
-type FormAction =
-  | { type: 'CHANGE_FIELD'; field: 'email' | 'password'; value: string }
-  | { type: 'SET_ERRORS'; errors: FormState['errors'] }
-  | { type: 'SUBMIT_START' }
-  | { type: 'SUBMIT_END' };
-
-function formReducer(state: FormState, action: FormAction): FormState {
-  switch (action.type) {
-    case 'CHANGE_FIELD':
-      return {
-        ...state,
-        values: { ...state.values, [action.field]: action.value },
-        errors: { ...state.errors, [action.field]: undefined }, // clear that field's error on edit
-      };
-    case 'SET_ERRORS':
-      return { ...state, errors: action.errors };
-    case 'SUBMIT_START':
-      return { ...state, isSubmitting: true };
-    case 'SUBMIT_END':
-      return { ...state, isSubmitting: false };
-    default:
-      return state;
-  }
-}
-
-function LoginForm() {
-  const [state, dispatch] = useReducer(formReducer, {
-    values: { email: '', password: '' },
-    errors: {},
-    isSubmitting: false,
-  });
-
-  const handleChange = (field: 'email' | 'password') => (e: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch({ type: 'CHANGE_FIELD', field, value: e.target.value });
-  };
-
-  return (
-    <form>
-      <input value={state.values.email} onChange={handleChange('email')} />
-      {state.errors.email && <span>{state.errors.email}</span>}
-      <input type="password" value={state.values.password} onChange={handleChange('password')} />
-      <button disabled={state.isSubmitting}>Log in</button>
-    </form>
-  );
-}
-```
-
-Why this beats five `useState` calls: every field update is one `dispatch` with clear intent, the reducer is a pure function you can unit-test in isolation with no rendering involved, and related fields (`values`, `errors`, `isSubmitting`) update together atomically instead of risking inconsistent intermediate renders.
-
-## Immutable update patterns
-
-React (and Redux) detect changes with reference equality (`Object.is`/`===`), not deep equality. Mutating state in place doesn't change the reference, so React never notices: the UI silently goes stale.
-
-```tsx
-// WRONG — mutates, reference stays the same, React won't re-render
-state.user.name = 'New Name';
-state.items.push(newItem);
-
-// RIGHT — spread creates new references at every level that changed
-const newState = {
-  ...state,
-  user: { ...state.user, name: 'New Name' },
-  items: [...state.items, newItem],
-};
-
-// Arrays: common immutable operations
-const added = [...items, newItem];
-const removed = items.filter(item => item.id !== targetId);
-const updated = items.map(item => item.id === targetId ? { ...item, done: true } : item);
-```
-
-For deeply nested state, spreading by hand at every level gets unreadable fast. That's what libraries like Immer (which Redux Toolkit uses under the hood) solve: you write code that *looks* mutable, and it produces a new immutable tree behind the scenes via a proxy.
-
-## State normalization
-
-Nested/duplicated state (arrays of objects containing arrays of objects) makes updates require deep traversal and risks the same entity existing in two places with different data. Normalize it like a relational database: flat lookup tables keyed by ID, plus ID arrays for ordering.
-
-```tsx
-// Denormalized — hard to update a single comment, duplicated author data
-type DenormalizedState = {
-  posts: Array<{
-    id: string;
-    title: string;
-    author: { id: string; name: string };
-    comments: Array<{ id: string; text: string; author: { id: string; name: string } }>;
-  }>;
-};
-
-// Normalized — O(1) lookup and update by ID, single source of truth per entity
-type NormalizedState = {
-  posts: { byId: Record<string, { id: string; title: string; authorId: string; commentIds: string[] }>; allIds: string[] };
-  comments: { byId: Record<string, { id: string; text: string; authorId: string }>; allIds: string[] };
-  users: { byId: Record<string, { id: string; name: string }>; allIds: string[] };
-};
-
-// Updating one comment is now a targeted, cheap operation:
-function editComment(state: NormalizedState, commentId: string, text: string): NormalizedState {
-  return {
-    ...state,
-    comments: {
-      ...state.comments,
-      byId: { ...state.comments.byId, [commentId]: { ...state.comments.byId[commentId], text } },
-    },
-  };
-}
-```
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('ab0d3724-8570-51cc-8b67-bf5bae299e47', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Performance Optimization', 'notes', 8, $md$"How would you optimize a slow React app?" is a near-guaranteed senior-level question, and the wrong answer is "wrap everything in `useMemo`." Today covers `React.memo`, `useMemo`, and `useCallback` correctly, including the real cost of memoization, which is the part most candidates skip, plus how to actually measure before you optimize.
-
-## When to use memoization
-
-Building on Day 1: a parent re-rendering re-renders every child by default, and re-rendering a function component means calling the function again to produce a new VDOM subtree, which reconciliation then diffs. For cheap components, that's fine, diffing a `<span>` is nanoseconds. Memoization only pays off when re-rendering is measurably expensive: large lists, heavy computation in the render body, or a component with an expensive subtree that has stable props most of the time.
-
-**`React.memo`** skips re-rendering a component if its props are shallowly equal to last time:
+`React.memo` skips re-rendering a component if its props are shallowly equal to last time:
 
 ```tsx
 type RowProps = { id: string; label: string; onSelect: (id: string) => void };
-
 const ExpensiveRow = React.memo(function ExpensiveRow({ id, label, onSelect }: RowProps) {
   console.log('rendering row', id);
   return <div onClick={() => onSelect(id)}>{label}</div>;
 });
 ```
 
-`React.memo` does a shallow comparison (`Object.is` on each prop). This is exactly why it fails silently in the most common real case: an inline arrow function or object literal passed as a prop is a *new reference every render*, so the shallow comparison always reports "changed" and `memo` never actually skips anything.
+`React.memo` does a shallow `Object.is` comparison per prop, which is exactly why it silently does nothing in the most common real scenario: an inline arrow function or object literal passed as a prop is a *new reference every render*, so the shallow comparison reports "changed" every single time and `memo` never actually skips anything.
 
 ```tsx
 function ParentBroken() {
   const [count, setCount] = useState(0);
-  // New function reference every render -> ExpensiveRow's memo check always fails
+  // New function reference every render → ExpensiveRow's memo check always fails
   return <ExpensiveRow id="1" label="Row" onSelect={(id) => console.log(id)} />;
 }
 ```
 
-**`useMemo`** caches the *result* of an expensive computation between renders, recomputing only when its dependency array changes:
+`useMemo` caches the *result* of a computation between renders, recomputing only when its dependency array changes:
 
 ```tsx
 function ProductList({ products, filterText }: { products: Product[]; filterText: string }) {
   const filtered = useMemo(
     () => products.filter(p => p.name.toLowerCase().includes(filterText.toLowerCase())),
-    [products, filterText], // only recompute when these change
+    [products, filterText],
   );
   return <ul>{filtered.map(p => <li key={p.id}>{p.name}</li>)}</ul>;
 }
 ```
 
-**`useCallback`** caches a *function reference* between renders, so passing it as a prop doesn't break a child's `React.memo`. It's `useMemo` specialized for functions: `useCallback(fn, deps)` === `useMemo(() => fn, deps)`.
+`useCallback` caches a *function reference* between renders, so passing it as a prop doesn't defeat a child's `React.memo`. It's `useMemo` specialized for functions: `useCallback(fn, deps)` is exactly `useMemo(() => fn, deps)`.
 
 ```tsx
 function ParentFixed() {
-  const [count, setCount] = useState(0);
-
-  const handleSelect = useCallback((id: string) => {
-    console.log('selected', id);
-  }, []); // stable reference across renders — empty deps because it captures nothing that changes
-
+  const handleSelect = useCallback((id: string) => { console.log('selected', id); }, []);
   return <ExpensiveRow id="1" label="Row" onSelect={handleSelect} />;
-  // Now ExpensiveRow's React.memo check actually passes when count changes elsewhere
+  // Now ExpensiveRow's React.memo check actually passes when unrelated state changes elsewhere
 }
 ```
 
-The rule of thumb: `useMemo`/`useCallback` on a prop is only useful if the receiving component is *also* wrapped in `React.memo` (or the value feeds into another hook's dependency array). Memoizing a callback passed to a plain, non-memoized child does nothing: that child re-renders regardless.
+The rule of thumb worth internalizing: `useMemo`/`useCallback` on a value only pays off if the component receiving it is *also* wrapped in `React.memo`, or the value feeds into another hook's dependency array. Memoizing a callback passed to a plain, non-memoized child changes nothing, that child re-renders regardless of whether the reference is stable.
 
-## Cost of memoization
+## Memoization isn't free
 
-This is the part interviews actually probe for at senior level: memoization is not free.
-
-- **Memory**: every memoized value/function is kept alive between renders, holding references to its closure's captured variables. At scale (thousands of memoized rows), this is real memory pressure.
-- **Comparison cost**: `useMemo`/`useCallback`/`React.memo` all pay a comparison cost every render (dependency array diffing, or shallow prop comparison). For a cheap computation, the comparison can cost more than just redoing the work.
-- **Cognitive/maintenance cost**: a wrong or incomplete dependency array is a correctness bug (stale closures), not just a missed optimization. `useMemo(() => expensive(a, b), [a])` silently uses a stale `b` forever if `b` changes without `a` changing.
+This is what senior-level interviews are actually probing for. Every memoized value or function stays alive between renders, holding references to whatever its closure captured, real memory pressure at scale across thousands of memoized rows. `useMemo`/`useCallback`/`React.memo` all pay a comparison cost on every render too, dependency-array diffing or shallow prop comparison, and for a genuinely cheap computation, that comparison can cost more than just redoing the work would have. There's a maintenance cost as well: a wrong or incomplete dependency array is a correctness bug, a stale closure, not just a missed optimization. `useMemo(() => expensive(a, b), [a])` silently keeps using a stale `b` forever the moment `b` changes without `a` changing alongside it.
 
 ```tsx
-// Don't do this — memoizing a cheap string concat costs more than it saves
+// Don't: memoizing a cheap string concat costs more than it saves
 const fullName = useMemo(() => `${firstName} ${lastName}`, [firstName, lastName]);
-
 // Just do this
 const fullName = `${firstName} ${lastName}`;
 ```
 
-**Interview question: "Should you wrap every component in React.memo by default?"**
-No. `React.memo` on a component whose props change on almost every render (or that's cheap to render anyway) adds a wasted comparison on top of the render you were trying to avoid. Reach for it when profiling shows a specific component re-rendering expensively with stable props, not preemptively.
+Should every component be wrapped in `React.memo` by default? No. `React.memo` on a component whose props change on nearly every render, or that's cheap to render regardless, adds a wasted comparison on top of the render you were trying to avoid. Reach for it when profiling shows a specific component re-rendering expensively with otherwise-stable props, not as a preemptive habit.
 
-## DevTools performance tab and Profiler API
+## Measuring before you touch anything
 
-Don't guess, measure. Two tools, same underlying idea (record renders, see what's slow):
+Don't guess. Two tools, the same underlying idea: record renders, see what's actually slow.
 
-**React DevTools Profiler tab** (browser extension): record a session, interact with the app, stop recording. It shows a flamegraph per commit: each bar is a component, width is render time, and you can click "why did this render?" to see exactly which prop/state/context changed. This is the fastest way to confirm a suspected unnecessary re-render before reaching for `memo`.
+The **React DevTools Profiler tab** records a session as you interact with the app, and shows a flamegraph per commit, each bar a component, width equal to render time, with a "why did this render?" breakdown of exactly which prop, state, or context changed. It's the fastest way to confirm a suspected unnecessary re-render before you reach for `memo` at all.
 
-**`React.Profiler` component** (programmatic, works in production too):
+The **`React.Profiler` component** does the same thing programmatically, and works in production too:
 
 ```tsx
 import { Profiler, type ProfilerOnRenderCallback } from 'react';
 
-const onRender: ProfilerOnRenderCallback = (
-  id,             // the Profiler tree's id prop
-  phase,          // "mount" | "update" | "nested-update"
-  actualDuration, // time spent rendering this commit
-  baseDuration,   // estimated time to render the WHOLE subtree without memoization
-  startTime,
-  commitTime,
-) => {
+const onRender: ProfilerOnRenderCallback = (id, phase, actualDuration) => {
   if (actualDuration > 16) { // longer than one 60fps frame budget
     console.warn(`${id} took ${actualDuration.toFixed(2)}ms during ${phase}`);
   }
@@ -16743,5437 +17364,14 @@ function App() {
 }
 ```
 
-**Chrome DevTools Performance tab**: records everything (JS execution, layout, paint, GC) across the whole page, not just React. Use it when the bottleneck might not be React at all (e.g., a synchronous `JSON.parse` of a huge payload, or layout thrashing from Day 3). Look for long yellow (scripting) or purple (rendering) bars, and check the "Bottom-Up" tab to find which function actually consumed the time, not just which one was on top of the call stack when it happened.
+The **Chrome DevTools Performance tab** records everything on the page, JS execution, layout, paint, garbage collection, not just React, which is where to look when the bottleneck might not be React at all, a synchronous `JSON.parse` of a huge payload, or the layout-thrashing pattern from earlier in this course. Look for long yellow (scripting) or purple (rendering) bars, and check the "Bottom-Up" tab to find which function actually consumed the time, not just which one happened to be on top of the call stack when the recording captured it.
 
-The workflow that answers "how would you optimize a slow app" well in an interview: **profile first, identify the specific expensive component/computation, apply the narrowest targeted fix (memo/useMemo/useCallback/virtualization/code-splitting), then profile again to confirm the fix actually helped.** Optimizing without measuring first is the wrong answer even when the fix happens to work.
+The workflow that reads as a strong answer to "how would you optimize a slow app": profile first, identify the specific expensive component or computation, apply the narrowest targeted fix, `memo`, `useMemo`, `useCallback`, virtualization, code splitting, then profile again to confirm the fix actually helped. Optimizing without measuring first is the wrong answer even in the cases where the fix happens to work anyway.
 $md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('0b99a30d-15a8-50f2-87ba-aaf445eb3fa7', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'HTTP and Caching', 'notes', 9, $md$Caching questions ("how would you cache this API response," "what's stale-while-revalidate," "explain ETag") test whether you understand the network, not just React. This is also the day system-design-adjacent frontend interviews lean on hardest, get comfortable with HTTP cache headers and service workers and you can speak to both the browser cache and the CDN layer.
-
-## HTTP caching headers
-
-Three headers do almost all the work, and they answer two different questions: "can I skip the network entirely?" and "if I do hit the network, can the server tell me nothing changed?"
-
-**`Cache-Control`** is the primary directive, replacing the older `Expires`/`Pragma`:
-
-```
-Cache-Control: max-age=3600              # fresh for 1 hour, no request needed
-Cache-Control: no-cache                  # ALWAYS revalidate with the server (misleading name — it doesn't mean "don't cache")
-Cache-Control: no-store                  # never cache at all, anywhere
-Cache-Control: private, max-age=0        # only cache in the user's browser, not shared caches/CDNs
-Cache-Control: public, max-age=31536000, immutable  # cache forever — for hashed asset filenames (app.a1b2c3.js)
-```
-
-`no-cache` vs `no-store` is a classic interview trap: `no-cache` means "store it, but revalidate with the server before using it" (a conditional request still happens); `no-store` means "don't persist this response anywhere, full stop," correct for anything containing auth tokens or personal data.
-
-**`ETag`** is a hash/version identifier for a specific resource version. The client sends it back on the next request via `If-None-Match`; if it matches, the server returns `304 Not Modified` with no body, saving the bandwidth of re-sending unchanged content:
-
-```
-# First request
-GET /api/user/42
-→ 200 OK
-  ETag: "33a64df551"
-  Cache-Control: no-cache
-
-# Later, browser revalidates automatically
-GET /api/user/42
-  If-None-Match: "33a64df551"
-→ 304 Not Modified   (no body sent — the browser reuses its cached copy)
-```
-
-**`Last-Modified`** is a timestamp-based alternative to `ETag`, paired with `If-Modified-Since` on the follow-up request. Coarser than `ETag` (second-level precision, and doesn't catch a change that happens within the same second), but cheaper for the server to compute: it's often just a file's mtime.
-
-```
-Last-Modified: Wed, 21 Oct 2025 07:28:00 GMT
-# next request sends: If-Modified-Since: Wed, 21 Oct 2025 07:28:00 GMT
-```
-
-Use both when you can: `ETag` takes priority if both are present, `Last-Modified` is the fallback.
-
-## CDN caching strategies
-
-A CDN is a cache layer geographically close to the user, sitting in front of your origin server. Two levers matter for frontend interviews:
-
-- **Cache key**: what makes two requests "the same" for caching purposes, typically URL plus relevant headers (e.g., `Vary: Accept-Encoding` for gzip vs brotli, `Vary: Accept-Language` for localized responses). Get this wrong and you either serve the wrong content to some users (cache key too narrow) or get near-zero cache hit rate (cache key too wide, e.g. including an `Authorization` header or a cache-busting query param that's actually random per request).
-- **Purge/invalidation**: CDNs hold content longer than the browser, so deploying new content requires either a new URL (content-hashed filenames, the standard approach for JS/CSS bundles) or an explicit purge API call.
-
-The standard production pattern for a modern build (Vite/webpack/Next.js): HTML is served with `Cache-Control: no-cache` (always revalidate, cheap request, tiny payload) so users always get the latest HTML, while it references hashed asset URLs (`/app.a1b2c3.js`) served with `Cache-Control: public, max-age=31536000, immutable` (cache forever: a content change produces a new hash, hence a new URL, so there's never a staleness problem to invalidate).
-
-## Stale-while-revalidate
-
-`stale-while-revalidate` is a `Cache-Control` directive (and, independently, a general caching *pattern* implemented by libraries like SWR/React Query and service workers) that serves the cached response immediately, then fetches a fresh one in the background to update the cache for *next* time.
-
-```
-Cache-Control: max-age=60, stale-while-revalidate=3600
-```
-
-Reading: fresh for 60 seconds. After that, for up to 3600 more seconds, the cache still serves the stale response instantly *and* kicks off a background revalidation request. The user never waits on the network for this request; they might just briefly see one-render-old data. This is exactly why the "SWR" library (and TanStack Query's default behavior) is named after this pattern: it's the "show cached data instantly, update quietly" UX.
-
-```tsx
-// Conceptually what a library like SWR does under the hood:
-async function staleWhileRevalidate<T>(cacheKey: string, fetcher: () => Promise<T>): Promise<T> {
-  const cached = readCache<T>(cacheKey);
-
-  if (cached) {
-    // Fire the revalidation in the background — don't await it before returning
-    fetcher().then(fresh => writeCache(cacheKey, fresh));
-    return cached; // return stale data immediately, zero network wait
-  }
-
-  // No cache yet — must wait on the network this one time
-  const fresh = await fetcher();
-  writeCache(cacheKey, fresh);
-  return fresh;
-}
-```
-
-## Cache invalidation strategies
-
-"There are only two hard things in Computer Science: cache invalidation and naming things." Three practical strategies, in order of reliability:
-
-1. **Content-addressed URLs (cache-busting via hashing)**: the filename encodes a hash of the content (`app.a1b2c3.js`). A change produces a different URL, so there's nothing to invalidate: old cached entries just become unreferenced and expire naturally. This is the strategy for static assets and the strongest guarantee.
-2. **TTL-based expiration**: set `max-age` to how long you're willing to tolerate staleness. Simple, but there's always a window where stale data is served: acceptable for things like a homepage banner, not for account balances.
-3. **Explicit invalidation (purge)**: actively tell the cache "this is now wrong": call the CDN's purge API, or in a service worker, bump a cache version name and delete the old one. Necessary when data changes unpredictably and staleness is unacceptable (e.g., a price change), but it requires the invalidation call to actually fire reliably, which is the hard part.
-
-## Build: a service worker for caching
-
-Service workers sit between your app and the network as a programmable proxy, letting you implement any of the strategies above (and enable offline support):
-
-```tsx
-// sw.js — registered from your app with navigator.serviceWorker.register('/sw.js')
-const CACHE_NAME = 'app-cache-v3'; // bump this string to invalidate everything below
-const STATIC_ASSETS = ['/', '/app.js', '/app.css'];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)),
-  );
-});
-
-self.addEventListener('activate', (event) => {
-  // Delete old cache versions — this IS the invalidation step
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))),
-    ),
-  );
-});
-
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-
-  if (request.url.includes('/api/')) {
-    // Stale-while-revalidate for API calls: serve cache instantly, update in background
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(request);
-        const networkFetch = fetch(request).then(response => {
-          cache.put(request, response.clone()); // clone: a Response body can only be read once
-          return response;
-        });
-        return cached || networkFetch; // return cache immediately if we have it
-      }),
-    );
-    return;
-  }
-
-  // Cache-first for static assets, fall back to network
-  event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request)),
-  );
-});
-```
-
-Demonstrating browser caching behavior for the checklist item below: open DevTools → Network tab, load a page, reload it, and inspect the `Size` column: entries showing `(disk cache)` or `(memory cache)` never hit the network at all; entries showing `304` hit the network but the server confirmed no change (compare response time: a 304 is typically much faster than a full 200).
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('5f9b9654-4019-5655-ad2b-a61fee76d9c9', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Checkpoint 1', 'notes', 10, $md$No new material today: this is a consolidation pass over Days 1-4 (React rendering, hooks internals, the event loop, and state management). Interviewers rarely ask about one topic in isolation; they chain them ("your list re-renders on every keystroke, walk me through why, then fix it"). Use this review to make sure you can move between these four topics without losing the thread.
-
-## React rendering: the one-paragraph version
-
-React keeps a virtual DOM (cheap plain-object tree) and diffs it against the previous render to compute the minimal real-DOM mutation. A component re-renders when its own state changes, its parent re-renders, a context it reads changes, or a hook forces an update. "Re-render" (calling the function, render phase) is not the same as "DOM changes" (commit phase). Class lifecycle (`componentDidMount`/`Update`/`WillUnmount`) maps onto `useEffect` with empty/populated/cleanup semantics, except `componentDidCatch` has no hook equivalent.
-
-**Say this out loud, unprompted, if asked "why did this re-render":** check in order: did props change (reference equality), did local state change, did a consumed context change, did the parent re-render unconditionally cascading down.
-
-## React hooks: the one-paragraph version
-
-Hook state lives on the fiber, addressed by call-order index, not by name. That's exactly why hooks can't be conditional: skip a hook call on some renders and every subsequent hook reads the wrong slot. `useState`'s setter bails out of re-rendering on an `Object.is`-equal value. `useEffect` diffs its dependency array with `Object.is` per element after commit; no array means every render, empty array means once, cleanup runs before the next effect and on unmount.
-
-**Say this out loud, unprompted, if asked "why is my effect running twice" or "stuck in a loop":** check the dependency array first: an object/array/function literal recreated every render as a dependency will never be `Object.is`-equal to itself, causing an infinite effect loop; missing a dependency causes a stale closure instead.
-
-## Event loop: the one-paragraph version
-
-One call stack. After it empties, the event loop drains the *entire* microtask queue (Promises, `queueMicrotask`, async/await continuations) before running the next macrotask (`setTimeout`, UI events), regardless of `setTimeout`'s delay value. `requestAnimationFrame` runs right before paint, synced to refresh rate; the render pipeline is Style → Layout → Paint → Composite, and `transform`/`opacity` are composite-only (GPU, skip layout+paint), which is why they're the only properties safe to animate at 60fps.
-
-**Say this out loud, unprompted, if asked to predict console.log order:** identify sync code first (runs immediately, in order), then all microtasks (in queue order, including ones queued by other microtasks during the drain), then macrotasks last.
-
-## State management: the one-paragraph version
-
-Default to the narrowest scope: local `useState`/`useReducer` → lift to common parent → Context (for rarely-changing, cross-cutting values like theme/auth) → external store (Redux/Zustand, for frequent/complex/cross-cutting state, because it gives selective subscriptions Context can't). A store is just: state + pure reducer + subscriber set + dispatch that runs the reducer and notifies subscribers. `useSyncExternalStore` is the React-correct way to subscribe to one. Always produce new object/array references on update (React/Redux use reference equality), and normalize deeply nested duplicated entities into flat `byId`/`allIds` tables.
-
-**Say this out loud, unprompted, if asked "when would you NOT use Redux":** small/medium app, state is mostly local or server-cached (reach for React Query/SWR instead of hand-rolling), or the only cross-cutting need is a rarely-changing value: Context is enough and Redux's ceremony isn't worth it.
-
-## Self-test — answer without looking back
-
-Work through these as if in a live interview, out loud, before checking your notes:
-
-1. A parent component re-renders. Does its memoized child (`React.memo`) definitely skip re-rendering? Why or why not?
-2. You call `useState`'s setter with the exact same object reference it already holds. Does the component re-render?
-3. Write the console.log output order for: a sync `console.log`, then `setTimeout(fn, 0)`, then `Promise.resolve().then(fn)`, then another sync `console.log`.
-4. Why does animating `top`/`left` cost more than animating `transform`, in terms of the render pipeline?
-5. You have a `<Toggle>` component whose visibility should show/hide a `<Sidebar>` used by exactly one parent. Local state, Context, or Redux, and why?
-6. A reducer does `state.items.push(newItem); return state;` instead of returning a new array. What breaks, and why does React/Redux not catch it as an error?
-$md$, 18, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('98888140-7ac3-5862-9453-9e6902914a61', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Network Performance', 'notes', 11, $md$"How would you find out why this page is slow to load?" is a diagnostic question, and the answer starts with reading a network waterfall, not guessing. Today is about measuring: the Performance API, waterfall charts, and the resource hints (`preload`/`prefetch`) and image techniques that turn a diagnosis into a fix. Day 9 builds on this with the bundling side (code splitting).
-
-## Network waterfall visualization
-
-The waterfall (DevTools Network tab, or Lighthouse/WebPageTest) shows every resource request as a horizontal bar over time, and each bar breaks into phases:
-
-```
-Queued → Stalled → DNS Lookup → Initial Connection → SSL → Request Sent → Waiting (TTFB) → Content Download
-```
-
-What to look for, in priority order:
-
-- **Long "Stalled" bars on many requests at once**: the browser caps parallel connections per origin (historically 6 for HTTP/1.1); requests queue behind each other. HTTP/2 multiplexing (multiple requests over one connection) fixes this. Check the `Protocol` column.
-- **A long TTFB (Time to First Byte) on the document request**: a server-side problem (slow backend, cold start, no caching), not a frontend problem. Nothing renders until this returns.
-- **A "waterfall staircase"**: request B doesn't start until request A finishes, when they could have started in parallel. Usually caused by a synchronous chain: HTML → discover CSS → discover font referenced in CSS → discover JS that fetches data. Each hop costs a full round trip.
-- **Render-blocking resources at the top**: `<script>` tags without `defer`/`async` in `<head>`, and `<link rel="stylesheet">`, both block the parser/first paint until downloaded and (for scripts) executed.
-
-## Measure request performance with the Performance API
-
-The `Performance` API gives you programmatic, precise timing: the same data the waterfall visualizes, but queryable in code (and shippable to real-user-monitoring/analytics):
-
-```tsx
-// Navigation timing: how the initial document load broke down
-const [nav] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-console.log('TTFB:', nav.responseStart - nav.requestStart);
-console.log('DOM interactive:', nav.domInteractive - nav.startTime);
-console.log('DOM content loaded:', nav.domContentLoadedEventEnd - nav.startTime);
-console.log('Full load:', nav.loadEventEnd - nav.startTime);
-
-// Resource timing: every fetch/script/image/stylesheet the page loaded
-const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
-const slowest = resources
-  .sort((a, b) => b.duration - a.duration)
-  .slice(0, 5);
-slowest.forEach(r => console.log(r.name, `${r.duration.toFixed(0)}ms`, r.initiatorType));
-
-// Custom app-level measurements — mark two points, measure the gap
-performance.mark('data-fetch-start');
-await fetchProducts();
-performance.mark('data-fetch-end');
-performance.measure('data-fetch', 'data-fetch-start', 'data-fetch-end');
-const [measurement] = performance.getEntriesByName('data-fetch');
-console.log(`Fetching products took ${measurement.duration.toFixed(0)}ms`);
-```
-
-```tsx
-// Core Web Vitals via PerformanceObserver — how real user monitoring is built
-new PerformanceObserver((list) => {
-  for (const entry of list.getEntries()) {
-    console.log('LCP:', entry.startTime); // Largest Contentful Paint
-  }
-}).observe({ type: 'largest-contentful-paint', buffered: true });
-
-new PerformanceObserver((list) => {
-  for (const entry of list.getEntries() as any[]) {
-    console.log('CLS shift:', entry.value); // Cumulative Layout Shift
-  }
-}).observe({ type: 'layout-shift', buffered: true });
-```
-
-**Interview question: "What are the Core Web Vitals and why do they matter?"** LCP (Largest Contentful Paint, perceived load speed), INP (Interaction to Next Paint, replaced FID in 2024; responsiveness), and CLS (Cumulative Layout Shift, visual stability). They matter because Google uses them as a search ranking signal and because they're the closest proxy metrics have to actual user-perceived quality.
-
-## Preload vs prefetch
-
-Both are `<link rel="...">` resource hints that tell the browser about a resource before it would normally discover it, but they signal different priority and timing:
-
-```html
-<!-- preload: fetch NOW, high priority — for a resource THIS page needs soon
-     (e.g., a font referenced only inside CSS, which the browser can't discover
-     until it parses the CSS, by which point it's already late) -->
-<link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
-
-<!-- prefetch: fetch when idle, low priority — for a resource the NEXT page
-     will likely need (e.g., the JS chunk for a route the user is likely to visit) -->
-<link rel="prefetch" href="/dashboard-chunk.js" as="script">
-```
-
-`preload` competes with the current page's critical resources for bandwidth. Overusing it (preloading everything) can slow down the actual critical path, which is a common mistake candidates make when asked to "optimize" a page. `prefetch` is opportunistic and low-priority by design, so it's safe to be more liberal with it, but it's still wasted bandwidth if the guess about "next page" is wrong.
-
-## Image optimization techniques
-
-Images are usually the largest payload on a page, so this is high-leverage:
-
-```html
-<!-- Responsive images: let the browser pick the right size for the viewport/DPR -->
-<img
-  src="/photo-800.jpg"
-  srcset="/photo-400.jpg 400w, /photo-800.jpg 800w, /photo-1200.jpg 1200w"
-  sizes="(max-width: 600px) 400px, 800px"
-  alt="Product photo"
-  loading="lazy"
-  decoding="async"
-  width="800" height="600"
-/>
-
-<!-- Modern formats with fallback -->
-<picture>
-  <source srcset="/photo.avif" type="image/avif" />
-  <source srcset="/photo.webp" type="image/webp" />
-  <img src="/photo.jpg" alt="Product photo" />
-</picture>
-```
-
-Key levers: `loading="lazy"` defers offscreen images until they near the viewport (native, no JS needed); always set explicit `width`/`height` (or `aspect-ratio` in CSS) so the browser reserves the right space before the image loads, preventing layout shift (CLS); AVIF/WebP are 25-50% smaller than JPEG/PNG at equivalent visual quality; `srcset`/`sizes` avoid shipping a 2000px image to a 400px mobile viewport.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('c269d721-0e65-5201-bb7b-bd0f147a34cf', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Code Splitting and Bundle Optimization', 'notes', 12, $md$Bundle size is one of the few frontend metrics that shows up directly in Lighthouse scores, Core Web Vitals, and real user complaints, which makes it a favorite interview topic. Today you'll learn how bundlers decide what ships, how to split that output into smaller chunks React can load on demand, and how to prove the improvement with real measurements instead of vibes.
-
-## Why bundle size matters
-
-Every kilobyte of JavaScript costs three times: download, parse/compile, and execute. On a throttled mobile connection, a 500KB bundle can add seconds to Time to Interactive even if the network transfer is fast, because the main thread is busy parsing and running code before it can respond to input.
-
-Interviewers ask about this because it separates people who've shipped to production from people who've only run `create-react-app` locally. The signal they want: you understand there's a cost model, and you know the levers to pull.
-
-## Tree shaking
-
-Tree shaking is dead-code elimination based on ES module `import`/`export` static analysis. Bundlers (webpack, Rollup, esbuild, Vite) can only shake code that is statically analyzable, which is why ES modules (not CommonJS `require`) are required for it to work reliably.
-
-```ts
-// utils.ts — a library with multiple named exports
-export function formatDate(d: Date) { /* ... */ }
-export function debounce(fn: Function, ms: number) { /* ... */ }
-export function heavyPdfGenerator() { /* ... */ } // never used
-
-// app.ts
-import { formatDate } from "./utils";
-// A bundler can see `heavyPdfGenerator` is never imported anywhere
-// and drop it from the final bundle — IF utils.ts has no side effects.
-```
-
-Two things break tree shaking in practice:
-
-1. **CommonJS imports** (`const { formatDate } = require("./utils")`): the bundler can't statically prove which exports are used.
-2. **Side effects at module scope.** If a module runs code when imported (e.g., `library.registerPlugin()` at the top level), the bundler can't safely remove it even if you don't use its exports. Mark your package as side-effect-free:
-
-```json
-// package.json
-{
-  "sideEffects": false
-}
-```
-
-If some files genuinely have side effects (CSS imports, polyfills), list them explicitly:
-
-```json
-{
-  "sideEffects": ["*.css", "./src/polyfills.ts"]
-}
-```
-
-**Common interview trap:** importing a whole library for one function.
-
-```ts
-// Bad: pulls in the entire lodash bundle unless the bundler
-// is specifically configured for deep tree shaking
-import _ from "lodash";
-_.debounce(fn, 300);
-
-// Good: only pulls in the debounce module
-import debounce from "lodash/debounce";
-// Better: use lodash-es, which is built for tree shaking
-import { debounce } from "lodash-es";
-```
-
-## Dynamic imports and `React.lazy`
-
-A dynamic `import()` returns a promise and tells the bundler "this is a separate chunk, load it on demand." React wraps this pattern with `React.lazy` and `Suspense` for components.
-
-```tsx
-import { lazy, Suspense } from "react";
-
-// This creates a separate JS chunk that is only fetched
-// when SettingsPanel is actually rendered.
-const SettingsPanel = lazy(() => import("./SettingsPanel"));
-
-export function App() {
-  const [showSettings, setShowSettings] = useState(false);
-
-  return (
-    <div>
-      <button onClick={() => setShowSettings(true)}>Open settings</button>
-      {showSettings && (
-        <Suspense fallback={<Spinner />}>
-          <SettingsPanel />
-        </Suspense>
-      )}
-    </div>
-  );
-}
-```
-
-Key details interviewers probe:
-
-- `React.lazy` only works with **default exports**. If your module has a named export, re-export it as default in the lazy import or wrap it:
-  ```ts
-  const Chart = lazy(() =>
-    import("./Chart").then((mod) => ({ default: mod.Chart }))
-  );
-  ```
-- `Suspense` must wrap the lazy component (or an ancestor); without it, React throws because the promise has nothing to suspend against.
-- If the dynamic import rejects (network failure), you need an error boundary around the `Suspense`: `Suspense` handles the pending state, not the error state.
-- In React 19, `lazy` works the same way but composes cleanly with Server Components; a lazy client component still needs `Suspense` on the client render path.
-
-## Route-based code splitting
-
-The highest-leverage place to split is at the route level — a user visiting `/dashboard` shouldn't download the `/settings` bundle.
-
-```tsx
-import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
-
-const Dashboard = lazy(() => import("./routes/Dashboard"));
-const Settings = lazy(() => import("./routes/Settings"));
-const Reports = lazy(() => import("./routes/Reports"));
-
-export function AppRoutes() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <Routes>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/reports" element={<Reports />} />
-      </Routes>
-    </Suspense>
-  );
-}
-```
-
-Frameworks like Next.js do this automatically per-page via file-based routing: every page under `app/` is already its own chunk without a manual `lazy()` call.
-
-## Prefetching to hide the loading cost
-
-Splitting adds a network waterfall: click → fetch chunk → parse → render. You can hide that latency by prefetching on intent (hover, viewport visibility) rather than waiting for the click.
-
-```tsx
-function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
-  const prefetch = () => import(`./routes/${to}.tsx`);
-  return (
-    <Link to={to} onMouseEnter={prefetch} onFocus={prefetch}>
-      {children}
-    </Link>
-  );
-}
-```
-
-Webpack magic comments give you the same idea declaratively:
-
-```ts
-const Reports = lazy(() => import(/* webpackPrefetch: true */ "./routes/Reports"));
-```
-
-## Measuring the bundle
-
-Never optimize a bundle you haven't measured. Two standard tools:
-
-```bash
-# webpack-bundle-analyzer — visual treemap of what's in each chunk
-npm install --save-dev webpack-bundle-analyzer
-
-# source-map-explorer — attributes bundle bytes back to source files
-# using the build's source maps
-npm install --save-dev source-map-explorer
-npx source-map-explorer 'build/static/js/*.js'
-```
-
-Vite equivalent:
-
-```bash
-npm install --save-dev rollup-plugin-visualizer
-```
-
-```ts
-// vite.config.ts
-import { visualizer } from "rollup-plugin-visualizer";
-
-export default {
-  plugins: [visualizer({ open: true, gzipSize: true })],
-};
-```
-
-What to look for in the output:
-
-- A single dependency (e.g., `moment.js`, an icon library imported in full) dominating a chunk: swap for a lighter alternative or import only what's used.
-- Duplicate versions of the same library across chunks (usually a dependency mismatch): check with `npm ls <package>`.
-- Vendor code that never changes bundled together with app code that changes every deploy: split them so vendor chunks stay cached across deploys.
-
-## Bundle budgets
-
-A bundle budget is a CI-enforced ceiling on chunk size that fails the build if exceeded. It turns "we should keep an eye on bundle size" into something that can't silently regress.
-
-```json
-// package.json (Create React App / craco) or a CI step
-{
-  "bundlesize": [
-    {
-      "path": "./build/static/js/main.*.js",
-      "maxSize": "150 kB"
-    }
-  ]
-}
-```
-
-Webpack's built-in `performance` hints do the same thing natively:
-
-```js
-// webpack.config.js
-module.exports = {
-  performance: {
-    maxAssetSize: 250000,
-    maxEntrypointSize: 250000,
-    hints: "error", // fail the build, don't just warn
-  },
-};
-```
-
-The interview point: budgets should be enforced in CI, not checked manually before a release. A budget nobody enforces is a suggestion, not a budget.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('4ab28f22-4552-538a-bc43-d0a7d6e8a0f5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Virtualization', 'notes', 13, $md$Render a 10,000-row table the naive way and you'll create 10,000 DOM nodes, most of which the user never sees. Virtualization is the technique that keeps the DOM small regardless of data size, and it's a near-guaranteed interview question for anyone claiming React performance experience, either "how would you render a huge list?" or "implement a virtualized list from scratch."
-
-## Windowing vs. virtualization
-
-The terms are used almost interchangeably, but there's a useful distinction:
-
-- **Windowing** is the general idea: only render the "window" of items currently visible (plus a buffer), and reuse/recycle DOM nodes as the window moves.
-- **Virtualization** is the broader concept applied beyond lists: virtual scrolling for grids, virtualized tables with sticky columns, virtualized trees. Windowing is virtualization applied specifically to a scrollable list.
-
-In practice, when someone says "virtualize this list," they mean: keep the number of rendered DOM nodes roughly constant no matter how many items are in the underlying data.
-
-## The core idea, built from scratch
-
-Before reaching for a library, understand the mechanism. This is what interviewers actually want to see.
-
-```tsx
-import { useState, useRef, useMemo, type CSSProperties } from "react";
-
-interface VirtualListProps<T> {
-  items: T[];
-  itemHeight: number; // fixed row height in px
-  containerHeight: number; // visible viewport height in px
-  overscan?: number;
-  renderItem: (item: T, index: number) => React.ReactNode;
-}
-
-function FixedHeightVirtualList<T>({
-  items,
-  itemHeight,
-  containerHeight,
-  overscan = 3,
-  renderItem,
-}: VirtualListProps<T>) {
-  const [scrollTop, setScrollTop] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const totalHeight = items.length * itemHeight;
-
-  // Which rows are visible right now, based on scroll position
-  const startIndex = Math.max(
-    0,
-    Math.floor(scrollTop / itemHeight) - overscan
-  );
-  const visibleCount = Math.ceil(containerHeight / itemHeight) + overscan * 2;
-  const endIndex = Math.min(items.length - 1, startIndex + visibleCount);
-
-  const visibleItems = useMemo(
-    () => items.slice(startIndex, endIndex + 1),
-    [items, startIndex, endIndex]
-  );
-
-  return (
-    <div
-      ref={containerRef}
-      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-      style={{ height: containerHeight, overflowY: "auto", position: "relative" }}
-    >
-      {/* Spacer div gives the scrollbar the correct total height */}
-      <div style={{ height: totalHeight, position: "relative" }}>
-        {visibleItems.map((item, i) => {
-          const index = startIndex + i;
-          const style: CSSProperties = {
-            position: "absolute",
-            top: index * itemHeight,
-            left: 0,
-            right: 0,
-            height: itemHeight,
-          };
-          return (
-            <div key={index} style={style}>
-              {renderItem(item, index)}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-```
-
-The mechanism, in three parts:
-
-1. **Outer scroll container** with a fixed height and `overflow: auto`: this is what actually scrolls.
-2. **Inner spacer** sized to `items.length * itemHeight` so the scrollbar behaves as if all rows were rendered.
-3. **Absolutely positioned rows**, only for the visible slice, positioned with `top: index * itemHeight` so they land in the correct spot inside the spacer.
-
-This is exactly what `react-window`'s `FixedSizeList` does internally, minus edge-case handling.
-
-## Using react-window
-
-For production code, don't hand-roll this. Use a maintained library: `react-window` is the lightweight, modern choice (successor to `react-virtualized`).
-
-```bash
-npm install react-window
-```
-
-```tsx
-import { FixedSizeList } from "react-window";
-
-interface Row {
-  id: string;
-  name: string;
-}
-
-function RowRenderer({ index, style, data }: {
-  index: number;
-  style: React.CSSProperties;
-  data: Row[];
-}) {
-  const item = data[index];
-  return (
-    <div style={style} className="row">
-      {item.name}
-    </div>
-  );
-}
-
-function BigList({ rows }: { rows: Row[] }) {
-  return (
-    <FixedSizeList
-      height={600}
-      width="100%"
-      itemCount={rows.length}
-      itemSize={48}
-      itemData={rows}
-      overscanCount={5}
-    >
-      {RowRenderer}
-    </FixedSizeList>
-  );
-}
-```
-
-`react-window` gives you the `style` prop already computed (absolute position + height); you just apply it to your row's outer element. Passing data via `itemData` (rather than closing over `rows` in the render function) avoids recreating the row renderer on every render, which matters because `react-window` uses `React.memo` internally on rows.
-
-## Variable-height items
-
-Fixed-height virtualization is the easy case. Real lists (chat messages, comment threads, feed items) have unpredictable heights, which breaks the "index × itemHeight" math.
-
-Two approaches:
-
-**1. Known-but-varying heights**: if you can compute height ahead of render (e.g., from data), use `VariableSizeList`:
-
-```tsx
-import { VariableSizeList } from "react-window";
-
-function getItemSize(index: number) {
-  return items[index].isLong ? 120 : 60;
-}
-
-<VariableSizeList
-  height={600}
-  width="100%"
-  itemCount={items.length}
-  itemSize={getItemSize}
->
-  {RowRenderer}
-</VariableSizeList>;
-```
-
-**2. Unknown heights until rendered**: the common real case. Text wraps differently depending on content and container width, so you need to measure after render and cache the result. `@tanstack/react-virtual` is built for exactly this, using `ResizeObserver` under the hood:
-
-```bash
-npm install @tanstack/react-virtual
-```
-
-```tsx
-import { useRef } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-
-function DynamicList({ items }: { items: string[] }) {
-  const parentRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: items.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 60, // initial guess before measurement
-    overscan: 5,
-  });
-
-  return (
-    <div ref={parentRef} style={{ height: 600, overflow: "auto" }}>
-      <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-        {virtualizer.getVirtualItems().map((virtualRow) => (
-          <div
-            key={virtualRow.key}
-            data-index={virtualRow.index}
-            ref={virtualizer.measureElement}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              transform: `translateY(${virtualRow.start}px)`,
-            }}
-          >
-            {items[virtualRow.index]}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
-The `estimateSize` is a starting guess; `measureElement` (via `ResizeObserver`) corrects it after the real DOM node renders, and the virtualizer recalculates offsets for items below it. This is the mechanism to describe when an interviewer asks "how do you virtualize a list where you don't know the row height in advance?"
-
-## Overscan
-
-Overscan is the number of extra items rendered outside the visible viewport, in the scroll direction. It exists to hide the "blank flash" that happens when a fast scroll outruns the render: without overscan, scrolling quickly reveals a frame of empty space before new rows paint.
-
-Trade-off: overscan is a direct multiplier on DOM node count. `overscan={5}` on both edges means you're rendering `visibleCount + 10` nodes instead of `visibleCount`. Too low → visible flashing on fast scroll. Too high → you're back to rendering most of the list, defeating the point of virtualizing. Typical values are 3–10 depending on row complexity and expected scroll speed.
-
-## Performance trade-offs
-
-Virtualization isn't free. Know the costs an interviewer expects you to name:
-
-- **Broken native browser behaviors.** `Ctrl+F` / in-page find won't find text in unrendered rows. `Cmd+A` select-all-and-copy only copies what's mounted. Anchor-link scrolling to an item by ID doesn't work if that item isn't rendered yet.
-- **SEO/accessibility cost.** Screen readers relying on the full DOM tree see only the rendered window; you often need `aria-setsize` / `aria-posinset` on rows to communicate true list position.
-- **Complexity cost.** Variable-height virtualization with dynamic content, sticky headers, and grouped sections is genuinely hard to get right: bugs show up as jumpy scroll position or items rendering at the wrong offset.
-- **When it's not worth it.** Lists under a few hundred items rarely need virtualization: the DOM can handle that fine, and the added complexity isn't justified. Profile first; virtualize when the row count is unbounded or in the thousands.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e1ab3626-3c6e-5cab-9c7b-e4451e90a78b', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'CSS and Rendering Performance', 'notes', 14, $md$JavaScript performance gets most of the interview attention, but a huge share of real jank comes from CSS and the browser's rendering pipeline. Today covers what actually happens between a style change and pixels on screen, and the handful of CSS properties and APIs that let you control it deliberately instead of accidentally.
-
-## The rendering pipeline
-
-Every frame the browser wants to paint goes through some or all of these stages:
-
-1. **Style**: compute which CSS rules apply to each element (recalculate style).
-2. **Layout (reflow)**: compute the geometry, meaning the position and size of every element affected by the change.
-3. **Paint**: fill in pixels (text, colors, borders, shadows, images) for every layer.
-4. **Composite**: combine painted layers into the final image, applying transforms and opacity on the GPU.
-
-The expensive part is that a change to a layout-affecting property (`width`, `top`, `margin`, `display`) forces the browser to redo layout for that element and potentially its ancestors and siblings, then repaint, then recomposite. A change to a composite-only property (`transform`, `opacity`) can skip layout and paint entirely and go straight to the compositor thread. That's why those two properties are the backbone of performant animation.
-
-| Change | Layout | Paint | Composite |
-|---|---|---|---|
-| `width`, `height`, `top`, `left`, `margin`, `font-size` | yes | yes | yes |
-| `color`, `background`, `box-shadow`, `border-radius` | no | yes | yes |
-| `transform`, `opacity` | no | no | yes |
-
-## Composite-only properties and GPU acceleration
-
-Because `transform` and `opacity` can be handled entirely on the compositor thread, they're the two properties you should default to for animation instead of animating `top`/`left`/`width`/`height`.
-
-```css
-/* Bad: animates layout-affecting properties, forces reflow every frame */
-.card {
-  transition: top 0.3s, left 0.3s;
-}
-.card.moved {
-  top: 100px;
-  left: 50px;
-}
-
-/* Good: same visual result, compositor-only */
-.card {
-  transition: transform 0.3s;
-}
-.card.moved {
-  transform: translate(50px, 100px);
-}
-```
-
-`will-change` is a hint to the browser to promote an element to its own compositor layer before the change happens, avoiding a layer-creation cost mid-animation:
-
-```css
-.card {
-  will-change: transform;
-}
-```
-
-Interview trap: `will-change` is not free. Every layer it creates consumes GPU memory. Applying it globally, or leaving it on permanently instead of toggling it on right before an animation and off after, can make performance worse by fragmenting the page into too many layers. The correct pattern is to set it just before the animation starts and remove it once it ends:
-
-```ts
-element.style.willChange = "transform";
-// ...run animation...
-element.addEventListener("transitionend", () => {
-  element.style.willChange = "auto";
-}, { once: true });
-```
-
-## Layout thrashing
-
-Layout thrashing (also called "forced synchronous layout") happens when JavaScript interleaves reads and writes of layout-dependent properties in a loop, forcing the browser to recompute layout synchronously on every read instead of batching it once per frame.
-
-```ts
-// Bad: read-write-read-write forces layout recalculation on every iteration
-function resizeAllBoxes(boxes: HTMLElement[]) {
-  boxes.forEach((box) => {
-    const width = box.offsetWidth; // READ — forces layout flush
-    box.style.width = `${width * 2}px`; // WRITE — invalidates layout
-  });
-  // Next iteration's offsetWidth read forces the browser to recompute
-  // layout synchronously *right now* instead of waiting for the next frame,
-  // because the previous write invalidated the cached layout.
-}
-```
-
-```ts
-// Good: batch all reads, then all writes
-function resizeAllBoxes(boxes: HTMLElement[]) {
-  const widths = boxes.map((box) => box.offsetWidth); // all reads first
-  boxes.forEach((box, i) => {
-    box.style.width = `${widths[i] * 2}px`; // all writes after
-  });
-}
-```
-
-This read/write batching pattern is sometimes called "FastDOM." Properties that trigger a forced synchronous layout on read include `offsetWidth`, `offsetHeight`, `getBoundingClientRect()`, `scrollTop`, and `getComputedStyle()`.
-
-**Measuring layout thrashing:** open Chrome DevTools, go to the Performance tab, record an interaction, and look for purple "Layout" blocks that repeat many times in a tight sequence. DevTools also flags repeated forced layouts as "Forced reflow" warnings in the summary.
-
-```ts
-// You can also instrument manually with the Performance API
-performance.mark("resize-start");
-resizeAllBoxes(boxes);
-performance.mark("resize-end");
-performance.measure("resize", "resize-start", "resize-end");
-console.log(performance.getEntriesByName("resize")[0].duration);
-```
-
-## CSS containment
-
-`contain` tells the browser that an element's internals are isolated from the rest of the page, so a change inside it can't affect layout or paint outside its boundary. The browser can then skip recalculating the rest of the tree.
-
-```css
-.list-item {
-  contain: content; /* shorthand for layout + paint + style */
-}
-
-.chart-widget {
-  contain: strict; /* layout + paint + style + size — strongest guarantee */
-}
-```
-
-| Value | Meaning |
-|---|---|
-| `contain: layout` | Element's layout doesn't affect or depend on anything outside it |
-| `contain: paint` | Descendants can't paint outside the element's bounds (like implicit `overflow: hidden` for painting) |
-| `contain: size` | Element's size doesn't depend on its children; you must give it explicit dimensions |
-| `contain: content` | `layout` + `paint` + `style` combined |
-| `contain: strict` | `content` + `size` combined, the strongest isolation |
-
-Practical use: a dashboard with many independent widgets. Wrapping each widget in `contain: content` means updating one widget's DOM doesn't force the browser to re-check layout for sibling widgets.
-
-`content-visibility: auto` builds on containment for off-screen content:
-
-```css
-.long-article section {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 500px; /* placeholder size before first render */
-}
-```
-
-This skips rendering work entirely for sections currently off-screen, only doing it once they scroll into view. It's a huge win for long pages with many sections, similar in spirit to virtualization but handled natively by the browser.
-
-## Critical CSS and render-blocking resources
-
-By default, `<link rel="stylesheet">` is render-blocking: the browser won't paint anything until all linked stylesheets are downloaded and parsed. On a slow connection this delays First Contentful Paint even if the HTML is ready.
-
-**Critical CSS** is the technique of inlining the minimal CSS needed for above-the-fold content directly in `<head>`, and loading the rest asynchronously:
-
-```html
-<head>
-  <style>
-    /* Inlined: only the CSS needed for the initial viewport */
-    .header { ... }
-    .hero { ... }
-  </style>
-
-  <!-- Non-critical CSS loaded without blocking render -->
-  <link
-    rel="preload"
-    href="/styles/main.css"
-    as="style"
-    onload="this.onload=null;this.rel='stylesheet'"
-  />
-  <noscript><link rel="stylesheet" href="/styles/main.css" /></noscript>
-</head>
-```
-
-Tools like `critical` or `critters` automate extracting above-the-fold CSS at build time. Next.js does this automatically for CSS Modules and styled-jsx in production builds.
-
-Other render-blocking resources worth knowing:
-
-- **Synchronous `<script>` tags in `<head>`** block HTML parsing entirely. Use `defer` (executes after parsing, in order) or `async` (executes as soon as loaded, out of order) for non-critical scripts.
-- **Web fonts** cause either a flash of invisible text (`font-display: swap` avoids this) or layout shift when the fallback font swaps to the loaded font. Mitigate with `size-adjust` or matching fallback metrics.
-
-```css
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/inter.woff2") format("woff2");
-  font-display: swap; /* show fallback immediately, swap when loaded */
-}
-```
-
-An interviewer probing this topic usually wants to see one thing: can you connect a specific CSS property to a specific pipeline stage, and from there to a specific fix? "This animates `top`, so it forces layout, so switch it to `transform`" is the shape of answer that reads as senior. Reciting the stage names without connecting them to a property doesn't.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('58267029-df3f-58e4-a4d4-eb74d2d67a29', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'TypeScript for React', 'notes', 15, $md$Most production React codebases are TypeScript now, and interviewers routinely ask you to type a component, a hook, or an API response live. Today is about the patterns that come up constantly: typing props and generics, the utility types you'll reach for weekly, event handler types, and building type-safe API boundaries.
-
-## Typing props: the basics
-
-```tsx
-interface ButtonProps {
-  label: string;
-  onClick: () => void;
-  variant?: "primary" | "secondary" | "danger"; // union, not string
-  disabled?: boolean;
-  children?: React.ReactNode;
-}
-
-function Button({ label, onClick, variant = "primary", disabled, children }: ButtonProps) {
-  return (
-    <button className={`btn btn-${variant}`} onClick={onClick} disabled={disabled}>
-      {children ?? label}
-    </button>
-  );
-}
-```
-
-Prefer `interface` for props (extendable, better error messages) over `type`, though both work. This is a style convention, not a hard rule; interviewers care more that you're consistent than which one you pick.
-
-`React.ReactNode` vs `React.ReactElement` is a common trip-up. `ReactNode` covers anything renderable: elements, strings, numbers, arrays, `null`, `undefined`, booleans. Use it for `children`. `ReactElement` is specifically the result of `<Foo />` or `React.createElement`. Reach for it only when you need to clone or inspect an actual element, such as with `React.cloneElement`, not for general children.
-
-## Generic components
-
-A generic component lets the caller determine a type parameter, so the component stays reusable without falling back to `any`.
-
-```tsx
-interface SelectProps<T> {
-  items: T[];
-  value: T;
-  onChange: (value: T) => void;
-  getLabel: (item: T) => string;
-  getKey: (item: T) => string | number;
-}
-
-function Select<T>({ items, value, onChange, getLabel, getKey }: SelectProps<T>) {
-  return (
-    <select
-      value={getKey(value)}
-      onChange={(e) => {
-        const selected = items.find((item) => String(getKey(item)) === e.target.value);
-        if (selected) onChange(selected);
-      }}
-    >
-      {items.map((item) => (
-        <option key={getKey(item)} value={getKey(item)}>
-          {getLabel(item)}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-// Usage — T is inferred as User, no explicit type argument needed
-interface User {
-  id: number;
-  name: string;
-}
-
-function UserPicker({ users, selected, onSelect }: {
-  users: User[];
-  selected: User;
-  onSelect: (u: User) => void;
-}) {
-  return (
-    <Select
-      items={users}
-      value={selected}
-      onChange={onSelect}
-      getLabel={(u) => u.name}
-      getKey={(u) => u.id}
-    />
-  );
-}
-```
-
-**Interview detail:** generic component syntax in `.tsx` files needs a trailing comma (`<T,>`) or an `extends unknown` constraint in arrow-function form, so the parser doesn't mistake the type parameter for a JSX tag:
-
-```tsx
-// Arrow function generic component — needs the comma or constraint
-const List = <T,>({ items }: { items: T[] }) => (
-  <ul>{items.map((i, idx) => <li key={idx}>{String(i)}</li>)}</ul>
-);
-
-// Function declaration form doesn't have this ambiguity
-function List2<T>({ items }: { items: T[] }) {
-  return <ul>{items.map((i, idx) => <li key={idx}>{String(i)}</li>)}</ul>;
-}
-```
-
-## Utility types you'll actually use
-
-```ts
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  inStock: boolean;
-}
-
-// Partial — every field optional. Useful for update/patch payloads.
-function updateProduct(id: string, changes: Partial<Product>) { /* ... */ }
-updateProduct("p1", { price: 29.99 }); // no need to pass every field
-
-// Required — every field mandatory, even ones declared optional on the source type.
-interface DraftProduct extends Partial<Product> {}
-function publishProduct(draft: Required<DraftProduct>) { /* all fields must be present */ }
-
-// Pick — a subset of fields, useful for narrow view models.
-type ProductSummary = Pick<Product, "id" | "name" | "price">;
-
-// Omit — everything except the listed fields.
-type ProductWithoutDescription = Omit<Product, "description">;
-
-// Record — a typed dictionary/map.
-type ProductsById = Record<string, Product>;
-
-// Readonly — immutable view, useful for props you never want mutated.
-function renderProduct(p: Readonly<Product>) { /* p.price = 0; // error */ }
-```
-
-| Utility | What it does | Typical use |
-|---|---|---|
-| `Partial<T>` | All props optional | Patch/update payloads, form state before submit |
-| `Required<T>` | All props mandatory | Validating a fully-filled form |
-| `Pick<T, K>` | Keep only listed keys | Narrow view models, list-row data |
-| `Omit<T, K>` | Drop listed keys | Removing sensitive/internal fields |
-| `Record<K, V>` | Typed key-value map | Lookup tables, `Record<UserId, User>` |
-| `Readonly<T>` | All props immutable | Props that must not be mutated in place |
-
-## Event handler types
-
-React's synthetic event types are specific to the element and event kind. Using plain `Event` loses the properties you actually need, like `target.value`.
-
-```tsx
-function SearchForm() {
-  const [query, setQuery] = useState("");
-
-  // Change event on an <input>
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
-  };
-
-  // Submit event on a <form>
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log("searching for", query);
-  };
-
-  // Click event on a <button>
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    console.log("clicked at", e.clientX, e.clientY);
-  };
-
-  // Keyboard event, common for "submit on Enter"
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") console.log("enter pressed");
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input value={query} onChange={handleChange} onKeyDown={handleKeyDown} />
-      <button type="submit" onClick={handleClick}>Search</button>
-    </form>
-  );
-}
-```
-
-The generic parameter (`HTMLInputElement`, `HTMLFormElement`, `HTMLButtonElement`) matters: it types `e.currentTarget` correctly. A common mistake is typing every handler as `React.ChangeEvent<HTMLElement>`, which loses `.value` on non-input elements and produces confusing errors down the line.
-
-## Type-safe API response handling
-
-The goal is to never let `any` leak in from `fetch`, and to fail loudly with a typed error rather than silently passing malformed data downstream.
-
-```ts
-interface ApiSuccess<T> {
-  ok: true;
-  data: T;
-}
-
-interface ApiError {
-  ok: false;
-  error: string;
-  status: number;
-}
-
-type ApiResult<T> = ApiSuccess<T> | ApiError;
-
-async function apiGet<T>(path: string): Promise<ApiResult<T>> {
-  try {
-    const res = await fetch(path);
-    if (!res.ok) {
-      return { ok: false, error: await res.text(), status: res.status };
-    }
-    const data = (await res.json()) as T; // trust boundary — see note below
-    return { ok: true, data };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error", status: 0 };
-  }
-}
-
-// Usage — the discriminated union forces you to handle both branches
-interface User {
-  id: string;
-  name: string;
-}
-
-async function loadUser(id: string) {
-  const result = await apiGet<User>(`/api/users/${id}`);
-  if (!result.ok) {
-    console.error(result.error, result.status);
-    return null;
-  }
-  return result.data; // narrowed to User here, ok: true branch
-}
-```
-
-**Interview-important caveat:** `as T` after `res.json()` is a type assertion, not runtime validation. TypeScript trusts you, but the network can send anything. For real trust boundaries, like user input or third-party APIs, validate at runtime with a schema library like Zod, and derive the TypeScript type from the schema so the two can't drift apart:
-
-```ts
-import { z } from "zod";
-
-const UserSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-});
-type User = z.infer<typeof UserSchema>;
-
-async function loadUser(id: string): Promise<User> {
-  const res = await fetch(`/api/users/${id}`);
-  const json = await res.json();
-  return UserSchema.parse(json); // throws if shape doesn't match — no silent `any`
-}
-```
-
-## Discriminated unions for component state
-
-A pattern worth knowing cold: model mutually-exclusive states as a discriminated union instead of several independent booleans, so impossible states, like `loading: true` and `error: "x"` at the same time, can't be represented.
-
-```tsx
-type FetchState<T> =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; data: T }
-  | { status: "error"; error: string };
-
-function useFetch<T>(url: string) {
-  const [state, setState] = useState<FetchState<T>>({ status: "idle" });
-
-  useEffect(() => {
-    setState({ status: "loading" });
-    fetch(url)
-      .then((res) => res.json())
-      .then((data: T) => setState({ status: "success", data }))
-      .catch((err) => setState({ status: "error", error: String(err) }));
-  }, [url]);
-
-  return state;
-}
-
-function UserProfile({ url }: { url: string }) {
-  const state = useFetch<User>(url);
-
-  switch (state.status) {
-    case "idle":
-    case "loading":
-      return <Spinner />;
-    case "error":
-      return <ErrorMessage text={state.error} />; // state.error only exists here
-    case "success":
-      return <div>{state.data.name}</div>; // state.data only exists here
-  }
-}
-```
-
-TypeScript narrows `state` inside each `case` based on the `status` literal. That's why you get autocomplete for `.error` only in the error branch and `.data` only in the success branch, and why the compiler stops you from reading `state.data` in a branch where it might not exist.
-
-If you only remember one thing from today, make it the discriminated union pattern above. It shows up constantly in live-coding rounds because it's a compact way to prove you think about state shape before you think about JSX.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('23779568-edc1-5307-94e5-b69f652affc0', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Testing', 'notes', 16, $md$Testing questions in frontend interviews aren't usually about syntax. They're about judgment: what should you test, how do you avoid tests that break on every refactor, and how do you test something that talks to a network. Today covers React Testing Library's philosophy and the concrete patterns for unit tests, mocked API calls, and integration tests.
-
-## Testing philosophy: behavior, not implementation
-
-React Testing Library (RTL) is built around one guiding principle: **the more your tests resemble the way your software is used, the more confidence they give you.** That means tests should interact with the rendered output the way a user would: find text, click buttons, fill inputs. They shouldn't reach into component internals.
-
-```tsx
-// Bad: tests implementation detail (state variable name, internal method)
-test("counter increments — brittle version", () => {
-  const wrapper = shallow(<Counter />);
-  wrapper.instance().setState({ count: 1 });
-  expect(wrapper.instance().state.count).toBe(1);
-});
-
-// Good: tests behavior a user actually experiences
-test("counter increments when button is clicked", async () => {
-  render(<Counter />);
-  const user = userEvent.setup();
-
-  expect(screen.getByText("Count: 0")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: /increment/i }));
-  expect(screen.getByText("Count: 1")).toBeInTheDocument();
-});
-```
-
-The bad version breaks if you rename `count` to `value` even though the feature still works perfectly. The good version only breaks if the actual user-facing behavior breaks, which is the whole point.
-
-## Query priority
-
-RTL exposes many ways to find elements. They're ranked by how closely they match how a real user, including someone using assistive technology, finds things. Use this order:
-
-1. **`getByRole`**: matches accessibility tree role (`button`, `textbox`, `heading`). Preferred almost always; forces you to use accessible markup.
-2. **`getByLabelText`**: for form fields, matches how a screen reader user finds an input via its label.
-3. **`getByPlaceholderText`**, **`getByText`**: reasonable fallbacks for non-interactive or unlabeled content.
-4. **`getByTestId`**: last resort, only when nothing else identifies the element, such as a decorative element with no accessible name.
-
-```tsx
-// Preferred
-screen.getByRole("button", { name: /submit/i });
-screen.getByLabelText(/email address/i);
-
-// Fallback only when there's no accessible way to target the element
-screen.getByTestId("loading-spinner");
-```
-
-**Interview detail:** `getBy*` throws if not found, so use it for assertions that something exists. `queryBy*` returns `null` instead of throwing, so use it to assert something is absent. `findBy*` is async and retries until timeout, so use it when waiting for something to appear after an async action.
-
-```tsx
-// Asserting absence — must use queryBy, getBy would throw before you can assert
-expect(screen.queryByText("Error")).not.toBeInTheDocument();
-
-// Waiting for async appearance — must use findBy
-const successMessage = await screen.findByText("Saved!");
-expect(successMessage).toBeInTheDocument();
-```
-
-## Unit test for a component
-
-```tsx
-// LoginForm.tsx
-interface LoginFormProps {
-  onSubmit: (email: string, password: string) => void;
-}
-
-function LoginForm({ onSubmit }: LoginFormProps) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.includes("@")) {
-      setError("Enter a valid email");
-      return;
-    }
-    setError("");
-    onSubmit(email, password);
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <label htmlFor="email">Email</label>
-      <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-
-      <label htmlFor="password">Password</label>
-      <input
-        id="password"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-
-      {error && <p role="alert">{error}</p>}
-      <button type="submit">Log in</button>
-    </form>
-  );
-}
-```
-
-```tsx
-// LoginForm.test.tsx
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { LoginForm } from "./LoginForm";
-
-describe("LoginForm", () => {
-  test("submits email and password when valid", async () => {
-    const handleSubmit = vi.fn(); // or jest.fn()
-    const user = userEvent.setup();
-    render(<LoginForm onSubmit={handleSubmit} />);
-
-    await user.type(screen.getByLabelText(/email/i), "jane@example.com");
-    await user.type(screen.getByLabelText(/password/i), "hunter2");
-    await user.click(screen.getByRole("button", { name: /log in/i }));
-
-    expect(handleSubmit).toHaveBeenCalledWith("jane@example.com", "hunter2");
-  });
-
-  test("shows a validation error for an invalid email", async () => {
-    const handleSubmit = vi.fn();
-    const user = userEvent.setup();
-    render(<LoginForm onSubmit={handleSubmit} />);
-
-    await user.type(screen.getByLabelText(/email/i), "not-an-email");
-    await user.click(screen.getByRole("button", { name: /log in/i }));
-
-    expect(screen.getByRole("alert")).toHaveTextContent(/valid email/i);
-    expect(handleSubmit).not.toHaveBeenCalled();
-  });
-});
-```
-
-Note `userEvent` over `fireEvent`. `userEvent` simulates a real user interaction sequence (focus, keydown, keypress, keyup, and an input event for each character typed) while `fireEvent` dispatches a single raw DOM event. `userEvent` catches bugs `fireEvent` can't, like a component that only works because you skipped the focus event.
-
-## Mocking API calls
-
-The standard modern approach is **Mock Service Worker (MSW)**. It intercepts requests at the network level, so your component code makes real `fetch` calls and has no idea it's being tested. This is more resilient than mocking `fetch` directly, because it doesn't couple the test to how the component fetches data.
-
-```bash
-npm install --save-dev msw
-```
-
-```ts
-// mocks/handlers.ts
-import { http, HttpResponse } from "msw";
-
-export const handlers = [
-  http.get("/api/users/:id", ({ params }) => {
-    return HttpResponse.json({ id: params.id, name: "Jane Doe" });
-  }),
-
-  http.post("/api/login", async ({ request }) => {
-    const body = await request.json();
-    if (body.password === "wrong") {
-      return HttpResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
-    return HttpResponse.json({ token: "fake-jwt-token" });
-  }),
-];
-```
-
-```ts
-// mocks/server.ts — for Node/Vitest/Jest test environment
-import { setupServer } from "msw/node";
-import { handlers } from "./handlers";
-
-export const server = setupServer(...handlers);
-```
-
-```ts
-// setupTests.ts
-import { server } from "./mocks/server";
-
-beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
-```
-
-```tsx
-// UserProfile.test.tsx
-import { render, screen } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
-import { server } from "../mocks/server";
-import { UserProfile } from "./UserProfile";
-
-test("shows user name after loading", async () => {
-  render(<UserProfile userId="42" />);
-
-  expect(screen.getByText(/loading/i)).toBeInTheDocument();
-  expect(await screen.findByText("Jane Doe")).toBeInTheDocument();
-});
-
-test("shows an error state when the API fails", async () => {
-  // Override the handler for just this test
-  server.use(
-    http.get("/api/users/:id", () => {
-      return HttpResponse.json({ error: "Not found" }, { status: 404 });
-    })
-  );
-
-  render(<UserProfile userId="42" />);
-  expect(await screen.findByText(/something went wrong/i)).toBeInTheDocument();
-});
-```
-
-## Integration test for a user flow
-
-An integration test exercises multiple components together through a realistic sequence of user actions. It's closer to an end-to-end test but still runs in the fast, mocked-network jsdom environment rather than a real browser.
-
-```tsx
-// checkout flow: browse → add to cart → checkout → confirmation
-test("user can complete checkout", async () => {
-  const user = userEvent.setup();
-  render(<App />, { wrapper: AppProviders }); // router, query client, etc.
-
-  // Browse to a product
-  await user.click(screen.getByRole("link", { name: /wireless headphones/i }));
-  expect(await screen.findByRole("heading", { name: /wireless headphones/i })).toBeInTheDocument();
-
-  // Add to cart
-  await user.click(screen.getByRole("button", { name: /add to cart/i }));
-  expect(screen.getByText(/1 item in cart/i)).toBeInTheDocument();
-
-  // Go to checkout
-  await user.click(screen.getByRole("link", { name: /cart/i }));
-  await user.click(screen.getByRole("button", { name: /checkout/i }));
-
-  // Fill shipping info
-  await user.type(screen.getByLabelText(/full name/i), "Jane Doe");
-  await user.type(screen.getByLabelText(/address/i), "123 Main St");
-  await user.click(screen.getByRole("button", { name: /place order/i }));
-
-  // Confirmation
-  expect(await screen.findByText(/order confirmed/i)).toBeInTheDocument();
-});
-```
-
-This test doesn't care how cart state is stored, whether that's Context, Redux, or Zustand. It only cares that clicking "add to cart" eventually leads to a confirmation screen. That's exactly the resilience to refactoring that RTL's philosophy aims for.
-
-## Coverage vs. quality
-
-Coverage percentage measures lines executed, not behavior verified. A test that renders a component and asserts nothing achieves 100% line coverage on that component and catches zero bugs.
-
-```tsx
-// Contributes to coverage, catches nothing
-test("renders without crashing", () => {
-  render(<Checkout />);
-});
-```
-
-What actually matters:
-
-- **Coverage as a floor, not a target.** Use it to find completely untested code paths, like a branch nobody ever hit, not as a quality score to maximize.
-- **Test the risky paths deliberately.** Validation logic, error states, and edge cases (empty list, network failure, race conditions) deserve more attention than chasing percentage on straightforward render paths.
-- **Mutation testing** (tools like Stryker) is the more honest signal. It mutates your source code, flipping a `<` to `<=` or deleting a line, and checks whether any test fails. A test that still passes after a mutation isn't actually verifying that code. Worth mentioning if an interviewer pushes on how you know your coverage number means anything.
-
-The interview-safe answer to "what coverage percentage do you target": there's no universal number. Critical business logic (payments, auth, data mutations) should be close to fully covered with meaningful assertions; low-risk presentational code doesn't need the same investment. Chasing a blanket 100% target usually produces exactly the kind of hollow tests shown above.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('e8852a5b-c9dd-5f4b-9f35-f49bcf60bfc2', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Checkpoint 2', 'notes', 17, $md$This is a consolidation day, not a new-material day. Spend it drilling the interview questions from this week until the answers come out fast and precise. An interviewer expects a senior candidate to explain these without warm-up.
-
-## Network Performance
-
-Core idea: minimize what has to travel over the wire and how long the user waits for it. Be ready to explain, in one or two sentences each:
-
-- The difference between preload, prefetch, and preconnect, and when each applies.
-- How HTTP/2 multiplexing changed the "domain sharding" advice from HTTP/1.1.
-- How you'd diagnose a slow page load using the Network tab's waterfall (DNS, TCP/TLS, TTFB, download).
-- What Core Web Vitals measure (LCP, INP, CLS) and one concrete fix for each.
-
-## Code Splitting
-
-Core idea: ship only the JavaScript the current view needs, defer the rest.
-
-- Tree shaking requires ES modules and a `sideEffects: false` package boundary. CommonJS or unmarked side effects silently defeat it.
-- `React.lazy(() => import(...))` needs a default export and a `Suspense` boundary; an error boundary handles the chunk-load failure case.
-- Route-level splitting is the highest-leverage split point; prefetch on hover/focus to hide the loading waterfall.
-- Never optimize a bundle you haven't measured. Use `source-map-explorer` or a visualizer, then a CI-enforced budget so regressions can't ship silently.
-
-## Virtualization
-
-Core idea: keep the DOM node count constant regardless of data size by rendering only the visible window.
-
-- The mechanism: a spacer div sized to `totalItems × itemHeight` for correct scrollbar behavior, with absolutely-positioned rows for only the visible slice.
-- Fixed height means simple index math (`react-window`'s `FixedSizeList`). Unknown or variable height means measuring after render (`@tanstack/react-virtual` + `ResizeObserver`).
-- Overscan trades extra rendered nodes for a smoother fast-scroll with no blank flash; too much defeats the point of virtualizing.
-- Name the trade-offs unprompted: breaks native find-in-page, breaks select-all-copy, complicates anchor scrolling and accessibility semantics.
-
-## Rendering Performance
-
-Core idea: control which pipeline stages (Style, Layout, Paint, Composite) a change triggers.
-
-- `transform`/`opacity` can skip layout and paint entirely and go straight to the compositor. That's why they're the default choice for animation.
-- `will-change` should be set right before an animation and removed right after; permanent use fragments the page into too many GPU layers.
-- Layout thrashing is interleaved DOM reads/writes in a loop forcing synchronous layout on every iteration. Fix it by batching all reads, then all writes.
-- `contain` and `content-visibility: auto` let the browser skip layout/paint for isolated or off-screen content with zero JavaScript.
-
-## TypeScript for React
-
-Core idea: catch shape mismatches at compile time, especially at trust boundaries like API responses.
-
-- Generic components need `<T,>` or an `extends` clause in arrow-function form to avoid JSX-tag ambiguity.
-- `Partial`, `Pick`, `Omit`, `Record` cover most day-to-day prop-shape reuse.
-- Type event handlers with the specific synthetic event generic (`React.ChangeEvent<HTMLInputElement>`) to get a correctly-typed target.
-- `as T` after `.json()` is an assertion, not runtime validation. Real trust boundaries need a schema library (Zod) so the type can't drift from the actual response shape.
-- Discriminated unions (`{ status: "loading" } | { status: "success"; data: T }`) make impossible state combinations unrepresentable.
-
-## React Testing
-
-Core idea: test what the user experiences, not component internals.
-
-- Query priority: `getByRole` > `getByLabelText` > `getByText` > `getByTestId`. `getBy*` throws (assert presence), `queryBy*` returns null (assert absence), `findBy*` is async (wait for appearance).
-- `userEvent` over `fireEvent`, since it simulates the full realistic interaction sequence rather than a single raw event.
-- Mock at the network boundary (MSW) rather than mocking `fetch` directly, so tests don't couple to how data is fetched.
-- Coverage percentage is a floor for finding untested branches, not a quality target. A render-only test with no assertion inflates coverage and catches nothing.
-
-## Self-check
-
-Before moving on, you should be able to answer each of these out loud, in under 90 seconds, without notes:
-
-1. Walk through what happens from `import("./Component")` being called to the component appearing on screen.
-2. Design a virtualized list for chat messages where each message's height depends on its content.
-3. A user reports the page "feels janky" while scrolling. What do you check first, and in what order?
-4. Type a `useFetch<T>` hook end to end, including the loading/error/success states.
-5. Given a component with a "Submit" button and a validation error message, write the two RTL tests that matter most.
-$md$, 18, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('29132054-6a6d-5232-98cc-3f91b25a8da9', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Web Security', 'notes', 18, $md$Security questions show up in almost every senior frontend interview because shipping a login form or a comment box without understanding XSS, CSRF, and CORS is how real breaches happen. Today covers the three attacks interviewers ask about most, how to defend against them in React, and the auth-storage question ("localStorage or cookies?") that trips up most candidates.
-
-## XSS (Cross-Site Scripting)
-
-XSS happens when an attacker gets their JavaScript to run in your page, in your user's session. Three flavors:
-
-- **Stored XSS**: the attacker's payload is saved server-side (a comment, a username) and served to every viewer.
-- **Reflected XSS**: the payload comes from the URL or query string and is echoed back into the page immediately.
-- **DOM-based XSS**: client-side JS takes untrusted data and writes it into the DOM without a server round-trip.
-
-React protects you by default: JSX escapes everything you render as `{value}`. This is safe even if `value` is `"<img src=x onerror=alert(1)>"`, because React renders it as text, not markup.
-
-```tsx
-function Comment({ text }: { text: string }) {
-  // Safe: React escapes text nodes automatically.
-  return <p>{text}</p>;
-}
-```
-
-The escape hatch is `dangerouslySetInnerHTML`. The name is a warning label, not decoration. Only use it with sanitized HTML.
-
-```tsx
-import DOMPurify from "dompurify";
-
-function RichComment({ html }: { html: string }) {
-  const clean = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "p", "br"],
-    ALLOWED_ATTR: ["href"],
-  });
-  return <div dangerouslySetInnerHTML={{ __html: clean }} />;
-}
-```
-
-Other common XSS holes that React doesn't save you from:
-
-```tsx
-// UNSAFE: attacker-controlled href can be "javascript:alert(document.cookie)"
-<a href={userSuppliedUrl}>Profile</a>
-
-// Fix: allow-list the protocol before rendering
-function safeHref(url: string): string {
-  try {
-    const parsed = new URL(url, window.location.origin);
-    return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "#";
-  } catch {
-    return "#";
-  }
-}
-```
-
-`window.location.href = userInput`, `eval`, `new Function(userInput)`, and setting `iframe.src` from user data are the other usual DOM-XSS suspects. Interviewers like asking you to spot these in a code review snippet.
-
-**Interview question: "How does React prevent XSS, and how would you still introduce it?"**
-Answer: JSX text interpolation escapes values before writing them to the DOM, so `{}` bindings are safe. You reintroduce XSS via `dangerouslySetInnerHTML` with unsanitized input, via attribute injection (`javascript:` URLs, unvalidated `href`/`src`), or by writing directly to the DOM with `ref.current.innerHTML = ...` outside React's render path.
-
-## CSRF (Cross-Site Request Forgery)
-
-CSRF tricks a logged-in user's browser into firing a request they didn't intend. The browser automatically attaches cookies, so a malicious page can submit a form to `your-bank.com/transfer` and the request looks authenticated.
-
-```html
-<!-- hosted on evil.com, victim is logged into bank.com in another tab -->
-<form action="https://bank.com/api/transfer" method="POST">
-  <input type="hidden" name="to" value="attacker" />
-  <input type="hidden" name="amount" value="10000" />
-</form>
-<script>document.forms[0].submit()</script>
-```
-
-Three defenses, from most to least common in modern stacks:
-
-1. **`SameSite` cookies.** Set auth cookies with `SameSite=Lax` or `SameSite=Strict`. `Lax` (the browser default today) blocks cookies on cross-site POST requests but still allows top-level navigation, which stops the classic auto-submit form attack.
-2. **CSRF tokens.** The server issues a random token embedded in the page (a hidden field or a meta tag); every mutating request must echo it back in a header. An attacker's cross-origin form can't read that token, because of the same-origin policy.
-3. **Custom headers.** Requiring a header like `X-Requested-With` on mutating requests works as a CSRF defense too, because plain HTML forms can't set custom headers. Only same-origin `fetch`/XHR can.
-
-```tsx
-async function transferFunds(amount: number) {
-  const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-  return fetch("/api/transfer", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-CSRF-Token": token ?? "" },
-    credentials: "same-origin",
-    body: JSON.stringify({ amount }),
-  });
-}
-```
-
-**Interview question: "Does CSRF apply to a token stored in localStorage and sent as a Bearer header?"**
-No. CSRF exploits the browser's automatic credential attachment (cookies). If your auth token lives in JS memory or localStorage and you attach it manually via an `Authorization` header, a forged cross-site form can't replicate that, because it can't read your localStorage or set custom headers. LocalStorage tokens are then exposed to XSS instead, so this is a trade-off, not a free win.
-
-## CORS (Cross-Origin Resource Sharing)
-
-CORS is a browser enforcement mechanism, not a server security feature. It protects users from a malicious frontend reading responses from an API they're authenticated against; it does not protect servers from malicious clients (curl ignores CORS entirely).
-
-The browser sends an `Origin` header; the server responds with `Access-Control-Allow-Origin`. For anything beyond a simple GET, the browser sends a preflight `OPTIONS` request first.
-
-```
-OPTIONS /api/users HTTP/1.1
-Origin: https://app.example.com
-Access-Control-Request-Method: POST
-Access-Control-Request-Headers: content-type, authorization
-
-HTTP/1.1 204 No Content
-Access-Control-Allow-Origin: https://app.example.com
-Access-Control-Allow-Methods: GET, POST, PUT, DELETE
-Access-Control-Allow-Headers: content-type, authorization
-Access-Control-Allow-Credentials: true
-```
-
-Handling it correctly on the client side is mostly about knowing when `credentials` matters:
-
-```tsx
-fetch("https://api.example.com/me", {
-  credentials: "include", // send cookies cross-origin; server must echo the exact origin,
-});                       // Access-Control-Allow-Origin: * is rejected when credentials are included
-```
-
-Common gotcha: `Access-Control-Allow-Origin: *` cannot be combined with `Access-Control-Allow-Credentials: true`. If you need cookies cross-origin, the server must reflect the specific requesting origin.
-
-**Interview question: "Is CORS a security feature that stops attackers?"**
-It protects users, not servers. It stops a malicious website from reading another site's authenticated API responses in the victim's browser. It does nothing to stop direct server-to-server or curl requests, since those never enforce CORS. CORS is implemented by browsers, not by the HTTP protocol itself.
-
-## JWT vs Sessions
-
-| | Session cookie | JWT |
-|---|---|---|
-| State | Server stores session in memory/DB, cookie holds only an opaque ID | Server stores nothing; the token itself carries claims |
-| Revocation | Instant: delete the server-side session | Hard: must wait for expiry or maintain a blocklist |
-| Scaling | Needs a shared session store (Redis) across servers | Stateless, any server can verify with the secret/public key |
-| Size | Tiny cookie | Larger (header + payload + signature), sent on every request |
-| XSS exposure | Low if `httpOnly`: JS can't read it | High if stored in localStorage: JS (and any injected script) can read it |
-| CSRF exposure | Yes, needs `SameSite`/tokens | No, if sent via `Authorization` header instead of a cookie |
-
-The safest common pattern for SPAs: a short-lived JWT access token kept in memory (React state, not localStorage), paired with a long-lived refresh token in an `httpOnly`, `Secure`, `SameSite=Strict` cookie. This limits XSS blast radius, since a stolen access token expires in minutes, and avoids CSRF, since the refresh cookie isn't readable by JS and the endpoint is protected by `SameSite`.
-
-## HTTPS everywhere and Content Security Policy
-
-HTTPS isn't just "encrypt the login form." Mixed content (an HTTPS page loading an HTTP script) is blocked by browsers and is itself an XSS vector, since a network attacker can inject into any unencrypted resource on the page, not just the page's main document.
-
-CSP is an HTTP response header that tells the browser which sources are allowed to execute or load, turning a successful injection into a no-op because the injected script violates the policy and never runs.
-
-```
-Content-Security-Policy:
-  default-src 'self';
-  script-src 'self' 'nonce-r4nd0m';
-  style-src 'self' 'unsafe-inline';
-  img-src 'self' data: https:;
-  connect-src 'self' https://api.example.com;
-  frame-ancestors 'none';
-```
-
-- `default-src 'self'` is the baseline: only load resources from your own origin.
-- `script-src` with a per-request nonce lets you allow specific inline `<script>` tags without opening the door to `unsafe-inline` generally. An attacker's injected `<script>` won't have the correct nonce.
-- `frame-ancestors 'none'` blocks your site from being embedded in an `<iframe>` elsewhere, the standard clickjacking defense.
-
-**Interview question: "You have a stored XSS bug you can't patch today. What limits the damage?"**
-A strict CSP (no `unsafe-inline`, no `unsafe-eval`) stops the injected script from executing even though the payload made it into the DOM. It's defense in depth: sanitize input, escape output, and set CSP, so a single missed sanitization point isn't a full compromise.
-
-Three questions carry most of the interview weight on this topic: what does React protect you from by default, what does the browser enforce versus what the server must enforce, and where should a token actually live. Get those three solid and the specific defenses (SameSite, CSP, DOMPurify) fall out as supporting detail rather than things to memorize separately.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('16a5749f-979d-504f-a88f-967c66d3274f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'WebSockets and Real-time', 'notes', 19, $md$Real-time features (chat, live dashboards, collaborative editors, notifications) are a staple "build a feature" interview prompt, and the follow-up questions almost always probe whether you understand why WebSockets exist versus polling, and what happens when the connection drops. Today covers the transport options, a production-shaped React WebSocket hook with reconnection, and the scaling questions that come after the live-coding portion.
-
-## WebSocket vs HTTP long-polling vs SSE
-
-| | How it works | Direction | Overhead | Use when |
-|---|---|---|---|---|
-| **Short polling** | Client requests every N seconds | Client → Server only | High: most requests return nothing new | Simple, infrequent updates, no real-time requirement |
-| **Long polling** | Client requests, server holds the connection open until there's data or a timeout, client immediately re-requests | Client → Server only | Medium: fewer wasted round trips, but a new TCP/TLS handshake per cycle | Need near-real-time without WebSocket infra (proxies/firewalls that block upgrades) |
-| **SSE (Server-Sent Events)** | Single long-lived HTTP connection, server streams `text/event-stream` | Server → Client only | Low: one connection, built-in auto-reconnect | Live feeds, notifications, stock tickers, anything one-directional |
-| **WebSocket** | HTTP upgrade to a persistent full-duplex TCP connection | Bidirectional | Lowest per-message overhead, no HTTP headers per message after the handshake | Chat, collaborative editing, multiplayer, anything needing client to server pushes too |
-
-**Interview question: "Why not just use WebSockets for everything?"**
-SSE is simpler to operate. It's plain HTTP, so it works through existing proxies, load balancers, and CDNs without special configuration, has automatic reconnection built into `EventSource`, and is text-based, so it's easy to debug. If the client never needs to push data mid-stream (a dashboard, a notification feed), SSE is less infrastructure for the same result. Reach for WebSockets when the client also needs to send, or you need lower per-message latency at high message rates.
-
-## A React WebSocket component
-
-The naive approach, opening a `WebSocket` in `useEffect`, breaks the moment the network blips. A real implementation needs reconnection, cleanup, and a way to expose connection state to the UI.
-
-```tsx
-import { useCallback, useEffect, useRef, useState } from "react";
-
-type ConnectionState = "connecting" | "open" | "closed" | "error";
-
-interface UseWebSocketOptions {
-  onMessage: (data: unknown) => void;
-  maxReconnectDelayMs?: number;
-}
-
-function useWebSocket(url: string, { onMessage, maxReconnectDelayMs = 30_000 }: UseWebSocketOptions) {
-  const [state, setState] = useState<ConnectionState>("connecting");
-  const wsRef = useRef<WebSocket | null>(null);
-  const attemptRef = useRef(0);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
-  const onMessageRef = useRef(onMessage);
-  onMessageRef.current = onMessage; // always call the latest callback without re-running the effect
-
-  const connect = useCallback(() => {
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-    setState("connecting");
-
-    ws.onopen = () => {
-      setState("open");
-      attemptRef.current = 0; // reset backoff on a clean connect
-    };
-
-    ws.onmessage = (event) => {
-      onMessageRef.current(JSON.parse(event.data));
-    };
-
-    ws.onerror = () => setState("error");
-
-    ws.onclose = (event) => {
-      setState("closed");
-      if (event.code === 1000) return; // 1000 = normal closure, don't reconnect
-      const delay = Math.min(1000 * 2 ** attemptRef.current, maxReconnectDelayMs);
-      attemptRef.current += 1;
-      reconnectTimer.current = setTimeout(connect, delay);
-    };
-  }, [url, maxReconnectDelayMs]);
-
-  useEffect(() => {
-    connect();
-    return () => {
-      clearTimeout(reconnectTimer.current);
-      wsRef.current?.close(1000, "component unmounted");
-    };
-  }, [connect]);
-
-  const send = useCallback((data: unknown) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(data));
-    }
-  }, []);
-
-  return { state, send };
-}
-
-interface ChatMessage {
-  id: string;
-  author: string;
-  text: string;
-}
-
-function ChatRoom({ roomId }: { roomId: string }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [draft, setDraft] = useState("");
-
-  const { state, send } = useWebSocket(`wss://api.example.com/rooms/${roomId}`, {
-    onMessage: (data) => setMessages((prev) => [...prev, data as ChatMessage]),
-  });
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!draft.trim()) return;
-    send({ type: "message", text: draft });
-    setDraft("");
-  };
-
-  return (
-    <div>
-      <p>Status: {state}</p>
-      <ul>
-        {messages.map((m) => (
-          <li key={m.id}>
-            <strong>{m.author}:</strong> {m.text}
-          </li>
-        ))}
-      </ul>
-      <form onSubmit={submit}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} disabled={state !== "open"} />
-        <button type="submit" disabled={state !== "open"}>Send</button>
-      </form>
-    </div>
-  );
-}
-```
-
-Key details an interviewer will probe:
-
-- **`onMessageRef`** avoids stale closures without forcing `connect` to be recreated, and the socket torn down and rebuilt, every time the parent re-renders with a new inline `onMessage`.
-- **Exponential backoff with a cap** (`1000 * 2^attempt`, capped at `maxReconnectDelayMs`) prevents a reconnect storm from hammering the server when it's down. This is the single most common thing missing from candidate implementations.
-- **Close code 1000** is normal closure; anything else (abnormal closure, server restart, network drop) should trigger a reconnect. Not distinguishing these means you either reconnect forever even after an intentional `ws.close()`, or silently fail to recover from an actual drop.
-- **Cleanup in the `useEffect` return** closes the socket with code 1000 on unmount so the server doesn't treat the tab closing as an abnormal disconnect requiring cleanup logic.
-
-## Heartbeat / ping-pong
-
-TCP connections can go silently dead (a laptop sleeps, a NAT entry expires) without either side getting a close event. A heartbeat detects this:
-
-```tsx
-useEffect(() => {
-  if (state !== "open") return;
-  const interval = setInterval(() => send({ type: "ping" }), 15_000);
-  return () => clearInterval(interval);
-}, [state, send]);
-```
-
-The server replies with `pong`. If no pong arrives within a timeout, the client treats the connection as dead and reconnects proactively instead of waiting for the OS-level timeout, which can take minutes.
-
-## Message acknowledgment
-
-At-most-once delivery (fire and forget) loses messages on a drop mid-send. For chat or collaboration you typically want at-least-once with client-side dedup:
-
-```tsx
-interface OutgoingMessage {
-  clientId: string; // client-generated UUID, idempotency key
-  text: string;
-}
-
-// Server echoes back { type: "ack", clientId } once persisted.
-// Client keeps a pending map and retransmits unacked messages after reconnect.
-```
-
-The client tags every outgoing message with a UUID, keeps it in a "pending" map until the server acks it, and resends anything still pending after a reconnect. The server dedupes on `clientId` so a resend after a flaky ack doesn't create a duplicate message.
-
-## Scaling WebSocket servers
-
-A single WebSocket server holds an open TCP connection per client, so it can't be scaled the way stateless HTTP servers are, with round-robin behind a load balancer and no shared state. A message for user B has to reach whichever server instance holds user B's socket.
-
-- **Sticky sessions** at the load balancer route a client to the same server for the life of the connection, but that only solves connection stability, not cross-server messaging.
-- **Pub/sub fan-out** (Redis Pub/Sub, NATS, Kafka) is the standard pattern: each server instance subscribes to a shared channel, and when server A needs to notify user B connected to server C, it publishes to the channel and server C delivers it over its local socket.
-- **Connection limits per instance** matter too. Each OS process has a file-descriptor ceiling per open socket, so horizontal scaling (more instances) is required well before CPU becomes the bottleneck.
-
-**Interview question: "Server A needs to tell a user connected to Server B that they have a new message. How?"**
-Server A doesn't hold that socket, so it can't write to it directly. It publishes the event to a shared pub/sub layer, Redis Pub/Sub being the usual answer; every server instance subscribes and checks whether the target user's socket is local; the instance that owns the connection (Server B) delivers it. This decouples which server received the event from which server holds the socket.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('c5c7325b-5383-5658-ad01-38ea3601bfcb', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'SSR and Next.js', 'notes', 20, $md$Every Next.js interview eventually asks "when do you use each rendering strategy, and why?" It's really testing whether you understand the trade-off between build time, request time, and client time. Today covers the four rendering strategies, hydration (the part everyone hand-waves), streaming SSR, and edge functions.
-
-## Next.js rendering strategies
-
-Next.js (App Router, Next.js 13+) gives you four strategies, chosen per route/component rather than app-wide:
-
-| Strategy | When the HTML is generated | Data freshness | Example use |
-|---|---|---|---|
-| **Static Site Generation (SSG)** | At build time, once | Stale until next build | Marketing pages, docs |
-| **Incremental Static Regeneration (ISR)** | At build time, then regenerated in the background on a timer or on-demand | Configurable staleness | Product pages, blog posts |
-| **Server-Side Rendering (SSR)** | Per request, on the server | Always fresh | Dashboards, personalized pages |
-| **Client-Side Rendering (CSR)** | In the browser, after JS loads | Fresh, but blank until JS runs | Highly interactive widgets behind auth, browser-only APIs |
-
-```tsx
-// SSG (default for a Server Component with no dynamic data) — app/blog/page.tsx
-async function getPosts() {
-  const res = await fetch("https://api.example.com/posts", {
-    next: { revalidate: false }, // never revalidate = pure static
-  });
-  return res.json();
-}
-
-export default async function BlogPage() {
-  const posts = await getPosts();
-  return <PostList posts={posts} />;
-}
-
-// ISR — revalidate every 60 seconds, background regeneration
-async function getProducts() {
-  const res = await fetch("https://api.example.com/products", {
-    next: { revalidate: 60 },
-  });
-  return res.json();
-}
-
-// SSR — force fresh data on every request
-async function getDashboard(userId: string) {
-  const res = await fetch(`https://api.example.com/dashboard/${userId}`, {
-    cache: "no-store", // opt out of caching entirely
-  });
-  return res.json();
-}
-```
-
-Old Pages Router equivalents (`getStaticProps`, `getStaticPaths`, `getServerSideProps`) map onto the same four strategies but require you to declare the strategy per-file via an exported function; App Router infers it from how you call `fetch` (or whether you call it at all).
-
-```tsx
-// pages/products/[id].tsx — Pages Router, for comparison
-export async function getStaticPaths() {
-  const products = await fetchAllProductIds();
-  return {
-    paths: products.map((id) => ({ params: { id: String(id) } })),
-    fallback: "blocking", // unknown paths render on-demand, then cache
-  };
-}
-
-export async function getStaticProps({ params }: { params: { id: string } }) {
-  const product = await fetchProduct(params.id);
-  return { props: { product }, revalidate: 60 };
-}
-```
-
-**Interview question: "You have a product catalog with 100,000 SKUs. Which strategy?"**
-ISR with `fallback: "blocking"` (Pages Router) or `generateStaticParams` returning only the hottest SKUs plus dynamic rendering for the rest (App Router). Pre-building all 100,000 pages at build time is wasteful, since most will never be visited. Build the popular ones statically, generate the long tail on first request, then cache it, and revalidate on a timer so prices/stock don't go permanently stale.
-
-## Page with server-rendered data and dynamic routes
-
-```tsx
-// app/products/[id]/page.tsx
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-}
-
-async function getProduct(id: string): Promise<Product> {
-  const res = await fetch(`https://api.example.com/products/${id}`, {
-    next: { revalidate: 60 },
-  });
-  if (!res.ok) throw new Error("Product not found");
-  return res.json();
-}
-
-// Pre-render the top SKUs at build time; everything else is generated on first visit.
-export async function generateStaticParams() {
-  const topProducts = await fetch("https://api.example.com/products/top").then((r) => r.json());
-  return topProducts.map((p: Product) => ({ id: p.id }));
-}
-
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; // params is a Promise in Next.js 15+
-  const product = await getProduct(id);
-  return (
-    <article>
-      <h1>{product.name}</h1>
-      <p>${product.price}</p>
-    </article>
-  );
-}
-```
-
-## Hydration
-
-Hydration is the step where React attaches event listeners and internal state to server-rendered HTML that's already sitting in the DOM, instead of throwing that markup away and building the DOM from scratch on the client.
-
-The sequence: server renders HTML → browser paints it immediately (fast first paint, no JS required yet) → JS bundle downloads and runs → React walks the existing DOM, matching it against what a client render *would* produce, and attaches handlers.
-
-```tsx
-"use client";
-import { useState, useEffect } from "react";
-
-function Clock() {
-  const [now, setNow] = useState<string | null>(null); // null on server AND on first client render
-
-  useEffect(() => {
-    setNow(new Date().toLocaleTimeString()); // only runs client-side, after hydration
-  }, []);
-
-  return <p>{now ?? "Loading..."}</p>; // must match between server HTML and first client render
-}
-```
-
-**Hydration mismatch** is the classic bug: if the server-rendered HTML doesn't match what the client would produce on first render, React either warns and patches the DOM (slow, can flash) or in some cases throws away the tree and re-renders from scratch client-side, losing the point of SSR entirely. Common causes: `Date.now()` or `Math.random()` used directly in render, browser-only APIs (`window`, `localStorage`) read during render instead of in `useEffect`, and locale/timezone differences between server and client.
-
-**Interview question: "What's a hydration mismatch and how do you avoid one?"**
-It's when server HTML and the client's first render produce different output, so React's DOM reconciliation on mount doesn't line up. Avoid it by keeping first-render output deterministic and identical on both sides: defer anything environment-dependent (`Date`, `window`, random IDs) to `useEffect`, or use `suppressHydrationWarning` only for genuinely-expected, cosmetic differences like a rendered timestamp.
-
-## Streaming SSR
-
-Traditional SSR blocks on the *slowest* data dependency before sending any HTML. Streaming SSR (React 18+, `Suspense`) sends the shell immediately and streams in slower sections as their data resolves.
-
-```tsx
-import { Suspense } from "react";
-
-export default function Dashboard() {
-  return (
-    <div>
-      <Header /> {/* renders immediately, no data dependency */}
-      <Suspense fallback={<SkeletonWidget />}>
-        <SlowAnalyticsWidget /> {/* streams in later, doesn't block the shell */}
-      </Suspense>
-      <Suspense fallback={<SkeletonWidget />}>
-        <SlowRecommendations />
-      </Suspense>
-    </div>
-  );
-}
-```
-
-The browser gets the `<Header>` and the loading skeletons in the first flush, then React streams additional HTML chunks (wrapped in `<template>`/script tags) as each Suspense boundary resolves, swapping the fallback for the real content in place. There's no client-side re-fetch and no layout jump from a full page replace.
-
-**Interview question: "How does streaming SSR improve Time to First Byte vs traditional SSR?"**
-Traditional SSR computes the entire page (including the slowest data fetch) before writing anything to the response. Streaming sends the static shell as soon as it's ready and pipes in the rest of the HTML incrementally as async boundaries resolve, so TTFB and First Contentful Paint are decoupled from your slowest dependency.
-
-## Edge functions
-
-Edge functions run your server code in Points of Presence close to the user, geographically distributed, rather than a single origin region. They trade a smaller, faster (V8 isolate, not a full Node process) runtime for lower latency worldwide.
-
-```tsx
-// app/api/geo/route.ts
-export const runtime = "edge";
-
-export async function GET(request: Request) {
-  const country = request.headers.get("x-vercel-ip-country") ?? "unknown";
-  return Response.json({ country });
-}
-```
-
-Trade-offs: edge runtimes don't support the full Node.js API (no `fs`, limited `net`), have tighter memory/CPU limits, and cold starts are typically much faster than a traditional serverless function. That makes edge a good fit for auth checks, redirects, A/B routing, and geolocation, and a bad fit for heavy computation or anything needing full Node APIs.
-
-**Interview question: "Middleware runs on every request. Why does Next.js run it at the edge by default?"**
-Middleware (auth redirects, locale detection, feature flag routing) needs to run before the response starts and should add minimal latency on every single request. Running it at the edge, geographically close to the user, keeps that per-request tax small; running it in a single origin region would add a network round-trip on top of every page load, everywhere in the world except near that region.
-
-## Tying it together
-
-The four rendering strategies, hydration, streaming, and edge all answer the same underlying question: how much of the work can move earlier (build time, or a nearby edge location) versus how much has to wait for the actual request. An interviewer probing any one of these topics is usually checking whether you can place a given feature (a dashboard, a product page, an auth check) correctly on that spectrum, not just recite the API names.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('cd465b67-5104-5d08-a1f1-daf6a91c85e5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Micro-frontends', 'notes', 21, $md$Micro-frontends come up in senior/staff interviews as an architecture discussion, not a coding exercise. The interviewer wants to know if you can reason about the trade-offs of splitting a large frontend across teams, not whether you've memorized Module Federation's config syntax. Today covers the architecture patterns, a working Module Federation setup, shared component libraries, and the honest trade-offs (this is not a free lunch).
-
-## Micro-frontend architecture patterns
-
-A micro-frontend architecture splits a single web application into independently buildable, independently deployable pieces owned by separate teams, composed together at runtime (or build time) into one experience for the user.
-
-**Build-time integration**: each micro-frontend is published as an npm package, and a shell app imports and bundles them together at build time.
-```tsx
-// shell app package.json
-"dependencies": {
-  "@company/checkout-mfe": "^2.4.0",
-  "@company/product-catalog-mfe": "^1.9.0"
-}
-```
-Simple, but you lose independent *deployment*: shipping a checkout fix requires rebuilding and redeploying the shell.
-
-**Run-time integration via iframes**: each micro-frontend is a fully isolated page embedded via `<iframe>`. This gives maximum isolation (separate JS realms, separate CSS, a crash in one can't take down another), but communication is painful (postMessage only), framework/runtime cost is duplicated per iframe, and layout/routing feel bolted-on rather than native.
-
-**Run-time integration via Module Federation** (the modern default): each micro-frontend is a separately built and deployed JS bundle that exposes modules. A shell app loads them dynamically at runtime, and they can share dependencies like React instead of each bundling their own copy.
-
-**Server-side composition** (e.g. Zalando's original micro-frontend approach, or edge-side includes): each team's HTML fragment is stitched together server-side or at the CDN edge before reaching the browser. Good for SEO and no client-side framework mismatch cost, but harder to do rich cross-fragment interactivity.
-
-**Interview question: "When would you NOT use micro-frontends?"**
-When you have a single team, or a small-to-medium app. Micro-frontends solve an organizational scaling problem (multiple teams shipping independently without blocking each other) at the cost of real complexity: duplicated tooling, shared-dependency version conflicts, harder cross-cutting changes (a design system update now touches N repos), and a more complex build/deploy pipeline. If nothing is blocking on a monolith frontend's release cadence, don't pay this tax.
-
-## Module federation config
-
-Webpack 5's Module Federation lets independently built bundles expose and consume modules from each other at runtime, resolving shared dependencies (like `react`) to a single copy instead of each remote shipping its own.
-
-```js
-// host (shell) — webpack.config.js
-const { ModuleFederationPlugin } = require("webpack").container;
-
-module.exports = {
-  plugins: [
-    new ModuleFederationPlugin({
-      name: "shell",
-      remotes: {
-        checkout: "checkout@https://checkout.example.com/remoteEntry.js",
-        catalog: "catalog@https://catalog.example.com/remoteEntry.js",
-      },
-      shared: {
-        react: { singleton: true, requiredVersion: "^19.0.0" },
-        "react-dom": { singleton: true, requiredVersion: "^19.0.0" },
-      },
-    }),
-  ],
-};
-
-// remote (checkout app) — webpack.config.js
-module.exports = {
-  plugins: [
-    new ModuleFederationPlugin({
-      name: "checkout",
-      filename: "remoteEntry.js",
-      exposes: {
-        "./CheckoutFlow": "./src/CheckoutFlow",
-      },
-      shared: {
-        react: { singleton: true, requiredVersion: "^19.0.0" },
-        "react-dom": { singleton: true, requiredVersion: "^19.0.0" },
-      },
-    }),
-  ],
-};
-```
-
-```tsx
-// shell app — lazy-load a remote module like any other code-split chunk
-import { lazy, Suspense } from "react";
-
-const CheckoutFlow = lazy(() => import("checkout/CheckoutFlow"));
-
-function App() {
-  return (
-    <Suspense fallback={<div>Loading checkout...</div>}>
-      <CheckoutFlow />
-    </Suspense>
-  );
-}
-```
-
-`singleton: true` is the detail interviewers probe hardest: without it, if the shell and the remote both bundle their own React, you get "Invalid hook call" errors from two React instances managing the same tree. With `singleton: true`, Module Federation resolves to a single shared copy at runtime and warns (or errors, if `strictVersion: true`) on an incompatible version instead of silently duplicating the runtime.
-
-## Shared component library
-
-A shared design system consumed by every micro-frontend keeps the UI consistent without each team reimplementing buttons and inputs. Publish it as a versioned package (or as another federated remote) rather than copy-pasting components across repos.
-
-```tsx
-// @company/ui-kit/Button.tsx
-import type { ButtonHTMLAttributes } from "react";
-
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger";
-}
-
-export function Button({ variant = "primary", className, ...props }: ButtonProps) {
-  return <button className={`btn btn-${variant} ${className ?? ""}`} {...props} />;
-}
-```
-
-```tsx
-// checkout-mfe consumes it exactly like any other dependency
-import { Button } from "@company/ui-kit";
-
-function CheckoutFlow() {
-  return <Button variant="primary">Place order</Button>;
-}
-```
-
-Two viable distribution strategies: **npm package** (versioned, teams pin/upgrade independently, but a breaking change requires every consumer to bump) or **exposed via Module Federation** (always the latest shared version at runtime, zero version-pinning overhead, but a bad deploy of the shared library breaks every consumer immediately). Most orgs use npm packages for the component library and Module Federation only for the composable page-level modules, because instant-everywhere breakage from a shared runtime dependency is a bigger operational risk than a slightly stale button style.
-
-## Independent deployment
-
-The entire point of the architecture: team Checkout ships a fix to `checkout.example.com/remoteEntry.js` and it's live in the shell on the next page load. No shell rebuild, no coordinated release train with other teams.
-
-```
-shell.example.com/          → loads remoteEntry.js from each remote at runtime
-checkout.example.com/       → deployed independently by the checkout team
-catalog.example.com/        → deployed independently by the catalog team
-```
-
-This requires the shell to treat remotes as a runtime contract, not a build-time dependency: it doesn't know or care what version of checkout is live, only that it exposes `./CheckoutFlow` with a compatible interface. That contract (props, exposed module names) becomes the thing that needs versioning discipline instead of the whole bundle.
-
-## Communication patterns
-
-Micro-frontends can't just call each other's functions directly (different bundles, potentially different frameworks), so communication has to go through explicit channels:
-
-- **Custom events** on `window`: simple, framework-agnostic, but no type safety and easy to lose track of who's listening.
-- **A shared event bus / pub-sub singleton**: same idea, typed, usually exposed from the shell as a federated shared module.
-- **URL/query params**: stateless, survives full page reloads, good for cross-microfrontend navigation state.
-- **A shared state store** (federated Redux/Zustand instance): powerful, but it reintroduces tight coupling between remotes, which undermines the independence the architecture is meant to provide.
-
-```tsx
-// simplest viable pattern: typed custom events on window
-interface CartUpdatedEvent extends CustomEvent<{ itemCount: number }> {}
-
-function notifyCartUpdated(itemCount: number) {
-  window.dispatchEvent(new CustomEvent("cart:updated", { detail: { itemCount } }));
-}
-
-function useCartBadge() {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    const handler = (e: Event) => setCount((e as CartUpdatedEvent).detail.itemCount);
-    window.addEventListener("cart:updated", handler);
-    return () => window.removeEventListener("cart:updated", handler);
-  }, []);
-  return count;
-}
-```
-
-## Testing challenges
-
-Unit testing each micro-frontend in isolation is no different from testing any React app. The hard part is **integration**: verifying the composed shell actually works when checkout v2.4 meets catalog v1.9 in production, since they're never built together.
-
-- **Contract tests** on exposed modules (props shape, event names) catch breaking changes before deploy, independent of what version the other side is on.
-- **Consumer-driven contracts** (Pact-style) let the shell assert "checkout must expose `CheckoutFlow(props: {...})`" and CI fails in the checkout repo if that contract breaks.
-- **A staging composition environment** that runs the latest deployed version of every remote together is the only reliable way to catch cross-remote runtime issues (version mismatches, CSS collisions, duplicate global state) before they hit production.
-
-**Interview question: "How do you catch a breaking change in a shared remote before it reaches production?"**
-Contract tests in CI on the exposed module's public interface, run against the remote's own pipeline (fails fast, close to the source), plus a staging environment that continuously composes the latest deployed version of every remote so cross-team integration issues are caught before the shell serves real users. Unit tests inside one micro-frontend's repo can never catch "this breaks when composed with catalog v1.9."
-
-The thread running through all of this: every micro-frontend decision (composition strategy, shared library distribution, communication channel, testing approach) is really a decision about how much coupling you're willing to reintroduce between teams that are supposed to be independent. The architecture only pays off when that coupling stays low; the moment two teams need a shared runtime store or a synchronized release, you've quietly rebuilt the monolith with extra deployment steps.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('2ce8da8a-fba0-5bde-a6e5-6fe2f87386e4', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Performance Patterns', 'notes', 22, $md$React 19 performance questions have shifted from "when do you use `useMemo`" to "what does automatic batching change" and "when do you reach for `useTransition` vs `useDeferredValue`." The newer concurrent-rendering APIs are now a standard part of the frontend interview loop. Today builds two common interview exercises (optimistic updates, debounced search) and explains the concurrent APIs that make modern React feel fast under load.
-
-## Automatic batching
-
-Before React 18, React only batched state updates inside React event handlers. Updates inside a `setTimeout`, a promise callback, or a native event listener each triggered a separate re-render. React 18+ batches *everywhere* automatically.
-
-```tsx
-function Example() {
-  const [count, setCount] = useState(0);
-  const [flag, setFlag] = useState(false);
-
-  function handleClick() {
-    fetch("/api/data").then(() => {
-      // React 18+: these two setState calls batch into ONE re-render,
-      // even though they're inside a promise callback, not a React event handler.
-      setCount((c) => c + 1);
-      setFlag((f) => !f);
-    });
-  }
-
-  return <button onClick={handleClick}>{count}</button>;
-}
-```
-
-**Interview question: "What broke (or changed) between React 17 and React 18 batching?"**
-In React 17, only updates inside React's own synthetic event handlers were batched; the same two `setState` calls inside a `setTimeout`, `fetch().then()`, or a raw `addEventListener` callback would trigger two separate renders. React 18's `createRoot` makes batching automatic everywhere, so you get one re-render regardless of where the updates originate. The opt-out is `flushSync` when you genuinely need a synchronous, unbatched update, which is rare: forcing a DOM measurement between two state changes is the usual case.
-
-## useTransition vs useDeferredValue
-
-Both are concurrent-rendering APIs for marking work as low-priority so the browser stays responsive to typing/clicking, but they solve different shapes of problem.
-
-**`useTransition`**: you have a state *setter* you control, and you want to mark the update it triggers as non-urgent, so React can interrupt it if a more urgent update (another keystroke) comes in.
-
-```tsx
-import { useState, useTransition } from "react";
-
-function TabContainer() {
-  const [tab, setTab] = useState<"home" | "analytics">("home");
-  const [isPending, startTransition] = useTransition();
-
-  function selectTab(next: "home" | "analytics") {
-    startTransition(() => {
-      setTab(next); // marked low-priority: if the user clicks again before this
-    });               // finishes rendering, React abandons it and starts the new one
-  }
-
-  return (
-    <div>
-      <button onClick={() => selectTab("home")}>Home</button>
-      <button onClick={() => selectTab("analytics")}>Analytics</button>
-      {isPending && <Spinner />}
-      {tab === "home" ? <HomeTab /> : <AnalyticsTab /* expensive render */ />}
-    </div>
-  );
-}
-```
-
-**`useDeferredValue`**: you don't control the setter (a value comes from a parent, or from a fast-changing input), and you want a "lagging" copy of it that updates at low priority.
-
-```tsx
-import { useDeferredValue, useState, useMemo } from "react";
-
-function SearchResults({ query }: { query: string }) {
-  const deferredQuery = useDeferredValue(query); // lags behind `query` under load
-  const isStale = query !== deferredQuery;
-
-  const results = useMemo(() => expensiveSearch(deferredQuery), [deferredQuery]);
-
-  return (
-    <ul style={{ opacity: isStale ? 0.5 : 1 }}>
-      {results.map((r) => <li key={r.id}>{r.title}</li>)}
-    </ul>
-  );
-}
-```
-
-**Interview question: "When would you pick `useDeferredValue` over `useTransition`, or vice versa?"**
-Use `useTransition` when you own the state update (you're calling `setState` yourself, e.g. in response to a click) and want to mark *that specific update* as interruptible. Use `useDeferredValue` when you're just consuming a value you don't control the setter for, most commonly a fast-changing controlled input's value passed down to an expensive child, and want React to compute the expensive derived work at lower priority without you touching where the value originates.
-
-## Suspense for data fetching
-
-Suspense lets a component "pause" rendering while it waits for data, showing a fallback, instead of the component managing `isLoading` state manually. In React 19, this is what powers `use()` for reading promises during render.
-
-```tsx
-import { Suspense, use } from "react";
-
-interface User {
-  id: string;
-  name: string;
-}
-
-function UserProfile({ userPromise }: { userPromise: Promise<User> }) {
-  const user = use(userPromise); // suspends the component until the promise resolves
-  return <h1>{user.name}</h1>;
-}
-
-function ProfilePage({ userPromise }: { userPromise: Promise<User> }) {
-  return (
-    <Suspense fallback={<Skeleton />}>
-      <UserProfile userPromise={userPromise} />
-    </Suspense>
-  );
-}
-```
-
-The promise must be created *outside* the render that reads it (in a parent, a route loader, or a cache). Calling `fetch()` directly inside the component on every render would create a new promise each time and suspend forever. This is the same rule as `useEffect` dependency arrays: don't create fresh unstable references inside the render you're trying to stabilize.
-
-## Building an optimistic-update component
-
-Optimistic updates apply the expected result immediately, before the server confirms it, and roll back on failure. This makes the UI feel instant for actions that almost always succeed: likes, toggles, adding items.
-
-```tsx
-import { useOptimistic, useState, useTransition } from "react";
-
-interface Todo {
-  id: string;
-  text: string;
-  completed: boolean;
-}
-
-async function toggleTodoOnServer(id: string): Promise<void> {
-  const res = await fetch(`/api/todos/${id}/toggle`, { method: "PATCH" });
-  if (!res.ok) throw new Error("Failed to update todo");
-}
-
-function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
-  const [todos, setTodos] = useState(initialTodos);
-  const [isPending, startTransition] = useTransition();
-
-  // useOptimistic layers a temporary, hopeful value on top of `todos`
-  // that automatically reverts once the real state update lands (or on error, below).
-  const [optimisticTodos, setOptimisticTodo] = useOptimistic(
-    todos,
-    (state, toggledId: string) =>
-      state.map((t) => (t.id === toggledId ? { ...t, completed: !t.completed } : t)),
-  );
-
-  function toggle(id: string) {
-    startTransition(async () => {
-      setOptimisticTodo(id); // instant UI update
-      try {
-        await toggleTodoOnServer(id);
-        setTodos((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
-        ); // confirm: commit the real state so it matches the optimistic one
-      } catch {
-        // no-op: not updating `todos` means optimisticTodos reverts to the last
-        // real state automatically once the transition settles — this is the rollback.
-      }
-    });
-  }
-
-  return (
-    <ul>
-      {optimisticTodos.map((todo) => (
-        <li key={todo.id} style={{ opacity: isPending ? 0.6 : 1 }}>
-          <label>
-            <input type="checkbox" checked={todo.completed} onChange={() => toggle(todo.id)} />
-            {todo.text}
-          </label>
-        </li>
-      ))}
-    </ul>
-  );
-}
-```
-
-`useOptimistic` must be called inside a `useTransition` (or a form action): it needs an async boundary to know when to revert. On success you commit real state; on failure you deliberately do nothing to `todos`, and React reverts the optimistic overlay for you once the transition completes.
-
-## Building a debounced search input
-
-Debouncing delays firing an expensive operation (an API call, a heavy filter) until the user has stopped typing for a set interval, instead of firing on every keystroke.
-
-```tsx
-import { useEffect, useState } from "react";
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer); // cancel the pending update if `value` changes again
-  }, [value, delayMs]);
-
-  return debounced;
-}
-
-interface SearchResult {
-  id: string;
-  title: string;
-}
-
-function SearchBox() {
-  const [query, setQuery] = useState("");
-  const debouncedQuery = useDebouncedValue(query, 300);
-  const [results, setResults] = useState<SearchResult[]>([]);
-
-  useEffect(() => {
-    if (!debouncedQuery) {
-      setResults([]);
-      return;
-    }
-    const controller = new AbortController();
-    fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`, { signal: controller.signal })
-      .then((res) => res.json())
-      .then(setResults)
-      .catch((err) => {
-        if (err.name !== "AbortError") throw err;
-      });
-    return () => controller.abort(); // cancel an in-flight request if the query changes again
-  }, [debouncedQuery]);
-
-  return (
-    <div>
-      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." />
-      <ul>
-        {results.map((r) => <li key={r.id}>{r.title}</li>)}
-      </ul>
-    </div>
-  );
-}
-```
-
-Two layers of cancellation here, and interviewers check for both: the `setTimeout`/`clearTimeout` pair debounces the *state update*, and the `AbortController` cancels an *in-flight request* if a newer debounced query supersedes it. Without the abort, a slow response to an old query could arrive after a fast response to a newer one and overwrite the correct results (a "request waterfall race condition").
-
-**Interview question: "Would `useDeferredValue` work instead of a manual debounce here?"**
-Partially. `useDeferredValue` defers *rendering* work, not the timing of a network request. It's the right tool for expensive client-side filtering/rendering of results you already have. It won't reduce the number of API calls fired, because it doesn't introduce a time delay, it just deprioritizes the render. For reducing request volume, you still need a time-based debounce.
-
-## Where these APIs actually meet in practice
-
-Notice that the optimistic-update component and the debounced search both lean on the same underlying idea as `useTransition`: mark work as interruptible or delayed so the UI thread stays responsive to the next user action. That's the pattern to carry into an interview, more than any single hook's signature: concurrent React is about scheduling priority, and each API (batching, transitions, deferred values, optimistic state) is a different lever on the same knob.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('369e935c-622e-5dd4-ba43-03959a342620', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Build Tools and Bundling', 'notes', 23, $md$"How does a bundler actually work" is a favorite senior-frontend question because most engineers use Webpack/Vite daily without ever looking inside. Being able to explain module resolution, tree shaking, and HMR from first principles signals real depth. Today builds a tiny bundler and a tiny Babel-style transform from scratch, then covers what production bundlers do differently.
-
-## How bundlers work (Webpack, Vite, esbuild)
-
-At its core, a bundler solves one problem: browsers historically couldn't efficiently load hundreds of separate `import`ed modules over the network (too many round trips, though HTTP/2 and native ESM have eroded this), so bundlers combine a dependency graph of modules into one (or a few) files.
-
-The pipeline, regardless of tool:
-
-1. **Resolve**: starting from an entry file, follow every `import`/`require` to find the actual file on disk (handling extensions, `node_modules`, path aliases).
-2. **Parse**: turn each file's source into an AST (Abstract Syntax Tree).
-3. **Build a dependency graph**: walk each AST for import/export statements, recursively resolving and parsing until every reachable module is accounted for.
-4. **Transform**: run each module through loaders/plugins (TypeScript to JS, JSX to `React.createElement`, CSS Modules to JS objects).
-5. **Generate**: concatenate/wrap modules into one or more output bundles, resolving each module's imports to a lookup in a shared module registry at runtime.
-
-Webpack, Vite, and esbuild differ mainly in *when* this happens and what language it's written in:
-
-- **Webpack** does the full resolve/parse/graph/bundle pipeline upfront (dev and prod), highly configurable via loaders/plugins, written in JS. Flexible, but the slowest of the three.
-- **esbuild** does the same pipeline but written in Go, parsing and generating orders of magnitude faster than JS-based tools; used as the underlying transform engine inside Vite.
-- **Vite** doesn't bundle at all in dev. It serves native ES modules directly to the browser, transforming each file on-demand as the browser requests it (via esbuild), and only bundles for production builds (via Rollup). This is why Vite's dev server starts near-instantly regardless of app size: it never builds a full graph upfront.
-
-**Interview question: "Why is Vite's dev server so much faster than Webpack's for a large app?"**
-Webpack must build and bundle the entire dependency graph before serving the first page, so dev-server startup time scales with app size. Vite serves unbundled native ESM in development: the browser itself resolves imports via HTTP requests, and Vite transforms each requested file on-demand (via esbuild) instead of upfront. Startup time is nearly constant regardless of app size because Vite never bundles until the production build.
-
-## Building a simple bundler
-
-A minimal bundler that actually resolves and concatenates CommonJS-style modules, to make the "dependency graph" idea concrete:
-
-```ts
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-
-interface ModuleNode {
-  id: number;
-  filename: string;
-  code: string;
-  dependencyMap: Record<string, number>; // import specifier -> module id
-}
-
-// Extremely simplified: finds `require("./x")` calls via regex instead of a real parser.
-// A production bundler uses an AST parser (acorn, babel) — this is illustrative only.
-function extractDependencies(code: string): string[] {
-  const requireRegex = /require\(["'](.+?)["']\)/g;
-  const deps: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = requireRegex.exec(code))) {
-    deps.push(match[1]);
-  }
-  return deps;
-}
-
-function buildGraph(entryFile: string): ModuleNode[] {
-  let nextId = 0;
-  const graph: ModuleNode[] = [];
-  const visited = new Map<string, number>();
-
-  function visit(filename: string): number {
-    if (visited.has(filename)) return visited.get(filename)!;
-
-    const code = readFileSync(filename, "utf-8");
-    const id = nextId++;
-    visited.set(filename, id);
-
-    const dependencyMap: Record<string, number> = {};
-    for (const relativePath of extractDependencies(code)) {
-      const absolutePath = resolve(dirname(filename), relativePath + ".js");
-      dependencyMap[relativePath] = visit(absolutePath); // recurse: this IS the graph traversal
-    }
-
-    graph.push({ id, filename, code, dependencyMap });
-    return id;
-  }
-
-  visit(entryFile);
-  return graph;
-}
-
-// Generate: wrap each module in a function, keyed by id, with its own require() that
-// looks up dependencies by the id resolved during graph traversal, not by string path.
-function bundle(graph: ModuleNode[]): string {
-  const modules = graph
-    .map(
-      (m) => `${m.id}: [
-      function(require, module, exports) { ${m.code} },
-      ${JSON.stringify(m.dependencyMap)}
-    ]`,
-    )
-    .join(",\n");
-
-  return `
-(function(modules) {
-  const cache = {};
-  function require(id) {
-    if (cache[id]) return cache[id].exports;
-    const [fn, mapping] = modules[id];
-    const module = { exports: {} };
-    cache[id] = module;
-    fn((relativePath) => require(mapping[relativePath]), module, module.exports);
-    return module.exports;
-  }
-  require(0); // entry point is always module 0
-})({ ${modules} });
-`;
-}
-```
-
-This is the same core idea every bundler uses under the hood: replace `require`/`import` with a lookup into an in-memory registry keyed by module id, so the runtime never touches the filesystem. The graph resolution happens once, at build time, and generates static integer references.
-
-## Building a Babel-style transform
-
-Babel-style transforms operate on the AST, not the source string, because regex-based string replacement breaks the moment syntax gets nested or has edge cases (a `require` inside a comment, a template literal, etc). A minimal transform: convert `const`/`let` to `var`.
-
-```ts
-interface ASTNode {
-  type: string;
-  [key: string]: unknown;
-}
-
-// A real implementation uses @babel/parser + @babel/traverse + @babel/generator.
-// This shows the *shape* of the visitor pattern every AST transform uses.
-function transform(ast: ASTNode): ASTNode {
-  function visit(node: ASTNode): ASTNode {
-    if (node.type === "VariableDeclaration" && (node.kind === "const" || node.kind === "let")) {
-      node.kind = "var"; // the actual transformation: mutate the node in place
-    }
-
-    // Recurse into every child node — the visitor pattern every AST tool follows.
-    for (const key of Object.keys(node)) {
-      const value = node[key];
-      if (Array.isArray(value)) {
-        value.forEach((child) => {
-          if (child && typeof child === "object" && "type" in child) visit(child as ASTNode);
-        });
-      } else if (value && typeof value === "object" && "type" in value) {
-        visit(value as ASTNode);
-      }
-    }
-    return node;
-  }
-  return visit(ast);
-}
-```
-
-The reason JSX → `React.createElement` and TypeScript → JS both work through this same visitor pattern: parse source into an AST once, run one or more transform passes that mutate specific node types, then regenerate source from the (now-transformed) AST. Babel plugins are, structurally, just `visit` functions scoped to specific node types via a `visitor` object.
-
-## Module resolution
-
-Resolution is the algorithm that turns `import x from "./utils"` or `import y from "lodash"` into an actual file path. Node's (and by extension, most bundlers') resolution algorithm:
-
-1. Relative/absolute paths (`./`, `../`, `/`) resolve directly against the current file's directory, trying the exact path, then `path.js`, `path.ts`, `path/index.js`, in extension-resolution order.
-2. Bare specifiers (`"lodash"`) trigger a walk up the directory tree looking for `node_modules/lodash`, checking each parent directory in turn until found or the filesystem root is reached.
-3. Package resolution then reads that package's `package.json`: the `exports` field (modern, can restrict/remap what's importable) or `main`/`module` (legacy) to find the actual entry file.
-
-Bundlers add path aliases (`@/components` mapping to `src/components`) as a resolution-time rewrite, configured separately from Node's algorithm (`tsconfig.json` `paths`, Webpack `resolve.alias`, Vite `resolve.alias`). The bundler intercepts the specifier before falling through to standard resolution.
-
-## Tree shaking mechanism
-
-Tree shaking removes exported code that's never imported anywhere in the graph, and it depends specifically on ES module syntax (`import`/`export`) because those are statically analyzable. A bundler can determine, without running any code, exactly what's imported and from where.
-
-```ts
-// math.ts
-export function add(a: number, b: number) { return a + b; }
-export function subtract(a: number, b: number) { return a - b; } // never imported anywhere
-
-// app.ts
-import { add } from "./math";
-console.log(add(2, 3));
-// A production build's output contains `add` but not `subtract` —
-// the bundler's static analysis proves `subtract` is unreachable from any entry point.
-```
-
-CommonJS (`require`/`module.exports`) largely defeats tree shaking, because `require` calls can be conditional or dynamic (`require(someVariable)`), so the bundler can't statically prove what's used without running the code. This is the actual reason "use ESM, not CommonJS" is standard bundler-tooling advice, not just style preference.
-
-**Interview question: "Why doesn't tree shaking work if you import a whole library with `import * as _ from 'lodash'`?"**
-Namespace imports (`import * as`) make every property access on `_` a dynamic property lookup from the bundler's static-analysis point of view. It can't prove which of lodash's hundreds of exports are actually used just by looking at `_.foo()` calls, since `foo` could theoretically be computed. Named imports (`import { debounce } from "lodash-es"`) are what actually enable dead-code elimination, because the bundler sees the exact symbol at the import statement itself.
-
-## Hot module replacement
-
-HMR swaps a changed module's code in the running application without a full page reload, preserving in-memory state (form inputs, component state) that a full refresh would wipe.
-
-The mechanism: the dev server watches the filesystem; on a change, it re-transforms just the changed module, sends the new code to the browser over a WebSocket (this is why dev servers open one), and the client-side HMR runtime replaces the old module's exports with the new ones in the module registry, then re-runs anything that "accepted" the update.
-
-```ts
-// Vite/Webpack HMR API — a module opts into accepting its own updates
-if (import.meta.hot) {
-  import.meta.hot.accept((newModule) => {
-    // re-render with the new module's exports instead of reloading the page
-  });
-}
-```
-
-React's Fast Refresh builds on this: it detects that only a component's render function changed (not its state-holding hooks' call order), swaps the function, and re-renders, preserving `useState` values across the edit. If the edit changes hook order or a non-component export changes, Fast Refresh falls back to a full remount (state lost) because it can no longer guarantee correctness.
-
-**Interview question: "Why does editing a component sometimes preserve state via HMR, and sometimes reset it?"**
-Fast Refresh preserves state when it can safely re-run just the function body and confirm the hooks called are the same type, count, and order as before, so the fiber's hook list stays valid. If you add/remove/reorder a hook, change what the module exports (e.g. adding a second named export), or edit a file that isn't a React component, Fast Refresh can't guarantee the existing fiber tree is still valid and falls back to a full remount, discarding state.
-
-## Why this matters beyond trivia
-
-None of resolve, parse, transform, tree-shake, or HMR are things you'll implement at your job. They're worth knowing because the mini-bundler and mini-transform above are the same shape of code running inside Webpack, Vite, and Babel today, just with a real parser and years of edge-case handling instead of a regex. When an interviewer asks "why doesn't tree shaking work here" or "why did HMR just do a full reload," they're really asking whether you can reason from that underlying mechanism instead of pattern-matching to a remembered answer.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('bda2abec-bed6-5c23-aea7-5756278c7aec', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Checkpoint 3', 'notes', 24, $md$Second consolidation checkpoint. This week covered security, real-time communication, server rendering, architectural scale, React performance internals, and build tooling: a wide spread that interviewers love to mix into a single system-design-adjacent conversation. Drill the connections between these topics, not just each one in isolation.
-
-## Web Security
-
-Core idea: never trust data that crossed a trust boundary (user input, third-party responses, URL params) without validating or encoding it.
-
-- **XSS**: React escapes text content by default; the danger zone is `dangerouslySetInnerHTML` and any place raw HTML from an untrusted source gets injected. Sanitize with a library (DOMPurify) if you must render HTML at all.
-- **CSRF**: same-site cookies (`SameSite=Strict`/`Lax`) plus a CSRF token on state-changing requests; relevant even with JWTs if the token is stored in a cookie.
-- **CSP (Content-Security-Policy)**: a response header restricting which script/style/image sources the browser will execute or load, the last line of defense if an XSS payload does get injected.
-- Where tokens live: `localStorage` is readable by any injected script (XSS risk); `httpOnly` cookies aren't readable by JavaScript at all (but need CSRF protection). This trade-off is a near-guaranteed interview question.
-
-## WebSockets
-
-Core idea: a persistent, full-duplex connection for real-time, bidirectional communication, distinct from HTTP's request/response model.
-
-- Handshake starts as an HTTP request with an `Upgrade: websocket` header; the server responds `101 Switching Protocols` and the connection stays open.
-- Reconnection strategy matters in production: exponential backoff with jitter, plus a heartbeat/ping-pong to detect a dead connection before the OS notices.
-- Compare with alternatives: Server-Sent Events (one-way, simpler, auto-reconnect built in, works over plain HTTP) vs. long polling (works everywhere, higher latency and overhead) vs. WebSockets (full duplex, more setup, needed for things like collaborative editing or chat).
-
-## SSR / Next.js
-
-Core idea: move rendering work to the server to improve perceived load time and SEO, at the cost of server compute and more moving parts.
-
-- **SSR** renders HTML per-request on the server; **SSG** renders once at build time; **ISR** (Incremental Static Regeneration) serves a static page but revalidates it on a schedule. Know when each applies.
-- React Server Components (Next.js App Router) run only on the server, never ship their JS to the client, and can access backend resources (DB, filesystem) directly. The trade-off is they can't use hooks or browser APIs; that's what `"use client"` opts back into.
-- Hydration is the step where client-side React attaches event listeners to server-rendered HTML. A hydration mismatch (server HTML differs from what the client would render) is a classic bug source, usually from `Date.now()`, `Math.random()`, or browser-only APIs used during server render.
-
-## Micro-frontends
-
-Core idea: split a large frontend into independently deployable pieces owned by different teams. It's an organizational scaling solution more than a technical one.
-
-- Composition strategies: build-time integration (npm packages), server-side composition (edge includes), runtime composition (Module Federation, iframes, web components).
-- Costs to name unprompted: duplicated dependencies across bundles unless carefully shared, harder cross-team design consistency, more complex versioning and deployment coordination.
-- The interview-safe framing: micro-frontends solve a team-scaling problem, not a technical performance problem. Reach for them when multiple independent teams need to ship on separate cadences, not by default.
-
-## React Performance
-
-Core idea: avoid unnecessary re-renders and unnecessary work inside renders that do happen.
-
-- `React.memo` skips a re-render if props are shallow-equal; it does nothing if you pass a new object/array/function literal each render, so pair it with `useMemo`/`useCallback` on the parent for those values.
-- `useMemo` caches a computed value, `useCallback` caches a function reference. Both trade memory and a comparison cost for avoiding recomputation; profile before reaching for them, they're not free.
-- The React Compiler (React 19) automates much of this memoization at build time, but understanding manual memoization is still expected. The interviewer wants to know you understand *why* it works, not just that a tool does it now.
-- Concurrent features: `useTransition` marks an update as non-urgent so React can interrupt it for higher-priority updates (like typing); `useDeferredValue` gives you a lagging copy of a value for the same purpose without wrapping the state setter itself.
-
-## Build Tools
-
-Core idea: know what a bundler/dev-server actually does, not just the CLI commands.
-
-- Vite's dev-server speed comes from serving native ES modules over the network unbundled, using esbuild (Go, not JS) for transpilation, and only bundling for production builds via Rollup.
-- Webpack's loader/plugin model: loaders transform individual files (e.g., `babel-loader` for JSX/TS), plugins hook into the broader build lifecycle (e.g., generating `index.html`, extracting CSS).
-- HMR (Hot Module Replacement) swaps a changed module in the running app without a full reload, preserving component state. This is what makes Vite/webpack-dev-server "instant" for local development.
-
-## Self-check
-
-Answer each in under 90 seconds, without notes:
-
-1. A user's auth token needs to survive a page refresh. Where do you store it, and what attack does that choice expose you to?
-2. Design the reconnection behavior for a WebSocket-based live chat that should survive a brief network drop without losing messages.
-3. Explain hydration mismatch to someone who's never heard the term, with a concrete example that causes one.
-4. Your team wants to split a monolith frontend across three teams. What's the actual problem you're solving, and what does it cost?
-5. A list re-renders every keystroke in an unrelated search box. Walk through the diagnosis and fix.
-$md$, 18, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a7a4581f-2f30-5c9e-8e9f-45f1b6b052fd', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'CSS Architecture', 'notes', 25, $md$CSS architecture questions come up whenever an interviewer wants to know if you can keep styles maintainable past a five-file prototype. Today covers the major approaches (BEM, CSS Modules, CSS-in-JS, Atomic CSS), their real trade-offs, and how to build a themeable, responsive component with design tokens.
-
-## BEM
-
-Block-Element-Modifier is a naming convention, not a tool. It works with plain CSS and adds structure by encoding relationships in class names.
-
-```css
-/* Block: standalone component */
-.card { border-radius: 8px; padding: 16px; }
-
-/* Element: a part of the block, connected with __ */
-.card__title { font-size: 1.25rem; font-weight: 600; }
-.card__body { color: #555; }
-
-/* Modifier: a variant, connected with -- */
-.card--featured { border: 2px solid gold; }
-.card__title--large { font-size: 1.5rem; }
-```
-
-```tsx
-<div className="card card--featured">
-  <h3 className="card__title card__title--large">Featured Post</h3>
-  <p className="card__body">...</p>
-</div>
-```
-
-Strength: zero tooling, works anywhere, self-documenting relationships. Weakness: no true scoping. Nothing stops another file from defining `.card__title` and colliding; discipline is the only enforcement, which breaks down at scale.
-
-## CSS Modules
-
-CSS Modules solve BEM's scoping problem at build time: every class name is locally scoped to the file by default, compiled to a unique hash.
-
-```css
-/* Card.module.css */
-.card {
-  border-radius: 8px;
-  padding: 16px;
-}
-.title {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-.featured {
-  border: 2px solid gold;
-}
-```
-
-```tsx
-import styles from "./Card.module.css";
-import clsx from "clsx";
-
-function Card({ title, featured }: { title: string; featured?: boolean }) {
-  return (
-    <div className={clsx(styles.card, featured && styles.featured)}>
-      <h3 className={styles.title}>{title}</h3>
-    </div>
-  );
-}
-```
-
-At build time, `.card` compiles to something like `.Card_card__a1b2c`, guaranteeing no cross-file collisions without any naming convention discipline required. This is the default in Next.js and Vite with zero extra config, which is why it's a common baseline choice.
-
-## CSS-in-JS and its runtime cost
-
-Libraries like styled-components and Emotion let you write CSS directly in JavaScript/TypeScript, colocated with the component and able to reference props and theme values directly.
-
-```tsx
-import styled from "styled-components";
-
-const Card = styled.div<{ $featured?: boolean }>`
-  border-radius: 8px;
-  padding: 16px;
-  border: ${(props) => (props.$featured ? "2px solid gold" : "1px solid #ddd")};
-`;
-
-function ProductCard({ featured }: { featured?: boolean }) {
-  return <Card $featured={featured}>...</Card>;
-}
-```
-
-**The runtime cost interviewers want you to name:** traditional CSS-in-JS libraries parse template literals and inject `<style>` tags *at runtime*, in the browser, on every render where a dynamic style changes. This adds:
-
-- A JS parsing/serialization cost on the client that plain CSS or CSS Modules don't have.
-- Extra work during SSR: style extraction has to happen server-side and be reconciled with what the client injects, which is why styled-components needed a Babel plugin and careful SSR setup to avoid a flash of unstyled content.
-- Harder static analysis for bundlers: dynamic class generation makes tree shaking and critical CSS extraction harder than build-time CSS.
-
-The industry has moved toward **zero-runtime CSS-in-JS** (vanilla-extract, Panda CSS, Linaria, styled-components' own newer compiler mode) which extracts styles to static CSS files at *build* time, keeping the developer ergonomics of CSS-in-JS without the runtime cost. Naming this shift is a strong signal in an interview: it shows you're tracking why the ecosystem moved, not just which library is popular.
-
-## Atomic CSS (Tailwind)
-
-Atomic CSS uses small, single-purpose utility classes composed directly in markup instead of writing new CSS per component.
-
-```tsx
-function Card({ featured }: { featured?: boolean }) {
-  return (
-    <div
-      className={`rounded-lg p-4 ${featured ? "border-2 border-yellow-400" : "border border-gray-200"}`}
-    >
-      <h3 className="text-xl font-semibold">Title</h3>
-    </div>
-  );
-}
-```
-
-Trade-offs to articulate:
-
-- **Pro:** no unbounded CSS file growth. The utility set is finite and shared across the whole app, so the CSS bundle size plateaus as the app grows (Tailwind's build step also purges unused classes).
-- **Pro:** no naming invention required (no more debating what to call a wrapper div's class) and no risk of specificity conflicts, since utility classes are single-property and roughly equal specificity.
-- **Con:** markup gets visually noisy, and repeated utility combinations across files need extraction into components (or `@apply` in Tailwind) to stay DRY.
-- **Con:** the mental model shift (styling in JSX/markup instead of a separate stylesheet) is a real onboarding cost for teams used to traditional CSS.
-
-## Design tokens and a theme system with CSS variables
-
-Design tokens are the named, centralized values (colors, spacing, radii, font sizes) that back a design system. The goal is one source of truth that both design and code reference, instead of hardcoded magic values scattered through the codebase.
-
-CSS custom properties (`--variables`) are the natural implementation for a runtime-swappable theme, because unlike Sass variables they're resolved in the browser, not at build time. That means they can change based on a class or media query without recompiling any CSS.
-
-```css
-/* tokens.css */
-:root {
-  --color-bg: #ffffff;
-  --color-text: #1a1a1a;
-  --color-primary: #2563eb;
-  --color-border: #e5e7eb;
-
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 16px;
-  --space-4: 24px;
-
-  --radius-md: 8px;
-  --font-size-base: 1rem;
-}
-
-[data-theme="dark"] {
-  --color-bg: #0f0f0f;
-  --color-text: #f5f5f5;
-  --color-primary: #60a5fa;
-  --color-border: #2a2a2a;
-}
-```
-
-```css
-/* Card.module.css — consumes tokens, never hardcodes values */
-.card {
-  background: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-}
-```
-
-```tsx
-// ThemeToggle.tsx — flips the data-theme attribute, CSS vars cascade instantly
-function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
-
-  return (
-    <button onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}>
-      Switch to {theme === "light" ? "dark" : "light"} mode
-    </button>
-  );
-}
-```
-
-No React re-render is required for the visual theme change. The browser recomputes styles for every element referencing a changed custom property the moment the attribute flips. This is a meaningfully cheaper theme-switch mechanism than a JS-driven CSS-in-JS theme object passed through Context, which does require a re-render of every consuming component.
-
-## A responsive component
-
-```css
-/* ProductGrid.module.css */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-3);
-  padding: var(--space-4);
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-}
-
-.title {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-}
-
-/* Container queries — responsive to the CARD's own width, not the viewport */
-@container (min-width: 320px) {
-  .card {
-    flex-direction: row;
-    align-items: center;
-  }
-}
-```
-
-```tsx
-import styles from "./ProductGrid.module.css";
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-}
-
-function ProductGrid({ products }: { products: Product[] }) {
-  return (
-    <div className={styles.grid}>
-      {products.map((p) => (
-        <div key={p.id} className={styles.card} style={{ containerType: "inline-size" }}>
-          <h3 className={styles.title}>{p.name}</h3>
-          <p>${p.price.toFixed(2)}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-```
-
-Two responsive mechanisms worth distinguishing in an interview: `grid-template-columns: repeat(auto-fill, minmax(...))` gives you a reflowing grid with **zero media queries**, driven purely by available width. Container queries (`@container`) let an individual component adapt to *its own* box size rather than the viewport: the modern answer to "how do you make a component responsive to its container, not the screen," which media queries fundamentally cannot do.
-
-## Picking one in an interview
-
-There's no universally correct CSS architecture, and interviewers know that, so naming one as "the best" is usually the wrong answer. What they're listening for is whether you'd pick CSS Modules for a small Next.js team with no design-system ambitions, Tailwind for a team that wants to move fast without naming debates, or a zero-runtime CSS-in-JS library for a design system that needs runtime theming without paying styled-components' old performance tax. The trade-offs above (scoping guarantees, runtime cost, markup verbosity, theming story) are the actual axes that decision runs on.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('c2d595a6-2c9d-5593-af50-018a8b0702f8', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Accessibility (a11y)', 'notes', 26, $md$Accessibility questions are increasingly standard in frontend interviews, and they're an easy place to lose points by giving a vague answer ("use semantic HTML") without concrete mechanics. Today covers WCAG's actual structure, ARIA's rules (including when not to use it), keyboard navigation, and a fully accessible form built end to end.
-
-## WCAG: the shape of the guidelines
-
-WCAG (Web Content Accessibility Guidelines) is organized around four principles, commonly remembered as **POUR**:
-
-- **Perceivable**: content must be presentable in ways users can perceive. Alt text for images, captions for video, sufficient color contrast.
-- **Operable**: interface components must be operable. Keyboard-reachable, no seizure-inducing flashing, enough time to read or interact.
-- **Understandable**: content and operation must be understandable. Predictable navigation, clear error messages, consistent labeling.
-- **Robust**: content must work with a wide range of user agents, including assistive technology, which means valid, semantic markup that doesn't break screen reader parsing.
-
-Conformance levels are A (minimum), AA (the level virtually every legal requirement and company policy targets), and AAA (highest, rarely mandated in full). If an interviewer asks "what level do you target," the correct answer is AA, the industry-standard bar.
-
-## ARIA: augment, don't replace
-
-The **first rule of ARIA** (literally called that in the spec) is: **don't use ARIA if a native HTML element already gives you the semantics you need.** ARIA attributes tell assistive technology about a role or state, but they don't grant any of the native behavior (keyboard handling, focus management) that comes for free with real elements.
-
-```tsx
-// Bad: reinventing a button, and now you owe it keyboard support, focus,
-// and role that a real <button> already has
-<div className="btn" onClick={handleClick} role="button" tabIndex={0}
-  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}>
-  Submit
-</div>
-
-// Good: all of the above is free
-<button className="btn" onClick={handleClick}>Submit</button>
-```
-
-Use ARIA for cases native HTML genuinely can't express:
-
-```tsx
-// A custom dropdown/combobox — no single native element covers this exactly
-<div role="combobox" aria-expanded={isOpen} aria-haspopup="listbox" aria-controls="options-list">
-  <input aria-autocomplete="list" aria-activedescendant={activeOptionId} />
-</div>
-<ul id="options-list" role="listbox">
-  {options.map((opt) => (
-    <li key={opt.id} id={opt.id} role="option" aria-selected={opt.id === activeOptionId}>
-      {opt.label}
-    </li>
-  ))}
-</ul>
-```
-
-```tsx
-// Live regions — announce dynamic content changes to screen readers
-// without moving focus, e.g. a toast notification or async validation result
-<div aria-live="polite" aria-atomic="true">
-  {statusMessage}
-</div>
-
-// aria-live="assertive" interrupts immediately — reserve for urgent/error
-// messages only, overusing it is disorienting for screen reader users
-<div role="alert">{errorMessage}</div>
-```
-
-`role="alert"` implies `aria-live="assertive"` and `aria-atomic="true"` automatically. It's the shorthand for error messages that must be announced immediately.
-
-## Keyboard navigation and focus management
-
-Every interactive element must be reachable and operable using only the keyboard. This is the single most common a11y bug: something clickable that a keyboard user simply cannot reach.
-
-```tsx
-// Focus trap for a modal — Tab/Shift+Tab must cycle within the modal,
-// not escape into the page behind it
-function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const previouslyFocused = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    previouslyFocused.current = document.activeElement as HTMLElement;
-    const modal = modalRef.current;
-    const focusable = modal?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    focusable?.[0]?.focus();
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Tab" && focusable && focusable.length > 0) {
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      // Return focus to whatever triggered the modal — critical, often missed
-      previouslyFocused.current?.focus();
-    };
-  }, [onClose]);
-
-  return (
-    <div role="dialog" aria-modal="true" ref={modalRef}>
-      {children}
-    </div>
-  );
-}
-```
-
-Three focus-management rules interviewers listen for. First, trap focus inside a modal or dialog while it's open, so Tab doesn't escape to the page behind it. Second, move focus to the modal on open and return focus to the trigger element on close (losing focus back to `<body>` is a common, jarring bug). Third, `Escape` closes overlays, an expected keyboard convention across virtually every OS and app.
-
-Skip links are another keyboard-navigation staple: a visually-hidden-until-focused link at the top of the page that lets keyboard users jump past repeated navigation straight to main content.
-
-```tsx
-<a href="#main-content" className="skip-link">Skip to main content</a>
-{/* ... nav ... */}
-<main id="main-content">...</main>
-```
-
-```css
-.skip-link {
-  position: absolute;
-  top: -40px; /* hidden off-screen until focused */
-  left: 0;
-}
-.skip-link:focus {
-  top: 0; /* becomes visible on keyboard focus */
-}
-```
-
-## An accessible form, end to end
-
-```tsx
-function SignupForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [submitted, setSubmitted] = useState(false);
-
-  function validate() {
-    const next: typeof errors = {};
-    if (!email.includes("@")) next.email = "Enter a valid email address.";
-    if (password.length < 8) next.password = "Password must be at least 8 characters.";
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitted(true);
-    if (validate()) {
-      // submit
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} noValidate>
-      <div>
-        {/* Explicit label association via htmlFor/id — required for screen readers */}
-        <label htmlFor="email">Email address</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          aria-invalid={submitted && !!errors.email}
-          aria-describedby={errors.email ? "email-error" : undefined}
-          required
-        />
-        {submitted && errors.email && (
-          <p id="email-error" role="alert">{errors.email}</p>
-        )}
-      </div>
-
-      <div>
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          aria-invalid={submitted && !!errors.password}
-          aria-describedby={errors.password ? "password-error password-hint" : "password-hint"}
-          required
-        />
-        <p id="password-hint">Must be at least 8 characters.</p>
-        {submitted && errors.password && (
-          <p id="password-error" role="alert">{errors.password}</p>
-        )}
-      </div>
-
-      <button type="submit">Create account</button>
-    </form>
-  );
-}
-```
-
-What each piece is doing, and why it's tested in interviews:
-
-- `htmlFor`/`id` pairing lets clicking or tapping the label focus the input, and a screen reader announces the label whenever the input receives focus. Without it, the input is announced as unlabeled.
-- `aria-invalid` tells assistive technology the field currently fails validation, independent of any visual styling.
-- `aria-describedby` links the input to its hint/error text, so screen readers read the error or hint alongside the field's value, not just the label.
-- `role="alert"` on the error text announces the validation failure immediately without requiring the user to navigate to it manually.
-- `noValidate` on the form turns off the browser's native validation UI so you can fully control the accessible error experience instead of getting an inconsistent browser-native tooltip.
-
-## Color contrast
-
-WCAG AA requires a contrast ratio of **4.5:1** for normal text and **3:1** for large text (18pt+/14pt+ bold) and UI components or graphical objects. This is a hard numeric threshold, not a subjective "looks readable" judgment. Check it with DevTools' contrast checker (in the color picker) or a tool like WebAIM's contrast checker.
-
-```css
-/* Fails AA for normal text — ratio ~2.85:1 */
-.text { color: #999; background: #fff; }
-
-/* Passes AA — ratio ~4.6:1 */
-.text { color: #767676; background: #fff; }
-```
-
-A common trap: designers pick brand colors for text on brand-colored backgrounds without checking contrast. This is one of the most frequent real-world a11y bugs, and a common interview scenario ("here's a mockup with light gray text on white, what's the issue").
-
-## Screen reader testing
-
-You don't need a dedicated device to test. Every major OS ships a screen reader: **VoiceOver** (macOS/iOS, `Cmd+F5`), **NVDA** (free, Windows), **JAWS** (Windows, paid), **TalkBack** (Android). The interview-relevant workflow:
-
-1. Turn off the monitor (or close your eyes) and try to complete the task using only the screen reader and keyboard. This surfaces missing labels, bad heading order, and unreachable interactive elements fast.
-2. Check heading structure is logical and sequential (`h1` → `h2` → `h3`, no skipped levels), since screen reader users frequently navigate by heading, not by reading top to bottom.
-3. Automated tools (`axe-core`, Lighthouse's accessibility audit, `eslint-plugin-jsx-a11y`) catch roughly 30-40% of real issues: missing alt text, contrast failures, invalid ARIA. They're necessary but not sufficient. Manual keyboard and screen-reader testing catches what automation structurally cannot, like illogical reading order, unclear error messaging, or whether a flow is actually usable.
-
-```bash
-npm install --save-dev eslint-plugin-jsx-a11y
-```
-
-```json
-// .eslintrc — catches missing alt text, invalid ARIA usage, etc. at lint time
-{
-  "extends": ["plugin:jsx-a11y/recommended"]
-}
-```
-
-The pattern across all of this: native elements first, ARIA only for what HTML can't express, and manual testing to catch what linters and automated audits structurally miss.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('bc5b0610-d8d7-5d3e-a8ab-5f15a0c9f26f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'State Machines in React', 'notes', 27, $md$Complex UI state (a multi-step form, an async fetch with loading/error/retry, a media player) tends to accumulate boolean flags until the component can represent states that make no sense: `isLoading: true` and `isError: true` at once. State machines eliminate that class of bug by design. This comes up in interviews both as a direct question ("how would you model this UI's state?") and as a signal of engineering maturity.
-
-## The problem: boolean soup
-
-```tsx
-// The "flags" approach — every new state is another independent boolean,
-// and the number of *reachable* combinations grows exponentially while
-// the number of *valid* combinations stays small.
-function useFetchUser(id: string) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isError, setIsError] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [data, setData] = useState<User | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // Nothing stops isLoading and isSuccess from both being true.
-  // Nothing stops isError being true while data is also populated
-  // from a stale previous fetch. Every consumer has to defensively
-  // guess which combination is "real."
-}
-```
-
-A state machine's core promise is to model the finite set of states explicitly, and only allow transitions between them that you've defined. Every other combination is unrepresentable: the type system, or the machine's transition table, simply doesn't allow it.
-
-## Unidirectional data flow and predictable transitions
-
-A state machine is a finite set of **states**, a finite set of **events**, and a **transition table** mapping `(state, event) → next state`. Nothing else can move it. The current state plus an incoming event is the entire input to "what happens next," which is what makes the system reason-about-able and testable in isolation from the UI that renders it.
-
-```
-        FETCH                    RESOLVE
-idle ─────────────► loading ─────────────► success
-                        │
-                        │ REJECT
-                        ▼
-                      error ──── RETRY ────► loading
-```
-
-This is the same unidirectional-flow idea React's own render model is built on: data flows one way, and transitions are explicit function calls, not ad hoc mutation. A state machine just applies that discipline to the state shape itself, not only to rendering.
-
-## A lightweight state machine with `useReducer`
-
-You don't need a library to get the core benefit. `useReducer` with a discriminated-union state and an explicit transition function already buys you most of it, and it's often the right call in an interview unless the interviewer specifically wants XState.
-
-```tsx
-type FetchState<T> =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; data: T }
-  | { status: "error"; message: string };
-
-type FetchEvent<T> =
-  | { type: "FETCH" }
-  | { type: "RESOLVE"; data: T }
-  | { type: "REJECT"; message: string }
-  | { type: "RETRY" };
-
-function fetchReducer<T>(state: FetchState<T>, event: FetchEvent<T>): FetchState<T> {
-  switch (state.status) {
-    case "idle":
-      return event.type === "FETCH" ? { status: "loading" } : state;
-    case "loading":
-      if (event.type === "RESOLVE") return { status: "success", data: event.data };
-      if (event.type === "REJECT") return { status: "error", message: event.message };
-      return state;
-    case "success":
-      return state; // no valid transitions out of success in this machine
-    case "error":
-      return event.type === "RETRY" ? { status: "loading" } : state;
-  }
-}
-
-function useFetchUser(id: string) {
-  const [state, dispatch] = useReducer(fetchReducer<User>, { status: "idle" });
-
-  useEffect(() => {
-    dispatch({ type: "FETCH" });
-    fetch(`/api/users/${id}`)
-      .then((res) => res.json())
-      .then((data: User) => dispatch({ type: "RESOLVE", data }))
-      .catch((err) => dispatch({ type: "REJECT", message: String(err) }));
-  }, [id]);
-
-  return state;
-}
-```
-
-Every unreachable combination from the boolean version (loading and error simultaneously, success with no data) simply cannot exist here. Walk through what happens if a stray `RETRY` fires while a fetch is still in flight: the reducer is currently in `case "loading"`, and that branch only recognizes `RESOLVE` and `REJECT`. `RETRY` falls through to `return state`, a no-op, so the component just keeps rendering its loading UI. No flag gets left in a stale, contradictory position, because there's no flag to leave stale.
-
-## XState basics
-
-XState is the standard library when you need visualizable, more complex machines: nested/parallel states, guards, actions on transition, and (critically for interviews) a visual diagram generated directly from the machine definition.
-
-```bash
-npm install xstate @xstate/react
-```
-
-```ts
-import { createMachine, assign } from "xstate";
-
-const fetchMachine = createMachine({
-  id: "fetch",
-  initial: "idle",
-  types: {} as {
-    context: { data: User | null; error: string | null };
-    events: { type: "FETCH" } | { type: "RESOLVE"; data: User } | { type: "REJECT"; error: string } | { type: "RETRY" };
-  },
-  context: { data: null, error: null },
-  states: {
-    idle: {
-      on: { FETCH: "loading" },
-    },
-    loading: {
-      on: {
-        RESOLVE: { target: "success", actions: assign({ data: ({ event }) => event.data }) },
-        REJECT: { target: "error", actions: assign({ error: ({ event }) => event.error }) },
-      },
-    },
-    success: {
-      on: { FETCH: "loading" }, // allow refetch
-    },
-    error: {
-      on: { RETRY: "loading" },
-    },
-  },
-});
-```
-
-```tsx
-import { useMachine } from "@xstate/react";
-
-function UserProfile({ userId }: { userId: string }) {
-  const [state, send] = useMachine(fetchMachine);
-
-  useEffect(() => {
-    send({ type: "FETCH" });
-    fetch(`/api/users/${userId}`)
-      .then((res) => res.json())
-      .then((data) => send({ type: "RESOLVE", data }))
-      .catch((error) => send({ type: "REJECT", error: String(error) }));
-  }, [userId, send]);
-
-  if (state.matches("loading")) return <Spinner />;
-  if (state.matches("error")) {
-    return (
-      <div>
-        <p>{state.context.error}</p>
-        <button onClick={() => send({ type: "RETRY" })}>Retry</button>
-      </div>
-    );
-  }
-  if (state.matches("success")) return <div>{state.context.data?.name}</div>;
-  return null;
-}
-```
-
-`state.matches("loading")` is the render-time check. `send({ type: ... })` is the only way to attempt a transition, and the machine itself decides whether that event does anything in the current state.
-
-## A complex form with a state machine
-
-Multi-step forms are the canonical case where the flags approach becomes unmanageable: "which step am I on," "can I go back," and "is this step's data valid enough to advance" all interact.
-
-```ts
-const checkoutMachine = createMachine({
-  id: "checkout",
-  initial: "shipping",
-  states: {
-    shipping: {
-      on: { NEXT: { target: "payment", guard: "shippingValid" } },
-    },
-    payment: {
-      on: {
-        NEXT: { target: "review", guard: "paymentValid" },
-        BACK: "shipping",
-      },
-    },
-    review: {
-      on: {
-        BACK: "payment",
-        SUBMIT: "submitting",
-      },
-    },
-    submitting: {
-      on: {
-        RESOLVE: "confirmed",
-        REJECT: "review", // failed submission returns to review, not a dead end
-      },
-    },
-    confirmed: { type: "final" },
-  },
-});
-```
-
-The **guard** (`shippingValid`) is a predicate function evaluated against the machine's context. The transition simply doesn't happen if the guard returns false, so "can't advance with an invalid shipping address" is enforced by the machine, not by scattered `if` checks across every button's `onClick`. This is the concrete answer when an interviewer asks how a state machine helps with a multi-step form specifically: the machine becomes the single source of truth for both what step you're on and whether you're allowed to leave it.
-
-## Testing benefits
-
-State machines are unusually easy to test because the transition table is a pure function independent of any rendered UI:
-
-```ts
-test("checkout: submission failure returns to review, not a dead end", () => {
-  const service = createActor(checkoutMachine).start();
-  service.send({ type: "NEXT" }); // shipping -> payment (assuming guard passes)
-  service.send({ type: "NEXT" }); // payment -> review
-  service.send({ type: "SUBMIT" }); // review -> submitting
-  service.send({ type: "REJECT" }); // submitting -> review
-
-  expect(service.getSnapshot().value).toBe("review");
-});
-```
-
-No `render()`, no DOM, no `userEvent`. You're testing the actual business rule, that a failed submission must not strand the user, as a pure state transition. That's both faster to run and more precisely targeted than an integration test that has to click through a full rendered form to exercise the same path. You still want a smaller number of integration tests on top to confirm the UI actually calls `send` correctly, but the exhaustive edge-case coverage of valid and invalid transitions belongs at the machine level.
-
-## When to reach for a state machine vs. plain state
-
-| Situation | Approach |
-|---|---|
-| A couple of genuinely independent booleans (`isOpen`, `isDarkMode`) | Plain `useState`. A machine is overkill. |
-| A small closed set of mutually exclusive states (idle/loading/success/error) | `useReducer` with a discriminated union. Gets you the safety without a new dependency. |
-| Multi-step flows, guarded transitions, nested/parallel states, need for visualization or hierarchical states | XState. The complexity has crossed the point where a hand-rolled reducer becomes its own maintenance burden. |
-
-The through-line across all three tools is the same: define the reachable states up front, and let the transition function (however small or large) be the only door between them.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('0c71f074-46cd-5318-b07c-8efda92d5834', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Error Handling', 'notes', 28, $md$Every production frontend fails in the field: a network drops, an API returns malformed JSON, a third-party script throws. Interviewers ask about error handling to see whether you design for that reality or only for the happy path. Today covers React error boundaries, global error capture, retry strategies, and how to turn a caught error into something a user can actually act on.
-
-## Error boundaries
-
-An error boundary is a component that catches JavaScript errors thrown during rendering, in lifecycle methods, and in constructors of its child tree, and renders a fallback UI instead of crashing the whole app. It is still, as of React 19, only implementable as a **class component**. There is no hook equivalent, because the underlying mechanism (`getDerivedStateFromError`/`componentDidCatch`) requires the component instance semantics classes provide.
-
-```tsx
-import { Component, type ErrorInfo, type ReactNode } from "react";
-
-interface ErrorBoundaryProps {
-  fallback: (error: Error, reset: () => void) => ReactNode;
-  onError?: (error: Error, info: ErrorInfo) => void;
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  error: Error | null;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { error: null };
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // Runs during render — update state so the next render shows the fallback
-    return { error };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    // Runs after render — the right place for side effects like logging
-    this.props.onError?.(error, info);
-  }
-
-  reset = () => this.setState({ error: null });
-
-  render() {
-    if (this.state.error) {
-      return this.props.fallback(this.state.error, this.reset);
-    }
-    return this.props.children;
-  }
-}
-```
-
-```tsx
-<ErrorBoundary
-  fallback={(error, reset) => (
-    <div role="alert">
-      <p>Something went wrong: {error.message}</p>
-      <button onClick={reset}>Try again</button>
-    </div>
-  )}
-  onError={(error, info) => reportToSentry(error, info.componentStack)}
->
-  <Dashboard />
-</ErrorBoundary>
-```
-
-**What error boundaries do NOT catch, the single most common interview trap:**
-
-- Errors in event handlers (`onClick` throwing). These are regular JS errors; catch them with `try`/`catch` in the handler itself.
-- Errors in asynchronous code (`setTimeout`, promises, `fetch` callbacks). By the time the async callback runs, React is no longer "inside" a render it can intercept.
-- Errors thrown during server-side rendering.
-- Errors thrown in the error boundary's own `render`. A boundary can't catch its own failure; nest a second boundary above it if you need that covered.
-
-For the async and event-handler gaps, there's no framework-level fix: catch those manually and, if you want the boundary to handle them, re-throw during a state update so the next render is what actually throws.
-
-```tsx
-function DangerousButton() {
-  const [, setError] = useState();
-  return (
-    <button
-      onClick={() => {
-        try {
-          riskyOperation();
-        } catch (err) {
-          // Re-throw during render so the nearest error boundary catches it
-          setError(() => { throw err; });
-        }
-      }}
-    >
-      Run
-    </button>
-  );
-}
-```
-
-## `react-error-boundary`
-
-In production code, most teams use the `react-error-boundary` package instead of hand-rolling the class above. It's the same underlying mechanism, with better ergonomics: a `useErrorBoundary` hook for the manual-throw pattern, and a `resetKeys` prop to auto-reset when relevant props change.
-
-```bash
-npm install react-error-boundary
-```
-
-```tsx
-import { ErrorBoundary } from "react-error-boundary";
-
-function App() {
-  return (
-    <ErrorBoundary
-      FallbackComponent={ErrorFallback}
-      onError={(error, info) => reportToSentry(error, info)}
-      onReset={() => window.location.reload()}
-    >
-      <Dashboard />
-    </ErrorBoundary>
-  );
-}
-
-function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
-  return (
-    <div role="alert">
-      <p>{error.message}</p>
-      <button onClick={resetErrorBoundary}>Try again</button>
-    </div>
-  );
-}
-```
-
-## Global error handling
-
-Error boundaries only cover the React render tree. Two browser-level events catch what escapes it:
-
-```ts
-// Uncaught synchronous errors anywhere on the page, including outside React
-window.addEventListener("error", (event) => {
-  reportToSentry(event.error ?? new Error(event.message), {
-    filename: event.filename,
-    lineno: event.lineno,
-  });
-});
-
-// Unhandled promise rejections — the async gap error boundaries can't cover
-window.addEventListener("unhandledrejection", (event) => {
-  reportToSentry(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
-  event.preventDefault(); // suppress the default "Uncaught (in promise)" console noise
-});
-```
-
-In practice, most teams don't hand-roll this either. Sentry, Bugsnag, and similar tools install both listeners for you and add source-map-resolved stack traces, breadcrumbs (a trail of recent user actions and console logs leading up to the error), and release/environment tagging automatically. Knowing what they hook into (`error`, `unhandledrejection`, plus `componentDidCatch` for React) is the part interviewers actually probe, not which vendor you use.
-
-## Retry logic for failed requests
-
-Network calls fail transiently: a blip, a timeout, a momentarily overloaded server. Retrying with **exponential backoff and jitter** is the standard pattern. Back off exponentially so you don't hammer a struggling server, and add jitter so many clients retrying at once don't all collide on the same schedule (the "thundering herd" problem).
-
-```ts
-interface RetryOptions {
-  maxRetries?: number;
-  baseDelayMs?: number;
-  maxDelayMs?: number;
-}
-
-async function fetchWithRetry(
-  url: string,
-  options?: RequestInit,
-  { maxRetries = 3, baseDelayMs = 300, maxDelayMs = 5000 }: RetryOptions = {}
-): Promise<Response> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const res = await fetch(url, options);
-      // Only retry on 5xx (server-side) or 429 (rate limited) — never retry
-      // 4xx client errors like 400/404, they won't succeed on retry.
-      if (res.ok || (res.status < 500 && res.status !== 429)) {
-        return res;
-      }
-      lastError = new Error(`HTTP ${res.status}`);
-    } catch (err) {
-      lastError = err; // network failure, DNS error, etc.
-    }
-
-    if (attempt < maxRetries) {
-      const exponential = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
-      const jitter = Math.random() * exponential * 0.3;
-      await new Promise((resolve) => setTimeout(resolve, exponential + jitter));
-    }
-  }
-
-  throw lastError;
-}
-```
-
-Trace one failing call through this: attempt 0 gets a 503, so `lastError` is set and the loop waits `~300ms` (plus jitter) before attempt 1. If attempt 1 also fails, the wait roughly doubles to `~600ms`, capped at `maxDelayMs`. Once `attempt` exceeds `maxRetries`, the loop exits and the last recorded error is thrown, so the caller sees a real error object rather than a silent `undefined`.
-
-Key details interviewers listen for:
-
-- **Which failures are retryable.** A 404 or 400 will fail identically on retry, so don't retry client errors. 5xx and 429 (with a `Retry-After` header respected if present) are the retryable cases.
-- **A retry ceiling.** Unbounded retries turn a transient blip into an indefinite hang from the user's perspective. Always cap attempts and surface a final failure state.
-- **Idempotency.** Retrying a `POST` that creates a resource can create duplicates if the first attempt actually succeeded but the response was lost. It's safe to retry `GET`/`PUT`/`DELETE` (idempotent by HTTP semantics), but risky for `POST` without an idempotency key.
-- **Libraries** (TanStack Query, SWR) implement this exact pattern out of the box. In a real project, reaching for a data-fetching library is often the right call over hand-rolling retry logic, unless you're specifically being asked to implement it in the interview.
-
-## Graceful degradation and user feedback
-
-The goal isn't "never fail." It's to fail in a way the user can understand and recover from.
-
-```tsx
-function DataPanel({ userId }: { userId: string }) {
-  const { data, error, isLoading, refetch } = useUserData(userId);
-
-  if (isLoading) return <Skeleton />;
-
-  if (error) {
-    // Distinguish error types so the message is actually actionable
-    if (error.status === 401) return <SignInPrompt />;
-    if (error.status === 0) {
-      return (
-        <div role="alert">
-          <p>You appear to be offline. Check your connection.</p>
-          <button onClick={refetch}>Retry</button>
-        </div>
-      );
-    }
-    return (
-      <div role="alert">
-        <p>Couldn't load this data right now.</p>
-        <button onClick={refetch}>Retry</button>
-      </div>
-    );
-  }
-
-  return <UserSummary data={data} />;
-}
-```
-
-Principles worth stating explicitly in an interview:
-
-- **Specific error messages, not "Something went wrong."** Distinguish "you're offline," "you're not authorized," and "the server failed," since each has a different correct next action.
-- **Always offer a next step**: retry, sign in again, contact support. An error state with no action is a dead end.
-- **Degrade partial failures gracefully.** If a dashboard has five independent widgets and one API call fails, the other four should still render. Isolate error boundaries per widget rather than wrapping the whole page in one boundary that takes everything down together.
-
-```tsx
-// Isolated boundaries — one failing widget doesn't take down the dashboard
-function Dashboard() {
-  return (
-    <div className="grid">
-      <ErrorBoundary fallback={() => <WidgetError name="Revenue" />}>
-        <RevenueWidget />
-      </ErrorBoundary>
-      <ErrorBoundary fallback={() => <WidgetError name="Traffic" />}>
-        <TrafficWidget />
-      </ErrorBoundary>
-    </div>
-  );
-}
-```
-
-The thread connecting all of this: React's boundaries, the browser's global listeners, and a retry policy each cover a different failure surface, and a production app needs all three plus UI that tells the user something specific and actionable happened.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('f6c28145-c26e-58b9-950a-7396ec6af353', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Internationalization', 'notes', 29, $md$Internationalization (i18n) questions test whether you understand that "translate the strings" is the easy 10%. The hard parts are pluralization rules, locale-aware formatting, RTL layout, and not shipping every locale's translations to every user. Today covers the standard approaches, react-intl, the `Intl` browser API, and RTL support.
-
-## i18n approaches: the landscape
-
-| Approach | How it works | Trade-off |
-|---|---|---|
-| Key-based lookup (react-intl/FormatJS, react-i18next) | `t("welcome.message")` maps to a translated string per locale | Requires discipline to keep keys and translations in sync, though tooling can catch missing keys |
-| ICU MessageFormat | Rich format strings inside the value handle plurals, gender, and interpolation | More powerful pluralization, with steeper syntax to learn |
-| Native `Intl` API | Browser-built-in for numbers, dates, lists, relative time, pluralization rules | No translation string management, only formatting, not fluent phrases |
-
-Most real apps combine the first and third: a translation library for UI copy, and the native `Intl` API for locale-aware formatting of dates, numbers, and currency. `Intl` already knows every locale's formatting rules, so shipping your own would be redundant and error-prone.
-
-## react-intl (FormatJS) setup
-
-```bash
-npm install react-intl
-```
-
-```tsx
-// messages/en.json
-{
-  "welcome": "Welcome back, {name}!",
-  "cart.itemCount": "{count, plural, =0 {No items} one {# item} other {# items}} in your cart"
-}
-```
-
-```tsx
-// messages/fr.json
-{
-  "welcome": "Content de vous revoir, {name} !",
-  "cart.itemCount": "{count, plural, =0 {Aucun article} one {# article} other {# articles}} dans votre panier"
-}
-```
-
-```tsx
-// App.tsx
-import { IntlProvider } from "react-intl";
-import en from "./messages/en.json";
-import fr from "./messages/fr.json";
-
-const messages = { en, fr };
-
-function App({ locale }: { locale: "en" | "fr" }) {
-  return (
-    <IntlProvider locale={locale} messages={messages[locale]} defaultLocale="en">
-      <Dashboard />
-    </IntlProvider>
-  );
-}
-```
-
-```tsx
-// Dashboard.tsx
-import { FormattedMessage, useIntl } from "react-intl";
-
-function Dashboard() {
-  const intl = useIntl();
-  const cartCount = 3;
-
-  return (
-    <div>
-      <h1>
-        <FormattedMessage id="welcome" values={{ name: "Jane" }} />
-      </h1>
-      <p>{intl.formatMessage({ id: "cart.itemCount" }, { count: cartCount })}</p>
-    </div>
-  );
-}
-```
-
-The `{count, plural, =0 {...} one {...} other {...}}` syntax is **ICU MessageFormat**, the key reason to reach for react-intl instead of a simpler key-value library. Pluralization is not "singular vs. plural" in most languages; some languages have distinct forms for one, two, few, many, and other. ICU's plural categories (`zero`, `one`, `two`, `few`, `many`, `other`) map onto whichever subset a given locale actually uses, applying the correct grammatical rule for that language automatically via `Intl.PluralRules` under the hood.
-
-## Translation loading
-
-Shipping every locale's translation bundle to every user is wasted bytes: a user viewing the English site doesn't need the French, German, and Japanese bundles downloaded too. Load translations lazily, per locale, the same way you'd code-split a route.
-
-```tsx
-import { lazy, Suspense, useState, useEffect } from "react";
-
-async function loadMessages(locale: string) {
-  const messages = await import(`./messages/${locale}.json`);
-  return messages.default;
-}
-
-function App() {
-  const [locale, setLocale] = useState(detectLocale());
-  const [messages, setMessages] = useState<Record<string, string> | null>(null);
-
-  useEffect(() => {
-    loadMessages(locale).then(setMessages);
-  }, [locale]);
-
-  if (!messages) return <Spinner />;
-
-  return (
-    <IntlProvider locale={locale} messages={messages}>
-      <Dashboard />
-    </IntlProvider>
-  );
-}
-
-function detectLocale(): string {
-  // navigator.language reflects the browser/OS locale setting
-  const supported = ["en", "fr", "de", "ja"];
-  const browserLocale = navigator.language.split("-")[0];
-  return supported.includes(browserLocale) ? browserLocale : "en";
-}
-```
-
-In a framework like Next.js, this is handled by the routing layer itself (`[locale]` dynamic segments, `next-intl`), which resolves the locale from the URL path or `Accept-Language` header on the server and only serves that locale's bundle, avoiding a client-side fetch waterfall entirely for the initial page load.
-
-## Date/number formatting with `Intl`
-
-The native `Intl` API is the correct tool for formatting. Never hand-roll date or currency formatting, because locale rules (decimal separators, thousands separators, date field order, currency symbol placement) vary in ways that are easy to get wrong and expensive to maintain yourself.
-
-```ts
-// Numbers — note the different separators
-new Intl.NumberFormat("en-US").format(1234567.89); // "1,234,567.89"
-new Intl.NumberFormat("de-DE").format(1234567.89); // "1.234.567,89"
-new Intl.NumberFormat("fr-FR").format(1234567.89); // "1 234 567,89"
-
-// Currency — symbol placement and spacing differ per locale
-new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(49.99);
-// "$49.99"
-new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(49.99);
-// "49,99 €"
-
-// Dates — field order and separators differ per locale
-const date = new Date("2026-07-16");
-new Intl.DateTimeFormat("en-US").format(date); // "7/16/2026"
-new Intl.DateTimeFormat("en-GB").format(date); // "16/07/2026"
-new Intl.DateTimeFormat("ja-JP", { dateStyle: "long" }).format(date); // "2026年7月16日"
-
-// Relative time — "3 days ago", "in 2 hours", correctly pluralized per locale
-const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-rtf.format(-3, "day"); // "3 days ago"
-rtf.format(2, "hour"); // "in 2 hours"
-
-// Lists — correct conjunction per locale ("A, B, and C" vs "A, B et C")
-new Intl.ListFormat("en", { type: "conjunction" }).format(["Alice", "Bob", "Carol"]);
-// "Alice, Bob, and Carol"
-```
-
-React components typically wrap these to avoid recreating formatter instances (which have real construction cost) on every render:
-
-```tsx
-function useCurrencyFormatter(locale: string, currency: string) {
-  return useMemo(
-    () => new Intl.NumberFormat(locale, { style: "currency", currency }),
-    [locale, currency]
-  );
-}
-
-function Price({ amount }: { amount: number }) {
-  const formatter = useCurrencyFormatter("en-US", "USD");
-  return <span>{formatter.format(amount)}</span>;
-}
-```
-
-react-intl's `FormattedDate`, `FormattedNumber`, and `FormattedRelativeTime` components are thin wrappers around exactly these `Intl` constructors, plus this memoization, plus reading the active locale from context automatically.
-
-## RTL support
-
-Roughly a dozen widely-used languages (Arabic, Hebrew, Persian, Urdu) are right-to-left, and getting RTL right involves more than mirroring text: the whole layout direction flips.
-
-```html
-<html dir="rtl" lang="ar">
-```
-
-Setting `dir="rtl"` on `<html>` (or any container) flips text alignment, flexbox/grid item order (without changing your JSX), the direction `margin`/`padding`/`border` shorthand apply visually, and native form control alignment. All of this happens automatically, because these are direction-aware by the CSS spec, not something you write JS to flip.
-
-**The CSS mistake to avoid:** physical properties (`margin-left`, `padding-right`, `text-align: left`) don't flip with `dir="rtl"`. They stay pinned to the physical left/right regardless of reading direction, which breaks the layout in RTL locales. **Logical properties** flip automatically because they're defined relative to text flow direction, not physical screen sides:
-
-```css
-/* Bad: pinned to physical left, breaks visually in RTL */
-.card {
-  margin-left: 16px;
-  padding-right: 8px;
-  text-align: left;
-}
-
-/* Good: logical properties, correct in both LTR and RTL automatically */
-.card {
-  margin-inline-start: 16px;
-  padding-inline-end: 8px;
-  text-align: start;
-}
-```
-
-| Physical (avoid) | Logical (prefer) |
-|---|---|
-| `margin-left` / `margin-right` | `margin-inline-start` / `margin-inline-end` |
-| `padding-left` / `padding-right` | `padding-inline-start` / `padding-inline-end` |
-| `left` / `right` (positioning) | `inset-inline-start` / `inset-inline-end` |
-| `text-align: left/right` | `text-align: start/end` |
-| `border-left` / `border-right` | `border-inline-start` / `border-inline-end` |
-
-Icons that convey direction (a "back" arrow, a "next" chevron) also need to mirror in RTL. This is not automatic and needs explicit handling, typically a CSS rule scoped to `[dir="rtl"]`:
-
-```css
-[dir="rtl"] .back-arrow-icon {
-  transform: scaleX(-1);
-}
-```
-
-## Locale-specific formatting beyond dates and numbers
-
-A few details interviewers use to check depth beyond the obvious date/currency examples. Pluralization is not binary in many languages: Russian and Polish have multiple plural forms depending on the exact count, and `Intl.PluralRules`/ICU MessageFormat handle this correctly where a manual `count === 1 ? "item" : "items"` check does not generalize. Name order and formality vary too: some locales expect family name before given name, or require formal and informal address forms that don't exist in English at all. Text expansion is a layout concern worth naming explicitly: German and Finnish UI strings routinely run 30-40% longer than the English original, and layouts hardcoded to English string lengths break visibly when translated, so fixed-width buttons and labels should be designed to tolerate that, not to fit English exactly.
-
-## Where this actually breaks in production
-
-The failures that show up in real apps rarely come from missing a translation key. They come from formatting logic that was hardcoded for one locale and never revisited: a price built with string concatenation instead of `Intl.NumberFormat`, a plural check that only handles English, or a fixed-width button that clips German text. Treating `Intl` and ICU pluralization as the default from day one, rather than a retrofit once a second locale ships, is what separates code that scales to new markets from code that needs a rewrite to get there.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('9fc00f14-9e68-5839-9185-21b1abd56c31', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Patterns', 'notes', 30, $md$"Explain compound components" and "when would you use a render prop instead of a custom hook" are recurring senior-level interview questions. They test whether you understand React's composition model beyond writing individual components. Today covers compound components, render props, HOCs, and custom hooks: what each buys you, and which of them modern React has mostly superseded.
-
-## Compound components
-
-A compound component splits one logical UI unit into multiple components that share implicit state through context, letting the caller compose the internal structure freely while the components coordinate behavior behind the scenes. It's the same relationship as native `<select>` and `<option>`.
-
-```tsx
-import { createContext, useContext, useState, type ReactNode } from "react";
-
-interface TabsContextValue {
-  activeTab: string;
-  setActiveTab: (id: string) => void;
-}
-
-const TabsContext = createContext<TabsContextValue | null>(null);
-
-function useTabsContext() {
-  const ctx = useContext(TabsContext);
-  if (!ctx) throw new Error("Tabs.* components must be used inside <Tabs>");
-  return ctx;
-}
-
-function Tabs({ defaultTab, children }: { defaultTab: string; children: ReactNode }) {
-  const [activeTab, setActiveTab] = useState(defaultTab);
-  return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
-      <div className="tabs">{children}</div>
-    </TabsContext.Provider>
-  );
-}
-
-function TabList({ children }: { children: ReactNode }) {
-  return <div role="tablist">{children}</div>;
-}
-
-function Tab({ id, children }: { id: string; children: ReactNode }) {
-  const { activeTab, setActiveTab } = useTabsContext();
-  return (
-    <button
-      role="tab"
-      aria-selected={activeTab === id}
-      onClick={() => setActiveTab(id)}
-    >
-      {children}
-    </button>
-  );
-}
-
-function TabPanel({ id, children }: { id: string; children: ReactNode }) {
-  const { activeTab } = useTabsContext();
-  if (activeTab !== id) return null;
-  return <div role="tabpanel">{children}</div>;
-}
-
-Tabs.List = TabList;
-Tabs.Tab = Tab;
-Tabs.Panel = TabPanel;
-
-export { Tabs };
-```
-
-```tsx
-// Usage — the caller controls composition and order freely,
-// Tabs doesn't need to know how many tabs exist or accept a `tabs` prop array
-<Tabs defaultTab="profile">
-  <Tabs.List>
-    <Tabs.Tab id="profile">Profile</Tabs.Tab>
-    <Tabs.Tab id="settings">Settings</Tabs.Tab>
-  </Tabs.List>
-  <Tabs.Panel id="profile">Profile content</Tabs.Panel>
-  <Tabs.Panel id="settings">Settings content</Tabs.Panel>
-</Tabs>
-```
-
-**When to use it:** when a component's children need to share implicit state and the caller benefits from controlling structure, order, and spacing directly in JSX, rather than passing a config array through a single `tabs` prop. Radix UI, React Aria, and Reach UI are all built almost entirely on this pattern; naming them is a strong signal you've read real library source, not just tutorials.
-
-**Trade-off:** the child components are coupled to the parent's context. `Tabs.Tab` used outside `<Tabs>` throws (by design, via the `useTabsContext` guard above), which is a real constraint on reuse compared to a fully standalone component.
-
-## Render props
-
-A render prop is a prop whose value is a function that returns JSX. It lets a component share stateful logic while leaving the actual rendering entirely to the caller.
-
-```tsx
-interface MousePositionProps {
-  render: (position: { x: number; y: number }) => ReactNode;
-}
-
-function MousePosition({ render }: MousePositionProps) {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    function handleMove(e: MouseEvent) {
-      setPosition({ x: e.clientX, y: e.clientY });
-    }
-    window.addEventListener("mousemove", handleMove);
-    return () => window.removeEventListener("mousemove", handleMove);
-  }, []);
-
-  return <>{render(position)}</>;
-}
-
-// Usage
-<MousePosition render={({ x, y }) => <p>Mouse at {x}, {y}</p>} />
-```
-
-This pattern predates hooks and is largely superseded by them. Here's the same logic as a custom hook:
-
-```tsx
-function useMousePosition() {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  useEffect(() => {
-    function handleMove(e: MouseEvent) {
-      setPosition({ x: e.clientX, y: e.clientY });
-    }
-    window.addEventListener("mousemove", handleMove);
-    return () => window.removeEventListener("mousemove", handleMove);
-  }, []);
-  return position;
-}
-
-// Usage — no wrapper component, no extra nesting, no children-as-function
-function Cursor() {
-  const { x, y } = useMousePosition();
-  return <p>Mouse at {x}, {y}</p>;
-}
-```
-
-**Interview-important distinction:** render props still earn their place today specifically when a library needs to expose behavior to consumers who might not be using hooks-compatible setups, or when the shared logic needs to control where in the tree something renders, not just provide data. React Router's `<Route render={...}>` (legacy API) and headless UI libraries sometimes still use this for exactly that reason. For the common case of sharing stateful logic across components, though, a custom hook is less nesting, easier to read, and the answer most interviewers are looking for today.
-
-## Higher-order components (HOCs)
-
-An HOC is a function that takes a component and returns a new component with added behavior or props: composition by wrapping, rather than by nesting JSX.
-
-```tsx
-function withAuth<P extends object>(Wrapped: React.ComponentType<P>) {
-  return function WithAuthComponent(props: P) {
-    const { user, isLoading } = useAuth();
-
-    if (isLoading) return <Spinner />;
-    if (!user) return <Navigate to="/login" />;
-
-    return <Wrapped {...props} />;
-  };
-}
-
-// Usage
-const ProtectedDashboard = withAuth(Dashboard);
-```
-
-Hooks largely replaced this pattern because of three known problems. Stacking several HOCs (`withAuth(withTheme(withLogging(Component)))`) produces deeply nested component trees that are hard to read in DevTools and hard to trace prop flow through, a problem often called wrapper hell. Two HOCs both injecting a prop called `data` silently overwrite each other with no compile-time warning. And correctly typing the props an HOC adds, consumes, and passes through in TypeScript is meaningfully harder than typing a hook's return value.
-
-```tsx
-// The equivalent as a hook — no wrapping component, no prop injection,
-// the consuming component stays explicit about what it uses
-function ProtectedDashboard() {
-  const { user, isLoading } = useAuth();
-  if (isLoading) return <Spinner />;
-  if (!user) return <Navigate to="/login" />;
-  return <Dashboard />;
-}
-```
-
-**When HOCs still make sense:** wrapping a third-party component you can't modify (you can't add a hook call inside someone else's component), or a genuinely cross-cutting concern applied uniformly across many unrelated components at the routing or composition layer (`connect()` from older Redux, still seen in legacy codebases). For new code you control, a hook covers the same need with less indirection.
-
-## Custom hooks
-
-A custom hook is just a function that starts with `use` and calls other hooks. It extracts stateful logic so it can be reused across components without changing the component tree shape at all, the core advantage over both render props and HOCs.
-
-```tsx
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timeout);
-  }, [value, delayMs]);
-
-  return debounced;
-}
-
-// Usage
-function SearchBox() {
-  const [query, setQuery] = useState("");
-  const debouncedQuery = useDebouncedValue(query, 300);
-
-  useEffect(() => {
-    if (debouncedQuery) searchApi(debouncedQuery);
-  }, [debouncedQuery]);
-
-  return <input value={query} onChange={(e) => setQuery(e.target.value)} />;
-}
-```
-
-Custom hooks compose cleanly with each other (a hook can call other hooks) and don't add any nesting to the render tree, which is precisely what makes them the default answer to "how do I share this stateful logic" over both older patterns.
-
-## When to use each: a decision table
-
-| Need | Pattern |
-|---|---|
-| Share stateful logic across components, no rendering control needed | Custom hook, the default choice |
-| Consumer needs implicit shared state across a fixed set of composed children (tabs, accordion, select) | Compound components |
-| A library needs to hand rendering control to the consumer, or must support non-hook consumers | Render props |
-| Wrapping a third-party component you can't add hooks to, or a legacy codebase already using the pattern | HOC |
-
-## Patterns in popular libraries
-
-- **Compound components:** Radix UI (`Accordion.Item`, `Accordion.Trigger`), React Aria, Reach UI, native `<select>`/`<option>`.
-- **Render props (legacy/still-alive cases):** React Router v5's `<Route render={...}>`, Formik's `<Field>` render-prop mode, Downshift's headless combobox API.
-- **HOCs:** Redux's `connect()`. `React.memo` and `React.forwardRef` are themselves technically HOC-shaped utilities built into React.
-- **Custom hooks:** virtually every modern library now ships a hooks-first API. React Query/TanStack Query (`useQuery`), React Hook Form (`useForm`), and Zustand (`useStore`) are the dominant pattern in 2026-era React libraries.
-
-The answer an interviewer is generally listening for: hooks by default, compound components for fixed-family shared-state UI, and render props or HOCs only for the specific legacy or third-party-wrapping cases they still solve better. Naming real libraries (Radix, TanStack Query, React Hook Form) as examples of each pattern is a stronger signal than describing the pattern in the abstract.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a082d56e-9f7f-5102-a71c-4913bbdf043a', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Animation', 'notes', 31, $md$Animation questions test the same rendering-pipeline knowledge from earlier in this course applied to a concrete deliverable: build something that moves smoothly, explain why it's smooth, and know when JavaScript is actually necessary versus CSS alone. Today covers CSS vs. JS animation, Framer Motion, gesture animations, and the performance and accessibility rules that separate a working demo from production-ready motion.
-
-## CSS animations vs. JS animations
-
-CSS transitions and animations run largely on the browser's compositor thread when restricted to `transform`/`opacity`, independent of the main JS thread. That means they keep running smoothly even while JavaScript is busy elsewhere, such as during a heavy computation or a slow re-render. JS-driven animation (via `requestAnimationFrame` or a library) runs on the main thread instead, and is therefore vulnerable to jank from anything else competing for that thread.
-
-```css
-/* CSS transition — declarative, compositor-friendly, no JS needed */
-.card {
-  transform: scale(1);
-  transition: transform 0.2s ease-out;
-}
-.card:hover {
-  transform: scale(1.05);
-}
-
-/* CSS keyframe animation — for anything beyond a two-state transition */
-@keyframes slideIn {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-.toast {
-  animation: slideIn 0.3s ease-out;
-}
-```
-
-**When CSS alone is enough:** hover/focus states, simple enter/exit transitions, loading spinners, anything with a fixed, predetermined start and end state that doesn't need to respond to user input mid-animation or coordinate with application state.
-
-**When you need JavaScript:** animations that must interrupt or reverse based on user input mid-flight (drag gestures), animations sequenced or orchestrated across multiple elements with dynamic timing, physics-based motion (spring easing that reacts to velocity), or anything that needs to read live layout measurements (FLIP-style shared element transitions).
-
-## Framer Motion basics
-
-Framer Motion (now branded **Motion** for React) is the standard JS animation library in the React ecosystem. It wraps DOM elements with a declarative API while still animating `transform`/`opacity` under the hood wherever possible, giving you JS-level control without giving up compositor performance for the properties that support it.
-
-```bash
-npm install framer-motion
-```
-
-```tsx
-import { motion } from "framer-motion";
-
-function FadeInCard({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-```
-
-`initial` is the starting state, `animate` is the target state Motion tweens toward on mount (and whenever the values change), and `transition` controls timing and easing. Swapping `duration`-based easing for a spring is one prop change:
-
-```tsx
-<motion.div
-  initial={{ scale: 0.8, opacity: 0 }}
-  animate={{ scale: 1, opacity: 1 }}
-  transition={{ type: "spring", stiffness: 300, damping: 20 }}
->
-  Content
-</motion.div>
-```
-
-**Exit animations** need `AnimatePresence`, because React normally unmounts a component immediately. There's no window for an exit animation to play unless something delays the actual removal from the DOM until the animation finishes.
-
-```tsx
-import { AnimatePresence, motion } from "framer-motion";
-
-function Toast({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
-  return (
-    <AnimatePresence>
-      {message && (
-        <motion.div
-          key={message} // AnimatePresence needs a stable key to detect add/remove
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-        >
-          {message}
-          <button onClick={onDismiss}>Dismiss</button>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-```
-
-Trace what happens when `message` becomes `null`: React would normally remove the `motion.div` from the tree on the very next render. `AnimatePresence` intercepts that, keeps the element mounted just long enough to run the `exit` animation, and only lets React actually remove it once that animation completes. This "delay the unmount" mechanism is worth being able to explain precisely; it's a common interview follow-up.
-
-## Complex gesture animations
-
-Drag, pan, and hover gestures are where hand-rolling with raw `pointermove`/`pointerup` listeners gets tedious fast. This is Motion's strongest differentiator over plain CSS.
-
-```tsx
-import { motion, useMotionValue, useTransform } from "framer-motion";
-
-function DraggableCard() {
-  const x = useMotionValue(0);
-  // Derive rotation and opacity from drag distance without triggering re-renders —
-  // useTransform subscribes to x's changes and updates the DOM directly.
-  const rotate = useTransform(x, [-200, 200], [-15, 15]);
-  const opacity = useTransform(x, [-200, 0, 200], [0.5, 1, 0.5]);
-
-  return (
-    <motion.div
-      drag="x"
-      dragConstraints={{ left: -200, right: 200 }}
-      dragElastic={0.2}
-      style={{ x, rotate, opacity }}
-      onDragEnd={(_, info) => {
-        if (Math.abs(info.offset.x) > 150) {
-          console.log(info.offset.x > 0 ? "swiped right" : "swiped left");
-        }
-      }}
-    >
-      Swipe me
-    </motion.div>
-  );
-}
-```
-
-`useMotionValue`/`useTransform` are the key performance detail. Values driven through them update the DOM directly, via the compositor-friendly `transform`, without going through React's render cycle at all. Dragging this card doesn't re-render the component on every pixel of movement; only regular React state would do that.
-
-```tsx
-// Layout animations — Motion automatically computes a FLIP transition
-// (First-Last-Invert-Play) when an element's layout position/size changes,
-// e.g. a reordering list, without you calculating transforms manually
-<motion.div layout transition={{ type: "spring" }}>
-  {content}
-</motion.div>
-```
-
-The `layout` prop is Framer Motion's implementation of the FLIP technique. It measures the element's position **F**irst, lets React re-render to the **L**ast position, **I**nverts the visual jump with a transform back to the original spot, then **P**lays a transition to zero. That makes a genuine layout change, like an item removed from a list causing others to shift up, animate smoothly using only compositor-friendly transforms instead of animating the actual `top`/`left` layout properties.
-
-## Performance considerations
-
-Animate `transform`/`opacity`, never `top`/`left`/`width`/`height`/`margin`. This is the same rule from rendering-performance day, applied here: layout-affecting properties force Style, Layout, Paint, and Composite on every frame, while `transform`/`opacity` can skip straight to Composite.
-
-Set `will-change` immediately before the animation starts and remove it once it ends. Leaving it on permanently fragments the page into unnecessary GPU layers. Framer Motion manages this internally for elements it's actively animating.
-
-Avoid animating too many elements simultaneously. Even compositor-only animations have a per-layer memory and GPU cost, so staggering large numbers of simultaneous animations (Motion's `staggerChildren`) both looks better and costs less than triggering hundreds of elements at once.
-
-Debounce or throttle scroll-linked animations. `useScroll`-driven parallax effects that read scroll position on every frame should be paired with `useTransform`/`useSpring` (which Motion optimizes internally) rather than a naive `onScroll` handler calling `setState`, which would trigger a full React re-render per scroll event.
-
-```tsx
-// Stagger children — visually clearer and cheaper than animating
-// all list items at the exact same instant
-const container = {
-  animate: { transition: { staggerChildren: 0.05 } },
-};
-const item = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0 },
-};
-
-function StaggeredList({ items }: { items: string[] }) {
-  return (
-    <motion.ul variants={container} initial="initial" animate="animate">
-      {items.map((text) => (
-        <motion.li key={text} variants={item}>{text}</motion.li>
-      ))}
-    </motion.ul>
-  );
-}
-```
-
-## Accessibility concerns
-
-Motion is not accessibility-neutral. Vestibular disorders can make large, fast animations genuinely nauseating or disorienting for some users, and the platform gives you a documented way to respect that preference.
-
-```css
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-```
-
-```tsx
-import { useReducedMotion } from "framer-motion";
-
-function FadeInCard({ children }: { children: React.ReactNode }) {
-  const shouldReduceMotion = useReducedMotion();
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-```
-
-`useReducedMotion` reads the OS-level `prefers-reduced-motion` setting so you can conditionally shrink or remove motion, typically keeping opacity fades but dropping translation, scale, and parallax, rather than blanket-disabling all animation, which can make an interface feel broken rather than considerate. The correct default is that opacity-only transitions survive reduced-motion mode, while movement, scale, and parallax should not.
-
-A second accessibility detail: animations that auto-play and loop indefinitely, such as background video or an infinite carousel, need a visible pause control per WCAG 2.2.2. Motion the user can't stop is a genuine accessibility failure, not just a preference.
-
-## Library comparison
-
-| Library | Best for | Trade-off |
-|---|---|---|
-| CSS transitions/animations | Simple, fixed-state transitions (hover, fade, spinner) | No mid-animation interruption, no physics, no gesture support |
-| Framer Motion (Motion) | Gesture-driven UI, layout transitions, orchestrated sequences, React-idiomatic API | Adds a dependency and bundle weight; overkill for simple hover effects |
-| React Spring | Physics-based spring animation with a lower-level, more flexible API | Steeper learning curve than Motion's declarative props |
-| GSAP | Complex timeline-based sequencing, SVG morphing, scroll-triggered animation, framework-agnostic | Imperative API doesn't compose as naturally with React's declarative model; commercial license for some plugins |
-| Web Animations API (native) | Direct browser API, no dependency, good for one-off imperative animations | Verbose for anything beyond a single element's simple animation, no gesture/layout helpers |
-
-The interview-ready framing: reach for CSS first, since it's the cheapest, most performant, and needs zero JS. Reach for Motion when you need gesture handling, layout animations, or state-driven orchestration that CSS structurally can't express. Know that GSAP and React Spring exist as the alternatives you'd consider for timeline-heavy or physics-heavy special cases.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('2c79e78c-13b2-58e1-8f6d-f694bba5fc10', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: JavaScript + React Interview Prep', 'notes', 90, $md$These are personal notes from an interview-prep session, not a single guided lesson. It's a reference document bundling a grab-bag of unrelated topics: Promise internals, custom React hooks, a couple of classic bug patterns, common polyfills, two data-structure implementations, and a dense JS/React/CSS/TypeScript theory reference. Use the table of contents to jump to the section you need rather than reading it start to finish.
-
----
-
-## Table of Contents
-1. [Promise Combinators](#1-promise-combinators)
-2. [Building Promise from Scratch (MyPromise)](#2-building-promise-from-scratch-mypromise)
-3. [Custom React Hooks](#3-custom-react-hooks)
-4. [Stale Closure Bug Pattern](#4-stale-closure-bug-pattern)
-5. [Compound Component Pattern](#5-compound-component-pattern)
-6. [Infinite Scroll (Intersection Observer)](#6-infinite-scroll-intersection-observer)
-7. [Classic JS Polyfills](#7-classic-js-polyfills)
-8. [LRU Cache](#8-lru-cache)
-9. [WeakMap / WeakSet](#9-weakmap--weakset)
-10. [Theory Quick Reference](#10-theory-quick-reference)
-
----
-
-## 1. Promise Combinators
-
-### Core rules
-
-| Combinator | Settles when | On all-fail/empty |
-|---|---|---|
-| `all` | any reject OR all resolve | empty → resolve `[]` |
-| `race` | first settle (resolve/reject) | empty → pending forever |
-| `allSettled` | always waits for all | empty → resolve `[]` |
-| `any` | first resolve OR all reject | empty → reject |
-
-### Promise.all
-```js
-function promiseAll(promises) {
-  return new Promise((resolve, reject) => {
-    const results = [];
-    let completedCount = 0;
-
-    if (promises.length === 0) { resolve([]); }
-
-    promises.forEach((promise, index) => {
-      promise.then(
-        (result) => {
-          results[index] = result;
-          completedCount++;
-          if (completedCount === promises.length) resolve(results);
-        }
-      ).catch(reject); // fail-fast
-    });
-  });
-}
-```
-Trace: for `promiseAll([p1, p2])`, both promises start immediately. Whichever settles first writes its result into `results` at its own index and bumps `completedCount`, so the results array ends up in the original order even if `p2` finishes before `p1`. Once `completedCount` reaches `promises.length`, the outer promise resolves with `results`. If either promise rejects at any point, `.catch(reject)` rejects the outer promise right away, regardless of what's still pending.
-
-### Promise.race
-```js
-function promiseRace(promises) {
-  return new Promise((resolve, reject) => {
-    promises.forEach((promise) => {
-      promise.then(resolve).catch(reject);
-    });
-  });
-}
-```
-An empty array leaves the returned promise pending forever, which you can verify by running `Promise.race([])` in devtools and watching it never settle.
-
-### Promise.allSettled
-```js
-function allSettled(promises) {
-  let result = [];
-  let count = 0;
-
-  return new Promise((resolve) => {
-    if (promises.length === 0) resolve([]);
-
-    promises.forEach((promise, index) => {
-      promise.then(
-        (value) => { result[index] = { status: "fulfilled", value }; }
-      ).catch(
-        (reason) => { result[index] = { status: "rejected", reason }; }
-      ).finally(() => {
-        count++;
-        if (count === promises.length) resolve(result);
-      });
-    });
-  });
-}
-```
-This never fails fast. It waits for every promise to settle regardless of outcome, recording either a `fulfilled` or `rejected` entry for each one. `.finally()` is the convenient part here: it increments the shared counter on both the resolve and reject branches, so there's no need to duplicate that logic in each `.then()`/`.catch()`.
-
-### Promise.any
-```js
-function any(promises) {
-  let result = [];
-  let count = 0;
-
-  return new Promise((resolve, reject) => {
-    if (promises.length === 0) {
-      reject(new AggregateError([], "All promises were rejected"));
-    }
-
-    promises.forEach((promise, index) => {
-      promise.then(
-        (value) => { resolve(value); }
-      ).catch(
-        (reason) => { result[index] = reason; }
-      ).finally(() => {
-        count++;
-        if (count === promises.length) reject(result);
-      });
-    });
-  });
-}
-```
-Key insight: once a promise settles, calling `resolve` or `reject` on it again is a silent no-op in JS. Settling is permanent, and that's exactly what makes the code above safe: if one promise resolves early, `resolve(value)` fires once, and even if `count` later reaches `promises.length` and triggers `reject(result)`, that second call does nothing because the promise already settled.
-
----
-
-## 2. Building Promise from Scratch (MyPromise)
-
-### Key facts
-- Executor runs **synchronously** the moment `new Promise()` is called.
-- A settled promise (fulfilled/rejected) can **never** change state again ("immutable settling").
-- If the executor throws synchronously (no try/catch inside), it should auto-convert to a rejection.
-
-### Base state machine
-```js
-class MyPromise {
-  constructor(executor) {
-    this.state = "pending";
-    this.value = undefined;
-    this.onFulfilledCallbacks = [];
-    this.onRejectedCallbacks = [];
-
-    const resolve = (value) => {
-      if (this.state === "pending") {
-        this.state = "fulfilled";
-        this.value = value;
-        this.onFulfilledCallbacks.forEach((cb) => cb(this.value));
-      }
-    };
-
-    const reject = (reason) => {
-      if (this.state === "pending") {
-        this.state = "rejected";
-        this.value = reason;
-        this.onRejectedCallbacks.forEach((cb) => cb(this.value));
-      }
-    };
-
-    try {
-      executor(resolve, reject);
-    } catch (error) {
-      reject(error);
-    }
-  }
-
-  then(onFulfilled, onRejected) {
-    if (this.state === "fulfilled") {
-      onFulfilled && onFulfilled(this.value);
-    } else if (this.state === "rejected") {
-      onRejected && onRejected(this.value);
-    } else {
-      if (onFulfilled) this.onFulfilledCallbacks.push(onFulfilled);
-      if (onRejected) this.onRejectedCallbacks.push(onRejected);
-    }
-  }
-
-  catch(onRejected) {
-    return this.then(null, onRejected);
-  }
-}
-```
-
-### Why two callback arrays?
-`.then()` can be called before the promise settles (the async case, for example inside a `setTimeout`) or after it already settled (the sync case). Both need handling:
-- Already settled: call the callback immediately.
-- Still pending: store the callback in an array; `resolve`/`reject` will drain that array once the promise settles.
-- Multiple `.then()` calls on the same promise need an array, not a single variable, since every one of them must eventually fire.
-
-### Chaining (`.then().then()`)
-For `.then()` to be chainable, it must return a new `MyPromise`. Two behaviors need handling inside that new promise:
-- If the callback returns a plain value, resolve the new promise with it.
-- If the callback throws, reject the new promise with the error, mirroring how a synchronous `try/catch` propagates.
-- Advanced case, not fully implemented in this session: if the callback returns another promise, the new promise should wait on that inner promise instead of resolving with the promise object itself ("flattening").
-
-```js
-then(onFulfilled, onRejected) {
-  return new MyPromise((resolve, reject) => {
-    const handleFulfilled = () => {
-      try {
-        const result = onFulfilled ? onFulfilled(this.value) : this.value;
-        resolve(result);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    // handleRejected follows the same pattern using onRejected
-    // ...
-  });
-}
-```
-Trace: calling `.then(fn)` on an already-fulfilled promise runs `handleFulfilled` inside the executor of the freshly created `MyPromise`. It calls `fn(this.value)` synchronously; if `fn` returns a plain value, that value resolves the new promise, which is what lets the next `.then()` in the chain pick it up. If `fn` throws instead, the `catch` block here rejects the new promise, which is how an error thrown three `.then()` calls deep can still be caught by a single `.catch()` at the end of the chain.
-
----
-
-## 3. Custom React Hooks
-
-### useDebounce
-**Use case:** delay reacting to a fast-changing value (search input, resize, auto-save, slider) until it stabilizes.
-
-```js
-import { useEffect, useState } from "react";
-
-const useDebounce = (state, delay) => {
-  const [debounce, setDebounce] = useState(state); // seed with initial value, not undefined
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebounce(state);
-    }, delay);
-
-    return () => clearTimeout(timer); // cancel stale timer on re-run/unmount
-  }, [state, delay]);
-
-  return { debounce };
-};
-```
-
-Usage:
-```jsx
-export const DebounceDemo = () => {
-  const [value, setValue] = useState("");
-  const { debounce } = useDebounce(value, 200);
-
-  useEffect(() => {
-    console.log("API call for:", debounce);
-  }, [debounce]);
-
-  return <input value={value} onChange={(e) => setValue(e.target.value)} />;
-};
-```
-The input updates instantly with no typing lag, since `value` is a normal controlled state. The "API call" only fires once typing pauses for 200ms, because every keystroke cancels the previous timer via the cleanup function before a new one is set.
-
-### useFetch (with race-condition handling)
-**Problem it solves:** if `url` changes quickly (for example, a user switches a dropdown from option A to option B), a slow response for A could resolve after B's response arrives and incorrectly overwrite the UI with stale data. That's a race condition.
-
-```js
-import { useEffect, useState } from "react";
-
-const useFetch = (url) => {
-  const [apiData, setData] = useState([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function fetchData(signal) {
-    setLoading(true);
-    try {
-      const response = await fetch(url, { signal });
-      const data = await response.json();
-      setData(data);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        setError(err); // don't surface a cancelled request as a real error
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    const control = new AbortController();
-    fetchData(control.signal);
-    return () => control.abort(); // cancels the in-flight request when url changes/unmounts
-  }, [url]);
-
-  return { apiData, error, loading };
-};
-```
-Without `AbortController`, whichever request resolves last wins, even if it wasn't the last one started, which is how the UI ends up corrupted with outdated data.
-
-### useLocalStorage
-```js
-import { useEffect, useState } from "react";
-
-function useLocalStorage(key, initialValue) {
-  const [data, setData] = useState(() => {
-    const stored = localStorage.getItem(key); // check raw string BEFORE parsing
-    return stored ? JSON.parse(stored) : initialValue;
-  });
-
-  useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(data));
-  }, [data]);
-
-  return [data, setData];
-}
-```
-**Bugs avoided here:**
-- `localStorage` only stores strings, so writes need `JSON.stringify` and reads need `JSON.parse`.
-- Falsy-value bug: checking truthiness *after* parsing breaks for legitimate falsy values like `0` or `false` (for example, `JSON.parse("0")` evaluates to `0`, which is falsy). Checking the raw string for truthiness first avoids this, since `JSON.stringify` never produces an empty string for any valid value.
-- The lazy `useState(() => ...)` initializer ensures `localStorage` is read only once, on mount, rather than on every render.
-
----
-
-## 4. Stale Closure Bug Pattern
-
-**Buggy version:**
-```jsx
-function Counter() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    setInterval(() => {
-      setCount(count + 1); // `count` is captured at effect's first run — always 0
-    }, 1000);
-  }, []);
-
-  return <div>{count}</div>;
-}
-```
-This increments once (0 to 1) and then freezes. The closure inside `setInterval` captured `count` as it was when the effect first ran, which is `0`, and because the effect has an empty dependency array it never re-runs to capture a fresh value. Every tick after the first is still adding `1` to that original `0`.
-
-**Fixed version:**
-```jsx
-function Counter() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCount((q) => q + 1); // functional update — always gets latest state
-    }, 1000);
-    return () => clearInterval(timer); // cleanup prevents leak on unmount
-  }, []);
-
-  return <div>{count}</div>;
-}
-```
-
-**Two things fixed simultaneously:**
-1. Stale closure: use the functional update form `setState(prev => ...)` instead of referencing the closed-over variable directly, so each tick reads whatever the current state actually is.
-2. Memory leak: always clear intervals, timeouts, and subscriptions in the `useEffect` cleanup function.
-
----
-
-## 5. Compound Component Pattern
-
-**Idea:** like the native `<select><option>` pair, child components only make sense inside a specific parent, and implicitly share state with it through React Context instead of prop drilling.
-
-```jsx
-import { createContext, useContext, useState } from "react";
-
-const AccordionContext = createContext();
-
-function Accordion({ children }) {
-  const [activeIndex, setActiveIndex] = useState(null);
-
-  return (
-    <AccordionContext.Provider value={{ activeIndex, setActiveIndex }}>
-      <div>{children}</div>
-    </AccordionContext.Provider>
-  );
-}
-```
-An `Accordion.Item` nested anywhere inside reads `activeIndex`/`setActiveIndex` via `useContext(AccordionContext)`, with no manual prop passing needed even through several levels of nesting.
-
-### Context API — general pattern
-```jsx
-const ThemeContext = createContext();
-
-function App() {
-  const [theme, setTheme] = useState("light");
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      <Header />
-    </ThemeContext.Provider>
-  );
-}
-
-function Header() {
-  const { theme, setTheme } = useContext(ThemeContext); // no props from App needed
-  return <button onClick={() => setTheme(theme === "light" ? "dark" : "light")}>{theme}</button>;
-}
-```
-
----
-
-## 6. Infinite Scroll (Intersection Observer)
-
-**Why Intersection Observer over scroll-event listeners:** scroll events fire extremely often and hurt performance, while Intersection Observer only fires when an element's visibility actually changes.
-
-```jsx
-import { useState, useEffect, useRef, useCallback } from "react";
-
-function InfiniteList() {
-  const [items, setItems] = useState([]);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const observerTarget = useRef(null); // invisible "sentinel" element at list end
-
-  const fetchMoreItems = useCallback(async () => {
-    if (loading || !hasMore) return; // guard against double-fetch / fetching past the end
-
-    setLoading(true);
-    const response = await fetch(`https://api.example.com/items?page=${page}`);
-    const newItems = await response.json();
-
-    if (newItems.length === 0) {
-      setHasMore(false);
-    } else {
-      setItems((prev) => [...prev, ...newItems]);
-      setPage((prev) => prev + 1);
-    }
-    setLoading(false);
-  }, [page, loading, hasMore]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) fetchMoreItems();
-      },
-      { threshold: 1.0 }
-    );
-
-    const currentTarget = observerTarget.current;
-    if (currentTarget) observer.observe(currentTarget);
-
-    return () => {
-      if (currentTarget) observer.unobserve(currentTarget);
-    };
-  }, [fetchMoreItems]);
-
-  return (
-    <div>
-      {items.map((item) => <div key={item.id}>{item.name}</div>)}
-      <div ref={observerTarget} style={{ height: "20px" }}>
-        {loading && "Loading more..."}
-      </div>
-    </div>
-  );
-}
-```
-**How to explain it verbally:** an invisible sentinel div sits at the end of the list. Intersection Observer watches it, and when it becomes visible the user has scrolled to the bottom, so the code fetches the next page and appends it to the existing items array.
-
----
-
-## 7. Classic JS Polyfills
-
-### deepClone
-```js
-function deepClone(value) {
-  if (typeof value !== "object" || value === null) {
-    return value; // primitives AND null both handled here
-  }
-
-  if (Array.isArray(value)) {
-    const temp = [];
-    value.forEach((i) => temp.push(deepClone(i)));
-    return temp;
-  }
-
-  if (typeof value === "object") {
-    const temp = {};
-    Object.entries(value).forEach(([k, v]) => {
-      temp[k] = deepClone(v);
-    });
-    return temp;
-  }
-}
-```
-**Bugs to avoid:**
-- `typeof null` returns `"object"`, a well-known JS quirk, so `null` needs an explicit check or the function crashes trying to run `Object.entries(null)`.
-- The condition must use `||`, not `&&`: return early if either "not an object" or "is null" is true.
-
-### memoize
-```js
-function memoize(cb) {
-  const cache = {};
-  return function (...args) {
-    const key = JSON.stringify(args);
-    if (key in cache) { // `in` check, not truthiness — handles falsy cached results like 0
-      return cache[key];
-    }
-    const result = cb(...args); // spread, not passing the array directly
-    cache[key] = result;
-    return result;
-  };
-}
-```
-**Bugs to avoid:**
-- `cb(args)` would pass the whole array as one argument, so the call must spread it: `cb(...args)`.
-- `if (cache[key])` fails for falsy cached values like a result of `0`, so the lookup uses `key in cache` instead.
-
-### flatten
-```js
-function flatten(val, result = []) {
-  if (Array.isArray(val)) {
-    val.forEach((entry) => flatten(entry, result)); // must pass the SAME result array through recursion
-  } else {
-    result.push(val);
-  }
-  return result;
-}
-```
-The bug to avoid: forgetting to pass `result` into the recursive call causes each call to create its own fresh `[]` via the default parameter, so nothing ever accumulates into the outer array.
-
-Trace: `flatten([1, [2, [3, 4]], 5])` starts with `result = []`. Hitting `1` pushes it straight into `result`. Hitting the nested array `[2, [3, 4]]` recurses with that *same* `result` array rather than a new one, so those recursive pushes land in the outer array too. By the time the recursion unwinds, `result` is `[1, 2, 3, 4, 5]`.
-
-`deepClone` builds a new return value at every level, an immutable style, while `flatten` mutates one shared accumulator, a mutable style. Knowing the difference between these two recursion patterns is worth calling out in an interview.
-
----
-
-## 8. LRU Cache
-
-**Concept:** a fixed-capacity cache that, once full, evicts the least recently used item to make room for a new one.
-
-```js
-class LRUCache {
-  constructor(capacity) {
-    this.capacity = capacity;
-    this.cache = new Map(); // Map preserves insertion order
-  }
-
-  get(key) {
-    if (!this.cache.has(key)) return -1;
-
-    // delete + re-set moves this key to the "end" (= most recently used)
-    const value = this.cache.get(key);
-    this.cache.delete(key);
-    this.cache.set(key, value);
-    return value;
-  }
-
-  put(key, value) {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    } else if (this.cache.size >= this.capacity) {
-      // Map's first key (via iterator) is always the least-recently-used one
-      const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
-    }
-    this.cache.set(key, value);
-  }
-}
-```
-`Map` is ideal here because it preserves insertion order, and re-inserting a key via delete-then-set moves it to the end. That gives an O(1) way to track recency without maintaining a separate linked list.
-
-Trace: with capacity 3 and keys inserted in order `a, b, c`, calling `get('a')` deletes and re-inserts `a`, so the Map's iteration order becomes `b, c, a`. A subsequent `put('d', ...)` sees `cache.size >= capacity`, reads `cache.keys().next().value`, which is now `b`, and evicts it, correctly preserving `a` because it was accessed more recently than `b`.
-
----
-
-## 9. WeakMap / WeakSet
-
-| | `Map`/`Set` | `WeakMap`/`WeakSet` |
-|---|---|---|
-| Keys/values | Any type | Objects only |
-| Iteration | `.forEach`, `.keys()`, `.size` available | Not available (GC timing unpredictable) |
-| Memory | Strong reference — prevents GC | Weak reference — entry auto-removed when object is GC'd |
-
-```js
-let obj = { name: "Nayan" };
-const wm = new WeakMap();
-wm.set(obj, "metadata");
-
-obj = null; // no other references left → WeakMap entry becomes eligible for GC automatically
-```
-Trace: after `obj = null`, nothing in the program still holds a strong reference to that object literal, since the `WeakMap` only ever held a weak one. The garbage collector is now free to reclaim it, and its entry in `wm` disappears at some unspecified future point. There's no way to observe this happening directly, which is exactly why `WeakMap` doesn't expose iteration or a `size` property.
-
-**Use case:** associating extra data with a DOM element (or other object) without causing a memory leak if that object is later removed or discarded.
-
-**Interview soundbite:** "Weak" is the memory-safe version of `Map`/`Set`, for when you need to associate data with an object temporarily without risking a leak.
-
----
-
-## 10. Theory Quick Reference
-
-A rapid-fire recall list across JavaScript, React, browser APIs, CSS, and TypeScript. Each entry is meant as a memory jog, not a full explanation, cross-referencing the worked examples earlier in this document where relevant.
-
-### JavaScript
-
-- **var, let, const**: three ways to declare a variable, differing in scope and mutability.
-  - `var` is function-scoped and can be redeclared.
-  - `let` is block-scoped and can be reassigned but not redeclared in the same scope.
-  - `const` is block-scoped and cannot be reassigned after initialization.
-- **Hoisting**: declarations are lifted to the top of their scope before the code runs, but different kinds of declarations are lifted differently.
-  - `var` is hoisted and initialized to `undefined`.
-  - `let`/`const` are hoisted but stay in the "temporal dead zone" until their line executes, so touching them earlier throws a `ReferenceError`.
-  - Function declarations are hoisted in full, body included, so they can be called before the line where they're written.
-- **Closures**: a function keeps access to variables from its outer scope even after that outer function has already returned. This is what makes `useDebounce` above work: the timer callback still "remembers" the `state` value from the render that created it.
-- **`this`**: its value depends on how a function is called, the call site, not where the function is defined. Arrow functions don't get their own `this`; they inherit it lexically from the surrounding scope, which is why they're preferred for callbacks inside class methods or components.
-- **call / apply / bind**: three ways to control what `this` refers to inside a function.
-  - `call(thisArg, a, b)` invokes the function immediately with arguments listed individually.
-  - `apply(thisArg, [a, b])` invokes the function immediately with arguments passed as an array.
-  - `bind(thisArg)` doesn't invoke the function; it returns a new function permanently bound to `thisArg`, to be called later.
-- **Event loop**: synchronous code runs first, then the microtask queue drains (Promise callbacks), then one macrotask runs (like a `setTimeout` callback), and the cycle repeats. That ordering is why `Promise.resolve().then()` always fires before `setTimeout(fn, 0)`, even though both are scheduled for "later."
-- **`==` vs `===`**: `==` coerces both sides to a common type before comparing, which can produce surprises like `"0" == false` being `true`. `===` compares value and type with no coercion, which is why it's the safer default.
-- **Deep vs shallow copy**: a shallow copy duplicates only the top level of an object; nested objects and arrays are still shared references between the original and the copy. A deep copy, like the `deepClone` polyfill above, recursively duplicates every level so nothing is shared.
-- **Prototypal inheritance**: when a property isn't found directly on an object, JavaScript looks up the object's prototype chain until it finds the property or reaches `null`.
-- **Currying**: transforming a function that takes multiple arguments into a sequence of functions that each take one argument, returning a new function until every argument has been supplied.
-- **Debounce vs throttle**: both limit how often a function runs, but on different triggers. Debounce waits for activity to stop for a set delay before firing, as in `useDebounce` above. Throttle fires at a fixed interval regardless of how much activity happens in between.
-- **async/await**: syntactic sugar over Promises. An `async` function always returns a Promise, and `await` pauses execution inside that function until the awaited Promise settles. Errors from a rejected awaited Promise are handled with a normal `try/catch`.
-- **Pure function**: given the same input, it always returns the same output, and it doesn't read or modify anything outside itself.
-- **null vs undefined**: `undefined` means a variable was declared but never assigned a value. `null` means a value was deliberately set to represent "no value."
-- **`typeof null`**: returns `"object"`, the long-standing quirk that the `deepClone` bug note above explains the practical impact of.
-- **Higher-order function**: a function that takes another function as an argument, returns a function, or both.
-
-### React
-
-- **Virtual DOM**: a lightweight in-memory representation of the real DOM. React diffs the new virtual tree against the previous one and applies only the minimal set of real DOM updates needed, instead of re-rendering the page from scratch.
-- **useState vs useRef**: both persist a value across renders, but only one triggers a re-render. `useState` re-renders whenever its setter is called. `useRef` persists a value across renders without causing a re-render when it changes, which is why it's used for something like the `observerTarget` sentinel in the infinite-scroll example above.
-- **useEffect**: runs after the component renders and the DOM updates. The dependency array controls when it re-runs: an empty array means "once, after the first render"; listing values means "re-run whenever any of these change." Its optional cleanup function runs before the next run and again on unmount, which is why the stale-closure fix above clears its interval there.
-- **useEffect vs useLayoutEffect**: `useEffect` runs asynchronously after the browser paints, so it doesn't block visual updates. `useLayoutEffect` runs synchronously before the browser paints, blocking it, which matters when the DOM needs to be measured or mutated before the user sees it.
-- **useMemo vs useCallback**: both skip recomputation when dependencies haven't changed, for different kinds of value. `useMemo` memoizes the result of a computation. `useCallback` memoizes the function reference itself, so a child wrapped in `React.memo` doesn't see a "new" function prop on every render.
-- **React.memo**: wraps a component so React skips re-rendering it when its props are shallow-equal to the previous render's props.
-- **Controlled vs uncontrolled**: describes where an input's value lives. Controlled means the value lives in React state and the input's `value` prop reflects it. Uncontrolled means the value lives in the DOM itself, read out via a `ref` only when needed.
-- **key prop**: tells React which array item corresponds to which rendered element across re-renders, so it can correctly reuse, reorder, or discard DOM nodes. Using the array index as the key breaks this when items are reordered, inserted, or removed, since the index no longer maps to the same logical item.
-- **Context API**: lets data flow deeply through the component tree without passing props down manually at every level, as shown in the compound-component and `ThemeContext` examples above.
-- **Custom hooks**: reusable stateful logic pulled into a function whose name starts with `use`, so React's linter can apply the rules of hooks to it, like `useDebounce`, `useFetch`, and `useLocalStorage` above.
-- **Compound components**: parent and child components that implicitly share state through Context rather than explicit props, mirroring how the native `<select><option>` pair works.
-- **HOC vs custom hook**: both reuse logic across components. A Higher-Order Component wraps a component and returns a new one, adding UI or behavior around it. A custom hook only reuses stateful logic and renders nothing itself.
-- **Error boundaries**: class components that catch JavaScript errors thrown during rendering in their child tree and render a fallback UI instead of crashing the whole app.
-- **State management split**: a common convention is Redux Toolkit for client/UI state (things like "is this modal open") and React Query for server state (data fetched from an API, including its caching and refetching).
-- **Code splitting**: `React.lazy` combined with `Suspense` loads component bundles on demand instead of shipping one large upfront bundle, reducing initial load time.
-- **Portals**: render a component's output into a DOM node outside its normal parent hierarchy, commonly used for modals and tooltips that need to escape a parent's `overflow: hidden` or stacking context.
-- **Forward ref**: lets a parent component obtain a reference to a DOM node that lives inside a child component, which the child wouldn't otherwise expose.
-
-### Async / Browser
-
-- **Race condition fix (fetch)**: cancel the previous in-flight request with `AbortController` whenever a new one starts, exactly as `useFetch` does above. Without this, a slower earlier response can resolve after a faster later one and overwrite the UI with stale data.
-- **fetch vs axios**: `fetch` is built into the browser and requires manually calling `.json()` and manually checking `response.ok` for HTTP errors. `axios` is a library that parses JSON automatically and throws on non-2xx responses by default, with richer error objects.
-- **CORS**: a browser security mechanism that blocks a page from making cross-origin requests unless the server explicitly allows it via response headers.
-- **localStorage / sessionStorage / cookies**: three ways to persist data in the browser. `localStorage` persists indefinitely until explicitly cleared. `sessionStorage` clears when the tab closes. Cookies are small, and unlike the other two, get sent to the server automatically with every matching request.
-- **Intersection Observer**: detects when an element enters or exits the viewport, used above for infinite scroll and commonly used for lazy-loading images.
-- **Rendering pipeline**: the browser parses HTML into a DOM tree, computes styles for each node, calculates layout, then paints pixels to the screen, in that order.
-
-### CSS
-
-- **Box model**: controls what an element's `width`/`height` include. `content-box` (the default) applies width/height only to the content, with padding and border added on top. `border-box` includes padding and border inside the stated width/height, so the rendered size matches what's set.
-- **Flexbox vs Grid**: Flexbox lays out items along a single axis, a row or a column. Grid lays out items along two axes, rows and columns together, which suits full page or section layouts better.
-- **Position types**: `relative` offsets an element from its own normal position while the original space stays reserved. `absolute` positions it relative to the nearest ancestor with a non-static position and removes it from normal flow. `fixed` pins it to the viewport regardless of scrolling. `sticky` behaves like `relative` until a scroll threshold is crossed, then switches to behaving like `fixed`.
-- **Specificity**: determines which CSS rule wins when multiple rules target the same element. ID selectors beat class selectors, which beat element selectors, regardless of the order the rules appear in the stylesheet.
-- **em vs rem**: `em` is relative to the parent element's font-size and compounds when nested. `rem` is always relative to the root `html` element's font-size, which makes sizing easier to reason about in deeply nested markup.
-- **BFC (Block Formatting Context)**: an independent layout region that contains floated children and prevents margin collapse with elements outside it. Properties like `overflow: hidden` or `display: flex`/`grid` create a new BFC as a side effect.
-- **display:none vs visibility:hidden vs opacity:0**: all hide an element visually but differ in layout and interactivity. `display: none` removes it from layout entirely, with no space reserved, and it can't receive events. `visibility: hidden` keeps its space reserved but hides it and blocks events. `opacity: 0` keeps its space reserved and hides it visually, but events like clicks still fire since it's technically still there.
-- **Media queries**: the common approach is mobile-first, writing base styles for mobile and then using `min-width` queries to add or override styles as the viewport grows.
-- **z-index**: only has an effect on elements whose `position` is not `static`.
-
-### TypeScript
-
-- **interface vs type**: largely interchangeable for describing object shapes but diverge in specific cases. `interface` supports declaration merging (redeclaring the same interface adds to it) and reads more naturally with `extends`. `type` aliases handle unions and intersections more flexibly and can alias any type, not just object shapes.
-- **Generics**: reusable type placeholders, written as `<T>`, that let a function or component work across a range of types while staying fully type-checked, instead of resorting to `any`.
-- **any vs unknown**: `any` disables type checking entirely for that value, forfeiting safety. `unknown` also accepts any value but requires a type check or a cast before it can be used, making it the safer choice when a type genuinely isn't known yet.
-- **Union vs Intersection**: a union type (`A | B`) means a value can be either `A` or `B`. An intersection type (`A & B`) means a value must satisfy both `A` and `B` at once.
-- **Optional chaining / nullish coalescing**: `?.` short-circuits to `undefined` instead of throwing when accessing a property on `null`/`undefined`. `??` provides a fallback only when the left side is specifically `null` or `undefined`, unlike `||`, which also falls back on other falsy values like `0` or `""`, the same falsy-value trap the `useLocalStorage` bug note above covers.
-
-### Architecture talking points
-- Folder structure organized by feature (components, hooks, and services grouped together) rather than by file type.
-- API access kept separate from UI components, usually through custom hooks that wrap `fetch` or React Query.
-- Redux Toolkit for client/UI state, React Query for server state: be ready to explain that boundary and why it exists.
-- Centralized error handling combining error boundaries, per-request `try/catch`, and user-facing messaging.
-- Performance at scale: list virtualization, lazy loading, code splitting.
-- Be ready to explain the trade-offs behind each choice; interviewers are usually testing the reasoning more than the specific answer.
-
----
-
-## Personal Project Talking Point: IntelliFinance AI
-
-**Problem:** managing expenses across multiple bank accounts is tedious. Existing budgeting apps track spending but don't automatically reconcile invoices or receipts against bank transactions across accounts.
-
-**Solution flow:** user uploads bank statements/invoices as PDFs → sent to an LLM for parsing → LLM returns structured JSON (date, amount, category) → backend auto-matches this against existing transactions by date/amount → on match, the invoice is linked to that transaction → user gets a dashboard showing category-wise spending breakdown.
-
-**Stack:** React + Redux Toolkit (frontend), Django REST Framework (backend), LLM integration for document parsing, Docker/AWS for deployment.
-
-Framing tip: never call your own project "very simple" in an interview. Present it confidently: problem, solution, architecture, then one interesting design decision, regardless of the project's size.
-$md$, 60, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('8c4ac282-b167-58f3-a317-7e01121ad9f3', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: DOM — Interview Prep', 'notes', 91, $md$## 1. What DOM Is
-DOM is the browser's live, in-memory JS object tree built from parsed HTML. It is not the HTML itself; `document` is the root of that tree.
-
-## 2. Node Types
-`1` Element · `3` Text (whitespace between tags counts!) · `8` Comment · `9` Document · `11` DocumentFragment
-
-## 3. Traversal
-- **All nodes:** `parentNode`, `childNodes`, `firstChild`, `nextSibling`
-- **Elements only:** `parentElement`, `children`, `firstElementChild`, `nextElementSibling`
-- `closest(selector)` walks **up** from an element until a match is found, or returns `null` if none does
-
-## 4. Selecting Elements
-| Method | Returns |
-|---|---|
-| `getElementById` | single element |
-| `getElementsByClassName`/`TagName` | **live** HTMLCollection |
-| `querySelector`/`querySelectorAll` | single / **static** NodeList |
-
-**Gotcha:** live collections auto-update on DOM changes; static ones don't. Mutating a live collection mid-loop skips elements. Convert with `Array.from()` first.
-
-## 5. Creating/Mutating
-`createElement`, `appendChild`/`append` (multiple nodes/strings), `prepend`, `insertBefore`, `replaceChild`, `remove()`, `cloneNode(deep)` (never copies listeners), `createDocumentFragment()` (batch inserts so the browser does one reflow instead of many).
-
-## 6. Attribute vs Property
-- **Attribute** = string from HTML source, frozen at load time (`getAttribute`/`setAttribute`)
-- **Property** = live current state (`el.value`, `el.checked`)
-- These diverge after user interaction: `el.value` updates live, but `el.getAttribute('value')` stays at whatever the HTML originally said.
-- **Boolean attributes** (`checked`, `disabled`, `required`, `readonly`, `selected`): presence means true, absence means false. When present, `getAttribute` returns `""`. When absent, it returns `null`, never `"true"`/`"false"`.
-- Disable a button the standard way with the property: `button.disabled = true`.
-
-## 7. Content: innerHTML vs textContent vs innerText
-- `innerHTML` parses its input as HTML, which is an XSS risk, and re-renders the whole subtree.
-- `textContent` is plain text. It's safe, includes hidden text, and needs no reflow.
-- `innerText` respects CSS visibility but forces a reflow to compute, making it the slowest of the three.
-- `innerHTML +=` destroys and recreates all child nodes, which kills any listeners already attached to them.
-
-## 8. Events
-**Flow:** capturing (top to down), then target, then bubbling (bottom to up). Default listeners run in the bubbling phase; pass `{ capture: true }` to run in the capturing phase instead.
-
-- `e.target` is the actual clicked element. `e.currentTarget` is the element the listener is attached to.
-- `stopPropagation()` halts further bubbling/capturing.
-- `stopImmediatePropagation()` halts propagation and also stops other listeners on the same element from firing.
-- `preventDefault()` cancels the default browser action only; it has nothing to do with propagation.
-- `{ once: true }` auto-removes the listener after it fires once.
-- `removeEventListener` only works with the **same function reference** that was passed to `addEventListener`.
-- `{ passive: true }` is a promise that the listener won't call `preventDefault()`. It improves scroll performance; calling it anyway is silently ignored.
-- Custom events: `new CustomEvent('name', {detail, bubbles:true})` plus `dispatchEvent()`.
-
-### Event Delegation
-Put one listener on a parent instead of many on children, and use `e.target.closest(selector)` to find the matching descendant. This works for elements added later too, since bubbling doesn't care when an element was created.
-
-**Trap:** if a child's own listener calls `stopPropagation()`, the event never reaches a delegated parent listener at all, so the parent's logic simply never runs.
-
-## 9. Performance
-Cost ranking from most to least expensive: **Reflow** (layout recalculation), then **Repaint** (pixels only, no layout change), then **Composite** (GPU only, e.g. `transform`/`opacity`).
-
-**Layout thrashing:** interleaving reads (`offsetHeight`) and writes (`style.width=`) in a loop forces a synchronous reflow on every iteration. Fix by batching all reads first, then all writes.
-
-**Debounce** fires once after activity pauses (good for a search input). **Throttle** fires at fixed intervals during continuous activity (good for scroll tracking).
-
-## 10. DOM vs Virtual DOM
-Real DOM writes are expensive. React diffs a lightweight virtual tree against the previous one (reconciliation) and applies only the minimal real DOM changes, batched together. `key` gives list items stable identity across re-renders so React doesn't misattribute state to the wrong item.
-
-## 11. Shadow DOM
-An encapsulated subtree with scoped styles and markup, used by Web Components: styles don't leak in or out of it.
-
-## 12. Identifying "which element was clicked": general pattern
-```js
-document.querySelectorAll('.box').forEach(box => {
-  box.addEventListener('click', (e) => {
-    console.log(e.currentTarget.dataset.id);
-  });
-});
-```
-Walking through this: each `.box` element gets its own listener attached at setup time. When any box is clicked, that specific listener fires with `e.currentTarget` pointing at the box the listener was attached to (not necessarily the exact element clicked, if the box has children). Reading `dataset.id` off it logs whatever `data-id` value that box was given in HTML.
-
-Identify elements by `data-*` attributes rather than by index or text content, since that decouples the logic from content or position. For dynamic lists where elements don't exist yet at setup time, use the same `dataset.id` idea but through delegation with `closest()` instead of a per-element listener.
-
----
-
-## Quick-Fire Q&A
-
-**Q: Attribute vs property, an example of divergence?**
-A: `<input value="hi">`. After the user types, `el.value` shows the new text, but `el.getAttribute('value')` still shows `"hi"`.
-
-**Q: `getElementsByClassName` vs `querySelectorAll`?**
-A: A live HTMLCollection that auto-updates vs a static NodeList that's a frozen snapshot.
-
-**Q: `childNodes` vs `children`?**
-A: `childNodes` includes text and comment nodes, so whitespace counts. `children` is elements only.
-
-**Q: `innerHTML` vs `textContent`?**
-A: `innerHTML` parses HTML and carries an XSS risk. `textContent` is safe plain text and needs no reflow.
-
-**Q: Explain event delegation.**
-A: Put one listener on a common ancestor, then use `e.target`/`closest()` to identify which descendant triggered it. It's efficient and works on children added later.
-
-**Q: `stopPropagation` vs `preventDefault`?**
-A: The first stops the event from continuing to travel through the DOM tree. The second cancels default browser behavior only. They're unrelated to each other.
-
-**Q: Why avoid reading `offsetHeight` in a loop right after a write?**
-A: It forces a synchronous reflow every iteration, layout thrashing. Batch reads, then writes.
-
-**Q: Why does React use a Virtual DOM?**
-A: It diffs a JS tree copy instead of the real DOM, then applies only the minimal necessary changes in one batch, avoiding expensive reflow-triggering writes on every state change.
-
-**Q: Does `removeEventListener` work with a different but identical function?**
-A: No. It requires the exact same function reference used in `addEventListener`.
-
-**Q: `DOMContentLoaded` vs `window.onload`?**
-A: The first fires once the HTML is parsed and the DOM is ready. The second waits for all resources, images and CSS included, to finish loading too.
-$md$, 25, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('cdaa6d99-9e83-51d2-8077-3b3d49514b9a', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: CSS Box Model & box-sizing', 'notes', 92, $md$## 1. What is the CSS Box Model?
-
-Every HTML element is rendered as a rectangular box made of **4 layers**, from inside out:
-
-```
-┌─────────────────────────────────┐
-│           MARGIN                │
-│  ┌─────────────────────────┐    │
-│  │        BORDER            │   │
-│  │  ┌───────────────────┐   │   │
-│  │  │     PADDING        │  │   │
-│  │  │  ┌─────────────┐   │  │   │
-│  │  │  │   CONTENT    │  │  │   │
-│  │  │  └─────────────┘   │  │   │
-│  │  └───────────────────┘   │   │
-│  └─────────────────────────┘    │
-└─────────────────────────────────┘
-```
-
-1. **Content**: the actual text/media, sized by `width`/`height` (in `content-box` mode).
-2. **Padding**: space between content and border. It shares its background with the content.
-3. **Border**: a visible or invisible line around the padding (`border-width`, `-style`, `-color`).
-4. **Margin**: transparent space outside the border that separates the element from its siblings. Margins can **collapse** between adjacent block elements.
-
----
-
-## 2. `content-box` vs `border-box`
-
-| Aspect | `content-box` (default) | `border-box` |
-|---|---|---|
-| What `width`/`height` measures | Content only | Content plus padding plus border |
-| Effect of adding padding/border | Increases total rendered size | Total size stays fixed; content shrinks to fit |
-| Layout predictability | Harder: you must calculate the final size manually | Easier: the declared width **is** the final width |
-| Common usage | Rarely used explicitly (spec default) | Best practice, usually applied globally |
-
-### Example: `content-box` (default)
-```css
-.box {
-  box-sizing: content-box;
-  width: 200px;
-  padding: 20px;
-  border: 5px solid black;
-}
-/* Total rendered width = 200 + 40 (padding) + 10 (border) = 250px */
-```
-
-### Example: `border-box`
-```css
-.box {
-  box-sizing: border-box;
-  width: 200px;
-  padding: 20px;
-  border: 5px solid black;
-}
-/* Total rendered width = 200px (content area shrinks internally to 150px) */
-```
-
-In the `content-box` example, the browser starts from the declared `width: 200px` as the content size, then adds padding and border on top, so the box ends up 250px wide on the page. In the `border-box` example, the browser instead treats 200px as the final total width, and works backward, giving the content area only 150px so that padding and border still fit inside that same 200px.
-
-### One-line difference
-- `content-box`: width means content only; padding and border add on top of it.
-- `border-box`: width means content, padding, and border combined; content shrinks to fit.
-
-### Global reset (common best practice)
-```css
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-```
-This makes layout math predictable, which matters most for flex/grid and responsive design: fixed padding and border combined with percentage widths would otherwise break under `content-box`, since the rendered box would grow past the percentage you declared.
-
----
-
-## 3. Interview-style answers
-
-**Q: What is the CSS Box Model?**
-> The CSS box model describes how every HTML element is rendered as a rectangular box composed of four layers, from the inside out: content, padding, border, and margin. `width`/`height` size the content area by default, padding adds internal spacing, border wraps around that, and margin creates external spacing between elements.
-
-**Q: What is `box-sizing: border-box` and why is it used?**
-> By default (`content-box`), `width`/`height` apply only to the content area, with padding and border added on top, increasing the actual rendered size. `border-box` changes this so the declared `width`/`height` includes content, padding, and border together; the browser shrinks the content area internally to keep the total size fixed. This makes layout calculations predictable and is why it's commonly applied globally via `*, *::before, *::after { box-sizing: border-box; }`.
-
-**Q: Difference between `content-box` and `border-box`?**
-> In `content-box`, the width property only sizes the content; padding and border are added on top, so the box grows larger than the declared width. In `border-box`, the width property sizes content, padding, and border together; the box stays exactly the declared width, and the content area shrinks to accommodate padding and border.
-
-### Common follow-up questions to be ready for
-- What is **margin collapsing**, and when does it happen? Adjacent vertical margins of block-level elements collapse into whichever one is larger, rather than adding together.
-- Does `padding` accept negative values? No, only `margin` can be negative.
-- How does the box model differ for inline vs block elements?
-- Why do most developers set `border-box` globally? It gives predictability in flex/grid and responsive layouts.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('03be40bc-9413-5a69-a2b8-63efaa6ad092', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: THG Ingenuity Interview — 12-Hour Crash Course', 'notes', 93, $md$**Role:** Frontend Engineer, Logistics & Finance. **R1:** Live Coding (Joshua). **R2:** Architecture (Simon).
-
----
-
-## 1. JS Fundamentals (write from scratch, no reference)
-
-**MyPromise**
-```js
-class MyPromise {
-  constructor(executor) {
-    this.state = "pending";
-    this.value = undefined;
-    this.callbacks = [];
-    const resolve = (val) => {
-      if (this.state !== "pending") return;
-      this.state = "fulfilled";
-      this.value = val;
-      this.callbacks.forEach(cb => cb.onFulfilled(val));
-    };
-    const reject = (err) => {
-      if (this.state !== "pending") return;
-      this.state = "rejected";
-      this.value = err;
-      this.callbacks.forEach(cb => cb.onRejected(err));
-    };
-    executor(resolve, reject);
-  }
-  then(onFulfilled, onRejected) {
-    return new MyPromise((resolve, reject) => {
-      const handle = () => {
-        if (this.state === "fulfilled") resolve(onFulfilled(this.value));
-        if (this.state === "rejected") reject(onRejected ? onRejected(this.value) : this.value);
-      };
-      if (this.state === "pending") this.callbacks.push({ onFulfilled: handle, onRejected: handle });
-      else handle();
-    });
-  }
-}
-```
-Trace what happens on `new MyPromise(executor).then(f)`: the constructor runs `executor` immediately and synchronously, so if the executor calls `resolve` right away, `state` flips to `"fulfilled"` before `.then` is even called. When `.then(f)` runs afterward, it sees `state === "pending"` is false, so it calls `handle()` immediately, which calls `resolve(f(this.value))` on the new promise it returns. If instead the executor is async (say it resolves inside a `setTimeout`), `.then(f)` runs first, finds `state === "pending"`, and just pushes `{ onFulfilled: handle }` onto `callbacks` to wait. When `resolve` eventually fires, it loops over `callbacks` and invokes each `handle`, which is what finally calls `f`.
-
-**bind / call / apply**
-```js
-Function.prototype.myBind = function (ctx, ...args1) {
-  const fn = this;
-  return (...args2) => fn.apply(ctx, [...args1, ...args2]);
-};
-Function.prototype.myCall = function (ctx, ...args) {
-  ctx.fn = this;
-  const result = ctx.fn(...args);
-  delete ctx.fn;
-  return result;
-};
-```
-`myBind` doesn't call the function at all: it captures `this` (the original function) in a closure and returns a brand-new function that, whenever it's eventually called, applies the original with `ctx` as `this` and both argument lists merged. `myCall` calls immediately instead: it temporarily attaches the function as a property of `ctx` so that calling it as `ctx.fn(...)` makes `this` inside the function equal `ctx`, then deletes that temporary property so it doesn't leak.
-
-**debounce / throttle**
-```js
-function debounce(fn, delay) {
-  let timer;
-  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
-}
-function throttle(fn, limit) {
-  let inThrottle;
-  return (...args) => {
-    if (!inThrottle) { fn(...args); inThrottle = true; setTimeout(() => inThrottle = false, limit); }
-  };
-}
-```
-Call the debounced function five times in quick succession and only the last call's timer survives, since every new call clears the previous timer before starting a new one; `fn` only ever runs once, `delay` ms after the last call. Call the throttled function five times in quick succession and only the first call runs `fn` immediately; the rest are dropped until `limit` ms passes and `inThrottle` resets to false.
-
-**Race condition fix (React)**
-```js
-useEffect(() => {
-  const controller = new AbortController();
-  fetch(url, { signal: controller.signal }).then(setData);
-  return () => controller.abort();
-}, [query]);
-```
-If `query` changes again before the first fetch resolves, React runs the cleanup function for the old effect before running the new one, which calls `controller.abort()` on the stale request. That aborted fetch's promise rejects instead of resolving, so its `setData` call never fires, and only the response for the latest `query` ever reaches state.
-
----
-
-## 2. Live Coding: Practice These 2 Problems (timed, 25 min each)
-1. **Typeahead/autocomplete**: debounce the input, cancel stale requests, handle loading/error/empty states, support keyboard navigation.
-2. **Infinite scroll list**: use IntersectionObserver, avoid duplicate fetches, and be ready to mention virtualization for large data sets.
-
-**Behavior rules:** think out loud, ask clarifying questions first, brute-force then optimize, and narrate edge cases you'd otherwise miss, like money formatting and timezones, since those are directly relevant to a Finance/Logistics domain.
-
----
-
-## 3. React Performance & State: Talking Points
-- `useMemo`/`useCallback` are only worth it for expensive computation or for referential stability (stable dependency arrays, stable props into a `React.memo` child). They aren't free, so don't reach for them by default.
-- `React.memo` does a shallow prop compare, so it breaks if you pass a new object or array literal on every render.
-- Reconciliation uses fiber diffing plus keys to match elements between renders, and applies the resulting updates in a batch.
-- **React Query vs Redux Toolkit**: React Query owns server state, meaning cache, refetch, and stale-while-revalidate behavior. Redux Toolkit owns client/UI state. Have one real example ready where you split these two apart.
-
----
-
-## 4. Architecture Round: Structure Every Answer As
-**Requirements, then data flow, then component breakdown, then state management, then performance, then edge cases.**
-
-Prep this ONE in full: *"Design a real-time shipment tracking dashboard."*
-- Data: decide between polling and WebSocket/SSE for live updates.
-- State: React Query for server cache, Redux Toolkit or local state for UI-only concerns.
-- Large lists: virtualization plus server-side pagination/filtering.
-- Optimistic updates for status-change actions, with rollback on failure.
-- Errors, loading, and empty states handled consistently across the app.
-
-**Know briefly (2-min explanations):**
-- Module Federation: sharing components across independently deployed micro-frontends.
-- Code splitting: route-based splitting plus `React.lazy`/`Suspense`.
-- Money handling: avoid floats, use integers/cents or a decimal library.
-- API collaboration: contract-first via OpenAPI, with standardized error shapes agreed between frontend and backend.
-
----
-
-## 5. Your Stories (rehearse out loud, under 90 sec each)
-1. **Coriolis**: a frontend/backend collaboration moment, either shaping an API contract or landing a performance fix.
-2. **IntelliFinance AI**: an OpenAI integration story covering latency/loading UX, retries, and error handling for third-party API failures, built as a React frontend against a Django REST Framework backend, with Docker/AWS deployment reasoning.
-
----
-
-## 6. Questions to Ask Simon Harris
-- How is frontend structured across Logistics/Finance: shared library, monorepo, or separate deployables?
-- What does the real-time data pipeline look like for logistics tracking?
-- What's the biggest current frontend scaling/performance challenge?
-- Is there a spec-first process for FE/BE API contracts?
-
----
-
-## Cheat Sheet
-
-| Topic | One-liner |
-|---|---|
-| Closures | A function plus its captured scope. `let` in a loop gives each iteration its own binding. |
-| bind/call/apply | `call`/`apply` invoke the function right away, differing only in args-as-list vs args-as-array. `bind` returns a new function instead of invoking anything. |
-| Promises | States are pending, fulfilled, rejected. `.then` callbacks run via the microtask queue. |
-| Race conditions | Fix with an `AbortController` created inside `useEffect` and aborted in its cleanup. |
-| Reconciliation | Fiber diffing plus keys, with updates applied in a batch. |
-| useMemo/useCallback | Worth it only for expensive computation or referential stability, not by default. |
-| React.memo | Shallow prop compare. Breaks if you pass a new literal on every render. |
-| React Query vs RTK | Server cache vs client/UI state. |
-| Module Federation | Share code across independently deployed micro-frontends. |
-| Optimistic UI | Update the UI immediately, roll back on failure. |
-| Money | Integers/cents or a decimal library, never raw floats. |
-| Virtualization | Render only visible rows (e.g. react-window). |
-
-## 12-Hour Time Allocation
-Hours 1-2: JS rebuild. Hours 3-5: live coding practice. Hours 6-7: perf/state talking points. Hours 8-9: architecture answer. Hours 10-11: stories. Hour 12: cheat sheet skim and rest.
-$md$, 30, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('df462464-ebdb-5372-a83b-01cb392bd788', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: JavaScript Truthy & Falsy Values', 'notes', 94, $md$## Falsy Values (only 8, everything else is truthy)
-
-```js
-false
-0
--0
-0n          // BigInt zero
-""          // empty string
-null
-undefined
-NaN
-```
-
-## Truthy Values (some common gotchas)
-
-```js
-"0"          // non-empty string, truthy
-"false"      // non-empty string, truthy
-[]           // empty array, truthy!
-{}           // empty object, truthy!
-function(){} // truthy
--1           // any non-zero number
-Infinity
-" "          // space string, truthy
-```
-
-## Interview Gotchas
-
-```js
-if ([]) console.log("runs");          // runs, [] is truthy
-if ({}) console.log("runs");          // runs, {} is truthy
-if ([] == false) console.log("runs"); // runs, see below
-
-Boolean([]);   // true
-Boolean({});   // true
-Boolean("0");  // true
-Boolean(0);    // false
-```
-
-The `[] == false` case trips people up because it looks like it contradicts `if ([])` being truthy. It doesn't: `if ([])` never converts the array via `==`, it just calls `Boolean([])`, which is `true` for any object. But `[] == false` uses the loose equality algorithm, which coerces both sides to numbers before comparing. `false` becomes `0`. `[]` first converts to a primitive string, `""`, then that string converts to a number, `0`. So the comparison actually being run is `0 == 0`, which is true. The array itself was never "falsy" here, it just coerced down to a value that happened to equal `false`'s coerced value.
-
-## Quick Trick: Double Negation
-
-```js
-!!value   // converts value to an actual boolean
-!![]      // true
-!!""      // false
-```
-
-## Real-World Pattern: `||` vs `??`
-
-```js
-function greet(name) {
-  name = name || "Guest";  // falls back on ANY falsy value (0, "", null, undefined)
-}
-
-function greet(name) {
-  name = name ?? "Guest";  // falls back ONLY on null/undefined
-}
-```
-
-**Key difference:** `||` treats every falsy value as "missing." `??` (nullish coalescing) only treats `null`/`undefined` as missing, so with `??`, `""` or `0` are kept as valid values instead of being replaced.
-$md$, 10, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)
-VALUES ('acc10df9-554c-5869-8629-6268341c725a', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Lab: React — Stateful Counter Component', 'lab', 95, 45)
+VALUES ('acc10df9-554c-5869-8629-6268341c725a', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Lab: React — Stateful Counter Component', 'lab', 16, 45)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();
 
 INSERT INTO lab_definitions (id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published, published_version_id, workspace_layout, created_by)
@@ -22193,7 +17391,7 @@ exec node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5173
 MFEOF
 chmod 666 /home/labuser/work/.lab/start.sh
 cat > /home/labuser/work/TASKS.md <<'MFEOF'
-# React Counter Lab (Roadmap Day 1 — Frontend Deep Dive)
+# React Counter Lab
 
 A Vite + React dev server is ALREADY RUNNING on http://localhost:5173
 with hot reload. Try it:
@@ -22215,7 +17413,7 @@ MFEOF
 chmod 666 /home/labuser/work/TASKS.md
 mkdir -p /home/labuser/work/src && chmod 777 /home/labuser/work/src
 cat > /home/labuser/work/src/Counter.jsx <<'MFEOF'
-// TASK 1: implement a stateful counter (roadmap Day 1 frontend task).
+// TASK 1: implement a stateful counter.
 //
 // Requirements:
 //   - use the useState hook, initial value 0
@@ -22338,791 +17536,498 @@ SET is_published = true, published_version_id = '8e1131fc-4a6c-5bcd-b8d9-0148ff0
 WHERE id = '4cc6caf0-59fb-5ce4-b523-d5f23635d06d' AND published_version_id IS NULL;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('abed06d7-1e42-5dbd-b088-113d1102cd61', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Intersection Observer API', 'notes', 96, $md$A browser API to detect when an element enters or exits the viewport (or some other container), without expensive scroll listeners.
+VALUES ('a30bc084-640c-5928-b605-d84a9a4d7064', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'State Management', 'notes', 17, $md$"When would you reach for Redux versus Context versus local state?" is one of the most common system-design-flavored frontend questions there is, because the honest answer reveals whether you've actually shipped something at scale or just followed a tutorial. This lesson builds a Redux-like store from scratch so "how does Redux work internally" stops being a black box, and covers `useReducer` for local, complex state.
 
-## Why it exists
-The old way combined a `scroll` event with `getBoundingClientRect()`. That fires constantly, forces a layout reflow on every call, and causes jank. Intersection Observer instead runs asynchronously, off the main thread's critical path, which makes it cheaper.
+## Picking a scope, narrowest first
 
-## Basic Syntax
+Default to the smallest scope that works, and only lift when there's a concrete reason to.
 
-```js
-const observer = new IntersectionObserver((entries, observer) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      console.log('Element visible:', entry.target);
-    }
-  });
-}, {
-  root: null,        // viewport by default
-  rootMargin: '0px',  // grow/shrink root box
-  threshold: 0.5       // % visible to trigger callback
-});
-
-observer.observe(document.querySelector('.box'));
-```
-
-## Key Options
-| Option | Meaning |
+| Signal | Use |
 |---|---|
-| `root` | The ancestor used as the viewport. `null` means the browser viewport itself. |
-| `rootMargin` | A CSS-like margin around the root. For example, `'100px'` triggers the callback before the element is actually visible, which is useful for preloading. |
-| `threshold` | How much of the target must be visible to fire the callback. Either a single number or an array like `[0, 0.5, 1]` to fire at multiple visibility steps. |
+| Only one component (and maybe its direct children) needs the value | `useState` / `useReducer` in that component |
+| Several sibling components need it, but it doesn't cross large parts of the tree | Lift to their common parent, pass down as props |
+| Truly cross-cutting (theme, auth session, locale) and rarely changes | React Context |
+| Complex, frequently-updated, shared across distant parts of the app, needs middleware/devtools/time-travel | Redux / Zustand / Jotai |
+| Comes from the server and just needs caching plus revalidation | React Query / SWR, not Redux |
 
-## Entry Object
-- `isIntersecting`: boolean, whether the target currently intersects the root.
-- `intersectionRatio`: what percentage of the target is visible.
-- `target`: the observed element.
-- `boundingClientRect` / `rootBounds`: rect info for the target and the root.
+Context is *not* a state management solution on its own, it's a dependency-injection mechanism for avoiding prop drilling. It has no built-in way to stop unrelated consumers from re-rendering on unrelated value changes, every consumer of a Context re-renders on *any* change to that Context's value, unless you split contexts or memoize deliberately, and no middleware, devtools, or selectors. Redux and Zustand solve a genuinely different problem: efficient, selective subscriptions to slices of a large, frequently-changing store.
 
-## Common Use Cases
-1. **Infinite scroll**: observe a sentinel div at the bottom of the list, and fetch the next page when it intersects.
-2. **Lazy load images**: swap in the real `src` when the image nears the viewport, e.g. with `rootMargin: '200px'` to start loading before it's actually on screen.
-3. **Scroll-triggered animations**: add a CSS class when an element enters view.
-4. **Ad viewability tracking**: measure real visibility, e.g. 50% visible for 1 second, which is the industry standard for a "viewable" impression.
-5. **Active nav highlighting**: detect which section is currently visible and highlight the matching nav item.
-
-## Cleanup
-```js
-observer.unobserve(target); // stop watching one element
-observer.disconnect();      // stop watching everything
-```
-
-## React Pattern
-
-```jsx
-function LazyImage({ src, alt }) {
-  const imgRef = useRef(null);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    if (imgRef.current) observer.observe(imgRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return <img ref={imgRef} src={isVisible ? src : undefined} alt={alt} />;
-}
-```
-On mount, the `<img>` renders with no `src` at all, since `isVisible` starts `false`. The effect then creates an observer and attaches it to the actual DOM node via `imgRef.current`. Nothing loads until the user scrolls the image within 10% visibility (`threshold: 0.1`), at which point the callback fires, `setIsVisible(true)` triggers a re-render that finally sets `src`, and `observer.disconnect()` stops watching since a one-time lazy load doesn't need to keep firing. If the component unmounts before that ever happens, the cleanup function disconnects the observer anyway, so it doesn't leak.
-
-## Interview Follow-ups
-
-**Q: How would you implement infinite scroll with this?**
-A: The sentinel div pattern: place an empty div at the bottom of the list, observe it, and fetch the next page when it intersects.
-
-**Q: How does this compare to scroll plus `getBoundingClientRect`?**
-A: It's asynchronous and doesn't force a layout reflow, so it performs better, especially with many observed elements.
-
-**Q: What's the `threshold` array used for?**
-A: Firing the callback at multiple visibility steps instead of just one, for example to track scroll-depth analytics at 25%, 50%, and 75% visible.
-
-**Q: Can one observer watch multiple elements?**
-A: Yes. The `entries` array passed to the callback tells you which element triggered it, via `entry.target`.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('bffa1b0d-d79d-5210-9493-d97a5381be28', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: GraphQL Basics (REST vs GraphQL)', 'notes', 97, $md$GraphQL is a query language for APIs. The client specifies exactly which fields it needs in one request, instead of hitting multiple fixed REST endpoints and getting back whatever shape each one happens to return.
-
-## Query vs mutation
-
-- **Query**: a read-only fetch. The client sends a shape, and the server returns data matching that exact shape, nothing more and nothing less.
-- **Mutation**: a write (create/update/delete). The same shape-matching applies to the response, but it's explicitly named `mutation` so tooling and caching layers know it has side effects.
-
-```graphql
-query {
-  user(id: "1") {
-    name
-    posts {
-      title
-    }
-  }
-}
-
-mutation {
-  createPost(title: "Hello", body: "...") {
-    id
-    title
-  }
-}
-```
-
-## Resolvers
-
-Each field in the schema has a **resolver**, a function that knows how to fetch that specific field's value, whether from a database, another service, or a cache. The GraphQL server walks the query, calling the resolver for each requested field, and assembles the response tree from those results. This is why GraphQL servers are often described as "a graph of resolvers" rather than a fixed set of routes.
-
-## The N+1 problem and DataLoader
-
-Naively, resolving `user.posts` for a list of users means one query for the users, then N separate queries, one per user, to fetch each user's posts. That's the N+1 problem. It's GraphQL's most common performance trap, because nested queries make it easy to write a resolver that has no idea it's being called in a loop.
-
-**DataLoader** fixes this by batching. Within a single tick of the event loop, it collects every individual `.load(id)` call, then issues **one** batched query (`WHERE user_id IN (...)`) instead of N separate ones. It also caches results per request, so the same ID is never fetched twice.
-
-```js
-const postLoader = new DataLoader(async (userIds) => {
-  const posts = await db.posts.findByUserIds(userIds); // one batched query
-  return userIds.map(id => posts.filter(p => p.userId === id));
-});
-
-// resolver
-posts: (user) => postLoader.load(user.id)
-```
-Say a query resolves `posts` for 20 users. Each call to `posts: (user) => postLoader.load(user.id)` doesn't immediately hit the database; it just registers that user's ID with the loader and returns a pending promise. Once the current tick finishes, DataLoader gathers all 20 collected IDs and calls the batch function exactly once with all of them, then slices the single result set back apart per ID and resolves each of the 20 pending promises with its own slice.
-
-## REST vs GraphQL: the actual tradeoff
-
-| | REST | GraphQL |
-|---|---|---|
-| Over/under-fetching | Common, since each endpoint has a fixed response shape | The client asks for exactly the fields it needs |
-| Number of round trips | Often many, roughly one per resource | Usually one, even for nested data |
-| Caching | Free via HTTP caching, since URLs act as cache keys | Harder, since everything is POST to one endpoint; needs a normalized client cache like Apollo or Relay |
-| Versioning | Separate `/v1/`, `/v2/` endpoints | Evolve the schema instead: add new fields, deprecate old ones |
-| Server complexity | Simple, since routes map directly to handlers | Higher: a resolver graph, N+1 handling, and query cost limiting all need to be built |
-
-Interview framing: GraphQL isn't strictly "better." It trades away HTTP-level caching and server simplicity for flexible, client-driven queries. It earns that complexity when a frontend genuinely needs to compose data from many nested or related resources in one round trip. A job description asking for "React.js + GraphQL integration" is really asking whether you understand why you'd reach for GraphQL, not just its syntax.
-$md$, 20, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('bd90f323-6f3d-55b8-be9d-acdbce98712f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: instanceof Internals & Legacy Prototype Chaining', 'notes', 98, $md$This assumes you already know the basics of the prototype chain: every object has an internal link to another object it delegates property lookups to, and that chain of links is how `obj.someMethod()` can find a method defined on a shared prototype instead of on `obj` itself. This note covers two things that basic picture doesn't: how `instanceof` actually resolves, and the manual, pre-`extends` way of chaining constructors together.
-
-## How instanceof actually works
-
-`obj instanceof Fn` walks `obj`'s prototype chain checking whether `Fn.prototype` appears anywhere in it. It does **not** check the constructor's name or any type tag, only the object identity of `Fn.prototype`.
-
-```js
-function isInstance(obj, Fn) {
-  let proto = Object.getPrototypeOf(obj);
-  while (proto !== null) {
-    if (proto === Fn.prototype) return true;
-    proto = Object.getPrototypeOf(proto);
-  }
-  return false;
-}
-```
-
-**Gotcha:** reassigning `Fn.prototype` to a brand-new object *after* instances were already created breaks `instanceof` for those existing instances. They still hold a live link to the *old* prototype object, not the new one.
-
-```js
-function Foo() {}
-const f = new Foo();
-
-Foo.prototype = {}; // new object, unrelated to what f links to
-
-f instanceof Foo; // false: f.__proto__ still points to the original Foo.prototype
-```
-Walking through `isInstance(f, Foo)` after that reassignment: `proto` starts as `f`'s original prototype object, the one `Foo.prototype` used to point to. The loop compares it against `Foo.prototype`, but that now refers to the new `{}` object instead, so the check fails. `proto` moves up to `Object.prototype`, fails again, then hits `null` and the loop returns `false`. Nothing about `f` changed; only what `Foo.prototype` points to did.
-
-## Legacy prototype chaining: before extends existed
-
-Modern `class`/`extends` syntax auto-wires the constructor reference for you. The manual pattern it replaced does not, and forgetting to fix it by hand is a classic whiteboard trap:
-
-```js
-function Animal() {}
-Animal.prototype.eat = function () { return "eating"; };
-
-function Dog() {}
-Dog.prototype = Object.create(Animal.prototype); // link the chain
-Dog.prototype.constructor = Dog;                  // MUST fix manually
-
-const d = new Dog();
-d.constructor === Dog; // true, only because of the line above
-```
-
-Skip that fix and `d.constructor` silently points to `Animal` instead of `Dog`, which breaks any code relying on `obj.constructor` for cloning or factory patterns like `new obj.constructor()`. `class extends` sidesteps this whole problem by setting up the constructor link correctly on its own.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('33cff2df-cf63-56be-a255-838b35e1787e', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Block/Inline/Inline-Block & Flex vs Grid', 'notes', 99, $md$## Block vs inline vs inline-block
-
-| | Block | Inline | Inline-block |
+| | Redux | Context API | Zustand |
 |---|---|---|---|
-| Width/height | Respected, defaults to full width | Ignored. Sized by content | Respected |
-| Starts new line | Yes | No | No |
-| Vertical margin/padding | Respected | Ignored (only affects line-height visually) | Respected |
-| Examples | `div`, `p`, `section`, `h1-h6`, `ul`/`li` | `span`, `a`, `strong`, `em`, `label` | `img`, `button`, `input` |
+| Boilerplate | High (actions, reducers, dispatch), much less with Redux Toolkit | Low | Very low |
+| Re-render granularity | Fine: `useSelector` only re-renders on the selected slice | Coarse: any value change re-renders every consumer | Fine: selector-based |
+| DevTools / time-travel | Yes | No | Via middleware |
+| Async / middleware | Thunks, Sagas, RTK Query | None built-in | Simple built-in async actions |
+| Best for | Large apps, complex cross-cutting state | Rarely-changing app-wide values | Apps that outgrew Context but don't need Redux's ceremony |
 
-Interview framing: inline-block is the escape hatch for when you want an element to sit on the same line as surrounding text but still need to set its width, height, or margin. That's the entire reason it exists, since block can't sit inline and inline can't take width/height.
+## Building a store from scratch
 
-## Flex vs Grid
+This is the core of what `createStore` actually does: a subscription list, a reducer, and a `dispatch` that runs the reducer and notifies every subscriber.
 
-- **Flex** is one-dimensional: a single row or a single column. Sizing is content-driven, so items grow or shrink to fill the available space along that one axis. Reach for it for nav bars, toolbars, button groups, or anything where alignment along one axis is the whole problem.
-- **Grid** is two-dimensional: rows and columns at once. Sizing is layout-driven, so you define the structure first with `grid-template-columns`/`rows`, then place items into it. Reach for it for page layouts, dashboards, card grids, or anything with an actual 2D structure.
+```tsx
+type Action = { type: string; payload?: unknown };
+type Reducer<S> = (state: S, action: Action) => S;
 
-Rule of thumb worth saying out loud in an interview: if you find yourself fighting `flex-wrap` plus fixed widths to fake rows and columns, that's the signal you actually wanted Grid.
+function createStore<S>(reducer: Reducer<S>, initialState: S) {
+  let state = initialState;
+  const listeners = new Set<() => void>();
 
-```css
-/* Flex: one axis */
-.navbar { display: flex; justify-content: space-between; align-items: center; }
-
-/* Grid: two axes */
-.dashboard {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: auto 1fr;
-  gap: 16px;
+  function getState(): S { return state; }
+  function dispatch(action: Action): Action {
+    state = reducer(state, action); // reducer MUST be pure: same inputs → same output, no mutation
+    listeners.forEach(listener => listener());
+    return action;
+  }
+  function subscribe(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }
+  return { getState, dispatch, subscribe };
 }
-```
 
-The `.dashboard` rule lays out a 3-column, 2-row grid before a single child is placed: three equal-width tracks, a first row sized to its content (`auto`, typically a header) and a second row that takes the remaining space (`1fr`), all separated by a 16px gutter. Drop any element into `.dashboard` and it lands in the next open cell of that grid automatically, no per-item positioning needed unless you want to override placement.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('c8d6f011-41f6-5bbf-93fe-e795ee8242b5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Floating-Point Precision, Deep Clone & EventEmitter', 'notes', 100, $md$## Why 0.1 + 0.2 === 0.3 is false
-
-```js
-0.1 + 0.2; // 0.30000000000000004
-0.1 + 0.2 === 0.3; // false
-```
-
-JS numbers are IEEE 754 double-precision floats: binary fractions under the hood. `0.1` and `0.2` have no exact binary representation, for the same reason `1/3` has no exact decimal representation, so each is stored as the closest approximate double. Adding those two approximations doesn't land exactly on `0.3`'s own stored approximation.
-
-Fix: never compare floats for exact equality, compare within a tolerance instead.
-
-```js
-Math.abs((0.1 + 0.2) - 0.3) < Number.EPSILON; // true, tolerance-based comparison
-```
-
-For money specifically, don't use floats at all: store cents as integers, or use a decimal library.
-
-## Deep clone: JSON.parse(JSON.stringify(x)) vs structuredClone
-
-`JSON.parse(JSON.stringify(obj))` deep-clones plain data but silently drops or mangles anything JSON can't represent:
-
-| Type | Result |
-|---|---|
-| `undefined` | key dropped entirely |
-| Functions | dropped entirely |
-| `Symbol` | dropped entirely |
-| `Date` | becomes a string (loses `Date` methods) |
-| `Map` / `Set` | becomes `{}` |
-| Circular reference | throws `TypeError` |
-
-`structuredClone(obj)` is native, no import needed, and handles `Date`, `Map`, `Set`, circular references, and typed arrays correctly. It's the same structured clone algorithm browsers already use for `postMessage`. Default to `structuredClone` unless you specifically need JSON's "strip anything non-serializable" behavior, such as sanitizing an object before sending it somewhere JSON-only.
-
-```js
-const original = { date: new Date(), tags: new Set(['a']) };
-structuredClone(original); // Date and Set survive intact
-JSON.parse(JSON.stringify(original)); // date -> string, tags -> {}
-```
-
-Run both on the same `original` and they diverge immediately: `structuredClone` walks the object graph and reconstructs a real `Date` instance and a real `Set` instance on the clone, so `clone.date.getFullYear()` still works. `JSON.stringify` has no representation for either type, so it serializes the `Date` via its `toJSON` method into a plain string and serializes the `Set` as `{}` since `JSON.stringify` only sees enumerable own properties, and a `Set`'s entries aren't stored that way.
-
-## EventEmitter pattern
-
-This is the core of Node's `events` module, and conceptually close to how React's synthetic event system dispatches: a plain object holding a map from event name to an array of listeners.
-
-```js
-class EventEmitter {
-  constructor() {
-    this.listeners = {}; // { eventName: [callbacks] }
-  }
-  on(event, cb) {
-    (this.listeners[event] ??= []).push(cb);
-    return this; // chainable
-  }
-  off(event, cb) {
-    this.listeners[event] = (this.listeners[event] || []).filter(fn => fn !== cb);
-  }
-  emit(event, ...args) {
-    (this.listeners[event] || []).forEach(cb => cb(...args));
+type CounterState = { count: number };
+function counterReducer(state: CounterState, action: Action): CounterState {
+  switch (action.type) {
+    case 'increment': return { count: state.count + 1 }; // new object — never mutate directly
+    case 'decrement': return { count: state.count - 1 };
+    default: return state;
   }
 }
 
-const bus = new EventEmitter();
-const onGreet = (name) => console.log(`hi ${name}`);
-bus.on('greet', onGreet);
-bus.emit('greet', 'Nayan'); // "hi Nayan"
-bus.off('greet', onGreet);
+const store = createStore(counterReducer, { count: 0 });
+store.subscribe(() => console.log('new state:', store.getState()));
+store.dispatch({ type: 'increment' }); // logs: new state: { count: 1 }
 ```
 
-Tracing the calls above: `bus.on('greet', onGreet)` pushes `onGreet` onto `listeners.greet` (creating that array on first use via `??=`) and returns `bus` itself so calls can chain. `bus.emit('greet', 'Nayan')` then looks up `listeners.greet` and calls every function in it with `'Nayan'` as the argument, synchronously, on the same call stack as the `emit` call itself, not deferred to a microtask or macrotask. `bus.off('greet', onGreet)` replaces the array with a filtered copy that excludes `onGreet`, so a later `emit` would call no one.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+A React binding for this, roughly what `react-redux`'s `useSelector` does, uses `useSyncExternalStore`, the hook purpose-built for subscribing to external, non-React state sources without tearing:
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('a6638507-3160-5255-9336-626206890f3a', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: React Query, List Virtualization & Micro-Frontends', 'notes', 101, $md$## React Query with TypeScript
+```tsx
+import { useSyncExternalStore } from 'react';
 
-`useQuery` infers its type from the fetcher's return type, so type the fetcher, not the hook call:
-
-```ts
-type Policy = { id: number; title: string; version: number };
-
-async function fetchPolicies(): Promise<Policy[]> {
-  const res = await fetch('/api/policies');
-  return res.json();
+function useStoreSelector<S, T>(store: { getState: () => S; subscribe: (l: () => void) => () => void }, selector: (state: S) => T): T {
+  return useSyncExternalStore(store.subscribe, () => selector(store.getState()));
 }
 
-const { data, isLoading, error } = useQuery<Policy[]>({
-  queryKey: ['policies'],
-  queryFn: fetchPolicies,
-});
-// data is Policy[] | undefined; TS knows it before the request resolves
+function Counter() {
+  const count = useStoreSelector(store, s => s.count);
+  return <button onClick={() => store.dispatch({ type: 'increment' })}>{count}</button>;
+}
 ```
 
-Why reach for it over Context API for server data: Context re-renders every consumer on any update and gives you nothing for caching, retries, or staleness, so you'd have to hand-roll all of that yourself. React Query dedupes identical in-flight requests across components, caches by `queryKey`, retries failed requests, and refetches on window focus or reconnect out of the box. Context is still the right tool for low-frequency global state like theme or current user, just not for data that came from an API.
+A reducer is a pure function with the signature `(state, action) => newState`, and `dispatch(action)` is the only sanctioned way to trigger one; `action` is a plain object with a `type` field and usually a `payload`. Never mutate `state` in place, both React and Redux detect change with a reference-equality check, and a mutated-in-place object still has the exact same reference, so the change goes unnoticed. `combineReducers` lets each reducer own one slice of the overall state tree, which keeps individual reducers small and independently testable, rather than one giant reducer trying to handle every action for the whole app.
 
-## List virtualization + infinite scroll (500+ item lists)
+## useReducer: the same pattern, scaled down to one component
 
-Rendering all 500 rows on every poll or update is the actual bug, not the polling itself: every item mounts to the DOM even though only 10-15 are visible at once. Two techniques usually get paired to fix this:
+`useReducer` is `createStore` shrunk to a single component, same reducer pattern, no external store. Reach for it over a pile of `useState` calls when fields update together, or when the "next state" logic reads more clearly as a switch statement than as scattered setters.
 
-- **Virtualization**, via `react-window` or `react-virtualized`, only renders the DOM nodes currently in or near the viewport. As the user scrolls, rows are recycled rather than the full list re-rendering.
-- **Infinite scroll** places a sentinel element at the bottom of the list and watches it with an `IntersectionObserver`, a browser API that fires a callback when an element crosses into or out of the viewport without the cost of a scroll-event listener. When the sentinel enters the viewport, the callback fires and triggers a fetch of the next page.
+```tsx
+type FormState = {
+  values: { email: string; password: string };
+  errors: { email?: string; password?: string };
+  isSubmitting: boolean;
+};
+type FormAction =
+  | { type: 'CHANGE_FIELD'; field: 'email' | 'password'; value: string }
+  | { type: 'SET_ERRORS'; errors: FormState['errors'] }
+  | { type: 'SUBMIT_START' } | { type: 'SUBMIT_END' };
 
-```jsx
-import { FixedSizeList } from 'react-window';
+function formReducer(state: FormState, action: FormAction): FormState {
+  switch (action.type) {
+    case 'CHANGE_FIELD':
+      return {
+        ...state,
+        values: { ...state.values, [action.field]: action.value },
+        errors: { ...state.errors, [action.field]: undefined }, // clear that field's error on edit
+      };
+    case 'SET_ERRORS': return { ...state, errors: action.errors };
+    case 'SUBMIT_START': return { ...state, isSubmitting: true };
+    case 'SUBMIT_END': return { ...state, isSubmitting: false };
+    default: return state;
+  }
+}
 
-function PolicyList({ items }) {
+function LoginForm() {
+  const [state, dispatch] = useReducer(formReducer, {
+    values: { email: '', password: '' }, errors: {}, isSubmitting: false,
+  });
+  const handleChange = (field: 'email' | 'password') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch({ type: 'CHANGE_FIELD', field, value: e.target.value });
+  };
   return (
-    <FixedSizeList height={600} width="100%" itemCount={items.length} itemSize={48}>
-      {({ index, style }) => <div style={style}>{items[index].title}</div>}
-    </FixedSizeList>
+    <form>
+      <input value={state.values.email} onChange={handleChange('email')} />
+      {state.errors.email && <span>{state.errors.email}</span>}
+      <button disabled={state.isSubmitting}>Log in</button>
+    </form>
   );
 }
 ```
 
-`FixedSizeList` never renders all of `items`. It measures its own 600px height against the fixed 48px `itemSize`, works out that roughly 12-13 rows fit, and calls the render function only for those indices plus a small overscan buffer. Scroll it and the same handful of DOM nodes get reused with updated `style` (mostly `transform`) and updated `index`, rather than mounting new nodes for every row, which is what keeps a 500-item list fast.
+`SET_ERRORS` is what a submit handler dispatches after running validation, replacing the whole `errors` object in one atomic update rather than setting each field's error individually.
 
-For a polled list specifically, virtualize the rendering, but also avoid replacing the entire array reference on every poll if only a few rows changed. Diff and patch just the changed rows so `react-window` doesn't have to re-measure everything, and pair that with request de-duplication, which React Query's `queryKey` cache already handles for you.
+The win over five separate `useState` calls: every field update is one `dispatch` with clear intent, the reducer is a pure function you can unit-test with zero rendering involved, and related fields update together atomically instead of risking an inconsistent intermediate render where `values` updated but `errors` hasn't yet.
 
-## Micro-frontend integration (Module Federation)
+## Immutable updates and normalized shape
 
-Webpack 5's **Module Federation** lets a host app load a remote app's exposed component at runtime as a separately built, separately deployed bundle. The two apps don't need to be built or deployed together.
+React and Redux both detect change with reference equality, `Object.is`/`===`, not deep equality. Mutating state in place never changes the reference, so nothing downstream ever notices, the UI just silently goes stale.
 
-```js
-// remote app's webpack config
-new ModuleFederationPlugin({
-  name: 'policyApp',
-  filename: 'remoteEntry.js',
-  exposes: { './PolicyEditor': './src/PolicyEditor' },
-  shared: { react: { singleton: true }, 'react-dom': { singleton: true } },
-});
+```tsx
+// WRONG — mutates, reference stays the same, nothing re-renders
+state.user.name = 'New Name';
+state.items.push(newItem);
 
-// host app
-const PolicyEditor = React.lazy(() => import('policyApp/PolicyEditor'));
+// RIGHT — spread creates new references at every level that actually changed
+const newState = {
+  ...state,
+  user: { ...state.user, name: 'New Name' },
+  items: [...state.items, newItem],
+};
 ```
 
-The critical detail interviewers listen for is `shared: { react: { singleton: true } }`. Without marking `react`/`react-dom` as singletons, the host and remote each ship their own React copy, which breaks hooks and Context: two React instances means `useContext` in the remote can't see a Provider rendered by the host, since each copy tracks its own internal context state. The simpler alternative, an iframe per micro-app, sidesteps this entirely, but costs worse cross-app UX: no shared routing, no shared state, and slower loads.
-$md$, 20, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+For deeply nested state, hand-spreading at every level gets unreadable fast, which is exactly the problem Immer (used internally by Redux Toolkit) solves: you write code that *looks* mutable, and it produces a new immutable tree behind the scenes via a proxy.
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('2837c929-1765-5f29-8244-6f3e8b56c024', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Type Coercion, Algorithms, Redux, Forms & Accessibility', 'notes', 102, $md$## typeof NaN
+Nested, duplicated state, arrays of objects containing arrays of objects, makes a simple update require deep traversal, and risks the same entity existing in two places with two different values.
 
-```js
-typeof NaN; // "number"
+```tsx
+// Denormalized — hard to update a single comment, author data duplicated across posts
+type DenormalizedState = {
+  posts: Array<{
+    id: string; title: string;
+    author: { id: string; name: string };
+    comments: Array<{ id: string; text: string; author: { id: string; name: string } }>;
+  }>;
+};
 ```
 
-NaN is a special value of the Number type (IEEE 754), not a separate type of its own. Check for it with `Number.isNaN(x)`, never `x === NaN`, since `NaN !== NaN` by spec: NaN is defined as unequal to itself, so an equality check against it always fails.
-
-## Semantic tags: why bother
-
-Using `<header>`, `<nav>`, `<main>`, `<article>`, `<section>`, and `<footer>` instead of generic `<div>` pays off in three places:
-
-- **SEO.** Crawlers weight semantic structure when parsing page content, so a page built from real landmarks is easier for them to summarize correctly.
-- **Accessibility.** Screen readers navigate by landmark region. A user can jump straight to "navigation" or "main content" instead of the reader guessing at div nesting.
-- **Maintainability.** The DOM documents its own structure, so a future reader doesn't need to grep class names to find "the nav."
-
-## Responsive images
-
-- `srcset` plus `sizes` lets the browser pick the right resolution image for the current viewport and device pixel ratio, instead of shipping one oversized file to every device regardless of screen size.
-- `<picture>` is for art direction: swapping to a genuinely different crop per breakpoint, not just a different resolution of the same crop. Use it when a mobile layout needs a tighter crop of the same photo, not just a smaller version of the wide one.
-- `loading="lazy"` defers below-the-fold images until they're near the viewport, so the browser doesn't spend bandwidth on images the user may never scroll to.
-
-## `[1,2] + [3,4]` → `"1,23,4"`
-
-`+` on two objects triggers `ToPrimitive`, which for arrays falls back to `.toString()`. `[1,2].toString()` produces `"1,2"` and `[3,4].toString()` produces `"3,4"`, and from there `+` does plain string concatenation: `"1,2" + "3,4"` gives `"1,23,4"`.
-
-## Promise.any vs Promise.race
-
-Both settle on the first promise to do something, but they differ on what that something is.
-
-| | Settles when | All-reject / empty behavior |
-|---|---|---|
-| `Promise.race` | first promise **settles**, resolve or reject | empty array: stays pending forever |
-| `Promise.any` | first promise **resolves** | rejects only if every promise rejects, with an `AggregateError`; empty array: rejects immediately |
-
-`race` answers "whoever finishes first, win or lose." `any` answers "give me the first success, and only give up if nothing succeeds."
-
-## Top-K frequency (algorithm pattern)
-
-Start by building a frequency map, which is `O(n)`. Then pick an approach for extracting the top K:
-
-- Sort by count: `O(n log n)`, the simplest to write under interview pressure.
-- Min-heap of size K: `O(n log k)`, worth it when `k` is small relative to `n`, since you never hold more than K elements at once.
-- Bucket sort by frequency, where the bucket index is the count and the max bucket size is `n`: `O(n)` and optimal, but more code to get right. Mention it to show you know it exists, and reach for actually writing it only if the interviewer pushes on complexity.
-
-## Large array operations: avoiding accidental O(n²)
-
-- `.includes()` or `.indexOf()` called inside a loop over another array is a hidden nested loop. Swap the array being searched into for a `Set` or `Map` so each lookup is O(1) instead of O(n).
-- A `.map().filter().reduce()` chain builds a new intermediate array at every step. That's fine for readability at normal sizes, but for very large arrays a single `for` loop, or one `reduce` doing all the work, avoids the extra allocations.
-- CPU-heavy work that blocks the main thread, as opposed to I/O-bound work, should be offloaded to a **Web Worker** rather than artificially chunked with `setTimeout` calls.
-
-## Redux: reducer basics
-
-A reducer is a pure function with the signature `(state, action) => newState`.
-
-- Never mutate `state` directly. Always return a new object or array reference, because React and Redux detect changes with a reference-equality check, and a mutated-in-place object still has the same reference.
-- `dispatch(action)` is the only way to trigger a reducer. `action` is a plain object with a `type` field and usually a `payload`.
-- `combineReducers` lets each reducer own one slice of state, which keeps individual reducers small and independently testable.
-
-## Reusable form component with validation
-
-- Use controlled inputs, meaning value and onChange are both wired to state, so the component always reflects the current form state exactly.
-- Centralize validation in one place, either a schema library like Zod or Yup, or a single plain validation function, rather than scattering `if` checks across each field's `onChange` handler.
-- Watch re-render cost. Re-validating and re-rendering the whole form on every keystroke gets slow past a handful of fields. **React Hook Form** avoids this by keeping inputs uncontrolled internally and only re-rendering on submit or blur, and it's worth naming as the answer to "how would you make this scale to a big form."
-
-## Accessibility (a11y)
-
-- Reach for semantic HTML first. A `<button>` is keyboard-operable and screen-reader-announced for free; a `<div onClick>` gets neither behavior unless you build it yourself.
-- Use `aria-*` attributes only to fill gaps semantics can't cover, such as `aria-live` for a toast notification or `aria-expanded` on a custom disclosure widget. Don't reach for ARIA before reaching for the right tag.
-- Every interactive element must be reachable and operable via `Tab`, `Enter`, and `Space`, with a visible focus state. Never use `outline: none` without providing a replacement focus style.
-- For an automated baseline, lint with `eslint-plugin-jsx-a11y` and run `axe-core` in tests. Both catch missing labels, missing alt text, and contrast issues before a human reviewer has to.
-$md$, 25, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('c2ca1881-b903-5603-aa18-c706de57f148', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Web Vitals Thresholds, the web-vitals Library, and sendBeacon', 'notes', 103, $md$Core Web Vitals (LCP, INP, CLS) measure loading speed, responsiveness, and visual stability, and can be observed directly with the browser's `PerformanceObserver` API. This note covers the two pieces interviewers ask about next: the exact numeric thresholds, and how real production apps ship RUM (real user monitoring) data using the `web-vitals` library plus `sendBeacon`, instead of hand-rolling `PerformanceObserver` calls.
-
-## Exact thresholds
-
-| Metric | Good | Needs Improvement | Poor |
-|---|---|---|---|
-| LCP | ≤ 2.5s | ≤ 4.0s | > 4.0s |
-| INP | ≤ 200ms | ≤ 500ms | > 500ms |
-| CLS | ≤ 0.1 | ≤ 0.25 | > 0.25 |
-
-Field data, meaning real measurements collected from actual visitors (CrUX, PageSpeed Insights, Search Console), is what Google uses for search ranking. Lab data, from tools like Lighthouse or WebPageTest run against a single simulated device and network, is diagnostic only. It doesn't reflect real device and network variability, so a page can pass Lighthouse and still fail field CWV on a mid-range Android phone over 4G.
-
-## The `web-vitals` library, in practice
-
-Calling `PerformanceObserver` directly is how these metrics work under the hood, but production RUM code uses Google's `web-vitals` npm package instead of re-implementing each metric's calculation rules by hand. Those rules have real edge cases, like LCP's candidate element changing as dynamic content loads in, or CLS's session windowing that groups nearby layout shifts together.
-
-```javascript
-import { onCLS, onINP, onLCP, onFCP, onTTFB } from 'web-vitals';
-
-function sendToAnalytics(metric) {
-  const body = JSON.stringify({
-    name: metric.name,       // 'LCP' | 'INP' | 'CLS' | ...
-    value: metric.value,
-    id: metric.id,           // unique per page load, for de-duping
-    rating: metric.rating,   // 'good' | 'needs-improvement' | 'poor'
-  });
-
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon('/analytics', body);
-  } else {
-    fetch('/analytics', { body, method: 'POST', keepalive: true });
-  }
-}
-
-onCLS(sendToAnalytics);
-onINP(sendToAnalytics);
-onLCP(sendToAnalytics);
-```
-
-Each `on*` call registers a callback that the library invokes once it has a final value for that metric, which for LCP and CLS can happen well after the initial page load since both can keep changing as the page evolves. When the callback fires, `sendToAnalytics` serializes the handful of fields analytics actually needs and ships them off. Because `navigator.sendBeacon` is checked first, the happy path never touches `fetch` at all in a modern browser.
-
-## Why `sendBeacon`, not `fetch`
-
-CLS and LCP often finalize right as the user is leaving the page. A normal `fetch()` call made during `visibilitychange` or `pagehide` can be killed mid-flight when the tab closes, silently dropping the analytics payload.
-
-`navigator.sendBeacon(url, data)` is built for exactly this: the browser guarantees the request is queued and sent even if the page unloads immediately after the call. It's fire-and-forget, meaning there's no response to read, it's always a POST, and it's capped at roughly 64KB, which is plenty for a small metrics JSON blob. `fetch(url, { keepalive: true })` is the fallback for environments without `sendBeacon` support: same intent, slightly less guaranteed, and it has its own payload cap.
-
-Rule of thumb: reach for `sendBeacon` for anything fired on unload or visibility-change, and `fetch` for everything else where you actually need to read the response.
-
-## Fixing INP in React
-
-INP problems are usually fixed with React patterns you'd already reach for elsewhere, not new API surface:
-
-- **Memoization**, via `React.memo`, `useMemo`, and `useCallback`, prevents expensive components from re-rendering or recomputing when their inputs haven't actually changed.
-- **`startTransition`** deprioritizes expensive derived-state updates so the browser can keep handling input (typing, clicking) responsively while that lower-priority work finishes in the background.
-- **List virtualization**, via libraries like `react-window` or `react-virtual`, keeps a large list from mounting hundreds of DOM nodes at once by only rendering what's currently visible.
-
-The one INP lever that isn't just a React pattern: breaking up a genuinely long synchronous task, like parsing a large payload or sorting a big array, with `scheduler.yield()`. That API hands control back to the browser between chunks of work so it can respond to input, and falls back to chunked `setTimeout` or `requestIdleCallback` calls in browsers that don't support `scheduler.yield()` yet.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('f641560b-f6e5-583a-96ad-2736f533f83a', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Islands Architecture and Where Django Fits in the Rendering Spectrum', 'notes', 104, $md$The rendering-strategy lesson on CSR, SSR, SSG, and ISR covers hydration, hydration mismatches, and streaming SSR in depth. This note adds the two pieces that lesson doesn't: Islands Architecture, and where a Django backend actually sits once it's paired with a separate React frontend.
-
-## The hydration gap, and how Islands avoids it
-
-A hydration mismatch (a non-deterministic first render producing different HTML on server and client) is one cost of hydration. There's a separate cost worth naming: even a *correct* hydration has a window where the HTML is painted and looks interactive, but React hasn't attached event listeners yet. A click during that window can be dropped, silently swallowed, or queued and replayed late.
-
-The default SSR/SSG/ISR approach hydrates the *entire* page in one pass, so that window scales with total page JS, not with how much of the page is actually interactive. A mostly-static blog post with one comment widget still pays for hydrating the whole tree.
-
-**Islands Architecture** is the fix: render everything as static HTML, then hydrate only the interactive "islands" (a carousel, a comment form, a cart widget) independently, each with its own small JS bundle. The surrounding static content never hydrates at all: no listeners attached, no JS shipped for it. This shrinks both the hydration-gap window and the total JS payload. The cost is that each island has to be an isolated component that doesn't assume shared client-side state with its neighbors; cross-island communication needs an explicit mechanism such as events, a shared store, or URL state, since there's no single client-side app tree connecting them.
-
-Astro is the framework most associated with this pattern. React Server Components achieve a related goal, not shipping JS for non-interactive parts, through a different mechanism: server/client component boundaries inside one unified component tree, rather than physically separate islands.
-
-## Where Django sits in this spectrum
-
-Django's default templating (`render(request, template, context)`) is SSR in the literal sense: full HTML computed and returned per request. But it's missing everything a Next.js/Remix SSR setup assumes comes with the term: no hydration step, no client-side router, no virtual DOM diffing. Every link click and form submit is a full page reload and a fresh server round-trip. It's the rendering model the industry used before "SSR" needed a name to distinguish it from CSR.
-
-The moment a Django backend becomes a REST/JSON API sitting behind a separate React (or any SPA) frontend, Django exits this conversation entirely. It's no longer rendering anything, just serving data. At that point, every CSR-vs-SSR-vs-SSG-vs-ISR question applies to the React layer only, and Django's job becomes API design, auth, and data, which is a backend-section topic, not a rendering one.
-
-Islands Architecture and this Django boundary are really the same lesson from two directions: one is about shrinking what gets hydrated on the client, the other is about recognizing when a server stops participating in rendering at all.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('6617fda8-3e86-5ee4-b678-281ae14d1fed', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Currying', 'notes', 105, $md$Currying is a function that takes arguments one at a time, returning a new function each time until all are supplied. This note walks through why that's useful, not just what it is.
-
-## The core idea
-
-Instead of calling `f(a, b, c)`, currying lets you call `f(a)(b)(c)`. Each call takes one argument and returns a new function waiting for the next one.
-
-```javascript
-// Normal
-function add(a, b) { return a + b; }
-add(2, 3); // 5
-
-// Curried
-const add = a => b => a + b;
-add(2)(3); // 5
-```
-
-## Why it's useful
-
-**Partial application.** Bake in the first argument(s) to create a specialized function:
-
-```javascript
-const add = a => b => a + b;
-const add10 = add(10);
-add10(5);  // 15
-add10(20); // 30
-```
-
-**Composable pipelines.** Small curried functions chain cleanly through `.map`, `reduce`, or a `pipe` helper:
-
-```javascript
-const multiply = a => b => a * b;
-const double = multiply(2);
-[1, 2, 3].map(double); // [2, 4, 6]
-
-const pipe = (...fns) => x => fns.reduce((v, f) => f(v), x);
-const process = pipe(add(1), multiply(2), add(10));
-process(5); // ((5+1)*2)+10 = 22
-```
-
-## A generic curry helper
-
-Real code rarely hand-writes the nested-arrow form for every function. A `curry` helper auto-curries based on the function's declared arity (`fn.length`):
-
-```javascript
-function curry(fn) {
-  return function curried(...args) {
-    if (args.length >= fn.length) return fn(...args);
-    return (...more) => curried(...args, ...more);
+Normalize it the way a relational database would: flat lookup tables keyed by ID, plus ID arrays for ordering.
+
+```tsx
+// Normalized — O(1) lookup and update by ID, single source of truth per entity
+type NormalizedState = {
+  posts: { byId: Record<string, { id: string; title: string; authorId: string; commentIds: string[] }>; allIds: string[] };
+  comments: { byId: Record<string, { id: string; text: string; authorId: string }>; allIds: string[] };
+  users: { byId: Record<string, { id: string; name: string }>; allIds: string[] };
+};
+
+function editComment(state: NormalizedState, commentId: string, text: string): NormalizedState {
+  return {
+    ...state,
+    comments: { ...state.comments, byId: { ...state.comments.byId, [commentId]: { ...state.comments.byId[commentId], text } } },
   };
 }
-
-const add3 = curry((a, b, c) => a + b + c);
-add3(1)(2)(3);  // 6
-add3(1, 2)(3);  // 6
-add3(1, 2, 3);  // 6
 ```
 
-Trace `add3(1)(2)(3)`: the first call runs `curried(1)`. Since `fn.length` is 3 and `args.length` is 1, it returns a new function waiting for more arguments instead of calling `fn`. Calling that with `(2)` runs `curried(1, 2)`, still short of 3, so it returns another waiting function. Calling that with `(3)` runs `curried(1, 2, 3)`, which now meets `fn.length`, so it finally calls `fn(1, 2, 3)` and returns `6`. `add3(1, 2)(3)` and `add3(1, 2, 3)` reach the same final call, just by supplying arguments in different-sized groups. This is what libraries like Lodash's `_.curry(fn)` do under the hood.
+Editing one comment becomes a targeted, cheap operation, exactly one entry in one lookup table changes, instead of hunting through a nested array of posts to find the right comment buried three levels deep.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
-## Across languages
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('bc5b0610-d8d7-5d3e-a8ab-5f15a0c9f26f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'State Machines in React', 'notes', 18, $md$Complex UI state, a multi-step form, an async fetch with loading/error/retry, a media player, tends to accumulate boolean flags until the component can represent states that make no sense at all: `isLoading: true` and `isError: true` simultaneously. State machines eliminate that entire class of bug by design, and this comes up in interviews both as a direct question, "how would you model this UI's state?", and as a general signal of engineering maturity.
 
-| Language | Style |
+## The problem with flags
+
+```tsx
+// Every new state is another independent boolean, and the number of
+// *reachable* combinations grows exponentially while the number of
+// *valid* combinations stays small.
+function useFetchUser(id: string) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [data, setData] = useState<User | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Nothing stops isLoading and isSuccess from both being true.
+  // Nothing stops isError being true while data is also populated
+  // from a stale previous fetch. Every consumer has to guess which
+  // combination is actually "real."
+}
+```
+
+A state machine's core promise is to model the finite set of states explicitly, and only allow the transitions between them that you've defined. Every other combination simply isn't representable, not because you remembered to guard against it, but because the type system or the transition table doesn't allow it to exist in the first place.
+
+## The shape of it: states, events, a transition table
+
+A state machine is a finite set of **states**, a finite set of **events**, and a **transition table** mapping `(state, event) → next state`. Nothing else can move it. The current state plus an incoming event is the entire input to "what happens next," which is what makes the whole thing reason-about-able and testable independent of any rendered UI.
+
+```
+        FETCH                    RESOLVE
+idle ─────────────► loading ─────────────► success
+                        │
+                        │ REJECT
+                        ▼
+                      error ──── RETRY ────► loading
+```
+
+This is the same unidirectional-flow idea React's own render model runs on: data flows one way, and transitions are explicit function calls, never ad hoc mutation. A state machine just applies that same discipline to the state's *shape*, not only to rendering.
+
+## Getting most of the benefit with useReducer
+
+You don't need a library to capture the core win. `useReducer` with a discriminated-union state and an explicit transition function already gets you there, and it's often the right call in an interview unless XState is specifically what's being asked for.
+
+```tsx
+type FetchState<T> =
+  | { status: "idle" } | { status: "loading" }
+  | { status: "success"; data: T } | { status: "error"; message: string };
+type FetchEvent<T> =
+  | { type: "FETCH" } | { type: "RESOLVE"; data: T }
+  | { type: "REJECT"; message: string } | { type: "RETRY" };
+
+function fetchReducer<T>(state: FetchState<T>, event: FetchEvent<T>): FetchState<T> {
+  switch (state.status) {
+    case "idle": return event.type === "FETCH" ? { status: "loading" } : state;
+    case "loading":
+      if (event.type === "RESOLVE") return { status: "success", data: event.data };
+      if (event.type === "REJECT") return { status: "error", message: event.message };
+      return state;
+    case "success": return state; // no valid transitions out of success in this machine
+    case "error": return event.type === "RETRY" ? { status: "loading" } : state;
+  }
+}
+
+function useFetchUser(id: string) {
+  const [state, dispatch] = useReducer(fetchReducer<User>, { status: "idle" });
+  useEffect(() => {
+    dispatch({ type: "FETCH" });
+    fetch(`/api/users/${id}`)
+      .then(res => res.json())
+      .then((data: User) => dispatch({ type: "RESOLVE", data }))
+      .catch(err => dispatch({ type: "REJECT", message: String(err) }));
+  }, [id]);
+  return state;
+}
+```
+
+Every unreachable combination from the flags version, loading and error at once, success with no data, simply can't exist here. Trace what happens if a stray `RETRY` fires while a fetch is still in flight: the reducer is in `case "loading"`, and that branch only recognizes `RESOLVE` and `REJECT`. `RETRY` falls through to `return state`, a no-op, so the component keeps rendering its loading UI, unbothered. No flag gets left in a stale, contradictory position, because there was never a flag to leave stale in the first place.
+
+## XState, for when a reducer isn't enough anymore
+
+XState is the standard library once a machine needs to be visualizable, or genuinely complex: nested and parallel states, guards, actions tied to transitions, and, critically for interviews, a visual diagram generated straight from the machine definition.
+
+```ts
+import { createMachine, assign } from "xstate";
+
+const fetchMachine = createMachine({
+  id: "fetch",
+  initial: "idle",
+  context: { data: null as User | null, error: null as string | null },
+  states: {
+    idle: { on: { FETCH: "loading" } },
+    loading: {
+      on: {
+        RESOLVE: { target: "success", actions: assign({ data: ({ event }) => event.data }) },
+        REJECT: { target: "error", actions: assign({ error: ({ event }) => event.error }) },
+      },
+    },
+    success: { on: { FETCH: "loading" } }, // allow refetch
+    error: { on: { RETRY: "loading" } },
+  },
+});
+```
+
+```tsx
+import { useMachine } from "@xstate/react";
+
+function UserProfile({ userId }: { userId: string }) {
+  const [state, send] = useMachine(fetchMachine);
+  useEffect(() => {
+    send({ type: "FETCH" });
+    fetch(`/api/users/${userId}`)
+      .then(res => res.json())
+      .then(data => send({ type: "RESOLVE", data }))
+      .catch(error => send({ type: "REJECT", error: String(error) }));
+  }, [userId, send]);
+
+  if (state.matches("loading")) return <Spinner />;
+  if (state.matches("error")) return <div><p>{state.context.error}</p><button onClick={() => send({ type: "RETRY" })}>Retry</button></div>;
+  if (state.matches("success")) return <div>{state.context.data?.name}</div>;
+  return null;
+}
+```
+
+`state.matches("loading")` is the render-time check; `send({ type: ... })` is the only way to attempt a transition, and the machine itself decides whether that event does anything at all given the current state.
+
+## Where guards earn their keep: a multi-step form
+
+Multi-step forms are the canonical case where the flags approach becomes unmanageable, "which step am I on," "can I go back," and "is this step's data valid enough to advance" all interact with each other.
+
+```ts
+const checkoutMachine = createMachine({
+  id: "checkout",
+  initial: "shipping",
+  states: {
+    shipping: { on: { NEXT: { target: "payment", guard: "shippingValid" } } },
+    payment: { on: { NEXT: { target: "review", guard: "paymentValid" }, BACK: "shipping" } },
+    review: { on: { BACK: "payment", SUBMIT: "submitting" } },
+    submitting: { on: { RESOLVE: "confirmed", REJECT: "review" } }, // failed submission returns to review, not a dead end
+    confirmed: { type: "final" },
+  },
+});
+```
+
+The **guard** (`shippingValid`) is a predicate evaluated against the machine's context, and the transition simply doesn't happen if it returns false. "Can't advance with an invalid shipping address" is enforced by the machine itself, not by scattered `if` checks stapled onto every button's `onClick`. This is the concrete answer when an interviewer asks how a state machine specifically helps a multi-step form: it becomes the single source of truth for both what step you're on and whether you're allowed to leave it.
+
+## Why this is unusually easy to test
+
+The transition table is a pure function, independent of any rendered UI:
+
+```ts
+test("checkout: submission failure returns to review, not a dead end", () => {
+  const service = createActor(checkoutMachine).start();
+  service.send({ type: "NEXT" }); // shipping -> payment
+  service.send({ type: "NEXT" }); // payment -> review
+  service.send({ type: "SUBMIT" }); // review -> submitting
+  service.send({ type: "REJECT" }); // submitting -> review
+  expect(service.getSnapshot().value).toBe("review");
+});
+```
+
+No `render()`, no DOM, no `userEvent`. This tests the actual business rule, a failed submission must never strand the user, as a pure state transition, faster to run and more precisely targeted than an integration test that has to click through an entire rendered form to exercise the same path. You still want a handful of integration tests confirming the UI actually calls `send` correctly, but the exhaustive edge-case coverage of valid and invalid transitions belongs at the machine level, not the component level.
+
+## Choosing the right tool for the job
+
+| Situation | Approach |
 |---|---|
-| Haskell | All functions curried by default. |
-| Python | Not curried automatically. Use `functools.partial` to pre-fill arguments, or write nested lambdas by hand. |
-| Scala / F# | Curried natively via `=>` chaining. |
-| JavaScript | Manual (nested arrows), or via a library like `_.curry`. |
-$md$, 15, $json$[]$json$::jsonb)
+| A couple of genuinely independent booleans (`isOpen`, `isDarkMode`) | Plain `useState`; a machine is overkill |
+| A small closed set of mutually exclusive states (idle/loading/success/error) | `useReducer` with a discriminated union |
+| Multi-step flows, guarded transitions, nested or parallel states, need for visualization | XState |
+
+The thread running through all three: define the reachable states up front, and let the transition function, however small or large it ends up, be the only door between them.
+$md$, 30, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('91605f8f-97a0-5bef-a256-5ba70f0c703b', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Shallow Cloning and Lodash cloneDeep', 'notes', 106, $md$Deep cloning options like `JSON.parse(JSON.stringify(x))` and `structuredClone` copy an entire object graph, including nested objects, and each has gaps in what it can represent. This note covers a different layer: shallow-copy methods, and the one case where Lodash's `cloneDeep` still beats the native `structuredClone`.
+VALUES ('9fc00f14-9e68-5839-9185-21b1abd56c31', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Custom Hooks and Composition Patterns', 'notes', 19, $md$"Explain compound components" and "when would you reach for a render prop instead of a custom hook" are recurring senior-level questions, and they're testing React's composition model beyond writing individual components. This lesson covers compound components, render props, HOCs, and custom hooks, what each buys you and which of them modern React has mostly superseded, then puts custom hooks to work on the patterns you'll actually reach for day to day: debouncing, fetching with cancellation, and form state.
 
-## Shallow copy: spread and `Object.assign`
+## Compound components: implicit shared state, explicit structure
 
-```javascript
-const clone1 = { ...original };
-const clone2 = Object.assign({}, original);
+A compound component splits one logical UI unit into several components that share state through context, letting the caller compose the internal structure freely while the pieces coordinate behind the scenes. It's the same relationship native `<select>` and `<option>` already have.
+
+```tsx
+const TabsContext = createContext<{ activeTab: string; setActiveTab: (id: string) => void } | null>(null);
+function useTabsContext() {
+  const ctx = useContext(TabsContext);
+  if (!ctx) throw new Error("Tabs.* components must be used inside <Tabs>");
+  return ctx;
+}
+
+function Tabs({ defaultTab, children }: { defaultTab: string; children: ReactNode }) {
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  return <TabsContext.Provider value={{ activeTab, setActiveTab }}><div className="tabs">{children}</div></TabsContext.Provider>;
+}
+function TabList({ children }: { children: ReactNode }) {
+  return <div role="tablist">{children}</div>;
+}
+function Tab({ id, children }: { id: string; children: ReactNode }) {
+  const { activeTab, setActiveTab } = useTabsContext();
+  return <button role="tab" aria-selected={activeTab === id} onClick={() => setActiveTab(id)}>{children}</button>;
+}
+function TabPanel({ id, children }: { id: string; children: ReactNode }) {
+  const { activeTab } = useTabsContext();
+  return activeTab === id ? <div role="tabpanel">{children}</div> : null;
+}
+Tabs.List = TabList;
+Tabs.Tab = Tab;
+Tabs.Panel = TabPanel;
 ```
 
-Both copy only the top-level keys. Any nested object or array is still the *same reference* in the clone as in the original, so mutating `clone.nested.x` also mutates `original.nested.x`. `Object.assign` can also merge multiple sources left to right, as in `Object.assign({}, a, b)`, where later sources overwrite earlier keys on conflict. The spread form does the same thing with identical semantics: `{ ...a, ...b }`.
-
-## Where Lodash `cloneDeep` beats `structuredClone`
-
-`structuredClone` correctly clones `Date`, `Map`, `Set`, and circular references, which `JSON.stringify` cannot. But it still has two gaps of its own: it throws on functions, and it loses the prototype chain of class instances, so a cloned class instance comes back as a plain object rather than an instance of that class.
-
-```javascript
-import cloneDeep from 'lodash/cloneDeep';
-const clone = cloneDeep(original); // preserves class instances and functions; costs a dependency
+```tsx
+// the caller controls composition and order freely — Tabs doesn't need to
+// know how many tabs exist or accept a `tabs` prop array
+<Tabs defaultTab="profile">
+  <Tabs.List>
+    <Tabs.Tab id="profile">Profile</Tabs.Tab>
+    <Tabs.Tab id="settings">Settings</Tabs.Tab>
+  </Tabs.List>
+  <Tabs.Panel id="profile">Profile content</Tabs.Panel>
+  <Tabs.Panel id="settings">Settings content</Tabs.Panel>
+</Tabs>
 ```
 
-Rule of thumb: default to `structuredClone` for plain data. Reach for `cloneDeep` specifically when the object graph contains functions or class instances that need to survive the clone.
+Reach for this when children need to share implicit state and the caller benefits from controlling structure and order directly in JSX, rather than a config array passed through a single `tabs` prop. Radix UI, React Aria, and Reach UI are built almost entirely on this pattern, naming them is a stronger signal than describing the pattern in the abstract. The trade-off: `Tabs.Tab` used outside `<Tabs>` throws by design, via the `useTabsContext` guard, which is a real constraint on reuse compared to a fully standalone component.
 
-## Manual recursive clone
+The same context-sharing idea generalizes past tabs, any parent/child pair with implicit shared state, an accordion and its items, a theme provider and its consumers, follows the identical shape: a context created once, a `Provider` at the top holding the state, and children reading from `useContext` instead of receiving props threaded down by hand.
 
-Worth knowing as the "explain what's happening under the hood" answer, not as something to actually ship over `structuredClone`:
+## Render props: mostly superseded, still alive at the edges
 
-```javascript
-function deepClone(obj) {
-  if (obj === null || typeof obj !== 'object') return obj;
-  if (Array.isArray(obj)) return obj.map(deepClone);
-  return Object.fromEntries(
-    Object.entries(obj).map(([k, v]) => [k, deepClone(v)])
-  );
+A render prop is a prop whose value is a function returning JSX, letting a component share stateful logic while leaving the actual rendering to the caller.
+
+```tsx
+function MousePosition({ render }: { render: (pos: { x: number; y: number }) => ReactNode }) {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => setPosition({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", handleMove);
+    return () => window.removeEventListener("mousemove", handleMove);
+  }, []);
+  return <>{render(position)}</>;
 }
 ```
 
-Trace it on `{ a: 1, b: { c: 2 } }`: the outer call sees an object, so it maps over its entries. For `a`, `deepClone(1)` hits the base case and returns `1` unchanged. For `b`, `deepClone({ c: 2 })` recurses, hits the object branch again, and returns a brand-new object `{ c: 2 }` built from freshly cloned entries, not the original reference. `Object.fromEntries` reassembles both results into a new top-level object, so every level of nesting gets its own new object or array instead of a shared reference.
+This pattern predates hooks, and the identical logic as a hook needs no wrapper component, no extra nesting, no children-as-function ceremony:
 
-This function handles plain objects and arrays only. It has no special handling for `Date`, `Map`, `Set`, or circular references, which is exactly why `structuredClone` exists as a native primitive instead of everyone hand-rolling this.
-$md$, 10, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('81ce2d27-65f4-5908-97d0-9935d62b53ad', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Method Chaining', 'notes', 107, $md$Method chaining means calling multiple methods on the same object one after another in a single expression, as in `str.trim().toLowerCase().replace(...)`, instead of reassigning a variable at each step.
-
-## How it works
-
-```javascript
-// Without chaining
-let str = "  Hello World  ";
-str = str.trim();
-str = str.toLowerCase();
-str = str.replace("world", "john");
-
-// With chaining
-let result = "  Hello World  ".trim().toLowerCase().replace("world", "john");
-```
-
-The mechanism: each method **returns the same object** (or an object of the same interface) instead of `undefined` or void. That return value is exactly what the next `.method()` call in the chain operates on. There's no special language feature involved, just a return-value convention.
-
-## The requirement: `return this`
-
-Chaining only works if every method in the chain explicitly returns the object:
-
-```javascript
-class QueryBuilder {
-  constructor() { this.parts = []; }
-
-  where(cond)  { this.parts.push(`WHERE ${cond}`); return this; }
-  orderBy(col) { this.parts.push(`ORDER BY ${col}`); return this; }
-  build()      { return this.parts.join(" "); }
+```tsx
+function useMousePosition() {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => setPosition({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", handleMove);
+    return () => window.removeEventListener("mousemove", handleMove);
+  }, []);
+  return position;
 }
-
-new QueryBuilder().where("age > 18").orderBy("name").build();
 ```
 
-Trace the call: `new QueryBuilder()` creates an instance with `parts: []`. `.where("age > 18")` pushes `"WHERE age > 18"` into `parts` and returns `this`, the same instance, so the next call has something to land on. `.orderBy("name")` pushes `"ORDER BY name"` and again returns `this`. `.build()` finally returns `this.parts.join(" ")`, giving `"WHERE age > 18 ORDER BY name"`. Miss a `return this` on any of the middle methods and the chain breaks right there: the next call in the chain tries to call a method on `undefined` and throws.
+Render props still earn their place specifically when a library needs to expose behavior to consumers who might not be in a hooks-compatible setup, or when the shared logic needs to control *where* in the tree something renders, not just supply data. For the common case of sharing stateful logic across components, a custom hook is less nesting and the answer most interviews are actually looking for today.
 
-This is the Builder pattern's core mechanic, and it's exactly how jQuery (`$("#btn").css(...).fadeIn(300).addClass(...)`) and array methods (`.filter().map()`) work.
+## HOCs: composition by wrapping
 
-## Where it shows up
+A higher-order component takes a component and returns a new one with added behavior.
 
-- Arrays: `.filter().map().reduce()`, where each call returns a new array or value for the next method to operate on.
-- Promises: `.then().then().catch()`, where each `.then()` returns a new Promise.
-- Fluent builder APIs: query builders, jQuery, test assertion libraries such as `expect(x).to.be.a("string")`.
+```tsx
+function withAuth<P extends object>(Wrapped: React.ComponentType<P>) {
+  return function WithAuthComponent(props: P) {
+    const { user, isLoading } = useAuth();
+    if (isLoading) return <Spinner />;
+    if (!user) return <Navigate to="/login" />;
+    return <Wrapped {...props} />;
+  };
+}
+const ProtectedDashboard = withAuth(Dashboard);
+```
 
-A missing `return this` (or returning `undefined` instead of the object) is the one bug that silently breaks a chain, and it's worth checking first whenever a chained call throws on "cannot read properties of undefined."
-$md$, 10, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+Hooks mostly replaced this for three concrete reasons: stacking several HOCs produces deeply nested trees that are hard to trace prop flow through in DevTools, often called wrapper hell; two HOCs both injecting a prop called `data` silently clobber each other with no compile-time warning; and correctly typing what an HOC adds, consumes, and passes through is meaningfully harder in TypeScript than typing a hook's return value. The equivalent as a hook has no wrapping component and no prop injection at all:
 
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('dfd67b65-7452-5ddd-9fd5-a4b179f7ebe7', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: var/let/const Scoping & Hoisting, Primitive vs Reference Types', 'notes', 108, $md$`var`/`let`/`const` scoping and hoisting, and primitive vs non-primitive types, are foundational background that most React and TypeScript material assumes you already know rather than teaching directly. This note fills that gap, since it's exactly the kind of question that opens a frontend interview before the conversation moves to React specifics.
+```tsx
+function ProtectedDashboard() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <Spinner />;
+  if (!user) return <Navigate to="/login" />;
+  return <Dashboard />;
+}
+```
 
-## var vs let vs const: scope, hoisting, and the temporal dead zone
+HOCs still make sense wrapping a third-party component you can't modify, since you can't add a hook call inside someone else's component, or for a genuinely cross-cutting concern applied uniformly at a routing or composition layer, `connect()` from older Redux is the standard example still seen in legacy code. For new code you control, a hook covers the same need with less indirection.
+
+## Custom hooks: the default answer
+
+A custom hook is just a function that starts with `use` and calls other hooks, extracting stateful logic so it's reusable without changing the shape of the component tree at all, the core advantage over both patterns above. The rest of this lesson is worked examples.
+
+### useDebounce: waiting for quiet
 
 ```js
-console.log(a); // undefined — declaration hoisted, not the assignment
-var a = 1;
-
-console.log(b); // ReferenceError: Cannot access 'b' before initialization
-let b = 2;
-```
-
-**`var` is function-scoped, not block-scoped.** A `var` declared inside an `if` or `for` block is visible throughout the entire enclosing function. It can be redeclared and reassigned freely, and it's hoisted to the top of its scope with the value `undefined`, so reading it before the declaration line gives `undefined` rather than an error.
-
-**`let` is block-scoped**, visible only within the nearest enclosing `{}`. It cannot be redeclared in the same scope, but it can be reassigned. It's hoisted the same way `var` is, but it isn't initialized to `undefined`: accessing it before its declaration line throws a `ReferenceError`.
-
-**`const` is block-scoped like `let`**, and it cannot be redeclared or reassigned. It must be initialized at declaration; `const x;` alone is a syntax error. This restriction only prevents rebinding the variable, not mutating what it points to: `const obj = {}` still allows `obj.key = 1`, but forbids `obj = {}`.
-
-**The Temporal Dead Zone (TDZ)** is the gap between the top of the scope, where `let`/`const` are hoisted to just like `var`, and the actual declaration line. Accessing the variable anywhere in that gap throws instead of silently returning `undefined`. This is a deliberate design choice: it turns a whole class of "used before declared" bugs into an immediate, loud error instead of a silent `undefined` that fails mysteriously somewhere else.
-
-### Why this matters practically
-
-Block scope prevents loop-variable leakage, the classic interview gotcha:
-
-```js
-for (var i = 0; i < 3; i++) {
-  setTimeout(() => console.log(i), 0); // 3, 3, 3 — one shared `i`, all closures see its final value
-}
-for (let j = 0; j < 3; j++) {
-  setTimeout(() => console.log(j), 0); // 0, 1, 2 — each iteration gets its own `j` binding
+function useDebounce(state, delay) {
+  const [debounce, setDebounce] = useState(state); // seed with the initial value, not undefined
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounce(state), delay);
+    return () => clearTimeout(timer); // cancel the stale timer on every re-run or unmount
+  }, [state, delay]);
+  return debounce;
 }
 ```
 
-In the first loop, all three `setTimeout` callbacks close over the *same* `i`. By the time any of them runs, the loop has already finished and `i` is `3`, so all three print `3`. In the second loop, `let` creates a fresh binding of `j` for each iteration, so each callback closes over its own copy holding `0`, `1`, or `2` respectively. That's the fastest way to demonstrate the practical difference between function scope and block scope.
+The input updates instantly, `value` is a normal controlled state, but the debounced value, and whatever effect depends on it, only fires once activity pauses for the full delay, because every keystroke cancels the previous timer via the cleanup function before a new one starts.
 
-The accepted modern convention is to prefer `const` by default, use `let` only when reassignment is actually needed, and avoid `var` in new code entirely. `const`'s inability to rebind makes code easier to reason about, since you know the variable never points somewhere else later, and block scoping avoids the loop-leakage bug above.
-
-## Primitive vs non-primitive (reference) types
-
-JavaScript has exactly 7 primitive types: `string`, `number`, `boolean`, `null`, `undefined`, `BigInt`, and `Symbol`. Everything else, including `Object`, `Array`, and `Function`, is a non-primitive (reference) type.
-
-| | Primitives | Non-primitives |
-|---|---|---|
-| Storage | Stored directly, typically on the stack. | The variable holds a *reference* (pointer) to data on the heap. |
-| Mutability | Immutable. You can't change a string in place, only create a new one. | Mutable. Array and object contents can change in place. |
-| Copy behavior | Assigning copies the **value**, giving two independent copies. | Assigning copies the **reference**, so both variables point at the same object. |
-| Equality (`===`) | Compares value. | Compares reference identity, not contents. |
-
-```js
-let a = 5;
-let b = a;   // b gets a COPY of the value 5
-b = 10;
-console.log(a); // 5 — a is untouched
-
-let obj1 = { count: 5 };
-let obj2 = obj1;   // obj2 gets a COPY of the REFERENCE, not a new object
-obj2.count = 10;
-console.log(obj1.count); // 10 — same underlying object, both variables point at it
-
-console.log({ x: 1 } === { x: 1 }); // false — different objects, same shape
-console.log(obj1 === obj2);          // true — same reference
-```
-
-In the first block, `b = a` copies the value `5`, so reassigning `b` to `10` has no effect on `a`. In the second block, `obj2 = obj1` copies the reference, not the object, so `obj1` and `obj2` point at the exact same object in memory; mutating `count` through `obj2` is visible through `obj1` too, because there's only one object to begin with.
-
-**Stack vs heap, briefly.** Primitives live on the stack, which is fixed-size, LIFO, and automatically cleaned up when a function returns, because their fixed, small size makes that cheap. Objects live on the heap, which is dynamically sized and garbage-collected, because their size can grow and they need to outlive a single function call if referenced elsewhere. This is an engine-implementation detail rather than a language guarantee, but it's the standard mental model interviewers expect.
-
-**Why this matters for React specifically.** React's `useState`/`useEffect` dependency comparisons use `Object.is` (reference equality) under the hood. Mutating an object or array in place, such as `state.items.push(x)`, doesn't change its reference, so React won't detect the change and won't re-render. This is exactly why idiomatic React code spreads or reconstructs state (`setState([...items, x])`) instead of mutating it: a new reference is required to signal "this changed."
-
-One classic gotcha worth knowing: `typeof null === "object"`. This is a long-standing bug in the language, where `null` was originally represented with a type tag that collided with objects, and it's now permanent for backwards compatibility. `null` is still a primitive despite `typeof` reporting otherwise; use `value === null` to actually check for it.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('305bd218-8937-5ed5-b92b-835f0e8b61d3', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Notes: Debounce vs Throttle — Leading and Trailing Edges', 'notes', 109, $md$Debounce fires after activity stops; throttle fires at a fixed interval regardless of activity. This note goes one level deeper: when, exactly, does the function fire? At the start of the wait window, the end, or both?
-
-## Debounce: wait for quiet
-
-Debounce means keep resetting the timer while events keep coming, and only act once they stop.
-
-**Trailing (the default, and the common case).** Nothing fires while events keep arriving. The moment they stop for the full delay, the *last* call's arguments fire. This is search-as-you-type: no request while the user is still typing, one request once they pause.
-
-**Leading.** The *first* event in a burst fires immediately; every event after that, within the wait window, is swallowed. Good for ignoring rapid double-clicks: the first click registers, the rest in that window don't.
-
-**Leading + trailing.** The first call fires immediately, and if more events arrived during the window, one final trailing call fires too, with the latest arguments. Rare, but useful when you want instant feedback *and* a guaranteed final sync.
+That's the trailing case, and it's the default, but it's worth being precise about the other two, since "what's the difference between debounce and throttle" is often a two-part question in disguise. **Leading** fires the *first* event in a burst immediately, then swallows everything else in that window, good for ignoring rapid double-clicks: the first click registers, the rest don't. **Leading + trailing** fires immediately *and* fires one final call with the latest arguments if more events arrived during the window, rare, but useful when you want instant feedback and a guaranteed final sync.
 
 ```ts
 function debounce(fn: (...a: any[]) => void, ms: number, opts: { leading?: boolean; trailing?: boolean } = { trailing: true }) {
@@ -23130,26 +18035,13 @@ function debounce(fn: (...a: any[]) => void, ms: number, opts: { leading?: boole
   return (...args: any[]) => {
     const callNow = opts.leading && !timer;
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
-      if (opts.trailing) fn(...args);
-    }, ms);
+    timer = setTimeout(() => { timer = null; if (opts.trailing) fn(...args); }, ms);
     if (callNow) fn(...args);
   };
 }
 ```
 
-Debounce's timer resets on every new event: each call clears the previous `setTimeout` and starts a fresh one. That's why a steady stream of events with trailing debounce never fires at all until the stream stops long enough for one full `ms` window to elapse uninterrupted.
-
-## Throttle: run at most once per interval
-
-Throttle means no matter how many events come in, only act once every N ms; the clock doesn't reset.
-
-**Leading (the default in lodash).** Fires immediately when the interval starts, then ignores further calls until the interval ends, then the next call starts a new interval. Good for scroll-position tracking, where you want the first update instantly.
-
-**Trailing.** Nothing fires until the interval ends, at which point it fires once with whatever the latest call's arguments were. This adds initial delay, but guarantees you get the freshest state at each tick.
-
-**Leading + trailing (common combo).** Fires at the start of the interval, and if calls kept coming during it, fires once more at the end with the latest arguments. Window-resize handlers often want this: instant feedback, plus a final accurate value once resizing settles.
+Debounce's timer resets on every new event, each call clears the previous `setTimeout` and starts fresh, which is exactly why a steady stream of events under trailing debounce never fires at all until the stream stops for one full, uninterrupted window. **Throttle** is the opposite discipline: no matter how many events arrive, act at most once every N ms, and the clock doesn't reset. Leading (lodash's default) fires immediately at the start of the interval, then ignores calls until it ends, good for scroll-position tracking where you want the first update instantly. **Trailing** throttle fires nothing until the interval ends, then fires once with whatever the latest call's arguments were, more initial delay, but guaranteed freshest state at each tick. **Leading + trailing** fires at the start of the interval, and if calls kept arriving during it, fires once more at the end with the latest arguments, the combination a window-resize handler usually wants: instant feedback, plus a final accurate value once resizing settles.
 
 ```ts
 function throttle(fn: (...a: any[]) => void, ms: number, opts: { leading?: boolean; trailing?: boolean } = { leading: true, trailing: true }) {
@@ -23178,14 +18070,2679 @@ function throttle(fn: (...a: any[]) => void, ms: number, opts: { leading?: boole
 }
 ```
 
-Trace a burst of calls arriving faster than `ms`: the first call sees `remaining <= 0` (nothing has run yet), so it calls `fn` immediately and sets `last` to now. The next few calls land while `remaining` is still positive, so instead of calling `fn` they just update `lastArgs` and schedule one `setTimeout` for whatever time is left in the window. When that timeout fires, it calls `fn` once with the most recent `lastArgs`, then resets `last`. So a whole burst collapses into exactly one leading call and, if `trailing` is on, one trailing call at the end. Throttle's clock runs on a fixed schedule, independent of how many events arrive; it doesn't reset per event the way debounce's timer does.
+Trace a burst of calls arriving faster than `ms`: the first call sees `remaining <= 0` (nothing has run yet), so it calls `fn` immediately and sets `last` to now. The next few calls land while `remaining` is still positive, so instead of calling `fn` they update `lastArgs` and schedule one `setTimeout` for whatever time is left in the window. When that timeout fires, it calls `fn` once with the most recent `lastArgs`, then resets `last`. A whole burst collapses into exactly one leading call and, if `trailing` is on, one trailing call at the end. Throttle's clock runs on a fixed schedule, independent of how many events arrive; it doesn't reset per event the way debounce's timer does.
 
-## The interview one-liner
+The one-line way to keep the two straight for an interview: debounce waits for inactivity because its timer resets on every event; throttle waits for a fixed clock tick because its timer never resets mid-interval. Knowing the actual flag names, `_.debounce(fn, ms, { leading, trailing })` and `_.throttle(fn, ms, { leading, trailing })`, is usually what separates a confident answer from a hand-wavy one.
 
-Debounce trailing waits for inactivity, since its timer resets on every event. Throttle waits for a fixed clock tick regardless of activity, since its timer never resets mid-interval. That's the distinction interviewers are actually probing for when they ask "what's the difference," not just "one waits, one limits."
+### useFetch: the race condition a naive version misses
 
-lodash exposes both as explicit flags: `_.debounce(fn, ms, { leading, trailing })` and `_.throttle(fn, ms, { leading, trailing })`. Knowing the flag names, not just the underlying concept, is usually what separates a confident answer from a hand-wavy one.
-$md$, 15, $json$[]$json$::jsonb)
+If `url` changes quickly, a dropdown flipping from option A to option B, a slow response for A can resolve *after* B's response arrives and incorrectly overwrite the UI with stale data. That's a race condition, and `AbortController` is the fix.
+
+```js
+function useFetch(url) {
+  const [apiData, setData] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const control = new AbortController();
+    (async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(url, { signal: control.signal });
+        setData(await response.json());
+      } catch (err) {
+        if (err.name !== "AbortError") setError(err); // don't surface a cancelled request as a real error
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => control.abort(); // cancels the in-flight request when url changes or the component unmounts
+  }, [url]);
+
+  return { apiData, error, loading };
+}
+```
+
+Without the `AbortController`, whichever request happens to resolve last wins, even if it wasn't the last one started, which is exactly how the UI ends up showing outdated data for the option the user isn't even looking at anymore.
+
+### useLocalStorage: the falsy-value trap hiding in plain sight
+
+```js
+function useLocalStorage(key, initialValue) {
+  const [data, setData] = useState(() => {
+    const stored = localStorage.getItem(key); // check the raw STRING before parsing
+    return stored ? JSON.parse(stored) : initialValue;
+  });
+  useEffect(() => { localStorage.setItem(key, JSON.stringify(data)); }, [data]);
+  return [data, setData];
+}
+```
+
+Three bugs this version avoids on purpose. `localStorage` only stores strings, so writes need `JSON.stringify` and reads need `JSON.parse`. Checking truthiness *after* parsing breaks for a legitimately falsy stored value, `JSON.parse("0")` is `0`, which is falsy, so checking the raw string first sidesteps it, since `JSON.stringify` never produces an empty string for any valid value. And the lazy `useState(() => ...)` initializer form ensures `localStorage` is read exactly once, on mount, rather than on every single render.
+
+## The stale closure bug, and why it's not really about React
+
+```jsx
+function Counter() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    setInterval(() => {
+      setCount(count + 1); // `count` is captured at the effect's FIRST run — always 0
+    }, 1000);
+  }, []);
+  return <div>{count}</div>;
+}
+```
+
+This increments once and then freezes forever. The closure inside `setInterval` captured `count` as it was when the effect first ran, `0`, and because the dependency array is empty, the effect never re-runs to capture a fresh value. Every tick after the first is still adding `1` to that original `0`.
+
+```jsx
+useEffect(() => {
+  const timer = setInterval(() => {
+    setCount((q) => q + 1); // functional update — always reads the CURRENT state
+  }, 1000);
+  return () => clearInterval(timer); // cleanup prevents a leak on unmount
+}, []);
+```
+
+Two things get fixed at once here. The stale closure is fixed by using the functional update form, `setState(prev => ...)`, instead of referencing the closed-over variable directly, so every tick reads whatever state is actually current rather than whatever it was when the effect first ran. The memory leak is fixed separately, always clear intervals, timeouts, and subscriptions in the effect's cleanup function.
+
+## A form hook, validated once, not scattered per field
+
+Centralizing validation is the other place custom hooks pull their weight. Instead of an `if` check duplicated in every field's `onChange`, one hook (or one schema) owns the rules:
+
+```tsx
+function useValidatedForm<T extends Record<string, string>>(initial: T, rules: { [K in keyof T]?: (v: string) => string | undefined }) {
+  const [values, setValues] = useState(initial);
+  const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
+
+  const setField = (field: keyof T, value: string) => {
+    setValues(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => ({ ...prev, [field]: undefined })); // clear that field's error on edit
+  };
+
+  const validate = () => {
+    const next: typeof errors = {};
+    for (const key in rules) {
+      const message = rules[key]?.(values[key]);
+      if (message) next[key] = message;
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  return { values, errors, setField, validate };
+}
+```
+
+Controlled inputs, value and `onChange` both wired to state, keep the component always reflecting the current form state exactly, and re-validating on every keystroke rather than on blur or submit is the thing that starts to feel slow past a handful of fields. **React Hook Form** is the production answer to that specific cost: it keeps inputs uncontrolled internally and only re-renders on submit or blur, worth naming directly as the answer to "how would you make this scale to a big form."
+
+## Deciding which pattern fits
+
+| Need | Pattern |
+|---|---|
+| Share stateful logic across components, no rendering control needed | Custom hook, the default choice |
+| Consumer needs implicit shared state across a fixed set of composed children (tabs, accordion, select) | Compound components |
+| A library needs to hand rendering control to the consumer, or must support non-hook consumers | Render props |
+| Wrapping a third-party component you can't add hooks to, or a legacy codebase already using the pattern | HOC |
+
+Compound components: Radix UI, React Aria, native `<select>`/`<option>`. Render props, mostly legacy: React Router v5's `<Route render={...}>`, Downshift's headless combobox API. HOCs: Redux's `connect()`; `React.memo` and `React.forwardRef` are themselves technically HOC-shaped utilities built into React. Custom hooks: virtually every modern library ships a hooks-first API now, TanStack Query's `useQuery`, React Hook Form's `useForm`, Zustand's `useStore`. Naming real libraries as examples of each pattern reads as stronger than describing the pattern purely in the abstract.
+$md$, 40, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('5f9b9654-4019-5655-ad2b-a61fee76d9c9', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Checkpoint: React Foundations', 'notes', 20, $md$No new material today: a consolidation pass over React's core model, rendering, hooks, performance, state, state machines, and composition patterns. Interviewers rarely ask about one of these in isolation; they chain them ("your list re-renders on every keystroke, walk me through why, then fix it"). Use this review to move between them without losing the thread before the course turns to networking and tooling next.
+
+## Rendering and reconciliation
+
+React keeps a virtual DOM, a cheap plain-object tree, and diffs it against the previous render to compute the minimal real-DOM mutation. A component re-renders when its own state changes, its parent re-renders, a context it reads changes, or a hook forces an update. Re-render (calling the function, render phase) is not the same as the DOM changing (commit phase). Reconciliation matches elements by type and by `key`; a changed type tears the subtree down and rebuilds it, a missing `key` falls back to matching by index, which misattributes state the moment a list reorders.
+
+**Say this out loud, unprompted, if asked "why did this re-render":** check in order, did props change by reference, did local state change, did a consumed context change, did the parent re-render unconditionally and cascade down.
+
+## Hooks internals
+
+Hook state lives on the fiber, addressed by call-order index, not by name, which is exactly why hooks can't be conditional: skip a call on some renders and every hook after it reads the wrong slot. `useState`'s setter bails out of re-rendering on an `Object.is`-equal value. `useEffect` diffs its dependency array with `Object.is` per element after commit; no array means every render, an empty array means once, and cleanup runs before the next effect and on unmount.
+
+**Say this out loud, unprompted, if asked "why is my effect stuck in a loop":** check the dependency array first, an object, array, or function literal recreated every render as a dependency is never `Object.is`-equal to itself, which produces an infinite effect loop; a missing dependency produces a stale closure instead.
+
+## Performance
+
+`React.memo` skips a re-render on shallow-equal props, and does nothing at all if a parent passes a new object, array, or function literal every render, pair it with `useMemo`/`useCallback` on the parent for exactly those values. Memoization isn't free: it costs memory to hold onto and a comparison on every render to check, profile before reaching for it rather than applying it by default. The workflow that reads well in an interview: profile, identify the specific expensive component, apply the narrowest fix, profile again to confirm it helped.
+
+**Say this out loud, unprompted, if asked "should you wrap every component in memo":** no, only when profiling shows a specific component re-rendering expensively with otherwise-stable props; a blanket habit adds a wasted comparison on top of renders that were already cheap.
+
+## State management and state machines
+
+Default to the narrowest scope: local `useState`/`useReducer`, then lift to a common parent, then Context for rarely-changing cross-cutting values like theme or auth, then an external store for frequent, complex, cross-cutting state, because it gives selective subscriptions Context structurally can't. A store is state, a pure reducer, a subscriber set, and a dispatch that runs the reducer and notifies subscribers; `useSyncExternalStore` is the React-correct way to subscribe to one. Always produce new object or array references on update. For state with a genuinely finite set of valid combinations, loading/success/error, a multi-step form, model it as an explicit transition table instead of independent booleans, so invalid combinations are unrepresentable rather than merely avoided by convention.
+
+**Say this out loud, unprompted, if asked "when would you NOT use Redux":** small or medium app, state is mostly local or server-cached (reach for a query library instead of hand-rolling that), or the only cross-cutting need is a rarely-changing value, Context is enough and Redux's ceremony isn't worth paying for.
+
+## Composition patterns
+
+Custom hooks are the default way to share stateful logic, no wrapping component, no change to the tree shape. Compound components share implicit state through context for a fixed family of children (tabs, accordion); render props and HOCs mostly predate hooks and survive today for specific cases, a library exposing behavior to non-hook consumers, or wrapping a third-party component you can't add a hook to.
+
+**Say this out loud, unprompted, if asked to fix a stale closure inside setInterval:** switch to the functional update form of the setter, `setState(prev => ...)`, so every tick reads current state instead of whatever was captured when the effect first ran, and confirm the interval is cleared in the effect's cleanup function.
+
+## Self-test — answer without looking back
+
+1. A parent component re-renders. Does its memoized child (`React.memo`) definitely skip re-rendering? Why or why not?
+2. You call `useState`'s setter with the exact same object reference it already holds. Does the component re-render?
+3. A `<Toggle>` shows or hides a `<Sidebar>` used by exactly one parent. Local state, Context, or Redux, and why?
+4. A `useFetch(url)` hook re-fetches every time `url` changes. What specifically prevents a slow response for an old `url` from overwriting a faster response for a newer one?
+5. Design the state shape for a checkout flow with shipping, payment, and review steps, where a failed submission must return the user to review, not a dead end.
+6. A component built with `withAuth(withTheme(withLogging(Component)))` is hard to debug in DevTools. What's the underlying problem, and what's the modern replacement?
+$md$, 18, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('0b99a30d-15a8-50f2-87ba-aaf445eb3fa7', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'HTTP and Caching', 'notes', 21, $md$"How would you cache this API response," "what's stale-while-revalidate," "explain ETag": these test whether you understand the network, not just React. It's also the territory system-design-adjacent frontend interviews lean on hardest, get comfortable with HTTP cache headers and service workers and you can speak to both the browser's cache and the CDN sitting in front of it.
+
+## Three headers doing most of the work
+
+They answer two different questions: can the client skip the network entirely, and if it does hit the network, can the server say "nothing changed" cheaply.
+
+**`Cache-Control`** is the primary directive, replacing the older `Expires`/`Pragma` pair:
+
+```
+Cache-Control: max-age=3600              # fresh for 1 hour, no request needed
+Cache-Control: no-cache                  # ALWAYS revalidate with the server (the name is misleading — it isn't "don't cache")
+Cache-Control: no-store                  # never cache at all, anywhere
+Cache-Control: public, max-age=31536000, immutable  # cache forever — for hashed asset filenames like app.a1b2c3.js
+```
+
+`no-cache` versus `no-store` is the classic trap: `no-cache` means store it, but revalidate with the server before using it, a conditional request still happens on every use. `no-store` means don't persist this response anywhere at all, the right call for anything carrying auth tokens or personal data.
+
+**`ETag`** is a hash or version identifier for a specific resource version. The client sends it back via `If-None-Match` on the next request; a match gets a `304 Not Modified` with no body, saving the bandwidth of re-sending content that hasn't changed.
+
+```
+GET /api/user/42 → 200 OK, ETag: "33a64df551", Cache-Control: no-cache
+GET /api/user/42, If-None-Match: "33a64df551" → 304 Not Modified (no body — the browser reuses its cached copy)
+```
+
+**`Last-Modified`** is a timestamp-based alternative, paired with `If-Modified-Since`, coarser than `ETag` (second-level precision, so it misses a change within the same second) but cheaper for the server, often just a file's mtime. Use both when you can; `ETag` wins if both are present, `Last-Modified` is the fallback.
+
+## The CDN layer
+
+A CDN is a cache geographically close to the user, sitting in front of the origin server. Two levers matter here. The **cache key**, what makes two requests "the same" for caching purposes, is typically URL plus relevant headers (`Vary: Accept-Encoding` for gzip vs. brotli, `Vary: Accept-Language` for localized responses); get it too narrow and you serve the wrong content to some users, too wide (an `Authorization` header, a random cache-busting query param) and the hit rate collapses toward zero. **Purge and invalidation** matter because a CDN holds content longer than the browser does, so deploying new content needs either a new URL, content-hashed filenames being the standard for JS/CSS bundles, or an explicit purge call.
+
+The standard production pattern for a modern build: HTML ships with `Cache-Control: no-cache`, always revalidate, cheap request, tiny payload, so users always get the newest markup, while it references hashed asset URLs served with `Cache-Control: public, max-age=31536000, immutable`, since a content change produces a new hash and therefore a new URL, there's never a staleness problem to invalidate in the first place.
+
+## Stale-while-revalidate
+
+`stale-while-revalidate` is both a `Cache-Control` directive and, separately, a general caching pattern (SWR, TanStack Query, and service workers all implement it) that serves the cached response instantly, then fetches a fresh one in the background to update the cache for next time.
+
+```
+Cache-Control: max-age=60, stale-while-revalidate=3600
+```
+
+Fresh for 60 seconds. After that, for up to 3600 more seconds, the cache still serves the stale response instantly *and* kicks off a background revalidation. The user never waits on the network for this; they might briefly see one-render-old data. This is precisely why the SWR library is named after the pattern:
+
+```tsx
+async function staleWhileRevalidate<T>(cacheKey: string, fetcher: () => Promise<T>): Promise<T> {
+  const cached = readCache<T>(cacheKey);
+  if (cached) {
+    fetcher().then(fresh => writeCache(cacheKey, fresh)); // fire the revalidation, don't await it
+    return cached; // return stale data immediately, zero network wait
+  }
+  const fresh = await fetcher(); // no cache yet — must wait this one time
+  writeCache(cacheKey, fresh);
+  return fresh;
+}
+```
+
+## Three ways to invalidate, in order of reliability
+
+**Content-addressed URLs**: the filename encodes a hash of the content, `app.a1b2c3.js`. A change produces a different URL, so old entries just become unreferenced and expire naturally, the strongest guarantee, standard for static assets. **TTL-based expiration**: set `max-age` to whatever staleness window you can tolerate, simple, but there's always a window of serving stale data, fine for a homepage banner, not for an account balance. **Explicit invalidation**: actively tell the cache it's wrong, a CDN purge call, or bumping a service worker's cache name and deleting the old one, necessary when data changes unpredictably and staleness is unacceptable, but it requires the invalidation call to actually fire reliably, which is the genuinely hard part.
+
+## A service worker as a programmable cache
+
+Service workers sit between your app and the network as a proxy you write, letting you implement any strategy above, plus offline support.
+
+```tsx
+const CACHE_NAME = 'app-cache-v3'; // bump this string to invalidate everything below
+const STATIC_ASSETS = ['/', '/app.js', '/app.css'];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)));
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))), // this IS the invalidation step
+  ));
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.url.includes('/api/')) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(request);
+        const networkFetch = fetch(request).then(response => {
+          cache.put(request, response.clone()); // clone: a Response body can only be read once
+          return response;
+        });
+        return cached || networkFetch; // return cache immediately if available
+      }),
+    );
+    return;
+  }
+  event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
+});
+```
+
+To actually see this in DevTools: open the Network tab, load a page, reload it, and check the `Size` column. Anything showing `(disk cache)` or `(memory cache)` never touched the network at all; anything showing `304` hit the network but the server confirmed nothing changed, and a `304`'s response time is typically far faster than a full `200`.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('98888140-7ac3-5862-9453-9e6902914a61', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Network Performance and Web Vitals', 'notes', 22, $md$"How would you find out why this page is slow to load?" is a diagnostic question, and the answer starts with reading a network waterfall, not guessing. This lesson covers measuring: the waterfall itself, the Performance API, the exact Core Web Vitals thresholds, how production apps actually ship that data, and the resource hints and image techniques that turn a diagnosis into a fix. Bundle-side performance, code splitting, is next.
+
+## Reading a waterfall
+
+DevTools' Network tab, or Lighthouse, or WebPageTest, shows every request as a horizontal bar over time, broken into phases: `Queued → Stalled → DNS Lookup → Initial Connection → SSL → Request Sent → Waiting (TTFB) → Content Download`.
+
+What to look for, in priority order. Long "Stalled" bars across many requests at once usually means the browser's per-origin connection cap is queuing requests behind each other, HTTP/2 multiplexing largely fixes this, check the `Protocol` column to confirm which is in play. A long TTFB (Time to First Byte) on the document request itself points at the server, a cold start, a slow backend, missing caching, not the frontend; nothing renders until this returns. A "waterfall staircase," where request B doesn't start until request A finishes even though they could have run in parallel, is usually a synchronous discovery chain: HTML discovers CSS, CSS references a font, JS then fetches data, each hop costing a full round trip. And render-blocking resources at the top of the waterfall, a `<script>` without `defer`/`async` in `<head>`, or a `<link rel="stylesheet">`, block the parser or first paint until they finish downloading and, for scripts, executing.
+
+## Measuring precisely with the Performance API
+
+The `Performance` API gives you the same data the waterfall visualizes, but queryable in code and shippable to real-user monitoring.
+
+```tsx
+const [nav] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+console.log('TTFB:', nav.responseStart - nav.requestStart);
+console.log('Full load:', nav.loadEventEnd - nav.startTime);
+
+const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+const slowest = resources.sort((a, b) => b.duration - a.duration).slice(0, 5);
+slowest.forEach(r => console.log(r.name, `${r.duration.toFixed(0)}ms`, r.initiatorType));
+
+performance.mark('data-fetch-start');
+await fetchProducts();
+performance.mark('data-fetch-end');
+performance.measure('data-fetch', 'data-fetch-start', 'data-fetch-end');
+```
+
+Core Web Vitals specifically get observed via `PerformanceObserver`:
+
+```tsx
+new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) console.log('LCP:', entry.startTime);
+}).observe({ type: 'largest-contentful-paint', buffered: true });
+```
+
+Three metrics matter, and they measure three different things: LCP (Largest Contentful Paint) is perceived load speed, INP (Interaction to Next Paint, replaced FID in 2024) is responsiveness, CLS (Cumulative Layout Shift) is visual stability. They matter to your job specifically because Google uses them as a search ranking signal, and because they're the closest proxy metrics get to actual user-perceived quality.
+
+## The exact thresholds, and field data versus lab data
+
+| Metric | Good | Needs Improvement | Poor |
+|---|---|---|---|
+| LCP | ≤ 2.5s | ≤ 4.0s | > 4.0s |
+| INP | ≤ 200ms | ≤ 500ms | > 500ms |
+| CLS | ≤ 0.1 | ≤ 0.25 | > 0.25 |
+
+Field data, real measurements from actual visitors, via CrUX, PageSpeed Insights, Search Console, is what Google uses for ranking. Lab data, from Lighthouse or WebPageTest run against one simulated device and network, is diagnostic only, it doesn't capture real device and network variability, which is exactly how a page can pass Lighthouse cleanly and still fail field CWV on a mid-range Android phone over 4G.
+
+## How production RUM actually ships this data
+
+Calling `PerformanceObserver` directly is what these metrics run on under the hood, but production real-user-monitoring code uses Google's `web-vitals` npm package rather than reimplementing each metric's rules by hand, and those rules have genuine edge cases: LCP's "candidate element" can change as dynamic content loads in, CLS uses session windowing to group nearby layout shifts together.
+
+```javascript
+import { onCLS, onINP, onLCP } from 'web-vitals';
+
+function sendToAnalytics(metric) {
+  const body = JSON.stringify({ name: metric.name, value: metric.value, id: metric.id, rating: metric.rating });
+  if (navigator.sendBeacon) navigator.sendBeacon('/analytics', body);
+  else fetch('/analytics', { body, method: 'POST', keepalive: true });
+}
+onCLS(sendToAnalytics);
+onINP(sendToAnalytics);
+onLCP(sendToAnalytics);
+```
+
+Why `sendBeacon` gets checked first, not `fetch`: CLS and LCP frequently finalize right as the user is navigating away, and a normal `fetch()` call made during `visibilitychange` or `pagehide` can be killed mid-flight the instant the tab closes, silently dropping the payload. `navigator.sendBeacon(url, data)` exists for exactly this, the browser guarantees the request is queued and sent even if the page unloads immediately after the call. It's fire-and-forget, always a POST, capped around 64KB, plenty for a small metrics blob. `fetch(url, { keepalive: true })` is the fallback where `sendBeacon` isn't available, same intent, slightly weaker guarantee. The rule of thumb: `sendBeacon` for anything fired on unload or visibility-change, `fetch` for everything else where you actually need to read the response.
+
+Fixing INP in React is usually not new API surface, it's the patterns you'd already reach for elsewhere: memoization (`React.memo`, `useMemo`, `useCallback`) to stop expensive re-renders and recomputation; `startTransition` to deprioritize expensive derived-state updates so the browser stays responsive to typing and clicking while that work finishes in the background; list virtualization, covered later in this course, to avoid mounting hundreds of DOM nodes at once. The one lever that isn't just a React pattern: breaking up a genuinely long synchronous task, parsing a large payload, sorting a big array, with `scheduler.yield()`, which hands control back to the browser between chunks so it can respond to input, falling back to chunked `setTimeout` or `requestIdleCallback` in browsers that don't support it yet.
+
+## preload versus prefetch
+
+Both are `<link rel="...">` resource hints telling the browser about a resource before it would normally discover it, but they signal different priority and timing.
+
+```html
+<!-- preload: fetch NOW, high priority — a resource THIS page needs soon,
+     like a font only referenced inside CSS, which the browser can't discover
+     until it parses the CSS, by which point it's already late -->
+<link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+
+<!-- prefetch: fetch when idle, low priority — a resource the NEXT page will likely need -->
+<link rel="prefetch" href="/dashboard-chunk.js" as="script">
+```
+
+`preload` competes with the current page's own critical resources for bandwidth, so preloading everything is a common way candidates accidentally slow down the actual critical path when asked to "optimize" a page. `prefetch` is opportunistic and low-priority by design, safer to use liberally, though still wasted bandwidth the moment the "next page" guess turns out wrong.
+
+## Images, still the largest payload on most pages
+
+```html
+<img
+  src="/photo-800.jpg"
+  srcset="/photo-400.jpg 400w, /photo-800.jpg 800w, /photo-1200.jpg 1200w"
+  sizes="(max-width: 600px) 400px, 800px"
+  alt="Product photo"
+  loading="lazy"
+  decoding="async"
+  width="800" height="600"
+/>
+<picture>
+  <source srcset="/photo.avif" type="image/avif" />
+  <source srcset="/photo.webp" type="image/webp" />
+  <img src="/photo.jpg" alt="Product photo" />
+</picture>
+```
+
+`loading="lazy"` defers offscreen images until they're near the viewport, natively, no JS required. Explicit `width`/`height` (or `aspect-ratio` in CSS) lets the browser reserve the right space before the image loads, which is the direct fix for image-caused CLS. AVIF and WebP run 25-50% smaller than JPEG or PNG at equivalent visual quality. `srcset`/`sizes` stop you from shipping a 2000px image to a 400px mobile viewport, exactly the pairing covered in the CSS lesson earlier in this course, now tied to the metric it actually moves.
+$md$, 35, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c269d721-0e65-5201-bb7b-bd0f147a34cf', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Code Splitting and Bundle Optimization', 'notes', 23, $md$Bundle size is one of the few frontend metrics that shows up directly in Lighthouse scores, Core Web Vitals, and real user complaints, which is exactly why it's a favorite interview topic. This lesson covers how bundlers decide what ships, how to split that output into chunks React can load on demand, and how to prove the improvement with real measurements instead of a feeling that it got faster.
+
+## The actual cost of a kilobyte of JavaScript
+
+Every kilobyte costs three times over: download, parse and compile, then execute. On a throttled mobile connection, a 500KB bundle can add seconds to Time to Interactive even when the network transfer itself is fast, because the main thread stays busy parsing and running code before it can respond to input at all. Interviewers ask about this because it separates people who've shipped to production from people who've only run a starter template locally, and the signal they're after is whether you understand there's a real cost model with specific levers, not vague "make it faster" instincts.
+
+## Tree shaking, and what quietly breaks it
+
+Tree shaking is dead-code elimination based on static analysis of ES module `import`/`export` statements. Bundlers can only shake code that's statically analyzable, which is exactly why ES modules, not CommonJS `require`, are required for it to work reliably at all.
+
+```ts
+// utils.ts
+export function formatDate(d: Date) { /* ... */ }
+export function heavyPdfGenerator() { /* ... */ } // never imported anywhere
+
+// app.ts
+import { formatDate } from "./utils";
+// The bundler can see heavyPdfGenerator is unreachable from any entry point and drops it —
+// IF utils.ts has no side effects.
+```
+
+Two things defeat this in practice. CommonJS imports can't be statically resolved, since `require` calls can be conditional or dynamic. And side effects at module scope, code that runs the moment a module is imported, like `library.registerPlugin()` at the top level, mean the bundler can't safely remove that module even if none of its exports are used. Mark a package side-effect-free explicitly:
+
+```json
+{ "sideEffects": false }
+```
+
+or list exactly which files have real side effects if some genuinely do:
+
+```json
+{ "sideEffects": ["*.css", "./src/polyfills.ts"] }
+```
+
+The classic trap is importing a whole library for one function:
+
+```ts
+// Bad: pulls in the entire lodash bundle unless deep tree shaking is specifically configured
+import _ from "lodash";
+_.debounce(fn, 300);
+
+// Good: only pulls in the debounce module
+import debounce from "lodash/debounce";
+```
+
+`import * as _ from "lodash"` defeats tree shaking for the same underlying reason CommonJS does: every property access on `_` becomes a dynamic lookup from the bundler's point of view, and it can't prove which of hundreds of exports are actually used just by watching `_.foo()` calls. Named imports, `import { debounce } from "lodash-es"`, are what actually enable dead-code elimination, because the bundler sees the exact symbol right at the import statement.
+
+## Dynamic imports and React.lazy
+
+A dynamic `import()` returns a promise and tells the bundler "this is its own chunk, load it on demand." React wraps that pattern with `React.lazy` and `Suspense`:
+
+```tsx
+import { lazy, Suspense } from "react";
+const SettingsPanel = lazy(() => import("./SettingsPanel")); // its own chunk, fetched only when rendered
+
+export function App() {
+  const [showSettings, setShowSettings] = useState(false);
+  return (
+    <div>
+      <button onClick={() => setShowSettings(true)}>Open settings</button>
+      {showSettings && <Suspense fallback={<Spinner />}><SettingsPanel /></Suspense>}
+    </div>
+  );
+}
+```
+
+Three details interviewers probe. `React.lazy` only works with default exports, if the module has a named export, re-export it as default inline: `lazy(() => import("./Chart").then(mod => ({ default: mod.Chart })))`. `Suspense` must wrap the lazy component, or an ancestor of it, without it React throws, since the promise has nothing to suspend against. And a rejected dynamic import, a network failure mid-download, needs an error boundary around the `Suspense`, since `Suspense` only handles the pending state, never the error state.
+
+Route-level splitting is the highest-leverage place to do this: someone visiting `/dashboard` shouldn't download the `/settings` bundle at all.
+
+```tsx
+const Dashboard = lazy(() => import("./routes/Dashboard"));
+const Settings = lazy(() => import("./routes/Settings"));
+
+export function AppRoutes() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </Suspense>
+  );
+}
+```
+
+Next.js does this automatically via file-based routing, every page under `app/` is already its own chunk with no manual `lazy()` call needed.
+
+## Hiding the split's cost with prefetching
+
+Splitting introduces its own waterfall: click, fetch the chunk, parse, render. Prefetching on intent, hover or viewport visibility, hides that latency instead of waiting for the click:
+
+```tsx
+function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
+  const prefetch = () => import(`./routes/${to}.tsx`);
+  return <Link to={to} onMouseEnter={prefetch} onFocus={prefetch}>{children}</Link>;
+}
+```
+
+```ts
+const Reports = lazy(() => import(/* webpackPrefetch: true */ "./routes/Reports"));
+```
+
+## Never optimize a bundle you haven't measured
+
+```bash
+npm install --save-dev webpack-bundle-analyzer  # visual treemap of what's in each chunk
+npm install --save-dev source-map-explorer      # attributes bundle bytes back to source files
+```
+
+Vite's equivalent is `rollup-plugin-visualizer`:
+
+```ts
+import { visualizer } from "rollup-plugin-visualizer";
+export default { plugins: [visualizer({ open: true, gzipSize: true })] };
+```
+
+What to actually look for once the treemap opens: a single dependency dominating a chunk, `moment.js`, an icon library imported in full, swap it for something lighter or import just the piece used; duplicate versions of the same library scattered across chunks, usually a dependency mismatch, check with `npm ls <package>`; and vendor code that never changes bundled together with app code that changes every deploy, split them so the vendor chunk stays cached across releases instead of getting invalidated by every unrelated app change.
+
+## Bundle budgets
+
+A bundle budget is a CI-enforced ceiling on chunk size that fails the build the moment it's exceeded, which is what turns "we should keep an eye on bundle size" into something that actually can't silently regress. `bundlesize` declares it right in `package.json`:
+
+```json
+{
+  "bundlesize": [
+    { "path": "./build/static/js/main.*.js", "maxSize": "150 kB" }
+  ]
+}
+```
+
+Webpack's built-in `performance` hints do the same thing natively, no extra package needed:
+
+```js
+// webpack.config.js
+module.exports = {
+  performance: { maxAssetSize: 250000, maxEntrypointSize: 250000, hints: "error" }, // fail the build, don't just warn
+};
+```
+
+The point worth making explicitly: budgets belong in CI, checked automatically on every PR, not something someone remembers to eyeball manually before a release. A budget nobody enforces is a suggestion, not a budget.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('4ab28f22-4552-538a-bc43-d0a7d6e8a0f5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Virtualization', 'notes', 24, $md$Render a 10,000-row table the naive way and you've created 10,000 DOM nodes, most of which the user never sees. Virtualization keeps the DOM small regardless of how much data there is, and it's a near-guaranteed question for anyone claiming React performance experience, either "how would you render a huge list?" or "implement a virtualized list from scratch."
+
+## Windowing versus virtualization
+
+The two terms get used almost interchangeably, but there's a useful distinction. Windowing is the general idea: only render the "window" of items currently visible plus a small buffer, and reuse or recycle DOM nodes as that window moves. Virtualization is the broader concept applied beyond simple lists, virtual scrolling for grids, tables with sticky columns, trees, windowing is virtualization applied specifically to a scrollable list. In practice, when someone says "virtualize this list," they mean keep the rendered DOM node count roughly constant no matter how many items the underlying data actually has.
+
+## The mechanism, built by hand first
+
+Before reaching for a library, understand what it's actually doing, which is what an interviewer wants to see regardless of whether you end up writing the library version or the hand-rolled one.
+
+```tsx
+function FixedHeightVirtualList<T>({ items, itemHeight, containerHeight, overscan = 3, renderItem }: {
+  items: T[]; itemHeight: number; containerHeight: number; overscan?: number; renderItem: (item: T, index: number) => React.ReactNode;
+}) {
+  const [scrollTop, setScrollTop] = useState(0);
+  const totalHeight = items.length * itemHeight;
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+  const visibleCount = Math.ceil(containerHeight / itemHeight) + overscan * 2;
+  const endIndex = Math.min(items.length - 1, startIndex + visibleCount);
+  const visibleItems = useMemo(() => items.slice(startIndex, endIndex + 1), [items, startIndex, endIndex]);
+
+  return (
+    <div onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)} style={{ height: containerHeight, overflowY: "auto", position: "relative" }}>
+      <div style={{ height: totalHeight, position: "relative" }}>
+        {visibleItems.map((item, i) => {
+          const index = startIndex + i;
+          return <div key={index} style={{ position: "absolute", top: index * itemHeight, left: 0, right: 0, height: itemHeight }}>{renderItem(item, index)}</div>;
+        })}
+      </div>
+    </div>
+  );
+}
+```
+
+Three parts make this work. An outer scroll container with a fixed height and `overflow: auto`, this is what actually scrolls. An inner spacer sized to `items.length * itemHeight`, so the scrollbar behaves exactly as if every row were rendered even though almost none of them are. And absolutely positioned rows, only for the currently visible slice, positioned with `top: index * itemHeight` so each lands exactly where it would have if the whole list were real. This is, minus edge-case handling, exactly what `react-window`'s `FixedSizeList` does internally.
+
+## Using react-window for production code
+
+```tsx
+import { FixedSizeList } from "react-window";
+
+function RowRenderer({ index, style, data }: { index: number; style: React.CSSProperties; data: Row[] }) {
+  return <div style={style} className="row">{data[index].name}</div>;
+}
+
+function BigList({ rows }: { rows: Row[] }) {
+  return (
+    <FixedSizeList height={600} width="100%" itemCount={rows.length} itemSize={48} itemData={rows} overscanCount={5}>
+      {RowRenderer}
+    </FixedSizeList>
+  );
+}
+```
+
+`react-window` hands you the `style` prop already computed, absolute position plus height, you just apply it to your row's outer element. Passing data via `itemData` rather than closing over `rows` matters because `react-window` wraps rows in `React.memo` internally, and a closure would recreate the row renderer's identity on every render, the exact `React.memo`-defeating mistake from the performance lesson earlier in this course.
+
+## Variable-height items, the harder real case
+
+Fixed-height virtualization is the easy version. Real lists, chat messages, comment threads, feed items, have unpredictable heights, which breaks the simple `index × itemHeight` math entirely.
+
+If height is knowable ahead of render, from the data itself, `VariableSizeList` handles it:
+
+```tsx
+import { VariableSizeList } from "react-window";
+function getItemSize(index: number) { return items[index].isLong ? 120 : 60; }
+```
+
+If height is only knowable after render, the common real case, text wraps differently depending on content and container width, `@tanstack/react-virtual` is built for exactly this, using `ResizeObserver` under the hood:
+
+```tsx
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+function DynamicList({ items }: { items: string[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({ count: items.length, getScrollElement: () => parentRef.current, estimateSize: () => 60, overscan: 5 });
+
+  return (
+    <div ref={parentRef} style={{ height: 600, overflow: "auto" }}>
+      <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+        {virtualizer.getVirtualItems().map((row) => (
+          <div key={row.key} data-index={row.index} ref={virtualizer.measureElement}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${row.start}px)` }}>
+            {items[row.index]}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+`estimateSize` is a starting guess; `measureElement` corrects it once the real DOM node renders, via `ResizeObserver`, and the virtualizer recalculates offsets for everything below it. This is the exact mechanism to describe when an interviewer asks how you'd virtualize a list where the row height genuinely isn't known in advance.
+
+## Overscan: trading nodes for smoothness
+
+Overscan is the number of extra items rendered outside the visible viewport, in the scroll direction, and it exists to hide the "blank flash" from a fast scroll outrunning the render, without it, a quick scroll reveals a frame of empty space before new rows paint. It's a direct multiplier on DOM node count: `overscan={5}` on both edges means rendering `visibleCount + 10` nodes instead of `visibleCount`. Too low flashes on fast scroll; too high defeats the point of virtualizing at all. Typical values run 3-10, depending on row complexity and expected scroll speed.
+
+## What it costs, and when it isn't worth paying
+
+Virtualization breaks a handful of native browser behaviors: `Ctrl+F`/in-page find won't find text in unrendered rows, `Cmd+A` select-all-and-copy only copies what's currently mounted, and anchor-link scrolling to an item by ID silently fails if that item isn't rendered yet. There's an accessibility cost too, a screen reader relying on the full DOM tree only sees the rendered window, which often means `aria-setsize`/`aria-posinset` on rows to communicate a row's true position in the full list. And there's a genuine complexity cost, variable-height virtualization with dynamic content, sticky headers, and grouped sections is hard to get exactly right; bugs show up as jumpy scroll position or rows painting at the wrong offset. Lists under a few hundred items rarely need any of this, the DOM handles that fine on its own, profile first, and virtualize once the row count is genuinely unbounded or in the thousands.
+
+## Combining it with a live-updating list
+
+A frequently polled or real-time list adds a second problem on top of raw row count: naively replacing the entire items array on every poll re-renders the whole visible window even when only one or two rows actually changed underneath it. Two things fix this together. Diff and patch just the changed rows, rather than swapping the array reference wholesale, so `react-window` doesn't have to re-measure everything on every tick. And avoid duplicate in-flight requests for the same data in the first place, a query library's cache, keyed by something like TanStack Query's `queryKey`, already deduplicates identical requests fired from multiple components, which matters more than it sounds like the moment several parts of a dashboard poll overlapping data independently.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('bffa1b0d-d79d-5210-9493-d97a5381be28', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'GraphQL and Modern Data Fetching', 'notes', 25, $md$A job posting asking for "React + GraphQL" is usually really asking whether you understand why a team would reach for GraphQL at all, not whether you know its syntax. This lesson covers what GraphQL actually changes about fetching data, the performance trap almost every naive resolver falls into, and how a modern client-side query library like React Query handles caching in a way Context never will.
+
+## Query versus mutation
+
+GraphQL is a query language for APIs: the client specifies exactly which fields it needs in a single request, instead of hitting several fixed REST endpoints and getting back whatever shape each one happens to return. A **query** is a read-only fetch, the client sends a shape and the server returns data matching that shape exactly, nothing more. A **mutation** is a write, create, update, delete, and it's explicitly named `mutation` in the syntax so tooling and caching layers know it carries side effects.
+
+```graphql
+query {
+  user(id: "1") { name posts { title } }
+}
+mutation {
+  createPost(title: "Hello", body: "...") { id title }
+}
+```
+
+## Resolvers: a graph of functions, not a set of routes
+
+Every field in the schema has a **resolver**, a function that knows how to fetch that one field's value, from a database, another service, or a cache. The server walks the query, calling the resolver for each requested field, and assembles the response tree from the results. That's why GraphQL servers are often described as "a graph of resolvers" rather than a fixed route table.
+
+## The N+1 problem, and the batching fix
+
+Resolving `user.posts` for a list of users, naively, means one query for the users, then N separate queries, one per user, to fetch each user's posts. That's the N+1 problem, and it's GraphQL's most common performance trap, because nested queries make it easy to write a resolver with no idea it's being called in a loop.
+
+**DataLoader** fixes it by batching. Within a single tick of the event loop, it collects every individual `.load(id)` call, then issues exactly one batched query (`WHERE user_id IN (...)`) instead of N separate ones, and it caches results per request so the same ID never gets fetched twice.
+
+```js
+const postLoader = new DataLoader(async (userIds) => {
+  const posts = await db.posts.findByUserIds(userIds); // one batched query
+  return userIds.map(id => posts.filter(p => p.userId === id));
+});
+
+// resolver
+posts: (user) => postLoader.load(user.id)
+```
+
+Say a query resolves `posts` for 20 users. Each call to `posts: (user) => postLoader.load(user.id)` doesn't hit the database immediately; it registers that user's ID with the loader and returns a pending promise. Once the current tick finishes, DataLoader gathers all 20 collected IDs, calls the batch function exactly once with all of them, then slices the single result set back apart per ID and resolves each of the 20 pending promises with its own slice.
+
+## The actual REST-versus-GraphQL trade-off
+
+| | REST | GraphQL |
+|---|---|---|
+| Over/under-fetching | Common, each endpoint has a fixed shape | Client asks for exactly the fields it needs |
+| Round trips | Often many, roughly one per resource | Usually one, even for nested data |
+| Caching | Free via HTTP caching, URLs act as cache keys | Harder, everything is POST to one endpoint, needs a normalized client cache (Apollo, Relay) |
+| Versioning | Separate `/v1/`, `/v2/` endpoints | Evolve the schema instead, add fields, deprecate old ones |
+| Server complexity | Simple, routes map to handlers | Higher: a resolver graph, N+1 handling, query cost limiting |
+
+GraphQL isn't strictly "better." It trades away HTTP-level caching and server simplicity for flexible, client-driven queries, and it earns that trade specifically when a frontend genuinely needs to compose data from many nested or related resources in one round trip.
+
+## React Query: caching that Context structurally can't do
+
+`useQuery` infers its type from the fetcher's return type, so type the fetcher, not the hook call:
+
+```ts
+type Policy = { id: number; title: string; version: number };
+async function fetchPolicies(): Promise<Policy[]> {
+  const res = await fetch('/api/policies');
+  return res.json();
+}
+
+const { data, isLoading, error } = useQuery<Policy[]>({ queryKey: ['policies'], queryFn: fetchPolicies });
+// data is Policy[] | undefined; TS knows the shape before the request even resolves
+```
+
+Why reach for a query library over Context for server data: Context re-renders every consumer on any update and gives you nothing for caching, retries, or staleness, all of that would have to be hand-rolled from scratch. React Query dedupes identical in-flight requests fired from multiple components, caches by `queryKey`, retries failed requests, and refetches on window focus or reconnect, all out of the box. Context is still the right tool for low-frequency global state like theme or the current user, just not for data that came from an API in the first place.
+
+For a large, frequently polled list, pairing this with virtualization (covered in the previous lesson) is standard: virtualize the rendering so the DOM stays small, and let the query cache's `queryKey` deduplication stop overlapping components from independently re-fetching the same data.
+
+## Module Federation, in one more concrete example
+
+Micro-frontends get a full lesson of their own later in this course, but the shape of a real Module Federation setup is worth seeing once here, tied to an actual feature rather than the abstract config:
+
+```js
+// remote app's webpack config — exposes one component to whoever loads it
+new ModuleFederationPlugin({
+  name: 'policyApp',
+  filename: 'remoteEntry.js',
+  exposes: { './PolicyEditor': './src/PolicyEditor' },
+  shared: { react: { singleton: true }, 'react-dom': { singleton: true } },
+});
+
+// host app — loads it like any other code-split chunk
+const PolicyEditor = React.lazy(() => import('policyApp/PolicyEditor'));
+```
+
+The detail interviewers listen for hardest is `shared: { react: { singleton: true } }`. Without marking `react`/`react-dom` as singletons, the host and the remote each ship their own copy of React, which breaks hooks and Context outright: two React instances means `useContext` inside the remote can't see a `Provider` rendered by the host, since each copy tracks its own internal context state independently.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('58267029-df3f-58e4-a4d4-eb74d2d67a29', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'TypeScript for React', 'notes', 26, $md$Most production React codebases are TypeScript now, and interviewers routinely ask you to type a component, a hook, or an API response live. This lesson covers the patterns that come up constantly: typing props and generics, the utility types you'll reach for weekly, event handler types, and building a type-safe boundary around whatever `fetch` actually hands you.
+
+## Typing props
+
+```tsx
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary" | "danger"; // a union, not a bare string
+  children?: React.ReactNode;
+}
+
+function Button({ label, onClick, variant = "primary", children }: ButtonProps) {
+  return <button className={`btn btn-${variant}`} onClick={onClick}>{children ?? label}</button>;
+}
+```
+
+`interface` versus `type` for props is a style convention more than a hard rule, `interface` is extendable and gives slightly better error messages, both work fine, and interviewers care more that you're consistent than which one you pick. `React.ReactNode` versus `React.ReactElement` is a genuine trip-up: `ReactNode` covers anything renderable, elements, strings, numbers, arrays, `null`, `booleans`, use it for `children`. `ReactElement` is specifically the result of `<Foo />` or `React.createElement`, reach for it only when you need to clone or inspect an actual element via `React.cloneElement`, not for general children.
+
+## Generic components
+
+A generic component lets the caller determine a type parameter, staying reusable without falling back to `any`.
+
+```tsx
+interface SelectProps<T> {
+  items: T[]; value: T; onChange: (value: T) => void; getLabel: (item: T) => string; getKey: (item: T) => string | number;
+}
+function Select<T>({ items, value, onChange, getLabel, getKey }: SelectProps<T>) {
+  return (
+    <select value={getKey(value)} onChange={(e) => { const selected = items.find(i => String(getKey(i)) === e.target.value); if (selected) onChange(selected); }}>
+      {items.map(item => <option key={getKey(item)} value={getKey(item)}>{getLabel(item)}</option>)}
+    </select>
+  );
+}
+
+// Usage — T is inferred as User, no explicit type argument needed
+function UserPicker({ users, selected, onSelect }: { users: User[]; selected: User; onSelect: (u: User) => void }) {
+  return <Select items={users} value={selected} onChange={onSelect} getLabel={u => u.name} getKey={u => u.id} />;
+}
+```
+
+One syntax detail worth knowing cold: a generic *arrow-function* component in a `.tsx` file needs a trailing comma, `<T,>`, or an `extends unknown` constraint, so the parser doesn't mistake the type parameter for the start of a JSX tag. A `function` declaration doesn't have that ambiguity:
+
+```tsx
+const List = <T,>({ items }: { items: T[] }) => <ul>{items.map((i, idx) => <li key={idx}>{String(i)}</li>)}</ul>;
+function List2<T>({ items }: { items: T[] }) { return <ul>{items.map((i, idx) => <li key={idx}>{String(i)}</li>)}</ul>; }
+```
+
+## Utility types worth having ready
+
+```ts
+interface Product { id: string; name: string; price: number; description: string; inStock: boolean; }
+
+function updateProduct(id: string, changes: Partial<Product>) {} // every field optional — patch payloads
+updateProduct("p1", { price: 29.99 }); // no need to pass every field
+
+interface DraftProduct extends Partial<Product> {}
+function publishProduct(draft: Required<DraftProduct>) {} // every field mandatory, even ones declared optional on the source type
+
+type ProductSummary = Pick<Product, "id" | "name" | "price">;    // a narrow subset
+type ProductWithoutDescription = Omit<Product, "description">;    // everything except listed fields
+type ProductsById = Record<string, Product>;                      // a typed dictionary
+
+function renderProduct(p: Readonly<Product>) { /* p.price = 0; // error */ } // an immutable view
+```
+
+| Utility | What it does | Typical use |
+|---|---|---|
+| `Partial<T>` | All props optional | Patch/update payloads, form state before submit |
+| `Required<T>` | All props mandatory | Validating a fully-filled form |
+| `Pick<T, K>` | Keep only listed keys | Narrow view models, list-row data |
+| `Omit<T, K>` | Drop listed keys | Removing sensitive or internal fields |
+| `Record<K, V>` | Typed key-value map | Lookup tables, `Record<UserId, User>` |
+| `Readonly<T>` | All props immutable | Props that must never be mutated in place |
+
+## Typing event handlers correctly
+
+React's synthetic events are specific to the element and event kind. Typing a handler as plain `Event` loses everything you actually need, like `target.value`.
+
+```tsx
+function SearchForm() {
+  const [query, setQuery] = useState("");
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value);
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); };
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") {} };
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => { console.log("clicked at", e.clientX, e.clientY); };
+  return <form onSubmit={handleSubmit}><input value={query} onChange={handleChange} onKeyDown={handleKeyDown} /><button type="submit" onClick={handleClick}>Search</button></form>;
+}
+```
+
+The generic parameter, `HTMLInputElement`, `HTMLFormElement`, matters because it's what correctly types `e.currentTarget`. Typing every handler as `React.ChangeEvent<HTMLElement>` loses `.value` on non-input elements and produces confusing errors further down the line, the specific type argument is what makes the whole thing worth doing at all.
+
+## A type-safe boundary around fetch
+
+The goal is to never let `any` leak in from the network, and to fail loudly with a typed error instead of silently passing malformed data downstream.
+
+```ts
+type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number };
+
+async function apiGet<T>(path: string): Promise<ApiResult<T>> {
+  try {
+    const res = await fetch(path);
+    if (!res.ok) return { ok: false, error: await res.text(), status: res.status };
+    return { ok: true, data: (await res.json()) as T }; // trust boundary — see below
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error", status: 0 };
+  }
+}
+
+async function loadUser(id: string) {
+  const result = await apiGet<User>(`/api/users/${id}`);
+  if (!result.ok) { console.error(result.error, result.status); return null; }
+  return result.data; // narrowed to User here, the ok: true branch
+}
+```
+
+`as T` after `res.json()` is a type assertion, not runtime validation, TypeScript trusts you, but the network can send anything at all. For a real trust boundary, user input, a third-party API, validate at runtime with a schema library and derive the TypeScript type from the schema itself, so the two can never drift apart:
+
+```ts
+import { z } from "zod";
+const UserSchema = z.object({ id: z.string(), name: z.string() });
+type User = z.infer<typeof UserSchema>;
+
+async function loadUser(id: string): Promise<User> {
+  const res = await fetch(`/api/users/${id}`);
+  return UserSchema.parse(await res.json()); // throws on a shape mismatch — no silent `any` slipping through
+}
+```
+
+## Discriminated unions: the pattern worth remembering above everything else here
+
+Model mutually exclusive states as a union rather than several independent booleans, so impossible states, `loading: true` and `error: "x"` at once, simply can't be represented in the type at all.
+
+```tsx
+type FetchState<T> = { status: "idle" } | { status: "loading" } | { status: "success"; data: T } | { status: "error"; error: string };
+
+function useFetch<T>(url: string) {
+  const [state, setState] = useState<FetchState<T>>({ status: "idle" });
+  useEffect(() => {
+    setState({ status: "loading" });
+    fetch(url).then(res => res.json()).then((data: T) => setState({ status: "success", data })).catch(err => setState({ status: "error", error: String(err) }));
+  }, [url]);
+  return state;
+}
+
+function UserProfile({ url }: { url: string }) {
+  const state = useFetch<User>(url);
+  switch (state.status) {
+    case "idle": case "loading": return <Spinner />;
+    case "error": return <ErrorMessage text={state.error} />; // state.error only exists in this branch
+    case "success": return <div>{state.data.name}</div>;       // state.data only exists in this branch
+  }
+}
+```
+
+TypeScript narrows `state` inside each `case` based on the `status` literal, which is exactly why autocomplete offers `.error` only in the error branch and `.data` only in the success branch, and why the compiler refuses to let you read `state.data` anywhere it might not exist. If one pattern from this lesson is worth carrying forward above the rest, it's this one, it shows up constantly in live-coding rounds because it's a compact, precise way to prove you think about state shape before you think about JSX.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('23779568-edc1-5307-94e5-b69f652affc0', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Testing', 'notes', 27, $md$Testing questions in frontend interviews usually aren't about syntax. They're about judgment: what should you test, how do you avoid tests that break on every refactor, and how do you test something that talks to a network. This lesson covers React Testing Library's philosophy and the concrete patterns for unit tests, mocked API calls, and integration tests.
+
+## Behavior, not implementation
+
+React Testing Library is built around one principle: the more your tests resemble how the software is actually used, the more confidence they give you. Tests should interact with rendered output the way a user would, find text, click buttons, fill inputs, and they shouldn't reach into a component's internals at all.
+
+```tsx
+// Brittle: tests an implementation detail, breaks the moment `count` is renamed to `value`
+test("counter increments — brittle version", () => {
+  const wrapper = shallow(<Counter />);
+  wrapper.instance().setState({ count: 1 });
+  expect(wrapper.instance().state.count).toBe(1);
+});
+
+// Resilient: tests the behavior a user actually experiences
+test("counter increments when button is clicked", async () => {
+  render(<Counter />);
+  const user = userEvent.setup();
+  expect(screen.getByText("Count: 0")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: /increment/i }));
+  expect(screen.getByText("Count: 1")).toBeInTheDocument();
+});
+```
+
+The first version breaks the instant an internal variable gets renamed, even though the feature still works exactly the same for a real user. The second only breaks if the actual user-facing behavior breaks, which is the entire point of writing it this way.
+
+## Query priority: pick the one that matches how a real user finds things
+
+RTL exposes several ways to find elements, ranked by how closely they match how a real user, including someone using assistive technology, would find the same thing.
+
+1. **`getByRole`**: matches the accessibility-tree role (`button`, `textbox`, `heading`). Preferred almost always, and it quietly forces you to write accessible markup in the first place.
+2. **`getByLabelText`**: for form fields, matching how a screen reader user finds an input through its label.
+3. **`getByPlaceholderText`**, **`getByText`**: reasonable fallbacks for non-interactive or unlabeled content.
+4. **`getByTestId`**: last resort, when nothing else identifies the element, a decorative element with no accessible name.
+
+```tsx
+// Preferred
+screen.getByRole("button", { name: /submit/i });
+screen.getByLabelText(/email address/i);
+// Fallback only when nothing else can target the element
+screen.getByTestId("loading-spinner");
+```
+
+`getBy*` throws if it finds nothing, so use it for asserting something exists. `queryBy*` returns `null` instead of throwing, so use it to assert something is absent, `getBy*` would throw before you got the chance to assert the absence. `findBy*` is async and retries until timeout, so use it whenever you're waiting for something to appear after an async action.
+
+```tsx
+expect(screen.queryByText("Error")).not.toBeInTheDocument(); // asserting absence
+const successMessage = await screen.findByText("Saved!");    // waiting for async appearance
+```
+
+## A unit test end to end
+
+```tsx
+function LoginForm({ onSubmit }: { onSubmit: (email: string, password: string) => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.includes("@")) { setError("Enter a valid email"); return; }
+    setError("");
+    onSubmit(email, password);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="email">Email</label>
+      <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <label htmlFor="password">Password</label>
+      <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      {error && <p role="alert">{error}</p>}
+      <button type="submit">Log in</button>
+    </form>
+  );
+}
+```
+
+```tsx
+describe("LoginForm", () => {
+  test("submits email and password when valid", async () => {
+    const handleSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<LoginForm onSubmit={handleSubmit} />);
+    await user.type(screen.getByLabelText(/email/i), "jane@example.com");
+    await user.type(screen.getByLabelText(/password/i), "hunter2");
+    await user.click(screen.getByRole("button", { name: /log in/i }));
+    expect(handleSubmit).toHaveBeenCalledWith("jane@example.com", "hunter2");
+  });
+
+  test("shows a validation error for an invalid email", async () => {
+    const handleSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<LoginForm onSubmit={handleSubmit} />);
+    await user.type(screen.getByLabelText(/email/i), "not-an-email");
+    await user.click(screen.getByRole("button", { name: /log in/i }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/valid email/i);
+    expect(handleSubmit).not.toHaveBeenCalled();
+  });
+});
+```
+
+Reach for `userEvent` over `fireEvent`. `userEvent` simulates a real interaction sequence, focus, keydown, keypress, keyup, and an input event per character typed, while `fireEvent` dispatches a single raw DOM event. `userEvent` catches bugs `fireEvent` structurally can't, like a component that only works because you happened to skip the focus event.
+
+## Mocking at the network boundary
+
+The standard modern approach is **Mock Service Worker (MSW)**. It intercepts requests at the network level, so your component code makes real `fetch` calls and has no idea it's being tested, which is more resilient than mocking `fetch` directly, since a test built that way never gets coupled to *how* the component fetches data.
+
+```ts
+// mocks/handlers.ts
+import { http, HttpResponse } from "msw";
+export const handlers = [
+  http.get("/api/users/:id", ({ params }) => HttpResponse.json({ id: params.id, name: "Jane Doe" })),
+];
+
+// mocks/server.ts
+import { setupServer } from "msw/node";
+export const server = setupServer(...handlers);
+
+// setupTests.ts
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+```
+
+```tsx
+test("shows user name after loading", async () => {
+  render(<UserProfile userId="42" />);
+  expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  expect(await screen.findByText("Jane Doe")).toBeInTheDocument();
+});
+
+test("shows an error state when the API fails", async () => {
+  server.use(http.get("/api/users/:id", () => HttpResponse.json({ error: "Not found" }, { status: 404 }))); // override for this one test
+  render(<UserProfile userId="42" />);
+  expect(await screen.findByText(/something went wrong/i)).toBeInTheDocument();
+});
+```
+
+## An integration test for a full user flow
+
+An integration test exercises several components together through a realistic sequence of user actions, closer to end-to-end but still running in the fast, mocked-network jsdom environment rather than a real browser.
+
+```tsx
+test("user can complete checkout", async () => {
+  const user = userEvent.setup();
+  render(<App />, { wrapper: AppProviders }); // router, query client, etc.
+
+  await user.click(screen.getByRole("link", { name: /wireless headphones/i }));
+  expect(await screen.findByRole("heading", { name: /wireless headphones/i })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: /add to cart/i }));
+  expect(screen.getByText(/1 item in cart/i)).toBeInTheDocument();
+
+  await user.click(screen.getByRole("link", { name: /cart/i }));
+  await user.click(screen.getByRole("button", { name: /checkout/i }));
+  await user.type(screen.getByLabelText(/full name/i), "Jane Doe");
+  await user.click(screen.getByRole("button", { name: /place order/i }));
+
+  expect(await screen.findByText(/order confirmed/i)).toBeInTheDocument();
+});
+```
+
+This test doesn't care whether cart state lives in Context, Redux, or Zustand. It only cares that clicking "add to cart" eventually leads to a confirmation screen, which is exactly the resilience-to-refactoring RTL's philosophy is aiming for.
+
+## Coverage measures lines, not confidence
+
+```tsx
+// Contributes to coverage, catches nothing at all
+test("renders without crashing", () => { render(<Checkout />); });
+```
+
+A test with no meaningful assertion inflates a coverage percentage while catching zero bugs. Use coverage as a floor for finding genuinely untested branches, a path nobody ever hit, not as a quality score to chase upward. Deliberately test the risky paths, validation logic, error states, an empty list, a network failure, a race condition, since they deserve more attention than straightforward render paths that were never going to break anyway. **Mutation testing** (Stryker and similar tools) is the more honest signal if it comes up: it mutates your source code, flipping a `<` to `<=`, deleting a line, and checks whether any test catches it. A test that still passes after that mutation was never actually verifying that piece of code.
+
+There's no universal coverage number to target. Critical business logic, payments, auth, data mutations, should be close to fully covered with meaningful assertions; low-risk presentational code doesn't need the same investment. Chasing a blanket 100% target usually produces exactly the kind of hollow, assertion-free test shown above.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('e8852a5b-c9dd-5f4b-9f35-f49bcf60bfc2', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Checkpoint: Data, Performance, and Testing', 'notes', 28, $md$Another consolidation day, not a new-material one. Spend it drilling the material from HTTP caching through testing until the answers come out fast and precise. A senior candidate is expected to explain all of this without a warm-up lap.
+
+## HTTP, caching, and the network
+
+Core idea: minimize what has to travel over the wire, and how long the user waits for it. `no-cache` means always revalidate before using a stored response; `no-store` means never persist it anywhere. `ETag`/`If-None-Match` lets the server answer "nothing changed" with a bodyless `304` instead of resending content. `stale-while-revalidate` serves the cached response instantly while quietly fetching a fresh one for next time, the pattern SWR and TanStack Query are both named after. Content-hashed asset URLs are the strongest cache-invalidation strategy that exists, because there's nothing to invalidate, a change just produces a different URL.
+
+**Say this out loud, unprompted, if asked to diagnose a slow page load:** read the waterfall first, TTFB points at the server, a staircase pattern points at a synchronous discovery chain, then check whether Core Web Vitals field data (real users) or lab data (Lighthouse) is what's actually being discussed, since they can disagree.
+
+## Code splitting and bundling
+
+Core idea: ship only the JavaScript the current view needs, and defer the rest until it's actually required. Tree shaking needs ES modules and a `sideEffects: false` boundary; CommonJS or an unmarked side effect defeats it silently. `React.lazy(() => import(...))` needs a default export and a `Suspense` boundary; an error boundary handles the chunk-load-failure case that `Suspense` alone can't. Route-level splitting is the highest-leverage place to split, and prefetching on hover or focus hides the loading waterfall it introduces. Never optimize a bundle you haven't measured, and enforce the result with a CI budget so a regression can't ship silently.
+
+**Say this out loud, unprompted, if asked why `import * as _ from "lodash"` doesn't tree-shake:** namespace imports make every property access a dynamic lookup the bundler can't statically resolve; named imports expose the exact symbol at the import statement, which is what dead-code elimination actually needs.
+
+## Virtualization
+
+Core idea: keep the DOM node count roughly constant regardless of how much data there is, by rendering only the currently visible window. The mechanism is a spacer sized to `totalItems × itemHeight` for correct scrollbar behavior, with absolutely-positioned rows for only the visible slice. Fixed height means simple index math; unknown or variable height means measuring after render with a `ResizeObserver`. Overscan trades extra rendered nodes for a smoother fast scroll; too much of it defeats the entire point.
+
+**Say this out loud, unprompted, if asked what virtualization costs:** it breaks native find-in-page and select-all-copy, complicates anchor scrolling and accessibility semantics, and isn't worth the complexity below a few hundred rows.
+
+## GraphQL and data fetching
+
+Core idea: GraphQL trades HTTP-level caching and server simplicity for a client that can ask for exactly the fields it needs in one round trip, worth it specifically when the frontend genuinely composes data from many related resources. The N+1 problem, one query per parent times N children, is the most common GraphQL performance trap, and DataLoader fixes it by batching every `.load(id)` call within one event-loop tick into a single query. A query library like React Query dedupes in-flight requests and caches by key, which Context structurally cannot do, since every Context consumer re-renders on any change to the value regardless of whether that consumer cares about it.
+
+**Say this out loud, unprompted, if asked when you'd reach for GraphQL over REST:** when the frontend needs to compose deeply nested or related data in one request and the team is willing to give up free HTTP caching for it, not as a default choice.
+
+## TypeScript for React
+
+Core idea: catch shape mismatches at compile time, especially at trust boundaries like API responses. Generic components need `<T,>` or an `extends` clause in arrow-function form to avoid JSX-tag ambiguity. `Partial`, `Pick`, `Omit`, and `Record` cover most day-to-day prop-shape reuse. Type event handlers with the specific synthetic event generic to get a correctly-typed target. `as T` after `.json()` is an assertion, not runtime validation, a real trust boundary needs a schema library so the type can never drift from the actual response shape. Discriminated unions make impossible state combinations unrepresentable in the type itself.
+
+**Say this out loud, unprompted, if asked to type a fetch hook live:** reach for a discriminated union over `{ status: "idle" | "loading" | "success" | "error" }` with per-branch payload fields, not four separate booleans.
+
+## React Testing
+
+Core idea: test what the user experiences, not a component's internals. Query priority runs `getByRole` > `getByLabelText` > `getByText` > `getByTestId`. `getBy*` throws (assert presence), `queryBy*` returns `null` (assert absence), `findBy*` is async (wait for appearance). Mock at the network boundary with MSW rather than mocking `fetch` directly, so a test never gets coupled to how data is fetched. Coverage is a floor for finding untested branches, never a quality target, a render-only test with no assertion inflates the number and catches nothing.
+
+**Say this out loud, unprompted, if asked to write the two most important tests for a form with a submit button and a validation error:** one confirming a valid submission calls the handler with the right values, one confirming an invalid submission shows the error and never calls the handler.
+
+## Self-check
+
+1. Walk through what happens from `import("./Component")` being called to the component appearing on screen, including where the loading state and any chunk-load failure get handled.
+2. Design a virtualized list for chat messages where each message's height depends on its content.
+3. A dashboard polls five widgets independently, and three of them request overlapping data. What fixes the duplicate requests, and what fixes the re-render cost?
+4. Type a `useFetch<T>` hook end to end, including the loading, error, and success states, and explain why a discriminated union is the right shape for it.
+5. Given a component with a "Submit" button and a validation error message, write the two RTL tests that matter most, and explain why a third test asserting `render()` doesn't throw wouldn't add real confidence.
+$md$, 18, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('29132054-6a6d-5232-98cc-3f91b25a8da9', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Web Security', 'notes', 29, $md$Security questions show up in almost every senior frontend interview because shipping a login form or a comment box without understanding XSS, CSRF, and CORS is exactly how real breaches happen. This lesson covers the three attacks interviewers ask about most, how to defend against each in React, and the auth-storage question, "localStorage or cookies?", that trips up most candidates who haven't actually had to answer it for real.
+
+## XSS: getting an attacker's JS to run in your page
+
+Cross-site scripting happens when an attacker's JavaScript ends up executing in your page, inside your user's own session. There are three flavors: stored (the payload is saved server-side, a comment, a username, and served to every viewer), reflected (the payload comes from the URL or query string and gets echoed straight back into the page), and DOM-based (client-side JS takes untrusted data and writes it into the DOM with no server round-trip involved at all).
+
+React protects you by default here. JSX escapes everything rendered as `{value}`, which is safe even if `value` is `"<img src=x onerror=alert(1)>"`, because React renders it as text, never as markup.
+
+```tsx
+function Comment({ text }: { text: string }) {
+  return <p>{text}</p>; // safe: React escapes text nodes automatically
+}
+```
+
+The escape hatch is `dangerouslySetInnerHTML`, and the name is a warning label, not decoration. Use it only with sanitized HTML:
+
+```tsx
+import DOMPurify from "dompurify";
+function RichComment({ html }: { html: string }) {
+  const clean = DOMPurify.sanitize(html, { ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "p", "br"], ALLOWED_ATTR: ["href"] });
+  return <div dangerouslySetInnerHTML={{ __html: clean }} />;
+}
+```
+
+There are XSS holes React doesn't save you from at all, and knowing them is exactly what "how does React prevent XSS, and how would you still introduce it" is asking about. Attribute injection through an unvalidated `href` (`javascript:alert(document.cookie)`) is one:
+
+```tsx
+// UNSAFE: attacker-controlled href can be "javascript:alert(document.cookie)"
+<a href={userSuppliedUrl}>Profile</a>
+
+// Fix: allow-list the protocol before rendering
+function safeHref(url: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "#";
+  } catch { return "#"; }
+}
+```
+
+`window.location.href = userInput`, `eval`, `new Function(userInput)`, and setting `iframe.src` from user-controlled data round out the usual DOM-XSS suspects, and spotting these in a code-review snippet is a common way this gets tested live.
+
+## CSRF: the browser's automatic cookie attachment used against you
+
+CSRF tricks a logged-in user's browser into firing a request they never intended. The browser attaches cookies automatically, so a malicious page can submit a form to `your-bank.com/transfer` and the request looks fully authenticated.
+
+```html
+<!-- hosted on evil.com, victim is logged into bank.com in another tab -->
+<form action="https://bank.com/api/transfer" method="POST">
+  <input type="hidden" name="to" value="attacker" />
+  <input type="hidden" name="amount" value="10000" />
+</form>
+<script>document.forms[0].submit()</script>
+```
+
+Three defenses, most to least common in a modern stack. **`SameSite` cookies**: set auth cookies with `SameSite=Lax` or `Strict`. `Lax`, the browser default today, blocks cookies on cross-site POST requests but still allows top-level navigation, which stops the classic auto-submit form attack above. **CSRF tokens**: the server embeds a random token in the page, a hidden field or meta tag, and every mutating request must echo it back in a header, an attacker's cross-origin form can't read that token, thanks to the same-origin policy. **Custom headers**: requiring something like `X-Requested-With` on mutating requests works too, because a plain HTML form can't set a custom header, only same-origin `fetch`/XHR can.
+
+```tsx
+async function transferFunds(amount: number) {
+  const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+  return fetch("/api/transfer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": token ?? "" },
+    credentials: "same-origin",
+    body: JSON.stringify({ amount }),
+  });
+}
+```
+
+Does CSRF apply to a token stored in `localStorage` and sent manually via a `Bearer` header? No. CSRF exploits the browser's *automatic* credential attachment, cookies. A token you attach yourself through an `Authorization` header can't be replicated by a forged cross-site form, since that form can't read your `localStorage` or set custom headers. That's not a free win, though, a `localStorage` token trades CSRF exposure for XSS exposure instead, covered next.
+
+## CORS: a browser rule protecting the user, not the server
+
+CORS is a browser enforcement mechanism, not a server security feature. It protects a user from a malicious frontend reading another site's authenticated API responses; it does nothing to protect the server itself from a malicious client, `curl` ignores CORS entirely.
+
+The browser sends an `Origin` header; the server responds with `Access-Control-Allow-Origin`. Anything beyond a simple GET triggers a preflight `OPTIONS` request first.
+
+```
+OPTIONS /api/users HTTP/1.1
+Origin: https://app.example.com
+Access-Control-Request-Method: POST
+
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE
+Access-Control-Allow-Credentials: true
+```
+
+```tsx
+fetch("https://api.example.com/me", { credentials: "include" }); // sends cookies cross-origin
+```
+
+`Access-Control-Allow-Origin: *` cannot be combined with `Access-Control-Allow-Credentials: true`, if cookies need to cross an origin, the server must reflect the specific requesting origin back, not a wildcard. Is CORS a security feature that stops attackers? It protects users, not servers: it stops a malicious site from reading another site's authenticated responses in the victim's browser, but it does nothing to stop a direct server-to-server or `curl` request, since neither ever enforces CORS, that enforcement lives entirely in the browser.
+
+## Where the auth token should actually live
+
+| | Session cookie | JWT |
+|---|---|---|
+| State | Server stores the session, cookie holds only an opaque ID | Server stores nothing, the token carries its own claims |
+| Revocation | Instant, delete the server-side session | Hard, needs to wait for expiry or a blocklist |
+| XSS exposure | Low if `httpOnly`, JS can't read it | High if in `localStorage`, JS and any injected script can |
+| CSRF exposure | Yes, needs `SameSite`/tokens | No, if sent via an `Authorization` header instead of a cookie |
+
+The pattern that shows up repeatedly in real SPAs: a short-lived JWT access token kept in memory, React state, never `localStorage`, paired with a long-lived refresh token in an `httpOnly`, `Secure`, `SameSite=Strict` cookie. This caps the XSS blast radius, since a stolen access token expires in minutes, and avoids CSRF, since the refresh cookie isn't readable by JS and the refresh endpoint is protected by `SameSite`.
+
+## HTTPS, mixed content, and CSP as a last line of defense
+
+HTTPS isn't just "encrypt the login form." Mixed content, an HTTPS page loading an HTTP script, is blocked by browsers and is itself an XSS vector: a network attacker can inject into any unencrypted resource on the page, not only the main document.
+
+CSP is a response header restricting which sources the browser will execute or load from at all, turning a successful injection into a no-op, since the injected script violates policy and simply never runs.
+
+```
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' 'nonce-r4nd0m';
+  frame-ancestors 'none';
+```
+
+`default-src 'self'` is the baseline, only load from your own origin. `script-src` with a per-request nonce lets you allow specific inline `<script>` tags without opening the door to `unsafe-inline` generally, an attacker's injected `<script>` never has the correct nonce. `frame-ancestors 'none'` blocks your site from being embedded elsewhere, the standard clickjacking defense.
+
+Given a stored XSS bug you can't patch today, what limits the damage? A strict CSP, no `unsafe-inline`, no `unsafe-eval`, stops the injected script from executing even though the payload already made it into the DOM. That's the whole idea behind defense in depth: sanitize input, escape output, and set CSP, so one missed sanitization point isn't a full compromise on its own.
+
+Three questions carry most of the actual interview weight here: what does React protect you from by default, what does the browser enforce versus what the server has to enforce itself, and where should a token actually live. Get those three genuinely solid and the specific defenses, `SameSite`, CSP, DOMPurify, fall out as supporting detail rather than a list to memorize separately.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('16a5749f-979d-504f-a88f-967c66d3274f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'WebSockets and Real-time', 'notes', 30, $md$Real-time features, chat, live dashboards, collaborative editors, notifications, are a staple "build a feature" prompt, and the follow-up questions almost always probe whether you understand why WebSockets exist versus polling, and what happens the moment the connection drops. This lesson covers the transport options, a production-shaped React WebSocket hook with reconnection, and the scaling questions that come after the live-coding part is done.
+
+## Four transports, one decision
+
+| | How it works | Direction | Use when |
+|---|---|---|---|
+| Short polling | Client requests every N seconds | Client → Server only | Simple, infrequent updates, no real real-time need |
+| Long polling | Server holds the connection open until there's data or a timeout, client re-requests immediately | Client → Server only | Near-real-time without WebSocket infra |
+| SSE | One long-lived HTTP connection, server streams `text/event-stream` | Server → Client only | Live feeds, notifications, anything one-directional |
+| WebSocket | HTTP upgrade to a persistent full-duplex TCP connection | Bidirectional | Chat, collaborative editing, anything needing client-to-server push too |
+
+Why not just use WebSockets for everything? SSE is genuinely simpler to operate: it's plain HTTP, so it passes through existing proxies, load balancers, and CDNs with no special configuration, `EventSource` reconnects automatically, and it's text-based, so it's easy to debug on the wire. If the client never needs to push data mid-stream, a dashboard, a notification feed, SSE gets the same result with less infrastructure. Reach for WebSockets specifically when the client also needs to send, or the message rate is high enough that per-message latency actually matters.
+
+## A React WebSocket hook that survives a real network
+
+The naive version, opening a `WebSocket` inside `useEffect` and nothing else, breaks the moment the network blips. A real implementation needs reconnection, cleanup, and a way to expose connection state to the UI.
+
+```tsx
+type ConnectionState = "connecting" | "open" | "closed" | "error";
+
+function useWebSocket(url: string, { onMessage, maxReconnectDelayMs = 30_000 }: { onMessage: (data: unknown) => void; maxReconnectDelayMs?: number }) {
+  const [state, setState] = useState<ConnectionState>("connecting");
+  const wsRef = useRef<WebSocket | null>(null);
+  const attemptRef = useRef(0);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage; // always call the latest callback without re-running the effect
+
+  const connect = useCallback(() => {
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+    setState("connecting");
+
+    ws.onopen = () => { setState("open"); attemptRef.current = 0; }; // reset backoff on a clean connect
+    ws.onmessage = (event) => onMessageRef.current(JSON.parse(event.data));
+    ws.onerror = () => setState("error");
+    ws.onclose = (event) => {
+      setState("closed");
+      if (event.code === 1000) return; // normal closure — don't reconnect
+      const delay = Math.min(1000 * 2 ** attemptRef.current, maxReconnectDelayMs);
+      attemptRef.current += 1;
+      reconnectTimer.current = setTimeout(connect, delay);
+    };
+  }, [url, maxReconnectDelayMs]);
+
+  useEffect(() => {
+    connect();
+    return () => { clearTimeout(reconnectTimer.current); wsRef.current?.close(1000, "component unmounted"); };
+  }, [connect]);
+
+  const send = useCallback((data: unknown) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify(data));
+  }, []);
+
+  return { state, send };
+}
+```
+
+```tsx
+function ChatRoom({ roomId }: { roomId: string }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const { state, send } = useWebSocket(`wss://api.example.com/rooms/${roomId}`, {
+    onMessage: (data) => setMessages((prev) => [...prev, data as ChatMessage]),
+  });
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft.trim()) return;
+    send({ type: "message", text: draft });
+    setDraft("");
+  };
+
+  return (
+    <div>
+      <p>Status: {state}</p>
+      <ul>{messages.map((m) => <li key={m.id}><strong>{m.author}:</strong> {m.text}</li>)}</ul>
+      <form onSubmit={submit}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} disabled={state !== "open"} />
+        <button type="submit" disabled={state !== "open"}>Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+Four details worth being able to point at directly, since interviewers will. `onMessageRef` avoids a stale closure without forcing `connect` to be recreated, and the socket torn down and rebuilt, every time the parent re-renders with a fresh inline `onMessage`. Exponential backoff with a cap, `1000 * 2^attempt`, prevents a reconnect storm from hammering the server the moment it comes back up, and it's the single most common thing missing from a candidate's first attempt at this. Close code `1000` is a normal closure; anything else, a server restart, a dropped network, should trigger a reconnect, not distinguishing these means either reconnecting forever after an intentional `ws.close()`, or silently failing to recover from a real drop. And the cleanup inside `useEffect`'s return closes with code `1000` on unmount, so the server treats a closed tab as a clean disconnect rather than something needing recovery logic.
+
+## Detecting a connection that's dead but doesn't know it yet
+
+A TCP connection can go silently dead, a laptop sleeps, a NAT entry expires, without either side ever receiving a close event. A heartbeat catches this:
+
+```tsx
+useEffect(() => {
+  if (state !== "open") return;
+  const interval = setInterval(() => send({ type: "ping" }), 15_000);
+  return () => clearInterval(interval);
+}, [state, send]);
+```
+
+The server replies with `pong`; if none arrives within a timeout, the client treats the connection as dead and reconnects proactively rather than waiting for the OS-level timeout, which can take minutes.
+
+## Not losing messages across a reconnect
+
+Fire-and-forget delivery loses messages the instant a drop happens mid-send. Chat and collaboration generally want at-least-once delivery with client-side dedup instead:
+
+```tsx
+interface OutgoingMessage { clientId: string; text: string; } // client-generated UUID, an idempotency key
+// Server echoes { type: "ack", clientId } once persisted.
+// Client keeps a pending map and retransmits unacked messages after reconnect.
+```
+
+The client tags every outgoing message with a UUID, keeps it in a pending map until the server acks it, and resends anything still pending after a reconnect. The server dedupes on `clientId`, so a resend after a flaky ack never creates a duplicate message.
+
+## Scaling past one server
+
+A single WebSocket server holds an open TCP connection per client, which means it can't scale the way a stateless HTTP server does, round-robin behind a load balancer with no shared state. A message for user B has to reach whichever server instance is actually holding user B's socket.
+
+**Sticky sessions** at the load balancer keep a client on the same server for the life of the connection, but that only solves connection stability, not cross-server messaging. **Pub/sub fan-out**, Redis Pub/Sub, NATS, Kafka, is the standard fix: every server instance subscribes to a shared channel, and when server A needs to notify a user connected to server C, it publishes to the channel and server C delivers it over its own local socket. **Connection limits per instance** matter too, each OS process has a file-descriptor ceiling per open socket, so horizontal scaling is usually required well before CPU becomes the actual bottleneck.
+
+If server A needs to tell a user connected to server B that they have a new message, how? Server A doesn't hold that socket, so it can't write to it directly. It publishes the event to the shared pub/sub layer; every instance subscribes and checks whether the target user's socket is local; the instance that actually owns the connection delivers it. That decoupling, which server received the event versus which server holds the socket, is the entire mechanism.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c5c7325b-5383-5658-ad01-38ea3601bfcb', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'SSR, Next.js, and Rendering Strategies', 'notes', 31, $md$Every Next.js interview eventually asks "when do you use each rendering strategy, and why?" It's really testing whether you understand the trade-off between build time, request time, and client time. This lesson covers the four rendering strategies, hydration, the specific gap Islands Architecture closes, streaming SSR, edge functions, and, since it comes up constantly for anyone with a Django background, exactly where a traditional server-rendered backend fits once React enters the picture at all.
+
+## Four strategies, chosen per route
+
+Next.js's App Router picks a strategy per route or component, not app-wide.
+
+| Strategy | HTML generated | Data freshness | Example use |
+|---|---|---|---|
+| Static Site Generation (SSG) | At build time, once | Stale until next build | Marketing pages, docs |
+| Incremental Static Regeneration (ISR) | At build time, then refreshed in the background | Configurable staleness | Product pages, blog posts |
+| Server-Side Rendering (SSR) | Per request, on the server | Always fresh | Dashboards, personalized pages |
+| Client-Side Rendering (CSR) | In the browser, after JS loads | Fresh, but blank until JS runs | Highly interactive widgets behind auth |
+
+```tsx
+// SSG — a Server Component with no dynamic data, revalidate: false means "never," pure static
+async function getPosts() {
+  const res = await fetch("https://api.example.com/posts", { next: { revalidate: false } });
+  return res.json();
+}
+
+// ISR — revalidate every 60 seconds, regenerated in the background
+async function getProducts() {
+  const res = await fetch("https://api.example.com/products", { next: { revalidate: 60 } });
+  return res.json();
+}
+
+// SSR — cache: "no-store" opts out of caching entirely, forcing a fresh fetch every request
+async function getDashboard(userId: string) {
+  const res = await fetch(`https://api.example.com/dashboard/${userId}`, { cache: "no-store" });
+  return res.json();
+}
+```
+
+The old Pages Router (`getStaticProps`, `getStaticPaths`, `getServerSideProps`) maps onto the same four strategies, just declared per-file via an exported function; App Router infers the strategy from how, or whether, you call `fetch` at all.
+
+Given a product catalog with 100,000 SKUs, which strategy? ISR with `generateStaticParams` returning only the hottest SKUs, plus dynamic rendering for the long tail. Pre-building all 100,000 pages at build time wastes effort on pages most of which will never be visited; build the popular ones statically, generate the rest on first request and cache it, then revalidate on a timer so prices and stock don't go permanently stale.
+
+## Hydration: attaching behavior to markup that's already there
+
+Hydration is the step where React attaches event listeners and internal state to server-rendered HTML already sitting in the DOM, instead of throwing that markup away and building it fresh on the client.
+
+The sequence: the server renders HTML, the browser paints it immediately, a fast first paint with no JS required yet, the JS bundle downloads and runs, and React walks the existing DOM, matching it against what a client render *would* produce, then attaches handlers.
+
+```tsx
+"use client";
+function Clock() {
+  const [now, setNow] = useState<string | null>(null); // null on server AND on first client render
+  useEffect(() => { setNow(new Date().toLocaleTimeString()); }, []); // only runs client-side, after hydration
+  return <p>{now ?? "Loading..."}</p>; // must match between server HTML and first client render
+}
+```
+
+A **hydration mismatch** is the classic bug: if server HTML doesn't match what the client would produce on its own first render, React either warns and patches the DOM, slow, can visibly flash, or in some cases discards the tree and re-renders entirely client-side, losing the point of SSR altogether. Common causes: `Date.now()` or `Math.random()` used directly during render, browser-only APIs like `window` or `localStorage` read during render instead of inside `useEffect`, and locale or timezone differences between server and client. What's a hydration mismatch, and how do you avoid one? It's server HTML and the client's first render producing different output, so React's reconciliation on mount doesn't line up. Avoid it by keeping first-render output deterministic on both sides, defer anything environment-dependent to `useEffect`, and reach for `suppressHydrationWarning` only for genuinely expected, cosmetic differences like a rendered timestamp.
+
+## The hydration gap Islands Architecture actually closes
+
+There's a second cost worth naming separately from the mismatch bug above: even a *correct* hydration has a window where the HTML is painted and looks interactive, but React hasn't attached any event listeners yet. A click during that window can be dropped, silently swallowed, or queued and replayed late. The default SSR/SSG/ISR approach hydrates the *entire* page in one pass, so that window scales with total page JS, not with how much of the page is actually interactive, meaning a mostly-static blog post with one comment widget still pays for hydrating the whole tree.
+
+**Islands Architecture** is the fix: render everything as static HTML, then hydrate only the interactive "islands," a carousel, a comment form, a cart widget, independently, each with its own small JS bundle. The surrounding static content never hydrates at all, no listeners attached, no JS shipped for it, which shrinks both the hydration-gap window and the total JS payload. The cost is that each island has to be a genuinely isolated component with no assumed shared client-side state with its neighbors, cross-island communication needs an explicit mechanism, events, a shared store, or URL state, since no single client-side app tree connects them. Astro is the framework most associated with this pattern; React Server Components achieve a related goal, not shipping JS for non-interactive parts, through a different mechanism entirely, server/client component boundaries inside one unified tree, rather than physically separate islands.
+
+## Streaming SSR
+
+Traditional SSR blocks on the *slowest* data dependency before sending any HTML at all. Streaming SSR (React 18+, via `Suspense`) sends the shell immediately and streams in slower sections as their data resolves.
+
+```tsx
+export default function Dashboard() {
+  return (
+    <div>
+      <Header /> {/* renders immediately, no data dependency */}
+      <Suspense fallback={<SkeletonWidget />}><SlowAnalyticsWidget /></Suspense>
+      <Suspense fallback={<SkeletonWidget />}><SlowRecommendations /></Suspense>
+    </div>
+  );
+}
+```
+
+The browser gets `<Header>` and the loading skeletons in the first flush, then React streams additional HTML chunks in as each `Suspense` boundary resolves, swapping the fallback for real content in place, no client-side re-fetch, no layout jump from a full-page replace. How does streaming SSR improve Time to First Byte over traditional SSR? Traditional SSR computes the entire page, including the slowest fetch, before writing anything to the response. Streaming sends the static shell the instant it's ready and pipes in the rest incrementally as async boundaries resolve, decoupling TTFB and First Contentful Paint from whatever the slowest dependency happens to be.
+
+## Edge functions
+
+Edge functions run server code in points of presence close to the user, geographically distributed, rather than a single origin region, trading a smaller, faster runtime, a V8 isolate, not a full Node process, for lower latency worldwide.
+
+```tsx
+export const runtime = "edge";
+export async function GET(request: Request) {
+  const country = request.headers.get("x-vercel-ip-country") ?? "unknown";
+  return Response.json({ country });
+}
+```
+
+Edge runtimes don't support the full Node API, no `fs`, limited `net`, and have tighter memory and CPU limits, but cold starts are typically much faster than a traditional serverless function, which makes edge a good fit for auth checks, redirects, A/B routing, and geolocation, and a poor fit for heavy computation or anything genuinely needing full Node APIs. Middleware runs on every single request; why does Next.js run it at the edge by default? Because auth redirects, locale detection, and feature-flag routing need to run before the response starts and should add minimal latency on every request. Running it geographically close to the user keeps that per-request tax small; running it in one origin region would add a network round trip on top of every page load everywhere else in the world.
+
+## Where a Django (or any traditional SSR) backend actually sits once React enters
+
+Django's default templating, `render(request, template, context)`, is SSR in the literal sense, full HTML computed and returned per request. But it's missing everything a Next.js or Remix SSR setup assumes comes bundled with the term: no hydration step, no client-side router, no virtual DOM diffing. Every link click and form submit is a full page reload and a fresh server round trip; it's the rendering model the industry used before "SSR" needed a name to distinguish it from CSR at all.
+
+The moment a Django backend becomes a REST or JSON API sitting behind a separate React frontend, it exits this rendering conversation entirely. It's no longer rendering anything, only serving data, and every CSR-versus-SSR-versus-SSG-versus-ISR question from this lesson applies to the React layer alone. Django's job at that point is API design, auth, and data, a backend concern, not a rendering one. This is really the same lesson as Islands Architecture from a different angle: one is about shrinking what gets hydrated on the client, the other is about recognizing the exact moment a server stops participating in rendering at all.
+
+## Tying it together
+
+The four strategies, hydration, streaming, and edge functions all answer the same underlying question: how much of the work can move earlier, build time, or a nearby edge location, versus how much genuinely has to wait for the request itself. An interviewer probing any one of these is usually checking whether you can place a given feature, a dashboard, a product page, an auth check, correctly on that spectrum, not just recite the API names involved.
+$md$, 35, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('cd465b67-5104-5d08-a1f1-daf6a91c85e5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Micro-frontends', 'notes', 32, $md$Micro-frontends come up in senior and staff interviews as an architecture discussion, not a coding exercise. The interviewer wants to know whether you can reason about the trade-offs of splitting a large frontend across teams, not whether you've memorized Module Federation's config syntax. This lesson covers the composition patterns, a working Module Federation setup, shared component libraries, and the honest trade-offs, this is not a free lunch.
+
+## Four ways to compose
+
+A micro-frontend architecture splits one web application into independently buildable, independently deployable pieces owned by separate teams, composed together into one experience for the user, either at build time or at runtime.
+
+**Build-time integration**: each micro-frontend ships as an npm package, and a shell app imports and bundles them together at build time. Simple, but it gives up independent *deployment*, shipping a checkout fix means rebuilding and redeploying the shell regardless.
+
+**Runtime integration via iframes**: each piece is a fully isolated page embedded in an `<iframe>`, maximum isolation, separate JS realms, separate CSS, a crash in one can't take down another, but communication is painful (`postMessage` only), the framework runtime is duplicated per iframe, and layout and routing feel bolted-on rather than native.
+
+**Runtime integration via Module Federation** (the modern default): each piece is a separately built and deployed JS bundle exposing modules, and a shell loads them dynamically at runtime, sharing dependencies like React instead of each bundling its own copy.
+
+**Server-side composition**: each team's HTML fragment gets stitched together server-side or at the CDN edge before reaching the browser. Good for SEO and avoids any client-side framework mismatch cost, but makes rich cross-fragment interactivity harder.
+
+When would you *not* use micro-frontends? With a single team, or a small-to-medium app. They solve an organizational scaling problem, multiple teams shipping independently without blocking each other, at the cost of real complexity: duplicated tooling, shared-dependency version conflicts, harder cross-cutting changes (a design-system update now touches N repos), and a more complex build and deploy pipeline. If nothing is actually blocking on a monolith frontend's release cadence, this tax isn't worth paying.
+
+## Module Federation configuration
+
+Webpack 5's Module Federation lets independently built bundles expose and consume modules from each other at runtime, resolving shared dependencies like `react` to a single copy instead of every remote shipping its own.
+
+```js
+// host (shell) — webpack.config.js
+const { ModuleFederationPlugin } = require("webpack").container;
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: "shell",
+      remotes: {
+        checkout: "checkout@https://checkout.example.com/remoteEntry.js",
+        catalog: "catalog@https://catalog.example.com/remoteEntry.js",
+      },
+      shared: { react: { singleton: true, requiredVersion: "^19.0.0" }, "react-dom": { singleton: true, requiredVersion: "^19.0.0" } },
+    }),
+  ],
+};
+
+// remote (checkout app) — webpack.config.js
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: "checkout",
+      filename: "remoteEntry.js",
+      exposes: { "./CheckoutFlow": "./src/CheckoutFlow" },
+      shared: { react: { singleton: true, requiredVersion: "^19.0.0" }, "react-dom": { singleton: true, requiredVersion: "^19.0.0" } },
+    }),
+  ],
+};
+```
+
+```tsx
+// shell app — a federated remote loads exactly like any other code-split chunk
+const CheckoutFlow = lazy(() => import("checkout/CheckoutFlow"));
+function App() {
+  return <Suspense fallback={<div>Loading checkout...</div>}><CheckoutFlow /></Suspense>;
+}
+```
+
+`singleton: true` is the detail interviewers probe hardest, and it's worth being precise about why: without it, if the shell and the remote each bundle their own React, you get "Invalid hook call" errors from two React instances managing what's supposed to be the same tree. With `singleton: true`, Module Federation resolves to one shared copy at runtime and warns, or errors under `strictVersion: true`, on an incompatible version instead of silently duplicating the runtime underneath you.
+
+## A shared component library, and how to ship it
+
+A design system consumed by every micro-frontend keeps the UI consistent without each team reimplementing buttons and inputs from scratch. Publish it as a versioned package, or as another federated remote, rather than copy-pasting components across repos.
+
+```tsx
+// @company/ui-kit/Button.tsx
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> { variant?: "primary" | "secondary" | "danger"; }
+export function Button({ variant = "primary", className, ...props }: ButtonProps) {
+  return <button className={`btn btn-${variant} ${className ?? ""}`} {...props} />;
+}
+```
+
+Two viable distribution strategies. An **npm package**: versioned, each team pins and upgrades independently, but a breaking change requires every consumer to bump on its own schedule. **Exposed via Module Federation**: always the latest shared version at runtime, zero version-pinning overhead, but a bad deploy of the shared library breaks every consumer immediately, everywhere, at once. Most organizations use npm packages for the component library specifically and reserve Module Federation for the composable page-level modules, since instant-everywhere breakage from a shared runtime dependency is a bigger operational risk than a slightly stale button style.
+
+## Independent deployment: the entire point of the exercise
+
+Team Checkout ships a fix to `checkout.example.com/remoteEntry.js` and it's live in the shell on the very next page load, no shell rebuild, no coordinated release train with other teams.
+
+```
+shell.example.com/          → loads remoteEntry.js from each remote at runtime
+checkout.example.com/       → deployed independently by the checkout team
+catalog.example.com/        → deployed independently by the catalog team
+```
+
+This requires the shell to treat each remote as a runtime contract, not a build-time dependency: it doesn't know or care what version of checkout is currently live, only that it exposes `./CheckoutFlow` with a compatible interface. That contract, the props shape and the exposed module names, becomes the thing that actually needs versioning discipline, not the whole bundle.
+
+## Cross-remote communication, without recoupling everything
+
+Micro-frontends can't just call each other's functions directly, different bundles, potentially different frameworks entirely, so communication has to go through explicit channels. **Custom events on `window`**: simple and framework-agnostic, but no type safety and easy to lose track of who's actually listening. **A shared event bus**, typed, usually exposed from the shell as a federated shared module, same idea with better guarantees. **URL or query params**: stateless, survives a full page reload, good for cross-microfrontend navigation state. **A shared state store** (a federated Redux or Zustand instance): powerful, but it reintroduces the exact tight coupling this architecture exists to avoid.
+
+```tsx
+// simplest viable pattern: typed custom events on window
+function notifyCartUpdated(itemCount: number) {
+  window.dispatchEvent(new CustomEvent("cart:updated", { detail: { itemCount } }));
+}
+function useCartBadge() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const handler = (e: Event) => setCount((e as CustomEvent).detail.itemCount);
+    window.addEventListener("cart:updated", handler);
+    return () => window.removeEventListener("cart:updated", handler);
+  }, []);
+  return count;
+}
+```
+
+## Testing across a boundary that's never built together
+
+Unit testing each micro-frontend in isolation is no different from testing any other React app. The hard part is integration: verifying the composed shell actually works when checkout v2.4 meets catalog v1.9 in production, since the two are never built together at all. **Contract tests** on exposed modules, props shape, event names, catch a breaking change before deploy, independent of which version the other side happens to be running. **Consumer-driven contracts** (Pact-style) let the shell assert "checkout must expose `CheckoutFlow(props: {...})`" and fail CI in the checkout repo the moment that contract breaks. **A staging composition environment** running the latest deployed version of every remote together is the only reliable way to catch cross-remote issues, version mismatches, CSS collisions, duplicate global state, before they hit production users.
+
+How do you catch a breaking change in a shared remote before it reaches production? Contract tests in CI on the exposed module's public interface, run against the remote's own pipeline so they fail fast and close to the source, plus a staging environment that continuously composes the latest deployed version of every remote so cross-team integration issues surface before real users ever see them. Unit tests inside one micro-frontend's own repo can never catch "this breaks when composed with catalog v1.9," because that composition never happens until it's live.
+
+## The thread running through all of it
+
+Every decision here, composition strategy, shared-library distribution, communication channel, testing approach, is really a decision about how much coupling you're willing to reintroduce between teams that are supposed to be independent. The architecture only pays off while that coupling stays low; the moment two teams need a shared runtime store or a synchronized release, you've quietly rebuilt the monolith, just with extra deployment steps on top of it.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('2ce8da8a-fba0-5bde-a6e5-6fe2f87386e4', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'React Performance Patterns and Concurrent Features', 'notes', 33, $md$React performance questions have shifted from "when do you use `useMemo`" to "what does automatic batching change" and "when do you reach for `useTransition` versus `useDeferredValue`." The concurrent-rendering APIs are now a standard part of the interview loop. This lesson builds two common exercises, optimistic updates and a debounced search, and explains the concurrent APIs that make modern React feel fast under load.
+
+## Automatic batching
+
+Before React 18, updates only batched inside React's own event handlers. The same two `setState` calls inside a `setTimeout`, a promise callback, or a raw `addEventListener` would each trigger a separate render. React 18+ batches everywhere, automatically.
+
+```tsx
+function Example() {
+  const [count, setCount] = useState(0);
+  const [flag, setFlag] = useState(false);
+  function handleClick() {
+    fetch("/api/data").then(() => {
+      // React 18+: these batch into ONE re-render, even inside a promise callback
+      setCount((c) => c + 1);
+      setFlag((f) => !f);
+    });
+  }
+  return <button onClick={handleClick}>{count}</button>;
+}
+```
+
+What changed between React 17 and 18's batching, specifically? In 17, only updates inside React's synthetic event handlers batched; the same pair of `setState` calls inside a `setTimeout` or `fetch().then()` would fire two separate renders. React 18's `createRoot` makes batching automatic regardless of where the updates originate. The opt-out is `flushSync`, needed rarely, mostly when you genuinely need a synchronous, unbatched update, forcing a DOM measurement between two state changes being the usual case.
+
+## useTransition versus useDeferredValue
+
+Both mark work as low-priority so the browser stays responsive to typing and clicking, but they solve different shapes of problem.
+
+**`useTransition`**: you own the state *setter*, and want to mark the update it triggers as non-urgent, so React can interrupt it if something more urgent, another keystroke, arrives.
+
+```tsx
+function TabContainer() {
+  const [tab, setTab] = useState<"home" | "analytics">("home");
+  const [isPending, startTransition] = useTransition();
+  function selectTab(next: "home" | "analytics") {
+    startTransition(() => { setTab(next); }); // low priority: React abandons it if the user clicks again first
+  }
+  return (
+    <div>
+      <button onClick={() => selectTab("home")}>Home</button>
+      <button onClick={() => selectTab("analytics")}>Analytics</button>
+      {isPending && <Spinner />}
+      {tab === "home" ? <HomeTab /> : <AnalyticsTab />}
+    </div>
+  );
+}
+```
+
+**`useDeferredValue`**: you don't control the setter, a value arrives from a parent or a fast-changing input, and you want a "lagging" copy of it that updates at low priority instead.
+
+```tsx
+function SearchResults({ query }: { query: string }) {
+  const deferredQuery = useDeferredValue(query); // lags behind `query` under load
+  const isStale = query !== deferredQuery;
+  const results = useMemo(() => expensiveSearch(deferredQuery), [deferredQuery]);
+  return <ul style={{ opacity: isStale ? 0.5 : 1 }}>{results.map((r) => <li key={r.id}>{r.title}</li>)}</ul>;
+}
+```
+
+When would you pick one over the other? Use `useTransition` when you own the state update, calling `setState` yourself in response to a click, and want to mark that specific update as interruptible. Use `useDeferredValue` when you're just consuming a value you don't control the setter for, most commonly a fast-changing controlled input passed down to an expensive child, and want the expensive derived work computed at lower priority without touching where the value originates at all.
+
+## Suspense for data, and the promise-creation rule
+
+Suspense lets a component "pause" rendering while it waits for data, showing a fallback instead of the component manually managing an `isLoading` flag. In React 19, this is what `use()` runs on for reading a promise during render.
+
+```tsx
+function UserProfile({ userPromise }: { userPromise: Promise<User> }) {
+  const user = use(userPromise); // suspends the component until the promise resolves
+  return <h1>{user.name}</h1>;
+}
+function ProfilePage({ userPromise }: { userPromise: Promise<User> }) {
+  return <Suspense fallback={<Skeleton />}><UserProfile userPromise={userPromise} /></Suspense>;
+}
+```
+
+The promise has to be created *outside* the render that reads it, in a parent, a route loader, or a cache. Calling `fetch()` directly inside the component would create a fresh promise on every single render and suspend forever, the exact same rule as `useEffect`'s dependency array: don't create an unstable reference inside the render you're trying to stabilize.
+
+## Building an optimistic-update component
+
+Optimistic updates apply the expected result immediately, before the server confirms it, and roll back on failure, which makes the UI feel instant for actions that almost always succeed: likes, toggles, adding an item.
+
+```tsx
+function TodoList({ initialTodos }: { initialTodos: Todo[] }) {
+  const [todos, setTodos] = useState(initialTodos);
+  const [isPending, startTransition] = useTransition();
+
+  // useOptimistic layers a temporary, hopeful value on top of `todos` that
+  // automatically reverts once the real state update lands, or on error, below.
+  const [optimisticTodos, setOptimisticTodo] = useOptimistic(todos, (state, toggledId: string) =>
+    state.map((t) => (t.id === toggledId ? { ...t, completed: !t.completed } : t)));
+
+  function toggle(id: string) {
+    startTransition(async () => {
+      setOptimisticTodo(id); // instant UI update
+      try {
+        await toggleTodoOnServer(id);
+        setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))); // confirm: commit the real state
+      } catch {
+        // no-op — not updating `todos` means optimisticTodos reverts automatically once the transition settles
+      }
+    });
+  }
+
+  return (
+    <ul>
+      {optimisticTodos.map((todo) => (
+        <li key={todo.id} style={{ opacity: isPending ? 0.6 : 1 }}>
+          <input type="checkbox" checked={todo.completed} onChange={() => toggle(todo.id)} /> {todo.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+`useOptimistic` has to be called inside a `useTransition` or a form action, it needs an async boundary to know when to revert. On success, commit the real state; on failure, deliberately do nothing, and React reverts the optimistic overlay for you once the transition finishes settling.
+
+## Building a debounced search input, with two layers of cancellation
+
+```tsx
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer); // cancel the pending update if value changes again
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function SearchBox() {
+  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
+  const [results, setResults] = useState<SearchResult[]>([]);
+
+  useEffect(() => {
+    if (!debouncedQuery) { setResults([]); return; }
+    const controller = new AbortController();
+    fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}`, { signal: controller.signal })
+      .then((res) => res.json()).then(setResults)
+      .catch((err) => { if (err.name !== "AbortError") throw err; });
+    return () => controller.abort(); // cancel an in-flight request if the query changes again
+  }, [debouncedQuery]);
+
+  return (
+    <div>
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." />
+      <ul>{results.map((r) => <li key={r.id}>{r.title}</li>)}</ul>
+    </div>
+  );
+}
+```
+
+Two distinct layers of cancellation are doing work here, and interviewers check for both. The `setTimeout`/`clearTimeout` pair debounces the *state update*; the `AbortController` cancels an *in-flight request* if a newer debounced query supersedes an older one still in flight. Without the abort, a slow response to an old query could arrive after a fast response to a newer one and silently overwrite correct results with stale ones, a request-waterfall race condition.
+
+Would `useDeferredValue` work instead of a manual debounce here? Only partially. `useDeferredValue` defers *rendering* work, not the timing of a network request, so it's the right tool for expensive client-side filtering or rendering of results you already have in hand. It won't reduce the number of API calls fired at all, since it introduces no time delay, only a lower render priority. For actually cutting request volume, a time-based debounce is still the tool.
+
+## The common thread
+
+The optimistic-update component and the debounced search both lean on the same underlying idea `useTransition` embodies directly: mark work as interruptible or delayed so the UI thread stays responsive to whatever the user does next. Carry that framing into an interview more than any single hook's exact signature, concurrent React is fundamentally about scheduling priority, and batching, transitions, deferred values, and optimistic state are each a different lever on that same knob.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('369e935c-622e-5dd4-ba43-03959a342620', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Build Tools and Bundling Internals', 'notes', 34, $md$"How does a bundler actually work" is a favorite senior question because most engineers run Webpack or Vite daily without ever looking inside. Being able to explain module resolution, tree shaking, and hot module replacement from first principles signals real depth. This lesson builds a tiny bundler and a tiny Babel-style transform from scratch, then covers what production bundlers do differently.
+
+## What a bundler is actually for
+
+At its core, a bundler solves one problem: browsers historically couldn't efficiently load hundreds of separately `import`ed modules over the network, too many round trips, though HTTP/2 and native ESM have since eroded this, so bundlers combine a dependency graph of modules into one file, or a handful of them.
+
+The pipeline is the same regardless of the specific tool. **Resolve**: starting from an entry file, follow every `import`/`require` to the actual file on disk, handling extensions, `node_modules`, path aliases. **Parse**: turn each file's source into an AST. **Build a dependency graph**: walk each AST for import/export statements, recursively resolving and parsing until every reachable module is accounted for. **Transform**: run each module through loaders and plugins, TypeScript to JS, JSX to `React.createElement`, CSS Modules to JS objects. **Generate**: concatenate or wrap the modules into one or more output files, resolving each module's imports to a lookup in a shared runtime registry.
+
+Webpack, Vite, and esbuild differ mainly in *when* this happens and what language does it. **Webpack** does the full pipeline upfront, in both dev and prod, highly configurable via loaders and plugins, written in JS, flexible but the slowest of the three. **esbuild** runs the same pipeline written in Go, parsing and generating orders of magnitude faster than JS-based tooling, and it's what Vite uses under the hood for transforms. **Vite** doesn't bundle at all in dev: it serves native ES modules straight to the browser, transforming each file on demand as the browser requests it via esbuild, and only bundles for the production build, via Rollup. That's why Vite's dev server starts near-instantly regardless of app size, it never builds a full dependency graph upfront at all.
+
+Why is Vite's dev server so much faster than Webpack's for a large app? Webpack has to build and bundle the entire dependency graph before serving the first page, so startup time scales with app size. Vite serves unbundled native ESM in development, letting the browser itself resolve imports via HTTP requests, transforming each requested file on demand, so startup stays nearly constant no matter how big the app gets, right up until the production build actually needs to bundle.
+
+## Building a minimal bundler
+
+Enough to make the "dependency graph" idea concrete, resolving and concatenating CommonJS-style modules:
+
+```ts
+function extractDependencies(code: string): string[] {
+  // Illustrative only — a real bundler uses an AST parser (acorn, babel), not regex
+  const requireRegex = /require\(["'](.+?)["']\)/g;
+  const deps: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = requireRegex.exec(code))) deps.push(match[1]);
+  return deps;
+}
+
+function buildGraph(entryFile: string) {
+  let nextId = 0;
+  const graph: { id: number; filename: string; code: string; dependencyMap: Record<string, number> }[] = [];
+  const visited = new Map<string, number>();
+
+  function visit(filename: string): number {
+    if (visited.has(filename)) return visited.get(filename)!;
+    const code = readFileSync(filename, "utf-8");
+    const id = nextId++;
+    visited.set(filename, id);
+    const dependencyMap: Record<string, number> = {};
+    for (const relativePath of extractDependencies(code)) {
+      dependencyMap[relativePath] = visit(resolve(dirname(filename), relativePath + ".js")); // recurse — this IS the graph traversal
+    }
+    graph.push({ id, filename, code, dependencyMap });
+    return id;
+  }
+  visit(entryFile);
+  return graph;
+}
+```
+
+Generation wraps each module in a function, keyed by its id, with a `require` that looks dependencies up by the numeric id resolved during graph traversal, not by string path:
+
+```ts
+function bundle(graph: ReturnType<typeof buildGraph>): string {
+  const modules = graph.map((m) => `${m.id}: [function(require, module, exports) { ${m.code} }, ${JSON.stringify(m.dependencyMap)}]`).join(",\n");
+  return `
+(function(modules) {
+  const cache = {};
+  function require(id) {
+    if (cache[id]) return cache[id].exports;
+    const [fn, mapping] = modules[id];
+    const module = { exports: {} };
+    cache[id] = module;
+    fn((relativePath) => require(mapping[relativePath]), module, module.exports);
+    return module.exports;
+  }
+  require(0); // entry point is always module 0
+})({ ${modules} });`;
+}
+```
+
+This is the same core idea every real bundler uses under the hood: replace `require`/`import` with a lookup into an in-memory registry keyed by module id, so the runtime never touches the filesystem again after graph resolution happens once, at build time.
+
+## Building a Babel-style transform
+
+Transforms operate on the AST, not the source string, because regex-based string replacement breaks the instant syntax gets nested or hits an edge case, a `require` sitting inside a comment or a template literal, for example. A minimal transform converting `const`/`let` to `var`:
+
+```ts
+interface ASTNode { type: string; [key: string]: unknown; }
+
+// A real implementation uses @babel/parser + @babel/traverse + @babel/generator.
+// This shows the *shape* of the visitor pattern every AST tool follows.
+function transform(ast: ASTNode): ASTNode {
+  function visit(node: ASTNode): ASTNode {
+    if (node.type === "VariableDeclaration" && (node.kind === "const" || node.kind === "let")) {
+      node.kind = "var"; // the actual transformation — mutate the node in place
+    }
+    for (const key of Object.keys(node)) {
+      const value = node[key];
+      if (Array.isArray(value)) value.forEach((child) => { if (child?.type) visit(child as ASTNode); });
+      else if (value && typeof value === "object" && "type" in value) visit(value as ASTNode);
+    }
+    return node;
+  }
+  return visit(ast);
+}
+```
+
+JSX compiling to `React.createElement`, and TypeScript compiling to plain JS, both work through this exact same visitor pattern: parse source into an AST once, run one or more transform passes mutating specific node types, then regenerate source from the transformed tree. A Babel plugin is, structurally, just a `visit` function scoped to specific node types via a `visitor` object.
+
+## Module resolution
+
+Resolution turns `import x from "./utils"` or `import y from "lodash"` into an actual file path. Node's algorithm, which most bundlers extend rather than replace, works in three steps. Relative and absolute paths (`./`, `../`, `/`) resolve directly against the current file's directory, trying the exact path, then `path.js`, then `path/index.js`, in that order. Bare specifiers (`"lodash"`) trigger a walk up the directory tree looking for `node_modules/lodash` in each parent directory in turn, until found or the filesystem root is reached. Package resolution then reads that package's `package.json`, the `exports` field (modern, can restrict or remap what's importable) or `main`/`module` (legacy), to find the actual entry file.
+
+Bundlers add path aliases, `@/components` mapping to `src/components`, as a resolution-time rewrite configured separately from Node's own algorithm (`tsconfig.json` `paths`, Webpack's `resolve.alias`, Vite's `resolve.alias`), intercepted before falling through to standard resolution.
+
+## Tree shaking, one more angle
+
+Tree shaking removes exported code that's never imported anywhere in the graph, and it depends specifically on ES module syntax, since `import`/`export` are statically analyzable without running any code:
+
+```ts
+// math.ts
+export function add(a: number, b: number) { return a + b; }
+export function subtract(a: number, b: number) { return a - b; } // never imported anywhere
+
+// app.ts
+import { add } from "./math";
+// A production build contains `add` but not `subtract` —
+// static analysis proves `subtract` is unreachable from any entry point.
+```
+
+CommonJS largely defeats this, `require` calls can be conditional or dynamic, so the bundler can't statically prove what's actually used without running the code, which is the real, mechanical reason "use ESM, not CommonJS" is standard tooling advice, not merely a style preference.
+
+## Hot module replacement
+
+HMR swaps a changed module's code in the running app without a full page reload, preserving in-memory state, form inputs, component state, that a full refresh would otherwise wipe out. The dev server watches the filesystem, and on a change re-transforms just the changed module, sends the new code to the browser over a WebSocket, which is why dev servers open one at all, and the client-side HMR runtime replaces the old module's exports with the new ones in the registry, then re-runs anything that "accepted" the update.
+
+```ts
+// Vite/Webpack HMR API — a module opts into accepting its own updates
+if (import.meta.hot) {
+  import.meta.hot.accept((newModule) => { /* re-render with the new exports instead of reloading */ });
+}
+```
+
+React's Fast Refresh builds on this: it detects that only a component's render function changed, not its state-holding hooks' call order, swaps the function, and re-renders, preserving `useState` values across the edit. If the edit changes hook order or a non-component export, Fast Refresh falls back to a full remount, state lost, because it can no longer guarantee correctness.
+
+Why does editing a component sometimes preserve state via HMR, and sometimes reset it? Fast Refresh preserves state when it can safely re-run just the function body and confirm the hooks called are the same type, count, and order as before, so the fiber's hook list stays valid. Add, remove, or reorder a hook, or change what the module exports, and Fast Refresh can no longer guarantee the existing fiber tree is still valid, and falls back to a full remount instead.
+
+## Why this is worth knowing beyond trivia
+
+None of resolve, parse, transform, tree-shake, or HMR are things you'll implement at your actual job. They're worth knowing because the mini-bundler and mini-transform above are the same shape of code running inside Webpack, Vite, and Babel today, just with a real parser and years of edge-case handling layered on top instead of a regex. When an interviewer asks why tree shaking isn't working here, or why HMR just did a full reload, they're checking whether you can reason from the underlying mechanism, not whether you've memorized a remembered answer.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('bda2abec-bed6-5c23-aea7-5756278c7aec', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Checkpoint: Architecture and Concurrency', 'notes', 35, $md$Third consolidation checkpoint. This stretch covered security, real-time communication, server rendering, architectural scale, concurrent React, and build tooling, a wide spread that interviewers love to mix into a single system-design-adjacent conversation. Drill the connections between these topics, not just each one in isolation.
+
+## Web security
+
+Core idea: never trust data that crossed a trust boundary, user input, a third-party response, a URL parameter, without validating or encoding it. React escapes text content by default; the danger zone is `dangerouslySetInnerHTML` and any place raw HTML from an untrusted source gets injected without sanitization. CSRF defense is same-site cookies plus a token on state-changing requests, and it's still relevant with JWTs the moment the token lives in a cookie rather than a manually-attached header. CSP is the last line of defense, turning a successful injection into a no-op because the injected script violates policy. Where the token lives is the near-guaranteed question: `localStorage` is readable by any injected script, `httpOnly` cookies aren't readable by JS at all but need CSRF protection instead.
+
+## WebSockets
+
+Core idea: a persistent, full-duplex connection for real-time, bidirectional communication, distinct from HTTP's request/response model. The handshake starts as an HTTP request with an `Upgrade: websocket` header, and the server responds `101 Switching Protocols`. Reconnection strategy matters in production: exponential backoff with a cap, plus a heartbeat to detect a dead connection before the OS notices on its own. Compare against the alternatives by direction and overhead: SSE is one-way and simple, works over plain HTTP, and auto-reconnects; long polling works everywhere but costs more latency and overhead; WebSockets are full duplex, more setup, and needed for anything requiring client-to-server push at low latency.
+
+## SSR and Next.js
+
+Core idea: move rendering work earlier, to build time or the server, to improve perceived load time and SEO, at the cost of server compute and more moving parts. SSR renders per request, SSG renders once at build time, ISR serves a static page but revalidates it on a schedule. React Server Components run only on the server, never ship their JS to the client, and can touch backend resources directly, at the cost of no hooks and no browser APIs, exactly what `"use client"` opts back into. Hydration is the step where client-side React attaches listeners to server-rendered HTML; a mismatch, server HTML differing from what the client would render, usually traces back to `Date.now()`, `Math.random()`, or a browser-only API read during render.
+
+## Micro-frontends
+
+Core idea: split a large frontend into independently deployable pieces owned by different teams, an organizational scaling solution more than a technical one. Composition strategies: build-time integration via npm packages, server-side composition at the edge, runtime composition via Module Federation or iframes. Costs worth naming unprompted: duplicated dependencies across bundles unless carefully shared, harder cross-team design consistency, more complex versioning and deployment coordination. The interview-safe framing: reach for this when multiple independent teams genuinely need separate release cadences, not by default.
+
+## React performance and concurrent features
+
+Core idea: avoid unnecessary re-renders, and avoid unnecessary work inside the renders that do happen. `React.memo` skips a re-render on shallow-equal props and does nothing if a parent passes a new object, array, or function literal every render, pair it with `useMemo`/`useCallback` on the parent for exactly those values. Automatic batching in React 18+ means multiple `setState` calls anywhere, not just inside React event handlers, collapse into one render. `useTransition` marks an update as non-urgent so React can interrupt it for something more urgent, like a keystroke; `useDeferredValue` gives a lagging copy of a value you don't control the setter for, the same underlying goal reached from the consumer side instead.
+
+## Build tools
+
+Core idea: know what a bundler and dev server actually do, not just the CLI commands. Vite's dev-server speed comes from serving native ES modules over the network unbundled, using esbuild, written in Go, for transpilation, and only bundling for production via Rollup. Webpack's loader/plugin model: loaders transform individual files, plugins hook into the broader build lifecycle. HMR swaps a changed module in the running app without a full reload, preserving component state, and React's Fast Refresh extends that specifically by confirming a component's hook order is unchanged before it decides state can safely survive the edit.
+
+## Self-check
+
+Answer each in under 90 seconds, without notes:
+
+1. A user's auth token needs to survive a page refresh. Where do you store it, and what attack does that specific choice expose you to?
+2. Design the reconnection behavior for a WebSocket-based live chat that should survive a brief network drop without losing messages.
+3. Explain hydration mismatch to someone who's never heard the term, with a concrete example that causes one.
+4. Your team wants to split a monolith frontend across three teams. What's the actual problem you're solving, and what does it cost?
+5. A list re-renders on every keystroke in an unrelated search box. Walk through the diagnosis and fix, naming which concurrent API, if any, applies.
+6. Why does `import * as _ from "lodash"` defeat tree shaking when `import { debounce } from "lodash-es"` doesn't?
+$md$, 18, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c2d595a6-2c9d-5593-af50-018a8b0702f8', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Accessibility (a11y)', 'notes', 36, $md$Accessibility questions are increasingly standard in frontend interviews, and "use semantic HTML" without concrete mechanics is an easy place to lose points, it's true but it doesn't show you actually know how. This lesson covers WCAG's real structure, ARIA's rules, including when *not* to reach for it, keyboard navigation, and a fully accessible form built end to end.
+
+## WCAG's shape
+
+WCAG is organized around four principles, commonly remembered as **POUR**: **Perceivable** (alt text for images, captions for video, sufficient color contrast), **Operable** (keyboard-reachable, no seizure-inducing flashing, enough time to read or act), **Understandable** (predictable navigation, clear error messages, consistent labeling), and **Robust** (works with a wide range of user agents including assistive technology, which means valid, semantic markup that doesn't break screen-reader parsing).
+
+Conformance levels are A (minimum), AA (the level virtually every legal requirement and company policy targets), and AAA (highest, rarely mandated in full). If asked what level to target, the correct answer is AA, the industry-standard bar.
+
+## ARIA augments, it doesn't replace
+
+The first rule of ARIA, literally called that in the spec, is: don't use ARIA if a native HTML element already gives you the semantics you need. ARIA attributes tell assistive technology about a role or state, but they grant none of the native *behavior*, keyboard handling, focus management, that comes free with a real element. This is the same ground the HTML fundamentals lesson covered from the other direction, reach for `<button>` before you reach for `role="button"`.
+
+```tsx
+// Bad: reinventing a button, and now you owe it keyboard support, focus, and role
+// that a real <button> already gives you for free
+<div className="btn" onClick={handleClick} role="button" tabIndex={0}
+  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}>
+  Submit
+</div>
+
+// Good
+<button className="btn" onClick={handleClick}>Submit</button>
+```
+
+Reach for ARIA specifically where native HTML genuinely has no equivalent:
+
+```tsx
+// A custom dropdown/combobox — no single native element covers this exactly
+<div role="combobox" aria-expanded={isOpen} aria-haspopup="listbox" aria-controls="options-list">
+  <input aria-autocomplete="list" aria-activedescendant={activeOptionId} />
+</div>
+<ul id="options-list" role="listbox">
+  {options.map((opt) => <li key={opt.id} id={opt.id} role="option" aria-selected={opt.id === activeOptionId}>{opt.label}</li>)}
+</ul>
+```
+
+```tsx
+// Live regions — announce dynamic content changes without moving focus,
+// e.g. a toast notification or an async validation result
+<div aria-live="polite" aria-atomic="true">{statusMessage}</div>
+// aria-live="assertive" interrupts immediately — reserve it for genuinely urgent/error messages
+<div role="alert">{errorMessage}</div>
+```
+
+`role="alert"` implies `aria-live="assertive"` and `aria-atomic="true"` automatically, it's the shorthand specifically meant for error messages that need immediate announcement.
+
+## Keyboard navigation and focus management
+
+Every interactive element must be reachable and operable using only the keyboard, the single most common a11y bug in real apps is something clickable that a keyboard user simply cannot reach at all.
+
+```tsx
+function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocused.current = document.activeElement as HTMLElement;
+    const focusable = modalRef.current?.querySelectorAll<HTMLElement>('button, [href], input, [tabindex]:not([tabindex="-1"])');
+    focusable?.[0]?.focus();
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Tab" && focusable && focusable.length > 0) {
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused.current?.focus(); // return focus to whatever triggered the modal — often missed
+    };
+  }, [onClose]);
+
+  return <div role="dialog" aria-modal="true" ref={modalRef}>{children}</div>;
+}
+```
+
+Three focus-management rules that get checked directly. Trap focus inside a modal while it's open, so `Tab` never escapes to the page behind it. Move focus to the modal on open and return it to the trigger element on close, losing focus back to `<body>` is a jarring, common bug. And `Escape` closes overlays, an expected keyboard convention across virtually every OS and app. One more rule that applies everywhere, not just modals: never set `outline: none` on a focusable element without providing a replacement focus style, removing the outline with nothing in its place makes keyboard navigation invisible, a genuinely common and easy-to-avoid regression.
+
+Skip links are the other keyboard-navigation staple: a visually-hidden-until-focused link at the top of the page letting a keyboard user jump past repeated navigation straight to main content.
+
+```tsx
+<a href="#main-content" className="skip-link">Skip to main content</a>
+{/* ... nav ... */}
+<main id="main-content">...</main>
+```
+
+```css
+.skip-link { position: absolute; top: -40px; left: 0; } /* hidden off-screen until focused */
+.skip-link:focus { top: 0; }
+```
+
+## An accessible form, end to end
+
+```tsx
+function SignupForm() {
+  const [email, setEmail] = useState(""), [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  function validate() {
+    const next: typeof errors = {};
+    if (!email.includes("@")) next.email = "Enter a valid email address.";
+    if (password.length < 8) next.password = "Password must be at least 8 characters.";
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  }
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); setSubmitted(true); if (validate()) { /* submit */ } }} noValidate>
+      <div>
+        {/* Explicit label association via htmlFor/id — required for screen readers */}
+        <label htmlFor="email">Email address</label>
+        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+          aria-invalid={submitted && !!errors.email}
+          aria-describedby={errors.email ? "email-error" : undefined} required />
+        {submitted && errors.email && <p id="email-error" role="alert">{errors.email}</p>}
+      </div>
+      <div>
+        <label htmlFor="password">Password</label>
+        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={submitted && !!errors.password}
+          aria-describedby={errors.password ? "password-error password-hint" : "password-hint"} required />
+        <p id="password-hint">Must be at least 8 characters.</p>
+        {submitted && errors.password && <p id="password-error" role="alert">{errors.password}</p>}
+      </div>
+      <button type="submit">Create account</button>
+    </form>
+  );
+}
+```
+
+Each piece here is doing specific, testable work. `htmlFor`/`id` pairing lets clicking the label focus the input, and a screen reader announces the label whenever the input receives focus, without it, the input announces as unlabeled entirely. `aria-invalid` tells assistive technology a field currently fails validation, independent of any visual styling alone. `aria-describedby` links the input to its hint or error text, so a screen reader reads that alongside the field's value, not just the bare label. `role="alert"` on the error text announces the failure immediately, with no need to navigate to it manually. `noValidate` on the form turns off the browser's native validation UI so you can fully control the accessible error experience instead of getting an inconsistent, browser-native tooltip layered on top.
+
+## Contrast is a number, not a feeling
+
+WCAG AA requires a contrast ratio of **4.5:1** for normal text and **3:1** for large text (18pt+, or 14pt+ bold) and UI components. This is a hard numeric threshold, check it with DevTools' contrast checker in the color picker, or a tool like WebAIM's.
+
+```css
+.text { color: #999; background: #fff; } /* fails AA, ~2.85:1 */
+.text { color: #767676; background: #fff; } /* passes AA, ~4.6:1 */
+```
+
+A designer picking brand colors for text on a brand-colored background without checking contrast is one of the most frequent real-world a11y bugs, and a common interview scenario: given a mockup with light gray text on white, name the issue.
+
+## Testing it for real
+
+Every major OS ships a screen reader: **VoiceOver** (macOS/iOS), **NVDA** (free, Windows), **JAWS** (Windows, paid), **TalkBack** (Android). The genuinely useful workflow: close your eyes, or turn off the monitor, and try to complete the task using only the screen reader and keyboard, this surfaces missing labels, bad heading order, and unreachable controls fast. Check that heading structure is logical and sequential, `h1` → `h2` → `h3`, no skipped levels, since screen reader users frequently navigate by heading rather than reading top to bottom. Automated tools, `axe-core`, Lighthouse's accessibility audit, `eslint-plugin-jsx-a11y`, catch roughly 30-40% of real issues, missing alt text, contrast failures, invalid ARIA, necessary but not sufficient. Manual keyboard and screen-reader testing catches what automation structurally can't: illogical reading order, unclear error messaging, whether a flow is actually usable end to end.
+
+```bash
+npm install --save-dev eslint-plugin-jsx-a11y
+```
+
+```json
+{ "extends": ["plugin:jsx-a11y/recommended"] }
+```
+
+The pattern running through every section here: native elements first, ARIA only for what HTML genuinely can't express, and manual testing to catch what linters and automated audits structurally miss.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('0c71f074-46cd-5318-b07c-8efda92d5834', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Error Handling', 'notes', 37, $md$Every production frontend fails in the field: a network drops, an API returns malformed JSON, a third-party script throws. Interviewers ask about error handling to see whether you design for that reality or only for the happy path. This lesson covers React error boundaries, global error capture, retry strategies, and how to turn a caught error into something a user can actually act on.
+
+## Error boundaries, and their real limits
+
+An error boundary catches JavaScript errors thrown during rendering, in lifecycle methods, and in constructors of its child tree, and renders a fallback instead of crashing the whole app. As of React 19 it's still only implementable as a **class component**, there's no hook equivalent, because the underlying mechanism, `getDerivedStateFromError`/`componentDidCatch`, requires the instance semantics only a class provides.
+
+```tsx
+class ErrorBoundary extends Component<{ fallback: (error: Error, reset: () => void) => ReactNode; onError?: (error: Error, info: ErrorInfo) => void; children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; } // runs during render
+  componentDidCatch(error: Error, info: ErrorInfo) { this.props.onError?.(error, info); } // runs after render — the right place for logging
+  reset = () => this.setState({ error: null });
+  render() {
+    if (this.state.error) return this.props.fallback(this.state.error, this.reset);
+    return this.props.children;
+  }
+}
+```
+
+```tsx
+<ErrorBoundary
+  fallback={(error, reset) => <div role="alert"><p>Something went wrong: {error.message}</p><button onClick={reset}>Try again</button></div>}
+  onError={(error, info) => reportToSentry(error, info.componentStack)}
+>
+  <Dashboard />
+</ErrorBoundary>
+```
+
+What error boundaries do **not** catch is the single most common trap here, and it's worth knowing the full list cold. Errors in event handlers, an `onClick` throwing, are regular JS errors, catch them with `try`/`catch` in the handler itself. Errors in asynchronous code, `setTimeout`, a promise, a `fetch` callback, since by the time the callback runs, React is no longer "inside" a render it can intercept. Errors during server-side rendering. And errors thrown inside the error boundary's own `render`, a boundary can't catch its own failure, nesting a second boundary above it is the only way to cover that case.
+
+There's no framework-level fix for the async and event-handler gaps, catch those manually, and if you want the nearest boundary to actually handle them, re-throw during a state update so the *next render* is what actually throws:
+
+```tsx
+function DangerousButton() {
+  const [, setError] = useState();
+  return (
+    <button onClick={() => {
+      try { riskyOperation(); }
+      catch (err) { setError(() => { throw err; }); } // re-throw during render so the nearest boundary catches it
+    }}>Run</button>
+  );
+}
+```
+
+In production code, most teams reach for the `react-error-boundary` package instead of hand-rolling the class above, same underlying mechanism, better ergonomics: a `useErrorBoundary` hook for the manual-throw pattern, and a `resetKeys` prop to auto-reset when relevant props change.
+
+```tsx
+import { ErrorBoundary } from "react-error-boundary";
+function App() {
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback} onError={(error, info) => reportToSentry(error, info)} onReset={() => window.location.reload()}>
+      <Dashboard />
+    </ErrorBoundary>
+  );
+}
+```
+
+## What catches everything a boundary can't
+
+Error boundaries only cover the React render tree. Two browser-level events catch what escapes it:
+
+```ts
+// Uncaught synchronous errors anywhere on the page, including outside React entirely
+window.addEventListener("error", (event) => {
+  reportToSentry(event.error ?? new Error(event.message), { filename: event.filename, lineno: event.lineno });
+});
+
+// Unhandled promise rejections — exactly the async gap error boundaries can't cover
+window.addEventListener("unhandledrejection", (event) => {
+  reportToSentry(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+  event.preventDefault(); // suppress the default "Uncaught (in promise)" console noise
+});
+```
+
+Most teams don't hand-roll this either. Sentry, Bugsnag, and similar tools install both listeners automatically and add source-map-resolved stack traces, breadcrumbs, a trail of recent user actions and console logs leading up to the error, and release/environment tagging on top. Knowing what they hook into, `error`, `unhandledrejection`, plus `componentDidCatch` for React, is what interviewers actually probe for, not which vendor happens to be in use.
+
+## Retrying transient failures without making things worse
+
+Network calls fail transiently: a blip, a timeout, a momentarily overloaded server. Retrying with **exponential backoff and jitter** is the standard pattern, backing off exponentially so you don't hammer a server that's already struggling, and adding jitter so many clients retrying at once don't collide on the same schedule, the "thundering herd" problem.
+
+```ts
+async function fetchWithRetry(url: string, options?: RequestInit, { maxRetries = 3, baseDelayMs = 300, maxDelayMs = 5000 } = {}): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      // Only retry on 5xx or 429 — a 4xx client error like 400/404 won't succeed on retry
+      if (res.ok || (res.status < 500 && res.status !== 429)) return res;
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (err) { lastError = err; } // network failure, DNS error, etc.
+
+    if (attempt < maxRetries) {
+      const exponential = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
+      const jitter = Math.random() * exponential * 0.3;
+      await new Promise((resolve) => setTimeout(resolve, exponential + jitter));
+    }
+  }
+  throw lastError;
+}
+```
+
+Trace one failing call: attempt 0 gets a 503, `lastError` is set, and the loop waits ~300ms plus jitter before attempt 1. If attempt 1 also fails, the wait roughly doubles, capped at `maxDelayMs`. Once `attempt` exceeds `maxRetries`, the loop exits and the last recorded error is thrown, so the caller sees a real error object rather than a silent `undefined`.
+
+Four details interviewers listen for specifically. **Which failures are retryable**: a 404 or 400 fails identically on retry, don't retry client errors; 5xx and 429 (respecting a `Retry-After` header if present) are the retryable cases. **A retry ceiling**: unbounded retries turn a transient blip into an indefinite hang from the user's perspective, always cap attempts and surface a final failure state. **Idempotency**: retrying a `POST` that creates a resource can duplicate it if the first attempt actually succeeded but the response was lost in transit; `GET`/`PUT`/`DELETE` are safe to retry by HTTP semantics, `POST` is risky without an idempotency key. **Libraries**: TanStack Query and SWR implement this exact pattern out of the box, and reaching for one of them is usually the right production call, over hand-rolling retry logic, unless the interview specifically asks you to implement it yourself.
+
+## Failing in a way the user can actually recover from
+
+The goal isn't "never fail." It's failing in a way the user can understand and act on.
+
+```tsx
+function DataPanel({ userId }: { userId: string }) {
+  const { data, error, isLoading, refetch } = useUserData(userId);
+  if (isLoading) return <Skeleton />;
+  if (error) {
+    if (error.status === 401) return <SignInPrompt />;
+    if (error.status === 0) return <div role="alert"><p>You appear to be offline. Check your connection.</p><button onClick={refetch}>Retry</button></div>;
+    return <div role="alert"><p>Couldn't load this data right now.</p><button onClick={refetch}>Retry</button></div>;
+  }
+  return <UserSummary data={data} />;
+}
+```
+
+Three principles worth stating explicitly. **Specific error messages, not "Something went wrong."** Distinguish "you're offline," "you're not authorized," and "the server failed," since each has a different correct next action for the user to take. **Always offer a next step**: retry, sign in again, contact support. An error state with no action is a dead end. **Degrade partial failures gracefully.** If a dashboard has five independent widgets and one API call fails, the other four should still render, isolate error boundaries per widget rather than wrapping the whole page in one boundary that takes everything down together.
+
+```tsx
+function Dashboard() {
+  return (
+    <div className="grid">
+      <ErrorBoundary fallback={() => <WidgetError name="Revenue" />}><RevenueWidget /></ErrorBoundary>
+      <ErrorBoundary fallback={() => <WidgetError name="Traffic" />}><TrafficWidget /></ErrorBoundary>
+    </div>
+  );
+}
+```
+
+React's boundaries, the browser's global listeners, and a retry policy each cover a different failure surface, and a production app needs all three, plus UI that tells the user something specific and actionable happened, not just that something did.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('f6c28145-c26e-58b9-950a-7396ec6af353', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Internationalization', 'notes', 38, $md$Internationalization questions test whether you understand that "translate the strings" is the easy 10%. The hard parts are pluralization rules, locale-aware formatting, RTL layout, and not shipping every locale's translations to every user. This lesson covers the standard approaches, react-intl, the native `Intl` API, and RTL support.
+
+## The landscape
+
+| Approach | How it works | Trade-off |
+|---|---|---|
+| Key-based lookup (react-intl, react-i18next) | `t("welcome.message")` maps to a translated string per locale | Needs discipline to keep keys and translations in sync, though tooling can catch missing keys |
+| ICU MessageFormat | Rich format strings inside the value handle plurals, gender, interpolation | More powerful pluralization, steeper syntax |
+| Native `Intl` API | Browser-built-in for numbers, dates, lists, relative time, plural rules | Only formatting, no fluent phrases, no string management |
+
+Most real apps combine the first and third: a translation library for UI copy, and `Intl` for locale-aware formatting of dates, numbers, and currency, since `Intl` already knows every locale's formatting rules, shipping your own would be redundant and error-prone.
+
+## react-intl (FormatJS)
+
+```json
+// messages/en.json
+{ "welcome": "Welcome back, {name}!", "cart.itemCount": "{count, plural, =0 {No items} one {# item} other {# items}} in your cart" }
+```
+
+```json
+// messages/fr.json
+{ "welcome": "Content de vous revoir, {name} !", "cart.itemCount": "{count, plural, =0 {Aucun article} one {# article} other {# articles}} dans votre panier" }
+```
+
+```tsx
+function App({ locale }: { locale: "en" | "fr" }) {
+  return <IntlProvider locale={locale} messages={messages[locale]} defaultLocale="en"><Dashboard /></IntlProvider>;
+}
+function Dashboard() {
+  const intl = useIntl();
+  return (
+    <div>
+      <h1><FormattedMessage id="welcome" values={{ name: "Jane" }} /></h1>
+      <p>{intl.formatMessage({ id: "cart.itemCount" }, { count: 3 })}</p>
+    </div>
+  );
+}
+```
+
+The `{count, plural, =0 {...} one {...} other {...}}` syntax is **ICU MessageFormat**, and it's the actual reason to reach for react-intl over a simpler key-value library. Pluralization isn't "singular versus plural" in most languages, some have distinct forms for one, two, few, many, and other. ICU's plural categories map onto whichever subset a given locale actually uses, applying the correct grammatical rule automatically via `Intl.PluralRules` under the hood.
+
+## Loading translations lazily, per locale
+
+Shipping every locale's bundle to every user wastes bytes, an English visitor doesn't need the French, German, and Japanese bundles downloaded alongside it. Load translations the same way you'd code-split a route:
+
+```tsx
+async function loadMessages(locale: string) {
+  return (await import(`./messages/${locale}.json`)).default;
+}
+
+function App() {
+  const [locale, setLocale] = useState(detectLocale());
+  const [messages, setMessages] = useState<Record<string, string> | null>(null);
+  useEffect(() => { loadMessages(locale).then(setMessages); }, [locale]);
+  if (!messages) return <Spinner />;
+  return <IntlProvider locale={locale} messages={messages}><Dashboard /></IntlProvider>;
+}
+
+function detectLocale(): string {
+  const supported = ["en", "fr", "de", "ja"];
+  const browserLocale = navigator.language.split("-")[0];
+  return supported.includes(browserLocale) ? browserLocale : "en";
+}
+```
+
+In a framework like Next.js, the routing layer itself, `[locale]` dynamic segments, `next-intl`, resolves the locale from the URL path or `Accept-Language` header server-side and serves only that locale's bundle, avoiding a client-side fetch waterfall entirely on the initial load.
+
+## Formatting with Intl, never by hand
+
+The native `Intl` API is the correct tool for formatting. Never hand-roll date or currency formatting, locale rules, decimal separators, thousands separators, date field order, currency symbol placement, vary in ways that are easy to get wrong and expensive to maintain yourself.
+
+```ts
+new Intl.NumberFormat("en-US").format(1234567.89); // "1,234,567.89"
+new Intl.NumberFormat("de-DE").format(1234567.89); // "1.234.567,89"
+
+new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(49.99); // "$49.99"
+new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(49.99); // "49,99 €"
+
+new Intl.DateTimeFormat("en-US").format(new Date("2026-07-16")); // "7/16/2026"
+new Intl.DateTimeFormat("en-GB").format(new Date("2026-07-16")); // "16/07/2026"
+
+const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+rtf.format(-3, "day"); // "3 days ago"
+
+new Intl.ListFormat("en", { type: "conjunction" }).format(["Alice", "Bob", "Carol"]); // "Alice, Bob, and Carol"
+```
+
+React components typically wrap these to avoid recreating a formatter instance, which has real construction cost, on every render:
+
+```tsx
+function useCurrencyFormatter(locale: string, currency: string) {
+  return useMemo(() => new Intl.NumberFormat(locale, { style: "currency", currency }), [locale, currency]);
+}
+```
+
+react-intl's `FormattedDate`, `FormattedNumber`, and `FormattedRelativeTime` components are thin wrappers around exactly these `Intl` constructors, plus this same memoization, plus reading the active locale from context automatically.
+
+## RTL: the layout flips, not just the text
+
+Roughly a dozen widely-used languages, Arabic, Hebrew, Persian, Urdu, are right-to-left, and getting it right involves more than mirroring text, the entire layout direction flips.
+
+```html
+<html dir="rtl" lang="ar">
+```
+
+Setting `dir="rtl"` on `<html>`, or any container, flips text alignment, flexbox and grid item order (with no JSX changes needed), the direction `margin`/`padding`/`border` shorthand apply visually, and native form control alignment, all automatically, because these properties are direction-aware by the CSS spec itself, not something requiring JS to flip.
+
+The CSS mistake to avoid: physical properties, `margin-left`, `padding-right`, `text-align: left`, don't flip with `dir="rtl"` at all. They stay pinned to the physical left or right regardless of reading direction, which breaks layout in RTL locales. **Logical properties** flip automatically because they're defined relative to text-flow direction, not a physical screen side.
+
+```css
+/* Bad: pinned to physical left, breaks visually in RTL */
+.card { margin-left: 16px; text-align: left; }
+/* Good: logical properties, correct in both LTR and RTL automatically */
+.card { margin-inline-start: 16px; text-align: start; }
+```
+
+| Physical (avoid) | Logical (prefer) |
+|---|---|
+| `margin-left` / `margin-right` | `margin-inline-start` / `margin-inline-end` |
+| `padding-left` / `padding-right` | `padding-inline-start` / `padding-inline-end` |
+| `left` / `right` (positioning) | `inset-inline-start` / `inset-inline-end` |
+| `text-align: left/right` | `text-align: start/end` |
+| `border-left` / `border-right` | `border-inline-start` / `border-inline-end` |
+
+Icons that convey direction, a "back" arrow, a "next" chevron, need to mirror in RTL too, and that's not automatic, it needs explicit handling, typically scoped to `[dir="rtl"]`:
+
+```css
+[dir="rtl"] .back-arrow-icon { transform: scaleX(-1); }
+```
+
+## What breaks past the obvious date and currency cases
+
+Pluralization is not binary in many languages, Russian and Polish have multiple plural forms depending on the exact count, and `Intl.PluralRules`/ICU MessageFormat handle this correctly where a manual `count === 1 ? "item" : "items"` check simply doesn't generalize. Name order and formality vary too, some locales expect family name before given name, or require formal and informal address forms English doesn't have at all. Text expansion is a layout concern worth naming explicitly: German and Finnish UI strings routinely run 30-40% longer than the English original, and a layout hardcoded to English string lengths visibly breaks once translated, so fixed-width buttons and labels should be designed to tolerate that from the start, not fit English exactly.
+
+The failures that actually show up in production rarely come from a missing translation key. They come from formatting logic hardcoded for one locale and never revisited: a price built with string concatenation instead of `Intl.NumberFormat`, a plural check that only handles English, a fixed-width button that clips German text. Treating `Intl` and ICU pluralization as the default from day one, rather than a retrofit once a second locale ships, is what separates code that scales to new markets from code that needs a rewrite to get there.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a082d56e-9f7f-5102-a71c-4913bbdf043a', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Animation', 'notes', 39, $md$Animation questions apply the rendering-pipeline knowledge from earlier in this course to a concrete deliverable: build something that moves smoothly, explain why it's smooth, and know when JavaScript is actually necessary versus CSS alone. This lesson covers CSS versus JS animation, Framer Motion, gesture animations, and the performance and accessibility rules that separate a working demo from something production-ready.
+
+## CSS versus JS: which thread does the work
+
+CSS transitions and animations run largely on the browser's compositor thread when restricted to `transform`/`opacity`, independent of the main JS thread, so they keep running smoothly even while JavaScript is busy elsewhere, a heavy computation, a slow re-render. JS-driven animation, via `requestAnimationFrame` or a library, runs on the main thread instead, and is therefore vulnerable to exactly that kind of jank.
+
+```css
+/* Compositor-friendly, no JS needed */
+.card { transform: scale(1); transition: transform 0.2s ease-out; }
+.card:hover { transform: scale(1.05); }
+
+@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.toast { animation: slideIn 0.3s ease-out; }
+```
+
+CSS alone is enough for hover and focus states, simple enter/exit transitions, loading spinners, anything with a fixed, predetermined start and end state that doesn't need to respond to input mid-animation or coordinate with application state. JavaScript becomes necessary the moment an animation must interrupt or reverse based on user input mid-flight (a drag gesture), needs to be sequenced or orchestrated across multiple elements with dynamic timing, needs physics-based motion reacting to velocity, or needs to read live layout measurements, the FLIP technique covered further down.
+
+## Framer Motion basics
+
+Framer Motion, now branded Motion for React, is the standard JS animation library in the React ecosystem. It wraps DOM elements with a declarative API while still animating `transform`/`opacity` under the hood wherever it can, giving JS-level control without giving up compositor performance for the properties that support it.
+
+```tsx
+import { motion } from "framer-motion";
+function FadeInCard({ children }: { children: React.ReactNode }) {
+  return <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }}>{children}</motion.div>;
+}
+```
+
+`initial` is the starting state, `animate` is the target state Motion tweens toward on mount and on subsequent value changes, `transition` controls timing and easing. Swapping duration-based easing for a spring is one prop change: `transition={{ type: "spring", stiffness: 300, damping: 20 }}`.
+
+**Exit animations** need `AnimatePresence`, since React normally unmounts a component immediately, leaving no window for an exit animation to play unless something explicitly delays the actual DOM removal.
+
+```tsx
+function Toast({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+  return (
+    <AnimatePresence>
+      {message && (
+        <motion.div key={message} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+          {message}<button onClick={onDismiss}>Dismiss</button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+```
+
+Trace what happens the instant `message` becomes `null`: React would normally remove the `motion.div` on the very next render. `AnimatePresence` intercepts that, keeps the element mounted just long enough to run the `exit` animation, and only lets React actually remove it once that animation finishes, a "delay the unmount" mechanism worth being able to explain precisely, it's a common follow-up question.
+
+## Gesture animations
+
+Drag, pan, and hover gestures are where hand-rolling with raw `pointermove`/`pointerup` listeners gets tedious fast, and it's Motion's strongest differentiator over plain CSS.
+
+```tsx
+function DraggableCard() {
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 200], [-15, 15]); // derived without triggering re-renders
+  return (
+    <motion.div drag="x" dragConstraints={{ left: -200, right: 200 }} dragElastic={0.2} style={{ x, rotate }}
+      onDragEnd={(_, info) => { if (Math.abs(info.offset.x) > 150) console.log(info.offset.x > 0 ? "swiped right" : "swiped left"); }}>
+      Swipe me
+    </motion.div>
+  );
+}
+```
+
+`useMotionValue`/`useTransform` are the key performance detail here: values driven through them update the DOM directly, via the compositor-friendly `transform`, without going through React's render cycle at all. Dragging this card doesn't re-render the component on every pixel of movement, only regular React state would do that.
+
+```tsx
+// Motion computes a FLIP transition (First-Last-Invert-Play) automatically
+// whenever an element's layout position or size changes, e.g. a reordering list
+<motion.div layout transition={{ type: "spring" }}>{content}</motion.div>
+```
+
+The `layout` prop is Framer Motion's implementation of FLIP. It measures the element's position **F**irst, lets React re-render to the **L**ast position, **I**nverts the visual jump with a transform back to the original spot, then **P**lays a transition to zero. That's what lets a genuine layout change, an item removed causing others to shift up, animate smoothly using only compositor-friendly transforms, instead of animating the actual `top`/`left` layout properties.
+
+## Performance rules, and they're the same ones from earlier in this course
+
+Animate `transform`/`opacity`, never `top`/`left`/`width`/`height`/`margin`, the exact rule from the CSS rendering-performance lesson, applied here directly: a layout-affecting property forces Style, Layout, Paint, and Composite every frame, while `transform`/`opacity` can skip straight to Composite. Set `will-change` immediately before an animation starts and remove it once it ends, leaving it on permanently fragments the page into unnecessary GPU layers, and Motion manages this internally for elements it's actively animating. Avoid animating too many elements at once, even compositor-only animations carry a per-layer memory and GPU cost, so staggering (`staggerChildren`) both looks better and costs less than triggering hundreds of elements simultaneously.
+
+```tsx
+const container = { animate: { transition: { staggerChildren: 0.05 } } };
+const item = { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } };
+function StaggeredList({ items }: { items: string[] }) {
+  return <motion.ul variants={container} initial="initial" animate="animate">{items.map((text) => <motion.li key={text} variants={item}>{text}</motion.li>)}</motion.ul>;
+}
+```
+
+Scroll-linked animations specifically need `useTransform`/`useSpring`, which Motion optimizes internally, rather than a naive `onScroll` handler calling `setState` on every scroll event, which would trigger a full React re-render per scroll tick.
+
+## Motion isn't accessibility-neutral
+
+Vestibular disorders can make large, fast animations genuinely nauseating or disorienting, and the platform gives a documented way to respect that.
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+```
+
+```tsx
+function FadeInCard({ children }: { children: React.ReactNode }) {
+  const shouldReduceMotion = useReducedMotion();
+  return <motion.div initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}>{children}</motion.div>;
+}
+```
+
+`useReducedMotion` reads the OS-level `prefers-reduced-motion` setting so motion can be conditionally shrunk, typically keeping opacity fades while dropping translation, scale, and parallax, rather than blanket-disabling all animation, which can make an interface feel broken rather than considerate. Opacity-only transitions are the correct default to preserve; movement, scale, and parallax are what should go. A second accessibility detail worth naming: anything that auto-plays and loops indefinitely, background video, an infinite carousel, needs a visible pause control under WCAG 2.2.2. Motion the user can't stop is a genuine accessibility failure, not merely a preference.
+
+## Picking a tool
+
+| Library | Best for | Trade-off |
+|---|---|---|
+| CSS transitions/animations | Simple, fixed-state transitions | No mid-animation interruption, no physics, no gestures |
+| Framer Motion (Motion) | Gesture-driven UI, layout transitions, orchestrated sequences | Adds bundle weight, overkill for a simple hover effect |
+| React Spring | Physics-based, lower-level, more flexible API | Steeper learning curve than Motion's declarative props |
+| GSAP | Timeline sequencing, SVG morphing, scroll-triggered animation | Imperative API composes less naturally with React |
+| Web Animations API (native) | One-off imperative animations, no dependency | Verbose past a single element's simple animation |
+
+The interview-ready framing: reach for CSS first, it's the cheapest, most performant, and needs zero JS. Reach for Motion when gesture handling, layout animations, or state-driven orchestration are things CSS structurally can't express. Know that GSAP and React Spring exist as the alternatives worth naming for timeline-heavy or physics-heavy special cases, even if you wouldn't reach for them by default.
+$md$, 30, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('21459acf-e889-542e-9c30-c163c45843b9', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Crash-Course Review: Rapid Recall', 'notes', 40, $md$This is the night-before version of the whole frontend track: a rapid-fire recall list across JavaScript, React, browser APIs, CSS, and TypeScript, followed by one worked example of presenting a personal project confidently. Each entry is a memory jog pointing back at a full lesson earlier in this course, not a fresh explanation, use it to find the gaps worth re-reading before an interview, not as a first pass at learning any of this.
+
+## JavaScript
+
+`var`, `let`, `const`: `var` is function-scoped and redeclarable; `let` is block-scoped, reassignable, not redeclarable; `const` is block-scoped and can't be reassigned after initialization. Hoisting lifts declarations to the top of their scope before execution, but differently by kind: `var` hoists initialized to `undefined`; `let`/`const` hoist but sit in the temporal dead zone until their line runs, so touching them early throws; function declarations hoist whole, body included, callable before their own line. Closures: a function keeps access to its outer scope's variables even after that outer function has returned, exactly what makes a debounce hook's timer callback still "remember" the value from the render that created it. `this` depends on the call site, not where a function is defined; arrow functions inherit it lexically instead of getting their own, which is why they're preferred for callbacks. `call(thisArg, a, b)` invokes immediately with listed arguments; `apply(thisArg, [a, b])` invokes immediately with an array; `bind(thisArg)` returns a new function permanently bound, to be called later. The event loop: synchronous code first, then the entire microtask queue drains, then one macrotask runs, then the cycle repeats, which is why `Promise.resolve().then()` always fires before `setTimeout(fn, 0)`. `==` coerces before comparing (`"0" == false` is `true`); `===` never coerces. A shallow copy duplicates only the top level, nested objects stay shared references; a deep copy recursively duplicates every level. Prototypal inheritance: a missing property lookup walks the prototype chain until it's found or hits `null`. Currying transforms a multi-argument function into a sequence of single-argument functions. Debounce waits for activity to stop; throttle fires at a fixed interval regardless of activity. `async`/`await` is sugar over Promises, `await` pauses execution until the awaited Promise settles, and a rejection is caught with a normal `try`/`catch`. A pure function returns the same output for the same input and touches nothing outside itself. `undefined` means declared but never assigned; `null` means deliberately set to "no value." `typeof null` is `"object"`, a permanent language quirk. A higher-order function takes a function as an argument, returns one, or both.
+
+## React
+
+The virtual DOM is a lightweight in-memory tree; React diffs the new one against the previous and applies only the minimal real-DOM update. `useState` re-renders on every setter call; `useRef` persists a value across renders without ever causing one. `useEffect` runs after render and DOM commit; an empty dependency array means once, listed values mean "re-run when any change," and its cleanup runs before the next run and on unmount. `useEffect` runs asynchronously after paint; `useLayoutEffect` runs synchronously before paint, blocking it, needed when the DOM must be measured or mutated before the user sees anything. `useMemo` memoizes a computed value; `useCallback` memoizes a function reference, so a `React.memo` child doesn't see a "new" prop every render. `React.memo` skips a re-render when props are shallow-equal to last time. Controlled means an input's value lives in React state; uncontrolled means it lives in the DOM, read via a ref only when needed. The `key` prop tells React which array item maps to which rendered element across renders, using an array index breaks this the moment items reorder or get inserted. Context lets data flow through the tree without manual prop passing at every level. A custom hook is reusable stateful logic in a function starting with `use`, so the linter can apply the Rules of Hooks to it. Compound components share state through context rather than explicit props, mirroring native `<select>`/`<option>`. An HOC wraps a component and returns a new one; a custom hook only reuses logic and renders nothing itself. Error boundaries are class components that catch render-tree errors in their children and show a fallback instead of crashing. A common convention: a query library (React Query, SWR) owns server state, cache, refetch, staleness, while Redux Toolkit or local state owns client/UI state. `React.lazy` plus `Suspense` loads a bundle on demand instead of shipping everything upfront. Portals render a component's output into a DOM node outside its normal parent hierarchy, common for modals escaping a parent's `overflow: hidden`. `forwardRef` lets a parent obtain a ref to a DOM node living inside a child component.
+
+## Async and browser
+
+Fix a fetch race condition by cancelling the previous in-flight request with `AbortController` the moment a new one starts; without it, a slower earlier response can resolve after a faster later one and overwrite the UI with stale data. `fetch` is built-in and requires manually calling `.json()` and checking `response.ok`; `axios` parses JSON automatically and throws on a non-2xx response by default, with richer error objects. CORS is a browser mechanism blocking cross-origin reads unless the server explicitly allows it via response headers. `localStorage` persists until explicitly cleared; `sessionStorage` clears when the tab closes; cookies are sent to the server automatically with every matching request, unlike the other two. Intersection Observer detects an element entering or exiting the viewport, used for infinite scroll and lazy-loading images. The rendering pipeline: parse HTML into a DOM tree, compute styles, calculate layout, then paint pixels, in that order.
+
+## CSS
+
+The box model: `content-box` (default) sizes `width`/`height` to content only, with padding and border added on top; `border-box` includes padding and border inside the declared size. Flexbox lays out along one axis; Grid lays out along two. `position: relative` offsets from an element's own normal position while its original space stays reserved; `absolute` positions relative to the nearest non-static ancestor and removes normal-flow space; `fixed` pins to the viewport; `sticky` behaves relative until a scroll threshold, then behaves fixed. Specificity: ID beats class beats element selector, regardless of source order. `em` is relative to the parent's font-size and compounds when nested; `rem` is always relative to the root, easier to reason about in deep nesting. A Block Formatting Context is an independent layout region containing floated children and preventing margin collapse with elements outside it; `overflow: hidden` or `display: flex`/`grid` creates one as a side effect. `display: none` removes an element from layout entirely and blocks events; `visibility: hidden` reserves its space but hides it and blocks events; `opacity: 0` reserves space and hides visually, but clicks still fire since the element is technically still there. Media queries default mobile-first, base styles for mobile, `min-width` queries adding or overriding as the viewport grows. `z-index` only has an effect on elements whose `position` is not `static`.
+
+## TypeScript
+
+`interface` supports declaration merging and reads more naturally with `extends`; `type` handles unions and intersections more flexibly and can alias any type, not just object shapes, largely interchangeable otherwise. Generics (`<T>`) are reusable type placeholders letting a function or component work across a range of types while staying fully checked, instead of falling back to `any`. `any` disables type checking entirely; `unknown` also accepts anything but requires a check or cast before use, the safer choice when a type genuinely isn't known yet. A union (`A | B`) means either type; an intersection (`A & B`) means both at once. `?.` short-circuits to `undefined` instead of throwing on `null`/`undefined` access; `??` falls back only on `null`/`undefined`, unlike `||`, which also falls back on `0` or `""`.
+
+## Architecture talking points
+
+Organize folders by feature, components, hooks, and services grouped together, rather than by file type. Keep API access separate from UI components, usually through custom hooks wrapping `fetch` or a query library. Be ready to explain the Redux Toolkit versus query-library state boundary, not just name it. Centralize error handling by combining error boundaries, per-request `try`/`catch`, and user-facing messaging. Performance at scale: list virtualization, lazy loading, code splitting. Interviewers are usually testing the reasoning behind each choice more than the specific answer itself, so be ready to explain trade-offs, not just recite a decision.
+
+## Presenting a personal project with confidence
+
+Worked example: a small side project, described the way it should actually come out in an interview, problem, solution, architecture, then one interesting design decision.
+
+**Problem**: managing expenses across multiple bank accounts is tedious, and existing budgeting apps track spending but don't automatically reconcile invoices or receipts against bank transactions across accounts.
+
+**Solution flow**: user uploads bank statements or invoices as PDFs, they're sent to an LLM for parsing, the LLM returns structured JSON (date, amount, category), the backend auto-matches that against existing transactions by date and amount, a match links the invoice to that transaction, and the user sees a dashboard with a category-wise spending breakdown.
+
+**Stack**: React and Redux Toolkit on the frontend, Django REST Framework on the backend, an LLM integration for document parsing, Docker and AWS for deployment.
+
+The framing that matters more than the project itself: never call your own project "very simple" in an interview. Present it as problem, solution, architecture, then one genuinely interesting design decision, regardless of the project's actual size or scope. A small project presented with that structure reads as more senior than an impressive project presented apologetically.
+$md$, 40, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('03be40bc-9413-5a69-a2b8-63efaa6ad092', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', 'Crash-Course: A Real Interview Prep Session', 'notes', 41, $md$Everything else in this course is structured, ordered material. This is the opposite: an actual 12-hour cram session written the night before a real onsite, kept close to its original form because that's what makes it useful, it shows what preparing for a specific interview actually looks like once the studying is mostly done and it's time to compress everything down to what you'll say out loud.
+
+**Role:** Frontend Engineer, Logistics & Finance. **R1:** Live Coding. **R2:** Architecture.
+
+---
+
+## 1. JS fundamentals, written from scratch, no reference
+
+**MyPromise**
+```js
+class MyPromise {
+  constructor(executor) {
+    this.state = "pending";
+    this.value = undefined;
+    this.callbacks = [];
+    const resolve = (val) => {
+      if (this.state !== "pending") return;
+      this.state = "fulfilled"; this.value = val;
+      this.callbacks.forEach(cb => cb.onFulfilled(val));
+    };
+    const reject = (err) => {
+      if (this.state !== "pending") return;
+      this.state = "rejected"; this.value = err;
+      this.callbacks.forEach(cb => cb.onRejected(err));
+    };
+    executor(resolve, reject);
+  }
+  then(onFulfilled, onRejected) {
+    return new MyPromise((resolve, reject) => {
+      const handle = () => {
+        if (this.state === "fulfilled") resolve(onFulfilled(this.value));
+        if (this.state === "rejected") reject(onRejected ? onRejected(this.value) : this.value);
+      };
+      if (this.state === "pending") this.callbacks.push({ onFulfilled: handle, onRejected: handle });
+      else handle();
+    });
+  }
+}
+```
+Trace `new MyPromise(executor).then(f)`: the constructor runs `executor` immediately, so if it calls `resolve` right away, `state` is already `"fulfilled"` before `.then` is even called. `.then(f)` then sees `state !== "pending"` is false, so it calls `handle()` immediately, which resolves the new promise with `f(this.value)`. If the executor is async instead, `.then(f)` runs first, sees `"pending"`, and pushes onto `callbacks` to wait, `resolve` eventually drains that array and finally calls `f`.
+
+**bind / call**
+```js
+Function.prototype.myBind = function (ctx, ...args1) {
+  const fn = this;
+  return (...args2) => fn.apply(ctx, [...args1, ...args2]);
+};
+Function.prototype.myCall = function (ctx, ...args) {
+  ctx.fn = this;
+  const result = ctx.fn(...args);
+  delete ctx.fn;
+  return result;
+};
+```
+`myBind` never calls the function at all, it captures it in a closure and returns a new function that applies the original with `ctx` and merged arguments whenever it's eventually called. `myCall` calls immediately: it temporarily attaches the function to `ctx` so calling it as `ctx.fn(...)` makes `this` inside it equal `ctx`, then deletes the temporary property so it doesn't leak.
+
+**debounce / throttle**
+```js
+function debounce(fn, delay) {
+  let timer;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
+}
+function throttle(fn, limit) {
+  let inThrottle;
+  return (...args) => {
+    if (!inThrottle) { fn(...args); inThrottle = true; setTimeout(() => inThrottle = false, limit); }
+  };
+}
+```
+
+**Race condition fix (React)**
+```js
+useEffect(() => {
+  const controller = new AbortController();
+  fetch(url, { signal: controller.signal }).then(setData);
+  return () => controller.abort();
+}, [query]);
+```
+If `query` changes again before the first fetch resolves, React runs the old effect's cleanup before the new one, aborting the stale request. That aborted fetch rejects instead of resolving, so its `setData` never fires, and only the response for the latest `query` ever reaches state.
+
+---
+
+## 2. Live coding: practice these two, timed, 25 minutes each
+
+1. **Typeahead/autocomplete**: debounce the input, cancel stale requests, handle loading/error/empty states, support keyboard navigation.
+2. **Infinite scroll list**: use IntersectionObserver, avoid duplicate fetches, and be ready to mention virtualization for large data sets.
+
+**Behavior rules**: think out loud, ask clarifying questions first, brute-force then optimize, and narrate edge cases you'd otherwise miss, money formatting and timezones especially, since those are directly relevant to a Finance/Logistics domain.
+
+---
+
+## 3. React performance and state: talking points
+
+`useMemo`/`useCallback` are only worth it for expensive computation or referential stability, don't reach for them by default. `React.memo` does a shallow prop compare, and breaks the moment you pass a new object or array literal on every render. Reconciliation uses fiber diffing plus keys to match elements between renders, and applies the resulting updates in a batch. React Query versus Redux Toolkit: React Query owns server state, cache, refetch, stale-while-revalidate; Redux Toolkit owns client/UI state. Have one real example ready where you actually split these two apart in a project.
+
+---
+
+## 4. Architecture round: structure every answer as
+
+**Requirements, then data flow, then component breakdown, then state management, then performance, then edge cases.**
+
+Prep this one in full: *"Design a real-time shipment tracking dashboard."* Data: decide between polling and WebSocket/SSE for live updates. State: a query library for server cache, Redux Toolkit or local state for UI-only concerns. Large lists: virtualization plus server-side pagination and filtering. Optimistic updates for status-change actions, with rollback on failure. Errors, loading, and empty states handled consistently across the app.
+
+Know briefly, two-minute explanations: Module Federation for sharing components across independently deployed micro-frontends; route-based code splitting plus `React.lazy`/`Suspense`; money handling, avoid floats, use integers or a decimal library; API collaboration via a contract-first process (OpenAPI), with standardized error shapes agreed between frontend and backend.
+
+---
+
+## 5. Personal stories, rehearse out loud, under 90 seconds each
+
+1. A frontend/backend collaboration moment, shaping an API contract or landing a performance fix.
+2. An OpenAI integration story covering latency/loading UX, retries, and error handling for a third-party API's failures, built as a React frontend against a Django REST Framework backend, with Docker/AWS deployment reasoning to explain.
+
+---
+
+## 6. Questions worth asking back
+
+How is frontend structured across the Logistics and Finance teams, shared library, monorepo, or separate deployables? What does the real-time data pipeline actually look like for logistics tracking? What's the biggest current frontend scaling or performance challenge? Is there a spec-first process for frontend/backend API contracts?
+
+---
+
+## Cheat sheet
+
+| Topic | One-liner |
+|---|---|
+| Closures | A function plus its captured scope. `let` in a loop gives each iteration its own binding. |
+| bind/call/apply | `call`/`apply` invoke right away, differing only in args-as-list vs args-as-array. `bind` returns a new function instead of invoking anything. |
+| Promises | States: pending, fulfilled, rejected. `.then` callbacks run via the microtask queue. |
+| Race conditions | Fix with an `AbortController` created inside `useEffect` and aborted in its cleanup. |
+| Reconciliation | Fiber diffing plus keys, updates applied in a batch. |
+| useMemo/useCallback | Worth it only for expensive computation or referential stability, not by default. |
+| React.memo | Shallow prop compare. Breaks if you pass a new literal on every render. |
+| React Query vs RTK | Server cache vs client/UI state. |
+| Module Federation | Share code across independently deployed micro-frontends. |
+| Optimistic UI | Update immediately, roll back on failure. |
+| Money | Integers/cents or a decimal library, never raw floats. |
+| Virtualization | Render only visible rows. |
+
+## 12-hour time allocation
+
+Hours 1-2: JS rebuild. Hours 3-5: live coding practice. Hours 6-7: perf/state talking points. Hours 8-9: architecture answer. Hours 10-11: stories. Hour 12: cheat sheet skim and rest.
+$md$, 30, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Behavioral

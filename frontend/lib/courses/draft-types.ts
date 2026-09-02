@@ -39,12 +39,14 @@ export interface DraftSection {
 }
 
 export interface CourseInfo {
-  title:       string;
-  description: string;
-  cover_url:   string;
-  difficulty:  string;
-  tags:        string[];
-  is_free:     boolean;
+  title:            string;
+  description:      string;
+  cover_url:        string;
+  difficulty:       string;
+  tags:             string[];
+  is_free:          boolean;
+  disable_code_run: boolean;
+  disable_reflection: boolean;
 }
 
 export interface CourseDraft {
@@ -82,7 +84,7 @@ export function makeBlock(type: ContentBlock["type"]): ContentBlock {
 }
 
 export const EMPTY_DRAFT: CourseDraft = {
-  info: { title: "", description: "", cover_url: "", difficulty: "beginner", tags: [], is_free: true },
+  info: { title: "", description: "", cover_url: "", difficulty: "beginner", tags: [], is_free: true, disable_code_run: false, disable_reflection: false },
   sections: [],
   status: "draft",
 };
@@ -111,6 +113,8 @@ export function courseTreeToDraft(tree: {
   difficulty: string;
   tags: string[];
   is_free: boolean;
+  disable_code_run: boolean;
+  disable_reflection: boolean;
   status: string;
   sections: {
     id: string;
@@ -133,6 +137,8 @@ export function courseTreeToDraft(tree: {
       difficulty:  tree.difficulty,
       tags:        tree.tags ?? [],
       is_free:     tree.is_free,
+      disable_code_run: tree.disable_code_run,
+      disable_reflection: tree.disable_reflection,
     },
     sections: tree.sections.map((section) => ({
       localId: uid(),

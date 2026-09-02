@@ -97,8 +97,10 @@ export function resolveAnalyzeHighlights(items: ReviewItem[]): DiaryHighlight[] 
 
 // Owns the review reducer + the preview AI call. DiaryEditor swaps its
 // lined-paper write area for <DiaryAnalyzeReviewPanel> in place while
-// state.status !== "closed" — same pattern as useFixEnglishReview, and the
-// two never overlap (only one review panel is ever open at once).
+// state.status !== "closed" — items can arrive either from a fresh
+// analyzePreviewAction call (open) or already-detected from the combined
+// "AI" button's reviewDumpAction (loadFromHighlights), which skips the AI
+// round trip since Preview already ran server-side.
 export function useAnalyzeReview() {
   const [state, dispatch] = useReducer(reviewReducer, initialState);
 
@@ -112,6 +114,10 @@ export function useAnalyzeReview() {
   return {
     state,
     open,
+    // Loads an already-detected highlight list directly (e.g. from the
+    // combined "AI" button's reviewDumpAction, which ran Preview server-side
+    // already) — skips a second AI round trip.
+    loadFromHighlights: (highlights: DiaryHighlight[]) => dispatch({ type: "loaded", highlights }),
     toggle: (index: number) => dispatch({ type: "toggle", index }),
     editText: (index: number, text: string) => dispatch({ type: "edit_text", index, text }),
     editMetadata: (index: number, key: string, value: string) =>
@@ -125,6 +131,8 @@ const KIND_LABEL: Record<HighlightKind, string> = {
   task_done: "Task done",
   task_new: "New task",
   buy_new: "Buy list",
+  learned: "📚 Learned",
+  goal: "🎯 New goal",
 };
 
 function humanizeKey(key: string): string {
@@ -171,6 +179,16 @@ export function DiaryAnalyzeReviewPanel({
                 <label className="flex-1 text-sm" htmlFor={`analyze-item-${i}`}>
                   <span className="ai-badge mr-2">{KIND_LABEL[item.highlight.kind]}</span>
                   <span className="text-muted-foreground">“{item.highlight.text}”</span>
+                  {item.highlight.kind === "learned" && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {item.highlight.category} / {item.highlight.title}
+                    </span>
+                  )}
+                  {item.highlight.kind === "goal" && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {item.highlight.title} ({item.highlight.cadence})
+                    </span>
+                  )}
                 </label>
               </div>
               {(item.highlight.kind === "task_new" || item.highlight.kind === "buy_new") && (

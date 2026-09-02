@@ -9,27 +9,30 @@ import (
 	"time"
 
 	"github.com/mindforge/backend/internal/ai"
+	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/habit"
-	"github.com/mindforge/backend/internal/whatnow"
 )
 
 // Service holds the diary domain's AI-backed behavior: the on-demand Fix
 // English review, and the Preview/Apply pair that detects, then (once the
-// writer has reviewed/edited the result) resolves, habit/task mentions
-// against the writer's real habit/whatnow.Task records.
+// writer has reviewed/edited the result) resolves, habit/task/learning
+// mentions against the writer's real habit records, diary-owned task list,
+// and self-course "Learning Log". Diary owns its own task data (see
+// repo.go's Task methods) — it has no dependency on internal/whatnow.
 type Service struct {
-	repo     *Repo
-	provider ai.LLMProvider
-	habits   *habit.Service
-	tasks    *whatnow.Service
+	repo       *Repo
+	provider   ai.LLMProvider
+	habits     *habit.Service
+	courseRepo *courses.Repo
 }
 
-// NewService constructs a Service. habits/tasks are the same stateless
-// wrappers over the shared pool that habit.New/whatnow.New already
-// construct — journal.NewHandler stands up its own whatnow.Repo the same
-// way, rather than threading the router's existing instances through.
-func NewService(repo *Repo, provider ai.LLMProvider, habits *habit.Service, tasks *whatnow.Service) *Service {
-	return &Service{repo: repo, provider: provider, habits: habits, tasks: tasks}
+// NewService constructs a Service. habits is the same stateless wrapper over
+// the shared pool that habit.New already constructs. courseRepo is used
+// directly (not courses.Service) since only a handful of self-course CRUD
+// methods are needed here and courses.Service's constructor pulls in
+// storage/AI/rewards dependencies diary has no use for.
+func NewService(repo *Repo, provider ai.LLMProvider, habits *habit.Service, courseRepo *courses.Repo) *Service {
+	return &Service{repo: repo, provider: provider, habits: habits, courseRepo: courseRepo}
 }
 
 // ErrAIUnavailable is returned by FixEnglish/Preview when no LLM provider is configured.
@@ -58,6 +61,38 @@ func (s *Service) FixEnglish(ctx context.Context, content string) ([]FixEnglishS
 		return nil, fmt.Errorf("diary: fix english: parse AI response: %w", err)
 	}
 	return parsed.Segments, nil
+}
+
+// ReviewDump runs FixEnglish then Preview over the corrected text in one
+// round trip, so the frontend's single "AI" button gets a minimal-change
+// correction and the detected highlights together instead of two separate
+// clicks. Both underlying calls are unchanged and still synchronous/
+// unpersisted; this only composes their results.
+func (s *Service) ReviewDump(ctx context.Context, userID, orgID, entryDate, content string) (string, []Highlight, error) {
+	segments, err := s.FixEnglish(ctx, content)
+	if err != nil {
+		return "", nil, err
+	}
+	corrected := acceptAllSegments(segments)
+	highlights, err := s.Preview(ctx, userID, entryDate, corrected)
+	if err != nil {
+		return "", nil, err
+	}
+	return corrected, highlights, nil
+}
+
+// acceptAllSegments reconstructs the fully-corrected text from a FixEnglish
+// diff by keeping "same" as-is and, per del/add pair, always the "add" side
+// — the server-side equivalent of the frontend's "Accept All".
+func acceptAllSegments(segments []FixEnglishSegment) string {
+	var sb strings.Builder
+	for _, seg := range segments {
+		if seg.Kind == SegmentDel {
+			continue
+		}
+		sb.WriteString(seg.Text)
+	}
+	return sb.String()
 }
 
 // Preview runs the habit/task detection pass over content — the writer's
@@ -98,13 +133,15 @@ func (s *Service) Preview(ctx context.Context, userID, entryDate, content string
 // spans the writer unchecked already removed by the caller and any metadata
 // values already corrected) against entry: applies each mutation against the
 // CURRENT habit/open-task vocabulary — which may have moved since Preview
-// ran — and persists the resolved list.
-func (s *Service) Apply(ctx context.Context, entry Entry, edited []Highlight) ([]Highlight, error) {
+// ran — and persists the resolved list. orgID scopes the self-course a
+// "learned" highlight routes into (self-courses are org-scoped; diary
+// entries aren't).
+func (s *Service) Apply(ctx context.Context, entry Entry, orgID string, edited []Highlight) ([]Highlight, error) {
 	habits, openTasks, err := s.vocabulary(ctx, entry.UserID, entry.EntryDate)
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := s.applyHighlights(ctx, entry, edited, habits, openTasks)
+	resolved, err := s.applyHighlights(ctx, entry, orgID, edited, habits, openTasks)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +154,9 @@ func (s *Service) Apply(ctx context.Context, entry Entry, edited []Highlight) ([
 // vocabulary loads the CLOSED habit/open-task lists a detection or apply
 // pass resolves ref_ids against. Preview and Apply each call this fresh
 // (rather than sharing one snapshot) since real time passes between a
-// writer reviewing and confirming.
-func (s *Service) vocabulary(ctx context.Context, userID, entryDate string) ([]habit.Habit, []whatnow.Task, error) {
+// writer reviewing and confirming. Open tasks are diary's own (Task, not
+// whatnow.Task) — diary owns this data directly.
+func (s *Service) vocabulary(ctx context.Context, userID, entryDate string) ([]habit.Habit, []Task, error) {
 	entryDay, err := time.Parse("2006-01-02", entryDate)
 	if err != nil {
 		return nil, nil, fmt.Errorf("diary: parse entry date: %w", err)
@@ -127,18 +165,22 @@ func (s *Service) vocabulary(ctx context.Context, userID, entryDate string) ([]h
 	if err != nil {
 		return nil, nil, fmt.Errorf("diary: load habits: %w", err)
 	}
-	openTasks, err := s.tasks.GetInbox(ctx, userID)
+	openTasks, err := s.repo.ListOpenTasks(ctx, userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("diary: load open tasks: %w", err)
 	}
 	return monthView.Habits, openTasks, nil
 }
 
+// validGoalCadences are the only cadence values a "goal" highlight may carry
+// — the exact wire values habit.Cadence uses.
+var validGoalCadences = map[string]bool{"daily": true, "weekly": true, "monthly": true}
+
 // cleanHighlights trims and validates a raw AI response for Preview's
 // display — the same span/ref checks applyHighlights enforces before
 // mutating anything, so the review UI never shows a span Apply would
 // silently drop.
-func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []whatnow.Task) []Highlight {
+func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []Task) []Highlight {
 	habitByID := make(map[string]bool, len(habits))
 	for _, h := range habits {
 		habitByID[h.ID] = true
@@ -165,6 +207,14 @@ func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []wha
 			}
 		case HighlightTaskNew, HighlightBuyNew:
 			// ref_id is only assigned once Apply actually captures the task.
+		case HighlightLearned:
+			if strings.TrimSpace(h.Category) == "" || strings.TrimSpace(h.Title) == "" {
+				continue
+			}
+		case HighlightGoal:
+			if strings.TrimSpace(h.Title) == "" || !validGoalCadences[h.Cadence] {
+				continue
+			}
 		default:
 			continue
 		}
@@ -182,7 +232,7 @@ func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []wha
 // processed) is exact case-insensitive text match against entry.Highlights
 // from the PRIOR analysis — not semantic. Upgrade only if real duplicates
 // show up in practice (e.g. the writer rephrases the same sentence).
-func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []Highlight, habits []habit.Habit, openTasks []whatnow.Task) ([]Highlight, error) {
+func (s *Service) applyHighlights(ctx context.Context, entry Entry, orgID string, detected []Highlight, habits []habit.Habit, openTasks []Task) ([]Highlight, error) {
 	habitByID := make(map[string]habit.Habit, len(habits))
 	for _, h := range habits {
 		habitByID[h.ID] = h
@@ -218,7 +268,7 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 				}
 			}
 			// Metadata is applied every pass, not just !alreadyApplied — an
-			// upsert is idempotent (unlike SetCompletion/CaptureTask, which
+			// upsert is idempotent (unlike SetCompletion/CreateTask, which
 			// would create a duplicate), so a re-analysis with more detail in
 			// the same sentence keeps refining the stored fields.
 			if meta := allowedHabitMetadata(hab, h.Metadata); len(meta) > 0 {
@@ -232,7 +282,7 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 				continue
 			}
 			if !alreadyApplied {
-				if _, err := s.tasks.CompleteTask(ctx, entry.UserID, h.RefID); err != nil {
+				if _, err := s.repo.SetTaskDone(ctx, entry.UserID, h.RefID, true); err != nil {
 					return nil, fmt.Errorf("diary: analyze: complete task: %w", err)
 				}
 			}
@@ -241,7 +291,7 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			if alreadyApplied {
 				h.RefID = prior.RefID
 			} else {
-				t, err := s.tasks.CaptureTask(ctx, entry.UserID, h.Text)
+				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, string(TaskKindTodo), &entry.ID, nil)
 				if err != nil {
 					return nil, fmt.Errorf("diary: analyze: capture task: %w", err)
 				}
@@ -252,14 +302,41 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			if alreadyApplied {
 				h.RefID = prior.RefID
 			} else {
-				// Reuses ParseCapture's existing "#category" inline-tag
-				// convention (whatnow.service.go categoryRe) instead of a
-				// second category mechanism.
-				t, err := s.tasks.CaptureTask(ctx, entry.UserID, h.Text+" #buy")
+				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, string(TaskKindBuy), &entry.ID, nil)
 				if err != nil {
 					return nil, fmt.Errorf("diary: analyze: capture buy task: %w", err)
 				}
 				h.RefID = t.ID
+			}
+
+		case HighlightLearned:
+			if alreadyApplied {
+				h.RefID = prior.RefID
+			} else {
+				moduleID, err := s.courseRepo.FileLearningLogNote(ctx, orgID, entry.UserID, h.Category, h.Title, h.Text)
+				if err != nil {
+					return nil, fmt.Errorf("diary: analyze: file learned highlight: %w", err)
+				}
+				h.RefID = moduleID
+			}
+
+		case HighlightGoal:
+			if alreadyApplied {
+				h.RefID = prior.RefID
+			} else if match, ok := matchExistingHabit(h.Title, habits); ok {
+				// The writer actually meant an existing habit — the model
+				// should have used kind:"habit", but this is a cheap
+				// server-side safety net against creating a duplicate.
+				h.RefID = match.ID
+			} else {
+				created, err := s.habits.Create(ctx, entry.UserID, habit.CreateRequest{
+					Name:    h.Title,
+					Cadence: habit.Cadence(h.Cadence),
+				})
+				if err != nil {
+					return nil, fmt.Errorf("diary: analyze: create goal habit: %w", err)
+				}
+				h.RefID = created.ID
 			}
 
 		default:
@@ -269,6 +346,25 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 		resolved = append(resolved, h)
 	}
 	return resolved, nil
+}
+
+// matchExistingHabit does a cheap case-insensitive substring match of title
+// against habits' names — see HighlightGoal in applyHighlights.
+//
+// ponytail: substring match, not the trigram similarity journal/self-courses
+// use — upgrade only if this proves too strict/loose in practice.
+func matchExistingHabit(title string, habits []habit.Habit) (habit.Habit, bool) {
+	needle := strings.ToLower(strings.TrimSpace(title))
+	if needle == "" {
+		return habit.Habit{}, false
+	}
+	for _, h := range habits {
+		name := strings.ToLower(h.Name)
+		if strings.Contains(name, needle) || strings.Contains(needle, name) {
+			return h, true
+		}
+	}
+	return habit.Habit{}, false
 }
 
 // allowedHabitMetadata filters the AI-extracted metadata down to keys that
@@ -329,7 +425,7 @@ func alignPeriod(entryDate time.Time, cadence habit.Cadence) time.Time {
 // sanitized/transformed here (unlike most other AI prompts in this
 // codebase) because the model's returned start/end offsets must index into
 // exactly this same string on the way back out.
-func buildAnalyzePrompt(content string, habits []habit.Habit, openTasks []whatnow.Task) string {
+func buildAnalyzePrompt(content string, habits []habit.Habit, openTasks []Task) string {
 	var sb strings.Builder
 	sb.WriteString("Existing habits (id: name, cadence, optional entry fields):\n")
 	if len(habits) == 0 {

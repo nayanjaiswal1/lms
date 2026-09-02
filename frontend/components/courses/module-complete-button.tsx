@@ -17,15 +17,17 @@ interface ModuleCompleteButtonProps {
 export function ModuleCompleteButton({ moduleId, initialCompleted, className }: ModuleCompleteButtonProps) {
   const [completed, setCompleted] = useState(initialCompleted);
   const [pending, setPending] = useState(false);
-  const { requiredIds, passedIds, labRequired, labCompleted } = useModuleGate();
+  const { requiredIds, passedIds, labRequired, labCompleted, reflectionRequired, reflectionCompleted } = useModuleGate();
   const checkPending = requiredIds.some((id) => !passedIds.has(id));
   const labPending = labRequired && !labCompleted;
-  const locked = !completed && (checkPending || labPending);
-  const lockedReason = checkPending && labPending
-    ? "Answer the knowledge check and complete the lab first."
-    : checkPending
-      ? "Answer the knowledge check correctly first."
-      : "Complete the attached lab first.";
+  const reflectionPending = reflectionRequired && !reflectionCompleted;
+  const locked = !completed && (checkPending || labPending || reflectionPending);
+  const missing = [
+    checkPending && "answer the knowledge check",
+    labPending && "complete the attached lab",
+    reflectionPending && "save your reflection",
+  ].filter((x): x is string => Boolean(x));
+  const lockedReason = missing.length > 0 ? `Please ${missing.join(", ")} first.` : undefined;
 
   async function handleToggle() {
     const nextStatus = completed ? "in_progress" : "completed";
@@ -54,7 +56,11 @@ export function ModuleCompleteButton({ moduleId, initialCompleted, className }: 
           Completed
         </>
       ) : locked ? (
-        checkPending ? "Answer the knowledge check first" : "Complete the lab first"
+        checkPending
+          ? "Answer the knowledge check first"
+          : labPending
+            ? "Complete the lab first"
+            : "Save your reflection first"
       ) : (
         "Mark as Complete"
       )}

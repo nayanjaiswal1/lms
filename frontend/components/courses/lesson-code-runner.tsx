@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type PointerEvent } from "react";
+import { useRef, useState, useTransition, type PointerEvent, type ReactNode } from "react";
 import { Copy, Loader2, Play, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { runSnippetAction } from "@/app/(app)/courses/actions";
@@ -18,6 +18,8 @@ interface LessonCodeRunnerProps {
   minLines?: number;
   /** Stretches the editor to the height of its container instead of sizing to line count — used inside LabFixedConsole, where the panel itself provides the height. */
   fill?: boolean;
+  /** Replaces the static language label in the header with a caller-owned control (see LessonCodeBlock's language switcher). Falls back to plain text when omitted. */
+  languageSwitcher?: ReactNode;
 }
 
 const OUTPUT_MIN_HEIGHT = 80;
@@ -27,7 +29,7 @@ const OUTPUT_DEFAULT_HEIGHT = 224;
 // Interactive code block for lesson content: the snippet from the lesson is
 // editable and runnable in place (feature 2). Runs go through the session-less
 // snippet endpoint — no lab session, no scoring, just stdout/stderr.
-export function LessonCodeRunner({ language, initialCode, minLines = 4, fill = false }: LessonCodeRunnerProps) {
+export function LessonCodeRunner({ language, initialCode, minLines = 4, fill = false, languageSwitcher }: LessonCodeRunnerProps) {
   const lang = language.trim().toLowerCase();
   const [code, setCode] = useState(initialCode);
   const [result, setResult] = useState<SnippetResult | null>(null);
@@ -90,9 +92,11 @@ export function LessonCodeRunner({ language, initialCode, minLines = 4, fill = f
   return (
     <div className={cn("overflow-hidden rounded-lg border border-border bg-card", fill && "flex h-full flex-col")}>
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-        <span className="text-xs font-semibold text-muted-foreground">
-          {RUNNABLE_LANGUAGES[lang] ?? language}
-        </span>
+        {languageSwitcher ?? (
+          <span className="text-xs font-semibold text-muted-foreground">
+            {RUNNABLE_LANGUAGES[lang] ?? language}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1">
           <Button
             aria-label="Copy code"

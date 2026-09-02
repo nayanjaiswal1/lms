@@ -105,6 +105,8 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       difficulty:  wiz.draft.info.difficulty,
       tags:        wiz.draft.info.tags,
       is_free:     wiz.draft.info.is_free,
+      disable_code_run: wiz.draft.info.disable_code_run,
+      disable_reflection: wiz.draft.info.disable_reflection,
     });
     if (!courseRes.ok || !courseRes.data) throw new Error(courseRes.error ?? "Failed to create course");
     const courseId = courseRes.data.id;
@@ -147,6 +149,8 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       difficulty:  wiz.draft.info.difficulty,
       tags:        wiz.draft.info.tags,
       is_free:     wiz.draft.info.is_free,
+      disable_code_run: wiz.draft.info.disable_code_run,
+      disable_reflection: wiz.draft.info.disable_reflection,
     });
     if (!updateRes.ok) throw new Error(updateRes.error ?? "Failed to save changes.");
 
@@ -255,17 +259,17 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       <div className="flex gap-1 border-b border-border" role="tablist">
         {TABS.filter((tab) => tab.id !== "final-test" || course).map((tab) => (
           <button
-            key={tab.id}
-            role="tab"
-            type="button"
             aria-selected={wiz.activeTab === tab.id}
-            onClick={() => wiz.setActiveTab(tab.id)}
             className={cn(
               "px-4 py-2.5 text-sm transition-colors border-b-2 -mb-px",
               wiz.activeTab === tab.id
                 ? "border-primary text-primary font-medium"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
+            key={tab.id}
+            role="tab"
+            type="button"
+            onClick={() => wiz.setActiveTab(tab.id)}
           >
             {tab.label}
           </button>
@@ -276,45 +280,49 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       <div className="min-h-[480px]">
         {wiz.activeTab === "info" && (
           <InfoTab
-            info={wiz.draft.info}
             coverFile={wiz.coverFile.current}
+            info={wiz.draft.info}
             onChange={wiz.setInfo}
             onCoverFile={wiz.setCoverFile}
           />
         )}
         {wiz.activeTab === "structure" && (
           <StructureTab
-            sections={wiz.draft.sections}
             activeModuleId={wiz.activeModuleId}
-            onAddSection={wiz.addSection}
-            onUpdateSection={wiz.updateSection}
-            onRemoveSection={wiz.removeSection}
-            onMoveSectionUp={wiz.moveSectionUp}
-            onMoveSectionDown={wiz.moveSectionDown}
+            sections={wiz.draft.sections}
             onAddModule={wiz.addModule}
-            onUpdateModule={wiz.updateModule}
+            onAddSection={wiz.addSection}
+            onMoveSectionDown={wiz.moveSectionDown}
+            onMoveSectionUp={wiz.moveSectionUp}
             onRemoveModule={wiz.removeModule}
+            onRemoveSection={wiz.removeSection}
             onSelectModule={(id) => { wiz.setActiveModuleId(id); wiz.setActiveTab("content"); }}
+            onUpdateModule={wiz.updateModule}
+            onUpdateSection={wiz.updateSection}
           />
         )}
         {wiz.activeTab === "content" && (
           <ContentTab
-            sections={wiz.draft.sections}
             activeModuleId={wiz.activeModuleId}
-            onSelectModule={wiz.setActiveModuleId}
+            sections={wiz.draft.sections}
             onBlocksChange={wiz.setBlocks}
             onFile={(blockId, file) => { wiz.pendingFiles.current.set(blockId, file); }}
+            onSelectModule={wiz.setActiveModuleId}
           />
         )}
         {wiz.activeTab === "settings" && (
           <SettingsTab
+            disableCodeRun={wiz.draft.info.disable_code_run}
+            disableDraft={course?.status === "published"}
+            disableReflection={wiz.draft.info.disable_reflection}
             status={wiz.draft.status}
             onChange={wiz.setStatus}
-            disableDraft={course?.status === "published"}
+            onDisableCodeRunChange={(v) => wiz.setInfo({ disable_code_run: v })}
+            onDisableReflectionChange={(v) => wiz.setInfo({ disable_reflection: v })}
           />
         )}
         {wiz.activeTab === "final-test" && course && (
-          <FinalTestTab courseId={course.id} initial={finalTest ?? null} certificateRule={certificateRule ?? null} />
+          <FinalTestTab certificateRule={certificateRule ?? null} courseId={course.id} initial={finalTest ?? null} />
         )}
       </div>
 

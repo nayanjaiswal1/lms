@@ -38,6 +38,7 @@ const ROUTES = {
   SHEETS_COMPARE:      "/sheets/compare",
   JOURNAL:             "/journal",
   JOURNAL_NEW:         "/journal/new",
+  JOURNAL_LOG:         "/journal/log",
   DIARY:               "/diary",
   diaryEntry:          (date: string) => `/diary/${date}`,
 

@@ -84,6 +84,13 @@ export function AnonLessonPage({ course, currentModuleId }: AnonLessonPageProps)
   const notesResult = isReadable && currentModule.content_body ? renderModuleMarkdown(currentModule.content_body) : null;
   const nextPath = ROUTES.courseLearnModule(course.slug, currentModule.id);
 
+  const reflectionRequired = isReadable && !course.disable_reflection;
+  const reflectionPending = reflectionRequired && !(reflections[currentModule.id]?.trim());
+
+  function onReflectionSaved(response: string) {
+    setReflections((prev) => ({ ...prev, [currentModule.id]: response }));
+  }
+
   return (
     <div className="flex flex-col items-start gap-6 lg:flex-row">
       <CourseSidebarRail course={course} currentModuleId={currentModuleId} isEnrolled={false} progress={progress} />
@@ -123,10 +130,12 @@ export function AnonLessonPage({ course, currentModuleId }: AnonLessonPageProps)
             {isReadable && notesResult ? (
               <AnonModuleNotes
                 courseId={course.id}
+                disableReflection={course.disable_reflection}
                 initialReflection={reflections[currentModule.id] ?? null}
                 isSystemDesign={currentModule.type === "system_design"}
                 moduleId={currentModule.id}
                 segments={notesResult.segments}
+                onReflectionSaved={onReflectionSaved}
               />
             ) : (
               <div className="empty-state flex-col gap-2 py-16">
@@ -143,7 +152,11 @@ export function AnonLessonPage({ course, currentModuleId }: AnonLessonPageProps)
             <ModuleNavFooter
               completeButton={
                 isReadable ? (
-                  <AnonModuleCompleteButton completed={completedIds.has(currentModule.id)} onToggle={toggleComplete} />
+                  <AnonModuleCompleteButton
+                    completed={completedIds.has(currentModule.id)}
+                    locked={reflectionPending}
+                    onToggle={toggleComplete}
+                  />
                 ) : null
               }
               courseSlug={course.slug}

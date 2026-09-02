@@ -210,3 +210,125 @@ func previewOf(content string) string {
 	}
 	return string(r[:previewLength]) + "…"
 }
+
+const taskColumns = `id, title, kind, tags, done, source_entry_id, created_at, updated_at`
+
+func scanTask(row scanner) (Task, error) {
+	var t Task
+	if err := row.Scan(&t.ID, &t.Title, &t.Kind, &t.Tags, &t.Done, &t.SourceEntryID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		return Task{}, err
+	}
+	return t, nil
+}
+
+// ListTasks returns userID's diary tasks, newest first, optionally narrowed
+// by tag (array-contains) and/or done state.
+func (r *Repo) ListTasks(ctx context.Context, userID, tag string, done *bool) ([]Task, error) {
+	query := `SELECT ` + taskColumns + ` FROM diary_tasks WHERE user_id = $1`
+	args := []any{userID}
+	if tag != "" {
+		args = append(args, tag)
+		query += fmt.Sprintf(" AND $%d = ANY(tags)", len(args))
+	}
+	if done != nil {
+		args = append(args, *done)
+		query += fmt.Sprintf(" AND done = $%d", len(args))
+	}
+	query += " ORDER BY created_at DESC"
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("diary: list tasks: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Task{}
+	for rows.Next() {
+		t, err := scanTask(rows)
+		if err != nil {
+			return nil, fmt.Errorf("diary: scan task: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// ListOpenTasks returns userID's not-yet-done diary tasks — the closed
+// vocabulary Service.vocabulary resolves "task_done" highlights against.
+func (r *Repo) ListOpenTasks(ctx context.Context, userID string) ([]Task, error) {
+	done := false
+	return r.ListTasks(ctx, userID, "", &done)
+}
+
+// CreateTask inserts a new diary task. sourceEntryID is nil for a
+// manually-created task, or the diary entry whose text an AI Apply pass
+// captured it from.
+func (r *Repo) CreateTask(ctx context.Context, userID, title, kind string, sourceEntryID *string, tags []string) (Task, error) {
+	if tags == nil {
+		tags = []string{}
+	}
+	row := r.pool.QueryRow(ctx,
+		`INSERT INTO diary_tasks (user_id, title, kind, tags, source_entry_id)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING `+taskColumns,
+		userID, title, kind, tags, sourceEntryID,
+	)
+	t, err := scanTask(row)
+	if err != nil {
+		return Task{}, fmt.Errorf("diary: create task: %w", err)
+	}
+	return t, nil
+}
+
+// SetTaskDone updates id's done state. Ownership is enforced by the WHERE
+// clause.
+func (r *Repo) SetTaskDone(ctx context.Context, userID, id string, done bool) (Task, error) {
+	row := r.pool.QueryRow(ctx,
+		`UPDATE diary_tasks SET done = $3, updated_at = now()
+		 WHERE id = $1 AND user_id = $2
+		 RETURNING `+taskColumns,
+		id, userID, done,
+	)
+	t, err := scanTask(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Task{}, ErrNotFound
+		}
+		return Task{}, fmt.Errorf("diary: set task done: %w", err)
+	}
+	return t, nil
+}
+
+// UpdateTask partially updates id's title/tags. Nil fields are left
+// unchanged. Ownership is enforced by the WHERE clause.
+func (r *Repo) UpdateTask(ctx context.Context, userID, id string, title *string, tags []string) (Task, error) {
+	row := r.pool.QueryRow(ctx,
+		`UPDATE diary_tasks SET
+		   title = COALESCE($3, title),
+		   tags = COALESCE($4, tags),
+		   updated_at = now()
+		 WHERE id = $1 AND user_id = $2
+		 RETURNING `+taskColumns,
+		id, userID, title, tags,
+	)
+	t, err := scanTask(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Task{}, ErrNotFound
+		}
+		return Task{}, fmt.Errorf("diary: update task: %w", err)
+	}
+	return t, nil
+}
+
+// DeleteTask removes id. Ownership is enforced by the WHERE clause.
+func (r *Repo) DeleteTask(ctx context.Context, userID, id string) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM diary_tasks WHERE id = $1 AND user_id = $2`, id, userID)
+	if err != nil {
+		return fmt.Errorf("diary: delete task: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

@@ -82,11 +82,24 @@ type Course struct {
 	// default) from a student's own private course ("self"). OwnerID is set
 	// only for kind="self" — the one user who can read/edit it and whose
 	// connected AI (via MCP) is allowed to write its modules directly.
-	Kind                      string    `json:"kind"`
-	OwnerID                   *string   `json:"owner_id,omitempty"`
+	Kind                        string  `json:"kind"`
+	OwnerID                     *string `json:"owner_id,omitempty"`
 	CertificateThresholdPercent *int    `json:"certificate_threshold_percent,omitempty"`
-	CreatedAt                 time.Time `json:"created_at"`
-	UpdatedAt                 time.Time `json:"updated_at"`
+	// DisableCodeRun locks the in-lesson code runner for every code block in
+	// this course — the instructor's kill switch when a language's Piston
+	// execution isn't appropriate for the material (e.g. security exercises
+	// that show exploit code students shouldn't get a free sandbox to run).
+	// Static code blocks and the language switcher itself are unaffected.
+	DisableCodeRun bool `json:"disable_code_run"`
+	// DisableReflection hides the "Reflect" box on every notes lesson in this
+	// course and lifts ModuleCompleteButton's gate on it — mirrors
+	// DisableCodeRun (default false = reflection shown and required before a
+	// notes lesson can be marked complete). Instructors flip this on for
+	// courses where the free-form reflection doesn't fit (e.g. reference/skim
+	// material).
+	DisableReflection bool      `json:"disable_reflection"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 // CourseReview is one student's star rating (1-5) for a course. A user may

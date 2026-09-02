@@ -115,7 +115,10 @@ export default async function ModuleLearnPage({ params }: Props) {
   // standalone scratch compiler in the right rail (LessonCompilerToggle) so
   // a reader doesn't have to scroll back to a specific code block to try
   // the language. Inline per-block runners (LessonCodeRunner) are unaffected.
-  const firstRunnableLanguage = notes
+  // Suppressed entirely when the course locks code execution — this toggle
+  // opens a live Piston sandbox independent of any lesson code block, so it
+  // has to honor the same course-level kill switch (courses.disable_code_run).
+  const firstRunnableLanguage = notes && !tree.disable_code_run
     ? notes.segments.find((s): s is Extract<typeof s, { type: "code" }> => s.type === "code" && isRunnableLanguage(s.language))
         ?.language ?? null
     : null;
@@ -216,8 +219,10 @@ export default async function ModuleLearnPage({ params }: Props) {
   return (
     <ModuleGateProvider
       initialPassedIds={passedCheckIds}
+      initialReflectionCompleted={Boolean(initialReflection?.trim())}
       labCompleted={moduleLab?.initialSession?.session.status === "completed"}
       labRequired={Boolean(moduleLab?.lab)}
+      reflectionRequired={currentModule.type === "notes" && !tree.disable_reflection}
       requiredIds={requiredCheckIds}
     >
     <div className="flex flex-col items-start gap-6 lg:flex-row">
@@ -252,7 +257,7 @@ export default async function ModuleLearnPage({ params }: Props) {
             already sits inside <main class="app-content">'s own edge
             padding, so adding a second edge gutter here would just push the
             rail further from the page edge for no reason. */}
-        {/* eslint-disable-next-line no-restricted-syntax -- nested content column inside a custom sidebar split, not the page's top-level shell; no .page-header exists here so py-* is this column's only vertical spacing, and .page-container's px-* would double up with app-content's own edge padding */}
+        { }
         <div className="mx-auto max-w-7xl flex items-start py-6 lg:py-8">
         <LabProviderWrapper>
           <article className={cn("min-w-0 flex-1", !isWideLayout && "mx-auto max-w-3xl")}>
@@ -293,6 +298,8 @@ export default async function ModuleLearnPage({ params }: Props) {
                 sourceType="lesson"
               >
                 <ModuleNotes
+                  disableCodeRun={tree.disable_code_run}
+                  disableReflection={tree.disable_reflection}
                   highlights={initialHighlights}
                   initialReflection={initialReflection}
                   initialSession={moduleLab?.initialSession ?? null}

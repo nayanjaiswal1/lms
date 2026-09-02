@@ -12,6 +12,15 @@ interface ModuleGateContextValue {
   // meaningless when labRequired is false (no lab attached).
   labRequired: boolean;
   labCompleted: boolean;
+  // Whether this lesson's course requires a saved reflection before
+  // ModuleCompleteButton unlocks (courses.disable_reflection === false), and
+  // whether one has been saved yet. reflectionCompleted starts from the
+  // server value (initialReflection non-empty) and flips true client-side
+  // the moment LessonReflection's save succeeds — same pattern as
+  // markPassed below, so the button unlocks without a full page refresh.
+  reflectionRequired: boolean;
+  reflectionCompleted: boolean;
+  markReflectionSaved: () => void;
 }
 
 const ModuleGateContext = createContext<ModuleGateContextValue | null>(null);
@@ -27,6 +36,8 @@ interface ModuleGateProviderProps {
   initialPassedIds: string[];
   labRequired?: boolean;
   labCompleted?: boolean;
+  reflectionRequired?: boolean;
+  initialReflectionCompleted?: boolean;
   children: ReactNode;
 }
 
@@ -47,9 +58,12 @@ export function ModuleGateProvider({
   initialPassedIds,
   labRequired = false,
   labCompleted = false,
+  reflectionRequired = false,
+  initialReflectionCompleted = false,
   children,
 }: ModuleGateProviderProps) {
   const [passedIds, setPassedIds] = useState<Set<string>>(() => new Set(initialPassedIds));
+  const [reflectionCompleted, setReflectionCompleted] = useState(initialReflectionCompleted);
 
   const markPassed = (questionId: string) => {
     setPassedIds((prev) => {
@@ -60,8 +74,21 @@ export function ModuleGateProvider({
     });
   };
 
+  const markReflectionSaved = () => setReflectionCompleted(true);
+
   return (
-    <ModuleGateContext.Provider value={{ requiredIds, passedIds, markPassed, labRequired, labCompleted }}>
+    <ModuleGateContext.Provider
+      value={{
+        requiredIds,
+        passedIds,
+        markPassed,
+        labRequired,
+        labCompleted,
+        reflectionRequired,
+        reflectionCompleted,
+        markReflectionSaved,
+      }}
+    >
       {children}
     </ModuleGateContext.Provider>
   );

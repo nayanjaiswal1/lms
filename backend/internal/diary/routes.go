@@ -26,5 +26,11 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Post("/api/diary/{date}/analyze/preview", h.AnalyzePreview)
 		r.Post("/api/diary/{date}/analyze/apply", h.AnalyzeApply)
 		r.Post("/api/diary/{date}/fix-english", h.FixEnglish)
+		r.Post("/api/diary/{date}/review", h.Review)
+
+		r.Get("/api/diary/tasks", h.ListTasks)
+		r.Post("/api/diary/tasks", h.CreateTask)
+		r.Patch("/api/diary/tasks/{id}", h.PatchTask)
+		r.Delete("/api/diary/tasks/{id}", h.DeleteTask)
 	})
 }
