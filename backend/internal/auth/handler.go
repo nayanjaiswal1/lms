@@ -604,24 +604,81 @@ func (h *Handler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// No row claimed. Either the token never existed or simply aged out —
-		// both unremarkable — or it was already consumed, which is the theft
-		// signal. Only the consumed case may revoke the family; letting a
-		// naturally expired token trigger revocation would punish a user who
-		// left a tab open past REFRESH_TOKEN_TTL.
-		var familyID string
+		// both unremarkable — or it was already consumed, which is either the
+		// theft signal or a benign race: the Next.js edge middleware fires this
+		// endpoint on any protected navigation with an expired access token, and
+		// parallel navigations/prefetches legitimately submit the same stale
+		// refresh_token cookie moments after a sibling request already rotated
+		// it. rotated_at/revoked_at are set together at rotation time (see the
+		// UPDATE above), so a rotated_at within the grace window identifies that
+		// race rather than reuse of a stolen or independently-revoked token.
+		var familyID, userID string
+		var rotatedAt *time.Time
 		if lookupErr := h.pool.QueryRow(r.Context(),
-			`SELECT family_id FROM refresh_tokens
+			`SELECT family_id, user_id, rotated_at FROM refresh_tokens
 			 WHERE token_hash = $1 AND (rotated_at IS NOT NULL OR revoked_at IS NOT NULL)`,
 			tokenHash,
-		).Scan(&familyID); lookupErr != nil {
+		).Scan(&familyID, &userID, &rotatedAt); lookupErr != nil {
 			httputil.WriteError(w, http.StatusUnauthorized, "Invalid or expired refresh token.")
 			return
 		}
 
-		// Theft detection: a token that has already been rotated or revoked must
-		// never be accepted again. Any reuse means the token was captured —
-		// revoke the whole family so neither the legitimate user nor the attacker
-		// keeps a live session.
+		if rotatedAt != nil && time.Since(*rotatedAt) <= 30*time.Second {
+			var gu userRow
+			if err := h.pool.QueryRow(r.Context(),
+				`SELECT u.id, u.name, u.email, u.avatar_url, u.session_version, u.status,
+				        COALESCE(om.role, 'learner')
+				 FROM users u
+				 LEFT JOIN org_members om ON om.org_id = $2 AND om.user_id = u.id
+				 WHERE u.id = $1`,
+				userID, h.cfg.DefaultOrgID,
+			).Scan(&gu.ID, &gu.Name, &gu.Email, &gu.AvatarURL, &gu.SessionVersion, &gu.Status, &gu.OrgRole); err != nil {
+				slog.Error("auth: refresh grace-window user lookup", "error", err)
+				httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
+				return
+			}
+
+			if msg := accountLockedMessage(gu.Status); msg != "" {
+				clearCookies(w, h.cfg)
+				httputil.WriteError(w, http.StatusForbidden, msg)
+				return
+			}
+
+			graceAccessToken, err := CreateAccessToken(h.cfg, Claims{
+				UserID:         gu.ID,
+				OrgID:          h.cfg.DefaultOrgID,
+				OrgRole:        gu.OrgRole,
+				AuthMethod:     "refresh",
+				SessionVersion: gu.SessionVersion,
+			})
+			if err != nil {
+				slog.Error("auth: refresh grace-window create access token", "error", err)
+				httputil.WriteError(w, http.StatusInternalServerError, "Refresh failed.")
+				return
+			}
+
+			// Only the access token is reissued here — the sibling request that
+			// won the rotation already set the current refresh_token/csrf_token
+			// cookies, and this handler never persisted the winner's raw refresh
+			// token (only its hash), so there is nothing valid to re-emit for
+			// those two. Leaving their Set-Cookie headers out means whichever
+			// order the two responses land in, the browser keeps the winner's
+			// values instead of one response clobbering the other with stale data.
+			setAccessCookie(w, h.cfg, graceAccessToken)
+			httputil.WriteJSON(w, http.StatusOK, map[string]any{
+				"user": userResponse{
+					ID:        gu.ID,
+					Name:      gu.Name,
+					Email:     gu.Email,
+					AvatarURL: gu.AvatarURL,
+				},
+			})
+			return
+		}
+
+		// Outside the grace window: a token that has already been rotated or
+		// revoked must never be accepted again. Revoke the whole family so
+		// neither the legitimate user nor the attacker keeps a live session.
 		if _, revokeErr := h.pool.Exec(r.Context(),
 			`UPDATE refresh_tokens SET revoked_at = now()
 			 WHERE family_id = $1 AND revoked_at IS NULL`,
