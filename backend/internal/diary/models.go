@@ -34,10 +34,6 @@ const (
 	// HighlightBuyNew is HighlightTaskNew for a shopping/errand item —
 	// captured as a diary Task with Kind=TaskKindBuy.
 	HighlightBuyNew HighlightKind = "buy_new"
-	// HighlightLearned marks a sentence describing something the writer
-	// learned/figured out today — routed into a module of the writer's
-	// "Learning Log" self-course (get-or-created). RefID is that module's id.
-	HighlightLearned HighlightKind = "learned"
 	// HighlightGoal marks a sentence describing a NEW recurring intention
 	// that doesn't match an existing habit — a habit is created for it.
 	// RefID is the newly created (or matched, if the writer actually meant
@@ -62,11 +58,9 @@ type Highlight struct {
 	// habit's own field schema before being written — see
 	// Service.applyHighlights.
 	Metadata map[string]any `json:"metadata,omitempty"`
-	// Category and Title are set only for kind=learned: Category is the
-	// section title (topic area) and Title the module title within the
-	// writer's "Learning Log" self-course — see Service.applyHighlights.
-	Category string `json:"category,omitempty"`
-	Title    string `json:"title,omitempty"`
+	// Title is set only for kind=goal: the new habit's name — see
+	// Service.applyHighlights.
+	Title string `json:"title,omitempty"`
 	// Cadence is set only for kind=goal: "daily", "weekly", or "monthly",
 	// matching habit.Cadence's wire values — see Service.applyHighlights.
 	Cadence string `json:"cadence,omitempty"`
@@ -149,14 +143,6 @@ type FixEnglishResponse struct {
 	Segments []FixEnglishSegment `json:"segments"`
 }
 
-// ReviewResponse is the body of POST /api/diary/{date}/review — the combined
-// Fix English + Analyze pass: correct the text, then detect highlights over
-// the corrected text in one round trip. See Service.ReviewDump.
-type ReviewResponse struct {
-	Content    string      `json:"content"`
-	Highlights []Highlight `json:"highlights"`
-}
-
 // TaskKind distinguishes a diary-owned todo item from a shopping/errand item.
 type TaskKind string
 
@@ -172,6 +158,7 @@ const (
 type Task struct {
 	ID            string    `json:"id"`
 	Title         string    `json:"title"`
+	Description   string    `json:"description"`
 	Kind          TaskKind  `json:"kind"`
 	Tags          []string  `json:"tags"`
 	Done          bool      `json:"done"`
@@ -182,17 +169,19 @@ type Task struct {
 
 // TaskCreateRequest is the body of POST /api/diary/tasks.
 type TaskCreateRequest struct {
-	Title string   `json:"title"`
-	Kind  TaskKind `json:"kind"`
-	Tags  []string `json:"tags"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Kind        TaskKind `json:"kind"`
+	Tags        []string `json:"tags"`
 }
 
 // TaskPatchRequest is the body of PATCH /api/diary/tasks/{id}. Nil fields are
 // left unchanged.
 type TaskPatchRequest struct {
-	Title *string  `json:"title,omitempty"`
-	Done  *bool    `json:"done,omitempty"`
-	Tags  []string `json:"tags,omitempty"`
+	Title       *string  `json:"title,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	Done        *bool    `json:"done,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 }
 
 // TaskListResponse is the body of GET /api/diary/tasks.
@@ -204,13 +193,18 @@ type TaskListResponse struct {
 // section — every habit (not just completed ones), grouped by cadence, so
 // the writer can see their daily/weekly/monthly goal structure without
 // leaving the diary page. Deliberately not habit.Habit itself: the diary
-// page only needs id/name/cadence/done to render and link a goal chip, not
-// the tracker's full appearance/schedule fields.
+// page only needs id/name/cadence/done to render a goal row, not the
+// tracker's full appearance/schedule fields. Period is the completion
+// period this Done reflects (a day/ISO-week-Monday/month-1st per Cadence,
+// same alignment habit.Service uses) so the frontend can call
+// PUT/DELETE /api/habits/{id}/completions/{period} directly to toggle a
+// goal from the diary page without recomputing that alignment client-side.
 type GoalStatus struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Cadence string `json:"cadence"`
 	Done    bool   `json:"done"`
+	Period  string `json:"period"`
 }
 
 // EntryResponse wraps an Entry with the writer's current goal structure — a

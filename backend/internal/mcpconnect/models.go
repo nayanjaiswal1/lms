@@ -15,7 +15,6 @@ import "time"
 // every tool call checks the connection's granted scopes before acting.
 const (
 	ScopeCoursesRead    = "courses:read"
-	ScopeCoursesWrite   = "courses:write"
 	ScopeNotesWrite     = "notes:write"
 	ScopeSignals        = "signals:write"
 	ScopeCalendarManage = "calendar:manage"
@@ -28,22 +27,18 @@ const (
 
 // AllScopes is the full set offered on the consent screen — this MVP grants
 // all-or-nothing per connection rather than letting a client cherry-pick,
-// since every scope maps to the student's own data only. ScopeCoursesWrite
-// only ever touches courses the student owns (their own kind='self' courses)
-// or queues a pending proposal on a shared course for a human to review —
-// never a direct write to a course the student doesn't own. ScopeInterviewPrep
+// since every scope maps to the student's own data only. ScopeInterviewPrep
 // covers both reading and creating prep plans/rounds — like ScopeCalendarManage,
 // one combined scope rather than a read/write split, since every interview-prep
 // tool call is scoped to the connection's own plans only. ScopeSheets is the
 // same one-combined-scope shape again: every sheets tool only ever reads/writes
 // sheets the connection's own user owns or subscribes to, or that user's own
 // cross-sheet problem progress.
-var AllScopes = []string{ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits}
+var AllScopes = []string{ScopeCoursesRead, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits}
 
 // ScopeDescriptions is shown on the consent screen, keyed by scope.
 var ScopeDescriptions = map[string]string{
 	ScopeCoursesRead:    "Read your enrolled courses and lesson content",
-	ScopeCoursesWrite:   "Create and edit your own private courses, and propose lessons to shared courses",
 	ScopeNotesWrite:     "Read and write your personal lesson notes",
 	ScopeSignals:        "Log what you understood or struggled with",
 	ScopeCalendarManage: "View, create, update, and delete events on your calendar",
@@ -56,7 +51,7 @@ var ScopeDescriptions = map[string]string{
 
 func validScope(s string) bool {
 	switch s {
-	case ScopeCoursesRead, ScopeCoursesWrite, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits:
+	case ScopeCoursesRead, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits:
 		return true
 	default:
 		return false

@@ -72,18 +72,12 @@ enforces):
 
 | Tool | Scope | Delegates to |
 |---|---|---|
-| `list_my_courses` | `courses:read` | `courses.Repo.GetMyEnrollments` — includes the student's own self-courses too, since their owner is auto-enrolled at creation |
+| `list_my_courses` | `courses:read` | `courses.Repo.GetMyEnrollments` |
 | `get_lesson` | `courses:read` | `courses.Service.GetModuleContent` |
 | `get_my_lesson_note` | `notes:write` | `courses.Service.GetMyLessonNote` |
 | `save_my_lesson_note` | `notes:write` | `courses.Service.SaveLessonNote` (source="ai") |
 | `log_understanding` | `signals:write` | `courses.Service.LogUnderstanding` → `lesson_reflections` (source="ai") |
-| `create_self_course` | `courses:write` | `courses.Service.CreateSelfCourse` / `ForkSelfCourseFromOrgCourse` — first checks `Repo.FindSimilarSelfCourse` (pg_trgm title match against the owner's own self-courses, same `> 0.3` threshold `internal/roadmap/matcher.go` uses); a match returns the existing course (`matched_existing: true`) instead of creating a duplicate |
-| `add_self_course_section` | `courses:write` | `courses.Service.AddSelfCourseSection` — creates a new section in the caller's own self-course; returns its `id` so a follow-up `add_self_course_module` call can target it instead of falling back to the course's default first section |
-| `add_self_course_module` | `courses:write` | `courses.Service.AddSelfCourseModule` — first checks `Repo.FindSimilarModuleInCourse`; a same-course match appends the new content to the existing module (`matched_existing: true`) instead of a duplicate lesson. Also checks `Repo.FindSimilarModuleElsewhere` (other self-courses the owner has); a match is returned as `similar_elsewhere` without touching either module — cross-course overlap is only ever surfaced, never auto-merged |
-| `update_self_course_module` | `courses:write` | `courses.Service.UpdateSelfCourseModule` |
-| `delete_self_course_module` | `courses:write` | `courses.Service.DeleteSelfCourseModule` → `Repo.SoftDeleteModule`; reverts via `Repo.RestoreModule` (clears `deleted_at`) |
-| `propose_module_to_org_course` | `courses:write` | `courses.Service.ProposeModuleToOrgCourse` → `course_content_proposals` (`status='pending'`); given `source_module_id`, copies that self-course lesson's title/content server-side and records `source_course_id`/`source_module_id` for traceability instead of trusting retyped text |
-| `get_learning_context` | `courses:read` | `courses.Service.GetLearningContext` — enrolled courses + progress, recent reflections, recent self-course activity, all in one call |
+| `get_learning_context` | `courses:read` | `courses.Service.GetLearningContext` — enrolled courses + progress and recent reflections, all in one call |
 | `get_random_topic` | `courses:read` | `courses.Service.GetRandomTopic` — one published course the student hasn't tried yet, weighted toward `user_profiles.topics_interest` |
 | `list_calendar_events` | `calendar:manage` | `calendar.Service.ListRange` |
 | `create_calendar_event` | `calendar:manage` | `calendar.Service.CreateEvent` |
@@ -124,7 +118,7 @@ enforces):
 | `update_problem_notes` | `sheets:manage` | `sheets.Repo.UpsertNotes` — TipTap doc JSON, same shape as `lesson_notes`/`wiki_pages.content` |
 | `toggle_problem_starred` | `sheets:manage` | `sheets.Repo.SetStarred` |
 | `list_journal_entries` | `journal:manage` | `journal.Repo.ListEntries` — the connection's own learning journal, newest day first, optional category/search filter |
-| `find_similar_journal_entries` | `journal:manage` | `journal.Repo.FindSimilarEntries` — pg_trgm title match against the connection's own entries, same `> 0.3` threshold `internal/roadmap/matcher.go`/`courses.Repo.FindSimilarSelfCourse` use |
+| `find_similar_journal_entries` | `journal:manage` | `journal.Repo.FindSimilarEntries` — pg_trgm title match against the connection's own entries, same `> 0.3` threshold `internal/roadmap/matcher.go` uses |
 | `create_journal_entry` | `journal:manage` | `journal.Repo.CreateEntry`, then `FindSimilarEntries` — the response's `similar_entries` surfaces a likely-duplicate topic without blocking or merging the new entry |
 | `update_journal_entry` | `journal:manage` | `journal.Repo.UpdateEntry` |
 | `delete_journal_entry` | `journal:manage` | `journal.Repo.DeleteEntry` |
@@ -138,13 +132,6 @@ enforces):
 ### `interview_prep:manage` — one combined scope, no revert on generation
 
 Every interview-prep tool shares one scope rather than splitting read/write, mirroring `calendar:manage` — every call is already scoped to the connection's own plans. `create_interview_prep_plan` and both submit tools have no `Revert`: `CreatePlan` is capped at `interviewprep.MaxPlansPerDay` (5/day) via `CountRecentPlans`, and deleting a plan on revert would let a connected client bypass that cap by looping create+revert; the two submit tools have already run AI grading (and, for coding items, executed the code) by the time they return, so there's no meaningful undo for the stored answer alone.
-
-### `courses:write` — the one write scope that touches course content
-
-Every other write scope (`notes:write`, `signals:write`, `calendar:manage`) only ever touches a table scoped 1:1 to the connecting user. `courses:write` is different — it can create/edit **courses**. The non-negotiable boundary (see `docs/courses.md`'s "Kind: org vs. self"):
-
-- `create_self_course`/`add_self_course_section`/`add_self_course_module`/`update_self_course_module`/`delete_self_course_module` only ever read/write a `kind='self'` course whose `owner_id` is the connection's own `user_id` — enforced by `courses.Repo.GetOwnedSelfCourse` on every call, the same choke point the in-app self-course endpoints use. There is no tool that edits a `kind='org'` course's modules.
-- `propose_module_to_org_course` never writes to an org course either — it only inserts a `pending` `course_content_proposals` row. An org course only gains a new module when that course's own instructor/admin approves it through the ordinary web app (`docs/courses.md`'s proposal review queue), a plain session-authenticated, RBAC-gated endpoint — never reachable via `/mcp`.
 
 ### `system_design:manage` — the whiteboard tool, not the (unbuilt) canvas doc describes
 

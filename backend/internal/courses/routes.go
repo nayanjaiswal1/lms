@@ -51,32 +51,6 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/courses/{courseID}/purchases/{purchaseID}/refund", h.RefundPurchase)
 	})
 
-	// ─── Instructor: content-proposal review queue ────────────────────────────
-	// A proposal always targets an org course, so this reuses the same
-	// instructor/admin gate as authoring that course directly — approving a
-	// proposal IS authoring the course, just sourced from a student's work.
-	r.Group(func(r chi.Router) {
-		r.Use(instructor)
-		r.Get("/api/courses/{courseID}/proposals", h.ListProposals)
-		r.Post("/api/proposals/{proposalID}/approve", h.ApproveProposal)
-		r.Post("/api/proposals/{proposalID}/reject", h.RejectProposal)
-	})
-
-	// ─── All authenticated users: self-courses (own private course tree) ─────
-	// No RequireOrgRole gate — every student may create/edit their own
-	// private courses; ownership (not org role) is what CreateSelfCourse/
-	// ForkSelfCourseFromOrgCourse/AddSelfCourseModule/UpdateSelfCourseModule
-	// enforce.
-	r.Get("/api/learning-context", h.GetLearningContext)
-	r.Get("/api/self-courses/learning-log", h.GetOrCreateLearningLog)
-	r.Post("/api/self-courses", h.CreateSelfCourse)
-	r.Post("/api/self-courses/fork", h.ForkSelfCourse)
-	r.Post("/api/self-courses/{courseID}/modules", h.AddSelfCourseModule)
-	r.Patch("/api/self-course-modules/{moduleID}", h.UpdateSelfCourseModule)
-	r.Delete("/api/self-course-modules/{moduleID}", h.DeleteSelfCourseModule)
-	r.Delete("/api/self-courses/{courseID}", h.DeleteSelfCourse)
-	r.Post("/api/courses/{courseID}/proposals", h.ProposeModule)
-
 	// ─── All authenticated users: browse, enroll, learn ──────────────────────
 	r.Get("/api/courses", h.ListCourses)
 	r.Get("/api/courses/random-topic", h.GetRandomTopic)

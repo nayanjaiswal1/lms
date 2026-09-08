@@ -8,7 +8,7 @@ A personal, day-by-day log of what the user learned — free-typed category/subc
 
 Unlike the [Activity tracker](activity.md) (read-only aggregation of module/quiz/lab/SRS events) and [Habits](overview.md) (lifestyle habit tracking), the Learning Journal is a manual "what I learned today" log the user writes themselves — one entry per topic, dated, under a category → subcategory path they type (Backend / Redis, DSA / Graphs, English / Modal Verbs, ...), no fixed enum on either level.
 
-**v1 has no bespoke AI endpoint of its own.** No auto-structuring of raw notes, no gap-detection, no "needs review" nudges — none of that is built. The only AI-adjacent behavior is duplicate/similar-topic detection on create (`Repo.FindSimilarEntries`, Postgres `pg_trgm` title similarity, same `> 0.3` threshold `courses.Repo.FindSimilarSelfCourse` uses) — purely informational, never merges or blocks. Beyond that, AI access is entirely through the [AI Connector](ai-connector.md)'s `journal:manage` MCP tools — a connected client's own reasoning is the only "AI" in this feature.
+**v1 has no bespoke AI endpoint of its own.** No auto-structuring of raw notes, no gap-detection, no "needs review" nudges — none of that is built. The only AI-adjacent behavior is duplicate/similar-topic detection on create (`Repo.FindSimilarEntries`, Postgres `pg_trgm` title similarity, same `> 0.3` threshold `internal/roadmap/matcher.go` uses) — purely informational, never merges or blocks. Beyond that, AI access is entirely through the [AI Connector](ai-connector.md)'s `journal:manage` MCP tools — a connected client's own reasoning is the only "AI" in this feature.
 
 ---
 

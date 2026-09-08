@@ -21,7 +21,7 @@ func TestCreateModule_ConcurrentInsertsGetUniquePositions(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepo(pool)
 
-	_, _, courseID := seedProposalFixture(t, ctx, pool)
+	_, _, courseID := seedCourseFixture(t, ctx, pool)
 	section, err := repo.CreateSection(ctx, CourseSection{CourseID: courseID, Title: "Intro"})
 	if err != nil {
 		t.Fatalf("CreateSection: %v", err)

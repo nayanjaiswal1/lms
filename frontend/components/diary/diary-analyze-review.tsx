@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { analyzePreviewAction } from "@/app/(app)/diary/actions";
-import type { DiaryHighlight, HighlightKind } from "@/lib/server/diary";
+import { HIGHLIGHT_KIND_LABEL } from "@/lib/diary/highlight-labels";
+import type { DiaryHighlight } from "@/lib/server/diary";
 
 interface ReviewItem {
   highlight: DiaryHighlight;
@@ -97,10 +98,8 @@ export function resolveAnalyzeHighlights(items: ReviewItem[]): DiaryHighlight[] 
 
 // Owns the review reducer + the preview AI call. DiaryEditor swaps its
 // lined-paper write area for <DiaryAnalyzeReviewPanel> in place while
-// state.status !== "closed" — items can arrive either from a fresh
-// analyzePreviewAction call (open) or already-detected from the combined
-// "AI" button's reviewDumpAction (loadFromHighlights), which skips the AI
-// round trip since Preview already ran server-side.
+// state.status !== "closed" — opened by the "AI" button, independent of
+// Fix English (see DiaryEditor.handleAIReview).
 export function useAnalyzeReview() {
   const [state, dispatch] = useReducer(reviewReducer, initialState);
 
@@ -114,10 +113,6 @@ export function useAnalyzeReview() {
   return {
     state,
     open,
-    // Loads an already-detected highlight list directly (e.g. from the
-    // combined "AI" button's reviewDumpAction, which ran Preview server-side
-    // already) — skips a second AI round trip.
-    loadFromHighlights: (highlights: DiaryHighlight[]) => dispatch({ type: "loaded", highlights }),
     toggle: (index: number) => dispatch({ type: "toggle", index }),
     editText: (index: number, text: string) => dispatch({ type: "edit_text", index, text }),
     editMetadata: (index: number, key: string, value: string) =>
@@ -125,15 +120,6 @@ export function useAnalyzeReview() {
     close: () => dispatch({ type: "close" }),
   };
 }
-
-const KIND_LABEL: Record<HighlightKind, string> = {
-  habit: "Habit",
-  task_done: "Task done",
-  task_new: "New task",
-  buy_new: "Buy list",
-  learned: "📚 Learned",
-  goal: "🎯 New goal",
-};
 
 function humanizeKey(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -164,7 +150,7 @@ export function DiaryAnalyzeReviewPanel({
           <p className="text-sm text-destructive">Could not analyze this entry. Try again.</p>
         )}
         {state.status === "ready" && state.items.length === 0 && (
-          <p className="text-sm text-muted-foreground">No habits or tasks detected.</p>
+          <p className="text-sm text-muted-foreground">No goals or tasks detected.</p>
         )}
         {state.status === "ready" &&
           state.items.map((item, i) => (
@@ -177,13 +163,8 @@ export function DiaryAnalyzeReviewPanel({
                   onCheckedChange={() => onToggle(i)}
                 />
                 <label className="flex-1 text-sm" htmlFor={`analyze-item-${i}`}>
-                  <span className="ai-badge mr-2">{KIND_LABEL[item.highlight.kind]}</span>
+                  <span className="ai-badge mr-2">{HIGHLIGHT_KIND_LABEL[item.highlight.kind]}</span>
                   <span className="text-muted-foreground">“{item.highlight.text}”</span>
-                  {item.highlight.kind === "learned" && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {item.highlight.category} / {item.highlight.title}
-                    </span>
-                  )}
                   {item.highlight.kind === "goal" && (
                     <span className="ml-2 text-xs text-muted-foreground">
                       {item.highlight.title} ({item.highlight.cadence})

@@ -45,8 +45,7 @@ func (s *Service) StartCheckout(ctx context.Context, req courses.CheckoutRequest
 	// own draft views), so a student who knows a course id could otherwise pay
 	// for a draft or archived course that has no catalog entry to consume.
 	// Reported as courses.ErrNotFound, not a distinct error: an unpublished
-	// course simply doesn't exist to a buyer, the same way GetCourseTree hides
-	// someone else's self-course.
+	// course simply doesn't exist to a buyer.
 	if course.Status != courses.StatusPublished {
 		return courses.CheckoutSession{}, courses.ErrNotFound
 	}

@@ -52,17 +52,6 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 		writeDomainError(w, err)
 		return
 	}
-	// kind='self' courses (roadmap/practice courses) are private to their
-	// owner and auto-enrolled at creation (repo.CreateSelfCourse) — they have
-	// no listing or discovery path, but GetCourse doesn't filter by kind, so
-	// without this check a courseID guessed or leaked from elsewhere would
-	// let a stranger enroll while GetCourseTree's owner check (repo.go:308)
-	// permanently locks them out afterward. Treat it as not found, same as
-	// ListCourses already hides it from everyone but the owner.
-	if course.Kind == KindSelf {
-		writeDomainError(w, ErrNotFound)
-		return
-	}
 	if !course.IsFree {
 		httputil.WriteError(w, http.StatusPaymentRequired, "This course requires payment.")
 		return

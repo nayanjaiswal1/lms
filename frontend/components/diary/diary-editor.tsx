@@ -1,18 +1,24 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { History, NotebookPen, SpellCheck, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { applyAnalysisAction, reviewDumpAction, saveDiaryEntryAction } from "@/app/(app)/diary/actions";
+import { applyAnalysisAction, saveDiaryEntryAction } from "@/app/(app)/diary/actions";
+import { HIGHLIGHT_KIND_LABEL } from "@/lib/diary/highlight-labels";
 import type { DiaryHighlight } from "@/lib/server/diary";
 import {
   DiaryAnalyzeReviewPanel,
   resolveAnalyzeHighlights,
   useAnalyzeReview,
 } from "@/components/diary/diary-analyze-review";
+import {
+  DiaryFixEnglishReviewPanel,
+  resolveFixEnglishText,
+  useFixEnglishReview,
+} from "@/components/diary/diary-fix-english-review";
 
 const SAVE_DEBOUNCE_MS = 1500;
 
@@ -35,15 +41,6 @@ function clearDraft(date: string) {
   }
 }
 
-const HIGHLIGHT_LABEL: Record<DiaryHighlight["kind"], string> = {
-  habit: "Detected habit",
-  task_done: "Task marked done",
-  task_new: "New task captured",
-  buy_new: "Added to buy list",
-  learned: "Filed to Learning Log",
-  goal: "New goal",
-};
-
 // Renders content with highlight spans wrapped in <mark>. Highlights are
 // sorted and clipped defensively — the AI-produced offsets are trusted for
 // happy-path text but a stale/overlapping span must never crash the editor.
@@ -57,7 +54,7 @@ function renderHighlighted(content: string, highlights: DiaryHighlight[]): React
     if (start >= end) continue;
     if (start > cursor) nodes.push(content.slice(cursor, start));
     nodes.push(
-      <mark className="diary-highlight" key={`${start}-${end}`} title={HIGHLIGHT_LABEL[h.kind]}>
+      <mark className="diary-highlight" key={`${start}-${end}`} title={HIGHLIGHT_KIND_LABEL[h.kind]}>
         {content.slice(start, end)}
       </mark>,
     );
@@ -79,10 +76,12 @@ interface DiaryEditorProps {
   date: string;
   initialContent: string;
   highlights: DiaryHighlight[];
+  historyContent: ReactNode;
 }
 
-export function DiaryEditor({ date, initialContent, highlights }: DiaryEditorProps) {
+export function DiaryEditor({ date, initialContent, highlights, historyContent }: DiaryEditorProps) {
   const [content, setContent] = useState(initialContent);
+  const [showHistory, setShowHistory] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isApplying, startApplying] = useTransition();
   const [isReviewing, startReviewing] = useTransition();
@@ -90,6 +89,7 @@ export function DiaryEditor({ date, initialContent, highlights }: DiaryEditorPro
   const mirrorRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const analyzeReview = useAnalyzeReview();
+  const fixEnglishReview = useFixEnglishReview();
 
   // Crash-recovery draft only, not cross-device sync — server PATCH stays
   // the source of truth. Must be read after mount, not during render, so
@@ -133,17 +133,27 @@ export function DiaryEditor({ date, initialContent, highlights }: DiaryEditorPro
     });
   }
 
-  // The single "AI" button: corrects the text (minimal-change, same pass as
-  // the old "Fix English") and detects habit/task/learned/goal highlights
-  // over the corrected text in one round trip (internal/diary.Service.
-  // ReviewDump) — saves the corrected content, then opens the highlight
-  // review panel pre-loaded with the result (no second AI call).
+  // "Fix English": a standalone grammar/spelling diff — shows the AI's
+  // proposed corrections span-by-span (nothing saved yet) and only writes
+  // the resolved text once the writer confirms which spans to keep.
+  function handleFixEnglish() {
+    startReviewing(async () => {
+      await fixEnglishReview.open(date, content);
+    });
+  }
+
+  function handleFixEnglishConfirm() {
+    const resolved = resolveFixEnglishText(fixEnglishReview.state.segments, fixEnglishReview.state.decisions);
+    saveContent(resolved);
+    fixEnglishReview.close();
+  }
+
+  // "AI": the separate habit/task/goal detection pass, over whatever text is
+  // currently on the page (independent of Fix English — run either, both,
+  // or neither, in any order).
   function handleAIReview() {
     startReviewing(async () => {
-      const result = await reviewDumpAction(date, content);
-      if (!result.ok || !result.data) return;
-      saveContent(result.data.content);
-      analyzeReview.loadFromHighlights(result.data.highlights);
+      await analyzeReview.open(date, content);
     });
   }
 
@@ -169,13 +179,84 @@ export function DiaryEditor({ date, initialContent, highlights }: DiaryEditorPro
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-4 border-b border-border pb-2">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-2">
         <h2 className="diary-paper-headline text-2xl font-bold text-foreground sm:text-3xl">
-          {formatEntryHeadline(date)}
+          {showHistory ? "History" : formatEntryHeadline(date)}
         </h2>
+        <div className="flex items-center gap-3">
+          {!showHistory && (
+            <span
+              className={cn(
+                "text-xs text-muted-foreground",
+                !isPending && !isApplying && !isReviewing && "invisible",
+              )}
+            >
+              {isReviewing ? "Reviewing…" : isApplying ? "Applying…" : "Saving…"}
+            </span>
+          )}
+          <Button
+            aria-label={showHistory ? "Back to today" : "Show history"}
+            aria-pressed={showHistory}
+            className={cn("touch-target", showHistory && "bg-accent")}
+            size="icon"
+            type="button"
+            variant="outline"
+            onClick={() => setShowHistory((v) => !v)}
+          >
+            {showHistory ? (
+              <NotebookPen aria-hidden className="size-4" />
+            ) : (
+              <History aria-hidden className="size-4" />
+            )}
+          </Button>
+          {!showHistory && (
+            <>
+              <Button
+                className="gap-2"
+                disabled={
+                  analyzeReview.state.status !== "closed" ||
+                  fixEnglishReview.state.status !== "closed" ||
+                  isReviewing ||
+                  content.trim() === ""
+                }
+                type="button"
+                variant="outline"
+                onClick={handleFixEnglish}
+              >
+                <SpellCheck aria-hidden className="size-4" />
+                Fix English
+              </Button>
+              <Button
+                className="gap-2"
+                disabled={
+                  analyzeReview.state.status !== "closed" ||
+                  fixEnglishReview.state.status !== "closed" ||
+                  isReviewing ||
+                  content.trim() === ""
+                }
+                type="button"
+                variant="outline"
+                onClick={handleAIReview}
+              >
+                <Sparkles aria-hidden className="size-4" />
+                AI
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
-      {analyzeReview.state.status !== "closed" ? (
+      {showHistory ? (
+        historyContent
+      ) : fixEnglishReview.state.status !== "closed" ? (
+        <DiaryFixEnglishReviewPanel
+          state={fixEnglishReview.state}
+          onCancel={fixEnglishReview.close}
+          onConfirm={handleFixEnglishConfirm}
+          onSetAll={fixEnglishReview.setAll}
+          onToggle={fixEnglishReview.toggle}
+        />
+      ) : analyzeReview.state.status !== "closed" ? (
         <DiaryAnalyzeReviewPanel
           state={analyzeReview.state}
           onCancel={analyzeReview.close}
@@ -205,22 +286,6 @@ export function DiaryEditor({ date, initialContent, highlights }: DiaryEditorPro
           />
         </div>
       )}
-
-      <div className="flex items-center justify-between gap-4">
-        <span className={cn("text-xs text-muted-foreground", !isPending && !isApplying && !isReviewing && "invisible")}>
-          {isReviewing ? "Reviewing…" : isApplying ? "Applying…" : "Saving…"}
-        </span>
-        <Button
-          className="gap-2"
-          disabled={analyzeReview.state.status !== "closed" || isReviewing || content.trim() === ""}
-          type="button"
-          variant="outline"
-          onClick={handleAIReview}
-        >
-          <Sparkles aria-hidden className="size-4" />
-          AI
-        </Button>
-      </div>
     </div>
   );
 }

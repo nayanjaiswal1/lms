@@ -21,8 +21,6 @@ export interface Course {
   instructor_name: string;
   avg_rating: number | null;
   review_count: number;
-  kind: "org" | "self";
-  owner_id: string | null;
   disable_code_run: boolean;
   disable_reflection: boolean;
   created_at: string;
@@ -142,15 +140,6 @@ export async function getCourseTree(courseID: string): Promise<CourseTree> {
   return apiGet<CourseTree>(`/api/courses/${courseID}`);
 }
 
-// Get-or-creates the caller's "Learning Log" self-course — the destination
-// diary's "learned" highlights file into (see internal/diary's
-// HighlightLearned). Used only by the /journal/log redirect entry point;
-// the returned course renders through the normal course-viewer pages like
-// any other self-course.
-export async function getOrCreateLearningLogCourse(): Promise<Course> {
-  return apiGet<Course>("/api/self-courses/learning-log");
-}
-
 export interface CourseDetailForViewer extends CourseTree {
   is_enrolled: boolean;
   progress: CourseProgressSummary | null;
@@ -189,9 +178,9 @@ export async function getRandomTopic(): Promise<RandomTopic | null> {
   }
 }
 
-// `getCourses()` only returns org-scoped courses (kind = 'org') — self-practice
-// courses (kind = 'self') never appear there, only in `getEnrollments()` (auto-
-// enrolled at creation). Callers resolving a course by slug must check both.
+// `getCourses()` only returns the published catalog — an enrolled course
+// that's since been unpublished/archived won't appear there, only in
+// `getEnrollments()`. Callers resolving a course by slug must check both.
 export function findCourseBySlug(courses: Course[], enrollments: Enrollment[], slug: string): Course | undefined {
   return courses.find((c) => c.slug === slug) ?? enrollments.find((e) => e.course.slug === slug)?.course;
 }

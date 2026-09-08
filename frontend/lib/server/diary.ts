@@ -2,7 +2,7 @@ import "server-only";
 
 import { apiGet } from "@/lib/server/api";
 
-export type HighlightKind = "habit" | "task_done" | "task_new" | "buy_new" | "learned" | "goal";
+export type HighlightKind = "habit" | "task_done" | "task_new" | "buy_new" | "goal";
 
 export interface DiaryHighlight {
   start: number;
@@ -14,21 +14,14 @@ export interface DiaryHighlight {
   // (gym/sleep/reading/custom) and the AI extracted values for one or more
   // of its fields from this span — see docs/diary.md.
   metadata?: Record<string, unknown>;
-  // Set only for kind "learned": category is the Learning Log section
-  // title, title the module title ref_id resolves to once applied.
-  category?: string;
+  // Set only for kind "goal": the new habit's name, and one of
+  // "daily"/"weekly"/"monthly" — the cadence of the habit ref_id resolves to
+  // once applied.
   title?: string;
-  // Set only for kind "goal": one of "daily"/"weekly"/"monthly" — the
-  // cadence of the habit ref_id resolves to once applied.
   cadence?: string;
 }
 
 export interface AnalyzePreviewResponse {
-  highlights: DiaryHighlight[];
-}
-
-export interface ReviewResponse {
-  content: string;
   highlights: DiaryHighlight[];
 }
 
@@ -37,6 +30,9 @@ export interface DiaryGoal {
   name: string;
   cadence: string;
   done: boolean;
+  // Completion period this `done` reflects — pass straight through to
+  // PUT/DELETE /api/habits/{id}/completions/{period} to toggle it.
+  period: string;
 }
 
 export interface DiaryEntry {
@@ -55,6 +51,7 @@ export type DiaryTaskKind = "todo" | "buy";
 export interface DiaryTask {
   id: string;
   title: string;
+  description: string;
   kind: DiaryTaskKind;
   tags: string[];
   done: boolean;

@@ -35,56 +35,37 @@ const (
 	moduleTitleMinLen = 1
 	moduleTitleMaxLen = 200
 	descriptionMaxLen = 2000
-
-	// KindOrg is the existing shared, instructor-authored course (default).
-	KindOrg = "org"
-	// KindSelf is a student's own private course — owned by owner_id, never
-	// listed in the org browse/public catalogs, editable only by its owner
-	// (including via their connected MCP client, with no review gate).
-	KindSelf = "self"
-
-	ProposalStatusPending  = "pending"
-	ProposalStatusApproved = "approved"
-	ProposalStatusRejected = "rejected"
 )
 
 var validDifficulties = map[string]bool{
 	DifficultyBeginner: true, DifficultyIntermediate: true, DifficultyAdvanced: true,
 }
 
-// IsValidDifficulty is the single source of truth for the allowed difficulty
-// values — shared by the org course-creation handler and the self-course
-// path (both HTTP and, via Service, the MCP tool) so the two never drift.
+// IsValidDifficulty is the single source of truth for the allowed difficulty values.
 func IsValidDifficulty(d string) bool { return validDifficulties[d] }
 
 type Course struct {
-	ID             string     `json:"id"`
-	OrgID          string     `json:"org_id"`
-	CreatorID      string     `json:"creator_id"`
-	Title          string     `json:"title"`
-	Slug           string     `json:"slug"`
-	Description    *string    `json:"description"`
-	CoverURL       *string    `json:"cover_url"`
-	Difficulty     string     `json:"difficulty"`
-	Tags           []string   `json:"tags"`
-	Status         string     `json:"status"`
-	ForkedFromID   *string    `json:"forked_from_id"`
-	PriceCents     int        `json:"price_cents"`
-	IsFree         bool       `json:"is_free"`
-	IsPublic       bool       `json:"is_public"`
-	EstimatedHours *float64   `json:"estimated_hours"`
-	InstructorName string     `json:"instructor_name"`
-	AvgRating      *float64   `json:"avg_rating"`
-	ReviewCount    int        `json:"review_count"`
-	StartsAt       *time.Time `json:"starts_at"`
-	EndsAt         *time.Time `json:"ends_at"`
-	// Kind distinguishes a shared, instructor-authored course ("org", the
-	// default) from a student's own private course ("self"). OwnerID is set
-	// only for kind="self" — the one user who can read/edit it and whose
-	// connected AI (via MCP) is allowed to write its modules directly.
-	Kind                        string  `json:"kind"`
-	OwnerID                     *string `json:"owner_id,omitempty"`
-	CertificateThresholdPercent *int    `json:"certificate_threshold_percent,omitempty"`
+	ID                          string     `json:"id"`
+	OrgID                       string     `json:"org_id"`
+	CreatorID                   string     `json:"creator_id"`
+	Title                       string     `json:"title"`
+	Slug                        string     `json:"slug"`
+	Description                 *string    `json:"description"`
+	CoverURL                    *string    `json:"cover_url"`
+	Difficulty                  string     `json:"difficulty"`
+	Tags                        []string   `json:"tags"`
+	Status                      string     `json:"status"`
+	ForkedFromID                *string    `json:"forked_from_id"`
+	PriceCents                  int        `json:"price_cents"`
+	IsFree                      bool       `json:"is_free"`
+	IsPublic                    bool       `json:"is_public"`
+	EstimatedHours              *float64   `json:"estimated_hours"`
+	InstructorName              string     `json:"instructor_name"`
+	AvgRating                   *float64   `json:"avg_rating"`
+	ReviewCount                 int        `json:"review_count"`
+	StartsAt                    *time.Time `json:"starts_at"`
+	EndsAt                      *time.Time `json:"ends_at"`
+	CertificateThresholdPercent *int       `json:"certificate_threshold_percent,omitempty"`
 	// DisableCodeRun locks the in-lesson code runner for every code block in
 	// this course — the instructor's kill switch when a language's Piston
 	// execution isn't appropriate for the material (e.g. security exercises
@@ -142,46 +123,6 @@ type CourseModule struct {
 	CreatedAt        time.Time                `json:"created_at"`
 	UpdatedAt        time.Time                `json:"updated_at"`
 }
-
-// SimilarModuleElsewhere is a lightweight pointer to a module that closely
-// matches a requested title, found in one of the owner's OTHER self-courses.
-// Surfaced to a connected AI as a "you already covered this in course X"
-// hint — never auto-merged, since folding content across course boundaries
-// risks the wrong context.
-type SimilarModuleElsewhere struct {
-	CourseID    string `json:"course_id"`
-	CourseTitle string `json:"course_title"`
-	ModuleID    string `json:"module_id"`
-	ModuleTitle string `json:"module_title"`
-}
-
-// SelfCourseCreationResult wraps a self-course create so an MCP caller can
-// tell whether this call created a brand-new course or resumed an existing
-// one it matched by title (see Repo.FindSimilarSelfCourse). MatchedExisting
-// also tells the action-log/revert plumbing (mcpconnect.logAction) never to
-// mark this call revertible-by-delete — nothing new was created, so there's
-// nothing this call's own "undo" should ever remove.
-type SelfCourseCreationResult struct {
-	Course
-	MatchedExisting bool `json:"matched_existing"`
-}
-
-func (r SelfCourseCreationResult) IsMatchedExisting() bool { return r.MatchedExisting }
-
-// SelfCourseModuleResult is SelfCourseCreationResult's equivalent for
-// add_self_course_module: MatchedExisting means the new content was merged
-// into an already-similar module in the same course rather than inserted as
-// a sibling duplicate. SimilarElsewhere is set independently (even on a
-// fresh create) when a similarly-titled module exists in a different
-// self-course, so the caller can point the student at it instead of writing
-// the same notes twice.
-type SelfCourseModuleResult struct {
-	CourseModule
-	MatchedExisting  bool                    `json:"matched_existing"`
-	SimilarElsewhere *SimilarModuleElsewhere `json:"similar_elsewhere,omitempty"`
-}
-
-func (r SelfCourseModuleResult) IsMatchedExisting() bool { return r.MatchedExisting }
 
 // KnowledgeCheckQuestion is one entry of a notes module's knowledge_check
 // jsonb column — the server-side grading/gating key for an embedded question
@@ -355,9 +296,8 @@ type OutlineModule struct {
 // relevant, an AI client would need to make several separate lookups (and
 // often wouldn't bother, defaulting back to asking the student to recap).
 type LearningContext struct {
-	Courses            []CourseProgressBrief `json:"courses"`
-	RecentReflections  []ReflectionSummary   `json:"recent_reflections"`
-	RecentSelfActivity []SelfModuleSummary   `json:"recent_self_course_activity"`
+	Courses           []CourseProgressBrief `json:"courses"`
+	RecentReflections []ReflectionSummary   `json:"recent_reflections"`
 }
 
 // CourseProgressBrief is one enrolled course's completion state — enough to
@@ -366,7 +306,6 @@ type LearningContext struct {
 type CourseProgressBrief struct {
 	CourseID  string  `json:"course_id"`
 	Title     string  `json:"title"`
-	Kind      string  `json:"kind"`
 	Completed int     `json:"completed_modules"`
 	Total     int     `json:"total_modules"`
 	Pct       float64 `json:"pct"`
@@ -382,41 +321,6 @@ type ReflectionSummary struct {
 	Response    string    `json:"response"`
 	Source      string    `json:"source"`
 	UpdatedAt   time.Time `json:"updated_at"`
-}
-
-// SelfModuleSummary is one recently-touched module in one of the student's
-// own self-courses — the "what have I been building lately" feed.
-type SelfModuleSummary struct {
-	CourseID    string    `json:"course_id"`
-	CourseTitle string    `json:"course_title"`
-	ModuleID    string    `json:"module_id"`
-	ModuleTitle string    `json:"module_title"`
-	UpdatedAt   time.Time `json:"updated_at"`
-}
-
-// CourseContentProposal is a student's proposal to contribute a module they
-// authored in one of their own self-courses into a shared org course. It
-// never writes to course_modules on its own — an org admin/instructor must
-// Approve it first (see Service.ApproveProposal), which is the only path
-// that turns a proposal into a real module row.
-type CourseContentProposal struct {
-	ID              string     `json:"id"`
-	OrgID           string     `json:"-"`
-	ProposerID      string     `json:"proposer_id"`
-	SourceCourseID  *string    `json:"source_course_id,omitempty"`
-	SourceModuleID  *string    `json:"source_module_id,omitempty"`
-	TargetCourseID  string     `json:"target_course_id"`
-	TargetSectionID *string    `json:"target_section_id,omitempty"`
-	Title           string     `json:"title"`
-	Type            string     `json:"type"`
-	ContentBody     string     `json:"content_body"`
-	Status          string     `json:"status"`
-	ReviewNote      *string    `json:"review_note,omitempty"`
-	ReviewedBy      *string    `json:"reviewed_by,omitempty"`
-	ReviewedAt      *time.Time `json:"reviewed_at,omitempty"`
-	CreatedModuleID *string    `json:"created_module_id,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // RandomTopic is the response shape for the "surprise me" discovery feature

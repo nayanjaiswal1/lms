@@ -13,7 +13,6 @@ import (
 
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/auth"
-	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/habit"
 	"github.com/mindforge/backend/internal/httputil"
 )
@@ -26,14 +25,14 @@ type Handler struct {
 }
 
 // NewHandler constructs the diary handler. It stands up its own
-// habit.Service/courses.Repo over the shared pool — both are stateless
-// wrappers, the same pattern journal.NewHandler already uses for its own
-// whatnow.Repo, so this doesn't need the router's existing instances
-// threaded through. Diary has no dependency on internal/whatnow.
+// habit.Service over the shared pool — a stateless wrapper, the same
+// pattern journal.NewHandler already uses for its own whatnow.Repo, so this
+// doesn't need the router's existing instances threaded through. Diary has
+// no dependency on internal/whatnow.
 func NewHandler(pool *pgxpool.Pool, provider ai.LLMProvider) *Handler {
 	repo := NewRepo(pool)
 	habits := habit.NewService(habit.NewRepo(pool))
-	svc := NewService(repo, provider, habits, courses.NewRepo(pool))
+	svc := NewService(repo, provider, habits)
 	return &Handler{repo: repo, service: svc, habits: habits}
 }
 
@@ -134,7 +133,7 @@ func (h *Handler) withGoals(ctx context.Context, userID string, entry Entry) (En
 		period := alignPeriod(day, hb.Cadence).Format(entryDateFormat)
 		goals = append(goals, GoalStatus{
 			ID: hb.ID, Name: hb.Name, Cadence: string(hb.Cadence),
-			Done: completedPeriods[hb.ID+"|"+period],
+			Done: completedPeriods[hb.ID+"|"+period], Period: period,
 		})
 	}
 	return EntryResponse{Entry: entry, Goals: goals}, nil
@@ -279,7 +278,7 @@ func (h *Handler) AnalyzeApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.service.Apply(r.Context(), entry, claims.OrgID, req.Highlights); err != nil {
+	if _, err := h.service.Apply(r.Context(), entry, req.Highlights); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -326,39 +325,6 @@ func (h *Handler) FixEnglish(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, FixEnglishResponse{Segments: segments})
 }
 
-// Review handles POST /api/diary/{date}/review — the combined "AI" button:
-// FixEnglish then Analyze-Preview over the corrected text, in one call.
-// Synchronous and unpersisted, same as FixEnglish/AnalyzePreview; the caller
-// still PATCHes the corrected content and POSTs to AnalyzeApply separately
-// once they've reviewed the highlights.
-func (h *Handler) Review(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.RequireClaims(w, r)
-	if !ok {
-		return
-	}
-	date := chi.URLParam(r, "date")
-	if !validateDate(w, date) {
-		return
-	}
-	var req AnalyzePreviewRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	if req.Content == "" || len(req.Content) > maxContentLength {
-		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{
-			"content": fmt.Sprintf("content is required and must be at most %d characters.", maxContentLength),
-		})
-		return
-	}
-
-	content, highlights, err := h.service.ReviewDump(r.Context(), claims.UserID, claims.OrgID, date, req.Content)
-	if err != nil {
-		writeDomainError(w, err)
-		return
-	}
-	httputil.WriteJSON(w, http.StatusOK, ReviewResponse{Content: content, Highlights: highlights})
-}
-
 // ─── Diary-owned tasks ──────────────────────────────────────────────────────
 
 // ListTasks handles GET /api/diary/tasks?tag=&done=.
@@ -400,6 +366,10 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"title": "title must be 1-300 characters."})
 		return
 	}
+	if len(req.Description) > 2000 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"description": "description must be at most 2000 characters."})
+		return
+	}
 	kind := req.Kind
 	if kind == "" {
 		kind = TaskKindTodo
@@ -408,7 +378,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"kind": "kind must be 'todo' or 'buy'."})
 		return
 	}
-	task, err := h.repo.CreateTask(r.Context(), claims.UserID, req.Title, string(kind), nil, req.Tags)
+	task, err := h.repo.CreateTask(r.Context(), claims.UserID, req.Title, req.Description, string(kind), nil, req.Tags)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -417,7 +387,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 // PatchTask handles PATCH /api/diary/tasks/{id} — toggling done, editing
-// title/tags. Nil fields are left unchanged.
+// title/description/tags. Nil fields are left unchanged.
 func (h *Handler) PatchTask(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -428,8 +398,12 @@ func (h *Handler) PatchTask(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	if req.Description != nil && len(*req.Description) > 2000 {
+		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"description": "description must be at most 2000 characters."})
+		return
+	}
 
-	task, err := h.repo.UpdateTask(r.Context(), claims.UserID, id, req.Title, req.Tags)
+	task, err := h.repo.UpdateTask(r.Context(), claims.UserID, id, req.Title, req.Description, req.Tags)
 	if err != nil {
 		writeDomainError(w, err)
 		return

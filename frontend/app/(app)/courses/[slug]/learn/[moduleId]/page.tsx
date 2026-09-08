@@ -119,8 +119,9 @@ export default async function ModuleLearnPage({ params }: Props) {
   // opens a live Piston sandbox independent of any lesson code block, so it
   // has to honor the same course-level kill switch (courses.disable_code_run).
   const firstRunnableLanguage = notes && !tree.disable_code_run
-    ? notes.segments.find((s): s is Extract<typeof s, { type: "code" }> => s.type === "code" && isRunnableLanguage(s.language))
-        ?.language ?? null
+    ? notes.segments
+        .flatMap((s) => (s.type === "code" ? s.variants : []))
+        .find((v) => isRunnableLanguage(v.language))?.language ?? null
     : null;
   const passedCheckIds = requiredCheckIds.length > 0 ? await getMyCheckProgress(moduleId).catch(() => []) : [];
   const initialReflection = notes ? await getMyReflection(moduleId).catch(() => null) : null;
@@ -264,13 +265,7 @@ export default async function ModuleLearnPage({ params }: Props) {
             {!isWideLayout && (
               <div className="mb-2 flex items-start justify-between gap-3">
                 <h2 className="min-w-0 flex-1 text-2xl font-bold tracking-tight">{currentModule.title}</h2>
-                <LessonMoreMenu
-                  courseSlug={slug}
-                  fallbackModuleId={(prevModule ?? nextModule)?.id ?? null}
-                  isSelfCourse={course.kind === "self"}
-                  moduleId={moduleId}
-                  moduleTitle={currentModule.title}
-                />
+                <LessonMoreMenu moduleId={moduleId} />
               </div>
             )}
             <div className="mb-6 flex flex-wrap items-center gap-2">{moduleMeta}</div>

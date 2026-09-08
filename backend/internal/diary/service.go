@@ -9,30 +9,25 @@ import (
 	"time"
 
 	"github.com/mindforge/backend/internal/ai"
-	"github.com/mindforge/backend/internal/courses"
 	"github.com/mindforge/backend/internal/habit"
 )
 
 // Service holds the diary domain's AI-backed behavior: the on-demand Fix
 // English review, and the Preview/Apply pair that detects, then (once the
-// writer has reviewed/edited the result) resolves, habit/task/learning
-// mentions against the writer's real habit records, diary-owned task list,
-// and self-course "Learning Log". Diary owns its own task data (see
-// repo.go's Task methods) — it has no dependency on internal/whatnow.
+// writer has reviewed/edited the result) resolves, habit/task mentions
+// against the writer's real habit records and diary-owned task list. Diary
+// owns its own task data (see repo.go's Task methods) — it has no
+// dependency on internal/whatnow.
 type Service struct {
-	repo       *Repo
-	provider   ai.LLMProvider
-	habits     *habit.Service
-	courseRepo *courses.Repo
+	repo     *Repo
+	provider ai.LLMProvider
+	habits   *habit.Service
 }
 
 // NewService constructs a Service. habits is the same stateless wrapper over
-// the shared pool that habit.New already constructs. courseRepo is used
-// directly (not courses.Service) since only a handful of self-course CRUD
-// methods are needed here and courses.Service's constructor pulls in
-// storage/AI/rewards dependencies diary has no use for.
-func NewService(repo *Repo, provider ai.LLMProvider, habits *habit.Service, courseRepo *courses.Repo) *Service {
-	return &Service{repo: repo, provider: provider, habits: habits, courseRepo: courseRepo}
+// the shared pool that habit.New already constructs.
+func NewService(repo *Repo, provider ai.LLMProvider, habits *habit.Service) *Service {
+	return &Service{repo: repo, provider: provider, habits: habits}
 }
 
 // ErrAIUnavailable is returned by FixEnglish/Preview when no LLM provider is configured.
@@ -61,38 +56,6 @@ func (s *Service) FixEnglish(ctx context.Context, content string) ([]FixEnglishS
 		return nil, fmt.Errorf("diary: fix english: parse AI response: %w", err)
 	}
 	return parsed.Segments, nil
-}
-
-// ReviewDump runs FixEnglish then Preview over the corrected text in one
-// round trip, so the frontend's single "AI" button gets a minimal-change
-// correction and the detected highlights together instead of two separate
-// clicks. Both underlying calls are unchanged and still synchronous/
-// unpersisted; this only composes their results.
-func (s *Service) ReviewDump(ctx context.Context, userID, orgID, entryDate, content string) (string, []Highlight, error) {
-	segments, err := s.FixEnglish(ctx, content)
-	if err != nil {
-		return "", nil, err
-	}
-	corrected := acceptAllSegments(segments)
-	highlights, err := s.Preview(ctx, userID, entryDate, corrected)
-	if err != nil {
-		return "", nil, err
-	}
-	return corrected, highlights, nil
-}
-
-// acceptAllSegments reconstructs the fully-corrected text from a FixEnglish
-// diff by keeping "same" as-is and, per del/add pair, always the "add" side
-// — the server-side equivalent of the frontend's "Accept All".
-func acceptAllSegments(segments []FixEnglishSegment) string {
-	var sb strings.Builder
-	for _, seg := range segments {
-		if seg.Kind == SegmentDel {
-			continue
-		}
-		sb.WriteString(seg.Text)
-	}
-	return sb.String()
 }
 
 // Preview runs the habit/task detection pass over content — the writer's
@@ -133,15 +96,13 @@ func (s *Service) Preview(ctx context.Context, userID, entryDate, content string
 // spans the writer unchecked already removed by the caller and any metadata
 // values already corrected) against entry: applies each mutation against the
 // CURRENT habit/open-task vocabulary — which may have moved since Preview
-// ran — and persists the resolved list. orgID scopes the self-course a
-// "learned" highlight routes into (self-courses are org-scoped; diary
-// entries aren't).
-func (s *Service) Apply(ctx context.Context, entry Entry, orgID string, edited []Highlight) ([]Highlight, error) {
+// ran — and persists the resolved list.
+func (s *Service) Apply(ctx context.Context, entry Entry, edited []Highlight) ([]Highlight, error) {
 	habits, openTasks, err := s.vocabulary(ctx, entry.UserID, entry.EntryDate)
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := s.applyHighlights(ctx, entry, orgID, edited, habits, openTasks)
+	resolved, err := s.applyHighlights(ctx, entry, edited, habits, openTasks)
 	if err != nil {
 		return nil, err
 	}
@@ -207,10 +168,6 @@ func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []Tas
 			}
 		case HighlightTaskNew, HighlightBuyNew:
 			// ref_id is only assigned once Apply actually captures the task.
-		case HighlightLearned:
-			if strings.TrimSpace(h.Category) == "" || strings.TrimSpace(h.Title) == "" {
-				continue
-			}
 		case HighlightGoal:
 			if strings.TrimSpace(h.Title) == "" || !validGoalCadences[h.Cadence] {
 				continue
@@ -232,14 +189,22 @@ func cleanHighlights(detected []Highlight, habits []habit.Habit, openTasks []Tas
 // processed) is exact case-insensitive text match against entry.Highlights
 // from the PRIOR analysis — not semantic. Upgrade only if real duplicates
 // show up in practice (e.g. the writer rephrases the same sentence).
-func (s *Service) applyHighlights(ctx context.Context, entry Entry, orgID string, detected []Highlight, habits []habit.Habit, openTasks []Task) ([]Highlight, error) {
+//
+// task_new/buy_new additionally dedup by title against ALL open tasks
+// (openTaskByTitle, not scoped to this entry) regardless of kind — a
+// mention re-analyzed on a later day, or one the model files as the other
+// kind, links to the existing open todo/buy row instead of creating a
+// second one for the same errand.
+func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []Highlight, habits []habit.Habit, openTasks []Task) ([]Highlight, error) {
 	habitByID := make(map[string]habit.Habit, len(habits))
 	for _, h := range habits {
 		habitByID[h.ID] = h
 	}
 	openTaskByID := make(map[string]bool, len(openTasks))
+	openTaskByTitle := make(map[string]Task, len(openTasks))
 	for _, t := range openTasks {
 		openTaskByID[t.ID] = true
+		openTaskByTitle[normalizeTaskText(t.Title)] = t
 	}
 
 	already := make(map[string]Highlight, len(entry.Highlights))
@@ -290,8 +255,10 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, orgID string
 		case HighlightTaskNew:
 			if alreadyApplied {
 				h.RefID = prior.RefID
+			} else if existing, ok := openTaskByTitle[normalizeTaskText(h.Text)]; ok {
+				h.RefID = existing.ID
 			} else {
-				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, string(TaskKindTodo), &entry.ID, nil)
+				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, "", string(TaskKindTodo), &entry.ID, nil)
 				if err != nil {
 					return nil, fmt.Errorf("diary: analyze: capture task: %w", err)
 				}
@@ -301,23 +268,14 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, orgID string
 		case HighlightBuyNew:
 			if alreadyApplied {
 				h.RefID = prior.RefID
+			} else if existing, ok := openTaskByTitle[normalizeTaskText(h.Text)]; ok {
+				h.RefID = existing.ID
 			} else {
-				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, string(TaskKindBuy), &entry.ID, nil)
+				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, "", string(TaskKindBuy), &entry.ID, nil)
 				if err != nil {
 					return nil, fmt.Errorf("diary: analyze: capture buy task: %w", err)
 				}
 				h.RefID = t.ID
-			}
-
-		case HighlightLearned:
-			if alreadyApplied {
-				h.RefID = prior.RefID
-			} else {
-				moduleID, err := s.courseRepo.FileLearningLogNote(ctx, orgID, entry.UserID, h.Category, h.Title, h.Text)
-				if err != nil {
-					return nil, fmt.Errorf("diary: analyze: file learned highlight: %w", err)
-				}
-				h.RefID = moduleID
 			}
 
 		case HighlightGoal:
@@ -351,8 +309,8 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, orgID string
 // matchExistingHabit does a cheap case-insensitive substring match of title
 // against habits' names — see HighlightGoal in applyHighlights.
 //
-// ponytail: substring match, not the trigram similarity journal/self-courses
-// use — upgrade only if this proves too strict/loose in practice.
+// ponytail: substring match, not the trigram similarity journal uses —
+// upgrade only if this proves too strict/loose in practice.
 func matchExistingHabit(title string, habits []habit.Habit) (habit.Habit, bool) {
 	needle := strings.ToLower(strings.TrimSpace(title))
 	if needle == "" {
@@ -393,7 +351,14 @@ func allowedHabitMetadata(hab habit.Habit, extracted map[string]any) map[string]
 }
 
 func dedupKey(kind HighlightKind, text string) string {
-	return string(kind) + "|" + strings.ToLower(strings.TrimSpace(text))
+	return string(kind) + "|" + normalizeTaskText(text)
+}
+
+// normalizeTaskText is the case-insensitive comparison key used to match a
+// newly detected task_new/buy_new mention against an already-open task's
+// title, regardless of kind — see applyHighlights' openTaskByTitle.
+func normalizeTaskText(text string) string {
+	return strings.ToLower(strings.TrimSpace(text))
 }
 
 // entryDate re-parses entry.EntryDate — cheap enough not to thread the

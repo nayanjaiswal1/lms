@@ -3,24 +3,13 @@
 import { MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { DeleteSelfCourseModuleButton } from "@/components/courses/delete-self-course-module-button";
 import { ReportContentButton } from "@/components/shared/report-content-button";
 
 interface LessonMoreMenuProps {
-  courseSlug: string;
   moduleId: string;
-  moduleTitle: string;
-  fallbackModuleId: string | null;
-  isSelfCourse: boolean;
 }
 
-export function LessonMoreMenu({
-  courseSlug,
-  moduleId,
-  moduleTitle,
-  fallbackModuleId,
-  isSelfCourse,
-}: LessonMoreMenuProps) {
+export function LessonMoreMenu({ moduleId }: LessonMoreMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -29,18 +18,7 @@ export function LessonMoreMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {isSelfCourse && (
-          <DeleteSelfCourseModuleButton
-            asMenuItem
-            courseSlug={courseSlug}
-            fallbackModuleId={fallbackModuleId}
-            moduleId={moduleId}
-            moduleTitle={moduleTitle}
-          />
-        )}
-        {!isSelfCourse && (
-          <ReportContentButton asMenuItem contentId={moduleId} contentType="course_module" />
-        )}
+        <ReportContentButton asMenuItem contentId={moduleId} contentType="course_module" />
       </DropdownMenuContent>
     </DropdownMenu>
   );

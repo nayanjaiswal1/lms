@@ -84,11 +84,10 @@ func extractTargetID(args map[string]any, result any) string {
 }
 
 // matchedExistingResult is implemented by tool results that resolved to an
-// already-existing row instead of creating a new one (see
-// courses.SelfCourseCreationResult/SelfCourseModuleResult). logAction checks
-// it to force Revertible=false for these — the row's ID lands in TargetID
-// same as a real create, but nothing was created, so a later Revert must
-// never delete/soft-delete a row that existed before this call.
+// already-existing row instead of creating a new one. logAction checks it to
+// force Revertible=false for these — the row's ID lands in TargetID same as
+// a real create, but nothing was created, so a later Revert must never
+// delete/soft-delete a row that existed before this call.
 type matchedExistingResult interface {
 	IsMatchedExisting() bool
 }
