@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-32
 course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
-section_position: 7
+section_position: 9
 title: "Mock Interviews 7–9: DP, Backend, Behavioral"
 position: 32
 estimated_minutes: 240

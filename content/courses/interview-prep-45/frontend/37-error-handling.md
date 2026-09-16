@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-25-frontend
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Error Handling"
 position: 37
 estimated_minutes: 30

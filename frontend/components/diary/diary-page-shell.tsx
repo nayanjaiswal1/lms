@@ -2,7 +2,8 @@ import { diarySerif } from "@/components/diary/diary-fonts";
 import { journalSans } from "@/components/habits/journal-fonts";
 import "@/components/diary/diary-theme.css";
 import { DiaryEditor } from "@/components/diary/diary-editor";
-import { DiaryTodayLists } from "@/components/diary/diary-today-lists";
+import { DiaryGoalsSection } from "@/components/diary/diary-goals-section";
+import { DiaryTasksSection } from "@/components/diary/diary-tasks-section";
 import { DiaryCalendar } from "@/components/diary/diary-calendar";
 import { DiaryHistoryFeed } from "@/components/diary/diary-history-feed";
 import { cn } from "@/lib/utils";
@@ -16,23 +17,34 @@ interface DiaryPageShellProps {
 
 // Shared by /diary (today, get-or-create) and /diary/[date] (edit any past
 // day with an existing entry) — same write surface, calendar, and history
-// feed either way; only how the caller fetches `entry` differs.
+// feed either way; only how the caller fetches `entry` differs. Layout is
+// the .diary-shell grid (diary-theme.css): calendar/goals/editor/tasks
+// stack in that order on mobile, and split into a 3-column
+// calendar+goals-rail / editor / tasks-rail layout at lg+ — see that file
+// for why Tasks moves to its own column instead of stacking under Goals.
 export function DiaryPageShell({ entry, tasks, historyEntries }: DiaryPageShellProps) {
   return (
     <div className={cn("diary-paper min-h-dvh p-4 sm:p-6 lg:p-8", journalSans.variable, diarySerif.variable)}>
-      <div className="page-container lg:grid lg:grid-cols-[280px_1fr] lg:items-start lg:gap-10">
-        <aside className="flex flex-col gap-8 lg:sticky lg:top-8">
+      <div className="diary-shell">
+        <div className="diary-shell-calendar lg:sticky lg:top-8">
           <DiaryCalendar entries={historyEntries} />
-          <DiaryTodayLists goals={entry.goals} tasks={tasks} />
-        </aside>
+        </div>
 
-        <div className="mt-10 max-w-3xl lg:mt-0">
-          <DiaryEditor date={entry.entry_date} highlights={entry.highlights} initialContent={entry.content} />
+        <div className="diary-shell-goals lg:sticky lg:top-8">
+          <DiaryGoalsSection date={entry.entry_date} goals={entry.goals} />
+        </div>
 
-          <div className="mt-12 border-t border-border pt-8">
-            <h2 className="diary-paper-headline page-title mb-4 text-xl">History</h2>
-            <DiaryHistoryFeed entries={historyEntries} />
-          </div>
+        <div className="diary-shell-editor">
+          <DiaryEditor
+            date={entry.entry_date}
+            highlights={entry.highlights}
+            historyContent={<DiaryHistoryFeed entries={historyEntries} />}
+            initialContent={entry.content}
+          />
+        </div>
+
+        <div className="diary-shell-tasks lg:sticky lg:top-8">
+          <DiaryTasksSection tasks={tasks} />
         </div>
       </div>
     </div>

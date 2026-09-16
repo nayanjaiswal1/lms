@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-auth-schemes-bullmq
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Bearer/Token Auth vs RBAC, and BullMQ"
 position: 97
 estimated_minutes: 15

@@ -74,6 +74,158 @@ class ChainingHashMap:
                 self.put(node.key, node.value)
                 node = node.next
 ```
+```javascript +
+class HashNode {
+  constructor(key, value) {
+    this.key = key;
+    this.value = value;
+    this.next = null; // chaining: next node in this bucket
+  }
+}
+
+class ChainingHashMap {
+  constructor(capacity = 8) {
+    this.capacity = capacity;
+    this.size = 0;
+    this.buckets = new Array(capacity).fill(null);
+  }
+
+  _hash(key) {
+    const str = String(key);
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = (h * 31 + str.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h) % this.capacity;
+  }
+
+  put(key, value) {
+    const idx = this._hash(key);
+    let node = this.buckets[idx];
+    while (node) {
+      if (node.key === key) {
+        node.value = value; // update existing
+        return;
+      }
+      node = node.next;
+    }
+    const newNode = new HashNode(key, value);
+    newNode.next = this.buckets[idx];
+    this.buckets[idx] = newNode;
+    this.size += 1;
+    if (this.size / this.capacity > 0.75) {
+      this._resize();
+    }
+  }
+
+  get(key) {
+    const idx = this._hash(key);
+    let node = this.buckets[idx];
+    while (node) {
+      if (node.key === key) return node.value;
+      node = node.next;
+    }
+    throw new Error(`key not found: ${key}`);
+  }
+
+  _resize() {
+    const oldBuckets = this.buckets;
+    this.capacity *= 2;
+    this.buckets = new Array(this.capacity).fill(null);
+    this.size = 0;
+    for (let node of oldBuckets) {
+      while (node) {
+        this.put(node.key, node.value);
+        node = node.next;
+      }
+    }
+  }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        ChainingHashMap<String, Integer> map = new ChainingHashMap<>(8);
+        map.put("a", 1);
+        map.put("b", 2);
+        map.put("a", 10);
+        System.out.println(map.get("a"));
+        System.out.println(map.get("b"));
+    }
+}
+
+class HashNode<K, V> {
+    K key;
+    V value;
+    HashNode<K, V> next; // chaining: next node in this bucket
+
+    HashNode(K key, V value) {
+        this.key = key;
+        this.value = value;
+        this.next = null;
+    }
+}
+
+class ChainingHashMap<K, V> {
+    private int capacity;
+    private int size;
+    private HashNode<K, V>[] buckets;
+
+    @SuppressWarnings("unchecked")
+    ChainingHashMap(int capacity) {
+        this.capacity = capacity;
+        this.size = 0;
+        this.buckets = new HashNode[capacity];
+    }
+
+    private int index(K key) {
+        return Math.abs(key.hashCode()) % capacity;
+    }
+
+    void put(K key, V value) {
+        int idx = index(key);
+        HashNode<K, V> node = buckets[idx];
+        while (node != null) {
+            if (node.key.equals(key)) {
+                node.value = value; // update existing
+                return;
+            }
+            node = node.next;
+        }
+        HashNode<K, V> newNode = new HashNode<>(key, value);
+        newNode.next = buckets[idx];
+        buckets[idx] = newNode;
+        size += 1;
+        if ((double) size / capacity > 0.75) {
+            resize();
+        }
+    }
+
+    V get(K key) {
+        int idx = index(key);
+        HashNode<K, V> node = buckets[idx];
+        while (node != null) {
+            if (node.key.equals(key)) return node.value;
+            node = node.next;
+        }
+        throw new java.util.NoSuchElementException(String.valueOf(key));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void resize() {
+        HashNode<K, V>[] oldBuckets = buckets;
+        capacity *= 2;
+        buckets = new HashNode[capacity];
+        size = 0;
+        for (HashNode<K, V> node : oldBuckets) {
+            while (node != null) {
+                put(node.key, node.value);
+                node = node.next;
+            }
+        }
+    }
+}
+```
 
 **Interview-relevant details:**
 - Load factor (`size / capacity`) above ~0.7 is when you resize. Too high, and chains get long, degrading toward O(n).
@@ -129,6 +281,96 @@ class DynamicArray:
         self.array = new_array
         self.capacity = new_capacity
 ```
+```javascript +
+class DynamicArray {
+  constructor() {
+    this.count = 0;    // number of elements actually stored
+    this.capacity = 1; // allocated slots
+    this.array = new Array(this.capacity);
+  }
+
+  get length() {
+    return this.count;
+  }
+
+  get(i) {
+    if (i < 0 || i >= this.count) {
+      throw new RangeError("index out of range");
+    }
+    return this.array[i];
+  }
+
+  append(value) {
+    if (this.count === this.capacity) {
+      this._resize(2 * this.capacity); // double capacity
+    }
+    this.array[this.count] = value;
+    this.count += 1;
+  }
+
+  _resize(newCapacity) {
+    const newArray = new Array(newCapacity);
+    for (let i = 0; i < this.count; i++) {
+      newArray[i] = this.array[i];
+    }
+    this.array = newArray;
+    this.capacity = newCapacity;
+  }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        DynamicArray arr = new DynamicArray();
+        for (int i = 0; i < 5; i++) {
+            arr.append(i * 10);
+        }
+        System.out.println("length: " + arr.length());
+        System.out.println("arr[3]: " + arr.get(3));
+    }
+}
+
+class DynamicArray {
+    private int count;      // number of elements actually stored
+    private int capacity;   // allocated slots
+    private Object[] array;
+
+    DynamicArray() {
+        this.count = 0;
+        this.capacity = 1;
+        this.array = new Object[capacity];
+    }
+
+    int length() {
+        return count;
+    }
+
+    @SuppressWarnings("unchecked")
+    <T> T get(int i) {
+        if (i < 0 || i >= count) {
+            throw new IndexOutOfBoundsException("index out of range");
+        }
+        return (T) array[i];
+    }
+
+    void append(Object value) {
+        if (count == capacity) {
+            resize(2 * capacity); // double capacity
+        }
+        array[count] = value;
+        count += 1;
+    }
+
+    private void resize(int newCapacity) {
+        Object[] newArray = new Object[newCapacity];
+        for (int i = 0; i < count; i++) {
+            newArray[i] = array[i];
+        }
+        array = newArray;
+        capacity = newCapacity;
+    }
+}
+```
 
 **Why append is amortized O(1):** a resize costs O(n) to copy, but doubling means resizes happen at sizes 1, 2, 4, 8, ... 2^k. Sum the copy costs (1 + 2 + 4 + ... + n ≈ 2n) and divide by n appends, and you get O(1) average cost per append. Growing by a *fixed* increment instead of doubling makes append O(n) amortized, which is the detail interviewers probe for.
 
@@ -156,6 +398,40 @@ def two_sum(nums: list[int], target: int) -> list[int]:
         seen[num] = i
     raise ValueError("no two sum solution")
 ```
+```javascript +
+function twoSum(nums, target) {
+  const seen = new Map(); // value -> index
+  for (let i = 0; i < nums.length; i++) {
+    const complement = target - nums[i];
+    if (seen.has(complement)) {
+      return [seen.get(complement), i];
+    }
+    seen.set(nums[i], i);
+  }
+  throw new Error("no two sum solution");
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 7, 11, 15};
+        int[] result = twoSum(nums, 9);
+        System.out.println(result[0] + ", " + result[1]);
+    }
+
+    static int[] twoSum(int[] nums, int target) {
+        java.util.Map<Integer, Integer> seen = new java.util.HashMap<>();
+        for (int i = 0; i < nums.length; i++) {
+            int complement = target - nums[i];
+            if (seen.containsKey(complement)) {
+                return new int[] { seen.get(complement), i };
+            }
+            seen.put(nums[i], i);
+        }
+        throw new IllegalArgumentException("no two sum solution");
+    }
+}
+```
 
 **Complexity:** Time O(n), one pass with O(1) map operations. Space O(n) for the map.
 
@@ -180,6 +456,41 @@ def is_anagram(s: str, t: str) -> bool:
         return False
     return Counter(s) == Counter(t)
 ```
+```javascript +
+function isAnagram(s, t) {
+  if (s.length !== t.length) return false;
+  const counts = new Map();
+  for (const ch of s) counts.set(ch, (counts.get(ch) || 0) + 1);
+  for (const ch of t) {
+    if (!counts.has(ch)) return false;
+    counts.set(ch, counts.get(ch) - 1);
+  }
+  return [...counts.values()].every((c) => c === 0);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isAnagram("anagram", "nagaram"));
+        System.out.println(isAnagram("rat", "car"));
+    }
+
+    static boolean isAnagram(String s, String t) {
+        if (s.length() != t.length()) return false;
+        java.util.Map<Character, Integer> counts = new java.util.HashMap<>();
+        for (char ch : s.toCharArray()) {
+            counts.merge(ch, 1, Integer::sum);
+        }
+        for (char ch : t.toCharArray()) {
+            counts.merge(ch, -1, Integer::sum);
+        }
+        for (int count : counts.values()) {
+            if (count != 0) return false;
+        }
+        return true;
+    }
+}
+```
 
 Or without the library, to show you understand the mechanism:
 
@@ -197,6 +508,43 @@ def is_anagram_manual(s: str, t: str) -> bool:
         if counts[ch] == 0:
             del counts[ch]
     return len(counts) == 0
+```
+```javascript +
+function isAnagramManual(s, t) {
+  if (s.length !== t.length) return false;
+  const counts = new Map();
+  for (const ch of s) counts.set(ch, (counts.get(ch) || 0) + 1);
+  for (const ch of t) {
+    if (!counts.has(ch)) return false;
+    const next = counts.get(ch) - 1;
+    if (next === 0) counts.delete(ch);
+    else counts.set(ch, next);
+  }
+  return counts.size === 0;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isAnagramManual("anagram", "nagaram"));
+        System.out.println(isAnagramManual("rat", "car"));
+    }
+
+    static boolean isAnagramManual(String s, String t) {
+        if (s.length() != t.length()) return false;
+        java.util.Map<Character, Integer> counts = new java.util.HashMap<>();
+        for (char ch : s.toCharArray()) {
+            counts.merge(ch, 1, Integer::sum);
+        }
+        for (char ch : t.toCharArray()) {
+            if (!counts.containsKey(ch)) return false;
+            int next = counts.get(ch) - 1;
+            if (next == 0) counts.remove(ch);
+            else counts.put(ch, next);
+        }
+        return counts.isEmpty();
+    }
+}
 ```
 
 **Complexity:** Time O(n) where n is string length. Space O(k) where k is the alphabet size (O(1) if you assume a fixed alphabet like lowercase ASCII).
@@ -222,6 +570,32 @@ def contains_duplicate(nums: list[int]) -> bool:
             return True
         seen.add(num)
     return False
+```
+```javascript +
+function containsDuplicate(nums) {
+  const seen = new Set();
+  for (const num of nums) {
+    if (seen.has(num)) return true;
+    seen.add(num);
+  }
+  return false;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 3, 1};
+        System.out.println(containsDuplicate(nums));
+    }
+
+    static boolean containsDuplicate(int[] nums) {
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        for (int num : nums) {
+            if (!seen.add(num)) return true;
+        }
+        return false;
+    }
+}
 ```
 
 A one-liner alternative trades early exit for brevity: `return len(nums) != len(set(nums))`. It's correct but always scans the full list even when a duplicate shows up early, so mention the trade-off if you use it.

@@ -4,7 +4,7 @@ id_key: interview-prep-45/quiz-week-2
 course: interview-prep-45
 section: checkpoints
 section_title: "Checkpoint Quizzes"
-section_position: 6
+section_position: 8
 title: "Checkpoint Quiz 2 — Core Patterns & Systems"
 position: 2
 estimated_minutes: 20

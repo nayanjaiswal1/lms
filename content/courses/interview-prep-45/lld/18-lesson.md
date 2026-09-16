@@ -2,11 +2,11 @@
 kind: lesson
 id_key: interview-prep-45/day-28
 course: interview-prep-45
-section: system-design
-section_title: "System Design"
-section_position: 2
-title: "Database Design (LLD)"
-position: 30
+section: lld
+section_title: "Low-Level Design (LLD)"
+section_position: 4
+title: "Database Design for LLD"
+position: 18
 estimated_minutes: 120
 source:
     - 45-day-interview-roadmap.md

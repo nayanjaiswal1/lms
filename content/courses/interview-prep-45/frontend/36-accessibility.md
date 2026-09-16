@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-23-frontend
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Accessibility (a11y)"
 position: 36
 estimated_minutes: 30

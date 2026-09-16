@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-21-behavioral
 course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
-section_position: 5
+section_position: 7
 title: "Checkpoint 3"
 position: 21
 estimated_minutes: 10

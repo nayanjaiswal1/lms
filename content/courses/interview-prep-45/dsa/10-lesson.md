@@ -25,6 +25,20 @@ A **DAG** (Directed Acyclic Graph) is a directed graph with no cycles: you can n
 # edges: 5->2, 5->0, 4->0, 4->1, 2->3, 3->1
 # Valid orders include: [5, 4, 2, 3, 1, 0] and [4, 5, 2, 3, 1, 0]
 ```
+```javascript +
+// Example: 5 depends on 2 and 0; 4 depends on 0 and 1; 3 depends on 1
+// edges: 5->2, 5->0, 4->0, 4->1, 2->3, 3->1
+// Valid orders include: [5, 4, 2, 3, 1, 0] and [4, 5, 2, 3, 1, 0]
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        // Example: 5 depends on 2 and 0; 4 depends on 0 and 1; 3 depends on 1
+        // edges: 5->2, 5->0, 4->0, 4->1, 2->3, 3->1
+        // Valid orders include: [5, 4, 2, 3, 1, 0] and [4, 5, 2, 3, 1, 0]
+    }
+}
+```
 
 **Key fact:** a graph has a valid topological order **if and only if it is a DAG**. So "can this be topologically sorted?" and "does this graph have a cycle?" are the same question asked two ways, which is why cycle detection and topo sort share one algorithm.
 
@@ -57,6 +71,74 @@ def kahn_topo_sort(num_nodes: int, edges: list[tuple[int, int]]) -> list[int]:
         return []  # cycle detected — not all nodes could be processed
     return order
 ```
+```javascript +
+function kahnTopoSort(numNodes, edges) {
+    const graph = new Map();
+    const inDegree = new Array(numNodes).fill(0);
+    for (const [u, v] of edges) {          // u must come before v
+        if (!graph.has(u)) graph.set(u, []);
+        graph.get(u).push(v);
+        inDegree[v] += 1;
+    }
+
+    const queue = [];
+    for (let n = 0; n < numNodes; n++) {
+        if (inDegree[n] === 0) queue.push(n);
+    }
+    const order = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        order.push(node);
+        for (const neighbor of graph.get(node) || []) {
+            inDegree[neighbor] -= 1;
+            if (inDegree[neighbor] === 0) queue.push(neighbor);
+        }
+    }
+
+    if (order.length !== numNodes) return [];  // cycle detected — not all nodes could be processed
+    return order;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numNodes = 6;
+        int[][] edges = {{5, 2}, {5, 0}, {4, 0}, {4, 1}, {2, 3}, {3, 1}};
+        System.out.println(kahnTopoSort(numNodes, edges));
+    }
+
+    static List<Integer> kahnTopoSort(int numNodes, int[][] edges) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        int[] inDegree = new int[numNodes];
+        for (int[] edge : edges) {          // u must come before v
+            int u = edge[0], v = edge[1];
+            graph.computeIfAbsent(u, k -> new ArrayList<>()).add(v);
+            inDegree[v]++;
+        }
+
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int n = 0; n < numNodes; n++) {
+            if (inDegree[n] == 0) queue.add(n);
+        }
+        List<Integer> order = new ArrayList<>();
+
+        while (!queue.isEmpty()) {
+            int node = queue.poll();
+            order.add(node);
+            for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0) queue.add(neighbor);
+            }
+        }
+
+        if (order.size() != numNodes) return new ArrayList<>();  // cycle detected
+        return order;
+    }
+}
+```
 
 **Complexity:** Time O(V + E), space O(V + E).
 
@@ -87,6 +169,69 @@ def dfs_topo_sort(num_nodes: int, edges: list[tuple[int, int]]) -> list[int]:
             dfs(node)
 
     return stack[::-1]
+```
+```javascript +
+function dfsTopoSort(numNodes, edges) {
+    const graph = new Map();
+    for (const [u, v] of edges) {
+        if (!graph.has(u)) graph.set(u, []);
+        graph.get(u).push(v);
+    }
+
+    const visited = new Set();
+    const stack = [];
+
+    function dfs(node) {
+        visited.add(node);
+        for (const neighbor of graph.get(node) || []) {
+            if (!visited.has(neighbor)) dfs(neighbor);
+        }
+        stack.push(node);  // postorder: node goes on stack after all descendants
+    }
+
+    for (let node = 0; node < numNodes; node++) {
+        if (!visited.has(node)) dfs(node);
+    }
+
+    return stack.reverse();
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numNodes = 6;
+        int[][] edges = {{5, 2}, {5, 0}, {4, 0}, {4, 1}, {2, 3}, {3, 1}};
+        System.out.println(dfsTopoSort(numNodes, edges));
+    }
+
+    static List<Integer> dfsTopoSort(int numNodes, int[][] edges) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        for (int[] edge : edges) {
+            graph.computeIfAbsent(edge[0], k -> new ArrayList<>()).add(edge[1]);
+        }
+
+        Set<Integer> visited = new HashSet<>();
+        Deque<Integer> stack = new ArrayDeque<>();
+
+        for (int node = 0; node < numNodes; node++) {
+            if (!visited.contains(node)) {
+                dfs(node, graph, visited, stack);
+            }
+        }
+
+        return new ArrayList<>(stack);  // ArrayDeque.push() + iteration gives postorder reversed
+    }
+
+    static void dfs(int node, Map<Integer, List<Integer>> graph, Set<Integer> visited, Deque<Integer> stack) {
+        visited.add(node);
+        for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+            if (!visited.contains(neighbor)) dfs(neighbor, graph, visited, stack);
+        }
+        stack.push(node);  // postorder: node goes on stack after all descendants
+    }
+}
 ```
 
 **Why postorder + reverse works:** a node is only pushed after everything it depends on downstream has already been pushed. Reversing puts dependencies before dependents. This variant needs a separate 3-color (white/gray/black) cycle check, covered next, because plain `visited` alone can't distinguish "currently on the DFS path" from "already fully processed."
@@ -121,6 +266,71 @@ def has_cycle_directed(num_nodes: int, edges: list[tuple[int, int]]) -> bool:
 
     return any(color[n] == WHITE and dfs(n) for n in range(num_nodes))
 ```
+```javascript +
+const WHITE = 0, GRAY = 1, BLACK = 2;  // unvisited, in-progress (on current DFS path), done
+
+function hasCycleDirected(numNodes, edges) {
+    const graph = new Map();
+    for (const [u, v] of edges) {
+        if (!graph.has(u)) graph.set(u, []);
+        graph.get(u).push(v);
+    }
+
+    const color = new Array(numNodes).fill(WHITE);
+
+    function dfs(node) {
+        color[node] = GRAY;
+        for (const neighbor of graph.get(node) || []) {
+            if (color[neighbor] === GRAY) return true;   // back edge -> cycle
+            if (color[neighbor] === WHITE && dfs(neighbor)) return true;
+        }
+        color[node] = BLACK;
+        return false;
+    }
+
+    for (let n = 0; n < numNodes; n++) {
+        if (color[n] === WHITE && dfs(n)) return true;
+    }
+    return false;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    static final int WHITE = 0, GRAY = 1, BLACK = 2;  // unvisited, in-progress, done
+
+    public static void main(String[] args) {
+        int numNodes = 4;
+        int[][] edges = {{0, 1}, {1, 2}, {2, 0}, {2, 3}};
+        System.out.println(hasCycleDirected(numNodes, edges));
+    }
+
+    static boolean hasCycleDirected(int numNodes, int[][] edges) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        for (int[] edge : edges) {
+            graph.computeIfAbsent(edge[0], k -> new ArrayList<>()).add(edge[1]);
+        }
+
+        int[] color = new int[numNodes];  // defaults to WHITE (0)
+
+        for (int n = 0; n < numNodes; n++) {
+            if (color[n] == WHITE && dfs(n, graph, color)) return true;
+        }
+        return false;
+    }
+
+    static boolean dfs(int node, Map<Integer, List<Integer>> graph, int[] color) {
+        color[node] = GRAY;
+        for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+            if (color[neighbor] == GRAY) return true;                 // back edge -> cycle
+            if (color[neighbor] == WHITE && dfs(neighbor, graph, color)) return true;
+        }
+        color[node] = BLACK;
+        return false;
+    }
+}
+```
 
 **Pitfall:** using a single `visited` set (two states) on a directed graph gives false positives. Two branches can both reach the same node without a cycle existing, because directed edges don't imply "coming back." The GRAY state, tracking the current recursion path, is what correctly identifies a back edge.
 
@@ -152,6 +362,72 @@ def canFinish(numCourses: int, prerequisites: list[list[int]]) -> bool:
                 queue.append(neighbor)
 
     return processed == numCourses
+```
+```javascript +
+function canFinish(numCourses, prerequisites) {
+    const graph = new Map();
+    const inDegree = new Array(numCourses).fill(0);
+    for (const [course, prereq] of prerequisites) {
+        if (!graph.has(prereq)) graph.set(prereq, []);
+        graph.get(prereq).push(course);
+        inDegree[course] += 1;
+    }
+
+    const queue = [];
+    for (let c = 0; c < numCourses; c++) {
+        if (inDegree[c] === 0) queue.push(c);
+    }
+    let processed = 0;
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        processed += 1;
+        for (const neighbor of graph.get(node) || []) {
+            inDegree[neighbor] -= 1;
+            if (inDegree[neighbor] === 0) queue.push(neighbor);
+        }
+    }
+
+    return processed === numCourses;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numCourses = 2;
+        int[][] prerequisites = {{1, 0}};
+        System.out.println(canFinish(numCourses, prerequisites));
+    }
+
+    static boolean canFinish(int numCourses, int[][] prerequisites) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        int[] inDegree = new int[numCourses];
+        for (int[] p : prerequisites) {
+            int course = p[0], prereq = p[1];
+            graph.computeIfAbsent(prereq, k -> new ArrayList<>()).add(course);
+            inDegree[course]++;
+        }
+
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int c = 0; c < numCourses; c++) {
+            if (inDegree[c] == 0) queue.add(c);
+        }
+        int processed = 0;
+
+        while (!queue.isEmpty()) {
+            int node = queue.poll();
+            processed++;
+            for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0) queue.add(neighbor);
+            }
+        }
+
+        return processed == numCourses;
+    }
+}
 ```
 
 **Complexity:** Time O(V + E), space O(V + E).
@@ -186,6 +462,72 @@ def findOrder(numCourses: int, prerequisites: list[list[int]]) -> list[int]:
                 queue.append(neighbor)
 
     return order if len(order) == numCourses else []
+```
+```javascript +
+function findOrder(numCourses, prerequisites) {
+    const graph = new Map();
+    const inDegree = new Array(numCourses).fill(0);
+    for (const [course, prereq] of prerequisites) {
+        if (!graph.has(prereq)) graph.set(prereq, []);
+        graph.get(prereq).push(course);
+        inDegree[course] += 1;
+    }
+
+    const queue = [];
+    for (let c = 0; c < numCourses; c++) {
+        if (inDegree[c] === 0) queue.push(c);
+    }
+    const order = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        order.push(node);
+        for (const neighbor of graph.get(node) || []) {
+            inDegree[neighbor] -= 1;
+            if (inDegree[neighbor] === 0) queue.push(neighbor);
+        }
+    }
+
+    return order.length === numCourses ? order : [];
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numCourses = 4;
+        int[][] prerequisites = {{1, 0}, {2, 0}, {3, 1}, {3, 2}};
+        System.out.println(findOrder(numCourses, prerequisites));
+    }
+
+    static List<Integer> findOrder(int numCourses, int[][] prerequisites) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        int[] inDegree = new int[numCourses];
+        for (int[] p : prerequisites) {
+            int course = p[0], prereq = p[1];
+            graph.computeIfAbsent(prereq, k -> new ArrayList<>()).add(course);
+            inDegree[course]++;
+        }
+
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int c = 0; c < numCourses; c++) {
+            if (inDegree[c] == 0) queue.add(c);
+        }
+        List<Integer> order = new ArrayList<>();
+
+        while (!queue.isEmpty()) {
+            int node = queue.poll();
+            order.add(node);
+            for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0) queue.add(neighbor);
+            }
+        }
+
+        return order.size() == numCourses ? order : new ArrayList<>();
+    }
+}
 ```
 
 **Complexity:** Time O(V + E), space O(V + E).
@@ -229,6 +571,106 @@ def alienOrder(words: list[str]) -> str:
 
     return "".join(order) if len(order) == len(in_degree) else ""
 ```
+```javascript +
+function alienOrder(words) {
+    const graph = new Map();
+    const inDegree = new Map();
+    for (const word of words) {
+        for (const c of word) {
+            if (!inDegree.has(c)) inDegree.set(c, 0);
+        }
+    }
+
+    for (let i = 0; i < words.length - 1; i++) {
+        const w1 = words[i], w2 = words[i + 1];
+        const minLen = Math.min(w1.length, w2.length);
+        if (w1.length > w2.length && w1.slice(0, minLen) === w2.slice(0, minLen)) {
+            return "";  // invalid: longer word can't be a prefix of the next
+        }
+        for (let j = 0; j < minLen; j++) {
+            const c1 = w1[j], c2 = w2[j];
+            if (c1 !== c2) {
+                if (!graph.has(c1)) graph.set(c1, new Set());
+                if (!graph.get(c1).has(c2)) {
+                    graph.get(c1).add(c2);
+                    inDegree.set(c2, inDegree.get(c2) + 1);
+                }
+                break;  // only the first differing pair gives a constraint
+            }
+        }
+    }
+
+    const queue = [...inDegree.keys()].filter((c) => inDegree.get(c) === 0);
+    const order = [];
+
+    while (queue.length > 0) {
+        const c = queue.shift();
+        order.push(c);
+        for (const neighbor of graph.get(c) || []) {
+            inDegree.set(neighbor, inDegree.get(neighbor) - 1);
+            if (inDegree.get(neighbor) === 0) queue.push(neighbor);
+        }
+    }
+
+    return order.length === inDegree.size ? order.join("") : "";
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        String[] words = {"wrt", "wrf", "er", "ett", "rftt"};
+        System.out.println(alienOrder(words));
+    }
+
+    static String alienOrder(String[] words) {
+        Map<Character, Set<Character>> graph = new HashMap<>();
+        Map<Character, Integer> inDegree = new HashMap<>();
+        for (String word : words) {
+            for (char c : word.toCharArray()) {
+                inDegree.putIfAbsent(c, 0);
+            }
+        }
+
+        for (int i = 0; i < words.length - 1; i++) {
+            String w1 = words[i], w2 = words[i + 1];
+            int minLen = Math.min(w1.length(), w2.length());
+            if (w1.length() > w2.length() && w1.substring(0, minLen).equals(w2.substring(0, minLen))) {
+                return "";  // invalid: longer word can't be a prefix of the next
+            }
+            for (int j = 0; j < minLen; j++) {
+                char c1 = w1.charAt(j), c2 = w2.charAt(j);
+                if (c1 != c2) {
+                    Set<Character> neighbors = graph.computeIfAbsent(c1, k -> new HashSet<>());
+                    if (!neighbors.contains(c2)) {
+                        neighbors.add(c2);
+                        inDegree.put(c2, inDegree.get(c2) + 1);
+                    }
+                    break;  // only the first differing pair gives a constraint
+                }
+            }
+        }
+
+        Deque<Character> queue = new ArrayDeque<>();
+        for (Map.Entry<Character, Integer> entry : inDegree.entrySet()) {
+            if (entry.getValue() == 0) queue.add(entry.getKey());
+        }
+        StringBuilder order = new StringBuilder();
+
+        while (!queue.isEmpty()) {
+            char c = queue.poll();
+            order.append(c);
+            for (char neighbor : graph.getOrDefault(c, Collections.emptySet())) {
+                inDegree.put(neighbor, inDegree.get(neighbor) - 1);
+                if (inDegree.get(neighbor) == 0) queue.add(neighbor);
+            }
+        }
+
+        return order.length() == inDegree.size() ? order.toString() : "";
+    }
+}
+```
 
 **Complexity:** Time O(C), where C is the total character count across all words: each adjacent pair comparison is bounded by word length, and the topo sort itself is O(26) for nodes and edges. Space is O(1) in practice, since there are at most 26 letters.
 
@@ -261,6 +703,78 @@ def longestIncreasingPath(matrix: list[list[int]]) -> int:
         return best
 
     return max(dfs(r, c) for r in range(rows) for c in range(cols))
+```
+```javascript +
+function longestIncreasingPath(matrix) {
+    if (!matrix || matrix.length === 0) return 0;
+    const rows = matrix.length, cols = matrix[0].length;
+    const memo = new Map();
+    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+    function dfs(r, c) {
+        const key = `${r},${c}`;
+        if (memo.has(key)) return memo.get(key);
+        let best = 1;
+        for (const [dr, dc] of directions) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && matrix[nr][nc] > matrix[r][c]) {
+                best = Math.max(best, 1 + dfs(nr, nc));
+            }
+        }
+        memo.set(key, best);
+        return best;
+    }
+
+    let result = 0;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            result = Math.max(result, dfs(r, c));
+        }
+    }
+    return result;
+}
+```
+```java +
+public class Main {
+    static int rows, cols;
+    static int[][] memo;
+    static int[][] grid;
+    static final int[][] DIRECTIONS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+    public static void main(String[] args) {
+        int[][] matrix = {{9, 9, 4}, {6, 6, 8}, {2, 1, 1}};
+        System.out.println(longestIncreasingPath(matrix));
+    }
+
+    static int longestIncreasingPath(int[][] matrix) {
+        if (matrix == null || matrix.length == 0) return 0;
+        grid = matrix;
+        rows = matrix.length;
+        cols = matrix[0].length;
+        memo = new int[rows][cols];
+
+        int result = 0;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                result = Math.max(result, dfs(r, c));
+            }
+        }
+        return result;
+    }
+
+    static int dfs(int r, int c) {
+        if (memo[r][c] != 0) return memo[r][c];
+        int best = 1;
+        for (int[] d : DIRECTIONS) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] > grid[r][c]) {
+                best = Math.max(best, 1 + dfs(nr, nc));
+            }
+        }
+        memo[r][c] = best;
+        return best;
+    }
+}
 ```
 
 **Complexity:** Time O(rows × cols), since memoization computes each cell's answer once. Space O(rows × cols) for the memo and recursion stack.

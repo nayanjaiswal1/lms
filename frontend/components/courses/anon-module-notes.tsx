@@ -58,7 +58,7 @@ export function AnonModuleNotes({
             case "html":
               return <LessonHtml html={segment.html} key={index} segmentIndex={index} />;
             case "code":
-              return <LessonCodeBlock locked code={segment.code} key={index} language={segment.language} />;
+              return <LessonCodeBlock locked key={index} variants={segment.variants} />;
             case "sql-try":
               return <LessonSqlRunner initialQuery={segment.query} key={index} />;
             case "sql-challenge":

@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-python-xrange-vs-range
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Python 2 xrange vs range (and why Python 3 dropped xrange)"
 position: 99
 estimated_minutes: 10

@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-ab-testing
 course: interview-prep-45
 section: system-design
 section_title: "System Design"
-section_position: 2
+section_position: 3
 title: "Notes: A/B Testing Fundamentals"
 position: 90
 estimated_minutes: 15

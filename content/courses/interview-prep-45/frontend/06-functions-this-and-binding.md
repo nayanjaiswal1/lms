@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-00a-frontend-call-apply-bind
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Functions, this, and Binding"
 position: 6
 estimated_minutes: 30

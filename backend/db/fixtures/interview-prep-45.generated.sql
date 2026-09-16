@@ -2,12 +2,12 @@
 -- GENERATED FILE — DO NOT EDIT.
 -- Source: canonical markdown content (content/courses/**).
 -- Regenerate via: cd backend && go run ./cmd/coursegen generate
--- Generated at: 2026-09-02T18:04:51Z
+-- Generated at: 2026-09-06T22:13:01Z
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ─── Course: 45-Day Interview Preparation Bootcamp ─────────────────────────────────────────────
 INSERT INTO courses (id, org_id, creator_id, title, slug, description, cover_url, difficulty, tags, status, is_free, is_public, estimated_hours)
-VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), 20+ system design exercises plus low-level/OOP design, backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 'published', true, true, 200.2)
+VALUES ('57f5e0f7-67b7-55ab-a3e7-469947105cd5', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000012', '45-Day Interview Preparation Bootcamp', 'interview-prep-45', 'A structured full-stack engineer interview preparation track (3+ years experience). Covers DSA patterns (100+ LeetCode problems), a full HLD foundations track (estimation, caching, sharding, CAP, messaging, consensus, resilience) feeding 28 system design case studies, a complete low-level design track (OOP, SOLID, all GoF patterns, concurrency, and 10 classic LLD problems), backend deep dives (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives (React internals, performance, TypeScript), and behavioral preparation with STAR stories. Mock interviews begin partway through, once core patterns are solid; periodic checkpoints track progress along the way.', '/course-covers/interview-prep-45.svg', 'intermediate', ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 'published', true, true, 225.8)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, cover_url=EXCLUDED.cover_url, tags=EXCLUDED.tags, is_public=EXCLUDED.is_public, estimated_hours=EXCLUDED.estimated_hours, updated_at=now();
 
 -- Section: DSA — Data Structures & Algorithms
@@ -79,6 +79,158 @@ class ChainingHashMap:
                 self.put(node.key, node.value)
                 node = node.next
 ```
+```javascript +
+class HashNode {
+  constructor(key, value) {
+    this.key = key;
+    this.value = value;
+    this.next = null; // chaining: next node in this bucket
+  }
+}
+
+class ChainingHashMap {
+  constructor(capacity = 8) {
+    this.capacity = capacity;
+    this.size = 0;
+    this.buckets = new Array(capacity).fill(null);
+  }
+
+  _hash(key) {
+    const str = String(key);
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = (h * 31 + str.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h) % this.capacity;
+  }
+
+  put(key, value) {
+    const idx = this._hash(key);
+    let node = this.buckets[idx];
+    while (node) {
+      if (node.key === key) {
+        node.value = value; // update existing
+        return;
+      }
+      node = node.next;
+    }
+    const newNode = new HashNode(key, value);
+    newNode.next = this.buckets[idx];
+    this.buckets[idx] = newNode;
+    this.size += 1;
+    if (this.size / this.capacity > 0.75) {
+      this._resize();
+    }
+  }
+
+  get(key) {
+    const idx = this._hash(key);
+    let node = this.buckets[idx];
+    while (node) {
+      if (node.key === key) return node.value;
+      node = node.next;
+    }
+    throw new Error(`key not found: ${key}`);
+  }
+
+  _resize() {
+    const oldBuckets = this.buckets;
+    this.capacity *= 2;
+    this.buckets = new Array(this.capacity).fill(null);
+    this.size = 0;
+    for (let node of oldBuckets) {
+      while (node) {
+        this.put(node.key, node.value);
+        node = node.next;
+      }
+    }
+  }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        ChainingHashMap<String, Integer> map = new ChainingHashMap<>(8);
+        map.put("a", 1);
+        map.put("b", 2);
+        map.put("a", 10);
+        System.out.println(map.get("a"));
+        System.out.println(map.get("b"));
+    }
+}
+
+class HashNode<K, V> {
+    K key;
+    V value;
+    HashNode<K, V> next; // chaining: next node in this bucket
+
+    HashNode(K key, V value) {
+        this.key = key;
+        this.value = value;
+        this.next = null;
+    }
+}
+
+class ChainingHashMap<K, V> {
+    private int capacity;
+    private int size;
+    private HashNode<K, V>[] buckets;
+
+    @SuppressWarnings("unchecked")
+    ChainingHashMap(int capacity) {
+        this.capacity = capacity;
+        this.size = 0;
+        this.buckets = new HashNode[capacity];
+    }
+
+    private int index(K key) {
+        return Math.abs(key.hashCode()) % capacity;
+    }
+
+    void put(K key, V value) {
+        int idx = index(key);
+        HashNode<K, V> node = buckets[idx];
+        while (node != null) {
+            if (node.key.equals(key)) {
+                node.value = value; // update existing
+                return;
+            }
+            node = node.next;
+        }
+        HashNode<K, V> newNode = new HashNode<>(key, value);
+        newNode.next = buckets[idx];
+        buckets[idx] = newNode;
+        size += 1;
+        if ((double) size / capacity > 0.75) {
+            resize();
+        }
+    }
+
+    V get(K key) {
+        int idx = index(key);
+        HashNode<K, V> node = buckets[idx];
+        while (node != null) {
+            if (node.key.equals(key)) return node.value;
+            node = node.next;
+        }
+        throw new java.util.NoSuchElementException(String.valueOf(key));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void resize() {
+        HashNode<K, V>[] oldBuckets = buckets;
+        capacity *= 2;
+        buckets = new HashNode[capacity];
+        size = 0;
+        for (HashNode<K, V> node : oldBuckets) {
+            while (node != null) {
+                put(node.key, node.value);
+                node = node.next;
+            }
+        }
+    }
+}
+```
 
 **Interview-relevant details:**
 - Load factor (`size / capacity`) above ~0.7 is when you resize. Too high, and chains get long, degrading toward O(n).
@@ -134,6 +286,96 @@ class DynamicArray:
         self.array = new_array
         self.capacity = new_capacity
 ```
+```javascript +
+class DynamicArray {
+  constructor() {
+    this.count = 0;    // number of elements actually stored
+    this.capacity = 1; // allocated slots
+    this.array = new Array(this.capacity);
+  }
+
+  get length() {
+    return this.count;
+  }
+
+  get(i) {
+    if (i < 0 || i >= this.count) {
+      throw new RangeError("index out of range");
+    }
+    return this.array[i];
+  }
+
+  append(value) {
+    if (this.count === this.capacity) {
+      this._resize(2 * this.capacity); // double capacity
+    }
+    this.array[this.count] = value;
+    this.count += 1;
+  }
+
+  _resize(newCapacity) {
+    const newArray = new Array(newCapacity);
+    for (let i = 0; i < this.count; i++) {
+      newArray[i] = this.array[i];
+    }
+    this.array = newArray;
+    this.capacity = newCapacity;
+  }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        DynamicArray arr = new DynamicArray();
+        for (int i = 0; i < 5; i++) {
+            arr.append(i * 10);
+        }
+        System.out.println("length: " + arr.length());
+        System.out.println("arr[3]: " + arr.get(3));
+    }
+}
+
+class DynamicArray {
+    private int count;      // number of elements actually stored
+    private int capacity;   // allocated slots
+    private Object[] array;
+
+    DynamicArray() {
+        this.count = 0;
+        this.capacity = 1;
+        this.array = new Object[capacity];
+    }
+
+    int length() {
+        return count;
+    }
+
+    @SuppressWarnings("unchecked")
+    <T> T get(int i) {
+        if (i < 0 || i >= count) {
+            throw new IndexOutOfBoundsException("index out of range");
+        }
+        return (T) array[i];
+    }
+
+    void append(Object value) {
+        if (count == capacity) {
+            resize(2 * capacity); // double capacity
+        }
+        array[count] = value;
+        count += 1;
+    }
+
+    private void resize(int newCapacity) {
+        Object[] newArray = new Object[newCapacity];
+        for (int i = 0; i < count; i++) {
+            newArray[i] = array[i];
+        }
+        array = newArray;
+        capacity = newCapacity;
+    }
+}
+```
 
 **Why append is amortized O(1):** a resize costs O(n) to copy, but doubling means resizes happen at sizes 1, 2, 4, 8, ... 2^k. Sum the copy costs (1 + 2 + 4 + ... + n ≈ 2n) and divide by n appends, and you get O(1) average cost per append. Growing by a *fixed* increment instead of doubling makes append O(n) amortized, which is the detail interviewers probe for.
 
@@ -161,6 +403,40 @@ def two_sum(nums: list[int], target: int) -> list[int]:
         seen[num] = i
     raise ValueError("no two sum solution")
 ```
+```javascript +
+function twoSum(nums, target) {
+  const seen = new Map(); // value -> index
+  for (let i = 0; i < nums.length; i++) {
+    const complement = target - nums[i];
+    if (seen.has(complement)) {
+      return [seen.get(complement), i];
+    }
+    seen.set(nums[i], i);
+  }
+  throw new Error("no two sum solution");
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 7, 11, 15};
+        int[] result = twoSum(nums, 9);
+        System.out.println(result[0] + ", " + result[1]);
+    }
+
+    static int[] twoSum(int[] nums, int target) {
+        java.util.Map<Integer, Integer> seen = new java.util.HashMap<>();
+        for (int i = 0; i < nums.length; i++) {
+            int complement = target - nums[i];
+            if (seen.containsKey(complement)) {
+                return new int[] { seen.get(complement), i };
+            }
+            seen.put(nums[i], i);
+        }
+        throw new IllegalArgumentException("no two sum solution");
+    }
+}
+```
 
 **Complexity:** Time O(n), one pass with O(1) map operations. Space O(n) for the map.
 
@@ -185,6 +461,41 @@ def is_anagram(s: str, t: str) -> bool:
         return False
     return Counter(s) == Counter(t)
 ```
+```javascript +
+function isAnagram(s, t) {
+  if (s.length !== t.length) return false;
+  const counts = new Map();
+  for (const ch of s) counts.set(ch, (counts.get(ch) || 0) + 1);
+  for (const ch of t) {
+    if (!counts.has(ch)) return false;
+    counts.set(ch, counts.get(ch) - 1);
+  }
+  return [...counts.values()].every((c) => c === 0);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isAnagram("anagram", "nagaram"));
+        System.out.println(isAnagram("rat", "car"));
+    }
+
+    static boolean isAnagram(String s, String t) {
+        if (s.length() != t.length()) return false;
+        java.util.Map<Character, Integer> counts = new java.util.HashMap<>();
+        for (char ch : s.toCharArray()) {
+            counts.merge(ch, 1, Integer::sum);
+        }
+        for (char ch : t.toCharArray()) {
+            counts.merge(ch, -1, Integer::sum);
+        }
+        for (int count : counts.values()) {
+            if (count != 0) return false;
+        }
+        return true;
+    }
+}
+```
 
 Or without the library, to show you understand the mechanism:
 
@@ -202,6 +513,43 @@ def is_anagram_manual(s: str, t: str) -> bool:
         if counts[ch] == 0:
             del counts[ch]
     return len(counts) == 0
+```
+```javascript +
+function isAnagramManual(s, t) {
+  if (s.length !== t.length) return false;
+  const counts = new Map();
+  for (const ch of s) counts.set(ch, (counts.get(ch) || 0) + 1);
+  for (const ch of t) {
+    if (!counts.has(ch)) return false;
+    const next = counts.get(ch) - 1;
+    if (next === 0) counts.delete(ch);
+    else counts.set(ch, next);
+  }
+  return counts.size === 0;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isAnagramManual("anagram", "nagaram"));
+        System.out.println(isAnagramManual("rat", "car"));
+    }
+
+    static boolean isAnagramManual(String s, String t) {
+        if (s.length() != t.length()) return false;
+        java.util.Map<Character, Integer> counts = new java.util.HashMap<>();
+        for (char ch : s.toCharArray()) {
+            counts.merge(ch, 1, Integer::sum);
+        }
+        for (char ch : t.toCharArray()) {
+            if (!counts.containsKey(ch)) return false;
+            int next = counts.get(ch) - 1;
+            if (next == 0) counts.remove(ch);
+            else counts.put(ch, next);
+        }
+        return counts.isEmpty();
+    }
+}
 ```
 
 **Complexity:** Time O(n) where n is string length. Space O(k) where k is the alphabet size (O(1) if you assume a fixed alphabet like lowercase ASCII).
@@ -227,6 +575,32 @@ def contains_duplicate(nums: list[int]) -> bool:
             return True
         seen.add(num)
     return False
+```
+```javascript +
+function containsDuplicate(nums) {
+  const seen = new Set();
+  for (const num of nums) {
+    if (seen.has(num)) return true;
+    seen.add(num);
+  }
+  return false;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 3, 1};
+        System.out.println(containsDuplicate(nums));
+    }
+
+    static boolean containsDuplicate(int[] nums) {
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        for (int num : nums) {
+            if (!seen.add(num)) return true;
+        }
+        return false;
+    }
+}
 ```
 
 A one-liner alternative trades early exit for brevity: `return len(nums) != len(set(nums))`. It's correct but always scans the full list even when a duplicate shows up early, so mention the trade-off if you use it.
@@ -280,6 +654,42 @@ def remove_duplicates(nums: list[int]) -> int:
             write += 1
     return write
 ```
+```javascript +
+function removeDuplicates(nums) {
+  // Removes duplicates from a sorted array in place, returns new length.
+  if (nums.length === 0) return 0;
+  let write = 1;
+  for (let read = 1; read < nums.length; read++) {
+    if (nums[read] !== nums[write - 1]) {
+      nums[write] = nums[read];
+      write += 1;
+    }
+  }
+  return write;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 1, 2, 2, 3};
+        int newLength = removeDuplicates(nums);
+        System.out.println("new length: " + newLength);
+    }
+
+    // Removes duplicates from a sorted array in place, returns new length.
+    static int removeDuplicates(int[] nums) {
+        if (nums.length == 0) return 0;
+        int write = 1;
+        for (int read = 1; read < nums.length; read++) {
+            if (nums[read] != nums[write - 1]) {
+                nums[write] = nums[read];
+                write += 1;
+            }
+        }
+        return write;
+    }
+}
+```
 
 **Pitfall:** in-place two-pointer solutions are easy to get subtly wrong around the boundary condition (`!=` vs `<`, starting `write` at 0 vs 1). Always trace through a 2-3 element example by hand before declaring it correct.
 
@@ -304,6 +714,44 @@ def is_palindrome(s: str) -> bool:
         left += 1
         right -= 1
     return True
+```
+```javascript +
+function isPalindrome(s) {
+  const isAlnum = (ch) => /[a-z0-9]/i.test(ch);
+  let left = 0;
+  let right = s.length - 1;
+  while (left < right) {
+    while (left < right && !isAlnum(s[left])) left += 1;
+    while (left < right && !isAlnum(s[right])) right -= 1;
+    if (s[left].toLowerCase() !== s[right].toLowerCase()) return false;
+    left += 1;
+    right -= 1;
+  }
+  return true;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isPalindrome("A man, a plan, a canal: Panama"));
+        System.out.println(isPalindrome("race a car"));
+    }
+
+    static boolean isPalindrome(String s) {
+        int left = 0;
+        int right = s.length() - 1;
+        while (left < right) {
+            while (left < right && !Character.isLetterOrDigit(s.charAt(left))) left += 1;
+            while (left < right && !Character.isLetterOrDigit(s.charAt(right))) right -= 1;
+            if (Character.toLowerCase(s.charAt(left)) != Character.toLowerCase(s.charAt(right))) {
+                return false;
+            }
+            left += 1;
+            right -= 1;
+        }
+        return true;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1). No extra string built.
@@ -348,6 +796,70 @@ def three_sum(nums: list[int]) -> list[list[int]]:
                     right -= 1
     return result
 ```
+```javascript +
+function threeSum(nums) {
+  nums.sort((a, b) => a - b);
+  const result = [];
+  const n = nums.length;
+  for (let i = 0; i < n - 2; i++) {
+    if (i > 0 && nums[i] === nums[i - 1]) continue; // skip duplicate anchors
+    if (nums[i] > 0) break; // smallest remaining value is positive, no triplet can sum to 0
+    let left = i + 1;
+    let right = n - 1;
+    while (left < right) {
+      const total = nums[i] + nums[left] + nums[right];
+      if (total < 0) {
+        left += 1;
+      } else if (total > 0) {
+        right -= 1;
+      } else {
+        result.push([nums[i], nums[left], nums[right]]);
+        left += 1;
+        right -= 1;
+        while (left < right && nums[left] === nums[left - 1]) left += 1;
+        while (left < right && nums[right] === nums[right + 1]) right -= 1;
+      }
+    }
+  }
+  return result;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {-1, 0, 1, 2, -1, -4};
+        java.util.List<java.util.List<Integer>> result = threeSum(nums);
+        System.out.println(result);
+    }
+
+    static java.util.List<java.util.List<Integer>> threeSum(int[] nums) {
+        java.util.Arrays.sort(nums);
+        java.util.List<java.util.List<Integer>> result = new java.util.ArrayList<>();
+        int n = nums.length;
+        for (int i = 0; i < n - 2; i++) {
+            if (i > 0 && nums[i] == nums[i - 1]) continue; // skip duplicate anchors
+            if (nums[i] > 0) break; // smallest remaining value is positive, no triplet can sum to 0
+            int left = i + 1;
+            int right = n - 1;
+            while (left < right) {
+                int total = nums[i] + nums[left] + nums[right];
+                if (total < 0) {
+                    left += 1;
+                } else if (total > 0) {
+                    right -= 1;
+                } else {
+                    result.add(java.util.Arrays.asList(nums[i], nums[left], nums[right]));
+                    left += 1;
+                    right -= 1;
+                    while (left < right && nums[left] == nums[left - 1]) left += 1;
+                    while (left < right && nums[right] == nums[right + 1]) right -= 1;
+                }
+            }
+        }
+        return result;
+    }
+}
+```
 
 **Complexity:** Time O(n²): O(n log n) sort plus an O(n) outer loop times an O(n) two-pointer scan. Space O(1) extra (excluding sort and output).
 
@@ -377,6 +889,47 @@ def max_area(height: list[int]) -> int:
             right -= 1
     return best
 ```
+```javascript +
+function maxArea(height) {
+  let left = 0;
+  let right = height.length - 1;
+  let best = 0;
+  while (left < right) {
+    const h = Math.min(height[left], height[right]);
+    best = Math.max(best, h * (right - left));
+    if (height[left] < height[right]) {
+      left += 1;
+    } else {
+      right -= 1;
+    }
+  }
+  return best;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] height = {1, 8, 6, 2, 5, 4, 8, 3, 7};
+        System.out.println(maxArea(height));
+    }
+
+    static int maxArea(int[] height) {
+        int left = 0;
+        int right = height.length - 1;
+        int best = 0;
+        while (left < right) {
+            int h = Math.min(height[left], height[right]);
+            best = Math.max(best, h * (right - left));
+            if (height[left] < height[right]) {
+                left += 1;
+            } else {
+                right -= 1;
+            }
+        }
+        return best;
+    }
+}
+```
 
 **Complexity:** Time O(n): a single pass, with each pointer moving at most n times total. Space O(1).
 
@@ -405,6 +958,66 @@ def build_linked_list(values: list[int]) -> ListNode | None:
         tail.next = ListNode(v)
         tail = tail.next
     return dummy.next
+```
+```javascript +
+class ListNode {
+  constructor(val = 0, next = null) {
+    this.val = val;
+    this.next = next;
+  }
+}
+
+function buildLinkedList(values) {
+  const dummy = new ListNode();
+  let tail = dummy;
+  for (const v of values) {
+    tail.next = new ListNode(v);
+    tail = tail.next;
+  }
+  return dummy.next;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        ListNode head = buildLinkedList(new int[] {1, 2, 3});
+        StringBuilder sb = new StringBuilder();
+        while (head != null) {
+            sb.append(head.val).append(" -> ");
+            head = head.next;
+        }
+        sb.append("null");
+        System.out.println(sb);
+    }
+
+    static ListNode buildLinkedList(int[] values) {
+        ListNode dummy = new ListNode();
+        ListNode tail = dummy;
+        for (int v : values) {
+            tail.next = new ListNode(v);
+            tail = tail.next;
+        }
+        return dummy.next;
+    }
+}
+
+class ListNode {
+    int val;
+    ListNode next;
+
+    ListNode() {
+        this(0, null);
+    }
+
+    ListNode(int val) {
+        this(val, null);
+    }
+
+    ListNode(int val, ListNode next) {
+        this.val = val;
+        this.next = next;
+    }
+}
 ```
 
 The `dummy` head node is the recurring trick: it removes the special case of "is this the first node?" from insertion logic, since `dummy.next` always points at the real head.
@@ -449,6 +1062,79 @@ def variable_window_template(s: str) -> int:
 
     return best
 ```
+```javascript +
+// Generic template — for this demo, "invalid" means a character appears
+// more than once in the window, which is exactly the "longest substring
+// without repeating characters" case walked through later in this lesson.
+function windowIsInvalid(windowState) {
+  return Object.values(windowState).some((count) => count > 1);
+}
+
+function variableWindowTemplate(s) {
+  let left = 0;
+  let best = 0;
+  const windowState = {}; // whatever tracking the problem needs
+
+  for (let right = 0; right < s.length; right++) {
+    // 1. Expand: bring s[right] into the window
+    windowState[s[right]] = (windowState[s[right]] || 0) + 1;
+
+    // 2. Contract: while window is invalid, shrink from the left
+    while (windowIsInvalid(windowState)) {
+      windowState[s[left]] -= 1;
+      if (windowState[s[left]] === 0) delete windowState[s[left]];
+      left += 1;
+    }
+
+    // 3. Record: window [left, right] is now valid — update the answer
+    best = Math.max(best, right - left + 1);
+  }
+
+  return best;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(variableWindowTemplate("abcabcbb"));
+    }
+
+    // Generic template — for this demo, "invalid" means a character appears
+    // more than once in the window, which is exactly the "longest substring
+    // without repeating characters" case walked through later in this lesson.
+    static boolean windowIsInvalid(java.util.Map<Character, Integer> windowState) {
+        for (int count : windowState.values()) {
+            if (count > 1) return true;
+        }
+        return false;
+    }
+
+    static int variableWindowTemplate(String s) {
+        int left = 0;
+        int best = 0;
+        java.util.Map<Character, Integer> windowState = new java.util.HashMap<>(); // whatever tracking the problem needs
+
+        for (int right = 0; right < s.length(); right++) {
+            // 1. Expand: bring s[right] into the window
+            char rightCh = s.charAt(right);
+            windowState.merge(rightCh, 1, Integer::sum);
+
+            // 2. Contract: while window is invalid, shrink from the left
+            while (windowIsInvalid(windowState)) {
+                char leftCh = s.charAt(left);
+                windowState.put(leftCh, windowState.get(leftCh) - 1);
+                if (windowState.get(leftCh) == 0) windowState.remove(leftCh);
+                left += 1;
+            }
+
+            // 3. Record: window [left, right] is now valid — update the answer
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
+```
 
 The invariant to hold onto: **the right pointer visits each index once, and the left pointer visits each index at most once** (it only moves forward). That's what makes the whole thing O(n) instead of O(n²): every index is added to the window once and removed at most once.
 
@@ -472,6 +1158,35 @@ def max_profit(prices: list[int]) -> int:
         min_price = min(min_price, price)
         best_profit = max(best_profit, price - min_price)
     return best_profit
+```
+```javascript +
+function maxProfit(prices) {
+  let minPrice = Infinity;
+  let bestProfit = 0;
+  for (const price of prices) {
+    minPrice = Math.min(minPrice, price);
+    bestProfit = Math.max(bestProfit, price - minPrice);
+  }
+  return bestProfit;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] prices = {7, 1, 5, 3, 6, 4};
+        System.out.println(maxProfit(prices));
+    }
+
+    static int maxProfit(int[] prices) {
+        int minPrice = Integer.MAX_VALUE;
+        int bestProfit = 0;
+        for (int price : prices) {
+            minPrice = Math.min(minPrice, price);
+            bestProfit = Math.max(bestProfit, price - minPrice);
+        }
+        return bestProfit;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1).
@@ -500,6 +1215,44 @@ def length_of_longest_substring(s: str) -> int:
         last_seen[ch] = right
         best = max(best, right - left + 1)
     return best
+```
+```javascript +
+function lengthOfLongestSubstring(s) {
+  const lastSeen = new Map(); // char -> most recent index
+  let left = 0;
+  let best = 0;
+  for (let right = 0; right < s.length; right++) {
+    const ch = s[right];
+    if (lastSeen.has(ch) && lastSeen.get(ch) >= left) {
+      left = lastSeen.get(ch) + 1;
+    }
+    lastSeen.set(ch, right);
+    best = Math.max(best, right - left + 1);
+  }
+  return best;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(lengthOfLongestSubstring("abcabcbb"));
+    }
+
+    static int lengthOfLongestSubstring(String s) {
+        java.util.Map<Character, Integer> lastSeen = new java.util.HashMap<>();
+        int left = 0;
+        int best = 0;
+        for (int right = 0; right < s.length(); right++) {
+            char ch = s.charAt(right);
+            if (lastSeen.containsKey(ch) && lastSeen.get(ch) >= left) {
+                left = lastSeen.get(ch) + 1;
+            }
+            lastSeen.put(ch, right);
+            best = Math.max(best, right - left + 1);
+        }
+        return best;
+    }
+}
 ```
 
 **Complexity:** Time O(n): each index visited once by `right`, and `left` jumps but never revisits. Space O(min(n, alphabet size)) for the map.
@@ -554,6 +1307,92 @@ def min_window(s: str, t: str) -> str:
 
     return "" if best_len == float("inf") else s[best_left:best_left + best_len]
 ```
+```javascript +
+function minWindow(s, t) {
+  if (!s || !t) return "";
+
+  const needCounts = new Map();
+  for (const ch of t) needCounts.set(ch, (needCounts.get(ch) || 0) + 1);
+  const need = needCounts.size;
+  const windowCounts = new Map();
+  let have = 0;
+
+  let left = 0;
+  let bestLen = Infinity;
+  let bestLeft = 0;
+
+  for (let right = 0; right < s.length; right++) {
+    const ch = s[right];
+    windowCounts.set(ch, (windowCounts.get(ch) || 0) + 1);
+    if (needCounts.has(ch) && windowCounts.get(ch) === needCounts.get(ch)) {
+      have += 1;
+    }
+
+    while (have === need) {
+      if (right - left + 1 < bestLen) {
+        bestLen = right - left + 1;
+        bestLeft = left;
+      }
+
+      const leftCh = s[left];
+      windowCounts.set(leftCh, windowCounts.get(leftCh) - 1);
+      if (needCounts.has(leftCh) && windowCounts.get(leftCh) < needCounts.get(leftCh)) {
+        have -= 1;
+      }
+      left += 1;
+    }
+  }
+
+  return bestLen === Infinity ? "" : s.slice(bestLeft, bestLeft + bestLen);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(minWindow("ADOBECODEBANC", "ABC"));
+    }
+
+    static String minWindow(String s, String t) {
+        if (s.isEmpty() || t.isEmpty()) return "";
+
+        java.util.Map<Character, Integer> needCounts = new java.util.HashMap<>();
+        for (char ch : t.toCharArray()) {
+            needCounts.merge(ch, 1, Integer::sum);
+        }
+        int need = needCounts.size();
+        java.util.Map<Character, Integer> windowCounts = new java.util.HashMap<>();
+        int have = 0;
+
+        int left = 0;
+        int bestLen = Integer.MAX_VALUE;
+        int bestLeft = 0;
+
+        for (int right = 0; right < s.length(); right++) {
+            char ch = s.charAt(right);
+            windowCounts.merge(ch, 1, Integer::sum);
+            if (needCounts.containsKey(ch) && windowCounts.get(ch).equals(needCounts.get(ch))) {
+                have += 1;
+            }
+
+            while (have == need) {
+                if (right - left + 1 < bestLen) {
+                    bestLen = right - left + 1;
+                    bestLeft = left;
+                }
+
+                char leftCh = s.charAt(left);
+                windowCounts.put(leftCh, windowCounts.get(leftCh) - 1);
+                if (needCounts.containsKey(leftCh) && windowCounts.get(leftCh) < needCounts.get(leftCh)) {
+                    have -= 1;
+                }
+                left += 1;
+            }
+        }
+
+        return bestLen == Integer.MAX_VALUE ? "" : s.substring(bestLeft, bestLeft + bestLen);
+    }
+}
+```
 
 **Complexity:** Time O(|s| + |t|): building the `t` counter is O(|t|), and both pointers over `s` move forward only, giving O(|s|). Space O(|t|) for the need map, O(alphabet) for the window map.
 
@@ -588,6 +1427,47 @@ def binary_search(nums: list[int], target: int) -> int:
             hi = mid - 1
     return -1
 ```
+```javascript +
+function binarySearch(nums, target) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] === target) {
+      return mid;
+    } else if (nums[mid] < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return -1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 3, 5, 7, 9, 11};
+        System.out.println(binarySearch(nums, 7));
+    }
+
+    static int binarySearch(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2; // avoids overflow, standard habit
+            if (nums[mid] == target) {
+                return mid;
+            } else if (nums[mid] < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return -1;
+    }
+}
+```
 
 `lo + (hi - lo) // 2` instead of `(lo + hi) // 2` is a habit worth keeping even in Python, where integers don't overflow. It signals you understand why the naive version breaks in languages with fixed-width integers.
 
@@ -618,6 +1498,76 @@ def upper_bound(nums: list[int], target: int) -> int:
             hi = mid
     return lo
 ```
+```javascript +
+function lowerBound(nums, target) {
+  // First index where nums[index] >= target.
+  let lo = 0;
+  let hi = nums.length;
+  while (lo < hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+function upperBound(nums, target) {
+  // First index where nums[index] > target.
+  let lo = 0;
+  let hi = nums.length;
+  while (lo < hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] <= target) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 2, 2, 3, 5};
+        System.out.println(lowerBound(nums, 2));
+        System.out.println(upperBound(nums, 2));
+    }
+
+    // First index where nums[index] >= target.
+    static int lowerBound(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length;
+        while (lo < hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return lo;
+    }
+
+    // First index where nums[index] > target.
+    static int upperBound(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length;
+        while (lo < hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] <= target) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return lo;
+    }
+}
+```
 
 Key differences from the exact-match template: `hi` starts at `len(nums)` (one past the end, representing "not found, insert here"), the loop condition is `lo < hi` (not `<=`), and there's no early return, since the loop converges `lo == hi` on the answer. Mixing this template's conventions with the exact-match template's is the number one source of infinite loops.
 
@@ -645,6 +1595,47 @@ def search(nums: list[int], target: int) -> int:
         else:
             hi = mid - 1
     return -1
+```
+```javascript +
+function search(nums, target) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] === target) {
+      return mid;
+    } else if (nums[mid] < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return -1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {-1, 0, 3, 5, 9, 12};
+        System.out.println(search(nums, 9));
+    }
+
+    static int search(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] == target) {
+                return mid;
+            } else if (nums[mid] < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return -1;
+    }
+}
 ```
 
 **Complexity:** Time O(log n), space O(1).
@@ -681,6 +1672,65 @@ def search_rotated(nums: list[int], target: int) -> int:
                 hi = mid - 1
     return -1
 ```
+```javascript +
+function searchRotated(nums, target) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] === target) return mid;
+
+    if (nums[lo] <= nums[mid]) {
+      // left half is sorted
+      if (nums[lo] <= target && target < nums[mid]) {
+        hi = mid - 1;
+      } else {
+        lo = mid + 1;
+      }
+    } else {
+      // right half is sorted
+      if (nums[mid] < target && target <= nums[hi]) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+  }
+  return -1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {4, 5, 6, 7, 0, 1, 2};
+        System.out.println(searchRotated(nums, 0));
+    }
+
+    static int searchRotated(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] == target) return mid;
+
+            if (nums[lo] <= nums[mid]) { // left half is sorted
+                if (nums[lo] <= target && target < nums[mid]) {
+                    hi = mid - 1;
+                } else {
+                    lo = mid + 1;
+                }
+            } else { // right half is sorted
+                if (nums[mid] < target && target <= nums[hi]) {
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+        }
+        return -1;
+    }
+}
+```
 
 **Complexity:** Time O(log n), space O(1).
 
@@ -706,6 +1756,43 @@ def find_min(nums: list[int]) -> int:
         else:
             hi = mid
     return nums[lo]
+```
+```javascript +
+function findMin(nums) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo < hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] > nums[hi]) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return nums[lo];
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {4, 5, 6, 7, 0, 1, 2};
+        System.out.println(findMin(nums));
+    }
+
+    static int findMin(int[] nums) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo < hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] > nums[hi]) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return nums[lo];
+    }
+}
 ```
 
 **Complexity:** Time O(log n), space O(1).
@@ -741,6 +1828,61 @@ def search_matrix(matrix: list[list[int]], target: int) -> bool:
             hi = mid - 1
     return False
 ```
+```javascript +
+function searchMatrix(matrix, target) {
+  if (!matrix.length || !matrix[0].length) return false;
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  let lo = 0;
+  let hi = rows * cols - 1;
+
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    const row = Math.floor(mid / cols);
+    const col = mid % cols;
+    const val = matrix[row][col];
+    if (val === target) {
+      return true;
+    } else if (val < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return false;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {{1, 3, 5, 7}, {10, 11, 16, 20}, {23, 30, 34, 60}};
+        System.out.println(searchMatrix(matrix, 3));
+    }
+
+    static boolean searchMatrix(int[][] matrix, int target) {
+        if (matrix.length == 0 || matrix[0].length == 0) return false;
+        int rows = matrix.length;
+        int cols = matrix[0].length;
+        int lo = 0;
+        int hi = rows * cols - 1;
+
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            int row = mid / cols;
+            int col = mid % cols;
+            int val = matrix[row][col];
+            if (val == target) {
+                return true;
+            } else if (val < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return false;
+    }
+}
+```
 
 **Complexity:** Time O(log(rows·cols)), space O(1).
 
@@ -768,6 +1910,30 @@ stack.append(2)
 stack.append(3)
 stack.pop()        # removes 3
 stack[-1]          # peek: 2, without removing
+```
+```javascript +
+const stack = [];
+stack.push(1);   // push
+stack.push(2);
+stack.push(3);
+stack.pop();               // removes 3
+stack[stack.length - 1];  // peek: 2, without removing
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        Deque<Integer> stack = new ArrayDeque<>();
+        stack.push(1);   // push
+        stack.push(2);
+        stack.push(3);
+        stack.pop();               // removes 3
+        int peek = stack.peek();  // peek: 2, without removing
+        System.out.println("Peek: " + peek);
+    }
+}
 ```
 
 Python's `list` is a perfectly good stack (`append`/`pop` from the end are both O(1) amortized). Don't use `list.insert(0, x)` / `list.pop(0)` as a stack; those are O(n) because they shift every element.
@@ -804,6 +1970,102 @@ def dfs_iterative(start):
                 stack.append(neighbor)
     return visited
 ```
+```javascript +
+// Recursive DFS
+function dfsRecursive(node, visited) {
+    if (visited.has(node)) {
+        return;
+    }
+    visited.add(node);
+    for (const neighbor of node.neighbors) {
+        dfsRecursive(neighbor, visited);
+    }
+}
+
+// Iterative DFS using an explicit stack
+function dfsIterative(start) {
+    const visited = new Set();
+    const stack = [start];
+    while (stack.length > 0) {
+        const node = stack.pop();
+        if (visited.has(node)) {
+            continue;
+        }
+        visited.add(node);
+        for (const neighbor of node.neighbors) {
+            if (!visited.has(neighbor)) {
+                stack.push(neighbor);
+            }
+        }
+    }
+    return visited;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+public class Main {
+    public static void main(String[] args) {
+        GraphNode a = new GraphNode("A");
+        GraphNode b = new GraphNode("B");
+        GraphNode c = new GraphNode("C");
+        a.neighbors.add(b);
+        b.neighbors.add(c);
+        c.neighbors.add(a); // cycle
+
+        Set<GraphNode> visitedRecursive = new HashSet<>();
+        dfsRecursive(a, visitedRecursive);
+        System.out.println("Recursive visited: " + visitedRecursive.size());
+
+        Set<GraphNode> visitedIterative = dfsIterative(a);
+        System.out.println("Iterative visited: " + visitedIterative.size());
+    }
+
+    // Recursive DFS
+    static void dfsRecursive(GraphNode node, Set<GraphNode> visited) {
+        if (visited.contains(node)) {
+            return;
+        }
+        visited.add(node);
+        for (GraphNode neighbor : node.neighbors) {
+            dfsRecursive(neighbor, visited);
+        }
+    }
+
+    // Iterative DFS using an explicit stack
+    static Set<GraphNode> dfsIterative(GraphNode start) {
+        Set<GraphNode> visited = new HashSet<>();
+        ArrayDeque<GraphNode> stack = new ArrayDeque<>();
+        stack.push(start);
+        while (!stack.isEmpty()) {
+            GraphNode node = stack.pop();
+            if (visited.contains(node)) {
+                continue;
+            }
+            visited.add(node);
+            for (GraphNode neighbor : node.neighbors) {
+                if (!visited.contains(neighbor)) {
+                    stack.push(neighbor);
+                }
+            }
+        }
+        return visited;
+    }
+}
+
+class GraphNode {
+    String label;
+    List<GraphNode> neighbors = new ArrayList<>();
+
+    GraphNode(String label) {
+        this.label = label;
+    }
+}
+```
 
 ## Monotonic stack pattern
 
@@ -822,6 +2084,48 @@ def next_greater_elements(nums: list[int]) -> list[int]:
             result[idx] = nums[i]
         stack.append(i)
     return result
+```
+```javascript +
+function nextGreaterElements(nums) {
+    const n = nums.length;
+    const result = new Array(n).fill(-1);
+    const stack = []; // indices, values decreasing bottom to top
+    for (let i = 0; i < n; i++) {
+        while (stack.length > 0 && nums[stack[stack.length - 1]] < nums[i]) {
+            const idx = stack.pop();
+            result[idx] = nums[i];
+        }
+        stack.push(i);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 1, 2, 4, 3};
+        System.out.println(Arrays.toString(nextGreaterElements(nums)));
+    }
+
+    static int[] nextGreaterElements(int[] nums) {
+        int n = nums.length;
+        int[] result = new int[n];
+        Arrays.fill(result, -1);
+        Deque<Integer> stack = new ArrayDeque<>(); // indices, values decreasing bottom to top
+        for (int i = 0; i < n; i++) {
+            while (!stack.isEmpty() && nums[stack.peek()] < nums[i]) {
+                int idx = stack.pop();
+                result[idx] = nums[i];
+            }
+            stack.push(i);
+        }
+        return result;
+    }
+}
 ```
 
 ### Stack using a linked list
@@ -859,6 +2163,101 @@ class LinkedListStack:
     def is_empty(self) -> bool:
         return self.head is None
 ```
+```javascript +
+class StackNode {
+    constructor(val, next = null) {
+        this.val = val;
+        this.next = next;
+    }
+}
+
+class LinkedListStack {
+    constructor() {
+        this.head = null;
+        this.size = 0;
+    }
+
+    push(val) {
+        this.head = new StackNode(val, this.head);
+        this.size += 1;
+    }
+
+    pop() {
+        if (!this.head) {
+            throw new Error('pop from empty stack');
+        }
+        const val = this.head.val;
+        this.head = this.head.next;
+        this.size -= 1;
+        return val;
+    }
+
+    peek() {
+        if (!this.head) {
+            throw new Error('peek from empty stack');
+        }
+        return this.head.val;
+    }
+
+    isEmpty() {
+        return this.head === null;
+    }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        LinkedListStack stack = new LinkedListStack();
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        System.out.println("Popped: " + stack.pop());
+        System.out.println("Peek: " + stack.peek());
+        System.out.println("Empty? " + stack.isEmpty());
+    }
+}
+
+class StackNode {
+    int val;
+    StackNode next;
+
+    StackNode(int val, StackNode next) {
+        this.val = val;
+        this.next = next;
+    }
+}
+
+class LinkedListStack {
+    private StackNode head;
+    private int size;
+
+    void push(int val) {
+        head = new StackNode(val, head);
+        size += 1;
+    }
+
+    int pop() {
+        if (head == null) {
+            throw new IllegalStateException("pop from empty stack");
+        }
+        int val = head.val;
+        head = head.next;
+        size -= 1;
+        return val;
+    }
+
+    int peek() {
+        if (head == null) {
+            throw new IllegalStateException("peek from empty stack");
+        }
+        return head.val;
+    }
+
+    boolean isEmpty() {
+        return head == null;
+    }
+}
+```
 
 No amortized cost here. Every op is worst-case O(1) since there's never a resize, at the cost of per-node pointer overhead that an array-backed stack doesn't pay.
 
@@ -881,6 +2280,49 @@ def is_valid(s: str) -> bool:
         else:
             stack.append(ch)
     return not stack
+```
+```javascript +
+function isValid(s) {
+    const pairs = { ')': '(', ']': '[', '}': '{' };
+    const stack = [];
+    for (const ch of s) {
+        if (ch in pairs) {
+            if (stack.length === 0 || stack.pop() !== pairs[ch]) {
+                return false;
+            }
+        } else {
+            stack.push(ch);
+        }
+    }
+    return stack.length === 0;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isValid("()[]{}"));
+        System.out.println(isValid("(]"));
+    }
+
+    static boolean isValid(String s) {
+        Map<Character, Character> pairs = Map.of(')', '(', ']', '[', '}', '{');
+        Deque<Character> stack = new ArrayDeque<>();
+        for (char ch : s.toCharArray()) {
+            if (pairs.containsKey(ch)) {
+                if (stack.isEmpty() || stack.pop() != pairs.get(ch)) {
+                    return false;
+                }
+            } else {
+                stack.push(ch);
+            }
+        }
+        return stack.isEmpty();
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(n) worst case (all openers).
@@ -908,6 +2350,47 @@ def daily_temperatures(temperatures: list[int]) -> list[int]:
             result[prev_idx] = i - prev_idx
         stack.append(i)
     return result
+```
+```javascript +
+function dailyTemperatures(temperatures) {
+    const n = temperatures.length;
+    const result = new Array(n).fill(0);
+    const stack = []; // indices with temps not yet resolved, decreasing order
+    for (let i = 0; i < n; i++) {
+        while (stack.length > 0 && temperatures[stack[stack.length - 1]] < temperatures[i]) {
+            const prevIdx = stack.pop();
+            result[prevIdx] = i - prevIdx;
+        }
+        stack.push(i);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] temperatures = {73, 74, 75, 71, 69, 72, 76, 73};
+        System.out.println(Arrays.toString(dailyTemperatures(temperatures)));
+    }
+
+    static int[] dailyTemperatures(int[] temperatures) {
+        int n = temperatures.length;
+        int[] result = new int[n];
+        Deque<Integer> stack = new ArrayDeque<>(); // indices with temps not yet resolved, decreasing order
+        for (int i = 0; i < n; i++) {
+            while (!stack.isEmpty() && temperatures[stack.peek()] < temperatures[i]) {
+                int prevIdx = stack.pop();
+                result[prevIdx] = i - prevIdx;
+            }
+            stack.push(i);
+        }
+        return result;
+    }
+}
 ```
 
 **Complexity:** Time O(n): each index pushed once, popped at most once. Space O(n) worst case (strictly decreasing input).
@@ -938,6 +2421,57 @@ def largest_rectangle_area(heights: list[int]) -> int:
         stack.append(i)
 
     return max_area
+```
+```javascript +
+function largestRectangleArea(heights) {
+    const stack = []; // indices, increasing height
+    let maxArea = 0;
+    const withSentinel = [...heights, 0]; // sentinel to flush the stack
+
+    for (let i = 0; i < withSentinel.length; i++) {
+        const h = withSentinel[i];
+        while (stack.length > 0 && withSentinel[stack[stack.length - 1]] > h) {
+            const height = withSentinel[stack.pop()];
+            const width = stack.length === 0 ? i : i - stack[stack.length - 1] - 1;
+            maxArea = Math.max(maxArea, height * width);
+        }
+        stack.push(i);
+    }
+
+    return maxArea;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] heights = {2, 1, 5, 6, 2, 3};
+        System.out.println(largestRectangleArea(heights));
+    }
+
+    static int largestRectangleArea(int[] heights) {
+        int n = heights.length;
+        int[] withSentinel = new int[n + 1];
+        System.arraycopy(heights, 0, withSentinel, 0, n); // sentinel 0 to flush the stack
+
+        Deque<Integer> stack = new ArrayDeque<>(); // indices, increasing height
+        int maxArea = 0;
+
+        for (int i = 0; i < withSentinel.length; i++) {
+            int h = withSentinel[i];
+            while (!stack.isEmpty() && withSentinel[stack.peek()] > h) {
+                int height = withSentinel[stack.pop()];
+                int width = stack.isEmpty() ? i : i - stack.peek() - 1;
+                maxArea = Math.max(maxArea, height * width);
+            }
+            stack.push(i);
+        }
+
+        return maxArea;
+    }
+}
 ```
 
 **Complexity:** Time O(n): each index pushed and popped once. Space O(n).
@@ -972,6 +2506,78 @@ class MinStack:
 
     def getMin(self) -> int:
         return self.stack[-1][1]
+```
+```javascript +
+class MinStack {
+    constructor() {
+        this.stack = []; // each entry: [value, minSoFar]
+    }
+
+    push(val) {
+        const currentMin = this.stack.length === 0 ? val : Math.min(val, this.stack[this.stack.length - 1][1]);
+        this.stack.push([val, currentMin]);
+    }
+
+    pop() {
+        this.stack.pop();
+    }
+
+    top() {
+        return this.stack[this.stack.length - 1][0];
+    }
+
+    getMin() {
+        return this.stack[this.stack.length - 1][1];
+    }
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        MinStack minStack = new MinStack();
+        minStack.push(3);
+        minStack.push(1);
+        minStack.push(2);
+        System.out.println("Min: " + minStack.getMin());
+        minStack.pop();
+        System.out.println("Top: " + minStack.top());
+        System.out.println("Min: " + minStack.getMin());
+    }
+}
+
+class MinStack {
+    private static class Entry {
+        int value;
+        int minSoFar;
+
+        Entry(int value, int minSoFar) {
+            this.value = value;
+            this.minSoFar = minSoFar;
+        }
+    }
+
+    private final Deque<Entry> stack = new ArrayDeque<>();
+
+    void push(int val) {
+        int currentMin = stack.isEmpty() ? val : Math.min(val, stack.peek().minSoFar);
+        stack.push(new Entry(val, currentMin));
+    }
+
+    void pop() {
+        stack.pop();
+    }
+
+    int top() {
+        return stack.peek().value;
+    }
+
+    int getMin() {
+        return stack.peek().minSoFar;
+    }
+}
 ```
 
 **Complexity:** Time O(1) for all operations. Space O(n): doubled per-element overhead for the min tracking.
@@ -1036,6 +2642,150 @@ def level_order(root):
         result.append(level)
     return result
 ```
+```javascript +
+class TreeNode {
+    constructor(val = 0, left = null, right = null) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+function preorder(root) {
+    if (root === null) {
+        return [];
+    }
+    return [root.val, ...preorder(root.left), ...preorder(root.right)];
+}
+
+function inorder(root) {
+    if (root === null) {
+        return [];
+    }
+    return [...inorder(root.left), root.val, ...inorder(root.right)];
+}
+
+function postorder(root) {
+    if (root === null) {
+        return [];
+    }
+    return [...postorder(root.left), ...postorder(root.right), root.val];
+}
+
+function levelOrder(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const queue = [root];
+    while (queue.length > 0) {
+        const level = [];
+        const levelSize = queue.length;
+        for (let i = 0; i < levelSize; i++) {
+            const node = queue.shift();
+            level.push(node.val);
+            if (node.left) {
+                queue.push(node.left);
+            }
+            if (node.right) {
+                queue.push(node.right);
+            }
+        }
+        result.push(level);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println("Preorder: " + preorder(root));
+        System.out.println("Inorder: " + inorder(root));
+        System.out.println("Postorder: " + postorder(root));
+        System.out.println("Level order: " + levelOrder(root));
+    }
+
+    static List<Integer> preorder(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        result.add(root.val);
+        result.addAll(preorder(root.left));
+        result.addAll(preorder(root.right));
+        return result;
+    }
+
+    static List<Integer> inorder(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        result.addAll(inorder(root.left));
+        result.add(root.val);
+        result.addAll(inorder(root.right));
+        return result;
+    }
+
+    static List<Integer> postorder(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        result.addAll(postorder(root.left));
+        result.addAll(postorder(root.right));
+        result.add(root.val);
+        return result;
+    }
+
+    static List<List<Integer>> levelOrder(TreeNode root) {
+        List<List<Integer>> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> queue = new ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            List<Integer> level = new ArrayList<>();
+            int levelSize = queue.size();
+            for (int i = 0; i < levelSize; i++) {
+                TreeNode node = queue.poll();
+                level.add(node.val);
+                if (node.left != null) {
+                    queue.add(node.left);
+                }
+                if (node.right != null) {
+                    queue.add(node.right);
+                }
+            }
+            result.add(level);
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 The list-concatenation versions above are readable but build intermediate lists; production code should pass an accumulator list by reference instead. Know both forms.
 
@@ -1057,6 +2807,68 @@ def inorder_iterative(root):
         node = node.right    # then explore the right subtree
     return result
 ```
+```javascript +
+function inorderIterative(root) {
+    const result = [];
+    const stack = [];
+    let node = root;
+    while (stack.length > 0 || node !== null) {
+        while (node !== null) {           // go as far left as possible
+            stack.push(node);
+            node = node.left;
+        }
+        node = stack.pop();               // process the node
+        result.push(node.val);
+        node = node.right;                // then explore the right subtree
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(2, new TreeNode(1), new TreeNode(3));
+        System.out.println(inorderIterative(root));
+    }
+
+    static List<Integer> inorderIterative(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        TreeNode node = root;
+        while (!stack.isEmpty() || node != null) {
+            while (node != null) {            // go as far left as possible
+                stack.push(node);
+                node = node.left;
+            }
+            node = stack.pop();               // process the node
+            result.add(node.val);
+            node = node.right;                // then explore the right subtree
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 Interviewers ask for the iterative version to check whether you actually understand what the recursion is doing, rather than whether you memorized the three-line recursive function.
 
@@ -1077,6 +2889,75 @@ def preorder_iterative(root):
             stack.append(node.left)
     return result
 ```
+```javascript +
+function preorderIterative(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const stack = [root];
+    while (stack.length > 0) {
+        const node = stack.pop();
+        result.push(node.val);
+        if (node.right) {
+            stack.push(node.right);
+        }
+        if (node.left) {
+            stack.push(node.left);
+        }
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println(preorderIterative(root));
+    }
+
+    static List<Integer> preorderIterative(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            TreeNode node = stack.pop();
+            result.add(node.val);
+            if (node.right != null) {
+                stack.push(node.right);
+            }
+            if (node.left != null) {
+                stack.push(node.left);
+            }
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 Postorder iteratively is the fiddly one: compute preorder-but-"node, right, left" (swap the push order above) and reverse the result. That produces "left, right, node" for free.
 
@@ -1094,6 +2975,77 @@ def postorder_iterative(root):
         if node.right:
             stack.append(node.right)
     return result[::-1]
+```
+```javascript +
+function postorderIterative(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const stack = [root];
+    while (stack.length > 0) {
+        const node = stack.pop();
+        result.push(node.val);
+        if (node.left) {
+            stack.push(node.left);
+        }
+        if (node.right) {
+            stack.push(node.right);
+        }
+    }
+    return result.reverse();
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println(postorderIterative(root));
+    }
+
+    static List<Integer> postorderIterative(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            TreeNode node = stack.pop();
+            result.add(node.val);
+            if (node.left != null) {
+                stack.push(node.left);
+            }
+            if (node.right != null) {
+                stack.push(node.right);
+            }
+        }
+        Collections.reverse(result);
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 ## Tree properties
@@ -1118,6 +3070,51 @@ def invert_tree(root):
     root.left, root.right = invert_tree(root.right), invert_tree(root.left)
     return root
 ```
+```javascript +
+function invertTree(root) {
+    if (root === null) {
+        return null;
+    }
+    [root.left, root.right] = [invertTree(root.right), invertTree(root.left)];
+    return root;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        TreeNode inverted = invertTree(root);
+        System.out.println("New left: " + inverted.left.val + ", new right: " + inverted.right.val);
+    }
+
+    static TreeNode invertTree(TreeNode root) {
+        if (root == null) {
+            return null;
+        }
+        TreeNode newLeft = invertTree(root.right);
+        TreeNode newRight = invertTree(root.left);
+        root.left = newLeft;
+        root.right = newRight;
+        return root;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Complexity:** Time O(n): visits every node once. Space O(h) for the recursion stack, where h is tree height (O(log n) balanced, O(n) skewed).
 
@@ -1138,6 +3135,45 @@ def max_depth(root) -> int:
     if root is None:
         return 0
     return 1 + max(max_depth(root.left), max_depth(root.right))
+```
+```javascript +
+function maxDepth(root) {
+    if (root === null) {
+        return 0;
+    }
+    return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2, new TreeNode(4), null), new TreeNode(3));
+        System.out.println(maxDepth(root));
+    }
+
+    static int maxDepth(TreeNode root) {
+        if (root == null) {
+            return 0;
+        }
+        return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(h) recursion stack.
@@ -1165,6 +3201,58 @@ def is_same_tree(p, q) -> bool:
         and is_same_tree(p.left, q.left)
         and is_same_tree(p.right, q.right)
     )
+```
+```javascript +
+function isSameTree(p, q) {
+    if (p === null && q === null) {
+        return true;
+    }
+    if (p === null || q === null) {
+        return false;
+    }
+    return (
+        p.val === q.val &&
+        isSameTree(p.left, q.left) &&
+        isSameTree(p.right, q.right)
+    );
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode p = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        TreeNode q = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println(isSameTree(p, q));
+    }
+
+    static boolean isSameTree(TreeNode p, TreeNode q) {
+        if (p == null && q == null) {
+            return true;
+        }
+        if (p == null || q == null) {
+            return false;
+        }
+        return p.val == q.val
+                && isSameTree(p.left, q.left)
+                && isSameTree(p.right, q.right);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(min(n, m)): short-circuits as soon as trees diverge. Space O(min(h_p, h_q)) recursion stack.
@@ -1201,6 +3289,85 @@ def level_order_traversal(root):
                 queue.append(node.right)
         result.append(level_values)
     return result
+```
+```javascript +
+function levelOrderTraversal(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const queue = [root];
+    while (queue.length > 0) {
+        const levelSize = queue.length;
+        const levelValues = [];
+        for (let i = 0; i < levelSize; i++) {
+            const node = queue.shift();
+            levelValues.push(node.val);
+            if (node.left) {
+                queue.push(node.left);
+            }
+            if (node.right) {
+                queue.push(node.right);
+            }
+        }
+        result.push(levelValues);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(3, new TreeNode(9), new TreeNode(20, new TreeNode(15), new TreeNode(7)));
+        System.out.println(levelOrderTraversal(root));
+    }
+
+    static List<List<Integer>> levelOrderTraversal(TreeNode root) {
+        List<List<Integer>> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> queue = new ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            int levelSize = queue.size();
+            List<Integer> levelValues = new ArrayList<>();
+            for (int i = 0; i < levelSize; i++) {
+                TreeNode node = queue.poll();
+                levelValues.add(node.val);
+                if (node.left != null) {
+                    queue.add(node.left);
+                }
+                if (node.right != null) {
+                    queue.add(node.right);
+                }
+            }
+            result.add(levelValues);
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(n): every node enqueued and dequeued once. Space O(w) for the queue, where w is the maximum tree width, plus O(n) for the output.
@@ -1273,6 +3440,39 @@ class TreeNode:
         self.left = left
         self.right = right
 ```
+```javascript +
+class TreeNode {
+    constructor(val = 0, left = null, right = null) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(5, new TreeNode(3), new TreeNode(8));
+        System.out.println("Root: " + root.val + ", left: " + root.left.val + ", right: " + root.right.val);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Interview-relevant complexity:** search, insert, and delete are O(h), where h is tree height. That's O(log n) when the tree is balanced, but O(n) in the worst case for a degenerate, linked-list-shaped BST, such as one built by inserting already-sorted data without rebalancing. It's exactly why self-balancing trees (AVL, red-black) exist in production databases and language runtimes, even though building one is out of scope here.
 
@@ -1291,6 +3491,63 @@ def inorder_values(root):
         visit(node.right)
     visit(root)
     return result
+```
+```javascript +
+function inorderValues(root) {
+    const result = [];
+    function visit(node) {
+        if (node === null) {
+            return;
+        }
+        visit(node.left);
+        result.push(node.val);
+        visit(node.right);
+    }
+    visit(root);
+    return result;
+}
+```
+```java +
+import java.util.ArrayList;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(2, new TreeNode(1), new TreeNode(3));
+        System.out.println(inorderValues(root));
+    }
+
+    static List<Integer> inorderValues(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        visit(root, result);
+        return result;
+    }
+
+    static void visit(TreeNode node, List<Integer> result) {
+        if (node == null) {
+            return;
+        }
+        visit(node.left, result);
+        result.add(node.val);
+        visit(node.right, result);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 ## BST insert and search
@@ -1312,6 +3569,82 @@ def bst_search(root, val) -> bool:
     if val == root.val:
         return True
     return bst_search(root.left, val) if val < root.val else bst_search(root.right, val)
+```
+```javascript +
+function bstInsert(root, val) {
+    if (root === null) {
+        return new TreeNode(val);
+    }
+    if (val < root.val) {
+        root.left = bstInsert(root.left, val);
+    } else if (val > root.val) {
+        root.right = bstInsert(root.right, val);
+    }
+    // val === root.val: no-op, assumes no duplicates
+    return root;
+}
+
+function bstSearch(root, val) {
+    if (root === null) {
+        return false;
+    }
+    if (val === root.val) {
+        return true;
+    }
+    return val < root.val ? bstSearch(root.left, val) : bstSearch(root.right, val);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = null;
+        int[] values = {5, 3, 8, 1, 4};
+        for (int v : values) {
+            root = bstInsert(root, v);
+        }
+        System.out.println("Search 4: " + bstSearch(root, 4));
+        System.out.println("Search 9: " + bstSearch(root, 9));
+    }
+
+    static TreeNode bstInsert(TreeNode root, int val) {
+        if (root == null) {
+            return new TreeNode(val);
+        }
+        if (val < root.val) {
+            root.left = bstInsert(root.left, val);
+        } else if (val > root.val) {
+            root.right = bstInsert(root.right, val);
+        }
+        // val == root.val: no-op, assumes no duplicates
+        return root;
+    }
+
+    static boolean bstSearch(TreeNode root, int val) {
+        if (root == null) {
+            return false;
+        }
+        if (val == root.val) {
+            return true;
+        }
+        return val < root.val ? bstSearch(root.left, val) : bstSearch(root.right, val);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 Both run in O(h) time and O(h) space for the recursion stack. Written iteratively with a `while` loop instead, space drops to O(1); worth showing that version if asked to optimize space.
@@ -1346,6 +3679,59 @@ def is_valid_bst(root) -> bool:
 
     return validate(root, float("-inf"), float("inf"))
 ```
+```javascript +
+function isValidBst(root) {
+    function validate(node, low, high) {
+        if (node === null) {
+            return true;
+        }
+        if (!(low < node.val && node.val < high)) {
+            return false;
+        }
+        return validate(node.left, low, node.val) && validate(node.right, node.val, high);
+    }
+
+    return validate(root, -Infinity, Infinity);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(5, new TreeNode(3), new TreeNode(8));
+        System.out.println(isValidBst(root));
+    }
+
+    static boolean isValidBst(TreeNode root) {
+        return validate(root, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    static boolean validate(TreeNode node, long low, long high) {
+        if (node == null) {
+            return true;
+        }
+        if (!(low < node.val && node.val < high)) {
+            return false;
+        }
+        return validate(node.left, low, node.val) && validate(node.right, node.val, high);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Complexity:** Time O(n), space O(h) recursion stack.
 
@@ -1372,6 +3758,62 @@ def lowest_common_ancestor(root, p, q):
         else:
             return node
     return None
+```
+```javascript +
+function lowestCommonAncestor(root, p, q) {
+    let node = root;
+    while (node) {
+        if (p.val < node.val && q.val < node.val) {
+            node = node.left;
+        } else if (p.val > node.val && q.val > node.val) {
+            node = node.right;
+        } else {
+            return node;
+        }
+    }
+    return null;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(6, new TreeNode(2, new TreeNode(0), new TreeNode(4)), new TreeNode(8));
+        TreeNode p = root.left;
+        TreeNode q = root.left.right;
+        TreeNode lca = lowestCommonAncestor(root, p, q);
+        System.out.println("LCA: " + lca.val);
+    }
+
+    static TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+        TreeNode node = root;
+        while (node != null) {
+            if (p.val < node.val && q.val < node.val) {
+                node = node.left;
+            } else if (p.val > node.val && q.val > node.val) {
+                node = node.right;
+            } else {
+                return node;
+            }
+        }
+        return null;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(h), space O(1) since it's iterative and needs no recursion stack.
@@ -1406,6 +3848,81 @@ def build_tree(preorder: list[int], inorder: list[int]):
 
     return build(0, len(inorder) - 1)
 ```
+```javascript +
+function buildTree(preorder, inorder) {
+    const inorderIndex = new Map();
+    inorder.forEach((val, i) => inorderIndex.set(val, i));
+    let preorderIdx = 0; // mutable pointer into preorder
+
+    function build(left, right) {
+        if (left > right) {
+            return null;
+        }
+        const rootVal = preorder[preorderIdx];
+        preorderIdx += 1;
+        const root = new TreeNode(rootVal);
+        const mid = inorderIndex.get(rootVal);
+        root.left = build(left, mid - 1);
+        root.right = build(mid + 1, right);
+        return root;
+    }
+
+    return build(0, inorder.length - 1);
+}
+```
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    static int preorderIdx;
+
+    public static void main(String[] args) {
+        int[] preorder = {3, 9, 20, 15, 7};
+        int[] inorder = {9, 3, 15, 20, 7};
+        TreeNode root = buildTree(preorder, inorder);
+        System.out.println("Root: " + root.val + ", left: " + root.left.val + ", right: " + root.right.val);
+    }
+
+    static TreeNode buildTree(int[] preorder, int[] inorder) {
+        Map<Integer, Integer> inorderIndex = new HashMap<>();
+        for (int i = 0; i < inorder.length; i++) {
+            inorderIndex.put(inorder[i], i);
+        }
+        preorderIdx = 0; // mutable pointer into preorder
+        return build(preorder, inorderIndex, 0, inorder.length - 1);
+    }
+
+    static TreeNode build(int[] preorder, Map<Integer, Integer> inorderIndex, int left, int right) {
+        if (left > right) {
+            return null;
+        }
+        int rootVal = preorder[preorderIdx];
+        preorderIdx += 1;
+        TreeNode root = new TreeNode(rootVal);
+        int mid = inorderIndex.get(rootVal);
+        root.left = build(preorder, inorderIndex, left, mid - 1);
+        root.right = build(preorder, inorderIndex, mid + 1, right);
+        return root;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Complexity:** Time O(n), since each node is processed once with an O(1) map lookup. Space O(n) for the map plus O(h) recursion stack.
 
@@ -1438,6 +3955,72 @@ def kth_smallest(root, k: int) -> int:
         node = node.right
     raise ValueError("k is out of range")
 ```
+```javascript +
+function kthSmallest(root, k) {
+    const stack = [];
+    let node = root;
+    let count = 0;
+    while (stack.length > 0 || node !== null) {
+        while (node !== null) {
+            stack.push(node);
+            node = node.left;
+        }
+        node = stack.pop();
+        count += 1;
+        if (count === k) {
+            return node.val;
+        }
+        node = node.right;
+    }
+    throw new RangeError('k is out of range');
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(5, new TreeNode(3, new TreeNode(2), new TreeNode(4)), new TreeNode(8));
+        System.out.println(kthSmallest(root, 3));
+    }
+
+    static int kthSmallest(TreeNode root, int k) {
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        TreeNode node = root;
+        int count = 0;
+        while (!stack.isEmpty() || node != null) {
+            while (node != null) {
+                stack.push(node);
+                node = node.left;
+            }
+            node = stack.pop();
+            count += 1;
+            if (count == k) {
+                return node.val;
+            }
+            node = node.right;
+        }
+        throw new IllegalArgumentException("k is out of range");
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Complexity:** Time O(h + k): it descends to the leftmost node in O(h), then visits k more nodes, worst case O(n) if k is close to n. Space O(h) for the stack.
 
@@ -1468,6 +4051,41 @@ for u, v in edges:
 print(dict(graph))
 # {0: [1, 2], 1: [0, 2], 2: [0, 1, 3], 3: [2]}
 ```
+```javascript +
+const graph = new Map();
+const edges = [[0, 1], [0, 2], [1, 2], [2, 3]];
+for (const [u, v] of edges) {
+    if (!graph.has(u)) graph.set(u, []);
+    if (!graph.has(v)) graph.set(v, []);
+    graph.get(u).push(v);
+    graph.get(v).push(u); // omit this line for a directed graph
+}
+
+console.log(Object.fromEntries(graph));
+// { '0': [ 1, 2 ], '1': [ 0, 2 ], '2': [ 0, 1, 3 ], '3': [ 2 ] }
+```
+```java +
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        Map<Integer, List<Integer>> graph = new LinkedHashMap<>();
+        int[][] edges = {{0, 1}, {0, 2}, {1, 2}, {2, 3}};
+        for (int[] edge : edges) {
+            int u = edge[0];
+            int v = edge[1];
+            graph.computeIfAbsent(u, k -> new ArrayList<>()).add(v);
+            graph.computeIfAbsent(v, k -> new ArrayList<>()).add(u); // omit this line for a directed graph
+        }
+
+        System.out.println(graph);
+        // {0=[1, 2], 1=[0, 2], 2=[0, 1, 3], 3=[2]}
+    }
+}
+```
 
 **Adjacency matrix**: an `n x n` grid where `matrix[i][j] = 1` if an edge exists.
 
@@ -1477,6 +4095,36 @@ matrix = [[0] * n for _ in range(n)]
 for u, v in edges:
     matrix[u][v] = 1
     matrix[v][u] = 1
+```
+```javascript +
+const n = 4;
+const edges = [[0, 1], [0, 2], [1, 2], [2, 3]];
+const matrix = Array.from({ length: n }, () => new Array(n).fill(0));
+for (const [u, v] of edges) {
+    matrix[u][v] = 1;
+    matrix[v][u] = 1;
+}
+```
+```java +
+import java.util.Arrays;
+
+public class Main {
+    public static void main(String[] args) {
+        int n = 4;
+        int[][] edges = {{0, 1}, {0, 2}, {1, 2}, {2, 3}};
+        int[][] matrix = new int[n][n];
+        for (int[] edge : edges) {
+            int u = edge[0];
+            int v = edge[1];
+            matrix[u][v] = 1;
+            matrix[v][u] = 1;
+        }
+
+        for (int[] row : matrix) {
+            System.out.println(Arrays.toString(row));
+        }
+    }
+}
 ```
 
 | | Adjacency list | Adjacency matrix |
@@ -1521,6 +4169,64 @@ def bfs(graph, start):
                 queue.append(neighbor)
     return order
 ```
+```javascript +
+function bfs(graph, start) {
+    const visited = new Set([start]); // mark on enqueue
+    const queue = [start];
+    const order = [];
+    while (queue.length > 0) {
+        const node = queue.shift();
+        order.push(node);
+        for (const neighbor of graph.get(node) ?? []) {
+            if (!visited.has(neighbor)) {
+                visited.add(neighbor); // mark here, not after popping
+                queue.push(neighbor);
+            }
+        }
+    }
+    return order;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class Main {
+    public static void main(String[] args) {
+        Map<Integer, List<Integer>> graph = Map.of(
+                0, List.of(1, 2),
+                1, List.of(0, 2),
+                2, List.of(0, 1, 3),
+                3, List.of(2)
+        );
+        System.out.println(bfs(graph, 0));
+    }
+
+    static List<Integer> bfs(Map<Integer, List<Integer>> graph, int start) {
+        Set<Integer> visited = new HashSet<>();
+        visited.add(start); // mark on enqueue
+        Deque<Integer> queue = new ArrayDeque<>();
+        queue.add(start);
+        List<Integer> order = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            int node = queue.poll();
+            order.add(node);
+            for (int neighbor : graph.getOrDefault(node, List.of())) {
+                if (!visited.contains(neighbor)) {
+                    visited.add(neighbor); // mark here, not after popping
+                    queue.add(neighbor);
+                }
+            }
+        }
+        return order;
+    }
+}
+```
 
 Mark visited only at pop time, and the same node can be pushed onto the queue multiple times before it's ever processed. That's wasted work at best, and in multi-source variants it can produce wrong answers. For grids, `visited` is usually a 2D boolean array, or you mutate the grid in place (flipping `'1'` to `'0'`, say) to save space.
 
@@ -1554,6 +4260,83 @@ def numIslands(grid: list[list[str]]) -> int:
                 islands += 1
                 dfs(r, c)
     return islands
+```
+```javascript +
+function numIslands(grid) {
+    if (grid.length === 0) {
+        return 0;
+    }
+    const rows = grid.length;
+    const cols = grid[0].length;
+
+    function dfs(r, c) {
+        if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] !== '1') {
+            return;
+        }
+        grid[r][c] = '0'; // sink it so we never revisit
+        dfs(r + 1, c);
+        dfs(r - 1, c);
+        dfs(r, c + 1);
+        dfs(r, c - 1);
+    }
+
+    let islands = 0;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (grid[r][c] === '1') {
+                islands += 1;
+                dfs(r, c);
+            }
+        }
+    }
+    return islands;
+}
+```
+```java +
+public class Main {
+    static int rows;
+    static int cols;
+
+    public static void main(String[] args) {
+        char[][] grid = {
+                {'1', '1', '0', '0'},
+                {'1', '1', '0', '0'},
+                {'0', '0', '1', '0'},
+                {'0', '0', '0', '1'}
+        };
+        System.out.println(numIslands(grid));
+    }
+
+    static int numIslands(char[][] grid) {
+        if (grid.length == 0) {
+            return 0;
+        }
+        rows = grid.length;
+        cols = grid[0].length;
+
+        int islands = 0;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                if (grid[r][c] == '1') {
+                    islands += 1;
+                    dfs(grid, r, c);
+                }
+            }
+        }
+        return islands;
+    }
+
+    static void dfs(char[][] grid, int r, int c) {
+        if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] != '1') {
+            return;
+        }
+        grid[r][c] = '0'; // sink it so we never revisit
+        dfs(grid, r + 1, c);
+        dfs(grid, r - 1, c);
+        dfs(grid, r, c + 1);
+        dfs(grid, r, c - 1);
+    }
+}
 ```
 
 **Complexity:** Time O(rows × cols), since each cell is visited a constant number of times. Space O(rows × cols) worst case for the recursion stack, when the grid is entirely land.
@@ -1590,6 +4373,89 @@ def cloneGraph(node: 'Node') -> 'Node':
             old_to_new[cur].neighbors.append(old_to_new[neighbor])
 
     return old_to_new[node]
+```
+```javascript +
+class Node {
+    constructor(val = 0, neighbors = null) {
+        this.val = val;
+        this.neighbors = neighbors !== null ? neighbors : [];
+    }
+}
+
+function cloneGraph(node) {
+    if (!node) {
+        return null;
+    }
+
+    const oldToNew = new Map([[node, new Node(node.val)]]);
+    const queue = [node];
+
+    while (queue.length > 0) {
+        const cur = queue.shift();
+        for (const neighbor of cur.neighbors) {
+            if (!oldToNew.has(neighbor)) {
+                oldToNew.set(neighbor, new Node(neighbor.val));
+                queue.push(neighbor);
+            }
+            oldToNew.get(cur).neighbors.push(oldToNew.get(neighbor));
+        }
+    }
+
+    return oldToNew.get(node);
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        Node a = new Node(1);
+        Node b = new Node(2);
+        a.neighbors.add(b);
+        b.neighbors.add(a);
+
+        Node clonedA = cloneGraph(a);
+        System.out.println("Cloned root val: " + clonedA.val + ", neighbor count: " + clonedA.neighbors.size());
+    }
+
+    static Node cloneGraph(Node node) {
+        if (node == null) {
+            return null;
+        }
+
+        Map<Node, Node> oldToNew = new HashMap<>();
+        oldToNew.put(node, new Node(node.val));
+        Deque<Node> queue = new ArrayDeque<>();
+        queue.add(node);
+
+        while (!queue.isEmpty()) {
+            Node cur = queue.poll();
+            for (Node neighbor : cur.neighbors) {
+                if (!oldToNew.containsKey(neighbor)) {
+                    oldToNew.put(neighbor, new Node(neighbor.val));
+                    queue.add(neighbor);
+                }
+                oldToNew.get(cur).neighbors.add(oldToNew.get(neighbor));
+            }
+        }
+
+        return oldToNew.get(node);
+    }
+}
+
+class Node {
+    int val;
+    List<Node> neighbors = new ArrayList<>();
+
+    Node(int val) {
+        this.val = val;
+    }
+}
 ```
 
 **Complexity:** Time O(V + E), space O(V) for the map and queue.
@@ -1633,6 +4499,102 @@ def orangesRotting(grid: list[list[int]]) -> int:
 
     return minutes if fresh == 0 else -1
 ```
+```javascript +
+function orangesRotting(grid) {
+    const rows = grid.length;
+    const cols = grid[0].length;
+    const queue = [];
+    let fresh = 0;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (grid[r][c] === 2) {
+                queue.push([r, c]);
+            } else if (grid[r][c] === 1) {
+                fresh += 1;
+            }
+        }
+    }
+
+    let minutes = 0;
+    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+    while (queue.length > 0 && fresh > 0) {
+        minutes += 1;
+        const levelSize = queue.length; // process one full level = one minute
+        for (let i = 0; i < levelSize; i++) {
+            const [r, c] = queue.shift();
+            for (const [dr, dc] of directions) {
+                const nr = r + dr;
+                const nc = c + dc;
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+                    grid[nr][nc] = 2;
+                    fresh -= 1;
+                    queue.push([nr, nc]);
+                }
+            }
+        }
+    }
+
+    return fresh === 0 ? minutes : -1;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] grid = {
+                {2, 1, 1},
+                {1, 1, 0},
+                {0, 1, 1}
+        };
+        System.out.println(orangesRotting(grid));
+    }
+
+    static int orangesRotting(int[][] grid) {
+        int rows = grid.length;
+        int cols = grid[0].length;
+        Deque<int[]> queue = new ArrayDeque<>();
+        int fresh = 0;
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                if (grid[r][c] == 2) {
+                    queue.add(new int[]{r, c});
+                } else if (grid[r][c] == 1) {
+                    fresh += 1;
+                }
+            }
+        }
+
+        int minutes = 0;
+        int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+        while (!queue.isEmpty() && fresh > 0) {
+            minutes += 1;
+            int levelSize = queue.size(); // process one full level = one minute
+            for (int i = 0; i < levelSize; i++) {
+                int[] cell = queue.poll();
+                int r = cell[0];
+                int c = cell[1];
+                for (int[] dir : directions) {
+                    int nr = r + dir[0];
+                    int nc = c + dir[1];
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] == 1) {
+                        grid[nr][nc] = 2;
+                        fresh -= 1;
+                        queue.add(new int[]{nr, nc});
+                    }
+                }
+            }
+        }
+
+        return fresh == 0 ? minutes : -1;
+    }
+}
+```
 
 **Complexity:** Time O(rows × cols), space O(rows × cols) for the queue.
 
@@ -1669,6 +4631,93 @@ def wallsAndGates(rooms: list[list[int]]) -> None:
                 rooms[nr][nc] = rooms[r][c] + 1
                 queue.append((nr, nc))
 ```
+```javascript +
+const INF = 2147483647;
+
+function wallsAndGates(rooms) {
+    if (rooms.length === 0) {
+        return;
+    }
+    const rows = rooms.length;
+    const cols = rooms[0].length;
+    const queue = [];
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (rooms[r][c] === 0) {
+                queue.push([r, c]);
+            }
+        }
+    }
+
+    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    while (queue.length > 0) {
+        const [r, c] = queue.shift();
+        for (const [dr, dc] of directions) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && rooms[nr][nc] === INF) {
+                rooms[nr][nc] = rooms[r][c] + 1;
+                queue.push([nr, nc]);
+            }
+        }
+    }
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+
+public class Main {
+    static final int INF = Integer.MAX_VALUE;
+
+    public static void main(String[] args) {
+        int[][] rooms = {
+                {INF, -1, 0, INF},
+                {INF, INF, INF, -1},
+                {INF, -1, INF, -1},
+                {0, -1, INF, INF}
+        };
+        wallsAndGates(rooms);
+        for (int[] row : rooms) {
+            System.out.println(Arrays.toString(row));
+        }
+    }
+
+    static void wallsAndGates(int[][] rooms) {
+        if (rooms.length == 0) {
+            return;
+        }
+        int rows = rooms.length;
+        int cols = rooms[0].length;
+        Deque<int[]> queue = new ArrayDeque<>();
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                if (rooms[r][c] == 0) {
+                    queue.add(new int[]{r, c});
+                }
+            }
+        }
+
+        int[][] directions = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        while (!queue.isEmpty()) {
+            int[] cell = queue.poll();
+            int r = cell[0];
+            int c = cell[1];
+            for (int[] dir : directions) {
+                int nr = r + dir[0];
+                int nc = c + dir[1];
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && rooms[nr][nc] == INF) {
+                    rooms[nr][nc] = rooms[r][c] + 1;
+                    queue.add(new int[]{nr, nc});
+                }
+            }
+        }
+    }
+}
+```
 
 **Complexity:** Time O(rows × cols), space O(rows × cols).
 
@@ -1689,6 +4738,20 @@ A **DAG** (Directed Acyclic Graph) is a directed graph with no cycles: you can n
 # Example: 5 depends on 2 and 0; 4 depends on 0 and 1; 3 depends on 1
 # edges: 5->2, 5->0, 4->0, 4->1, 2->3, 3->1
 # Valid orders include: [5, 4, 2, 3, 1, 0] and [4, 5, 2, 3, 1, 0]
+```
+```javascript +
+// Example: 5 depends on 2 and 0; 4 depends on 0 and 1; 3 depends on 1
+// edges: 5->2, 5->0, 4->0, 4->1, 2->3, 3->1
+// Valid orders include: [5, 4, 2, 3, 1, 0] and [4, 5, 2, 3, 1, 0]
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        // Example: 5 depends on 2 and 0; 4 depends on 0 and 1; 3 depends on 1
+        // edges: 5->2, 5->0, 4->0, 4->1, 2->3, 3->1
+        // Valid orders include: [5, 4, 2, 3, 1, 0] and [4, 5, 2, 3, 1, 0]
+    }
+}
 ```
 
 **Key fact:** a graph has a valid topological order **if and only if it is a DAG**. So "can this be topologically sorted?" and "does this graph have a cycle?" are the same question asked two ways, which is why cycle detection and topo sort share one algorithm.
@@ -1722,6 +4785,74 @@ def kahn_topo_sort(num_nodes: int, edges: list[tuple[int, int]]) -> list[int]:
         return []  # cycle detected — not all nodes could be processed
     return order
 ```
+```javascript +
+function kahnTopoSort(numNodes, edges) {
+    const graph = new Map();
+    const inDegree = new Array(numNodes).fill(0);
+    for (const [u, v] of edges) {          // u must come before v
+        if (!graph.has(u)) graph.set(u, []);
+        graph.get(u).push(v);
+        inDegree[v] += 1;
+    }
+
+    const queue = [];
+    for (let n = 0; n < numNodes; n++) {
+        if (inDegree[n] === 0) queue.push(n);
+    }
+    const order = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        order.push(node);
+        for (const neighbor of graph.get(node) || []) {
+            inDegree[neighbor] -= 1;
+            if (inDegree[neighbor] === 0) queue.push(neighbor);
+        }
+    }
+
+    if (order.length !== numNodes) return [];  // cycle detected — not all nodes could be processed
+    return order;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numNodes = 6;
+        int[][] edges = {{5, 2}, {5, 0}, {4, 0}, {4, 1}, {2, 3}, {3, 1}};
+        System.out.println(kahnTopoSort(numNodes, edges));
+    }
+
+    static List<Integer> kahnTopoSort(int numNodes, int[][] edges) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        int[] inDegree = new int[numNodes];
+        for (int[] edge : edges) {          // u must come before v
+            int u = edge[0], v = edge[1];
+            graph.computeIfAbsent(u, k -> new ArrayList<>()).add(v);
+            inDegree[v]++;
+        }
+
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int n = 0; n < numNodes; n++) {
+            if (inDegree[n] == 0) queue.add(n);
+        }
+        List<Integer> order = new ArrayList<>();
+
+        while (!queue.isEmpty()) {
+            int node = queue.poll();
+            order.add(node);
+            for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0) queue.add(neighbor);
+            }
+        }
+
+        if (order.size() != numNodes) return new ArrayList<>();  // cycle detected
+        return order;
+    }
+}
+```
 
 **Complexity:** Time O(V + E), space O(V + E).
 
@@ -1752,6 +4883,69 @@ def dfs_topo_sort(num_nodes: int, edges: list[tuple[int, int]]) -> list[int]:
             dfs(node)
 
     return stack[::-1]
+```
+```javascript +
+function dfsTopoSort(numNodes, edges) {
+    const graph = new Map();
+    for (const [u, v] of edges) {
+        if (!graph.has(u)) graph.set(u, []);
+        graph.get(u).push(v);
+    }
+
+    const visited = new Set();
+    const stack = [];
+
+    function dfs(node) {
+        visited.add(node);
+        for (const neighbor of graph.get(node) || []) {
+            if (!visited.has(neighbor)) dfs(neighbor);
+        }
+        stack.push(node);  // postorder: node goes on stack after all descendants
+    }
+
+    for (let node = 0; node < numNodes; node++) {
+        if (!visited.has(node)) dfs(node);
+    }
+
+    return stack.reverse();
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numNodes = 6;
+        int[][] edges = {{5, 2}, {5, 0}, {4, 0}, {4, 1}, {2, 3}, {3, 1}};
+        System.out.println(dfsTopoSort(numNodes, edges));
+    }
+
+    static List<Integer> dfsTopoSort(int numNodes, int[][] edges) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        for (int[] edge : edges) {
+            graph.computeIfAbsent(edge[0], k -> new ArrayList<>()).add(edge[1]);
+        }
+
+        Set<Integer> visited = new HashSet<>();
+        Deque<Integer> stack = new ArrayDeque<>();
+
+        for (int node = 0; node < numNodes; node++) {
+            if (!visited.contains(node)) {
+                dfs(node, graph, visited, stack);
+            }
+        }
+
+        return new ArrayList<>(stack);  // ArrayDeque.push() + iteration gives postorder reversed
+    }
+
+    static void dfs(int node, Map<Integer, List<Integer>> graph, Set<Integer> visited, Deque<Integer> stack) {
+        visited.add(node);
+        for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+            if (!visited.contains(neighbor)) dfs(neighbor, graph, visited, stack);
+        }
+        stack.push(node);  // postorder: node goes on stack after all descendants
+    }
+}
 ```
 
 **Why postorder + reverse works:** a node is only pushed after everything it depends on downstream has already been pushed. Reversing puts dependencies before dependents. This variant needs a separate 3-color (white/gray/black) cycle check, covered next, because plain `visited` alone can't distinguish "currently on the DFS path" from "already fully processed."
@@ -1786,6 +4980,71 @@ def has_cycle_directed(num_nodes: int, edges: list[tuple[int, int]]) -> bool:
 
     return any(color[n] == WHITE and dfs(n) for n in range(num_nodes))
 ```
+```javascript +
+const WHITE = 0, GRAY = 1, BLACK = 2;  // unvisited, in-progress (on current DFS path), done
+
+function hasCycleDirected(numNodes, edges) {
+    const graph = new Map();
+    for (const [u, v] of edges) {
+        if (!graph.has(u)) graph.set(u, []);
+        graph.get(u).push(v);
+    }
+
+    const color = new Array(numNodes).fill(WHITE);
+
+    function dfs(node) {
+        color[node] = GRAY;
+        for (const neighbor of graph.get(node) || []) {
+            if (color[neighbor] === GRAY) return true;   // back edge -> cycle
+            if (color[neighbor] === WHITE && dfs(neighbor)) return true;
+        }
+        color[node] = BLACK;
+        return false;
+    }
+
+    for (let n = 0; n < numNodes; n++) {
+        if (color[n] === WHITE && dfs(n)) return true;
+    }
+    return false;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    static final int WHITE = 0, GRAY = 1, BLACK = 2;  // unvisited, in-progress, done
+
+    public static void main(String[] args) {
+        int numNodes = 4;
+        int[][] edges = {{0, 1}, {1, 2}, {2, 0}, {2, 3}};
+        System.out.println(hasCycleDirected(numNodes, edges));
+    }
+
+    static boolean hasCycleDirected(int numNodes, int[][] edges) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        for (int[] edge : edges) {
+            graph.computeIfAbsent(edge[0], k -> new ArrayList<>()).add(edge[1]);
+        }
+
+        int[] color = new int[numNodes];  // defaults to WHITE (0)
+
+        for (int n = 0; n < numNodes; n++) {
+            if (color[n] == WHITE && dfs(n, graph, color)) return true;
+        }
+        return false;
+    }
+
+    static boolean dfs(int node, Map<Integer, List<Integer>> graph, int[] color) {
+        color[node] = GRAY;
+        for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+            if (color[neighbor] == GRAY) return true;                 // back edge -> cycle
+            if (color[neighbor] == WHITE && dfs(neighbor, graph, color)) return true;
+        }
+        color[node] = BLACK;
+        return false;
+    }
+}
+```
 
 **Pitfall:** using a single `visited` set (two states) on a directed graph gives false positives. Two branches can both reach the same node without a cycle existing, because directed edges don't imply "coming back." The GRAY state, tracking the current recursion path, is what correctly identifies a back edge.
 
@@ -1817,6 +5076,72 @@ def canFinish(numCourses: int, prerequisites: list[list[int]]) -> bool:
                 queue.append(neighbor)
 
     return processed == numCourses
+```
+```javascript +
+function canFinish(numCourses, prerequisites) {
+    const graph = new Map();
+    const inDegree = new Array(numCourses).fill(0);
+    for (const [course, prereq] of prerequisites) {
+        if (!graph.has(prereq)) graph.set(prereq, []);
+        graph.get(prereq).push(course);
+        inDegree[course] += 1;
+    }
+
+    const queue = [];
+    for (let c = 0; c < numCourses; c++) {
+        if (inDegree[c] === 0) queue.push(c);
+    }
+    let processed = 0;
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        processed += 1;
+        for (const neighbor of graph.get(node) || []) {
+            inDegree[neighbor] -= 1;
+            if (inDegree[neighbor] === 0) queue.push(neighbor);
+        }
+    }
+
+    return processed === numCourses;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numCourses = 2;
+        int[][] prerequisites = {{1, 0}};
+        System.out.println(canFinish(numCourses, prerequisites));
+    }
+
+    static boolean canFinish(int numCourses, int[][] prerequisites) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        int[] inDegree = new int[numCourses];
+        for (int[] p : prerequisites) {
+            int course = p[0], prereq = p[1];
+            graph.computeIfAbsent(prereq, k -> new ArrayList<>()).add(course);
+            inDegree[course]++;
+        }
+
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int c = 0; c < numCourses; c++) {
+            if (inDegree[c] == 0) queue.add(c);
+        }
+        int processed = 0;
+
+        while (!queue.isEmpty()) {
+            int node = queue.poll();
+            processed++;
+            for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0) queue.add(neighbor);
+            }
+        }
+
+        return processed == numCourses;
+    }
+}
 ```
 
 **Complexity:** Time O(V + E), space O(V + E).
@@ -1851,6 +5176,72 @@ def findOrder(numCourses: int, prerequisites: list[list[int]]) -> list[int]:
                 queue.append(neighbor)
 
     return order if len(order) == numCourses else []
+```
+```javascript +
+function findOrder(numCourses, prerequisites) {
+    const graph = new Map();
+    const inDegree = new Array(numCourses).fill(0);
+    for (const [course, prereq] of prerequisites) {
+        if (!graph.has(prereq)) graph.set(prereq, []);
+        graph.get(prereq).push(course);
+        inDegree[course] += 1;
+    }
+
+    const queue = [];
+    for (let c = 0; c < numCourses; c++) {
+        if (inDegree[c] === 0) queue.push(c);
+    }
+    const order = [];
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        order.push(node);
+        for (const neighbor of graph.get(node) || []) {
+            inDegree[neighbor] -= 1;
+            if (inDegree[neighbor] === 0) queue.push(neighbor);
+        }
+    }
+
+    return order.length === numCourses ? order : [];
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int numCourses = 4;
+        int[][] prerequisites = {{1, 0}, {2, 0}, {3, 1}, {3, 2}};
+        System.out.println(findOrder(numCourses, prerequisites));
+    }
+
+    static List<Integer> findOrder(int numCourses, int[][] prerequisites) {
+        Map<Integer, List<Integer>> graph = new HashMap<>();
+        int[] inDegree = new int[numCourses];
+        for (int[] p : prerequisites) {
+            int course = p[0], prereq = p[1];
+            graph.computeIfAbsent(prereq, k -> new ArrayList<>()).add(course);
+            inDegree[course]++;
+        }
+
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int c = 0; c < numCourses; c++) {
+            if (inDegree[c] == 0) queue.add(c);
+        }
+        List<Integer> order = new ArrayList<>();
+
+        while (!queue.isEmpty()) {
+            int node = queue.poll();
+            order.add(node);
+            for (int neighbor : graph.getOrDefault(node, Collections.emptyList())) {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] == 0) queue.add(neighbor);
+            }
+        }
+
+        return order.size() == numCourses ? order : new ArrayList<>();
+    }
+}
 ```
 
 **Complexity:** Time O(V + E), space O(V + E).
@@ -1894,6 +5285,106 @@ def alienOrder(words: list[str]) -> str:
 
     return "".join(order) if len(order) == len(in_degree) else ""
 ```
+```javascript +
+function alienOrder(words) {
+    const graph = new Map();
+    const inDegree = new Map();
+    for (const word of words) {
+        for (const c of word) {
+            if (!inDegree.has(c)) inDegree.set(c, 0);
+        }
+    }
+
+    for (let i = 0; i < words.length - 1; i++) {
+        const w1 = words[i], w2 = words[i + 1];
+        const minLen = Math.min(w1.length, w2.length);
+        if (w1.length > w2.length && w1.slice(0, minLen) === w2.slice(0, minLen)) {
+            return "";  // invalid: longer word can't be a prefix of the next
+        }
+        for (let j = 0; j < minLen; j++) {
+            const c1 = w1[j], c2 = w2[j];
+            if (c1 !== c2) {
+                if (!graph.has(c1)) graph.set(c1, new Set());
+                if (!graph.get(c1).has(c2)) {
+                    graph.get(c1).add(c2);
+                    inDegree.set(c2, inDegree.get(c2) + 1);
+                }
+                break;  // only the first differing pair gives a constraint
+            }
+        }
+    }
+
+    const queue = [...inDegree.keys()].filter((c) => inDegree.get(c) === 0);
+    const order = [];
+
+    while (queue.length > 0) {
+        const c = queue.shift();
+        order.push(c);
+        for (const neighbor of graph.get(c) || []) {
+            inDegree.set(neighbor, inDegree.get(neighbor) - 1);
+            if (inDegree.get(neighbor) === 0) queue.push(neighbor);
+        }
+    }
+
+    return order.length === inDegree.size ? order.join("") : "";
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        String[] words = {"wrt", "wrf", "er", "ett", "rftt"};
+        System.out.println(alienOrder(words));
+    }
+
+    static String alienOrder(String[] words) {
+        Map<Character, Set<Character>> graph = new HashMap<>();
+        Map<Character, Integer> inDegree = new HashMap<>();
+        for (String word : words) {
+            for (char c : word.toCharArray()) {
+                inDegree.putIfAbsent(c, 0);
+            }
+        }
+
+        for (int i = 0; i < words.length - 1; i++) {
+            String w1 = words[i], w2 = words[i + 1];
+            int minLen = Math.min(w1.length(), w2.length());
+            if (w1.length() > w2.length() && w1.substring(0, minLen).equals(w2.substring(0, minLen))) {
+                return "";  // invalid: longer word can't be a prefix of the next
+            }
+            for (int j = 0; j < minLen; j++) {
+                char c1 = w1.charAt(j), c2 = w2.charAt(j);
+                if (c1 != c2) {
+                    Set<Character> neighbors = graph.computeIfAbsent(c1, k -> new HashSet<>());
+                    if (!neighbors.contains(c2)) {
+                        neighbors.add(c2);
+                        inDegree.put(c2, inDegree.get(c2) + 1);
+                    }
+                    break;  // only the first differing pair gives a constraint
+                }
+            }
+        }
+
+        Deque<Character> queue = new ArrayDeque<>();
+        for (Map.Entry<Character, Integer> entry : inDegree.entrySet()) {
+            if (entry.getValue() == 0) queue.add(entry.getKey());
+        }
+        StringBuilder order = new StringBuilder();
+
+        while (!queue.isEmpty()) {
+            char c = queue.poll();
+            order.append(c);
+            for (char neighbor : graph.getOrDefault(c, Collections.emptySet())) {
+                inDegree.put(neighbor, inDegree.get(neighbor) - 1);
+                if (inDegree.get(neighbor) == 0) queue.add(neighbor);
+            }
+        }
+
+        return order.length() == inDegree.size() ? order.toString() : "";
+    }
+}
+```
 
 **Complexity:** Time O(C), where C is the total character count across all words: each adjacent pair comparison is bounded by word length, and the topo sort itself is O(26) for nodes and edges. Space is O(1) in practice, since there are at most 26 letters.
 
@@ -1927,6 +5418,78 @@ def longestIncreasingPath(matrix: list[list[int]]) -> int:
 
     return max(dfs(r, c) for r in range(rows) for c in range(cols))
 ```
+```javascript +
+function longestIncreasingPath(matrix) {
+    if (!matrix || matrix.length === 0) return 0;
+    const rows = matrix.length, cols = matrix[0].length;
+    const memo = new Map();
+    const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+    function dfs(r, c) {
+        const key = `${r},${c}`;
+        if (memo.has(key)) return memo.get(key);
+        let best = 1;
+        for (const [dr, dc] of directions) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && matrix[nr][nc] > matrix[r][c]) {
+                best = Math.max(best, 1 + dfs(nr, nc));
+            }
+        }
+        memo.set(key, best);
+        return best;
+    }
+
+    let result = 0;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            result = Math.max(result, dfs(r, c));
+        }
+    }
+    return result;
+}
+```
+```java +
+public class Main {
+    static int rows, cols;
+    static int[][] memo;
+    static int[][] grid;
+    static final int[][] DIRECTIONS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+    public static void main(String[] args) {
+        int[][] matrix = {{9, 9, 4}, {6, 6, 8}, {2, 1, 1}};
+        System.out.println(longestIncreasingPath(matrix));
+    }
+
+    static int longestIncreasingPath(int[][] matrix) {
+        if (matrix == null || matrix.length == 0) return 0;
+        grid = matrix;
+        rows = matrix.length;
+        cols = matrix[0].length;
+        memo = new int[rows][cols];
+
+        int result = 0;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                result = Math.max(result, dfs(r, c));
+            }
+        }
+        return result;
+    }
+
+    static int dfs(int r, int c) {
+        if (memo[r][c] != 0) return memo[r][c];
+        int best = 1;
+        for (int[] d : DIRECTIONS) {
+            int nr = r + d[0], nc = c + d[1];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] > grid[r][c]) {
+                best = Math.max(best, 1 + dfs(nr, nc));
+            }
+        }
+        memo[r][c] = best;
+        return best;
+    }
+}
+```
 
 **Complexity:** Time O(rows × cols), since memoization computes each cell's answer once. Space O(rows × cols) for the memo and recursion stack.
 
@@ -1947,6 +5510,25 @@ For a node at index `i` (0-indexed array):
 def parent(i):  return (i - 1) // 2
 def left(i):    return 2 * i + 1
 def right(i):   return 2 * i + 2
+```
+```javascript +
+function parent(i) { return Math.floor((i - 1) / 2); }
+function left(i)   { return 2 * i + 1; }
+function right(i)  { return 2 * i + 2; }
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int i = 5;
+        System.out.println("parent(" + i + ") = " + parent(i));
+        System.out.println("left(" + i + ") = " + left(i));
+        System.out.println("right(" + i + ") = " + right(i));
+    }
+
+    static int parent(int i) { return (i - 1) / 2; }
+    static int left(int i)   { return 2 * i + 1; }
+    static int right(int i)  { return 2 * i + 2; }
+}
 ```
 
 ```
@@ -1981,6 +5563,41 @@ for x in [5, 1, 8, 3]:
     heapq.heappush(max_heap, -x)
 print(-max_heap[0])  # 8 — largest
 ```
+```javascript +
+// JavaScript has no built-in heap; keeping the array sorted after each
+// insert reproduces the same "smallest at index 0" behavior for small demos.
+const minHeap = [];
+for (const x of [5, 1, 8, 3]) {
+    minHeap.push(x);
+    minHeap.sort((a, b) => a - b);
+}
+minHeap[0]; // 1 — smallest, always at index 0
+
+// No max-heap either; negate values as the standard workaround
+const maxHeap = [];
+for (const x of [5, 1, 8, 3]) {
+    maxHeap.push(-x);
+    maxHeap.sort((a, b) => a - b);
+}
+-maxHeap[0]; // 8 — largest
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        PriorityQueue<Integer> minHeap = new PriorityQueue<>();
+        for (int x : new int[]{5, 1, 8, 3}) minHeap.add(x);
+        System.out.println(minHeap.peek()); // 1 — smallest, always at the head
+
+        // Java's PriorityQueue supports a custom comparator directly —
+        // no negation trick needed for a max-heap, unlike Python's heapq.
+        PriorityQueue<Integer> maxHeap = new PriorityQueue<>(Comparator.reverseOrder());
+        for (int x : new int[]{5, 1, 8, 3}) maxHeap.add(x);
+        System.out.println(maxHeap.peek()); // 8 — largest
+    }
+}
+```
 
 **Pitfall with the negation trick:** when pushing tuples for a max heap, such as `(priority, item)`, negate only the priority field, and remember to negate it back on pop. When priorities tie, Python compares the second tuple element next. If that's an unorderable object, like a custom class, you'll get a `TypeError`, so add an index or unique tiebreaker as a third tuple element to avoid this.
 
@@ -2013,11 +5630,117 @@ def heapify(arr):
     for i in range(n // 2 - 1, -1, -1):  # start at last non-leaf, go to root
         sift_down(arr, i, n)
 ```
+```javascript +
+function siftDown(arr, i, n) {
+    while (true) {
+        let smallest = i;
+        const l = 2 * i + 1, r = 2 * i + 2;
+        if (l < n && arr[l] < arr[smallest]) smallest = l;
+        if (r < n && arr[r] < arr[smallest]) smallest = r;
+        if (smallest === i) break;
+        [arr[i], arr[smallest]] = [arr[smallest], arr[i]];
+        i = smallest;
+    }
+}
+
+function heapify(arr) {
+    const n = arr.length;
+    for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {  // start at last non-leaf, go to root
+        siftDown(arr, i, n);
+    }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] data = {9, 4, 7, 1, 3, 8};
+        heapify(data);
+        System.out.println(java.util.Arrays.toString(data)); // a valid min-heap array
+    }
+
+    static void siftDown(int[] arr, int i, int n) {
+        while (true) {
+            int smallest = i;
+            int l = 2 * i + 1, r = 2 * i + 2;
+            if (l < n && arr[l] < arr[smallest]) smallest = l;
+            if (r < n && arr[r] < arr[smallest]) smallest = r;
+            if (smallest == i) break;
+            int tmp = arr[i];
+            arr[i] = arr[smallest];
+            arr[smallest] = tmp;
+            i = smallest;
+        }
+    }
+
+    static void heapify(int[] arr) {
+        int n = arr.length;
+        for (int i = n / 2 - 1; i >= 0; i--) {  // start at last non-leaf, go to root
+            siftDown(arr, i, n);
+        }
+    }
+}
+```
 
 ```python
 data = [9, 4, 7, 1, 3, 8]
 heapify(data)
 print(data)  # a valid min-heap array, e.g. [1, 3, 7, 9, 4, 8]
+```
+```javascript +
+function siftDown(arr, i, n) {
+    while (true) {
+        let smallest = i;
+        const l = 2 * i + 1, r = 2 * i + 2;
+        if (l < n && arr[l] < arr[smallest]) smallest = l;
+        if (r < n && arr[r] < arr[smallest]) smallest = r;
+        if (smallest === i) break;
+        [arr[i], arr[smallest]] = [arr[smallest], arr[i]];
+        i = smallest;
+    }
+}
+
+function heapify(arr) {
+    const n = arr.length;
+    for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+        siftDown(arr, i, n);
+    }
+}
+
+const data = [9, 4, 7, 1, 3, 8];
+heapify(data);
+data; // a valid min-heap array, e.g. [1, 3, 7, 9, 4, 8]
+```
+```java +
+import java.util.Arrays;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] data = {9, 4, 7, 1, 3, 8};
+        heapify(data);
+        System.out.println(Arrays.toString(data)); // a valid min-heap array
+    }
+
+    static void siftDown(int[] arr, int i, int n) {
+        while (true) {
+            int smallest = i;
+            int l = 2 * i + 1, r = 2 * i + 2;
+            if (l < n && arr[l] < arr[smallest]) smallest = l;
+            if (r < n && arr[r] < arr[smallest]) smallest = r;
+            if (smallest == i) break;
+            int tmp = arr[i];
+            arr[i] = arr[smallest];
+            arr[smallest] = tmp;
+            i = smallest;
+        }
+    }
+
+    static void heapify(int[] arr) {
+        int n = arr.length;
+        for (int i = n / 2 - 1; i >= 0; i--) {
+            siftDown(arr, i, n);
+        }
+    }
+}
 ```
 
 Python's `heapq.heapify(list)` does exactly this in place, in O(n).
@@ -2038,6 +5761,36 @@ def findKthLargest(nums: list[int], k: int) -> int:
         if len(heap) > k:
             heapq.heappop(heap)
     return heap[0]
+```
+```javascript +
+function findKthLargest(nums, k) {
+    const heap = [];
+    for (const num of nums) {
+        heap.push(num);
+        heap.sort((a, b) => a - b);
+        if (heap.length > k) heap.shift();
+    }
+    return heap[0];
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {3, 2, 1, 5, 6, 4};
+        System.out.println(findKthLargest(nums, 2));
+    }
+
+    static int findKthLargest(int[] nums, int k) {
+        PriorityQueue<Integer> heap = new PriorityQueue<>();
+        for (int num : nums) {
+            heap.add(num);
+            if (heap.size() > k) heap.poll();
+        }
+        return heap.peek();
+    }
+}
 ```
 
 **Complexity:** Time O(n log k), space O(k), much better than sorting's O(n log n) when k is small. QuickSelect achieves average O(n) but worst-case O(n²) and mutates the input, so the heap approach is the safer default to mention first, with QuickSelect as the follow-up optimization.
@@ -2063,6 +5816,45 @@ def topKFrequent(nums: list[int], k: int) -> list[int]:
         if len(heap) > k:
             heapq.heappop(heap)
     return [num for freq, num in heap]
+```
+```javascript +
+function topKFrequent(nums, k) {
+    const counts = new Map();
+    for (const num of nums) counts.set(num, (counts.get(num) || 0) + 1);
+
+    const heap = [];  // [freq, num] pairs, kept sorted by freq
+    for (const [num, freq] of counts) {
+        heap.push([freq, num]);
+        heap.sort((a, b) => a[0] - b[0]);
+        if (heap.length > k) heap.shift();
+    }
+    return heap.map(([freq, num]) => num);
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 1, 1, 2, 2, 3};
+        System.out.println(topKFrequent(nums, 2));
+    }
+
+    static List<Integer> topKFrequent(int[] nums, int k) {
+        Map<Integer, Integer> counts = new HashMap<>();
+        for (int num : nums) counts.merge(num, 1, Integer::sum);
+
+        PriorityQueue<int[]> heap = new PriorityQueue<>(Comparator.comparingInt(a -> a[0]));
+        for (Map.Entry<Integer, Integer> entry : counts.entrySet()) {
+            heap.add(new int[]{entry.getValue(), entry.getKey()});
+            if (heap.size() > k) heap.poll();
+        }
+
+        List<Integer> result = new ArrayList<>();
+        for (int[] pair : heap) result.add(pair[1]);
+        return result;
+    }
+}
 ```
 
 **Complexity:** Time O(n log k), space O(n) for the counter. `heapq.nlargest(k, counts.keys(), key=counts.get)` is the idiomatic one-liner if the interviewer allows library shortcuts, but be ready to implement it manually, since that's usually the actual ask.
@@ -2101,6 +5893,83 @@ def mergeKLists(lists: list[ListNode]) -> ListNode:
 
     return dummy.next
 ```
+```javascript +
+class ListNode {
+    constructor(val = 0, next = null) {
+        this.val = val;
+        this.next = next;
+    }
+}
+
+function mergeKLists(lists) {
+    const heap = [];  // [val, index, node] triples, index breaks value ties
+    lists.forEach((node, i) => {
+        if (node) heap.push([node.val, i, node]);
+    });
+    heap.sort((a, b) => a[0] - b[0]);
+
+    const dummy = new ListNode();
+    let tail = dummy;
+
+    while (heap.length > 0) {
+        const [val, i, node] = heap.shift();
+        tail.next = node;
+        tail = tail.next;
+        if (node.next) {
+            heap.push([node.next.val, i, node.next]);
+            heap.sort((a, b) => a[0] - b[0]);
+        }
+    }
+
+    return dummy.next;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        ListNode a = new ListNode(1, new ListNode(4, new ListNode(5)));
+        ListNode b = new ListNode(1, new ListNode(3, new ListNode(4)));
+        ListNode c = new ListNode(2, new ListNode(6));
+        ListNode merged = mergeKLists(new ListNode[]{a, b, c});
+        StringBuilder sb = new StringBuilder();
+        while (merged != null) {
+            sb.append(merged.val).append(" ");
+            merged = merged.next;
+        }
+        System.out.println(sb.toString().trim());
+    }
+
+    static ListNode mergeKLists(ListNode[] lists) {
+        PriorityQueue<ListNode> heap = new PriorityQueue<>(Comparator.comparingInt(n -> n.val));
+        for (ListNode node : lists) {
+            if (node != null) heap.add(node);
+        }
+
+        ListNode dummy = new ListNode();
+        ListNode tail = dummy;
+
+        while (!heap.isEmpty()) {
+            ListNode node = heap.poll();
+            tail.next = node;
+            tail = tail.next;
+            if (node.next != null) heap.add(node.next);
+        }
+
+        return dummy.next;
+    }
+}
+
+class ListNode {
+    int val;
+    ListNode next;
+
+    ListNode() {}
+    ListNode(int val) { this.val = val; }
+    ListNode(int val, ListNode next) { this.val = val; this.next = next; }
+}
+```
 
 **Complexity:** Time O(N log k) where N is total node count across all lists, space O(k) for the heap.
 
@@ -2132,6 +6001,64 @@ class MedianFinder:
             return -self.small[0]
         return (-self.small[0] + self.large[0]) / 2.0
 ```
+```javascript +
+class MedianFinder {
+    constructor() {
+        this.small = [];  // "max heap" (kept sorted desc), holds the smaller half
+        this.large = [];  // "min heap" (kept sorted asc), holds the larger half
+    }
+
+    addNum(num) {
+        this.small.push(num);
+        this.small.sort((a, b) => b - a);
+        // ensure every element in small <= every element in large
+        this.large.push(this.small.shift());
+        this.large.sort((a, b) => a - b);
+        if (this.large.length > this.small.length) {
+            this.small.push(this.large.shift());
+            this.small.sort((a, b) => b - a);
+        }
+    }
+
+    findMedian() {
+        if (this.small.length > this.large.length) return this.small[0];
+        return (this.small[0] + this.large[0]) / 2.0;
+    }
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        MedianFinder mf = new MedianFinder();
+        mf.addNum(1);
+        mf.addNum(2);
+        System.out.println(mf.findMedian()); // 1.5
+        mf.addNum(3);
+        System.out.println(mf.findMedian()); // 2.0
+    }
+}
+
+class MedianFinder {
+    private final PriorityQueue<Integer> small = new PriorityQueue<>(Comparator.reverseOrder());  // max heap, smaller half
+    private final PriorityQueue<Integer> large = new PriorityQueue<>();  // min heap, larger half
+
+    public void addNum(int num) {
+        small.add(num);
+        // ensure every element in small <= every element in large
+        large.add(small.poll());
+        if (large.size() > small.size()) {
+            small.add(large.poll());
+        }
+    }
+
+    public double findMedian() {
+        if (small.size() > large.size()) return small.peek();
+        return (small.peek() + large.peek()) / 2.0;
+    }
+}
+```
 
 **Complexity:** Time O(log n) per `addNum`, O(1) per `findMedian`. Space O(n) to hold the stream.
 
@@ -2154,6 +6081,28 @@ def fib_naive(n):
 # fib_naive(5) recomputes fib_naive(3) twice, fib_naive(2) three times, etc.
 # Time: O(2^n)
 ```
+```javascript +
+function fibNaive(n) {
+    if (n <= 1) return n;
+    return fibNaive(n - 1) + fibNaive(n - 2);
+}
+// fibNaive(5) recomputes fibNaive(3) twice, fibNaive(2) three times, etc.
+// Time: O(2^n)
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(fibNaive(10));
+    }
+
+    static int fibNaive(int n) {
+        if (n <= 1) return n;
+        return fibNaive(n - 1) + fibNaive(n - 2);
+    }
+    // fibNaive(5) recomputes fibNaive(3) twice, fibNaive(2) three times, etc.
+    // Time: O(2^n)
+}
+```
 
 **Memoization** (top-down DP) keeps the recursive structure but caches results, so each unique subproblem is computed once.
 
@@ -2166,6 +6115,38 @@ def fib_memo(n, cache={}):
     cache[n] = fib_memo(n - 1, cache) + fib_memo(n - 2, cache)
     return cache[n]
 # Time: O(n), Space: O(n) for cache + O(n) recursion stack
+```
+```javascript +
+const fibMemoCache = new Map();
+
+function fibMemo(n) {
+    if (n <= 1) return n;
+    if (fibMemoCache.has(n)) return fibMemoCache.get(n);
+    const result = fibMemo(n - 1) + fibMemo(n - 2);
+    fibMemoCache.set(n, result);
+    return result;
+}
+// Time: O(n), Space: O(n) for cache + O(n) recursion stack
+```
+```java +
+import java.util.*;
+
+public class Main {
+    static final Map<Integer, Integer> cache = new HashMap<>();
+
+    public static void main(String[] args) {
+        System.out.println(fibMemo(30));
+    }
+
+    static int fibMemo(int n) {
+        if (n <= 1) return n;
+        if (cache.containsKey(n)) return cache.get(n);
+        int result = fibMemo(n - 1) + fibMemo(n - 2);
+        cache.put(n, result);
+        return result;
+    }
+    // Time: O(n), Space: O(n) for cache + O(n) recursion stack
+}
 ```
 
 **Tabulation** (bottom-up DP) removes recursion entirely. It builds the answer iteratively from the base cases upward, filling a table.
@@ -2180,6 +6161,36 @@ def fib_tab(n):
         dp[i] = dp[i - 1] + dp[i - 2]
     return dp[n]
 # Time: O(n), Space: O(n), no recursion stack risk
+```
+```javascript +
+function fibTab(n) {
+    if (n <= 1) return n;
+    const dp = new Array(n + 1).fill(0);
+    dp[1] = 1;
+    for (let i = 2; i <= n; i++) {
+        dp[i] = dp[i - 1] + dp[i - 2];
+    }
+    return dp[n];
+}
+// Time: O(n), Space: O(n), no recursion stack risk
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(fibTab(10));
+    }
+
+    static int fibTab(int n) {
+        if (n <= 1) return n;
+        int[] dp = new int[n + 1];
+        dp[1] = 1;
+        for (int i = 2; i <= n; i++) {
+            dp[i] = dp[i - 1] + dp[i - 2];
+        }
+        return dp[n];
+    }
+    // Time: O(n), Space: O(n), no recursion stack risk
+}
 ```
 
 | | Recursion | Memoization | Tabulation |
@@ -2230,6 +6241,34 @@ def climbStairs(n: int) -> int:
         prev2, prev1 = prev1, prev2 + prev1
     return prev1
 ```
+```javascript +
+function climbStairs(n) {
+    if (n <= 1) return 1;
+    let prev2 = 1, prev1 = 1;  // dp[0], dp[1]
+    for (let i = 2; i <= n; i++) {
+        [prev2, prev1] = [prev1, prev2 + prev1];
+    }
+    return prev1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(climbStairs(5));
+    }
+
+    static int climbStairs(int n) {
+        if (n <= 1) return 1;
+        int prev2 = 1, prev1 = 1;  // dp[0], dp[1]
+        for (int i = 2; i <= n; i++) {
+            int next = prev2 + prev1;
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
+```
 
 **Complexity:** Time O(n), space O(1). This is the space optimization mentioned above: since `dp[i]` only depends on the two previous values, the full array isn't needed.
 
@@ -2251,6 +6290,35 @@ def minCostClimbingStairs(cost: list[int]) -> int:
         prev2, prev1 = prev1, min(prev1 + cost[i - 1], prev2 + cost[i - 2])
     return prev1
 ```
+```javascript +
+function minCostClimbingStairs(cost) {
+    const n = cost.length;
+    let prev2 = 0, prev1 = 0;  // dp[0] = 0, dp[1] = 0 (both free starting points)
+    for (let i = 2; i <= n; i++) {
+        [prev2, prev1] = [prev1, Math.min(prev1 + cost[i - 1], prev2 + cost[i - 2])];
+    }
+    return prev1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] cost = {10, 15, 20};
+        System.out.println(minCostClimbingStairs(cost));
+    }
+
+    static int minCostClimbingStairs(int[] cost) {
+        int n = cost.length;
+        int prev2 = 0, prev1 = 0;  // dp[0] = 0, dp[1] = 0 (both free starting points)
+        for (int i = 2; i <= n; i++) {
+            int next = Math.min(prev1 + cost[i - 1], prev2 + cost[i - 2]);
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
+```
 
 **Complexity:** Time O(n), space O(1).
 
@@ -2270,6 +6338,33 @@ def rob(nums: list[int]) -> int:
     for num in nums:
         prev2, prev1 = prev1, max(prev1, prev2 + num)
     return prev1
+```
+```javascript +
+function rob(nums) {
+    let prev2 = 0, prev1 = 0;  // dp[-1] = 0 (no houses), dp[0] before loop starts
+    for (const num of nums) {
+        [prev2, prev1] = [prev1, Math.max(prev1, prev2 + num)];
+    }
+    return prev1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 7, 9, 3, 1};
+        System.out.println(rob(nums));
+    }
+
+    static int rob(int[] nums) {
+        int prev2 = 0, prev1 = 0;  // dp[-1] = 0 (no houses), dp[0] before loop starts
+        for (int num : nums) {
+            int next = Math.max(prev1, prev2 + num);
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1).
@@ -2296,6 +6391,49 @@ def rob_ii(nums: list[int]) -> int:
         return prev1
 
     return max(rob_linear(nums[:-1]), rob_linear(nums[1:]))
+```
+```javascript +
+function robII(nums) {
+    if (nums.length === 1) return nums[0];
+
+    function robLinear(houses) {
+        let prev2 = 0, prev1 = 0;
+        for (const num of houses) {
+            [prev2, prev1] = [prev1, Math.max(prev1, prev2 + num)];
+        }
+        return prev1;
+    }
+
+    return Math.max(robLinear(nums.slice(0, -1)), robLinear(nums.slice(1)));
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 3, 2};
+        System.out.println(robII(nums));
+    }
+
+    static int robII(int[] nums) {
+        if (nums.length == 1) return nums[0];
+        return Math.max(
+            robLinear(Arrays.copyOfRange(nums, 0, nums.length - 1)),
+            robLinear(Arrays.copyOfRange(nums, 1, nums.length))
+        );
+    }
+
+    static int robLinear(int[] houses) {
+        int prev2 = 0, prev1 = 0;
+        for (int num : houses) {
+            int next = Math.max(prev1, prev2 + num);
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
 ```
 
 **Complexity:** Time O(n) across two linear passes, space O(n) for the slices, or O(1) extra if you pass index ranges instead of slicing.
@@ -2350,6 +6488,34 @@ def maxProfit_stateMachine(prices: list[int]) -> int:
         hold, not_hold = max(hold, not_hold - price), max(not_hold, hold + price)
     return not_hold
 ```
+```javascript +
+function maxProfitStateMachine(prices) {
+    let hold = -Infinity, notHold = 0;  // state 0: holding a share, state 1: not
+    for (const price of prices) {
+        [hold, notHold] = [Math.max(hold, notHold - price), Math.max(notHold, hold + price)];
+    }
+    return notHold;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] prices = {7, 1, 5, 3, 6, 4};
+        System.out.println(maxProfitStateMachine(prices));
+    }
+
+    static int maxProfitStateMachine(int[] prices) {
+        int hold = Integer.MIN_VALUE, notHold = 0;  // state 0: holding a share, state 1: not
+        for (int price : prices) {
+            int newHold = Math.max(hold, notHold - price);
+            int newNotHold = Math.max(notHold, hold + price);
+            hold = newHold;
+            notHold = newNotHold;
+        }
+        return notHold;
+    }
+}
+```
 
 The key skill is drawing the state diagram first, what states exist, what transitions are legal, what each transition costs or earns, before writing any code. It's the same discipline as defining `dp[i]` correctly, just with an extra "which mode am I in" dimension.
 
@@ -2374,6 +6540,48 @@ def longestCommonSubsequence(text1: str, text2: str) -> int:
                 dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
 
     return dp[m][n]
+```
+```javascript +
+function longestCommonSubsequence(text1, text2) {
+    const m = text1.length, n = text2.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (text1[i - 1] === text2[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1] + 1;
+            } else {
+                dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+            }
+        }
+    }
+
+    return dp[m][n];
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(longestCommonSubsequence("abcde", "ace"));
+    }
+
+    static int longestCommonSubsequence(String text1, String text2) {
+        int m = text1.length(), n = text2.length();
+        int[][] dp = new int[m + 1][n + 1];
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (text1.charAt(i - 1) == text2.charAt(j - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+
+        return dp[m][n];
+    }
+}
 ```
 
 **Complexity:** Time O(m·n), space O(m·n), reducible to O(min(m,n)) since row `i` only needs row `i-1`.
@@ -2411,6 +6619,61 @@ def minDistance(word1: str, word2: str) -> int:
 
     return dp[m][n]
 ```
+```javascript +
+function minDistance(word1, word2) {
+    const m = word1.length, n = word2.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;  // delete all i characters of word1
+    for (let j = 0; j <= n; j++) dp[0][j] = j;  // insert all j characters of word2
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (word1[i - 1] === word2[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            } else {
+                dp[i][j] = 1 + Math.min(
+                    dp[i - 1][j - 1],  // replace
+                    dp[i - 1][j],      // delete from word1
+                    dp[i][j - 1]       // insert into word1
+                );
+            }
+        }
+    }
+
+    return dp[m][n];
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(minDistance("horse", "ros"));
+    }
+
+    static int minDistance(String word1, String word2) {
+        int m = word1.length(), n = word2.length();
+        int[][] dp = new int[m + 1][n + 1];
+
+        for (int i = 0; i <= m; i++) dp[i][0] = i;  // delete all i characters of word1
+        for (int j = 0; j <= n; j++) dp[0][j] = j;  // insert all j characters of word2
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (word1.charAt(i - 1) == word2.charAt(j - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = 1 + Math.min(
+                        dp[i - 1][j - 1],  // replace
+                        Math.min(dp[i - 1][j], dp[i][j - 1])  // delete, insert
+                    );
+                }
+            }
+        }
+
+        return dp[m][n];
+    }
+}
+```
 
 **Complexity:** Time O(m·n), space O(m·n), reducible to O(min(m,n)).
 
@@ -2434,6 +6697,44 @@ def lengthOfLIS_On2(nums: list[int]) -> int:
                 dp[i] = max(dp[i], dp[j] + 1)
     return max(dp)
 ```
+```javascript +
+function lengthOfLISOn2(nums) {
+    const n = nums.length;
+    const dp = new Array(n).fill(1);
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < i; j++) {
+            if (nums[j] < nums[i]) {
+                dp[i] = Math.max(dp[i], dp[j] + 1);
+            }
+        }
+    }
+    return Math.max(...dp);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {10, 9, 2, 5, 3, 7, 101, 18};
+        System.out.println(lengthOfLISOn2(nums));
+    }
+
+    static int lengthOfLISOn2(int[] nums) {
+        int n = nums.length;
+        int[] dp = new int[n];
+        java.util.Arrays.fill(dp, 1);
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < i; j++) {
+                if (nums[j] < nums[i]) {
+                    dp[i] = Math.max(dp[i], dp[j] + 1);
+                }
+            }
+        }
+        int best = 0;
+        for (int v : dp) best = Math.max(best, v);
+        return best;
+    }
+}
+```
 
 **Approach (O(n log n), the interview follow-up):**
 
@@ -2449,6 +6750,44 @@ def lengthOfLIS(nums: list[int]) -> int:
         else:
             tails[pos] = num
     return len(tails)
+```
+```javascript +
+function lengthOfLIS(nums) {
+    const tails = [];
+    for (const num of nums) {
+        let lo = 0, hi = tails.length;
+        while (lo < hi) {  // binary search: first index where tails[idx] >= num
+            const mid = (lo + hi) >> 1;
+            if (tails[mid] < num) lo = mid + 1;
+            else hi = mid;
+        }
+        if (lo === tails.length) tails.push(num);
+        else tails[lo] = num;
+    }
+    return tails.length;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {10, 9, 2, 5, 3, 7, 101, 18};
+        System.out.println(lengthOfLIS(nums));
+    }
+
+    static int lengthOfLIS(int[] nums) {
+        int[] tails = new int[nums.length];
+        int size = 0;
+        for (int num : nums) {
+            int pos = Arrays.binarySearch(tails, 0, size, num);
+            if (pos < 0) pos = -(pos + 1);  // insertion point, mirrors bisect_left
+            tails[pos] = num;
+            if (pos == size) size++;
+        }
+        return size;
+    }
+}
 ```
 
 **Complexity:** O(n²) DP: time O(n²), space O(n). Binary search version: time O(n log n), space O(n).
@@ -2476,6 +6815,51 @@ def wordBreak(s: str, wordDict: list[str]) -> bool:
                 dp[i] = True
                 break  # no need to check other j once found
     return dp[n]
+```
+```javascript +
+function wordBreak(s, wordDict) {
+    const wordSet = new Set(wordDict);
+    const n = s.length;
+    const dp = new Array(n + 1).fill(false);
+    dp[0] = true;
+
+    for (let i = 1; i <= n; i++) {
+        for (let j = 0; j < i; j++) {
+            if (dp[j] && wordSet.has(s.slice(j, i))) {
+                dp[i] = true;
+                break;  // no need to check other j once found
+            }
+        }
+    }
+    return dp[n];
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        List<String> wordDict = Arrays.asList("leet", "code");
+        System.out.println(wordBreak("leetcode", wordDict));
+    }
+
+    static boolean wordBreak(String s, List<String> wordDict) {
+        Set<String> wordSet = new HashSet<>(wordDict);
+        int n = s.length();
+        boolean[] dp = new boolean[n + 1];
+        dp[0] = true;
+
+        for (int i = 1; i <= n; i++) {
+            for (int j = 0; j < i; j++) {
+                if (dp[j] && wordSet.contains(s.substring(j, i))) {
+                    dp[i] = true;
+                    break;  // no need to check other j once found
+                }
+            }
+        }
+        return dp[n];
+    }
+}
 ```
 
 **Complexity:** Time O(n²) for the double loop, plus O(k) per substring slice and lookup where k is average word length, so effectively O(n²·k) worst case; using a `set` keeps membership checks O(1) average. Space O(n) for `dp`, plus O(total dict chars) for `word_set`.
@@ -2538,6 +6922,66 @@ def kahn_topo_sort(num_nodes, edges):
                 queue.append(nxt)
     return order if len(order) == num_nodes else []  # [] means a cycle exists
 ```
+```javascript +
+function kahnTopoSort(numNodes, edges) {
+    const graph = Array.from({ length: numNodes }, () => []);
+    const inDegree = new Array(numNodes).fill(0);
+    for (const [u, v] of edges) {
+        graph[u].push(v);
+        inDegree[v] += 1;
+    }
+    const queue = [];
+    for (let n = 0; n < numNodes; n++) {
+        if (inDegree[n] === 0) queue.push(n);
+    }
+    const order = [];
+    let head = 0;
+    while (head < queue.length) {
+        const node = queue[head++];
+        order.push(node);
+        for (const nxt of graph[node]) {
+            inDegree[nxt] -= 1;
+            if (inDegree[nxt] === 0) queue.push(nxt);
+        }
+    }
+    return order.length === numNodes ? order : []; // [] means a cycle exists
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<Integer> kahnTopoSort(int numNodes, int[][] edges) {
+        List<List<Integer>> graph = new ArrayList<>();
+        for (int i = 0; i < numNodes; i++) graph.add(new ArrayList<>());
+        int[] inDegree = new int[numNodes];
+        for (int[] edge : edges) {
+            int u = edge[0], v = edge[1];
+            graph.get(u).add(v);
+            inDegree[v]++;
+        }
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int n = 0; n < numNodes; n++) {
+            if (inDegree[n] == 0) queue.addLast(n);
+        }
+        List<Integer> order = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            int node = queue.pollFirst();
+            order.add(node);
+            for (int nxt : graph.get(node)) {
+                inDegree[nxt]--;
+                if (inDegree[nxt] == 0) queue.addLast(nxt);
+            }
+        }
+        return order.size() == numNodes ? order : new ArrayList<>(); // empty means a cycle exists
+    }
+
+    public static void main(String[] args) {
+        int[][] edges = { {0, 1}, {0, 2}, {1, 3}, {2, 3} };
+        System.out.println(kahnTopoSort(4, edges));
+    }
+}
+```
 
 **Heap top-K skeleton, from memory:**
 
@@ -2551,6 +6995,68 @@ def top_k_pattern(items, k, key=lambda x: x):
         if len(heap) > k:
             heapq.heappop(heap)
     return [item for _, item in heap]
+```
+```javascript +
+function topKPattern(items, k, key = (x) => x) {
+    const heap = []; // min-heap of [keyValue, item] pairs
+
+    const siftUp = (i) => {
+        while (i > 0) {
+            const parent = (i - 1) >> 1;
+            if (heap[parent][0] <= heap[i][0]) break;
+            [heap[parent], heap[i]] = [heap[i], heap[parent]];
+            i = parent;
+        }
+    };
+
+    const siftDown = (i) => {
+        const n = heap.length;
+        while (true) {
+            let smallest = i;
+            const left = 2 * i + 1;
+            const right = 2 * i + 2;
+            if (left < n && heap[left][0] < heap[smallest][0]) smallest = left;
+            if (right < n && heap[right][0] < heap[smallest][0]) smallest = right;
+            if (smallest === i) break;
+            [heap[smallest], heap[i]] = [heap[i], heap[smallest]];
+            i = smallest;
+        }
+    };
+
+    for (const item of items) {
+        heap.push([key(item), item]);
+        siftUp(heap.length - 1);
+        if (heap.length > k) {
+            heap[0] = heap[heap.length - 1];
+            heap.pop();
+            siftDown(0);
+        }
+    }
+
+    return heap.map(([, item]) => item);
+}
+```
+```java +
+import java.util.*;
+import java.util.function.Function;
+
+public class Main {
+    public static <T> List<T> topKPattern(List<T> items, int k, Function<T, Integer> key) {
+        PriorityQueue<T> heap = new PriorityQueue<>(Comparator.comparing(key));
+        for (T item : items) {
+            heap.offer(item);
+            if (heap.size() > k) {
+                heap.poll();
+            }
+        }
+        return new ArrayList<>(heap);
+    }
+
+    public static void main(String[] args) {
+        List<Integer> items = Arrays.asList(3, 1, 5, 12, 2, 11);
+        System.out.println(topKPattern(items, 3, x -> x));
+    }
+}
 ```
 
 **DP progression, from memory. Say it out loud before writing code:**
@@ -2663,6 +7169,82 @@ def is_match(s: str, p: str) -> bool:
 
     return dp[m][n]
 ```
+```javascript +
+function isMatch(s, p) {
+    const m = s.length, n = p.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(false));
+    dp[0][0] = true;
+
+    // empty string vs patterns like a*, a*b*c* etc.
+    for (let j = 1; j <= n; j++) {
+        if (p[j - 1] === '*') {
+            dp[0][j] = dp[0][j - 2];
+        }
+    }
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (p[j - 1] === '.' || p[j - 1] === s[i - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            } else if (p[j - 1] === '*') {
+                // zero occurrences of p[j-2]
+                dp[i][j] = dp[i][j - 2];
+                // one more occurrence of p[j-2], if it can match s[i-1]
+                const prevChar = p[j - 2];
+                if (prevChar === '.' || prevChar === s[i - 1]) {
+                    dp[i][j] = dp[i][j] || dp[i - 1][j];
+                }
+            } else {
+                dp[i][j] = false;
+            }
+        }
+    }
+
+    return dp[m][n];
+}
+```
+```java +
+public class Main {
+    public static boolean isMatch(String s, String p) {
+        int m = s.length(), n = p.length();
+        boolean[][] dp = new boolean[m + 1][n + 1];
+        dp[0][0] = true;
+
+        // empty string vs patterns like a*, a*b*c* etc.
+        for (int j = 1; j <= n; j++) {
+            if (p.charAt(j - 1) == '*') {
+                dp[0][j] = dp[0][j - 2];
+            }
+        }
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                char pc = p.charAt(j - 1);
+                if (pc == '.' || pc == s.charAt(i - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else if (pc == '*') {
+                    // zero occurrences of p[j-2]
+                    dp[i][j] = dp[i][j - 2];
+                    // one more occurrence of p[j-2], if it can match s[i-1]
+                    char prevChar = p.charAt(j - 2);
+                    if (prevChar == '.' || prevChar == s.charAt(i - 1)) {
+                        dp[i][j] = dp[i][j] || dp[i - 1][j];
+                    }
+                } else {
+                    dp[i][j] = false;
+                }
+            }
+        }
+
+        return dp[m][n];
+    }
+
+    public static void main(String[] args) {
+        System.out.println(isMatch("aa", "a*"));
+        System.out.println(isMatch("mississippi", "mis*is*p*."));
+    }
+}
+```
 
 **Complexity:** O(m*n) time, O(m*n) space (can be rolled to O(n), see Space optimization above).
 
@@ -2700,6 +7282,72 @@ def is_match(s: str, p: str) -> bool:
 
     return prev[n]
 ```
+```javascript +
+function isMatch(s, p) {
+    const m = s.length, n = p.length;
+
+    // prev = dp[i-1][*], curr = dp[i][*]
+    let prev = new Array(n + 1).fill(false);
+    prev[0] = true;
+    for (let j = 1; j <= n; j++) {
+        prev[j] = prev[j - 1] && p[j - 1] === '*';
+    }
+
+    for (let i = 1; i <= m; i++) {
+        const curr = new Array(n + 1).fill(false);
+        curr[0] = false; // non-empty s can't match empty p
+        for (let j = 1; j <= n; j++) {
+            if (p[j - 1] === '*') {
+                curr[j] = curr[j - 1] || prev[j];
+            } else if (p[j - 1] === '?' || p[j - 1] === s[i - 1]) {
+                curr[j] = prev[j - 1];
+            } else {
+                curr[j] = false;
+            }
+        }
+        prev = curr;
+    }
+
+    return prev[n];
+}
+```
+```java +
+public class Main {
+    public static boolean isMatch(String s, String p) {
+        int m = s.length(), n = p.length();
+
+        // prev = dp[i-1][*], curr = dp[i][*]
+        boolean[] prev = new boolean[n + 1];
+        prev[0] = true;
+        for (int j = 1; j <= n; j++) {
+            prev[j] = prev[j - 1] && p.charAt(j - 1) == '*';
+        }
+
+        for (int i = 1; i <= m; i++) {
+            boolean[] curr = new boolean[n + 1];
+            curr[0] = false; // non-empty s can't match empty p
+            for (int j = 1; j <= n; j++) {
+                char pc = p.charAt(j - 1);
+                if (pc == '*') {
+                    curr[j] = curr[j - 1] || prev[j];
+                } else if (pc == '?' || pc == s.charAt(i - 1)) {
+                    curr[j] = prev[j - 1];
+                } else {
+                    curr[j] = false;
+                }
+            }
+            prev = curr;
+        }
+
+        return prev[n];
+    }
+
+    public static void main(String[] args) {
+        System.out.println(isMatch("adceb", "*a*b"));
+        System.out.println(isMatch("acdcb", "a*c?b"));
+    }
+}
+```
 
 **Complexity:** O(m*n) time, O(n) space. This is the target profile called out in today's implementation task.
 
@@ -2727,6 +7375,51 @@ def min_path_sum(grid: list[list[int]]) -> int:
             else:
                 grid[i][j] += min(grid[i - 1][j], grid[i][j - 1])
     return grid[m - 1][n - 1]
+```
+```javascript +
+function minPathSum(grid) {
+    const m = grid.length, n = grid[0].length;
+    for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+            if (i === 0 && j === 0) {
+                continue;
+            } else if (i === 0) {
+                grid[i][j] += grid[i][j - 1];
+            } else if (j === 0) {
+                grid[i][j] += grid[i - 1][j];
+            } else {
+                grid[i][j] += Math.min(grid[i - 1][j], grid[i][j - 1]);
+            }
+        }
+    }
+    return grid[m - 1][n - 1];
+}
+```
+```java +
+public class Main {
+    public static int minPathSum(int[][] grid) {
+        int m = grid.length, n = grid[0].length;
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                if (i == 0 && j == 0) {
+                    continue;
+                } else if (i == 0) {
+                    grid[i][j] += grid[i][j - 1];
+                } else if (j == 0) {
+                    grid[i][j] += grid[i - 1][j];
+                } else {
+                    grid[i][j] += Math.min(grid[i - 1][j], grid[i][j - 1]);
+                }
+            }
+        }
+        return grid[m - 1][n - 1];
+    }
+
+    public static void main(String[] args) {
+        int[][] grid = { {1, 3, 1}, {1, 5, 1}, {4, 2, 1} };
+        System.out.println(minPathSum(grid));
+    }
+}
 ```
 
 **Complexity:** O(m*n) time, O(1) extra space (mutates input in place, so mention this trade-off out loud in an interview, since mutating input isn't always acceptable).
@@ -2763,6 +7456,60 @@ def longest_palindrome(s: str) -> str:
             start, end = l2, r2
 
     return s[start:end + 1]
+```
+```javascript +
+function longestPalindrome(s) {
+    if (!s) return "";
+
+    const expand = (left, right) => {
+        while (left >= 0 && right < s.length && s[left] === s[right]) {
+            left -= 1;
+            right += 1;
+        }
+        // left/right have overstepped by one on the last failed check
+        return [left + 1, right - 1];
+    };
+
+    let [start, end] = [0, 0];
+    for (let center = 0; center < s.length; center++) {
+        const [l1, r1] = expand(center, center);        // odd length
+        const [l2, r2] = expand(center, center + 1);     // even length
+        if (r1 - l1 > end - start) [start, end] = [l1, r1];
+        if (r2 - l2 > end - start) [start, end] = [l2, r2];
+    }
+
+    return s.slice(start, end + 1);
+}
+```
+```java +
+public class Main {
+    public static String longestPalindrome(String s) {
+        if (s == null || s.isEmpty()) return "";
+
+        int[] best = {0, 0};
+        for (int center = 0; center < s.length(); center++) {
+            int[] odd = expand(s, center, center);          // odd length
+            int[] even = expand(s, center, center + 1);      // even length
+            if (odd[1] - odd[0] > best[1] - best[0]) best = odd;
+            if (even[1] - even[0] > best[1] - best[0]) best = even;
+        }
+
+        return s.substring(best[0], best[1] + 1);
+    }
+
+    private static int[] expand(String s, int left, int right) {
+        while (left >= 0 && right < s.length() && s.charAt(left) == s.charAt(right)) {
+            left -= 1;
+            right += 1;
+        }
+        // left/right have overstepped by one on the last failed check
+        return new int[] { left + 1, right - 1 };
+    }
+
+    public static void main(String[] args) {
+        System.out.println(longestPalindrome("babad"));
+    }
+}
 ```
 
 **Complexity:** O(n^2) time, O(1) space. The classic DP table version is O(n^2) time and O(n^2) space, worth knowing both so you can explain the trade-off if asked.
@@ -2869,6 +7616,49 @@ def subsets(nums: list[int]) -> list[list[int]]:
     backtrack(0)
     return result
 ```
+```javascript +
+function subsets(nums) {
+    const result = [];
+    const path = [];
+
+    function backtrack(start) {
+        result.push([...path]);          // every node is a valid subset
+        for (let i = start; i < nums.length; i++) {
+            path.push(nums[i]);
+            backtrack(i + 1);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> subsets(int[] nums) {
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        backtrack(nums, 0, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] nums, int start, Deque<Integer> path, List<List<Integer>> result) {
+        result.add(new ArrayList<>(path)); // every node is a valid subset
+        for (int i = start; i < nums.length; i++) {
+            path.addLast(nums[i]);
+            backtrack(nums, i + 1, path, result);
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(subsets(new int[] {1, 2, 3}));
+    }
+}
+```
 
 **Complexity:** O(n * 2^n) time (2^n subsets, O(n) to copy each), O(n) recursion depth excluding output.
 
@@ -2899,6 +7689,53 @@ def subsets_with_dup(nums: list[int]) -> list[list[int]]:
 
     backtrack(0)
     return result
+```
+```javascript +
+function subsetsWithDup(nums) {
+    nums = [...nums].sort((a, b) => a - b);
+    const result = [];
+    const path = [];
+
+    function backtrack(start) {
+        result.push([...path]);
+        for (let i = start; i < nums.length; i++) {
+            if (i > start && nums[i] === nums[i - 1]) continue; // skip duplicate at this level
+            path.push(nums[i]);
+            backtrack(i + 1);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> subsetsWithDup(int[] nums) {
+        Arrays.sort(nums);
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        backtrack(nums, 0, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] nums, int start, Deque<Integer> path, List<List<Integer>> result) {
+        result.add(new ArrayList<>(path));
+        for (int i = start; i < nums.length; i++) {
+            if (i > start && nums[i] == nums[i - 1]) continue; // skip duplicate at this level
+            path.addLast(nums[i]);
+            backtrack(nums, i + 1, path, result);
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(subsetsWithDup(new int[] {1, 2, 2}));
+    }
+}
 ```
 
 **Complexity:** O(n * 2^n) time worst case, O(n) recursion depth.
@@ -2932,6 +7769,59 @@ def combination_sum(candidates: list[int], target: int) -> list[list[int]]:
 
     backtrack(0, target)
     return result
+```
+```javascript +
+function combinationSum(candidates, target) {
+    candidates = [...candidates].sort((a, b) => a - b);
+    const result = [];
+    const path = [];
+
+    function backtrack(start, remaining) {
+        if (remaining === 0) {
+            result.push([...path]);
+            return;
+        }
+        for (let i = start; i < candidates.length; i++) {
+            if (candidates[i] > remaining) break; // sorted, so nothing further can work either
+            path.push(candidates[i]);
+            backtrack(i, remaining - candidates[i]); // i, not i+1: reuse allowed
+            path.pop();
+        }
+    }
+
+    backtrack(0, target);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> combinationSum(int[] candidates, int target) {
+        Arrays.sort(candidates);
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        backtrack(candidates, target, 0, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] candidates, int remaining, int start, Deque<Integer> path, List<List<Integer>> result) {
+        if (remaining == 0) {
+            result.add(new ArrayList<>(path));
+            return;
+        }
+        for (int i = start; i < candidates.length; i++) {
+            if (candidates[i] > remaining) break; // sorted, so nothing further can work either
+            path.addLast(candidates[i]);
+            backtrack(candidates, remaining - candidates[i], i, path, result); // i, not i+1: reuse allowed
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(combinationSum(new int[] {2, 3, 6, 7}, 7));
+    }
+}
 ```
 
 **Complexity:** O(n^(target/min_candidate)) time worst case (exponential, bounded by target), O(target / min_candidate) recursion depth.
@@ -2968,6 +7858,63 @@ def permute(nums: list[int]) -> list[list[int]]:
     backtrack()
     return result
 ```
+```javascript +
+function permute(nums) {
+    const result = [];
+    const path = [];
+    const used = new Array(nums.length).fill(false);
+
+    function backtrack() {
+        if (path.length === nums.length) {
+            result.push([...path]);
+            return;
+        }
+        for (let i = 0; i < nums.length; i++) {
+            if (used[i]) continue;
+            used[i] = true;
+            path.push(nums[i]);
+            backtrack();
+            path.pop();
+            used[i] = false;
+        }
+    }
+
+    backtrack();
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> permute(int[] nums) {
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        boolean[] used = new boolean[nums.length];
+        backtrack(nums, used, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] nums, boolean[] used, Deque<Integer> path, List<List<Integer>> result) {
+        if (path.size() == nums.length) {
+            result.add(new ArrayList<>(path));
+            return;
+        }
+        for (int i = 0; i < nums.length; i++) {
+            if (used[i]) continue;
+            used[i] = true;
+            path.addLast(nums[i]);
+            backtrack(nums, used, path, result);
+            path.removeLast();
+            used[i] = false;
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(permute(new int[] {1, 2, 3}));
+    }
+}
+```
 
 **Complexity:** O(n * n!) time (n! permutations, O(n) to copy each), O(n) space for `used` plus recursion depth.
 
@@ -2993,6 +7940,36 @@ diag2 = set()   # row + col is constant along a "\" diagonal
 
 def is_safe(row: int, col: int) -> bool:
     return col not in cols and (row - col) not in diag1 and (row + col) not in diag2
+```
+```javascript +
+const cols = new Set();
+const diag1 = new Set();   // row - col is constant along a "/" diagonal
+const diag2 = new Set();   // row + col is constant along a "\" diagonal
+
+function isSafe(row, col) {
+    return !cols.has(col) && !diag1.has(row - col) && !diag2.has(row + col);
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    static Set<Integer> cols = new HashSet<>();
+    static Set<Integer> diag1 = new HashSet<>();   // row - col is constant along a "/" diagonal
+    static Set<Integer> diag2 = new HashSet<>();   // row + col is constant along a "\" diagonal
+
+    public static boolean isSafe(int row, int col) {
+        return !cols.contains(col) && !diag1.contains(row - col) && !diag2.contains(row + col);
+    }
+
+    public static void main(String[] args) {
+        System.out.println(isSafe(0, 0));
+        cols.add(0);
+        diag1.add(0 - 0);
+        diag2.add(0 + 0);
+        System.out.println(isSafe(1, 1)); // false: same diagonal as (0,0)
+    }
+}
 ```
 
 Why `row - col` and `row + col`: every cell on the same "/" diagonal has the same `row - col` value; every cell on the same "\" diagonal has the same `row + col` value. This is the piece of domain knowledge that turns an O(n) check into O(1). Know it cold; it comes up in every N-Queens variant.
@@ -3046,6 +8023,87 @@ def solve_sudoku(board: list[list[str]]) -> bool:
             return False   # no valid number for this cell — dead end
     return True   # every cell filled
 ```
+```javascript +
+function isValid(board, row, col, num) {
+    for (let i = 0; i < 9; i++) {
+        if (board[row][i] === num || board[i][col] === num) return false;
+    }
+    const boxRow = 3 * Math.floor(row / 3);
+    const boxCol = 3 * Math.floor(col / 3);
+    for (let r = boxRow; r < boxRow + 3; r++) {
+        for (let c = boxCol; c < boxCol + 3; c++) {
+            if (board[r][c] === num) return false;
+        }
+    }
+    return true;
+}
+
+function solveSudoku(board) {
+    for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+            if (board[row][col] !== '.') continue;
+            for (const num of '123456789') {
+                if (isValid(board, row, col, num)) {
+                    board[row][col] = num;
+                    if (solveSudoku(board)) return true;
+                    board[row][col] = '.'; // undo
+                }
+            }
+            return false; // no valid number for this cell — dead end
+        }
+    }
+    return true; // every cell filled
+}
+```
+```java +
+public class Main {
+    public static boolean isValid(char[][] board, int row, int col, char num) {
+        for (int i = 0; i < 9; i++) {
+            if (board[row][i] == num || board[i][col] == num) return false;
+        }
+        int boxRow = 3 * (row / 3);
+        int boxCol = 3 * (col / 3);
+        for (int r = boxRow; r < boxRow + 3; r++) {
+            for (int c = boxCol; c < boxCol + 3; c++) {
+                if (board[r][c] == num) return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean solveSudoku(char[][] board) {
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                if (board[row][col] != '.') continue;
+                for (char num = '1'; num <= '9'; num++) {
+                    if (isValid(board, row, col, num)) {
+                        board[row][col] = num;
+                        if (solveSudoku(board)) return true;
+                        board[row][col] = '.'; // undo
+                    }
+                }
+                return false; // no valid number for this cell — dead end
+            }
+        }
+        return true; // every cell filled
+    }
+
+    public static void main(String[] args) {
+        char[][] board = {
+            {'5','3','.','.','7','.','.','.','.'},
+            {'6','.','.','1','9','5','.','.','.'},
+            {'.','9','8','.','.','.','.','6','.'},
+            {'8','.','.','.','6','.','.','.','3'},
+            {'4','.','.','8','.','3','.','.','1'},
+            {'7','.','.','.','2','.','.','.','6'},
+            {'.','6','.','.','.','.','2','8','.'},
+            {'.','.','.','4','1','9','.','.','5'},
+            {'.','.','.','.','8','.','.','7','9'}
+        };
+        System.out.println(solveSudoku(board));
+    }
+}
+```
 
 Same lesson as N-Queens: precomputing row/col/box "used number" sets instead of scanning turns each validity check from O(1) with fixed small constants (27 cells) into truly O(1) set lookups. Worth mentioning in an interview even if you don't have time to fully implement it, since it shows you know where the bottleneck is.
 
@@ -3083,6 +8141,75 @@ def solve_n_queens(n: int) -> list[list[str]]:
     backtrack(0)
     return result
 ```
+```javascript +
+function solveNQueens(n) {
+    const result = [];
+    const colPositions = new Array(n).fill(0); // colPositions[row] = column of the queen in that row
+    const cols = new Set(), diag1 = new Set(), diag2 = new Set();
+
+    function backtrack(row) {
+        if (row === n) {
+            const board = [];
+            for (let r = 0; r < n; r++) {
+                const line = new Array(n).fill('.');
+                line[colPositions[r]] = 'Q';
+                board.push(line.join(''));
+            }
+            result.push(board);
+            return;
+        }
+        for (let col = 0; col < n; col++) {
+            if (cols.has(col) || diag1.has(row - col) || diag2.has(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            colPositions[row] = col;
+            backtrack(row + 1);
+            cols.delete(col); diag1.delete(row - col); diag2.delete(row + col);
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<String>> solveNQueens(int n) {
+        List<List<String>> result = new ArrayList<>();
+        int[] colPositions = new int[n]; // colPositions[row] = column of the queen in that row
+        Set<Integer> cols = new HashSet<>(), diag1 = new HashSet<>(), diag2 = new HashSet<>();
+        backtrack(0, n, colPositions, cols, diag1, diag2, result);
+        return result;
+    }
+
+    private static void backtrack(int row, int n, int[] colPositions, Set<Integer> cols,
+                                   Set<Integer> diag1, Set<Integer> diag2, List<List<String>> result) {
+        if (row == n) {
+            List<String> board = new ArrayList<>();
+            for (int r = 0; r < n; r++) {
+                char[] line = new char[n];
+                Arrays.fill(line, '.');
+                line[colPositions[r]] = 'Q';
+                board.add(new String(line));
+            }
+            result.add(board);
+            return;
+        }
+        for (int col = 0; col < n; col++) {
+            if (cols.contains(col) || diag1.contains(row - col) || diag2.contains(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            colPositions[row] = col;
+            backtrack(row + 1, n, colPositions, cols, diag1, diag2, result);
+            cols.remove(col); diag1.remove(row - col); diag2.remove(row + col);
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(solveNQueens(4));
+    }
+}
+```
 
 **Complexity:** O(n!) time worst case (roughly, since each row has fewer valid choices than the last due to pruning), O(n) space for the sets and recursion depth, excluding output.
 
@@ -3113,6 +8240,51 @@ def total_n_queens(n: int) -> int:
         return count
 
     return backtrack(0)
+```
+```javascript +
+function totalNQueens(n) {
+    const cols = new Set(), diag1 = new Set(), diag2 = new Set();
+
+    function backtrack(row) {
+        if (row === n) return 1;
+        let count = 0;
+        for (let col = 0; col < n; col++) {
+            if (cols.has(col) || diag1.has(row - col) || diag2.has(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            count += backtrack(row + 1);
+            cols.delete(col); diag1.delete(row - col); diag2.delete(row + col);
+        }
+        return count;
+    }
+
+    return backtrack(0);
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static int totalNQueens(int n) {
+        Set<Integer> cols = new HashSet<>(), diag1 = new HashSet<>(), diag2 = new HashSet<>();
+        return backtrack(0, n, cols, diag1, diag2);
+    }
+
+    private static int backtrack(int row, int n, Set<Integer> cols, Set<Integer> diag1, Set<Integer> diag2) {
+        if (row == n) return 1;
+        int count = 0;
+        for (int col = 0; col < n; col++) {
+            if (cols.contains(col) || diag1.contains(row - col) || diag2.contains(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            count += backtrack(row + 1, n, cols, diag1, diag2);
+            cols.remove(col); diag1.remove(row - col); diag2.remove(row + col);
+        }
+        return count;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(totalNQueens(4));
+    }
+}
 ```
 
 **Complexity:** Same as N-Queens I minus the O(n^2) board-building cost per solution: O(n!) time worst case, O(n) space.
@@ -3150,6 +8322,69 @@ def letter_combinations(digits: str) -> list[str]:
 
     backtrack(0)
     return result
+```
+```javascript +
+function letterCombinations(digits) {
+    if (!digits) return [];
+
+    const mapping = {
+        '2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',
+        '6': 'mno', '7': 'pqrs', '8': 'tuv', '9': 'wxyz',
+    };
+    const result = [];
+    const path = [];
+
+    function backtrack(index) {
+        if (index === digits.length) {
+            result.push(path.join(''));
+            return;
+        }
+        for (const letter of mapping[digits[index]]) {
+            path.push(letter);
+            backtrack(index + 1);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<String> letterCombinations(String digits) {
+        List<String> result = new ArrayList<>();
+        if (digits == null || digits.isEmpty()) return result;
+
+        Map<Character, String> mapping = new HashMap<>();
+        mapping.put('2', "abc"); mapping.put('3', "def"); mapping.put('4', "ghi");
+        mapping.put('5', "jkl"); mapping.put('6', "mno"); mapping.put('7', "pqrs");
+        mapping.put('8', "tuv"); mapping.put('9', "wxyz");
+
+        backtrack(digits, 0, new StringBuilder(), mapping, result);
+        return result;
+    }
+
+    private static void backtrack(String digits, int index, StringBuilder path,
+                                   Map<Character, String> mapping, List<String> result) {
+        if (index == digits.length()) {
+            result.add(path.toString());
+            return;
+        }
+        String letters = mapping.get(digits.charAt(index));
+        for (char letter : letters.toCharArray()) {
+            path.append(letter);
+            backtrack(digits, index + 1, path, mapping, result);
+            path.deleteCharAt(path.length() - 1);
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(letterCombinations("23"));
+    }
+}
 ```
 
 **Complexity:** O(4^n * n) time worst case (digits 7 and 9 map to 4 letters, n is `len(digits)`), O(n) recursion depth.
@@ -3197,6 +8432,79 @@ def restore_ip_addresses(s: str) -> list[str]:
     backtrack(0)
     return result
 ```
+```javascript +
+function restoreIpAddresses(s) {
+    const result = [];
+    const path = [];
+
+    function isValidSegment(seg) {
+        if (seg.length > 1 && seg[0] === '0') return false; // no leading zeros
+        return Number(seg) >= 0 && Number(seg) <= 255;
+    }
+
+    function backtrack(start) {
+        if (path.length === 4) {
+            if (start === s.length) result.push(path.join('.'));
+            return;
+        }
+        const remainingSegments = 4 - path.length;
+        const remainingChars = s.length - start;
+        // prune: not enough or too many characters left for remaining segments
+        if (remainingChars < remainingSegments || remainingChars > remainingSegments * 3) return;
+        for (let length = 1; length <= 3; length++) {
+            if (start + length > s.length) break;
+            const segment = s.slice(start, start + length);
+            if (!isValidSegment(segment)) continue;
+            path.push(segment);
+            backtrack(start + length);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<String> restoreIpAddresses(String s) {
+        List<String> result = new ArrayList<>();
+        backtrack(s, 0, new ArrayDeque<>(), result);
+        return result;
+    }
+
+    private static boolean isValidSegment(String seg) {
+        if (seg.length() > 1 && seg.charAt(0) == '0') return false; // no leading zeros
+        int value = Integer.parseInt(seg);
+        return value >= 0 && value <= 255;
+    }
+
+    private static void backtrack(String s, int start, Deque<String> path, List<String> result) {
+        if (path.size() == 4) {
+            if (start == s.length()) result.add(String.join(".", path));
+            return;
+        }
+        int remainingSegments = 4 - path.size();
+        int remainingChars = s.length() - start;
+        // prune: not enough or too many characters left for remaining segments
+        if (remainingChars < remainingSegments || remainingChars > remainingSegments * 3) return;
+        for (int length = 1; length <= 3; length++) {
+            if (start + length > s.length()) break;
+            String segment = s.substring(start, start + length);
+            if (!isValidSegment(segment)) continue;
+            path.addLast(segment);
+            backtrack(s, start + length, path, result);
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(restoreIpAddresses("25525511135"));
+    }
+}
+```
 
 **Complexity:** O(3^4) = O(1) effectively, since the search space is bounded by 4 segments x 3 possible lengths each, independent of input size beyond a small constant. O(1) extra space beyond output.
 
@@ -3221,6 +8529,26 @@ Example: Jump Game II (minimum jumps to reach the end). The greedy choice, at ea
 # 2. Ask: does an optimal solution exist that makes a DIFFERENT choice here
 #    and still does at least as well? If yes, greedy is wrong.
 # 3. If no such solution exists, the greedy choice is safe.
+```
+
+```javascript +
+// Greedy choice property check, informally:
+// 1. State the greedy rule in one sentence.
+// 2. Ask: does an optimal solution exist that makes a DIFFERENT choice here
+//    and still does at least as well? If yes, greedy is wrong.
+// 3. If no such solution exists, the greedy choice is safe.
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        // Greedy choice property check, informally:
+        // 1. State the greedy rule in one sentence.
+        // 2. Ask: does an optimal solution exist that makes a DIFFERENT choice here
+        //    and still does at least as well? If yes, greedy is wrong.
+        // 3. If no such solution exists, the greedy choice is safe.
+    }
+}
 ```
 
 ## Local vs global optimum
@@ -3259,6 +8587,45 @@ def can_jump(nums: list[int]) -> bool:
     return True
 ```
 
+```javascript +
+function canJump(nums) {
+    let maxReach = 0;
+    for (let i = 0; i < nums.length; i++) {
+        if (i > maxReach) {
+            return false; // can't even reach this index
+        }
+        maxReach = Math.max(maxReach, i + nums[i]);
+        if (maxReach >= nums.length - 1) {
+            return true;
+        }
+    }
+    return true;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 3, 1, 1, 4};
+        System.out.println(canJump(nums));
+    }
+
+    static boolean canJump(int[] nums) {
+        int maxReach = 0;
+        for (int i = 0; i < nums.length; i++) {
+            if (i > maxReach) {
+                return false; // can't even reach this index
+            }
+            maxReach = Math.max(maxReach, i + nums[i]);
+            if (maxReach >= nums.length - 1) {
+                return true;
+            }
+        }
+        return true;
+    }
+}
+```
+
 **Complexity:** O(n) time, O(1) space.
 
 **Common mistakes:** checking `max_reach >= len(nums) - 1` only at the very end instead of updating and checking inside the loop, which is still correct but misses the early-exit optimization; using DP with O(n^2) reachability checks when the greedy one-pass solution is strictly better and simpler.
@@ -3284,6 +8651,49 @@ def jump(nums: list[int]) -> int:
             current_end = farthest
 
     return jumps
+```
+
+```javascript +
+function jump(nums) {
+    let jumps = 0;
+    let currentEnd = 0;
+    let farthest = 0;
+
+    for (let i = 0; i < nums.length - 1; i++) { // don't need to jump from the last index
+        farthest = Math.max(farthest, i + nums[i]);
+        if (i === currentEnd) {
+            jumps++;
+            currentEnd = farthest;
+        }
+    }
+
+    return jumps;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 3, 1, 1, 4};
+        System.out.println(jump(nums));
+    }
+
+    static int jump(int[] nums) {
+        int jumps = 0;
+        int currentEnd = 0;
+        int farthest = 0;
+
+        for (int i = 0; i < nums.length - 1; i++) { // don't need to jump from the last index
+            farthest = Math.max(farthest, i + nums[i]);
+            if (i == currentEnd) {
+                jumps++;
+                currentEnd = farthest;
+            }
+        }
+
+        return jumps;
+    }
+}
 ```
 
 **Complexity:** O(n) time, O(1) space.
@@ -3316,6 +8726,98 @@ def min_meeting_rooms(intervals: list[list[int]]) -> int:
     return len(heap)
 ```
 
+```javascript +
+class MinHeap {
+    constructor() {
+        this.data = [];
+    }
+
+    get size() {
+        return this.data.length;
+    }
+
+    peek() {
+        return this.data[0];
+    }
+
+    push(value) {
+        this.data.push(value);
+        let i = this.data.length - 1;
+        while (i > 0) {
+            const parent = (i - 1) >> 1;
+            if (this.data[parent] <= this.data[i]) break;
+            [this.data[parent], this.data[i]] = [this.data[i], this.data[parent]];
+            i = parent;
+        }
+    }
+
+    pop() {
+        const top = this.data[0];
+        const last = this.data.pop();
+        if (this.data.length > 0) {
+            this.data[0] = last;
+            let i = 0;
+            while (true) {
+                const left = 2 * i + 1;
+                const right = 2 * i + 2;
+                let smallest = i;
+                if (left < this.data.length && this.data[left] < this.data[smallest]) smallest = left;
+                if (right < this.data.length && this.data[right] < this.data[smallest]) smallest = right;
+                if (smallest === i) break;
+                [this.data[i], this.data[smallest]] = [this.data[smallest], this.data[i]];
+                i = smallest;
+            }
+        }
+        return top;
+    }
+}
+
+function minMeetingRooms(intervals) {
+    if (intervals.length === 0) return 0;
+
+    intervals.sort((a, b) => a[0] - b[0]);
+    const heap = new MinHeap(); // min-heap of end times of currently occupied rooms
+
+    for (const [start, end] of intervals) {
+        if (heap.size > 0 && heap.peek() <= start) {
+            heap.pop(); // reuse the room that just freed up
+        }
+        heap.push(end);
+    }
+
+    return heap.size;
+}
+```
+
+```java +
+import java.util.Arrays;
+import java.util.PriorityQueue;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{0, 30}, {5, 10}, {15, 20}};
+        System.out.println(minMeetingRooms(intervals));
+    }
+
+    static int minMeetingRooms(int[][] intervals) {
+        if (intervals.length == 0) return 0;
+
+        Arrays.sort(intervals, (a, b) -> a[0] - b[0]);
+        PriorityQueue<Integer> heap = new PriorityQueue<>(); // min-heap of end times of currently occupied rooms
+
+        for (int[] interval : intervals) {
+            int start = interval[0], end = interval[1];
+            if (!heap.isEmpty() && heap.peek() <= start) {
+                heap.poll(); // reuse the room that just freed up
+            }
+            heap.offer(end);
+        }
+
+        return heap.size();
+    }
+}
+```
+
 **Complexity:** O(n log n) time (sort plus n heap operations), O(n) space for the heap.
 
 **Common mistakes:** forgetting to sort by start time first, since the greedy reuse logic assumes meetings are processed in chronological order; using `<` instead of `<=` when comparing end time to start time (a meeting ending exactly when another starts can share a room, assuming the problem's convention allows it, so confirm this with the interviewer).
@@ -3341,6 +8843,56 @@ def least_interval(tasks: list[str], n: int) -> int:
     return max(len(tasks), formula)
 ```
 
+```javascript +
+function leastInterval(tasks, n) {
+    const counts = new Map();
+    for (const task of tasks) {
+        counts.set(task, (counts.get(task) || 0) + 1);
+    }
+    const maxFreq = Math.max(...counts.values());
+    let numMax = 0;
+    for (const count of counts.values()) {
+        if (count === maxFreq) numMax++;
+    }
+
+    // (maxFreq - 1) full blocks of size (n + 1), plus the final partial block
+    const formula = (maxFreq - 1) * (n + 1) + numMax;
+    return Math.max(tasks.length, formula);
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        char[] tasks = {'A', 'A', 'A', 'B', 'B', 'B'};
+        System.out.println(leastInterval(tasks, 2));
+    }
+
+    static int leastInterval(char[] tasks, int n) {
+        Map<Character, Integer> counts = new HashMap<>();
+        for (char task : tasks) {
+            counts.merge(task, 1, Integer::sum);
+        }
+
+        int maxFreq = 0;
+        for (int count : counts.values()) {
+            maxFreq = Math.max(maxFreq, count);
+        }
+        int numMax = 0;
+        for (int count : counts.values()) {
+            if (count == maxFreq) numMax++;
+        }
+
+        // (maxFreq - 1) full blocks of size (n + 1), plus the final partial block
+        int formula = (maxFreq - 1) * (n + 1) + numMax;
+        return Math.max(tasks.length, formula);
+    }
+}
+```
+
 **Complexity:** O(k) time where `k` is the number of tasks (counting) plus O(26) for the frequency scan, effectively O(k). O(1) space (bounded by 26 uppercase letters).
 
 **Common mistakes:** forgetting `max(len(tasks), formula)`: when there are enough distinct tasks to fill every idle slot, the formula alone can undercount and give a value smaller than the task count itself; miscounting `num_max` (must count *all* tasks tied at the max frequency, not just the max task itself).
@@ -3361,6 +8913,39 @@ def find(self, x: int) -> int:
     return self.parent[x]
 ```
 
+```javascript +
+function find(x) {
+    if (this.parent[x] !== x) {
+        this.parent[x] = find.call(this, this.parent[x]); // path compression
+    }
+    return this.parent[x];
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        DSU dsu = new DSU(new int[]{0, 0, 1, 3});
+        System.out.println(dsu.find(3));
+    }
+}
+
+class DSU {
+    int[] parent;
+
+    DSU(int[] parent) {
+        this.parent = parent;
+    }
+
+    int find(int x) {
+        if (parent[x] != x) {
+            parent[x] = find(parent[x]); // path compression
+        }
+        return parent[x];
+    }
+}
+```
+
 This is a recursive one-liner but it's doing real work: the recursive call returns the root, and the assignment `self.parent[x] = ...` flattens `x`'s pointer to point directly at that root, permanently shortening the path for every future call through `x`.
 
 ## Union by rank
@@ -3379,6 +8964,69 @@ def union(self, x: int, y: int) -> None:
         self.rank[root_x] += 1
 ```
 
+```javascript +
+function union(x, y) {
+    let rootX = find.call(this, x);
+    let rootY = find.call(this, y);
+    if (rootX === rootY) {
+        return; // already connected
+    }
+    if (this.rank[rootX] < this.rank[rootY]) {
+        [rootX, rootY] = [rootY, rootX];
+    }
+    this.parent[rootY] = rootX;
+    if (this.rank[rootX] === this.rank[rootY]) {
+        this.rank[rootX]++;
+    }
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        DSU dsu = new DSU(4);
+        dsu.union(0, 1);
+        dsu.union(2, 3);
+        System.out.println(dsu.find(1) == dsu.find(0));
+    }
+}
+
+class DSU {
+    int[] parent;
+    int[] rank;
+
+    DSU(int n) {
+        parent = new int[n];
+        rank = new int[n];
+        for (int i = 0; i < n; i++) parent[i] = i;
+    }
+
+    int find(int x) {
+        if (parent[x] != x) {
+            parent[x] = find(parent[x]);
+        }
+        return parent[x];
+    }
+
+    void union(int x, int y) {
+        int rootX = find(x);
+        int rootY = find(y);
+        if (rootX == rootY) {
+            return; // already connected
+        }
+        if (rank[rootX] < rank[rootY]) {
+            int tmp = rootX;
+            rootX = rootY;
+            rootY = tmp;
+        }
+        parent[rootY] = rootX;
+        if (rank[rootX] == rank[rootY]) {
+            rank[rootX]++;
+        }
+    }
+}
+```
+
 Combined, path compression and union by rank give an amortized time complexity of O(α(n)) per operation, where α is the inverse Ackermann function. For any `n` you could conceivably encounter, α(n) ≤ 4, which is why this is described as "nearly O(1)."
 
 ## Cycle detection in graphs
@@ -3391,6 +9039,67 @@ def has_cycle_on_add(self, u: int, v: int) -> bool:
         return True   # adding this edge would close a cycle
     self.union(u, v)
     return False
+```
+
+```javascript +
+function hasCycleOnAdd(u, v) {
+    if (find.call(this, u) === find.call(this, v)) {
+        return true; // adding this edge would close a cycle
+    }
+    union.call(this, u, v);
+    return false;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        DSU dsu = new DSU(4);
+        System.out.println(dsu.hasCycleOnAdd(0, 1));
+        System.out.println(dsu.hasCycleOnAdd(1, 0));
+    }
+}
+
+class DSU {
+    int[] parent;
+    int[] rank;
+
+    DSU(int n) {
+        parent = new int[n];
+        rank = new int[n];
+        for (int i = 0; i < n; i++) parent[i] = i;
+    }
+
+    int find(int x) {
+        if (parent[x] != x) {
+            parent[x] = find(parent[x]);
+        }
+        return parent[x];
+    }
+
+    void union(int x, int y) {
+        int rootX = find(x);
+        int rootY = find(y);
+        if (rootX == rootY) return;
+        if (rank[rootX] < rank[rootY]) {
+            int tmp = rootX;
+            rootX = rootY;
+            rootY = tmp;
+        }
+        parent[rootY] = rootX;
+        if (rank[rootX] == rank[rootY]) {
+            rank[rootX]++;
+        }
+    }
+
+    boolean hasCycleOnAdd(int u, int v) {
+        if (find(u) == find(v)) {
+            return true; // adding this edge would close a cycle
+        }
+        union(u, v);
+        return false;
+    }
+}
 ```
 
 ### Number of Connected Components in an Undirected Graph
@@ -3430,6 +9139,98 @@ def count_components(n: int, edges: list[list[int]]) -> int:
     for u, v in edges:
         dsu.union(u, v)
     return dsu.count
+```
+
+```javascript +
+class DSU {
+    constructor(n) {
+        this.parent = Array.from({ length: n }, (_, i) => i);
+        this.rank = new Array(n).fill(0);
+        this.count = n; // number of distinct components
+    }
+
+    find(x) {
+        if (this.parent[x] !== x) {
+            this.parent[x] = this.find(this.parent[x]);
+        }
+        return this.parent[x];
+    }
+
+    union(x, y) {
+        let rootX = this.find(x);
+        let rootY = this.find(y);
+        if (rootX === rootY) return;
+        if (this.rank[rootX] < this.rank[rootY]) {
+            [rootX, rootY] = [rootY, rootX];
+        }
+        this.parent[rootY] = rootX;
+        if (this.rank[rootX] === this.rank[rootY]) {
+            this.rank[rootX]++;
+        }
+        this.count--;
+    }
+}
+
+function countComponents(n, edges) {
+    const dsu = new DSU(n);
+    for (const [u, v] of edges) {
+        dsu.union(u, v);
+    }
+    return dsu.count;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] edges = {{0, 1}, {1, 2}, {3, 4}};
+        System.out.println(countComponents(5, edges));
+    }
+
+    static int countComponents(int n, int[][] edges) {
+        DSU dsu = new DSU(n);
+        for (int[] edge : edges) {
+            dsu.union(edge[0], edge[1]);
+        }
+        return dsu.count;
+    }
+}
+
+class DSU {
+    int[] parent;
+    int[] rank;
+    int count;
+
+    DSU(int n) {
+        parent = new int[n];
+        rank = new int[n];
+        for (int i = 0; i < n; i++) parent[i] = i;
+        count = n; // number of distinct components
+    }
+
+    int find(int x) {
+        if (parent[x] != x) {
+            parent[x] = find(parent[x]);
+        }
+        return parent[x];
+    }
+
+    void union(int x, int y) {
+        int rootX = find(x);
+        int rootY = find(y);
+        if (rootX == rootY) return;
+        if (rank[rootX] < rank[rootY]) {
+            int tmp = rootX;
+            rootX = rootY;
+            rootY = tmp;
+        }
+        parent[rootY] = rootX;
+        if (rank[rootX] == rank[rootY]) {
+            rank[rootX]++;
+        }
+        count--;
+    }
+}
 ```
 
 **Complexity:** O(n + E * α(n)) time, O(n) space. This `DSU` class is the reusable template for all four problems today.
@@ -3477,6 +9278,114 @@ def longest_consecutive(nums: list[int]) -> int:
     return max(size[find(i)] for i in range(n))
 ```
 
+```javascript +
+function longestConsecutive(nums) {
+    if (nums.length === 0) return 0;
+
+    const uniqueNums = Array.from(new Set(nums));
+    const indexOf = new Map(uniqueNums.map((num, i) => [num, i]));
+    const n = uniqueNums.length;
+
+    const parent = Array.from({ length: n }, (_, i) => i);
+    const size = new Array(n).fill(1);
+
+    function find(x) {
+        if (parent[x] !== x) {
+            parent[x] = find(parent[x]);
+        }
+        return parent[x];
+    }
+
+    function union(x, y) {
+        let rx = find(x);
+        let ry = find(y);
+        if (rx === ry) return;
+        if (size[rx] < size[ry]) {
+            [rx, ry] = [ry, rx];
+        }
+        parent[ry] = rx;
+        size[rx] += size[ry];
+    }
+
+    for (const num of uniqueNums) {
+        if (indexOf.has(num + 1)) {
+            union(indexOf.get(num), indexOf.get(num + 1));
+        }
+    }
+
+    let longest = 0;
+    for (let i = 0; i < n; i++) {
+        longest = Math.max(longest, size[find(i)]);
+    }
+    return longest;
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {100, 4, 200, 1, 3, 2};
+        System.out.println(longestConsecutive(nums));
+    }
+
+    static int longestConsecutive(int[] nums) {
+        if (nums.length == 0) return 0;
+
+        Set<Integer> uniqueSet = new HashSet<>();
+        for (int num : nums) uniqueSet.add(num);
+        Integer[] uniqueNums = uniqueSet.toArray(new Integer[0]);
+        int n = uniqueNums.length;
+
+        Map<Integer, Integer> indexOf = new HashMap<>();
+        for (int i = 0; i < n; i++) indexOf.put(uniqueNums[i], i);
+
+        int[] parent = new int[n];
+        int[] size = new int[n];
+        for (int i = 0; i < n; i++) {
+            parent[i] = i;
+            size[i] = 1;
+        }
+
+        for (int num : uniqueNums) {
+            if (indexOf.containsKey(num + 1)) {
+                union(parent, size, indexOf.get(num), indexOf.get(num + 1));
+            }
+        }
+
+        int longest = 0;
+        for (int i = 0; i < n; i++) {
+            longest = Math.max(longest, size[find(parent, i)]);
+        }
+        return longest;
+    }
+
+    static int find(int[] parent, int x) {
+        if (parent[x] != x) {
+            parent[x] = find(parent, parent[x]);
+        }
+        return parent[x];
+    }
+
+    static void union(int[] parent, int[] size, int x, int y) {
+        int rx = find(parent, x);
+        int ry = find(parent, y);
+        if (rx == ry) return;
+        if (size[rx] < size[ry]) {
+            int tmp = rx;
+            rx = ry;
+            ry = tmp;
+        }
+        parent[ry] = rx;
+        size[rx] += size[ry];
+    }
+}
+```
+
 **Complexity:** O(n * α(n)) time, O(n) space. The pure hash-set approach (expand upward from numbers that have no `num - 1` predecessor) achieves plain O(n) without DSU overhead. Mention both, and lead with whichever the interviewer seems to want.
 
 **Common mistakes:** unioning by raw value instead of by index, since DSU arrays are indexed 0..n-1, not by arbitrary integer value; forgetting to dedupe the input first, which wastes work re-processing duplicate values.
@@ -3508,6 +9417,70 @@ def valid_tree(n: int, edges: list[list[int]]) -> bool:
         parent[root_v] = root_u
 
     return True
+```
+
+```javascript +
+function validTree(n, edges) {
+    if (edges.length !== n - 1) {
+        return false; // too many edges (cycle) or too few (disconnected)
+    }
+
+    const parent = Array.from({ length: n }, (_, i) => i);
+
+    function find(x) {
+        if (parent[x] !== x) {
+            parent[x] = find(parent[x]);
+        }
+        return parent[x];
+    }
+
+    for (const [u, v] of edges) {
+        const rootU = find(u);
+        const rootV = find(v);
+        if (rootU === rootV) {
+            return false; // cycle detected
+        }
+        parent[rootV] = rootU;
+    }
+
+    return true;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] edges = {{0, 1}, {0, 2}, {0, 3}, {1, 4}};
+        System.out.println(validTree(5, edges));
+    }
+
+    static boolean validTree(int n, int[][] edges) {
+        if (edges.length != n - 1) {
+            return false; // too many edges (cycle) or too few (disconnected)
+        }
+
+        int[] parent = new int[n];
+        for (int i = 0; i < n; i++) parent[i] = i;
+
+        for (int[] edge : edges) {
+            int rootU = find(parent, edge[0]);
+            int rootV = find(parent, edge[1]);
+            if (rootU == rootV) {
+                return false; // cycle detected
+            }
+            parent[rootV] = rootU;
+        }
+
+        return true;
+    }
+
+    static int find(int[] parent, int x) {
+        if (parent[x] != x) {
+            parent[x] = find(parent, parent[x]);
+        }
+        return parent[x];
+    }
+}
 ```
 
 **Complexity:** O(n * α(n)) time, O(n) space.
@@ -3568,6 +9541,140 @@ def num_islands2(m: int, n: int, positions: list[list[int]]) -> list[int]:
     return result
 ```
 
+```javascript +
+function numIslands2(m, n, positions) {
+    const parent = new Map();
+    const rank = new Map();
+    const land = new Set();
+    const result = [];
+    let count = 0;
+
+    function find(x) {
+        if (parent.get(x) !== x) {
+            parent.set(x, find(parent.get(x)));
+        }
+        return parent.get(x);
+    }
+
+    function union(x, y) {
+        let rx = find(x);
+        let ry = find(y);
+        if (rx === ry) return false;
+        if (rank.get(rx) < rank.get(ry)) {
+            [rx, ry] = [ry, rx];
+        }
+        parent.set(ry, rx);
+        if (rank.get(rx) === rank.get(ry)) {
+            rank.set(rx, rank.get(rx) + 1);
+        }
+        return true;
+    }
+
+    for (const [r, c] of positions) {
+        const idx = r * n + c;
+        if (land.has(idx)) {
+            result.push(count); // duplicate addition, no change
+            continue;
+        }
+        land.add(idx);
+        parent.set(idx, idx);
+        rank.set(idx, 0);
+        count++;
+
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nr = r + dr;
+            const nc = c + dc;
+            const nIdx = nr * n + nc;
+            if (nr >= 0 && nr < m && nc >= 0 && nc < n && land.has(nIdx)) {
+                if (union(idx, nIdx)) {
+                    count--;
+                }
+            }
+        }
+
+        result.push(count);
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] positions = {{0, 0}, {0, 1}, {1, 2}, {2, 1}};
+        System.out.println(numIslands2(3, 3, positions));
+    }
+
+    static Map<Integer, Integer> parent = new HashMap<>();
+    static Map<Integer, Integer> rank = new HashMap<>();
+    static Set<Integer> land = new HashSet<>();
+
+    static List<Integer> numIslands2(int m, int n, int[][] positions) {
+        List<Integer> result = new ArrayList<>();
+        int count = 0;
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+        for (int[] pos : positions) {
+            int r = pos[0], c = pos[1];
+            int idx = r * n + c;
+            if (land.contains(idx)) {
+                result.add(count); // duplicate addition, no change
+                continue;
+            }
+            land.add(idx);
+            parent.put(idx, idx);
+            rank.put(idx, 0);
+            count++;
+
+            for (int[] dir : dirs) {
+                int nr = r + dir[0], nc = c + dir[1];
+                int nIdx = nr * n + nc;
+                if (nr >= 0 && nr < m && nc >= 0 && nc < n && land.contains(nIdx)) {
+                    if (union(idx, nIdx)) {
+                        count--;
+                    }
+                }
+            }
+
+            result.add(count);
+        }
+
+        return result;
+    }
+
+    static int find(int x) {
+        if (parent.get(x) != x) {
+            parent.put(x, find(parent.get(x)));
+        }
+        return parent.get(x);
+    }
+
+    static boolean union(int x, int y) {
+        int rx = find(x);
+        int ry = find(y);
+        if (rx == ry) return false;
+        if (rank.get(rx) < rank.get(ry)) {
+            int tmp = rx;
+            rx = ry;
+            ry = tmp;
+        }
+        parent.put(ry, rx);
+        if (rank.get(rx).equals(rank.get(ry))) {
+            rank.put(rx, rank.get(rx) + 1);
+        }
+        return true;
+    }
+}
+```
+
 **Complexity:** O(k * α(k)) time for `k` position updates, O(k) space (only land cells get DSU entries, via a dict-based sparse DSU, not a full `m*n` array).
 
 **Common mistakes:** allocating a dense `parent` array of size `m*n` when a dict keyed by only-visited cells is both simpler and avoids wasted memory for large sparse grids; forgetting to handle duplicate positions in the input, since the same cell can appear twice and must not be double-counted as a new island; not decrementing `count` on every successful union (each merge reduces the island count by exactly one, and a cell can merge with up to 4 neighbors).
@@ -3592,6 +9699,32 @@ a << k  # left shift: multiply by 2^k
 a >> k  # right shift: divide by 2^k (floor, arithmetic shift for negative ints in Python)
 ```
 
+```javascript +
+const a = 0b1100, b = 0b1010, k = 2;
+
+a & b;   // AND: 1 only where both bits are 1  — used for masking / checking a bit
+a | b;   // OR:  1 where either bit is 1        — used for setting a bit
+a ^ b;   // XOR: 1 where bits differ            — used for toggling / finding differences
+~a;      // NOT: flips every bit                — in JS, ~a === -a - 1 (two's complement)
+a << k;  // left shift: multiply by 2^k
+a >> k;  // right shift: divide by 2^k (floor, arithmetic shift; JS also has >>> for unsigned)
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int a = 0b1100, b = 0b1010, k = 2;
+
+        System.out.println("a & b  = " + (a & b));   // AND: 1 only where both bits are 1
+        System.out.println("a | b  = " + (a | b));   // OR: 1 where either bit is 1
+        System.out.println("a ^ b  = " + (a ^ b));   // XOR: 1 where bits differ
+        System.out.println("~a     = " + (~a));      // NOT: flips every bit, ~a == -a - 1
+        System.out.println("a << k = " + (a << k));  // left shift: multiply by 2^k
+        System.out.println("a >> k = " + (a >> k));  // right shift: divide by 2^k (arithmetic)
+    }
+}
+```
+
 Useful bit-twiddling idioms to have memorized:
 
 ```python
@@ -3601,6 +9734,32 @@ n | (1 << k)    # sets bit k
 n & ~(1 << k)   # clears bit k
 n ^ (1 << k)    # toggles bit k
 (n >> k) & 1    # reads bit k
+```
+
+```javascript +
+const n = 12, k = 2;
+
+n & (n - 1);     // clears the lowest set bit — used to count set bits, check power of 2
+n & (-n);        // isolates the lowest set bit
+n | (1 << k);    // sets bit k
+n & ~(1 << k);   // clears bit k
+n ^ (1 << k);    // toggles bit k
+(n >> k) & 1;    // reads bit k
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int n = 12, k = 2;
+
+        System.out.println("n & (n - 1)   = " + (n & (n - 1)));   // clears the lowest set bit
+        System.out.println("n & (-n)      = " + (n & (-n)));      // isolates the lowest set bit
+        System.out.println("n | (1 << k)  = " + (n | (1 << k)));  // sets bit k
+        System.out.println("n & ~(1 << k) = " + (n & ~(1 << k))); // clears bit k
+        System.out.println("n ^ (1 << k)  = " + (n ^ (1 << k)));  // toggles bit k
+        System.out.println("(n >> k) & 1  = " + ((n >> k) & 1));  // reads bit k
+    }
+}
 ```
 
 `n & (n - 1) == 0` (for `n > 0`) is the fastest power-of-2 check: a power of 2 has exactly one set bit, and subtracting 1 flips every bit below it, so ANDing them together always yields zero.
@@ -3618,6 +9777,31 @@ def to_signed_32(n: int) -> int:
     n &= MASK32
     # if the sign bit (bit 31) is set, interpret as negative
     return n if n < 0x80000000 else n - 0x100000000
+```
+
+```javascript +
+function toSigned32(n) {
+    n = n >>> 0; // mask down to a 32-bit unsigned value first
+    // if the sign bit (bit 31) is set, interpret as negative
+    return n < 0x80000000 ? n : n - 0x100000000;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(toSigned32(4294967295L)); // -1
+        System.out.println(toSigned32(5L));           // 5
+    }
+
+    static final long MASK32 = 0xFFFFFFFFL; // mask to simulate a 32-bit unsigned register
+
+    static int toSigned32(long n) {
+        n &= MASK32;
+        // if the sign bit (bit 31) is set, interpret as negative
+        return (int) (n < 0x80000000L ? n : n - 0x100000000L);
+    }
+}
 ```
 
 ## Common patterns
@@ -3645,6 +9829,34 @@ def hamming_weight(n: int) -> int:
     return count
 ```
 
+```javascript +
+function hammingWeight(n) {
+    let count = 0;
+    while (n !== 0) {
+        n &= n - 1; // clears the lowest set bit
+        count++;
+    }
+    return count;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(hammingWeight(0b1011));
+    }
+
+    static int hammingWeight(int n) {
+        int count = 0;
+        while (n != 0) {
+            n &= n - 1; // clears the lowest set bit
+            count++;
+        }
+        return count;
+    }
+}
+```
+
 **Complexity:** O(k) time where `k` is the number of set bits (not 32), better than a naive O(32) bit-by-bit scan on sparse inputs. O(1) space.
 
 **Common mistakes:** using `n >>= 1` combined with `n & 1` in a fixed 32-iteration loop, correct but strictly worse than the `n & (n-1)` trick when bits are sparse; forgetting Python has no fixed width, so a naive right-shift loop on a value treated as "signed 32-bit" needs masking to behave correctly (LeetCode passes this as an unsigned int specifically to sidestep that issue).
@@ -3664,6 +9876,34 @@ def reverse_bits(n: int) -> int:
         bit = (n >> i) & 1
         result |= bit << (31 - i)
     return result
+```
+
+```javascript +
+function reverseBits(n) {
+    let result = 0;
+    for (let i = 0; i < 32; i++) {
+        const bit = (n >>> i) & 1;
+        result = (result | (bit << (31 - i))) >>> 0;
+    }
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(reverseBits(0b00000010100101000001111010011100));
+    }
+
+    static int reverseBits(int n) {
+        int result = 0;
+        for (int i = 0; i < 32; i++) {
+            int bit = (n >>> i) & 1;
+            result |= bit << (31 - i);
+        }
+        return result;
+    }
+}
 ```
 
 **Complexity:** O(32) = O(1) time (fixed width), O(1) space.
@@ -3686,6 +9926,33 @@ def single_number(nums: list[int]) -> int:
     return result
 ```
 
+```javascript +
+function singleNumber(nums) {
+    let result = 0;
+    for (const num of nums) {
+        result ^= num;
+    }
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {4, 1, 2, 1, 2};
+        System.out.println(singleNumber(nums));
+    }
+
+    static int singleNumber(int[] nums) {
+        int result = 0;
+        for (int num : nums) {
+            result ^= num;
+        }
+        return result;
+    }
+}
+```
+
 **Complexity:** O(n) time, O(1) space. Strictly better than a hash-set approach (O(n) space), which is the "obvious" first instinct.
 
 **Common mistakes:** reaching for a `Counter`/hash-set solution first without recognizing the O(1)-space XOR trick applies whenever "every element appears twice except one" is the setup; trying to force the XOR trick onto a variant where elements appear *three* times except one (LeetCode 137), which needs a different bit-counting technique since XOR alone doesn't work there.
@@ -3704,6 +9971,33 @@ def missing_number(nums: list[int]) -> int:
     for i, num in enumerate(nums):
         result ^= i ^ num
     return result
+```
+
+```javascript +
+function missingNumber(nums) {
+    let result = nums.length; // pre-seed with n, since indices only go 0..n-1
+    for (let i = 0; i < nums.length; i++) {
+        result ^= i ^ nums[i];
+    }
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {3, 0, 1};
+        System.out.println(missingNumber(nums));
+    }
+
+    static int missingNumber(int[] nums) {
+        int result = nums.length; // pre-seed with n, since indices only go 0..n-1
+        for (int i = 0; i < nums.length; i++) {
+            result ^= i ^ nums[i];
+        }
+        return result;
+    }
+}
 ```
 
 **Complexity:** O(n) time, O(1) space.
@@ -3788,6 +10082,32 @@ class TrieNode:
         self.is_end_of_word = False
 ```
 
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map(); // char -> TrieNode
+        this.isEndOfWord = false;
+    }
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        TrieNode node = new TrieNode();
+        System.out.println(node.isEndOfWord);
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>(); // char -> TrieNode
+    boolean isEndOfWord = false;
+}
+```
+
 A path from the root spelling out `c-a-t` represents the string `"cat"`. Because nodes are shared across words with common prefixes, `"cat"` and `"car"` share the `c -> a` path and diverge only at the third character. That sharing is exactly what makes prefix queries cheap.
 
 ```
@@ -3832,6 +10152,103 @@ class Trie:
 
     def startsWith(self, prefix: str) -> bool:
         return self._find_node(prefix) is not None
+```
+
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map(); // char -> TrieNode
+        this.isEndOfWord = false;
+    }
+}
+
+class Trie {
+    constructor() {
+        this.root = new TrieNode();
+    }
+
+    insert(word) {
+        let node = this.root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+    }
+
+    _findNode(prefix) {
+        let node = this.root;
+        for (const ch of prefix) {
+            if (!node.children.has(ch)) {
+                return null;
+            }
+            node = node.children.get(ch);
+        }
+        return node;
+    }
+
+    search(word) {
+        const node = this._findNode(word);
+        return node !== null && node.isEndOfWord;
+    }
+
+    startsWith(prefix) {
+        return this._findNode(prefix) !== null;
+    }
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        Trie trie = new Trie();
+        trie.insert("cat");
+        System.out.println(trie.search("cat"));
+        System.out.println(trie.startsWith("ca"));
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>(); // char -> TrieNode
+    boolean isEndOfWord = false;
+}
+
+class Trie {
+    TrieNode root = new TrieNode();
+
+    void insert(String word) {
+        TrieNode node = root;
+        for (char ch : word.toCharArray()) {
+            node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+        }
+        node.isEndOfWord = true;
+    }
+
+    private TrieNode findNode(String prefix) {
+        TrieNode node = root;
+        for (char ch : prefix.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return null;
+            }
+            node = node.children.get(ch);
+        }
+        return node;
+    }
+
+    boolean search(String word) {
+        TrieNode node = findNode(word);
+        return node != null && node.isEndOfWord;
+    }
+
+    boolean startsWith(String prefix) {
+        return findNode(prefix) != null;
+    }
+}
 ```
 
 The distinction that trips people up: `search` requires `is_end_of_word == True` at the final node, meaning the exact word was inserted. `startsWith` only requires the path to exist: some word *starting with* this prefix was inserted, but the prefix itself might not be a complete word. Confusing these two is the most common trie bug.
@@ -3882,6 +10299,108 @@ class Trie:
                 return False
             node = node.children[ch]
         return True
+```
+
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map();
+        this.isEndOfWord = false;
+    }
+}
+
+class Trie {
+    constructor() {
+        this.root = new TrieNode();
+    }
+
+    insert(word) {
+        let node = this.root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+    }
+
+    search(word) {
+        let node = this.root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return node.isEndOfWord;
+    }
+
+    startsWith(prefix) {
+        let node = this.root;
+        for (const ch of prefix) {
+            if (!node.children.has(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return true;
+    }
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        Trie trie = new Trie();
+        trie.insert("apple");
+        System.out.println(trie.search("apple"));
+        System.out.println(trie.search("app"));
+        System.out.println(trie.startsWith("app"));
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>();
+    boolean isEndOfWord = false;
+}
+
+class Trie {
+    TrieNode root = new TrieNode();
+
+    void insert(String word) {
+        TrieNode node = root;
+        for (char ch : word.toCharArray()) {
+            node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+        }
+        node.isEndOfWord = true;
+    }
+
+    boolean search(String word) {
+        TrieNode node = root;
+        for (char ch : word.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return node.isEndOfWord;
+    }
+
+    boolean startsWith(String prefix) {
+        TrieNode node = root;
+        for (char ch : prefix.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return true;
+    }
+}
 ```
 
 **Complexity:** `insert`/`search`/`startsWith` are all O(m) time, where m is the word/prefix length. Space O(total characters across all inserted words) in the worst case (no shared prefixes).
@@ -3935,6 +10454,146 @@ def findWords(board: list[list[str]], words: list[str]) -> list[str]:
     return result
 ```
 
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map();
+        this.isEndOfWord = false;
+        this.word = null;
+    }
+}
+
+function findWords(board, words) {
+    const root = new TrieNode();
+    for (const word of words) {
+        let node = root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+        node.word = word; // stash the full word at the terminal node
+    }
+
+    const rows = board.length;
+    const cols = board[0].length;
+    const result = [];
+
+    function dfs(r, c, node) {
+        const ch = board[r][c];
+        if (!node.children.has(ch)) return;
+        const nxt = node.children.get(ch);
+        if (nxt.isEndOfWord) {
+            result.push(nxt.word);
+            nxt.isEndOfWord = false; // avoid duplicate matches
+        }
+
+        board[r][c] = '#'; // mark visited in place
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] !== '#') {
+                dfs(nr, nc, nxt);
+            }
+        }
+        board[r][c] = ch; // backtrack
+
+        if (nxt.children.size === 0) { // prune dead trie branches for efficiency
+            node.children.delete(ch);
+        }
+    }
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            dfs(r, c, root);
+        }
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        char[][] board = {
+            {'o', 'a', 'a', 'n'},
+            {'e', 't', 'a', 'e'},
+            {'i', 'h', 'k', 'r'},
+            {'i', 'f', 'l', 'v'}
+        };
+        String[] words = {"oath", "pea", "eat", "rain"};
+        System.out.println(findWords(board, words));
+    }
+
+    static int rows, cols;
+    static char[][] board;
+    static List<String> result;
+
+    static List<String> findWords(char[][] inputBoard, String[] words) {
+        board = inputBoard;
+        TrieNode root = new TrieNode();
+        for (String word : words) {
+            TrieNode node = root;
+            for (char ch : word.toCharArray()) {
+                node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+            }
+            node.isEndOfWord = true;
+            node.word = word; // stash the full word at the terminal node
+        }
+
+        rows = board.length;
+        cols = board[0].length;
+        result = new ArrayList<>();
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                dfs(r, c, root);
+            }
+        }
+
+        return result;
+    }
+
+    static void dfs(int r, int c, TrieNode node) {
+        char ch = board[r][c];
+        if (!node.children.containsKey(ch)) return;
+        TrieNode nxt = node.children.get(ch);
+        if (nxt.isEndOfWord) {
+            result.add(nxt.word);
+            nxt.isEndOfWord = false; // avoid duplicate matches
+        }
+
+        board[r][c] = '#'; // mark visited in place
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] dir : dirs) {
+            int nr = r + dir[0], nc = c + dir[1];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] != '#') {
+                dfs(nr, nc, nxt);
+            }
+        }
+        board[r][c] = ch; // backtrack
+
+        if (nxt.children.isEmpty()) { // prune dead trie branches for efficiency
+            node.children.remove(ch);
+        }
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>();
+    boolean isEndOfWord = false;
+    String word;
+}
+```
+
 **Complexity:** Time O(rows × cols × 4^L) in the worst case (L = longest word length), but the trie pruning, stopping as soon as no word's prefix matches and removing exhausted branches, makes it far faster in practice than per-word DFS. Space O(total trie nodes + recursion depth).
 
 **Common mistakes:** Running separate DFS searches per word instead of one shared trie-guided DFS is correct but too slow for the hard-tier constraints. Forgetting to backtrack the board mutation (`board[r][c] = ch` after recursion) corrupts later searches. And skipping the guard against duplicate results, needed when the same word could be found via multiple paths: the `is_end_of_word = False` reset after first match handles this.
@@ -3969,6 +10628,101 @@ def replaceWords(dictionary: list[str], sentence: str) -> str:
         return word
 
     return " ".join(find_root(word) for word in sentence.split())
+```
+
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map();
+        this.isEndOfWord = false;
+    }
+}
+
+function replaceWords(dictionary, sentence) {
+    const rootTrie = new TrieNode();
+    for (const root of dictionary) {
+        let node = rootTrie;
+        for (const ch of root) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+    }
+
+    function findRoot(word) {
+        let node = rootTrie;
+        let prefix = "";
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                return word; // no matching root, keep original
+            }
+            prefix += ch;
+            node = node.children.get(ch);
+            if (node.isEndOfWord) {
+                return prefix;
+            }
+        }
+        return word;
+    }
+
+    return sentence.split(" ").map(findRoot).join(" ");
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        String[] dictionary = {"cat", "bat", "rat"};
+        String sentence = "the cattle was rattled by the battery";
+        System.out.println(replaceWords(dictionary, sentence));
+    }
+
+    static TrieNode rootTrie;
+
+    static String replaceWords(String[] dictionary, String sentence) {
+        rootTrie = new TrieNode();
+        for (String root : dictionary) {
+            TrieNode node = rootTrie;
+            for (char ch : root.toCharArray()) {
+                node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+            }
+            node.isEndOfWord = true;
+        }
+
+        StringBuilder result = new StringBuilder();
+        for (String word : sentence.split(" ")) {
+            if (result.length() > 0) result.append(" ");
+            result.append(findRoot(word));
+        }
+        return result.toString();
+    }
+
+    static String findRoot(String word) {
+        TrieNode node = rootTrie;
+        StringBuilder prefix = new StringBuilder();
+        for (char ch : word.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return word; // no matching root, keep original
+            }
+            prefix.append(ch);
+            node = node.children.get(ch);
+            if (node.isEndOfWord) {
+                return prefix.toString();
+            }
+        }
+        return word;
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>();
+    boolean isEndOfWord = false;
+}
 ```
 
 **Complexity:** Time O(total characters in dictionary + total characters in sentence), space O(total characters in dictionary) for the trie.
@@ -4017,6 +10771,107 @@ def findMaximumXOR(nums: list[int]) -> int:
     return max(query(num) for num in nums)
 ```
 
+```javascript +
+class BinaryTrieNode {
+    constructor() {
+        this.children = new Map(); // 0 or 1 -> BinaryTrieNode
+    }
+}
+
+function findMaximumXOR(nums) {
+    const root = new BinaryTrieNode();
+    const BITS = 31; // enough for LeetCode's constraint (nums < 2^31)
+
+    function insert(num) {
+        let node = root;
+        for (let i = BITS; i >= 0; i--) {
+            const bit = (num >> i) & 1;
+            if (!node.children.has(bit)) {
+                node.children.set(bit, new BinaryTrieNode());
+            }
+            node = node.children.get(bit);
+        }
+    }
+
+    function query(num) {
+        let node = root;
+        let xor = 0;
+        for (let i = BITS; i >= 0; i--) {
+            const bit = (num >> i) & 1;
+            const desired = 1 - bit; // the opposite bit maximizes this position's contribution
+            if (node.children.has(desired)) {
+                xor |= (1 << i);
+                node = node.children.get(desired);
+            } else {
+                node = node.children.get(bit);
+            }
+        }
+        return xor;
+    }
+
+    for (const num of nums) {
+        insert(num);
+    }
+
+    return Math.max(...nums.map(query));
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {3, 10, 5, 25, 2, 8};
+        System.out.println(findMaximumXOR(nums));
+    }
+
+    static BinaryTrieNode root = new BinaryTrieNode();
+    static final int BITS = 31; // enough for LeetCode's constraint (nums < 2^31)
+
+    static int findMaximumXOR(int[] nums) {
+        for (int num : nums) {
+            insert(num);
+        }
+
+        int best = 0;
+        for (int num : nums) {
+            best = Math.max(best, query(num));
+        }
+        return best;
+    }
+
+    static void insert(int num) {
+        BinaryTrieNode node = root;
+        for (int i = BITS; i >= 0; i--) {
+            int bit = (num >> i) & 1;
+            node = node.children.computeIfAbsent(bit, b -> new BinaryTrieNode());
+        }
+    }
+
+    static int query(int num) {
+        BinaryTrieNode node = root;
+        int xor = 0;
+        for (int i = BITS; i >= 0; i--) {
+            int bit = (num >> i) & 1;
+            int desired = 1 - bit; // the opposite bit maximizes this position's contribution
+            if (node.children.containsKey(desired)) {
+                xor |= (1 << i);
+                node = node.children.get(desired);
+            } else {
+                node = node.children.get(bit);
+            }
+        }
+        return xor;
+    }
+}
+
+class BinaryTrieNode {
+    Map<Integer, BinaryTrieNode> children = new HashMap<>(); // 0 or 1 -> BinaryTrieNode
+}
+```
+
 **Complexity:** Time O(n × 32) = O(n), space O(n × 32) for the trie nodes. Far better than the naive O(n²) pairwise XOR comparison.
 
 **Common mistakes:** Iterating bits least-significant-first instead of most-significant-first. The greedy "prefer the opposite bit" strategy only produces the maximum XOR when higher bit positions are decided before lower ones. Also, forgetting a fixed bit width, which causes negative numbers or inconsistent trie depths to break comparisons.
@@ -4044,6 +10899,59 @@ def max_distinct_in_window(nums: list[int], k: int) -> int:
             del counts[left]                 # keep the map accurate for len() checks
         best = max(best, len(counts))
     return best
+```
+
+```javascript +
+function maxDistinctInWindow(nums, k) {
+    const counts = new Map();
+    for (let i = 0; i < k; i++) {
+        counts.set(nums[i], (counts.get(nums[i]) || 0) + 1);
+    }
+    let best = counts.size;
+
+    for (let i = k; i < nums.length; i++) {
+        counts.set(nums[i], (counts.get(nums[i]) || 0) + 1); // element entering
+        const left = nums[i - k];
+        counts.set(left, counts.get(left) - 1);              // element leaving
+        if (counts.get(left) === 0) {
+            counts.delete(left);                             // keep the map accurate for size checks
+        }
+        best = Math.max(best, counts.size);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 1, 3, 4, 2, 3};
+        System.out.println(maxDistinctInWindow(nums, 4));
+    }
+
+    static int maxDistinctInWindow(int[] nums, int k) {
+        Map<Integer, Integer> counts = new HashMap<>();
+        for (int i = 0; i < k; i++) {
+            counts.merge(nums[i], 1, Integer::sum);
+        }
+        int best = counts.size();
+
+        for (int i = k; i < nums.length; i++) {
+            counts.merge(nums[i], 1, Integer::sum); // element entering
+            int left = nums[i - k];
+            counts.merge(left, -1, Integer::sum);   // element leaving
+            if (counts.get(left) == 0) {
+                counts.remove(left);                // keep the map accurate for size checks
+            }
+            best = Math.max(best, counts.size());
+        }
+
+        return best;
+    }
+}
 ```
 
 The pattern: every fixed-window problem does exactly two things per step, add the incoming element's effect, remove the outgoing element's effect. The "effect" can be a sum, a frequency count, a max-tracking deque, or any other incrementally-maintainable structure. Never recompute the whole window from scratch each step, since that turns an O(n) sliding window into O(n·k).
@@ -4075,6 +10983,76 @@ def variable_window_skeleton(s: str, is_valid) -> int:
     return best
 ```
 
+```javascript +
+function variableWindowSkeleton(s, isValid) {
+    let left = 0;
+    let best = 0;
+    const windowState = new Map(); // whatever data the condition needs: counts, max-freq, etc.
+
+    for (let right = 0; right < s.length; right++) {
+        // 1. expand: absorb s[right] into windowState
+        windowState.set(s[right], (windowState.get(s[right]) || 0) + 1);
+
+        // 2. contract while the window violates the condition
+        while (!isValid(windowState, right - left + 1)) {
+            const leftChar = s[left];
+            windowState.set(leftChar, windowState.get(leftChar) - 1);
+            if (windowState.get(leftChar) === 0) {
+                windowState.delete(leftChar);
+            }
+            left++;
+        }
+
+        // 3. record the best valid window at this right boundary
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+import java.util.function.BiFunction;
+
+public class Main {
+    public static void main(String[] args) {
+        // Example: window valid while it has at most 2 distinct characters
+        BiFunction<Map<Character, Integer>, Integer, Boolean> atMostTwoDistinct =
+            (state, length) -> state.size() <= 2;
+
+        System.out.println(variableWindowSkeleton("eceba", atMostTwoDistinct));
+    }
+
+    static int variableWindowSkeleton(String s, BiFunction<Map<Character, Integer>, Integer, Boolean> isValid) {
+        int left = 0;
+        int best = 0;
+        Map<Character, Integer> windowState = new HashMap<>(); // whatever data the condition needs
+
+        for (int right = 0; right < s.length(); right++) {
+            // 1. expand: absorb s[right] into windowState
+            char rightChar = s.charAt(right);
+            windowState.merge(rightChar, 1, Integer::sum);
+
+            // 2. contract while the window violates the condition
+            while (!isValid.apply(windowState, right - left + 1)) {
+                char leftChar = s.charAt(left);
+                windowState.merge(leftChar, -1, Integer::sum);
+                if (windowState.get(leftChar) == 0) {
+                    windowState.remove(leftChar);
+                }
+                left++;
+            }
+
+            // 3. record the best valid window at this right boundary
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
+```
+
 Critical invariant: `left` only ever moves forward. It never resets to 0 and re-scans. This is what makes the whole algorithm O(n) instead of O(n²): each index enters and leaves the window at most once across the entire run, so total work across all iterations of the inner `while` is bounded by n, not n per outer step.
 
 ## Longest Repeating Character Replacement
@@ -4104,6 +11082,65 @@ def characterReplacement(s: str, k: int) -> int:
         best = max(best, right - left + 1)
 
     return best
+```
+
+```javascript +
+function characterReplacement(s, k) {
+    const counts = new Map();
+    let left = 0;
+    let maxFreq = 0;
+    let best = 0;
+
+    for (let right = 0; right < s.length; right++) {
+        const ch = s[right];
+        counts.set(ch, (counts.get(ch) || 0) + 1);
+        maxFreq = Math.max(maxFreq, counts.get(ch));
+
+        const windowLen = right - left + 1;
+        if (windowLen - maxFreq > k) {
+            const leftChar = s[left];
+            counts.set(leftChar, counts.get(leftChar) - 1);
+            left++;
+        }
+
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(characterReplacement("AABABBA", 1));
+    }
+
+    static int characterReplacement(String s, int k) {
+        int[] counts = new int[26];
+        int left = 0;
+        int maxFreq = 0;
+        int best = 0;
+
+        for (int right = 0; right < s.length(); right++) {
+            int idx = s.charAt(right) - 'A';
+            counts[idx]++;
+            maxFreq = Math.max(maxFreq, counts[idx]);
+
+            int windowLen = right - left + 1;
+            if (windowLen - maxFreq > k) {
+                counts[s.charAt(left) - 'A']--;
+                left++;
+            }
+
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1) (at most 26 letters in `counts`).
@@ -4139,6 +11176,67 @@ def totalFruit(fruits: list[int]) -> int:
     return best
 ```
 
+```javascript +
+function totalFruit(fruits) {
+    const counts = new Map();
+    let left = 0;
+    let best = 0;
+
+    for (let right = 0; right < fruits.length; right++) {
+        const fruit = fruits[right];
+        counts.set(fruit, (counts.get(fruit) || 0) + 1);
+
+        while (counts.size > 2) {
+            const leftFruit = fruits[left];
+            counts.set(leftFruit, counts.get(leftFruit) - 1);
+            if (counts.get(leftFruit) === 0) {
+                counts.delete(leftFruit);
+            }
+            left++;
+        }
+
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] fruits = {1, 2, 1, 2, 3, 3, 1};
+        System.out.println(totalFruit(fruits));
+    }
+
+    static int totalFruit(int[] fruits) {
+        Map<Integer, Integer> counts = new HashMap<>();
+        int left = 0;
+        int best = 0;
+
+        for (int right = 0; right < fruits.length; right++) {
+            int fruit = fruits[right];
+            counts.merge(fruit, 1, Integer::sum);
+
+            while (counts.size() > 2) {
+                int leftFruit = fruits[left];
+                counts.merge(leftFruit, -1, Integer::sum);
+                if (counts.get(leftFruit) == 0) {
+                    counts.remove(leftFruit);
+                }
+                left++;
+            }
+
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
+```
+
 **Complexity:** Time O(n), space O(1) (at most 3 keys in `counts` at any moment, since we shrink the instant it hits 3).
 
 **Common mistakes:** Not recognizing the "2 baskets" framing as "at most 2 distinct values." Translating word problems into the underlying pattern is the actual skill being tested here. Also, forgetting to delete zero-count entries from the dict, which corrupts the `len(counts) > 2` check.
@@ -4166,6 +11264,53 @@ def minSubArrayLen(target: int, nums: list[int]) -> int:
             left += 1
 
     return best if best != float('inf') else 0
+```
+
+```javascript +
+function minSubArrayLen(target, nums) {
+    let left = 0;
+    let total = 0;
+    let best = Infinity;
+
+    for (let right = 0; right < nums.length; right++) {
+        total += nums[right];
+
+        while (total >= target) {
+            best = Math.min(best, right - left + 1);
+            total -= nums[left];
+            left++;
+        }
+    }
+
+    return best === Infinity ? 0 : best;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 3, 1, 2, 4, 3};
+        System.out.println(minSubArrayLen(7, nums));
+    }
+
+    static int minSubArrayLen(int target, int[] nums) {
+        int left = 0;
+        int total = 0;
+        int best = Integer.MAX_VALUE;
+
+        for (int right = 0; right < nums.length; right++) {
+            total += nums[right];
+
+            while (total >= target) {
+                best = Math.min(best, right - left + 1);
+                total -= nums[left];
+                left++;
+            }
+        }
+
+        return best == Integer.MAX_VALUE ? 0 : best;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1).
@@ -4200,6 +11345,63 @@ def longestOnes(nums: list[int], k: int) -> int:
     return best
 ```
 
+```javascript +
+function longestOnes(nums, k) {
+    let left = 0;
+    let zeroCount = 0;
+    let best = 0;
+
+    for (let right = 0; right < nums.length; right++) {
+        if (nums[right] === 0) {
+            zeroCount++;
+        }
+
+        while (zeroCount > k) {
+            if (nums[left] === 0) {
+                zeroCount--;
+            }
+            left++;
+        }
+
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0};
+        System.out.println(longestOnes(nums, 2));
+    }
+
+    static int longestOnes(int[] nums, int k) {
+        int left = 0;
+        int zeroCount = 0;
+        int best = 0;
+
+        for (int right = 0; right < nums.length; right++) {
+            if (nums[right] == 0) {
+                zeroCount++;
+            }
+
+            while (zeroCount > k) {
+                if (nums[left] == 0) {
+                    zeroCount--;
+                }
+                left++;
+            }
+
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
+```
+
 **Complexity:** Time O(n), space O(1).
 
 **Common mistakes:** Rebuilding a full frequency count when a simple zero counter suffices. Only two values exist here, 0 and 1, so there's no need for a dict, unlike the character-replacement version with 26 possible letters. Also, off-by-one when computing window length after the shrink loop exits.
@@ -4225,6 +11427,38 @@ by_start = sorted(intervals, key=lambda x: x[0])
 by_end = sorted(intervals, key=lambda x: x[1])
 ```
 
+```javascript +
+const intervals = [[1, 3], [2, 6], [8, 10], [15, 18]];
+
+const byStart = [...intervals].sort((a, b) => a[0] - b[0]);
+const byEnd = [...intervals].sort((a, b) => a[1] - b[1]);
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        List<int[]> intervals = new ArrayList<>(List.of(
+            new int[]{1, 3}, new int[]{2, 6}, new int[]{8, 10}, new int[]{15, 18}
+        ));
+
+        List<int[]> byStart = new ArrayList<>(intervals);
+        byStart.sort((a, b) -> Integer.compare(a[0], b[0]));
+
+        List<int[]> byEnd = new ArrayList<>(intervals);
+        byEnd.sort((a, b) -> Integer.compare(a[1], b[1]));
+
+        for (int[] interval : byStart) {
+            System.out.println(Arrays.toString(interval));
+        }
+        for (int[] interval : byEnd) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+}
+```
+
 Why this matters so much: the correctness of the entire single-pass algorithm that follows depends on the sort establishing the right invariant. For example, if intervals are sorted by start, then once you've moved past an interval, nothing later can start before it did.
 
 ## Merging overlapping intervals
@@ -4246,6 +11480,62 @@ def merge_intervals(intervals: list[list[int]]) -> list[list[int]]:
             merged.append([start, end])
 
     return merged
+```
+
+```javascript +
+function mergeIntervals(intervals) {
+    if (intervals.length === 0) return [];
+    const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+    const merged = [sorted[0]];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const [start, end] = sorted[i];
+        const lastEnd = merged[merged.length - 1][1];
+        if (start <= lastEnd) {            // overlaps (or touches) the last merged interval
+            merged[merged.length - 1][1] = Math.max(lastEnd, end);
+        } else {
+            merged.push([start, end]);
+        }
+    }
+
+    return merged;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 3}, {2, 6}, {8, 10}, {15, 18}};
+        for (int[] interval : mergeIntervals(intervals)) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+
+    static List<int[]> mergeIntervals(int[][] intervals) {
+        if (intervals.length == 0) return new ArrayList<>();
+
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[0], b[0]));
+
+        List<int[]> merged = new ArrayList<>();
+        merged.add(sorted[0]);
+
+        for (int i = 1; i < sorted.length; i++) {
+            int start = sorted[i][0];
+            int end = sorted[i][1];
+            int[] last = merged.get(merged.size() - 1);
+            if (start <= last[1]) {           // overlaps (or touches) the last merged interval
+                last[1] = Math.max(last[1], end);
+            } else {
+                merged.add(new int[]{start, end});
+            }
+        }
+
+        return merged;
+    }
+}
 ```
 
 The overlap check that trips people up: `start <= last_end`, not `start < last_end`. Intervals `[1, 3]` and `[3, 5]` are considered overlapping (touching) in most problem statements, and merge into `[1, 5]`. Always check the problem statement for whether touching endpoints count as overlapping.
@@ -4270,6 +11560,57 @@ def max_non_overlapping(intervals: list[list[int]]) -> int:
     return count
 ```
 
+```javascript +
+function maxNonOverlapping(intervals) {
+    if (intervals.length === 0) return 0;
+    const sorted = [...intervals].sort((a, b) => a[1] - b[1]); // sort by END time
+    let count = 1;
+    let lastEnd = sorted[0][1];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const [start, end] = sorted[i];
+        if (start >= lastEnd) {
+            count++;
+            lastEnd = end;
+        }
+    }
+
+    return count;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 2}, {2, 3}, {3, 4}, {1, 3}};
+        System.out.println(maxNonOverlapping(intervals));
+    }
+
+    static int maxNonOverlapping(int[][] intervals) {
+        if (intervals.length == 0) return 0;
+
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[1], b[1])); // sort by END time
+
+        int count = 1;
+        int lastEnd = sorted[0][1];
+
+        for (int i = 1; i < sorted.length; i++) {
+            int start = sorted[i][0];
+            int end = sorted[i][1];
+            if (start >= lastEnd) {
+                count++;
+                lastEnd = end;
+            }
+        }
+
+        return count;
+    }
+}
+```
+
 Why "sort by end, pick earliest-ending" is optimal: the interval that finishes earliest leaves the most remaining room for future intervals. This is a classic exchange-argument greedy proof, since any optimal solution can be transformed to include the earliest-ending interval without becoming worse, and it's worth being able to state that justification out loud in an interview.
 
 ## Merge Intervals
@@ -4292,6 +11633,54 @@ def merge(intervals: list[list[int]]) -> list[list[int]]:
             merged[-1][1] = max(merged[-1][1], interval[1])
 
     return merged
+```
+
+```javascript +
+function merge(intervals) {
+    const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+    const merged = [];
+
+    for (const interval of sorted) {
+        if (merged.length === 0 || interval[0] > merged[merged.length - 1][1]) {
+            merged.push(interval);
+        } else {
+            merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], interval[1]);
+        }
+    }
+
+    return merged;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 3}, {2, 6}, {8, 10}, {15, 18}};
+        int[][] result = merge(intervals);
+        for (int[] interval : result) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+
+    static int[][] merge(int[][] intervals) {
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[0], b[0]));
+
+        List<int[]> merged = new ArrayList<>();
+        for (int[] interval : sorted) {
+            if (merged.isEmpty() || interval[0] > merged.get(merged.size() - 1)[1]) {
+                merged.add(interval);
+            } else {
+                int[] last = merged.get(merged.size() - 1);
+                last[1] = Math.max(last[1], interval[1]);
+            }
+        }
+
+        return merged.toArray(new int[0][]);
+    }
+}
 ```
 
 **Complexity:** Time O(n log n) for the sort (the pass itself is O(n)), space O(n) for the output.
@@ -4330,6 +11719,77 @@ def insert(intervals: list[list[int]], newInterval: list[int]) -> list[list[int]
     return result
 ```
 
+```javascript +
+function insert(intervals, newInterval) {
+    const result = [];
+    let i = 0;
+    const n = intervals.length;
+    let [newStart, newEnd] = newInterval;
+
+    while (i < n && intervals[i][1] < newStart) {
+        result.push(intervals[i]);
+        i++;
+    }
+
+    while (i < n && intervals[i][0] <= newEnd) {
+        newStart = Math.min(newStart, intervals[i][0]);
+        newEnd = Math.max(newEnd, intervals[i][1]);
+        i++;
+    }
+
+    result.push([newStart, newEnd]);
+
+    while (i < n) {
+        result.push(intervals[i]);
+        i++;
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 3}, {6, 9}};
+        int[] newInterval = {2, 5};
+        for (int[] interval : insert(intervals, newInterval)) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+
+    static int[][] insert(int[][] intervals, int[] newInterval) {
+        List<int[]> result = new ArrayList<>();
+        int i = 0;
+        int n = intervals.length;
+        int newStart = newInterval[0];
+        int newEnd = newInterval[1];
+
+        while (i < n && intervals[i][1] < newStart) {
+            result.add(intervals[i]);
+            i++;
+        }
+
+        while (i < n && intervals[i][0] <= newEnd) {
+            newStart = Math.min(newStart, intervals[i][0]);
+            newEnd = Math.max(newEnd, intervals[i][1]);
+            i++;
+        }
+
+        result.add(new int[]{newStart, newEnd});
+
+        while (i < n) {
+            result.add(intervals[i]);
+            i++;
+        }
+
+        return result.toArray(new int[0][]);
+    }
+}
+```
+
 **Complexity:** Time O(n): no sort needed since the input is already sorted. Space O(n) for the output.
 
 **Common mistakes:** Sorting the input unnecessarily. It's guaranteed pre-sorted, so sorting is wasted O(n log n) work and can mask a bug in the merge logic. Also, using `<` instead of `<=` in the overlap-detection loop, which misses touching intervals that should merge.
@@ -4349,6 +11809,41 @@ def canAttendMeetings(intervals: list[list[int]]) -> bool:
         if intervals[i][0] < intervals[i - 1][1]:
             return False
     return True
+```
+
+```javascript +
+function canAttendMeetings(intervals) {
+    const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i][0] < sorted[i - 1][1]) {
+            return false;
+        }
+    }
+    return true;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{0, 30}, {5, 10}, {15, 20}};
+        System.out.println(canAttendMeetings(intervals));
+    }
+
+    static boolean canAttendMeetings(int[][] intervals) {
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[0], b[0]));
+
+        for (int i = 1; i < sorted.length; i++) {
+            if (sorted[i][0] < sorted[i - 1][1]) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
 ```
 
 **Complexity:** Time O(n log n), space O(1) extra (ignoring sort space).
@@ -4379,6 +11874,57 @@ def findMinArrowShots(points: list[list[int]]) -> int:
             arrow_pos = end
 
     return arrows
+```
+
+```javascript +
+function findMinArrowShots(points) {
+    if (points.length === 0) return 0;
+    const sorted = [...points].sort((a, b) => a[1] - b[1]);
+    let arrows = 1;
+    let arrowPos = sorted[0][1];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const [start, end] = sorted[i];
+        if (start > arrowPos) {
+            arrows++;
+            arrowPos = end;
+        }
+    }
+
+    return arrows;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] points = {{10, 16}, {2, 8}, {1, 6}, {7, 12}};
+        System.out.println(findMinArrowShots(points));
+    }
+
+    static int findMinArrowShots(int[][] points) {
+        if (points.length == 0) return 0;
+
+        int[][] sorted = points.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[1], b[1]));
+
+        int arrows = 1;
+        int arrowPos = sorted[0][1];
+
+        for (int i = 1; i < sorted.length; i++) {
+            int start = sorted[i][0];
+            int end = sorted[i][1];
+            if (start > arrowPos) {
+                arrows++;
+                arrowPos = end;
+            }
+        }
+
+        return arrows;
+    }
+}
 ```
 
 **Complexity:** Time O(n log n) for the sort, space O(1) extra.
@@ -4412,6 +11958,36 @@ def is_prime(n: int) -> bool:
     return True
 ```
 
+```javascript +
+function isPrime(n) {
+    if (n < 2) return false;
+    if (n === 2 || n === 3) return true;
+    if (n % 2 === 0) return false;
+    for (let i = 3; i * i <= n; i += 2) {
+        if (n % i === 0) return false;
+    }
+    return true;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isPrime(97));
+    }
+
+    static boolean isPrime(int n) {
+        if (n < 2) return false;
+        if (n == 2 || n == 3) return true;
+        if (n % 2 == 0) return false;
+        for (int i = 3; (long) i * i <= n; i += 2) {
+            if (n % i == 0) return false;
+        }
+        return true;
+    }
+}
+```
+
 **Complexity:** O(sqrt(n)) per check. For checking primality of *many* numbers up to some bound N, the Sieve of Eratosthenes (below) is far better than calling `is_prime` N times.
 
 ## GCD/LCM
@@ -4425,11 +12001,71 @@ def gcd(a: int, b: int) -> int:
     return a
 ```
 
+```javascript +
+function gcd(a, b) {
+    while (b) {
+        [a, b] = [b, a % b];
+    }
+    return a;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(gcd(48, 18));
+    }
+
+    static int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+}
+```
+
 **LCM** (least common multiple) derives directly from GCD: `lcm(a, b) = a * b / gcd(a, b)`.
 
 ```python
 def lcm(a: int, b: int) -> int:
     return a * b // gcd(a, b)
+```
+
+```javascript +
+function gcd(a, b) {
+    while (b) {
+        [a, b] = [b, a % b];
+    }
+    return a;
+}
+
+function lcm(a, b) {
+    return (a * b) / gcd(a, b);
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(lcm(4, 6));
+    }
+
+    static int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+
+    static int lcm(int a, int b) {
+        return (a * b) / gcd(a, b);
+    }
+}
 ```
 
 **Complexity:** GCD is O(log(min(a, b))): each step roughly halves the smaller number in the worst case (Fibonacci-adjacent numbers are the slow case, still logarithmic). Python's stdlib has `math.gcd` and `math.lcm` directly. Mention the built-in, but be ready to derive it from scratch, since implementing Euclid's algorithm is a common ask.
@@ -4454,6 +12090,65 @@ def rotate_90_clockwise(matrix: list[list[int]]) -> None:
         row.reverse()
 ```
 
+```javascript +
+function rotate90Clockwise(matrix) {
+    const n = matrix.length;
+
+    // 1. transpose: swap matrix[i][j] with matrix[j][i]
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            [matrix[i][j], matrix[j][i]] = [matrix[j][i], matrix[i][j]];
+        }
+    }
+
+    // 2. reverse each row
+    for (const row of matrix) {
+        row.reverse();
+    }
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+        rotate90Clockwise(matrix);
+        for (int[] row : matrix) {
+            System.out.println(java.util.Arrays.toString(row));
+        }
+    }
+
+    static void rotate90Clockwise(int[][] matrix) {
+        int n = matrix.length;
+
+        // 1. transpose: swap matrix[i][j] with matrix[j][i]
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                int temp = matrix[i][j];
+                matrix[i][j] = matrix[j][i];
+                matrix[j][i] = temp;
+            }
+        }
+
+        // 2. reverse each row
+        for (int[] row : matrix) {
+            int left = 0, right = row.length - 1;
+            while (left < right) {
+                int temp = row[left];
+                row[left] = row[right];
+                row[right] = temp;
+                left++;
+                right--;
+            }
+        }
+    }
+}
+```
+
 Why transpose + reverse rows equals 90° clockwise: transposing flips the matrix across its main diagonal, turning rows into columns. Reversing each row then flips left-right, and the two combined equal a clockwise quarter turn. Trace a 3x3 example by hand once; it's much easier to verify visually than to reason about abstractly.
 
 The alternative **4-way (layer-by-layer) swap** rotates the outer ring, then the next ring inward, cycling four cells at a time (`top -> right -> bottom -> left -> top`). Both achieve O(1) extra space. Transpose+reverse is shorter to write correctly under pressure, so default to it unless the interviewer specifically wants the layer-cycling approach.
@@ -4474,6 +12169,57 @@ def rotate(matrix: list[list[int]]) -> None:
             matrix[i][j], matrix[j][i] = matrix[j][i], matrix[i][j]
     for row in matrix:
         row.reverse()
+```
+
+```javascript +
+function rotate(matrix) {
+    const n = matrix.length;
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            [matrix[i][j], matrix[j][i]] = [matrix[j][i], matrix[i][j]];
+        }
+    }
+    for (const row of matrix) {
+        row.reverse();
+    }
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+        rotate(matrix);
+        for (int[] row : matrix) {
+            System.out.println(java.util.Arrays.toString(row));
+        }
+    }
+
+    static void rotate(int[][] matrix) {
+        int n = matrix.length;
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                int temp = matrix[i][j];
+                matrix[i][j] = matrix[j][i];
+                matrix[j][i] = temp;
+            }
+        }
+        for (int[] row : matrix) {
+            int left = 0, right = row.length - 1;
+            while (left < right) {
+                int temp = row[left];
+                row[left] = row[right];
+                row[right] = temp;
+                left++;
+                right--;
+            }
+        }
+    }
+}
 ```
 
 **Complexity:** Time O(n²), space O(1); the whole point of this problem is the in-place constraint.
@@ -4519,6 +12265,95 @@ def spiralOrder(matrix: list[list[int]]) -> list[int]:
     return result
 ```
 
+```javascript +
+function spiralOrder(matrix) {
+    if (matrix.length === 0) return [];
+
+    const result = [];
+    let top = 0, bottom = matrix.length - 1;
+    let left = 0, right = matrix[0].length - 1;
+
+    while (top <= bottom && left <= right) {
+        for (let col = left; col <= right; col++) {
+            result.push(matrix[top][col]);
+        }
+        top++;
+
+        for (let row = top; row <= bottom; row++) {
+            result.push(matrix[row][right]);
+        }
+        right--;
+
+        if (top <= bottom) {
+            for (let col = right; col >= left; col--) {
+                result.push(matrix[bottom][col]);
+            }
+            bottom--;
+        }
+
+        if (left <= right) {
+            for (let row = bottom; row >= top; row--) {
+                result.push(matrix[row][left]);
+            }
+            left++;
+        }
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+        System.out.println(spiralOrder(matrix));
+    }
+
+    static List<Integer> spiralOrder(int[][] matrix) {
+        List<Integer> result = new ArrayList<>();
+        if (matrix.length == 0) return result;
+
+        int top = 0, bottom = matrix.length - 1;
+        int left = 0, right = matrix[0].length - 1;
+
+        while (top <= bottom && left <= right) {
+            for (int col = left; col <= right; col++) {
+                result.add(matrix[top][col]);
+            }
+            top++;
+
+            for (int row = top; row <= bottom; row++) {
+                result.add(matrix[row][right]);
+            }
+            right--;
+
+            if (top <= bottom) {
+                for (int col = right; col >= left; col--) {
+                    result.add(matrix[bottom][col]);
+                }
+                bottom--;
+            }
+
+            if (left <= right) {
+                for (int row = bottom; row >= top; row--) {
+                    result.add(matrix[row][left]);
+                }
+                left++;
+            }
+        }
+
+        return result;
+    }
+}
+```
+
 **Complexity:** Time O(rows × cols), since every cell is visited exactly once. Space O(1) extra (excluding the output list).
 
 **Common mistakes:** Omitting the `if top <= bottom` / `if left <= right` guards before the bottom-row and left-column traversals. Without them, a single-row or single-column matrix gets its edge cells double-counted. Also, off-by-one on boundary updates (`top += 1` after finishing the top row, not before).
@@ -4547,6 +12382,55 @@ def countPrimes(n: int) -> int:
     return sum(is_prime_arr)
 ```
 
+```javascript +
+function countPrimes(n) {
+    if (n < 3) return 0;
+
+    const isPrimeArr = new Array(n).fill(true);
+    isPrimeArr[0] = isPrimeArr[1] = false;
+
+    for (let i = 2; i * i <= n; i++) {
+        if (isPrimeArr[i]) {
+            for (let multiple = i * i; multiple < n; multiple += i) { // start at i*i: smaller multiples already crossed out
+                isPrimeArr[multiple] = false;
+            }
+        }
+    }
+
+    return isPrimeArr.filter(Boolean).length;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(countPrimes(20));
+    }
+
+    static int countPrimes(int n) {
+        if (n < 3) return 0;
+
+        boolean[] isPrimeArr = new boolean[n];
+        java.util.Arrays.fill(isPrimeArr, true);
+        isPrimeArr[0] = isPrimeArr[1] = false;
+
+        for (int i = 2; (long) i * i <= n; i++) {
+            if (isPrimeArr[i]) {
+                for (int multiple = i * i; multiple < n; multiple += i) { // start at i*i: smaller multiples already crossed out
+                    isPrimeArr[multiple] = false;
+                }
+            }
+        }
+
+        int count = 0;
+        for (boolean prime : isPrimeArr) {
+            if (prime) count++;
+        }
+        return count;
+    }
+}
+```
+
 **Complexity:** Time O(n log log n), space O(n).
 
 **Common mistakes:** Starting the inner crossing-out loop at `2*i` instead of `i*i` is correct either way, but `i*i` is the standard optimization since smaller multiples of `i` were already crossed out by smaller primes. Also, forgetting the outer loop only needs to run up to `sqrt(n)`: any composite number below n has a factor ≤ sqrt(n), so all composites are caught by then.
@@ -4572,6 +12456,62 @@ def sieve_of_eratosthenes(n: int) -> list[int]:
     return [i for i, prime in enumerate(is_prime_arr) if prime]
 ```
 
+```javascript +
+function sieveOfEratosthenes(n) {
+    // Return all primes strictly less than n.
+    if (n < 3) return [];
+
+    const isPrimeArr = new Array(n).fill(true);
+    isPrimeArr[0] = isPrimeArr[1] = false;
+
+    for (let i = 2; i * i <= n; i++) {
+        if (isPrimeArr[i]) {
+            for (let multiple = i * i; multiple < n; multiple += i) {
+                isPrimeArr[multiple] = false;
+            }
+        }
+    }
+
+    return isPrimeArr.reduce((primes, isPrime, i) => {
+        if (isPrime) primes.push(i);
+        return primes;
+    }, []);
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(sieveOfEratosthenes(20));
+    }
+
+    // Return all primes strictly less than n.
+    static List<Integer> sieveOfEratosthenes(int n) {
+        if (n < 3) return new ArrayList<>();
+
+        boolean[] isPrimeArr = new boolean[n];
+        Arrays.fill(isPrimeArr, true);
+        isPrimeArr[0] = isPrimeArr[1] = false;
+
+        for (int i = 2; (long) i * i <= n; i++) {
+            if (isPrimeArr[i]) {
+                for (int multiple = i * i; multiple < n; multiple += i) {
+                    isPrimeArr[multiple] = false;
+                }
+            }
+        }
+
+        List<Integer> primes = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            if (isPrimeArr[i]) primes.add(i);
+        }
+        return primes;
+    }
+}
+```
+
 ## Pow(x, n)
 
 [LeetCode 50](https://leetcode.com/problems/powx-n/) — Math — Binary exponentiation
@@ -4594,6 +12534,53 @@ def myPow(x: float, n: int) -> float:
         n //= 2
 
     return result
+```
+
+```javascript +
+function myPow(x, n) {
+    if (n < 0) {
+        x = 1 / x;
+        n = -n;
+    }
+
+    let result = 1;
+    while (n > 0) {
+        if (n % 2 === 1) {
+            result *= x;
+        }
+        x *= x;
+        n = Math.floor(n / 2);
+    }
+
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(myPow(2.0, 10));
+    }
+
+    static double myPow(double x, int n) {
+        long exponent = n;
+        if (exponent < 0) {
+            x = 1 / x;
+            exponent = -exponent;
+        }
+
+        double result = 1;
+        while (exponent > 0) {
+            if (exponent % 2 == 1) {
+                result *= x;
+            }
+            x *= x;
+            exponent /= 2;
+        }
+
+        return result;
+    }
+}
 ```
 
 **Complexity:** Time O(log n), space O(1) for the iterative version; the recursive version is O(log n) time but O(log n) space for the call stack.
@@ -4624,6 +12611,42 @@ for ch in "abcdef":
 result = "".join(parts)
 ```
 
+```javascript +
+// O(n^2) - avoid in a loop
+let result = "";
+for (const ch of "abcdef") {
+    result += ch;
+}
+
+// O(n) - build an array, join once
+const parts = [];
+for (const ch of "abcdef") {
+    parts.push(ch);
+}
+result = parts.join("");
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        // O(n^2) - avoid in a loop: String is immutable, += allocates a new String each time
+        String result = "";
+        for (char ch : "abcdef".toCharArray()) {
+            result += ch;
+        }
+
+        // O(n) - build with StringBuilder, convert once
+        StringBuilder parts = new StringBuilder();
+        for (char ch : "abcdef".toCharArray()) {
+            parts.append(ch);
+        }
+        result = parts.toString();
+
+        System.out.println(result);
+    }
+}
+```
+
 `"".join(list_of_strings)` is the idiomatic O(n) pattern: it computes the final length once and allocates a single buffer, instead of reallocating on every append. This matters specifically when a problem asks you to build a result string inside a loop that could run thousands of times.
 
 ## Pattern matching
@@ -4642,6 +12665,54 @@ from collections import Counter
 
 def is_anagram(s: str, t: str) -> bool:
     return Counter(s) == Counter(t)
+```
+
+```javascript +
+function isAnagram(s, t) {
+    const count = (str) => {
+        const map = new Map();
+        for (const ch of str) {
+            map.set(ch, (map.get(ch) || 0) + 1);
+        }
+        return map;
+    };
+
+    const sCount = count(s);
+    const tCount = count(t);
+    if (sCount.size !== tCount.size) return false;
+
+    for (const [ch, freq] of sCount) {
+        if (tCount.get(ch) !== freq) return false;
+    }
+    return true;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isAnagram("listen", "silent"));
+    }
+
+    static boolean isAnagram(String s, String t) {
+        if (s.length() != t.length()) return false;
+
+        Map<Character, Integer> counts = new HashMap<>();
+        for (char ch : s.toCharArray()) {
+            counts.merge(ch, 1, Integer::sum);
+        }
+        for (char ch : t.toCharArray()) {
+            counts.merge(ch, -1, Integer::sum);
+        }
+
+        for (int freq : counts.values()) {
+            if (freq != 0) return false;
+        }
+        return true;
+    }
+}
 ```
 
 For **sliding-window anagram search** (find all windows of B that are anagrams of A), maintain a running frequency count for the current window and compare to A's frequency count incrementally rather than rebuilding it every shift:
@@ -4671,6 +12742,95 @@ def find_anagram_windows(s: str, p: str) -> list[int]:
     return result
 ```
 
+```javascript +
+function findAnagramWindows(s, p) {
+    if (p.length > s.length) return [];
+
+    const countOf = (str) => {
+        const map = new Map();
+        for (const ch of str) {
+            map.set(ch, (map.get(ch) || 0) + 1);
+        }
+        return map;
+    };
+
+    const mapsEqual = (a, b) => {
+        if (a.size !== b.size) return false;
+        for (const [key, val] of a) {
+            if (b.get(key) !== val) return false;
+        }
+        return true;
+    };
+
+    const pCount = countOf(p);
+    const windowCount = countOf(s.slice(0, p.length));
+    const result = [];
+
+    if (mapsEqual(windowCount, pCount)) {
+        result.push(0);
+    }
+
+    for (let i = p.length; i < s.length; i++) {
+        const leftChar = s[i - p.length];
+        windowCount.set(s[i], (windowCount.get(s[i]) || 0) + 1);
+        windowCount.set(leftChar, windowCount.get(leftChar) - 1);
+        if (windowCount.get(leftChar) === 0) {
+            windowCount.delete(leftChar);
+        }
+
+        if (mapsEqual(windowCount, pCount)) {
+            result.push(i - p.length + 1);
+        }
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(findAnagramWindows("cbaebabacd", "abc"));
+    }
+
+    static List<Integer> findAnagramWindows(String s, String p) {
+        List<Integer> result = new ArrayList<>();
+        if (p.length() > s.length()) return result;
+
+        Map<Character, Integer> pCount = new HashMap<>();
+        for (char ch : p.toCharArray()) {
+            pCount.merge(ch, 1, Integer::sum);
+        }
+
+        Map<Character, Integer> windowCount = new HashMap<>();
+        for (int i = 0; i < p.length(); i++) {
+            windowCount.merge(s.charAt(i), 1, Integer::sum);
+        }
+
+        if (windowCount.equals(pCount)) {
+            result.add(0);
+        }
+
+        for (int i = p.length(); i < s.length(); i++) {
+            char leftChar = s.charAt(i - p.length());
+            windowCount.merge(s.charAt(i), 1, Integer::sum);
+            windowCount.merge(leftChar, -1, Integer::sum);
+            if (windowCount.get(leftChar) == 0) {
+                windowCount.remove(leftChar);
+            }
+
+            if (windowCount.equals(pCount)) {
+                result.add(i - p.length() + 1);
+            }
+        }
+
+        return result;
+    }
+}
+```
+
 **Complexity:** O(n) amortized if you avoid the O(26) `Counter == Counter` comparison per step. One optimization: track a running `matches` integer instead of comparing full Counters (see Find All Anagrams below for the fully optimized version). The version above is O(n · 26) worst case, which is still effectively linear since the alphabet is bounded.
 
 ## Longest Substring with At Least K Repeating Characters
@@ -4692,6 +12852,58 @@ def longestSubstring(s: str, k: int) -> int:
             return max(longestSubstring(part, k) for part in s.split(ch))
 
     return len(s)  # every character meets the threshold
+```
+
+```javascript +
+function longestSubstring(s, k) {
+    if (s.length < k) return 0;
+
+    const counts = new Map();
+    for (const ch of s) {
+        counts.set(ch, (counts.get(ch) || 0) + 1);
+    }
+
+    for (const [ch, freq] of counts) {
+        if (freq < k) {
+            return Math.max(...s.split(ch).map((part) => longestSubstring(part, k)));
+        }
+    }
+
+    return s.length; // every character meets the threshold
+}
+```
+
+```java +
+import java.util.*;
+import java.util.regex.Pattern;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(longestSubstring("aaabb", 3));
+    }
+
+    static int longestSubstring(String s, int k) {
+        if (s.length() < k) return 0;
+
+        Map<Character, Integer> counts = new HashMap<>();
+        for (char ch : s.toCharArray()) {
+            counts.merge(ch, 1, Integer::sum);
+        }
+
+        for (Map.Entry<Character, Integer> entry : counts.entrySet()) {
+            if (entry.getValue() < k) {
+                int best = 0;
+                String splitPattern = Pattern.quote(String.valueOf(entry.getKey()));
+                for (String part : s.split(splitPattern)) {
+                    best = Math.max(best, longestSubstring(part, k));
+                }
+                return best;
+            }
+        }
+
+        return s.length(); // every character meets the threshold
+    }
+}
 ```
 
 **Complexity:** Time O(n × 26) in the typical case: each recursion level does O(n) work, and the recursion depth is bounded by the 26-letter alphabet since each split removes at least one distinct character entirely. Space O(n) for recursion and split copies.
@@ -4728,6 +12940,72 @@ def findAnagrams(s: str, p: str) -> list[int]:
             result.append(i - window_len + 1)
 
     return result
+```
+
+```javascript +
+function findAnagrams(s, p) {
+    if (p.length > s.length) return [];
+
+    const pCount = new Array(26).fill(0);
+    const sCount = new Array(26).fill(0);
+    const aCode = 'a'.charCodeAt(0);
+
+    for (const ch of p) {
+        pCount[ch.charCodeAt(0) - aCode]++;
+    }
+
+    const result = [];
+    const windowLen = p.length;
+
+    for (let i = 0; i < s.length; i++) {
+        sCount[s.charCodeAt(i) - aCode]++;
+        if (i >= windowLen) {
+            const leftChar = s[i - windowLen];
+            sCount[leftChar.charCodeAt(0) - aCode]--;
+        }
+        if (i >= windowLen - 1 && sCount.every((count, idx) => count === pCount[idx])) {
+            result.push(i - windowLen + 1);
+        }
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(findAnagrams("cbaebabacd", "abc"));
+    }
+
+    static List<Integer> findAnagrams(String s, String p) {
+        List<Integer> result = new ArrayList<>();
+        if (p.length() > s.length()) return result;
+
+        int[] pCount = new int[26];
+        int[] sCount = new int[26];
+        for (char ch : p.toCharArray()) {
+            pCount[ch - 'a']++;
+        }
+
+        int windowLen = p.length();
+
+        for (int i = 0; i < s.length(); i++) {
+            sCount[s.charAt(i) - 'a']++;
+            if (i >= windowLen) {
+                char leftChar = s.charAt(i - windowLen);
+                sCount[leftChar - 'a']--;
+            }
+            if (i >= windowLen - 1 && Arrays.equals(sCount, pCount)) {
+                result.add(i - windowLen + 1);
+            }
+        }
+
+        return result;
+    }
+}
 ```
 
 **Complexity:** Time O(n × 26): the array comparison `s_count == p_count` is O(26), effectively O(1) since the alphabet is bounded, giving overall O(n). Space O(26) = O(1).
@@ -4767,6 +13045,94 @@ def minWindow(s: str, t: str) -> str:
             left += 1
 
     return s[best_left:best_left + best_len] if best_len != float('inf') else ""
+```
+
+```javascript +
+function minWindow(s, t) {
+    if (!s || !t) return "";
+
+    const need = new Map();
+    for (const ch of t) {
+        need.set(ch, (need.get(ch) || 0) + 1);
+    }
+
+    let missing = t.length; // total characters still needed (with multiplicity)
+    let left = 0;
+    let bestLeft = 0;
+    let bestLen = Infinity;
+
+    for (let right = 0; right < s.length; right++) {
+        const ch = s[right];
+        if ((need.get(ch) || 0) > 0) {
+            missing--;
+        }
+        need.set(ch, (need.get(ch) || 0) - 1);
+
+        while (missing === 0) {
+            if (right - left + 1 < bestLen) {
+                bestLeft = left;
+                bestLen = right - left + 1;
+            }
+
+            const leftChar = s[left];
+            need.set(leftChar, (need.get(leftChar) || 0) + 1);
+            if (need.get(leftChar) > 0) {
+                missing++;
+            }
+            left++;
+        }
+    }
+
+    return bestLen === Infinity ? "" : s.slice(bestLeft, bestLeft + bestLen);
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(minWindow("ADOBECODEBANC", "ABC"));
+    }
+
+    static String minWindow(String s, String t) {
+        if (s.isEmpty() || t.isEmpty()) return "";
+
+        Map<Character, Integer> need = new HashMap<>();
+        for (char ch : t.toCharArray()) {
+            need.merge(ch, 1, Integer::sum);
+        }
+
+        int missing = t.length(); // total characters still needed (with multiplicity)
+        int left = 0;
+        int bestLeft = 0;
+        int bestLen = Integer.MAX_VALUE;
+
+        for (int right = 0; right < s.length(); right++) {
+            char ch = s.charAt(right);
+            if (need.getOrDefault(ch, 0) > 0) {
+                missing--;
+            }
+            need.merge(ch, -1, Integer::sum);
+
+            while (missing == 0) {
+                if (right - left + 1 < bestLen) {
+                    bestLeft = left;
+                    bestLen = right - left + 1;
+                }
+
+                char leftChar = s.charAt(left);
+                need.merge(leftChar, 1, Integer::sum);
+                if (need.get(leftChar) > 0) {
+                    missing++;
+                }
+                left++;
+            }
+        }
+
+        return bestLen == Integer.MAX_VALUE ? "" : s.substring(bestLeft, bestLeft + bestLen);
+    }
+}
 ```
 
 **Complexity:** Time O(n + m) where n = len(s), m = len(t): each index enters and leaves the window at most once. Space O(m) for the `need` counter (bounded by the distinct characters in `t`).
@@ -4813,6 +13179,94 @@ def rabin_karp(text: str, pattern: str) -> list[int]:
     return matches
 ```
 
+```javascript +
+function rabinKarp(text, pattern) {
+    const n = text.length;
+    const m = pattern.length;
+    if (m > n || m === 0) return [];
+
+    const BASE = 256n;
+    const MOD = 1000000007n;
+
+    let highOrder = 1n;
+    for (let i = 0; i < m - 1; i++) {
+        highOrder = (highOrder * BASE) % MOD; // BASE^(m-1) mod MOD, for removing the leading digit
+    }
+
+    let patternHash = 0n;
+    let windowHash = 0n;
+    for (let i = 0; i < m; i++) {
+        patternHash = (patternHash * BASE + BigInt(pattern.charCodeAt(i))) % MOD;
+        windowHash = (windowHash * BASE + BigInt(text.charCodeAt(i))) % MOD;
+    }
+
+    const matches = [];
+
+    for (let i = 0; i <= n - m; i++) {
+        if (patternHash === windowHash) {
+            if (text.slice(i, i + m) === pattern) { // verify to rule out a hash collision
+                matches.push(i);
+            }
+        }
+
+        if (i + m < n) {
+            windowHash = (windowHash - BigInt(text.charCodeAt(i)) * highOrder) % MOD;
+            windowHash = (windowHash * BASE + BigInt(text.charCodeAt(i + m))) % MOD;
+            windowHash = ((windowHash % MOD) + MOD) % MOD;
+        }
+    }
+
+    return matches;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(rabinKarp("ababcababcabc", "abc"));
+    }
+
+    static List<Integer> rabinKarp(String text, String pattern) {
+        int n = text.length();
+        int m = pattern.length();
+        List<Integer> matches = new ArrayList<>();
+        if (m > n || m == 0) return matches;
+
+        final long BASE = 256;
+        final long MOD = 1_000_000_007L;
+
+        long highOrder = 1;
+        for (int i = 0; i < m - 1; i++) {
+            highOrder = (highOrder * BASE) % MOD; // BASE^(m-1) mod MOD, for removing the leading digit
+        }
+
+        long patternHash = 0;
+        long windowHash = 0;
+        for (int i = 0; i < m; i++) {
+            patternHash = (patternHash * BASE + pattern.charAt(i)) % MOD;
+            windowHash = (windowHash * BASE + text.charAt(i)) % MOD;
+        }
+
+        for (int i = 0; i <= n - m; i++) {
+            if (patternHash == windowHash) {
+                if (text.substring(i, i + m).equals(pattern)) { // verify to rule out a hash collision
+                    matches.add(i);
+                }
+            }
+
+            if (i + m < n) {
+                windowHash = (windowHash - text.charAt(i) * highOrder % MOD + MOD) % MOD;
+                windowHash = (windowHash * BASE + text.charAt(i + m)) % MOD;
+            }
+        }
+
+        return matches;
+    }
+}
+```
+
 **Complexity:** Average time O(n + m): O(1) rolling update per shift, with occasional O(m) verification on hash matches, which is rare if MOD is large relative to collision risk. Worst case O(n·m) if many spurious hash collisions occur, mitigated by a large prime modulus. Space O(1) extra beyond the output.
 
 **Common mistakes:** Forgetting the modulus and letting the hash grow unbounded is fine in Python's arbitrary-precision integers, but it defeats the purpose of a fixed-size rolling hash and is wrong in most other languages, worth mentioning if discussing portability. Skipping the verification step after a hash match risks a false positive on a genuine collision. And getting the rolling-hash update formula's sign wrong when removing the leaving character is a classic slip: you must subtract `leaving_char * BASE^(m-1)` **before** re-multiplying by `BASE`, not after.
@@ -4824,7 +13278,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('71191d5a-acc9-5670-8d1b-a09991caf6df', '00000000-0000-0000-0000-000000000001', 'coding', '**Two Sum** (LeetCode 1)
 
-Given an array of integers `nums` and an integer `t...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Given an array of integers `nums` and an integer `t...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4834,7 +13288,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('a518586b-d6a0-537a-bb8d-b4837ebf0e58', '00000000-0000-0000-0000-000000000001', 'coding', '**Valid Anagram** (LeetCode 242)
 
-Given two strings `s` and `t`, print `true`...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Given two strings `s` and `t`, print `true`...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4844,7 +13298,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('342cbd5e-ed73-5698-b6ad-3de4c9f7991b', '00000000-0000-0000-0000-000000000001', 'coding', '**Contains Duplicate** (LeetCode 217)
 
-Given an array of integers, print `tru...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Given an array of integers, print `tru...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4869,7 +13323,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('9ef3de34-88b7-5116-b304-aba706f1d939', '00000000-0000-0000-0000-000000000001', 'coding', '**Climbing Stairs** (LeetCode 70 — Day 12, DP Basics)
 
-You are climbing a s...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+You are climbing a s...', 'beginner', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4879,7 +13333,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8949c0ea-986a-5df7-9df0-b13733cd1f53', '00000000-0000-0000-0000-000000000001', 'coding', '**Kth Largest Element in an Array** (LeetCode 215 — Day 11, Heaps)
 
-Given a...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Given a...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4889,7 +13343,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('4da8a75b-17b2-533b-8f85-4eafcb4525c7', '00000000-0000-0000-0000-000000000001', 'coding', '**Number of Islands** (LeetCode 200 — Day 9, Graph BFS/DFS)
 
-Given a grid o...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Given a grid o...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4914,7 +13368,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('c85f7820-41d7-533c-b56a-7451fda21ca6', '00000000-0000-0000-0000-000000000001', 'coding', '**Coin Change** (LeetCode 322 — Day 15, Hard DP)
 
-Given coin denominations ...', 'advanced', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Given coin denominations ...', 'advanced', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4924,7 +13378,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('8290f4d8-d897-5134-812e-17ef866ba8de', '00000000-0000-0000-0000-000000000001', 'coding', '**Jump Game** (LeetCode 55 — Day 18, Greedy)
 
-Each array element is your ma...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Each array element is your ma...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4934,7 +13388,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('40ade573-f8d6-550e-8235-7f5c5ae8ae2c', '00000000-0000-0000-0000-000000000001', 'coding', '**Single Number** (LeetCode 136 — Day 20, Bit Manipulation)
 
-Every element ...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Every element ...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4959,7 +13413,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('f85aa815-111e-5b25-8935-29a12e201c03', '00000000-0000-0000-0000-000000000001', 'coding', '**Merge Intervals** (LeetCode 56 — Day 24, Intervals)
 
-Merge all overlappin...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Merge all overlappin...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4969,7 +13423,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('1f8e0668-6ce8-5a5a-ad55-980672ed760b', '00000000-0000-0000-0000-000000000001', 'coding', '**Search in Rotated Sorted Array** (LeetCode 33 — Day 25, Binary Search)
 
-A...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+A...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -4979,7 +13433,7 @@ ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
 VALUES ('54b4c81d-b834-578a-81fc-0143670fd496', '00000000-0000-0000-0000-000000000001', 'coding', '**Rotate Image** (LeetCode 48 — Day 26, Matrix)
 
-Rotate an n×n matrix 90°...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+Rotate an n×n matrix 90°...', 'intermediate', 20, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -5312,9 +13766,3123 @@ A common bug is defining `__eq__` without `__hash__`. Python then sets `__hash__
 $md$, 15, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
+-- Section: System Design Foundations (HLD)
+INSERT INTO course_sections (id, course_id, title, position)
+VALUES ('2af95c9b-d074-56c2-8f2a-3ea0be30cce6', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'System Design Foundations (HLD)', 2)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('2684322f-7adf-53c7-ae93-43c7df6ce828', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'The HLD Interview Framework', 'notes', 1, $md$Every high-level design interview is the same 45 minutes wearing a different costume. "Design Twitter", "Design Uber", "Design a payment system" — the domain changes, the procedure does not. Candidates who fail rarely fail on knowledge; they fail because they had no procedure and burned twenty minutes wandering. This lesson gives you the procedure. The rest of this section fills in the building blocks it calls for, and the **System Design** section applies it to 28 real questions.
+
+The one thing to memorise from this lesson is the step order. Everything else you can re-derive at the whiteboard.
+
+> **RESHADE** — **R**equirements, **E**stimation, **S**chema & API, **H**igh-level design, **A**rchitecture deep dive, **D**efend trade-offs, **E**dge cases.
+
+## What the interviewer is actually scoring
+
+You are not being scored on whether you name-drop Kafka. The scorecard behind the glass has roughly four rows:
+
+| Row | What it means | How you lose the point |
+|---|---|---|
+| **Problem framing** | You narrowed an open problem into something buildable | Started drawing boxes before asking what the system must do |
+| **Structured thinking** | You moved through the design in a visible, deliberate order | Jumped between topics; interviewer had to steer you |
+| **Technical depth** | You can go one level below the box you drew | "I'd use a cache" and nothing more when pushed |
+| **Trade-off reasoning** | You chose *and* said what the choice costs | Presented one design as if it had no downsides |
+
+The last row is the one that separates a mid-level from a senior signal. A senior engineer never says "this is the best approach"; they say "I'm picking X because we're read-heavy and can tolerate a second of staleness — if the requirement were strict consistency I'd go with Y and eat the latency."
+
+Say your reasoning out loud continuously. An interviewer cannot award points for thinking they cannot hear.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-01-scoring-q1", "type": "mcq",
+      "prompt": "You propose a read replica to scale reads. Which follow-up sentence earns the trade-off point?",
+      "options": [
+        {"id":"a","text":"\"Replicas are the standard solution for read-heavy systems.\""},
+        {"id":"b","text":"\"This adds replication lag, so a user who just posted might not see their own post — I'd route read-your-own-writes back to the primary.\""},
+        {"id":"c","text":"\"We can add more replicas later if needed.\""},
+        {"id":"d","text":"\"Postgres, MySQL, and MongoDB all support replicas.\""}
+      ],
+      "correct": "b",
+      "explanation": "Trade-off reasoning = naming the cost of your choice and how you mitigate it. (b) states the concrete downside (replication lag), the user-visible symptom, and the mitigation. The others state facts or defer the problem." }
+] }
+```
+
+## Step 1 — Requirements: turn an open prompt into a spec
+
+Spend **5 minutes** here. Never skip it, and never let it run past eight minutes.
+
+Split requirements in two, out loud, on the board:
+
+**Functional requirements** — what a user can *do*. Write 3–5 verbs, no more. For "Design Twitter": post a tweet, follow a user, view a home timeline. Explicitly park the rest: "I'll treat DMs, search, and ads as out of scope unless you want them."
+
+**Non-functional requirements** — the properties that actually decide the architecture:
+
+| Question to ask | Why it changes the design |
+|---|---|
+| How many users / how much traffic? | Decides single DB vs. sharded, cache or no cache |
+| Read-heavy or write-heavy? | Read-heavy → replicas + cache; write-heavy → partitioning, queues |
+| Latency target? | 50 ms p99 rules out cross-region synchronous calls |
+| Consistency vs. availability under partition? | Money → consistency; feeds/likes → availability |
+| Durability — can we ever lose a record? | Payments no; analytics events sometimes yes |
+| Global or single-region? | Global adds replication, geo-routing, data-residency law |
+
+Then state the **scope cut** explicitly. Narrowing is a senior signal, not a dodge: "I'll design the write path and timeline read path end to end, and treat media upload as an S3 + CDN detail I'll come back to if there's time."
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-01-requirements-q1", "type": "mcq",
+      "prompt": "Which of these is a NON-functional requirement?",
+      "options": [
+        {"id":"a","text":"A user can follow another user"},
+        {"id":"b","text":"A timeline shows the 50 most recent posts"},
+        {"id":"c","text":"Timeline loads in under 200 ms at p99 for 10M daily users"},
+        {"id":"d","text":"A user can delete their own post"}
+      ],
+      "correct": "c",
+      "explanation": "Functional = what the system does (a, b, d). Non-functional = how well it must do it — latency, scale, availability, consistency, durability. Non-functional requirements are what force the architecture." }
+] }
+```
+
+## Step 2 — Estimation: get the numbers that shape the design
+
+Spend **3–5 minutes**. The point is not arithmetic accuracy; it is to find out **which order of magnitude problem you're in**, because that decides the architecture.
+
+The chain is always the same:
+
+```
+DAU  →  actions per user per day  →  requests/day  →  average QPS  →  peak QPS (×2–3)
+                                  →  bytes per action  →  storage/day  →  storage/5yr
+                                  →  bytes × QPS  →  bandwidth
+```
+
+A worked pass, 30 seconds at the board:
+
+- 10M DAU, each reads their timeline 10× and posts 0.1×/day
+- Reads: 100M/day ÷ 86,400 ≈ **1,200 QPS** average, **~3,500 QPS** peak
+- Writes: 1M/day ≈ **12 QPS** average — trivial
+- Read:write = **100:1** → this is a read-heavy system → cache and replicas are the story, not write sharding
+- Tweet ≈ 300 bytes; 1M/day ≈ 300 MB/day ≈ **0.5 TB over 5 years** → text fits on one beefy node; media is the real storage problem
+
+Notice what those five lines bought: you now know to spend your design time on the read path, and you have a defensible reason. That is the entire purpose of the estimate. The next lesson drills the numbers and the arithmetic shortcuts.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-01-estimation-q1", "type": "mcq",
+      "prompt": "Your estimate shows 100:1 read:write and only 12 writes/sec. What should that immediately tell you about where to spend design time?",
+      "options": [
+        {"id":"a","text":"Shard the write path across many primaries first"},
+        {"id":"b","text":"Writes fit on a single primary; the design problem is the read path — caching, replicas, precomputation"},
+        {"id":"c","text":"The system needs strong consistency"},
+        {"id":"d","text":"Use a NoSQL database because relational databases cannot handle 12 writes/sec"}
+      ],
+      "correct": "b",
+      "explanation": "12 writes/sec is nothing — a laptop handles it. The estimate's job is to point your remaining 30 minutes at the part that is actually hard, which here is serving 3,500 reads/sec cheaply." }
+] }
+```
+
+## Step 3 — API and data model: the contract before the boxes
+
+Spend **5 minutes**. Two artefacts, both small.
+
+**The API.** Three to five endpoints, request and response shape only. This forces you to commit to what the system exposes and surfaces design questions early (pagination, idempotency, auth).
+
+```
+POST /v1/tweets            {text, media_ids[]}        -> {tweet_id, created_at}
+GET  /v1/timeline?cursor=  ...                        -> {tweets[], next_cursor}
+POST /v1/users/{id}/follow  Idempotency-Key: <uuid>   -> 204
+```
+
+Two habits that read as senior: **cursor pagination, never offset** (offset drifts and gets slower the deeper you page), and an **idempotency key on any non-idempotent write** the client might retry.
+
+**The data model.** Entities, their key fields, and the relationships — plus, critically, the **access patterns**, because those pick the storage engine.
+
+```
+User(id PK, handle UNIQUE, name, created_at)
+Tweet(id PK, author_id FK, text, created_at)         index: (author_id, created_at DESC)
+Follow(follower_id, followee_id)  PK(follower_id, followee_id)
+                                  index: (followee_id)   -- "who follows me", for fan-out
+```
+
+Say the access pattern out loud next to each index: "the timeline query is 'tweets by everyone I follow, newest first', so I need the followee→follower direction indexed for fan-out." Choosing indexes from stated queries is exactly the reasoning a real schema review wants.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-01-api-q1", "type": "mcq",
+      "prompt": "Why is cursor pagination (`?cursor=abc123`) preferred over offset pagination (`?page=500`) for a feed?",
+      "options": [
+        {"id":"a","text":"Cursors are shorter strings so requests are smaller"},
+        {"id":"b","text":"Offset requires the DB to scan and discard all preceding rows (slower the deeper you go) and items shift between pages when new rows are inserted"},
+        {"id":"c","text":"Offset pagination cannot be cached"},
+        {"id":"d","text":"Cursor pagination guarantees strong consistency"}
+      ],
+      "correct": "b",
+      "explanation": "`OFFSET 10000` makes the database walk 10,000 rows before returning anything, and a new insert at the head shifts every item one page later, so users see duplicates or skips. A cursor keyed on (created_at, id) seeks directly and is stable against inserts." }
+] }
+```
+
+## Step 4 — High-level design: draw the request path
+
+Spend **10 minutes**. Draw boxes and arrows, and narrate **one request end to end** through them. A diagram nobody walks through is just decoration.
+
+The default skeleton — start here and delete what this problem doesn't need:
+
+```
+Client → DNS → CDN (static/media)
+       → Load Balancer → API Gateway (auth, rate limit)
+       → Application services
+              ├── Cache (Redis)
+              ├── Primary DB  →  Read replicas
+              ├── Object store (S3) for blobs
+              └── Message queue → async workers  →  search index / analytics / notifications
+```
+
+Rules that keep this step from going wrong:
+
+1. **Draw only what a requirement demands.** Every box you cannot justify is a box you will be asked to defend and cannot.
+2. **Split synchronous from asynchronous.** Anything not needed to return the user's response (notifications, thumbnails, analytics, search indexing, emails) goes behind a queue. Being able to draw that line is a strong signal.
+3. **Narrate the write path, then the read path.** "POST /tweets hits the gateway, which authenticates and rate limits, the tweet service writes to the primary, publishes a `tweet.created` event, and returns 201 — the fan-out worker consumes that event asynchronously and pushes the tweet id into each follower's timeline cache."
+4. **Stateless app servers.** Session and cache state lives in Redis, not in process memory, so any instance can serve any request and autoscaling actually works.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-01-hld-q1", "type": "mcq",
+      "prompt": "Which piece of work belongs BEHIND a queue rather than in the synchronous request path of `POST /tweets`?",
+      "options": [
+        {"id":"a","text":"Validating the tweet text length"},
+        {"id":"b","text":"Persisting the tweet so the author sees it in their profile"},
+        {"id":"c","text":"Fanning the tweet out to 2 million followers' timeline caches"},
+        {"id":"d","text":"Authenticating the caller"}
+      ],
+      "correct": "c",
+      "explanation": "Anything the user's response does not depend on, and that scales with someone else's data size, goes async. Fan-out to 2M followers cannot block a 200 ms POST; validation, auth, and the durable write must happen before you return 201." }
+] }
+```
+
+## Step 5 — Deep dive, bottlenecks, and the trade-off close
+
+Spend the last **15 minutes** here. This is where the level is decided.
+
+Either the interviewer picks the deep-dive topic ("how does the timeline stay fast for a celebrity with 50M followers?") or you pick it. If you pick, pick the box your own estimate proved was under pressure.
+
+Run each bottleneck through the same four questions:
+
+| Question | Example answer |
+|---|---|
+| Where does it break first? | Fan-out on write dies for celebrity accounts — one tweet = 50M cache writes |
+| What's the fix? | Hybrid: fan-out on write for normal users, fan-out on read for celebrities; merge at read time |
+| What does the fix cost? | Two code paths, a "celebrity" threshold to tune, slightly slower reads for followers of celebrities |
+| How do I know it's working? | p99 timeline latency, fan-out queue depth, cache hit rate |
+
+Then close deliberately, in three sentences:
+
+1. **Recap the shape**: "read-heavy, so precomputed timelines in Redis backed by a sharded Postgres."
+2. **Name the biggest risk**: "the fan-out worker is the piece most likely to fall over under a celebrity spike."
+3. **Say what you'd do with more time**: "I'd design the multi-region story and the analytics pipeline next."
+
+Failure modes worth naming before the interviewer does: single points of failure, a hot shard, a cache stampede after eviction, an unbounded queue, thundering-herd retries with no backoff.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-01-deepdive-q1", "type": "mcq",
+      "prompt": "With 15 minutes left and no direction from the interviewer, which deep dive should you choose?",
+      "options": [
+        {"id":"a","text":"The component your own back-of-envelope estimate showed to be under the most pressure"},
+        {"id":"b","text":"The component you know the most trivia about"},
+        {"id":"c","text":"The authentication flow, since every system needs auth"},
+        {"id":"d","text":"A rewrite of the design using microservices"}
+      ],
+      "correct": "a",
+      "explanation": "The estimate exists precisely to point at the hard part. Diving there shows your numbers drove your design; diving into your comfort-zone topic shows the opposite." }
+] }
+```
+
+## Key takeaways
+
+**The 45-minute budget — commit this to memory:**
+
+| Minutes | Step | Output on the board |
+|---|---|---|
+| 0–5 | Requirements | 3–5 functional bullets + non-functional table + explicit scope cut |
+| 5–10 | Estimation | QPS, storage, read:write ratio, and the one conclusion they imply |
+| 10–15 | API + data model | 3–5 endpoints, entities with keys, indexes justified by access patterns |
+| 15–25 | High-level design | Boxes + arrows, one write path and one read path narrated |
+| 25–40 | Deep dive | Bottleneck → fix → cost → metric, one or two times |
+| 40–45 | Close | Recap, biggest risk, what you'd do next |
+
+**Five sentences that earn points, memorised verbatim:**
+
+1. "Before I design anything — what scale are we targeting, and is this read-heavy or write-heavy?"
+2. "I'll scope to X and Y and treat Z as out of scope unless you want it."
+3. "That gives 100:1 reads to writes, so the interesting problem is the read path."
+4. "Anything the user's response doesn't depend on goes behind a queue."
+5. "I'm choosing X; the cost is Y, and I'd mitigate it with Z."
+
+**The three ways candidates lose this interview:** drawing boxes before asking requirements; presenting one design with no alternatives or costs; and going quiet during the deep dive instead of reasoning out loud. All three are procedure failures, not knowledge failures — which is why the procedure above is worth more than any single technology on the board.
+$md$, 45, $json$[{"id":"ip45-hld-01-scoring-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-01-requirements-q1","type":"mcq","correct":"c"},{"id":"ip45-hld-01-estimation-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-01-api-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-01-hld-q1","type":"mcq","correct":"c"},{"id":"ip45-hld-01-deepdive-q1","type":"mcq","correct":"a"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a111eb17-820a-5ea2-a322-3943bfbacddc', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Back-of-the-Envelope Estimation', 'notes', 2, $md$Estimation is the step candidates most want to skip and the step that most changes the design. Its purpose is never precision — nobody checks your arithmetic. Its purpose is to answer one question in three minutes: **is this a one-machine problem, a one-rack problem, or a thousand-machine problem?** The answer decides everything you draw afterwards.
+
+This lesson gives you a fixed set of numbers to memorise, four arithmetic shortcuts, and three worked estimates you can pattern-match against.
+
+## The numbers worth memorising
+
+Two tables. Learn them once; they cover the vast majority of estimates you will ever do at a whiteboard.
+
+**Latency — the "orders of magnitude" ladder.** Round numbers, deliberately:
+
+| Operation | Time | Rule of thumb |
+|---|---|---|
+| L1 cache reference | 1 ns | — |
+| Main memory reference | 100 ns | RAM is ~100× L1 |
+| Read 1 MB from memory | 10 µs | — |
+| SSD random read | 100 µs | SSD is ~1,000× RAM |
+| Read 1 MB from SSD | 200 µs | — |
+| Round trip within a datacenter | 500 µs | |
+| Disk (HDD) seek | 10 ms | HDD is ~100× SSD |
+| Round trip US East ↔ US West | 70 ms | |
+| Round trip US ↔ Europe | 150 ms | Light in fibre: ~200 km/ms |
+
+The three ratios that matter more than the absolute numbers: **memory ≈ 100× faster than SSD, SSD ≈ 100× faster than spinning disk, and a cross-continent round trip costs more than 100,000 memory reads.** That last one is why you cache, why you batch, and why chatty microservice calls across regions are fatal.
+
+**Capacity per commodity machine** — what one node can do before you need two:
+
+| Resource | Realistic single-node number |
+|---|---|
+| Redis / in-memory cache | ~100k–1M ops/sec, 10s of GB of RAM |
+| PostgreSQL (well-indexed, cached working set) | ~5k–10k simple queries/sec |
+| Application server (Go/Java, simple JSON) | ~5k–20k req/sec |
+| Application server (Python/Ruby, per process) | ~500–2k req/sec |
+| Kafka broker | ~100k–1M messages/sec |
+| Network interface | 10 Gbps ≈ 1.25 GB/sec |
+
+Round aggressively. If someone quotes "8,000 QPS per Postgres node" and you said 10,000, nothing about your design changes — that is the point.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-02-numbers-q1", "type": "mcq",
+      "prompt": "Roughly how much slower is a US↔Europe round trip (150 ms) than a main-memory read (100 ns)?",
+      "options": [
+        {"id":"a","text":"About 1,000×"},
+        {"id":"b","text":"About 100,000×"},
+        {"id":"c","text":"About 1,500,000×"},
+        {"id":"d","text":"About 150×"}
+      ],
+      "correct": "c",
+      "explanation": "150 ms = 150,000,000 ns; divided by 100 ns ≈ 1.5 million. This gap is why one cross-region call can dominate an entire request budget, and why you replicate data close to users rather than calling home." }
+] }
+```
+
+## Four arithmetic shortcuts
+
+These four turn estimation from arithmetic into recall.
+
+**1. Powers of two → data sizes.**
+
+| Power | Value | Name |
+|---|---|---|
+| 2^10 | ~1 thousand | KB |
+| 2^20 | ~1 million | MB |
+| 2^30 | ~1 billion | GB |
+| 2^40 | ~1 trillion | TB |
+
+**2. Seconds in a day ≈ 100,000.** (Actually 86,400 — round up.) So **1 million events/day ≈ 10/sec**, and **1 billion/day ≈ 10,000/sec**. Almost every QPS estimate you do is a variation on those two anchors.
+
+**3. Peak = 2–3× average.** Real traffic is diurnal: a quiet night and a busy evening. Design for peak, size cost for average. If a launch or a flash sale is in scope, use 10×.
+
+**4. Typical payload sizes** — so you can go from QPS to bytes:
+
+| Thing | Size |
+|---|---|
+| UUID | 16 bytes |
+| Timestamp | 8 bytes |
+| Tweet / short text post | ~300 bytes |
+| User record | ~1 KB |
+| JSON API response | ~1–10 KB |
+| Thumbnail image | ~50 KB |
+| Full photo | ~2 MB |
+| 1 minute of 1080p video | ~50 MB |
+
+One derived habit: **storage per year ≈ bytes/day × 400** (365 rounded up), and if you keep replicas add a ×3.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-02-shortcuts-q1", "type": "mcq",
+      "prompt": "A service handles 500 million requests per day. Roughly what is its average QPS, and what would you design for at peak?",
+      "options": [
+        {"id":"a","text":"~500 QPS average, ~1,000 peak"},
+        {"id":"b","text":"~5,000 QPS average, ~10,000–15,000 peak"},
+        {"id":"c","text":"~50,000 QPS average, ~150,000 peak"},
+        {"id":"d","text":"~500,000 QPS average, ~1M peak"}
+      ],
+      "correct": "b",
+      "explanation": "1 billion/day ≈ 10,000/sec, so 500 million/day ≈ 5,000/sec average. Multiply by 2–3 for peak → design for roughly 10,000–15,000 QPS." }
+] }
+```
+
+## The estimation template
+
+Always run the same five lines, in this order. Say each aloud; each one is a chance to earn a point.
+
+```
+1. Users        : DAU, and actions per user per day
+2. QPS          : (DAU × actions) ÷ 100,000 sec  → then ×3 for peak
+3. Read : Write : the single most design-relevant ratio
+4. Storage      : bytes per record × records/day × 400 days/yr × years × replication
+5. Bandwidth    : bytes per response × peak QPS
+```
+
+Then — and this is the part candidates forget — **state the conclusion**. An estimate with no conclusion earns nothing:
+
+- "3,500 peak QPS is a handful of app servers, not a thousand." (You are not building Google.)
+- "100:1 read:write, so caching and replicas carry this design."
+- "50 TB/year of video means object storage plus a CDN, and the DB only holds metadata."
+- "One shard tops out around 10k QPS, so at 40k I need at least 4–8 shards plus headroom."
+
+There is a fifth conclusion worth practising because it is the bravest and most senior: **"these numbers are small — a single Postgres instance with a read replica handles this, and I'd start there."** Reaching for a distributed system a problem does not need is a real and commonly-marked negative.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-02-template-q1", "type": "mcq",
+      "prompt": "Your estimate comes out at 200 QPS and 40 GB of total data. What is the strongest thing to say next?",
+      "options": [
+        {"id":"a","text":"\"I'll shard the database across 10 nodes for safety.\""},
+        {"id":"b","text":"\"This fits comfortably on one primary database with a replica for reads and failover — I'd start simple and note where it would need to change at 50× this load.\""},
+        {"id":"c","text":"\"I'll add Kafka between every service to decouple them.\""},
+        {"id":"d","text":"\"Let's assume 100× more traffic so the design is future-proof.\""}
+      ],
+      "correct": "b",
+      "explanation": "Matching the solution to the measured scale — and naming the load at which the design would change — is the senior answer. Pre-emptive sharding and unjustified Kafka are marked as over-engineering." }
+] }
+```
+
+## Three worked estimates
+
+**A. Read-heavy social feed (10M DAU).**
+
+```
+Reads : 10M × 10 timeline views       = 100M/day  → 1,000 QPS avg → 3,000 peak
+Writes: 10M × 0.1 posts               = 1M/day    → 10 QPS avg    → 30 peak
+Ratio : 100:1 read-heavy
+Storage: 1M posts × 300 B             = 300 MB/day → ~120 GB/yr text
+         (+ media: 10% of posts × 2 MB = 200 GB/day → 80 TB/yr → object store + CDN)
+Bandwidth: 5 KB response × 3,000 QPS  = 15 MB/s   → trivial for text, huge for media
+```
+**Conclusion:** text is a small problem; media is the storage/bandwidth problem. Design the read path with a cache; put blobs in S3 behind a CDN and keep only metadata in the DB.
+
+**B. Write-heavy metrics ingestion (100k servers, 1 metric/sec each).**
+
+```
+Writes: 100k × 1/sec                  = 100,000 writes/sec sustained
+Storage: 100k/sec × 50 B × 100k sec/day = 500 GB/day raw → 180 TB/yr
+```
+**Conclusion:** a row-per-datapoint relational table is hopeless. This needs a time-series store with columnar compression, batched/buffered writes, and downsampling — keep 1-second resolution for a day, 1-minute for a month, 1-hour for a year, which cuts long-term storage by ~99%.
+
+**C. Video platform (1M uploads/day, 500M views/day).**
+
+```
+Views  : 500M/day                     = 5,000 QPS avg → 15,000 peak
+Uploads: 1M/day × 50 MB               = 50 TB/day ingest → 18 PB/yr raw
+Transcoding: 1M videos × 5 renditions = 5M transcode jobs/day → 50/sec sustained
+Egress : 15,000 concurrent streams × 5 Mbps ≈ 75 Gbps
+```
+**Conclusion:** 75 Gbps cannot come off your origin — the entire design is a CDN design. Transcoding is a queue-and-worker-fleet problem, and the metadata database is by far the easiest part.
+
+Notice the pattern in all three: the estimate immediately identifies *which single subsystem is the actual problem*, and that becomes your deep dive.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-02-worked-q1", "type": "mcq",
+      "prompt": "A metrics system ingests 100k datapoints/sec. Which conclusion follows most directly from that number?",
+      "options": [
+        {"id":"a","text":"Use a relational table with one row per datapoint and an index on timestamp"},
+        {"id":"b","text":"Buffer and batch writes into a time-series/columnar store, and downsample older data to control storage growth"},
+        {"id":"c","text":"Add read replicas"},
+        {"id":"d","text":"Cache the datapoints in Redis permanently"}
+      ],
+      "correct": "b",
+      "explanation": "100k sustained writes/sec is ~10× what a single relational primary handles, and 180 TB/yr of raw points is unaffordable at full resolution. Batching plus columnar compression plus downsampling is the standard answer; replicas scale reads, not writes." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Seconds/day     ≈ 100,000        1M/day  ≈ 10 QPS      1B/day ≈ 10,000 QPS
+Peak            ≈ 2–3× average   Storage/yr ≈ bytes/day × 400 × replicas
+Memory 100 ns · SSD 100 µs · DC round trip 500 µs · cross-continent 150 ms
+Postgres ≈ 10k QPS/node · Redis ≈ 100k+ ops/sec · app server ≈ 10k req/sec
+Tweet 300 B · user 1 KB · JSON response 1–10 KB · photo 2 MB · 1080p video 50 MB/min
+```
+
+- **The estimate is a decision, not a calculation.** Every estimate ends with a sentence starting "so…" that points at the subsystem you will deep dive.
+- **Round to one significant figure and move on.** Being 30% off never changes an architecture; taking six minutes on long division does.
+- **The read:write ratio is the highest-value single number.** Read-heavy → cache, replicas, precomputation. Write-heavy → partitioning, batching, queues, append-only storage.
+- **Small numbers are a legitimate, senior answer.** "One database handles this" is a stronger response than an unjustified distributed system, provided you say at what load it stops being true.
+$md$, 45, $json$[{"id":"ip45-hld-02-numbers-q1","type":"mcq","correct":"c"},{"id":"ip45-hld-02-shortcuts-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-02-template-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-02-worked-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('a1040ce2-65bd-50ee-83b0-fff619a21e6f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Networking and Protocols for Design', 'notes', 3, $md$Every arrow you draw between two boxes is a network call, and interviewers probe those arrows: "how does the client find that server?", "how does the server push an update to the browser?", "why HTTP/2 there?". You do not need a networking degree — you need to know, for each arrow, which protocol carries it and what that choice costs.
+
+## From URL to first byte
+
+Know this sequence well enough to narrate it. It is asked directly ("what happens when you type a URL?") and it underpins CDN, load balancer, and TLS answers everywhere else.
+
+```
+1. DNS resolve      browser cache → OS cache → resolver → root → TLD → authoritative
+                    returns an IP (or a CDN edge IP via geo/latency routing)
+2. TCP handshake    SYN → SYN-ACK → ACK                       (1 round trip)
+3. TLS handshake    TLS 1.3: 1 round trip (1.2 was 2)         (0-RTT on resume)
+4. HTTP request     GET / with headers, cookies
+5. Server work      LB → app → cache/DB → response
+6. Response         HTML → browser parses → more requests for CSS/JS/images
+```
+
+Three facts that pay for themselves in interviews:
+
+- **DNS is a routing tool, not just a lookup.** TTL controls how fast you can fail over; geo/latency-based DNS routes users to the nearest region; weighted records do gradual rollouts. A short TTL (30–60 s) buys fast failover at the cost of more DNS traffic.
+- **Connection setup is expensive** — roughly 2 round trips before any application byte moves. Over a 150 ms link that is 300 ms of nothing. This is why keep-alive, connection pooling, and CDN edge termination matter so much.
+- **Anycast** advertises one IP from many locations so the network routes each user to the closest site. It is how CDNs and DNS providers work, and how volumetric DDoS traffic gets absorbed across many sites.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-03-path-q1", "type": "mcq",
+      "prompt": "You want to be able to fail traffic over to a standby region within a minute. What must you configure ahead of time?",
+      "options": [
+        {"id":"a","text":"A long DNS TTL, so clients cache the record and don't overload the resolver"},
+        {"id":"b","text":"A short DNS TTL (e.g. 30–60 s), so clients pick up the new record quickly — plus health checks that trigger the change"},
+        {"id":"c","text":"HTTP/3, because it reconnects faster"},
+        {"id":"d","text":"TLS session resumption"}
+      ],
+      "correct": "b",
+      "explanation": "Clients honour the TTL they were given, so a 24-hour TTL means a 24-hour tail of traffic to the dead region. Short TTLs are the price of DNS-based failover; the trade-off is more resolver queries." }
+] }
+```
+
+## TCP vs UDP, and what QUIC changed
+
+| | TCP | UDP |
+|---|---|---|
+| Delivery | Reliable, ordered, retransmits | Fire and forget, may drop or reorder |
+| Setup | 3-way handshake | None |
+| Congestion control | Yes | You build it or go without |
+| Head-of-line blocking | Yes — one lost packet stalls everything behind it | No |
+| Use for | APIs, databases, anything correctness-critical | Live video/voice, gaming, DNS, metrics |
+
+The decision rule: **is a late packet worth more than no packet?** For a bank transfer, yes — retransmit. For a video call, no — a frame that arrives 400 ms late is worse than a dropped frame, so use UDP and conceal the loss.
+
+**HTTP/3 runs over QUIC, which runs over UDP.** It rebuilds reliability, ordering, and congestion control in user space, which buys two things: independent streams (a lost packet stalls only its own stream, not the whole connection) and connection migration (your phone switching Wi-Fi→cellular keeps the connection alive because the connection ID, not the IP address, identifies it).
+
+| Version | Key property |
+|---|---|
+| HTTP/1.1 | One request in flight per connection → browsers open ~6 connections per host |
+| HTTP/2 | Multiplexed streams over one TCP connection, header compression, server push (now deprecated) — still suffers TCP head-of-line blocking |
+| HTTP/3 | Same multiplexing over QUIC/UDP — no cross-stream head-of-line blocking, faster handshake, connection migration |
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-03-tcp-q1", "type": "mcq",
+      "prompt": "HTTP/2 multiplexes many streams over one TCP connection. Which problem does that NOT solve, and HTTP/3 does?",
+      "options": [
+        {"id":"a","text":"Header size — HTTP/2 does not compress headers"},
+        {"id":"b","text":"TCP-level head-of-line blocking: one lost packet stalls every multiplexed stream, because TCP must deliver bytes in order"},
+        {"id":"c","text":"Encryption — HTTP/2 cannot use TLS"},
+        {"id":"d","text":"The number of DNS lookups required"}
+      ],
+      "correct": "b",
+      "explanation": "HTTP/2 removed application-level head-of-line blocking but sits on TCP, which still guarantees in-order byte delivery — so one dropped packet blocks all streams. QUIC tracks loss per stream, so only the affected stream waits." }
+] }
+```
+
+## Client–server communication styles
+
+The single most common protocol question: **"how does the client find out something changed?"** Four answers, in increasing order of power and cost.
+
+| Style | How it works | Latency | Server cost | Use when |
+|---|---|---|---|---|
+| **Short polling** | Client asks every N seconds | Up to N sec | Wasteful — most responses empty | Simplicity wins; updates are rare and staleness is fine |
+| **Long polling** | Request held open until data or timeout, then re-issued | Near real-time | One held connection per client | Real-time-ish without WebSocket support |
+| **SSE** (Server-Sent Events) | One long-lived HTTP response, server streams events, browser auto-reconnects | Real-time | One connection per client | **Server→client only**: feeds, notifications, live scores, LLM token streams |
+| **WebSocket** | HTTP `Upgrade` → full-duplex TCP connection | Real-time | One connection per client, stateful servers | **Bidirectional**: chat, collaborative editing, multiplayer, trading |
+
+Two design consequences interviewers push on:
+
+1. **WebSocket and SSE make servers stateful.** A connection is pinned to one machine, so you need sticky routing, a shared pub/sub layer (Redis, NATS, Kafka) to deliver a message to whichever server holds the recipient's connection, and a deploy story that drains connections gracefully. This is why "just use WebSockets" is not a free answer.
+2. **Connection count becomes a capacity number.** 1M concurrent users on WebSockets is 1M open sockets; at ~50k–100k per node that is 10–20 gateway nodes doing nothing but holding connections.
+
+If you only need server→client push, **prefer SSE**: it is plain HTTP, works through most proxies, reconnects automatically, and halves the complexity.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-03-realtime-q1", "type": "mcq",
+      "prompt": "A dashboard needs live price updates pushed from server to browser; the browser never sends anything back on that channel. What is the best fit?",
+      "options": [
+        {"id":"a","text":"WebSocket, because it is the standard for real-time"},
+        {"id":"b","text":"Server-Sent Events — one-directional, plain HTTP, automatic reconnection, far less operational complexity"},
+        {"id":"c","text":"Short polling every 100 ms"},
+        {"id":"d","text":"gRPC bidirectional streaming from the browser"}
+      ],
+      "correct": "b",
+      "explanation": "SSE is purpose-built for server→client streams over ordinary HTTP. Choosing WebSocket when you never need the client→server direction buys you sticky sessions and a heavier protocol for nothing." }
+] }
+```
+
+## Service-to-service: REST, gRPC, GraphQL, and message queues
+
+| | REST/JSON | gRPC/protobuf | GraphQL | Message queue |
+|---|---|---|---|---|
+| Shape | Resource + verbs | RPC with typed contract | One endpoint, client-specified query | Async publish/consume |
+| Payload | Text, human-readable | Binary, compact and fast | JSON | Anything |
+| Contract | OpenAPI (optional) | `.proto` (enforced, codegen) | Schema (enforced) | Event schema (often loose) |
+| Streaming | SSE / chunked | First-class, bidirectional | Subscriptions | Native |
+| Browser support | Native | Needs a proxy (grpc-web) | Native | No |
+| Best for | Public APIs, simple internal calls | Internal service-to-service at scale | Aggregating many resources for varied clients | Decoupling, buffering, fan-out |
+
+Rules of thumb that read well:
+
+- **Public / partner-facing → REST.** Everyone can call it with `curl`, caching works, no toolchain required.
+- **Internal high-volume east–west → gRPC.** Binary encoding and HTTP/2 multiplexing cut latency and CPU; the generated stubs stop drift between teams.
+- **Many clients with different data needs → GraphQL.** It solves over-fetching and under-fetching; it costs you query-cost control (depth limits, complexity budgets, persisted queries), harder HTTP caching, and the N+1 resolver problem (fixed with DataLoader-style batching).
+- **Caller doesn't need the result now → a queue, not a call.** Synchronous chains multiply failure: five services at 99.9% each in a chain give 99.5% overall.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-03-rpc-q1", "type": "mcq",
+      "prompt": "Two internal services exchange 50k requests/sec of structured data. Why is gRPC usually preferred over REST/JSON here?",
+      "options": [
+        {"id":"a","text":"gRPC responses can be cached by CDNs, JSON cannot"},
+        {"id":"b","text":"Binary protobuf encoding plus HTTP/2 multiplexing cuts payload size, CPU spent on serialization, and per-request connection overhead — and the .proto contract is enforced at compile time"},
+        {"id":"c","text":"gRPC guarantees exactly-once delivery"},
+        {"id":"d","text":"REST cannot be used between backend services"}
+      ],
+      "correct": "b",
+      "explanation": "At high east–west volume, JSON parsing CPU and payload size are real costs, and untyped contracts drift between teams. gRPC fixes both. It gives no delivery guarantees beyond what the transport provides, and it is worse for public/browser access." }
+] }
+```
+
+## Key takeaways
+
+**The decision table — memorise the left column and the trigger:**
+
+| Question | Answer |
+|---|---|
+| Client needs updates, server→client only | SSE |
+| Client and server both push | WebSocket (+ sticky routing + shared pub/sub) |
+| Updates rare, staleness fine | Short polling |
+| Public API | REST/JSON over HTTP |
+| Internal, high volume, typed | gRPC |
+| Many client shapes, one round trip | GraphQL (+ depth limits, DataLoader) |
+| Caller doesn't need the result now | Message queue |
+| Loss-tolerant, latency-critical media | UDP / WebRTC |
+| Fast regional failover | Short DNS TTL + health checks |
+| Static assets, global audience | CDN at the edge, anycast |
+
+- **Every arrow is a protocol choice with a cost.** Naming the cost (statefulness, connection count, proxy support, caching loss) is what makes the answer senior.
+- **Round trips dominate latency, not bandwidth.** Cut the number of calls before you optimise the size of each one.
+- **Stateful connections change your architecture**, not just your protocol: sticky routing, a pub/sub backbone, connection-drain deploys, and a per-node connection budget.
+$md$, 45, $json$[{"id":"ip45-hld-03-path-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-03-tcp-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-03-realtime-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-03-rpc-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('93b4d0e2-9a8c-51ce-a628-54567103f1fc', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'API Design and Idempotency', 'notes', 4, $md$The API is the first concrete artefact in a design interview and the one most candidates rush. Done well it takes four minutes and settles half a dozen questions the interviewer would otherwise ask: how do you page, how do you version, what happens when the client retries, who is allowed to call this.
+
+## Resource modelling and the URL contract
+
+REST is a set of conventions, and the conventions are the point — a reviewer should be able to guess your endpoints.
+
+```
+GET    /v1/users/{id}                    fetch one
+GET    /v1/users/{id}/tweets?cursor=...  a sub-collection
+POST   /v1/tweets                        create
+PATCH  /v1/tweets/{id}                   partial update
+DELETE /v1/tweets/{id}                   delete
+POST   /v1/tweets/{id}/retweet           an action that isn't CRUD
+```
+
+The rules worth stating out loud:
+
+- **Nouns in paths, verbs in methods.** `POST /v1/createTweet` is the classic tell. When an operation genuinely isn't CRUD (retweet, publish, cancel), a sub-resource action verb is accepted practice — say so rather than contorting the model.
+- **Nest one level, then stop.** `/users/{id}/tweets` is fine; `/users/{id}/tweets/{tid}/comments/{cid}/likes` is not — expose `/comments/{cid}/likes` instead.
+- **HTTP status codes carry meaning.** `200` ok, `201` created, `202` accepted-and-processing-async, `204` no content, `400` malformed, `401` unauthenticated, `403` authenticated-but-forbidden, `404` not found, `409` conflict, `422` semantically invalid, `429` rate limited (with `Retry-After`), `500` your bug, `503` overloaded/degraded.
+- **Errors have a machine-readable shape**, always the same one: `{"error": {"code": "INSUFFICIENT_FUNDS", "message": "...", "request_id": "..."}}`. The `code` is for the client's logic, the `message` for humans, the `request_id` for your support team.
+
+**Method semantics matter more than the URL.** Two properties the interviewer may ask you to define:
+
+- **Safe** — does not modify state: `GET`, `HEAD`, `OPTIONS`.
+- **Idempotent** — the same call repeated has the same effect as calling it once: `GET`, `PUT`, `DELETE`, and (by convention) not `POST`. `PUT /users/1 {name:"A"}` twice leaves one user named A. `POST /tweets` twice creates two tweets — which is exactly the problem the next section solves.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-04-rest-q1", "type": "mcq",
+      "prompt": "A client is authenticated but is trying to delete someone else's post. Which status code is correct?",
+      "options": [
+        {"id":"a","text":"401 Unauthorized"},
+        {"id":"b","text":"403 Forbidden"},
+        {"id":"c","text":"400 Bad Request"},
+        {"id":"d","text":"500 Internal Server Error"}
+      ],
+      "correct": "b",
+      "explanation": "401 means \"I don't know who you are\" (missing/invalid credentials); 403 means \"I know who you are and you may not do this\". Some APIs deliberately return 404 instead of 403 to avoid leaking that the resource exists — a legitimate choice worth naming." }
+] }
+```
+
+## Idempotency: the retry problem
+
+This is the single highest-value API topic in interviews, because it appears in every payment, booking, and messaging design.
+
+The failure it solves: a client sends `POST /payments`, the server charges the card, and the response is lost in the network. The client retries. Without protection, the customer is charged twice.
+
+The standard mechanism:
+
+```
+POST /v1/payments
+Idempotency-Key: 8f14e45f-ea24-4e0b-b8d1-5a3c7f1e2b90
+{ "amount_cents": 49900, "currency": "INR", "order_id": "ord_123" }
+```
+
+Server-side algorithm:
+
+1. Look up the key in an idempotency store (Redis or a table), scoped to the caller.
+2. **Not present** → insert it in state `in_progress` with a **unique constraint on the key** (this is what makes it race-safe — two concurrent retries cannot both win the insert), do the work, store the response body and status, mark `completed`.
+3. **Present and `completed`** → return the stored response verbatim. Do not redo the work.
+4. **Present and `in_progress`** → return `409 Conflict` and let the client retry after a moment.
+5. Expire keys after 24–48 hours.
+
+Two subtleties that earn credit:
+
+- **The unique index is the correctness mechanism**, not the lookup. "Check then insert" without a constraint is a race: two retries can both pass the check.
+- **Idempotency ≠ deduplication of intent.** If the user genuinely wants to pay twice, they send a new key. The key is generated by the client per logical operation, not per HTTP attempt.
+
+Where you cannot add a key, the fallback is a **natural idempotency key** already in the data — `(order_id)` with a unique constraint, or a client-generated `message_id` on a chat send.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-04-idem-q1", "type": "mcq",
+      "prompt": "Why does a correct idempotency implementation need a UNIQUE constraint on the key, rather than just a lookup before writing?",
+      "options": [
+        {"id":"a","text":"To make lookups faster"},
+        {"id":"b","text":"Because two retries arriving concurrently can both find no existing record and both proceed — only the database constraint makes exactly one of them win"},
+        {"id":"c","text":"Because keys must be sorted"},
+        {"id":"d","text":"To let the key expire automatically"}
+      ],
+      "correct": "b",
+      "explanation": "Check-then-act is a classic race. The unique index turns it into an atomic compare-and-set: the loser gets a constraint violation and returns the stored/in-progress result instead of charging again." }
+] }
+```
+
+## Pagination, filtering, and partial responses
+
+**Never offset-paginate a feed.** `LIMIT 20 OFFSET 100000` makes the database walk 100,000 rows to throw them away, and a new row at the head shifts every subsequent page, so users see duplicates.
+
+**Cursor (keyset) pagination** instead — the cursor encodes the sort key of the last row seen:
+
+```sql
+SELECT id, text, created_at
+FROM tweets
+WHERE author_id = $1
+  AND (created_at, id) < ($2, $3)   -- the decoded cursor; id breaks ties
+ORDER BY created_at DESC, id DESC
+LIMIT 21;                            -- fetch one extra to know if there's a next page
+```
+
+Return `{"items": [...], "next_cursor": "eyJ0IjoiMjAy..."}`. Opaque, base64-encoded cursors let you change the underlying sort without breaking clients.
+
+| | Offset | Cursor |
+|---|---|---|
+| Deep-page cost | O(offset) | O(log n) index seek |
+| Stable under inserts | No | Yes |
+| Jump to page 500 | Yes | No (usually fine) |
+| Total count | Easy | Needs a separate estimate |
+
+**Filtering and sparse fields**: `?status=active&created_after=2026-01-01&fields=id,name`. Whitelist every filterable and sortable field — an open-ended filter parameter that reaches the database is both an injection surface and a way for one client to table-scan your production DB.
+
+**Rate limiting is part of the contract.** Return the budget in headers so clients can behave:
+
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 42
+X-RateLimit-Reset: 1757145600
+Retry-After: 30          (on 429)
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-04-pagination-q1", "type": "mcq",
+      "prompt": "Why does a cursor for a feed sorted by `created_at DESC` usually encode `(created_at, id)` rather than `created_at` alone?",
+      "options": [
+        {"id":"a","text":"To make the cursor longer and harder to guess"},
+        {"id":"b","text":"Because multiple rows can share the same timestamp — without a tie-breaker the page boundary can skip or repeat those rows"},
+        {"id":"c","text":"Because timestamps cannot be indexed"},
+        {"id":"d","text":"To support jumping to an arbitrary page number"}
+      ],
+      "correct": "b",
+      "explanation": "Keyset pagination needs a total order. If ten posts share a millisecond, `created_at < cursor` either drops all of them or returns them twice. Adding the primary key as a tie-breaker makes the sort key unique." }
+] }
+```
+
+## Versioning, compatibility, and the API gateway
+
+**Version from day one.** `/v1/` in the path is the least clever and most operable option — it is visible in logs, routable at the load balancer, and trivially cacheable. Header-based versioning (`Accept: application/vnd.api+json;version=2`) is purer REST and worse to debug.
+
+The real skill is **avoiding a v2 at all**, by making only backward-compatible changes:
+
+| Safe | Breaking |
+|---|---|
+| Add a new optional field to a response | Remove or rename a field |
+| Add a new optional request parameter | Make an optional parameter required |
+| Add a new endpoint | Change a field's type or units |
+| Add a new enum value **if clients ignore unknowns** | Change the meaning of an existing value |
+| Loosen validation | Tighten validation |
+
+When you must break, run both versions side by side, publish a deprecation date, emit a `Deprecation` / `Sunset` header, and track per-client usage of the old version so you know who you are about to break.
+
+**The API gateway** is the box that owns the cross-cutting concerns, so individual services do not each reimplement them:
+
+```
+Client → Gateway ──▶ auth (verify JWT / API key)
+                 ──▶ rate limiting + quotas
+                 ──▶ request validation
+                 ──▶ routing / versioning
+                 ──▶ TLS termination, compression
+                 ──▶ logging, tracing headers, metrics
+                 ──▶ services
+```
+
+Keep business logic *out* of it. A gateway that starts making decisions about orders becomes a distributed monolith with a single owner and a single failure domain.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-04-versioning-q1", "type": "mcq",
+      "prompt": "Which change to an existing endpoint is BACKWARD COMPATIBLE for clients already in production?",
+      "options": [
+        {"id":"a","text":"Renaming the response field `userName` to `user_name`"},
+        {"id":"b","text":"Adding a new optional query parameter that defaults to today's behaviour"},
+        {"id":"c","text":"Changing `amount` from rupees to paise"},
+        {"id":"d","text":"Making the previously optional `currency` field required"}
+      ],
+      "correct": "b",
+      "explanation": "Additions with safe defaults are compatible. Renames, unit changes, and newly-required fields all break existing callers — a silent unit change is the most dangerous of the three because nothing errors, the numbers are just wrong." }
+] }
+```
+
+## Key takeaways
+
+**The API checklist to run in every design interview (60 seconds):**
+
+```
+□ 3–5 endpoints, nouns + HTTP verbs, /v1/ prefix
+□ Cursor pagination on every list  → {items[], next_cursor}
+□ Idempotency-Key on every non-idempotent write, backed by a UNIQUE constraint
+□ Consistent error envelope: {error:{code, message, request_id}}
+□ Rate-limit headers + 429 + Retry-After
+□ Auth at the gateway: who calls this, and what scope do they need?
+□ Whitelisted filter/sort fields — never pass client strings to the query planner
+```
+
+- **Idempotency is the highest-yield API topic**: retries are guaranteed in a distributed system, and the unique constraint — not the lookup — is what makes the implementation correct.
+- **Cursor over offset, always, for anything a user scrolls.**
+- **Design for additive change** so you never have to ship a v2; when you must, run both and instrument who is still on the old one.
+- **The gateway owns cross-cutting concerns; services own business logic.** Drawing that line explicitly is a strong architecture signal.
+$md$, 45, $json$[{"id":"ip45-hld-04-rest-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-04-idem-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-04-pagination-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-04-versioning-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('05dd7fa4-0008-5e04-8e14-91fc3dc56244', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Load Balancing, Proxies, and Scaling Out', 'notes', 5, $md$"Add a load balancer" is the reflex answer to every scaling question, and on its own it earns nothing. What earns points is knowing which layer it operates at, which algorithm it uses and why, what happens when a backend dies mid-request, and what the load balancer itself does when *it* dies.
+
+## Vertical vs horizontal, and what makes scaling out possible
+
+**Vertical scaling** (a bigger machine) is genuinely the right first move more often than interviews suggest: no distributed-systems complexity, no code change, and modern single machines are enormous. It ends at a hard ceiling, costs superlinearly at the top end, and leaves you with one thing to lose.
+
+**Horizontal scaling** (more machines) is unbounded and fault-tolerant, and it demands one property from your application: **statelessness**.
+
+An app server is stateless when any request can be served by any instance. That means:
+
+- No in-process session store → sessions in Redis, or a signed JWT the client carries.
+- No in-process cache of mutable shared state → shared Redis, or accept per-node staleness deliberately.
+- No local file writes that matter → object storage.
+- No "the third instance is the one that runs the cron" → a scheduler with leader election.
+
+Say this explicitly when you draw multiple app boxes: "these are stateless, session state is in Redis, so I can add or lose instances freely." It converts a generic diagram into a considered one.
+
+State does not disappear, it *concentrates* — into the database, the cache, and the queue. That is why the rest of this section is mostly about those three.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-05-scaling-q1", "type": "mcq",
+      "prompt": "An app stores logged-in user sessions in each server's memory. What breaks when you put three instances behind a round-robin load balancer?",
+      "options": [
+        {"id":"a","text":"Nothing — the load balancer replicates memory between instances"},
+        {"id":"b","text":"Users appear randomly logged out, because a request routed to an instance that doesn't hold their session finds none"},
+        {"id":"c","text":"TLS handshakes fail"},
+        {"id":"d","text":"The database becomes the bottleneck"}
+      ],
+      "correct": "b",
+      "explanation": "In-process session state makes instances non-interchangeable. The fixes are a shared session store (Redis), a self-contained token (JWT), or sticky sessions — and sticky sessions are the worst of the three because they break even balancing and lose sessions when an instance dies." }
+] }
+```
+
+## L4 vs L7, and the algorithms
+
+**Layer 4** balances on TCP/UDP connection info (IP + port). It cannot see the HTTP request. It is very fast, protocol-agnostic, and does connection-level balancing — one long-lived connection sticks to one backend for its whole life.
+
+**Layer 7** terminates the connection, parses HTTP, and can route on path, header, cookie, or method. That unlocks path-based routing (`/api/*` → services, `/static/*` → CDN origin), header-based canaries, per-request balancing over HTTP/2, request rewriting, and response caching — at the cost of more CPU and being HTTP-specific.
+
+| | L4 | L7 |
+|---|---|---|
+| Sees | IP, port | Full HTTP request |
+| Balances | Per connection | Per request |
+| Routing rules | None | Path, header, cookie, method |
+| TLS | Passes through (or terminates) | Terminates, can re-encrypt |
+| Throughput | Very high | Lower (parsing cost) |
+| Typical | AWS NLB, IPVS | AWS ALB, nginx, Envoy, HAProxy |
+
+**Algorithms — know when each is wrong:**
+
+| Algorithm | Behaviour | Fails when |
+|---|---|---|
+| Round robin | Next backend in rotation | Requests have very different costs, or backends differ in size |
+| Weighted round robin | Rotation biased by capacity | Same as above, but handles heterogeneous hardware |
+| **Least connections** | Fewest in-flight requests wins | Rarely wrong — the sane default for varied request costs |
+| Least response time | Fastest recent backend wins | Can stampede a newly-fast (empty, cold) node |
+| IP hash / consistent hash | Same client (or key) → same backend | Uneven client distribution; needed for cache locality and sticky routing |
+| Random two-choices | Pick 2 at random, take the less loaded | Almost as good as least-connections with far less coordination |
+
+"Round robin by default, least-connections when request cost varies, consistent hashing when I need cache locality or session affinity" is a complete answer to "which algorithm?".
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-05-l4l7-q1", "type": "mcq",
+      "prompt": "You need to route `/api/*` to the API service and `/images/*` to a media service, and send 5% of traffic carrying a `x-canary: true` header to a new build. What do you need?",
+      "options": [
+        {"id":"a","text":"An L4 load balancer, which is faster"},
+        {"id":"b","text":"An L7 load balancer — only it parses the HTTP request, so only it can route on path and header"},
+        {"id":"c","text":"DNS round robin"},
+        {"id":"d","text":"Consistent hashing on client IP"}
+      ],
+      "correct": "b",
+      "explanation": "L4 sees only IP and port, so path- and header-based rules are impossible there. Content-based routing is exactly the reason to pay L7's parsing cost." }
+] }
+```
+
+## Health checks, draining, and failing over the balancer itself
+
+A load balancer that keeps sending traffic to a dead backend is worse than no load balancer.
+
+**Health checks come in two useful flavours:**
+
+- **Liveness** — "is the process alive?" A failure means restart me.
+- **Readiness** — "can I serve traffic right now?" A failure means take me out of rotation but don't kill me. This is the one the load balancer must use. A node warming its cache, or one whose database connection pool is exhausted, is live but not ready.
+
+Make the readiness endpoint **shallow by default**. A `/health` that checks the database means one database blip marks every app node unhealthy at once and takes the whole fleet out of rotation — a classic self-inflicted outage. Check dependencies in a separate, non-routing-affecting endpoint.
+
+**Passive health checking** complements active probes: eject a backend after N consecutive errors or timeouts (outlier detection), then let it back in gradually.
+
+**Connection draining** on deploy: stop sending *new* requests to an instance, let in-flight requests finish (up to a timeout), then terminate. Without it every deploy throws 502s at whoever was mid-request.
+
+**Who balances the balancer?** Say this before you are asked:
+
+1. Run at least two LB nodes; DNS returns both IPs, or they share a floating/virtual IP with automatic failover.
+2. Use the cloud's managed LB (ALB/NLB), which is itself a distributed, multi-AZ service.
+3. **Anycast + DNS health checks** for cross-region failover: one IP advertised from many sites, and DNS with a short TTL pulling a dead region out.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-05-health-q1", "type": "mcq",
+      "prompt": "Why is it dangerous for an app server's load-balancer health check to verify the database connection?",
+      "options": [
+        {"id":"a","text":"It makes the health check slightly slower"},
+        {"id":"b","text":"A single database hiccup marks every app instance unhealthy simultaneously, so the load balancer removes the entire fleet and turns a partial degradation into a total outage"},
+        {"id":"c","text":"Health checks are not allowed to make network calls"},
+        {"id":"d","text":"It would expose database credentials"}
+      ],
+      "correct": "b",
+      "explanation": "Health checks should describe the instance, not its dependencies. A shared dependency in a readiness probe correlates all instances' health — the fleet-wide removal is far worse than serving degraded responses while the DB recovers." }
+] }
+```
+
+## Reverse proxy, API gateway, sidecar, service mesh
+
+These four boxes overlap and interviewers like to hear you separate them.
+
+| Box | Sits | Responsibilities |
+|---|---|---|
+| **Reverse proxy** (nginx, Envoy) | In front of servers | TLS termination, compression, static caching, basic routing, buffering slow clients |
+| **API gateway** (Kong, ALB+Lambda, Apigee) | North–south edge | Everything a reverse proxy does, plus auth, rate limits, quotas, API keys, versioning, request/response transformation |
+| **Sidecar proxy** (Envoy per pod) | Beside each service | Per-service mTLS, retries, timeouts, circuit breaking, tracing — with no application code |
+| **Service mesh** (Istio, Linkerd) | Control plane over sidecars | Fleet-wide policy: mTLS everywhere, traffic splitting, retry budgets, uniform observability |
+
+Two directions worth naming: **north–south** traffic is client↔system (gateway's job); **east–west** is service↔service (mesh's job).
+
+**Service discovery** is the piece that makes any of this dynamic. Instances come and go, so something must maintain the list:
+
+- **Server-side discovery**: clients call a stable load balancer address; the LB knows the current backends (registered via Consul/etcd, or Kubernetes Endpoints). Simple, one extra hop.
+- **Client-side discovery**: clients fetch the instance list and balance themselves. One fewer hop, better balancing decisions, but every client language needs the logic — which is precisely why sidecars exist.
+
+A load balancer's own failure mode to name: it is a bottleneck for **bandwidth**, not just requests. 75 Gbps of video egress cannot flow through one L7 proxy — that traffic must bypass it via a CDN or direct-to-object-storage signed URLs.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-05-proxy-q1", "type": "mcq",
+      "prompt": "What does a sidecar proxy (e.g. Envoy per pod) give you that an edge API gateway does not?",
+      "options": [
+        {"id":"a","text":"TLS termination for external clients"},
+        {"id":"b","text":"Per-service-to-service control — mTLS, retries, timeouts, circuit breaking and tracing on east–west calls — without changing application code in every language"},
+        {"id":"c","text":"API key management for third-party developers"},
+        {"id":"d","text":"Static asset caching"}
+      ],
+      "correct": "b",
+      "explanation": "The gateway governs north–south traffic entering the system. A sidecar governs east–west traffic between internal services, which never passes through the edge — that is the gap a mesh fills." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Scale up first (simple, real ceiling) → scale out when you need HA or exceed one box
+Scaling out requires statelessness: sessions → Redis/JWT, files → S3, cron → leader election
+L4 = IP:port, per connection, fast     L7 = HTTP-aware, per request, routable
+Default algorithm: round robin → least connections when request cost varies
+                   → consistent hashing for cache locality / affinity
+Readiness ≠ liveness. Never check shared dependencies in the routing health check.
+Always: 2+ LBs, connection draining on deploy, outlier ejection on repeated errors
+North–south = gateway. East–west = mesh/sidecar. Discovery = who's alive right now.
+```
+
+- **"Add a load balancer" is a sentence fragment.** Finish it: which layer, which algorithm, which health check, what happens on deploy, and who balances the balancer.
+- **Sticky sessions are a smell**, not a solution — they unbalance the fleet and lose state on instance death. Externalise the state instead.
+- **The load balancer can be a bandwidth bottleneck** long before it is a request bottleneck; heavy byte flows should route around it entirely.
+$md$, 45, $json$[{"id":"ip45-hld-05-scaling-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-05-l4l7-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-05-health-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-05-proxy-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('2c49feae-ec5c-56e2-a8b9-433ed7089c3b', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Caching and CDNs', 'notes', 6, $md$Caching is the cheapest order-of-magnitude you will ever buy, and the most common source of subtle production bugs. In interviews it comes up twice: once when you add Redis to the diagram, and again fifteen minutes later when the interviewer asks "so how does the cache get invalidated?" — which is the question that separates people who have run a cache from people who have drawn one.
+
+## Where caches live
+
+There is not "a cache" — there is a stack of them, and naming the layer you mean is half the answer.
+
+| Layer | Example | Typical TTL | Invalidation |
+|---|---|---|---|
+| Client / browser | `Cache-Control: max-age`, service worker | minutes–days | Content-hashed URLs |
+| CDN / edge | CloudFront, Cloudflare, Fastly | minutes–days | Purge API, hashed URLs |
+| Reverse proxy | nginx / Varnish page cache | seconds–minutes | TTL, purge |
+| Application (in-process) | local LRU map, Caffeine | seconds | TTL only — per-node, can't be purged coherently |
+| Distributed cache | Redis, Memcached | minutes–hours | Explicit delete on write |
+| Database | Postgres buffer pool, query plan cache | — | Automatic |
+| Materialised view / precomputed | timeline in Redis, rollup table | until recomputed | Recompute on event |
+
+Two rules of placement:
+
+1. **Cache as close to the user as the data's freshness requirement allows.** A product image can sit in a browser for a year (content-hashed filename); a stock price cannot sit anywhere for more than a second.
+2. **In-process caches cannot be invalidated coherently.** With 20 app instances you have 20 independent copies and no way to purge them all reliably. Use them only for data where bounded staleness (a short TTL) is genuinely acceptable — feature flags, config, reference data.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-06-layers-q1", "type": "mcq",
+      "prompt": "Why is an in-process (per-instance) cache a poor fit for data that must be invalidated the instant it changes?",
+      "options": [
+        {"id":"a","text":"In-process caches are too slow"},
+        {"id":"b","text":"Every instance holds its own independent copy, so there is no single place to purge — you would need to reliably broadcast an invalidation to every node, and any node that missed it serves stale data"},
+        {"id":"c","text":"In-process caches cannot store objects, only strings"},
+        {"id":"d","text":"They consume database connections"}
+      ],
+      "correct": "b",
+      "explanation": "Coherent invalidation needs a single authority. That is exactly what a shared Redis gives you and a per-node map does not — a per-node map is only safe when a short TTL's worth of staleness is acceptable." }
+] }
+```
+
+## The four caching patterns
+
+**Cache-aside (lazy loading)** — the default, and what you should say unless there's a reason not to. The application owns the cache.
+
+```python
+def get_user(user_id):
+    key = f"user:{user_id}"
+    cached = redis.get(key)
+    if cached is not None:
+        return json.loads(cached)          # hit
+
+    user = db.query("SELECT * FROM users WHERE id = %s", user_id)  # miss
+    if user is not None:
+        redis.setex(key, 300, json.dumps(user))                    # populate with a TTL
+    return user
+
+def update_user(user_id, changes):
+    db.update("users", user_id, changes)
+    redis.delete(f"user:{user_id}")        # invalidate, don't rewrite — see below
+```
+
+Only requested data is cached, and a cache outage degrades to slow rather than broken. The costs: every miss pays DB latency, and there is a window between the DB write and the cache delete where a concurrent reader can repopulate the old value.
+
+**Write-through** — write to cache and database together, synchronously. The cache is never stale; every write pays both latencies, and you cache data nobody may ever read.
+
+**Write-behind (write-back)** — write to cache, acknowledge, flush to the database asynchronously in batches. Very fast writes, excellent for high-volume counters and metrics; you can lose data if the cache dies before the flush. Only acceptable when the data is not critical or is reconstructible.
+
+**Refresh-ahead** — proactively refresh hot keys before their TTL expires, so users never hit the miss. Great for a small set of predictably-hot keys; wasteful if you guess wrong.
+
+| Pattern | Read latency | Write latency | Staleness | Data-loss risk |
+|---|---|---|---|---|
+| Cache-aside | Fast on hit, slow on miss | DB only | Small window | None |
+| Write-through | Always fast | DB + cache | None | None |
+| Write-behind | Always fast | Cache only | None in cache | **Yes** |
+| Refresh-ahead | Always fast | DB only | Bounded | None |
+
+**Invalidate, don't update.** On a write, delete the key rather than writing the new value into it. Two concurrent writers that each update the cache can interleave so the cache ends up holding the *older* value permanently; a delete makes the next read repopulate from the source of truth. If you need to close even the delete's race window, use **delayed double delete**: delete, write the DB, then delete again a few hundred milliseconds later.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-06-patterns-q1", "type": "mcq",
+      "prompt": "On updating a row, why is `redis.delete(key)` generally safer than `redis.set(key, newValue)`?",
+      "options": [
+        {"id":"a","text":"Delete is faster than set"},
+        {"id":"b","text":"Two concurrent writers' set operations can interleave so the older value lands last and stays cached indefinitely; a delete forces the next read to repopulate from the source of truth"},
+        {"id":"c","text":"Redis does not support set on existing keys"},
+        {"id":"d","text":"Delete frees memory, which is always preferable"}
+      ],
+      "correct": "b",
+      "explanation": "Writer A reads v1, writer B writes v2 and sets the cache, then A's delayed set writes v1 — the cache now permanently disagrees with the database. Deleting removes the possibility: worst case is an extra miss." }
+] }
+```
+
+## Eviction, TTLs, and hit rate
+
+**Eviction policies** — what to drop when memory is full:
+
+| Policy | Drops | Best for |
+|---|---|---|
+| **LRU** | Least recently used | General purpose — the default |
+| **LFU** | Least frequently used | Stable hot sets; resists a scan flushing your hot keys |
+| FIFO | Oldest inserted | Rarely right |
+| Random | A random key | Surprisingly decent, very cheap |
+| TTL-only (`volatile-*`) | Only keys with an expiry | When some keys must never be evicted |
+
+Redis's `allkeys-lru` and `allkeys-lfu` are the two you will name in practice. LFU's advantage: one big analytical scan touching a million cold keys does not evict your hot set, because recency alone doesn't promote them.
+
+**TTLs do two jobs**: they bound staleness, and they are your safety net for invalidation bugs. Always set one, even when you also delete explicitly. A cache with no TTL and one missed invalidation is a permanently wrong answer.
+
+**Add jitter to TTLs.** If 10,000 keys are populated in the same second with the same 300 s TTL, they all expire in the same second and the resulting stampede hits your database at once. Use `300 + random(0, 60)`.
+
+**Hit rate is the number that matters.** A cache at 50% hit rate is doing very little; 95%+ is where the order-of-magnitude lives. Track hits, misses, evictions, and memory used — a rising eviction rate means the working set no longer fits and the hit rate is about to collapse.
+
+Sizing rule of thumb: the classic 80/20 shape means caching the hot 20% of keys gets you ~80% of requests. Estimate the working-set bytes, not the total-data bytes.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-06-eviction-q1", "type": "mcq",
+      "prompt": "A nightly batch job scans every user record. Under which eviction policy is it LEAST likely to flush the hot keys real users depend on?",
+      "options": [
+        {"id":"a","text":"LRU — the scanned keys become the most recently used and push out the hot set"},
+        {"id":"b","text":"LFU — the scanned keys are each touched once, so they never accumulate enough frequency to displace genuinely hot keys"},
+        {"id":"c","text":"FIFO"},
+        {"id":"d","text":"No eviction policy at all"}
+      ],
+      "correct": "b",
+      "explanation": "This is the classic scan-resistance argument for LFU. Under LRU a single sequential scan promotes a million cold keys to \"most recent\" and evicts the working set, so the next morning starts at a near-zero hit rate." }
+] }
+```
+
+## The three failure modes: stampede, penetration, avalanche
+
+Naming these unprompted is a strong senior signal.
+
+**1. Cache stampede (thundering herd).** A hot key expires; 5,000 concurrent requests all miss and all query the database for the same row. The database falls over.
+
+Fixes, in order of preference:
+- **Request coalescing / single-flight**: the first miss acquires a short lock (`SET key:lock nx ex 5`); everyone else waits briefly and re-reads the cache.
+- **Probabilistic early expiry**: each reader recomputes with a probability that rises as the TTL approaches, so exactly one tends to refresh early.
+- **Serve stale while revalidating**: return the expired value immediately and refresh in the background — the standard CDN behaviour (`stale-while-revalidate`).
+
+**2. Cache penetration.** Requests for keys that do not exist in the database at all (often malicious, e.g. `GET /users/999999999` in a loop). Every request misses the cache *and* misses the database.
+
+Fixes: **cache the negative result** (`user:999 → NULL`, short TTL), and/or put a **Bloom filter** of existing keys in front — a Bloom filter can say "definitely not present" cheaply, which is exactly the question being abused.
+
+**3. Cache avalanche.** A large fraction of the cache expires or is lost at once (mass TTL expiry, or a Redis restart) and the full production load lands on the database cold.
+
+Fixes: **TTL jitter**, cache **warming** on startup before the node is marked ready, a replicated/persistent cache tier so a restart is not a cold start, and a **circuit breaker** in front of the database so the stampede degrades to errors on some requests rather than a total collapse.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-06-failures-q1", "type": "mcq",
+      "prompt": "An attacker repeatedly requests IDs that don't exist, so every request misses both cache and database. What is this called and what is the standard fix?",
+      "options": [
+        {"id":"a","text":"Cache stampede — fix with a lock so only one request refills"},
+        {"id":"b","text":"Cache penetration — cache the negative result with a short TTL, and/or front the cache with a Bloom filter of existing keys"},
+        {"id":"c","text":"Cache avalanche — fix with TTL jitter"},
+        {"id":"d","text":"Cache invalidation — fix by deleting keys on write"}
+      ],
+      "correct": "b",
+      "explanation": "Penetration is the miss-miss pattern for keys that legitimately do not exist. Caching NULL stops the repeat traffic; a Bloom filter answers \"definitely absent\" without touching the database at all." }
+] }
+```
+
+## CDNs and edge caching
+
+A CDN is a globally distributed cache for content, and for anything with a large static or semi-static payload it is *the* design, not an optimisation.
+
+**How a request works**: DNS (or anycast) sends the user to the nearest edge PoP. On a hit, the edge serves it — 10–30 ms instead of 150 ms. On a miss, the edge fetches from a regional shield cache, then from your origin, caches it, and serves it. The shield tier exists so a cold object is fetched from your origin once, not once per PoP.
+
+**Push vs pull**: pull CDNs fetch on first request (simple, self-maintaining, first user pays); push CDNs are pre-loaded by you (good for large files and predictable launches).
+
+**The headers that control it:**
+
+```
+Cache-Control: public, max-age=31536000, immutable      # hashed asset: app.4f2b9c.js
+Cache-Control: public, max-age=60, stale-while-revalidate=300   # HTML/API: fresh-ish, never a stampede
+Cache-Control: private, no-store                        # per-user or sensitive
+ETag: "a1b2c3"        →  client sends If-None-Match  →  304 Not Modified (no body)
+Vary: Accept-Encoding, Accept-Language                  # each variant is a separate cache entry
+```
+
+**Invalidation at the edge** is the hard part, and the answer is almost always **content-hashed URLs**: `app.4f2b9c.js` is immutable and cacheable for a year, and deploying a new build simply produces a new URL. Purge APIs exist but are slower, rate-limited, and eventually consistent across PoPs — use them for exceptions, not as your strategy.
+
+Be careful with `Vary`: varying on a high-cardinality header (like `User-Agent` verbatim) multiplies cache entries and destroys the hit rate.
+
+**Beyond static files**: edge caching of API GETs with short TTLs, edge compute for personalisation and A/B assignment, signed URLs for private media (so the CDN carries the bytes and your origin only mints permissions), and origin-shielding to protect a small origin from a large audience.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-06-cdn-q1", "type": "mcq",
+      "prompt": "What is the most reliable way to make a JavaScript bundle cacheable for a year at the CDN while still shipping updates instantly?",
+      "options": [
+        {"id":"a","text":"Use a 1-year max-age and call the purge API on every deploy"},
+        {"id":"b","text":"Put a content hash in the filename (app.4f2b9c.js) and serve it immutable — a new build produces a new URL, so there is nothing to invalidate"},
+        {"id":"c","text":"Set a 60-second max-age so updates propagate quickly"},
+        {"id":"d","text":"Disable CDN caching for JavaScript"}
+      ],
+      "correct": "b",
+      "explanation": "Content-hashed URLs turn invalidation into a naming problem, which is always more reliable than a distributed purge. Purges are eventually consistent across PoPs and rate-limited; hashed names are instant and global by construction." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Patterns : cache-aside (default) · write-through (fresh) · write-behind (fast, lossy)
+           · refresh-ahead (hot keys)
+Rule     : on write, DELETE the key — never update it
+TTL      : always set one (safety net) + add jitter (avoid synchronised expiry)
+Eviction : LRU default · LFU when scans would flush the hot set
+Failures : stampede (lock / stale-while-revalidate) · penetration (cache NULL / Bloom)
+           · avalanche (jitter + warming + circuit breaker)
+Metrics  : hit rate, eviction rate, memory used, p99 latency
+CDN      : hashed immutable URLs > purge API; stale-while-revalidate for HTML/API;
+           signed URLs for private media; origin shield for small origins
+```
+
+- **The interviewer's real question is invalidation.** Have "delete on write, TTL as a safety net, hashed URLs at the edge" ready before they ask.
+- **Caching trades freshness for latency and cost — name the staleness you are accepting.** "A 60-second TTL means a user can see a like count one minute out of date, which is fine here" is the sentence that earns the point.
+- **The three failure modes are the depth question.** Stampede, penetration, avalanche — say the name and the fix.
+- **A cache is not a database.** Anything that must survive a restart needs a durable store behind it; write-behind is the only pattern that risks losing data, and only use it where loss is tolerable.
+$md$, 50, $json$[{"id":"ip45-hld-06-layers-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-06-patterns-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-06-eviction-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-06-failures-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-06-cdn-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('ab4e2103-c014-5e00-9336-d51c973e9409', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Databases I — Choosing Storage, Indexes, and Transactions', 'notes', 7, $md$"SQL or NoSQL?" is asked in almost every design interview, and the answer that scores is never a preference — it is a mapping from *access pattern* to *storage engine*. This lesson covers that mapping, what an index actually is, why B-trees and LSM-trees behave so differently, and the transaction guarantees you are relying on whether you know it or not.
+
+## Picking a store from the access pattern
+
+Start from the queries, not the technology.
+
+| If the workload is… | Use | Because |
+|---|---|---|
+| Entities with relationships, ad-hoc queries, multi-row invariants | **Relational** (Postgres, MySQL) | Joins, constraints, real transactions, mature tooling |
+| Huge volume, known key, simple lookups, extreme write rate | **Wide-column** (Cassandra, DynamoDB, HBase) | Horizontal writes, tunable consistency, no joins |
+| Flexible/evolving documents fetched whole | **Document** (MongoDB, DocumentDB) | Schema flexibility, nested reads without joins |
+| Ephemeral state, counters, leaderboards, sessions, queues | **In-memory** (Redis) | Sub-ms latency, rich data structures |
+| Full-text search, faceting, relevance ranking | **Search index** (Elasticsearch, OpenSearch) | Inverted index, scoring, aggregations |
+| Time-stamped metrics at very high write rate | **Time-series** (Timescale, InfluxDB, Prometheus) | Columnar compression, downsampling, retention |
+| Relationship traversal ("friends of friends of…") | **Graph** (Neo4j) | Index-free adjacency; joins would explode |
+| Large immutable blobs | **Object store** (S3) + metadata in a DB | Cheap, durable, CDN-friendly |
+| Scans over billions of rows for analytics | **Columnar / warehouse** (BigQuery, ClickHouse, Redshift) | Reads only the columns needed, compresses well |
+
+Three things to say when you make the choice:
+
+1. **"Postgres until proven otherwise."** It does JSON documents, full-text search, geospatial, and time-series adequately, and one system you can operate beats four you cannot. Reaching for Cassandra at 200 QPS is a marked negative.
+2. **Polyglot persistence is normal but each store has a cost**: another thing to back up, monitor, secure, and keep in sync. Justify each one.
+3. **Name the split when you use two.** "Postgres is the source of truth; Elasticsearch is a derived index rebuilt from the change stream, and it may lag by a second."
+
+**Cassandra vs DynamoDB vs Mongo, in one line each**: Cassandra is leaderless multi-master with tunable quorums, unbeatable for write-heavy multi-region; DynamoDB is the same shape as a managed service with strict partition-key discipline; MongoDB is a leader-based document store that is pleasant to develop against and needs care when your access pattern turns relational.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-07-choice-q1", "type": "mcq",
+      "prompt": "A system needs 100k writes/sec of sensor readings, always queried as \"readings for device X between T1 and T2\", and never joined to anything. What is the best fit?",
+      "options": [
+        {"id":"a","text":"A relational table with a B-tree index on (device_id, ts)"},
+        {"id":"b","text":"A time-series or wide-column store partitioned by device_id and clustered by timestamp, with compression and downsampling of old data"},
+        {"id":"c","text":"A graph database"},
+        {"id":"d","text":"Redis as the source of truth"}
+      ],
+      "correct": "b",
+      "explanation": "The access pattern is a known partition key plus a time range — exactly what wide-column/time-series engines are built for, and the write rate is ~10× a single relational primary. Partition by device, cluster by time, downsample the history." }
+] }
+```
+
+## Indexes: what they are and when they hurt
+
+An index is a separate data structure that maps column values to row locations, so the engine can seek instead of scan. Everything else follows from that sentence.
+
+```sql
+-- Without an index: sequential scan of 10M rows
+SELECT * FROM tweets WHERE author_id = 42 ORDER BY created_at DESC LIMIT 20;
+
+-- With this index: an index seek to author 42, then 20 rows read in order
+CREATE INDEX idx_tweets_author_time ON tweets (author_id, created_at DESC);
+```
+
+**Composite index column order is the whole game.** An index on `(a, b, c)` serves queries filtering on `a`, on `a, b`, and on `a, b, c` — a *left prefix*. It does **not** serve a query filtering on `b` alone. The mnemonic that survives interviews: **equality columns first, then the range/sort column last**.
+
+**A covering index** contains every column the query needs, so the engine never touches the table (`INCLUDE (...)` in Postgres). This turns two I/Os into one and is a first-line fix for a hot query.
+
+**What indexes cost:**
+
+- Every `INSERT`/`UPDATE`/`DELETE` must update every index on the table — a write-heavy table with eight indexes is doing nine writes.
+- They consume storage and cache memory that the table's own hot pages want.
+- The planner can pick badly when statistics are stale.
+- **Low-cardinality columns rarely benefit** — an index on a boolean usually loses to a scan, because reading half the table via random index lookups is slower than reading it sequentially.
+
+**Where indexes silently fail**: wrapping the column in a function (`WHERE lower(email) = ...` needs an expression index on `lower(email)`), a leading wildcard (`LIKE '%foo'`), implicit type casts, and `OR` across different columns (often better as a `UNION`).
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-07-index-q1", "type": "mcq",
+      "prompt": "You have an index on `(country, city, created_at)`. Which query can it NOT accelerate?",
+      "options": [
+        {"id":"a","text":"WHERE country = 'IN'"},
+        {"id":"b","text":"WHERE country = 'IN' AND city = 'Pune'"},
+        {"id":"c","text":"WHERE city = 'Pune'"},
+        {"id":"d","text":"WHERE country = 'IN' AND city = 'Pune' ORDER BY created_at DESC"}
+      ],
+      "correct": "c",
+      "explanation": "A composite index is sorted by its leading column first, so it only serves queries that constrain a left prefix. Filtering on `city` alone means the index gives no useful ordering — you would need a separate index led by `city`." }
+] }
+```
+
+## B-tree vs LSM-tree: why write-heavy stores are different
+
+This is the "one level below the box" question for storage, and it explains the entire read/write personality of every database you will name.
+
+**B-tree** (Postgres, MySQL/InnoDB, most relational engines). A balanced tree of fixed-size pages updated *in place*.
+
+- Reads: predictable, ~O(log n) page reads, and the leaf pages are sorted so range scans are cheap.
+- Writes: find the page, modify it, write it back — a **random** write, plus a write-ahead log entry for durability. Page splits fragment over time.
+- Best for: read-heavy and mixed workloads, range queries, strong single-node consistency.
+
+**LSM-tree** (Cassandra, RocksDB, LevelDB, HBase, ScyllaDB). Writes land in an in-memory table, are appended to a commit log, and are periodically flushed to immutable sorted files (SSTables) that background **compaction** merges.
+
+- Writes: sequential appends only — dramatically faster, which is why LSM stores dominate write-heavy workloads.
+- Reads: may have to check the memtable plus several SSTables, so a **read amplification** cost — mitigated by Bloom filters per SSTable (cheap "definitely not here") and by compaction.
+- Costs: compaction consumes I/O and CPU in the background and causes latency spikes; deletes are **tombstones** that only free space at the next compaction; space amplification while duplicates coexist.
+
+| | B-tree | LSM-tree |
+|---|---|---|
+| Write path | Random, in-place | Sequential append |
+| Write throughput | Lower | **Much higher** |
+| Read path | One tree | Memtable + N SSTables (+ Bloom filters) |
+| Point-read latency | Predictable | More variable |
+| Range scans | Excellent | Good |
+| Space overhead | Fragmentation | Duplicates until compaction |
+| Background work | Vacuum/rebuild | **Compaction** (I/O spikes) |
+| Deletes | In place | Tombstones |
+
+The one-sentence version, worth memorising: **"B-trees optimise reads by paying on every write; LSM-trees optimise writes by paying on reads and in background compaction."**
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-07-lsm-q1", "type": "mcq",
+      "prompt": "Why do LSM-tree storage engines sustain far higher write throughput than B-tree engines?",
+      "options": [
+        {"id":"a","text":"They keep the entire dataset in memory"},
+        {"id":"b","text":"Writes are buffered in memory and flushed as sequential appends of immutable sorted files, avoiding the random in-place page updates a B-tree performs"},
+        {"id":"c","text":"They do not provide durability"},
+        {"id":"d","text":"They use smaller page sizes"}
+      ],
+      "correct": "b",
+      "explanation": "Sequential I/O beats random I/O by a wide margin even on SSDs, and never rewriting a page in place removes read-modify-write. The bill arrives later as read amplification and compaction I/O." }
+] }
+```
+
+## Transactions: ACID and isolation levels
+
+**ACID**, stated so you can defend it:
+
+- **Atomicity** — all of the statements commit, or none do.
+- **Consistency** — the transaction moves the database from one valid state to another, respecting declared constraints. (This is *not* the "C" in CAP; a favourite trick question.)
+- **Isolation** — concurrent transactions do not see each other's partial work, to the degree the isolation level promises.
+- **Durability** — once committed, it survives a crash (write-ahead log, fsync, replication).
+
+**Isolation levels and the anomalies they permit** — know this table cold:
+
+| Level | Dirty read | Non-repeatable read | Phantom read | Cost |
+|---|---|---|---|---|
+| Read Uncommitted | ✅ possible | ✅ | ✅ | Lowest |
+| **Read Committed** (Postgres default) | ❌ | ✅ | ✅ | Low |
+| **Repeatable Read** (MySQL default; Postgres = snapshot) | ❌ | ❌ | ✅ (❌ in Postgres) | Medium |
+| **Serializable** | ❌ | ❌ | ❌ | Highest — retries under contention |
+
+- **Dirty read**: you read another transaction's uncommitted data.
+- **Non-repeatable read**: you read the same row twice in one transaction and get different values.
+- **Phantom read**: you run the same range query twice and new rows appear.
+- **Lost update**: two transactions read-modify-write the same row and one update vanishes. Read Committed does *not* protect you.
+
+The practical rule: **Read Committed plus explicit locking or an atomic write** for the small number of places it matters.
+
+```sql
+-- Lost update, the classic bug: two concurrent runs can both read 10 and both write 9.
+SELECT seats FROM events WHERE id = 1;          -- 10
+UPDATE events SET seats = 9 WHERE id = 1;
+
+-- Fix 1 — pessimistic: take the row lock, then decide.
+BEGIN;
+SELECT seats FROM events WHERE id = 1 FOR UPDATE;
+UPDATE events SET seats = seats - 1 WHERE id = 1;
+COMMIT;
+
+-- Fix 2 — optimistic: no lock; retry if someone else moved first.
+UPDATE events SET seats = seats - 1, version = version + 1
+WHERE id = 1 AND version = $expected_version AND seats > 0;
+-- 0 rows affected → someone beat you → re-read and retry
+
+-- Fix 3 — atomic and best when it applies: let the database do the arithmetic
+-- and let a CHECK constraint enforce the invariant.
+UPDATE events SET seats = seats - 1 WHERE id = 1 AND seats > 0;
+```
+
+**Pessimistic vs optimistic** is a genuine interview trade-off: pessimistic locking is right under high contention (booking the last seat of a popular event); optimistic is right under low contention (editing your own profile), because it avoids holding locks and scales better — at the cost of retries when you guess wrong.
+
+**MVCC**, the mechanism behind all of this in Postgres and MySQL: writers create new row versions instead of overwriting, so readers never block writers and writers never block readers. The cost is old versions that must be cleaned up (`VACUUM`), and long-running transactions that hold the cleanup back and bloat the table.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-07-txn-q1", "type": "mcq",
+      "prompt": "Two concurrent requests each run `SELECT seats` (both read 10) and then `UPDATE events SET seats = 9`. Which anomaly is this, and which fix removes it without any locking?",
+      "options": [
+        {"id":"a","text":"Dirty read; fix by raising the isolation level to Read Committed"},
+        {"id":"b","text":"Lost update; fix with a single atomic statement — `UPDATE events SET seats = seats - 1 WHERE id = 1 AND seats > 0` — so the database computes the new value under its own row lock"},
+        {"id":"c","text":"Phantom read; fix with Serializable isolation"},
+        {"id":"d","text":"Non-repeatable read; fix by reading twice"}
+      ],
+      "correct": "b",
+      "explanation": "Read-modify-write in application code loses one of the two updates. Making the arithmetic part of the UPDATE means each statement takes the row lock and applies its decrement to the current value; the `seats > 0` guard prevents overselling." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Choose by access pattern, not fashion. Postgres until proven otherwise.
+Index = seek instead of scan. Composite = LEFT PREFIX only.
+       equality columns first, range/sort column last. Covering index avoids the table read.
+Index cost = write amplification + memory + planner risk. Low cardinality rarely helps.
+B-tree  : in-place, random writes, great reads       → read-heavy, relational
+LSM-tree: append-only, sequential writes, compaction → write-heavy, Cassandra/Rocks
+ACID's C ≠ CAP's C.
+Isolation: Read Committed (default) allows non-repeatable + phantom + LOST UPDATE.
+Concurrency fixes: atomic UPDATE > optimistic version check > SELECT FOR UPDATE
+MVCC: readers don't block writers; cost is VACUUM and long-transaction bloat.
+```
+
+- **Justify the store with a query, every time.** "Reads are always by device and time range, never joined" is what makes a wide-column choice defensible.
+- **The index answer that scores is the composite prefix rule** plus the honest cost: every index is another write on every insert.
+- **B-tree vs LSM is the storage deep-dive question**, and one sentence covers it: reads paid up front vs writes paid later.
+- **"Read Committed does not prevent lost updates"** is the single most useful transaction fact for design interviews — every booking, inventory, and wallet question is a lost-update question in disguise.
+$md$, 50, $json$[{"id":"ip45-hld-07-choice-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-07-index-q1","type":"mcq","correct":"c"},{"id":"ip45-hld-07-lsm-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-07-txn-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('f3934f80-c16e-5039-9ac7-3aa793c26324', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Databases II — Replication, Partitioning, and Sharding', 'notes', 8, $md$One database eventually runs out of something: reads, writes, storage, or availability. There are exactly three moves, and they solve different problems — replication scales **reads** and buys **availability**, partitioning scales **storage and writes**, and the two are almost always used together. Confusing which problem you are solving is the most common mistake in this part of an interview.
+
+## Replication: copies for reads and for survival
+
+**Leader–follower (primary–replica).** All writes go to one leader; followers stream the leader's change log and serve reads.
+
+```
+                 ┌──▶ Replica 1 (reads)
+Writes ──▶ Leader├──▶ Replica 2 (reads)
+                 └──▶ Replica 3 (reads, standby for promotion)
+```
+
+- Scales reads linearly with replicas; scales writes **not at all**.
+- Buys availability: promote a replica when the leader dies.
+- Introduces **replication lag** — the gap between the leader's commit and a follower's apply. Milliseconds normally, seconds under load, minutes during a large batch job.
+
+**Synchronous vs asynchronous** is the durability/latency knob:
+
+| | Async | Sync | Semi-sync (quorum) |
+|---|---|---|---|
+| Leader waits for | Nothing | All replicas | k of n replicas |
+| Write latency | Lowest | Highest | Middle |
+| Data loss on leader crash | **Possible** | None | None (if k ≥ 1 survives) |
+| Availability | Highest | A slow replica stalls all writes | Tolerates n−k slow/dead replicas |
+
+Semi-synchronous — "wait for one replica to acknowledge, then return" — is the pragmatic default: bounded data loss with a bounded latency cost.
+
+**Multi-leader** (writes accepted in several regions) removes the cross-region write latency and keeps working during a partition, at the price of **write conflicts** you must resolve: last-write-wins (simple, silently loses data), application-defined merge, or CRDTs (conflict-free by construction, the right answer for collaborative editing).
+
+**Leaderless** (Dynamo, Cassandra): the client writes to several nodes and reads from several nodes, and quorum arithmetic gives you the consistency you need — covered in the next lesson.
+
+**Failover is where the hard questions live.** Promoting a replica means: detecting the failure without being fooled by a network blip, choosing the most up-to-date follower, redirecting clients (DNS, a proxy, or a virtual IP), and preventing **split brain** — the old leader coming back and accepting writes. Split brain is prevented by fencing: a monotonically increasing epoch/term number that storage and clients reject if it is stale.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-08-replication-q1", "type": "mcq",
+      "prompt": "A user posts a comment and is immediately redirected to a page that reads from a replica — their comment is missing. What is happening and what is the standard fix?",
+      "options": [
+        {"id":"a","text":"A cache stampede; add a lock around the read"},
+        {"id":"b","text":"Replication lag breaking read-your-own-writes; route a user's reads to the leader (or to a replica known to have caught up) for a short window after they write"},
+        {"id":"c","text":"A lost update; use SELECT FOR UPDATE"},
+        {"id":"d","text":"A phantom read; raise the isolation level to Serializable"}
+      ],
+      "correct": "b",
+      "explanation": "Async replication means a follower can be behind. Read-your-own-writes is restored by pinning that user's reads to the leader briefly, or by passing the write's log position and waiting for a replica to reach it." }
+] }
+```
+
+## Partitioning: splitting the data itself
+
+Partitioning (sharding) splits one logical dataset across many nodes so that each holds a slice. This is what scales **writes** and **storage** — the thing replication cannot do.
+
+**Vertical partitioning** splits by column or by feature: the users table on one cluster, the analytics events on another. It is really "split the service", and it is often the correct first move because it needs no application rewrite of query routing.
+
+**Horizontal partitioning** splits by row, and the choice is the **partition key**:
+
+| Strategy | How | Good | Bad |
+|---|---|---|---|
+| **Range** | `A–F`, `G–M`, … or by date | Range scans stay on one shard | Hot spots: today's date shard takes all writes |
+| **Hash** | `hash(key) % N` | Even distribution | Range scans hit every shard; resharding moves nearly everything |
+| **Consistent hashing** | Keys and nodes on a ring, virtual nodes | Adding a node moves only ~1/N of keys | More machinery; still needs virtual nodes to be even |
+| **Directory / lookup** | A service maps key → shard | Total flexibility, easy rebalancing | The directory is a dependency and a potential SPOF |
+| **Geographic** | By region | Latency and data residency | Cross-region queries are expensive |
+
+**Why `hash(key) % N` is a trap**: change N from 4 to 5 and almost every key moves. Consistent hashing exists to make adding a node move ~1/N of the keys instead of ~all of them — the section's dedicated *Notes: Consistent Hashing* lesson works through the ring, virtual nodes, and the replication walk in detail.
+
+**Choosing the partition key is the decision that matters.** Three tests:
+
+1. **High cardinality** — enough distinct values to spread across shards. `country` is a bad key (India is one shard); `user_id` is a good one.
+2. **Even access** — no single value takes a large share of traffic. `celebrity_user_id` breaks this, which is why celebrity handling is a recurring design theme.
+3. **Query alignment** — your most common query should be answerable from one shard. If you shard tweets by `tweet_id` but always query by `author_id`, every read becomes a scatter-gather across all shards.
+
+**What sharding costs** — say these out loud, because they are the reason not to shard prematurely:
+
+- **No cross-shard joins.** You denormalise, or you join in the application, or you keep a small reference table replicated everywhere.
+- **No cross-shard transactions** without two-phase commit or a saga (next lessons).
+- **Scatter-gather queries** are as slow as the slowest shard, and their tail latency is dramatically worse than a single node's.
+- **Global uniqueness and ordering** need help: Snowflake-style IDs (timestamp + machine + sequence) or a UUIDv7, not an auto-increment column.
+- **Rebalancing** is a long, careful operation: double-write to old and new, backfill, verify, cut reads over, stop the old write.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-08-partition-q1", "type": "mcq",
+      "prompt": "You shard an orders table by `order_id` hash, but 90% of queries are \"all orders for customer X\". What goes wrong?",
+      "options": [
+        {"id":"a","text":"Nothing — hash partitioning distributes evenly, which is all that matters"},
+        {"id":"b","text":"Every common query becomes a scatter-gather across all shards, so latency tracks the slowest shard and throughput collapses — the key should align with the dominant access pattern (customer_id)"},
+        {"id":"c","text":"Orders lose their uniqueness guarantee"},
+        {"id":"d","text":"Replication lag increases"}
+      ],
+      "correct": "b",
+      "explanation": "Even distribution is only half the requirement; the other half is that your dominant query should be answerable from one shard. Sharding by customer_id keeps a customer's orders together, at the cost of a hot shard for a very large customer." }
+] }
+```
+
+## Hot spots, celebrities, and skew
+
+Perfect hashing still produces hot shards, because **traffic is not uniform even when keys are**. Every real system has a celebrity, a viral product, a Black Friday SKU, or a `tenant_id` that is 40% of your database.
+
+Fixes, in the order you should offer them:
+
+1. **Cache the hot key in front of the shard.** The cheapest fix and often sufficient — a single Redis key absorbs a million reads the shard would have served.
+2. **Key salting / sub-partitioning.** Split the hot key into `celebrity_id:0` … `celebrity_id:9` and fan reads across the ten. Writes distribute; reads must merge ten results.
+3. **A different path for the hot case.** The canonical example: fan-out on write for normal users, fan-out on read for celebrities, merged at read time.
+4. **Dedicated shard / isolation.** Give the giant tenant its own database. This is standard multi-tenant practice and easy to justify.
+5. **Rate limit or shed** the pathological case, so one key cannot degrade everyone else.
+
+**Detection matters as much as the fix**: per-key and per-shard metrics, a top-N heavy-hitter sketch (count-min sketch), and alerting on shard imbalance. "I'd measure per-shard QPS and p99 and alert when one shard exceeds 2× the median" is a strong, concrete thing to say.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-08-hotspot-q1", "type": "mcq",
+      "prompt": "One multi-tenant SaaS customer generates 40% of all queries and is saturating its shard. Which response is most standard?",
+      "options": [
+        {"id":"a","text":"Re-shard the whole system with more shards"},
+        {"id":"b","text":"Move that tenant to its own dedicated database (and cache their hottest reads), isolating their load from everyone else"},
+        {"id":"c","text":"Switch from hash to range partitioning"},
+        {"id":"d","text":"Add read replicas of every shard"}
+      ],
+      "correct": "b",
+      "explanation": "More shards does not help when a single key is the hot spot — the tenant still lands on one. Isolation (a dedicated shard/cluster) plus caching is the normal multi-tenant answer, and it also gives that customer predictable performance." }
+] }
+```
+
+## Denormalisation, derived data, and multi-region
+
+Once data is sharded, joins are gone — so the schema changes shape.
+
+**Denormalise deliberately, and say why.** Copy the author's display name onto each post so rendering a feed needs no join, and accept that a rename must fan out. State the trade explicitly: **read speed and shard-locality bought with write amplification and the risk of drift**. Add a reconciliation job for anything that must not drift.
+
+**Derived data stores** are the general version of this: the relational database is the source of truth, and search indexes, caches, aggregates, and analytics tables are all *derived* from its change stream (CDC via the write-ahead log, or events published by the application). Two properties make this pattern work:
+
+- **Rebuildable**: if the derived store is corrupted or the schema changes, you replay from the source. Never let a derived store become the only copy of something.
+- **Eventually consistent, and bounded**: "the search index lags by up to two seconds" is a requirement to state, monitor, and alert on.
+
+**Multi-region** adds three questions, and interviewers expect all three:
+
+| Question | Options |
+|---|---|
+| Where do writes happen? | Single-region writes (simple, far users pay latency) · multi-leader (fast local writes, conflicts) · partition by geography (each region owns its users' data) |
+| How is data replicated? | Async cross-region (normal) · synchronous (only for small critical datasets — the latency is brutal) |
+| What happens in a partition? | Fail over (and risk split brain) · degrade to read-only · accept divergence and reconcile |
+
+**Data residency** is a real constraint worth naming: GDPR and similar laws can require EU users' data to stay in the EU, which forces geographic partitioning regardless of what your latency numbers say.
+
+**Active-active vs active-passive**: active-passive is far simpler (one region serves, one stands by, failover is a promotion) and wastes capacity; active-active serves from everywhere with lower latency and much harder consistency. Say which you are choosing and why.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-08-derived-q1", "type": "mcq",
+      "prompt": "You keep Postgres as the source of truth and Elasticsearch as a search index fed by change-data-capture. Which property must you preserve?",
+      "options": [
+        {"id":"a","text":"Elasticsearch must be written to synchronously so it never lags"},
+        {"id":"b","text":"The index must be fully rebuildable by replaying from Postgres, and its lag must be bounded, monitored, and stated as a requirement"},
+        {"id":"c","text":"Writes must go to Elasticsearch first, then Postgres"},
+        {"id":"d","text":"Both stores must use the same partition key"}
+      ],
+      "correct": "b",
+      "explanation": "Derived stores are caches of a source of truth. Rebuildability is what makes schema changes and corruption survivable; bounded, monitored lag is what makes the eventual consistency a stated requirement rather than a surprise bug." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Replication scales READS + availability.  Partitioning scales WRITES + storage.
+Async replication → replication lag → breaks read-your-own-writes
+                    fix: read from leader briefly, or wait for a log position
+Sync/semi-sync    → no data loss, higher latency. Semi-sync (k of n) is the sane default.
+Failover: detect → elect most-current → redirect → FENCE the old leader (epoch numbers)
+
+Partition key must be: high cardinality · evenly accessed · aligned with the top query
+hash % N is a trap → consistent hashing + virtual nodes
+Sharding costs: no cross-shard joins/transactions, scatter-gather tails,
+                global IDs (Snowflake/UUIDv7), painful rebalancing
+
+Hot key fixes: cache it → salt it → separate path (celebrity) → dedicated shard → shed
+Derived stores (search, analytics, cache) must be rebuildable from the source of truth
+Multi-region: where do writes go · how does data replicate · what happens in a partition
+```
+
+- **Say which problem you are solving.** "I'm adding replicas for read scale and failover; they do nothing for my write rate, so if writes grow I shard on `user_id`."
+- **The partition key is the design decision**, and the three tests (cardinality, even access, query alignment) are the way to defend it.
+- **Every real system has a hot key.** Bringing it up before the interviewer does is a top-quartile signal.
+- **Don't shard early.** A single well-indexed primary with replicas covers a very large range of systems; sharding buys scale with joins, transactions, and operational simplicity.
+$md$, 50, $json$[{"id":"ip45-hld-08-replication-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-08-partition-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-08-hotspot-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-08-derived-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('fa732a8b-89ff-56bc-a3c3-c3cce3f7a317', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'CAP, PACELC, and Consistency Models', 'notes', 9, $md$CAP is the most quoted and least understood idea in system design. Candidates say "we'll pick AP" as if it were a configuration setting, then design something that quietly requires linearizability. This lesson makes the theorem precise, extends it with PACELC (which describes your system 99.9% of the time), and gives you the consistency ladder you actually choose from.
+
+## What CAP actually says
+
+**The theorem:** when a **network partition** occurs, a distributed system must choose between **consistency** and **availability**. It cannot have both.
+
+Precisely:
+
+- **C — Consistency** here means *linearizability*: every read sees the most recent completed write, as if there were one copy. This is **not** the C in ACID.
+- **A — Availability** means every non-failing node returns a non-error response.
+- **P — Partition tolerance** means the system keeps operating when messages between nodes are lost or delayed.
+
+The crucial correction: **P is not a choice.** Networks partition — cables get cut, switches reboot, a datacenter link saturates. Any system spanning more than one machine must tolerate partitions, so the real question is only what to do *during* one:
+
+- **CP** — refuse to serve rather than serve possibly-stale or divergent data. The minority side of the partition returns errors. Choose for money, inventory, unique constraints, locks.
+- **AP** — keep serving on both sides, accept divergence, reconcile afterwards. Choose for feeds, likes, presence, product catalogues, DNS.
+
+"CA" is not a meaningful category for a distributed system. A single-node database is trivially CA and simply has no partitions to tolerate.
+
+Two more things that score:
+
+- **It is a per-operation choice, not a per-system one.** The same e-commerce system can be CP for "place order / decrement stock" and AP for "show product page and review count". Saying this is one of the highest-yield sentences in the whole topic.
+- **The choice only binds during a partition.** The rest of the time — which is nearly all of the time — you are making a different trade-off entirely, which is what PACELC describes.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-09-cap-q1", "type": "mcq",
+      "prompt": "Why is \"we'll build a CA system\" not a meaningful answer for a distributed database?",
+      "options": [
+        {"id":"a","text":"Because consistency and availability are the same property"},
+        {"id":"b","text":"Because partitions are a fact of networks, not an option — any multi-node system must tolerate them, so the only real choice is what to do during one: stay consistent (CP) or stay available (AP)"},
+        {"id":"c","text":"Because CA systems are too slow"},
+        {"id":"d","text":"Because CAP only applies to NoSQL databases"}
+      ],
+      "correct": "b",
+      "explanation": "P is imposed by physics and operations, not chosen. Only a single-node system escapes it — and it escapes by not being distributed, which costs you availability in a different way." }
+] }
+```
+
+## PACELC: the trade-off you make every day
+
+CAP describes the rare case. **PACELC** describes both:
+
+> **If** there is a **P**artition, choose **A**vailability or **C**onsistency; **E**lse (normal operation), choose **L**atency or **C**onsistency.
+
+The "else" half is the one that governs your p99 every single day. Strong consistency across replicas requires coordination — a quorum round trip, or a wait for the leader — and coordination costs latency. Weakening consistency buys latency back.
+
+| System | Classification | Reading |
+|---|---|---|
+| Postgres / MySQL (single primary) | PC/EC | Consistent during partitions, consistent normally |
+| DynamoDB (default eventually-consistent reads) | PA/EL | Available during partitions, low latency normally |
+| DynamoDB (strongly-consistent read flag) | PC/EC | Per-request opt-in — the point about per-operation choice, made concrete |
+| Cassandra (tunable) | PA/EL by default | `QUORUM` reads/writes move it toward PC/EC |
+| MongoDB (majority write concern) | PC/EC | Configurable per operation |
+| DNS | PA/EL | Extremely available, extremely stale |
+
+The sentence to deploy in an interview: **"Even when the network is healthy, strong consistency costs a coordination round trip — so I'm using strong reads only for the balance check and eventual reads for the transaction history."**
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-09-pacelc-q1", "type": "mcq",
+      "prompt": "What does the \"ELC\" half of PACELC describe that CAP omits?",
+      "options": [
+        {"id":"a","text":"How the system behaves during a partition"},
+        {"id":"b","text":"That in normal (non-partitioned) operation there is still a trade-off between latency and consistency, because strong consistency requires coordination round trips"},
+        {"id":"c","text":"How data is encrypted at rest"},
+        {"id":"d","text":"How many replicas are required"}
+      ],
+      "correct": "b",
+      "explanation": "CAP only says anything about the partitioned case, which is rare. PACELC's contribution is naming the everyday cost: consistency is paid for in latency whether or not the network is broken." }
+] }
+```
+
+## The consistency ladder
+
+Not a binary — a spectrum. Pick the weakest level that satisfies the requirement, because each step up costs latency and availability.
+
+| Level | Guarantee | Cost | Use for |
+|---|---|---|---|
+| **Linearizable (strong)** | Reads see the latest committed write; system behaves as one copy | Coordination on every op; unavailable in a partition minority | Locks, uniqueness, balances, seat allocation |
+| **Sequential** | All nodes see operations in the same order (not necessarily real-time) | High | Replicated state machines |
+| **Causal** | Operations that are causally related are seen in order by everyone | Moderate — track causality (vector clocks) | Comment threads, chat message ordering |
+| **Read-your-own-writes** | A user always sees their own writes | Cheap — route that user to the leader briefly | Post-then-view, profile edits |
+| **Monotonic reads** | You never see time go backwards | Cheap — pin a user to one replica | Any paginated/refreshing view |
+| **Eventual** | Replicas converge if writes stop | Cheapest, always available | Likes, view counts, feeds, catalogues, DNS |
+
+The two cheap "session guarantees" in the middle deserve special attention, because they fix the *user-visible* symptoms of eventual consistency without paying for linearizability:
+
+- **Read-your-own-writes**: after posting, read from the leader (or from a replica confirmed to have caught up) for the next few seconds.
+- **Monotonic reads**: pin a session to one replica so a refresh cannot land on a more-lagged node and make a comment disappear.
+
+Together they cover most of what users actually notice, which is why "eventual consistency plus session guarantees" is such a common production answer.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-09-ladder-q1", "type": "mcq",
+      "prompt": "Users complain that refreshing a page sometimes makes a just-loaded comment disappear and reappear. Which guarantee fixes this most cheaply?",
+      "options": [
+        {"id":"a","text":"Linearizability for all reads"},
+        {"id":"b","text":"Monotonic reads — pin the session to one replica so successive reads never move backwards in the replication log"},
+        {"id":"c","text":"Serializable transaction isolation"},
+        {"id":"d","text":"Two-phase commit across replicas"}
+      ],
+      "correct": "b",
+      "explanation": "The symptom is reads bouncing between replicas at different lag positions. Session stickiness to one replica costs essentially nothing and removes the time-travel effect, without paying for global coordination." }
+] }
+```
+
+## Quorums and conflict resolution
+
+**Quorum arithmetic** is how leaderless stores (Dynamo, Cassandra) let you dial consistency per request. With `N` replicas, `W` acknowledgements required on write, and `R` on read:
+
+> **If `W + R > N`, the read set and write set must overlap**, so a read is guaranteed to see the latest acknowledged write.
+
+| Setting | Behaviour |
+|---|---|
+| N=3, W=3, R=1 | Fast reads, slow writes, no write availability if any replica is down |
+| N=3, W=1, R=1 | Fastest, W+R ≤ N → **eventually consistent** |
+| **N=3, W=2, R=2** | The balanced default: overlap guaranteed, tolerates one node down for both reads and writes |
+| N=3, W=2, R=1 | Fast reads, no overlap guarantee — may read stale |
+
+Cassandra exposes exactly this as `ONE` / `QUORUM` / `ALL` per query, and `LOCAL_QUORUM` per datacenter for multi-region.
+
+Two repair mechanisms keep replicas converging: **read repair** (a read that finds divergent replicas writes the newest value back) and **anti-entropy** (a background process comparing Merkle trees of key ranges and syncing the differences). **Hinted handoff** covers short outages: a coordinator holds writes destined for a down node and replays them when it returns.
+
+**When two replicas disagree, something must decide:**
+
+| Strategy | How it works | Cost |
+|---|---|---|
+| **Last-write-wins** | Highest timestamp wins | Simple; **silently discards** the loser, and clock skew makes "latest" unreliable |
+| **Vector clocks / version vectors** | Detect concurrent versions and hand both to the application | Correct detection; someone must write the merge |
+| **CRDTs** | Data types that merge deterministically by construction (counters, sets, sequences) | No conflicts possible; limited to types that can be expressed this way |
+| **Application merge** | Domain logic decides (e.g. union both shopping carts) | Best user outcome; the most work |
+
+The canonical illustration is Amazon's shopping cart: LWW would drop an item a user added on their phone; the union merge keeps both, and the worst case is a deleted item reappearing — which Amazon judged better than losing a sale.
+
+**Clocks deserve one warning.** Wall-clock timestamps across machines are not ordered — NTP skew is milliseconds at best, and clocks jump. Use **logical clocks** (Lamport timestamps, vector clocks) for causality. Google's Spanner achieves linearizable global transactions only by using GPS and atomic clocks to bound uncertainty (TrueTime) and *waiting out* that uncertainty on commit — which is precisely how expensive real global consistency is.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-09-quorum-q1", "type": "mcq",
+      "prompt": "With N=5 replicas, which (W, R) pair guarantees a read sees the latest acknowledged write while tolerating two nodes being down?",
+      "options": [
+        {"id":"a","text":"W=1, R=1"},
+        {"id":"b","text":"W=3, R=3 — W+R=6 > 5 so the sets overlap, and each quorum of 3 is reachable with 2 of 5 nodes down"},
+        {"id":"c","text":"W=5, R=1"},
+        {"id":"d","text":"W=2, R=2"}
+      ],
+      "correct": "b",
+      "explanation": "Overlap requires W+R > N: 3+3=6 > 5. Requiring 3 of 5 still succeeds with two nodes unavailable, whereas W=5 needs every node alive and W=R=2 (4 ≤ 5) gives no overlap guarantee." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+CAP: during a PARTITION, choose C or A. P is not optional. "CA" isn't a distributed system.
+     CP = refuse rather than diverge (money, inventory, locks)
+     AP = serve and reconcile (feeds, likes, presence, catalogue)
+     → the choice is PER OPERATION, not per system
+PACELC: if Partition → A or C;  Else → Latency or Consistency  (the everyday trade-off)
+CAP's C = linearizability ≠ ACID's C = constraint validity
+
+Ladder (weakest that works wins):
+  eventual < monotonic reads < read-your-own-writes < causal < sequential < linearizable
+  The two cheap session guarantees fix most user-visible symptoms.
+
+Quorum: W + R > N ⇒ overlap ⇒ read sees latest.  N=3,W=2,R=2 is the default.
+Repair: read repair · anti-entropy (Merkle trees) · hinted handoff
+Conflicts: LWW (lossy) · vector clocks (detect) · CRDTs (merge by design) · app merge
+Clocks: wall-clock ordering across machines is unreliable — use logical clocks.
+```
+
+- **Never say "we'll be AP" about a whole system.** Say which operations are CP and which are AP, and why. That single move separates a memorised answer from an engineered one.
+- **PACELC is the more useful model** because partitions are rare and coordination latency is constant.
+- **Pick the weakest consistency that meets the requirement**, then add the cheap session guarantees on top — that is what production systems actually do.
+- **Conflict resolution is a product decision**, not just a technical one: LWW quietly loses data, and whether that is acceptable depends on whether the data is a like count or a shopping cart.
+$md$, 45, $json$[{"id":"ip45-hld-09-cap-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-09-pacelc-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-09-ladder-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-09-quorum-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('87676dd7-0d30-51f5-9b50-a444341e632f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Messaging, Queues, and Event-Driven Architecture', 'notes', 10, $md$The moment you draw a queue, you have made four decisions the interviewer will ask about: what happens if a consumer crashes mid-message, what happens if the same message is delivered twice, whether order is preserved, and what happens when producers outrun consumers. Have all four answers ready and this becomes one of the strongest parts of your design.
+
+## Why a queue, and where the line goes
+
+A queue does four distinct jobs, and naming which one you want is the difference between "I'd add Kafka" and a designed system:
+
+| Job | What it buys | Example |
+|---|---|---|
+| **Decoupling** | Producer doesn't know or wait for consumers | Order service publishes `order.placed`; email, analytics, and inventory each consume it |
+| **Buffering / load levelling** | Absorbs spikes so the slow side isn't overwhelmed | 50k signups in a flash sale drain into a worker pool at its own pace |
+| **Async work** | Removes slow work from the request path | Video transcoding, PDF generation, bulk email |
+| **Retry & durability** | A failed unit of work isn't lost | Payment webhook delivery with backoff |
+
+**The line to draw in every design:** anything the user's response does not depend on goes behind the queue. `POST /orders` must persist the order and return; sending the confirmation email, updating the recommendation model, indexing for search, and notifying the warehouse must not.
+
+The costs, which you should volunteer:
+
+- **Eventual consistency becomes user-visible.** "Your order is placed" but the email arrives 30 seconds later, and the analytics dashboard lags.
+- **Debugging is harder** — a failure now surfaces in a worker log, not in the request trace, unless you propagate trace IDs.
+- **Another system to operate**: brokers, partitions, lag monitoring, dead letters.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-10-why-q1", "type": "mcq",
+      "prompt": "Which of these must stay in the synchronous request path of `POST /orders`, rather than moving behind a queue?",
+      "options": [
+        {"id":"a","text":"Sending the order confirmation email"},
+        {"id":"b","text":"Reserving inventory and persisting the order, because the response tells the user whether their order succeeded"},
+        {"id":"c","text":"Updating the recommendation model"},
+        {"id":"d","text":"Indexing the order for internal search"}
+      ],
+      "correct": "b",
+      "explanation": "Anything the user's answer depends on must complete before you respond. Everything the user learns about later — email, analytics, search indexing — belongs behind the queue." }
+] }
+```
+
+## Queue vs log: the distinction that matters
+
+There are two fundamentally different shapes, and choosing the wrong one is a common mistake.
+
+**Message queue** (RabbitMQ, SQS, ActiveMQ): a message is delivered to one consumer, acknowledged, and **deleted**. The broker tracks per-message state.
+
+**Distributed log** (Kafka, Kinesis, Redpanda, Pulsar): messages are appended to an ordered, partitioned, **retained** log. Consumers track their own offset and read at their own pace; the message is not deleted when read. Many independent consumer groups read the same stream.
+
+| | Queue (RabbitMQ/SQS) | Log (Kafka) |
+|---|---|---|
+| After consumption | Deleted | Retained (time/size based) |
+| Consumers per message | One (per queue) | Many independent groups |
+| Replay history | No | **Yes** — reset the offset |
+| Ordering | Per queue, lost with multiple consumers | **Per partition**, strictly |
+| Routing | Rich (exchanges, topics, headers, priorities) | Simple: topic + partition |
+| Per-message ack/retry | Native, per message | Per offset — one poison message blocks its partition |
+| Throughput | High | **Very high** (sequential disk, batching) |
+| Typical use | Task queues, RPC-ish work, priority routing | Event streams, CDC, analytics, event sourcing |
+
+The decision rule: **do you need to replay history, or feed several independent consumers the same events? Use a log. Do you need per-message routing, priorities, and delayed retries? Use a queue.**
+
+Kafka's partitions are the unit of both parallelism and ordering: messages with the same key go to the same partition and are strictly ordered there, and one partition is consumed by at most one consumer in a group. So **partition count is your maximum consumer parallelism**, and the partition key is what preserves per-entity order — key by `user_id` and that user's events stay ordered even though the topic as a whole is not.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-10-queuelog-q1", "type": "mcq",
+      "prompt": "You need order events consumed independently by billing, analytics, and search, and you want to rebuild the search index next month by re-reading everything. What fits?",
+      "options": [
+        {"id":"a","text":"A message queue, with three consumers reading the same queue"},
+        {"id":"b","text":"A distributed log (Kafka): each system is its own consumer group with its own offset, and retention lets you reset an offset to rebuild"},
+        {"id":"c","text":"Direct synchronous HTTP calls to all three services"},
+        {"id":"d","text":"A shared database table polled by all three"}
+      ],
+      "correct": "b",
+      "explanation": "Three consumers on one queue split the messages rather than each seeing all of them, and a queue deletes on ack so there is nothing to replay. Retention plus per-group offsets is exactly the log's contribution." }
+] }
+```
+
+## Delivery semantics and idempotent consumers
+
+Three possible guarantees; only two of them are real.
+
+| Semantics | Mechanism | Failure mode |
+|---|---|---|
+| **At-most-once** | Ack before processing | Message lost if the consumer crashes mid-work |
+| **At-least-once** | Ack after processing | **Duplicates** when the ack is lost after the work is done |
+| **Exactly-once** | Not achievable end-to-end across systems | — |
+
+**At-least-once is the default and the right choice**, because losing work is usually worse than doing it twice. That makes duplicate handling a *design requirement*, not an accident.
+
+"Exactly-once" as marketed by Kafka means exactly-once *within Kafka* — transactional writes across topics with an idempotent producer. The moment your consumer charges a card or sends an email, an external side effect exists that Kafka's transaction cannot roll back. The honest formulation, and the one interviewers want: **"at-least-once delivery plus idempotent processing = effectively-once."**
+
+**How to make a consumer idempotent:**
+
+```python
+def handle(msg):
+    # 1. Natural idempotency — the operation is safe to repeat as-is.
+    #    "SET status = 'shipped'" is idempotent; "counter += 1" is not.
+
+    # 2. Deduplication table — the general mechanism.
+    #    The UNIQUE constraint is what makes it race-safe, not the SELECT.
+    try:
+        db.execute(
+            "INSERT INTO processed_messages (message_id, processed_at) VALUES (%s, now())",
+            msg.id,
+        )
+    except UniqueViolation:
+        return  # already handled; ack and move on
+
+    do_the_work(msg)
+
+    # 3. Better still: do the work and record the message id in ONE transaction,
+    #    so a crash between them cannot leave the dedupe row without the effect.
+```
+
+Two more patterns worth naming:
+
+- **Conditional writes**: `UPDATE orders SET status='shipped' WHERE id=? AND status='paid'` applies once no matter how many times it runs.
+- **Version/sequence checks**: ignore any event whose version is not exactly one greater than what you have stored.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-10-delivery-q1", "type": "mcq",
+      "prompt": "Why can no message broker offer true end-to-end exactly-once delivery when the consumer sends an email?",
+      "options": [
+        {"id":"a","text":"Because email servers are unreliable"},
+        {"id":"b","text":"Because the consumer can crash after the external side effect but before acknowledging, and no protocol can undo an email that has already left — so the achievable goal is at-least-once delivery plus idempotent processing"},
+        {"id":"c","text":"Because brokers don't persist messages"},
+        {"id":"d","text":"Because the network reorders packets"}
+      ],
+      "correct": "b",
+      "explanation": "Exactly-once requires an atomic commit spanning the broker and the side effect. Kafka's transactions cover writes back into Kafka, not the outside world — hence \"effectively-once\" via idempotent consumers." }
+] }
+```
+
+## Ordering, retries, dead letters, and backpressure
+
+**Ordering.** Global order across a topic is expensive and almost never required; **per-entity** order usually is. Partition by the entity key (`user_id`, `account_id`, `conversation_id`) and you get strict order where it matters while still parallelising across entities. If you truly need global order, you have one partition and one consumer — say the cost out loud.
+
+Ordering breaks quietly in three places: multiple consumers on one queue, retries that push a failed message behind newer ones, and re-partitioning (which changes which partition a key lands in).
+
+**Retries.** Retry with **exponential backoff and jitter** — fixed-interval retries from many clients re-synchronise into a thundering herd:
+
+```
+delay = min(base * 2**attempt, max_delay) * random_between(0.5, 1.5)
+```
+
+Cap the attempts. Distinguish **retryable** failures (timeout, 503, deadlock) from **permanent** ones (validation error, 400) — retrying a malformed message forever is pure waste, and it blocks the partition behind it.
+
+**Dead letter queue (DLQ).** After N failed attempts, move the message to a DLQ with its error and attempt count. Nothing is lost, the main flow is unblocked, and a human (or a fixed consumer) can replay it. **Alert on DLQ depth** — a silent DLQ is a data-loss incident nobody noticed.
+
+**Backpressure.** When producers outrun consumers, queue depth grows unbounded, memory and disk fill, and latency climbs until the system fails. The available responses:
+
+1. **Scale consumers** — autoscale on queue depth or consumer lag. (In Kafka, only up to the partition count.)
+2. **Bound the queue** and reject or block producers when it is full — failing fast is better than failing slowly.
+3. **Shed load**: drop low-priority messages, or sample.
+4. **Rate limit at the producer.**
+
+**Consumer lag is the metric.** For Kafka it is the offset gap; for SQS it is `ApproximateAgeOfOldestMessage`. Alert on lag *trend*, not just absolute value: steadily growing lag means consumers are permanently under-provisioned, and no amount of waiting will drain it.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-10-ops-q1", "type": "mcq",
+      "prompt": "One malformed message fails permanently and is retried forever at the head of a Kafka partition. What is the correct fix?",
+      "options": [
+        {"id":"a","text":"Increase the retry count so it eventually succeeds"},
+        {"id":"b","text":"After N attempts, move it to a dead-letter topic with its error context, commit the offset so the partition drains, and alert on DLQ depth"},
+        {"id":"c","text":"Delete the partition"},
+        {"id":"d","text":"Switch to at-most-once delivery"}
+      ],
+      "correct": "b",
+      "explanation": "A poison message blocks its partition because offsets commit in order. The DLQ removes it from the hot path without losing it, and the alert makes sure someone actually looks at it." }
+] }
+```
+
+## Event-driven patterns: pub/sub, outbox, event sourcing, CQRS
+
+**Pub/sub vs point-to-point.** Point-to-point: one producer, one consumer, one queue — a task list. Pub/sub: one event, many independent subscribers — an announcement. Prefer publishing **facts** ("`order.placed`") over issuing **commands** ("`send_email`"): facts let you add a fourth consumer later without touching the producer, which is the whole point of decoupling.
+
+**The dual-write problem, and the outbox pattern.** This is the highest-value pattern in the topic. Writing to the database and then publishing to the broker is **not atomic** — a crash in between leaves the order saved but never announced, or announced but never saved.
+
+```
+Wrong:   BEGIN; INSERT order; COMMIT;   kafka.publish(event)   ← crash here = lost event
+
+Right:   BEGIN;
+           INSERT INTO orders   (...);
+           INSERT INTO outbox   (id, topic, payload, created_at);   -- same transaction
+         COMMIT;
+         -- a separate relay (CDC on the WAL, or a poller) reads outbox and publishes,
+         -- marking rows sent. At-least-once by construction; consumers dedupe.
+```
+
+The inverse, the **inbox pattern**, dedupes on the consuming side by recording processed message ids in the same transaction as the effect.
+
+**Event sourcing** stores the sequence of events as the source of truth, and derives current state by replaying them. You gain a complete audit log, time travel, and the ability to build new projections from history. You pay with schema evolution of old events, snapshotting so replay isn't unbounded, and the fact that "what is the current balance" becomes a computed question. Use it where the history *is* the product — ledgers, audit trails, collaborative documents — not by default.
+
+**CQRS** separates the write model from one or more read models, connected by events. It is the natural partner to event sourcing and to any system whose read shape differs sharply from its write shape (a normalised write side, a denormalised feed on the read side). The cost is eventual consistency between the two and twice the models to maintain.
+
+**Change data capture (CDC)** reads the database's own replication log (Debezium on the Postgres WAL or MySQL binlog) and publishes row changes as events. It gives you the outbox's atomicity without application changes, and it is the standard way to feed search indexes, caches, and warehouses from a source-of-truth database.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-10-outbox-q1", "type": "mcq",
+      "prompt": "A service commits an order to Postgres and then publishes an `order.placed` event to Kafka. What can go wrong, and what is the standard fix?",
+      "options": [
+        {"id":"a","text":"Nothing — the two writes happen in sequence"},
+        {"id":"b","text":"The dual-write problem: a crash between commit and publish loses the event permanently. Fix with the transactional outbox — insert the event into an outbox table in the same transaction, and have a relay (or CDC) publish from it"},
+        {"id":"c","text":"Kafka may reorder the event; fix by adding a timestamp"},
+        {"id":"d","text":"Postgres may roll back after Kafka accepts; fix with a longer transaction timeout"}
+      ],
+      "correct": "b",
+      "explanation": "Two separate systems cannot be written atomically without a distributed transaction. The outbox turns the problem into a single local transaction plus an at-least-once relay, and consumers dedupe." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Queue jobs: decouple · buffer · async · retry.  Rule: response-independent work goes async.
+Queue (RabbitMQ/SQS) = delete on ack, rich routing, per-message retry
+Log   (Kafka)        = retained + replayable, many consumer groups, order PER PARTITION
+                       partitions = max parallelism; partition key = ordering unit
+
+Delivery: at-most-once (lossy) · at-least-once (DEFAULT, duplicates) · exactly-once (myth)
+  → at-least-once + idempotent consumer = "effectively once"
+  → idempotency via UNIQUE dedupe row, conditional UPDATE, or version check
+
+Retries: exponential backoff + JITTER, capped, retryable vs permanent
+DLQ after N failures + ALERT on depth (a poison message blocks its partition)
+Backpressure: scale consumers → bound the queue → shed load → rate limit producers
+Metric: consumer lag, and its TREND
+
+Patterns: publish FACTS not commands · transactional OUTBOX (dual-write fix)
+          inbox (consumer dedupe) · CDC (WAL → events) · event sourcing · CQRS
+```
+
+- **"I'd add a queue" is incomplete.** Finish it: queue or log, what the ordering key is, how the consumer is idempotent, what happens after N failures, and how you detect lag.
+- **The outbox pattern is the single highest-value thing in this lesson.** Every design that writes to a database and publishes an event has the dual-write problem; almost no candidate names it.
+- **Duplicates are guaranteed, so design for them** rather than trying to prevent them.
+- **Publish facts, not commands** — it is what makes adding the fourth consumer free.
+$md$, 50, $json$[{"id":"ip45-hld-10-why-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-10-queuelog-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-10-delivery-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-10-ops-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-10-outbox-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('29066a39-d2dd-5f0c-bc83-71a3eb9466e1', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Distributed Transactions and Data Integrity', 'notes', 11, $md$The moment your design has two services with two databases — or one sharded database — the single `BEGIN … COMMIT` you have relied on your whole career stops working. "Reserve inventory, charge the card, create the shipment" now spans three systems, any of which can fail after the others succeeded. This lesson covers the four honest answers to that problem and how to choose between them.
+
+## Why you cannot just use a transaction
+
+A local transaction gives atomicity because one database owns the log, the locks, and the commit decision. Across services none of that exists:
+
+- Service A commits, service B fails → **partial state** the user can see.
+- Service B is slow → A holds locks across a network call → contention and cascading timeouts.
+- Either can crash between "did the work" and "recorded that it did the work".
+
+Three principles to state before you propose a mechanism:
+
+1. **The best distributed transaction is the one you don't have.** If two pieces of data must change atomically, that is strong evidence they belong in the same service and the same database. Redrawing the service boundary is a legitimate and senior answer.
+2. **Business processes are already eventually consistent.** A hotel takes your booking, charges you later, and cancels if the payment fails. Real-world workflows are compensating, not atomic — modelling them that way is not a compromise.
+3. **Choose based on how long the operation takes and how much you can hold locks.** Milliseconds within one datacenter and a hard atomicity requirement point one way; a multi-second, multi-service workflow points the other.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-11-why-q1", "type": "mcq",
+      "prompt": "Two microservices must update their data atomically on every request, and this is the dominant workflow. What is the strongest first response in a design interview?",
+      "options": [
+        {"id":"a","text":"Implement two-phase commit between them"},
+        {"id":"b","text":"Question the service boundary — data that must change atomically on every request probably belongs in one service and one database; distributed transactions are the fallback, not the goal"},
+        {"id":"c","text":"Use eventual consistency and hope for the best"},
+        {"id":"d","text":"Put both databases behind one connection pool"}
+      ],
+      "correct": "b",
+      "explanation": "A hard atomicity requirement across a boundary is evidence the boundary is in the wrong place. Proposing to move it before reaching for 2PC or sagas is the senior move; the mechanisms are what you use when the split is genuinely necessary." }
+] }
+```
+
+## Two-phase commit (2PC)
+
+A coordinator drives all participants to a single decision.
+
+```
+Phase 1 — PREPARE
+  Coordinator → all participants: "can you commit?"
+  Each participant does the work, writes it durably, takes locks, replies YES or NO
+  A YES is a PROMISE: it must be able to commit later, no matter what
+
+Phase 2 — COMMIT / ABORT
+  All YES → coordinator writes "commit" to its own log → tells everyone to commit
+  Any NO  → coordinator tells everyone to abort
+```
+
+It gives real atomicity. What it costs:
+
+- **The coordinator is a single point of failure at the worst moment.** If it crashes after participants voted YES but before broadcasting the decision, every participant is **blocked**, holding locks, unable to decide alone. This is why 2PC is often called a blocking protocol.
+- **Locks are held across network round trips**, so throughput collapses under contention and one slow participant stalls everyone.
+- **Availability multiplies downward**: the transaction needs every participant up.
+- Support is uneven — most modern datastores and message brokers do not implement XA at all.
+
+Use it for: a small number of participants, inside one datacenter, where atomicity is non-negotiable and volume is modest (some financial systems, some distributed databases internally). Do not use it for: long-running, user-facing, or cross-organisation workflows.
+
+**Three-phase commit** adds a pre-commit phase to make the protocol non-blocking in some failure cases; it is rarely used in practice because it adds a round trip and still fails under network partitions. Modern systems that need this reach for a **consensus protocol** (Raft/Paxos) instead, which is fault-tolerant by design — Spanner runs 2PC *over* Paxos groups, so no single coordinator failure can block anything.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-11-2pc-q1", "type": "mcq",
+      "prompt": "In 2PC, the coordinator crashes after every participant voted YES but before sending the decision. What happens?",
+      "options": [
+        {"id":"a","text":"Participants time out and abort independently, so the system is safe"},
+        {"id":"b","text":"Participants are blocked holding their locks — they promised they can commit and may not unilaterally abort, so they must wait for the coordinator to recover"},
+        {"id":"c","text":"The transaction commits automatically after a timeout"},
+        {"id":"d","text":"Each participant asks the client what to do"}
+      ],
+      "correct": "b",
+      "explanation": "A YES vote is a binding promise, so aborting alone could diverge from a peer that committed. This blocking window with locks held is 2PC's defining weakness, and the reason production systems prefer sagas or consensus-backed commit." }
+] }
+```
+
+## Sagas: compensating transactions
+
+A saga replaces one atomic transaction with a **sequence of local transactions**, each with a **compensating action** that semantically undoes it. There is no global lock and no global rollback — there is a forward path and a backward path.
+
+```
+T1 reserve inventory      C1 release inventory
+T2 charge payment         C2 refund payment
+T3 create shipment        C3 cancel shipment
+
+Failure at T3 → run C2, then C1, in reverse order.
+```
+
+**Two coordination styles:**
+
+| | Choreography | Orchestration |
+|---|---|---|
+| How | Each service listens for events and emits the next one | A central orchestrator calls each step and decides what's next |
+| Coupling | Loose | Services are simple; the orchestrator knows the flow |
+| Visibility | The workflow exists nowhere explicitly | The workflow is one readable state machine |
+| Debugging | Hard past ~4 steps — you reconstruct it from logs | Easy: query the orchestrator's state |
+| Best for | 2–3 steps | 4+ steps, or anything with complex compensation |
+
+For anything non-trivial, **orchestration** (a durable workflow engine — Temporal, Step Functions, or your own state machine table) is the better answer, and saying "I'd model this as an explicit state machine with a persisted state per order" is a strong, concrete design statement.
+
+**What sagas demand of you:**
+
+- **Compensations are semantic, not literal.** You cannot un-send an email; you send an apology. You cannot un-charge a card; you refund it, and the statement shows both.
+- **Some steps are not compensatable.** Order them last, or add a **pivot point**: everything before it can be undone, everything after it must be retried until it succeeds.
+- **Every step and every compensation must be idempotent**, because retries are guaranteed.
+- **Intermediate states are visible.** Money is captured while the shipment is still pending. Model those states explicitly (`PENDING_PAYMENT`, `PAID_AWAITING_STOCK`) rather than pretending the operation is instantaneous.
+- **Isolation is gone.** Another transaction can read the half-finished state. Countermeasures: a semantic lock (`status = 'processing'` that other operations respect), a reserved/pending balance separate from the available balance, or re-reading and re-validating at the commit step.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-11-saga-q1", "type": "mcq",
+      "prompt": "In a saga, payment succeeds but shipment creation fails permanently. What happens?",
+      "options": [
+        {"id":"a","text":"The payment transaction is rolled back by the database"},
+        {"id":"b","text":"A compensating transaction runs — issue a refund and release the inventory — because there is no global rollback, only explicit semantic undo steps"},
+        {"id":"c","text":"The coordinator blocks until shipment recovers"},
+        {"id":"d","text":"The saga retries shipment forever"}
+      ],
+      "correct": "b",
+      "explanation": "Local transactions have already committed and are visible; the only way back is a forward-moving compensation (a refund, which appears as its own entry) executed in reverse step order. Indefinite retry is only appropriate past a pivot point where compensation is impossible." }
+] }
+```
+
+## Idempotency, exactly-once effects, and reconciliation
+
+Distributed systems retry. Therefore **every externally-visible effect must be safe to attempt more than once** — this is the practical guarantee that replaces atomicity.
+
+The mechanisms, in ascending order of strength:
+
+1. **Naturally idempotent operations.** `SET status='shipped'` beats `status = next(status)`; absolute values beat deltas.
+2. **Conditional writes.** `UPDATE orders SET status='paid' WHERE id=? AND status='pending'` — applying twice is a no-op, and the affected-row count tells you which attempt won.
+3. **Idempotency keys with a unique constraint** (covered in the API lesson) — the general mechanism for "did I already do this?".
+4. **Ledger, not mutation.** For anything financial, never store a mutable balance. Store immutable double-entry rows and derive the balance:
+
+```sql
+CREATE TABLE ledger_entries (
+    id            uuid PRIMARY KEY,
+    account_id    uuid NOT NULL,
+    amount_paise  bigint NOT NULL,      -- signed; debits negative, credits positive
+    txn_id        uuid NOT NULL,        -- the transfer this entry belongs to
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (txn_id, account_id)         -- retry-safe: a repeat insert violates this
+);
+-- Every transfer writes two rows summing to zero, in one local transaction.
+-- Balance = SUM(amount_paise); a running-total column is a cache, never the truth.
+```
+
+Immutable append-only entries give you replay safety, a complete audit trail, and the ability to prove where a number came from. This is how real payment systems work, and proposing it in a payments design is a strong signal.
+
+**Reconciliation is the safety net you should always mention.** Even with perfect code, distributed systems drift: a webhook is missed, a message is dropped, a compensation fails. Production systems run periodic jobs that compare the two sides — your ledger against the payment provider's settlement file, your inventory against the warehouse count — and either auto-correct or raise an exception for a human. "I'd add a daily reconciliation job comparing our ledger to the PSP's settlement report and alert on any mismatch" is the sentence that says you have operated one of these systems.
+
+Related, and worth one line each: **the outbox pattern** (previous lesson) is what makes "commit and publish" atomic; **CDC** is how you feed derived stores without dual writes; and **TCC (Try–Confirm–Cancel)** is a saga variant where the first step *reserves* rather than commits — the model behind seat holds and inventory reservations with a TTL.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-11-ledger-q1", "type": "mcq",
+      "prompt": "Why do payment systems store immutable double-entry ledger rows instead of a mutable `balance` column?",
+      "options": [
+        {"id":"a","text":"Because summing rows is faster than reading one column"},
+        {"id":"b","text":"Because append-only entries with a unique key per (transaction, account) make retries safe, give a complete auditable history of how the balance was reached, and never suffer lost updates"},
+        {"id":"c","text":"Because databases cannot update integer columns atomically"},
+        {"id":"d","text":"Because ledgers avoid the need for any consistency guarantees"}
+      ],
+      "correct": "b",
+      "explanation": "A mutable balance loses history and is vulnerable to lost updates and double-application on retry. Immutable entries make every change attributable and idempotent; a stored balance, when needed for speed, is treated as a cache derived from the entries." }
+] }
+```
+
+## Key takeaways
+
+**The decision table:**
+
+| Situation | Mechanism |
+|---|---|
+| Data must change atomically and is in one database | **Local transaction** — and consider keeping it that way |
+| Commit + publish an event | **Transactional outbox** (or CDC) |
+| Multi-step business workflow across services | **Saga**, orchestrated if 4+ steps |
+| Reserve now, confirm or cancel shortly after | **TCC / reservation with a TTL** |
+| Small number of participants, one datacenter, atomicity non-negotiable | **2PC**, knowing it blocks on coordinator failure |
+| Replicated state that must never diverge | **Consensus (Raft/Paxos)** — next lesson |
+| Any of the above | **Idempotent steps + reconciliation job** |
+
+- **The strongest opening move is to question the boundary.** Distributed transactions are what you use when the split is genuinely required.
+- **2PC's fatal property is blocking**: a coordinator crash after the votes leaves participants stuck holding locks.
+- **Sagas trade atomicity for availability** and hand you three obligations: compensations, idempotency, and explicit intermediate states that other readers will see.
+- **Idempotency plus reconciliation is what production actually relies on.** Mentioning the reconciliation job unprompted is one of the clearest "has shipped this" signals available in a design interview.
+$md$, 45, $json$[{"id":"ip45-hld-11-why-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-11-2pc-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-11-saga-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-11-ledger-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('210e5e75-f519-5270-aa1a-a12855f8b089', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Coordination, Consensus, and Distributed Locks', 'notes', 12, $md$Every design eventually needs exactly one of something: one leader writing, one cron running, one worker holding a seat, one node owning a shard. Getting "exactly one" right in a system where nodes crash and networks lie is what consensus is for. You do not need to implement Raft in an interview — you need to know what it guarantees, when you need it, and why the naive distributed lock everyone writes is wrong.
+
+## Leader election and what a leader is for
+
+A **leader** (coordinator, primary, master) is the node temporarily granted the right to do something exactly once: accept writes, assign partitions, run a scheduled job, drive a rebalance.
+
+Election requires three properties:
+
+1. **Safety** — at most one leader at a time. Violating this is *split brain*, and it is how systems corrupt data.
+2. **Liveness** — if the leader dies, a new one is elected within a bounded time.
+3. **Fencing** — the old leader, when it returns, must be unable to act. This is the part naive implementations skip.
+
+**Why fencing is mandatory.** A leader can be alive but partitioned, or paused by a long garbage-collection stop-the-world, or stalled on I/O. It still believes it is the leader. Meanwhile the cluster elected a new one. Now two nodes think they hold the lease.
+
+The fix is a **monotonically increasing epoch (fencing token)** issued with the lease. Every write carries its token, and downstream storage **rejects any token lower than the highest it has seen**:
+
+```
+Leader A holds epoch 7, then pauses for 30 s (GC)
+Cluster elects Leader B with epoch 8; B writes with token 8 → accepted
+A wakes, writes with token 7 → REJECTED (7 < 8) → A steps down
+```
+
+Without the token, A's stale write silently overwrites B's. This is the single most valuable detail in the topic and almost nobody mentions it.
+
+**Heartbeats and leases.** A leader holds a lease it must renew every few seconds. Failure detection is a timeout, and the timeout is a real trade-off: short timeouts detect failure fast but cause spurious elections during a GC pause or network blip; long timeouts are stable but extend the unavailability window. Add jitter to election timeouts so candidates do not all campaign simultaneously and split the vote.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-12-election-q1", "type": "mcq",
+      "prompt": "A leader pauses for 30 seconds in garbage collection. The cluster elects a new leader. The old leader wakes up and writes. What prevents corruption?",
+      "options": [
+        {"id":"a","text":"The old leader notices it was replaced and stops on its own"},
+        {"id":"b","text":"A fencing token: each leadership term has a monotonically increasing epoch, and storage rejects any write carrying an epoch lower than the highest it has seen"},
+        {"id":"c","text":"The lease timeout guarantees the old leader cannot write"},
+        {"id":"d","text":"The new leader locks the database"}
+      ],
+      "correct": "b",
+      "explanation": "A paused node learns nothing while paused, so it cannot police itself, and a lease timeout is only a promise the paused node has already broken. Only a check at the resource — reject stale epochs — is safe." }
+] }
+```
+
+## Consensus: Raft in the amount you need
+
+Consensus is agreement on a value (or a sequence of values) among nodes that can crash and whose network can drop or delay messages. Every practical use is really **replicated state machine**: agree on an ordered log of commands, apply it in the same order everywhere, and every replica ends in the same state.
+
+**Raft in five bullets** — enough to answer any HLD-level question:
+
+1. Nodes are **follower**, **candidate**, or **leader**. Time is divided into numbered **terms** (the epoch/fencing number).
+2. A follower that hears no heartbeat becomes a candidate and requests votes. A node grants one vote per term. **A candidate that wins a majority becomes leader** — majority quorum is what makes two leaders in the same term impossible.
+3. All writes go to the leader, which appends to its log and replicates to followers.
+4. An entry is **committed** once a majority has stored it; only then is it applied and acknowledged. Committed entries survive any minority failure.
+5. A node may only vote for a candidate whose log is at least as up to date as its own, so a leader can never be elected that is missing committed entries.
+
+**Quorum arithmetic** you should be able to state instantly:
+
+| Nodes | Majority | Tolerates | Note |
+|---|---|---|---|
+| 3 | 2 | 1 failure | The common default |
+| 5 | 3 | 2 failures | Better durability, slower commits |
+| 7 | 4 | 3 failures | Rarely worth the latency |
+| 4 | 3 | 1 failure | **No better than 3** — always use odd numbers |
+
+**Where you meet it in real systems:** etcd and ZooKeeper (Raft/ZAB) backing Kubernetes, service discovery, and config; Kafka's controller and partition leadership (KRaft); CockroachDB, TiDB, and Spanner replicating each range with Raft/Paxos; Consul for service catalogues and locks.
+
+**The rule for interviews: use a consensus system, do not build one.** "I'd store leadership and cluster metadata in etcd, which gives me a linearizable key-value store with leases and compare-and-swap" is exactly the right level of answer — and it also tells the interviewer you know consensus is expensive and belongs to a small control plane, not on your data path.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-12-raft-q1", "type": "mcq",
+      "prompt": "Why is a 5-node Raft cluster preferred over a 4-node one?",
+      "options": [
+        {"id":"a","text":"5 nodes commit faster than 4"},
+        {"id":"b","text":"Both need a majority of 3, so 4 nodes tolerate only 1 failure while 5 tolerate 2 — the fourth node adds cost and latency without adding fault tolerance"},
+        {"id":"c","text":"Raft requires a prime number of nodes"},
+        {"id":"d","text":"4-node clusters cannot elect a leader"}
+      ],
+      "correct": "b",
+      "explanation": "Majority of 4 is 3 and majority of 5 is 3, so an even cluster wastes a node. This is why every production consensus cluster is 3, 5, or 7." }
+] }
+```
+
+## Distributed locks — and why the naive one is broken
+
+The requirement is mutual exclusion across processes: only one worker runs this job, only one request holds this seat.
+
+The naive Redis lock, and its two bugs:
+
+```
+# BROKEN in two ways
+if redis.setnx("lock:job", "1"):     # bug 1: no expiry → a crashed holder locks forever
+    do_work()
+    redis.delete("lock:job")          # bug 2: deletes ANY holder's lock, not just mine
+```
+
+The correct single-instance version:
+
+```
+token = str(uuid.uuid4())
+# Atomic acquire with an expiry: NX = only if absent, EX = auto-release on crash.
+if redis.set("lock:job", token, nx=True, ex=30):
+    try:
+        do_work()
+    finally:
+        # Release only if we still hold it — compare-and-delete, atomically, in Lua.
+        redis.eval(
+            "if redis.call('get', KEYS[1]) == ARGV[1] "
+            "then return redis.call('del', KEYS[1]) else return 0 end",
+            1, "lock:job", token,
+        )
+```
+
+Two fixes, two reasons: the **expiry** means a crashed holder cannot deadlock the system, and the **token compare-and-delete** means a slow holder whose lock already expired cannot delete the lock a *different* worker now holds.
+
+**The remaining, unfixable problem.** Suppose the work takes longer than the TTL — a GC pause, a slow disk, a stalled network call. The lock expires, worker B acquires it, and now **two workers are in the critical section simultaneously**. No amount of Redis cleverness removes this: the lock holder cannot know it has been evicted.
+
+Therefore:
+
+- **For efficiency** (don't do the same work twice; a duplicate is merely wasteful) — a Redis lock is fine.
+- **For correctness** (a duplicate corrupts data or double-charges) — a lock is **not** sufficient. You need a fencing token checked at the resource, or you need to make the protected operation idempotent, or you need the resource itself to enforce the invariant (a unique constraint, a conditional `UPDATE … WHERE version = ?`).
+
+Redlock (the multi-node Redis algorithm) is contested precisely because it does not solve this; the same pause argument applies. When you genuinely need correctness under contention, **push the invariant into a system that can enforce it**: a database unique constraint, a conditional update, or a lease from a consensus store (etcd/ZooKeeper) that issues monotonic revision numbers you can fence with.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-12-lock-q1", "type": "mcq",
+      "prompt": "A worker holds a 30-second Redis lock, then stalls for 40 seconds. Another worker acquires the lock and starts. What is the correct conclusion?",
+      "options": [
+        {"id":"a","text":"Use a longer TTL — 5 minutes will make this impossible"},
+        {"id":"b","text":"A TTL-based lock cannot guarantee mutual exclusion, because the holder cannot know it was evicted. For correctness, enforce the invariant at the resource — a fencing token, a unique constraint, or a conditional update — rather than relying on the lock alone"},
+        {"id":"c","text":"Use Redlock across five Redis nodes, which removes the problem"},
+        {"id":"d","text":"Disable the TTL so the lock never expires"}
+      ],
+      "correct": "b",
+      "explanation": "Any TTL can be exceeded by a pause, and removing the TTL trades this failure for a permanent deadlock on crash. Redlock does not address the pause either. Locks are an optimisation; correctness must live at the resource." }
+] }
+```
+
+## Coordination in practice: what to actually use
+
+Most systems need far less coordination than they think. The cheapest coordination is **none**:
+
+| Instead of coordinating | Do this |
+|---|---|
+| A lock so only one worker processes an item | **Partition** the work by key so only one worker ever owns that key |
+| A lock to prevent double-processing | Make the operation **idempotent** and let duplicates be harmless |
+| A global counter | Per-node counters summed at read time, or a probabilistic sketch |
+| A lock around read-modify-write | A single **atomic/conditional statement** in the database |
+| A distributed lock for "run this cron once" | A **lease** in etcd, or `INSERT … ON CONFLICT DO NOTHING` on a `(job, scheduled_for)` unique key |
+
+That last row is worth remembering: a scheduled job with a unique constraint on `(job_name, run_at)` gives you exactly-once scheduling using nothing but the database you already have.
+
+**Where a real coordination service is the right answer:**
+
+- Cluster membership and configuration (etcd, ZooKeeper, Consul)
+- Leader election for a control plane
+- Shard/partition assignment and rebalancing
+- Service discovery and health state
+- Feature flags and dynamic configuration with change notification (watches)
+
+**Two properties to demand of any of these**: leases with automatic expiry (so a dead client releases its claim) and compare-and-swap / revision numbers (so you can fence).
+
+**Time**, one last warning. Do not coordinate with wall clocks. NTP skew across machines is milliseconds at best, clocks step backwards, and virtual machines pause. Use **monotonic clocks** for measuring elapsed time, **logical clocks** (Lamport, vector) for ordering events, and consensus revision numbers for fencing. Spanner's TrueTime, which needs GPS receivers and atomic clocks to bound uncertainty and then *waits out* that bound on every commit, is the honest measure of how hard globally-ordered time really is.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-12-practice-q1", "type": "mcq",
+      "prompt": "You must guarantee a nightly job runs exactly once across 10 identical app instances. Which is the simplest sufficient mechanism?",
+      "options": [
+        {"id":"a","text":"A Redis lock with a 1-hour TTL"},
+        {"id":"b","text":"A unique constraint on (job_name, scheduled_for) with INSERT … ON CONFLICT DO NOTHING — the one instance whose insert succeeds runs the job, using only the database you already operate"},
+        {"id":"c","text":"Designate instance #1 as the runner in configuration"},
+        {"id":"d","text":"Have every instance run it and deduplicate the results later"}
+      ],
+      "correct": "b",
+      "explanation": "The database's unique index is an atomic, durable compare-and-set — exactly what \"exactly once\" needs, with no extra system. A hardcoded instance has no failover, and a TTL lock has the eviction problem plus another dependency." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Need exactly one of something? → leader election, and FENCING is not optional.
+  Fencing token = monotonically increasing epoch, checked and rejected AT THE RESOURCE.
+  A paused (GC'd) leader cannot police itself — only the resource can.
+
+Raft: terms · majority vote · leader-only writes · commit on majority · up-to-date-log rule
+  Cluster sizes: 3 (tolerate 1) · 5 (tolerate 2) · always ODD
+  Use etcd / ZooKeeper / Consul. Do not implement consensus.
+
+Distributed lock (Redis): SET key token NX EX ttl  +  Lua compare-and-delete on release
+  Locks give EFFICIENCY, never CORRECTNESS — a pause can exceed any TTL.
+  Correctness lives at the resource: unique constraint · conditional UPDATE · fencing token
+
+Cheapest coordination is none: partition the work · make it idempotent · one atomic statement
+Time: monotonic clocks for elapsed, logical clocks for order, never wall clocks for ordering.
+```
+
+- **Fencing tokens are the highest-value detail in this lesson.** "Split brain is prevented by an epoch number that storage rejects when stale" is a sentence very few candidates produce.
+- **Consensus is for the control plane, not the data path** — it costs a majority round trip per decision.
+- **Say the honest thing about distributed locks**: efficiency yes, correctness no, and name where the invariant is really enforced instead.
+- **Design coordination away before designing it in.** Partitioning and idempotency remove more locks than any lock implementation improves.
+$md$, 45, $json$[{"id":"ip45-hld-12-election-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-12-raft-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-12-lock-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-12-practice-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('d15371fb-0538-5524-b944-597caa3c34a0', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Reliability, Resilience, and Rate Limiting', 'notes', 13, $md$Every design interview ends with some version of "what happens when this breaks?" Candidates who have only drawn happy paths stall here. Candidates who can name a failure, its blast radius, and the pattern that contains it finish strong. This lesson is that vocabulary — plus rate limiting, which is the one resilience mechanism you will be asked to implement in detail.
+
+## Availability, SLOs, and the arithmetic of dependencies
+
+**Availability is downtime per year, and you should know the ladder:**
+
+| Availability | Downtime/year | Downtime/month | Typical of |
+|---|---|---|---|
+| 99% ("two nines") | 3.65 days | 7.2 hours | Internal tools |
+| 99.9% | 8.8 hours | 43 minutes | Standard SaaS |
+| 99.95% | 4.4 hours | 22 minutes | Paid business tier |
+| 99.99% | 53 minutes | 4.3 minutes | Critical infrastructure |
+| 99.999% | 5.3 minutes | 26 seconds | Telecom-grade, very expensive |
+
+**SLI / SLO / SLA**, distinguished precisely because interviewers ask:
+
+- **SLI** — the measurement: "proportion of requests served in <300 ms", "success rate of `POST /orders`".
+- **SLO** — your internal target for that SLI: "99.9% of requests succeed, measured over 30 days".
+- **SLA** — the contractual promise to customers, with penalties. Always looser than the SLO, so you find out before your customers do.
+- **Error budget** — the inverse of the SLO. A 99.9% SLO grants 43 minutes of failure per month; that budget is *permission to ship*. Budget intact → ship features. Budget spent → freeze and fix reliability. This framing is a strong thing to bring up unprompted.
+
+**Dependencies multiply, and this is the most useful arithmetic in the lesson.** Five services in a synchronous chain, each 99.9% available:
+
+```
+0.999^5 = 0.995  →  99.5% overall  →  3.6 hours of downtime per month
+```
+
+Adding a dependency to the critical path *lowers* availability. Three consequences to state:
+
+1. **Redundancy in parallel raises it back**: two independent replicas each at 99% give `1 − 0.01² = 99.99%` — provided the failures are genuinely independent (same AZ, same deploy, same config bug: not independent).
+2. **Make dependencies non-critical**: if the recommendation service is down and the page still renders without recommendations, it is not on your critical path.
+3. **Count the chain out loud** when you draw it. "This request touches four services synchronously, so my availability ceiling is about 99.6% — I'd move the last two behind a queue."
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-13-availability-q1", "type": "mcq",
+      "prompt": "A request synchronously calls four services, each 99.9% available. What is the approximate end-to-end availability, and what is the standard fix?",
+      "options": [
+        {"id":"a","text":"99.9% — the slowest dependency sets the number"},
+        {"id":"b","text":"About 99.6%, because availabilities multiply along a synchronous chain; fix by removing non-essential calls from the critical path (async, cached, or degrade gracefully)"},
+        {"id":"c","text":"99.99% — redundancy improves it"},
+        {"id":"d","text":"100% if each service has retries"}
+      ],
+      "correct": "b",
+      "explanation": "0.999⁴ ≈ 0.996. Every synchronous dependency is a multiplier, which is why the strongest reliability move is usually shortening the critical path rather than making each dependency slightly better." }
+] }
+```
+
+## Timeouts, retries, and the patterns that stop cascades
+
+**Timeouts.** Every network call needs one. A call with no timeout holds a thread, a connection, and a caller's request until something else gives up — this is how one slow dependency exhausts a whole fleet's thread pool.
+
+Set the timeout from your **latency budget**, not from the dependency's average: if you must answer in 300 ms and you make two calls, they get roughly 100 ms each plus overhead. Propagate the remaining budget downstream (a deadline header) so a service does not start work its caller has already abandoned.
+
+**Retries — the double-edged one.** Retries turn transient failures into successes and turn overload into an outage. Four rules:
+
+1. **Exponential backoff with jitter.** `min(base × 2^attempt, cap) × random(0.5, 1.5)`. Without jitter, retries synchronise and arrive as a wave.
+2. **Only retry idempotent operations**, or operations protected by an idempotency key.
+3. **Only retry retryable failures.** Timeouts, 503, connection resets: yes. 400, 401, 422: never — it will fail identically forever.
+4. **Use a retry budget**, not just a per-call limit: cap retries at, say, 10% of total requests. Otherwise a struggling dependency receives 3× its normal load exactly when it can least handle it — the classic **retry storm**.
+
+**Circuit breaker.** Stop calling a dependency that is clearly failing, so you fail fast instead of exhausting resources waiting.
+
+```
+CLOSED  → calls pass through; count failures
+        → failure rate exceeds threshold (e.g. 50% over 20 requests) ⇒ OPEN
+OPEN    → reject immediately, no call made (fail fast, serve fallback)
+        → after a cool-off (e.g. 30 s) ⇒ HALF-OPEN
+HALF-OPEN → allow a few trial calls
+        → they succeed ⇒ CLOSED     they fail ⇒ OPEN again
+```
+
+The benefit is mutual: the caller stops burning threads on doomed calls, and the failing service gets breathing room to recover instead of being hammered.
+
+**Bulkhead.** Isolate resources so one failure cannot consume everything, named after a ship's watertight compartments: separate connection pools and thread pools per dependency, so a slow recommendation service cannot starve the checkout path of connections. Separate queues per tenant so one noisy customer cannot fill the shared one.
+
+**Graceful degradation.** Decide *in advance* what a partial system still serves: search without personalisation, a product page without the review count, a feed from cache with a "may be stale" indicator. Naming the degraded mode is far stronger than "it returns an error".
+
+**Load shedding.** When overloaded, reject some requests immediately — cheaply, and preferring low-value traffic — so the rest are served correctly. A system that serves 70% of traffic well beats one that serves 100% of traffic past its timeout. Prioritise: paying users over free, writes over analytics, interactive over batch.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-13-patterns-q1", "type": "mcq",
+      "prompt": "A downstream service starts timing out. Callers retry three times each. What happens, and which pattern prevents it?",
+      "options": [
+        {"id":"a","text":"The retries succeed and hide the problem; no pattern needed"},
+        {"id":"b","text":"Load on the struggling service triples exactly when it is weakest (a retry storm), and callers exhaust their thread pools waiting — a circuit breaker fails fast once the failure rate crosses a threshold, and a retry budget caps the amplification"},
+        {"id":"c","text":"The load balancer routes around it automatically"},
+        {"id":"d","text":"The database absorbs the extra load"}
+      ],
+      "correct": "b",
+      "explanation": "Retries amplify load multiplicatively during exactly the window where the dependency needs less. Circuit breaking plus a retry budget plus backoff-with-jitter is the standard triple." }
+] }
+```
+
+## Rate limiting: the four algorithms
+
+Rate limiting protects you from abuse, from runaway clients, and from your own retry storms. Interviewers ask for the algorithms by name, so learn all four and their trade-offs.
+
+**1. Fixed window.** Count requests per fixed interval; reset at the boundary.
+
+```
+key = f"rl:{user_id}:{int(time.time() // 60)}"    # one counter per minute
+count = redis.incr(key)
+if count == 1:
+    redis.expire(key, 60)
+allowed = count <= LIMIT
+```
+Trivial and cheap, one flaw: the **boundary burst** — 100 requests at 11:59:59 and 100 more at 12:00:00 is 200 in one second under a "100/minute" limit.
+
+**2. Sliding window log.** Store a timestamp per request in a sorted set; drop entries older than the window; count what remains. Perfectly accurate, and memory grows with the request rate — expensive for high-volume limits.
+
+```
+now = time.time()
+p = redis.pipeline()
+p.zremrangebyscore(key, 0, now - WINDOW)
+p.zadd(key, {str(uuid.uuid4()): now})
+p.zcard(key)
+p.expire(key, WINDOW)
+allowed = p.execute()[2] <= LIMIT
+```
+
+**3. Sliding window counter.** Interpolate between the previous and current fixed windows: `count = prev_window_count × (overlap fraction) + current_count`. Approximates the sliding log with two integers — the usual production compromise, and what Cloudflare popularised.
+
+**4. Token bucket.** A bucket holds up to `B` tokens and refills at `r` tokens/second; each request takes one. Empty bucket → reject (or queue). This is the one to reach for by default: it **allows controlled bursts** up to the bucket size while enforcing the average rate — which matches how real clients behave.
+
+```python
+def allow(bucket, rate, capacity, now):
+    elapsed = now - bucket["last"]
+    bucket["tokens"] = min(capacity, bucket["tokens"] + elapsed * rate)  # lazy refill
+    bucket["last"] = now
+    if bucket["tokens"] >= 1:
+        bucket["tokens"] -= 1
+        return True
+    return False
+
+
+# 5 requests/sec, burst of 5: the first 5 pass instantly, the 6th is rejected,
+# and one more token is available half a second later.
+bucket = {"tokens": 5.0, "last": 0.0}
+assert [allow(bucket, 5, 5, 0.0) for _ in range(5)] == [True] * 5
+assert allow(bucket, 5, 5, 0.0) is False          # burst exhausted
+assert allow(bucket, 5, 5, 0.5) is True           # 0.5 s x 5/sec = 2.5 tokens refilled
+print("token bucket ok, tokens left:", round(bucket["tokens"], 2))
+```
+
+**Leaky bucket** is the sibling: requests queue and drain at a constant rate, smoothing output completely — good for protecting a downstream that cannot burst at all, at the cost of added latency.
+
+| Algorithm | Memory | Accuracy | Bursts | Verdict |
+|---|---|---|---|---|
+| Fixed window | O(1) | Boundary burst up to 2× | Uncontrolled at boundary | Simple internal limits |
+| Sliding log | O(requests) | Exact | None | Low-volume, high-value limits |
+| Sliding counter | O(1) | Very good | Smoothed | Good production default |
+| **Token bucket** | O(1) | Good | **Controlled, up to B** | **The usual answer** |
+| Leaky bucket | O(queue) | Exact output rate | None (queued) | Protecting a fragile downstream |
+
+**Distributed rate limiting** adds the real difficulty. Per-node limits are wrong (10 nodes × 100/min = 1000/min), so counters live in Redis — which puts a network call on every request and makes Redis a dependency of your front door. The production compromise: **local token buckets with a share of the global budget**, periodically rebalanced against a central counter; approximate, fast, and it degrades to per-node limits if the central store is unreachable.
+
+Always return the contract: `429` with `Retry-After`, plus `X-RateLimit-Limit/Remaining/Reset`. Rate limit by the right key — user id for authenticated traffic, API key for partners, IP only as a last resort (NAT and mobile carriers put thousands of users behind one address).
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-13-ratelimit-q1", "type": "mcq",
+      "prompt": "Why is token bucket usually preferred over fixed-window counting for a public API?",
+      "options": [
+        {"id":"a","text":"It uses less memory than a fixed-window counter"},
+        {"id":"b","text":"It enforces the average rate while allowing a controlled burst up to the bucket size, and it has no window-boundary spike where a client can send 2× the limit in an instant"},
+        {"id":"c","text":"It requires no shared state in a distributed system"},
+        {"id":"d","text":"It guarantees requests are never rejected"}
+      ],
+      "correct": "b",
+      "explanation": "Fixed windows allow up to double the limit across a boundary and refuse all bursts inside a window. Token bucket's refill model matches real client behaviour: occasional bursts, bounded long-run average. Both are O(1) state." }
+] }
+```
+
+## Failure modes, blast radius, and testing for failure
+
+**Name the failure modes in your own design before you are asked.** The recurring list:
+
+| Failure | Symptom | Containment |
+|---|---|---|
+| Single point of failure | One box, no redundancy | Replicate; multi-AZ; automatic failover |
+| Cascading failure | One slow service takes everything down | Timeouts, circuit breakers, bulkheads, shedding |
+| Retry storm | Load multiplies during degradation | Backoff + jitter, retry budgets |
+| Thundering herd | Everything expires/reconnects at once | Jitter everywhere: TTLs, retries, cron, reconnects |
+| Hot key / hot shard | One partition saturates | Cache it, salt it, isolate it |
+| Poison message | One bad record blocks a partition | DLQ after N attempts |
+| Unbounded queue | Latency climbs until the system dies | Bounded queues, backpressure, shedding |
+| Correlated failure | "Independent" replicas share an AZ, config, or deploy | Spread across AZs; stagger deploys; separate config blast radius |
+| Grey failure | Not down, just slow or wrong — health checks pass | Latency- and error-based SLIs, outlier ejection |
+| Metastable failure | System stays broken after the trigger is gone | Shed load to break the feedback loop; drain queues before resuming |
+
+**Blast radius** is the containment vocabulary: cell/shard architectures so one cell's failure affects 1/N of users, per-tenant isolation for large customers, staged rollouts (canary → 1% → 10% → 100%) with automatic rollback on SLI regression, and feature flags to disable a subsystem without a deploy.
+
+**Recovery objectives**, in case they are asked by name: **RTO** is how long you may take to restore service; **RPO** is how much data you may lose. Async replication implies an RPO greater than zero — say the number.
+
+**And prove it**: chaos experiments (kill an instance, add latency, sever an AZ) in a controlled window, game days, load tests to find the knee of the curve, and disaster-recovery drills that actually restore from backup. "A backup you have never restored is not a backup" is a fair line to use.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-13-failure-q1", "type": "mcq",
+      "prompt": "Traffic returns to normal after a spike, but the system stays broken — queues are full, every request times out, retries keep it saturated. What is this, and what breaks the loop?",
+      "options": [
+        {"id":"a","text":"A cache stampede; add a lock"},
+        {"id":"b","text":"A metastable failure — a self-sustaining feedback loop that outlives its trigger. Break it by shedding load hard, pausing retries, and draining the backlog before admitting traffic again"},
+        {"id":"c","text":"A hot shard; re-partition the data"},
+        {"id":"d","text":"A grey failure; replace the health check"}
+      ],
+      "correct": "b",
+      "explanation": "Retry amplification plus a saturated queue keeps the system in the failed state even at normal load. Only reducing admitted work — shedding, pausing retries, draining — lets it fall back into the healthy regime; adding capacity often does not." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+99.9% = 43 min/month · 99.99% = 4.3 min/month
+Synchronous dependencies MULTIPLY: 0.999^5 ≈ 99.5%  → shorten the critical path
+Parallel redundancy adds nines — only if failures are truly independent
+SLI (measure) → SLO (target) → SLA (contract) → error budget = permission to ship
+
+Every call: TIMEOUT (from your latency budget, propagate the deadline)
+Retries: exponential backoff + JITTER, idempotent only, retryable only, retry BUDGET
+Circuit breaker: CLOSED → OPEN (fail fast) → HALF-OPEN (trial) → CLOSED
+Bulkhead: separate pools/queues per dependency and per tenant
+Degrade gracefully (decide the reduced mode in advance) · shed load by priority
+
+Rate limiting: fixed window (boundary burst) · sliding log (exact, costly)
+               · sliding counter (good default) · TOKEN BUCKET (bursts + average) ·
+               leaky bucket (smooth output). Distributed: local buckets + central budget.
+               Always: 429 + Retry-After + X-RateLimit-* headers.
+
+Failure vocabulary: SPOF · cascade · retry storm · thundering herd · hot shard ·
+                    poison message · unbounded queue · correlated failure · grey ·
+                    METASTABLE (survives its trigger — shed to escape)
+Blast radius: cells, per-tenant isolation, canary + auto-rollback, feature flags
+RTO = time to restore · RPO = data you may lose. Test it: chaos, game days, restore drills.
+```
+
+- **Availability arithmetic is the fastest way to justify an architectural change.** Count the synchronous hops and say the number.
+- **Retries without jitter, budgets, and idempotency make outages worse, not better.**
+- **Token bucket is the default rate-limiter answer**, and the distributed version (local buckets against a shared budget) is the follow-up they are hoping for.
+- **Volunteer the failure modes.** Ending your design with "here's what breaks first, how I'd contain it, and how I'd know" is exactly the close a senior interview is looking for.
+$md$, 50, $json$[{"id":"ip45-hld-13-availability-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-13-patterns-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-13-ratelimit-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-13-failure-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c3375b41-34d9-5cd7-800f-3f6c48c893c8', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'Observability, Security, and Cost', 'notes', 14, $md$Three topics that rarely get their own question but are asked as follow-ups in almost every design: "how would you know this is broken?", "how do you keep this secure?", and "what does this cost?". Two sentences on each, delivered unprompted at the end of a design, is one of the cheapest ways to look like someone who has run a system rather than only drawn one.
+
+## The three pillars, and the metrics that matter
+
+**Metrics** — cheap numeric time series, good for alerting and dashboards. **Logs** — expensive, high-cardinality, good for a specific incident. **Traces** — one request's path across services, good for "where did the 900 ms go?". Metrics tell you *that* something is wrong; traces tell you *where*; logs tell you *why*.
+
+Two mnemonics cover almost every dashboard you will ever need:
+
+- **RED — for request-driven services**: **R**ate (requests/sec), **E**rrors (failures/sec or %), **D**uration (latency distribution).
+- **USE — for resources** (CPU, disk, pool, queue): **U**tilisation, **S**aturation (queue depth, wait time), **E**rrors.
+
+**Percentiles, not averages.** An average latency of 100 ms is compatible with 5% of users waiting 3 seconds. Track p50, p95, p99, and p99.9, and remember the arithmetic that makes tails matter: if a page makes 10 backend calls, the chance of at least one hitting the p99 is about 1 − 0.99¹⁰ ≈ **10%**. Tail latency is the median experience of a page.
+
+Never average percentiles across hosts — that number means nothing. Aggregate from histograms.
+
+**Correlation is the piece candidates miss.** A trace/request id generated at the edge, propagated through every service (W3C `traceparent`), and stamped on every log line is what lets you go from an alert to the exact request in under a minute. Say "I'd propagate a trace id and include it in every log line and error response" — it is small, concrete, and rarely mentioned.
+
+**Alert on symptoms, not causes.** Page on "checkout error rate above 1% for 5 minutes" (a user-visible SLO breach), not on "CPU above 80%" (which may be entirely fine). Every page needs a runbook and a human action; anything else is a dashboard, and an alert nobody acts on trains people to ignore alerts.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-14-observability-q1", "type": "mcq",
+      "prompt": "A page makes 10 backend calls, each with a p99 latency of 500 ms. Roughly what fraction of page loads will contain at least one p99-slow call?",
+      "options": [
+        {"id":"a","text":"About 1%, the same as a single call"},
+        {"id":"b","text":"About 10% — 1 − 0.99¹⁰ — which is why tail latency, not average latency, defines the user experience of a fan-out page"},
+        {"id":"c","text":"About 0.1%, since the calls are independent"},
+        {"id":"d","text":"100%, because latencies add up"}
+      ],
+      "correct": "b",
+      "explanation": "Tail amplification: with fan-out, the probability of hitting the tail at least once grows with the number of calls. It is the standard argument for hedged requests, tighter timeouts, and reducing fan-out." }
+] }
+```
+
+## Security in a design interview
+
+You will not be asked to design a security system, but you are expected to place the right controls on the diagram.
+
+**Authentication vs authorization.** AuthN = who you are; AuthZ = what you may do. Say both words, in the right places.
+
+| Mechanism | Shape | Trade-off |
+|---|---|---|
+| Session cookie + server store | Server holds session state | Revocation is instant; needs a shared session store |
+| **JWT** (signed, stateless) | Claims carried by the client | No lookup per request; **revocation is hard** — mitigate with short expiry + refresh tokens |
+| OAuth 2.0 / OIDC | Delegated auth, third-party identity | Standard for "sign in with…" and third-party API access |
+| API keys | Long-lived shared secret | Simple for partners; must be rotatable and scoped |
+| mTLS | Both sides present certificates | The service-to-service standard inside a mesh |
+
+The JWT trade-off is a favourite: stateless verification is why they scale, and it is exactly why you cannot revoke one before it expires. The standard answer is short-lived access tokens (5–15 minutes) plus a refresh token that *is* checked against a revocation list.
+
+**Authorization models**: RBAC (roles → permissions) covers most systems; ABAC adds attribute-based rules ("owner of the resource, during business hours"); and for a multi-tenant system the essential rule is that **every query is scoped by tenant at the data layer**, not by a check in a controller someone can forget. A row-level policy or a mandatory `WHERE org_id = ?` in a shared repository is the design answer.
+
+**The list to run over your own diagram:**
+
+- **Transport**: TLS everywhere, including service-to-service (mTLS in a mesh). No plaintext internal hops.
+- **At rest**: disk/database encryption, and field-level encryption for the sensitive columns; keys in a KMS with rotation, never in code or environment variables committed anywhere.
+- **Secrets**: a secret manager, short-lived credentials, rotation. This is where "no hardcoded fallback" is a security control, not a style rule.
+- **Input validation at the boundary**, parameterised queries always (SQL injection), output encoding (XSS), and CSRF protection for cookie-authenticated browsers.
+- **SSRF**: any feature that fetches a user-supplied URL must resolve and check the destination against a denylist of internal ranges — the classic path to cloud metadata credentials.
+- **Rate limiting and quotas** per identity: security control as much as a capacity one.
+- **PII**: know where it lives, minimise it, encrypt it, set a retention period, and be able to delete it on request (GDPR/DPDP). Data residency may force geographic partitioning.
+- **Audit log**: who did what to which resource, when — append-only, separate from application logs.
+- **Least privilege**: each service gets its own credentials, scoped to its own tables/buckets. A compromised recommendation service must not be able to read the payments table.
+
+**Defence in depth** is the framing to use: WAF and DDoS protection at the edge, auth at the gateway, authorization in the service, constraints in the database. No single layer is the whole answer.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-14-security-q1", "type": "mcq",
+      "prompt": "What is the main operational drawback of stateless JWTs, and the standard mitigation?",
+      "options": [
+        {"id":"a","text":"They are too large to send in headers; mitigate by compressing them"},
+        {"id":"b","text":"They cannot be revoked before expiry, since verification requires no server lookup; mitigate with short-lived access tokens plus a refresh token that is checked against a revocation store"},
+        {"id":"c","text":"They cannot carry user identity; mitigate by adding a session cookie"},
+        {"id":"d","text":"They require a database read on every request; mitigate with caching"}
+      ],
+      "correct": "b",
+      "explanation": "The property that makes JWTs scale — no server-side lookup — is exactly what makes revocation impossible. Short expiry bounds the damage window; the refresh token is the stateful piece you can actually revoke." }
+] }
+```
+
+## Cost, and the deployment story
+
+**Cost is a design constraint**, and mentioning it is a differentiator because so few candidates do.
+
+Rough order of magnitude, useful for reasoning rather than quoting:
+
+| Resource | Relative cost | Design implication |
+|---|---|---|
+| Compute (on-demand VM) | Baseline | Autoscale; use spot/preemptible for batch and workers |
+| Object storage (S3 standard) | ~1/20th of block storage per GB | Blobs never belong in the database |
+| Cold/archive storage | ~1/5th of standard | Lifecycle policies for old data |
+| Managed database | Several × raw compute | Worth it; but don't run five kinds |
+| **Cross-region / internet egress** | **The line item that surprises people** | CDN offload; keep chatty traffic inside one region |
+| Logs and metrics retention | Grows silently, often 10%+ of the bill | Sample, aggregate, set retention |
+
+Four decisions that dominate the bill: **where the bytes are stored** (object storage plus a CDN instead of a database and your own servers), **how much data crosses a network boundary** (egress and cross-AZ), **how long you retain** (raw data downsampled and lifecycled), and **how much headroom you keep idle** (autoscaling, spot capacity, right-sizing).
+
+A sentence that lands well: *"Serving 75 Gbps from our origin would dominate the bill, so the CDN isn't only a latency decision — it's the cost decision."*
+
+**Deployment and change**, the last third of the operational story:
+
+- **Blue-green**: two full environments, flip traffic, roll back instantly. Costs double capacity during the switch.
+- **Canary**: 1% → 10% → 100%, watching SLIs, with automatic rollback. The default for most systems.
+- **Rolling**: replace instances gradually; needs connection draining and both versions being compatible simultaneously.
+- **Feature flags**: decouple deploy from release, so you can turn a subsystem off without a rebuild — and so a bad feature is a config change to fix, not a redeploy.
+- **Backward-compatible migrations**: expand → migrate → contract. Add the new column and dual-write, backfill, switch reads, then drop the old column in a later release. Never a single migration that both adds and removes.
+
+**Multi-tenancy**, since it shapes every SaaS design: shared database with a `tenant_id` on every row (cheapest, needs airtight scoping), schema per tenant (middle ground, migration overhead grows with tenant count), or database per tenant (strongest isolation, heaviest operations). The usual answer is shared-with-`tenant_id`, plus dedicated databases for the few enterprise customers who need isolation — which is also the hot-shard fix from the sharding lesson.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-14-cost-q1", "type": "mcq",
+      "prompt": "You need to add a NOT NULL column to a large table used by a running service. What is the safe sequence?",
+      "options": [
+        {"id":"a","text":"One migration that adds the column as NOT NULL with a default, during peak hours"},
+        {"id":"b","text":"Expand → migrate → contract: add the column nullable, deploy code that writes both old and new, backfill in batches, switch reads to the new column, then make it NOT NULL and drop the old one in a later release"},
+        {"id":"c","text":"Take the service offline for the duration of the migration"},
+        {"id":"d","text":"Create a new table and copy everything in a single transaction"}
+      ],
+      "correct": "b",
+      "explanation": "Old and new code run simultaneously during any rollout, so every migration step must be compatible with both. Expand–migrate–contract keeps each individual deploy reversible, which is the property that makes rollbacks safe." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Observability: metrics (that) → traces (where) → logs (why)
+  RED for services: Rate, Errors, Duration.   USE for resources: Utilisation, Saturation, Errors
+  p50/p95/p99/p99.9 — never averages, never averaged percentiles
+  Fan-out amplifies tails: 10 calls at p99=1% ⇒ ~10% of pages hit it
+  Propagate a trace id into every log line and error response
+  Alert on symptoms (SLO breach) with a runbook — not on CPU
+
+Security: authN ≠ authZ · JWT scales but can't be revoked (short TTL + refresh)
+  TLS in transit + mTLS internally · encryption at rest + KMS · secrets manager
+  Validate at the boundary · parameterised queries · CSRF · SSRF denylist
+  Tenant scoping at the DATA layer, not the controller · least privilege per service
+  PII: minimise, encrypt, retain briefly, be able to delete · audit log, append-only
+
+Cost: egress and retention are the surprises · blobs → object storage + CDN
+      autoscale + spot for batch · sample logs · lifecycle old data
+
+Deploy: canary with auto-rollback (default) · blue-green (instant rollback, 2× cost)
+        feature flags decouple deploy from release
+        migrations: EXPAND → MIGRATE → CONTRACT, never both at once
+Multi-tenant: shared + tenant_id (default) · schema per tenant · DB per tenant (isolation)
+```
+
+- **Close every design with two sentences on observability.** "I'd alert on the checkout SLO with RED metrics per service, and propagate a trace id so a page maps to a single request trace" costs 10 seconds and reads as operational maturity.
+- **Security belongs on the diagram**, not in a separate speech: TLS on the arrows, auth at the gateway, tenant scoping in the data layer, secrets in a manager.
+- **Naming the cost driver is a senior move** — usually egress, storage tier, or retention, rarely CPU.
+- **Migrations and deploys are part of the design.** Expand–migrate–contract and canary-with-rollback show you have thought past the first launch.
+$md$, 45, $json$[{"id":"ip45-hld-14-observability-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-14-security-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-14-cost-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('7552d969-2714-5eee-bf66-5cfac378d16c', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '2af95c9b-d074-56c2-8f2a-3ea0be30cce6', 'HLD Cheat Sheet and Recall Drill', 'notes', 15, $md$Fourteen lessons of building blocks are useless if you cannot retrieve them under pressure. This lesson is the retrieval layer: the decision trees you run at the whiteboard, the numbers you should be able to say without thinking, the phrases that earn points, and a self-test you can repeat weekly until it is boring.
+
+Use it three ways: read it once now, re-read the recall cards the night before an interview, and run the drill at the end of it every week until every answer comes back in under five seconds.
+
+## The one-page map
+
+Everything in this section, arranged as the order you use it in.
+
+```
+FRAMEWORK (Lesson 1)      Requirements → Estimation → API+Schema → HLD → Deep dive → Close
+                          45 min: 5 / 5 / 5 / 10 / 15 / 5
+
+ESTIMATION (2)            sec/day ≈ 100k · 1M/day ≈ 10 QPS · peak = 2–3× avg
+                          storage/yr = bytes/day × 400 × replicas
+                          → conclusion: which subsystem is actually hard?
+
+TRAFFIC IN  (3,4,5)       DNS → CDN → LB → Gateway → stateless services
+                          protocol: REST public · gRPC internal · SSE push · WS duplex
+                          API: /v1, cursor pages, idempotency keys, 429 + Retry-After
+                          LB: L4 vs L7 · least-connections · readiness ≠ liveness · draining
+
+DATA        (6,7,8,9)     cache-aside + delete-on-write + TTL jitter
+                          store chosen from the ACCESS PATTERN · index = left prefix
+                          B-tree (reads) vs LSM (writes)
+                          replication scales READS · partitioning scales WRITES
+                          partition key: cardinality · even access · query alignment
+                          CAP per operation · PACELC everyday · W+R>N
+
+ASYNC       (10,11,12)    response-independent work → queue
+                          queue (delete on ack) vs log (retained, replayable)
+                          at-least-once + idempotent consumer · DLQ · consumer lag
+                          outbox for dual writes · saga for cross-service workflows
+                          exactly one of something → leader election + FENCING TOKEN
+
+OPERATE     (13,14)       timeouts · backoff+jitter · circuit breaker · bulkhead · shed
+                          token bucket rate limiting · SLI/SLO/error budget
+                          RED + USE · p99 not average · trace id everywhere
+                          TLS + authZ at the data layer · expand-migrate-contract
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-15-map-q1", "type": "mcq",
+      "prompt": "In the 45-minute budget, which two steps together get the most time, and why?",
+      "options": [
+        {"id":"a","text":"Requirements and estimation, because they determine everything else"},
+        {"id":"b","text":"High-level design (10 min) and deep dive (15 min) — the deep dive is where technical depth and trade-off reasoning, the two highest-weight scorecard rows, are actually demonstrated"},
+        {"id":"c","text":"API design and data modelling, because they are the concrete artefacts"},
+        {"id":"d","text":"The close, because last impressions matter most"}
+      ],
+      "correct": "b",
+      "explanation": "Requirements and estimation are cheap and mandatory but capped at ~5 minutes each. Depth is demonstrated in the deep dive, which is why over-running the early steps is so costly." }
+] }
+```
+
+## Decision trees
+
+Run these top-down at the whiteboard. Each one converts a question into an answer plus its cost.
+
+**Which datastore?**
+```
+Relationships + ad-hoc queries + invariants ......... relational (Postgres)
+Known key, huge write rate, no joins ............... wide-column (Cassandra/DynamoDB)
+Whole documents, flexible schema ................... document (Mongo)
+Sub-ms, ephemeral, counters/sessions/queues ........ Redis
+Text relevance, faceting ........................... search index (Elasticsearch)
+High-rate timestamped metrics ...................... time-series (+ downsampling)
+Traversal of relationships ......................... graph
+Large blobs ........................................ object store + metadata row
+Scans over billions of rows ........................ columnar warehouse
+Unsure ............................................. Postgres, and say why you'd move
+```
+
+**Reads are slow.**
+```
+Is the query indexed?          → composite index, equality cols first, range col last
+Still slow?                    → covering index / denormalise to avoid the join
+Volume too high for one node?  → read replicas (mind replication lag)
+Same data re-read constantly?  → cache-aside + TTL + jitter (invalidate on write)
+Expensive to compute per read? → precompute / materialise on write
+Dataset too large for a node?  → partition, aligned with the dominant query
+```
+
+**Writes are slow.**
+```
+Are writes fsync-bound?        → batch them; group commits
+Too many indexes?              → drop the ones no query uses
+One node saturated?            → shard on a high-cardinality, evenly-accessed key
+Bursty?                        → queue + workers (load levelling)
+Append-heavy at huge volume?   → LSM-based store, or a log
+Contention on one row?         → atomic UPDATE, or shard the counter, or a ledger
+```
+
+**Client needs updates.**
+```
+Rare updates, staleness fine ....... polling
+Server → client only ............... SSE
+Both directions .................... WebSocket (+ sticky routing + pub/sub backbone)
+Loss-tolerant media ................ UDP / WebRTC
+```
+
+**Two things must change together.**
+```
+Same database ...................... local transaction (and consider keeping it that way)
+DB write + event publish ........... transactional outbox / CDC
+Multi-service workflow ............. saga (orchestrated if 4+ steps) + compensations
+Reserve, then confirm/cancel ....... TCC / reservation with a TTL
+Must be atomic, few participants ... 2PC (blocks on coordinator failure)
+Replicated state, never diverges ... consensus (etcd/Raft)
+Always ............................. idempotent steps + a reconciliation job
+```
+
+**Something must happen exactly once.**
+```
+Scheduled job across N instances ... unique constraint on (job, run_at) — cheapest correct
+One owner per key ................. partition the work; no lock needed
+Duplicate is merely wasteful ...... Redis lock: SET NX EX + Lua compare-and-delete
+Duplicate corrupts data ........... fencing token / unique constraint / conditional UPDATE
+Cluster leadership ................ lease in etcd/ZooKeeper + epoch checked at the resource
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-15-trees-q1", "type": "mcq",
+      "prompt": "Reads are slow, the query is already served by a good composite index, and one node's CPU is saturated by read volume. What is the next move?",
+      "options": [
+        {"id":"a","text":"Shard the table immediately"},
+        {"id":"b","text":"Add read replicas (accepting replication lag, with read-your-own-writes routed to the leader) and/or cache the hot results — reads are what replication and caching are for"},
+        {"id":"c","text":"Switch to an LSM-tree storage engine"},
+        {"id":"d","text":"Increase the isolation level"}
+      ],
+      "correct": "b",
+      "explanation": "Read volume on a correctly-indexed query is the textbook case for replicas and caching. Sharding is for write and storage limits and costs you joins and transactions; changing the storage engine optimises writes, not reads." }
+] }
+```
+
+## Numbers and phrases to have on instant recall
+
+**Numbers.**
+
+```
+Time      : memory 100 ns · SSD read 100 µs · DC round trip 500 µs
+            cross-country 70 ms · cross-Atlantic 150 ms
+Throughput: Postgres ~10k QPS/node · Redis ~100k+ ops/sec · app server ~10k req/sec
+            Kafka broker ~100k+ msg/sec · 10 Gbps NIC ≈ 1.25 GB/s
+Scale     : sec/day ≈ 100k · 1M/day ≈ 10 QPS · 1B/day ≈ 10k QPS · peak = 2–3×
+Sizes     : UUID 16 B · post 300 B · user row 1 KB · API response 1–10 KB
+            thumbnail 50 KB · photo 2 MB · 1080p video 50 MB/min
+Uptime    : 99.9% = 43 min/month · 99.99% = 4.3 min/month
+Quorum    : W + R > N · clusters of 3, 5, 7 (odd) · majority tolerates ⌊(n−1)/2⌋ failures
+```
+
+**Phrases that earn points** — these are worth rehearsing verbatim, because under pressure you will produce what you have said before:
+
+1. "Before I design anything — what scale, and is this read-heavy or write-heavy?"
+2. "I'll scope to X and Y, and treat Z as out of scope unless you'd like it."
+3. "That's 100:1 reads to writes, so the interesting problem is the read path."
+4. "Anything the user's response doesn't depend on goes behind a queue."
+5. "I'm choosing X; the cost is Y, and I'd mitigate it with Z."
+6. "This is CP for the payment and AP for the product page — the choice is per operation."
+7. "Writes to the database and publishes to the broker aren't atomic, so I'd use a transactional outbox."
+8. "At-least-once delivery plus an idempotent consumer — effectively once."
+9. "Replication lag breaks read-your-own-writes, so I'd route that user to the leader for a few seconds."
+10. "Every real system has a hot key; here it's the celebrity account, and I'd handle it with a separate read path."
+11. "Four synchronous dependencies at 99.9% each caps me at about 99.6% — I'd move two of them off the critical path."
+12. "I'd alert on the checkout SLO, propagate a trace id into every log line, and add a daily reconciliation job."
+
+**Anti-patterns that lose points**, so you can hear yourself doing them: drawing boxes before asking requirements; naming technologies without justifying them; reaching for microservices, Kafka, or sharding at 200 QPS; claiming exactly-once delivery; presenting one design with no costs; going silent while thinking; and running out of time because requirements took fifteen minutes.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-15-phrases-q1", "type": "mcq",
+      "prompt": "Which statement would an interviewer most likely mark as an error rather than a strength?",
+      "options": [
+        {"id":"a","text":"\"We'll use Kafka's transactions to get exactly-once delivery end to end, so consumers don't need to handle duplicates.\""},
+        {"id":"b","text":"\"At-least-once delivery with an idempotent consumer, deduplicated on a unique message id.\""},
+        {"id":"c","text":"\"This is CP for the payment path and AP for the catalogue.\""},
+        {"id":"d","text":"\"I'd start with one Postgres primary and a replica; here's the load at which I'd shard.\""}
+      ],
+      "correct": "a",
+      "explanation": "Kafka's transactions give exactly-once semantics for writes back into Kafka, not for external side effects like charging a card or sending an email. Claiming end-to-end exactly-once — and skipping consumer idempotency because of it — is a recognisable error." }
+] }
+```
+
+## The weekly recall drill
+
+Answer out loud, from memory, then check yourself against the lesson named in brackets. Target: every answer inside five seconds, no notes. Repeat weekly — the point is retrieval practice, not re-reading.
+
+**Round 1 — framework and numbers**
+1. The six steps of a design interview and the minutes for each. [1]
+2. Seconds in a day, and what 1M/day and 1B/day come to in QPS. [2]
+3. Memory vs SSD vs cross-Atlantic latency, in orders of magnitude. [2]
+4. The four rows of the interviewer's scorecard. [1]
+
+**Round 2 — the request path**
+5. When to use SSE instead of WebSocket, and what WebSocket costs you architecturally. [3]
+6. Why cursor pagination beats offset, and why the cursor needs a tie-breaker. [4]
+7. What an idempotency key protects against, and which database feature makes it correct. [4]
+8. L4 vs L7 — one thing only L7 can do. [5]
+9. Why a health check must not test the database. [5]
+
+**Round 3 — data**
+10. Cache-aside on write: update the cached value or delete it? Why? [6]
+11. Name the three cache failure modes and one fix each. [6]
+12. An index on `(a, b, c)` — which queries does it serve? [7]
+13. B-tree vs LSM in one sentence. [7]
+14. Which anomaly does Read Committed still allow, and the three ways to prevent it. [7]
+15. Replication scales what? Partitioning scales what? [8]
+16. The three tests for a partition key. [8]
+17. Why `hash(key) % N` is a trap. [8]
+18. What P in CAP really means, and why "CA" isn't a thing. [9]
+19. State PACELC, and give the everyday half. [9]
+20. Quorum rule for a read seeing the latest write. [9]
+
+**Round 4 — async and coordination**
+21. Queue vs log — the two questions that decide it. [10]
+22. Why exactly-once delivery does not exist, and what you say instead. [10]
+23. What the outbox pattern fixes, and how. [10]
+24. Saga: what replaces rollback, and the three obligations it puts on you. [11]
+25. 2PC: what happens when the coordinator dies after the votes? [11]
+26. What a fencing token is and why a lease alone is insufficient. [12]
+27. Why a Redis lock cannot guarantee correctness. [12]
+28. The cheapest way to run a nightly job exactly once across 10 instances. [12]
+
+**Round 5 — operations**
+29. Availability of four synchronous 99.9% dependencies, and the fix. [13]
+30. Four rules for retries. [13]
+31. Circuit breaker states and the transitions. [13]
+32. Token bucket vs fixed window — the two advantages. [13]
+33. What a metastable failure is and how you escape one. [13]
+34. RED and USE — what each is for. [14]
+35. The JWT trade-off and its mitigation. [14]
+36. Expand–migrate–contract: why all three steps. [14]
+
+**Round 6 — apply it.** Pick a system you use daily (a food delivery app, a bank app, a music service) and give yourself six minutes: requirements, estimate, one API, one data model, one diagram, one bottleneck with a fix and its cost. Six minutes, out loud, no notes. Do this once a week with a different system — it is the closest thing to the real interview you can practise alone, and the **System Design** section's 28 case studies are the long-form version of the same exercise.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-hld-15-drill-q1", "type": "mcq",
+      "prompt": "What makes the weekly drill effective as study, compared with re-reading the lessons?",
+      "options": [
+        {"id":"a","text":"It covers more material in less time"},
+        {"id":"b","text":"It is retrieval practice — recalling an answer from memory under a time limit strengthens recall far more than re-reading, and it exposes exactly which items you only *recognise* rather than know"},
+        {"id":"c","text":"It replaces the need to understand the underlying concepts"},
+        {"id":"d","text":"It guarantees the same questions will be asked in the interview"}
+      ],
+      "correct": "b",
+      "explanation": "Re-reading produces familiarity, which feels like knowledge and collapses under interview pressure. Timed self-testing is the mechanism that makes recall reliable, and it identifies your weak items for free." }
+] }
+```
+
+## Key takeaways
+
+- **Procedure beats knowledge under pressure.** The six-step framework and the 45-minute budget are the two things to memorise absolutely; everything else you can re-derive from the decision trees.
+- **Every answer is a choice plus its cost.** If a sentence doesn't contain a trade-off, it probably didn't earn anything.
+- **The decision trees are the retrieval index** for the fourteen lessons behind them. Learn the branches; the details come back once you're on the right branch.
+- **Practise out loud, on a clock, weekly.** Recall under time pressure is a separate skill from understanding, and it is the one the interview actually tests.
+- **Next**: the **System Design** section applies all of this to 28 real questions, and the **Low-Level Design** section does the same job one level down, at the class and object level.
+$md$, 40, $json$[{"id":"ip45-hld-15-map-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-15-trees-q1","type":"mcq","correct":"b"},{"id":"ip45-hld-15-phrases-q1","type":"mcq","correct":"a"},{"id":"ip45-hld-15-drill-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
 -- Section: System Design
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('58424ed6-4690-5ef0-ab6a-65ab3cc84017', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'System Design', 2)
+VALUES ('58424ed6-4690-5ef0-ab6a-65ab3cc84017', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'System Design', 3)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
@@ -8742,7 +20310,5968 @@ $md$, 60, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('1c140a87-6411-5380-8cfb-7171c9ed5989', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Design Patterns (LLD)', 'notes', 29, $md$"Design" questions blend two skills: knowing the classic OOP patterns well enough to apply them under time pressure, and combining basic data structures to satisfy specific operation-complexity requirements. Today covers the patterns you'll actually be asked to reason about or implement (Singleton, Factory, Observer, Strategy, Repository, Builder), then applies that thinking to four "implement this data structure" problems, ending with LRU Cache, the single most-asked design problem in tech interviews.
+VALUES ('79c2ef2d-d1ff-5991-ad0b-a8fbb7fc75bf', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Notes: A/B Testing Fundamentals', 'notes', 90, $md$A/B testing doesn't appear anywhere else in the course, but it's a recurring follow-up to component-design questions ("how would you know if this change actually helped?") and comes up directly in senior/staff loops that blend system design with product sense.
+
+## What it is and why interviewers ask
+
+An A/B test randomly splits users into two (or more) groups: a control seeing the current experience and a treatment seeing a change. It then compares a target metric between groups to determine whether the change causally improved it. Interviewers ask about it to check whether you can reason about causality vs correlation. A metric moving after a launch doesn't prove the launch caused it. Seasonality, concurrent changes, and selection bias can all produce the same signal, while a properly randomized A/B test isolates the change as the cause.
+
+## A worked trace: does the new checkout button actually help?
+
+Say you're testing a redesigned "Buy Now" button against checkout conversion rate. You randomly assign 200,000 users who reach the cart page: 100,000 see the old button (control), 100,000 see the new one (treatment).
+
+Over the test window, 8,200 of the control group complete checkout (an 8.2% conversion rate), and 8,600 of the treatment group do (an 8.6% conversion rate). That's a 0.4 percentage-point lift, or about 4.9% relative improvement.
+
+Before declaring victory, run the numbers through two questions:
+- **Is this likely to be real, or noise?** A significance test (e.g., a two-proportion z-test) on 8,200/100,000 vs 8,600/100,000 gives a p-value. If it's below your pre-registered threshold (typically 0.05), the difference probably isn't due to random chance in who got assigned to which group.
+- **Is this big enough to matter?** A statistically significant 0.4-point lift might still be too small to justify the engineering cost of shipping the new button, or it might be exactly the kind of compounding win worth shipping immediately. That judgment call is why you report the actual effect size (4.9% relative lift) alongside the p-value, not just "significant: yes/no."
+
+Now check the guardrails before shipping. Suppose page load time in the treatment group crept up by 200ms because the new button pulls in a heavier animation library. Even with a clean conversion win, that guardrail regression is a real cost the primary metric alone would never surface. This is why a test is never evaluated on one number.
+
+## Core design decisions
+
+**Randomization unit.** Almost always assign by user ID (hashed into a bucket), not by session or request. A user should see a consistent experience across visits, or the test measures confusion/inconsistency instead of the actual change. Hash the user ID with a fixed salt per experiment (`hash(user_id + experiment_name) % 100`) so bucket assignment is deterministic and reproducible without needing to store an assignment per user.
+
+**Sample size and test duration.** Before launching, compute the minimum sample size needed to detect the smallest effect size worth caring about, given a target statistical power (typically 80%) and significance level (typically 5%). Running a test too short risks a false negative from noise. Running it too long wastes an opportunity cost of exposing users to a losing variant. A one-week minimum is common even if sample size is reached faster, to average out day-of-week effects (weekday vs weekend behavior differs for most consumer products).
+
+**Primary metric vs guardrail metrics.** Pick one primary metric the test is designed to move (e.g. checkout conversion rate, as above) and a small set of guardrail metrics that must not regress (e.g. page load time, error rate, revenue per user). A test can "win" on the primary metric while quietly breaking something else, exactly like the page-load regression above, and guardrails catch that.
+
+**Statistical significance vs practical significance.** A result can be statistically significant (unlikely to be noise) but practically meaningless: a 0.01% lift not worth the added complexity. Or the reverse can happen, a real but noisy-looking effect that a longer test would confirm. Report both the p-value/confidence interval and the actual effect size, not just a pass/fail label.
+
+## System design considerations
+
+```
+User request
+     |
+     v
+Experiment Assignment Service  <-->  Experiment Config Store (which experiments are live, split %)
+     |
+     v (bucket: control | treatment, deterministic via hashed user_id)
+Application serves the appropriate variant
+     |
+     v
+Event Logging (impressions + downstream metric events) --> Analytics Pipeline --> Dashboard
+```
+
+- **Assignment must be fast and available.** It sits on the critical path of every request that touches an experiment, so it's typically a local hash computation (no network call) rather than a lookup against a remote service, with experiment configs cached/pushed to app servers periodically rather than fetched per-request.
+- **Mutual exclusion between overlapping experiments.** Running many experiments simultaneously risks interaction effects, where experiment A's treatment interacts badly with experiment B's treatment for the same user. Solve with layers: partition traffic into independent layers where experiments in the same layer are mutually exclusive (a user is in exactly one experiment per layer) but experiments in different layers can run concurrently.
+- **Logging must tie the assignment to the outcome.** Every metric event needs to be attributable back to which variant the user was in at the time. Log the experiment/variant alongside (or joinable to) the business event, not just aggregate counts, so the analysis can be re-sliced later (by platform, region, user segment) without re-running the experiment.
+- **Ramp-up, not instant 50/50.** Launch a new experiment at a small treatment percentage (e.g. 1%) first to catch catastrophic bugs cheaply, then ramp to the full test split once basic health is confirmed. This is the same "canary" instinct as a canary deployment, applied to experiment rollout.
+
+## Common pitfalls
+
+- **Peeking.** Checking results repeatedly and stopping as soon as they look significant inflates the false-positive rate, since each peek is another chance to catch a random fluctuation. Decide the sample size/duration in advance and don't stop early based on interim results, unless using a sequential-testing method designed to allow it.
+- **Novelty effect.** A change might perform well simply because it's new and users are curious/exploring, with the effect fading after the initial period. A too-short test can mistake this for a durable improvement.
+- **Sample Ratio Mismatch (SRM).** If the actual observed split (e.g. 48/52) deviates significantly from the intended split (50/50), something is broken in the assignment/logging pipeline, and the test's results shouldn't be trusted until the mismatch is root-caused. This is a standard automated sanity check before reading any other result. In the checkout example above, if the 200,000 users split 96,000/104,000 instead of roughly 100,000/100,000, that imbalance itself is a signal to investigate before trusting the 8.6% vs 8.2% conversion numbers at all.
+
+## Key takeaways
+
+- A/B testing isolates causation by randomizing users into control/treatment groups; deterministic, salted hash-based assignment on user ID keeps the experience consistent per user without a stateful lookup.
+- A single lift number is never the full story: pair effect size with statistical significance, and check guardrail metrics before declaring a win, since a test can improve one number while quietly breaking another.
+$md$, 15, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('d04e08a3-e875-5e46-b5f3-cd6a947fc35f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Notes: Consistent Hashing', 'notes', 91, $md$Consistent hashing is one of the few system-design building blocks interviewers expect you to derive on the spot, not just name-drop. It's the mechanism behind Dynamo, Cassandra, memcached client sharding, and most CDN/load-balancer request routing. If you can explain why plain `hash(key) % N` breaks and how the ring fixes it, you've demonstrated the exact kind of first-principles reasoning these interviews are built to test.
+
+## The problem: modulo hashing doesn't survive resizing
+
+The naive way to shard data across `N` servers is `server = hash(key) % N`. It works fine until `N` changes. Add or remove a single server and `% N` becomes `% (N±1)`, which reassigns almost every key to a different server, not just the keys that belong on the new one. For a cache, that's a near-total cache miss storm. For a database, it's a massive, unnecessary data migration triggered by a single node joining or leaving.
+
+A quick trace makes this concrete. Say you have 4 servers (N=4) and a key `"user:42"` hashes to 17. `17 % 4 = 1`, so it lives on server 1. Add a 5th server and nothing about the key's hash changes, but now `17 % 5 = 2`. The key just moved to server 2, even though server 2 didn't just join and has nothing to do with the resize. Multiply that by every key whose `hash % 4` and `hash % 5` land on different servers, which is most of them, and you can see why adding one server to a cache fleet can evict nearly the entire cache at once.
+
+Interviewers ask this to check whether you reason about failure and scaling as first-class requirements, not edge cases. Servers going up and down is the normal operating condition of a distributed system, not an exception.
+
+## The idea: a hash ring
+
+Consistent hashing maps both servers and keys onto the same fixed circular space (typically `0` to `2^32 - 1`, using a hash function like MD5 or MurmurHash). A key is owned by the first server encountered walking clockwise from the key's position on the ring.
+
+```
+                    hash space: a ring, 0 .. 2^32-1
+
+                            0 / 2^32
+                              |
+                    Server D  *
+                         .        .
+                    .                .
+              key "session:42"          Server A
+              hash -> lands here   *          *
+                    .          walk CW    .
+                       .        |      .
+                    Server C *--+---* Server B
+                              |
+                        (owns everything
+                         clockwise back
+                         to Server A)
+```
+
+- **Adding a server** only steals the keys between its new ring position and the previous server clockwise from it. Every other key stays put. Only `~1/N` of keys move, not nearly all of them.
+- **Removing a server** only reassigns that server's keys to the next server clockwise, again a small, local blast radius instead of a global reshuffle.
+
+Trace it through the same ring pictured above. Say `"session:42"` hashes to a point that lands just before Server A, so it's owned by Server A. If Server E joins and its ring position lands between `"session:42"`'s hash and Server A, only that narrow arc of keys (including `"session:42"`) moves to Server E; everything owned by Server B, C, and D is completely untouched. Now say Server B fails instead: only the keys in Server B's arc reassign, to Server C (the next server clockwise), while Server A's and Server D's keys never move. That's the entire point: ring membership changes cause proportional, local key movement instead of global reshuffling.
+
+## Virtual nodes (the part people forget)
+
+Placing each physical server at a single random ring position causes two problems: uneven load (some servers own a much bigger arc than others by chance) and an all-or-nothing failover (when a server dies, 100% of its keys land on exactly one neighbor, doubling that neighbor's load).
+
+The fix: hash each physical server into many points on the ring (100-200 virtual nodes is typical), each labeled `server-A#1`, `server-A#2`, and so on. A key still resolves to "the first virtual node clockwise," but that virtual node's physical owner is what actually serves the request.
+
+```
+Ring with virtual nodes (letters = physical server owning that point):
+
+  A1  B2  C1  A2  B1  C3  A3  C2  B3  A1 ...
+
+  - Load evens out: each physical server owns many small,
+    scattered arcs instead of one large arc.
+  - Failover spreads out: when server B dies, its keys
+    (B1, B2, B3) land on several different neighbors,
+    not one.
+```
+
+More virtual nodes means smoother load distribution, at the cost of more ring metadata to store and traverse. Real systems (Cassandra, Dynamo) tune this count based on cluster size.
+
+## System design considerations
+
+- **Ring lookup structure.** Keep virtual node positions in a sorted structure (a balanced tree, or a sorted array with binary search) so "find the first node clockwise from `hash(key)`" is O(log V), where V is the number of virtual nodes, not a linear scan.
+- **Replication.** For durability, a key is usually stored on the N distinct physical servers encountered walking clockwise from its position, skipping virtual nodes that map back to an already-selected physical server. This is exactly how Dynamo-style systems place replicas: for a replication factor of 3, `"session:42"` above would be stored on Server A plus the next two distinct physical servers found walking clockwise past it.
+- **Heterogeneous capacity.** A server with 2x the RAM/disk of its peers gets 2x the virtual nodes, so it owns proportionally more of the ring. Virtual node count is a natural capacity-weighting knob, not just a load-smoothing one.
+- **Client-side vs server-side.** memcached clients typically compute the ring locally, since every client needs the same server list. Dynamo/Cassandra instead maintain ring membership via gossip between nodes, so clients don't need cluster topology knowledge.
+
+## Common pitfalls
+
+- **Forgetting virtual nodes entirely.** A bare hash ring with one point per server has bad load balance and bad failover blast radius. Interviewers listen for whether you bring this up unprompted.
+- **Using a weak hash function.** A poor hash clusters keys/servers unevenly on the ring regardless of virtual nodes. A well-distributed hash (MurmurHash, SHA-based) matters as much as the ring structure itself.
+- **Conflating consistent hashing with data consistency.** The name is about hashing being consistent under membership change, not about strong vs eventual consistency of the stored data. Interviewers sometimes probe this distinction directly.
+
+## Key takeaways
+
+- Plain `hash(key) % N` reshuffles almost all keys on every server add/remove, as the 4-to-5-server trace above shows. Consistent hashing fixes this by mapping servers and keys onto the same ring so only `~1/N` of keys move per membership change.
+- Virtual nodes (100-200 per physical server) fix the uneven load and concentrated failover blast radius that a single-point-per-server ring suffers from, and double as a capacity-weighting knob for heterogeneous hardware.
+- Replicas are placed by walking clockwise to the next N distinct physical servers, the same ring structure that assigns primary ownership also derives replica placement.
+$md$, 20, $json$[]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+-- Section: Low-Level Design (LLD)
+INSERT INTO course_sections (id, course_id, title, position)
+VALUES ('e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Low-Level Design (LLD)', 4)
+ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('847afced-b0da-5e1b-9243-94409315f84d', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'The LLD Interview Framework and UML', 'notes', 1, $md$Low-level design is the other half of the design interview: not "how many servers", but "what classes exist, what does each one own, and how do they talk". A typical round is 45–60 minutes — "design a parking lot", "design Splitwise", "design an elevator system" — and it is graded on whether your object model is *clean, extensible, and correct under concurrency*, not on how many patterns you name.
+
+Like HLD, it has a fixed procedure. Learn the procedure once and every problem in this section becomes an instance of it.
+
+> **The six steps** — **R**equirements, **E**ntities, **R**elationships, **I**nterfaces, **C**oncurrency, **E**xtensibility. (Mnemonic: *"Real Engineers Rarely Ignore Corner Errors."*)
+
+## What an LLD interview is really testing
+
+Four signals, in the order interviewers weight them:
+
+| Signal | What "good" looks like | What "bad" looks like |
+|---|---|---|
+| **Clean object model** | Each class has one clear responsibility and a name a domain expert would recognise | A `Manager` god-class doing everything; classes named `Helper`, `Util`, `Data` |
+| **Right relationships** | Composition where the part cannot exist alone; interfaces at the boundaries you expect to vary | Deep inheritance chains; concrete classes wired together everywhere |
+| **Extensibility** | "Add a new vehicle type / payment method / notification channel" is a new class, not an edited `if` chain | Every new feature requires editing five existing methods |
+| **Correctness under concurrency** | You name the shared mutable state and how it is protected | Two users book the same seat and nobody notices |
+
+Two behaviours that separate strong candidates:
+
+- **They keep the design small and complete rather than large and half-finished.** Ten well-shaped classes with real method signatures beat thirty class names with no bodies.
+- **They drive the conversation with the domain, not with pattern names.** "A `ParkingSpot` knows its size and whether it is free" is design. "I'll use the Strategy pattern" without saying what varies is vocabulary.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-01-signal-q1", "type": "mcq",
+      "prompt": "Which is the strongest indicator of a good LLD answer?",
+      "options": [
+        {"id":"a","text":"Naming as many of the 23 GoF patterns as the design can accommodate"},
+        {"id":"b","text":"Adding a new vehicle type or payment method requires adding a class, not editing existing conditionals — the model is open for extension and closed for modification"},
+        {"id":"c","text":"Having the largest number of classes"},
+        {"id":"d","text":"Using inheritance for every relationship between concepts"}
+      ],
+      "correct": "b",
+      "explanation": "Extensibility under a plausible change is the property interviewers probe (\"now support electric vehicles\"). Pattern name-dropping without a varying axis, class count, and inheritance-by-default all correlate with weaker designs." }
+] }
+```
+
+## Step 1 — Requirements: actors, use cases, scope
+
+Five minutes, and it works exactly like HLD's first step but at the object level.
+
+**Ask about the actors.** Who uses this? For a parking lot: a driver, an attendant, an admin. Each actor's needs become use cases, and use cases become methods.
+
+**Write the use cases as verbs.** Park a vehicle, retrieve a vehicle, pay, view availability. These map almost one-to-one onto the public methods of your top-level class, which is why they are worth writing down.
+
+**Ask the questions that change the model**, not the ones that don't:
+
+| Question | Why it changes classes |
+|---|---|
+| How many kinds of X are there, and will more be added? | Decides an enum vs. a class hierarchy vs. a strategy |
+| Is there more than one of Y? (floors, branches, currencies) | Decides whether Y is a field or a first-class entity |
+| Do we need history, or only current state? | Decides whether events/records exist as entities |
+| Who can do what? | Decides where authorisation lives |
+| Is this single-process or concurrent? | Decides locks, immutability, atomic operations |
+| In-memory or persisted? | Decides repository interfaces |
+
+**Then state the scope cut**: "I'll model parking, unparking, spot allocation and fee calculation in memory; I'll define a `PaymentProcessor` interface but not implement a real gateway."
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-01-requirements-q1", "type": "mcq",
+      "prompt": "In an LLD round, which clarifying question most directly changes the class model?",
+      "options": [
+        {"id":"a","text":"\"What programming language should I use?\""},
+        {"id":"b","text":"\"Will new vehicle types be added over time, and does fee calculation differ per type?\" — the answer decides between an enum, a subclass hierarchy, and a pluggable pricing strategy"},
+        {"id":"c","text":"\"How many users will the system have?\""},
+        {"id":"d","text":"\"Should I write tests?\""}
+      ],
+      "correct": "b",
+      "explanation": "Questions about what varies and how often decide your extension points. Scale questions belong to HLD; language and tests don't change the model." }
+] }
+```
+
+## Step 2 — Entities: from nouns to classes
+
+**Noun extraction** is the mechanical starting point: read the requirements and list every noun. "A *driver* parks a *vehicle* in a *spot* on a *floor* of a *parking lot*, gets a *ticket*, and makes a *payment*." That's six candidate classes.
+
+Then refine, because not every noun is a class:
+
+| Noun is… | Model it as |
+|---|---|
+| A thing with identity and lifecycle | **Entity class** (`Vehicle`, `Ticket`, `User`) |
+| A value with no identity | **Value object**, ideally immutable (`Money`, `TimeSlot`, `Address`) |
+| A fixed, small, closed set | **Enum** (`VehicleSize`, `SpotStatus`, `PaymentStatus`) |
+| A behaviour that varies | **Interface + implementations** (`PricingStrategy`, `NotificationChannel`) |
+| A property of another thing | **A field**, not a class (`colour`, `licencePlate`) |
+| An orchestration of several entities | **Service** (`ParkingLotService`, `BookingService`) |
+| A collection with lookup rules | **Repository** (`SpotRepository`, `TicketRepository`) |
+
+Two habits worth adopting immediately:
+
+- **Prefer enums over booleans and magic strings.** `SpotStatus.OCCUPIED` beats `is_taken = True`, because tomorrow there is a `RESERVED` and an `OUT_OF_SERVICE` state and the boolean cannot grow.
+- **Make value objects immutable.** `Money`, `Point`, `TimeRange` never change after construction; that removes a whole class of aliasing bugs and makes them safe to share across threads.
+
+Here is the noun list turned into skeleton code — small, complete, and runnable, which is exactly the level of detail an interviewer wants at this stage:
+
+```python
+from dataclasses import dataclass
+from enum import Enum
+
+
+class VehicleSize(Enum):
+    MOTORCYCLE = 1
+    COMPACT = 2
+    LARGE = 3
+
+
+class SpotStatus(Enum):
+    FREE = "free"
+    OCCUPIED = "occupied"
+    OUT_OF_SERVICE = "out_of_service"
+
+
+@dataclass(frozen=True)          # value object: immutable, no identity
+class Money:
+    paise: int
+
+    def __add__(self, other: "Money") -> "Money":
+        return Money(self.paise + other.paise)
+
+    def __str__(self) -> str:
+        return f"Rs {self.paise / 100:.2f}"
+
+
+@dataclass
+class Vehicle:                    # entity: identified by its plate
+    plate: str
+    size: VehicleSize
+
+
+class ParkingSpot:                # entity with lifecycle and state
+    def __init__(self, spot_id: str, size: VehicleSize):
+        self.spot_id = spot_id
+        self.size = size
+        self.status = SpotStatus.FREE
+        self.vehicle: Vehicle | None = None
+
+    def can_fit(self, vehicle: Vehicle) -> bool:
+        return self.status == SpotStatus.FREE and self.size.value >= vehicle.size.value
+
+    def occupy(self, vehicle: Vehicle) -> None:
+        if not self.can_fit(vehicle):
+            raise ValueError(f"spot {self.spot_id} cannot take {vehicle.plate}")
+        self.vehicle, self.status = vehicle, SpotStatus.OCCUPIED
+
+    def release(self) -> None:
+        self.vehicle, self.status = None, SpotStatus.FREE
+
+
+spot = ParkingSpot("A-01", VehicleSize.COMPACT)
+bike = Vehicle("KA-01-1234", VehicleSize.MOTORCYCLE)
+truck = Vehicle("KA-05-9999", VehicleSize.LARGE)
+
+assert spot.can_fit(bike) and not spot.can_fit(truck)   # a compact spot fits a bike, not a truck
+spot.occupy(bike)
+assert spot.status is SpotStatus.OCCUPIED and not spot.can_fit(bike)
+spot.release()
+assert spot.status is SpotStatus.FREE
+print("entity model behaves:", Money(4990) + Money(1010))
+```
+
+```java +
+import java.util.Objects;
+
+public class Main {
+    enum VehicleSize { MOTORCYCLE(1), COMPACT(2), LARGE(3);
+        final int rank;
+        VehicleSize(int rank) { this.rank = rank; }
+    }
+
+    enum SpotStatus { FREE, OCCUPIED, OUT_OF_SERVICE }
+
+    // Value object: final fields, no identity, value-based equality.
+    static final class Money {
+        private final long paise;
+        Money(long paise) { this.paise = paise; }
+        Money plus(Money other) { return new Money(this.paise + other.paise); }
+        @Override public boolean equals(Object o) {
+            return o instanceof Money m && m.paise == paise;
+        }
+        @Override public int hashCode() { return Objects.hash(paise); }
+        @Override public String toString() { return String.format("Rs%.2f", paise / 100.0); }
+    }
+
+    record Vehicle(String plate, VehicleSize size) {}
+
+    static class ParkingSpot {
+        private final String spotId;
+        private final VehicleSize size;
+        private SpotStatus status = SpotStatus.FREE;
+        private Vehicle vehicle;
+
+        ParkingSpot(String spotId, VehicleSize size) { this.spotId = spotId; this.size = size; }
+
+        boolean canFit(Vehicle v) {
+            return status == SpotStatus.FREE && size.rank >= v.size().rank;
+        }
+
+        // Idiomatic Java: signal the violated precondition with an exception type
+        // callers can catch, rather than returning a boolean nobody checks.
+        void occupy(Vehicle v) {
+            if (!canFit(v)) throw new IllegalStateException("spot " + spotId + " cannot take " + v.plate());
+            this.vehicle = v;
+            this.status = SpotStatus.OCCUPIED;
+        }
+
+        void release() { this.vehicle = null; this.status = SpotStatus.FREE; }
+        SpotStatus status() { return status; }
+    }
+
+    public static void main(String[] args) {
+        ParkingSpot spot = new ParkingSpot("A-01", VehicleSize.COMPACT);
+        Vehicle bike = new Vehicle("KA-01-1234", VehicleSize.MOTORCYCLE);
+        Vehicle truck = new Vehicle("KA-05-9999", VehicleSize.LARGE);
+
+        assert spot.canFit(bike) && !spot.canFit(truck);
+        spot.occupy(bike);
+        assert spot.status() == SpotStatus.OCCUPIED;
+        spot.release();
+        assert spot.status() == SpotStatus.FREE;
+        System.out.println("entity model behaves: " + new Money(4990).plus(new Money(1010)));
+    }
+}
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-01-entities-q1", "type": "mcq",
+      "prompt": "You are modelling a parking spot's state. Why is `SpotStatus` (an enum) better than an `isOccupied` boolean?",
+      "options": [
+        {"id":"a","text":"Enums use less memory than booleans"},
+        {"id":"b","text":"The set of states is genuinely open — RESERVED, OUT_OF_SERVICE, CLEANING will appear — and a boolean forces you to add parallel flags with impossible combinations, while an enum grows by one case"},
+        {"id":"c","text":"Booleans cannot be compared"},
+        {"id":"d","text":"Enums are required for the State pattern"}
+      ],
+      "correct": "b",
+      "explanation": "Two booleans allow four combinations, two of which are nonsense. An enum makes illegal states unrepresentable and extends cleanly, which is why \"prefer enums over boolean flags\" is a standard LLD habit." }
+] }
+```
+
+## Step 3 — Relationships and the UML you actually need
+
+You will draw a class diagram. You need five arrows, not the whole UML specification.
+
+```
+ ┌──────────────────┐
+ │   ParkingLot     │   class box: name / fields / methods
+ ├──────────────────┤
+ │ - name: str      │   -  private
+ │ + floors: List   │   +  public
+ ├──────────────────┤
+ │ + park(v): Ticket│
+ └──────────────────┘
+
+RELATIONSHIPS
+
+  A ──────▷ B     inheritance      "A IS-A B"          Car ──▷ Vehicle
+  A ┈┈┈┈┈▷ B      implements       "A fulfils B"       CreditCard ┈▷ PaymentMethod
+  A ◆────── B     composition      "A OWNS B, B dies with A"   Floor ◆── Spot
+  A ◇────── B     aggregation      "A HAS B, B lives on"       Team ◇── Player
+  A ───────> B    association      "A uses/knows B"    Order ──> Customer
+  A ┈┈┈┈┈┈> B     dependency       "A mentions B briefly (a parameter)"
+```
+
+**Multiplicity** goes on the ends: `1`, `0..1`, `1..*`, `*`. `ParkingLot 1 ◆── 1..* Floor` reads "one lot owns at least one floor".
+
+The distinction interviewers actually check is **composition vs aggregation**:
+
+- **Composition** — the part cannot exist without the whole and is created/destroyed with it. Deleting a `Floor` deletes its `ParkingSpot`s. A `House` composes its `Room`s.
+- **Aggregation** — the part exists independently and can be shared. Deleting a `Team` does not delete its `Player`s. A `Playlist` aggregates `Song`s.
+
+Ask yourself: *"if the whole is destroyed, does this part still make sense?"* Yes → aggregation. No → composition.
+
+A sequence diagram is worth sketching once, for the main use case, because it forces you to commit to who calls whom:
+
+```
+Driver        ParkingLotService     SpotAllocator     TicketRepo
+  │  park(vehicle)  │                     │                │
+  ├────────────────>│                     │                │
+  │                 │  findSpot(vehicle)  │                │
+  │                 ├────────────────────>│                │
+  │                 │<─── spot ───────────┤                │
+  │                 │  spot.occupy(vehicle)                │
+  │                 │  save(ticket)       │                │
+  │                 ├─────────────────────────────────────>│
+  │<──── ticket ────┤                     │                │
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-01-uml-q1", "type": "mcq",
+      "prompt": "A `Playlist` contains `Song` objects that also appear in other playlists and exist independently in the library. Which relationship is it?",
+      "options": [
+        {"id":"a","text":"Composition — the playlist owns the songs"},
+        {"id":"b","text":"Aggregation — the songs exist independently of any playlist and are shared, so deleting the playlist must not delete them"},
+        {"id":"c","text":"Inheritance — a playlist is a kind of song collection"},
+        {"id":"d","text":"Dependency — the playlist only mentions songs as parameters"}
+      ],
+      "correct": "b",
+      "explanation": "The lifecycle test settles it: destroy the whole and ask whether the part still makes sense. Songs outlive playlists, so it is aggregation (a hollow diamond); rooms do not outlive their house, so that is composition." }
+] }
+```
+
+## Steps 4–6 — Interfaces, concurrency, extensibility
+
+**Step 4 — Interfaces and method signatures.** Now write the *public* surface of each class: what it accepts and returns. This is where design errors surface.
+
+```
+from abc import ABC, abstractmethod
+
+class PricingStrategy(ABC):                       # what varies → an interface
+    @abstractmethod
+    def price(self, hours: float, size: "VehicleSize") -> int: ...
+
+class ParkingLotService:                          # orchestration → a service
+    def park(self, vehicle: "Vehicle") -> "Ticket": ...
+    def unpark(self, ticket_id: str) -> int: ...   # returns fee in paise
+    def availability(self) -> dict["VehicleSize", int]: ...
+```
+
+Three rules for this step:
+
+- **Program to interfaces at the axes you expect to vary** — pricing, payment, notification, storage — and to concrete classes everywhere else. An interface with exactly one implementation and no plausible second one is speculative complexity.
+- **Return domain objects, not primitives**, when the primitive would be ambiguous. `Money` beats `int`; `TicketId` beats `str` when both a ticket id and a plate are strings.
+- **Push validation into constructors** so an object cannot exist in an invalid state.
+
+**Step 5 — Concurrency.** Say out loud: *"the shared mutable state here is the set of free spots"* (or seats, or inventory), then say how it is protected. The full treatment is the Concurrency lesson in this section, but the interview-level answer is always one of:
+
+| Situation | Mechanism |
+|---|---|
+| Two threads may take the same slot/seat | A lock around check-and-take, or an atomic compare-and-set |
+| A counter shared across threads | An atomic integer, not `count += 1` |
+| Data shared but never mutated | Immutability — no lock needed at all |
+| Independent items | A lock per item, not one global lock |
+| Multi-process / multi-server | The database enforces it: unique constraint or conditional `UPDATE` |
+
+**Step 6 — Extensibility.** Close by walking one change through your design out loud: *"if we add electric vehicles with charging spots, I add an `ELECTRIC` size and a `ChargingSpot` subclass; the allocator is unchanged because it only asks `can_fit`."* If the walk-through requires editing five existing classes, redesign before the interviewer asks.
+
+The three questions to pre-empt: *add a new type* (should be a new class), *add a new rule* (should be a new strategy), *add a new consumer of an event* (should be a new observer).
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-01-interfaces-q1", "type": "mcq",
+      "prompt": "When should you introduce an interface rather than a concrete class in an LLD design?",
+      "options": [
+        {"id":"a","text":"For every class, so the design is maximally flexible"},
+        {"id":"b","text":"At the axes you genuinely expect to vary — pricing rules, payment methods, notification channels, storage — where a second implementation is plausible or already required"},
+        {"id":"c","text":"Only for classes that will be tested"},
+        {"id":"d","text":"Never; interfaces belong in HLD"}
+      ],
+      "correct": "b",
+      "explanation": "Interfaces buy substitutability where behaviour varies, and cost indirection everywhere else. An interface with one implementation and no plausible second is exactly the speculative abstraction reviewers mark down." }
+] }
+```
+
+## Key takeaways
+
+**The six steps and their outputs:**
+
+| Step | Minutes | Output |
+|---|---|---|
+| 1. Requirements | 5 | Actors, use-case verbs, the questions that change the model, scope cut |
+| 2. Entities | 8 | Nouns → entities / value objects / enums / services / repositories |
+| 3. Relationships | 8 | Class diagram with the five arrows and multiplicities |
+| 4. Interfaces | 10 | Real method signatures on the core classes; interfaces at varying axes |
+| 5. Concurrency | 7 | Named shared mutable state + the mechanism protecting it |
+| 6. Extensibility | 5 | One change walked through the design out loud |
+
+**The habits, in one list:**
+
+- Nouns become classes, verbs become methods, closed sets become enums, varying behaviour becomes an interface.
+- Enums over booleans; immutable value objects over mutable bags of fields; validation in the constructor.
+- Composition over inheritance, and use the lifecycle test to tell composition from aggregation.
+- One responsibility per class, and no class named `Manager`, `Helper`, or `Util`.
+- Name the shared mutable state and how it's protected — unprompted.
+- Finish by walking a plausible new requirement through the design.
+
+**What's next**: the OOP foundations and SOLID lessons make steps 2–4 rigorous, the pattern lessons give you the standard answers to "what varies here", the concurrency lesson covers step 5 properly, and lessons 9 onward run the whole framework end to end on the eight problems you are most likely to be asked.
+$md$, 45, $json$[{"id":"ip45-lld-01-signal-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-01-requirements-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-01-entities-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-01-uml-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-01-interfaces-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('09345fa3-c4a8-5ced-b260-b18e73e063c2', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'OOP Foundations for Design', 'notes', 2, $md$Everybody can recite the four pillars. Very few can say *why* encapsulation matters in a design review, or when inheritance is the wrong tool, or what "coupling" costs in concrete terms. That gap is what this lesson closes — the pillars restated as design decisions you defend, plus the two ideas (composition over inheritance, coupling and cohesion) that decide most LLD outcomes.
+
+## The four pillars, as design arguments
+
+**Encapsulation — hide state, expose behaviour.** The point is not `private` keywords; it is that **an object should never be able to be put into an invalid state by its callers**.
+
+```python
+# Weak: the invariant "balance never goes negative" lives in every caller.
+class BadAccount:
+    def __init__(self):
+        self.balance = 0          # anyone can write anything
+
+# Strong: the invariant lives in one place, and the class enforces it.
+class Account:
+    def __init__(self, opening_paise: int = 0):
+        if opening_paise < 0:
+            raise ValueError("opening balance cannot be negative")
+        self._balance = opening_paise      # private by convention
+
+    @property
+    def balance(self) -> int:              # read-only view
+        return self._balance
+
+    def deposit(self, paise: int) -> None:
+        if paise <= 0:
+            raise ValueError("deposit must be positive")
+        self._balance += paise
+
+    def withdraw(self, paise: int) -> None:
+        if paise > self._balance:
+            raise ValueError("insufficient funds")
+        self._balance -= paise
+
+
+acct = Account(10_000)
+acct.deposit(5_000)
+acct.withdraw(2_000)
+assert acct.balance == 13_000
+
+for bad in (lambda: acct.withdraw(999_999), lambda: acct.deposit(-1), lambda: Account(-5)):
+    try:
+        bad()
+        raise AssertionError("invalid operation was allowed")
+    except ValueError:
+        pass
+print("invariants held; balance =", acct.balance)
+```
+
+The design payoff: when a bug says "balance went negative", there are three methods to inspect, not the whole codebase. **Getters and setters for every field are not encapsulation** — a public setter is a public field with extra typing. Expose *operations* (`withdraw`), not *fields*.
+
+**Abstraction — expose what, hide how.** `PaymentProcessor.charge(amount)` says nothing about Stripe or Razorpay, so the caller cannot depend on either. Abstraction is what makes substitution possible; encapsulation is what keeps state valid. They are frequently confused, and the one-line distinction is: **encapsulation hides data, abstraction hides implementation.**
+
+**Inheritance — share a contract, not code.** The legitimate use is "these things are genuinely substitutable for one another". Inheriting merely to reuse a method is the most common design mistake in LLD, covered in the next section.
+
+**Polymorphism — one call site, many behaviours.** This is what removes conditional chains:
+
+```python
+from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    @abstractmethod
+    def area(self) -> float: ...
+
+class Circle(Shape):
+    def __init__(self, r: float): self.r = r
+    def area(self) -> float: return 3.14159 * self.r ** 2
+
+class Rectangle(Shape):
+    def __init__(self, w: float, h: float): self.w, self.h = w, h
+    def area(self) -> float: return self.w * self.h
+
+# One call site. Adding Triangle requires editing nothing here.
+shapes: list[Shape] = [Circle(1), Rectangle(2, 3)]
+total = sum(s.area() for s in shapes)
+assert abs(total - 9.14159) < 1e-6
+print(f"total area = {total:.5f}")
+```
+
+The test for whether polymorphism is doing its job: **can you add a new type without editing existing code?** If adding `Triangle` means finding an `if shape_type == ...` chain, you have types without polymorphism.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-02-pillars-q1", "type": "mcq",
+      "prompt": "A class exposes a public getter and setter for every private field. What has actually been achieved?",
+      "options": [
+        {"id":"a","text":"Proper encapsulation, since the fields are private"},
+        {"id":"b","text":"Essentially nothing — a public setter is a public field with more typing; encapsulation means exposing operations that preserve invariants (`withdraw`), not accessors that let callers set any value"},
+        {"id":"c","text":"Abstraction, because callers use methods"},
+        {"id":"d","text":"Polymorphism, because setters can be overridden"}
+      ],
+      "correct": "b",
+      "explanation": "Encapsulation is about who is responsible for the object's invariants. If any caller can assign any value, the invariant lives in the callers — which is exactly the state encapsulation is supposed to prevent." }
+] }
+```
+
+## Composition over inheritance
+
+The single most useful design heuristic in LLD, and the one interviewers probe hardest.
+
+**The problem with inheritance** is that it is the tightest coupling a language offers: a subclass depends on its parent's *implementation*, not just its interface. Change the parent and every subclass may break — the "fragile base class" problem. And it is single-axis: the moment two independent things vary, the hierarchy explodes.
+
+```
+Vehicle
+├── ElectricCar
+├── PetrolCar
+├── ElectricTruck        combinatorial explosion:
+├── PetrolTruck          (fuel type) × (body type) × (transmission) = one class each
+├── ElectricMotorcycle
+└── ...
+```
+
+**The fix is composition**: model each varying axis as a collaborator the object *has*, rather than a branch of a hierarchy it *is*.
+
+```python
+from abc import ABC, abstractmethod
+
+class Engine(ABC):
+    @abstractmethod
+    def start(self) -> str: ...
+
+class PetrolEngine(Engine):
+    def start(self) -> str: return "vroom"
+
+class ElectricMotor(Engine):
+    def start(self) -> str: return "hum"
+
+class Vehicle:
+    """One class. The varying axis is a field, not a subclass."""
+    def __init__(self, name: str, engine: Engine, wheels: int):
+        self.name, self.engine, self.wheels = name, engine, wheels
+
+    def start(self) -> str:
+        return f"{self.name} ({self.wheels} wheels): {self.engine.start()}"
+
+
+car = Vehicle("car", PetrolEngine(), 4)
+bike = Vehicle("bike", ElectricMotor(), 2)
+assert car.start().endswith("vroom") and bike.start().endswith("hum")
+
+# Behaviour can even change at runtime — impossible with inheritance.
+car.engine = ElectricMotor()
+assert car.start().endswith("hum")
+print(car.start(), "|", bike.start())
+```
+
+```java +
+public class Main {
+    interface Engine { String start(); }
+
+    static class PetrolEngine implements Engine {
+        @Override public String start() { return "vroom"; }
+    }
+
+    static class ElectricMotor implements Engine {
+        @Override public String start() { return "hum"; }
+    }
+
+    static class Vehicle {
+        private final String name;
+        private final int wheels;
+        private Engine engine;   // the varying axis, injected — not a subclass
+
+        Vehicle(String name, Engine engine, int wheels) {
+            this.name = name; this.engine = engine; this.wheels = wheels;
+        }
+
+        void setEngine(Engine engine) { this.engine = engine; }
+
+        String start() {
+            return name + " (" + wheels + " wheels): " + engine.start();
+        }
+    }
+
+    public static void main(String[] args) {
+        Vehicle car = new Vehicle("car", new PetrolEngine(), 4);
+        Vehicle bike = new Vehicle("bike", new ElectricMotor(), 2);
+        assert car.start().endsWith("vroom") && bike.start().endsWith("hum");
+
+        car.setEngine(new ElectricMotor());   // runtime swap
+        assert car.start().endsWith("hum");
+        System.out.println(car.start() + " | " + bike.start());
+    }
+}
+```
+
+| | Inheritance | Composition |
+|---|---|---|
+| Relationship | IS-A | HAS-A |
+| Bound at | Compile time | Runtime — swappable |
+| Coupling | Tightest (to implementation) | Loose (to an interface) |
+| Multiple axes | Combinatorial explosion | One field per axis |
+| Testing | Must construct the whole hierarchy | Inject a fake collaborator |
+
+**When inheritance *is* right**: a genuine IS-A that satisfies substitutability (a `SavingsAccount` really is an `Account` everywhere an `Account` is expected), a stable base you control, and a single axis of variation. Shallow hierarchies — one or two levels — are fine and often clearest.
+
+The sentence to have ready: **"I'd use composition here because fuel type and body type vary independently; inheritance would need a class per combination."**
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-02-composition-q1", "type": "mcq",
+      "prompt": "A design has `ElectricCar`, `PetrolCar`, `ElectricTruck`, `PetrolTruck`, and now needs hybrid engines and vans. What is the underlying problem?",
+      "options": [
+        {"id":"a","text":"Too few subclasses — add HybridVan and the model is complete"},
+        {"id":"b","text":"Two independent axes of variation (power source × body type) are being expressed through single-axis inheritance, so classes multiply combinatorially; model each axis as a composed collaborator instead"},
+        {"id":"c","text":"The base class needs more methods"},
+        {"id":"d","text":"The classes should be interfaces"}
+      ],
+      "correct": "b",
+      "explanation": "Inheritance can only express one axis. Each additional independent axis multiplies the class count; composition turns each axis into a field, so adding hybrid engines is one new class instead of one per body type." }
+] }
+```
+
+## Coupling and cohesion
+
+Two words that describe most of what a reviewer means by "clean".
+
+**Coupling** — how much one module must know about another. **Low is good.**
+
+| Level | Example | Verdict |
+|---|---|---|
+| **Data coupling** | Passing an `int` parameter | Best |
+| **Stamp coupling** | Passing a whole object when only one field is used | Fine, mildly wasteful |
+| **Control coupling** | Passing a flag that switches the callee's behaviour (`save(dryRun=True)`) | Smell — usually two methods |
+| **Common coupling** | Shared global mutable state | Bad — invisible dependencies |
+| **Content coupling** | Reaching into another object's internals (`order.items[0].price = 0`) | Worst |
+
+The practical tests: *if I change class A, how many other classes must change?* and *how many things must I construct to test A alone?* Both answers should be small.
+
+**Cohesion** — how strongly one class's contents belong together. **High is good.** A class with high cohesion has a name that describes exactly what it does; a class with low cohesion has a name like `Utils`, `Manager`, or `Helper`, and every field is used by a different subset of methods.
+
+The **Law of Demeter** ("only talk to your immediate friends") makes low coupling concrete:
+
+```python
+# Train wreck — this method now depends on Order, Customer, Address AND their shapes.
+def bad(order):
+    return order.get_customer().get_address().get_city().upper()
+
+# Ask, don't reach: the object you know answers the question.
+def good(order):
+    return order.shipping_city().upper()
+```
+
+Every `.` past the first is a dependency you have just acquired.
+
+**A quick audit you can run on any design** — five smells and their fixes:
+
+| Smell | Looks like | Fix |
+|---|---|---|
+| **God class** | `OrderManager` with 40 methods | Split by responsibility: pricing, persistence, notification |
+| **Feature envy** | A method that mostly reads another class's fields | Move the method to the class that owns the data |
+| **Primitive obsession** | `str` for money, ids, phone numbers, currencies | Value objects: `Money`, `PhoneNumber`, `TicketId` |
+| **Shotgun surgery** | One change requires edits in seven files | The concept is scattered — gather it into one class |
+| **Long parameter list** | `create(a, b, c, d, e, f, g)` | A parameter object, or a builder |
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-02-coupling-q1", "type": "mcq",
+      "prompt": "`invoice.getCustomer().getAddress().getCountry().getTaxRate()` violates the Law of Demeter. Why does that matter in practice?",
+      "options": [
+        {"id":"a","text":"It is slower than a single method call"},
+        {"id":"b","text":"The calling code now depends on the internal structure of four classes, so a change to any of them breaks it — asking `invoice.taxRate()` leaves one dependency and lets the chain change freely behind it"},
+        {"id":"c","text":"It cannot be written in a statically typed language"},
+        {"id":"d","text":"It prevents the use of interfaces"}
+      ],
+      "correct": "b",
+      "explanation": "Each additional dot is knowledge of another object's shape. Reducing the chain to one call on the object you already hold means only that object's contract can break you." }
+] }
+```
+
+## Interfaces, abstract classes, and dependency injection
+
+**Interface vs abstract class** is asked in almost every LLD round, and the answer is about *what you are sharing*:
+
+| | Interface | Abstract class |
+|---|---|---|
+| Shares | A **contract** — what can be done | A contract **plus partial implementation** |
+| State | None (constants only) | Fields, constructors, invariants |
+| Multiple | A class can implement many | Single inheritance only |
+| Relationship | CAN-DO ("Comparable", "Serializable") | IS-A ("an `AbstractShape` is a shape") |
+| Change cost | Adding a method breaks all implementers (unless defaulted) | Adding a concrete method breaks nobody |
+
+The rule: **interface when unrelated classes need to be substitutable; abstract class when related classes genuinely share implementation and state.** In Python the distinction is softer (`ABC` covers both, and duck typing covers many cases) but the design reasoning is identical, and interviewers usually want the Java framing.
+
+**Dependency injection** is the mechanism that turns "depend on abstractions" from a slogan into code: a class receives its collaborators instead of constructing them.
+
+```python
+class SmtpMailer:
+    def send(self, to: str, body: str) -> None:
+        print(f"[smtp] to {to}: {body}")
+
+class FakeMailer:
+    def __init__(self): self.sent: list[tuple[str, str]] = []
+    def send(self, to: str, body: str) -> None: self.sent.append((to, body))
+
+class SignupService:
+    def __init__(self, mailer):            # injected — not `self.mailer = SmtpMailer()`
+        self.mailer = mailer
+
+    def register(self, email: str) -> None:
+        self.mailer.send(email, "Welcome!")
+
+
+fake = FakeMailer()
+SignupService(fake).register("a@example.com")
+assert fake.sent == [("a@example.com", "Welcome!")]   # testable with no SMTP server
+SignupService(SmtpMailer()).register("b@example.com")
+print("sent:", fake.sent)
+```
+
+Constructing your own dependencies (`self.mailer = SmtpMailer()`) hard-wires the class to one implementation, makes it untestable without real infrastructure, and hides the dependency from anyone reading the constructor. Injection makes every dependency visible in the signature — which is also why **a constructor with eight parameters is a design smell**: the class is doing eight things.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-02-di-q1", "type": "mcq",
+      "prompt": "Why is `def __init__(self): self.mailer = SmtpMailer()` worse than accepting the mailer as a constructor parameter?",
+      "options": [
+        {"id":"a","text":"It is slower to construct"},
+        {"id":"b","text":"It hard-codes one implementation, hides the dependency from the class's signature, and makes the class impossible to unit test without a real SMTP server — injection makes the dependency explicit and substitutable"},
+        {"id":"c","text":"Constructors cannot create objects in most languages"},
+        {"id":"d","text":"It violates encapsulation of the mailer"}
+      ],
+      "correct": "b",
+      "explanation": "Injection buys three things at once: substitutability, testability, and an honest constructor signature that documents what the class actually needs." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Encapsulation : hide state, expose operations that preserve invariants.
+                A public setter is a public field. Validate in the constructor.
+Abstraction   : hide implementation behind a contract  (encapsulation hides DATA,
+                abstraction hides HOW)
+Inheritance   : share a contract, not code. IS-A + substitutable + single axis + shallow.
+Polymorphism  : one call site, many behaviours. Test = "can I add a type without edits?"
+
+COMPOSITION OVER INHERITANCE
+  Inheritance = compile-time, tightest coupling, one axis → combinatorial explosion
+  Composition = runtime-swappable, loose, one field per axis, easy to fake in tests
+
+Coupling (low): data < stamp < control < common < content   ← worst
+  Law of Demeter: every dot past the first is a new dependency. Ask, don't reach.
+Cohesion (high): a class whose name describes exactly what it does.
+  Smells: god class · feature envy · primitive obsession · shotgun surgery · long params
+
+Interface = contract, many per class, unrelated types (CAN-DO)
+Abstract class = contract + shared state/implementation, one per class (IS-A)
+Dependency injection: receive collaborators, never construct them.
+  Constructor with 8 params = the class does 8 things.
+```
+
+- **Encapsulation is about who owns the invariant**, and the answer must be the class, not its callers.
+- **Reach for composition first, every time**, and say why: independent axes of variation, runtime swappability, testability.
+- **Coupling and cohesion are the vocabulary reviewers use.** "This `Manager` has low cohesion — I'd split pricing from persistence" is exactly how a design discussion sounds.
+- **Every design smell in the table has a standard fix**, and knowing the pair (smell → fix) is what lets you improve a design live, in front of the interviewer, when they push on it.
+$md$, 45, $json$[{"id":"ip45-lld-02-pillars-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-02-composition-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-02-coupling-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-02-di-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('501837ae-a27f-5860-a9fd-60100b7e6759', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'SOLID Principles', 'notes', 3, $md$SOLID is the vocabulary interviewers use to explain *why* one design is better than another, which is why "explain SOLID with an example" is one of the most-asked LLD questions. Reciting the five names earns nothing. What earns points is showing a bad design, naming the principle it violates, and refactoring it — which is exactly how each section below is structured.
+
+The one thing to hold on to: **every SOLID principle is about making change cheap.** They all answer the question "when the requirements change, how much code has to change?"
+
+## S — Single Responsibility Principle
+
+> A class should have one reason to change.
+
+"One reason to change" is stricter and more useful than "does one thing". The test: **who asks for changes to this class?** If the finance team, the ops team, and the marketing team can all cause an edit, it has three responsibilities.
+
+```
+# VIOLATION — three actors, three reasons to change, one class.
+class BadReport:
+    def compute(self, rows): ...        # finance changes the formula
+    def to_pdf(self): ...               # design changes the layout
+    def email(self, to): ...            # ops changes the mail server
+```
+
+```python
+from dataclasses import dataclass
+
+# REFACTORED — each class changes for exactly one reason.
+@dataclass(frozen=True)
+class SalesReport:
+    total_paise: int
+    rows: int
+
+class ReportCalculator:              # changes when the business rule changes
+    def compute(self, sales: list[int]) -> SalesReport:
+        return SalesReport(total_paise=sum(sales), rows=len(sales))
+
+class ReportPdfRenderer:             # changes when the layout changes
+    def render(self, report: SalesReport) -> bytes:
+        return f"PDF<total={report.total_paise},rows={report.rows}>".encode()
+
+class ReportMailer:                  # changes when delivery changes
+    def __init__(self, transport): self.transport = transport
+    def send(self, to: str, document: bytes) -> None:
+        self.transport.send(to, document)
+
+
+class FakeTransport:
+    def __init__(self): self.outbox = []
+    def send(self, to, doc): self.outbox.append((to, doc))
+
+report = ReportCalculator().compute([10_000, 25_000, 5_000])
+pdf = ReportPdfRenderer().render(report)
+transport = FakeTransport()
+ReportMailer(transport).send("cfo@example.com", pdf)
+
+assert report.total_paise == 40_000
+assert transport.outbox[0][0] == "cfo@example.com"
+print("report pipeline ok:", pdf.decode())
+```
+
+The payoff is not aesthetic: the calculator is now unit-testable with no PDF library and no mail server, and a layout change cannot break the arithmetic.
+
+**Where people over-apply it**: splitting a class into six classes with one method each is not SRP, it is anaemic design. Group by *reason to change*, not by *line count*.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-03-srp-q1", "type": "mcq",
+      "prompt": "What is the sharpest test for whether a class violates the Single Responsibility Principle?",
+      "options": [
+        {"id":"a","text":"Whether it has more than 200 lines"},
+        {"id":"b","text":"Whether more than one group of stakeholders can request a change to it — finance changing a formula, design changing a layout, and ops changing a mail server means three reasons to change"},
+        {"id":"c","text":"Whether it has more than five methods"},
+        {"id":"d","text":"Whether it uses more than one interface"}
+      ],
+      "correct": "b",
+      "explanation": "SRP is about axes of change, not size. A 400-line class that only ever changes when one rule changes is fine; a 40-line class that three teams edit is not." }
+] }
+```
+
+## O — Open/Closed Principle
+
+> Open for extension, closed for modification.
+
+Adding behaviour should mean **adding code**, not **editing working code**. The tell is a growing `if/elif` chain on a type or a name.
+
+```python
+# VIOLATION — every new payment method edits this method and risks the existing ones.
+class BadProcessor:
+    def pay(self, method: str, paise: int) -> str:
+        if method == "card":
+            return f"charged card {paise}"
+        elif method == "upi":
+            return f"charged upi {paise}"
+        # elif "wallet" ... elif "netbanking" ... forever
+        raise ValueError(method)
+```
+
+```python
+from abc import ABC, abstractmethod
+
+class PaymentMethod(ABC):
+    @abstractmethod
+    def pay(self, paise: int) -> str: ...
+
+class Card(PaymentMethod):
+    def pay(self, paise: int) -> str: return f"charged card {paise}"
+
+class Upi(PaymentMethod):
+    def pay(self, paise: int) -> str: return f"charged upi {paise}"
+
+class Wallet(PaymentMethod):                 # NEW: added, nothing edited
+    def pay(self, paise: int) -> str: return f"charged wallet {paise}"
+
+class Checkout:
+    def pay(self, method: PaymentMethod, paise: int) -> str:
+        return method.pay(paise)             # closed: never changes again
+
+
+checkout = Checkout()
+assert checkout.pay(Card(), 49_900) == "charged card 49900"
+assert checkout.pay(Wallet(), 1_000) == "charged wallet 1000"
+print(checkout.pay(Upi(), 25_000))
+```
+
+**How to spot the axis to open.** You cannot make a class open to *every* possible change — that is over-engineering. Open it along the axis the requirements say will vary: "we will keep adding payment methods" → open there; "the tax formula is fixed by law and changes once a decade" → leave it concrete.
+
+**Where OCP lives in the real world**: strategy objects, plugin registries, event subscribers, and — the humblest version — a dictionary lookup replacing an `if` chain.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-03-ocp-q1", "type": "mcq",
+      "prompt": "Which code smell most reliably signals an Open/Closed violation?",
+      "options": [
+        {"id":"a","text":"A class with private fields"},
+        {"id":"b","text":"A growing if/elif chain that switches on a type or name, so each new variant requires editing (and risking) tested code"},
+        {"id":"c","text":"A method with two parameters"},
+        {"id":"d","text":"Use of an abstract base class"}
+      ],
+      "correct": "b",
+      "explanation": "The chain is the modification point. Replacing it with polymorphic dispatch — or a registry lookup — turns \"edit and retest this method\" into \"add a class\"." }
+] }
+```
+
+## L — Liskov Substitution Principle
+
+> A subtype must be usable anywhere its base type is expected, without the caller knowing.
+
+This is the principle that decides whether inheritance was the right call, and its violations are subtle.
+
+```python
+# VIOLATION — the classic. A square IS-A rectangle in geometry, not in code.
+class Rectangle:
+    def __init__(self, w, h): self._w, self._h = w, h
+    def set_width(self, w): self._w = w
+    def set_height(self, h): self._h = h
+    def area(self): return self._w * self._h
+
+class Square(Rectangle):
+    def __init__(self, side): super().__init__(side, side)
+    def set_width(self, w): self._w = self._h = w      # must keep sides equal
+    def set_height(self, h): self._w = self._h = h
+
+def client_expects_rectangle_behaviour(r: Rectangle) -> int:
+    r.set_width(5)
+    r.set_height(4)
+    return r.area()          # any Rectangle: 20
+
+assert client_expects_rectangle_behaviour(Rectangle(1, 1)) == 20
+assert client_expects_rectangle_behaviour(Square(1)) == 16      # ← broken substitution
+print("Square breaks the Rectangle contract: 16 != 20")
+```
+
+The subclass did not add behaviour — it *removed a guarantee* the base class made ("width and height are independent"). The fix is not clever inheritance; it is to stop inheriting: make `Shape` an interface with `area()`, and let `Square` and `Rectangle` be immutable value objects that both implement it.
+
+**The four rules a subtype must respect:**
+
+| Rule | Meaning | Violation |
+|---|---|---|
+| **Preconditions may not be strengthened** | The subtype cannot demand more from callers | Base accepts any int; subtype requires positive |
+| **Postconditions may not be weakened** | The subtype must deliver at least as much | Base guarantees a sorted list; subtype returns unsorted |
+| **Invariants must be preserved** | The base's rules still hold | `Square` breaking independent sides |
+| **No new exceptions** | Callers cannot be surprised | Subtype throws `NotImplementedError` for an inherited method |
+
+That last row is the most common real-world violation: a `ReadOnlyList` inheriting `List` and throwing on `add()`. If the subclass has to say "this operation doesn't apply to me", the hierarchy is wrong — split the interface (which is exactly the next principle).
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-03-lsp-q1", "type": "mcq",
+      "prompt": "A `ReadOnlyCollection` extends `Collection` and throws `UnsupportedOperationException` from `add()`. Which principle does this violate and what is the fix?",
+      "options": [
+        {"id":"a","text":"Single Responsibility; split the class in two"},
+        {"id":"b","text":"Liskov Substitution — code holding a `Collection` cannot safely call `add()` any more. Fix by splitting the interface: a read-only `Iterable` contract and a separate `MutableCollection` that extends it"},
+        {"id":"c","text":"Open/Closed; add a flag instead of throwing"},
+        {"id":"d","text":"Dependency Inversion; inject the collection"}
+      ],
+      "correct": "b",
+      "explanation": "Throwing from an inherited method introduces an exception callers of the base type do not expect, breaking substitutability. The structural fix is a narrower base interface — LSP violations are very often ISP problems in disguise." }
+] }
+```
+
+## I — Interface Segregation Principle
+
+> No client should be forced to depend on methods it does not use.
+
+```python
+from abc import ABC, abstractmethod
+
+# VIOLATION — one fat interface forces meaningless implementations.
+class BadWorker(ABC):
+    @abstractmethod
+    def work(self): ...
+    @abstractmethod
+    def eat(self): ...
+
+class Robot(BadWorker):
+    def work(self): return "working"
+    def eat(self): raise NotImplementedError("robots don't eat")   # ← forced
+```
+
+```python
+from abc import ABC, abstractmethod
+
+# REFACTORED — small role interfaces; classes implement only what they are.
+class Workable(ABC):
+    @abstractmethod
+    def work(self) -> str: ...
+
+class Feedable(ABC):
+    @abstractmethod
+    def eat(self) -> str: ...
+
+class Human(Workable, Feedable):
+    def work(self) -> str: return "working"
+    def eat(self) -> str: return "eating"
+
+class Robot(Workable):                       # no meaningless method to implement
+    def work(self) -> str: return "working"
+
+def run_shift(workers: list[Workable]) -> list[str]:
+    return [w.work() for w in workers]       # depends only on what it uses
+
+
+assert run_shift([Human(), Robot()]) == ["working", "working"]
+assert Human().eat() == "eating"
+assert not hasattr(Robot, "eat")
+print("segregated interfaces ok")
+```
+
+**The practical signal** is any implementation whose body is `pass`, `return null`, or `throw NotImplemented`. Each one is an interface that is too wide.
+
+The related idea worth naming: **role interfaces**. Instead of one `IUserService` with twenty methods, define `UserReader`, `UserWriter`, `PasswordResetter` — each consumer depends on the two methods it needs, so a change to password logic cannot break the code that only reads users. This is also what makes test doubles small: a fake that implements two methods rather than twenty.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-03-isp-q1", "type": "mcq",
+      "prompt": "What is the clearest practical signal of an Interface Segregation violation?",
+      "options": [
+        {"id":"a","text":"An interface with more than three methods"},
+        {"id":"b","text":"Implementations containing empty bodies, `return null`, or `throw NotImplemented` — proof that the interface demands more than that implementer actually is"},
+        {"id":"c","text":"Two classes implementing the same interface"},
+        {"id":"d","text":"An interface used by only one class"}
+      ],
+      "correct": "b",
+      "explanation": "Method count alone is not the test — a cohesive interface can have several methods. The evidence is implementers forced to supply a method that means nothing for them, which also breaks Liskov for any caller who invokes it." }
+] }
+```
+
+## D — Dependency Inversion Principle
+
+> High-level modules should not depend on low-level modules; both should depend on abstractions. Abstractions should not depend on details; details should depend on abstractions.
+
+```
+# VIOLATION — the business rule is welded to MySQL and to SMTP.
+class BadOrderService:
+    def __init__(self):
+        self.db = "MySQLConnection(...)"      # constructs its own low-level detail
+    def place(self, order): ...               # untestable without a real database
+```
+
+```python
+from abc import ABC, abstractmethod
+
+# The abstraction is owned by the HIGH-level module and expressed in its language.
+class OrderRepository(ABC):
+    @abstractmethod
+    def save(self, order: dict) -> str: ...
+
+class Notifier(ABC):
+    @abstractmethod
+    def notify(self, to: str, message: str) -> None: ...
+
+class OrderService:                            # high level: pure business rules
+    def __init__(self, repo: OrderRepository, notifier: Notifier):
+        self.repo, self.notifier = repo, notifier
+
+    def place(self, order: dict) -> str:
+        if order["total_paise"] <= 0:
+            raise ValueError("order total must be positive")
+        order_id = self.repo.save(order)
+        self.notifier.notify(order["email"], f"Order {order_id} placed")
+        return order_id
+
+# Low level: details depend on the abstraction, never the other way round.
+class InMemoryOrderRepository(OrderRepository):
+    def __init__(self): self.saved: dict[str, dict] = {}
+    def save(self, order: dict) -> str:
+        oid = f"ord_{len(self.saved) + 1}"
+        self.saved[oid] = order
+        return oid
+
+class RecordingNotifier(Notifier):
+    def __init__(self): self.messages: list[tuple[str, str]] = []
+    def notify(self, to: str, message: str) -> None: self.messages.append((to, message))
+
+
+repo, notifier = InMemoryOrderRepository(), RecordingNotifier()
+order_id = OrderService(repo, notifier).place({"total_paise": 49_900, "email": "a@example.com"})
+
+assert order_id == "ord_1" and repo.saved[order_id]["total_paise"] == 49_900
+assert notifier.messages == [("a@example.com", "Order ord_1 placed")]
+print("business logic tested with zero infrastructure:", order_id)
+```
+
+**The subtlety worth stating in an interview**: the *direction of the dependency* is what inverts. Normally `OrderService → MySQLRepository`. After inversion, both point at `OrderRepository` — and crucially, that interface belongs to the business layer and is written in business language (`save(order)`), not database language (`executeQuery`). That is what makes swapping Postgres for DynamoDB a change in one file.
+
+This is also the principle behind hexagonal / ports-and-adapters architecture, and it is why the test above needed no database, no network, and no mocking framework.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-03-dip-q1", "type": "mcq",
+      "prompt": "In Dependency Inversion, which module should own and define the `OrderRepository` interface?",
+      "options": [
+        {"id":"a","text":"The database layer, since it implements it"},
+        {"id":"b","text":"The high-level business layer — the interface is written in domain language (`save(order)`) and the low-level adapter implements it, which is precisely what inverts the dependency direction"},
+        {"id":"c","text":"A shared utility package that neither layer owns"},
+        {"id":"d","text":"Whichever layer has fewer classes"}
+      ],
+      "correct": "b",
+      "explanation": "If the persistence layer owns the interface, the business layer still points at persistence and nothing was inverted. Ownership by the domain is what lets you replace the adapter without touching a business rule." }
+] }
+```
+
+## Key takeaways
+
+**The recall card — principle, violation smell, fix:**
+
+| | Principle | Smell | Fix |
+|---|---|---|---|
+| **S** | One reason to change | A class three teams edit; `Manager`/`Util` names | Split by axis of change |
+| **O** | Open to extension, closed to modification | Growing `if/elif` on a type | Polymorphism, strategy, registry |
+| **L** | Subtypes are substitutable | Overrides that throw, or weaken a guarantee | Split the hierarchy; prefer composition |
+| **I** | No forced dependencies | `NotImplemented` / empty method bodies | Small role interfaces |
+| **D** | Depend on abstractions | `new` / direct construction of infrastructure inside business logic | Inject an interface owned by the domain |
+
+- **All five reduce to one goal: make change cheap.** When asked "why does SOLID matter", answer with the change, not the definition: "adding a payment method should add a class, not edit a switch."
+- **Present them as refactorings, not definitions.** "Here's the violation, here's the smell, here's the fix" is the format that scores.
+- **They interact.** LSP violations are usually ISP problems; OCP is usually achieved through DIP; SRP is what makes all the others possible.
+- **They can be over-applied.** Five one-method classes and an interface per concrete type is not SOLID, it is ceremony. Apply each principle at an axis the requirements say will actually vary — and be ready to say that out loud, because knowing when *not* to abstract is itself a senior signal.
+$md$, 50, $json$[{"id":"ip45-lld-03-srp-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-03-ocp-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-03-lsp-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-03-isp-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-03-dip-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('03a57ca7-a277-582f-b949-1a89278ed025', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'Creational Patterns', 'notes', 4, $md$Creational patterns answer one question: **who decides which concrete class gets constructed, and how?** Every one of them exists to stop `new ConcreteThing()` from being scattered through code that should not know `ConcreteThing` exists.
+
+Learn each as a **problem → pattern → cost** triple. Interviewers ask "when would you use this?" far more often than "implement this", and the trap answer is applying a pattern where a plain constructor would do.
+
+## Singleton — exactly one instance
+
+**Problem**: something expensive or genuinely unique — a connection pool, a configuration registry, a logger — must have one instance shared by everyone.
+
+```python
+import threading
+
+class ConfigRegistry:
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if cls._instance is None:                 # fast path, no lock
+            with cls._lock:                       # double-checked locking
+                if cls._instance is None:         # re-check inside the lock
+                    obj = super().__new__(cls)
+                    obj._values = {}
+                    cls._instance = obj
+        return cls._instance
+
+    def set(self, key: str, value: str) -> None: self._values[key] = value
+    def get(self, key: str) -> str | None: return self._values.get(key)
+
+
+a, b = ConfigRegistry(), ConfigRegistry()
+assert a is b                       # same object
+a.set("region", "ap-south-1")
+assert b.get("region") == "ap-south-1"
+print("singleton shared state:", b.get("region"))
+```
+
+The double-checked lock matters and is asked about: without it, two threads can both pass the `is None` check and construct two instances; with a lock on every access, you pay for synchronisation forever. Check, lock, check again.
+
+**In Python**, a module is already a singleton — importing it twice gives the same object — so a module-level instance is usually the idiomatic answer. **In Java**, the safest form is an enum singleton (serialization- and reflection-proof) or a static holder class.
+
+**The cost — and say this unprompted, because "when would you NOT use it" is the follow-up:**
+
+- It is **global mutable state**: any code anywhere can change it, so bugs have no obvious owner.
+- It **hides dependencies**: a class using `ConfigRegistry()` internally looks dependency-free but is not.
+- It makes **testing painful**: state leaks between tests, and you cannot substitute a fake.
+- It **fights concurrency**: shared mutable state needs synchronisation everywhere.
+
+The modern preference: create one instance at the composition root and **inject** it. You keep "exactly one" without the global access point, which was always the harmful half of the pattern.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-04-singleton-q1", "type": "mcq",
+      "prompt": "Why is double-checked locking used in a thread-safe Singleton?",
+      "options": [
+        {"id":"a","text":"To make the object immutable"},
+        {"id":"b","text":"So the lock is taken only during the first, racing construction: the outer check avoids synchronisation on every subsequent access, and the inner re-check prevents two threads that both passed the outer check from constructing twice"},
+        {"id":"c","text":"To allow multiple instances when needed"},
+        {"id":"d","text":"Because constructors cannot be synchronised"}
+      ],
+      "correct": "b",
+      "explanation": "One check alone races; a lock on every access is a permanent cost on a read-mostly path. Check-lock-check gives correctness with the synchronisation cost paid only once." }
+] }
+```
+
+## Factory Method and Abstract Factory
+
+**Factory Method — problem**: callers should not know or name concrete classes, and adding a new type should not edit them.
+
+```python
+from abc import ABC, abstractmethod
+
+class Notifier(ABC):
+    @abstractmethod
+    def send(self, to: str, msg: str) -> str: ...
+
+class EmailNotifier(Notifier):
+    def send(self, to: str, msg: str) -> str: return f"email->{to}:{msg}"
+
+class SmsNotifier(Notifier):
+    def send(self, to: str, msg: str) -> str: return f"sms->{to}:{msg}"
+
+class PushNotifier(Notifier):
+    def send(self, to: str, msg: str) -> str: return f"push->{to}:{msg}"
+
+class NotifierFactory:
+    """Registry-based factory: a new channel registers itself, nothing here changes."""
+    _registry: dict[str, type[Notifier]] = {}
+
+    @classmethod
+    def register(cls, key: str, impl: type[Notifier]) -> None:
+        cls._registry[key] = impl
+
+    @classmethod
+    def create(cls, key: str) -> Notifier:
+        try:
+            return cls._registry[key]()
+        except KeyError:
+            raise ValueError(f"unknown channel: {key}") from None
+
+
+for key, impl in (("email", EmailNotifier), ("sms", SmsNotifier), ("push", PushNotifier)):
+    NotifierFactory.register(key, impl)
+
+assert NotifierFactory.create("sms").send("+91999", "hi") == "sms->+91999:hi"
+try:
+    NotifierFactory.create("carrier-pigeon")
+    raise AssertionError("expected failure")
+except ValueError as e:
+    print("factory rejected:", e)
+```
+
+The registry form is worth knowing because it is genuinely **open/closed**: a plain `if kind == "email"` factory still has to be edited for every new channel; the registry does not.
+
+**Abstract Factory — problem**: you need *families* of related objects that must be used together, and mixing families would be a bug.
+
+```python
+from abc import ABC, abstractmethod
+
+class Button(ABC):
+    @abstractmethod
+    def render(self) -> str: ...
+
+class Checkbox(ABC):
+    @abstractmethod
+    def render(self) -> str: ...
+
+class DarkButton(Button):
+    def render(self) -> str: return "[dark button]"
+
+class DarkCheckbox(Checkbox):
+    def render(self) -> str: return "[dark checkbox]"
+
+class LightButton(Button):
+    def render(self) -> str: return "[light button]"
+
+class LightCheckbox(Checkbox):
+    def render(self) -> str: return "[light checkbox]"
+
+class ThemeFactory(ABC):                    # the abstract factory
+    @abstractmethod
+    def button(self) -> Button: ...
+    @abstractmethod
+    def checkbox(self) -> Checkbox: ...
+
+class DarkTheme(ThemeFactory):
+    def button(self) -> Button: return DarkButton()
+    def checkbox(self) -> Checkbox: return DarkCheckbox()
+
+class LightTheme(ThemeFactory):
+    def button(self) -> Button: return LightButton()
+    def checkbox(self) -> Checkbox: return LightCheckbox()
+
+def render_form(theme: ThemeFactory) -> str:
+    # Cannot accidentally mix a dark button with a light checkbox.
+    return theme.button().render() + theme.checkbox().render()
+
+
+assert render_form(DarkTheme()) == "[dark button][dark checkbox]"
+print(render_form(LightTheme()))
+```
+
+The distinction, in one line each: **Factory Method creates one product and varies by subclass or key; Abstract Factory creates a whole family and guarantees the members match.**
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-04-factory-q1", "type": "mcq",
+      "prompt": "When is Abstract Factory the right choice over a plain factory?",
+      "options": [
+        {"id":"a","text":"Whenever more than two concrete classes exist"},
+        {"id":"b","text":"When several related products must come from the same family and mixing families would be a defect — e.g. a dark-theme button must never pair with a light-theme checkbox"},
+        {"id":"c","text":"When object creation is expensive"},
+        {"id":"d","text":"When objects must be immutable"}
+      ],
+      "correct": "b",
+      "explanation": "The value of Abstract Factory is the *consistency guarantee* across a product family. If you only ever create one kind of product, a factory method (or a registry) is simpler and sufficient." }
+] }
+```
+
+## Builder — construct complex objects step by step
+
+**Problem**: an object has many optional fields, and the constructor has become `Pizza(size, cheese, sauce, toppings, crust, extra, discount)` where half the arguments are `None` and nobody remembers the order (the "telescoping constructor" problem).
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass(frozen=True)
+class HttpRequest:
+    url: str
+    method: str = "GET"
+    headers: dict[str, str] = field(default_factory=dict)
+    body: str | None = None
+    timeout_ms: int = 5_000
+
+class HttpRequestBuilder:
+    def __init__(self, url: str):
+        self._url, self._method = url, "GET"
+        self._headers: dict[str, str] = {}
+        self._body: str | None = None
+        self._timeout = 5_000
+
+    def method(self, m: str) -> "HttpRequestBuilder":
+        self._method = m
+        return self                                  # fluent: return self to chain
+
+    def header(self, k: str, v: str) -> "HttpRequestBuilder":
+        self._headers[k] = v
+        return self
+
+    def body(self, b: str) -> "HttpRequestBuilder":
+        self._body = b
+        return self
+
+    def timeout_ms(self, ms: int) -> "HttpRequestBuilder":
+        self._timeout = ms
+        return self
+
+    def build(self) -> HttpRequest:
+        # Validation lives here, so an invalid object can never exist.
+        if self._method in ("POST", "PUT") and self._body is None:
+            raise ValueError(f"{self._method} requires a body")
+        return HttpRequest(self._url, self._method, dict(self._headers),
+                           self._body, self._timeout)
+
+
+req = (HttpRequestBuilder("https://api.example.com/orders")
+       .method("POST")
+       .header("Content-Type", "application/json")
+       .body('{"total":49900}')
+       .timeout_ms(2_000)
+       .build())
+
+assert req.method == "POST" and req.timeout_ms == 2_000
+try:
+    HttpRequestBuilder("https://x").method("POST").build()
+    raise AssertionError("expected validation failure")
+except ValueError as e:
+    print("builder validated:", e)
+```
+
+Three properties that make Builder worth its verbosity: **named arguments** (the call site reads as documentation), **validation at `build()`** (the product is never half-constructed), and **an immutable product** (safe to share across threads).
+
+**When you do not need it**: a language with keyword arguments and defaults — Python, Kotlin, C# — already solves the readability half. Reach for a builder there when you need the *validation* and *immutability*, or when construction happens in stages across different pieces of code.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-04-builder-q1", "type": "mcq",
+      "prompt": "Which problem does the Builder pattern solve that keyword arguments alone do not?",
+      "options": [
+        {"id":"a","text":"It makes construction faster"},
+        {"id":"b","text":"It centralises cross-field validation at build() and yields an immutable product, so a partially-configured or invalid object can never be observed — and it supports assembling the object in stages across different code"},
+        {"id":"c","text":"It allows more than seven parameters"},
+        {"id":"d","text":"It removes the need for a constructor"}
+      ],
+      "correct": "b",
+      "explanation": "Keyword arguments fix readability. Builder adds a validation checkpoint, an immutable result, and the ability to accumulate configuration over time before the object exists." }
+] }
+```
+
+## Prototype and Object Pool
+
+**Prototype — problem**: creating an object from scratch is expensive (a deep parse, a network fetch, a heavy computation) and you need many near-identical copies.
+
+```python
+import copy
+
+class DocumentTemplate:
+    def __init__(self, sections: list[str], styles: dict[str, str]):
+        self.sections = sections            # imagine: expensively parsed
+        self.styles = styles
+
+    def clone(self) -> "DocumentTemplate":
+        return copy.deepcopy(self)          # deep, so copies don't share mutable state
+
+
+base = DocumentTemplate(["cover", "body"], {"font": "serif"})
+invoice = base.clone()
+invoice.sections.append("totals")
+invoice.styles["font"] = "mono"
+
+assert base.sections == ["cover", "body"]        # original untouched
+assert base.styles["font"] == "serif"
+print("prototype cloned independently:", invoice.sections, invoice.styles)
+```
+
+The trap this pattern exists to expose is **shallow vs deep copy**: a shallow copy shares the nested list, so mutating the clone corrupts the original. Interviewers ask this directly — know that `copy.copy` is shallow and `copy.deepcopy` is deep in Python, and that Java's `clone()` is shallow by default and `Cloneable` is widely considered a broken design (a copy constructor or a static factory is preferred).
+
+**Object Pool — problem**: objects are expensive to create *and* to destroy, and you need many over time — database connections, threads, large buffers.
+
+```python
+class Connection:
+    def __init__(self, cid: int): self.cid, self.in_use = cid, False
+    def query(self, sql: str) -> str: return f"conn{self.cid}:{sql}"
+
+class ConnectionPool:
+    def __init__(self, size: int):
+        self._pool = [Connection(i) for i in range(size)]   # created once, up front
+
+    def acquire(self) -> Connection:
+        for c in self._pool:
+            if not c.in_use:
+                c.in_use = True
+                return c
+        raise RuntimeError("pool exhausted")     # bounded on purpose — backpressure
+
+    def release(self, c: Connection) -> None:
+        c.in_use = False                          # reset state before reuse
+
+
+pool = ConnectionPool(2)
+a, b = pool.acquire(), pool.acquire()
+try:
+    pool.acquire()
+    raise AssertionError("pool should be exhausted")
+except RuntimeError:
+    pass
+pool.release(a)
+c = pool.acquire()                                # a is recycled
+assert c is a
+print("pooled:", c.query("SELECT 1"))
+```
+
+Two things to say about pools in an interview: **the pool must be bounded** (an unbounded pool is just uncontrolled resource growth, and the exhaustion error is deliberate backpressure), and **state must be reset on release**, or the next borrower inherits the last one's transaction, timeouts, or session variables. That reset bug is the classic production incident this pattern causes.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-04-pool-q1", "type": "mcq",
+      "prompt": "What is the most common production bug introduced by an object pool?",
+      "options": [
+        {"id":"a","text":"The pool is too large and wastes memory"},
+        {"id":"b","text":"Object state is not reset on release, so the next borrower inherits the previous user's state — an open transaction, a stale session variable, leftover buffer contents"},
+        {"id":"c","text":"Pooled objects cannot be garbage collected"},
+        {"id":"d","text":"The pool cannot be used from multiple threads"}
+      ],
+      "correct": "b",
+      "explanation": "Reuse is the whole point of a pool and also its hazard: anything carried over from the previous borrower becomes a cross-request data leak or a subtle correctness bug. Reset on release (or on acquire) is mandatory." }
+] }
+```
+
+## Key takeaways
+
+**The recall table — problem, pattern, cost:**
+
+| Pattern | Problem it solves | Cost / when not to |
+|---|---|---|
+| **Singleton** | Exactly one shared instance of something expensive or unique | Global mutable state, hidden dependencies, hard to test — prefer one injected instance |
+| **Factory Method** | Callers shouldn't name concrete classes; new types shouldn't edit callers | Indirection; a registry form is needed to be truly open/closed |
+| **Abstract Factory** | A *family* of products that must match | Adding a new product type means editing every factory |
+| **Builder** | Many optional fields; validation; immutable result | Verbose; keyword args cover the simple case |
+| **Prototype** | Copying is much cheaper than constructing | Deep vs shallow copy bugs |
+| **Object Pool** | Creation *and* destruction are expensive; reuse is safe | Must be bounded; must reset state on release |
+
+**How to use them in an interview:**
+
+- **Name the problem first, the pattern second.** "Payment methods will keep being added, so I'll create them through a registry-backed factory" is design. "I'll use the Factory pattern" is vocabulary.
+- **Volunteer the cost.** Every pattern above has a well-known downside, and naming it is what makes you sound like someone who has maintained the code rather than read about it.
+- **The most common mistake is Singleton everywhere.** Use it for genuinely unique resources, prefer injecting a single instance, and be ready to critique it — that critique is frequently the actual question.
+- **A plain constructor is often the right answer.** Creational patterns earn their keep when construction varies, is expensive, or must be validated; not otherwise.
+$md$, 45, $json$[{"id":"ip45-lld-04-singleton-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-04-factory-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-04-builder-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-04-pool-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('41a486cc-2a43-5742-9706-d8db5a8e78b3', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'Structural Patterns', 'notes', 5, $md$Structural patterns are about **composing objects into larger structures without turning the composition into a mess**. Every one of them wraps or arranges objects so that the client sees something simpler than what is really there.
+
+They are the patterns most often confused with each other in interviews — Adapter, Decorator, Proxy, and Facade all "wrap something" — so each section below leads with the *intent* that separates it, because the intent is what the question is actually testing.
+
+## Adapter — make an incompatible interface fit
+
+**Intent: convert an existing interface into the one your code expects.** You have a class you cannot change (a third-party SDK, a legacy module) and an interface your system speaks.
+
+```python
+from abc import ABC, abstractmethod
+
+class PaymentGateway(ABC):                 # what OUR system expects
+    @abstractmethod
+    def charge(self, paise: int, token: str) -> str: ...
+
+class LegacyRazorpayClient:                # third-party: we cannot change this
+    def make_payment(self, amount_in_rupees: float, card_token: str) -> dict:
+        return {"status": "captured", "ref": f"rzp_{card_token}_{amount_in_rupees}"}
+
+class RazorpayAdapter(PaymentGateway):     # the adapter
+    def __init__(self, client: LegacyRazorpayClient):
+        self._client = client
+
+    def charge(self, paise: int, token: str) -> str:
+        result = self._client.make_payment(paise / 100, token)   # translate units...
+        if result["status"] != "captured":                        # ...and the result shape
+            raise RuntimeError("payment failed")
+        return result["ref"]
+
+
+gateway: PaymentGateway = RazorpayAdapter(LegacyRazorpayClient())
+assert gateway.charge(49_900, "tok_abc") == "rzp_tok_abc_499.0"
+print("adapted:", gateway.charge(10_000, "tok_xyz"))
+```
+
+The adapter is where the **unit conversion** lives (paise ↔ rupees), where error shapes are normalised, and where the vendor's vocabulary stops. That is its real value in production: swapping Razorpay for Stripe is one new adapter, and no business code changes. This is Dependency Inversion made concrete.
+
+**Adapter vs Facade**: an adapter makes *one* incompatible interface fit an *existing required* interface; a facade invents a *new simpler* interface over *many* classes. Different intents, similar shapes.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-05-adapter-q1", "type": "mcq",
+      "prompt": "What distinguishes Adapter from Facade?",
+      "options": [
+        {"id":"a","text":"Adapter wraps one object, Facade wraps two"},
+        {"id":"b","text":"Adapter converts an existing class to an interface the client already requires (the target interface pre-exists); Facade invents a new, simpler interface over a complex subsystem to reduce what clients must know"},
+        {"id":"c","text":"Adapter is used at runtime, Facade at compile time"},
+        {"id":"d","text":"Adapter adds behaviour, Facade removes it"}
+      ],
+      "correct": "b",
+      "explanation": "The giveaway is whether the target interface already existed. Adapter fits a square peg into an existing round hole; Facade designs a new, smaller hole because the existing subsystem is unpleasant to use directly." }
+] }
+```
+
+## Decorator — add behaviour without subclassing
+
+**Intent: attach responsibilities to an object dynamically, keeping the same interface.** The wrapper *is* the thing it wraps, plus something.
+
+```python
+from abc import ABC, abstractmethod
+
+class DataSource(ABC):
+    @abstractmethod
+    def write(self, data: str) -> str: ...
+
+class FileDataSource(DataSource):
+    def write(self, data: str) -> str: return f"file({data})"
+
+class CompressionDecorator(DataSource):
+    def __init__(self, wrapped: DataSource): self._wrapped = wrapped
+    def write(self, data: str) -> str: return self._wrapped.write(f"zip[{data}]")
+
+class EncryptionDecorator(DataSource):
+    def __init__(self, wrapped: DataSource): self._wrapped = wrapped
+    def write(self, data: str) -> str: return self._wrapped.write(f"enc[{data}]")
+
+
+plain: DataSource = FileDataSource()
+secure: DataSource = EncryptionDecorator(CompressionDecorator(FileDataSource()))
+
+assert plain.write("hi") == "file(hi)"
+assert secure.write("hi") == "file(zip[enc[hi]])"     # encrypt, then compress, then write
+print("decorated:", secure.write("payload"))
+```
+
+Why this beats inheritance here: the features are **independent and combinable**. With subclasses you would need `CompressedFile`, `EncryptedFile`, `CompressedEncryptedFile`, `BufferedCompressedEncryptedFile` — the combinatorial explosion from the composition lesson. With decorators, *n* features give 2ⁿ combinations from *n* classes, chosen at runtime.
+
+You already use this pattern constantly: HTTP middleware (logging → auth → rate limit → handler), Java's `BufferedInputStream(new FileInputStream(...))`, Python function decorators, and React higher-order components are all the same idea.
+
+**Order matters and is a good thing to mention**: compress-then-encrypt produces a much smaller result than encrypt-then-compress, because encrypted bytes have no compressible structure.
+
+**The cost**: a deep stack of small wrappers is hard to debug — a stack trace shows six layers, and it is not obvious from the outside what a given object actually does.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-05-decorator-q1", "type": "mcq",
+      "prompt": "Why is Decorator preferred over subclassing for adding compression, encryption, and buffering to a data source?",
+      "options": [
+        {"id":"a","text":"Decorators execute faster than subclass method calls"},
+        {"id":"b","text":"The features are independent and combinable: n decorators give 2^n combinations from n classes, composable at runtime, whereas subclassing needs one class per combination"},
+        {"id":"c","text":"Subclasses cannot override methods in most languages"},
+        {"id":"d","text":"Decorators do not need to implement the base interface"}
+      ],
+      "correct": "b",
+      "explanation": "This is the composition-over-inheritance argument in its sharpest form. Decorators must implement the same interface — that is precisely what makes them stackable and transparent to the client." }
+] }
+```
+
+## Facade, Composite, and Bridge
+
+**Facade — intent: one simple entry point over a complicated subsystem.**
+
+```python
+class VideoFile:
+    def __init__(self, name: str): self.name = name
+
+class CodecFactory:
+    def extract(self, f: VideoFile) -> str: return f.name.split(".")[-1]
+
+class BitrateReader:
+    def read(self, f: VideoFile, codec: str) -> str: return f"{f.name}|{codec}"
+
+class AudioMixer:
+    def fix(self, stream: str) -> str: return f"{stream}|audio-ok"
+
+class VideoConverter:                     # the facade: 1 method over 4 classes
+    def convert(self, filename: str, target: str) -> str:
+        f = VideoFile(filename)
+        codec = CodecFactory().extract(f)
+        stream = BitrateReader().read(f, codec)
+        return f"{AudioMixer().fix(stream)} -> {target}"
+
+
+assert VideoConverter().convert("clip.mp4", "ogg") == "clip.mp4|mp4|audio-ok -> ogg"
+print(VideoConverter().convert("movie.avi", "mp4"))
+```
+
+A facade does not forbid direct access to the subsystem — it just means 95% of callers never need it. This is what a well-designed service class is: a facade over repositories, validators, and gateways.
+
+**Composite — intent: treat individual objects and groups of objects uniformly.** Use it whenever the domain is a tree: file systems, org charts, UI layouts, nested menus, bill-of-materials.
+
+```python
+from abc import ABC, abstractmethod
+
+class FileSystemNode(ABC):
+    @abstractmethod
+    def size(self) -> int: ...
+
+class File(FileSystemNode):               # leaf
+    def __init__(self, name: str, bytes_: int): self.name, self._bytes = name, bytes_
+    def size(self) -> int: return self._bytes
+
+class Directory(FileSystemNode):          # composite
+    def __init__(self, name: str): self.name, self.children = name, []
+    def add(self, node: FileSystemNode) -> "Directory":
+        self.children.append(node)
+        return self
+    def size(self) -> int:
+        return sum(child.size() for child in self.children)   # same call on both kinds
+
+
+root = Directory("root").add(File("a.txt", 100)).add(
+    Directory("sub").add(File("b.bin", 250)).add(File("c.bin", 150))
+)
+assert root.size() == 500          # client never checks "is this a file or a folder?"
+print("total bytes:", root.size())
+```
+
+The property that makes it valuable: **the client has no `if is_directory` branch**. Adding a `SymlinkNode` requires no change to any traversal.
+
+**Bridge — intent: split an abstraction from its implementation so both can vary independently.** It is the pattern-shaped answer to the same combinatorial explosion decorators solve, but for *two orthogonal hierarchies* rather than stackable features: shapes × rendering APIs, message types × delivery channels, remotes × devices. Instead of `VectorCircle`, `RasterCircle`, `VectorSquare`, `RasterSquare`, a `Shape` **has a** `Renderer`. In practice, "bridge" is usually just composition given a name — which is a perfectly good thing to say in an interview.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-05-composite-q1", "type": "mcq",
+      "prompt": "What is the defining benefit of the Composite pattern?",
+      "options": [
+        {"id":"a","text":"It reduces memory usage for large trees"},
+        {"id":"b","text":"Clients treat a single leaf and a whole subtree identically through one interface, so traversal and aggregation code contains no \"is this a group?\" branching and new node types require no client changes"},
+        {"id":"c","text":"It guarantees the tree stays balanced"},
+        {"id":"d","text":"It allows objects to be created lazily"}
+      ],
+      "correct": "b",
+      "explanation": "Uniform treatment of part and whole is the entire point. The recursive `size()` above works because a Directory answers the same question a File does — that is what removes the conditionals from every client." }
+] }
+```
+
+## Proxy and Flyweight
+
+**Proxy — intent: a stand-in that controls access to the real object**, with the *same* interface. Four standard flavours, and naming them is what interviewers want:
+
+| Flavour | Purpose |
+|---|---|
+| **Virtual proxy** | Defer expensive creation until first use (lazy loading) |
+| **Protection proxy** | Enforce access control before delegating |
+| **Remote proxy** | Local stand-in for an object on another machine (RPC stubs) |
+| **Caching / smart proxy** | Memoise results, count references, log calls |
+
+```python
+from abc import ABC, abstractmethod
+
+class Report(ABC):
+    @abstractmethod
+    def data(self) -> str: ...
+
+class ExpensiveReport(Report):
+    def __init__(self):
+        print("  [expensive construction happened]")
+        self._data = "quarterly numbers"
+    def data(self) -> str: return self._data
+
+class LazyReportProxy(Report):
+    def __init__(self): self._real: Report | None = None
+    def data(self) -> str:
+        if self._real is None:              # created on first real use only
+            self._real = ExpensiveReport()
+        return self._real.data()
+
+class AdminOnlyReportProxy(Report):
+    def __init__(self, inner: Report, role: str): self._inner, self._role = inner, role
+    def data(self) -> str:
+        if self._role != "admin":
+            raise PermissionError("admins only")
+        return self._inner.data()
+
+
+proxy = LazyReportProxy()                    # nothing constructed yet
+print("proxy created, nothing built")
+assert proxy.data() == "quarterly numbers"   # construction happens here
+assert proxy.data() == "quarterly numbers"   # and only once
+
+guarded = AdminOnlyReportProxy(LazyReportProxy(), role="viewer")
+try:
+    guarded.data()
+    raise AssertionError("should have been blocked")
+except PermissionError as e:
+    print("protection proxy blocked:", e)
+```
+
+**Proxy vs Decorator** — the interview question. Structurally identical (both wrap and implement the same interface); the difference is intent and control:
+
+- **Decorator** *adds* behaviour, and the client deliberately composes the stack.
+- **Proxy** *controls access* to the same behaviour, and the client usually does not know a proxy is there.
+
+**Flyweight — intent: share the common parts of many similar objects to save memory.** Split state into **intrinsic** (shared, immutable — a glyph's shape, a tree species' texture, a chess piece's move rules) and **extrinsic** (per-instance — position, colour, owner), then keep one shared instance per distinct intrinsic value.
+
+```python
+class TreeType:                                  # intrinsic, shared
+    _cache: dict[tuple[str, str], "TreeType"] = {}
+
+    def __new__(cls, name: str, texture: str):
+        key = (name, texture)
+        if key not in cls._cache:
+            obj = super().__new__(cls)
+            obj.name, obj.texture = name, texture
+            cls._cache[key] = obj
+        return cls._cache[key]
+
+class Tree:                                      # extrinsic, per-instance
+    def __init__(self, x: int, y: int, kind: TreeType):
+        self.x, self.y, self.kind = x, y, kind
+
+
+forest = [Tree(i, i * 2, TreeType("oak", "oak.png")) for i in range(1_000)]
+forest += [Tree(i, i, TreeType("pine", "pine.png")) for i in range(1_000)]
+
+assert len(forest) == 2_000
+assert len(TreeType._cache) == 2          # 2,000 trees, 2 shared type objects
+assert forest[0].kind is forest[5].kind
+print("trees:", len(forest), "| distinct TreeType objects:", len(TreeType._cache))
+```
+
+Flyweight is a memory optimisation, not a design clarity one — reach for it only when object count is genuinely the problem (text editors, particle systems, game maps, tokenisers). Mentioning that it requires the shared state to be **immutable** is the detail that shows you understand why it is safe.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-05-proxy-q1", "type": "mcq",
+      "prompt": "Proxy and Decorator have the same structure — both implement the target interface and hold a reference to it. What actually distinguishes them?",
+      "options": [
+        {"id":"a","text":"Proxy can only wrap one object, Decorator can wrap many"},
+        {"id":"b","text":"Intent: a Decorator adds new behaviour and is deliberately composed by the client, while a Proxy controls access to the same behaviour (lazy loading, permissions, caching, remoting) and is typically invisible to the client"},
+        {"id":"c","text":"Decorators are created at runtime, proxies at compile time"},
+        {"id":"d","text":"Proxies do not implement the same interface as the wrapped object"}
+      ],
+      "correct": "b",
+      "explanation": "GoF patterns are classified by intent, not by class diagram — several patterns share a shape. \"Adds behaviour, client-composed\" vs \"controls access, transparent\" is the distinction to say out loud." }
+] }
+```
+
+## Key takeaways
+
+**The intent table — this is what the interview question is really asking:**
+
+| Pattern | One-line intent | Canonical example |
+|---|---|---|
+| **Adapter** | Make an existing class fit an interface you already require | Payment SDK → your `PaymentGateway` |
+| **Decorator** | Add behaviour dynamically, same interface, stackable | HTTP middleware; `BufferedInputStream` |
+| **Facade** | One simple entry point over a complex subsystem | A service class over repos + validators |
+| **Composite** | Treat leaf and group identically | File system, org chart, UI tree |
+| **Bridge** | Two orthogonal hierarchies vary independently | Shape × Renderer |
+| **Proxy** | Control access to the same behaviour | Lazy loading, permissions, caching, RPC stub |
+| **Flyweight** | Share immutable intrinsic state across many objects | Glyphs, tree types, chess move rules |
+
+- **Lead with intent, not structure.** Adapter, Decorator, Proxy, and Facade all wrap; only the intent distinguishes them, and that distinction *is* the question.
+- **Decorator vs inheritance is the highest-frequency practical use.** Independent, combinable features → decorators; anything else → probably not.
+- **Composite is the answer to every tree-shaped domain**, and its value is the absence of type checks in client code.
+- **Flyweight is an optimisation with a precondition** (immutable shared state) — say the precondition, not just the pattern name.
+$md$, 50, $json$[{"id":"ip45-lld-05-adapter-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-05-decorator-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-05-composite-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-05-proxy-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('912207af-576b-52c9-b914-7ec49f1dc8d7', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'Behavioral Patterns I — Strategy, Observer, Command, State, Template Method', 'notes', 6, $md$Behavioral patterns describe **how objects communicate and how responsibility is distributed**. These five are the ones that appear in real LLD answers over and over: almost every problem in this section uses Strategy for pricing, Observer for notifications, and State for lifecycle. Learn these properly and you can design most of the classic problems.
+
+## Strategy — swap an algorithm at runtime
+
+**Intent: define a family of interchangeable algorithms and select one at runtime.** It is the direct cure for a growing `if/elif` chain of *behaviours* (as opposed to types).
+
+```python
+from abc import ABC, abstractmethod
+
+class PricingStrategy(ABC):
+    @abstractmethod
+    def price_paise(self, minutes: int) -> int: ...
+
+class FlatRate(PricingStrategy):
+    def price_paise(self, minutes: int) -> int: return 5_000
+
+class PerHour(PricingStrategy):
+    def __init__(self, rate_paise: int): self.rate = rate_paise
+    def price_paise(self, minutes: int) -> int:
+        hours = -(-minutes // 60)                 # ceiling division: part-hours round up
+        return hours * self.rate
+
+class Progressive(PricingStrategy):
+    """First hour cheap, then increasingly expensive — real parking pricing."""
+    def price_paise(self, minutes: int) -> int:
+        hours, total, rate = -(-minutes // 60), 0, 2_000
+        for _ in range(hours):
+            total += rate
+            rate += 1_000
+        return total
+
+class ParkingTicket:
+    def __init__(self, strategy: PricingStrategy):
+        self.strategy = strategy                   # the context holds a strategy
+    def fee(self, minutes: int) -> int:
+        return self.strategy.price_paise(minutes)
+
+
+assert ParkingTicket(FlatRate()).fee(300) == 5_000
+assert ParkingTicket(PerHour(3_000)).fee(90) == 6_000        # 1.5 h → 2 h billed
+assert ParkingTicket(Progressive()).fee(180) == 2_000 + 3_000 + 4_000
+
+ticket = ParkingTicket(FlatRate())
+ticket.strategy = Progressive()                    # swapped at runtime
+print("progressive 3h:", ticket.fee(180))
+```
+
+**Where it shows up in this section's problems**: parking fees, ride surge pricing, seat allocation rules, split algorithms in Splitwise, eviction policies in a cache, rate-limiting algorithms, sorting/matching rules.
+
+**Strategy vs State** — asked constantly, and the answer is about *who decides*:
+
+| | Strategy | State |
+|---|---|---|
+| Chosen by | The client, before/while using the context | The states themselves, as the object transitions |
+| Alternatives know each other | No — independent algorithms | Yes — each state knows its successors |
+| Represents | *How* to do something | *What* the object currently is |
+
+**The lightweight version**: in Python, a strategy can be a plain function. `ParkingTicket(lambda m: 5000)` is a perfectly good strategy, and a dictionary of named functions is often the whole pattern. Say this — knowing when a class is unnecessary ceremony is a senior signal.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-06-strategy-q1", "type": "mcq",
+      "prompt": "What is the clearest difference between Strategy and State?",
+      "options": [
+        {"id":"a","text":"Strategy uses interfaces, State uses enums"},
+        {"id":"b","text":"With Strategy the client chooses which independent algorithm to use; with State the object's own states drive the transitions between one another, encoding a lifecycle rather than an interchangeable algorithm"},
+        {"id":"c","text":"Strategy is a creational pattern, State is behavioral"},
+        {"id":"d","text":"State can only have two alternatives"}
+      ],
+      "correct": "b",
+      "explanation": "Their class diagrams are nearly identical, so intent separates them. Strategies are independent and externally selected; states know their successors and change the context as the object moves through its lifecycle." }
+] }
+```
+
+## Observer — publish state changes to interested parties
+
+**Intent: when one object changes, notify everyone who registered, without the subject knowing who they are.** This is pub/sub at the object level, and it is what makes "add a new consumer of this event" a zero-edit change.
+
+```python
+from abc import ABC, abstractmethod
+
+class OrderObserver(ABC):
+    @abstractmethod
+    def on_order_placed(self, order_id: str, total_paise: int) -> None: ...
+
+class Order:                                   # the subject
+    def __init__(self):
+        self._observers: list[OrderObserver] = []
+
+    def subscribe(self, o: OrderObserver) -> None: self._observers.append(o)
+    def unsubscribe(self, o: OrderObserver) -> None: self._observers.remove(o)
+
+    def place(self, order_id: str, total_paise: int) -> None:
+        # ... persist the order ...
+        for o in list(self._observers):        # copy: a handler may unsubscribe
+            try:
+                o.on_order_placed(order_id, total_paise)
+            except Exception as exc:            # one bad observer must not break the rest
+                print(f"  observer {type(o).__name__} failed: {exc}")
+
+class EmailReceipt(OrderObserver):
+    def __init__(self): self.sent: list[str] = []
+    def on_order_placed(self, order_id, total_paise): self.sent.append(order_id)
+
+class InventoryUpdater(OrderObserver):
+    def __init__(self): self.updates = 0
+    def on_order_placed(self, order_id, total_paise): self.updates += 1
+
+class BrokenAnalytics(OrderObserver):
+    def on_order_placed(self, order_id, total_paise): raise RuntimeError("analytics down")
+
+
+order = Order()
+email, inventory = EmailReceipt(), InventoryUpdater()
+for observer in (email, inventory, BrokenAnalytics()):
+    order.subscribe(observer)
+
+order.place("ord_1", 49_900)
+assert email.sent == ["ord_1"] and inventory.updates == 1   # unaffected by the failure
+print("observers notified; email queue:", email.sent)
+```
+
+Four production details that turn a textbook answer into a strong one:
+
+1. **Isolate failures** — one throwing observer must not prevent the others, as above.
+2. **Decide sync vs async.** Synchronous notification makes the subject as slow as its slowest observer; pushing to a queue is the same pattern at system scale (and connects directly to the HLD messaging lesson).
+3. **Unsubscribe, or leak.** A subject holding strong references to observers keeps them alive forever — the classic listener memory leak. Weak references or explicit lifecycle management fix it.
+4. **Do not mutate the observer list while iterating it** — copy first, as above.
+
+You have used this everywhere: DOM event listeners, React state subscriptions, Kafka consumer groups, database triggers, and every `on_change` callback you have ever written.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-06-observer-q1", "type": "mcq",
+      "prompt": "What is the most common memory bug in an Observer implementation?",
+      "options": [
+        {"id":"a","text":"The subject stores too many events"},
+        {"id":"b","text":"Observers are never unsubscribed, so the subject's strong references keep them alive indefinitely — the classic listener leak, fixed by explicit unsubscription or weak references"},
+        {"id":"c","text":"Observers are notified in the wrong order"},
+        {"id":"d","text":"The interface has too many methods"}
+      ],
+      "correct": "b",
+      "explanation": "A long-lived subject holding references to short-lived observers (dialogs, request-scoped handlers, components) prevents garbage collection of the observers and everything they reference. It is the reason UI frameworks pair every subscribe with a teardown." }
+] }
+```
+
+## Command — turn a request into an object
+
+**Intent: encapsulate a request as an object**, so it can be parameterised, queued, logged, and — the reason it matters most — **undone**.
+
+```python
+from abc import ABC, abstractmethod
+
+class Command(ABC):
+    @abstractmethod
+    def execute(self) -> None: ...
+    @abstractmethod
+    def undo(self) -> None: ...
+
+class Document:
+    def __init__(self): self.text = ""
+
+class AppendText(Command):
+    def __init__(self, doc: Document, text: str):
+        self.doc, self.text = doc, text
+    def execute(self) -> None: self.doc.text += self.text
+    def undo(self) -> None: self.doc.text = self.doc.text[: -len(self.text)]
+
+class UpperCase(Command):
+    def __init__(self, doc: Document):
+        self.doc, self._before = doc, None
+    def execute(self) -> None:
+        self._before = self.doc.text                 # memento: remember to undo
+        self.doc.text = self.doc.text.upper()
+    def undo(self) -> None: self.doc.text = self._before
+
+class Editor:                                        # the invoker
+    def __init__(self): self.history: list[Command] = []
+    def run(self, cmd: Command) -> None:
+        cmd.execute()
+        self.history.append(cmd)
+    def undo(self) -> None:
+        if self.history:
+            self.history.pop().undo()
+
+
+doc, editor = Document(), Editor()
+editor.run(AppendText(doc, "hello "))
+editor.run(AppendText(doc, "world"))
+editor.run(UpperCase(doc))
+assert doc.text == "HELLO WORLD"
+
+editor.undo(); assert doc.text == "hello world"
+editor.undo(); assert doc.text == "hello "
+print("after undos:", repr(doc.text))
+```
+
+The four capabilities Command unlocks, and why it appears in so many LLD problems:
+
+| Capability | How | Where it shows up |
+|---|---|---|
+| **Undo/redo** | Each command knows how to reverse itself | Text editors, drawing apps, transactions |
+| **Queueing** | Commands are objects, so they can wait in a list | Job queues, thread pools, task schedulers |
+| **Logging / replay** | Persist the command stream | Event sourcing, audit trails, crash recovery |
+| **Decoupling** | The invoker knows only `execute()` | Buttons, menu items, keyboard shortcuts, remote controls |
+
+A detail worth stating: for undo, a command either **stores the inverse operation** (append → truncate) or **snapshots the prior state** (the Memento pattern, used by `UpperCase` above). Snapshots are simpler and always correct; inverses use far less memory. Choose by the size of the state.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-06-command-q1", "type": "mcq",
+      "prompt": "Which capability is the primary reason to model an operation as a Command object rather than calling a method directly?",
+      "options": [
+        {"id":"a","text":"It runs faster than a direct method call"},
+        {"id":"b","text":"Because the request becomes a first-class object it can be stored, queued, logged, replayed, and — most importantly — undone, none of which is possible with a plain method invocation"},
+        {"id":"c","text":"It removes the need for interfaces"},
+        {"id":"d","text":"It guarantees the operation succeeds"}
+      ],
+      "correct": "b",
+      "explanation": "Reification is the whole point: once the request is an object, everything you can do with objects (store, schedule, serialise, reverse) becomes available to it." }
+] }
+```
+
+## State and Template Method
+
+**State — intent: an object changes its behaviour when its internal state changes, as if it changed class.** Use it whenever a domain object has a lifecycle with rules about which transitions are legal — orders, tickets, documents, vending machines, ATMs, elevators.
+
+```python
+from abc import ABC, abstractmethod
+
+class OrderState(ABC):
+    @abstractmethod
+    def pay(self, order: "Order") -> None: ...
+    @abstractmethod
+    def cancel(self, order: "Order") -> None: ...
+    @abstractmethod
+    def name(self) -> str: ...
+
+class Created(OrderState):
+    def name(self) -> str: return "created"
+    def pay(self, order): order.state = Paid()
+    def cancel(self, order): order.state = Cancelled()
+
+class Paid(OrderState):
+    def name(self) -> str: return "paid"
+    def pay(self, order): raise ValueError("already paid")
+    def cancel(self, order): order.state = Refunded()      # cancelling a paid order refunds
+
+class Cancelled(OrderState):
+    def name(self) -> str: return "cancelled"
+    def pay(self, order): raise ValueError("cannot pay a cancelled order")
+    def cancel(self, order): raise ValueError("already cancelled")
+
+class Refunded(OrderState):
+    def name(self) -> str: return "refunded"
+    def pay(self, order): raise ValueError("cannot pay a refunded order")
+    def cancel(self, order): raise ValueError("already refunded")
+
+class Order:
+    def __init__(self): self.state: OrderState = Created()
+    def pay(self): self.state.pay(self)
+    def cancel(self): self.state.cancel(self)
+    @property
+    def status(self) -> str: return self.state.name()
+
+
+o = Order(); assert o.status == "created"
+o.pay();     assert o.status == "paid"
+o.cancel();  assert o.status == "refunded"
+
+bad = Order(); bad.cancel()
+try:
+    bad.pay()
+    raise AssertionError("illegal transition allowed")
+except ValueError as e:
+    print("state machine rejected:", e)
+```
+
+Compare this with the alternative — `if self.status == "created" and action == "pay": ...` repeated in every method. The State version makes **illegal transitions impossible to write by accident**, puts each state's rules in one readable place, and adds a new state without touching the existing ones.
+
+The trade-off to name: one class per state means more classes, and the transition map is distributed rather than visible in one table. For a small, stable state machine an enum plus a transition table is often clearer — and saying that is better than reflexively applying the pattern.
+
+**Template Method — intent: a base class fixes the *skeleton* of an algorithm and lets subclasses fill in specific steps.**
+
+```python
+from abc import ABC, abstractmethod
+
+class ReportGenerator(ABC):
+    def generate(self, rows: list[int]) -> str:      # the template: order is fixed here
+        data = self.fetch(rows)
+        body = self.format(data)
+        return self.decorate(body)                    # hook with a default
+
+    @abstractmethod
+    def fetch(self, rows: list[int]) -> list[int]: ...
+    @abstractmethod
+    def format(self, data: list[int]) -> str: ...
+    def decorate(self, body: str) -> str: return body     # optional hook
+
+class TotalsReport(ReportGenerator):
+    def fetch(self, rows): return rows
+    def format(self, data): return f"total={sum(data)}"
+
+class TopNReport(ReportGenerator):
+    def fetch(self, rows): return sorted(rows, reverse=True)[:2]
+    def format(self, data): return f"top={data}"
+    def decorate(self, body): return f"** {body} **"      # overrides the hook
+
+
+assert TotalsReport().generate([3, 1, 2]) == "total=6"
+assert TopNReport().generate([3, 1, 2]) == "** top=[3, 2] **"
+print(TopNReport().generate([9, 4, 7, 1]))
+```
+
+**Template Method vs Strategy** is the last confusion to clear: Template Method uses **inheritance** and fixes the algorithm's *structure* at compile time, letting subclasses vary steps; Strategy uses **composition** and swaps the *whole* algorithm at runtime. Template Method is the right call when the sequence of steps genuinely must not vary (a build pipeline, a request lifecycle, a test fixture's setup/run/teardown); Strategy is the right call otherwise — and given the composition-over-inheritance heuristic, Strategy is the more common answer.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-06-state-q1", "type": "mcq",
+      "prompt": "An `Order` has statuses created → paid → shipped → delivered, with cancellation allowed only before shipping. Why prefer the State pattern over status checks scattered through each method?",
+      "options": [
+        {"id":"a","text":"It uses fewer classes"},
+        {"id":"b","text":"Each state's legal transitions live in one class, so illegal transitions are impossible to write by accident and adding a new status means adding a class rather than editing every method's conditionals"},
+        {"id":"c","text":"It makes the order object immutable"},
+        {"id":"d","text":"It removes the need to persist the status"}
+      ],
+      "correct": "b",
+      "explanation": "Scattered status checks are an Open/Closed violation and drift out of sync as statuses are added. State localises the rules — at the cost of more classes, which is why a small fixed machine may be clearer as an enum plus a transition table." }
+] }
+```
+
+## Key takeaways
+
+**The recall table:**
+
+| Pattern | Intent | Reach for it when |
+|---|---|---|
+| **Strategy** | Interchangeable algorithms, chosen at runtime | Pricing, matching, eviction, sorting, split rules — anything with "…policy" in its name |
+| **Observer** | Notify many dependents of a state change | Notifications, cache invalidation, UI updates, "and also do X when Y happens" |
+| **Command** | A request as an object | Undo/redo, queues, schedulers, audit logs, remote controls |
+| **State** | Behaviour changes with lifecycle stage | Orders, tickets, vending machines, ATMs, elevators, documents |
+| **Template Method** | Fixed skeleton, variable steps | Pipelines where the sequence must not change |
+
+- **Strategy and Observer appear in almost every LLD problem in this section.** Pricing is a strategy; "notify the user, update inventory, log analytics" is an observer list.
+- **State is how you get lifecycle correctness**, and "illegal transitions become unwritable" is the sentence that earns the point.
+- **Command is the undo answer**, and knowing the inverse-vs-snapshot trade-off is the follow-up.
+- **Prefer Strategy over Template Method** unless the step *order* genuinely must be fixed — composition over inheritance applies to patterns too.
+- **Know when the pattern is overkill.** A dict of functions is a strategy; a callback list is an observer. Saying so is a senior signal, not a gap.
+$md$, 50, $json$[{"id":"ip45-lld-06-strategy-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-06-observer-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-06-command-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-06-state-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('c9a597bb-86d4-5f7d-8ddd-7ff08fd8e0f9', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'Behavioral Patterns II and Anti-Patterns', 'notes', 7, $md$The remaining behavioral patterns come up less often than Strategy and Observer, but each one is the *standard* answer to a specific problem — and Chain of Responsibility in particular is what every middleware pipeline, logging framework, and approval workflow is built from. This lesson closes the pattern catalogue, then covers the anti-patterns, because recognising a bad design out loud is worth as much in an interview as producing a good one.
+
+## Chain of Responsibility
+
+**Intent: pass a request along a chain of handlers until one handles it** (or all of them have had a turn). Each handler decides whether to act, whether to pass it on, or both.
+
+```python
+from abc import ABC, abstractmethod
+
+class Handler(ABC):
+    def __init__(self): self._next: "Handler | None" = None
+
+    def set_next(self, nxt: "Handler") -> "Handler":
+        self._next = nxt
+        return nxt                                  # returns nxt so chains read left→right
+
+    def handle(self, request: dict) -> str | None:
+        result = self.process(request)
+        if result is not None:
+            return result                           # handled: stop here
+        return self._next.handle(request) if self._next else None
+
+    @abstractmethod
+    def process(self, request: dict) -> str | None: ...
+
+class AuthHandler(Handler):
+    def process(self, request):
+        return None if request.get("user") else "401 unauthenticated"
+
+class RateLimitHandler(Handler):
+    def __init__(self, limit: int):
+        super().__init__()
+        self.limit, self.seen = limit, {}
+    def process(self, request):
+        user = request["user"]
+        self.seen[user] = self.seen.get(user, 0) + 1
+        return "429 rate limited" if self.seen[user] > self.limit else None
+
+class ValidationHandler(Handler):
+    def process(self, request):
+        return None if request.get("body") else "400 missing body"
+
+class BusinessHandler(Handler):
+    def process(self, request):
+        return f"200 processed {request['body']} for {request['user']}"
+
+
+chain = AuthHandler()
+chain.set_next(RateLimitHandler(limit=2)).set_next(ValidationHandler()).set_next(BusinessHandler())
+
+assert chain.handle({}) == "401 unauthenticated"
+assert chain.handle({"user": "asha", "body": "x"}).startswith("200")
+assert chain.handle({"user": "asha", "body": "y"}).startswith("200")
+assert chain.handle({"user": "asha", "body": "z"}) == "429 rate limited"
+print("chain result:", chain.handle({"user": "ravi"}))
+```
+
+**Where you already use it**: HTTP middleware (Express, Django, Chi), servlet filters, logging frameworks (a `DEBUG` handler passes upward until a level matches), approval workflows (manager → director → VP by amount), and exception handling itself.
+
+Two properties worth naming: **the chain is configurable at runtime** — reorder, insert, or remove a handler without touching any other — and **the sender does not know which handler will respond**, which is the decoupling the pattern buys. The risk is that a request can fall off the end unhandled, so always design the terminal case deliberately.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-07-cor-q1", "type": "mcq",
+      "prompt": "What must you design deliberately in a Chain of Responsibility?",
+      "options": [
+        {"id":"a","text":"That every handler processes every request"},
+        {"id":"b","text":"The terminal behaviour — what happens when a request reaches the end of the chain unhandled — since the sender has no idea which handler (if any) will respond"},
+        {"id":"c","text":"That the chain has an even number of handlers"},
+        {"id":"d","text":"That handlers cannot be reordered"}
+      ],
+      "correct": "b",
+      "explanation": "The decoupling that makes the pattern valuable also means nobody guarantees a handler exists. A default terminal handler (or an explicit \"unhandled\" result) prevents requests from silently disappearing." }
+] }
+```
+
+## Iterator, Mediator, and Memento
+
+**Iterator — intent: traverse a collection without exposing its internal representation.** You use it every time you write a `for` loop; the design point is that the *client* never learns whether the collection is an array, a tree, or a paginated API.
+
+```python
+class PaginatedFeed:
+    """Looks like a simple sequence; secretly fetches a page at a time."""
+    def __init__(self, pages: list[list[str]]):
+        self._pages = pages
+
+    def __iter__(self):
+        for page in self._pages:                  # each page could be a network call
+            for item in page:
+                yield item                        # a generator IS the iterator
+
+
+feed = PaginatedFeed([["a", "b"], ["c"], ["d", "e"]])
+assert list(feed) == ["a", "b", "c", "d", "e"]
+assert sum(1 for _ in feed) == 5                  # re-iterable
+print("streamed lazily:", [x for x in feed][:3])
+```
+
+The design value: swapping the storage from a list to a database cursor changes nothing for callers. In Python, generators make this pattern nearly invisible — mention that; in Java it is `Iterable`/`Iterator` explicitly.
+
+**Mediator — intent: centralise complex many-to-many communication so objects don't reference each other directly.** Without it, *n* components that all talk to each other need up to *n(n−1)/2* connections; with it, each knows only the mediator.
+
+```python
+class ChatRoom:                                    # the mediator
+    def __init__(self): self._members: dict[str, "User"] = {}
+
+    def join(self, user: "User") -> None:
+        self._members[user.name] = user
+        user.room = self
+
+    def send(self, sender: str, text: str) -> None:
+        for name, user in self._members.items():
+            if name != sender:                     # users never reference each other
+                user.receive(sender, text)
+
+class User:
+    def __init__(self, name: str):
+        self.name, self.room, self.inbox = name, None, []
+    def say(self, text: str) -> None: self.room.send(self.name, text)
+    def receive(self, sender: str, text: str) -> None: self.inbox.append((sender, text))
+
+
+room = ChatRoom()
+asha, ravi, meera = User("asha"), User("ravi"), User("meera")
+for u in (asha, ravi, meera):
+    room.join(u)
+
+asha.say("hello")
+assert ravi.inbox == [("asha", "hello")] and meera.inbox == [("asha", "hello")]
+assert asha.inbox == []                            # sender doesn't receive their own
+print("mediated:", ravi.inbox)
+```
+
+The warning to state: **the mediator can become a god object**. It absorbs coordination logic from everywhere and grows without bound. Keep it to routing and coordination; keep domain rules in the participants. (Air traffic control, UI dialog coordination, and — at system scale — a message broker are all mediators.)
+
+**Memento — intent: capture and restore an object's state without exposing its internals.** It is the pattern behind undo, checkpoints, and save games, and it pairs naturally with Command (which stores the memento it needs to reverse itself). The key property is that the memento is **opaque to everyone except the originator** — the caretaker holds it but cannot read or alter it, which is what keeps encapsulation intact.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-07-mediator-q1", "type": "mcq",
+      "prompt": "What is the main risk of introducing a Mediator?",
+      "options": [
+        {"id":"a","text":"Components become impossible to test"},
+        {"id":"b","text":"The mediator accumulates coordination logic from every participant and turns into a god object — it should route and coordinate, while domain rules stay in the participants"},
+        {"id":"c","text":"It increases the number of connections between components"},
+        {"id":"d","text":"Messages can only be delivered to one recipient"}
+      ],
+      "correct": "b",
+      "explanation": "Mediator trades many-to-many coupling for a single hub, and the hub is where complexity accretes. Keeping it thin is what preserves the benefit." }
+] }
+```
+
+## Visitor and Interpreter
+
+**Visitor — intent: add new operations to a stable object structure without modifying the classes in it.**
+
+The problem it solves: you have a fixed set of node types (an AST, a document tree, a shape hierarchy) and a growing set of operations over them (render, export, validate, compute cost). Putting every operation on every node class means editing all of them each time.
+
+```python
+from abc import ABC, abstractmethod
+
+class Node(ABC):
+    @abstractmethod
+    def accept(self, visitor: "Visitor"): ...
+
+class Number(Node):
+    def __init__(self, value: int): self.value = value
+    def accept(self, visitor): return visitor.visit_number(self)
+
+class Add(Node):
+    def __init__(self, left: Node, right: Node): self.left, self.right = left, right
+    def accept(self, visitor): return visitor.visit_add(self)
+
+class Multiply(Node):
+    def __init__(self, left: Node, right: Node): self.left, self.right = left, right
+    def accept(self, visitor): return visitor.visit_multiply(self)
+
+class Visitor(ABC):
+    @abstractmethod
+    def visit_number(self, n: Number): ...
+    @abstractmethod
+    def visit_add(self, n: Add): ...
+    @abstractmethod
+    def visit_multiply(self, n: Multiply): ...
+
+class Evaluate(Visitor):                       # operation 1
+    def visit_number(self, n): return n.value
+    def visit_add(self, n): return n.left.accept(self) + n.right.accept(self)
+    def visit_multiply(self, n): return n.left.accept(self) * n.right.accept(self)
+
+class PrettyPrint(Visitor):                    # operation 2 — no Node class edited
+    def visit_number(self, n): return str(n.value)
+    def visit_add(self, n): return f"({n.left.accept(self)} + {n.right.accept(self)})"
+    def visit_multiply(self, n): return f"({n.left.accept(self)} * {n.right.accept(self)})"
+
+
+tree = Multiply(Add(Number(2), Number(3)), Number(4))     # (2 + 3) * 4
+assert tree.accept(Evaluate()) == 20
+assert tree.accept(PrettyPrint()) == "((2 + 3) * 4)"
+print(tree.accept(PrettyPrint()), "=", tree.accept(Evaluate()))
+```
+
+**The trade-off is exactly inverted from normal polymorphism**, and this is the insight to state: adding a new *operation* is free (a new visitor), but adding a new *node type* requires editing every visitor. So Visitor is right when the type hierarchy is stable and operations keep growing — compilers, document processors, static analysers — and wrong when new types appear often.
+
+**Interpreter — intent: represent a grammar as classes and evaluate sentences in it.** The `Evaluate` visitor above is essentially an interpreter over a tiny expression grammar. In practice you meet it in rule engines, query filters, and search DSLs; for anything larger, a real parser generator beats hand-rolled interpreter classes. It is enough to know what it is and when to say "this is a parsing problem, not a pattern problem".
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-07-visitor-q1", "type": "mcq",
+      "prompt": "When is the Visitor pattern the right choice?",
+      "options": [
+        {"id":"a","text":"When new node types are added frequently but operations rarely change"},
+        {"id":"b","text":"When the set of node types is stable but operations over them keep growing — a new operation is a new visitor class, whereas a new node type forces an edit to every existing visitor"},
+        {"id":"c","text":"Whenever a tree structure exists"},
+        {"id":"d","text":"When the structure must be traversed in parallel"}
+      ],
+      "correct": "b",
+      "explanation": "Visitor inverts the usual extensibility axis: cheap new operations, expensive new types. Getting that inversion the right way round for your domain is the whole decision." }
+] }
+```
+
+## Anti-patterns: recognising bad design out loud
+
+Being able to name a smell and its fix live, mid-interview, is worth as much as producing a clean design first time — because it is what a real design review sounds like.
+
+| Anti-pattern | What it looks like | Why it hurts | The fix |
+|---|---|---|---|
+| **God object** | `OrderManager` with 40 methods and 15 fields | Every change touches it; nothing can be tested alone | Split by reason to change (SRP) |
+| **Anaemic domain model** | Entities with only getters/setters; all logic in `*Service` classes | Data and the rules governing it live apart, so invariants leak everywhere | Move behaviour onto the entity that owns the data |
+| **Spaghetti inheritance** | Five-level hierarchies; subclasses overriding to disable behaviour | Fragile base class; LSP violations | Composition; small interfaces |
+| **Primitive obsession** | `str` for money, ids, phone numbers, currency codes | Type system can't catch mixing them up; validation scattered | Value objects (`Money`, `TicketId`) |
+| **Magic strings/numbers** | `if status == 3`, `if role == "adm"` | Typos compile; meaning is invisible | Enums and named constants |
+| **Feature envy** | A method that mostly reads another object's fields | Coupling to another class's shape | Move the method to the data |
+| **Circular dependency** | `Order` imports `Customer` imports `Order` | Neither can be understood or tested alone | Extract an interface, or invert the dependency |
+| **Leaky abstraction** | A `Repository` returning an ORM query object | Callers depend on the storage tech anyway | Return domain objects only |
+| **Boolean trap** | `save(true, false, true)` | Unreadable at the call site | Named arguments, enums, or separate methods |
+| **Copy-paste inheritance** | Subclassing purely to reuse a method | Ties two unrelated things together forever | Extract a shared collaborator |
+| **Pattern fever** | An interface, a factory, and a strategy for one concrete class | Indirection with no variation to justify it | Delete it; add the abstraction when a second case exists |
+
+That last row deserves emphasis, because a full pattern catalogue makes it tempting: **the most common mistake candidates make after learning patterns is using them where a plain class would do.** An interface with one implementation and no plausible second is a cost with no benefit. The strongest answer is often "I'd keep this concrete for now; if a second pricing rule appears, this is where the strategy goes" — it shows you know both the pattern and its price.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-07-antipattern-q1", "type": "mcq",
+      "prompt": "A design has `Order` as a bag of getters and setters, with every rule (validation, totals, state transitions) in `OrderService`. What is this called and why is it a problem?",
+      "options": [
+        {"id":"a","text":"A god object; split the service into smaller services"},
+        {"id":"b","text":"An anaemic domain model — data and the rules governing it live in separate places, so nothing prevents an invalid Order from existing and the invariants get duplicated across every service that touches it"},
+        {"id":"c","text":"Primitive obsession; introduce value objects"},
+        {"id":"d","text":"A leaky abstraction; hide the ORM"}
+      ],
+      "correct": "b",
+      "explanation": "The entity that owns the data should own the rules about that data — otherwise every caller can construct an invalid object, and the same check gets re-implemented in each service. Behaviour belongs with the state it protects." }
+] }
+```
+
+## Key takeaways
+
+**The full pattern index, by the question that triggers it:**
+
+| The question | The pattern |
+|---|---|
+| "How do I add a new type without editing callers?" | Factory / Strategy |
+| "How do I add behaviour without subclassing?" | Decorator |
+| "How do I make many things react to one change?" | Observer |
+| "How do I support undo?" | Command (+ Memento) |
+| "How do I stop illegal state transitions?" | State |
+| "How do I process a request through configurable steps?" | Chain of Responsibility |
+| "How do I treat one and many the same way?" | Composite |
+| "How do I fit a third-party API to my interface?" | Adapter |
+| "How do I hide a complicated subsystem?" | Facade |
+| "How do I control access to an object?" | Proxy |
+| "How do I add operations to a fixed type hierarchy?" | Visitor |
+| "How do I reduce n-to-n communication?" | Mediator |
+| "How do I share state across millions of objects?" | Flyweight |
+| "How do I build a complex object safely?" | Builder |
+| "How do I guarantee exactly one instance?" | Singleton (and consider injection instead) |
+
+- **Chain of Responsibility is the highest-value pattern in this lesson** — every middleware stack, logging framework, and approval workflow is one, and it appears directly in the rate-limiter and logging-framework designs later in this section.
+- **Visitor's trade-off is inverted**: cheap operations, expensive types. Say which way your domain leans.
+- **The anti-pattern table is an interview tool.** When an interviewer asks "what's wrong with this design?", you want names and fixes, not vague discomfort.
+- **Know when *not* to apply a pattern.** After a catalogue this long, restraint is the differentiator: abstract at the axis that actually varies, and say out loud when you are deliberately keeping something concrete.
+$md$, 45, $json$[{"id":"ip45-lld-07-cor-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-07-mediator-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-07-visitor-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-07-antipattern-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('7ec7483f-cdc5-5ab6-9b39-237e53b88017', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'Concurrency in Low-Level Design', 'notes', 8, $md$"Two users try to book the last seat at the same time — what happens?" is the follow-up question in almost every LLD interview, and it is where otherwise-good designs fall apart. This lesson gives you the vocabulary, the three mechanisms you will actually use, and the specific patterns for the problems in the rest of this section.
+
+The framing that keeps you out of trouble: **find the shared mutable state, then either remove the sharing, remove the mutability, or protect the access.** Every correct answer is one of those three.
+
+## Race conditions and the shared mutable state
+
+A **race condition** is any situation where the result depends on the interleaving of concurrent operations. The canonical shape is **check-then-act**:
+
+```python
+import threading
+
+class UnsafeCounter:
+    def __init__(self): self.count = 0
+    def increment(self):
+        current = self.count      # read
+        self.count = current + 1  # write — another thread may have written between these
+
+class SafeCounter:
+    def __init__(self):
+        self.count = 0
+        self._lock = threading.Lock()
+    def increment(self):
+        with self._lock:          # read-modify-write is now atomic
+            self.count += 1
+
+
+def hammer(counter, times=50_000):
+    for _ in range(times):
+        counter.increment()
+
+def run(counter):
+    threads = [threading.Thread(target=hammer, args=(counter,)) for _ in range(4)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    return counter.count
+
+safe = run(SafeCounter())
+assert safe == 200_000                      # always exactly right
+unsafe = run(UnsafeCounter())
+print(f"safe={safe} (always correct), unsafe={unsafe} (may be < 200000)")
+```
+
+Three shapes to be able to name:
+
+| Race | Shape | Example |
+|---|---|---|
+| **Check-then-act** | Test a condition, then act on it — the state changed in between | `if seat.is_free: seat.book()` |
+| **Read-modify-write** | Load, compute, store | `count = count + 1`, `balance -= amount` |
+| **Publish-before-init** | Another thread sees a half-constructed object | Naive lazy singleton without a lock |
+
+**The two questions to answer out loud in every LLD interview:**
+
+1. *What is the shared mutable state here?* — the free-spot set, the seat map, the inventory count, the account balance.
+2. *What protects it?* — a lock, an atomic operation, immutability, or a database constraint.
+
+Say both, unprompted, and the concurrency follow-up is already answered.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-08-race-q1", "type": "mcq",
+      "prompt": "`if seat.is_available: seat.book(user)` is run by two threads at once. Which race is this, and why doesn't making `is_available` and `book` individually thread-safe fix it?",
+      "options": [
+        {"id":"a","text":"Read-modify-write; it is fixed by making each method synchronized"},
+        {"id":"b","text":"Check-then-act — both threads can pass the check before either books. The two operations must be atomic *together*, so the lock has to span the whole check-and-act, not each method separately"},
+        {"id":"c","text":"Publish-before-initialisation; fix with a volatile field"},
+        {"id":"d","text":"There is no race, since booking overwrites the same value"}
+      ],
+      "correct": "b",
+      "explanation": "Thread-safe individual methods give no guarantee about a sequence of them — this is the classic \"composition of atomic operations is not atomic\" trap. The critical section is the whole check-and-act." }
+] }
+```
+
+## The three mechanisms
+
+**1. Locks (mutual exclusion).** The general tool: only one thread inside the critical section.
+
+```python
+import threading
+
+class SeatMap:
+    def __init__(self, seats: list[str]):
+        self._free = set(seats)
+        self._lock = threading.Lock()
+
+    def book(self, seat: str, user: str) -> bool:
+        with self._lock:                     # check and act, atomically
+            if seat not in self._free:
+                return False
+            self._free.remove(seat)
+            return True
+
+    @property
+    def free_count(self) -> int:
+        with self._lock:
+            return len(self._free)
+
+
+seats = SeatMap([f"A{i}" for i in range(3)])
+results = []
+threads = [threading.Thread(target=lambda: results.append(seats.book("A1", "u")))
+           for _ in range(10)]
+for t in threads: t.start()
+for t in threads: t.join()
+
+assert results.count(True) == 1              # exactly one winner, always
+assert seats.free_count == 2
+print("bookings succeeded:", results.count(True), "of", len(results))
+```
+
+Rules for locks, all of which get asked about:
+
+- **Hold the lock for as little as possible** — never across I/O, a network call, or a callback into unknown code.
+- **Never call out to unknown code while holding a lock** — it can call back in and deadlock.
+- **Prefer fine-grained locks**: one lock per spot/seat/account, not one global lock, so unrelated operations proceed in parallel.
+- **Read-write locks** when reads vastly outnumber writes: many concurrent readers, one exclusive writer.
+
+**2. Atomic operations.** For a single variable, an atomic compare-and-swap beats a lock: no blocking, no deadlock, less overhead. Java's `AtomicInteger.incrementAndGet()`, Go's `atomic.AddInt64`, and Redis's `INCR` are all this. The limitation is that atomics protect **one** variable — the moment two must change together, you need a lock or a transaction.
+
+**3. Immutability — the mechanism that needs no protection at all.** An object that never changes after construction is safe to share across any number of threads, with no lock, no cost, and no possible race. This is why value objects (`Money`, `TimeSlot`, `Point`) should be immutable, and why "make it immutable" is the cheapest concurrency answer available. When state must change, replace the whole object (copy-on-write) instead of mutating it in place.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-08-mechanisms-q1", "type": "mcq",
+      "prompt": "Why is one lock per parking spot usually better than one lock for the whole parking lot?",
+      "options": [
+        {"id":"a","text":"Fine-grained locks use less memory"},
+        {"id":"b","text":"Operations on different spots don't contend with each other, so throughput scales with parallelism — a single global lock serialises every operation in the system"},
+        {"id":"c","text":"A global lock cannot be released"},
+        {"id":"d","text":"Per-spot locks eliminate the possibility of deadlock"}
+      ],
+      "correct": "b",
+      "explanation": "Lock granularity is a throughput decision: coarse locks are simpler and safer but serialise everything. Note that fine-grained locks *increase* deadlock risk when a thread needs two of them — which is why lock ordering matters." }
+] }
+```
+
+## Deadlock, livelock, and starvation
+
+**Deadlock** needs all four Coffman conditions simultaneously — break any one and it cannot occur:
+
+| Condition | Meaning | Break it by |
+|---|---|---|
+| Mutual exclusion | A resource is held exclusively | Immutability, lock-free structures |
+| Hold and wait | Hold one lock, request another | Acquire all locks at once, or none |
+| No pre-emption | Locks can't be taken away | Timeouts (`tryLock`) |
+| **Circular wait** | A waits for B, B waits for A | **Global lock ordering** — the usual fix |
+
+```python
+import threading
+
+class Account:
+    def __init__(self, aid: int, paise: int):
+        self.id, self.balance = aid, paise
+        self.lock = threading.Lock()
+
+def transfer(src: Account, dst: Account, paise: int) -> bool:
+    # ALWAYS acquire in a fixed global order (by id) — this is what removes circular wait.
+    first, second = (src, dst) if src.id < dst.id else (dst, src)
+    with first.lock:
+        with second.lock:
+            if src.balance < paise:
+                return False
+            src.balance -= paise
+            dst.balance += paise
+            return True
+
+
+a, b = Account(1, 100_000), Account(2, 50_000)
+# Concurrent transfers in OPPOSITE directions: the classic deadlock setup.
+t1 = threading.Thread(target=lambda: [transfer(a, b, 100) for _ in range(1_000)])
+t2 = threading.Thread(target=lambda: [transfer(b, a, 100) for _ in range(1_000)])
+t1.start(); t2.start(); t1.join(); t2.join()
+
+assert a.balance + b.balance == 150_000       # money is conserved, and nothing deadlocked
+print("balances:", a.balance, b.balance)
+```
+
+The bank-transfer deadlock is asked by name, and **ordering locks by a stable identifier** is the expected answer. The alternative, `tryLock` with a timeout and a randomised retry, breaks the no-pre-emption condition instead — mention it as the fallback when a global order is not available.
+
+Two related failures worth distinguishing:
+
+- **Livelock**: threads keep changing state in response to each other but make no progress — two people stepping aside in a corridor. Fixed with randomised backoff.
+- **Starvation**: a thread never gets the resource because others keep winning. Fixed with fair locks or queueing.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-08-deadlock-q1", "type": "mcq",
+      "prompt": "Two threads transfer money in opposite directions between accounts A and B, each locking the source then the destination. What is the standard fix?",
+      "options": [
+        {"id":"a","text":"Use a single global lock for all transfers"},
+        {"id":"b","text":"Acquire the two account locks in a fixed global order (e.g. by account id), which breaks the circular-wait condition while still allowing unrelated transfers to run in parallel"},
+        {"id":"c","text":"Make the accounts immutable"},
+        {"id":"d","text":"Retry the transfer if it takes too long"}
+      ],
+      "correct": "b",
+      "explanation": "A global lock works but serialises all transfers. Consistent lock ordering removes the cycle with no loss of parallelism; tryLock-with-timeout plus randomised retry is the fallback where no stable ordering exists." }
+] }
+```
+
+## The patterns you will actually use in LLD problems
+
+**Producer–consumer with a bounded queue.** The standard shape for "requests arrive faster than they can be processed" — and the bound is what gives you backpressure rather than unbounded memory growth.
+
+```python
+import queue, threading
+
+def worker(jobs: "queue.Queue", done: list, lock: threading.Lock):
+    while True:
+        job = jobs.get()
+        if job is None:                      # sentinel: shut down cleanly
+            jobs.task_done()
+            return
+        with lock:
+            done.append(job * 2)
+        jobs.task_done()
+
+
+jobs: "queue.Queue" = queue.Queue(maxsize=10)     # bounded → producers block when full
+done, lock = [], threading.Lock()
+workers = [threading.Thread(target=worker, args=(jobs, done, lock)) for _ in range(3)]
+for w in workers: w.start()
+
+for i in range(20):
+    jobs.put(i)
+for _ in workers:
+    jobs.put(None)
+jobs.join()
+for w in workers: w.join()
+
+assert sorted(done) == [i * 2 for i in range(20)]
+print("processed", len(done), "jobs across", len(workers), "workers")
+```
+
+**Optimistic locking (version check).** No lock held across the operation: read a version, and make the write conditional on that version being unchanged. Right for **low contention** — a user editing their own profile.
+
+```python
+class VersionedRecord:
+    def __init__(self, value: str):
+        self.value, self.version = value, 0
+
+    def update(self, new_value: str, expected_version: int) -> bool:
+        if self.version != expected_version:
+            return False                     # someone else wrote first → caller retries
+        self.value, self.version = new_value, self.version + 1
+        return True
+
+
+rec = VersionedRecord("draft")
+v = rec.version
+assert rec.update("edited by A", v) is True
+assert rec.update("edited by B", v) is False     # B's stale write is rejected
+assert rec.value == "edited by A" and rec.version == 1
+print("optimistic lock rejected the stale write; value =", rec.value)
+```
+
+**Pessimistic locking.** Take the lock (or `SELECT … FOR UPDATE`) before reading. Right for **high contention** — the last seat of a sold-out show, where optimistic retries would mostly fail.
+
+**Reservation with a TTL.** The pattern behind every seat-booking flow: hold the resource for a bounded time, confirm or expire. It avoids holding a database lock for the minutes a user spends entering card details, and it is why an expiry timestamp beats a boolean `is_locked` — a crashed client releases the seat automatically.
+
+**And the rule that matters most in an interview**: in a **multi-process or multi-server** system, an in-process lock protects nothing. The invariant must be enforced where the state lives:
+
+```
+UPDATE seats SET status = 'booked', booked_by = $1
+WHERE seat_id = $2 AND status = 'available';     -- 0 rows affected ⇒ someone else won
+```
+
+A conditional `UPDATE` or a unique constraint is atomic across every server; a `threading.Lock` is atomic across exactly one process. Saying this sentence is what separates a design that works on a laptop from one that works in production — and it connects directly to the fencing-token discussion in the HLD coordination lesson.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-08-patterns-q1", "type": "mcq",
+      "prompt": "Your booking service runs on five servers. Which mechanism actually prevents double-booking a seat?",
+      "options": [
+        {"id":"a","text":"A synchronized method or threading.Lock in the booking service"},
+        {"id":"b","text":"A conditional database write — `UPDATE seats SET status='booked' WHERE seat_id=? AND status='available'` — where zero affected rows means another server won; an in-process lock only serialises threads within one process"},
+        {"id":"c","text":"Making the Seat class immutable"},
+        {"id":"d","text":"Ordering the locks by seat id"}
+      ],
+      "correct": "b",
+      "explanation": "In-process locks are invisible to other processes. The invariant must be enforced by the one component all servers share — the database — via a conditional update or a unique constraint." }
+] }
+```
+
+## Key takeaways
+
+**The recall card:**
+
+```
+Find the SHARED MUTABLE STATE → remove sharing, remove mutability, or protect access.
+Races: check-then-act · read-modify-write · publish-before-init
+  Thread-safe methods do NOT compose: the critical section is the whole sequence.
+
+Mechanisms:
+  Lock        — general; hold briefly, never across I/O or callbacks; fine-grained > global
+  Atomic      — one variable, no blocking (AtomicInteger, INCR, CAS)
+  Immutability— no protection needed at all. Value objects should be immutable.
+
+Deadlock = 4 Coffman conditions; break circular wait with a GLOBAL LOCK ORDER (by id).
+  Fallback: tryLock + timeout + randomised retry.  Livelock → backoff.  Starvation → fair locks.
+
+Patterns:
+  Producer–consumer with a BOUNDED queue (backpressure) + sentinel shutdown
+  Optimistic (version check + retry) → LOW contention
+  Pessimistic (lock / SELECT FOR UPDATE) → HIGH contention
+  Reservation with a TTL → long user-driven flows (seat holds, checkout)
+
+MULTI-PROCESS: an in-process lock protects nothing.
+  Enforce at the shared resource: conditional UPDATE ... WHERE status='available',
+  or a UNIQUE constraint. Zero rows affected = you lost the race.
+```
+
+- **Volunteer the concurrency answer.** Naming the shared mutable state and its protection before being asked is one of the highest-value moves in an LLD round.
+- **Match the locking strategy to contention**: optimistic for rare conflicts, pessimistic for the last seat, reservations for anything a human takes minutes to complete.
+- **Lock ordering is the deadlock answer**, and the bank-transfer example is the one to have ready.
+- **The database is the only lock that spans servers.** Every problem later in this section — seat booking, inventory, wallets — resolves to a conditional write or a unique constraint at the storage layer.
+$md$, 50, $json$[{"id":"ip45-lld-08-race-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-08-mechanisms-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-08-deadlock-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-08-patterns-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('4fd70054-622b-54b4-b4b0-e1c3200d7a03', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Parking Lot', 'notes', 9, $md$The most-asked LLD question in existence, and the one every other problem in this section is a variation of. It is popular because it is small enough to finish in 45 minutes and rich enough to expose whether you can model a domain, pick extension points, and reason about concurrency.
+
+This lesson runs the six-step framework end to end. Follow the same shape for every problem that follows.
+
+## Step 1 — Requirements and scope
+
+**Functional requirements** (the verbs, from the actors — driver, attendant, admin):
+
+- Park a vehicle: find a suitable free spot, assign it, issue a ticket.
+- Unpark: look up the ticket, compute the fee, take payment, free the spot.
+- Query availability by vehicle size.
+- Support multiple floors, each with many spots.
+
+**The clarifying questions that change the model**, and typical answers:
+
+| Question | Answer taken here | Effect on the design |
+|---|---|---|
+| What vehicle types? | Motorcycle, car, truck — more may be added | Enum with a size ordering, not subclasses |
+| Can a small vehicle use a large spot? | Yes, a bigger spot fits a smaller vehicle | `can_fit` compares ranks, not equality |
+| How is the fee calculated? | Hourly, but the scheme will change (flat, progressive, weekend) | **Strategy** — this is the main extension point |
+| Multiple entrances/exits? | Yes | Entry/exit panels as separate objects, one shared lot |
+| Reserved / EV / handicapped spots? | Not now, but "we may add them" | Spot type must be extensible |
+| Payment methods? | Cash and card, more later | Interface, not implemented here |
+| In-memory or persisted? | In-memory for the interview | Repository interfaces named, not implemented |
+
+**Scope cut, stated out loud**: "I'll model spot allocation, ticketing, and fee calculation in memory with pluggable pricing. Payment gateways, persistence, and the admin UI are out of scope, though I'll show where they attach."
+
+**Non-goals worth naming**: this is a single-lot design; a multi-city chain with a central reservation system is an HLD problem, not this one.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-09-req-q1", "type": "mcq",
+      "prompt": "The interviewer says \"the pricing scheme may change — hourly now, maybe progressive or flat later\". What does that single sentence tell you about the design?",
+      "options": [
+        {"id":"a","text":"To store the price on each spot"},
+        {"id":"b","text":"Pricing is an axis of variation, so it belongs behind a `PricingStrategy` interface injected into the lot — new schemes become new classes rather than edits to fee calculation"},
+        {"id":"c","text":"To make the Ticket class immutable"},
+        {"id":"d","text":"To use a database instead of memory"}
+      ],
+      "correct": "b",
+      "explanation": "\"This may change\" is the interviewer naming your extension point. Anything they say will vary should end up behind an interface; anything they say is fixed should stay concrete." }
+] }
+```
+
+## Step 2 — Entities and the class diagram
+
+Noun extraction gives: parking lot, floor, spot, vehicle, ticket, payment, pricing, entry/exit panel. Refined into the right kind of thing:
+
+| Concept | Kind | Why |
+|---|---|---|
+| `VehicleType` / `SpotType` | **Enum** with a rank | Small closed set with an ordering |
+| `Vehicle` | **Entity** | Identified by its plate |
+| `ParkingSpot` | **Entity** | Has identity and a lifecycle (free ↔ occupied) |
+| `Ticket` | **Entity** | Identity, issued/closed lifecycle |
+| `Money` | **Value object** | Immutable, no identity |
+| `ParkingFloor` | **Entity**, composes spots | A spot cannot exist without a floor |
+| `SpotAllocationStrategy` | **Interface** | Nearest-first vs. fill-floor-by-floor will vary |
+| `PricingStrategy` | **Interface** | Named as varying in requirements |
+| `ParkingLot` | **Service / facade** | Orchestrates the rest |
+
+```
+                 ┌────────────────────┐
+                 │    ParkingLot      │
+                 │  + park(vehicle)   │◆──────1..*── ParkingFloor
+                 │  + unpark(ticket)  │                   ◆
+                 │  + availability()  │                   │ 1..*
+                 └─────────┬──────────┘             ParkingSpot
+                           │ 1                            │
+             ┌─────────────┴──────────────┐               │ 0..1
+             │ 1                          │ 1             ▼
+   SpotAllocationStrategy         PricingStrategy      Vehicle
+        △ (interface)                △ (interface)        △
+        │                            │                    │
+  NearestFirst / FloorByFloor   PerHour / Flat /     (plate, VehicleType)
+                                 Progressive
+
+   Ticket ───> ParkingSpot   Ticket ───> Vehicle    (associations, not ownership)
+```
+
+Two relationship calls to justify out loud: `ParkingFloor ◆── ParkingSpot` is **composition** (destroy the floor, the spots are meaningless), while `Ticket ──> Vehicle` is **association** (the vehicle exists before and after the ticket).
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-09-entities-q1", "type": "mcq",
+      "prompt": "Why is `ParkingFloor` → `ParkingSpot` composition, while `Ticket` → `Vehicle` is only an association?",
+      "options": [
+        {"id":"a","text":"Because a floor has more spots than a ticket has vehicles"},
+        {"id":"b","text":"Lifecycle: a spot has no meaning without its floor and is destroyed with it, whereas a vehicle exists independently of any ticket and outlives it"},
+        {"id":"c","text":"Because ParkingSpot is an enum"},
+        {"id":"d","text":"Because tickets are immutable"}
+      ],
+      "correct": "b",
+      "explanation": "The lifecycle test — \"if the whole is destroyed, does the part still make sense?\" — is what separates composition (filled diamond) from aggregation/association." }
+] }
+```
+
+## Step 3 — The design decisions that matter
+
+Three decisions carry this design; everything else is bookkeeping.
+
+**1. Spot fitting is a rank comparison, not equality.** `VehicleType` and `SpotType` both carry a rank, and a spot fits a vehicle when `spot.rank >= vehicle.rank`. This is what lets a motorcycle park in a car spot, and it means adding an `ELECTRIC` or `HANDICAPPED` spot type does not touch the allocator.
+
+**2. Allocation is a strategy.** "Which free spot do I give this vehicle?" has several plausible answers — first fit, nearest to the entrance, spread across floors, cheapest — and they will change. Behind an interface, they cost nothing to swap.
+
+**3. Pricing is a strategy.** The requirement said so explicitly. Note that pricing takes *duration and vehicle type* and returns `Money` — it never touches the spot or the ticket, so it stays trivially testable.
+
+A fourth decision that is really a warning: **do not put everything on `ParkingLot`.** The single most common failure in this problem is a god class that finds spots, prices tickets, takes payments, and tracks availability. `ParkingLot` should orchestrate and delegate — allocation to the strategy, fee to the strategy, spot state to the spot.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-09-decisions-q1", "type": "mcq",
+      "prompt": "Why compare spot and vehicle by a numeric rank rather than requiring `spot.type == vehicle.type`?",
+      "options": [
+        {"id":"a","text":"Integer comparison is faster than enum comparison"},
+        {"id":"b","text":"It encodes the real rule — a larger spot accommodates a smaller vehicle — in one place, so utilisation is higher and new spot types slot into the ordering without changing the allocator"},
+        {"id":"c","text":"Enums cannot be compared for equality"},
+        {"id":"d","text":"It allows a vehicle to occupy two spots"}
+      ],
+      "correct": "b",
+      "explanation": "Exact-match allocation leaves large spots idle while small vehicles are turned away. The rank comparison expresses the domain rule once, and the allocation strategy is written against `can_fit` rather than against a list of types." }
+] }
+```
+
+## Step 4 — The implementation
+
+Complete, runnable, and roughly what you should be able to produce on a whiteboard in 20 minutes:
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+import itertools
+import threading
+
+
+class VehicleType(Enum):
+    MOTORCYCLE = 1
+    CAR = 2
+    TRUCK = 3
+
+
+class SpotType(Enum):
+    SMALL = 1
+    MEDIUM = 2
+    LARGE = 3
+
+
+@dataclass(frozen=True)
+class Vehicle:
+    plate: str
+    kind: VehicleType
+
+
+@dataclass(frozen=True)
+class Money:
+    paise: int
+    def __str__(self) -> str: return f"Rs {self.paise / 100:.2f}"
+
+
+class ParkingSpot:
+    def __init__(self, spot_id: str, kind: SpotType):
+        self.spot_id, self.kind = spot_id, kind
+        self.vehicle: Vehicle | None = None
+
+    @property
+    def is_free(self) -> bool: return self.vehicle is None
+
+    def can_fit(self, vehicle: Vehicle) -> bool:
+        return self.is_free and self.kind.value >= vehicle.kind.value
+
+    def occupy(self, vehicle: Vehicle) -> None:
+        if not self.can_fit(vehicle):
+            raise ValueError(f"{self.spot_id} cannot take {vehicle.plate}")
+        self.vehicle = vehicle
+
+    def release(self) -> None: self.vehicle = None
+
+
+class ParkingFloor:
+    def __init__(self, number: int, spots: list[ParkingSpot]):
+        self.number, self.spots = number, spots       # composition
+
+    def free_spots(self, vehicle: Vehicle) -> list[ParkingSpot]:
+        return [s for s in self.spots if s.can_fit(vehicle)]
+
+
+@dataclass
+class Ticket:
+    ticket_id: str
+    vehicle: Vehicle
+    spot: ParkingSpot
+    entry_minute: int
+    exit_minute: int | None = None
+
+
+# ---- extension point 1: where to put the car -------------------------------
+class SpotAllocationStrategy(ABC):
+    @abstractmethod
+    def allocate(self, floors: list[ParkingFloor], vehicle: Vehicle) -> ParkingSpot | None: ...
+
+class FirstFit(SpotAllocationStrategy):
+    def allocate(self, floors, vehicle):
+        for floor in floors:
+            free = floor.free_spots(vehicle)
+            if free:
+                return free[0]
+        return None
+
+class BestFit(SpotAllocationStrategy):
+    """Smallest spot that still fits — keeps large spots free for large vehicles."""
+    def allocate(self, floors, vehicle):
+        candidates = [s for f in floors for s in f.free_spots(vehicle)]
+        return min(candidates, key=lambda s: s.kind.value, default=None)
+
+
+# ---- extension point 2: what to charge --------------------------------------
+class PricingStrategy(ABC):
+    @abstractmethod
+    def price(self, minutes: int, kind: VehicleType) -> Money: ...
+
+class PerHourPricing(PricingStrategy):
+    RATES = {VehicleType.MOTORCYCLE: 2_000, VehicleType.CAR: 4_000, VehicleType.TRUCK: 8_000}
+    def price(self, minutes, kind):
+        hours = max(1, -(-minutes // 60))              # part-hours round up, minimum 1
+        return Money(hours * self.RATES[kind])
+
+class ProgressivePricing(PricingStrategy):
+    """First hour cheap, each subsequent hour dearer — discourages long stays."""
+    def price(self, minutes, kind):
+        hours, total, rate = max(1, -(-minutes // 60)), 0, 2_000
+        for _ in range(hours):
+            total += rate
+            rate += 1_000
+        return Money(total)
+
+
+class ParkingLot:
+    """Facade: orchestrates, delegates every decision to a collaborator."""
+
+    def __init__(self, floors: list[ParkingFloor],
+                 allocator: SpotAllocationStrategy,
+                 pricing: PricingStrategy):
+        self._floors, self._allocator, self._pricing = floors, allocator, pricing
+        self._tickets: dict[str, Ticket] = {}
+        self._ids = itertools.count(1)
+        self._lock = threading.Lock()                  # guards allocation + ticket book
+
+    def park(self, vehicle: Vehicle, now_minute: int) -> Ticket:
+        with self._lock:                               # find-and-occupy must be atomic
+            spot = self._allocator.allocate(self._floors, vehicle)
+            if spot is None:
+                raise RuntimeError(f"lot full for {vehicle.kind.name}")
+            spot.occupy(vehicle)
+            ticket = Ticket(f"T{next(self._ids)}", vehicle, spot, now_minute)
+            self._tickets[ticket.ticket_id] = ticket
+            return ticket
+
+    def unpark(self, ticket_id: str, now_minute: int) -> Money:
+        with self._lock:
+            ticket = self._tickets.get(ticket_id)
+            if ticket is None:
+                raise ValueError("unknown ticket")
+            if ticket.exit_minute is not None:
+                raise ValueError("ticket already closed")   # no double-charging
+            ticket.exit_minute = now_minute
+            ticket.spot.release()
+            return self._pricing.price(now_minute - ticket.entry_minute, ticket.vehicle.kind)
+
+    def availability(self) -> dict[SpotType, int]:
+        with self._lock:
+            counts = {t: 0 for t in SpotType}
+            for floor in self._floors:
+                for spot in floor.spots:
+                    if spot.is_free:
+                        counts[spot.kind] += 1
+            return counts
+
+
+def build_lot(allocator=None, pricing=None) -> ParkingLot:
+    floors = [
+        ParkingFloor(1, [ParkingSpot("1-S1", SpotType.SMALL),
+                         ParkingSpot("1-M1", SpotType.MEDIUM),
+                         ParkingSpot("1-L1", SpotType.LARGE)]),
+        ParkingFloor(2, [ParkingSpot("2-M1", SpotType.MEDIUM)]),
+    ]
+    return ParkingLot(floors, allocator or BestFit(), pricing or PerHourPricing())
+
+
+lot = build_lot()
+bike = Vehicle("KA-01-1234", VehicleType.MOTORCYCLE)
+car = Vehicle("KA-05-9999", VehicleType.CAR)
+truck = Vehicle("KA-09-0001", VehicleType.TRUCK)
+
+t_bike = lot.park(bike, now_minute=0)
+assert t_bike.spot.spot_id == "1-S1"          # BestFit gives the bike the small spot
+
+t_car = lot.park(car, now_minute=0)
+assert t_car.spot.kind is SpotType.MEDIUM     # ...leaving LARGE free for the truck
+t_truck = lot.park(truck, now_minute=0)
+assert t_truck.spot.spot_id == "1-L1"
+
+assert lot.unpark(t_bike.ticket_id, now_minute=90) == Money(4_000)   # 2 h x Rs20
+try:
+    lot.unpark(t_bike.ticket_id, now_minute=95)
+    raise AssertionError("double exit allowed")
+except ValueError:
+    pass
+
+progressive = build_lot(pricing=ProgressivePricing())
+t = progressive.park(car, now_minute=0)
+assert progressive.unpark(t.ticket_id, now_minute=180) == Money(2_000 + 3_000 + 4_000)
+
+print("availability:", {k.name: v for k, v in lot.availability().items()})
+print("bike fee:", Money(4_000), "| progressive 3h car:", Money(9_000))
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-09-impl-q1", "type": "mcq",
+      "prompt": "Why does `park()` hold the lock across BOTH the allocation and `spot.occupy()`?",
+      "options": [
+        {"id":"a","text":"To make ticket ids sequential"},
+        {"id":"b","text":"Because allocate-then-occupy is a check-then-act sequence: without one critical section spanning both, two threads can be handed the same free spot and the second `occupy` either fails or double-books"},
+        {"id":"c","text":"Because the pricing strategy is not thread-safe"},
+        {"id":"d","text":"To prevent the availability count from being read during parking"}
+      ],
+      "correct": "b",
+      "explanation": "Individually atomic operations do not compose. The critical section must cover the whole find-and-take sequence — the same reason a seat booking locks the check and the write together." }
+] }
+```
+
+## Steps 5 and 6 — Concurrency and extensions
+
+**The shared mutable state** is the set of free spots. Three levels of answer, and you should give whichever matches the interviewer's framing:
+
+| Setting | Mechanism |
+|---|---|
+| Single process, modest traffic | One lock around find-and-occupy (as implemented) |
+| Single process, high traffic | Per-floor locks, or a lock-free free-list per spot type, so different floors don't contend |
+| Multiple servers | The database enforces it: `UPDATE spots SET vehicle_id=$1 WHERE id=$2 AND vehicle_id IS NULL` — zero rows affected means someone else won |
+
+That third row is the one to say out loud even if the interviewer framed the problem as in-memory: an in-process lock protects nothing once there are two entry-panel servers.
+
+**Extensions, and how the design absorbs them** — walk through one or two out loud to close:
+
+| New requirement | Change required |
+|---|---|
+| Electric vehicles with charging spots | Add `ELECTRIC` to `SpotType`; a `ChargingSpot` subclass adds `start_charging()`. The allocator is unchanged — it only asks `can_fit`. |
+| Reserved / handicapped spots | A `SpotAllocationStrategy` that filters by an eligibility predicate; no entity changes |
+| Weekend and festival pricing | A new `PricingStrategy`; nothing else moves |
+| Monthly pass holders | A `PricingStrategy` returning `Money(0)` for pass holders, chosen per ticket |
+| Multiple entrances with displays | `EntryPanel` / `ExitPanel` objects observing the lot; the display is an **Observer** of availability changes |
+| Lost ticket | A `LostTicketPolicy` — flat penalty — as another pricing path |
+| Persistence | `SpotRepository` / `TicketRepository` interfaces; `ParkingLot` depends on them, not on SQL |
+
+Notice what the table demonstrates: five of the seven extensions are **new classes, zero edits**. That is the Open/Closed evidence the interviewer is looking for, and pointing it out explicitly is worth doing.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-09-extend-q1", "type": "mcq",
+      "prompt": "The interviewer adds: \"now support electric vehicles that need charging spots.\" What should your answer be?",
+      "options": [
+        {"id":"a","text":"Rewrite the allocator to special-case electric vehicles"},
+        {"id":"b","text":"Add an ELECTRIC spot type and a ChargingSpot subclass with charging behaviour; the allocation strategy is untouched because it only asks `can_fit`, and an eligibility-filtering strategy handles \"EVs only\" if required"},
+        {"id":"c","text":"Add an `is_electric` boolean to ParkingSpot and branch on it in every method"},
+        {"id":"d","text":"Create a separate ElectricParkingLot class"}
+      ],
+      "correct": "b",
+      "explanation": "A well-placed extension point means the new requirement is additive. Branching on a boolean in every method is the Open/Closed violation this design exists to avoid, and a parallel lot class duplicates everything." }
+] }
+```
+
+## Key takeaways
+
+- **This problem is the template.** Requirements → entities → relationships → interfaces → concurrency → extensibility, with pricing and allocation as the two strategies. Every other problem in this section is this shape with different nouns.
+- **The two extension points are allocation and pricing.** Interviewers add requirements along exactly those axes, which is why they belong behind interfaces before you are asked.
+- **Rank-based fitting, not exact matching**, is the domain insight that separates a considered model from a mechanical one.
+- **`ParkingLot` orchestrates; it does not compute.** The god-class version of this answer is the most common failure mode.
+- **Say the multi-server sentence**: an in-process lock does not survive a second server, and the conditional `UPDATE` is what actually enforces the invariant.
+$md$, 55, $json$[{"id":"ip45-lld-09-req-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-09-entities-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-09-decisions-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-09-impl-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-09-extend-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('89ec69c3-cabc-5396-9afb-6e03d43146d2', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Elevator System', 'notes', 10, $md$The elevator is the *scheduling* problem of LLD, the way parking lot is the *allocation* problem. What makes it hard is not the class model — it is that the correct behaviour is an algorithm (which car serves which request, and in what order), and candidates who dive into classes without pinning down the algorithm produce designs that cannot answer "why did car 2 get that request?".
+
+## Step 1 — Requirements and the two kinds of request
+
+**Functional requirements:**
+
+- A person on a floor presses **up** or **down** (an *external* / hall request).
+- A person inside a car presses a **destination floor** (an *internal* / car request).
+- Cars move between floors, opening doors at stops.
+- A dispatcher assigns each external request to a car.
+- Emergency stop, door open/close, and out-of-service maintenance mode.
+
+**The distinction that shapes everything**: an **external request** has a floor *and a direction* but no destination; an **internal request** has a destination but no direction of its own. Candidates who model only "a request has a floor" cannot express "this car is going up, so it should not accept a down request from floor 8 yet" — which is the whole of elevator scheduling.
+
+**The clarifying questions:**
+
+| Question | Answer taken here | Effect |
+|---|---|---|
+| How many cars? | Several, in one bank | A `Dispatcher` is a first-class object |
+| Which scheduling rule? | Nearest-suitable car, then SCAN inside the car | **Strategy** — this is the extension point |
+| Can a car skip floors? | Yes — express cars, restricted floors | Per-car `serviceable_floors` |
+| Capacity limits? | Yes, weight/person limit | Car refuses new internal requests when full |
+| Real-time or simulation? | Simulate with a `step()` tick | Testable, no threads needed to demonstrate |
+
+**Scope cut**: "I'll model request types, per-car state and movement, and pluggable dispatching, driven by a discrete `step()` so the behaviour is testable. Door timing, motor control, and the physical safety interlocks are out of scope."
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-10-req-q1", "type": "mcq",
+      "prompt": "Why must external (hall) and internal (car) requests be modelled differently?",
+      "options": [
+        {"id":"a","text":"External requests are more urgent"},
+        {"id":"b","text":"An external request carries a floor plus a desired direction but no destination, while an internal request carries a destination but no direction — the direction is exactly what the dispatcher needs to decide whether a car travelling up should serve it now or on the way back"},
+        {"id":"c","text":"Internal requests can be cancelled, external ones cannot"},
+        {"id":"d","text":"They are stored in different databases"}
+      ],
+      "correct": "b",
+      "explanation": "Collapsing both into \"a request has a floor\" makes the scheduling rule inexpressible. Direction is the field that lets a car serve a hall call en route instead of reversing." }
+] }
+```
+
+## Step 2 — Entities and states
+
+| Concept | Kind | Notes |
+|---|---|---|
+| `Direction` (UP / DOWN / IDLE) | Enum | The car's current travel direction |
+| `DoorState` (OPEN / CLOSED) | Enum | |
+| `ElevatorState` (MOVING / STOPPED / MAINTENANCE) | Enum | Drives what operations are legal — a **State**-flavoured lifecycle |
+| `Request` (external) / `Destination` (internal) | Value objects | Immutable |
+| `ElevatorCar` | Entity | Owns its own stop set, position, direction, capacity |
+| `DispatchStrategy` | Interface | Nearest-car, least-busy, zoned, energy-optimal |
+| `ElevatorSystem` | Service / facade | Holds cars, routes external requests, drives the tick |
+
+```
+                    ┌────────────────────┐
+                    │  ElevatorSystem    │
+                    │ + request(floor,   │◆──1..*── ElevatorCar
+                    │     direction)     │             - current_floor
+                    │ + step()           │             - direction: Direction
+                    └─────────┬──────────┘             - up_stops / down_stops
+                              │ 1                      - state: ElevatorState
+                       DispatchStrategy                + add_stop(floor)
+                         △ (interface)                 + step()
+                         │
+            NearestCar / LeastBusy / Zoned
+```
+
+**Why each car keeps two ordered stop sets** (`up_stops`, `down_stops`) rather than one queue: an elevator does not serve requests in arrival order — it sweeps. Holding the stops it will serve *while going up* separately from those *while coming down* is what makes the sweep trivial to implement and to explain.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-10-entities-q1", "type": "mcq",
+      "prompt": "Why does each car keep separate sorted sets of up-stops and down-stops instead of one FIFO queue of requests?",
+      "options": [
+        {"id":"a","text":"To reduce memory usage"},
+        {"id":"b","text":"Because an elevator sweeps rather than serving in arrival order — the two sets directly express \"floors I'll stop at going up\" and \"going down\", so the next stop is just the nearest one in the current direction"},
+        {"id":"c","text":"Because FIFO queues cannot store integers"},
+        {"id":"d","text":"To allow requests to be cancelled"}
+      ],
+      "correct": "b",
+      "explanation": "FIFO order makes an elevator oscillate: floor 10, then floor 2, then floor 9. The two directional sets encode the SCAN behaviour that real elevators use, and make \"where do I go next?\" a one-line lookup." }
+] }
+```
+
+## Step 3 — The scheduling algorithm
+
+This is the heart of the problem, and there are three named answers to have ready:
+
+| Algorithm | Rule | Behaviour |
+|---|---|---|
+| **FCFS** | Serve in arrival order | Simple, terrible — the car oscillates |
+| **SCAN (elevator algorithm)** | Keep going in one direction, serving every stop on the way; reverse at the last stop | What real elevators do; bounded waiting |
+| **LOOK** | Like SCAN but reverse at the *last request*, not the physical end | SCAN without pointless travel — the practical choice |
+
+Inside one car: **LOOK**. Across cars: a **dispatch strategy** scoring each car for a hall call. The scoring rule to state:
+
+```
+For each car:
+  if car is IDLE                                  → cost = |car.floor - request.floor|
+  if car moving TOWARD the request AND same direction
+                                                  → cost = |car.floor - request.floor|
+  otherwise (moving away, or opposite direction)  → cost = |distance| + a large penalty
+Pick the lowest cost; break ties by fewest pending stops.
+```
+
+That single rule captures the behaviour people expect from a lift bank: a car already heading your way and passing your floor picks you up; a car heading the other way does not turn around for you.
+
+**Trade-offs worth naming aloud**: optimising for *average* wait time can starve a floor at the end of the building, so real systems add an age penalty so a long-waiting request eventually wins. Zoning (cars assigned to floor ranges) reduces travel in tall buildings at the cost of flexibility during a rush.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-10-algo-q1", "type": "mcq",
+      "prompt": "Car A is at floor 3 moving UP; car B is idle at floor 8. A hall call arrives at floor 5, direction UP. Which car should be dispatched under the standard scoring rule, and why?",
+      "options": [
+        {"id":"a","text":"Car B — it is idle so it is free to respond immediately"},
+        {"id":"b","text":"Car A — it is already moving toward floor 5 in the requested direction, so it serves the call en route at no extra travel, whereas car B would have to travel down against its position"},
+        {"id":"c","text":"Whichever car has served fewer requests today"},
+        {"id":"d","text":"Both, and the first to arrive wins"}
+      ],
+      "correct": "b",
+      "explanation": "\"Moving toward the request in the same direction\" is the cheapest case — the stop is free. Dispatching the idle car adds travel that the passing car would have done anyway, which is why an en-route car outscores an idle one." }
+] }
+```
+
+## Step 4 — The implementation
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+
+
+class Direction(Enum):
+    UP = 1
+    DOWN = -1
+    IDLE = 0
+
+
+class ElevatorState(Enum):
+    STOPPED = "stopped"
+    MOVING = "moving"
+    MAINTENANCE = "maintenance"
+
+
+@dataclass(frozen=True)
+class HallRequest:                       # external: floor + desired direction
+    floor: int
+    direction: Direction
+
+
+class ElevatorCar:
+    def __init__(self, car_id: int, floor: int = 0, capacity: int = 8):
+        self.car_id, self.current_floor, self.capacity = car_id, floor, capacity
+        self.direction = Direction.IDLE
+        self.state = ElevatorState.STOPPED
+        self.occupants = 0
+        self.up_stops: set[int] = set()      # floors to serve while ascending
+        self.down_stops: set[int] = set()    # floors to serve while descending
+        self.log: list[str] = []
+
+    # ---- requests -------------------------------------------------------
+    def add_stop(self, floor: int) -> None:
+        if self.state is ElevatorState.MAINTENANCE:
+            raise RuntimeError(f"car {self.car_id} is out of service")
+        if floor == self.current_floor and self.direction is Direction.IDLE:
+            return                                    # already here, doors open
+        (self.up_stops if floor > self.current_floor else self.down_stops).add(floor)
+        if self.direction is Direction.IDLE:
+            self.direction = Direction.UP if floor > self.current_floor else Direction.DOWN
+            self.state = ElevatorState.MOVING
+
+    @property
+    def pending(self) -> int:
+        return len(self.up_stops) + len(self.down_stops)
+
+    def is_full(self) -> bool:
+        return self.occupants >= self.capacity
+
+    # ---- movement (LOOK) ------------------------------------------------
+    def _next_stop(self) -> int | None:
+        if self.direction is Direction.UP:
+            ahead = [f for f in self.up_stops if f > self.current_floor]
+            if ahead:
+                return min(ahead)
+            return max(self.down_stops) if self.down_stops else None   # reverse
+        if self.direction is Direction.DOWN:
+            below = [f for f in self.down_stops if f < self.current_floor]
+            if below:
+                return max(below)
+            return min(self.up_stops) if self.up_stops else None       # reverse
+        return None
+
+    def step(self) -> None:
+        """Advance one floor, or stop and open doors if this floor is a stop."""
+        if self.state is ElevatorState.MAINTENANCE:
+            return
+        target = self._next_stop()
+        if target is None:
+            self.direction, self.state = Direction.IDLE, ElevatorState.STOPPED
+            return
+
+        if target == self.current_floor:
+            self.up_stops.discard(target)
+            self.down_stops.discard(target)
+            self.log.append(f"car{self.car_id}: doors open at {target}")
+            if self.pending == 0:
+                self.direction, self.state = Direction.IDLE, ElevatorState.STOPPED
+            return
+
+        step = 1 if target > self.current_floor else -1
+        self.current_floor += step
+        self.direction = Direction.UP if step == 1 else Direction.DOWN
+        self.state = ElevatorState.MOVING
+        if self.current_floor in self.up_stops or self.current_floor in self.down_stops:
+            self.up_stops.discard(self.current_floor)
+            self.down_stops.discard(self.current_floor)
+            self.log.append(f"car{self.car_id}: doors open at {self.current_floor}")
+
+
+class DispatchStrategy(ABC):
+    @abstractmethod
+    def choose(self, cars: list[ElevatorCar], req: HallRequest) -> ElevatorCar | None: ...
+
+
+class NearestSuitableCar(DispatchStrategy):
+    PENALTY = 1_000
+
+    def _cost(self, car: ElevatorCar, req: HallRequest) -> int:
+        distance = abs(car.current_floor - req.floor)
+        if car.direction is Direction.IDLE:
+            return distance
+        moving_toward = (
+            (car.direction is Direction.UP and req.floor >= car.current_floor) or
+            (car.direction is Direction.DOWN and req.floor <= car.current_floor)
+        )
+        if moving_toward and car.direction is req.direction:
+            return distance                       # free: served en route
+        return distance + self.PENALTY            # would have to come back
+
+    def choose(self, cars, req):
+        eligible = [c for c in cars
+                    if c.state is not ElevatorState.MAINTENANCE and not c.is_full()]
+        if not eligible:
+            return None
+        return min(eligible, key=lambda c: (self._cost(c, req), c.pending, c.car_id))
+
+
+class ElevatorSystem:
+    def __init__(self, cars: list[ElevatorCar], strategy: DispatchStrategy):
+        self.cars, self.strategy = cars, strategy
+
+    def hall_request(self, floor: int, direction: Direction) -> ElevatorCar:
+        car = self.strategy.choose(self.cars, HallRequest(floor, direction))
+        if car is None:
+            raise RuntimeError("no car available")
+        car.add_stop(floor)
+        return car
+
+    def step(self, ticks: int = 1) -> None:
+        for _ in range(ticks):
+            for car in self.cars:
+                car.step()
+
+
+# --- an en-route car beats an idle one --------------------------------------
+a = ElevatorCar(1, floor=3); a.add_stop(10)          # car 1: at 3, heading UP to 10
+b = ElevatorCar(2, floor=8)                          # car 2: idle at 8
+system = ElevatorSystem([a, b], NearestSuitableCar())
+
+chosen = system.hall_request(5, Direction.UP)
+assert chosen is a                                    # picked up on the way, not by the idle car
+
+# --- the car sweeps: 5 then 10, not 10 then back ----------------------------
+system.step(12)
+assert "car1: doors open at 5" in a.log
+assert a.log.index("car1: doors open at 5") < a.log.index("car1: doors open at 10")
+
+# --- a car in maintenance is never dispatched -------------------------------
+a.state = ElevatorState.MAINTENANCE
+assert system.hall_request(2, Direction.DOWN) is b
+
+print(a.log)
+print("car2 sent to floor 2:", sorted(b.down_stops))
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-10-impl-q1", "type": "mcq",
+      "prompt": "In `_next_stop`, when a car moving UP has no stops above it, it returns `max(down_stops)`. What behaviour is that implementing?",
+      "options": [
+        {"id":"a","text":"FCFS — serving whichever request came first"},
+        {"id":"b","text":"The LOOK reversal: having exhausted every stop in the current direction, the car reverses at the highest pending down-stop rather than continuing to the top of the building"},
+        {"id":"c","text":"An emergency stop"},
+        {"id":"d","text":"Load balancing between cars"}
+      ],
+      "correct": "b",
+      "explanation": "SCAN would travel to the physical top floor before reversing; LOOK reverses at the furthest actual request. Returning the maximum down-stop is exactly that turnaround point." }
+] }
+```
+
+## Steps 5 and 6 — Concurrency, edge cases, and extensions
+
+**Shared mutable state**: each car's stop sets, and the dispatcher's view of car positions. Two threads pressing buttons concurrently can both mutate a car's stop set.
+
+| Setting | Mechanism |
+|---|---|
+| One controller process | A lock per car around `add_stop`/`step`; sets are per-car, so no global lock is needed |
+| Real hardware | Each car is its own actor/thread with a **command queue** — the dispatcher posts messages, the car owns its state entirely. This is the cleaner model: no shared mutable state at all |
+| Dispatcher decisions | Recompute from a consistent snapshot; a stale position at worst costs an efficiency, not correctness |
+
+The actor/queue answer is the strong one here: **remove the sharing rather than lock it.**
+
+**Edge cases interviewers raise** — have answers ready:
+
+| Case | Handling |
+|---|---|
+| Car full | Skip it in dispatch (`is_full`), and the car does not accept the hall call — the passenger re-presses |
+| Request for the current floor | Open doors, do not enqueue a stop |
+| All cars in maintenance | Dispatcher returns `None`; the system surfaces "no service" rather than silently dropping |
+| Emergency stop | Transition to a state that clears stops and refuses new ones — a **State** transition, not a boolean |
+| Power failure / reset | Cars home to the nearest floor and open doors |
+| Starvation of a far floor | Add an age term to the cost function so waiting eventually outweighs distance |
+| Two cars arrive for one call | Cancel the duplicate stop when a car opens doors for that hall request |
+
+**Extensions and how the design absorbs them:**
+
+- **Express elevators / restricted floors** → a `serviceable_floors` set per car, filtered in `choose`. No new classes.
+- **Zoning (low-rise / high-rise banks)** → a `ZonedDispatch` strategy. One new class.
+- **Peak-hour modes** (morning up-peak: park idle cars at the lobby) → another strategy, plus an idle-parking rule.
+- **Energy optimisation** → a strategy that weights travel distance and door cycles.
+- **Displays showing car position** → **Observer**s on each car's floor change.
+
+Every one of those is a new strategy or a new observer — which is the point to make when you close: *the scheduling rule was the thing most likely to change, so it is the thing behind an interface.*
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-10-concurrency-q1", "type": "mcq",
+      "prompt": "What is the cleanest concurrency model for a real multi-car elevator controller?",
+      "options": [
+        {"id":"a","text":"One global lock around the entire elevator system"},
+        {"id":"b","text":"Each car is an independent actor owning its own state, receiving commands through a queue — the dispatcher posts messages instead of mutating car state, so there is no shared mutable state to protect at all"},
+        {"id":"c","text":"Optimistic locking with version numbers on each car"},
+        {"id":"d","text":"No synchronisation, since each car moves independently"}
+      ],
+      "correct": "b",
+      "explanation": "The best concurrency answer removes sharing rather than guarding it. A per-car command queue serialises all mutations of that car's state by construction, and cars remain fully parallel with respect to each other." }
+] }
+```
+
+## Key takeaways
+
+- **Pin down the algorithm before the classes.** Elevator is a scheduling problem; a design that cannot explain *why* a particular car was chosen has missed the question.
+- **Two request types, not one.** External (floor + direction) and internal (destination) are different things, and the direction field is what makes en-route service expressible.
+- **LOOK inside a car, cost-based dispatch across cars**, with the "moving toward it in the same direction is free" rule stated explicitly.
+- **Two directional stop sets** make the sweep trivial and are much easier to defend than a single queue.
+- **Prefer actors with command queues** over locks when every unit of state has a natural owner — it is the concurrency answer that removes the problem instead of guarding it.
+$md$, 55, $json$[{"id":"ip45-lld-10-req-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-10-entities-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-10-algo-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-10-impl-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-10-concurrency-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('45f48174-e5df-58af-987d-53a3af167b7b', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Movie Ticket Booking (BookMyShow)', 'notes', 11, $md$This is the **concurrency** problem of LLD. The class model is straightforward — city, cinema, screen, show, seat, booking — and every interviewer moves within ten minutes to the only question that matters: *two users click the same seat at the same instant; what happens?* Get that right and the rest is bookkeeping.
+
+## Step 1 — Requirements and the booking lifecycle
+
+**Functional requirements:**
+
+- Search shows by city, movie, and date.
+- View the seat map of a show, with each seat's current availability.
+- Select one or more seats and **hold** them while payment is in progress.
+- Confirm the booking on successful payment, or release the hold on failure or timeout.
+- Cancel a booking (with a refund policy).
+
+**The question that defines the design**: *how long may a user hold a seat before paying?* The answer — "a few minutes" — rules out holding a database lock for the duration and forces the **reservation-with-TTL** pattern. Say this early; it is the insight the problem is built around.
+
+**The other clarifying questions:**
+
+| Question | Answer taken here | Effect |
+|---|---|---|
+| Seat pricing? | Varies by seat class and show time | **Strategy** |
+| Can a user book multiple seats atomically? | Yes — all or nothing | The hold covers a *set* of seats |
+| What if payment fails or the user disappears? | The hold expires automatically | Expiry timestamp, not a boolean flag |
+| Multiple servers? | Yes | The invariant must live in the database |
+| Overbooking allowed? | Never | Hard constraint, not a best effort |
+
+**The lifecycle is a state machine**, and drawing it is worth 30 seconds:
+
+```
+AVAILABLE ──hold()──▶ HELD ──confirm()──▶ BOOKED ──cancel()──▶ AVAILABLE
+    ▲                  │                                          ▲
+    └──── expire() ◀────┘   (TTL elapsed, or payment failed) ──────┘
+```
+
+Two properties of that diagram earn points: **HELD is a real state, not a boolean**, and **the transition out of HELD can happen without anyone calling anything** — expiry is driven by time, which is why the hold carries a timestamp rather than a flag.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-11-req-q1", "type": "mcq",
+      "prompt": "Why must a seat hold carry an expiry timestamp rather than an `is_locked` boolean?",
+      "options": [
+        {"id":"a","text":"Timestamps are easier to index"},
+        {"id":"b","text":"A boolean set by a client that then crashes or abandons checkout locks the seat forever; an expiry means the hold releases itself with no cleanup process required for correctness"},
+        {"id":"c","text":"Booleans cannot be stored in a database"},
+        {"id":"d","text":"So that multiple users can hold the same seat"}
+      ],
+      "correct": "b",
+      "explanation": "This is the same reasoning as a TTL on a distributed lock: the holder cannot be trusted to release it. An expiry makes abandonment self-healing, and a sweeper job becomes an optimisation rather than a correctness requirement." }
+] }
+```
+
+## Step 2 — Entities and relationships
+
+| Concept | Kind | Notes |
+|---|---|---|
+| `City`, `Cinema`, `Screen` | Entities | `Cinema ◆── Screen` is composition |
+| `Movie` | Entity | Exists independently of any show |
+| `Show` | Entity | A movie on a screen at a time — the booking unit |
+| `Seat` | Entity | Belongs to a screen: physical row/number/class |
+| `ShowSeat` | Entity | **The one people miss**: a seat's status *for one show* |
+| `SeatStatus` | Enum | AVAILABLE / HELD / BOOKED |
+| `Booking` | Entity | A user's set of show-seats, with its own lifecycle |
+| `PricingStrategy` | Interface | By seat class, show time, day |
+| `PaymentProcessor` | Interface | Out of scope to implement |
+
+```
+City ◇── Cinema ◆── Screen ◆── Seat              (physical layout)
+                       │
+                     Show ──> Movie              (a screening)
+                       ◆
+                       │ 1..*
+                   ShowSeat ──> Seat             (per-show availability)
+                       │  - status: SeatStatus
+                       │  - held_until: int|None
+                       │  - booking_id: str|None
+                       ▲
+                   Booking ◇── 1..* ShowSeat
+```
+
+**The `Seat` vs `ShowSeat` split is the modelling insight of this problem.** A seat is a physical object that exists once and never changes; its *availability* is a property of the pair (seat, show). Candidates who put `is_booked` on `Seat` cannot represent the same seat being free for the 6pm show and booked for the 9pm one. Being able to say that sentence is worth more than any pattern name here.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-11-entities-q1", "type": "mcq",
+      "prompt": "Why separate `Seat` from `ShowSeat` rather than putting `is_booked` on `Seat`?",
+      "options": [
+        {"id":"a","text":"To reduce the number of database rows"},
+        {"id":"b","text":"Availability is a property of the (seat, show) pair, not of the physical seat — seat A5 can be booked for the 9pm show and free for the 6pm one, which a flag on Seat cannot express"},
+        {"id":"c","text":"Because Seat must be immutable for thread safety"},
+        {"id":"d","text":"Because shows and seats are stored in different services"}
+      ],
+      "correct": "b",
+      "explanation": "Physical layout and per-screening state have different lifecycles and different cardinality. The join entity is also exactly where the unique constraint that prevents double-booking lives." }
+] }
+```
+
+## Step 3 — The concurrency design
+
+This is the section the interview is really about. Build the answer in three layers.
+
+**Layer 1 — the hold is an atomic conditional write.** Not "check availability, then mark held". One statement that both tests and takes:
+
+```sql
+UPDATE show_seats
+   SET status = 'HELD', held_by = $1, held_until = now() + interval '5 minutes'
+ WHERE show_id = $2
+   AND seat_id = ANY($3)
+   AND (status = 'AVAILABLE'
+        OR (status = 'HELD' AND held_until < now()));   -- expired holds are reclaimable
+-- affected rows < requested count  ⇒  someone else won  ⇒  roll back, tell the user
+```
+
+The `AND` clause is the entire concurrency mechanism: the database evaluates the condition and performs the write in one atomic step, so two concurrent attempts cannot both succeed. Row count is how you learn whether you won.
+
+**Layer 2 — all-or-nothing for a multi-seat booking.** Wrap the update in a transaction and require the affected-row count to equal the number of seats requested; otherwise roll back. Half a booking is worse than none.
+
+Two seats acquired in different orders by two users is the deadlock case from the concurrency lesson — **sort the seat ids before locking** so every transaction acquires them in the same global order.
+
+**Layer 3 — a unique constraint as the last line of defence.** Even with perfect application code, add:
+
+```sql
+CREATE UNIQUE INDEX one_booking_per_seat_per_show
+    ON show_seats (show_id, seat_id) WHERE status = 'BOOKED';
+```
+
+Application logic can have bugs; a constraint cannot be bypassed. Volunteering this is the mark of someone who has shipped a booking system.
+
+**Why not a distributed (Redis) lock?** You can use one as an *optimisation* to reduce contention on the database, but it cannot be the guarantee — a GC pause or a slow network can outlive any TTL, and the holder cannot know it was evicted. Say: *"a Redis lock reduces contention; the unique constraint is what makes it correct."*
+
+**Expiry**: a background sweeper flips expired holds back to AVAILABLE for a tidy seat map, but the `held_until < now()` clause in the hold query means correctness does not depend on the sweeper ever running.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-11-concurrency-q1", "type": "mcq",
+      "prompt": "Two users on different servers submit a hold for seat A5 at the same instant. What actually guarantees only one succeeds?",
+      "options": [
+        {"id":"a","text":"An in-process lock in the booking service"},
+        {"id":"b","text":"A conditional UPDATE — `SET status='HELD' WHERE seat_id=$1 AND status='AVAILABLE'` — evaluated and applied atomically by the database, with the affected-row count telling each server whether it won, backed by a unique index on booked seats"},
+        {"id":"c","text":"A Redis lock with a 5-minute TTL"},
+        {"id":"d","text":"Checking availability immediately before writing"}
+      ],
+      "correct": "b",
+      "explanation": "Only the shared component — the database — can arbitrate between servers. The Redis lock is a contention optimisation whose TTL can be outlived by a pause; check-then-write is the race itself; an in-process lock is invisible to the other server." }
+] }
+```
+
+## Step 4 — The implementation
+
+An in-memory model that reproduces the same semantics, with the conditional-write behaviour made explicit so it maps directly onto the SQL above:
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+import itertools
+import threading
+
+
+class SeatClass(Enum):
+    REGULAR = 1
+    PREMIUM = 2
+    RECLINER = 3
+
+
+class SeatStatus(Enum):
+    AVAILABLE = "available"
+    HELD = "held"
+    BOOKED = "booked"
+
+
+class BookingStatus(Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+
+@dataclass(frozen=True)
+class Seat:                                   # physical, immutable
+    seat_id: str
+    row: str
+    number: int
+    seat_class: SeatClass
+
+
+@dataclass
+class ShowSeat:                               # per-show availability
+    seat: Seat
+    status: SeatStatus = SeatStatus.AVAILABLE
+    held_until: int | None = None
+    booking_id: str | None = None
+
+    def is_takeable(self, now: int) -> bool:
+        """AVAILABLE, or a HELD whose hold has expired — mirrors the SQL WHERE clause."""
+        if self.status is SeatStatus.AVAILABLE:
+            return True
+        return self.status is SeatStatus.HELD and self.held_until is not None \
+            and self.held_until <= now
+
+
+class PricingStrategy(ABC):
+    @abstractmethod
+    def price_paise(self, seat: Seat, show: "Show") -> int: ...
+
+
+class ClassAndTimePricing(PricingStrategy):
+    BASE = {SeatClass.REGULAR: 20_000, SeatClass.PREMIUM: 35_000, SeatClass.RECLINER: 60_000}
+
+    def price_paise(self, seat, show):
+        price = self.BASE[seat.seat_class]
+        if show.start_hour >= 18:             # evening surcharge
+            price = int(price * 1.2)
+        return price
+
+
+@dataclass
+class Show:
+    show_id: str
+    movie: str
+    screen_id: str
+    start_hour: int
+    seats: dict[str, ShowSeat] = field(default_factory=dict)
+
+
+@dataclass
+class Booking:
+    booking_id: str
+    user: str
+    show_id: str
+    seat_ids: list[str]
+    total_paise: int
+    status: BookingStatus = BookingStatus.PENDING
+
+
+class BookingService:
+    HOLD_SECONDS = 300
+
+    def __init__(self, pricing: PricingStrategy):
+        self._pricing = pricing
+        self._shows: dict[str, Show] = {}
+        self._bookings: dict[str, Booking] = {}
+        self._ids = itertools.count(1)
+        self._lock = threading.Lock()     # stands in for the DB's atomicity
+
+    def add_show(self, show: Show) -> None:
+        self._shows[show.show_id] = show
+
+    def available_seats(self, show_id: str, now: int) -> list[str]:
+        show = self._shows[show_id]
+        return sorted(sid for sid, ss in show.seats.items() if ss.is_takeable(now))
+
+    def hold(self, show_id: str, seat_ids: list[str], user: str, now: int) -> Booking:
+        show = self._shows[show_id]
+        ordered = sorted(seat_ids)            # global ordering → no deadlock on multi-seat
+        with self._lock:
+            targets = [show.seats[sid] for sid in ordered]
+            if not all(ss.is_takeable(now) for ss in targets):
+                taken = [ss.seat.seat_id for ss in targets if not ss.is_takeable(now)]
+                raise RuntimeError(f"seats no longer available: {taken}")   # all or nothing
+
+            booking = Booking(
+                booking_id=f"B{next(self._ids)}", user=user, show_id=show_id,
+                seat_ids=ordered,
+                total_paise=sum(self._pricing.price_paise(ss.seat, show) for ss in targets),
+            )
+            for ss in targets:                # commit the hold
+                ss.status = SeatStatus.HELD
+                ss.held_until = now + self.HOLD_SECONDS
+                ss.booking_id = booking.booking_id
+            self._bookings[booking.booking_id] = booking
+            return booking
+
+    def confirm(self, booking_id: str, now: int) -> Booking:
+        with self._lock:
+            booking = self._bookings[booking_id]
+            if booking.status is not BookingStatus.PENDING:
+                raise ValueError(f"booking is {booking.status.value}")
+            show = self._shows[booking.show_id]
+            for sid in booking.seat_ids:
+                ss = show.seats[sid]
+                if ss.booking_id != booking_id or (ss.held_until or 0) <= now:
+                    booking.status = BookingStatus.EXPIRED     # hold lapsed before payment
+                    raise RuntimeError("hold expired; seats released")
+            for sid in booking.seat_ids:      # payment succeeded → make it permanent
+                ss = show.seats[sid]
+                ss.status, ss.held_until = SeatStatus.BOOKED, None
+            booking.status = BookingStatus.CONFIRMED
+            return booking
+
+    def cancel(self, booking_id: str) -> None:
+        with self._lock:
+            booking = self._bookings[booking_id]
+            show = self._shows[booking.show_id]
+            for sid in booking.seat_ids:
+                ss = show.seats[sid]
+                ss.status, ss.held_until, ss.booking_id = SeatStatus.AVAILABLE, None, None
+            booking.status = BookingStatus.CANCELLED
+
+
+def build_show() -> tuple[BookingService, Show]:
+    seats = {f"A{i}": ShowSeat(Seat(f"A{i}", "A", i, SeatClass.PREMIUM)) for i in range(1, 5)}
+    show = Show("S1", "Dune", "SCR1", start_hour=19, seats=seats)
+    svc = BookingService(ClassAndTimePricing())
+    svc.add_show(show)
+    return svc, show
+
+
+svc, show = build_show()
+
+# --- happy path: hold then confirm ------------------------------------------
+b1 = svc.hold("S1", ["A2", "A1"], user="asha", now=0)
+assert b1.seat_ids == ["A1", "A2"]                     # sorted for consistent ordering
+assert b1.total_paise == 2 * int(35_000 * 1.2)         # premium, evening surcharge
+assert svc.available_seats("S1", now=0) == ["A3", "A4"]
+
+# --- a second user cannot take a held seat ----------------------------------
+try:
+    svc.hold("S1", ["A1"], user="ravi", now=10)
+    raise AssertionError("double hold allowed")
+except RuntimeError as e:
+    print("rejected:", e)
+
+svc.confirm(b1.booking_id, now=60)
+assert show.seats["A1"].status is SeatStatus.BOOKED
+
+# --- all-or-nothing: A3 free, A1 booked → the whole request fails ------------
+try:
+    svc.hold("S1", ["A3", "A1"], user="ravi", now=70)
+    raise AssertionError("partial booking allowed")
+except RuntimeError:
+    pass
+assert show.seats["A3"].status is SeatStatus.AVAILABLE   # A3 was NOT taken
+
+# --- an abandoned hold expires and the seat becomes takeable again ----------
+b2 = svc.hold("S1", ["A3"], user="meera", now=100)
+assert svc.available_seats("S1", now=200) == ["A4"]              # still held
+assert svc.available_seats("S1", now=100 + 301) == ["A3", "A4"]  # hold lapsed
+try:
+    svc.confirm(b2.booking_id, now=100 + 301)
+    raise AssertionError("expired hold confirmed")
+except RuntimeError as e:
+    print("expiry enforced:", e)
+
+print("final statuses:", {sid: ss.status.value for sid, ss in show.seats.items()})
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-11-impl-q1", "type": "mcq",
+      "prompt": "`hold()` sorts the seat ids before taking them. What problem does that prevent?",
+      "options": [
+        {"id":"a","text":"It makes the booking id deterministic"},
+        {"id":"b","text":"Deadlock: with per-seat locks, one user taking A1 then A2 while another takes A2 then A1 forms a circular wait — a fixed global ordering breaks the cycle"},
+        {"id":"c","text":"It prevents the seats from being priced twice"},
+        {"id":"d","text":"It ensures the seat map is displayed in order"}
+      ],
+      "correct": "b",
+      "explanation": "This is the bank-transfer deadlock in a different costume. Any time a transaction takes more than one lock, acquiring them in a consistent global order is the standard prevention." }
+] }
+```
+
+## Steps 5 and 6 — Edge cases and extensions
+
+**Edge cases to raise before you are asked:**
+
+| Case | Handling |
+|---|---|
+| Payment succeeds but the hold already expired | Do **not** book over someone else's seat. Refund automatically and tell the user. Better: extend the hold when payment starts, and make confirmation idempotent on a payment id |
+| User pays twice (double-click) | Idempotency key on the booking request; the second attempt returns the first result |
+| Seat map is stale in the browser | Optimistic UI plus a definitive server-side check; the conditional write is what actually decides |
+| Show cancelled by the cinema | Bulk-cancel bookings and trigger refunds — an **Observer**/event, not a loop inside the show object |
+| Group booking wanting adjacent seats | A `SeatAllocationStrategy` (contiguity-aware) — the same extension point as the parking lot's allocator |
+| Refund policy varies by how early you cancel | A `CancellationPolicy` strategy returning the refundable amount |
+| Very popular show, thousands of concurrent holds | A virtual waiting room and per-user rate limits; the conditional write still guarantees correctness, it just rejects more often |
+
+**Extensions and how they land:**
+
+- **Coupons and offers** → a `DiscountPolicy` composed with pricing (or a decorator chain over `PricingStrategy`).
+- **Food and beverage add-ons** → line items on the `Booking`; pricing unchanged.
+- **Loyalty points** → an observer on `booking.confirmed`.
+- **Multiplex chains and cities** → new entities above `Cinema`; the booking core is untouched.
+- **Seat-map rendering** → a read model derived from `ShowSeat`; never a second source of truth.
+
+The closing sentence to have ready: *"The design's core is a per-show seat table, a hold with an expiry, and one conditional write — everything else, pricing, discounts, refunds, notifications, hangs off that as a strategy or an observer."*
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-11-edge-q1", "type": "mcq",
+      "prompt": "Payment succeeds, but by then the user's 5-minute hold has expired and another user has booked the seat. What is the correct behaviour?",
+      "options": [
+        {"id":"a","text":"Book it anyway for the first user, since they paid"},
+        {"id":"b","text":"Never double-book: fail the confirmation, refund automatically, and notify the user — and prevent recurrence by extending the hold when payment starts and making confirmation idempotent on the payment id"},
+        {"id":"c","text":"Cancel the other user's booking, since the first user paid first"},
+        {"id":"d","text":"Keep the money and issue a credit note without telling the user"}
+      ],
+      "correct": "b",
+      "explanation": "Overbooking is a hard constraint, so a lapsed hold must lose. The correct handling is an automatic refund plus notification, and the design fix is to align the hold window with the payment window rather than to weaken the constraint." }
+] }
+```
+
+## Key takeaways
+
+- **This problem is about concurrency, not classes.** Get to the seat-contention question yourself rather than waiting to be asked.
+- **`Seat` vs `ShowSeat`** is the modelling insight — availability belongs to the (seat, show) pair.
+- **Hold with an expiry, not a lock**: a human takes minutes to pay, and no lock should be held that long. The expiry makes abandonment self-healing.
+- **One conditional write is the whole mechanism**, backed by a unique index. In-process locks and Redis locks are optimisations; the database constraint is the guarantee.
+- **All-or-nothing multi-seat bookings** need a transaction and a consistent seat ordering to avoid deadlock.
+- **The same skeleton solves every inventory problem** — flight seats, hotel rooms, event tickets, e-commerce stock, appointment slots. Learn it once here.
+$md$, 55, $json$[{"id":"ip45-lld-11-req-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-11-entities-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-11-concurrency-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-11-impl-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-11-edge-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('77df8da1-9843-5b96-965b-13bd5ba7f3da', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Splitwise (Expense Sharing)', 'notes', 12, $md$Splitwise is the *money and algorithms* problem of LLD. The class model is small; what interviewers test is whether you represent money correctly, whether your split strategies are pluggable, and whether you can produce the settlement algorithm — "minimise the number of transactions needed to clear all debts" — on demand.
+
+## Step 1 — Requirements and the money rules
+
+**Functional requirements:**
+
+- Add users; create groups of users.
+- Add an expense: who paid, how much, who shares it, and how the share is computed.
+- Support **equal**, **exact**, and **percentage** splits (and be able to add more).
+- Show each user's balance: who owes whom, and how much.
+- **Simplify debts**: settle a group with the fewest transactions.
+- Record a settlement payment between two users.
+
+**The money rules, stated up front** — these earn points immediately because most candidates skip them:
+
+1. **Never use floating point for money.** Store integer minor units (paise). `0.1 + 0.2 != 0.3` in binary floating point, and an expense report that is one paisa off is a bug report.
+2. **A split must sum exactly to the total.** Dividing ₹100 three ways gives 33.33…; the standard resolution is to give the remainder to the first *n* participants (or to the payer). Say which — an unassigned remainder is money that vanishes.
+3. **Balances are derived, never stored as the source of truth.** Keep the immutable expense list; compute balances from it. This is the ledger argument from the HLD distributed-transactions lesson, and it makes every balance explainable and every operation replay-safe.
+
+**The clarifying questions:**
+
+| Question | Answer taken here | Effect |
+|---|---|---|
+| Split types? | Equal, exact, percentage — more later | **Strategy** |
+| Multiple payers for one expense? | Support it | `paid_by` is a map, not a single user |
+| Multiple currencies? | Out of scope, but mention it | Would need a `Money` with a currency and a conversion policy |
+| Do we need history? | Yes | Expenses are immutable records, never edited in place |
+| Group and non-group expenses? | Both | A group is a convenience, not a requirement for an expense |
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-12-money-q1", "type": "mcq",
+      "prompt": "Three friends split ₹100 equally. What must the design specify, and why?",
+      "options": [
+        {"id":"a","text":"Nothing — 100/3 is handled by floating point arithmetic"},
+        {"id":"b","text":"That amounts are integer paise and that the 1-paisa remainder of 10000/3 is assigned deterministically (e.g. to the first participants), so the shares sum to exactly the total"},
+        {"id":"c","text":"That the total should be rounded up to ₹102 so it divides evenly"},
+        {"id":"d","text":"That splits must always be exact amounts, never equal"}
+      ],
+      "correct": "b",
+      "explanation": "10000 paise ÷ 3 = 3333 remainder 1. Without an explicit rule the missing paisa either disappears or is double-counted, and floating point introduces its own drift. Integer minor units plus a deterministic remainder rule is the standard answer." }
+] }
+```
+
+## Step 2 — Entities and the split strategies
+
+| Concept | Kind | Notes |
+|---|---|---|
+| `User` | Entity | id, name |
+| `Group` | Entity | A named set of users |
+| `Money` | Value object | Immutable, integer paise |
+| `Expense` | Entity, **immutable** | description, total, `paid_by`, computed `shares` |
+| `SplitStrategy` | **Interface** | Equal / exact / percentage / share-units |
+| `BalanceSheet` | Service | Derives net balances from the expense list |
+| `SettlementService` | Service | The debt-simplification algorithm |
+
+```
+User ◇──── Group
+  ▲           ▲
+  │           │
+  └──── Expense ──> SplitStrategy (interface)
+          - total: Money                △
+          - paid_by: {user: paise}      │
+          - shares:  {user: paise}   Equal / Exact / Percentage
+                │
+                ▼
+          BalanceSheet  →  SettlementService.simplify()
+```
+
+**Why `Expense` is immutable**: an edited expense would silently change historical balances that people have already acted on. Real systems model a correction as a new compensating record — the same reasoning as an accounting ledger. If the interviewer asks for editing, propose "supersede with a new version" rather than mutation.
+
+**Why `paid_by` is a map**: two people can split the bill at the restaurant. Modelling the payer as a single user forces an artificial second expense.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-12-entities-q1", "type": "mcq",
+      "prompt": "Why compute balances from the expense list rather than maintaining a mutable `balance` field per user?",
+      "options": [
+        {"id":"a","text":"Because summing is faster than reading a field"},
+        {"id":"b","text":"Immutable expenses are a ledger: balances become explainable and reproducible, corrections are new records rather than silent edits, and there is no lost-update risk from concurrent increments"},
+        {"id":"c","text":"Because balances change too rarely to store"},
+        {"id":"d","text":"Because users can have only one balance"}
+      ],
+      "correct": "b",
+      "explanation": "The same argument as a double-entry ledger: a derived balance can always be justified line by line, and concurrent expense additions cannot lose an update the way a shared mutable counter can. Store a cached balance for speed if needed, but the entries stay the truth." }
+] }
+```
+
+## Step 3 — The debt simplification algorithm
+
+The question you will be asked: *"n people owe each other various amounts; what is the minimum number of transactions to settle everyone?"*
+
+**Step 1 — collapse to net balances.** All that matters per person is one number: total paid minus total owed. Positive = should receive; negative = should pay. This alone collapses a tangle of pairwise debts (A→B, B→C, C→A) into something settleable.
+
+**Step 2 — greedily match the largest creditor with the largest debtor.** Take the person owed the most and the person owing the most, transfer the smaller of the two magnitudes, and repeat. Each transaction zeroes at least one person, so with *n* non-zero balances you need at most *n−1* transactions.
+
+```
+Balances: A +60, B −40, C −20
+  match A(+60) with B(−40) → B pays A 40 → A +20, B 0
+  match A(+20) with C(−20) → C pays A 20 → all zero
+  2 transactions for 3 people — the n−1 bound
+```
+
+**The honest caveat, which is the senior part of the answer**: the greedy algorithm is **not guaranteed optimal**. Finding the true minimum is NP-hard (it is a subset-sum/partition problem — every group of people whose balances sum to zero can be settled among themselves, and finding all such groups is the hard part). Greedy always achieves at most *n−1* transactions and is what production systems use. Naming that limitation earns more than presenting greedy as optimal.
+
+Complexity: sorting or a heap gives O(n log n) per transaction and at most n−1 transactions.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-12-settle-q1", "type": "mcq",
+      "prompt": "What is the correct characterisation of the greedy \"largest creditor pays largest debtor\" settlement algorithm?",
+      "options": [
+        {"id":"a","text":"It always produces the provably minimum number of transactions"},
+        {"id":"b","text":"It guarantees at most n−1 transactions and is what production systems use, but it is not provably optimal — the true minimum is NP-hard because it requires finding all subsets whose balances sum to zero"},
+        {"id":"c","text":"It requires every pairwise debt to be stored explicitly"},
+        {"id":"d","text":"It only works when all balances are equal"}
+      ],
+      "correct": "b",
+      "explanation": "Each greedy step zeroes at least one participant, bounding it at n−1. Optimality would require partitioning the balances into zero-sum subsets, which is the NP-hard part — stating this distinction is the strong version of the answer." }
+] }
+```
+
+## Step 4 — The implementation
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from collections import defaultdict
+import heapq
+import itertools
+
+
+@dataclass(frozen=True)
+class Money:
+    paise: int
+    def __str__(self) -> str: return f"Rs {self.paise / 100:.2f}"
+
+
+class SplitStrategy(ABC):
+    """Returns {user: paise}, guaranteed to sum to exactly `total_paise`."""
+    @abstractmethod
+    def split(self, total_paise: int, participants: list[str], **kwargs) -> dict[str, int]: ...
+
+
+class EqualSplit(SplitStrategy):
+    def split(self, total_paise, participants, **kwargs):
+        n = len(participants)
+        if n == 0:
+            raise ValueError("no participants")
+        base, remainder = divmod(total_paise, n)
+        # Deterministic remainder rule: the first `remainder` participants pay 1 paisa more.
+        return {u: base + (1 if i < remainder else 0) for i, u in enumerate(participants)}
+
+
+class ExactSplit(SplitStrategy):
+    def split(self, total_paise, participants, *, amounts: dict[str, int], **kwargs):
+        if sum(amounts.values()) != total_paise:
+            raise ValueError(f"exact shares sum to {sum(amounts.values())}, not {total_paise}")
+        if set(amounts) != set(participants):
+            raise ValueError("amounts must cover exactly the participants")
+        return dict(amounts)
+
+
+class PercentageSplit(SplitStrategy):
+    def split(self, total_paise, participants, *, percentages: dict[str, float], **kwargs):
+        if abs(sum(percentages.values()) - 100.0) > 1e-9:
+            raise ValueError("percentages must sum to 100")
+        shares = {u: int(total_paise * percentages[u] / 100) for u in participants}
+        # Rounding down loses paise; give the shortfall to the largest share deterministically.
+        shortfall = total_paise - sum(shares.values())
+        for u in sorted(shares, key=lambda x: (-shares[x], x))[:shortfall]:
+            shares[u] += 1
+        return shares
+
+
+@dataclass(frozen=True)
+class Expense:                                     # immutable record
+    expense_id: str
+    description: str
+    total_paise: int
+    paid_by: tuple[tuple[str, int], ...]           # ((user, paise), ...) — supports co-payers
+    shares: tuple[tuple[str, int], ...]            # ((user, paise), ...)
+
+
+class ExpenseBook:
+    def __init__(self):
+        self._expenses: list[Expense] = []
+        self._ids = itertools.count(1)
+
+    def add(self, description: str, total_paise: int, paid_by: dict[str, int],
+            participants: list[str], strategy: SplitStrategy, **kwargs) -> Expense:
+        if sum(paid_by.values()) != total_paise:
+            raise ValueError("payments must sum to the expense total")
+        shares = strategy.split(total_paise, participants, **kwargs)
+        if sum(shares.values()) != total_paise:    # invariant, always checked
+            raise AssertionError("split does not sum to total")
+        expense = Expense(f"E{next(self._ids)}", description, total_paise,
+                          tuple(paid_by.items()), tuple(shares.items()))
+        self._expenses.append(expense)
+        return expense
+
+    def settle(self, payer: str, payee: str, paise: int) -> Expense:
+        """A settlement is just an expense the payee 'owes' entirely to the payer."""
+        return self.add(f"settlement {payer}->{payee}", paise,
+                        paid_by={payer: paise}, participants=[payee], strategy=ExactSplit(),
+                        amounts={payee: paise})
+
+    def balances(self) -> dict[str, int]:
+        """Net position per user: positive = owed money, negative = owes money."""
+        net: dict[str, int] = defaultdict(int)
+        for e in self._expenses:
+            for user, paid in e.paid_by:
+                net[user] += paid
+            for user, share in e.shares:
+                net[user] -= share
+        return {u: v for u, v in net.items() if v != 0}
+
+    def simplify(self) -> list[tuple[str, str, int]]:
+        """Greedy largest-creditor / largest-debtor matching. At most n-1 transfers."""
+        net = self.balances()
+        # Max-heaps via negated keys; tie-break on name so the output is deterministic.
+        creditors = [(-v, u) for u, v in net.items() if v > 0]
+        debtors = [(v, u) for u, v in net.items() if v < 0]
+        heapq.heapify(creditors)
+        heapq.heapify(debtors)
+
+        transfers: list[tuple[str, str, int]] = []
+        while creditors and debtors:
+            credit, creditor = heapq.heappop(creditors)
+            debt, debtor = heapq.heappop(debtors)
+            amount = min(-credit, -debt)
+            transfers.append((debtor, creditor, amount))       # debtor pays creditor
+            if -credit - amount > 0:
+                heapq.heappush(creditors, (credit + amount, creditor))
+            if -debt - amount > 0:
+                heapq.heappush(debtors, (debt + amount, debtor))
+        return transfers
+
+
+book = ExpenseBook()
+
+# Dinner: Asha pays Rs 1000, split equally among three -> 33333/33333/33334 paise
+dinner = book.add("dinner", 100_000, {"asha": 100_000},
+                  ["asha", "ravi", "meera"], EqualSplit())
+assert sum(dict(dinner.shares).values()) == 100_000
+assert sorted(dict(dinner.shares).values()) == [33_333, 33_333, 33_334]
+
+# Cab: Ravi and Meera co-pay; exact shares
+book.add("cab", 60_000, {"ravi": 40_000, "meera": 20_000},
+         ["asha", "ravi", "meera"], ExactSplit(),
+         amounts={"asha": 30_000, "ravi": 20_000, "meera": 10_000})
+
+# Groceries: percentage split
+book.add("groceries", 45_000, {"meera": 45_000},
+         ["asha", "ravi", "meera"], PercentageSplit(),
+         percentages={"asha": 50, "ravi": 25, "meera": 25})
+
+net = book.balances()
+assert sum(net.values()) == 0                     # money is always conserved
+
+transfers = book.simplify()
+assert len(transfers) <= len(net) - 1             # the n-1 bound
+assert sum(amount for _, _, amount in transfers) == sum(v for v in net.values() if v > 0)
+
+for debtor, creditor, amount in transfers:
+    book.settle(debtor, creditor, amount)
+assert book.balances() == {}                      # everything settles to zero
+
+print("net before settling:", {u: str(Money(v)) for u, v in net.items()})
+print("transfers:", [(d, c, str(Money(a))) for d, c, a in transfers])
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-12-impl-q1", "type": "mcq",
+      "prompt": "`EqualSplit` uses `divmod(total, n)` and gives the remainder to the first participants. Why is that rule necessary rather than just rounding?",
+      "options": [
+        {"id":"a","text":"To make the split faster to compute"},
+        {"id":"b","text":"Because integer division discards the remainder: without redistributing it the shares sum to less than the total, so money silently disappears from the ledger — the rule must be explicit and deterministic so the sum invariant always holds"},
+        {"id":"c","text":"Because participants must be sorted alphabetically"},
+        {"id":"d","text":"Because floating point rounding is not allowed in Python"}
+      ],
+      "correct": "b",
+      "explanation": "10000 ÷ 3 = 3333 each, totalling 9999 — one paisa short. Any split strategy must guarantee shares sum exactly to the total, which is why the implementation asserts that invariant after every split." }
+] }
+```
+
+## Steps 5 and 6 — Concurrency and extensions
+
+**Shared mutable state**: the expense list. Because expenses are **append-only and immutable**, concurrency is unusually easy here:
+
+| Concern | Handling |
+|---|---|
+| Two users add expenses simultaneously | Appends are independent; balances are recomputed from the list. No lock needed beyond the append itself |
+| Two users settle the same debt simultaneously | Both settlements record; the balance goes negative and shows as an overpayment. Fix with an idempotency key per settlement, or a conditional insert on `(group, payer, payee, amount, client_ref)` |
+| Balance display under concurrent writes | A slightly stale balance is acceptable — say so; it is eventual consistency with a clear justification |
+| Cached balances for performance | Treat the cache as derived: recompute or invalidate on append, never as the source of truth |
+
+The general lesson to state: **immutable, append-only data models make concurrency nearly free.** That is why ledgers are designed this way.
+
+**Extensions and how they land:**
+
+| Requirement | Change |
+|---|---|
+| New split type (by shares/units, e.g. "2 shares to Asha, 1 to Ravi") | New `SplitStrategy` class; nothing else moves |
+| Multiple currencies | `Money` gains a currency; a `ConversionPolicy` fixes the rate **at expense time** and stores it — never convert historical balances at today's rate |
+| Recurring expenses (rent, subscriptions) | A scheduler creating expenses; the model is unchanged |
+| Expense attachments (receipts) | A field on `Expense`; blobs in object storage, not the database |
+| Simplify per group vs globally | The settlement service takes a filtered balance map — same algorithm, different input |
+| Notifications when someone adds an expense | **Observer** on `expense.added` |
+| Editing an expense | Supersede: mark the original as reversed with a compensating record, then add the corrected one. History stays intact |
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-12-extend-q1", "type": "mcq",
+      "prompt": "The product wants multi-currency support. What is the critical design decision?",
+      "options": [
+        {"id":"a","text":"Store all amounts in USD and convert on display"},
+        {"id":"b","text":"Record the currency and the exchange rate used *at the time of the expense* on the expense itself, so historical balances never change when today's rate moves"},
+        {"id":"c","text":"Convert every balance to the user's currency on every read using the live rate"},
+        {"id":"d","text":"Only allow one currency per group"}
+      ],
+      "correct": "b",
+      "explanation": "Re-converting history at the current rate makes settled debts drift, so a balance a user acted on yesterday changes today. Freezing the rate on the immutable expense record is the same principle as the append-only ledger: recorded facts do not change." }
+] }
+```
+
+## Key takeaways
+
+- **Money rules first**: integer minor units, an explicit remainder rule, and shares that sum exactly to the total — asserted, not assumed.
+- **Expenses are immutable; balances are derived.** This gives explainability, replay safety, and near-free concurrency, and it is the same ledger argument that appears in payment systems.
+- **Split type is the strategy**, and it is the axis the interviewer will extend along.
+- **The settlement algorithm is net balances plus greedy max-creditor/max-debtor matching**, at most n−1 transfers — and you should volunteer that greedy is not provably optimal, because the true minimum is NP-hard.
+- **`paid_by` as a map** handles co-payers without contorting the model, and costs nothing to add up front.
+$md$, 55, $json$[{"id":"ip45-lld-12-money-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-12-entities-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-12-settle-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-12-impl-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-12-extend-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('dcaa4fa0-245b-53e7-a8b3-20113f09f3af', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Vending Machine and ATM', 'notes', 13, $md$These two problems are the same problem: a physical machine with a strict **lifecycle** where most bugs are illegal transitions ("dispensed without payment", "cash released without a debit"). They are the canonical interview use of the **State pattern**, and they add one genuinely interesting algorithm each — coin change for the vending machine, cash denomination selection for the ATM.
+
+## Step 1 — Requirements and the state machine
+
+**Vending machine — functional requirements:**
+
+- Show available products with prices and stock.
+- Accept coins/notes one at a time; show the running credit.
+- Select a product: dispense it and return correct change, or reject with a reason.
+- Cancel at any point before dispensing: refund everything inserted.
+- Admin: restock products, refill change, collect cash.
+
+**The state machine, drawn before any class:**
+
+```
+        ┌──────── refund / cancel ─────────┐
+        ▼                                   │
+     IDLE ──insert coin──▶ HAS_MONEY ──select──▶ DISPENSING ──▶ IDLE
+       ▲                       │  ▲                     │
+       │                       └──┘ (more coins)        │
+       └──────────── out of stock / insufficient ───────┘
+                     (stay, with a message)
+
+   Any state ──admin──▶ OUT_OF_SERVICE ──service done──▶ IDLE
+```
+
+Every rule the machine must obey is an edge (or a missing edge) on that diagram:
+
+| Attempted action | State | Correct behaviour |
+|---|---|---|
+| Select a product | IDLE (no money) | Reject: "insert money first" |
+| Insert a coin | DISPENSING | Reject: "please wait" |
+| Cancel | DISPENSING | Reject: already committed |
+| Select an out-of-stock item | HAS_MONEY | Stay in HAS_MONEY, show a message, keep the money |
+| Select with insufficient credit | HAS_MONEY | Stay, show the shortfall |
+| Machine cannot make change | HAS_MONEY | **Refuse the sale and refund** — never short-change the customer |
+
+That last row is the interesting one. "I can sell it but I can't give you your change" must not silently keep the difference; the standard answer is to refuse and refund, or to ask the customer to accept credit. Raising it unprompted shows you thought about the domain rather than the code.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-13-states-q1", "type": "mcq",
+      "prompt": "The customer has enough credit, the item is in stock, but the machine cannot make exact change. What is the correct design behaviour?",
+      "options": [
+        {"id":"a","text":"Dispense the item and keep the difference"},
+        {"id":"b","text":"Refuse the sale and refund the inserted money (optionally offering store credit) — silently keeping the difference is theft and silently dispensing without change is a support ticket"},
+        {"id":"c","text":"Dispense the item and dispense the closest available change"},
+        {"id":"d","text":"Enter OUT_OF_SERVICE immediately"}
+      ],
+      "correct": "b",
+      "explanation": "The change-availability check belongs *before* the commit, alongside the stock and credit checks. This is the domain-level thinking the problem is designed to elicit; it is also why the coin inventory must be part of the model." }
+] }
+```
+
+## Step 2 — The State pattern implementation
+
+Each state is a class implementing the same interface; the machine delegates to its current state and the states decide the transitions. This is what makes illegal transitions *impossible to write by accident* rather than *checked everywhere*.
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+@dataclass
+class Product:
+    code: str
+    name: str
+    price_paise: int
+    stock: int
+
+
+class VendingState(ABC):
+    """Every action is defined for every state; the default is a clear rejection."""
+    def insert(self, machine: "VendingMachine", paise: int) -> str:
+        return "cannot insert money right now"
+    def select(self, machine: "VendingMachine", code: str) -> str:
+        return "cannot select right now"
+    def cancel(self, machine: "VendingMachine") -> str:
+        return "nothing to cancel"
+    @abstractmethod
+    def name(self) -> str: ...
+
+
+class IdleState(VendingState):
+    def name(self) -> str: return "IDLE"
+    def insert(self, machine, paise):
+        machine.accept(paise)                 # into escrow, not the vault, until the sale commits
+        machine.state = HasMoneyState()
+        return f"credit {machine.credit}"
+    def select(self, machine, code):
+        return "insert money first"
+
+
+class HasMoneyState(VendingState):
+    def name(self) -> str: return "HAS_MONEY"
+
+    def insert(self, machine, paise):
+        machine.accept(paise)
+        return f"credit {machine.credit}"
+
+    def select(self, machine, code):
+        product = machine.products.get(code)
+        if product is None:
+            return "unknown product"
+        if product.stock == 0:
+            return "out of stock"                        # stay in HAS_MONEY, keep credit
+        if machine.credit < product.price_paise:
+            return f"need {product.price_paise - machine.credit} more"
+
+        change_due = machine.credit - product.price_paise
+        coins = machine.plan_change(change_due)
+        if coins is None:                                 # cannot make exact change
+            refund = machine.refund_all()
+            machine.state = IdleState()
+            return f"cannot make change; refunded {refund}"
+
+        machine.state = DispensingState()
+        return machine.state.dispense(machine, product, coins, change_due)
+
+    def cancel(self, machine):
+        refund = machine.refund_all()
+        machine.state = IdleState()
+        return f"refunded {refund}"
+
+
+class DispensingState(VendingState):
+    def name(self) -> str: return "DISPENSING"
+
+    def dispense(self, machine, product, coins, change_due) -> str:
+        product.stock -= 1
+        machine.commit_escrow()                           # escrowed coins join the vault
+        for denom, count in coins.items():                # remove the change we hand out
+            machine.coin_box[denom] -= count
+        machine.credit = 0
+        machine.state = IdleState()
+        return f"dispensed {product.name}, change {change_due}"
+
+
+class VendingMachine:
+    def __init__(self, products: list[Product], coins: dict[int, int]):
+        self.products = {p.code: p for p in products}
+        self.coin_box = dict(coins)          # the vault: denomination (paise) -> count
+        self.escrow: dict[int, int] = {}     # coins inserted but not yet committed to a sale
+        self.credit = 0
+        self.state: VendingState = IdleState()
+
+    def accept(self, paise: int) -> None:
+        self.escrow[paise] = self.escrow.get(paise, 0) + 1
+        self.credit += paise
+
+    def commit_escrow(self) -> None:
+        for denom, count in self.escrow.items():
+            self.coin_box[denom] = self.coin_box.get(denom, 0) + count
+        self.escrow.clear()
+
+    # --- delegation: the machine never decides anything itself ---------------
+    def insert(self, paise: int) -> str: return self.state.insert(self, paise)
+    def select(self, code: str) -> str: return self.state.select(self, code)
+    def cancel(self) -> str: return self.state.cancel(self)
+
+    def plan_change(self, amount: int) -> dict[int, int] | None:
+        """Greedy over available denominations. Returns None if exact change is impossible."""
+        remaining, plan = amount, {}
+        for denom in sorted(self.coin_box, reverse=True):
+            take = min(remaining // denom, self.coin_box[denom])
+            if take:
+                plan[denom] = take
+                remaining -= denom * take
+        return plan if remaining == 0 else None
+
+    def refund_all(self) -> int:
+        """Return the exact coins inserted — escrow is why a refund is always possible."""
+        refund, self.credit = self.credit, 0
+        self.escrow.clear()
+        return refund
+
+
+machine = VendingMachine(
+    products=[Product("A1", "chips", 3_000, stock=1), Product("A2", "cola", 5_000, stock=0)],
+    coins={1_000: 5, 500: 2, 100: 10},
+)
+
+assert machine.select("A1") == "insert money first"        # illegal in IDLE
+assert machine.state.name() == "IDLE"
+
+machine.insert(2_000)
+assert machine.state.name() == "HAS_MONEY"
+assert machine.select("A1") == "need 1000 more"            # stays in HAS_MONEY
+assert machine.select("A2") == "out of stock"              # credit retained
+
+machine.insert(2_000)                                       # credit 4000
+assert machine.select("A1") == "dispensed chips, change 1000"
+assert machine.state.name() == "IDLE" and machine.credit == 0
+assert machine.products["A1"].stock == 0
+
+machine.insert(1_000)
+assert machine.cancel() == "refunded 1000"                  # cancel refunds everything
+assert machine.state.name() == "IDLE"
+print("final state:", machine.state.name(), "| vault:", machine.coin_box, "| escrow:", machine.escrow)
+```
+
+Notice the property the pattern buys: `VendingMachine` contains **no `if state ==` anywhere**. Adding a `MAINTENANCE` state is one new class, and no existing method changes.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-13-state-q1", "type": "mcq",
+      "prompt": "What does the base `VendingState` class gain by defining every action with a default rejection message?",
+      "options": [
+        {"id":"a","text":"It reduces the number of classes needed"},
+        {"id":"b","text":"Every state automatically handles every action — a new state cannot accidentally leave an action undefined, and each concrete state only overrides the transitions that are actually legal for it"},
+        {"id":"c","text":"It makes the machine thread-safe"},
+        {"id":"d","text":"It allows states to be compared for equality"}
+      ],
+      "correct": "b",
+      "explanation": "A safe default plus selective overrides means the legal transitions are exactly the overridden methods — the state class becomes a readable declaration of what is permitted, with no way to forget a case." }
+] }
+```
+
+## Step 3 — The ATM: the same machine with harder money
+
+**Functional requirements**: authenticate a card and PIN, check balance, withdraw cash, deposit, print a receipt, eject the card. **States**: `IDLE → CARD_INSERTED → AUTHENTICATED → TRANSACTION → DISPENSING → IDLE`, plus `OUT_OF_SERVICE`.
+
+Three things make the ATM more than a re-skinned vending machine:
+
+**1. Authentication is a state with a retry counter.** Three wrong PINs must capture or block the card. The counter lives on the session, not on the card object, and the block is a state transition — not a boolean checked in five places.
+
+**2. Cash dispensing is a denomination problem, not a subtraction.** Withdrawing ₹3,700 from a machine holding ₹2,000, ₹500 and ₹100 notes needs a note plan, and the machine must **refuse cleanly** when it cannot compose the amount from what it holds.
+
+Greedy (largest note first) works for the standard Indian and most real note sets, but it is **not correct in general** — for denominations {1, 3, 4} and amount 6, greedy gives 4+1+1 (three notes) while the optimum is 3+3 (two). The general answer is a coin-change dynamic program. Say both: greedy for canonical denomination systems, DP when the set is arbitrary or when you must minimise note count exactly. That single observation is one of the highest-value things you can say in this problem, because it connects LLD to the DSA section's coin-change pattern.
+
+**3. The debit and the dispense must not diverge.** The failure that matters: the account is debited and then the cash dispenser jams. The correct sequence is **reserve → dispense → commit**, with a compensating credit if dispensing fails — the saga pattern from the HLD distributed-transactions lesson, in miniature. Volunteering this is the senior move in the ATM problem.
+
+```python
+def plan_notes(amount: int, inventory: dict[int, int]) -> dict[int, int] | None:
+    """Greedy note selection, bounded by what the machine actually holds."""
+    remaining, plan = amount, {}
+    for note in sorted(inventory, reverse=True):
+        take = min(remaining // note, inventory[note])
+        if take:
+            plan[note] = take
+            remaining -= note * take
+    return plan if remaining == 0 else None
+
+
+def min_notes_dp(amount: int, denominations: list[int]) -> int | None:
+    """Unbounded coin change: the provably minimal note count, when greedy is unsafe."""
+    INF = float("inf")
+    best = [0] + [INF] * amount
+    for value in range(1, amount + 1):
+        for d in denominations:
+            if d <= value and best[value - d] + 1 < best[value]:
+                best[value] = best[value - d] + 1
+    return None if best[amount] == INF else int(best[amount])
+
+
+inventory = {2_000: 3, 500: 4, 100: 10}
+assert plan_notes(3_700, inventory) == {2_000: 1, 500: 3, 100: 2}
+assert plan_notes(50, inventory) is None                 # smaller than the smallest note
+assert plan_notes(100_000, inventory) is None            # more than the machine holds
+
+# Where greedy is wrong and DP is right:
+assert min_notes_dp(6, [1, 3, 4]) == 2                   # 3 + 3
+greedy_count = sum(plan_notes(6, {4: 5, 3: 5, 1: 5}).values())
+assert greedy_count == 3                                 # 4 + 1 + 1
+print("greedy notes:", greedy_count, "| optimal:", min_notes_dp(6, [1, 3, 4]))
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-13-atm-q1", "type": "mcq",
+      "prompt": "Why is greedy note selection acceptable for a real ATM but not a general solution to \"minimise the number of notes\"?",
+      "options": [
+        {"id":"a","text":"Greedy is slower than dynamic programming"},
+        {"id":"b","text":"Greedy is optimal only for canonical denomination systems; for an arbitrary set such as {1, 3, 4} it gives 4+1+1 for 6 where 3+3 is optimal, so a general minimum requires the coin-change DP"},
+        {"id":"c","text":"Greedy cannot respect the machine's note inventory"},
+        {"id":"d","text":"Greedy fails whenever the amount is not divisible by the largest note"}
+      ],
+      "correct": "b",
+      "explanation": "Real currencies are canonical, so greedy is both correct and fast there — but stating the caveat and the DP fallback is what shows you know *why* it works rather than that it happens to." }
+] }
+```
+
+## Steps 4 and 5 — Concurrency, edge cases, and extensions
+
+**Concurrency.** A physical vending machine has one customer at a time, so the interesting version of the question is the ATM network:
+
+| Concern | Handling |
+|---|---|
+| Two ATMs withdrawing from one account simultaneously | The **account balance is the shared state**, and it lives in the bank's database: `UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND balance >= $1` — zero rows affected means insufficient funds, atomically |
+| Cash inventory inside one machine | A lock (or a single-threaded controller) around plan-and-dispense; it is check-then-act |
+| Card session state | Per-session, no sharing |
+| Debit succeeds, dispense fails | Compensating credit; the transaction is a saga with an explicit `RESERVED` state, and reconciliation catches whatever the compensation missed |
+
+**Edge cases worth raising:**
+
+| Case | Handling |
+|---|---|
+| Power failure mid-dispense | Journal the intent before acting; on restart, reconcile the journal against the physical count |
+| Card left in the machine | Timeout → capture the card, transition to IDLE |
+| Note jam | Enter OUT_OF_SERVICE, raise an alert, do not silently retry |
+| Daily withdrawal limit | A policy object consulted before the reservation |
+| Coin box full / cash low | Admin thresholds and an alert; refuse denominations that would overflow |
+| Product price changed mid-selection | The price is read once at selection time and used for the whole transaction |
+
+**Extensions and how the design absorbs them:**
+
+- **Card payments on the vending machine** → a `PaymentMethod` interface (`CoinPayment`, `CardPayment`, `UpiPayment`); the state machine is unchanged because states depend on "credit is sufficient", not on how it arrived.
+- **Multiple currencies / regions** → a denomination set injected as configuration, not hardcoded — which is exactly why `plan_change` iterates `self.coin_box` rather than a constant list.
+- **Remote telemetry and restocking alerts** → **Observers** on stock and cash-level changes.
+- **A maintenance mode** → one new state class.
+- **Different dispensing hardware** → an interface behind `DispensingState`.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-13-saga-q1", "type": "mcq",
+      "prompt": "An ATM debits the account and the cash dispenser then jams. What is the correct design response?",
+      "options": [
+        {"id":"a","text":"Retry dispensing until it succeeds"},
+        {"id":"b","text":"Treat it as a saga: reserve the funds, attempt the dispense, commit only on success — and on failure run a compensating credit, journal the incident, and let a reconciliation process verify the physical cash count against the ledger"},
+        {"id":"c","text":"Roll back the database transaction after the dispense fails"},
+        {"id":"d","text":"Mark the account as disputed and wait for the customer to call"}
+      ],
+      "correct": "b",
+      "explanation": "The debit has already committed and cannot be rolled back once other systems may have seen it, and the physical world offers no rollback either. Reserve–act–commit with a compensating transaction plus reconciliation is the standard pattern, exactly as in cross-service workflows." }
+] }
+```
+
+## Key takeaways
+
+- **Draw the state machine before writing a class.** Both problems are lifecycles, and the diagram *is* the design; every rule is an edge or a deliberately missing edge.
+- **State pattern with a rejecting base class** means every state handles every action, illegal transitions are unwritable, and a new state is one new class with zero edits.
+- **The change/notes problem is the algorithmic core**: greedy bounded by real inventory, with a clean refusal when exact change is impossible — and the honest caveat that greedy is only optimal for canonical denomination sets.
+- **Never silently keep the customer's money.** Check change availability alongside stock and credit, before committing.
+- **The ATM's debit-then-dispense is a saga.** Reserve, act, commit, compensate, reconcile — the same reasoning as any cross-system workflow, which is why this problem shows up in backend interviews as often as in LLD ones.
+$md$, 50, $json$[{"id":"ip45-lld-13-states-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-13-state-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-13-atm-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-13-saga-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('8a40b8f6-f776-5aad-9a73-5bd377a5d7b3', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Rate Limiter and Logging Framework', 'notes', 14, $md$Two "design a library, not an app" problems. They are asked because a library has no UI to hide behind: the interface *is* the design, and the quality of your abstractions is immediately visible. Both are also directly useful — you have used a logger every day and a rate limiter guards every API you will build.
+
+## Rate limiter — requirements and interface
+
+**Functional requirements:**
+
+- `allow(key) -> bool`: decide whether this request may proceed, right now.
+- Configurable limits **per key** (user, API key, IP) and per resource/endpoint.
+- Multiple algorithms: fixed window, sliding window, token bucket.
+- Report the remaining budget and when it resets (so clients can behave).
+- Work across multiple servers.
+
+**The interface first.** In a library problem, spend a full minute on the signature — it is where most of the design lives:
+
+```
+class RateLimiter(ABC):
+    def try_acquire(self, key: str, now: float, permits: int = 1) -> Decision: ...
+
+@dataclass(frozen=True)
+class Decision:
+    allowed: bool
+    remaining: int
+    retry_after: float     # seconds until the next permit, 0 when allowed
+```
+
+Three choices worth defending:
+
+- **Return a `Decision`, not a bool.** The caller needs `Retry-After` and `X-RateLimit-Remaining` headers; a bare boolean forces a second call to get them.
+- **Take `now` as a parameter.** Injecting time makes every algorithm deterministically testable without sleeping — this is a small thing that reads as real experience.
+- **Take `permits`,** so one expensive request can cost 10 tokens. Weighted limits are a common follow-up and cost nothing to allow for now.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-14-interface-q1", "type": "mcq",
+      "prompt": "Why should a rate limiter's method return a `Decision` object rather than a boolean, and accept `now` as a parameter?",
+      "options": [
+        {"id":"a","text":"To make the API look more object-oriented"},
+        {"id":"b","text":"The caller needs the remaining budget and retry-after values to set response headers, and injecting the clock makes every algorithm deterministically testable without sleeping in tests"},
+        {"id":"c","text":"Because booleans cannot be returned from abstract methods"},
+        {"id":"d","text":"To allow the limiter to be called asynchronously"}
+      ],
+      "correct": "b",
+      "explanation": "Both choices are about the caller's real needs: HTTP rate-limit headers require more than a yes/no, and a time-dependent component that reads the clock internally can only be tested with sleeps or monkey-patching." }
+] }
+```
+
+## Rate limiter — the algorithms behind one interface
+
+Each algorithm is a **Strategy**; the limiter itself is a thin facade over per-key state.
+
+```python
+from abc import ABC, abstractmethod
+from collections import deque
+from dataclasses import dataclass
+import threading
+
+
+@dataclass(frozen=True)
+class Decision:
+    allowed: bool
+    remaining: int
+    retry_after: float
+
+
+class RateLimiter(ABC):
+    @abstractmethod
+    def try_acquire(self, key: str, now: float, permits: int = 1) -> Decision: ...
+
+
+class FixedWindowLimiter(RateLimiter):
+    """Cheapest. Flaw: up to 2x the limit can pass across a window boundary."""
+    def __init__(self, limit: int, window_seconds: float):
+        self.limit, self.window = limit, window_seconds
+        self._counts: dict[tuple[str, int], int] = {}
+        self._lock = threading.Lock()
+
+    def try_acquire(self, key, now, permits=1):
+        bucket = int(now // self.window)
+        with self._lock:
+            used = self._counts.get((key, bucket), 0)
+            if used + permits > self.limit:
+                reset_at = (bucket + 1) * self.window
+                return Decision(False, self.limit - used, reset_at - now)
+            self._counts[(key, bucket)] = used + permits
+            return Decision(True, self.limit - used - permits, 0.0)
+
+
+class SlidingWindowLogLimiter(RateLimiter):
+    """Exact. Memory grows with the request rate, so use it for low-volume, high-value limits."""
+    def __init__(self, limit: int, window_seconds: float):
+        self.limit, self.window = limit, window_seconds
+        self._hits: dict[str, deque] = {}
+        self._lock = threading.Lock()
+
+    def try_acquire(self, key, now, permits=1):
+        with self._lock:
+            hits = self._hits.setdefault(key, deque())
+            while hits and hits[0] <= now - self.window:
+                hits.popleft()                       # evict everything outside the window
+            if len(hits) + permits > self.limit:
+                retry = hits[0] + self.window - now
+                return Decision(False, self.limit - len(hits), max(0.0, retry))
+            for _ in range(permits):
+                hits.append(now)
+            return Decision(True, self.limit - len(hits), 0.0)
+
+
+class TokenBucketLimiter(RateLimiter):
+    """The default choice: enforces an average rate while allowing a bounded burst."""
+    def __init__(self, rate_per_second: float, burst: int):
+        self.rate, self.burst = rate_per_second, burst
+        self._state: dict[str, tuple[float, float]] = {}   # key -> (tokens, last_refill)
+        self._lock = threading.Lock()
+
+    def try_acquire(self, key, now, permits=1):
+        with self._lock:
+            tokens, last = self._state.get(key, (float(self.burst), now))
+            tokens = min(self.burst, tokens + (now - last) * self.rate)   # lazy refill
+            if tokens >= permits:
+                self._state[key] = (tokens - permits, now)
+                return Decision(True, int(tokens - permits), 0.0)
+            self._state[key] = (tokens, now)
+            return Decision(False, int(tokens), (permits - tokens) / self.rate)
+
+
+# --- fixed window: the boundary burst is visible -----------------------------
+fw = FixedWindowLimiter(limit=2, window_seconds=60)
+assert [fw.try_acquire("u1", t).allowed for t in (0, 1, 2)] == [True, True, False]
+assert fw.try_acquire("u1", 59.9).allowed is False
+assert fw.try_acquire("u1", 60.0).allowed is True          # new window: 2 more immediately
+assert fw.try_acquire("u2", 0).allowed is True             # per-key isolation
+
+# --- sliding log: exact, no boundary artefact --------------------------------
+sw = SlidingWindowLogLimiter(limit=2, window_seconds=60)
+assert [sw.try_acquire("u1", t).allowed for t in (0, 1)] == [True, True]
+assert sw.try_acquire("u1", 59).allowed is False
+assert sw.try_acquire("u1", 61).allowed is True            # the hit at t=0 has aged out
+
+# --- token bucket: burst then steady rate ------------------------------------
+tb = TokenBucketLimiter(rate_per_second=1, burst=3)
+assert [tb.try_acquire("u1", 0).allowed for _ in range(3)] == [True, True, True]
+denied = tb.try_acquire("u1", 0)
+assert denied.allowed is False and abs(denied.retry_after - 1.0) < 1e-9
+assert tb.try_acquire("u1", 2).allowed is True             # 2 s later, 2 tokens refilled
+assert tb.try_acquire("u1", 2, permits=5).allowed is False # weighted request too expensive
+
+print("token bucket retry_after:", round(denied.retry_after, 2), "seconds")
+```
+
+**Distributed rate limiting** is the follow-up. Three answers, in increasing order of quality:
+
+1. **Per-node limits** — wrong: 10 nodes × 100/min = 1000/min.
+2. **Central counter in Redis** (`INCR` + `EXPIRE`, or a Lua script for the token bucket so refill-and-take is atomic) — correct, but adds a network round trip to every request and makes Redis a hard dependency of your front door.
+3. **Local buckets with a share of the global budget**, periodically rebalanced against a central counter — approximate, fast, and it degrades to per-node limits when the central store is unreachable. This is what production API gateways do.
+
+Also worth a sentence: **rate limit by identity, not by IP** where possible — NAT and mobile carriers put thousands of users behind one address.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-14-algo-q1", "type": "mcq",
+      "prompt": "Under a fixed-window limiter of 2 requests/minute, a client sends 2 requests at t=59s and 2 more at t=61s. How many passed in that 2-second span, and what fixes it?",
+      "options": [
+        {"id":"a","text":"2 — the limiter works correctly"},
+        {"id":"b","text":"4 — the window boundary lets up to 2x the limit through in an instant; a sliding window (log or interpolated counter) or a token bucket removes the artefact"},
+        {"id":"c","text":"0 — both windows were already full"},
+        {"id":"d","text":"3 — the limiter allows one extra request per window"}
+      ],
+      "correct": "b",
+      "explanation": "Each window counts independently, so a burst straddling the boundary gets both budgets. This is the standard motivation for sliding-window counters and token buckets." }
+] }
+```
+
+## Logging framework — requirements and the two patterns
+
+**Functional requirements:**
+
+- Levels: DEBUG < INFO < WARN < ERROR < FATAL, with a configurable threshold.
+- Multiple destinations (console, file, network) with independent levels and formats.
+- Structured context (request id, user id) attached to every message.
+- Thread-safe, and cheap when a message is filtered out.
+- Configurable at runtime without a redeploy.
+
+**Two patterns carry this design**, and naming both is the point of the problem:
+
+- **Chain of Responsibility** for the level hierarchy: each handler decides whether the record is at or above its threshold, acts if so, and passes it on regardless (this is a *broadcast* chain rather than a stop-at-first-match one — say which you mean).
+- **Strategy** for formatting (plain text, JSON, key-value) and for the destination (`Appender`/`Sink`), so a new output is a new class.
+
+Add a third, quieter decision that matters more than either in production: **the level check must happen before the message is built.** `log.debug(f"user {expensive()}")` evaluates the f-string even when DEBUG is disabled. The fix is either a lazy signature (`log.debug("user %s", user)` formatting only if it passes) or an explicit `is_enabled(level)` guard.
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import IntEnum
+import threading
+
+
+class Level(IntEnum):                      # IntEnum: comparison is the whole point
+    DEBUG = 10
+    INFO = 20
+    WARN = 30
+    ERROR = 40
+    FATAL = 50
+
+
+@dataclass
+class LogRecord:
+    level: Level
+    message: str
+    timestamp: float
+    context: dict = field(default_factory=dict)
+
+
+class Formatter(ABC):                      # strategy: how a record becomes text
+    @abstractmethod
+    def format(self, record: LogRecord) -> str: ...
+
+
+class PlainFormatter(Formatter):
+    def format(self, record):
+        ctx = " ".join(f"{k}={v}" for k, v in sorted(record.context.items()))
+        return f"[{record.level.name}] {record.message}" + (f" {ctx}" if ctx else "")
+
+
+class JsonFormatter(Formatter):
+    def format(self, record):
+        fields = {"level": record.level.name, "msg": record.message, **record.context}
+        body = ", ".join(f'"{k}": "{v}"' for k, v in fields.items())
+        return "{" + body + "}"
+
+
+class Appender(ABC):                       # strategy: where the text goes
+    def __init__(self, min_level: Level, formatter: Formatter):
+        self.min_level, self.formatter = min_level, formatter
+        self._lock = threading.Lock()
+
+    def handle(self, record: LogRecord) -> None:
+        if record.level >= self.min_level:            # each sink has its own threshold
+            with self._lock:                          # writes are serialised per sink
+                self.write(self.formatter.format(record))
+
+    @abstractmethod
+    def write(self, line: str) -> None: ...
+
+
+class MemoryAppender(Appender):            # stands in for console/file/network
+    def __init__(self, min_level, formatter):
+        super().__init__(min_level, formatter)
+        self.lines: list[str] = []
+    def write(self, line): self.lines.append(line)
+
+
+class Logger:
+    def __init__(self, name: str, min_level: Level = Level.DEBUG):
+        self.name, self.min_level = name, min_level
+        self._appenders: list[Appender] = []
+        self._context: dict = {}
+
+    def add_appender(self, appender: Appender) -> "Logger":
+        self._appenders.append(appender)
+        return self
+
+    def with_context(self, **kwargs) -> "Logger":
+        """A child logger carrying request-scoped fields — no global mutable state."""
+        child = Logger(self.name, self.min_level)
+        child._appenders = self._appenders            # shared sinks, own context
+        child._context = {**self._context, **kwargs}
+        return child
+
+    def is_enabled(self, level: Level) -> bool:
+        return level >= self.min_level
+
+    def log(self, level: Level, template: str, *args, now: float = 0.0) -> None:
+        if not self.is_enabled(level):
+            return                                     # cheap exit BEFORE formatting
+        message = template % args if args else template
+        record = LogRecord(level, message, now, dict(self._context))
+        for appender in self._appenders:
+            appender.handle(record)
+
+    def debug(self, t, *a, now=0.0): self.log(Level.DEBUG, t, *a, now=now)
+    def info(self, t, *a, now=0.0): self.log(Level.INFO, t, *a, now=now)
+    def warn(self, t, *a, now=0.0): self.log(Level.WARN, t, *a, now=now)
+    def error(self, t, *a, now=0.0): self.log(Level.ERROR, t, *a, now=now)
+
+
+console = MemoryAppender(Level.INFO, PlainFormatter())     # humans: INFO and above
+audit = MemoryAppender(Level.ERROR, JsonFormatter())       # alerting: ERROR only
+log = Logger("app", min_level=Level.DEBUG).add_appender(console).add_appender(audit)
+
+request_log = log.with_context(request_id="r-42", user="asha")
+request_log.debug("cache lookup %s", "user:1")             # below console's threshold
+request_log.info("order placed")
+request_log.error("payment failed: %s", "timeout")
+
+assert console.lines == [
+    "[INFO] order placed request_id=r-42 user=asha",
+    "[ERROR] payment failed: timeout request_id=r-42 user=asha",
+]
+assert len(audit.lines) == 1 and audit.lines[0].startswith('{"level": "ERROR"')
+assert log.with_context().is_enabled(Level.DEBUG) is True
+
+quiet = Logger("app", min_level=Level.WARN).add_appender(console)
+quiet.info("this is dropped before any formatting happens")
+assert len(console.lines) == 2                             # unchanged
+
+print("\n".join(console.lines))
+print(audit.lines[0])
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-14-logger-q1", "type": "mcq",
+      "prompt": "Why does `log(...)` check `is_enabled(level)` before building the message string?",
+      "options": [
+        {"id":"a","text":"To keep the method shorter"},
+        {"id":"b","text":"Because building the message is often the expensive part — `log.debug(f\"...{expensive()}\")` pays that cost even when DEBUG is disabled, so the level check must come first and formatting must be deferred (`%s` args, not an eager f-string)"},
+        {"id":"c","text":"Because appenders cannot handle empty messages"},
+        {"id":"d","text":"To make the logger thread-safe"}
+      ],
+      "correct": "b",
+      "explanation": "A disabled log call should cost one integer comparison. Eager string interpolation at the call site defeats that, which is why logging APIs take a template plus arguments rather than a pre-built string." }
+] }
+```
+
+## Concurrency, performance, and extensions
+
+**Rate limiter:**
+
+| Concern | Handling |
+|---|---|
+| Concurrent `try_acquire` for one key | Lock per key (or a striped lock array), not one global lock |
+| Memory growth from idle keys | Evict via an LRU cache or a TTL — an unbounded per-key map is a slow memory leak |
+| Distributed correctness | A Lua script in Redis makes refill-and-take atomic; local buckets with a global budget when latency matters more than exactness |
+| Fail-open or fail-closed? | **Decide and state it.** If Redis is down, do you allow all traffic (available, unprotected) or deny it (protected, outage)? Usually fail-open for user traffic, fail-closed for expensive or dangerous endpoints |
+
+That last row is the question interviewers use to separate candidates — the correct answer is not a value, it is "it depends on what this endpoint costs, and here's my default".
+
+**Logger:**
+
+| Concern | Handling |
+|---|---|
+| Contention on a shared sink | Per-appender lock (as implemented), or an async appender with a bounded queue |
+| Slow sink (network) blocking the request | **Asynchronous appender**: enqueue and let a background thread drain it |
+| The queue fills up | Drop the oldest, drop by level, or block — an explicit, configured policy, never an unbounded queue |
+| Losing logs on crash | Flush on shutdown; accept a bounded loss window for async sinks and say what it is |
+| Request-scoped context | A child logger, or a context-local — never a global mutable dictionary |
+
+**Extensions for both:**
+
+- New rate-limit algorithm → new `RateLimiter` class; the gateway is unchanged.
+- Per-endpoint limits → a config map from route to limiter; the composite tries each and denies if any deny.
+- New log destination (Kafka, S3, OpenTelemetry) → new `Appender`.
+- Sampling ("log 1% of DEBUG in production") → a filter in the chain, before the appenders.
+- Redaction of PII → a formatter decorator wrapping the real formatter.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-14-failmode-q1", "type": "mcq",
+      "prompt": "Your distributed rate limiter's Redis backend becomes unreachable. What is the right design response?",
+      "options": [
+        {"id":"a","text":"Always deny requests — safety first"},
+        {"id":"b","text":"It is a deliberate, per-endpoint policy: fail-open (allow, unprotected) for ordinary user traffic so an infrastructure blip doesn't take down the product, and fail-closed for expensive or dangerous endpoints — with a local in-process fallback limit either way"},
+        {"id":"c","text":"Always allow requests — availability first"},
+        {"id":"d","text":"Retry Redis until it responds"}
+      ],
+      "correct": "b",
+      "explanation": "Both blanket answers are wrong in some context. The senior response names the trade-off, sets a default, and adds a degraded local limit so the failure mode is bounded rather than binary." }
+] }
+```
+
+## Key takeaways
+
+- **In a library problem, the interface is the design.** Spend a minute on the signature: return a rich result, inject the clock, allow weighted permits.
+- **Rate limiter = Strategy over per-key state.** Fixed window is cheap with a boundary flaw; sliding log is exact and memory-hungry; **token bucket is the default** because it enforces an average rate while allowing a bounded burst.
+- **Distributed limiting is the follow-up**, and "local buckets against a shared budget" is the production answer, with the fail-open/fail-closed decision stated explicitly.
+- **Logger = Chain of Responsibility (levels) + Strategy (formatter, appender)**, plus the performance detail everyone else forgets: check the level *before* building the message.
+- **Bounded queues and eviction everywhere.** An unbounded per-key map and an unbounded async log queue are the two memory leaks these designs invite.
+$md$, 50, $json$[{"id":"ip45-lld-14-interface-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-14-algo-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-14-logger-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-14-failmode-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('d6f469c3-1935-5149-975f-2ba4704fdca9', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Notification Service and In-Memory Cache', 'notes', 15, $md$Two more library-shaped problems, chosen because between them they exercise almost every pattern in this section. The notification service is the canonical **Observer + Strategy + Chain** composition; the cache is the canonical "combine data structures to hit an operation-complexity target", and it is the single most-asked design question in coding interviews.
+
+## Notification service — requirements and structure
+
+**Functional requirements:**
+
+- Send a notification to a user over one or more channels: email, SMS, push, in-app.
+- Respect **user preferences**: which channels, and which categories they have opted out of.
+- Templates with variable substitution, per channel.
+- Retry transient failures; do not retry permanent ones.
+- Rate limit per user so one runaway event cannot spam them.
+- Priority: a security alert must not queue behind a marketing digest.
+
+**The patterns, and what each one is for:**
+
+| Pattern | Role here |
+|---|---|
+| **Strategy** | One class per channel behind a `NotificationChannel` interface |
+| **Observer** | Domain events (`order.placed`) trigger notifications without the order code knowing they exist |
+| **Chain of Responsibility** | The send pipeline: preferences → rate limit → quiet hours → dedupe → deliver |
+| **Template Method / Strategy** | Rendering a message per channel (SMS is 160 characters; email has HTML) |
+| **Factory** | Resolving a channel name to its implementation |
+| **Decorator** | Wrapping a channel with retry and circuit-breaking, without touching the channel code |
+
+**The key modelling decision**: a `Notification` is a **request** (recipient, category, template, data, priority), not a message. Rendering happens per channel, at send time, because the same request becomes a different artefact on SMS than in email. Candidates who put a `body: str` on the notification cannot express that.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-15-notif-model-q1", "type": "mcq",
+      "prompt": "Why should a `Notification` carry a template id plus data rather than a rendered `body` string?",
+      "options": [
+        {"id":"a","text":"Strings use more memory than template ids"},
+        {"id":"b","text":"The same logical notification renders differently per channel — 160-character SMS, HTML email, a short push title — so rendering must happen per channel at send time, and it also enables localisation and template changes without touching the caller"},
+        {"id":"c","text":"Because templates are easier to store in a database"},
+        {"id":"d","text":"Because rendered strings cannot be retried"}
+      ],
+      "correct": "b",
+      "explanation": "Rendering is a channel concern. Baking a body into the request forces the caller to know about channel constraints and makes localisation and template edits a code change." }
+] }
+```
+
+## Notification service — implementation
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class Channel(Enum):
+    EMAIL = "email"
+    SMS = "sms"
+    PUSH = "push"
+
+
+class Priority(Enum):
+    LOW = 1
+    NORMAL = 2
+    URGENT = 3
+
+
+@dataclass(frozen=True)
+class Notification:
+    user_id: str
+    category: str                     # "security" | "marketing" | "transactional"
+    template: str
+    data: dict
+    priority: Priority = Priority.NORMAL
+
+
+@dataclass
+class UserPreferences:
+    channels: set[Channel]
+    muted_categories: set[str] = field(default_factory=set)
+    contact: dict[Channel, str] = field(default_factory=dict)
+
+
+# ---- Strategy: one class per delivery channel -------------------------------
+class NotificationChannel(ABC):
+    @abstractmethod
+    def render(self, n: Notification) -> str: ...
+    @abstractmethod
+    def deliver(self, to: str, body: str) -> None: ...
+
+
+class EmailChannel(NotificationChannel):
+    def __init__(self): self.sent: list[tuple[str, str]] = []
+    def render(self, n): return f"<html>{n.template}: {n.data}</html>"
+    def deliver(self, to, body): self.sent.append((to, body))
+
+
+class SmsChannel(NotificationChannel):
+    LIMIT = 160
+    def __init__(self, fail_times: int = 0):
+        self.sent: list[tuple[str, str]] = []
+        self._fail_times = fail_times
+    def render(self, n):
+        return f"{n.template}: {n.data.get('order_id', '')}"[: self.LIMIT]
+    def deliver(self, to, body):
+        if self._fail_times > 0:                  # simulate a transient outage
+            self._fail_times -= 1
+            raise ConnectionError("sms gateway timeout")
+        self.sent.append((to, body))
+
+
+# ---- Decorator: retry without touching any channel implementation -----------
+class RetryingChannel(NotificationChannel):
+    def __init__(self, inner: NotificationChannel, attempts: int = 3):
+        self._inner, self._attempts = inner, attempts
+        self.failures = 0
+    def render(self, n): return self._inner.render(n)
+    def deliver(self, to, body):
+        last: Exception | None = None
+        for _ in range(self._attempts):
+            try:
+                return self._inner.deliver(to, body)
+            except ConnectionError as exc:        # transient → retry
+                self.failures += 1
+                last = exc
+            except ValueError:                    # permanent (bad address) → give up
+                raise
+        raise last                                # exhausted → caller sends it to a DLQ
+
+
+# ---- Chain of Responsibility: the send pipeline -----------------------------
+class Filter(ABC):
+    def __init__(self): self._next: "Filter | None" = None
+    def then(self, nxt: "Filter") -> "Filter":
+        self._next = nxt
+        return nxt
+    def handle(self, n: Notification, prefs: UserPreferences) -> str | None:
+        blocked = self.check(n, prefs)
+        if blocked is not None:
+            return blocked                        # stop: the notification is dropped
+        return self._next.handle(n, prefs) if self._next else None
+    @abstractmethod
+    def check(self, n: Notification, prefs: UserPreferences) -> str | None: ...
+
+
+class MutedCategoryFilter(Filter):
+    def check(self, n, prefs):
+        if n.category in prefs.muted_categories and n.priority is not Priority.URGENT:
+            return f"muted category {n.category}"     # urgent bypasses mute — a real rule
+        return None
+
+
+class PerUserRateLimitFilter(Filter):
+    def __init__(self, limit: int):
+        super().__init__()
+        self.limit, self._counts = limit, {}
+    def check(self, n, prefs):
+        if n.priority is Priority.URGENT:
+            return None                                # never rate limit security alerts
+        self._counts[n.user_id] = self._counts.get(n.user_id, 0) + 1
+        if self._counts[n.user_id] > self.limit:
+            return "rate limited"
+        return None
+
+
+class DedupeFilter(Filter):
+    def __init__(self):
+        super().__init__()
+        self._seen: set[tuple] = set()
+    def check(self, n, prefs):
+        key = (n.user_id, n.template, tuple(sorted(n.data.items())))
+        if key in self._seen:
+            return "duplicate"
+        self._seen.add(key)
+        return None
+
+
+class NotificationService:
+    def __init__(self, channels: dict[Channel, NotificationChannel], pipeline: Filter):
+        self._channels, self._pipeline = channels, pipeline
+        self.dead_letter: list[tuple[Notification, Channel, str]] = []
+
+    def send(self, n: Notification, prefs: UserPreferences) -> list[str]:
+        blocked = self._pipeline.handle(n, prefs)
+        if blocked is not None:
+            return [f"dropped: {blocked}"]
+        results = []
+        for channel in prefs.channels:
+            impl = self._channels.get(channel)
+            if impl is None:
+                continue
+            try:
+                impl.deliver(prefs.contact[channel], impl.render(n))
+                results.append(f"{channel.value}: sent")
+            except Exception as exc:                  # one channel failing must not stop others
+                self.dead_letter.append((n, channel, str(exc)))
+                results.append(f"{channel.value}: failed")
+        return results
+
+
+email = EmailChannel()
+sms_inner = SmsChannel(fail_times=2)                  # fails twice, then succeeds
+sms = RetryingChannel(sms_inner, attempts=3)
+
+pipeline = DedupeFilter()
+pipeline.then(MutedCategoryFilter()).then(PerUserRateLimitFilter(limit=2))
+service = NotificationService({Channel.EMAIL: email, Channel.SMS: sms}, pipeline)
+
+prefs = UserPreferences(
+    channels={Channel.EMAIL, Channel.SMS},
+    muted_categories={"marketing"},
+    contact={Channel.EMAIL: "asha@example.com", Channel.SMS: "+91999"},
+)
+
+order = Notification("u1", "transactional", "order_shipped", {"order_id": "ord_1"})
+assert sorted(service.send(order, prefs)) == ["email: sent", "sms: sent"]
+assert sms.failures == 2                       # two transient failures, then success
+assert service.dead_letter == []
+
+assert service.send(order, prefs) == ["dropped: duplicate"]  # same payload → deduped
+
+promo = Notification("u1", "marketing", "sale", {"pct": 20})
+assert service.send(promo, prefs) == ["dropped: muted category marketing"]
+
+alert = Notification("u1", "marketing", "breach", {"ip": "1.2.3.4"}, Priority.URGENT)
+assert "email: sent" in service.send(alert, prefs)           # urgent bypasses the mute
+
+print("email outbox:", len(email.sent), "| sms outbox:", len(sms_inner.sent))
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-15-notif-impl-q1", "type": "mcq",
+      "prompt": "Retry logic lives in `RetryingChannel`, which wraps a channel rather than being built into each one. What does that buy?",
+      "options": [
+        {"id":"a","text":"It makes retries faster"},
+        {"id":"b","text":"Retry becomes an orthogonal, composable concern: every channel gets it without duplicating code, it can be configured per channel, and a circuit breaker or metrics wrapper stacks on the same way — the Decorator pattern applied to cross-cutting behaviour"},
+        {"id":"c","text":"It prevents permanent failures from occurring"},
+        {"id":"d","text":"It removes the need for a dead-letter queue"}
+      ],
+      "correct": "b",
+      "explanation": "Retry, circuit breaking, metrics, and logging are all cross-cutting. Implementing them in each channel duplicates code and drifts; wrapping keeps each channel focused on its protocol." }
+] }
+```
+
+## In-memory cache — the LRU design
+
+**Requirements**: `get` and `put` in **O(1)**, a fixed capacity, evict the least recently used entry when full, optional TTL per entry, and a pluggable eviction policy.
+
+**The reasoning to say out loud, because it is the whole answer**: a hash map gives O(1) lookup but no ordering; a linked list gives O(1) reordering but O(n) lookup. Combine them — **hash map from key to node, doubly linked list for recency** — and both operations are O(1). Sentinel head and tail nodes remove every null check at the boundaries.
+
+```python
+class Node:
+    __slots__ = ("key", "value", "expires_at", "prev", "next")
+
+    def __init__(self, key=None, value=None, expires_at=None):
+        self.key, self.value, self.expires_at = key, value, expires_at
+        self.prev = self.next = None
+
+
+class LRUCache:
+    """O(1) get and put. Hash map for lookup, doubly linked list for recency order."""
+
+    def __init__(self, capacity: int):
+        if capacity <= 0:
+            raise ValueError("capacity must be positive")
+        self.capacity = capacity
+        self._map: dict[object, Node] = {}
+        self._head = Node()          # sentinel: most-recently-used side
+        self._tail = Node()          # sentinel: least-recently-used side
+        self._head.next, self._tail.prev = self._tail, self._head
+        self.hits = self.misses = self.evictions = 0
+
+    # ---- list surgery ---------------------------------------------------
+    def _unlink(self, node: Node) -> None:
+        node.prev.next, node.next.prev = node.next, node.prev
+
+    def _push_front(self, node: Node) -> None:
+        node.next, node.prev = self._head.next, self._head
+        self._head.next.prev = node
+        self._head.next = node
+
+    # ---- public API -----------------------------------------------------
+    def get(self, key, now: float = 0.0):
+        node = self._map.get(key)
+        if node is None:
+            self.misses += 1
+            return None
+        if node.expires_at is not None and node.expires_at <= now:
+            self._evict(node)                 # lazy expiry: cheaper than a sweeper
+            self.misses += 1
+            return None
+        self._unlink(node)
+        self._push_front(node)                # touching it makes it most recent
+        self.hits += 1
+        return node.value
+
+    def put(self, key, value, now: float = 0.0, ttl: float | None = None) -> None:
+        expires_at = None if ttl is None else now + ttl
+        node = self._map.get(key)
+        if node is not None:
+            node.value, node.expires_at = value, expires_at
+            self._unlink(node)
+            self._push_front(node)
+            return
+        node = Node(key, value, expires_at)
+        self._map[key] = node
+        self._push_front(node)
+        if len(self._map) > self.capacity:
+            self._evict(self._tail.prev)      # the node just before the tail sentinel
+            self.evictions += 1
+
+    def _evict(self, node: Node) -> None:
+        self._unlink(node)
+        del self._map[node.key]
+
+    def keys_mru_first(self) -> list:
+        out, node = [], self._head.next
+        while node is not self._tail:
+            out.append(node.key)
+            node = node.next
+        return out
+
+    def __len__(self) -> int: return len(self._map)
+
+
+cache = LRUCache(capacity=3)
+cache.put("a", 1); cache.put("b", 2); cache.put("c", 3)
+assert cache.keys_mru_first() == ["c", "b", "a"]
+
+assert cache.get("a") == 1                     # 'a' becomes most recently used
+assert cache.keys_mru_first() == ["a", "c", "b"]
+
+cache.put("d", 4)                              # capacity exceeded → evict LRU, which is 'b'
+assert cache.get("b") is None and cache.evictions == 1
+assert sorted(cache.keys_mru_first()) == ["a", "c", "d"]
+
+cache.put("e", 5, now=0, ttl=10)               # TTL entry
+assert cache.get("e", now=5) == 5
+assert cache.get("e", now=11) is None          # expired lazily on read
+assert cache.hits == 2 and cache.misses == 2
+
+print("keys (MRU first):", cache.keys_mru_first(),
+      "| hits/misses/evictions:", cache.hits, cache.misses, cache.evictions)
+```
+
+**The follow-ups you will get, with their answers:**
+
+| Follow-up | Answer |
+|---|---|
+| "Make it thread-safe" | A single lock around `get`/`put` (both mutate the list). For higher throughput, a striped/segmented cache — N independent shards keyed by `hash(key) % N`, each with its own lock |
+| "Make the eviction policy pluggable" | An `EvictionPolicy` interface — LRU, LFU, FIFO, random — that owns the ordering structure. LFU needs a frequency map plus a min-frequency pointer to stay O(1) |
+| "What about a scan flushing the hot set?" | LFU, or a segmented LRU (a probation segment and a protected segment), or W-TinyLFU as used by Caffeine |
+| "Why not `OrderedDict`?" | It works (`move_to_end` + `popitem(last=False)`), but interviewers want the mechanism; know both and say why |
+| "Evict by memory, not entry count" | Track an approximate size per entry and evict until under the budget |
+| "Distributed cache" | This is now the HLD caching lesson: consistent hashing across nodes, cache-aside, TTL jitter, stampede protection |
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-15-cache-q1", "type": "mcq",
+      "prompt": "Why does an O(1) LRU cache need both a hash map and a doubly linked list?",
+      "options": [
+        {"id":"a","text":"The list stores the values and the map stores the keys"},
+        {"id":"b","text":"The map gives O(1) key lookup but no ordering; the doubly linked list gives O(1) removal and re-insertion (so recency updates are constant time) but O(n) search — each supplies exactly what the other lacks"},
+        {"id":"c","text":"The list is only needed for iteration"},
+        {"id":"d","text":"A singly linked list would work equally well"}
+      ],
+      "correct": "b",
+      "explanation": "The map holds key → node so you can find the node instantly, and the doubly linked structure lets you unlink that node in O(1) — which a singly linked list cannot do, since it has no back-pointer to the predecessor." }
+] }
+```
+
+## Concurrency and extensions
+
+**Notification service:**
+
+| Concern | Handling |
+|---|---|
+| One slow channel blocking the others | Deliver per channel independently — asynchronously, or at least catching per channel as implemented |
+| Duplicate sends after a retry | Deliveries must be idempotent: a `(notification_id, channel)` dedupe key, exactly as in the HLD messaging lesson |
+| Priority | Separate queues per priority, drained by weight — never one FIFO where a security alert queues behind a digest |
+| Permanent failures | Dead-letter with the error and attempt count, plus an alert on DLQ depth |
+| A channel provider outage | A circuit breaker decorator around the channel, so you stop hammering it and fall back to another channel |
+
+**Cache:**
+
+| Concern | Handling |
+|---|---|
+| Concurrent `get` mutating the recency list | `get` is a *writer* in an LRU — a plain read-write lock is not enough; use a full lock, or approximate recency (Caffeine records accesses in a buffer and reorders in batches) |
+| Lock contention at high throughput | Shard the cache; each shard is an independent `LRUCache` with its own lock |
+| Expiry | Lazy on read (implemented) plus an optional background sweeper for memory reclamation |
+| Cache stampede on a hot key | Single-flight: the first miss populates while others wait — the HLD caching lesson's fix, applied here |
+
+The detail worth volunteering on the cache: **`get` mutates state**, so a naive "reads can share a lock, writes need it exclusively" answer is wrong for LRU. That observation is a strong signal.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-15-concurrency-q1", "type": "mcq",
+      "prompt": "Why is a read-write lock (many concurrent readers, one writer) insufficient for a standard LRU cache?",
+      "options": [
+        {"id":"a","text":"Read-write locks are slower than mutexes"},
+        {"id":"b","text":"Because `get` is not a read — it moves the accessed node to the front of the recency list, so concurrent \"readers\" would corrupt the list; the options are a full mutex, sharding, or recording accesses in a buffer and reordering in batches"},
+        {"id":"c","text":"Because the hash map is not thread-safe"},
+        {"id":"d","text":"Because TTL expiry requires a background thread"}
+      ],
+      "correct": "b",
+      "explanation": "Recency tracking makes every read a mutation. Real high-throughput caches (Caffeine) solve it by buffering access records and applying them asynchronously, which restores true read parallelism at the cost of slightly approximate ordering." }
+] }
+```
+
+## Key takeaways
+
+- **The notification service is the pattern-composition showcase**: Strategy per channel, Chain for the filter pipeline, Decorator for retry and circuit breaking, Observer to trigger it from domain events, Factory to resolve a channel. Naming each with its role is the whole answer.
+- **A notification is a request, not a message.** Render per channel at send time.
+- **Cross-cutting behaviour goes in wrappers**, not in every implementation — that one decision makes retry, metrics, and circuit breaking free for every future channel.
+- **LRU = hash map + doubly linked list + sentinels.** Be able to write it from memory; it is asked more often than any other design question.
+- **`get` mutates an LRU**, so the concurrency answer is a full lock or sharding, never a read-write lock. Saying that unprompted is the strongest single sentence in the cache problem.
+$md$, 50, $json$[{"id":"ip45-lld-15-notif-model-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-15-notif-impl-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-15-cache-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-15-concurrency-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('6e191304-ac88-517c-95ad-0a29cecd7213', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD: Games — Tic-Tac-Toe, Snake & Ladder, Chess', 'notes', 16, $md$Games are asked because they compress a lot of design into a small domain: a board, players, turns, rules, and a win condition. Three of them, in increasing difficulty, cover the whole spectrum — Tic-Tac-Toe tests whether you can find the O(1) win check, Snake & Ladder tests clean turn/state modelling, and Chess tests polymorphic rules and extensibility.
+
+The shared skeleton for every board game, worth stating before you write a class:
+
+```
+Game        owns the board, the player order, the turn, and the status
+Board       owns cells and geometry (is this position valid?)
+Player      identity + a strategy for choosing a move (human / bot)
+Move        a value object: what was attempted
+Rules       validate a move and detect the terminal condition
+GameStatus  IN_PROGRESS | WON | DRAW | ABANDONED
+```
+
+## Tic-Tac-Toe — the O(1) win check
+
+**The design point is not the classes; it is the win detection.** Rescanning the whole board after every move is O(n²). Instead keep running sums per row, per column, and for both diagonals: player 1 adds +1, player 2 adds −1, and a win is the instant any counter reaches ±n. Each move touches one row, one column, and at most both diagonals — so the check is O(1).
+
+```python
+class TicTacToe:
+    """O(1) per move: running counters instead of rescanning the board."""
+
+    def __init__(self, n: int = 3):
+        self.n = n
+        self._rows = [0] * n
+        self._cols = [0] * n
+        self._diag = 0
+        self._anti = 0
+        self._board = [[0] * n for _ in range(n)]
+        self._moves = 0
+
+    def move(self, row: int, col: int, player: int) -> str:
+        if not (0 <= row < self.n and 0 <= col < self.n):
+            raise ValueError("off the board")
+        if self._board[row][col] != 0:
+            raise ValueError("cell already taken")
+        if player not in (1, 2):
+            raise ValueError("unknown player")
+
+        delta = 1 if player == 1 else -1
+        self._board[row][col] = player
+        self._moves += 1
+
+        self._rows[row] += delta
+        self._cols[col] += delta
+        if row == col:
+            self._diag += delta
+        if row + col == self.n - 1:          # NOT elif: the centre of an odd board is both
+            self._anti += delta
+
+        if self.n in (abs(self._rows[row]), abs(self._cols[col]),
+                      abs(self._diag), abs(self._anti)):
+            return f"player {player} wins"
+        return "draw" if self._moves == self.n * self.n else "in progress"
+
+
+game = TicTacToe(3)
+assert game.move(0, 0, 1) == "in progress"
+assert game.move(1, 1, 2) == "in progress"
+assert game.move(0, 1, 1) == "in progress"
+assert game.move(2, 2, 2) == "in progress"
+assert game.move(0, 2, 1) == "player 1 wins"          # top row complete
+
+try:
+    game.move(0, 0, 2)
+    raise AssertionError("re-using a cell was allowed")
+except ValueError as e:
+    print("rejected:", e)
+
+# X O X
+# X O O   -- no line completes, so a full board is a draw
+# O X X
+draw = TicTacToe(3)
+for r, c, p in [(0,0,1),(0,1,2),(0,2,1),(1,1,2),(1,0,1),(1,2,2),(2,1,1),(2,0,2),(2,2,1)]:
+    result = draw.move(r, c, p)
+assert result == "draw"
+print("full board result:", result)
+```
+
+Two details that get probed: the diagonal checks use `if`/`if`, **not** `if`/`elif`, because the centre cell of an odd board sits on both diagonals; and a draw is detected by move count, not by scanning for empty cells.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-16-ttt-q1", "type": "mcq",
+      "prompt": "Why do the two diagonal updates use separate `if` statements rather than `if`/`elif`?",
+      "options": [
+        {"id":"a","text":"Because `elif` is slower"},
+        {"id":"b","text":"On an odd-sized board the centre cell satisfies both `row == col` and `row + col == n-1`, so it lies on both diagonals and must update both counters"},
+        {"id":"c","text":"Because the anti-diagonal counter must always be updated"},
+        {"id":"d","text":"Because the board may be non-square"}
+      ],
+      "correct": "b",
+      "explanation": "For n=3 the centre (1,1) is on both diagonals. `elif` would skip the anti-diagonal update there, making a diagonal win through the centre undetectable." }
+] }
+```
+
+## Snake & Ladder — clean turn and state modelling
+
+There is no clever algorithm here; the problem is asked to see whether you model **turns, rules, and termination** cleanly, and whether you handle the edge cases.
+
+| Rule question | Typical answer | Where it lives |
+|---|---|---|
+| Overshoot the final square? | Stay put (or bounce back) — a rule, not an accident | `MovementRule` |
+| Roll a six? | Roll again | Turn loop |
+| Three consecutive sixes? | Turn forfeited | Turn loop |
+| Must you land exactly on 100? | Yes | `MovementRule` |
+| Can a snake head also be a ladder bottom? | No — validate the board at construction | `Board` invariant |
+| Dice count | Configurable (one or two) | `Dice` strategy |
+
+Modelling snakes and ladders as a single `jumps: {start: end}` map is the simplification worth making out loud: a snake is a jump to a lower square and a ladder a jump to a higher one, so one lookup handles both and validation ("no square is both a start and an end") is trivial.
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class Status(Enum):
+    IN_PROGRESS = "in_progress"
+    WON = "won"
+
+
+class Dice(ABC):
+    @abstractmethod
+    def roll(self) -> int: ...
+
+
+class ScriptedDice(Dice):
+    """Deterministic dice: the same seam a real design uses for a RandomDice."""
+    def __init__(self, values: list[int]): self._values, self._i = values, 0
+    def roll(self) -> int:
+        value = self._values[self._i % len(self._values)]
+        self._i += 1
+        return value
+
+
+@dataclass
+class Board:
+    size: int
+    jumps: dict[int, int] = field(default_factory=dict)   # snake OR ladder
+
+    def __post_init__(self):
+        for start, end in self.jumps.items():
+            if not (1 <= start <= self.size and 1 <= end <= self.size):
+                raise ValueError(f"jump {start}->{end} is off the board")
+            if end in self.jumps:                         # forbids chained jumps
+                raise ValueError(f"square {end} is both a destination and a jump start")
+        if self.size in self.jumps:
+            raise ValueError("the final square cannot start a jump")
+
+    def destination(self, square: int) -> int:
+        return self.jumps.get(square, square)
+
+
+@dataclass
+class Player:
+    name: str
+    position: int = 0
+
+
+class Game:
+    MAX_SIXES = 3
+
+    def __init__(self, board: Board, players: list[Player], dice: Dice):
+        if len(players) < 2:
+            raise ValueError("need at least two players")
+        self.board, self.players, self.dice = board, players, dice
+        self.turn = 0
+        self.status = Status.IN_PROGRESS
+        self.winner: Player | None = None
+        self.log: list[str] = []
+
+    def current_player(self) -> Player:
+        return self.players[self.turn % len(self.players)]
+
+    def play_turn(self) -> str:
+        if self.status is Status.WON:
+            raise RuntimeError("game is over")
+
+        player = self.current_player()
+        sixes = 0
+        while True:
+            roll = self.dice.roll()
+            if roll == 6:
+                sixes += 1
+                if sixes == self.MAX_SIXES:
+                    self.log.append(f"{player.name}: three sixes, turn forfeited")
+                    break
+            target = player.position + roll
+            if target > self.board.size:
+                self.log.append(f"{player.name}: rolled {roll}, overshoot, stays at {player.position}")
+                break                                   # must land exactly on the last square
+            landed = self.board.destination(target)
+            kind = "" if landed == target else (" ladder" if landed > target else " snake")
+            player.position = landed
+            self.log.append(f"{player.name}: rolled {roll} -> {landed}{kind}")
+            if landed == self.board.size:
+                self.status, self.winner = Status.WON, player
+                self.turn += 1
+                return f"{player.name} wins"
+            if roll != 6:
+                break                                   # a six earns another roll
+        self.turn += 1
+        return "in progress"
+
+
+board = Board(size=20, jumps={3: 15, 17: 5})            # ladder 3->15, snake 17->5
+alice, bob = Player("alice"), Player("bob")
+# alice: 3 (ladder to 15) ... bob: 5 ... alice: 6 then 6 -> overshoot handling
+game = Game(board, [alice, bob], ScriptedDice([3, 5, 2, 4, 3, 6, 4, 1]))
+
+assert game.play_turn() == "in progress"
+assert alice.position == 15                              # ladder taken
+game.play_turn(); assert bob.position == 5               # rolled 5
+game.play_turn()                                         # alice: 15 + 2 = 17, snake to 5
+assert alice.position == 5 and game.log[-1].endswith("snake")
+
+# Landing exactly on the final square wins.
+sprint = Game(Board(size=10), [Player("a"), Player("b")], ScriptedDice([5, 1, 5]))
+sprint.play_turn()                                       # a -> 5
+sprint.play_turn()                                       # b -> 1
+assert sprint.play_turn() == "a wins"                    # a: 5 + 5 = 10
+assert sprint.status is Status.WON and sprint.winner.name == "a"
+
+print("\n".join(game.log))
+print("sprint winner:", sprint.winner.name)
+```
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-16-snl-q1", "type": "mcq",
+      "prompt": "Why model snakes and ladders as a single `jumps: {start: end}` map rather than two separate collections?",
+      "options": [
+        {"id":"a","text":"It uses less memory"},
+        {"id":"b","text":"They are the same mechanic — a jump to a different square — differing only in direction, so one lookup handles both and board validation (no square is both a jump start and a destination) becomes a single check"},
+        {"id":"c","text":"Because ladders must be processed before snakes"},
+        {"id":"d","text":"Because a player can only use each ladder once"}
+      ],
+      "correct": "b",
+      "explanation": "Recognising that two named domain concepts share one mechanic is the modelling insight. The direction is derivable (`end > start` is a ladder), so it does not need to be encoded in the structure." }
+] }
+```
+
+## Chess — polymorphic rules and extensibility
+
+Chess is the hard one, and nobody expects a complete implementation in 45 minutes. What is expected is the **shape**: an extensible piece hierarchy, move validation split from move execution, and a plan for the special rules.
+
+**The core decision: each piece owns its own movement rule.** This is polymorphism doing exactly what it exists for — adding a new piece type (a fairy-chess variant, a custom game) means one new class and zero edits.
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+
+
+class Colour(Enum):
+    WHITE = "w"
+    BLACK = "b"
+
+
+@dataclass(frozen=True)
+class Square:                                   # value object
+    row: int
+    col: int
+    def valid(self) -> bool: return 0 <= self.row < 8 and 0 <= self.col < 8
+
+
+class Piece(ABC):
+    def __init__(self, colour: Colour): self.colour, self.has_moved = colour, False
+
+    @abstractmethod
+    def symbol(self) -> str: ...
+
+    @abstractmethod
+    def can_move(self, src: Square, dst: Square, board: "Board") -> bool:
+        """Geometry only. Path blocking and check legality are the board's job."""
+
+    def path_clear(self, src: Square, dst: Square, board: "Board") -> bool:
+        step_r = (dst.row > src.row) - (dst.row < src.row)      # sign: -1, 0, or 1
+        step_c = (dst.col > src.col) - (dst.col < src.col)
+        r, c = src.row + step_r, src.col + step_c
+        while (r, c) != (dst.row, dst.col):
+            if board.at(Square(r, c)) is not None:
+                return False
+            r, c = r + step_r, c + step_c
+        return True
+
+
+class Rook(Piece):
+    def symbol(self): return "R"
+    def can_move(self, src, dst, board):
+        if src.row != dst.row and src.col != dst.col:
+            return False
+        return self.path_clear(src, dst, board)
+
+
+class Bishop(Piece):
+    def symbol(self): return "B"
+    def can_move(self, src, dst, board):
+        if abs(src.row - dst.row) != abs(src.col - dst.col):
+            return False
+        return self.path_clear(src, dst, board)
+
+
+class Queen(Piece):
+    def symbol(self): return "Q"
+    def can_move(self, src, dst, board):
+        straight = src.row == dst.row or src.col == dst.col
+        diagonal = abs(src.row - dst.row) == abs(src.col - dst.col)
+        return (straight or diagonal) and self.path_clear(src, dst, board)
+
+
+class Knight(Piece):
+    def symbol(self): return "N"
+    def can_move(self, src, dst, board):        # jumps: never checks the path
+        return {abs(src.row - dst.row), abs(src.col - dst.col)} == {1, 2}
+
+
+class King(Piece):
+    def symbol(self): return "K"
+    def can_move(self, src, dst, board):
+        return max(abs(src.row - dst.row), abs(src.col - dst.col)) == 1
+
+
+class Pawn(Piece):
+    def symbol(self): return "P"
+    def can_move(self, src, dst, board):
+        direction = -1 if self.colour is Colour.WHITE else 1   # white moves up the array
+        forward = dst.row - src.row
+        sideways = abs(dst.col - src.col)
+        target = board.at(dst)
+        if sideways == 0 and target is None:                    # straight push
+            if forward == direction:
+                return True
+            return (forward == 2 * direction and not self.has_moved
+                    and board.at(Square(src.row + direction, src.col)) is None)
+        if sideways == 1 and forward == direction:              # diagonal capture only
+            return target is not None and target.colour is not self.colour
+        return False
+
+
+class Board:
+    def __init__(self):
+        self._grid: dict[tuple[int, int], Piece] = {}
+
+    def place(self, piece: Piece, square: Square) -> None:
+        self._grid[(square.row, square.col)] = piece
+
+    def at(self, square: Square) -> Piece | None:
+        return self._grid.get((square.row, square.col))
+
+    def move(self, src: Square, dst: Square, turn: Colour) -> str:
+        """Validation order matters: ownership → geometry → destination → self-check."""
+        if not (src.valid() and dst.valid()) or src == dst:
+            raise ValueError("invalid squares")
+        piece = self.at(src)
+        if piece is None:
+            raise ValueError("no piece there")
+        if piece.colour is not turn:
+            raise ValueError("not your piece")
+        target = self.at(dst)
+        if target is not None and target.colour is piece.colour:
+            raise ValueError("cannot capture your own piece")
+        if not piece.can_move(src, dst, self):
+            raise ValueError(f"{piece.symbol()} cannot move like that")
+
+        captured = self._grid.pop((dst.row, dst.col), None)
+        self._grid[(dst.row, dst.col)] = self._grid.pop((src.row, src.col))
+        piece.has_moved = True
+        # A real engine would now verify the mover's king is not in check and undo if so.
+        return "capture" if captured else "move"
+
+
+board = Board()
+board.place(Rook(Colour.WHITE), Square(7, 0))
+board.place(Knight(Colour.WHITE), Square(7, 1))
+board.place(Pawn(Colour.BLACK), Square(4, 0))
+
+assert board.move(Square(7, 1), Square(5, 2), Colour.WHITE) == "move"     # knight L-shape
+try:
+    board.move(Square(7, 0), Square(6, 2), Colour.WHITE)                  # rook, not straight
+    raise AssertionError("illegal rook move allowed")
+except ValueError as e:
+    print("rejected:", e)
+
+assert board.move(Square(7, 0), Square(4, 0), Colour.WHITE) == "capture"  # rook takes pawn
+try:
+    board.move(Square(4, 0), Square(3, 1), Colour.WHITE)                  # rooks don't go diagonally
+    raise AssertionError("illegal diagonal rook move allowed")
+except ValueError:
+    pass
+print("rook now at (4,0):", board.at(Square(4, 0)).symbol())
+```
+
+**The special rules, and where each one belongs** — say this rather than trying to implement them:
+
+| Rule | Where it lives | Why not on the piece |
+|---|---|---|
+| **Castling** | Board/game level | Involves two pieces, their move history, and the squares crossed being unattacked |
+| **En passant** | Game level | Depends on the *previous* move, which a piece cannot see |
+| **Promotion** | Game level, after the move | Replaces a piece — a board mutation, not a movement |
+| **Check / checkmate** | Board level | "Would this move leave my king attacked?" is a whole-board query |
+| **Stalemate, 50-move, repetition** | Game level | Needs game history, not board state |
+
+The general principle to state: **a piece knows its geometry; the board knows the position; the game knows the history.** Rules that need history (en passant, repetition, castling rights) cannot live on the piece, and putting them there is the most common structural mistake in this problem.
+
+**Check detection** is worth one sentence of algorithm: after applying a move on a copy (or applying and undoing), ask whether any enemy piece `can_move` to the king's square. Checkmate is "in check and no legal move exists"; stalemate is "not in check and no legal move exists" — the same generator, different check status.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-16-chess-q1", "type": "mcq",
+      "prompt": "Why can en passant not be implemented inside `Pawn.can_move`?",
+      "options": [
+        {"id":"a","text":"Because pawns cannot capture diagonally"},
+        {"id":"b","text":"Because its legality depends on the opponent's immediately preceding move — information the piece cannot see; rules requiring game history belong at the game level, while the piece owns only its geometry"},
+        {"id":"c","text":"Because it involves two pieces of the same colour"},
+        {"id":"d","text":"Because it changes the board size"}
+      ],
+      "correct": "b",
+      "explanation": "The layering rule for this problem: piece = geometry, board = current position, game = history. En passant, castling rights, threefold repetition, and the 50-move rule are all history-dependent and therefore game-level." }
+] }
+```
+
+## Turn management, players, and extensions
+
+Common to all three games, and a good closing section in any game interview:
+
+**Turn management** is a rotating index over the player list, plus rules for extra turns (rolling a six) and skipped turns (three sixes, a forfeit). Keeping it in one `next_turn()` method rather than scattered `+= 1` statements is what stops off-by-one bugs when those rules arrive.
+
+**Players and bots**: `Player` should hold a `MoveStrategy` — `HumanInput`, `RandomBot`, `MinimaxBot`. The game loop then never branches on "is this a bot?", and adding an AI is a new strategy class. This is the same Strategy usage as pricing in the parking lot, applied to decisions instead of money.
+
+**Undo** is the **Command** pattern: each move is an object that can apply and reverse itself, and the game holds a stack. For chess, the reverse must restore the captured piece, the `has_moved` flags, and the en-passant square — which is exactly why a `Move` object storing that context beats trying to recompute it.
+
+**Persistence and replay**: store the move list, not the board. The board is derivable by replaying moves from the initial position, which gives you free undo, replay, and analysis — the event-sourcing argument from the HLD lessons, in miniature.
+
+**Multiplayer over a network** turns this into an HLD problem: a server authoritative on state, moves validated server-side (never trust the client), and the board pushed over WebSocket to spectators.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-16-turns-q1", "type": "mcq",
+      "prompt": "How should a game support both human players and AI bots without branching in the game loop?",
+      "options": [
+        {"id":"a","text":"Subclass Game into HumanGame and BotGame"},
+        {"id":"b","text":"Give each Player a `MoveStrategy` (human input, random bot, minimax bot); the loop always calls `player.strategy.choose_move(state)`, so adding an AI is a new strategy class with no change to the loop"},
+        {"id":"c","text":"Check `player.is_bot` before each move"},
+        {"id":"d","text":"Run bots in a separate process"}
+      ],
+      "correct": "b",
+      "explanation": "Move selection is the varying behaviour, so it belongs behind an interface on the player. The `is_bot` flag is the Open/Closed violation, and subclassing the whole game duplicates everything to vary one decision." }
+] }
+```
+
+## Key takeaways
+
+- **The board-game skeleton is reusable**: Game (turns, status) → Board (geometry, cells) → Player (identity + move strategy) → Move (value object) → Rules (validation + termination).
+- **Tic-Tac-Toe is an algorithm question in disguise.** Running counters give O(1) win detection; the diagonal `if`/`if` and the move-count draw check are the details that get probed.
+- **Snake & Ladder is an edge-case question.** One `jumps` map, an explicit overshoot rule, exact landing, extra turn on six, and board validation at construction.
+- **Chess is a layering question.** Piece = geometry, board = position, game = history — and every special rule sorts cleanly into one of those three.
+- **Move selection is a Strategy; moves are Commands.** That pair gives you bots, undo, replay, and persistence from the same model, and it is the strongest thing you can add when the interviewer asks "how would you extend this?".
+$md$, 55, $json$[{"id":"ip45-lld-16-ttt-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-16-snl-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-16-chess-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-16-turns-q1","type":"mcq","correct":"b"}]$json$::jsonb)
+ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
+
+INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
+VALUES ('1c140a87-6411-5380-8cfb-7171c9ed5989', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'Design Problems in Code — LRU, HashMap, Tic-Tac-Toe', 'notes', 17, $md$The previous lessons designed classes on a whiteboard. This one designs them *in code*, under the constraints a coding round imposes: a stated operation-complexity target and a working implementation in 20 minutes. It opens with a fast recap of the six patterns you are most likely to reach for (covered in depth in the Creational, Structural, and Behavioral lessons), then applies that thinking to the "implement this data structure" problems that dominate the design slot of a coding interview, ending with LRU Cache, the single most-asked design problem in tech interviews.
 
 ## Singleton, Factory, Observer
 
@@ -9055,7 +26584,7 @@ $md$, 150, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('9f45b5b4-47e8-5baf-9afc-6a94dcf847bd', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Database Design (LLD)', 'notes', 30, $md$Database design interviews test a different muscle than algorithms: modeling relationships correctly, knowing when normalization helps vs hurts, and writing joins/subqueries fluently under time pressure. Today covers ER modeling, the normal forms, denormalization trade-offs, and hands-on schema + query practice using a blog system as the running example.
+VALUES ('9f45b5b4-47e8-5baf-9afc-6a94dcf847bd', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'Database Design for LLD', 'notes', 18, $md$Database design interviews test a different muscle than algorithms: modeling relationships correctly, knowing when normalization helps vs hurts, and writing joins/subqueries fluently under time pressure. Today covers ER modeling, the normal forms, denormalization trade-offs, and hands-on schema + query practice using a blog system as the running example.
 
 ## ER diagrams
 
@@ -9312,150 +26841,211 @@ $md$, 120, $json$[]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('79c2ef2d-d1ff-5991-ad0b-a8fbb7fc75bf', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Notes: A/B Testing Fundamentals', 'notes', 90, $md$A/B testing doesn't appear anywhere else in the course, but it's a recurring follow-up to component-design questions ("how would you know if this change actually helped?") and comes up directly in senior/staff loops that blend system design with product sense.
+VALUES ('aad852eb-d4cd-5493-ab69-3168694c9ea4', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'e38ee5e3-b1ae-5ba9-835b-f0cfa4c5a6f3', 'LLD Cheat Sheet and Recall Drill', 'notes', 19, $md$Eighteen lessons of object modelling, principles, patterns, and worked problems only pay off if you can retrieve them in 45 minutes with someone watching. This lesson is the retrieval layer: the framework, the decision tables that map a requirement to a design move, the phrases that earn points, and a drill to run weekly until every answer is automatic.
 
-## What it is and why interviewers ask
-
-An A/B test randomly splits users into two (or more) groups: a control seeing the current experience and a treatment seeing a change. It then compares a target metric between groups to determine whether the change causally improved it. Interviewers ask about it to check whether you can reason about causality vs correlation. A metric moving after a launch doesn't prove the launch caused it. Seasonality, concurrent changes, and selection bias can all produce the same signal, while a properly randomized A/B test isolates the change as the cause.
-
-## A worked trace: does the new checkout button actually help?
-
-Say you're testing a redesigned "Buy Now" button against checkout conversion rate. You randomly assign 200,000 users who reach the cart page: 100,000 see the old button (control), 100,000 see the new one (treatment).
-
-Over the test window, 8,200 of the control group complete checkout (an 8.2% conversion rate), and 8,600 of the treatment group do (an 8.6% conversion rate). That's a 0.4 percentage-point lift, or about 4.9% relative improvement.
-
-Before declaring victory, run the numbers through two questions:
-- **Is this likely to be real, or noise?** A significance test (e.g., a two-proportion z-test) on 8,200/100,000 vs 8,600/100,000 gives a p-value. If it's below your pre-registered threshold (typically 0.05), the difference probably isn't due to random chance in who got assigned to which group.
-- **Is this big enough to matter?** A statistically significant 0.4-point lift might still be too small to justify the engineering cost of shipping the new button, or it might be exactly the kind of compounding win worth shipping immediately. That judgment call is why you report the actual effect size (4.9% relative lift) alongside the p-value, not just "significant: yes/no."
-
-Now check the guardrails before shipping. Suppose page load time in the treatment group crept up by 200ms because the new button pulls in a heavier animation library. Even with a clean conversion win, that guardrail regression is a real cost the primary metric alone would never surface. This is why a test is never evaluated on one number.
-
-## Core design decisions
-
-**Randomization unit.** Almost always assign by user ID (hashed into a bucket), not by session or request. A user should see a consistent experience across visits, or the test measures confusion/inconsistency instead of the actual change. Hash the user ID with a fixed salt per experiment (`hash(user_id + experiment_name) % 100`) so bucket assignment is deterministic and reproducible without needing to store an assignment per user.
-
-**Sample size and test duration.** Before launching, compute the minimum sample size needed to detect the smallest effect size worth caring about, given a target statistical power (typically 80%) and significance level (typically 5%). Running a test too short risks a false negative from noise. Running it too long wastes an opportunity cost of exposing users to a losing variant. A one-week minimum is common even if sample size is reached faster, to average out day-of-week effects (weekday vs weekend behavior differs for most consumer products).
-
-**Primary metric vs guardrail metrics.** Pick one primary metric the test is designed to move (e.g. checkout conversion rate, as above) and a small set of guardrail metrics that must not regress (e.g. page load time, error rate, revenue per user). A test can "win" on the primary metric while quietly breaking something else, exactly like the page-load regression above, and guardrails catch that.
-
-**Statistical significance vs practical significance.** A result can be statistically significant (unlikely to be noise) but practically meaningless: a 0.01% lift not worth the added complexity. Or the reverse can happen, a real but noisy-looking effect that a longer test would confirm. Report both the p-value/confidence interval and the actual effect size, not just a pass/fail label.
-
-## System design considerations
+## The one-page map
 
 ```
-User request
-     |
-     v
-Experiment Assignment Service  <-->  Experiment Config Store (which experiments are live, split %)
-     |
-     v (bucket: control | treatment, deterministic via hashed user_id)
-Application serves the appropriate variant
-     |
-     v
-Event Logging (impressions + downstream metric events) --> Analytics Pipeline --> Dashboard
+FRAMEWORK (Lesson 1)   Requirements → Entities → Relationships → Interfaces
+                       → Concurrency → Extensibility
+                       45 min: 5 / 8 / 8 / 10 / 7 / 5
+
+MODELLING (1,2)        nouns → classes · verbs → methods · closed sets → ENUMS
+                       varying behaviour → INTERFACE · values → immutable value objects
+                       COMPOSITION over inheritance · low coupling, high cohesion
+                       lifecycle test: composition (◆) vs aggregation (◇)
+
+PRINCIPLES (3)         S one reason to change · O add classes not edits
+                       L subtypes substitutable · I no forced methods
+                       D depend on abstractions the DOMAIN owns
+
+PATTERNS (4–7)         Creational : Singleton · Factory · Abstract Factory · Builder
+                                    · Prototype · Object Pool
+                       Structural : Adapter · Decorator · Facade · Composite
+                                    · Bridge · Proxy · Flyweight
+                       Behavioral : Strategy · Observer · Command · State
+                                    · Template Method · Chain · Iterator
+                                    · Mediator · Memento · Visitor
+
+CONCURRENCY (8)        find SHARED MUTABLE STATE → remove sharing / remove mutability
+                                                  / protect access
+                       lock · atomic · immutable · lock ORDER for deadlock
+                       optimistic (low contention) vs pessimistic (high) vs TTL reservation
+                       MULTI-PROCESS ⇒ the DATABASE enforces it, never an in-process lock
+
+PROBLEMS (9–18)        parking lot · elevator · ticket booking · splitwise
+                       · vending/ATM · rate limiter/logger · notifications/cache
+                       · games · coding-style design problems · database design
 ```
 
-- **Assignment must be fast and available.** It sits on the critical path of every request that touches an experiment, so it's typically a local hash computation (no network call) rather than a lookup against a remote service, with experiment configs cached/pushed to app servers periodically rather than fetched per-request.
-- **Mutual exclusion between overlapping experiments.** Running many experiments simultaneously risks interaction effects, where experiment A's treatment interacts badly with experiment B's treatment for the same user. Solve with layers: partition traffic into independent layers where experiments in the same layer are mutually exclusive (a user is in exactly one experiment per layer) but experiments in different layers can run concurrently.
-- **Logging must tie the assignment to the outcome.** Every metric event needs to be attributable back to which variant the user was in at the time. Log the experiment/variant alongside (or joinable to) the business event, not just aggregate counts, so the analysis can be re-sliced later (by platform, region, user segment) without re-running the experiment.
-- **Ramp-up, not instant 50/50.** Launch a new experiment at a small treatment percentage (e.g. 1%) first to catch catastrophic bugs cheaply, then ramp to the full test split once basic health is confirmed. This is the same "canary" instinct as a canary deployment, applied to experiment rollout.
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-19-map-q1", "type": "mcq",
+      "prompt": "Which step of the LLD framework do candidates most often skip, and what does skipping it cost?",
+      "options": [
+        {"id":"a","text":"Drawing the class diagram — without it the interviewer cannot follow"},
+        {"id":"b","text":"Concurrency — most candidates present a single-threaded model and then have no answer when asked what happens if two users act at once, which is the follow-up in nearly every LLD round"},
+        {"id":"c","text":"Requirements — most candidates spend too long there"},
+        {"id":"d","text":"Naming the classes"}
+      ],
+      "correct": "b",
+      "explanation": "Concurrency is both the most commonly skipped step and the most reliably asked follow-up. Volunteering \"the shared mutable state is X, protected by Y\" before being asked is one of the cheapest ways to stand out." }
+] }
+```
 
-## Common pitfalls
+## Requirement → design move
 
-- **Peeking.** Checking results repeatedly and stopping as soon as they look significant inflates the false-positive rate, since each peek is another chance to catch a random fluctuation. Decide the sample size/duration in advance and don't stop early based on interim results, unless using a sequential-testing method designed to allow it.
-- **Novelty effect.** A change might perform well simply because it's new and users are curious/exploring, with the effect fading after the initial period. A too-short test can mistake this for a durable improvement.
-- **Sample Ratio Mismatch (SRM).** If the actual observed split (e.g. 48/52) deviates significantly from the intended split (50/50), something is broken in the assignment/logging pipeline, and the test's results shouldn't be trusted until the mismatch is root-caused. This is a standard automated sanity check before reading any other result. In the checkout example above, if the 200,000 users split 96,000/104,000 instead of roughly 100,000/100,000, that imbalance itself is a signal to investigate before trusting the 8.6% vs 8.2% conversion numbers at all.
+The table to run in your head while the interviewer is still talking.
+
+| What you hear | What it means |
+|---|---|
+| "…and we might add more types later" | Enum + polymorphism, or a registry factory |
+| "…the pricing/rules may change" | **Strategy** interface |
+| "…when X happens, also do Y and Z" | **Observer** |
+| "…it can be in one of these states" | **State** pattern, or an enum + transition table |
+| "…support undo" | **Command** (+ Memento for snapshots) |
+| "…process the request through these steps" | **Chain of Responsibility** |
+| "…it's a tree / has nested groups" | **Composite** |
+| "…integrate with this third-party API" | **Adapter** (+ **Decorator** for retry) |
+| "…this is expensive to create" | Lazy **Proxy**, **Object Pool**, or **Flyweight** |
+| "…lots of optional parameters" | **Builder** |
+| "…exactly one of these should exist" | One instance, **injected** (not a global Singleton) |
+| "…two users do this at the same time" | Name the shared state; lock / atomic / conditional DB write |
+| "…the user takes minutes to complete this" | **Reservation with a TTL**, never a held lock |
+| "…this involves money" | Integer minor units, immutable ledger entries, derived balances |
+| "…we run on several servers" | Unique constraint or conditional `UPDATE`; in-process locks are useless |
+| "…we need history / an audit trail" | Immutable records; corrections are new entries, never edits |
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-19-mapping-q1", "type": "mcq",
+      "prompt": "The interviewer says: \"a user selects seats, then has five minutes to pay.\" What is the design move?",
+      "options": [
+        {"id":"a","text":"Hold a database row lock for the five minutes"},
+        {"id":"b","text":"A reservation with an expiry timestamp — the seat moves to a HELD state with `held_until`, so an abandoned checkout releases itself and no lock is held across a human-scale delay"},
+        {"id":"c","text":"An optimistic version check at payment time only"},
+        {"id":"d","text":"A distributed Redis lock with a five-minute TTL"}
+      ],
+      "correct": "b",
+      "explanation": "Human-scale delays rule out held locks — they would serialise the whole system and leak on abandonment. The expiry makes abandonment self-healing, and the actual anti-double-booking guarantee is the conditional write plus the unique constraint." }
+] }
+```
+
+## The phrases that earn points
+
+Rehearse these verbatim; under pressure you produce what you have said before.
+
+1. "Before I model anything — what varies here, and what's fixed?"
+2. "I'll scope to X and Y; I'll define an interface for Z but not implement it."
+3. "That's a closed set, so an enum — and an enum rather than a boolean, because a third state is coming."
+4. "These two things vary independently, so composition rather than inheritance — otherwise I need a class per combination."
+5. "This is composition, not aggregation: destroy the floor and the spots are meaningless."
+6. "I'm putting pricing behind an interface because you said the scheme will change."
+7. "The shared mutable state here is the free-seat set, and it's protected by a conditional write."
+8. "An in-process lock won't survive a second server — the invariant has to live in the database."
+9. "Illegal transitions become unwritable, because each state class only defines the moves it permits."
+10. "That's a cross-cutting concern, so a decorator around the channel rather than code in every channel."
+11. "Money is integer paise, and the split has an explicit remainder rule so the shares sum exactly to the total."
+12. "If we add a new type, that's one new class and no edits — here's the walkthrough."
+
+**And the anti-patterns to hear yourself doing**: naming a pattern before naming the problem; a `Manager`/`Helper` god class; getters and setters instead of behaviour; inheritance for code reuse; booleans where an enum belongs; an interface with one implementation and no plausible second; and going silent while thinking.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-19-phrases-q1", "type": "mcq",
+      "prompt": "Which statement would an interviewer most likely count against you?",
+      "options": [
+        {"id":"a","text":"\"I'll keep this concrete for now; if a second pricing rule appears, this is where the strategy goes.\""},
+        {"id":"b","text":"\"I'll add an interface, an abstract factory, and a strategy for this one concrete class so the design is flexible.\""},
+        {"id":"c","text":"\"The shared mutable state is the inventory count, protected by a conditional UPDATE.\""},
+        {"id":"d","text":"\"This is aggregation, not composition — the songs outlive the playlist.\""}
+      ],
+      "correct": "b",
+      "explanation": "Speculative abstraction with no axis of variation is the most common post-patterns mistake. Deliberately staying concrete while naming where the extension point would go (a) is the stronger, more senior answer." }
+] }
+```
+
+## The weekly recall drill
+
+Answer out loud, from memory, in under five seconds each. The bracketed number is the lesson to check yourself against.
+
+**Round 1 — framework and modelling**
+1. The six steps of an LLD interview, and the minutes for each. [1]
+2. Four kinds of thing a noun can become. [1]
+3. The lifecycle test for composition vs aggregation. [1]
+4. Why prefer an enum to a boolean flag. [1]
+5. Encapsulation vs abstraction, in one sentence each. [2]
+6. Two reasons composition beats inheritance. [2]
+7. Name three design smells and their fixes. [2]
+8. Interface vs abstract class — when each. [2]
+
+**Round 2 — principles**
+9. State each SOLID letter and the smell that reveals its violation. [3]
+10. Why does `Square extends Rectangle` break LSP? [3]
+11. The practical signal of an ISP violation. [3]
+12. Which layer should own the repository interface, and why? [3]
+
+**Round 3 — patterns**
+13. Adapter vs Facade. [5]
+14. Decorator vs Proxy. [5]
+15. Strategy vs State. [6]
+16. Strategy vs Template Method. [6]
+17. When is Visitor right, and what does it cost? [7]
+18. Two capabilities Command unlocks besides undo. [6]
+19. Why is Singleton criticised, and what is preferred? [4]
+20. What must be true for Flyweight to be safe? [5]
+
+**Round 4 — concurrency**
+21. The three race shapes. [8]
+22. Why thread-safe methods do not compose. [8]
+23. The four Coffman conditions, and which one you break in practice. [8]
+24. Optimistic vs pessimistic — pick by what? [8]
+25. What actually prevents double-booking across five servers? [8]
+
+**Round 5 — problems**
+26. Parking lot: the two extension points. [9]
+27. Elevator: why two directional stop sets, and what LOOK does. [10]
+28. Booking: why `Seat` and `ShowSeat` are different classes. [11]
+29. Splitwise: the three money rules, and the settlement algorithm's bound. [12]
+30. Vending machine: what happens when exact change is impossible. [13]
+31. ATM: when is greedy note selection wrong? [13]
+32. Rate limiter: the four algorithms and the default choice. [14]
+33. Logger: why check the level before formatting? [14]
+34. LRU: which two structures, and why each is needed. [15]
+35. Chess: which layer owns en passant, and why. [16]
+
+**Round 6 — apply it.** Pick a problem you have not yet designed — food delivery, a car rental system, a library, a hotel booking system, a coffee machine, an online judge, a chat application, a URL shortener at class level — and give yourself **fifteen minutes**: requirements and scope, entities with their kind, a class diagram, real method signatures on the core classes, the shared mutable state and its protection, and one extension walked through. Out loud, no notes. Do one a week.
+
+Every one of those is a recombination of what is already in this section: an allocator (parking lot), a lifecycle (vending machine), a reservation (booking), a pricing strategy, a notification observer, and a repository interface.
+
+```knowledge-check
+{ "questions": [
+    { "id": "ip45-lld-19-drill-q1", "type": "mcq",
+      "prompt": "You are asked to design a food-delivery system's classes and have never prepared that specific problem. What is the most reliable approach?",
+      "options": [
+        {"id":"a","text":"Recall the closest problem you memorised and reproduce its classes"},
+        {"id":"b","text":"Run the six-step framework and recombine known building blocks: order lifecycle (State), rider assignment (allocation Strategy), pricing/surge (Strategy), status updates (Observer), inventory holds (reservation with TTL), and persistence behind repository interfaces"},
+        {"id":"c","text":"Start by listing every design pattern that might apply"},
+        {"id":"d","text":"Ask the interviewer to pick a problem you have prepared"}
+      ],
+      "correct": "b",
+      "explanation": "Every new LLD problem is a recombination of the same primitives. The framework guarantees you cover requirements, entities, relationships, interfaces, concurrency, and extensibility regardless of the domain — which is why procedure beats memorisation." }
+] }
+```
 
 ## Key takeaways
 
-- A/B testing isolates causation by randomizing users into control/treatment groups; deterministic, salted hash-based assignment on user ID keeps the experience consistent per user without a stateful lookup.
-- A single lift number is never the full story: pair effect size with statistical significance, and check guardrail metrics before declaring a win, since a test can improve one number while quietly breaking another.
-$md$, 15, $json$[]$json$::jsonb)
-ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
-
-INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
-VALUES ('d04e08a3-e875-5e46-b5f3-cd6a947fc35f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', '58424ed6-4690-5ef0-ab6a-65ab3cc84017', 'Notes: Consistent Hashing', 'notes', 91, $md$Consistent hashing is one of the few system-design building blocks interviewers expect you to derive on the spot, not just name-drop. It's the mechanism behind Dynamo, Cassandra, memcached client sharding, and most CDN/load-balancer request routing. If you can explain why plain `hash(key) % N` breaks and how the ring fixes it, you've demonstrated the exact kind of first-principles reasoning these interviews are built to test.
-
-## The problem: modulo hashing doesn't survive resizing
-
-The naive way to shard data across `N` servers is `server = hash(key) % N`. It works fine until `N` changes. Add or remove a single server and `% N` becomes `% (N±1)`, which reassigns almost every key to a different server, not just the keys that belong on the new one. For a cache, that's a near-total cache miss storm. For a database, it's a massive, unnecessary data migration triggered by a single node joining or leaving.
-
-A quick trace makes this concrete. Say you have 4 servers (N=4) and a key `"user:42"` hashes to 17. `17 % 4 = 1`, so it lives on server 1. Add a 5th server and nothing about the key's hash changes, but now `17 % 5 = 2`. The key just moved to server 2, even though server 2 didn't just join and has nothing to do with the resize. Multiply that by every key whose `hash % 4` and `hash % 5` land on different servers, which is most of them, and you can see why adding one server to a cache fleet can evict nearly the entire cache at once.
-
-Interviewers ask this to check whether you reason about failure and scaling as first-class requirements, not edge cases. Servers going up and down is the normal operating condition of a distributed system, not an exception.
-
-## The idea: a hash ring
-
-Consistent hashing maps both servers and keys onto the same fixed circular space (typically `0` to `2^32 - 1`, using a hash function like MD5 or MurmurHash). A key is owned by the first server encountered walking clockwise from the key's position on the ring.
-
-```
-                    hash space: a ring, 0 .. 2^32-1
-
-                            0 / 2^32
-                              |
-                    Server D  *
-                         .        .
-                    .                .
-              key "session:42"          Server A
-              hash -> lands here   *          *
-                    .          walk CW    .
-                       .        |      .
-                    Server C *--+---* Server B
-                              |
-                        (owns everything
-                         clockwise back
-                         to Server A)
-```
-
-- **Adding a server** only steals the keys between its new ring position and the previous server clockwise from it. Every other key stays put. Only `~1/N` of keys move, not nearly all of them.
-- **Removing a server** only reassigns that server's keys to the next server clockwise, again a small, local blast radius instead of a global reshuffle.
-
-Trace it through the same ring pictured above. Say `"session:42"` hashes to a point that lands just before Server A, so it's owned by Server A. If Server E joins and its ring position lands between `"session:42"`'s hash and Server A, only that narrow arc of keys (including `"session:42"`) moves to Server E; everything owned by Server B, C, and D is completely untouched. Now say Server B fails instead: only the keys in Server B's arc reassign, to Server C (the next server clockwise), while Server A's and Server D's keys never move. That's the entire point: ring membership changes cause proportional, local key movement instead of global reshuffling.
-
-## Virtual nodes (the part people forget)
-
-Placing each physical server at a single random ring position causes two problems: uneven load (some servers own a much bigger arc than others by chance) and an all-or-nothing failover (when a server dies, 100% of its keys land on exactly one neighbor, doubling that neighbor's load).
-
-The fix: hash each physical server into many points on the ring (100-200 virtual nodes is typical), each labeled `server-A#1`, `server-A#2`, and so on. A key still resolves to "the first virtual node clockwise," but that virtual node's physical owner is what actually serves the request.
-
-```
-Ring with virtual nodes (letters = physical server owning that point):
-
-  A1  B2  C1  A2  B1  C3  A3  C2  B3  A1 ...
-
-  - Load evens out: each physical server owns many small,
-    scattered arcs instead of one large arc.
-  - Failover spreads out: when server B dies, its keys
-    (B1, B2, B3) land on several different neighbors,
-    not one.
-```
-
-More virtual nodes means smoother load distribution, at the cost of more ring metadata to store and traverse. Real systems (Cassandra, Dynamo) tune this count based on cluster size.
-
-## System design considerations
-
-- **Ring lookup structure.** Keep virtual node positions in a sorted structure (a balanced tree, or a sorted array with binary search) so "find the first node clockwise from `hash(key)`" is O(log V), where V is the number of virtual nodes, not a linear scan.
-- **Replication.** For durability, a key is usually stored on the N distinct physical servers encountered walking clockwise from its position, skipping virtual nodes that map back to an already-selected physical server. This is exactly how Dynamo-style systems place replicas: for a replication factor of 3, `"session:42"` above would be stored on Server A plus the next two distinct physical servers found walking clockwise past it.
-- **Heterogeneous capacity.** A server with 2x the RAM/disk of its peers gets 2x the virtual nodes, so it owns proportionally more of the ring. Virtual node count is a natural capacity-weighting knob, not just a load-smoothing one.
-- **Client-side vs server-side.** memcached clients typically compute the ring locally, since every client needs the same server list. Dynamo/Cassandra instead maintain ring membership via gossip between nodes, so clients don't need cluster topology knowledge.
-
-## Common pitfalls
-
-- **Forgetting virtual nodes entirely.** A bare hash ring with one point per server has bad load balance and bad failover blast radius. Interviewers listen for whether you bring this up unprompted.
-- **Using a weak hash function.** A poor hash clusters keys/servers unevenly on the ring regardless of virtual nodes. A well-distributed hash (MurmurHash, SHA-based) matters as much as the ring structure itself.
-- **Conflating consistent hashing with data consistency.** The name is about hashing being consistent under membership change, not about strong vs eventual consistency of the stored data. Interviewers sometimes probe this distinction directly.
-
-## Key takeaways
-
-- Plain `hash(key) % N` reshuffles almost all keys on every server add/remove, as the 4-to-5-server trace above shows. Consistent hashing fixes this by mapping servers and keys onto the same ring so only `~1/N` of keys move per membership change.
-- Virtual nodes (100-200 per physical server) fix the uneven load and concentrated failover blast radius that a single-point-per-server ring suffers from, and double as a capacity-weighting knob for heterogeneous hardware.
-- Replicas are placed by walking clockwise to the next N distinct physical servers, the same ring structure that assigns primary ownership also derives replica placement.
-$md$, 20, $json$[]$json$::jsonb)
+- **Procedure beats memorisation.** The six steps and the requirement→design-move table are what let you handle a problem you have never seen.
+- **Every design decision comes with a cost — say it.** "Composition here, because these axes vary independently; the cost is one more object to wire" is what a design review sounds like.
+- **Concurrency is the most-skipped, most-asked step.** Name the shared mutable state and its protection before you are asked, and remember that only the database enforces anything across servers.
+- **Restraint is a senior signal.** After a full pattern catalogue, deliberately staying concrete and naming where the extension point *would* go beats abstracting everything.
+- **Practise out loud, on a clock, weekly.** Fifteen minutes on an unfamiliar problem, using nothing but the framework and the building blocks from lessons 9–18.
+$md$, 40, $json$[{"id":"ip45-lld-19-map-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-19-mapping-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-19-phrases-q1","type":"mcq","correct":"b"},{"id":"ip45-lld-19-drill-q1","type":"mcq","correct":"b"}]$json$::jsonb)
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, type=EXCLUDED.type, content_body=EXCLUDED.content_body, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, knowledge_check=EXCLUDED.knowledge_check, updated_at=now();
 
 -- Section: Backend Engineering
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('18add646-da46-5396-ac6e-b7bbd367501c', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Backend Engineering', 3)
+VALUES ('18add646-da46-5396-ac6e-b7bbd367501c', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Backend Engineering', 5)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
@@ -15487,7 +33077,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 -- Section: Frontend Engineering
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Frontend Engineering', 4)
+VALUES ('cc17bfa6-7b4f-56ac-b858-8d08cbc0701d', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Frontend Engineering', 6)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
@@ -20747,7 +38337,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 -- Section: Behavioral
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('d3f8c476-a30c-5ea7-b497-dc818ddabea5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Behavioral', 5)
+VALUES ('d3f8c476-a30c-5ea7-b497-dc818ddabea5', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Behavioral', 7)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
@@ -21820,11 +39410,11 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 -- Section: Checkpoint Quizzes
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('e607ae0c-21f5-57bb-9fbb-5a34f90432f7', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Checkpoint Quizzes', 6)
+VALUES ('e607ae0c-21f5-57bb-9fbb-5a34f90432f7', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Checkpoint Quizzes', 8)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('6682cde0-c14d-551b-a1f5-df684ab84881', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the average and worst-case time complexity of a hash map lookup?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('6682cde0-c14d-551b-a1f5-df684ab84881', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the average and worst-case time complexity of a hash map lookup?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21832,7 +39422,7 @@ VALUES ('fd47e267-e8f7-545d-a982-dd5b96a588db', '6682cde0-c14d-551b-a1f5-df684ab
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('b54f82fa-938e-51eb-8222-f26e24e244d3', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the time complexity of the standard two-pointer solution to 3Sum?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('b54f82fa-938e-51eb-8222-f26e24e244d3', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the time complexity of the standard two-pointer solution to 3Sum?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21840,7 +39430,7 @@ VALUES ('a7e05d84-c154-5246-b1b3-737846efbf78', 'b54f82fa-938e-51eb-8222-f26e24e
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('43326dd8-310d-5649-971b-94f140abd1bd', '00000000-0000-0000-0000-000000000001', 'mcq', 'The sliding window technique typically reduces which complexity to which?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('43326dd8-310d-5649-971b-94f140abd1bd', '00000000-0000-0000-0000-000000000001', 'mcq', 'The sliding window technique typically reduces which complexity to which?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21848,7 +39438,7 @@ VALUES ('7fae6f69-2815-5a39-975e-82074063e159', '43326dd8-310d-5649-971b-94f140a
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('48985774-c624-5ea3-99bb-9fc59bf47490', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which data structures back BFS and DFS traversals respectively?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('48985774-c624-5ea3-99bb-9fc59bf47490', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which data structures back BFS and DFS traversals respectively?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21856,7 +39446,7 @@ VALUES ('34cf9e76-4dc3-5b4d-a761-33cf14d9eb2b', '48985774-c624-5ea3-99bb-9fc59bf
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('b1bfe168-5d06-51ec-992c-df78281db81f', '00000000-0000-0000-0000-000000000001', 'mcq', 'A monotonic stack is the go-to pattern for which class of problems?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('b1bfe168-5d06-51ec-992c-df78281db81f', '00000000-0000-0000-0000-000000000001', 'mcq', 'A monotonic stack is the go-to pattern for which class of problems?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21864,7 +39454,7 @@ VALUES ('42dbfaca-07ba-5711-9dda-9cc002a80b7c', 'b1bfe168-5d06-51ec-992c-df78281
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('cbb027ee-3544-5e78-ad02-159b9561236e', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a rate limiter design, which algorithm allows short bursts while enforcing...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('cbb027ee-3544-5e78-ad02-159b9561236e', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a rate limiter design, which algorithm allows short bursts while enforcing...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21872,7 +39462,7 @@ VALUES ('ab967948-955e-5a50-b9c0-331982ceb28f', 'cbb027ee-3544-5e78-ad02-159b956
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('57deaf37-eb40-560a-a2fb-32165bad7ceb', '00000000-0000-0000-0000-000000000001', 'mcq', 'When would adding a B-tree index to a PostgreSQL column likely NOT help?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('57deaf37-eb40-560a-a2fb-32165bad7ceb', '00000000-0000-0000-0000-000000000001', 'mcq', 'When would adding a B-tree index to a PostgreSQL column likely NOT help?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21880,7 +39470,7 @@ VALUES ('55d9d055-f12a-56ed-bfd9-24156b257072', '57deaf37-eb40-560a-a2fb-32165ba
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('a10f4f06-7e89-527f-94e0-7f8325b911f3', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does an inorder traversal of a valid binary search tree produce?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('a10f4f06-7e89-527f-94e0-7f8325b911f3', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does an inorder traversal of a valid binary search tree produce?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21908,7 +39498,7 @@ VALUES ('2d5bad6d-24ab-521c-ab49-69056e5b3795', '57f5e0f7-67b7-55ab-a3e7-4699471
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('9a360853-0152-5de9-bf23-ac351ea5bff1', '00000000-0000-0000-0000-000000000001', 'mcq', 'Topological sort is only defined for which kind of graph?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('9a360853-0152-5de9-bf23-ac351ea5bff1', '00000000-0000-0000-0000-000000000001', 'mcq', 'Topological sort is only defined for which kind of graph?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21916,7 +39506,7 @@ VALUES ('0a2c2895-34b7-582a-8ef5-106d5809a229', '9a360853-0152-5de9-bf23-ac351ea
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('d9d2121a-6c18-5616-9cc9-74a801d51ec5', '00000000-0000-0000-0000-000000000001', 'mcq', 'What are the time complexities of heap push/pop and peek?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('d9d2121a-6c18-5616-9cc9-74a801d51ec5', '00000000-0000-0000-0000-000000000001', 'mcq', 'What are the time complexities of heap push/pop and peek?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21924,7 +39514,7 @@ VALUES ('0f38cd62-3ee7-5ed7-a227-b86a2467ddf5', 'd9d2121a-6c18-5616-9cc9-74a801d
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('7b497235-9227-5859-a332-f8a3dfe8c285', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why can you reconstruct a binary tree from preorder + inorder traversals, but...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('7b497235-9227-5859-a332-f8a3dfe8c285', '00000000-0000-0000-0000-000000000001', 'mcq', 'Why can you reconstruct a binary tree from preorder + inorder traversals, but...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21932,7 +39522,7 @@ VALUES ('691dcdcb-31b6-57e3-a92d-56118639c5cd', '7b497235-9227-5859-a332-f8a3dfe
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('8118909d-77a0-5a41-a438-5969662d8a94', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the difference between top-down (memoization) and bottom-up (tabulati...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('8118909d-77a0-5a41-a438-5969662d8a94', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the difference between top-down (memoization) and bottom-up (tabulati...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21940,7 +39530,7 @@ VALUES ('72518a45-f58e-50bb-8cf6-70e828edcc38', '8118909d-77a0-5a41-a438-5969662
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('7f3b1921-2cb5-53dc-9631-348023d29b91', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a Twitter-style feed design, what is the main trade-off between fan-out-on...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('7f3b1921-2cb5-53dc-9631-348023d29b91', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a Twitter-style feed design, what is the main trade-off between fan-out-on...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21948,7 +39538,7 @@ VALUES ('d7cc6cdf-5efb-5150-a4b6-79ce82b4775b', '7f3b1921-2cb5-53dc-9631-348023d
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('070c855e-b5dc-50ff-9df5-9bc9c1df4fd0', '00000000-0000-0000-0000-000000000001', 'mcq', 'In Django ORM, what is the difference between select_related and prefetch_rel...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('070c855e-b5dc-50ff-9df5-9bc9c1df4fd0', '00000000-0000-0000-0000-000000000001', 'mcq', 'In Django ORM, what is the difference between select_related and prefetch_rel...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21956,7 +39546,7 @@ VALUES ('9b07474b-dc52-580f-be3d-4716aa9e60b3', '070c855e-b5dc-50ff-9df5-9bc9c1d
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('f66c483c-5734-516e-9bab-e415f3f1cb81', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which HTTP method semantics are correct for a REST API?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('f66c483c-5734-516e-9bab-e415f3f1cb81', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which HTTP method semantics are correct for a REST API?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21964,7 +39554,7 @@ VALUES ('efe8a70f-c80d-5271-8bbd-01e0a549501f', 'f66c483c-5734-516e-9bab-e415f3f
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('356bf9dc-93fd-597a-900c-2afaf13e5b20', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a job queue system, how do you safely handle a worker that dies mid-task?', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('356bf9dc-93fd-597a-900c-2afaf13e5b20', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a job queue system, how do you safely handle a worker that dies mid-task?', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -21992,7 +39582,7 @@ VALUES ('0565a954-2b35-5ee4-af93-d99d14a7875b', '57f5e0f7-67b7-55ab-a3e7-4699471
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('603da097-ce96-576a-b184-43b0df516da0', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the worst-case time complexity of generating all subsets via backtrac...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('603da097-ce96-576a-b184-43b0df516da0', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the worst-case time complexity of generating all subsets via backtrac...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22000,7 +39590,7 @@ VALUES ('48758ddc-2038-514d-846a-176883fe84ea', '603da097-ce96-576a-b184-43b0df5
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('0a46bb7e-4658-5fdd-84dc-63836964e290', '00000000-0000-0000-0000-000000000001', 'mcq', 'In the classic N-Queens backtracking solution, which three constraint sets ar...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('0a46bb7e-4658-5fdd-84dc-63836964e290', '00000000-0000-0000-0000-000000000001', 'mcq', 'In the classic N-Queens backtracking solution, which three constraint sets ar...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22008,7 +39598,7 @@ VALUES ('98db26bd-32b5-5931-a6fa-6d9c771764c3', '0a46bb7e-4658-5fdd-84dc-6383696
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('80f7fa2a-2cda-59e1-baef-0c9b305ddf18', '00000000-0000-0000-0000-000000000001', 'mcq', 'When is a greedy algorithm guaranteed to produce the optimal answer?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('80f7fa2a-2cda-59e1-baef-0c9b305ddf18', '00000000-0000-0000-0000-000000000001', 'mcq', 'When is a greedy algorithm guaranteed to produce the optimal answer?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22016,7 +39606,7 @@ VALUES ('09c76422-9f77-590e-b02c-be8f6137e568', '80f7fa2a-2cda-59e1-baef-0c9b305
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('69ff3770-c0c8-507e-bc52-3090824a55c7', '00000000-0000-0000-0000-000000000001', 'mcq', 'What amortized complexity does Union-Find achieve with path compression and u...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('69ff3770-c0c8-507e-bc52-3090824a55c7', '00000000-0000-0000-0000-000000000001', 'mcq', 'What amortized complexity does Union-Find achieve with path compression and u...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22024,7 +39614,7 @@ VALUES ('608a9d32-6e43-5a0f-a0c8-8c3f165265c3', '69ff3770-c0c8-507e-bc52-3090824
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('15c5e349-90eb-504a-91c6-d50cede64343', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which XOR properties make Single Number solvable in O(n) time and O(1) space?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('15c5e349-90eb-504a-91c6-d50cede64343', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which XOR properties make Single Number solvable in O(n) time and O(1) space?', 'beginner', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22032,7 +39622,7 @@ VALUES ('b6d8014e-93d4-5ac5-bad3-1916314590d0', '15c5e349-90eb-504a-91c6-d50cede
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('7cf1ff49-7579-5a6d-a139-18b8e0121734', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does the CAP theorem say a distributed system must choose between during...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('7cf1ff49-7579-5a6d-a139-18b8e0121734', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does the CAP theorem say a distributed system must choose between during...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22040,7 +39630,7 @@ VALUES ('2e2a4c9d-aa75-51cf-b8f8-3e43b78bdc4c', '7cf1ff49-7579-5a6d-a139-18b8e01
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('1b427a58-1c84-5f61-8682-068c7ec9b34f', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the classic failure mode of a Redis distributed lock with a TTL?', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('1b427a58-1c84-5f61-8682-068c7ec9b34f', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the classic failure mode of a Redis distributed lock with a TTL?', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22048,7 +39638,7 @@ VALUES ('5e55475d-fc2f-5460-899a-195ce0f9532a', '1b427a58-1c84-5f61-8682-068c7ec
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('7ba3da2f-1e27-5d23-b07e-fed0785aa362', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a Ticketmaster-style booking system, what prevents two users from buying t...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('7ba3da2f-1e27-5d23-b07e-fed0785aa362', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a Ticketmaster-style booking system, what prevents two users from buying t...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22076,7 +39666,7 @@ VALUES ('6b2d6b75-1983-5743-8a90-ad560a54453b', '57f5e0f7-67b7-55ab-a3e7-4699471
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('87f0f085-f5f0-5b69-b64f-686437edc7ed', '00000000-0000-0000-0000-000000000001', 'mcq', 'What makes a trie faster than a hash set for prefix queries like autocomplete?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('87f0f085-f5f0-5b69-b64f-686437edc7ed', '00000000-0000-0000-0000-000000000001', 'mcq', 'What makes a trie faster than a hash set for prefix queries like autocomplete?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22084,7 +39674,7 @@ VALUES ('5406521a-ee0e-5fee-b7d2-1a7e188651e8', '87f0f085-f5f0-5b69-b64f-686437e
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('e738114c-c5c0-5ef3-a557-08d2a6317ff4', '00000000-0000-0000-0000-000000000001', 'mcq', 'In ''Minimum Window Substring'', what drives the sliding-window expand/contract...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('e738114c-c5c0-5ef3-a557-08d2a6317ff4', '00000000-0000-0000-0000-000000000001', 'mcq', 'In ''Minimum Window Substring'', what drives the sliding-window expand/contract...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22092,7 +39682,7 @@ VALUES ('546eb6e4-1625-523c-8854-0a6e371aaf71', 'e738114c-c5c0-5ef3-a557-08d2a63
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('967bff6d-faab-5a6f-8145-eaa7bf8064a4', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the first step in almost every interval problem (merge, insert, non-o...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('967bff6d-faab-5a6f-8145-eaa7bf8064a4', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the first step in almost every interval problem (merge, insert, non-o...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22100,7 +39690,7 @@ VALUES ('d90a3b51-4f7d-5094-8321-1f2aad44ce7b', '967bff6d-faab-5a6f-8145-eaa7bf8
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('712549bb-5458-5e23-9770-b6e7d080d4a4', '00000000-0000-0000-0000-000000000001', 'mcq', 'In fixed-width integer languages, how do you compute a binary-search midpoint...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('712549bb-5458-5e23-9770-b6e7d080d4a4', '00000000-0000-0000-0000-000000000001', 'mcq', 'In fixed-width integer languages, how do you compute a binary-search midpoint...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22108,7 +39698,7 @@ VALUES ('83051ca1-7ce6-5b0b-8b85-dc235cac4726', '712549bb-5458-5e23-9770-b6e7d08
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('5e4cfa95-5758-5cc7-80bc-d1c181aa4caf', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which design pattern lets you swap algorithms at runtime behind one interface...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('5e4cfa95-5758-5cc7-80bc-d1c181aa4caf', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which design pattern lets you swap algorithms at runtime behind one interface...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22116,7 +39706,7 @@ VALUES ('0e9f3c8e-e0b6-5fe1-a96e-bb49c7211be9', '5e4cfa95-5758-5cc7-80bc-d1c181a
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('4a9b0895-d5dc-5802-9263-01c6a41150d2', '00000000-0000-0000-0000-000000000001', 'mcq', 'A table is in third normal form (3NF) when…', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('4a9b0895-d5dc-5802-9263-01c6a41150d2', '00000000-0000-0000-0000-000000000001', 'mcq', 'A table is in third normal form (3NF) when…', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22124,7 +39714,7 @@ VALUES ('a6c5340f-60e3-5f0c-bf56-3629ef9de07e', '4a9b0895-d5dc-5802-9263-01c6a41
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('b8b5cadf-ae54-56d4-a173-3938573573ce', '00000000-0000-0000-0000-000000000001', 'mcq', 'When would you deliberately denormalize a schema?', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('b8b5cadf-ae54-56d4-a173-3938573573ce', '00000000-0000-0000-0000-000000000001', 'mcq', 'When would you deliberately denormalize a schema?', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22132,7 +39722,7 @@ VALUES ('977d8a84-7fbc-5b36-809b-edbbea085bc4', 'b8b5cadf-ae54-56d4-a173-3938573
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('707dfe60-b3ec-5b2d-b997-0a84b6937e6a', '00000000-0000-0000-0000-000000000001', 'mcq', 'For ''Rotate Image'' (rotate an n×n matrix 90° clockwise in place), the stand...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('707dfe60-b3ec-5b2d-b997-0a84b6937e6a', '00000000-0000-0000-0000-000000000001', 'mcq', 'For ''Rotate Image'' (rotate an n×n matrix 90° clockwise in place), the stand...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22160,7 +39750,7 @@ VALUES ('9e1a727d-058f-53cb-82d1-9b326e506569', '57f5e0f7-67b7-55ab-a3e7-4699471
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('6576c335-6bbf-5ab8-a3af-5796baf404b7', '00000000-0000-0000-0000-000000000001', 'mcq', 'What should you do FIRST when given a coding problem in an interview?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('6576c335-6bbf-5ab8-a3af-5796baf404b7', '00000000-0000-0000-0000-000000000001', 'mcq', 'What should you do FIRST when given a coding problem in an interview?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22168,7 +39758,7 @@ VALUES ('5d01ed9a-d640-5c79-8062-c97bc66fa6cb', '6576c335-6bbf-5ab8-a3af-5796baf
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('2971f5da-855a-5f5b-bf50-73c605a1cc3e', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a system design interview, what comes immediately after gathering function...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('2971f5da-855a-5f5b-bf50-73c605a1cc3e', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a system design interview, what comes immediately after gathering function...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22176,7 +39766,7 @@ VALUES ('87b0b40a-1a55-525c-b307-88e587d7f99d', '2971f5da-855a-5f5b-bf50-73c605a
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('b99e3751-ccb6-548b-997c-a42231c79b99', '00000000-0000-0000-0000-000000000001', 'mcq', 'Designing a Twitter-like feed: what is the core trade-off between fan-out-on-...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('b99e3751-ccb6-548b-997c-a42231c79b99', '00000000-0000-0000-0000-000000000001', 'mcq', 'Designing a Twitter-like feed: what is the core trade-off between fan-out-on-...', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22184,7 +39774,7 @@ VALUES ('dfe19636-649d-525e-9a09-ed3543ad5b9e', 'b99e3751-ccb6-548b-997c-a42231c
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('099655cc-bedf-5395-86a4-05acbba9a6bd', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the STAR format for behavioral answers?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('099655cc-bedf-5395-86a4-05acbba9a6bd', '00000000-0000-0000-0000-000000000001', 'mcq', 'What is the STAR format for behavioral answers?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22192,7 +39782,7 @@ VALUES ('e61042d1-c2de-514a-b35f-40fcdbd4296d', '099655cc-bedf-5395-86a4-05acbba
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('016c40f5-c1dc-5ca3-8d05-e98da782abe4', '00000000-0000-0000-0000-000000000001', 'mcq', 'You''re stuck on a mock-interview problem for several minutes. Best move?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('016c40f5-c1dc-5ca3-8d05-e98da782abe4', '00000000-0000-0000-0000-000000000001', 'mcq', 'You''re stuck on a mock-interview problem for several minutes. Best move?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22200,7 +39790,7 @@ VALUES ('4841a2c1-42f2-5d41-ac6a-ab1475b8a99a', '016c40f5-c1dc-5ca3-8d05-e98da78
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('14c05087-98fa-59b6-8f54-4257a1ff4145', '00000000-0000-0000-0000-000000000001', 'mcq', 'Designing YouTube-scale video storage, the standard serving approach is:', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('14c05087-98fa-59b6-8f54-4257a1ff4145', '00000000-0000-0000-0000-000000000001', 'mcq', 'Designing YouTube-scale video storage, the standard serving approach is:', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22208,7 +39798,7 @@ VALUES ('a07254f1-2816-56e7-8a4f-ee853fa3c732', '14c05087-98fa-59b6-8f54-4257a1f
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('65cbfe68-00ae-5895-a438-d90b73b48274', '00000000-0000-0000-0000-000000000001', 'mcq', 'After a mock interview, the highest-leverage habit is:', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('65cbfe68-00ae-5895-a438-d90b73b48274', '00000000-0000-0000-0000-000000000001', 'mcq', 'After a mock interview, the highest-leverage habit is:', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22216,7 +39806,7 @@ VALUES ('a7a46dde-e9e5-50ea-9406-24c9df832a98', '65cbfe68-00ae-5895-a438-d90b73b
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('9409a1b3-61ee-57de-ab0b-4058b7bb096f', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a full-stack interview asking for a Todo app, which answer demonstrates se...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('9409a1b3-61ee-57de-ab0b-4058b7bb096f', '00000000-0000-0000-0000-000000000001', 'mcq', 'In a full-stack interview asking for a Todo app, which answer demonstrates se...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22244,7 +39834,7 @@ VALUES ('9468142a-d4cf-566a-b229-32d4cd842537', '57f5e0f7-67b7-55ab-a3e7-4699471
 ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, assessment_id=EXCLUDED.assessment_id, updated_at=now();
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('56135c05-6df0-54a1-bc57-849ac25d160a', '00000000-0000-0000-0000-000000000001', 'mcq', 'Two days before the interview, which practice plan is right?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('56135c05-6df0-54a1-bc57-849ac25d160a', '00000000-0000-0000-0000-000000000001', 'mcq', 'Two days before the interview, which practice plan is right?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22252,7 +39842,7 @@ VALUES ('a2d2279a-16a0-58a7-a5dc-7369434e5df7', '56135c05-6df0-54a1-bc57-849ac25
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('139597b9-9876-511b-8b8e-27f7c9791001', '00000000-0000-0000-0000-000000000001', 'mcq', 'The most effective way to spend Week 6''s weakness-focus days is:', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('139597b9-9876-511b-8b8e-27f7c9791001', '00000000-0000-0000-0000-000000000001', 'mcq', 'The most effective way to spend Week 6''s weakness-focus days is:', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22260,7 +39850,7 @@ VALUES ('2a4a3a80-8a81-585e-a5db-0bfca5a901f1', '139597b9-9876-511b-8b8e-27f7c97
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('21363b37-c7f7-5445-8592-5949e3dd0ebc', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does company-specific preparation (Day 40) actually consist of?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('21363b37-c7f7-5445-8592-5949e3dd0ebc', '00000000-0000-0000-0000-000000000001', 'mcq', 'What does company-specific preparation (Day 40) actually consist of?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22268,7 +39858,7 @@ VALUES ('51e4d266-f4dd-50c7-a087-c3a7e9b6a2be', '21363b37-c7f7-5445-8592-5949e3d
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('8ddb598e-f381-59ab-87b9-ad2aaecead4e', '00000000-0000-0000-0000-000000000001', 'mcq', 'You blank on the optimal solution during the real interview. Best recovery?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('8ddb598e-f381-59ab-87b9-ad2aaecead4e', '00000000-0000-0000-0000-000000000001', 'mcq', 'You blank on the optimal solution during the real interview. Best recovery?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22276,7 +39866,7 @@ VALUES ('0f3b3819-d41f-5972-a160-e8c727457d5a', '8ddb598e-f381-59ab-87b9-ad2aaec
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('34e26b3b-a0b7-50c2-bd8f-ed5afe0c7c03', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which logistics checklist is correct for a remote interview day?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('34e26b3b-a0b7-50c2-bd8f-ed5afe0c7c03', '00000000-0000-0000-0000-000000000001', 'mcq', 'Which logistics checklist is correct for a remote interview day?', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22284,7 +39874,7 @@ VALUES ('4f95d969-c68b-5614-b3af-01eefec35d93', '34e26b3b-a0b7-50c2-bd8f-ed5afe0
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('db1fd25b-f003-5cba-8efe-5cae977af24b', '00000000-0000-0000-0000-000000000001', 'mcq', 'During final DSA review, which signal says a pattern is genuinely interview-r...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('db1fd25b-f003-5cba-8efe-5cae977af24b', '00000000-0000-0000-0000-000000000001', 'mcq', 'During final DSA review, which signal says a pattern is genuinely interview-r...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22292,7 +39882,7 @@ VALUES ('26841c7a-06ab-56f5-b78e-1fe352050e61', 'db1fd25b-f003-5cba-8efe-5cae977
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('3b8c987c-6d80-59bd-9e99-3e2eec0be7d2', '00000000-0000-0000-0000-000000000001', 'mcq', 'The night before the interview, the roadmap''s advice amounts to:', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('3b8c987c-6d80-59bd-9e99-3e2eec0be7d2', '00000000-0000-0000-0000-000000000001', 'mcq', 'The night before the interview, the roadmap''s advice amounts to:', 'intermediate', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22300,7 +39890,7 @@ VALUES ('6ee3714a-e4fa-5102-9256-2bc06d72a442', '3b8c987c-6d80-59bd-9e99-3e2eec0
 ON CONFLICT (id) DO UPDATE SET content=EXCLUDED.content;
 
 INSERT INTO questions (id, org_id, type, title, difficulty, default_points, tags, current_version, created_by)
-VALUES ('2fb72285-3d96-5634-9812-cceb569a29d8', '00000000-0000-0000-0000-000000000001', 'mcq', 'An interview went badly this morning; another is tomorrow (Day 43→44). What...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
+VALUES ('2fb72285-3d96-5634-9812-cceb569a29d8', '00000000-0000-0000-0000-000000000001', 'mcq', 'An interview went badly this morning; another is tomorrow (Day 43→44). What...', 'advanced', 10, ARRAY['interview-prep','dsa','system-design','hld','lld','design-patterns','react','django','fastapi','postgresql','behavioral'], 1, '00000000-0000-0000-0000-000000000012')
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, difficulty=EXCLUDED.difficulty, default_points=EXCLUDED.default_points, tags=EXCLUDED.tags, updated_at=now();
 
 INSERT INTO question_versions (id, question_id, version, content, created_by)
@@ -22329,7 +39919,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 -- Section: Mock Interviews
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('7b9ff79a-5142-5b11-bdd1-09bc833fc5cb', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Mock Interviews', 7)
+VALUES ('7b9ff79a-5142-5b11-bdd1-09bc833fc5cb', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Mock Interviews', 9)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
@@ -24193,7 +41783,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 -- Section: Weakness Focus & Final Prep
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('fee99029-99de-5587-95a4-ec4f0dc88308', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Weakness Focus & Final Prep', 8)
+VALUES ('fee99029-99de-5587-95a4-ec4f0dc88308', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Weakness Focus & Final Prep', 10)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)
@@ -25051,7 +42641,7 @@ ON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.ti
 
 -- Section: Interview Days
 INSERT INTO course_sections (id, course_id, title, position)
-VALUES ('45299530-e2e0-5fb8-8c2b-33047ba0489f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Interview Days', 9)
+VALUES ('45299530-e2e0-5fb8-8c2b-33047ba0489f', '57f5e0f7-67b7-55ab-a3e7-469947105cd5', 'Interview Days', 11)
 ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, position=EXCLUDED.position;
 
 INSERT INTO course_modules (id, course_id, section_id, title, type, position, content_body, estimated_minutes, knowledge_check)

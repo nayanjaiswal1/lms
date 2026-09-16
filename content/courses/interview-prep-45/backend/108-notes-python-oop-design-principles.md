@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-python-oop-design-principles
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: SOLID Principles, Polymorphism & Abstraction vs Encapsulation"
 position: 108
 estimated_minutes: 20

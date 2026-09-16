@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-temporal-vs-celery-vs-custom-worker
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Temporal vs Celery vs a Custom DB-Polling Worker"
 position: 105
 estimated_minutes: 15

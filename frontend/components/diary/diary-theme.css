@@ -90,3 +90,47 @@
   border-radius: 2px;
   padding: 0 2px;
 }
+
+/* Page layout: mobile stacks calendar -> goals -> tasks -> editor in
+   document order (no grid needed below lg). At lg+ the editor gets a
+   dedicated middle column and Tasks moves into its own right-hand rail
+   instead of stacking under Goals in the narrow left column — there's
+   room for it once the editor isn't sharing a column with everything
+   else. Plain grid-template-areas rather than Tailwind's arbitrary grid
+   utilities because the editor cell needs to span both left-rail rows,
+   which means repeating "editor" across both area rows below. */
+.diary-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "calendar"
+    "goals"
+    "tasks"
+    "editor";
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .diary-shell {
+    grid-template-columns: 280px 1fr 320px;
+    grid-template-areas:
+      "calendar editor tasks"
+      "goals    editor tasks";
+    align-items: start;
+    column-gap: 4rem;
+    row-gap: 2rem;
+  }
+}
+
+.diary-shell-calendar {
+  grid-area: calendar;
+}
+.diary-shell-goals {
+  grid-area: goals;
+}
+.diary-shell-editor {
+  grid-area: editor;
+}
+.diary-shell-tasks {
+  grid-area: tasks;
+}

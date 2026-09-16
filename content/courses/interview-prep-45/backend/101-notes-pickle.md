@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-pickle
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Pickling and Unpickling"
 position: 101
 estimated_minutes: 10

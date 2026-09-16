@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-graphql-basics
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "GraphQL and Modern Data Fetching"
 position: 25
 estimated_minutes: 30

@@ -4,7 +4,7 @@ id_key: interview-prep-45/quiz-week-3
 course: interview-prep-45
 section: checkpoints
 section_title: "Checkpoint Quizzes"
-section_position: 6
+section_position: 8
 title: "Checkpoint Quiz 3 — Advanced Patterns"
 position: 3
 estimated_minutes: 20

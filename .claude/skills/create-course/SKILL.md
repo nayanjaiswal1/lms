@@ -33,13 +33,15 @@ cd backend && go run ./cmd/coursegen generate --in ../content/courses/<slug> --o
   doesn't matter** (`01-lesson.md` is just convention), only the `kind:` frontmatter field
   routes it (`backend/internal/contentpipeline/generator/generator.go:60`, `parse.go`).
 - Output SQL is **idempotent** (`ON CONFLICT ... DO UPDATE`), safe to regenerate repeatedly.
-- **The module upsert does NOT update `section_id`** — moving a module to a different
-  `section:` in canonical markdown will not re-home the existing DB row on reseed. To
-  restructure sections: delete the course's `course_modules` (except `type='lab'` —
-  `lab_definitions.module_id` FK is NO ACTION and the `scope_module_consistency` CHECK
-  forbids nulling it) + old `course_sections`, load the fixture, then `UPDATE` the lab
-  modules' `section_id` manually and delete the now-empty old sections, all in one
-  transaction (done 2026-07-15 for interview-prep-45's week→subject restructure).
+- **Moving a module between sections works on reseed** — every module upsert
+  (`render_lesson.go` / `render_lab.go` / `render_quiz.go`) sets
+  `section_id=EXCLUDED.section_id`, and the `course_sections` upsert updates `position`, so
+  changing a doc's `section:`/`section_position:` re-homes and reorders the existing DB rows.
+  What reseeding does *not* do is delete rows: a section that no longer has any documents
+  keeps its old `course_sections` row (and any modules still pointing at it), so an
+  emptied-out section must be `DELETE`d manually after loading the fixture. Done
+  2026-07-15 (interview-prep-45 week→subject restructure) and 2026-09-07 (splitting
+  `hld-foundations` + `lld` out of `system-design`).
 - IDs are deterministic UUIDv5s derived from each doc's `id_key` (`canonical/ids.go`) —
   never invent random UUIDs for canonical content, or regeneration will duplicate rows.
 - Rendering logic lives in `backend/internal/contentpipeline/generator/render*.go` — read the
@@ -123,14 +125,10 @@ live editor + Run button or stays a read-only block — there is no separate
   set — `frontend/lib/courses/runnable-languages.ts`, must stay in sync with
   `pistonLabLanguages` in `backend/internal/labs/piston.go`) **only when the
   snippet is complete enough to run standalone** — no missing imports, no
-  `...` elisions, no half a class. The reader also gets a language switcher
-  in the block header and can pick a different one of those five live; it
-  only relabels the same source text, it never rewrites it, so don't rely on
-  the switcher to make an incomplete snippet runnable.
+  `...` elisions, no half a class.
 - Tag anything else (`bash`, `sql`, `yaml`, `dockerfile`, `tsx`, or no
   language at all for command/terminal output) and it renders static — copy
-  button only, no Run, regardless of what the switcher's language list
-  contains. This is the fix for the recurring mistake of tagging a
+  button only, no Run. This is the fix for the recurring mistake of tagging a
   real-language fragment (e.g. a JUnit test excerpt, a partial function) as
   runnable just because the syntax happens to be Python/JS/Go/Java — tag it
   by "can a reader paste this alone and run it," not by "what language is
@@ -142,6 +140,56 @@ live editor + Run button or stays a read-only block — there is no separate
   canonical markdown pipeline (`course.yaml`) doesn't expose this field yet;
   it's Settings-tab/API-only, so a canonically-authored course needing it
   has to be toggled once through the UI after generation.
+
+#### Multi-language variants of the same snippet — the `+` continuation marker
+
+A code segment can carry more than one language when the lesson is meant to
+show the same snippet re-implemented in 2-3 languages back to back (see
+`content/courses/interview-prep-45/dsa/*.md` for the working example — every
+runnable snippet there ships as Python + JavaScript + Java). Write the extra
+fences immediately after the first one, each tagged `<language> +` (a space
+then a literal `+` after the language, in the fence's info string):
+
+```
+```python
+def two_sum(nums, target):
+    ...
+```
+```javascript +
+function twoSum(nums, target) {
+    ...
+}
+```
+```java +
+public int[] twoSum(int[] nums, int target) {
+    ...
+}
+```
+```
+
+`markdownToSegments` (`frontend/lib/courses/markdown.ts`) only merges a fence
+into the one directly above it when it carries the `+` marker **and** nothing
+else (not even a blank paragraph) sits between the two fences — plain
+adjacent fences without `+` always stay separate segments, exactly as
+before. This is deliberate: two unrelated blocks that merely happen to sit
+back to back (common throughout the existing courses) must never silently
+merge into one switcher and hide the second block. Never add `+` to a fence
+that isn't a genuine re-implementation of the block directly above it.
+
+`LessonCodeBlock` renders one real switcher across the merged variants —
+selecting a language shows that language's own source, not a relabel of the
+first variant's text (that relabeling behavior existed briefly and was
+removed; every variant must be independently authored). Each variant is
+tagged and gated exactly like a standalone block: `RUNNABLE_LANGUAGES` picks
+live-editor-plus-Run vs. static per variant, and the "complete enough to run
+standalone" rule applies to every variant individually, not just the first.
+
+**Write each variant idiomatically, not as a literal transliteration** — the
+same rule AlgoMaster's LLD course follows: their Go variant of a Java setter
+returns an error instead of throwing, because that's how Go actually handles
+that case. A Python dict-based solution's Java variant should use
+`HashMap`/throw `IllegalArgumentException` the way real Java code would, not
+mirror the Python control flow line-for-line.
 
 **`kind: quiz`** -> `assessments` + `questions` + `question_versions` + `assessment_questions`
 + `course_modules(type='assessment')`. Extra fields: `pass_percentage`, `duration_minutes`,

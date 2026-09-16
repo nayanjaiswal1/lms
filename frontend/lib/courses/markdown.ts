@@ -27,12 +27,21 @@ export interface KnowledgeCheckQuestion {
   solution?: string;
 }
 
+export interface CodeVariant {
+  language: string;
+  code: string;
+}
+
 // Lesson content split at the two seams the reader UI cares about: code
 // blocks (live Run button) and images (pulled into the side diagram panel).
-// Everything else batches into opaque html segments.
+// Everything else batches into opaque html segments. A code segment can
+// carry more than one variant when the author writes the same snippet back
+// to back in multiple languages (see the `+` continuation marker in
+// markdownToSegments) — LessonCodeBlock then renders a real switcher between
+// genuinely different source text, not a relabel of one string.
 export type Segment =
   | { type: "html"; html: string }
-  | { type: "code"; language: string; code: string }
+  | { type: "code"; variants: CodeVariant[] }
   | { type: "sql-try"; query: string }
   | { type: "sql-challenge"; prompt: string; starter: string; solution: string }
   | { type: "knowledge-check"; questions: KnowledgeCheckQuestion[] }
@@ -163,7 +172,7 @@ function blocksToSegments(blocks: ContentBlock[]): Segment[] {
   for (const block of blocks) {
     if (block.type === "code") {
       flush();
-      segments.push({ type: "code", language: block.language, code: block.code });
+      segments.push({ type: "code", variants: [{ language: block.language, code: block.code }] });
     } else if (block.type === "image") {
       if (!block.url) continue;
       flush();
@@ -212,20 +221,46 @@ function markdownToSegments(body: string): Segment[] {
 
   for (const token of tokens) {
     if (token.type === "code") {
-      flush();
-      const language = (token.lang as string | undefined) ?? "";
+      // Fence info string is "<language>" normally, or "<language> +" to mark
+      // this fence as another language variant of the code segment directly
+      // above it (same snippet, translated) rather than a new segment of its
+      // own — e.g. authoring the same algorithm in Python then Java:
+      //   ```python
+      //   ...
+      //   ```
+      //   ```java +
+      //   ...
+      //   ```
+      // This is opt-in and explicit on purpose: two unrelated fenced blocks
+      // that merely happen to sit back to back (common throughout existing
+      // lessons) must never silently merge into one switcher and hide the
+      // second block.
+      const fenceInfo = ((token.lang as string | undefined) ?? "").trim();
+      const spaceIdx = fenceInfo.indexOf(" ");
+      const language = spaceIdx === -1 ? fenceInfo : fenceInfo.slice(0, spaceIdx);
+      const isVariantContinuation = spaceIdx !== -1 && fenceInfo.slice(spaceIdx + 1).trim() === "+";
       const normalizedLang = language.trim().toLowerCase();
       if (normalizedLang === "sql-try") {
+        flush();
         segments.push({ type: "sql-try", query: token.text });
       } else if (normalizedLang === "sql-challenge") {
+        flush();
         segments.push({ type: "sql-challenge", ...parseSqlChallenge(token.text) });
       } else if (normalizedLang === "knowledge-check") {
+        flush();
         segments.push({ type: "knowledge-check", questions: parseKnowledgeCheck(token.text) });
       } else {
-        segments.push({ type: "code", language, code: token.text });
+        const last = segments[segments.length - 1];
+        if (isVariantContinuation && batch.length === 0 && last?.type === "code") {
+          last.variants.push({ language, code: token.text });
+        } else {
+          flush();
+          segments.push({ type: "code", variants: [{ language, code: token.text }] });
+        }
       }
       continue;
     }
+    if (token.type === "space") continue;
     if (token.type === "paragraph") {
       const match = token.raw.trim().match(/^\[\[lab-task:(\d+)\]\]$/);
       if (match) {

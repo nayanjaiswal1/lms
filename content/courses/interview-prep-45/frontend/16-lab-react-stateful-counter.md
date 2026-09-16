@@ -4,7 +4,7 @@ id_key: interview-prep-45/lab-react-counter
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Lab: React — Stateful Counter Component"
 position: 16
 estimated_minutes: 45

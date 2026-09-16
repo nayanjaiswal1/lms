@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-00-frontend-prototype-chain
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Objects and Prototypal Inheritance"
 position: 7
 estimated_minutes: 30

@@ -2,7 +2,10 @@ title: "45-Day Interview Preparation Bootcamp"
 description: >-
   A structured full-stack engineer interview preparation track
   (3+ years experience). Covers DSA patterns (100+ LeetCode problems),
-  20+ system design exercises plus low-level/OOP design, backend deep dives
+  a full HLD foundations track (estimation, caching, sharding, CAP,
+  messaging, consensus, resilience) feeding 28 system design case studies,
+  a complete low-level design track (OOP, SOLID, all GoF patterns,
+  concurrency, and 10 classic LLD problems), backend deep dives
   (Django, FastAPI, PostgreSQL, Redis, Kafka, Celery), frontend deep dives
   (React internals, performance, TypeScript), and behavioral preparation
   with STAR stories. Mock interviews begin partway through, once core
@@ -12,6 +15,9 @@ tags:
   - interview-prep
   - dsa
   - system-design
+  - hld
+  - lld
+  - design-patterns
   - react
   - django
   - fastapi

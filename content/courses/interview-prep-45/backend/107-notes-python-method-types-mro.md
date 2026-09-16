@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-python-method-types-mro
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Instance/Class/Static Methods & Method Resolution Order"
 position: 107
 estimated_minutes: 15

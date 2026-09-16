@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-postgres-ltree-hierarchical-data
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: PostgreSQL ltree — Hierarchical Data & the Alternatives"
 position: 112
 estimated_minutes: 10

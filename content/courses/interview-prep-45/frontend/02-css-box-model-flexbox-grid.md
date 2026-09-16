@@ -4,7 +4,7 @@ id_key: interview-prep-45/fe-css-box-model-layout
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "CSS Box Model, Flexbox and Grid"
 position: 2
 estimated_minutes: 25

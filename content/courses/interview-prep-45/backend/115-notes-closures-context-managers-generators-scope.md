@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-closures-context-managers-generators-scope
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Closures, Context Managers, Generators & Scope Resolution"
 position: 115
 estimated_minutes: 20

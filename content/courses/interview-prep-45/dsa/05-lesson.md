@@ -25,6 +25,30 @@ stack.append(3)
 stack.pop()        # removes 3
 stack[-1]          # peek: 2, without removing
 ```
+```javascript +
+const stack = [];
+stack.push(1);   // push
+stack.push(2);
+stack.push(3);
+stack.pop();               // removes 3
+stack[stack.length - 1];  // peek: 2, without removing
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        Deque<Integer> stack = new ArrayDeque<>();
+        stack.push(1);   // push
+        stack.push(2);
+        stack.push(3);
+        stack.pop();               // removes 3
+        int peek = stack.peek();  // peek: 2, without removing
+        System.out.println("Peek: " + peek);
+    }
+}
+```
 
 Python's `list` is a perfectly good stack (`append`/`pop` from the end are both O(1) amortized). Don't use `list.insert(0, x)` / `list.pop(0)` as a stack; those are O(n) because they shift every element.
 
@@ -60,6 +84,102 @@ def dfs_iterative(start):
                 stack.append(neighbor)
     return visited
 ```
+```javascript +
+// Recursive DFS
+function dfsRecursive(node, visited) {
+    if (visited.has(node)) {
+        return;
+    }
+    visited.add(node);
+    for (const neighbor of node.neighbors) {
+        dfsRecursive(neighbor, visited);
+    }
+}
+
+// Iterative DFS using an explicit stack
+function dfsIterative(start) {
+    const visited = new Set();
+    const stack = [start];
+    while (stack.length > 0) {
+        const node = stack.pop();
+        if (visited.has(node)) {
+            continue;
+        }
+        visited.add(node);
+        for (const neighbor of node.neighbors) {
+            if (!visited.has(neighbor)) {
+                stack.push(neighbor);
+            }
+        }
+    }
+    return visited;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+public class Main {
+    public static void main(String[] args) {
+        GraphNode a = new GraphNode("A");
+        GraphNode b = new GraphNode("B");
+        GraphNode c = new GraphNode("C");
+        a.neighbors.add(b);
+        b.neighbors.add(c);
+        c.neighbors.add(a); // cycle
+
+        Set<GraphNode> visitedRecursive = new HashSet<>();
+        dfsRecursive(a, visitedRecursive);
+        System.out.println("Recursive visited: " + visitedRecursive.size());
+
+        Set<GraphNode> visitedIterative = dfsIterative(a);
+        System.out.println("Iterative visited: " + visitedIterative.size());
+    }
+
+    // Recursive DFS
+    static void dfsRecursive(GraphNode node, Set<GraphNode> visited) {
+        if (visited.contains(node)) {
+            return;
+        }
+        visited.add(node);
+        for (GraphNode neighbor : node.neighbors) {
+            dfsRecursive(neighbor, visited);
+        }
+    }
+
+    // Iterative DFS using an explicit stack
+    static Set<GraphNode> dfsIterative(GraphNode start) {
+        Set<GraphNode> visited = new HashSet<>();
+        ArrayDeque<GraphNode> stack = new ArrayDeque<>();
+        stack.push(start);
+        while (!stack.isEmpty()) {
+            GraphNode node = stack.pop();
+            if (visited.contains(node)) {
+                continue;
+            }
+            visited.add(node);
+            for (GraphNode neighbor : node.neighbors) {
+                if (!visited.contains(neighbor)) {
+                    stack.push(neighbor);
+                }
+            }
+        }
+        return visited;
+    }
+}
+
+class GraphNode {
+    String label;
+    List<GraphNode> neighbors = new ArrayList<>();
+
+    GraphNode(String label) {
+        this.label = label;
+    }
+}
+```
 
 ## Monotonic stack pattern
 
@@ -78,6 +198,48 @@ def next_greater_elements(nums: list[int]) -> list[int]:
             result[idx] = nums[i]
         stack.append(i)
     return result
+```
+```javascript +
+function nextGreaterElements(nums) {
+    const n = nums.length;
+    const result = new Array(n).fill(-1);
+    const stack = []; // indices, values decreasing bottom to top
+    for (let i = 0; i < n; i++) {
+        while (stack.length > 0 && nums[stack[stack.length - 1]] < nums[i]) {
+            const idx = stack.pop();
+            result[idx] = nums[i];
+        }
+        stack.push(i);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 1, 2, 4, 3};
+        System.out.println(Arrays.toString(nextGreaterElements(nums)));
+    }
+
+    static int[] nextGreaterElements(int[] nums) {
+        int n = nums.length;
+        int[] result = new int[n];
+        Arrays.fill(result, -1);
+        Deque<Integer> stack = new ArrayDeque<>(); // indices, values decreasing bottom to top
+        for (int i = 0; i < n; i++) {
+            while (!stack.isEmpty() && nums[stack.peek()] < nums[i]) {
+                int idx = stack.pop();
+                result[idx] = nums[i];
+            }
+            stack.push(i);
+        }
+        return result;
+    }
+}
 ```
 
 ### Stack using a linked list
@@ -115,6 +277,101 @@ class LinkedListStack:
     def is_empty(self) -> bool:
         return self.head is None
 ```
+```javascript +
+class StackNode {
+    constructor(val, next = null) {
+        this.val = val;
+        this.next = next;
+    }
+}
+
+class LinkedListStack {
+    constructor() {
+        this.head = null;
+        this.size = 0;
+    }
+
+    push(val) {
+        this.head = new StackNode(val, this.head);
+        this.size += 1;
+    }
+
+    pop() {
+        if (!this.head) {
+            throw new Error('pop from empty stack');
+        }
+        const val = this.head.val;
+        this.head = this.head.next;
+        this.size -= 1;
+        return val;
+    }
+
+    peek() {
+        if (!this.head) {
+            throw new Error('peek from empty stack');
+        }
+        return this.head.val;
+    }
+
+    isEmpty() {
+        return this.head === null;
+    }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        LinkedListStack stack = new LinkedListStack();
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        System.out.println("Popped: " + stack.pop());
+        System.out.println("Peek: " + stack.peek());
+        System.out.println("Empty? " + stack.isEmpty());
+    }
+}
+
+class StackNode {
+    int val;
+    StackNode next;
+
+    StackNode(int val, StackNode next) {
+        this.val = val;
+        this.next = next;
+    }
+}
+
+class LinkedListStack {
+    private StackNode head;
+    private int size;
+
+    void push(int val) {
+        head = new StackNode(val, head);
+        size += 1;
+    }
+
+    int pop() {
+        if (head == null) {
+            throw new IllegalStateException("pop from empty stack");
+        }
+        int val = head.val;
+        head = head.next;
+        size -= 1;
+        return val;
+    }
+
+    int peek() {
+        if (head == null) {
+            throw new IllegalStateException("peek from empty stack");
+        }
+        return head.val;
+    }
+
+    boolean isEmpty() {
+        return head == null;
+    }
+}
+```
 
 No amortized cost here. Every op is worst-case O(1) since there's never a resize, at the cost of per-node pointer overhead that an array-backed stack doesn't pay.
 
@@ -137,6 +394,49 @@ def is_valid(s: str) -> bool:
         else:
             stack.append(ch)
     return not stack
+```
+```javascript +
+function isValid(s) {
+    const pairs = { ')': '(', ']': '[', '}': '{' };
+    const stack = [];
+    for (const ch of s) {
+        if (ch in pairs) {
+            if (stack.length === 0 || stack.pop() !== pairs[ch]) {
+                return false;
+            }
+        } else {
+            stack.push(ch);
+        }
+    }
+    return stack.length === 0;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isValid("()[]{}"));
+        System.out.println(isValid("(]"));
+    }
+
+    static boolean isValid(String s) {
+        Map<Character, Character> pairs = Map.of(')', '(', ']', '[', '}', '{');
+        Deque<Character> stack = new ArrayDeque<>();
+        for (char ch : s.toCharArray()) {
+            if (pairs.containsKey(ch)) {
+                if (stack.isEmpty() || stack.pop() != pairs.get(ch)) {
+                    return false;
+                }
+            } else {
+                stack.push(ch);
+            }
+        }
+        return stack.isEmpty();
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(n) worst case (all openers).
@@ -164,6 +464,47 @@ def daily_temperatures(temperatures: list[int]) -> list[int]:
             result[prev_idx] = i - prev_idx
         stack.append(i)
     return result
+```
+```javascript +
+function dailyTemperatures(temperatures) {
+    const n = temperatures.length;
+    const result = new Array(n).fill(0);
+    const stack = []; // indices with temps not yet resolved, decreasing order
+    for (let i = 0; i < n; i++) {
+        while (stack.length > 0 && temperatures[stack[stack.length - 1]] < temperatures[i]) {
+            const prevIdx = stack.pop();
+            result[prevIdx] = i - prevIdx;
+        }
+        stack.push(i);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] temperatures = {73, 74, 75, 71, 69, 72, 76, 73};
+        System.out.println(Arrays.toString(dailyTemperatures(temperatures)));
+    }
+
+    static int[] dailyTemperatures(int[] temperatures) {
+        int n = temperatures.length;
+        int[] result = new int[n];
+        Deque<Integer> stack = new ArrayDeque<>(); // indices with temps not yet resolved, decreasing order
+        for (int i = 0; i < n; i++) {
+            while (!stack.isEmpty() && temperatures[stack.peek()] < temperatures[i]) {
+                int prevIdx = stack.pop();
+                result[prevIdx] = i - prevIdx;
+            }
+            stack.push(i);
+        }
+        return result;
+    }
+}
 ```
 
 **Complexity:** Time O(n): each index pushed once, popped at most once. Space O(n) worst case (strictly decreasing input).
@@ -194,6 +535,57 @@ def largest_rectangle_area(heights: list[int]) -> int:
         stack.append(i)
 
     return max_area
+```
+```javascript +
+function largestRectangleArea(heights) {
+    const stack = []; // indices, increasing height
+    let maxArea = 0;
+    const withSentinel = [...heights, 0]; // sentinel to flush the stack
+
+    for (let i = 0; i < withSentinel.length; i++) {
+        const h = withSentinel[i];
+        while (stack.length > 0 && withSentinel[stack[stack.length - 1]] > h) {
+            const height = withSentinel[stack.pop()];
+            const width = stack.length === 0 ? i : i - stack[stack.length - 1] - 1;
+            maxArea = Math.max(maxArea, height * width);
+        }
+        stack.push(i);
+    }
+
+    return maxArea;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] heights = {2, 1, 5, 6, 2, 3};
+        System.out.println(largestRectangleArea(heights));
+    }
+
+    static int largestRectangleArea(int[] heights) {
+        int n = heights.length;
+        int[] withSentinel = new int[n + 1];
+        System.arraycopy(heights, 0, withSentinel, 0, n); // sentinel 0 to flush the stack
+
+        Deque<Integer> stack = new ArrayDeque<>(); // indices, increasing height
+        int maxArea = 0;
+
+        for (int i = 0; i < withSentinel.length; i++) {
+            int h = withSentinel[i];
+            while (!stack.isEmpty() && withSentinel[stack.peek()] > h) {
+                int height = withSentinel[stack.pop()];
+                int width = stack.isEmpty() ? i : i - stack.peek() - 1;
+                maxArea = Math.max(maxArea, height * width);
+            }
+            stack.push(i);
+        }
+
+        return maxArea;
+    }
+}
 ```
 
 **Complexity:** Time O(n): each index pushed and popped once. Space O(n).
@@ -228,6 +620,78 @@ class MinStack:
 
     def getMin(self) -> int:
         return self.stack[-1][1]
+```
+```javascript +
+class MinStack {
+    constructor() {
+        this.stack = []; // each entry: [value, minSoFar]
+    }
+
+    push(val) {
+        const currentMin = this.stack.length === 0 ? val : Math.min(val, this.stack[this.stack.length - 1][1]);
+        this.stack.push([val, currentMin]);
+    }
+
+    pop() {
+        this.stack.pop();
+    }
+
+    top() {
+        return this.stack[this.stack.length - 1][0];
+    }
+
+    getMin() {
+        return this.stack[this.stack.length - 1][1];
+    }
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        MinStack minStack = new MinStack();
+        minStack.push(3);
+        minStack.push(1);
+        minStack.push(2);
+        System.out.println("Min: " + minStack.getMin());
+        minStack.pop();
+        System.out.println("Top: " + minStack.top());
+        System.out.println("Min: " + minStack.getMin());
+    }
+}
+
+class MinStack {
+    private static class Entry {
+        int value;
+        int minSoFar;
+
+        Entry(int value, int minSoFar) {
+            this.value = value;
+            this.minSoFar = minSoFar;
+        }
+    }
+
+    private final Deque<Entry> stack = new ArrayDeque<>();
+
+    void push(int val) {
+        int currentMin = stack.isEmpty() ? val : Math.min(val, stack.peek().minSoFar);
+        stack.push(new Entry(val, currentMin));
+    }
+
+    void pop() {
+        stack.pop();
+    }
+
+    int top() {
+        return stack.peek().value;
+    }
+
+    int getMin() {
+        return stack.peek().minSoFar;
+    }
+}
 ```
 
 **Complexity:** Time O(1) for all operations. Space O(n): doubled per-element overhead for the min tracking.

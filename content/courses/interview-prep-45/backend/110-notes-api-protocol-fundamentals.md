@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-api-protocol-fundamentals
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Password Hashing Algorithms, API Key Lifecycle, REST vs SOAP, HTTPS vs HTTP"
 position: 110
 estimated_minutes: 20

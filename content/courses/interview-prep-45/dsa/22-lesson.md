@@ -25,6 +25,32 @@ class TrieNode:
         self.is_end_of_word = False
 ```
 
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map(); // char -> TrieNode
+        this.isEndOfWord = false;
+    }
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        TrieNode node = new TrieNode();
+        System.out.println(node.isEndOfWord);
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>(); // char -> TrieNode
+    boolean isEndOfWord = false;
+}
+```
+
 A path from the root spelling out `c-a-t` represents the string `"cat"`. Because nodes are shared across words with common prefixes, `"cat"` and `"car"` share the `c -> a` path and diverge only at the third character. That sharing is exactly what makes prefix queries cheap.
 
 ```
@@ -69,6 +95,103 @@ class Trie:
 
     def startsWith(self, prefix: str) -> bool:
         return self._find_node(prefix) is not None
+```
+
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map(); // char -> TrieNode
+        this.isEndOfWord = false;
+    }
+}
+
+class Trie {
+    constructor() {
+        this.root = new TrieNode();
+    }
+
+    insert(word) {
+        let node = this.root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+    }
+
+    _findNode(prefix) {
+        let node = this.root;
+        for (const ch of prefix) {
+            if (!node.children.has(ch)) {
+                return null;
+            }
+            node = node.children.get(ch);
+        }
+        return node;
+    }
+
+    search(word) {
+        const node = this._findNode(word);
+        return node !== null && node.isEndOfWord;
+    }
+
+    startsWith(prefix) {
+        return this._findNode(prefix) !== null;
+    }
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        Trie trie = new Trie();
+        trie.insert("cat");
+        System.out.println(trie.search("cat"));
+        System.out.println(trie.startsWith("ca"));
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>(); // char -> TrieNode
+    boolean isEndOfWord = false;
+}
+
+class Trie {
+    TrieNode root = new TrieNode();
+
+    void insert(String word) {
+        TrieNode node = root;
+        for (char ch : word.toCharArray()) {
+            node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+        }
+        node.isEndOfWord = true;
+    }
+
+    private TrieNode findNode(String prefix) {
+        TrieNode node = root;
+        for (char ch : prefix.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return null;
+            }
+            node = node.children.get(ch);
+        }
+        return node;
+    }
+
+    boolean search(String word) {
+        TrieNode node = findNode(word);
+        return node != null && node.isEndOfWord;
+    }
+
+    boolean startsWith(String prefix) {
+        return findNode(prefix) != null;
+    }
+}
 ```
 
 The distinction that trips people up: `search` requires `is_end_of_word == True` at the final node, meaning the exact word was inserted. `startsWith` only requires the path to exist: some word *starting with* this prefix was inserted, but the prefix itself might not be a complete word. Confusing these two is the most common trie bug.
@@ -119,6 +242,108 @@ class Trie:
                 return False
             node = node.children[ch]
         return True
+```
+
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map();
+        this.isEndOfWord = false;
+    }
+}
+
+class Trie {
+    constructor() {
+        this.root = new TrieNode();
+    }
+
+    insert(word) {
+        let node = this.root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+    }
+
+    search(word) {
+        let node = this.root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return node.isEndOfWord;
+    }
+
+    startsWith(prefix) {
+        let node = this.root;
+        for (const ch of prefix) {
+            if (!node.children.has(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return true;
+    }
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        Trie trie = new Trie();
+        trie.insert("apple");
+        System.out.println(trie.search("apple"));
+        System.out.println(trie.search("app"));
+        System.out.println(trie.startsWith("app"));
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>();
+    boolean isEndOfWord = false;
+}
+
+class Trie {
+    TrieNode root = new TrieNode();
+
+    void insert(String word) {
+        TrieNode node = root;
+        for (char ch : word.toCharArray()) {
+            node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+        }
+        node.isEndOfWord = true;
+    }
+
+    boolean search(String word) {
+        TrieNode node = root;
+        for (char ch : word.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return node.isEndOfWord;
+    }
+
+    boolean startsWith(String prefix) {
+        TrieNode node = root;
+        for (char ch : prefix.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return false;
+            }
+            node = node.children.get(ch);
+        }
+        return true;
+    }
+}
 ```
 
 **Complexity:** `insert`/`search`/`startsWith` are all O(m) time, where m is the word/prefix length. Space O(total characters across all inserted words) in the worst case (no shared prefixes).
@@ -172,6 +397,146 @@ def findWords(board: list[list[str]], words: list[str]) -> list[str]:
     return result
 ```
 
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map();
+        this.isEndOfWord = false;
+        this.word = null;
+    }
+}
+
+function findWords(board, words) {
+    const root = new TrieNode();
+    for (const word of words) {
+        let node = root;
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+        node.word = word; // stash the full word at the terminal node
+    }
+
+    const rows = board.length;
+    const cols = board[0].length;
+    const result = [];
+
+    function dfs(r, c, node) {
+        const ch = board[r][c];
+        if (!node.children.has(ch)) return;
+        const nxt = node.children.get(ch);
+        if (nxt.isEndOfWord) {
+            result.push(nxt.word);
+            nxt.isEndOfWord = false; // avoid duplicate matches
+        }
+
+        board[r][c] = '#'; // mark visited in place
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] !== '#') {
+                dfs(nr, nc, nxt);
+            }
+        }
+        board[r][c] = ch; // backtrack
+
+        if (nxt.children.size === 0) { // prune dead trie branches for efficiency
+            node.children.delete(ch);
+        }
+    }
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            dfs(r, c, root);
+        }
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        char[][] board = {
+            {'o', 'a', 'a', 'n'},
+            {'e', 't', 'a', 'e'},
+            {'i', 'h', 'k', 'r'},
+            {'i', 'f', 'l', 'v'}
+        };
+        String[] words = {"oath", "pea", "eat", "rain"};
+        System.out.println(findWords(board, words));
+    }
+
+    static int rows, cols;
+    static char[][] board;
+    static List<String> result;
+
+    static List<String> findWords(char[][] inputBoard, String[] words) {
+        board = inputBoard;
+        TrieNode root = new TrieNode();
+        for (String word : words) {
+            TrieNode node = root;
+            for (char ch : word.toCharArray()) {
+                node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+            }
+            node.isEndOfWord = true;
+            node.word = word; // stash the full word at the terminal node
+        }
+
+        rows = board.length;
+        cols = board[0].length;
+        result = new ArrayList<>();
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                dfs(r, c, root);
+            }
+        }
+
+        return result;
+    }
+
+    static void dfs(int r, int c, TrieNode node) {
+        char ch = board[r][c];
+        if (!node.children.containsKey(ch)) return;
+        TrieNode nxt = node.children.get(ch);
+        if (nxt.isEndOfWord) {
+            result.add(nxt.word);
+            nxt.isEndOfWord = false; // avoid duplicate matches
+        }
+
+        board[r][c] = '#'; // mark visited in place
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] dir : dirs) {
+            int nr = r + dir[0], nc = c + dir[1];
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] != '#') {
+                dfs(nr, nc, nxt);
+            }
+        }
+        board[r][c] = ch; // backtrack
+
+        if (nxt.children.isEmpty()) { // prune dead trie branches for efficiency
+            node.children.remove(ch);
+        }
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>();
+    boolean isEndOfWord = false;
+    String word;
+}
+```
+
 **Complexity:** Time O(rows × cols × 4^L) in the worst case (L = longest word length), but the trie pruning, stopping as soon as no word's prefix matches and removing exhausted branches, makes it far faster in practice than per-word DFS. Space O(total trie nodes + recursion depth).
 
 **Common mistakes:** Running separate DFS searches per word instead of one shared trie-guided DFS is correct but too slow for the hard-tier constraints. Forgetting to backtrack the board mutation (`board[r][c] = ch` after recursion) corrupts later searches. And skipping the guard against duplicate results, needed when the same word could be found via multiple paths: the `is_end_of_word = False` reset after first match handles this.
@@ -206,6 +571,101 @@ def replaceWords(dictionary: list[str], sentence: str) -> str:
         return word
 
     return " ".join(find_root(word) for word in sentence.split())
+```
+
+```javascript +
+class TrieNode {
+    constructor() {
+        this.children = new Map();
+        this.isEndOfWord = false;
+    }
+}
+
+function replaceWords(dictionary, sentence) {
+    const rootTrie = new TrieNode();
+    for (const root of dictionary) {
+        let node = rootTrie;
+        for (const ch of root) {
+            if (!node.children.has(ch)) {
+                node.children.set(ch, new TrieNode());
+            }
+            node = node.children.get(ch);
+        }
+        node.isEndOfWord = true;
+    }
+
+    function findRoot(word) {
+        let node = rootTrie;
+        let prefix = "";
+        for (const ch of word) {
+            if (!node.children.has(ch)) {
+                return word; // no matching root, keep original
+            }
+            prefix += ch;
+            node = node.children.get(ch);
+            if (node.isEndOfWord) {
+                return prefix;
+            }
+        }
+        return word;
+    }
+
+    return sentence.split(" ").map(findRoot).join(" ");
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        String[] dictionary = {"cat", "bat", "rat"};
+        String sentence = "the cattle was rattled by the battery";
+        System.out.println(replaceWords(dictionary, sentence));
+    }
+
+    static TrieNode rootTrie;
+
+    static String replaceWords(String[] dictionary, String sentence) {
+        rootTrie = new TrieNode();
+        for (String root : dictionary) {
+            TrieNode node = rootTrie;
+            for (char ch : root.toCharArray()) {
+                node = node.children.computeIfAbsent(ch, c -> new TrieNode());
+            }
+            node.isEndOfWord = true;
+        }
+
+        StringBuilder result = new StringBuilder();
+        for (String word : sentence.split(" ")) {
+            if (result.length() > 0) result.append(" ");
+            result.append(findRoot(word));
+        }
+        return result.toString();
+    }
+
+    static String findRoot(String word) {
+        TrieNode node = rootTrie;
+        StringBuilder prefix = new StringBuilder();
+        for (char ch : word.toCharArray()) {
+            if (!node.children.containsKey(ch)) {
+                return word; // no matching root, keep original
+            }
+            prefix.append(ch);
+            node = node.children.get(ch);
+            if (node.isEndOfWord) {
+                return prefix.toString();
+            }
+        }
+        return word;
+    }
+}
+
+class TrieNode {
+    Map<Character, TrieNode> children = new HashMap<>();
+    boolean isEndOfWord = false;
+}
 ```
 
 **Complexity:** Time O(total characters in dictionary + total characters in sentence), space O(total characters in dictionary) for the trie.
@@ -252,6 +712,107 @@ def findMaximumXOR(nums: list[int]) -> int:
         insert(num)
 
     return max(query(num) for num in nums)
+```
+
+```javascript +
+class BinaryTrieNode {
+    constructor() {
+        this.children = new Map(); // 0 or 1 -> BinaryTrieNode
+    }
+}
+
+function findMaximumXOR(nums) {
+    const root = new BinaryTrieNode();
+    const BITS = 31; // enough for LeetCode's constraint (nums < 2^31)
+
+    function insert(num) {
+        let node = root;
+        for (let i = BITS; i >= 0; i--) {
+            const bit = (num >> i) & 1;
+            if (!node.children.has(bit)) {
+                node.children.set(bit, new BinaryTrieNode());
+            }
+            node = node.children.get(bit);
+        }
+    }
+
+    function query(num) {
+        let node = root;
+        let xor = 0;
+        for (let i = BITS; i >= 0; i--) {
+            const bit = (num >> i) & 1;
+            const desired = 1 - bit; // the opposite bit maximizes this position's contribution
+            if (node.children.has(desired)) {
+                xor |= (1 << i);
+                node = node.children.get(desired);
+            } else {
+                node = node.children.get(bit);
+            }
+        }
+        return xor;
+    }
+
+    for (const num of nums) {
+        insert(num);
+    }
+
+    return Math.max(...nums.map(query));
+}
+```
+
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {3, 10, 5, 25, 2, 8};
+        System.out.println(findMaximumXOR(nums));
+    }
+
+    static BinaryTrieNode root = new BinaryTrieNode();
+    static final int BITS = 31; // enough for LeetCode's constraint (nums < 2^31)
+
+    static int findMaximumXOR(int[] nums) {
+        for (int num : nums) {
+            insert(num);
+        }
+
+        int best = 0;
+        for (int num : nums) {
+            best = Math.max(best, query(num));
+        }
+        return best;
+    }
+
+    static void insert(int num) {
+        BinaryTrieNode node = root;
+        for (int i = BITS; i >= 0; i--) {
+            int bit = (num >> i) & 1;
+            node = node.children.computeIfAbsent(bit, b -> new BinaryTrieNode());
+        }
+    }
+
+    static int query(int num) {
+        BinaryTrieNode node = root;
+        int xor = 0;
+        for (int i = BITS; i >= 0; i--) {
+            int bit = (num >> i) & 1;
+            int desired = 1 - bit; // the opposite bit maximizes this position's contribution
+            if (node.children.containsKey(desired)) {
+                xor |= (1 << i);
+                node = node.children.get(desired);
+            } else {
+                node = node.children.get(bit);
+            }
+        }
+        return xor;
+    }
+}
+
+class BinaryTrieNode {
+    Map<Integer, BinaryTrieNode> children = new HashMap<>(); // 0 or 1 -> BinaryTrieNode
+}
 ```
 
 **Complexity:** Time O(n × 32) = O(n), space O(n × 32) for the trie nodes. Far better than the naive O(n²) pairwise XOR comparison.

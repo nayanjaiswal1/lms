@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-28-backend
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Migrations and Schema Changes"
 position: 28
 estimated_minutes: 45

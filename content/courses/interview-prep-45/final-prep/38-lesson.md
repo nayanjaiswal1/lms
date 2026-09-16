@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-38
 course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
-section_position: 8
+section_position: 10
 title: "Final Practice — DSA and System Design"
 position: 38
 estimated_minutes: 240

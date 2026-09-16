@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-09-frontend
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Code Splitting and Bundle Optimization"
 position: 23
 estimated_minutes: 30

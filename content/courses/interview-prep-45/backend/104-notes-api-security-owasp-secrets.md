@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-api-security-owasp-secrets
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: SQL Injection, Secrets Management, and the OWASP API Top 10"
 position: 104
 estimated_minutes: 15

@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-17-frontend
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "SSR, Next.js, and Rendering Strategies"
 position: 31
 estimated_minutes: 35

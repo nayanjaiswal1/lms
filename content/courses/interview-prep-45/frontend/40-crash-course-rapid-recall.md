@@ -4,7 +4,7 @@ id_key: interview-prep-45/fe-crash-course-rapid-recall
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Crash-Course Review: Rapid Recall"
 position: 40
 estimated_minutes: 40

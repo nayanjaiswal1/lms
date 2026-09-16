@@ -30,6 +30,47 @@ def binary_search(nums: list[int], target: int) -> int:
             hi = mid - 1
     return -1
 ```
+```javascript +
+function binarySearch(nums, target) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] === target) {
+      return mid;
+    } else if (nums[mid] < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return -1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 3, 5, 7, 9, 11};
+        System.out.println(binarySearch(nums, 7));
+    }
+
+    static int binarySearch(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2; // avoids overflow, standard habit
+            if (nums[mid] == target) {
+                return mid;
+            } else if (nums[mid] < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return -1;
+    }
+}
+```
 
 `lo + (hi - lo) // 2` instead of `(lo + hi) // 2` is a habit worth keeping even in Python, where integers don't overflow. It signals you understand why the naive version breaks in languages with fixed-width integers.
 
@@ -60,6 +101,76 @@ def upper_bound(nums: list[int], target: int) -> int:
             hi = mid
     return lo
 ```
+```javascript +
+function lowerBound(nums, target) {
+  // First index where nums[index] >= target.
+  let lo = 0;
+  let hi = nums.length;
+  while (lo < hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+function upperBound(nums, target) {
+  // First index where nums[index] > target.
+  let lo = 0;
+  let hi = nums.length;
+  while (lo < hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] <= target) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 2, 2, 3, 5};
+        System.out.println(lowerBound(nums, 2));
+        System.out.println(upperBound(nums, 2));
+    }
+
+    // First index where nums[index] >= target.
+    static int lowerBound(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length;
+        while (lo < hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return lo;
+    }
+
+    // First index where nums[index] > target.
+    static int upperBound(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length;
+        while (lo < hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] <= target) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return lo;
+    }
+}
+```
 
 Key differences from the exact-match template: `hi` starts at `len(nums)` (one past the end, representing "not found, insert here"), the loop condition is `lo < hi` (not `<=`), and there's no early return, since the loop converges `lo == hi` on the answer. Mixing this template's conventions with the exact-match template's is the number one source of infinite loops.
 
@@ -87,6 +198,47 @@ def search(nums: list[int], target: int) -> int:
         else:
             hi = mid - 1
     return -1
+```
+```javascript +
+function search(nums, target) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] === target) {
+      return mid;
+    } else if (nums[mid] < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return -1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {-1, 0, 3, 5, 9, 12};
+        System.out.println(search(nums, 9));
+    }
+
+    static int search(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] == target) {
+                return mid;
+            } else if (nums[mid] < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return -1;
+    }
+}
 ```
 
 **Complexity:** Time O(log n), space O(1).
@@ -123,6 +275,65 @@ def search_rotated(nums: list[int], target: int) -> int:
                 hi = mid - 1
     return -1
 ```
+```javascript +
+function searchRotated(nums, target) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] === target) return mid;
+
+    if (nums[lo] <= nums[mid]) {
+      // left half is sorted
+      if (nums[lo] <= target && target < nums[mid]) {
+        hi = mid - 1;
+      } else {
+        lo = mid + 1;
+      }
+    } else {
+      // right half is sorted
+      if (nums[mid] < target && target <= nums[hi]) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+  }
+  return -1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {4, 5, 6, 7, 0, 1, 2};
+        System.out.println(searchRotated(nums, 0));
+    }
+
+    static int searchRotated(int[] nums, int target) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] == target) return mid;
+
+            if (nums[lo] <= nums[mid]) { // left half is sorted
+                if (nums[lo] <= target && target < nums[mid]) {
+                    hi = mid - 1;
+                } else {
+                    lo = mid + 1;
+                }
+            } else { // right half is sorted
+                if (nums[mid] < target && target <= nums[hi]) {
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+        }
+        return -1;
+    }
+}
+```
 
 **Complexity:** Time O(log n), space O(1).
 
@@ -148,6 +359,43 @@ def find_min(nums: list[int]) -> int:
         else:
             hi = mid
     return nums[lo]
+```
+```javascript +
+function findMin(nums) {
+  let lo = 0;
+  let hi = nums.length - 1;
+  while (lo < hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (nums[mid] > nums[hi]) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return nums[lo];
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {4, 5, 6, 7, 0, 1, 2};
+        System.out.println(findMin(nums));
+    }
+
+    static int findMin(int[] nums) {
+        int lo = 0;
+        int hi = nums.length - 1;
+        while (lo < hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (nums[mid] > nums[hi]) {
+                lo = mid + 1;
+            } else {
+                hi = mid;
+            }
+        }
+        return nums[lo];
+    }
+}
 ```
 
 **Complexity:** Time O(log n), space O(1).
@@ -182,6 +430,61 @@ def search_matrix(matrix: list[list[int]], target: int) -> bool:
         else:
             hi = mid - 1
     return False
+```
+```javascript +
+function searchMatrix(matrix, target) {
+  if (!matrix.length || !matrix[0].length) return false;
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  let lo = 0;
+  let hi = rows * cols - 1;
+
+  while (lo <= hi) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    const row = Math.floor(mid / cols);
+    const col = mid % cols;
+    const val = matrix[row][col];
+    if (val === target) {
+      return true;
+    } else if (val < target) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return false;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {{1, 3, 5, 7}, {10, 11, 16, 20}, {23, 30, 34, 60}};
+        System.out.println(searchMatrix(matrix, 3));
+    }
+
+    static boolean searchMatrix(int[][] matrix, int target) {
+        if (matrix.length == 0 || matrix[0].length == 0) return false;
+        int rows = matrix.length;
+        int cols = matrix[0].length;
+        int lo = 0;
+        int hi = rows * cols - 1;
+
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            int row = mid / cols;
+            int col = mid % cols;
+            int val = matrix[row][col];
+            if (val == target) {
+                return true;
+            } else if (val < target) {
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return false;
+    }
+}
 ```
 
 **Complexity:** Time O(log(rows·cols)), space O(1).

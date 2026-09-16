@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-31
 course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
-section_position: 7
+section_position: 9
 title: "Mock Interviews 4–6: Graphs, Twitter, Todo App"
 position: 31
 estimated_minutes: 240

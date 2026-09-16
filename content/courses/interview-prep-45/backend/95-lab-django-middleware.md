@@ -4,7 +4,7 @@ id_key: interview-prep-45/lab-django-middleware
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Lab: Django Middleware — Request ID & Response Time"
 position: 95
 estimated_minutes: 45

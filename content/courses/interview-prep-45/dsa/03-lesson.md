@@ -48,6 +48,79 @@ def variable_window_template(s: str) -> int:
 
     return best
 ```
+```javascript +
+// Generic template — for this demo, "invalid" means a character appears
+// more than once in the window, which is exactly the "longest substring
+// without repeating characters" case walked through later in this lesson.
+function windowIsInvalid(windowState) {
+  return Object.values(windowState).some((count) => count > 1);
+}
+
+function variableWindowTemplate(s) {
+  let left = 0;
+  let best = 0;
+  const windowState = {}; // whatever tracking the problem needs
+
+  for (let right = 0; right < s.length; right++) {
+    // 1. Expand: bring s[right] into the window
+    windowState[s[right]] = (windowState[s[right]] || 0) + 1;
+
+    // 2. Contract: while window is invalid, shrink from the left
+    while (windowIsInvalid(windowState)) {
+      windowState[s[left]] -= 1;
+      if (windowState[s[left]] === 0) delete windowState[s[left]];
+      left += 1;
+    }
+
+    // 3. Record: window [left, right] is now valid — update the answer
+    best = Math.max(best, right - left + 1);
+  }
+
+  return best;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(variableWindowTemplate("abcabcbb"));
+    }
+
+    // Generic template — for this demo, "invalid" means a character appears
+    // more than once in the window, which is exactly the "longest substring
+    // without repeating characters" case walked through later in this lesson.
+    static boolean windowIsInvalid(java.util.Map<Character, Integer> windowState) {
+        for (int count : windowState.values()) {
+            if (count > 1) return true;
+        }
+        return false;
+    }
+
+    static int variableWindowTemplate(String s) {
+        int left = 0;
+        int best = 0;
+        java.util.Map<Character, Integer> windowState = new java.util.HashMap<>(); // whatever tracking the problem needs
+
+        for (int right = 0; right < s.length(); right++) {
+            // 1. Expand: bring s[right] into the window
+            char rightCh = s.charAt(right);
+            windowState.merge(rightCh, 1, Integer::sum);
+
+            // 2. Contract: while window is invalid, shrink from the left
+            while (windowIsInvalid(windowState)) {
+                char leftCh = s.charAt(left);
+                windowState.put(leftCh, windowState.get(leftCh) - 1);
+                if (windowState.get(leftCh) == 0) windowState.remove(leftCh);
+                left += 1;
+            }
+
+            // 3. Record: window [left, right] is now valid — update the answer
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
+```
 
 The invariant to hold onto: **the right pointer visits each index once, and the left pointer visits each index at most once** (it only moves forward). That's what makes the whole thing O(n) instead of O(n²): every index is added to the window once and removed at most once.
 
@@ -71,6 +144,35 @@ def max_profit(prices: list[int]) -> int:
         min_price = min(min_price, price)
         best_profit = max(best_profit, price - min_price)
     return best_profit
+```
+```javascript +
+function maxProfit(prices) {
+  let minPrice = Infinity;
+  let bestProfit = 0;
+  for (const price of prices) {
+    minPrice = Math.min(minPrice, price);
+    bestProfit = Math.max(bestProfit, price - minPrice);
+  }
+  return bestProfit;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] prices = {7, 1, 5, 3, 6, 4};
+        System.out.println(maxProfit(prices));
+    }
+
+    static int maxProfit(int[] prices) {
+        int minPrice = Integer.MAX_VALUE;
+        int bestProfit = 0;
+        for (int price : prices) {
+            minPrice = Math.min(minPrice, price);
+            bestProfit = Math.max(bestProfit, price - minPrice);
+        }
+        return bestProfit;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1).
@@ -99,6 +201,44 @@ def length_of_longest_substring(s: str) -> int:
         last_seen[ch] = right
         best = max(best, right - left + 1)
     return best
+```
+```javascript +
+function lengthOfLongestSubstring(s) {
+  const lastSeen = new Map(); // char -> most recent index
+  let left = 0;
+  let best = 0;
+  for (let right = 0; right < s.length; right++) {
+    const ch = s[right];
+    if (lastSeen.has(ch) && lastSeen.get(ch) >= left) {
+      left = lastSeen.get(ch) + 1;
+    }
+    lastSeen.set(ch, right);
+    best = Math.max(best, right - left + 1);
+  }
+  return best;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(lengthOfLongestSubstring("abcabcbb"));
+    }
+
+    static int lengthOfLongestSubstring(String s) {
+        java.util.Map<Character, Integer> lastSeen = new java.util.HashMap<>();
+        int left = 0;
+        int best = 0;
+        for (int right = 0; right < s.length(); right++) {
+            char ch = s.charAt(right);
+            if (lastSeen.containsKey(ch) && lastSeen.get(ch) >= left) {
+                left = lastSeen.get(ch) + 1;
+            }
+            lastSeen.put(ch, right);
+            best = Math.max(best, right - left + 1);
+        }
+        return best;
+    }
+}
 ```
 
 **Complexity:** Time O(n): each index visited once by `right`, and `left` jumps but never revisits. Space O(min(n, alphabet size)) for the map.
@@ -152,6 +292,92 @@ def min_window(s: str, t: str) -> str:
             left += 1
 
     return "" if best_len == float("inf") else s[best_left:best_left + best_len]
+```
+```javascript +
+function minWindow(s, t) {
+  if (!s || !t) return "";
+
+  const needCounts = new Map();
+  for (const ch of t) needCounts.set(ch, (needCounts.get(ch) || 0) + 1);
+  const need = needCounts.size;
+  const windowCounts = new Map();
+  let have = 0;
+
+  let left = 0;
+  let bestLen = Infinity;
+  let bestLeft = 0;
+
+  for (let right = 0; right < s.length; right++) {
+    const ch = s[right];
+    windowCounts.set(ch, (windowCounts.get(ch) || 0) + 1);
+    if (needCounts.has(ch) && windowCounts.get(ch) === needCounts.get(ch)) {
+      have += 1;
+    }
+
+    while (have === need) {
+      if (right - left + 1 < bestLen) {
+        bestLen = right - left + 1;
+        bestLeft = left;
+      }
+
+      const leftCh = s[left];
+      windowCounts.set(leftCh, windowCounts.get(leftCh) - 1);
+      if (needCounts.has(leftCh) && windowCounts.get(leftCh) < needCounts.get(leftCh)) {
+        have -= 1;
+      }
+      left += 1;
+    }
+  }
+
+  return bestLen === Infinity ? "" : s.slice(bestLeft, bestLeft + bestLen);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(minWindow("ADOBECODEBANC", "ABC"));
+    }
+
+    static String minWindow(String s, String t) {
+        if (s.isEmpty() || t.isEmpty()) return "";
+
+        java.util.Map<Character, Integer> needCounts = new java.util.HashMap<>();
+        for (char ch : t.toCharArray()) {
+            needCounts.merge(ch, 1, Integer::sum);
+        }
+        int need = needCounts.size();
+        java.util.Map<Character, Integer> windowCounts = new java.util.HashMap<>();
+        int have = 0;
+
+        int left = 0;
+        int bestLen = Integer.MAX_VALUE;
+        int bestLeft = 0;
+
+        for (int right = 0; right < s.length(); right++) {
+            char ch = s.charAt(right);
+            windowCounts.merge(ch, 1, Integer::sum);
+            if (needCounts.containsKey(ch) && windowCounts.get(ch).equals(needCounts.get(ch))) {
+                have += 1;
+            }
+
+            while (have == need) {
+                if (right - left + 1 < bestLen) {
+                    bestLen = right - left + 1;
+                    bestLeft = left;
+                }
+
+                char leftCh = s.charAt(left);
+                windowCounts.put(leftCh, windowCounts.get(leftCh) - 1);
+                if (needCounts.containsKey(leftCh) && windowCounts.get(leftCh) < needCounts.get(leftCh)) {
+                    have -= 1;
+                }
+                left += 1;
+            }
+        }
+
+        return bestLen == Integer.MAX_VALUE ? "" : s.substring(bestLeft, bestLeft + bestLen);
+    }
+}
 ```
 
 **Complexity:** Time O(|s| + |t|): building the `t` counter is O(|t|), and both pointers over `s` move forward only, giving O(|s|). Space O(|t|) for the need map, O(alphabet) for the window map.

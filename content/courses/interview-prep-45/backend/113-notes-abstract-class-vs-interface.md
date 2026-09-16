@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-abstract-class-vs-interface
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Abstract Class vs Interface (LLD)"
 position: 113
 estimated_minutes: 15

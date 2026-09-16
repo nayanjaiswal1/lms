@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-20-frontend
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Build Tools and Bundling Internals"
 position: 34
 estimated_minutes: 30

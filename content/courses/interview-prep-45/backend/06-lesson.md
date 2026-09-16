@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-06-backend
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Redis Caching Strategies"
 position: 6
 estimated_minutes: 45

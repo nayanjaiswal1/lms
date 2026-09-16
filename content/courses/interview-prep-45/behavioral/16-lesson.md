@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-16-behavioral
 course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
-section_position: 5
+section_position: 7
 title: "Negotiation Story"
 position: 16
 estimated_minutes: 15

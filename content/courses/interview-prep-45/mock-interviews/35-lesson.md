@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-35
 course: interview-prep-45
 section: mock-interviews
 section_title: "Mock Interviews"
-section_position: 7
+section_position: 9
 title: "Mock Interviews 16–17 + Weakness Identification"
 position: 35
 estimated_minutes: 240

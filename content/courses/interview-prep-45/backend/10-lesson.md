@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-10-backend
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "API Versioning and Error Handling"
 position: 10
 estimated_minutes: 45

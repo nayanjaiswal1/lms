@@ -28,6 +28,38 @@ by_start = sorted(intervals, key=lambda x: x[0])
 by_end = sorted(intervals, key=lambda x: x[1])
 ```
 
+```javascript +
+const intervals = [[1, 3], [2, 6], [8, 10], [15, 18]];
+
+const byStart = [...intervals].sort((a, b) => a[0] - b[0]);
+const byEnd = [...intervals].sort((a, b) => a[1] - b[1]);
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        List<int[]> intervals = new ArrayList<>(List.of(
+            new int[]{1, 3}, new int[]{2, 6}, new int[]{8, 10}, new int[]{15, 18}
+        ));
+
+        List<int[]> byStart = new ArrayList<>(intervals);
+        byStart.sort((a, b) -> Integer.compare(a[0], b[0]));
+
+        List<int[]> byEnd = new ArrayList<>(intervals);
+        byEnd.sort((a, b) -> Integer.compare(a[1], b[1]));
+
+        for (int[] interval : byStart) {
+            System.out.println(Arrays.toString(interval));
+        }
+        for (int[] interval : byEnd) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+}
+```
+
 Why this matters so much: the correctness of the entire single-pass algorithm that follows depends on the sort establishing the right invariant. For example, if intervals are sorted by start, then once you've moved past an interval, nothing later can start before it did.
 
 ## Merging overlapping intervals
@@ -49,6 +81,62 @@ def merge_intervals(intervals: list[list[int]]) -> list[list[int]]:
             merged.append([start, end])
 
     return merged
+```
+
+```javascript +
+function mergeIntervals(intervals) {
+    if (intervals.length === 0) return [];
+    const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+    const merged = [sorted[0]];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const [start, end] = sorted[i];
+        const lastEnd = merged[merged.length - 1][1];
+        if (start <= lastEnd) {            // overlaps (or touches) the last merged interval
+            merged[merged.length - 1][1] = Math.max(lastEnd, end);
+        } else {
+            merged.push([start, end]);
+        }
+    }
+
+    return merged;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 3}, {2, 6}, {8, 10}, {15, 18}};
+        for (int[] interval : mergeIntervals(intervals)) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+
+    static List<int[]> mergeIntervals(int[][] intervals) {
+        if (intervals.length == 0) return new ArrayList<>();
+
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[0], b[0]));
+
+        List<int[]> merged = new ArrayList<>();
+        merged.add(sorted[0]);
+
+        for (int i = 1; i < sorted.length; i++) {
+            int start = sorted[i][0];
+            int end = sorted[i][1];
+            int[] last = merged.get(merged.size() - 1);
+            if (start <= last[1]) {           // overlaps (or touches) the last merged interval
+                last[1] = Math.max(last[1], end);
+            } else {
+                merged.add(new int[]{start, end});
+            }
+        }
+
+        return merged;
+    }
+}
 ```
 
 The overlap check that trips people up: `start <= last_end`, not `start < last_end`. Intervals `[1, 3]` and `[3, 5]` are considered overlapping (touching) in most problem statements, and merge into `[1, 5]`. Always check the problem statement for whether touching endpoints count as overlapping.
@@ -73,6 +161,57 @@ def max_non_overlapping(intervals: list[list[int]]) -> int:
     return count
 ```
 
+```javascript +
+function maxNonOverlapping(intervals) {
+    if (intervals.length === 0) return 0;
+    const sorted = [...intervals].sort((a, b) => a[1] - b[1]); // sort by END time
+    let count = 1;
+    let lastEnd = sorted[0][1];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const [start, end] = sorted[i];
+        if (start >= lastEnd) {
+            count++;
+            lastEnd = end;
+        }
+    }
+
+    return count;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 2}, {2, 3}, {3, 4}, {1, 3}};
+        System.out.println(maxNonOverlapping(intervals));
+    }
+
+    static int maxNonOverlapping(int[][] intervals) {
+        if (intervals.length == 0) return 0;
+
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[1], b[1])); // sort by END time
+
+        int count = 1;
+        int lastEnd = sorted[0][1];
+
+        for (int i = 1; i < sorted.length; i++) {
+            int start = sorted[i][0];
+            int end = sorted[i][1];
+            if (start >= lastEnd) {
+                count++;
+                lastEnd = end;
+            }
+        }
+
+        return count;
+    }
+}
+```
+
 Why "sort by end, pick earliest-ending" is optimal: the interval that finishes earliest leaves the most remaining room for future intervals. This is a classic exchange-argument greedy proof, since any optimal solution can be transformed to include the earliest-ending interval without becoming worse, and it's worth being able to state that justification out loud in an interview.
 
 ## Merge Intervals
@@ -95,6 +234,54 @@ def merge(intervals: list[list[int]]) -> list[list[int]]:
             merged[-1][1] = max(merged[-1][1], interval[1])
 
     return merged
+```
+
+```javascript +
+function merge(intervals) {
+    const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+    const merged = [];
+
+    for (const interval of sorted) {
+        if (merged.length === 0 || interval[0] > merged[merged.length - 1][1]) {
+            merged.push(interval);
+        } else {
+            merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], interval[1]);
+        }
+    }
+
+    return merged;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 3}, {2, 6}, {8, 10}, {15, 18}};
+        int[][] result = merge(intervals);
+        for (int[] interval : result) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+
+    static int[][] merge(int[][] intervals) {
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[0], b[0]));
+
+        List<int[]> merged = new ArrayList<>();
+        for (int[] interval : sorted) {
+            if (merged.isEmpty() || interval[0] > merged.get(merged.size() - 1)[1]) {
+                merged.add(interval);
+            } else {
+                int[] last = merged.get(merged.size() - 1);
+                last[1] = Math.max(last[1], interval[1]);
+            }
+        }
+
+        return merged.toArray(new int[0][]);
+    }
+}
 ```
 
 **Complexity:** Time O(n log n) for the sort (the pass itself is O(n)), space O(n) for the output.
@@ -133,6 +320,77 @@ def insert(intervals: list[list[int]], newInterval: list[int]) -> list[list[int]
     return result
 ```
 
+```javascript +
+function insert(intervals, newInterval) {
+    const result = [];
+    let i = 0;
+    const n = intervals.length;
+    let [newStart, newEnd] = newInterval;
+
+    while (i < n && intervals[i][1] < newStart) {
+        result.push(intervals[i]);
+        i++;
+    }
+
+    while (i < n && intervals[i][0] <= newEnd) {
+        newStart = Math.min(newStart, intervals[i][0]);
+        newEnd = Math.max(newEnd, intervals[i][1]);
+        i++;
+    }
+
+    result.push([newStart, newEnd]);
+
+    while (i < n) {
+        result.push(intervals[i]);
+        i++;
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{1, 3}, {6, 9}};
+        int[] newInterval = {2, 5};
+        for (int[] interval : insert(intervals, newInterval)) {
+            System.out.println(Arrays.toString(interval));
+        }
+    }
+
+    static int[][] insert(int[][] intervals, int[] newInterval) {
+        List<int[]> result = new ArrayList<>();
+        int i = 0;
+        int n = intervals.length;
+        int newStart = newInterval[0];
+        int newEnd = newInterval[1];
+
+        while (i < n && intervals[i][1] < newStart) {
+            result.add(intervals[i]);
+            i++;
+        }
+
+        while (i < n && intervals[i][0] <= newEnd) {
+            newStart = Math.min(newStart, intervals[i][0]);
+            newEnd = Math.max(newEnd, intervals[i][1]);
+            i++;
+        }
+
+        result.add(new int[]{newStart, newEnd});
+
+        while (i < n) {
+            result.add(intervals[i]);
+            i++;
+        }
+
+        return result.toArray(new int[0][]);
+    }
+}
+```
+
 **Complexity:** Time O(n): no sort needed since the input is already sorted. Space O(n) for the output.
 
 **Common mistakes:** Sorting the input unnecessarily. It's guaranteed pre-sorted, so sorting is wasted O(n log n) work and can mask a bug in the merge logic. Also, using `<` instead of `<=` in the overlap-detection loop, which misses touching intervals that should merge.
@@ -152,6 +410,41 @@ def canAttendMeetings(intervals: list[list[int]]) -> bool:
         if intervals[i][0] < intervals[i - 1][1]:
             return False
     return True
+```
+
+```javascript +
+function canAttendMeetings(intervals) {
+    const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i][0] < sorted[i - 1][1]) {
+            return false;
+        }
+    }
+    return true;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] intervals = {{0, 30}, {5, 10}, {15, 20}};
+        System.out.println(canAttendMeetings(intervals));
+    }
+
+    static boolean canAttendMeetings(int[][] intervals) {
+        int[][] sorted = intervals.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[0], b[0]));
+
+        for (int i = 1; i < sorted.length; i++) {
+            if (sorted[i][0] < sorted[i - 1][1]) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
 ```
 
 **Complexity:** Time O(n log n), space O(1) extra (ignoring sort space).
@@ -182,6 +475,57 @@ def findMinArrowShots(points: list[list[int]]) -> int:
             arrow_pos = end
 
     return arrows
+```
+
+```javascript +
+function findMinArrowShots(points) {
+    if (points.length === 0) return 0;
+    const sorted = [...points].sort((a, b) => a[1] - b[1]);
+    let arrows = 1;
+    let arrowPos = sorted[0][1];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const [start, end] = sorted[i];
+        if (start > arrowPos) {
+            arrows++;
+            arrowPos = end;
+        }
+    }
+
+    return arrows;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] points = {{10, 16}, {2, 8}, {1, 6}, {7, 12}};
+        System.out.println(findMinArrowShots(points));
+    }
+
+    static int findMinArrowShots(int[][] points) {
+        if (points.length == 0) return 0;
+
+        int[][] sorted = points.clone();
+        Arrays.sort(sorted, (a, b) -> Integer.compare(a[1], b[1]));
+
+        int arrows = 1;
+        int arrowPos = sorted[0][1];
+
+        for (int i = 1; i < sorted.length; i++) {
+            int start = sorted[i][0];
+            int end = sorted[i][1];
+            if (start > arrowPos) {
+                arrows++;
+                arrowPos = end;
+            }
+        }
+
+        return arrows;
+    }
+}
 ```
 
 **Complexity:** Time O(n log n) for the sort, space O(1) extra.

@@ -505,6 +505,17 @@ export default tseslint.config(
               from: { type: 'feature-components', captured: { family: 'mentoring' } },
               allow: [['feature-lib', { family: 'tickets' }]],
             },
+            // A diary "goal" IS a habit (see GoalStatus in
+            // internal/diary/models.go) — the diary page's Goals strip
+            // reuses habit journaling styling and, once editable, the
+            // habit domain's own create/complete/remove endpoints directly
+            // rather than duplicating the tracker. See
+            // components/diary/diary-page-shell.tsx (journal-fonts) and
+            // components/diary/diary-goals-section.tsx.
+            {
+              from: { type: 'feature-components', captured: { family: 'diary' } },
+              allow: [['feature-components', { family: 'habits' }]],
+            },
             { from: { type: 'shared-lib' }, allow: ['shared-lib'] },
             {
               from: { type: 'feature-lib' },

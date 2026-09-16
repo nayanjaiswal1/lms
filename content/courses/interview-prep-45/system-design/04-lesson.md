@@ -5,7 +5,7 @@ id_key: interview-prep-45/day-04-system-design
 course: interview-prep-45
 section: system-design
 section_title: "System Design"
-section_position: 2
+section_position: 3
 title: "Chat Application (WhatsApp style)"
 position: 4
 estimated_minutes: 60

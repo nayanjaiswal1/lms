@@ -11,8 +11,8 @@ import type {
   DiaryTask,
   DiaryTaskKind,
   FixEnglishSegment,
-  ReviewResponse,
 } from "@/lib/server/diary";
+import type { Habit, HabitCadence } from "@/lib/server/habits";
 
 export async function saveDiaryEntryAction(date: string, content: string): Promise<ActionResult<DiaryEntry>> {
   const result = await apiAction<DiaryEntry>("PATCH", `/api/diary/${encodeURIComponent(date)}`, { content });
@@ -60,14 +60,6 @@ export async function fixEnglishAction(
   );
 }
 
-// The single "AI" button: FixEnglish then Analyze over the corrected text in
-// one round trip — see internal/diary.Service.ReviewDump. Nothing is saved
-// or applied here; the caller still saves the corrected content and confirms
-// the reviewed highlights via saveDiaryEntryAction/applyAnalysisAction.
-export async function reviewDumpAction(date: string, content: string): Promise<ActionResult<ReviewResponse>> {
-  return apiAction<ReviewResponse>("POST", `/api/diary/${encodeURIComponent(date)}/review`, { content });
-}
-
 // ─── Diary-owned tasks ──────────────────────────────────────────────────────
 
 export async function listDiaryTasksAction(
@@ -91,6 +83,19 @@ export async function createDiaryTaskAction(
   return result;
 }
 
+export async function updateDiaryTaskDetailsAction(
+  id: string,
+  title: string,
+  description: string,
+): Promise<ActionResult<DiaryTask>> {
+  const result = await apiAction<DiaryTask>("PATCH", `/api/diary/tasks/${encodeURIComponent(id)}`, {
+    title,
+    description,
+  });
+  if (result.ok) revalidatePath(ROUTES.DIARY);
+  return result;
+}
+
 export async function toggleDiaryTaskAction(id: string, done: boolean): Promise<ActionResult<DiaryTask>> {
   const result = await apiAction<DiaryTask>("PATCH", `/api/diary/tasks/${encodeURIComponent(id)}`, { done });
   if (result.ok) revalidatePath(ROUTES.DIARY);
@@ -105,6 +110,47 @@ export async function updateDiaryTaskTagsAction(id: string, tags: string[]): Pro
 
 export async function deleteDiaryTaskAction(id: string): Promise<ActionResult<void>> {
   const result = await apiAction<void>("DELETE", `/api/diary/tasks/${encodeURIComponent(id)}`);
+  if (result.ok) revalidatePath(ROUTES.DIARY);
+  return result;
+}
+
+// ─── Diary "Goals" strip (a read display over the habit tracker — see
+// GoalStatus in internal/diary/models.go) ───────────────────────────────────
+//
+// These call the habit domain's own endpoints directly (no diary-owned
+// goal table) so creating/completing/removing a goal from the diary page
+// stays the exact same habit the Habits page shows.
+
+// Creates a habit, then re-fetches the entry so the new goal comes back
+// with its server-computed `period` (daily/ISO-week-Monday/month-1st
+// alignment — see alignPeriod in internal/diary/service.go) instead of
+// reimplementing that alignment on the frontend.
+export async function createDiaryGoalAction(
+  date: string,
+  name: string,
+  cadence: HabitCadence,
+): Promise<ActionResult<DiaryEntry>> {
+  const created = await apiAction<Habit>("POST", "/api/habits", { name, cadence });
+  if (!created.ok) return { ok: false, error: created.error, fieldErrors: created.fieldErrors };
+  const result = await apiAction<DiaryEntry>("GET", `/api/diary/${encodeURIComponent(date)}`);
+  if (result.ok) revalidatePath(ROUTES.DIARY);
+  return result;
+}
+
+export async function toggleDiaryGoalAction(
+  habitId: string,
+  period: string,
+  done: boolean,
+): Promise<ActionResult<null>> {
+  const result = done
+    ? await apiAction<null>("PUT", `/api/habits/${encodeURIComponent(habitId)}/completions/${encodeURIComponent(period)}`)
+    : await apiAction<null>("DELETE", `/api/habits/${encodeURIComponent(habitId)}/completions/${encodeURIComponent(period)}`);
+  if (result.ok) revalidatePath(ROUTES.DIARY);
+  return result;
+}
+
+export async function deleteDiaryGoalAction(habitId: string): Promise<ActionResult<null>> {
+  const result = await apiAction<null>("DELETE", `/api/habits/${encodeURIComponent(habitId)}`);
   if (result.ok) revalidatePath(ROUTES.DIARY);
   return result;
 }

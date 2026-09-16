@@ -19,11 +19,11 @@ export function DesignGuidancePanel({ segments }: DesignGuidancePanelProps) {
           case "html":
             return <LessonHtml html={segment.html} key={index} />;
           case "code":
-            return (
-              <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs" key={index}>
-                <code>{segment.code}</code>
+            return segment.variants.map((variant, variantIndex) => (
+              <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs" key={`${index}-${variantIndex}`}>
+                <code>{variant.code}</code>
               </pre>
-            );
+            ));
           case "image":
             return (
               <LessonFigure

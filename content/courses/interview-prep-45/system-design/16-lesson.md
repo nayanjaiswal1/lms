@@ -5,7 +5,7 @@ id_key: interview-prep-45/day-16-system-design
 course: interview-prep-45
 section: system-design
 section_title: "System Design"
-section_position: 2
+section_position: 3
 title: "Design Spotify"
 position: 16
 estimated_minutes: 60

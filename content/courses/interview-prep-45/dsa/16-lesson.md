@@ -106,6 +106,49 @@ def subsets(nums: list[int]) -> list[list[int]]:
     backtrack(0)
     return result
 ```
+```javascript +
+function subsets(nums) {
+    const result = [];
+    const path = [];
+
+    function backtrack(start) {
+        result.push([...path]);          // every node is a valid subset
+        for (let i = start; i < nums.length; i++) {
+            path.push(nums[i]);
+            backtrack(i + 1);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> subsets(int[] nums) {
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        backtrack(nums, 0, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] nums, int start, Deque<Integer> path, List<List<Integer>> result) {
+        result.add(new ArrayList<>(path)); // every node is a valid subset
+        for (int i = start; i < nums.length; i++) {
+            path.addLast(nums[i]);
+            backtrack(nums, i + 1, path, result);
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(subsets(new int[] {1, 2, 3}));
+    }
+}
+```
 
 **Complexity:** O(n * 2^n) time (2^n subsets, O(n) to copy each), O(n) recursion depth excluding output.
 
@@ -136,6 +179,53 @@ def subsets_with_dup(nums: list[int]) -> list[list[int]]:
 
     backtrack(0)
     return result
+```
+```javascript +
+function subsetsWithDup(nums) {
+    nums = [...nums].sort((a, b) => a - b);
+    const result = [];
+    const path = [];
+
+    function backtrack(start) {
+        result.push([...path]);
+        for (let i = start; i < nums.length; i++) {
+            if (i > start && nums[i] === nums[i - 1]) continue; // skip duplicate at this level
+            path.push(nums[i]);
+            backtrack(i + 1);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> subsetsWithDup(int[] nums) {
+        Arrays.sort(nums);
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        backtrack(nums, 0, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] nums, int start, Deque<Integer> path, List<List<Integer>> result) {
+        result.add(new ArrayList<>(path));
+        for (int i = start; i < nums.length; i++) {
+            if (i > start && nums[i] == nums[i - 1]) continue; // skip duplicate at this level
+            path.addLast(nums[i]);
+            backtrack(nums, i + 1, path, result);
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(subsetsWithDup(new int[] {1, 2, 2}));
+    }
+}
 ```
 
 **Complexity:** O(n * 2^n) time worst case, O(n) recursion depth.
@@ -169,6 +259,59 @@ def combination_sum(candidates: list[int], target: int) -> list[list[int]]:
 
     backtrack(0, target)
     return result
+```
+```javascript +
+function combinationSum(candidates, target) {
+    candidates = [...candidates].sort((a, b) => a - b);
+    const result = [];
+    const path = [];
+
+    function backtrack(start, remaining) {
+        if (remaining === 0) {
+            result.push([...path]);
+            return;
+        }
+        for (let i = start; i < candidates.length; i++) {
+            if (candidates[i] > remaining) break; // sorted, so nothing further can work either
+            path.push(candidates[i]);
+            backtrack(i, remaining - candidates[i]); // i, not i+1: reuse allowed
+            path.pop();
+        }
+    }
+
+    backtrack(0, target);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> combinationSum(int[] candidates, int target) {
+        Arrays.sort(candidates);
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        backtrack(candidates, target, 0, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] candidates, int remaining, int start, Deque<Integer> path, List<List<Integer>> result) {
+        if (remaining == 0) {
+            result.add(new ArrayList<>(path));
+            return;
+        }
+        for (int i = start; i < candidates.length; i++) {
+            if (candidates[i] > remaining) break; // sorted, so nothing further can work either
+            path.addLast(candidates[i]);
+            backtrack(candidates, remaining - candidates[i], i, path, result); // i, not i+1: reuse allowed
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(combinationSum(new int[] {2, 3, 6, 7}, 7));
+    }
+}
 ```
 
 **Complexity:** O(n^(target/min_candidate)) time worst case (exponential, bounded by target), O(target / min_candidate) recursion depth.
@@ -204,6 +347,63 @@ def permute(nums: list[int]) -> list[list[int]]:
 
     backtrack()
     return result
+```
+```javascript +
+function permute(nums) {
+    const result = [];
+    const path = [];
+    const used = new Array(nums.length).fill(false);
+
+    function backtrack() {
+        if (path.length === nums.length) {
+            result.push([...path]);
+            return;
+        }
+        for (let i = 0; i < nums.length; i++) {
+            if (used[i]) continue;
+            used[i] = true;
+            path.push(nums[i]);
+            backtrack();
+            path.pop();
+            used[i] = false;
+        }
+    }
+
+    backtrack();
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<Integer>> permute(int[] nums) {
+        List<List<Integer>> result = new ArrayList<>();
+        Deque<Integer> path = new ArrayDeque<>();
+        boolean[] used = new boolean[nums.length];
+        backtrack(nums, used, path, result);
+        return result;
+    }
+
+    private static void backtrack(int[] nums, boolean[] used, Deque<Integer> path, List<List<Integer>> result) {
+        if (path.size() == nums.length) {
+            result.add(new ArrayList<>(path));
+            return;
+        }
+        for (int i = 0; i < nums.length; i++) {
+            if (used[i]) continue;
+            used[i] = true;
+            path.addLast(nums[i]);
+            backtrack(nums, used, path, result);
+            path.removeLast();
+            used[i] = false;
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(permute(new int[] {1, 2, 3}));
+    }
+}
 ```
 
 **Complexity:** O(n * n!) time (n! permutations, O(n) to copy each), O(n) space for `used` plus recursion depth.

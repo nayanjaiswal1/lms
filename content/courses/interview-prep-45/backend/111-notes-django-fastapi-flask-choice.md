@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-django-fastapi-flask-choice
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Django vs FastAPI vs Flask — Framework Choice"
 position: 111
 estimated_minutes: 15

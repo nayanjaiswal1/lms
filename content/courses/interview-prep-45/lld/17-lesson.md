@@ -2,17 +2,17 @@
 kind: lesson
 id_key: interview-prep-45/day-27
 course: interview-prep-45
-section: system-design
-section_title: "System Design"
-section_position: 2
-title: "Design Patterns (LLD)"
-position: 29
+section: lld
+section_title: "Low-Level Design (LLD)"
+section_position: 4
+title: "Design Problems in Code — LRU, HashMap, Tic-Tac-Toe"
+position: 17
 estimated_minutes: 150
 source:
     - 45-day-interview-roadmap.md
 ---
 
-"Design" questions blend two skills: knowing the classic OOP patterns well enough to apply them under time pressure, and combining basic data structures to satisfy specific operation-complexity requirements. Today covers the patterns you'll actually be asked to reason about or implement (Singleton, Factory, Observer, Strategy, Repository, Builder), then applies that thinking to four "implement this data structure" problems, ending with LRU Cache, the single most-asked design problem in tech interviews.
+The previous lessons designed classes on a whiteboard. This one designs them *in code*, under the constraints a coding round imposes: a stated operation-complexity target and a working implementation in 20 minutes. It opens with a fast recap of the six patterns you are most likely to reach for (covered in depth in the Creational, Structural, and Behavioral lessons), then applies that thinking to the "implement this data structure" problems that dominate the design slot of a coding interview, ending with LRU Cache, the single most-asked design problem in tech interviews.
 
 ## Singleton, Factory, Observer
 

@@ -64,6 +64,150 @@ def level_order(root):
         result.append(level)
     return result
 ```
+```javascript +
+class TreeNode {
+    constructor(val = 0, left = null, right = null) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+function preorder(root) {
+    if (root === null) {
+        return [];
+    }
+    return [root.val, ...preorder(root.left), ...preorder(root.right)];
+}
+
+function inorder(root) {
+    if (root === null) {
+        return [];
+    }
+    return [...inorder(root.left), root.val, ...inorder(root.right)];
+}
+
+function postorder(root) {
+    if (root === null) {
+        return [];
+    }
+    return [...postorder(root.left), ...postorder(root.right), root.val];
+}
+
+function levelOrder(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const queue = [root];
+    while (queue.length > 0) {
+        const level = [];
+        const levelSize = queue.length;
+        for (let i = 0; i < levelSize; i++) {
+            const node = queue.shift();
+            level.push(node.val);
+            if (node.left) {
+                queue.push(node.left);
+            }
+            if (node.right) {
+                queue.push(node.right);
+            }
+        }
+        result.push(level);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println("Preorder: " + preorder(root));
+        System.out.println("Inorder: " + inorder(root));
+        System.out.println("Postorder: " + postorder(root));
+        System.out.println("Level order: " + levelOrder(root));
+    }
+
+    static List<Integer> preorder(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        result.add(root.val);
+        result.addAll(preorder(root.left));
+        result.addAll(preorder(root.right));
+        return result;
+    }
+
+    static List<Integer> inorder(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        result.addAll(inorder(root.left));
+        result.add(root.val);
+        result.addAll(inorder(root.right));
+        return result;
+    }
+
+    static List<Integer> postorder(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        result.addAll(postorder(root.left));
+        result.addAll(postorder(root.right));
+        result.add(root.val);
+        return result;
+    }
+
+    static List<List<Integer>> levelOrder(TreeNode root) {
+        List<List<Integer>> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> queue = new ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            List<Integer> level = new ArrayList<>();
+            int levelSize = queue.size();
+            for (int i = 0; i < levelSize; i++) {
+                TreeNode node = queue.poll();
+                level.add(node.val);
+                if (node.left != null) {
+                    queue.add(node.left);
+                }
+                if (node.right != null) {
+                    queue.add(node.right);
+                }
+            }
+            result.add(level);
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 The list-concatenation versions above are readable but build intermediate lists; production code should pass an accumulator list by reference instead. Know both forms.
 
@@ -85,6 +229,68 @@ def inorder_iterative(root):
         node = node.right    # then explore the right subtree
     return result
 ```
+```javascript +
+function inorderIterative(root) {
+    const result = [];
+    const stack = [];
+    let node = root;
+    while (stack.length > 0 || node !== null) {
+        while (node !== null) {           // go as far left as possible
+            stack.push(node);
+            node = node.left;
+        }
+        node = stack.pop();               // process the node
+        result.push(node.val);
+        node = node.right;                // then explore the right subtree
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(2, new TreeNode(1), new TreeNode(3));
+        System.out.println(inorderIterative(root));
+    }
+
+    static List<Integer> inorderIterative(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        TreeNode node = root;
+        while (!stack.isEmpty() || node != null) {
+            while (node != null) {            // go as far left as possible
+                stack.push(node);
+                node = node.left;
+            }
+            node = stack.pop();               // process the node
+            result.add(node.val);
+            node = node.right;                // then explore the right subtree
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 Interviewers ask for the iterative version to check whether you actually understand what the recursion is doing, rather than whether you memorized the three-line recursive function.
 
@@ -105,6 +311,75 @@ def preorder_iterative(root):
             stack.append(node.left)
     return result
 ```
+```javascript +
+function preorderIterative(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const stack = [root];
+    while (stack.length > 0) {
+        const node = stack.pop();
+        result.push(node.val);
+        if (node.right) {
+            stack.push(node.right);
+        }
+        if (node.left) {
+            stack.push(node.left);
+        }
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println(preorderIterative(root));
+    }
+
+    static List<Integer> preorderIterative(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            TreeNode node = stack.pop();
+            result.add(node.val);
+            if (node.right != null) {
+                stack.push(node.right);
+            }
+            if (node.left != null) {
+                stack.push(node.left);
+            }
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 Postorder iteratively is the fiddly one: compute preorder-but-"node, right, left" (swap the push order above) and reverse the result. That produces "left, right, node" for free.
 
@@ -122,6 +397,77 @@ def postorder_iterative(root):
         if node.right:
             stack.append(node.right)
     return result[::-1]
+```
+```javascript +
+function postorderIterative(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const stack = [root];
+    while (stack.length > 0) {
+        const node = stack.pop();
+        result.push(node.val);
+        if (node.left) {
+            stack.push(node.left);
+        }
+        if (node.right) {
+            stack.push(node.right);
+        }
+    }
+    return result.reverse();
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println(postorderIterative(root));
+    }
+
+    static List<Integer> postorderIterative(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        stack.push(root);
+        while (!stack.isEmpty()) {
+            TreeNode node = stack.pop();
+            result.add(node.val);
+            if (node.left != null) {
+                stack.push(node.left);
+            }
+            if (node.right != null) {
+                stack.push(node.right);
+            }
+        }
+        Collections.reverse(result);
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 ## Tree properties
@@ -146,6 +492,51 @@ def invert_tree(root):
     root.left, root.right = invert_tree(root.right), invert_tree(root.left)
     return root
 ```
+```javascript +
+function invertTree(root) {
+    if (root === null) {
+        return null;
+    }
+    [root.left, root.right] = [invertTree(root.right), invertTree(root.left)];
+    return root;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        TreeNode inverted = invertTree(root);
+        System.out.println("New left: " + inverted.left.val + ", new right: " + inverted.right.val);
+    }
+
+    static TreeNode invertTree(TreeNode root) {
+        if (root == null) {
+            return null;
+        }
+        TreeNode newLeft = invertTree(root.right);
+        TreeNode newRight = invertTree(root.left);
+        root.left = newLeft;
+        root.right = newRight;
+        return root;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Complexity:** Time O(n): visits every node once. Space O(h) for the recursion stack, where h is tree height (O(log n) balanced, O(n) skewed).
 
@@ -166,6 +557,45 @@ def max_depth(root) -> int:
     if root is None:
         return 0
     return 1 + max(max_depth(root.left), max_depth(root.right))
+```
+```javascript +
+function maxDepth(root) {
+    if (root === null) {
+        return 0;
+    }
+    return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(1, new TreeNode(2, new TreeNode(4), null), new TreeNode(3));
+        System.out.println(maxDepth(root));
+    }
+
+    static int maxDepth(TreeNode root) {
+        if (root == null) {
+            return 0;
+        }
+        return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(h) recursion stack.
@@ -193,6 +623,58 @@ def is_same_tree(p, q) -> bool:
         and is_same_tree(p.left, q.left)
         and is_same_tree(p.right, q.right)
     )
+```
+```javascript +
+function isSameTree(p, q) {
+    if (p === null && q === null) {
+        return true;
+    }
+    if (p === null || q === null) {
+        return false;
+    }
+    return (
+        p.val === q.val &&
+        isSameTree(p.left, q.left) &&
+        isSameTree(p.right, q.right)
+    );
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode p = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        TreeNode q = new TreeNode(1, new TreeNode(2), new TreeNode(3));
+        System.out.println(isSameTree(p, q));
+    }
+
+    static boolean isSameTree(TreeNode p, TreeNode q) {
+        if (p == null && q == null) {
+            return true;
+        }
+        if (p == null || q == null) {
+            return false;
+        }
+        return p.val == q.val
+                && isSameTree(p.left, q.left)
+                && isSameTree(p.right, q.right);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(min(n, m)): short-circuits as soon as trees diverge. Space O(min(h_p, h_q)) recursion stack.
@@ -229,6 +711,85 @@ def level_order_traversal(root):
                 queue.append(node.right)
         result.append(level_values)
     return result
+```
+```javascript +
+function levelOrderTraversal(root) {
+    if (root === null) {
+        return [];
+    }
+    const result = [];
+    const queue = [root];
+    while (queue.length > 0) {
+        const levelSize = queue.length;
+        const levelValues = [];
+        for (let i = 0; i < levelSize; i++) {
+            const node = queue.shift();
+            levelValues.push(node.val);
+            if (node.left) {
+                queue.push(node.left);
+            }
+            if (node.right) {
+                queue.push(node.right);
+            }
+        }
+        result.push(levelValues);
+    }
+    return result;
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(3, new TreeNode(9), new TreeNode(20, new TreeNode(15), new TreeNode(7)));
+        System.out.println(levelOrderTraversal(root));
+    }
+
+    static List<List<Integer>> levelOrderTraversal(TreeNode root) {
+        List<List<Integer>> result = new ArrayList<>();
+        if (root == null) {
+            return result;
+        }
+        Deque<TreeNode> queue = new ArrayDeque<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            int levelSize = queue.size();
+            List<Integer> levelValues = new ArrayList<>();
+            for (int i = 0; i < levelSize; i++) {
+                TreeNode node = queue.poll();
+                levelValues.add(node.val);
+                if (node.left != null) {
+                    queue.add(node.left);
+                }
+                if (node.right != null) {
+                    queue.add(node.right);
+                }
+            }
+            result.add(levelValues);
+        }
+        return result;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(n): every node enqueued and dequeued once. Space O(w) for the queue, where w is the maximum tree width, plus O(n) for the output.

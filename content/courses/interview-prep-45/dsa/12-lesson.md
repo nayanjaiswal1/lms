@@ -26,6 +26,28 @@ def fib_naive(n):
 # fib_naive(5) recomputes fib_naive(3) twice, fib_naive(2) three times, etc.
 # Time: O(2^n)
 ```
+```javascript +
+function fibNaive(n) {
+    if (n <= 1) return n;
+    return fibNaive(n - 1) + fibNaive(n - 2);
+}
+// fibNaive(5) recomputes fibNaive(3) twice, fibNaive(2) three times, etc.
+// Time: O(2^n)
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(fibNaive(10));
+    }
+
+    static int fibNaive(int n) {
+        if (n <= 1) return n;
+        return fibNaive(n - 1) + fibNaive(n - 2);
+    }
+    // fibNaive(5) recomputes fibNaive(3) twice, fibNaive(2) three times, etc.
+    // Time: O(2^n)
+}
+```
 
 **Memoization** (top-down DP) keeps the recursive structure but caches results, so each unique subproblem is computed once.
 
@@ -38,6 +60,38 @@ def fib_memo(n, cache={}):
     cache[n] = fib_memo(n - 1, cache) + fib_memo(n - 2, cache)
     return cache[n]
 # Time: O(n), Space: O(n) for cache + O(n) recursion stack
+```
+```javascript +
+const fibMemoCache = new Map();
+
+function fibMemo(n) {
+    if (n <= 1) return n;
+    if (fibMemoCache.has(n)) return fibMemoCache.get(n);
+    const result = fibMemo(n - 1) + fibMemo(n - 2);
+    fibMemoCache.set(n, result);
+    return result;
+}
+// Time: O(n), Space: O(n) for cache + O(n) recursion stack
+```
+```java +
+import java.util.*;
+
+public class Main {
+    static final Map<Integer, Integer> cache = new HashMap<>();
+
+    public static void main(String[] args) {
+        System.out.println(fibMemo(30));
+    }
+
+    static int fibMemo(int n) {
+        if (n <= 1) return n;
+        if (cache.containsKey(n)) return cache.get(n);
+        int result = fibMemo(n - 1) + fibMemo(n - 2);
+        cache.put(n, result);
+        return result;
+    }
+    // Time: O(n), Space: O(n) for cache + O(n) recursion stack
+}
 ```
 
 **Tabulation** (bottom-up DP) removes recursion entirely. It builds the answer iteratively from the base cases upward, filling a table.
@@ -52,6 +106,36 @@ def fib_tab(n):
         dp[i] = dp[i - 1] + dp[i - 2]
     return dp[n]
 # Time: O(n), Space: O(n), no recursion stack risk
+```
+```javascript +
+function fibTab(n) {
+    if (n <= 1) return n;
+    const dp = new Array(n + 1).fill(0);
+    dp[1] = 1;
+    for (let i = 2; i <= n; i++) {
+        dp[i] = dp[i - 1] + dp[i - 2];
+    }
+    return dp[n];
+}
+// Time: O(n), Space: O(n), no recursion stack risk
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(fibTab(10));
+    }
+
+    static int fibTab(int n) {
+        if (n <= 1) return n;
+        int[] dp = new int[n + 1];
+        dp[1] = 1;
+        for (int i = 2; i <= n; i++) {
+            dp[i] = dp[i - 1] + dp[i - 2];
+        }
+        return dp[n];
+    }
+    // Time: O(n), Space: O(n), no recursion stack risk
+}
 ```
 
 | | Recursion | Memoization | Tabulation |
@@ -102,6 +186,34 @@ def climbStairs(n: int) -> int:
         prev2, prev1 = prev1, prev2 + prev1
     return prev1
 ```
+```javascript +
+function climbStairs(n) {
+    if (n <= 1) return 1;
+    let prev2 = 1, prev1 = 1;  // dp[0], dp[1]
+    for (let i = 2; i <= n; i++) {
+        [prev2, prev1] = [prev1, prev2 + prev1];
+    }
+    return prev1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(climbStairs(5));
+    }
+
+    static int climbStairs(int n) {
+        if (n <= 1) return 1;
+        int prev2 = 1, prev1 = 1;  // dp[0], dp[1]
+        for (int i = 2; i <= n; i++) {
+            int next = prev2 + prev1;
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
+```
 
 **Complexity:** Time O(n), space O(1). This is the space optimization mentioned above: since `dp[i]` only depends on the two previous values, the full array isn't needed.
 
@@ -123,6 +235,35 @@ def minCostClimbingStairs(cost: list[int]) -> int:
         prev2, prev1 = prev1, min(prev1 + cost[i - 1], prev2 + cost[i - 2])
     return prev1
 ```
+```javascript +
+function minCostClimbingStairs(cost) {
+    const n = cost.length;
+    let prev2 = 0, prev1 = 0;  // dp[0] = 0, dp[1] = 0 (both free starting points)
+    for (let i = 2; i <= n; i++) {
+        [prev2, prev1] = [prev1, Math.min(prev1 + cost[i - 1], prev2 + cost[i - 2])];
+    }
+    return prev1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] cost = {10, 15, 20};
+        System.out.println(minCostClimbingStairs(cost));
+    }
+
+    static int minCostClimbingStairs(int[] cost) {
+        int n = cost.length;
+        int prev2 = 0, prev1 = 0;  // dp[0] = 0, dp[1] = 0 (both free starting points)
+        for (int i = 2; i <= n; i++) {
+            int next = Math.min(prev1 + cost[i - 1], prev2 + cost[i - 2]);
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
+```
 
 **Complexity:** Time O(n), space O(1).
 
@@ -142,6 +283,33 @@ def rob(nums: list[int]) -> int:
     for num in nums:
         prev2, prev1 = prev1, max(prev1, prev2 + num)
     return prev1
+```
+```javascript +
+function rob(nums) {
+    let prev2 = 0, prev1 = 0;  // dp[-1] = 0 (no houses), dp[0] before loop starts
+    for (const num of nums) {
+        [prev2, prev1] = [prev1, Math.max(prev1, prev2 + num)];
+    }
+    return prev1;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 7, 9, 3, 1};
+        System.out.println(rob(nums));
+    }
+
+    static int rob(int[] nums) {
+        int prev2 = 0, prev1 = 0;  // dp[-1] = 0 (no houses), dp[0] before loop starts
+        for (int num : nums) {
+            int next = Math.max(prev1, prev2 + num);
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1).
@@ -168,6 +336,49 @@ def rob_ii(nums: list[int]) -> int:
         return prev1
 
     return max(rob_linear(nums[:-1]), rob_linear(nums[1:]))
+```
+```javascript +
+function robII(nums) {
+    if (nums.length === 1) return nums[0];
+
+    function robLinear(houses) {
+        let prev2 = 0, prev1 = 0;
+        for (const num of houses) {
+            [prev2, prev1] = [prev1, Math.max(prev1, prev2 + num)];
+        }
+        return prev1;
+    }
+
+    return Math.max(robLinear(nums.slice(0, -1)), robLinear(nums.slice(1)));
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 3, 2};
+        System.out.println(robII(nums));
+    }
+
+    static int robII(int[] nums) {
+        if (nums.length == 1) return nums[0];
+        return Math.max(
+            robLinear(Arrays.copyOfRange(nums, 0, nums.length - 1)),
+            robLinear(Arrays.copyOfRange(nums, 1, nums.length))
+        );
+    }
+
+    static int robLinear(int[] houses) {
+        int prev2 = 0, prev1 = 0;
+        for (int num : houses) {
+            int next = Math.max(prev1, prev2 + num);
+            prev2 = prev1;
+            prev1 = next;
+        }
+        return prev1;
+    }
+}
 ```
 
 **Complexity:** Time O(n) across two linear passes, space O(n) for the slices, or O(1) extra if you pass index ranges instead of slicing.

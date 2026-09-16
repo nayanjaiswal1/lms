@@ -5,7 +5,7 @@ id_key: interview-prep-45/day-11-system-design
 course: interview-prep-45
 section: system-design
 section_title: "System Design"
-section_position: 2
+section_position: 3
 title: "Search Autocomplete System"
 position: 11
 estimated_minutes: 60

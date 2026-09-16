@@ -51,6 +51,42 @@ def remove_duplicates(nums: list[int]) -> int:
             write += 1
     return write
 ```
+```javascript +
+function removeDuplicates(nums) {
+  // Removes duplicates from a sorted array in place, returns new length.
+  if (nums.length === 0) return 0;
+  let write = 1;
+  for (let read = 1; read < nums.length; read++) {
+    if (nums[read] !== nums[write - 1]) {
+      nums[write] = nums[read];
+      write += 1;
+    }
+  }
+  return write;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 1, 2, 2, 3};
+        int newLength = removeDuplicates(nums);
+        System.out.println("new length: " + newLength);
+    }
+
+    // Removes duplicates from a sorted array in place, returns new length.
+    static int removeDuplicates(int[] nums) {
+        if (nums.length == 0) return 0;
+        int write = 1;
+        for (int read = 1; read < nums.length; read++) {
+            if (nums[read] != nums[write - 1]) {
+                nums[write] = nums[read];
+                write += 1;
+            }
+        }
+        return write;
+    }
+}
+```
 
 **Pitfall:** in-place two-pointer solutions are easy to get subtly wrong around the boundary condition (`!=` vs `<`, starting `write` at 0 vs 1). Always trace through a 2-3 element example by hand before declaring it correct.
 
@@ -75,6 +111,44 @@ def is_palindrome(s: str) -> bool:
         left += 1
         right -= 1
     return True
+```
+```javascript +
+function isPalindrome(s) {
+  const isAlnum = (ch) => /[a-z0-9]/i.test(ch);
+  let left = 0;
+  let right = s.length - 1;
+  while (left < right) {
+    while (left < right && !isAlnum(s[left])) left += 1;
+    while (left < right && !isAlnum(s[right])) right -= 1;
+    if (s[left].toLowerCase() !== s[right].toLowerCase()) return false;
+    left += 1;
+    right -= 1;
+  }
+  return true;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isPalindrome("A man, a plan, a canal: Panama"));
+        System.out.println(isPalindrome("race a car"));
+    }
+
+    static boolean isPalindrome(String s) {
+        int left = 0;
+        int right = s.length() - 1;
+        while (left < right) {
+            while (left < right && !Character.isLetterOrDigit(s.charAt(left))) left += 1;
+            while (left < right && !Character.isLetterOrDigit(s.charAt(right))) right -= 1;
+            if (Character.toLowerCase(s.charAt(left)) != Character.toLowerCase(s.charAt(right))) {
+                return false;
+            }
+            left += 1;
+            right -= 1;
+        }
+        return true;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1). No extra string built.
@@ -119,6 +193,70 @@ def three_sum(nums: list[int]) -> list[list[int]]:
                     right -= 1
     return result
 ```
+```javascript +
+function threeSum(nums) {
+  nums.sort((a, b) => a - b);
+  const result = [];
+  const n = nums.length;
+  for (let i = 0; i < n - 2; i++) {
+    if (i > 0 && nums[i] === nums[i - 1]) continue; // skip duplicate anchors
+    if (nums[i] > 0) break; // smallest remaining value is positive, no triplet can sum to 0
+    let left = i + 1;
+    let right = n - 1;
+    while (left < right) {
+      const total = nums[i] + nums[left] + nums[right];
+      if (total < 0) {
+        left += 1;
+      } else if (total > 0) {
+        right -= 1;
+      } else {
+        result.push([nums[i], nums[left], nums[right]]);
+        left += 1;
+        right -= 1;
+        while (left < right && nums[left] === nums[left - 1]) left += 1;
+        while (left < right && nums[right] === nums[right + 1]) right -= 1;
+      }
+    }
+  }
+  return result;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {-1, 0, 1, 2, -1, -4};
+        java.util.List<java.util.List<Integer>> result = threeSum(nums);
+        System.out.println(result);
+    }
+
+    static java.util.List<java.util.List<Integer>> threeSum(int[] nums) {
+        java.util.Arrays.sort(nums);
+        java.util.List<java.util.List<Integer>> result = new java.util.ArrayList<>();
+        int n = nums.length;
+        for (int i = 0; i < n - 2; i++) {
+            if (i > 0 && nums[i] == nums[i - 1]) continue; // skip duplicate anchors
+            if (nums[i] > 0) break; // smallest remaining value is positive, no triplet can sum to 0
+            int left = i + 1;
+            int right = n - 1;
+            while (left < right) {
+                int total = nums[i] + nums[left] + nums[right];
+                if (total < 0) {
+                    left += 1;
+                } else if (total > 0) {
+                    right -= 1;
+                } else {
+                    result.add(java.util.Arrays.asList(nums[i], nums[left], nums[right]));
+                    left += 1;
+                    right -= 1;
+                    while (left < right && nums[left] == nums[left - 1]) left += 1;
+                    while (left < right && nums[right] == nums[right + 1]) right -= 1;
+                }
+            }
+        }
+        return result;
+    }
+}
+```
 
 **Complexity:** Time O(n²): O(n log n) sort plus an O(n) outer loop times an O(n) two-pointer scan. Space O(1) extra (excluding sort and output).
 
@@ -148,6 +286,47 @@ def max_area(height: list[int]) -> int:
             right -= 1
     return best
 ```
+```javascript +
+function maxArea(height) {
+  let left = 0;
+  let right = height.length - 1;
+  let best = 0;
+  while (left < right) {
+    const h = Math.min(height[left], height[right]);
+    best = Math.max(best, h * (right - left));
+    if (height[left] < height[right]) {
+      left += 1;
+    } else {
+      right -= 1;
+    }
+  }
+  return best;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] height = {1, 8, 6, 2, 5, 4, 8, 3, 7};
+        System.out.println(maxArea(height));
+    }
+
+    static int maxArea(int[] height) {
+        int left = 0;
+        int right = height.length - 1;
+        int best = 0;
+        while (left < right) {
+            int h = Math.min(height[left], height[right]);
+            best = Math.max(best, h * (right - left));
+            if (height[left] < height[right]) {
+                left += 1;
+            } else {
+                right -= 1;
+            }
+        }
+        return best;
+    }
+}
+```
 
 **Complexity:** Time O(n): a single pass, with each pointer moving at most n times total. Space O(1).
 
@@ -176,6 +355,66 @@ def build_linked_list(values: list[int]) -> ListNode | None:
         tail.next = ListNode(v)
         tail = tail.next
     return dummy.next
+```
+```javascript +
+class ListNode {
+  constructor(val = 0, next = null) {
+    this.val = val;
+    this.next = next;
+  }
+}
+
+function buildLinkedList(values) {
+  const dummy = new ListNode();
+  let tail = dummy;
+  for (const v of values) {
+    tail.next = new ListNode(v);
+    tail = tail.next;
+  }
+  return dummy.next;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        ListNode head = buildLinkedList(new int[] {1, 2, 3});
+        StringBuilder sb = new StringBuilder();
+        while (head != null) {
+            sb.append(head.val).append(" -> ");
+            head = head.next;
+        }
+        sb.append("null");
+        System.out.println(sb);
+    }
+
+    static ListNode buildLinkedList(int[] values) {
+        ListNode dummy = new ListNode();
+        ListNode tail = dummy;
+        for (int v : values) {
+            tail.next = new ListNode(v);
+            tail = tail.next;
+        }
+        return dummy.next;
+    }
+}
+
+class ListNode {
+    int val;
+    ListNode next;
+
+    ListNode() {
+        this(0, null);
+    }
+
+    ListNode(int val) {
+        this(val, null);
+    }
+
+    ListNode(int val, ListNode next) {
+        this.val = val;
+        this.next = next;
+    }
+}
 ```
 
 The `dummy` head node is the recurring trick: it removes the special case of "is this the first node?" from insertion logic, since `dummy.next` always points at the real head.

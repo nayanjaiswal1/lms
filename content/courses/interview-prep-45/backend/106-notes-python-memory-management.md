@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-python-memory-management
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Python Memory Management (Reference Counting, Cyclic GC, PyMalloc)"
 position: 106
 estimated_minutes: 15

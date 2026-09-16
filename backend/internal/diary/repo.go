@@ -211,11 +211,11 @@ func previewOf(content string) string {
 	return string(r[:previewLength]) + "…"
 }
 
-const taskColumns = `id, title, kind, tags, done, source_entry_id, created_at, updated_at`
+const taskColumns = `id, title, description, kind, tags, done, source_entry_id, created_at, updated_at`
 
 func scanTask(row scanner) (Task, error) {
 	var t Task
-	if err := row.Scan(&t.ID, &t.Title, &t.Kind, &t.Tags, &t.Done, &t.SourceEntryID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.Title, &t.Description, &t.Kind, &t.Tags, &t.Done, &t.SourceEntryID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return Task{}, err
 	}
 	return t, nil
@@ -262,16 +262,17 @@ func (r *Repo) ListOpenTasks(ctx context.Context, userID string) ([]Task, error)
 
 // CreateTask inserts a new diary task. sourceEntryID is nil for a
 // manually-created task, or the diary entry whose text an AI Apply pass
-// captured it from.
-func (r *Repo) CreateTask(ctx context.Context, userID, title, kind string, sourceEntryID *string, tags []string) (Task, error) {
+// captured it from. description is "" for an AI-captured task — the
+// analyze pass only ever extracts a title, never a description.
+func (r *Repo) CreateTask(ctx context.Context, userID, title, description, kind string, sourceEntryID *string, tags []string) (Task, error) {
 	if tags == nil {
 		tags = []string{}
 	}
 	row := r.pool.QueryRow(ctx,
-		`INSERT INTO diary_tasks (user_id, title, kind, tags, source_entry_id)
-		 VALUES ($1, $2, $3, $4, $5)
+		`INSERT INTO diary_tasks (user_id, title, description, kind, tags, source_entry_id)
+		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING `+taskColumns,
-		userID, title, kind, tags, sourceEntryID,
+		userID, title, description, kind, tags, sourceEntryID,
 	)
 	t, err := scanTask(row)
 	if err != nil {
@@ -299,17 +300,18 @@ func (r *Repo) SetTaskDone(ctx context.Context, userID, id string, done bool) (T
 	return t, nil
 }
 
-// UpdateTask partially updates id's title/tags. Nil fields are left
-// unchanged. Ownership is enforced by the WHERE clause.
-func (r *Repo) UpdateTask(ctx context.Context, userID, id string, title *string, tags []string) (Task, error) {
+// UpdateTask partially updates id's title/description/tags. Nil fields are
+// left unchanged. Ownership is enforced by the WHERE clause.
+func (r *Repo) UpdateTask(ctx context.Context, userID, id string, title, description *string, tags []string) (Task, error) {
 	row := r.pool.QueryRow(ctx,
 		`UPDATE diary_tasks SET
 		   title = COALESCE($3, title),
-		   tags = COALESCE($4, tags),
+		   description = COALESCE($4, description),
+		   tags = COALESCE($5, tags),
 		   updated_at = now()
 		 WHERE id = $1 AND user_id = $2
 		 RETURNING `+taskColumns,
-		id, userID, title, tags,
+		id, userID, title, description, tags,
 	)
 	t, err := scanTask(row)
 	if err != nil {

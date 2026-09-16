@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-14-system-design
 course: interview-prep-45
 section: system-design
 section_title: "System Design"
-section_position: 2
+section_position: 3
 title: "Checkpoint 2"
 position: 14
 estimated_minutes: 36

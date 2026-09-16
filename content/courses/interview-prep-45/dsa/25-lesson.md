@@ -34,6 +34,36 @@ def is_prime(n: int) -> bool:
     return True
 ```
 
+```javascript +
+function isPrime(n) {
+    if (n < 2) return false;
+    if (n === 2 || n === 3) return true;
+    if (n % 2 === 0) return false;
+    for (let i = 3; i * i <= n; i += 2) {
+        if (n % i === 0) return false;
+    }
+    return true;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(isPrime(97));
+    }
+
+    static boolean isPrime(int n) {
+        if (n < 2) return false;
+        if (n == 2 || n == 3) return true;
+        if (n % 2 == 0) return false;
+        for (int i = 3; (long) i * i <= n; i += 2) {
+            if (n % i == 0) return false;
+        }
+        return true;
+    }
+}
+```
+
 **Complexity:** O(sqrt(n)) per check. For checking primality of *many* numbers up to some bound N, the Sieve of Eratosthenes (below) is far better than calling `is_prime` N times.
 
 ## GCD/LCM
@@ -47,11 +77,71 @@ def gcd(a: int, b: int) -> int:
     return a
 ```
 
+```javascript +
+function gcd(a, b) {
+    while (b) {
+        [a, b] = [b, a % b];
+    }
+    return a;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(gcd(48, 18));
+    }
+
+    static int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+}
+```
+
 **LCM** (least common multiple) derives directly from GCD: `lcm(a, b) = a * b / gcd(a, b)`.
 
 ```python
 def lcm(a: int, b: int) -> int:
     return a * b // gcd(a, b)
+```
+
+```javascript +
+function gcd(a, b) {
+    while (b) {
+        [a, b] = [b, a % b];
+    }
+    return a;
+}
+
+function lcm(a, b) {
+    return (a * b) / gcd(a, b);
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(lcm(4, 6));
+    }
+
+    static int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+
+    static int lcm(int a, int b) {
+        return (a * b) / gcd(a, b);
+    }
+}
 ```
 
 **Complexity:** GCD is O(log(min(a, b))): each step roughly halves the smaller number in the worst case (Fibonacci-adjacent numbers are the slow case, still logarithmic). Python's stdlib has `math.gcd` and `math.lcm` directly. Mention the built-in, but be ready to derive it from scratch, since implementing Euclid's algorithm is a common ask.
@@ -76,6 +166,65 @@ def rotate_90_clockwise(matrix: list[list[int]]) -> None:
         row.reverse()
 ```
 
+```javascript +
+function rotate90Clockwise(matrix) {
+    const n = matrix.length;
+
+    // 1. transpose: swap matrix[i][j] with matrix[j][i]
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            [matrix[i][j], matrix[j][i]] = [matrix[j][i], matrix[i][j]];
+        }
+    }
+
+    // 2. reverse each row
+    for (const row of matrix) {
+        row.reverse();
+    }
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+        rotate90Clockwise(matrix);
+        for (int[] row : matrix) {
+            System.out.println(java.util.Arrays.toString(row));
+        }
+    }
+
+    static void rotate90Clockwise(int[][] matrix) {
+        int n = matrix.length;
+
+        // 1. transpose: swap matrix[i][j] with matrix[j][i]
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                int temp = matrix[i][j];
+                matrix[i][j] = matrix[j][i];
+                matrix[j][i] = temp;
+            }
+        }
+
+        // 2. reverse each row
+        for (int[] row : matrix) {
+            int left = 0, right = row.length - 1;
+            while (left < right) {
+                int temp = row[left];
+                row[left] = row[right];
+                row[right] = temp;
+                left++;
+                right--;
+            }
+        }
+    }
+}
+```
+
 Why transpose + reverse rows equals 90° clockwise: transposing flips the matrix across its main diagonal, turning rows into columns. Reversing each row then flips left-right, and the two combined equal a clockwise quarter turn. Trace a 3x3 example by hand once; it's much easier to verify visually than to reason about abstractly.
 
 The alternative **4-way (layer-by-layer) swap** rotates the outer ring, then the next ring inward, cycling four cells at a time (`top -> right -> bottom -> left -> top`). Both achieve O(1) extra space. Transpose+reverse is shorter to write correctly under pressure, so default to it unless the interviewer specifically wants the layer-cycling approach.
@@ -96,6 +245,57 @@ def rotate(matrix: list[list[int]]) -> None:
             matrix[i][j], matrix[j][i] = matrix[j][i], matrix[i][j]
     for row in matrix:
         row.reverse()
+```
+
+```javascript +
+function rotate(matrix) {
+    const n = matrix.length;
+    for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+            [matrix[i][j], matrix[j][i]] = [matrix[j][i], matrix[i][j]];
+        }
+    }
+    for (const row of matrix) {
+        row.reverse();
+    }
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+        rotate(matrix);
+        for (int[] row : matrix) {
+            System.out.println(java.util.Arrays.toString(row));
+        }
+    }
+
+    static void rotate(int[][] matrix) {
+        int n = matrix.length;
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                int temp = matrix[i][j];
+                matrix[i][j] = matrix[j][i];
+                matrix[j][i] = temp;
+            }
+        }
+        for (int[] row : matrix) {
+            int left = 0, right = row.length - 1;
+            while (left < right) {
+                int temp = row[left];
+                row[left] = row[right];
+                row[right] = temp;
+                left++;
+                right--;
+            }
+        }
+    }
+}
 ```
 
 **Complexity:** Time O(n²), space O(1); the whole point of this problem is the in-place constraint.
@@ -141,6 +341,95 @@ def spiralOrder(matrix: list[list[int]]) -> list[int]:
     return result
 ```
 
+```javascript +
+function spiralOrder(matrix) {
+    if (matrix.length === 0) return [];
+
+    const result = [];
+    let top = 0, bottom = matrix.length - 1;
+    let left = 0, right = matrix[0].length - 1;
+
+    while (top <= bottom && left <= right) {
+        for (let col = left; col <= right; col++) {
+            result.push(matrix[top][col]);
+        }
+        top++;
+
+        for (let row = top; row <= bottom; row++) {
+            result.push(matrix[row][right]);
+        }
+        right--;
+
+        if (top <= bottom) {
+            for (let col = right; col >= left; col--) {
+                result.push(matrix[bottom][col]);
+            }
+            bottom--;
+        }
+
+        if (left <= right) {
+            for (let row = bottom; row >= top; row--) {
+                result.push(matrix[row][left]);
+            }
+            left++;
+        }
+    }
+
+    return result;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[][] matrix = {
+            {1, 2, 3},
+            {4, 5, 6},
+            {7, 8, 9}
+        };
+        System.out.println(spiralOrder(matrix));
+    }
+
+    static List<Integer> spiralOrder(int[][] matrix) {
+        List<Integer> result = new ArrayList<>();
+        if (matrix.length == 0) return result;
+
+        int top = 0, bottom = matrix.length - 1;
+        int left = 0, right = matrix[0].length - 1;
+
+        while (top <= bottom && left <= right) {
+            for (int col = left; col <= right; col++) {
+                result.add(matrix[top][col]);
+            }
+            top++;
+
+            for (int row = top; row <= bottom; row++) {
+                result.add(matrix[row][right]);
+            }
+            right--;
+
+            if (top <= bottom) {
+                for (int col = right; col >= left; col--) {
+                    result.add(matrix[bottom][col]);
+                }
+                bottom--;
+            }
+
+            if (left <= right) {
+                for (int row = bottom; row >= top; row--) {
+                    result.add(matrix[row][left]);
+                }
+                left++;
+            }
+        }
+
+        return result;
+    }
+}
+```
+
 **Complexity:** Time O(rows × cols), since every cell is visited exactly once. Space O(1) extra (excluding the output list).
 
 **Common mistakes:** Omitting the `if top <= bottom` / `if left <= right` guards before the bottom-row and left-column traversals. Without them, a single-row or single-column matrix gets its edge cells double-counted. Also, off-by-one on boundary updates (`top += 1` after finishing the top row, not before).
@@ -169,6 +458,55 @@ def countPrimes(n: int) -> int:
     return sum(is_prime_arr)
 ```
 
+```javascript +
+function countPrimes(n) {
+    if (n < 3) return 0;
+
+    const isPrimeArr = new Array(n).fill(true);
+    isPrimeArr[0] = isPrimeArr[1] = false;
+
+    for (let i = 2; i * i <= n; i++) {
+        if (isPrimeArr[i]) {
+            for (let multiple = i * i; multiple < n; multiple += i) { // start at i*i: smaller multiples already crossed out
+                isPrimeArr[multiple] = false;
+            }
+        }
+    }
+
+    return isPrimeArr.filter(Boolean).length;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(countPrimes(20));
+    }
+
+    static int countPrimes(int n) {
+        if (n < 3) return 0;
+
+        boolean[] isPrimeArr = new boolean[n];
+        java.util.Arrays.fill(isPrimeArr, true);
+        isPrimeArr[0] = isPrimeArr[1] = false;
+
+        for (int i = 2; (long) i * i <= n; i++) {
+            if (isPrimeArr[i]) {
+                for (int multiple = i * i; multiple < n; multiple += i) { // start at i*i: smaller multiples already crossed out
+                    isPrimeArr[multiple] = false;
+                }
+            }
+        }
+
+        int count = 0;
+        for (boolean prime : isPrimeArr) {
+            if (prime) count++;
+        }
+        return count;
+    }
+}
+```
+
 **Complexity:** Time O(n log log n), space O(n).
 
 **Common mistakes:** Starting the inner crossing-out loop at `2*i` instead of `i*i` is correct either way, but `i*i` is the standard optimization since smaller multiples of `i` were already crossed out by smaller primes. Also, forgetting the outer loop only needs to run up to `sqrt(n)`: any composite number below n has a factor ≤ sqrt(n), so all composites are caught by then.
@@ -194,6 +532,62 @@ def sieve_of_eratosthenes(n: int) -> list[int]:
     return [i for i, prime in enumerate(is_prime_arr) if prime]
 ```
 
+```javascript +
+function sieveOfEratosthenes(n) {
+    // Return all primes strictly less than n.
+    if (n < 3) return [];
+
+    const isPrimeArr = new Array(n).fill(true);
+    isPrimeArr[0] = isPrimeArr[1] = false;
+
+    for (let i = 2; i * i <= n; i++) {
+        if (isPrimeArr[i]) {
+            for (let multiple = i * i; multiple < n; multiple += i) {
+                isPrimeArr[multiple] = false;
+            }
+        }
+    }
+
+    return isPrimeArr.reduce((primes, isPrime, i) => {
+        if (isPrime) primes.push(i);
+        return primes;
+    }, []);
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(sieveOfEratosthenes(20));
+    }
+
+    // Return all primes strictly less than n.
+    static List<Integer> sieveOfEratosthenes(int n) {
+        if (n < 3) return new ArrayList<>();
+
+        boolean[] isPrimeArr = new boolean[n];
+        Arrays.fill(isPrimeArr, true);
+        isPrimeArr[0] = isPrimeArr[1] = false;
+
+        for (int i = 2; (long) i * i <= n; i++) {
+            if (isPrimeArr[i]) {
+                for (int multiple = i * i; multiple < n; multiple += i) {
+                    isPrimeArr[multiple] = false;
+                }
+            }
+        }
+
+        List<Integer> primes = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            if (isPrimeArr[i]) primes.add(i);
+        }
+        return primes;
+    }
+}
+```
+
 ## Pow(x, n)
 
 [LeetCode 50](https://leetcode.com/problems/powx-n/) — Math — Binary exponentiation
@@ -216,6 +610,53 @@ def myPow(x: float, n: int) -> float:
         n //= 2
 
     return result
+```
+
+```javascript +
+function myPow(x, n) {
+    if (n < 0) {
+        x = 1 / x;
+        n = -n;
+    }
+
+    let result = 1;
+    while (n > 0) {
+        if (n % 2 === 1) {
+            result *= x;
+        }
+        x *= x;
+        n = Math.floor(n / 2);
+    }
+
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(myPow(2.0, 10));
+    }
+
+    static double myPow(double x, int n) {
+        long exponent = n;
+        if (exponent < 0) {
+            x = 1 / x;
+            exponent = -exponent;
+        }
+
+        double result = 1;
+        while (exponent > 0) {
+            if (exponent % 2 == 1) {
+                result *= x;
+            }
+            x *= x;
+            exponent /= 2;
+        }
+
+        return result;
+    }
+}
 ```
 
 **Complexity:** Time O(log n), space O(1) for the iterative version; the recursive version is O(log n) time but O(log n) space for the call stack.

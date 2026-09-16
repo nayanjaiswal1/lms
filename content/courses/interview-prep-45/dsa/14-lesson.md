@@ -61,6 +61,66 @@ def kahn_topo_sort(num_nodes, edges):
                 queue.append(nxt)
     return order if len(order) == num_nodes else []  # [] means a cycle exists
 ```
+```javascript +
+function kahnTopoSort(numNodes, edges) {
+    const graph = Array.from({ length: numNodes }, () => []);
+    const inDegree = new Array(numNodes).fill(0);
+    for (const [u, v] of edges) {
+        graph[u].push(v);
+        inDegree[v] += 1;
+    }
+    const queue = [];
+    for (let n = 0; n < numNodes; n++) {
+        if (inDegree[n] === 0) queue.push(n);
+    }
+    const order = [];
+    let head = 0;
+    while (head < queue.length) {
+        const node = queue[head++];
+        order.push(node);
+        for (const nxt of graph[node]) {
+            inDegree[nxt] -= 1;
+            if (inDegree[nxt] === 0) queue.push(nxt);
+        }
+    }
+    return order.length === numNodes ? order : []; // [] means a cycle exists
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<Integer> kahnTopoSort(int numNodes, int[][] edges) {
+        List<List<Integer>> graph = new ArrayList<>();
+        for (int i = 0; i < numNodes; i++) graph.add(new ArrayList<>());
+        int[] inDegree = new int[numNodes];
+        for (int[] edge : edges) {
+            int u = edge[0], v = edge[1];
+            graph.get(u).add(v);
+            inDegree[v]++;
+        }
+        Deque<Integer> queue = new ArrayDeque<>();
+        for (int n = 0; n < numNodes; n++) {
+            if (inDegree[n] == 0) queue.addLast(n);
+        }
+        List<Integer> order = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            int node = queue.pollFirst();
+            order.add(node);
+            for (int nxt : graph.get(node)) {
+                inDegree[nxt]--;
+                if (inDegree[nxt] == 0) queue.addLast(nxt);
+            }
+        }
+        return order.size() == numNodes ? order : new ArrayList<>(); // empty means a cycle exists
+    }
+
+    public static void main(String[] args) {
+        int[][] edges = { {0, 1}, {0, 2}, {1, 3}, {2, 3} };
+        System.out.println(kahnTopoSort(4, edges));
+    }
+}
+```
 
 **Heap top-K skeleton, from memory:**
 
@@ -74,6 +134,68 @@ def top_k_pattern(items, k, key=lambda x: x):
         if len(heap) > k:
             heapq.heappop(heap)
     return [item for _, item in heap]
+```
+```javascript +
+function topKPattern(items, k, key = (x) => x) {
+    const heap = []; // min-heap of [keyValue, item] pairs
+
+    const siftUp = (i) => {
+        while (i > 0) {
+            const parent = (i - 1) >> 1;
+            if (heap[parent][0] <= heap[i][0]) break;
+            [heap[parent], heap[i]] = [heap[i], heap[parent]];
+            i = parent;
+        }
+    };
+
+    const siftDown = (i) => {
+        const n = heap.length;
+        while (true) {
+            let smallest = i;
+            const left = 2 * i + 1;
+            const right = 2 * i + 2;
+            if (left < n && heap[left][0] < heap[smallest][0]) smallest = left;
+            if (right < n && heap[right][0] < heap[smallest][0]) smallest = right;
+            if (smallest === i) break;
+            [heap[smallest], heap[i]] = [heap[i], heap[smallest]];
+            i = smallest;
+        }
+    };
+
+    for (const item of items) {
+        heap.push([key(item), item]);
+        siftUp(heap.length - 1);
+        if (heap.length > k) {
+            heap[0] = heap[heap.length - 1];
+            heap.pop();
+            siftDown(0);
+        }
+    }
+
+    return heap.map(([, item]) => item);
+}
+```
+```java +
+import java.util.*;
+import java.util.function.Function;
+
+public class Main {
+    public static <T> List<T> topKPattern(List<T> items, int k, Function<T, Integer> key) {
+        PriorityQueue<T> heap = new PriorityQueue<>(Comparator.comparing(key));
+        for (T item : items) {
+            heap.offer(item);
+            if (heap.size() > k) {
+                heap.poll();
+            }
+        }
+        return new ArrayList<>(heap);
+    }
+
+    public static void main(String[] args) {
+        List<Integer> items = Arrays.asList(3, 1, 5, 12, 2, 11);
+        System.out.println(topKPattern(items, 3, x -> x));
+    }
+}
 ```
 
 **DP progression, from memory. Say it out loud before writing code:**

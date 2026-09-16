@@ -27,6 +27,36 @@ diag2 = set()   # row + col is constant along a "\" diagonal
 def is_safe(row: int, col: int) -> bool:
     return col not in cols and (row - col) not in diag1 and (row + col) not in diag2
 ```
+```javascript +
+const cols = new Set();
+const diag1 = new Set();   // row - col is constant along a "/" diagonal
+const diag2 = new Set();   // row + col is constant along a "\" diagonal
+
+function isSafe(row, col) {
+    return !cols.has(col) && !diag1.has(row - col) && !diag2.has(row + col);
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    static Set<Integer> cols = new HashSet<>();
+    static Set<Integer> diag1 = new HashSet<>();   // row - col is constant along a "/" diagonal
+    static Set<Integer> diag2 = new HashSet<>();   // row + col is constant along a "\" diagonal
+
+    public static boolean isSafe(int row, int col) {
+        return !cols.contains(col) && !diag1.contains(row - col) && !diag2.contains(row + col);
+    }
+
+    public static void main(String[] args) {
+        System.out.println(isSafe(0, 0));
+        cols.add(0);
+        diag1.add(0 - 0);
+        diag2.add(0 + 0);
+        System.out.println(isSafe(1, 1)); // false: same diagonal as (0,0)
+    }
+}
+```
 
 Why `row - col` and `row + col`: every cell on the same "/" diagonal has the same `row - col` value; every cell on the same "\" diagonal has the same `row + col` value. This is the piece of domain knowledge that turns an O(n) check into O(1). Know it cold; it comes up in every N-Queens variant.
 
@@ -79,6 +109,87 @@ def solve_sudoku(board: list[list[str]]) -> bool:
             return False   # no valid number for this cell — dead end
     return True   # every cell filled
 ```
+```javascript +
+function isValid(board, row, col, num) {
+    for (let i = 0; i < 9; i++) {
+        if (board[row][i] === num || board[i][col] === num) return false;
+    }
+    const boxRow = 3 * Math.floor(row / 3);
+    const boxCol = 3 * Math.floor(col / 3);
+    for (let r = boxRow; r < boxRow + 3; r++) {
+        for (let c = boxCol; c < boxCol + 3; c++) {
+            if (board[r][c] === num) return false;
+        }
+    }
+    return true;
+}
+
+function solveSudoku(board) {
+    for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+            if (board[row][col] !== '.') continue;
+            for (const num of '123456789') {
+                if (isValid(board, row, col, num)) {
+                    board[row][col] = num;
+                    if (solveSudoku(board)) return true;
+                    board[row][col] = '.'; // undo
+                }
+            }
+            return false; // no valid number for this cell — dead end
+        }
+    }
+    return true; // every cell filled
+}
+```
+```java +
+public class Main {
+    public static boolean isValid(char[][] board, int row, int col, char num) {
+        for (int i = 0; i < 9; i++) {
+            if (board[row][i] == num || board[i][col] == num) return false;
+        }
+        int boxRow = 3 * (row / 3);
+        int boxCol = 3 * (col / 3);
+        for (int r = boxRow; r < boxRow + 3; r++) {
+            for (int c = boxCol; c < boxCol + 3; c++) {
+                if (board[r][c] == num) return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean solveSudoku(char[][] board) {
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                if (board[row][col] != '.') continue;
+                for (char num = '1'; num <= '9'; num++) {
+                    if (isValid(board, row, col, num)) {
+                        board[row][col] = num;
+                        if (solveSudoku(board)) return true;
+                        board[row][col] = '.'; // undo
+                    }
+                }
+                return false; // no valid number for this cell — dead end
+            }
+        }
+        return true; // every cell filled
+    }
+
+    public static void main(String[] args) {
+        char[][] board = {
+            {'5','3','.','.','7','.','.','.','.'},
+            {'6','.','.','1','9','5','.','.','.'},
+            {'.','9','8','.','.','.','.','6','.'},
+            {'8','.','.','.','6','.','.','.','3'},
+            {'4','.','.','8','.','3','.','.','1'},
+            {'7','.','.','.','2','.','.','.','6'},
+            {'.','6','.','.','.','.','2','8','.'},
+            {'.','.','.','4','1','9','.','.','5'},
+            {'.','.','.','.','8','.','.','7','9'}
+        };
+        System.out.println(solveSudoku(board));
+    }
+}
+```
 
 Same lesson as N-Queens: precomputing row/col/box "used number" sets instead of scanning turns each validity check from O(1) with fixed small constants (27 cells) into truly O(1) set lookups. Worth mentioning in an interview even if you don't have time to fully implement it, since it shows you know where the bottleneck is.
 
@@ -116,6 +227,75 @@ def solve_n_queens(n: int) -> list[list[str]]:
     backtrack(0)
     return result
 ```
+```javascript +
+function solveNQueens(n) {
+    const result = [];
+    const colPositions = new Array(n).fill(0); // colPositions[row] = column of the queen in that row
+    const cols = new Set(), diag1 = new Set(), diag2 = new Set();
+
+    function backtrack(row) {
+        if (row === n) {
+            const board = [];
+            for (let r = 0; r < n; r++) {
+                const line = new Array(n).fill('.');
+                line[colPositions[r]] = 'Q';
+                board.push(line.join(''));
+            }
+            result.push(board);
+            return;
+        }
+        for (let col = 0; col < n; col++) {
+            if (cols.has(col) || diag1.has(row - col) || diag2.has(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            colPositions[row] = col;
+            backtrack(row + 1);
+            cols.delete(col); diag1.delete(row - col); diag2.delete(row + col);
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<List<String>> solveNQueens(int n) {
+        List<List<String>> result = new ArrayList<>();
+        int[] colPositions = new int[n]; // colPositions[row] = column of the queen in that row
+        Set<Integer> cols = new HashSet<>(), diag1 = new HashSet<>(), diag2 = new HashSet<>();
+        backtrack(0, n, colPositions, cols, diag1, diag2, result);
+        return result;
+    }
+
+    private static void backtrack(int row, int n, int[] colPositions, Set<Integer> cols,
+                                   Set<Integer> diag1, Set<Integer> diag2, List<List<String>> result) {
+        if (row == n) {
+            List<String> board = new ArrayList<>();
+            for (int r = 0; r < n; r++) {
+                char[] line = new char[n];
+                Arrays.fill(line, '.');
+                line[colPositions[r]] = 'Q';
+                board.add(new String(line));
+            }
+            result.add(board);
+            return;
+        }
+        for (int col = 0; col < n; col++) {
+            if (cols.contains(col) || diag1.contains(row - col) || diag2.contains(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            colPositions[row] = col;
+            backtrack(row + 1, n, colPositions, cols, diag1, diag2, result);
+            cols.remove(col); diag1.remove(row - col); diag2.remove(row + col);
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(solveNQueens(4));
+    }
+}
+```
 
 **Complexity:** O(n!) time worst case (roughly, since each row has fewer valid choices than the last due to pruning), O(n) space for the sets and recursion depth, excluding output.
 
@@ -146,6 +326,51 @@ def total_n_queens(n: int) -> int:
         return count
 
     return backtrack(0)
+```
+```javascript +
+function totalNQueens(n) {
+    const cols = new Set(), diag1 = new Set(), diag2 = new Set();
+
+    function backtrack(row) {
+        if (row === n) return 1;
+        let count = 0;
+        for (let col = 0; col < n; col++) {
+            if (cols.has(col) || diag1.has(row - col) || diag2.has(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            count += backtrack(row + 1);
+            cols.delete(col); diag1.delete(row - col); diag2.delete(row + col);
+        }
+        return count;
+    }
+
+    return backtrack(0);
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static int totalNQueens(int n) {
+        Set<Integer> cols = new HashSet<>(), diag1 = new HashSet<>(), diag2 = new HashSet<>();
+        return backtrack(0, n, cols, diag1, diag2);
+    }
+
+    private static int backtrack(int row, int n, Set<Integer> cols, Set<Integer> diag1, Set<Integer> diag2) {
+        if (row == n) return 1;
+        int count = 0;
+        for (int col = 0; col < n; col++) {
+            if (cols.contains(col) || diag1.contains(row - col) || diag2.contains(row + col)) continue;
+            cols.add(col); diag1.add(row - col); diag2.add(row + col);
+            count += backtrack(row + 1, n, cols, diag1, diag2);
+            cols.remove(col); diag1.remove(row - col); diag2.remove(row + col);
+        }
+        return count;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(totalNQueens(4));
+    }
+}
 ```
 
 **Complexity:** Same as N-Queens I minus the O(n^2) board-building cost per solution: O(n!) time worst case, O(n) space.
@@ -183,6 +408,69 @@ def letter_combinations(digits: str) -> list[str]:
 
     backtrack(0)
     return result
+```
+```javascript +
+function letterCombinations(digits) {
+    if (!digits) return [];
+
+    const mapping = {
+        '2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',
+        '6': 'mno', '7': 'pqrs', '8': 'tuv', '9': 'wxyz',
+    };
+    const result = [];
+    const path = [];
+
+    function backtrack(index) {
+        if (index === digits.length) {
+            result.push(path.join(''));
+            return;
+        }
+        for (const letter of mapping[digits[index]]) {
+            path.push(letter);
+            backtrack(index + 1);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<String> letterCombinations(String digits) {
+        List<String> result = new ArrayList<>();
+        if (digits == null || digits.isEmpty()) return result;
+
+        Map<Character, String> mapping = new HashMap<>();
+        mapping.put('2', "abc"); mapping.put('3', "def"); mapping.put('4', "ghi");
+        mapping.put('5', "jkl"); mapping.put('6', "mno"); mapping.put('7', "pqrs");
+        mapping.put('8', "tuv"); mapping.put('9', "wxyz");
+
+        backtrack(digits, 0, new StringBuilder(), mapping, result);
+        return result;
+    }
+
+    private static void backtrack(String digits, int index, StringBuilder path,
+                                   Map<Character, String> mapping, List<String> result) {
+        if (index == digits.length()) {
+            result.add(path.toString());
+            return;
+        }
+        String letters = mapping.get(digits.charAt(index));
+        for (char letter : letters.toCharArray()) {
+            path.append(letter);
+            backtrack(digits, index + 1, path, mapping, result);
+            path.deleteCharAt(path.length() - 1);
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(letterCombinations("23"));
+    }
+}
 ```
 
 **Complexity:** O(4^n * n) time worst case (digits 7 and 9 map to 4 letters, n is `len(digits)`), O(n) recursion depth.
@@ -229,6 +517,79 @@ def restore_ip_addresses(s: str) -> list[str]:
 
     backtrack(0)
     return result
+```
+```javascript +
+function restoreIpAddresses(s) {
+    const result = [];
+    const path = [];
+
+    function isValidSegment(seg) {
+        if (seg.length > 1 && seg[0] === '0') return false; // no leading zeros
+        return Number(seg) >= 0 && Number(seg) <= 255;
+    }
+
+    function backtrack(start) {
+        if (path.length === 4) {
+            if (start === s.length) result.push(path.join('.'));
+            return;
+        }
+        const remainingSegments = 4 - path.length;
+        const remainingChars = s.length - start;
+        // prune: not enough or too many characters left for remaining segments
+        if (remainingChars < remainingSegments || remainingChars > remainingSegments * 3) return;
+        for (let length = 1; length <= 3; length++) {
+            if (start + length > s.length) break;
+            const segment = s.slice(start, start + length);
+            if (!isValidSegment(segment)) continue;
+            path.push(segment);
+            backtrack(start + length);
+            path.pop();
+        }
+    }
+
+    backtrack(0);
+    return result;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static List<String> restoreIpAddresses(String s) {
+        List<String> result = new ArrayList<>();
+        backtrack(s, 0, new ArrayDeque<>(), result);
+        return result;
+    }
+
+    private static boolean isValidSegment(String seg) {
+        if (seg.length() > 1 && seg.charAt(0) == '0') return false; // no leading zeros
+        int value = Integer.parseInt(seg);
+        return value >= 0 && value <= 255;
+    }
+
+    private static void backtrack(String s, int start, Deque<String> path, List<String> result) {
+        if (path.size() == 4) {
+            if (start == s.length()) result.add(String.join(".", path));
+            return;
+        }
+        int remainingSegments = 4 - path.size();
+        int remainingChars = s.length() - start;
+        // prune: not enough or too many characters left for remaining segments
+        if (remainingChars < remainingSegments || remainingChars > remainingSegments * 3) return;
+        for (int length = 1; length <= 3; length++) {
+            if (start + length > s.length()) break;
+            String segment = s.substring(start, start + length);
+            if (!isValidSegment(segment)) continue;
+            path.addLast(segment);
+            backtrack(s, start + length, path, result);
+            path.removeLast();
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println(restoreIpAddresses("25525511135"));
+    }
+}
 ```
 
 **Complexity:** O(3^4) = O(1) effectively, since the search space is bounded by 4 segments x 3 possible lengths each, independent of input size beyond a small constant. O(1) extra space beyond output.

@@ -4,7 +4,7 @@ id_key: interview-prep-45/fe-js-utility-patterns-memory
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "JavaScript Utility Patterns: Cloning, Caching, and Memory"
 position: 8
 estimated_minutes: 35

@@ -57,6 +57,34 @@ def maxProfit_stateMachine(prices: list[int]) -> int:
         hold, not_hold = max(hold, not_hold - price), max(not_hold, hold + price)
     return not_hold
 ```
+```javascript +
+function maxProfitStateMachine(prices) {
+    let hold = -Infinity, notHold = 0;  // state 0: holding a share, state 1: not
+    for (const price of prices) {
+        [hold, notHold] = [Math.max(hold, notHold - price), Math.max(notHold, hold + price)];
+    }
+    return notHold;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] prices = {7, 1, 5, 3, 6, 4};
+        System.out.println(maxProfitStateMachine(prices));
+    }
+
+    static int maxProfitStateMachine(int[] prices) {
+        int hold = Integer.MIN_VALUE, notHold = 0;  // state 0: holding a share, state 1: not
+        for (int price : prices) {
+            int newHold = Math.max(hold, notHold - price);
+            int newNotHold = Math.max(notHold, hold + price);
+            hold = newHold;
+            notHold = newNotHold;
+        }
+        return notHold;
+    }
+}
+```
 
 The key skill is drawing the state diagram first, what states exist, what transitions are legal, what each transition costs or earns, before writing any code. It's the same discipline as defining `dp[i]` correctly, just with an extra "which mode am I in" dimension.
 
@@ -81,6 +109,48 @@ def longestCommonSubsequence(text1: str, text2: str) -> int:
                 dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
 
     return dp[m][n]
+```
+```javascript +
+function longestCommonSubsequence(text1, text2) {
+    const m = text1.length, n = text2.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (text1[i - 1] === text2[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1] + 1;
+            } else {
+                dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+            }
+        }
+    }
+
+    return dp[m][n];
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(longestCommonSubsequence("abcde", "ace"));
+    }
+
+    static int longestCommonSubsequence(String text1, String text2) {
+        int m = text1.length(), n = text2.length();
+        int[][] dp = new int[m + 1][n + 1];
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (text1.charAt(i - 1) == text2.charAt(j - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+
+        return dp[m][n];
+    }
+}
 ```
 
 **Complexity:** Time O(m·n), space O(m·n), reducible to O(min(m,n)) since row `i` only needs row `i-1`.
@@ -118,6 +188,61 @@ def minDistance(word1: str, word2: str) -> int:
 
     return dp[m][n]
 ```
+```javascript +
+function minDistance(word1, word2) {
+    const m = word1.length, n = word2.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;  // delete all i characters of word1
+    for (let j = 0; j <= n; j++) dp[0][j] = j;  // insert all j characters of word2
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (word1[i - 1] === word2[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            } else {
+                dp[i][j] = 1 + Math.min(
+                    dp[i - 1][j - 1],  // replace
+                    dp[i - 1][j],      // delete from word1
+                    dp[i][j - 1]       // insert into word1
+                );
+            }
+        }
+    }
+
+    return dp[m][n];
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(minDistance("horse", "ros"));
+    }
+
+    static int minDistance(String word1, String word2) {
+        int m = word1.length(), n = word2.length();
+        int[][] dp = new int[m + 1][n + 1];
+
+        for (int i = 0; i <= m; i++) dp[i][0] = i;  // delete all i characters of word1
+        for (int j = 0; j <= n; j++) dp[0][j] = j;  // insert all j characters of word2
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (word1.charAt(i - 1) == word2.charAt(j - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = 1 + Math.min(
+                        dp[i - 1][j - 1],  // replace
+                        Math.min(dp[i - 1][j], dp[i][j - 1])  // delete, insert
+                    );
+                }
+            }
+        }
+
+        return dp[m][n];
+    }
+}
+```
 
 **Complexity:** Time O(m·n), space O(m·n), reducible to O(min(m,n)).
 
@@ -141,6 +266,44 @@ def lengthOfLIS_On2(nums: list[int]) -> int:
                 dp[i] = max(dp[i], dp[j] + 1)
     return max(dp)
 ```
+```javascript +
+function lengthOfLISOn2(nums) {
+    const n = nums.length;
+    const dp = new Array(n).fill(1);
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < i; j++) {
+            if (nums[j] < nums[i]) {
+                dp[i] = Math.max(dp[i], dp[j] + 1);
+            }
+        }
+    }
+    return Math.max(...dp);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {10, 9, 2, 5, 3, 7, 101, 18};
+        System.out.println(lengthOfLISOn2(nums));
+    }
+
+    static int lengthOfLISOn2(int[] nums) {
+        int n = nums.length;
+        int[] dp = new int[n];
+        java.util.Arrays.fill(dp, 1);
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < i; j++) {
+                if (nums[j] < nums[i]) {
+                    dp[i] = Math.max(dp[i], dp[j] + 1);
+                }
+            }
+        }
+        int best = 0;
+        for (int v : dp) best = Math.max(best, v);
+        return best;
+    }
+}
+```
 
 **Approach (O(n log n), the interview follow-up):**
 
@@ -156,6 +319,44 @@ def lengthOfLIS(nums: list[int]) -> int:
         else:
             tails[pos] = num
     return len(tails)
+```
+```javascript +
+function lengthOfLIS(nums) {
+    const tails = [];
+    for (const num of nums) {
+        let lo = 0, hi = tails.length;
+        while (lo < hi) {  // binary search: first index where tails[idx] >= num
+            const mid = (lo + hi) >> 1;
+            if (tails[mid] < num) lo = mid + 1;
+            else hi = mid;
+        }
+        if (lo === tails.length) tails.push(num);
+        else tails[lo] = num;
+    }
+    return tails.length;
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {10, 9, 2, 5, 3, 7, 101, 18};
+        System.out.println(lengthOfLIS(nums));
+    }
+
+    static int lengthOfLIS(int[] nums) {
+        int[] tails = new int[nums.length];
+        int size = 0;
+        for (int num : nums) {
+            int pos = Arrays.binarySearch(tails, 0, size, num);
+            if (pos < 0) pos = -(pos + 1);  // insertion point, mirrors bisect_left
+            tails[pos] = num;
+            if (pos == size) size++;
+        }
+        return size;
+    }
+}
 ```
 
 **Complexity:** O(n²) DP: time O(n²), space O(n). Binary search version: time O(n log n), space O(n).
@@ -183,6 +384,51 @@ def wordBreak(s: str, wordDict: list[str]) -> bool:
                 dp[i] = True
                 break  # no need to check other j once found
     return dp[n]
+```
+```javascript +
+function wordBreak(s, wordDict) {
+    const wordSet = new Set(wordDict);
+    const n = s.length;
+    const dp = new Array(n + 1).fill(false);
+    dp[0] = true;
+
+    for (let i = 1; i <= n; i++) {
+        for (let j = 0; j < i; j++) {
+            if (dp[j] && wordSet.has(s.slice(j, i))) {
+                dp[i] = true;
+                break;  // no need to check other j once found
+            }
+        }
+    }
+    return dp[n];
+}
+```
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        List<String> wordDict = Arrays.asList("leet", "code");
+        System.out.println(wordBreak("leetcode", wordDict));
+    }
+
+    static boolean wordBreak(String s, List<String> wordDict) {
+        Set<String> wordSet = new HashSet<>(wordDict);
+        int n = s.length();
+        boolean[] dp = new boolean[n + 1];
+        dp[0] = true;
+
+        for (int i = 1; i <= n; i++) {
+            for (int j = 0; j < i; j++) {
+                if (dp[j] && wordSet.contains(s.substring(j, i))) {
+                    dp[i] = true;
+                    break;  // no need to check other j once found
+                }
+            }
+        }
+        return dp[n];
+    }
+}
 ```
 
 **Complexity:** Time O(n²) for the double loop, plus O(k) per substring slice and lookup where k is average word length, so effectively O(n²·k) worst case; using a `set` keeps membership checks O(1) average. Space O(n) for `dp`, plus O(total dict chars) for `word_set`.

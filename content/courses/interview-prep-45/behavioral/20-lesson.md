@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-20-behavioral
 course: interview-prep-45
 section: behavioral
 section_title: "Behavioral"
-section_position: 5
+section_position: 7
 title: "New Skill Story"
 position: 20
 estimated_minutes: 15

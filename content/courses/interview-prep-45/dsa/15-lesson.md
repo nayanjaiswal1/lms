@@ -92,6 +92,82 @@ def is_match(s: str, p: str) -> bool:
 
     return dp[m][n]
 ```
+```javascript +
+function isMatch(s, p) {
+    const m = s.length, n = p.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(false));
+    dp[0][0] = true;
+
+    // empty string vs patterns like a*, a*b*c* etc.
+    for (let j = 1; j <= n; j++) {
+        if (p[j - 1] === '*') {
+            dp[0][j] = dp[0][j - 2];
+        }
+    }
+
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (p[j - 1] === '.' || p[j - 1] === s[i - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            } else if (p[j - 1] === '*') {
+                // zero occurrences of p[j-2]
+                dp[i][j] = dp[i][j - 2];
+                // one more occurrence of p[j-2], if it can match s[i-1]
+                const prevChar = p[j - 2];
+                if (prevChar === '.' || prevChar === s[i - 1]) {
+                    dp[i][j] = dp[i][j] || dp[i - 1][j];
+                }
+            } else {
+                dp[i][j] = false;
+            }
+        }
+    }
+
+    return dp[m][n];
+}
+```
+```java +
+public class Main {
+    public static boolean isMatch(String s, String p) {
+        int m = s.length(), n = p.length();
+        boolean[][] dp = new boolean[m + 1][n + 1];
+        dp[0][0] = true;
+
+        // empty string vs patterns like a*, a*b*c* etc.
+        for (int j = 1; j <= n; j++) {
+            if (p.charAt(j - 1) == '*') {
+                dp[0][j] = dp[0][j - 2];
+            }
+        }
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                char pc = p.charAt(j - 1);
+                if (pc == '.' || pc == s.charAt(i - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else if (pc == '*') {
+                    // zero occurrences of p[j-2]
+                    dp[i][j] = dp[i][j - 2];
+                    // one more occurrence of p[j-2], if it can match s[i-1]
+                    char prevChar = p.charAt(j - 2);
+                    if (prevChar == '.' || prevChar == s.charAt(i - 1)) {
+                        dp[i][j] = dp[i][j] || dp[i - 1][j];
+                    }
+                } else {
+                    dp[i][j] = false;
+                }
+            }
+        }
+
+        return dp[m][n];
+    }
+
+    public static void main(String[] args) {
+        System.out.println(isMatch("aa", "a*"));
+        System.out.println(isMatch("mississippi", "mis*is*p*."));
+    }
+}
+```
 
 **Complexity:** O(m*n) time, O(m*n) space (can be rolled to O(n), see Space optimization above).
 
@@ -129,6 +205,72 @@ def is_match(s: str, p: str) -> bool:
 
     return prev[n]
 ```
+```javascript +
+function isMatch(s, p) {
+    const m = s.length, n = p.length;
+
+    // prev = dp[i-1][*], curr = dp[i][*]
+    let prev = new Array(n + 1).fill(false);
+    prev[0] = true;
+    for (let j = 1; j <= n; j++) {
+        prev[j] = prev[j - 1] && p[j - 1] === '*';
+    }
+
+    for (let i = 1; i <= m; i++) {
+        const curr = new Array(n + 1).fill(false);
+        curr[0] = false; // non-empty s can't match empty p
+        for (let j = 1; j <= n; j++) {
+            if (p[j - 1] === '*') {
+                curr[j] = curr[j - 1] || prev[j];
+            } else if (p[j - 1] === '?' || p[j - 1] === s[i - 1]) {
+                curr[j] = prev[j - 1];
+            } else {
+                curr[j] = false;
+            }
+        }
+        prev = curr;
+    }
+
+    return prev[n];
+}
+```
+```java +
+public class Main {
+    public static boolean isMatch(String s, String p) {
+        int m = s.length(), n = p.length();
+
+        // prev = dp[i-1][*], curr = dp[i][*]
+        boolean[] prev = new boolean[n + 1];
+        prev[0] = true;
+        for (int j = 1; j <= n; j++) {
+            prev[j] = prev[j - 1] && p.charAt(j - 1) == '*';
+        }
+
+        for (int i = 1; i <= m; i++) {
+            boolean[] curr = new boolean[n + 1];
+            curr[0] = false; // non-empty s can't match empty p
+            for (int j = 1; j <= n; j++) {
+                char pc = p.charAt(j - 1);
+                if (pc == '*') {
+                    curr[j] = curr[j - 1] || prev[j];
+                } else if (pc == '?' || pc == s.charAt(i - 1)) {
+                    curr[j] = prev[j - 1];
+                } else {
+                    curr[j] = false;
+                }
+            }
+            prev = curr;
+        }
+
+        return prev[n];
+    }
+
+    public static void main(String[] args) {
+        System.out.println(isMatch("adceb", "*a*b"));
+        System.out.println(isMatch("acdcb", "a*c?b"));
+    }
+}
+```
 
 **Complexity:** O(m*n) time, O(n) space. This is the target profile called out in today's implementation task.
 
@@ -156,6 +298,51 @@ def min_path_sum(grid: list[list[int]]) -> int:
             else:
                 grid[i][j] += min(grid[i - 1][j], grid[i][j - 1])
     return grid[m - 1][n - 1]
+```
+```javascript +
+function minPathSum(grid) {
+    const m = grid.length, n = grid[0].length;
+    for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+            if (i === 0 && j === 0) {
+                continue;
+            } else if (i === 0) {
+                grid[i][j] += grid[i][j - 1];
+            } else if (j === 0) {
+                grid[i][j] += grid[i - 1][j];
+            } else {
+                grid[i][j] += Math.min(grid[i - 1][j], grid[i][j - 1]);
+            }
+        }
+    }
+    return grid[m - 1][n - 1];
+}
+```
+```java +
+public class Main {
+    public static int minPathSum(int[][] grid) {
+        int m = grid.length, n = grid[0].length;
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                if (i == 0 && j == 0) {
+                    continue;
+                } else if (i == 0) {
+                    grid[i][j] += grid[i][j - 1];
+                } else if (j == 0) {
+                    grid[i][j] += grid[i - 1][j];
+                } else {
+                    grid[i][j] += Math.min(grid[i - 1][j], grid[i][j - 1]);
+                }
+            }
+        }
+        return grid[m - 1][n - 1];
+    }
+
+    public static void main(String[] args) {
+        int[][] grid = { {1, 3, 1}, {1, 5, 1}, {4, 2, 1} };
+        System.out.println(minPathSum(grid));
+    }
+}
 ```
 
 **Complexity:** O(m*n) time, O(1) extra space (mutates input in place, so mention this trade-off out loud in an interview, since mutating input isn't always acceptable).
@@ -192,6 +379,60 @@ def longest_palindrome(s: str) -> str:
             start, end = l2, r2
 
     return s[start:end + 1]
+```
+```javascript +
+function longestPalindrome(s) {
+    if (!s) return "";
+
+    const expand = (left, right) => {
+        while (left >= 0 && right < s.length && s[left] === s[right]) {
+            left -= 1;
+            right += 1;
+        }
+        // left/right have overstepped by one on the last failed check
+        return [left + 1, right - 1];
+    };
+
+    let [start, end] = [0, 0];
+    for (let center = 0; center < s.length; center++) {
+        const [l1, r1] = expand(center, center);        // odd length
+        const [l2, r2] = expand(center, center + 1);     // even length
+        if (r1 - l1 > end - start) [start, end] = [l1, r1];
+        if (r2 - l2 > end - start) [start, end] = [l2, r2];
+    }
+
+    return s.slice(start, end + 1);
+}
+```
+```java +
+public class Main {
+    public static String longestPalindrome(String s) {
+        if (s == null || s.isEmpty()) return "";
+
+        int[] best = {0, 0};
+        for (int center = 0; center < s.length(); center++) {
+            int[] odd = expand(s, center, center);          // odd length
+            int[] even = expand(s, center, center + 1);      // even length
+            if (odd[1] - odd[0] > best[1] - best[0]) best = odd;
+            if (even[1] - even[0] > best[1] - best[0]) best = even;
+        }
+
+        return s.substring(best[0], best[1] + 1);
+    }
+
+    private static int[] expand(String s, int left, int right) {
+        while (left >= 0 && right < s.length() && s.charAt(left) == s.charAt(right)) {
+            left -= 1;
+            right += 1;
+        }
+        // left/right have overstepped by one on the last failed check
+        return new int[] { left + 1, right - 1 };
+    }
+
+    public static void main(String[] args) {
+        System.out.println(longestPalindrome("babad"));
+    }
+}
 ```
 
 **Complexity:** O(n^2) time, O(1) space. The classic DP table version is O(n^2) time and O(n^2) space, worth knowing both so you can explain the trade-off if asked.

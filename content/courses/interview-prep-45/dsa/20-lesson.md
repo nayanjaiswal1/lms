@@ -26,6 +26,32 @@ a << k  # left shift: multiply by 2^k
 a >> k  # right shift: divide by 2^k (floor, arithmetic shift for negative ints in Python)
 ```
 
+```javascript +
+const a = 0b1100, b = 0b1010, k = 2;
+
+a & b;   // AND: 1 only where both bits are 1  — used for masking / checking a bit
+a | b;   // OR:  1 where either bit is 1        — used for setting a bit
+a ^ b;   // XOR: 1 where bits differ            — used for toggling / finding differences
+~a;      // NOT: flips every bit                — in JS, ~a === -a - 1 (two's complement)
+a << k;  // left shift: multiply by 2^k
+a >> k;  // right shift: divide by 2^k (floor, arithmetic shift; JS also has >>> for unsigned)
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int a = 0b1100, b = 0b1010, k = 2;
+
+        System.out.println("a & b  = " + (a & b));   // AND: 1 only where both bits are 1
+        System.out.println("a | b  = " + (a | b));   // OR: 1 where either bit is 1
+        System.out.println("a ^ b  = " + (a ^ b));   // XOR: 1 where bits differ
+        System.out.println("~a     = " + (~a));      // NOT: flips every bit, ~a == -a - 1
+        System.out.println("a << k = " + (a << k));  // left shift: multiply by 2^k
+        System.out.println("a >> k = " + (a >> k));  // right shift: divide by 2^k (arithmetic)
+    }
+}
+```
+
 Useful bit-twiddling idioms to have memorized:
 
 ```python
@@ -35,6 +61,32 @@ n | (1 << k)    # sets bit k
 n & ~(1 << k)   # clears bit k
 n ^ (1 << k)    # toggles bit k
 (n >> k) & 1    # reads bit k
+```
+
+```javascript +
+const n = 12, k = 2;
+
+n & (n - 1);     // clears the lowest set bit — used to count set bits, check power of 2
+n & (-n);        // isolates the lowest set bit
+n | (1 << k);    // sets bit k
+n & ~(1 << k);   // clears bit k
+n ^ (1 << k);    // toggles bit k
+(n >> k) & 1;    // reads bit k
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int n = 12, k = 2;
+
+        System.out.println("n & (n - 1)   = " + (n & (n - 1)));   // clears the lowest set bit
+        System.out.println("n & (-n)      = " + (n & (-n)));      // isolates the lowest set bit
+        System.out.println("n | (1 << k)  = " + (n | (1 << k)));  // sets bit k
+        System.out.println("n & ~(1 << k) = " + (n & ~(1 << k))); // clears bit k
+        System.out.println("n ^ (1 << k)  = " + (n ^ (1 << k)));  // toggles bit k
+        System.out.println("(n >> k) & 1  = " + ((n >> k) & 1));  // reads bit k
+    }
+}
 ```
 
 `n & (n - 1) == 0` (for `n > 0`) is the fastest power-of-2 check: a power of 2 has exactly one set bit, and subtracting 1 flips every bit below it, so ANDing them together always yields zero.
@@ -52,6 +104,31 @@ def to_signed_32(n: int) -> int:
     n &= MASK32
     # if the sign bit (bit 31) is set, interpret as negative
     return n if n < 0x80000000 else n - 0x100000000
+```
+
+```javascript +
+function toSigned32(n) {
+    n = n >>> 0; // mask down to a 32-bit unsigned value first
+    // if the sign bit (bit 31) is set, interpret as negative
+    return n < 0x80000000 ? n : n - 0x100000000;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(toSigned32(4294967295L)); // -1
+        System.out.println(toSigned32(5L));           // 5
+    }
+
+    static final long MASK32 = 0xFFFFFFFFL; // mask to simulate a 32-bit unsigned register
+
+    static int toSigned32(long n) {
+        n &= MASK32;
+        // if the sign bit (bit 31) is set, interpret as negative
+        return (int) (n < 0x80000000L ? n : n - 0x100000000L);
+    }
+}
 ```
 
 ## Common patterns
@@ -79,6 +156,34 @@ def hamming_weight(n: int) -> int:
     return count
 ```
 
+```javascript +
+function hammingWeight(n) {
+    let count = 0;
+    while (n !== 0) {
+        n &= n - 1; // clears the lowest set bit
+        count++;
+    }
+    return count;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(hammingWeight(0b1011));
+    }
+
+    static int hammingWeight(int n) {
+        int count = 0;
+        while (n != 0) {
+            n &= n - 1; // clears the lowest set bit
+            count++;
+        }
+        return count;
+    }
+}
+```
+
 **Complexity:** O(k) time where `k` is the number of set bits (not 32), better than a naive O(32) bit-by-bit scan on sparse inputs. O(1) space.
 
 **Common mistakes:** using `n >>= 1` combined with `n & 1` in a fixed 32-iteration loop, correct but strictly worse than the `n & (n-1)` trick when bits are sparse; forgetting Python has no fixed width, so a naive right-shift loop on a value treated as "signed 32-bit" needs masking to behave correctly (LeetCode passes this as an unsigned int specifically to sidestep that issue).
@@ -98,6 +203,34 @@ def reverse_bits(n: int) -> int:
         bit = (n >> i) & 1
         result |= bit << (31 - i)
     return result
+```
+
+```javascript +
+function reverseBits(n) {
+    let result = 0;
+    for (let i = 0; i < 32; i++) {
+        const bit = (n >>> i) & 1;
+        result = (result | (bit << (31 - i))) >>> 0;
+    }
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(reverseBits(0b00000010100101000001111010011100));
+    }
+
+    static int reverseBits(int n) {
+        int result = 0;
+        for (int i = 0; i < 32; i++) {
+            int bit = (n >>> i) & 1;
+            result |= bit << (31 - i);
+        }
+        return result;
+    }
+}
 ```
 
 **Complexity:** O(32) = O(1) time (fixed width), O(1) space.
@@ -120,6 +253,33 @@ def single_number(nums: list[int]) -> int:
     return result
 ```
 
+```javascript +
+function singleNumber(nums) {
+    let result = 0;
+    for (const num of nums) {
+        result ^= num;
+    }
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {4, 1, 2, 1, 2};
+        System.out.println(singleNumber(nums));
+    }
+
+    static int singleNumber(int[] nums) {
+        int result = 0;
+        for (int num : nums) {
+            result ^= num;
+        }
+        return result;
+    }
+}
+```
+
 **Complexity:** O(n) time, O(1) space. Strictly better than a hash-set approach (O(n) space), which is the "obvious" first instinct.
 
 **Common mistakes:** reaching for a `Counter`/hash-set solution first without recognizing the O(1)-space XOR trick applies whenever "every element appears twice except one" is the setup; trying to force the XOR trick onto a variant where elements appear *three* times except one (LeetCode 137), which needs a different bit-counting technique since XOR alone doesn't work there.
@@ -138,6 +298,33 @@ def missing_number(nums: list[int]) -> int:
     for i, num in enumerate(nums):
         result ^= i ^ num
     return result
+```
+
+```javascript +
+function missingNumber(nums) {
+    let result = nums.length; // pre-seed with n, since indices only go 0..n-1
+    for (let i = 0; i < nums.length; i++) {
+        result ^= i ^ nums[i];
+    }
+    return result;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {3, 0, 1};
+        System.out.println(missingNumber(nums));
+    }
+
+    static int missingNumber(int[] nums) {
+        int result = nums.length; // pre-seed with n, since indices only go 0..n-1
+        for (int i = 0; i < nums.length; i++) {
+            result ^= i ^ nums[i];
+        }
+        return result;
+    }
+}
 ```
 
 **Complexity:** O(n) time, O(1) space.

@@ -4,7 +4,7 @@ id_key: interview-prep-45/fe-js-scope-hoisting-types
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Variables, Scope, Hoisting, and Truthiness"
 position: 5
 estimated_minutes: 25

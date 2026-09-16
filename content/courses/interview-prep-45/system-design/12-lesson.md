@@ -5,7 +5,7 @@ id_key: interview-prep-45/day-12-system-design
 course: interview-prep-45
 section: system-design
 section_title: "System Design"
-section_position: 2
+section_position: 3
 title: "File Storage Service (Dropbox style)"
 position: 12
 estimated_minutes: 60

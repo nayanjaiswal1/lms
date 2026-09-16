@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-01-backend
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Django Request Lifecycle"
 position: 1
 estimated_minutes: 45

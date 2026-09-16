@@ -34,6 +34,59 @@ def max_distinct_in_window(nums: list[int], k: int) -> int:
     return best
 ```
 
+```javascript +
+function maxDistinctInWindow(nums, k) {
+    const counts = new Map();
+    for (let i = 0; i < k; i++) {
+        counts.set(nums[i], (counts.get(nums[i]) || 0) + 1);
+    }
+    let best = counts.size;
+
+    for (let i = k; i < nums.length; i++) {
+        counts.set(nums[i], (counts.get(nums[i]) || 0) + 1); // element entering
+        const left = nums[i - k];
+        counts.set(left, counts.get(left) - 1);              // element leaving
+        if (counts.get(left) === 0) {
+            counts.delete(left);                             // keep the map accurate for size checks
+        }
+        best = Math.max(best, counts.size);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 2, 1, 3, 4, 2, 3};
+        System.out.println(maxDistinctInWindow(nums, 4));
+    }
+
+    static int maxDistinctInWindow(int[] nums, int k) {
+        Map<Integer, Integer> counts = new HashMap<>();
+        for (int i = 0; i < k; i++) {
+            counts.merge(nums[i], 1, Integer::sum);
+        }
+        int best = counts.size();
+
+        for (int i = k; i < nums.length; i++) {
+            counts.merge(nums[i], 1, Integer::sum); // element entering
+            int left = nums[i - k];
+            counts.merge(left, -1, Integer::sum);   // element leaving
+            if (counts.get(left) == 0) {
+                counts.remove(left);                // keep the map accurate for size checks
+            }
+            best = Math.max(best, counts.size());
+        }
+
+        return best;
+    }
+}
+```
+
 The pattern: every fixed-window problem does exactly two things per step, add the incoming element's effect, remove the outgoing element's effect. The "effect" can be a sum, a frequency count, a max-tracking deque, or any other incrementally-maintainable structure. Never recompute the whole window from scratch each step, since that turns an O(n) sliding window into O(n·k).
 
 ## Variable window tracking multiple conditions
@@ -61,6 +114,76 @@ def variable_window_skeleton(s: str, is_valid) -> int:
         best = max(best, right - left + 1)
 
     return best
+```
+
+```javascript +
+function variableWindowSkeleton(s, isValid) {
+    let left = 0;
+    let best = 0;
+    const windowState = new Map(); // whatever data the condition needs: counts, max-freq, etc.
+
+    for (let right = 0; right < s.length; right++) {
+        // 1. expand: absorb s[right] into windowState
+        windowState.set(s[right], (windowState.get(s[right]) || 0) + 1);
+
+        // 2. contract while the window violates the condition
+        while (!isValid(windowState, right - left + 1)) {
+            const leftChar = s[left];
+            windowState.set(leftChar, windowState.get(leftChar) - 1);
+            if (windowState.get(leftChar) === 0) {
+                windowState.delete(leftChar);
+            }
+            left++;
+        }
+
+        // 3. record the best valid window at this right boundary
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+import java.util.function.BiFunction;
+
+public class Main {
+    public static void main(String[] args) {
+        // Example: window valid while it has at most 2 distinct characters
+        BiFunction<Map<Character, Integer>, Integer, Boolean> atMostTwoDistinct =
+            (state, length) -> state.size() <= 2;
+
+        System.out.println(variableWindowSkeleton("eceba", atMostTwoDistinct));
+    }
+
+    static int variableWindowSkeleton(String s, BiFunction<Map<Character, Integer>, Integer, Boolean> isValid) {
+        int left = 0;
+        int best = 0;
+        Map<Character, Integer> windowState = new HashMap<>(); // whatever data the condition needs
+
+        for (int right = 0; right < s.length(); right++) {
+            // 1. expand: absorb s[right] into windowState
+            char rightChar = s.charAt(right);
+            windowState.merge(rightChar, 1, Integer::sum);
+
+            // 2. contract while the window violates the condition
+            while (!isValid.apply(windowState, right - left + 1)) {
+                char leftChar = s.charAt(left);
+                windowState.merge(leftChar, -1, Integer::sum);
+                if (windowState.get(leftChar) == 0) {
+                    windowState.remove(leftChar);
+                }
+                left++;
+            }
+
+            // 3. record the best valid window at this right boundary
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
 ```
 
 Critical invariant: `left` only ever moves forward. It never resets to 0 and re-scans. This is what makes the whole algorithm O(n) instead of O(n²): each index enters and leaves the window at most once across the entire run, so total work across all iterations of the inner `while` is bounded by n, not n per outer step.
@@ -92,6 +215,65 @@ def characterReplacement(s: str, k: int) -> int:
         best = max(best, right - left + 1)
 
     return best
+```
+
+```javascript +
+function characterReplacement(s, k) {
+    const counts = new Map();
+    let left = 0;
+    let maxFreq = 0;
+    let best = 0;
+
+    for (let right = 0; right < s.length; right++) {
+        const ch = s[right];
+        counts.set(ch, (counts.get(ch) || 0) + 1);
+        maxFreq = Math.max(maxFreq, counts.get(ch));
+
+        const windowLen = right - left + 1;
+        if (windowLen - maxFreq > k) {
+            const leftChar = s[left];
+            counts.set(leftChar, counts.get(leftChar) - 1);
+            left++;
+        }
+
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println(characterReplacement("AABABBA", 1));
+    }
+
+    static int characterReplacement(String s, int k) {
+        int[] counts = new int[26];
+        int left = 0;
+        int maxFreq = 0;
+        int best = 0;
+
+        for (int right = 0; right < s.length(); right++) {
+            int idx = s.charAt(right) - 'A';
+            counts[idx]++;
+            maxFreq = Math.max(maxFreq, counts[idx]);
+
+            int windowLen = right - left + 1;
+            if (windowLen - maxFreq > k) {
+                counts[s.charAt(left) - 'A']--;
+                left++;
+            }
+
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1) (at most 26 letters in `counts`).
@@ -127,6 +309,67 @@ def totalFruit(fruits: list[int]) -> int:
     return best
 ```
 
+```javascript +
+function totalFruit(fruits) {
+    const counts = new Map();
+    let left = 0;
+    let best = 0;
+
+    for (let right = 0; right < fruits.length; right++) {
+        const fruit = fruits[right];
+        counts.set(fruit, (counts.get(fruit) || 0) + 1);
+
+        while (counts.size > 2) {
+            const leftFruit = fruits[left];
+            counts.set(leftFruit, counts.get(leftFruit) - 1);
+            if (counts.get(leftFruit) === 0) {
+                counts.delete(leftFruit);
+            }
+            left++;
+        }
+
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] fruits = {1, 2, 1, 2, 3, 3, 1};
+        System.out.println(totalFruit(fruits));
+    }
+
+    static int totalFruit(int[] fruits) {
+        Map<Integer, Integer> counts = new HashMap<>();
+        int left = 0;
+        int best = 0;
+
+        for (int right = 0; right < fruits.length; right++) {
+            int fruit = fruits[right];
+            counts.merge(fruit, 1, Integer::sum);
+
+            while (counts.size() > 2) {
+                int leftFruit = fruits[left];
+                counts.merge(leftFruit, -1, Integer::sum);
+                if (counts.get(leftFruit) == 0) {
+                    counts.remove(leftFruit);
+                }
+                left++;
+            }
+
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
+```
+
 **Complexity:** Time O(n), space O(1) (at most 3 keys in `counts` at any moment, since we shrink the instant it hits 3).
 
 **Common mistakes:** Not recognizing the "2 baskets" framing as "at most 2 distinct values." Translating word problems into the underlying pattern is the actual skill being tested here. Also, forgetting to delete zero-count entries from the dict, which corrupts the `len(counts) > 2` check.
@@ -154,6 +397,53 @@ def minSubArrayLen(target: int, nums: list[int]) -> int:
             left += 1
 
     return best if best != float('inf') else 0
+```
+
+```javascript +
+function minSubArrayLen(target, nums) {
+    let left = 0;
+    let total = 0;
+    let best = Infinity;
+
+    for (let right = 0; right < nums.length; right++) {
+        total += nums[right];
+
+        while (total >= target) {
+            best = Math.min(best, right - left + 1);
+            total -= nums[left];
+            left++;
+        }
+    }
+
+    return best === Infinity ? 0 : best;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {2, 3, 1, 2, 4, 3};
+        System.out.println(minSubArrayLen(7, nums));
+    }
+
+    static int minSubArrayLen(int target, int[] nums) {
+        int left = 0;
+        int total = 0;
+        int best = Integer.MAX_VALUE;
+
+        for (int right = 0; right < nums.length; right++) {
+            total += nums[right];
+
+            while (total >= target) {
+                best = Math.min(best, right - left + 1);
+                total -= nums[left];
+                left++;
+            }
+        }
+
+        return best == Integer.MAX_VALUE ? 0 : best;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1).
@@ -186,6 +476,63 @@ def longestOnes(nums: list[int], k: int) -> int:
         best = max(best, right - left + 1)
 
     return best
+```
+
+```javascript +
+function longestOnes(nums, k) {
+    let left = 0;
+    let zeroCount = 0;
+    let best = 0;
+
+    for (let right = 0; right < nums.length; right++) {
+        if (nums[right] === 0) {
+            zeroCount++;
+        }
+
+        while (zeroCount > k) {
+            if (nums[left] === 0) {
+                zeroCount--;
+            }
+            left++;
+        }
+
+        best = Math.max(best, right - left + 1);
+    }
+
+    return best;
+}
+```
+
+```java +
+public class Main {
+    public static void main(String[] args) {
+        int[] nums = {1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0};
+        System.out.println(longestOnes(nums, 2));
+    }
+
+    static int longestOnes(int[] nums, int k) {
+        int left = 0;
+        int zeroCount = 0;
+        int best = 0;
+
+        for (int right = 0; right < nums.length; right++) {
+            if (nums[right] == 0) {
+                zeroCount++;
+            }
+
+            while (zeroCount > k) {
+                if (nums[left] == 0) {
+                    zeroCount--;
+                }
+                left++;
+            }
+
+            best = Math.max(best, right - left + 1);
+        }
+
+        return best;
+    }
+}
 ```
 
 **Complexity:** Time O(n), space O(1).

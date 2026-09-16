@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-45
 course: interview-prep-45
 section: interview-days
 section_title: "Interview Days"
-section_position: 9
+section_position: 11
 title: "Final Checkpoint and Ongoing Roadmap"
 position: 45
 estimated_minutes: 90

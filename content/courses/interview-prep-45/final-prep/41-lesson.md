@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-41
 course: interview-prep-45
 section: final-prep
 section_title: "Weakness Focus & Final Prep"
-section_position: 8
+section_position: 10
 title: "Last DSA Push + Interview Logistics"
 position: 41
 estimated_minutes: 240

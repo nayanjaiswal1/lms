@@ -4,7 +4,7 @@ id_key: interview-prep-45/day-43
 course: interview-prep-45
 section: interview-days
 section_title: "Interview Days"
-section_position: 9
+section_position: 11
 title: "Interview Day 1"
 position: 43
 estimated_minutes: 60

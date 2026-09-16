@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-django-cache-framework
 course: interview-prep-45
 section: backend
 section_title: "Backend Engineering"
-section_position: 3
+section_position: 5
 title: "Notes: Django's Cache Framework"
 position: 102
 estimated_minutes: 20

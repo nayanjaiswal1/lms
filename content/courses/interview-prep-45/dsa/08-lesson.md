@@ -24,6 +24,39 @@ class TreeNode:
         self.left = left
         self.right = right
 ```
+```javascript +
+class TreeNode {
+    constructor(val = 0, left = null, right = null) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(5, new TreeNode(3), new TreeNode(8));
+        System.out.println("Root: " + root.val + ", left: " + root.left.val + ", right: " + root.right.val);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Interview-relevant complexity:** search, insert, and delete are O(h), where h is tree height. That's O(log n) when the tree is balanced, but O(n) in the worst case for a degenerate, linked-list-shaped BST, such as one built by inserting already-sorted data without rebalancing. It's exactly why self-balancing trees (AVL, red-black) exist in production databases and language runtimes, even though building one is out of scope here.
 
@@ -42,6 +75,63 @@ def inorder_values(root):
         visit(node.right)
     visit(root)
     return result
+```
+```javascript +
+function inorderValues(root) {
+    const result = [];
+    function visit(node) {
+        if (node === null) {
+            return;
+        }
+        visit(node.left);
+        result.push(node.val);
+        visit(node.right);
+    }
+    visit(root);
+    return result;
+}
+```
+```java +
+import java.util.ArrayList;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(2, new TreeNode(1), new TreeNode(3));
+        System.out.println(inorderValues(root));
+    }
+
+    static List<Integer> inorderValues(TreeNode root) {
+        List<Integer> result = new ArrayList<>();
+        visit(root, result);
+        return result;
+    }
+
+    static void visit(TreeNode node, List<Integer> result) {
+        if (node == null) {
+            return;
+        }
+        visit(node.left, result);
+        result.add(node.val);
+        visit(node.right, result);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 ## BST insert and search
@@ -63,6 +153,82 @@ def bst_search(root, val) -> bool:
     if val == root.val:
         return True
     return bst_search(root.left, val) if val < root.val else bst_search(root.right, val)
+```
+```javascript +
+function bstInsert(root, val) {
+    if (root === null) {
+        return new TreeNode(val);
+    }
+    if (val < root.val) {
+        root.left = bstInsert(root.left, val);
+    } else if (val > root.val) {
+        root.right = bstInsert(root.right, val);
+    }
+    // val === root.val: no-op, assumes no duplicates
+    return root;
+}
+
+function bstSearch(root, val) {
+    if (root === null) {
+        return false;
+    }
+    if (val === root.val) {
+        return true;
+    }
+    return val < root.val ? bstSearch(root.left, val) : bstSearch(root.right, val);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = null;
+        int[] values = {5, 3, 8, 1, 4};
+        for (int v : values) {
+            root = bstInsert(root, v);
+        }
+        System.out.println("Search 4: " + bstSearch(root, 4));
+        System.out.println("Search 9: " + bstSearch(root, 9));
+    }
+
+    static TreeNode bstInsert(TreeNode root, int val) {
+        if (root == null) {
+            return new TreeNode(val);
+        }
+        if (val < root.val) {
+            root.left = bstInsert(root.left, val);
+        } else if (val > root.val) {
+            root.right = bstInsert(root.right, val);
+        }
+        // val == root.val: no-op, assumes no duplicates
+        return root;
+    }
+
+    static boolean bstSearch(TreeNode root, int val) {
+        if (root == null) {
+            return false;
+        }
+        if (val == root.val) {
+            return true;
+        }
+        return val < root.val ? bstSearch(root.left, val) : bstSearch(root.right, val);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 Both run in O(h) time and O(h) space for the recursion stack. Written iteratively with a `while` loop instead, space drops to O(1); worth showing that version if asked to optimize space.
@@ -97,6 +263,59 @@ def is_valid_bst(root) -> bool:
 
     return validate(root, float("-inf"), float("inf"))
 ```
+```javascript +
+function isValidBst(root) {
+    function validate(node, low, high) {
+        if (node === null) {
+            return true;
+        }
+        if (!(low < node.val && node.val < high)) {
+            return false;
+        }
+        return validate(node.left, low, node.val) && validate(node.right, node.val, high);
+    }
+
+    return validate(root, -Infinity, Infinity);
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(5, new TreeNode(3), new TreeNode(8));
+        System.out.println(isValidBst(root));
+    }
+
+    static boolean isValidBst(TreeNode root) {
+        return validate(root, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    static boolean validate(TreeNode node, long low, long high) {
+        if (node == null) {
+            return true;
+        }
+        if (!(low < node.val && node.val < high)) {
+            return false;
+        }
+        return validate(node.left, low, node.val) && validate(node.right, node.val, high);
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Complexity:** Time O(n), space O(h) recursion stack.
 
@@ -123,6 +342,62 @@ def lowest_common_ancestor(root, p, q):
         else:
             return node
     return None
+```
+```javascript +
+function lowestCommonAncestor(root, p, q) {
+    let node = root;
+    while (node) {
+        if (p.val < node.val && q.val < node.val) {
+            node = node.left;
+        } else if (p.val > node.val && q.val > node.val) {
+            node = node.right;
+        } else {
+            return node;
+        }
+    }
+    return null;
+}
+```
+```java +
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(6, new TreeNode(2, new TreeNode(0), new TreeNode(4)), new TreeNode(8));
+        TreeNode p = root.left;
+        TreeNode q = root.left.right;
+        TreeNode lca = lowestCommonAncestor(root, p, q);
+        System.out.println("LCA: " + lca.val);
+    }
+
+    static TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+        TreeNode node = root;
+        while (node != null) {
+            if (p.val < node.val && q.val < node.val) {
+                node = node.left;
+            } else if (p.val > node.val && q.val > node.val) {
+                node = node.right;
+            } else {
+                return node;
+            }
+        }
+        return null;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(h), space O(1) since it's iterative and needs no recursion stack.
@@ -157,6 +432,81 @@ def build_tree(preorder: list[int], inorder: list[int]):
 
     return build(0, len(inorder) - 1)
 ```
+```javascript +
+function buildTree(preorder, inorder) {
+    const inorderIndex = new Map();
+    inorder.forEach((val, i) => inorderIndex.set(val, i));
+    let preorderIdx = 0; // mutable pointer into preorder
+
+    function build(left, right) {
+        if (left > right) {
+            return null;
+        }
+        const rootVal = preorder[preorderIdx];
+        preorderIdx += 1;
+        const root = new TreeNode(rootVal);
+        const mid = inorderIndex.get(rootVal);
+        root.left = build(left, mid - 1);
+        root.right = build(mid + 1, right);
+        return root;
+    }
+
+    return build(0, inorder.length - 1);
+}
+```
+```java +
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+    static int preorderIdx;
+
+    public static void main(String[] args) {
+        int[] preorder = {3, 9, 20, 15, 7};
+        int[] inorder = {9, 3, 15, 20, 7};
+        TreeNode root = buildTree(preorder, inorder);
+        System.out.println("Root: " + root.val + ", left: " + root.left.val + ", right: " + root.right.val);
+    }
+
+    static TreeNode buildTree(int[] preorder, int[] inorder) {
+        Map<Integer, Integer> inorderIndex = new HashMap<>();
+        for (int i = 0; i < inorder.length; i++) {
+            inorderIndex.put(inorder[i], i);
+        }
+        preorderIdx = 0; // mutable pointer into preorder
+        return build(preorder, inorderIndex, 0, inorder.length - 1);
+    }
+
+    static TreeNode build(int[] preorder, Map<Integer, Integer> inorderIndex, int left, int right) {
+        if (left > right) {
+            return null;
+        }
+        int rootVal = preorder[preorderIdx];
+        preorderIdx += 1;
+        TreeNode root = new TreeNode(rootVal);
+        int mid = inorderIndex.get(rootVal);
+        root.left = build(preorder, inorderIndex, left, mid - 1);
+        root.right = build(preorder, inorderIndex, mid + 1, right);
+        return root;
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+```
 
 **Complexity:** Time O(n), since each node is processed once with an O(1) map lookup. Space O(n) for the map plus O(h) recursion stack.
 
@@ -188,6 +538,72 @@ def kth_smallest(root, k: int) -> int:
             return node.val
         node = node.right
     raise ValueError("k is out of range")
+```
+```javascript +
+function kthSmallest(root, k) {
+    const stack = [];
+    let node = root;
+    let count = 0;
+    while (stack.length > 0 || node !== null) {
+        while (node !== null) {
+            stack.push(node);
+            node = node.left;
+        }
+        node = stack.pop();
+        count += 1;
+        if (count === k) {
+            return node.val;
+        }
+        node = node.right;
+    }
+    throw new RangeError('k is out of range');
+}
+```
+```java +
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public class Main {
+    public static void main(String[] args) {
+        TreeNode root = new TreeNode(5, new TreeNode(3, new TreeNode(2), new TreeNode(4)), new TreeNode(8));
+        System.out.println(kthSmallest(root, 3));
+    }
+
+    static int kthSmallest(TreeNode root, int k) {
+        Deque<TreeNode> stack = new ArrayDeque<>();
+        TreeNode node = root;
+        int count = 0;
+        while (!stack.isEmpty() || node != null) {
+            while (node != null) {
+                stack.push(node);
+                node = node.left;
+            }
+            node = stack.pop();
+            count += 1;
+            if (count == k) {
+                return node.val;
+            }
+            node = node.right;
+        }
+        throw new IllegalArgumentException("k is out of range");
+    }
+}
+
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+
+    TreeNode(int val) {
+        this(val, null, null);
+    }
+
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
 ```
 
 **Complexity:** Time O(h + k): it descends to the leftmost node in O(h), then visits k more nodes, worst case O(n) if k is close to n. Space O(h) for the stack.

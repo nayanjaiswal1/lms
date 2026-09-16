@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-thg-crash-course
 course: interview-prep-45
 section: frontend
 section_title: "Frontend Engineering"
-section_position: 4
+section_position: 6
 title: "Crash-Course: A Real Interview Prep Session"
 position: 41
 estimated_minutes: 30

@@ -67,10 +67,9 @@ export function ModuleNotes({
             // currently selected — see lesson-code-block.tsx.
             return (
               <LessonCodeBlock
-                code={segment.code}
                 key={index}
-                language={segment.language}
                 locked={disableCodeRun}
+                variants={segment.variants}
               />
             );
           case "sql-try":

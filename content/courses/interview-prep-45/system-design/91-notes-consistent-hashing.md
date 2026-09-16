@@ -4,7 +4,7 @@ id_key: interview-prep-45/note-consistent-hashing
 course: interview-prep-45
 section: system-design
 section_title: "System Design"
-section_position: 2
+section_position: 3
 title: "Notes: Consistent Hashing"
 position: 91
 estimated_minutes: 20
