@@ -140,7 +140,8 @@ func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	savedOnly, _ := strconv.ParseBool(r.URL.Query().Get("saved_only"))
-	highlights, err := h.service.ListMine(r.Context(), claims.UserID, savedOnly)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	highlights, err := h.service.ListMine(r.Context(), claims.UserID, savedOnly, limit)
 	if err != nil {
 		writeDomainError(w, err)
 		return

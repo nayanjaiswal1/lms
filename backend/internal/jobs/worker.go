@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/config"
+	"github.com/mindforge/backend/internal/metrics"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -270,7 +271,8 @@ func (p *WorkerPool) markDeadUnknownHandler(ctx context.Context, jobID string, r
 	}
 }
 
-// logJobDone emits the structured completion log entry.
+// logJobDone emits the structured completion log entry and records the
+// same outcome as a Prometheus counter/histogram (see internal/metrics).
 func (p *WorkerPool) logJobDone(job Job, finalStatus Status, durationMS int) {
 	slog.Info("jobs",
 		"event", "job_done",
@@ -281,6 +283,7 @@ func (p *WorkerPool) logJobDone(job Job, finalStatus Status, durationMS int) {
 		"org_id", job.OrgID,
 		"duration_ms", durationMS,
 	)
+	metrics.RecordJobRun(job.Handler, string(finalStatus), time.Duration(durationMS)*time.Millisecond)
 }
 
 // ─── handler execution ────────────────────────────────────────────────────────

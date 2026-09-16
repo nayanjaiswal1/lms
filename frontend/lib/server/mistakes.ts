@@ -26,12 +26,14 @@ export interface CategorySummary {
 export interface MistakeFilter {
   category?: string;
   context_tag?: string;
+  limit?: number;
 }
 
 export async function getMistakes(filter: MistakeFilter = {}): Promise<MistakeEntry[]> {
   const params = new URLSearchParams();
   if (filter.category) params.set("category", filter.category);
   if (filter.context_tag) params.set("context_tag", filter.context_tag);
+  if (filter.limit) params.set("limit", String(filter.limit));
   const qs = params.toString();
   const data = await apiGet<{ entries: MistakeEntry[] }>(`/api/mistakes${qs ? `?${qs}` : ""}`);
   return data.entries ?? [];

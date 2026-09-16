@@ -48,7 +48,15 @@ type ListEntriesFilter struct {
 	Category    string // exact match, "" = all
 	Subcategory string // exact match, "" = all; only meaningful alongside Category
 	Search      string // ILIKE over title+content, "" = no filter
+	// Limit caps the returned rows; zero means DefaultListLimit.
+	Limit int
 }
+
+// DefaultListLimit and MaxListLimit bound Repo.ListEntries — a daily journal
+// kept for years has no natural ceiling, and this is a most-recent-first
+// feed with no page UI, so a fixed cap is enough (not offset pagination).
+const DefaultListLimit = 365
+const MaxListLimit = 1000
 
 // CategoryNode is one entry in the caller's category -> subcategories tree,
 // backing GET /api/journal/categories and the frontend's nested filter chips.

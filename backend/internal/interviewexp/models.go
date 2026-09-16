@@ -126,7 +126,13 @@ type ListFilter struct {
 	Position *string
 	Tag      *string
 	Query    *string
+	// Limit/Offset page the feed; Limit<=0 means DefaultListLimit.
+	Limit  int
+	Offset int
 }
+
+const DefaultListLimit = 100
+const MaxListLimit = 100
 
 // FaqItem is one row of the cross-post /api/interview-exp/faq aggregate —
 // a qna joined with its parent post's company/position/tags, its vote score

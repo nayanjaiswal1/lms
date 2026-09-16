@@ -270,6 +270,13 @@ no code change needed.
 Encrypt) — must be a real domain with DNS already pointing at the server
 before deploying.
 
+## Observability (prod only)
+
+`GRAFANA_ADMIN_PASSWORD` sets the Grafana admin login (`docker-compose.prod.yml`'s
+`grafana` service) — Prometheus itself has no credentials since it's never
+port-published (see docs/infrastructure.md's Observability section). Not read
+by the Go backend at all, just passed straight to the Grafana container.
+
 ## Backups (prod only)
 
 Used by `scripts/backup-prod.sh` / `scripts/restore-prod.sh`.

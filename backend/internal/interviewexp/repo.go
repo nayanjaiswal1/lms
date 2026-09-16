@@ -40,6 +40,10 @@ func scanPost(row pgx.Row) (Post, error) {
 // on substring; tag matches an exact element of the tags array; q free-texts
 // the title.
 func (r *Repo) ListPosts(ctx context.Context, f ListFilter) ([]Post, error) {
+	limit := f.Limit
+	if limit <= 0 || limit > MaxListLimit {
+		limit = DefaultListLimit
+	}
 	rows, err := r.pool.Query(ctx,
 		`SELECT `+postCols+` FROM interview_exp_posts
 		 WHERE deleted_at IS NULL
@@ -48,8 +52,8 @@ func (r *Repo) ListPosts(ctx context.Context, f ListFilter) ([]Post, error) {
 		   AND ($3::text IS NULL OR $3 = ANY(tags))
 		   AND ($4::text IS NULL OR title ILIKE '%' || $4 || '%')
 		 ORDER BY created_at DESC
-		 LIMIT 100`,
-		f.Company, f.Position, f.Tag, f.Query)
+		 LIMIT $5 OFFSET $6`,
+		f.Company, f.Position, f.Tag, f.Query, limit, f.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("interviewexp: list posts: %w", err)
 	}

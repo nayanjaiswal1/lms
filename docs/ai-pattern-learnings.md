@@ -75,6 +75,17 @@ session.
 same package and match its pagination shape — don't invent a fresh
 hardcoded-cap variant.
 
+**More instances found (2026-09-16 full-codebase code audit):** `highlights.ListMine`,
+`focuswall.ListMine`/`ListCategories`, `mistakes.List` (also the admin
+`useroverview` aggregator's call into it), `journal.ListEntries` (same
+aggregator), `interviewexp.ListPosts` (had a hardcoded `LIMIT 100` with no
+offset — reachable, but nothing past the newest 100 ever was), and
+`moderation.ListReports`/`roadmap.ListForUser` (fully unbounded). Fixed with
+the same `limit`/`offset` (or, for the two canvas/graph-shaped views —
+`focuswall`'s spatial board and `journal.GetGraph`'s mind-map, neither of
+which has page UI — a fixed high safety-net `LIMIT` instead of real
+pagination, since paging a canvas doesn't make sense).
+
 ---
 
 ## Trusting authenticated input as a substitute for real validation
@@ -224,3 +235,36 @@ later (with less context than the person who wrote the comment had).
 implementation, prefer doing that up front unless there's a real reason
 (unclear requirements, genuinely speculative need) — not just "this cap is
 big enough for now."
+
+---
+
+## A cross-domain batch that aborts on the first failure, discarding already-applied work
+
+**Pattern:** `diary.Service.applyHighlights` (called from `Apply`) looped over
+AI-detected highlights, writing each one's mutation to either `diary`'s own
+repo or `habit.Service` (a separate domain, separate DB call — no shared
+transaction is possible without a bigger cross-package refactor). On the
+first mutation error, it returned immediately with `nil, err` — discarding
+every highlight already applied earlier in the same loop. Because `Apply`
+never called `SaveAnalysis` on a nil/error result, none of that partial
+progress was recorded as "already applied" in `entry.Highlights` either.
+
+**Why it's a problem:** the individual mutations mostly self-heal on retry
+(title/date-based dedup), so this wasn't silent data corruption — it was
+silently redone work plus an all-or-nothing batch that looked atomic in the
+code's control flow but wasn't backed by an actual transaction spanning two
+domains. A reviewer skimming the `return nil, err` pattern would reasonably
+assume the whole batch is transactional, when it demonstrably isn't.
+
+**Fix:** continue processing remaining highlights past a failed one
+(collecting errors with `errors.Join` instead of returning immediately), and
+always call `SaveAnalysis` with whatever succeeded — even when returning an
+error to the caller. Partial success is now persisted instead of discarded.
+
+**Rule:** when a loop's mutations cross a package/domain boundary a single DB
+transaction can't span, don't reach for "abort on first error" as a stand-in
+for atomicity — it isn't atomic, it just discards partial progress. Either
+build a real cross-domain transaction (bigger lift, only worth it if the
+mutations aren't independently idempotent) or make the loop resilient:
+continue past failures, persist partial results, and rely on per-mutation
+dedup to make retries safe.

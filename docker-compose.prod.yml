@@ -30,6 +30,8 @@ volumes:
   mindforge_piston_prod:
   mindforge_caddy_data:
   mindforge_caddy_config:
+  mindforge_prometheus_prod:
+  mindforge_grafana_prod:
 
 services:
   postgres:
@@ -160,6 +162,56 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: mindforge_prometheus_prod
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - mindforge_prometheus_prod:/prometheus
+    # No published port — same reasoning as backend above: only reachable
+    # inside mindforge_prod. Reach it with an SSH tunnel or a temporary
+    # `docker compose -f docker-compose.prod.yml port prometheus 9090` when
+    # you need to browse it, or point Grafana at it from the same network
+    # later if dashboards are worth adding.
+    networks:
+      - mindforge_prod
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: mindforge_grafana_prod
+    restart: always
+    env_file: .env.prod
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - mindforge_grafana_prod:/var/lib/grafana
+    # No published port — same reasoning as prometheus above. Reach it with
+    # an SSH tunnel or `docker compose -f docker-compose.prod.yml port
+    # grafana 3000`, or add a Caddy route gated behind platform-admin auth
+    # if always-on browser access is actually needed later.
+    networks:
+      - mindforge_prod
+    depends_on:
+      - prometheus
     logging:
       driver: json-file
       options:

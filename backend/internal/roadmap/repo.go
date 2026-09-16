@@ -463,9 +463,13 @@ func (r *Repo) listWithCounts(ctx context.Context, whereOrderLimit string, args 
 	return out, nil
 }
 
+// maxUserRoadmapsListLimit caps ListForUser — creation has no rate limit of
+// its own, so this is a safety net against an unbounded per-user scan.
+const maxUserRoadmapsListLimit = 200
+
 // ListForUser returns the user's non-deleted roadmaps, most recent first.
 func (r *Repo) ListForUser(ctx context.Context, userID string) ([]Roadmap, error) {
-	return r.listWithCounts(ctx, `WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, userID)
+	return r.listWithCounts(ctx, `WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT $2`, userID, maxUserRoadmapsListLimit)
 }
 
 // ListPublic returns roadmaps their owners have marked public, most recent

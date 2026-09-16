@@ -199,6 +199,41 @@ services:
       frontend:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: mindforge_prometheus_dev
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # No published port — same pattern as adminer above. Use
+    # `docker compose -f docker-compose.dev.yml port prometheus 9090` and a
+    # temporary port-forward to browse http://localhost:<port>.
+    networks:
+      - mindforge_dev
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: mindforge_grafana_dev
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    # No published port — same pattern as adminer/prometheus above. Use
+    # `docker compose -f docker-compose.dev.yml port grafana 3000` and a
+    # temporary port-forward to browse http://localhost:<port> (admin/admin
+    # is fine here — dev-only, not reachable from outside the docker network).
+    networks:
+      - mindforge_dev
+    depends_on:
+      - prometheus
+
   adminer:
     image: adminer:latest
     container_name: mindforge_adminer_dev

@@ -86,10 +86,15 @@ func (r *Repo) Delete(ctx context.Context, noteID, userID string) error {
 
 // ListByUser returns all of a user's notes, oldest first — stable ordering
 // so notes don't visually reshuffle on every reload.
+// maxNotesPerUser caps the canvas query — the wall renders every note at
+// once (no pagination UI fits a spatial board), so this is a safety net
+// against a runaway scan, not a page size.
+const maxNotesPerUser = 2000
+
 func (r *Repo) ListByUser(ctx context.Context, userID string) ([]Note, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, user_id, text, color, category, position_x, position_y, rotation, created_at, updated_at
-		 FROM focus_wall_notes WHERE user_id = $1 ORDER BY created_at ASC`, userID)
+		 FROM focus_wall_notes WHERE user_id = $1 ORDER BY created_at ASC LIMIT $2`, userID, maxNotesPerUser)
 	if err != nil {
 		return nil, fmt.Errorf("focuswall: list by user: %w", err)
 	}

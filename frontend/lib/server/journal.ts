@@ -50,6 +50,7 @@ export interface JournalEntriesFilter {
   category?: string;
   subcategory?: string;
   search?: string;
+  limit?: number;
 }
 
 /** One entry in the caller's category -> subcategories tree. */
@@ -73,6 +74,7 @@ export async function getJournalEntries(filter?: JournalEntriesFilter): Promise<
   if (filter?.category) params.set("category", filter.category);
   if (filter?.subcategory) params.set("subcategory", filter.subcategory);
   if (filter?.search) params.set("q", filter.search);
+  if (filter?.limit) params.set("limit", String(filter.limit));
   const query = params.toString();
   return apiGet<JournalEntry[]>(`/api/journal${query ? `?${query}` : ""}`);
 }

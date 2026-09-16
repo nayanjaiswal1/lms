@@ -90,7 +90,15 @@ type ListFilter struct {
 	ContextTag *string
 	From       *time.Time
 	To         *time.Time
+	// Limit caps the returned rows; zero means DefaultListLimit.
+	Limit int
 }
+
+// DefaultListLimit and MaxListLimit bound Repo.List — a years-old account
+// can accumulate thousands of mistake entries, and this has no page UI, just
+// a most-recent-first feed, so a fixed cap (not offset pagination) is enough.
+const DefaultListLimit = 200
+const MaxListLimit = 500
 
 // CategorySummary is one row of the per-category dashboard/chart data.
 type CategorySummary struct {

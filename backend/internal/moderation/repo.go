@@ -125,6 +125,10 @@ func (r *Repo) GetReport(ctx context.Context, orgID, reportID string) (Report, e
 	return rp, nil
 }
 
+// maxReportsListLimit caps the staff queue — an org can accumulate years of
+// reports, and this is a most-recent-first feed with no page UI yet.
+const maxReportsListLimit = 200
+
 // ListReports returns orgID's reports, most recent first, optionally
 // filtered by status and/or content_type — the staff queue.
 func (r *Repo) ListReports(ctx context.Context, orgID string, status, contentType *string) ([]Report, error) {
@@ -141,7 +145,8 @@ func (r *Repo) ListReports(ctx context.Context, orgID string, status, contentTyp
 		args = append(args, *contentType)
 		n++
 	}
-	rows, err := r.pool.Query(ctx, `SELECT `+reportColumns+` FROM content_reports `+where+` ORDER BY created_at DESC`, args...)
+	args = append(args, maxReportsListLimit)
+	rows, err := r.pool.Query(ctx, `SELECT `+reportColumns+` FROM content_reports `+where+fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d", n), args...)
 	if err != nil {
 		return nil, fmt.Errorf("moderation: list reports: %w", err)
 	}

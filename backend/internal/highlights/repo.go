@@ -190,15 +190,15 @@ func (r *Repo) ToggleRevision(ctx context.Context, highlightID, userID string, s
 
 // ListByUser returns all highlights for a user, newest first.
 // When savedOnly is true, only revision-saved highlights are returned.
-func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool) ([]Highlight, error) {
+func (r *Repo) ListByUser(ctx context.Context, userID string, savedOnly bool, limit int) ([]Highlight, error) {
 	query := `SELECT id, user_id, source_type, source_id, text, saved_for_revision, meta, created_at, updated_at
 	          FROM learning_annotations WHERE user_id = $1 AND annotation_type = 'highlight'`
 	if savedOnly {
 		query += ` AND saved_for_revision = TRUE`
 	}
-	query += ` ORDER BY created_at DESC`
+	query += ` ORDER BY created_at DESC LIMIT $2`
 
-	rows, err := r.pool.Query(ctx, query, userID)
+	rows, err := r.pool.Query(ctx, query, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("highlights: list by user: %w", err)
 	}

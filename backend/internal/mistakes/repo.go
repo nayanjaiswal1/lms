@@ -101,7 +101,12 @@ func (r *Repo) List(ctx context.Context, userID string, f ListFilter) ([]Entry, 
 	if f.To != nil {
 		addFilter("created_at <=", *f.To)
 	}
-	query += " ORDER BY created_at DESC"
+	limit := f.Limit
+	if limit <= 0 || limit > MaxListLimit {
+		limit = DefaultListLimit
+	}
+	args = append(args, limit)
+	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d", len(args))
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {

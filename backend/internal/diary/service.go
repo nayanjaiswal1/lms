@@ -102,12 +102,16 @@ func (s *Service) Apply(ctx context.Context, entry Entry, edited []Highlight) ([
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := s.applyHighlights(ctx, entry, edited, habits, openTasks)
-	if err != nil {
-		return nil, err
-	}
+	resolved, applyErr := s.applyHighlights(ctx, entry, edited, habits, openTasks)
+	// Save whatever succeeded even if a later highlight in the batch failed —
+	// habit/task mutations aren't wrapped in one cross-domain transaction, so
+	// losing the partial result here would silently redo already-applied
+	// mutations (relying only on title/date dedup) on the writer's retry.
 	if err := s.repo.SaveAnalysis(ctx, entry.ID, resolved, ContentHash(entry.Content)); err != nil {
 		return nil, fmt.Errorf("diary: apply: save: %w", err)
+	}
+	if applyErr != nil {
+		return resolved, fmt.Errorf("diary: apply: %w", applyErr)
 	}
 	return resolved, nil
 }
@@ -213,12 +217,14 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 	}
 
 	resolved := make([]Highlight, 0, len(detected))
+	var errs []error
 	for _, h := range detected {
 		h.Text = strings.TrimSpace(h.Text)
 		if h.Text == "" || h.End <= h.Start {
 			continue
 		}
 		prior, alreadyApplied := already[dedupKey(h.Kind, h.Text)]
+		failed := false
 
 		switch h.Kind {
 		case HighlightHabit:
@@ -229,7 +235,9 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			period := alignPeriod(entryDate(entry), hab.Cadence)
 			if !alreadyApplied {
 				if err := s.habits.SetCompletion(ctx, entry.UserID, hab.ID, period.Format("2006-01-02")); err != nil {
-					return nil, fmt.Errorf("diary: analyze: set habit completion: %w", err)
+					errs = append(errs, fmt.Errorf("diary: analyze: set habit completion: %w", err))
+					failed = true
+					break
 				}
 			}
 			// Metadata is applied every pass, not just !alreadyApplied — an
@@ -238,7 +246,8 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			// the same sentence keeps refining the stored fields.
 			if meta := allowedHabitMetadata(hab, h.Metadata); len(meta) > 0 {
 				if err := s.habits.SetCompletionMetadata(ctx, entry.UserID, hab.ID, period.Format("2006-01-02"), meta); err != nil {
-					return nil, fmt.Errorf("diary: analyze: set habit metadata: %w", err)
+					errs = append(errs, fmt.Errorf("diary: analyze: set habit metadata: %w", err))
+					failed = true
 				}
 			}
 
@@ -248,7 +257,8 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			}
 			if !alreadyApplied {
 				if _, err := s.repo.SetTaskDone(ctx, entry.UserID, h.RefID, true); err != nil {
-					return nil, fmt.Errorf("diary: analyze: complete task: %w", err)
+					errs = append(errs, fmt.Errorf("diary: analyze: complete task: %w", err))
+					failed = true
 				}
 			}
 
@@ -260,9 +270,11 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			} else {
 				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, "", string(TaskKindTodo), &entry.ID, nil)
 				if err != nil {
-					return nil, fmt.Errorf("diary: analyze: capture task: %w", err)
+					errs = append(errs, fmt.Errorf("diary: analyze: capture task: %w", err))
+					failed = true
+				} else {
+					h.RefID = t.ID
 				}
-				h.RefID = t.ID
 			}
 
 		case HighlightBuyNew:
@@ -273,9 +285,11 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 			} else {
 				t, err := s.repo.CreateTask(ctx, entry.UserID, h.Text, "", string(TaskKindBuy), &entry.ID, nil)
 				if err != nil {
-					return nil, fmt.Errorf("diary: analyze: capture buy task: %w", err)
+					errs = append(errs, fmt.Errorf("diary: analyze: capture buy task: %w", err))
+					failed = true
+				} else {
+					h.RefID = t.ID
 				}
-				h.RefID = t.ID
 			}
 
 		case HighlightGoal:
@@ -292,18 +306,25 @@ func (s *Service) applyHighlights(ctx context.Context, entry Entry, detected []H
 					Cadence: habit.Cadence(h.Cadence),
 				})
 				if err != nil {
-					return nil, fmt.Errorf("diary: analyze: create goal habit: %w", err)
+					errs = append(errs, fmt.Errorf("diary: analyze: create goal habit: %w", err))
+					failed = true
+				} else {
+					h.RefID = created.ID
 				}
-				h.RefID = created.ID
 			}
 
 		default:
 			continue
 		}
 
+		if failed {
+			// Don't persist this highlight as resolved — it'll be retried
+			// (and, per the dedup rules above, won't double-apply) next pass.
+			continue
+		}
 		resolved = append(resolved, h)
 	}
-	return resolved, nil
+	return resolved, errors.Join(errs...)
 }
 
 // matchExistingHabit does a cheap case-insensitive substring match of title

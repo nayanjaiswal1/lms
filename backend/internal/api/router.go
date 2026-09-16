@@ -37,6 +37,7 @@ import (
 	"github.com/mindforge/backend/internal/mcpconnect"
 	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/messaging"
+	"github.com/mindforge/backend/internal/metrics"
 	apimiddleware "github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/moderation"
@@ -88,11 +89,17 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// package's per-request deadlines) — a blanket HTTP-layer timeout is
 	// redundant for those and actively wrong for the one long-lived endpoint.
 	r.Use(corsMiddleware(cfg))
+	r.Use(metrics.Middleware)
 
 	// ─── Health check ─────────────────────────────────────────────────────────
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteJSON(w, http.StatusOK, "ok")
 	})
+
+	// ─── Metrics ──────────────────────────────────────────────────────────────
+	// Not proxied by Caddy (only /api/* is, see Caddyfile) — reachable only
+	// from inside the docker network, which is where Prometheus scrapes it.
+	r.Handle("/metrics", metrics.Handler())
 
 	// ─── Handlers ─────────────────────────────────────────────────────────────
 	authHandler := auth.NewHandler(cfg, pool, cache, rdb)

@@ -68,7 +68,12 @@ func (r *Repo) ListEntries(ctx context.Context, userID string, filter ListEntrie
 		args = append(args, "%"+filter.Search+"%")
 		query += fmt.Sprintf(" AND (title ILIKE $%d OR content ILIKE $%d)", len(args), len(args))
 	}
-	query += " ORDER BY entry_date DESC, created_at DESC"
+	limit := filter.Limit
+	if limit <= 0 || limit > MaxListLimit {
+		limit = DefaultListLimit
+	}
+	args = append(args, limit)
+	query += fmt.Sprintf(" ORDER BY entry_date DESC, created_at DESC LIMIT $%d", len(args))
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {

@@ -2,12 +2,25 @@ import { Brain } from "lucide-react";
 import { getMistakes, getMistakeSummary } from "@/lib/server/mistakes";
 import { MistakeTrendChart } from "@/components/mistakes/mistake-trend-chart";
 import { MistakeTimeline } from "@/components/mistakes/mistake-timeline";
+import { LoadMoreButton } from "@/components/shared/load-more-button";
 import { MISTAKE_CATEGORY_OPTIONS } from "@/lib/constants";
 
 export const metadata = { title: "My Mistakes" };
 
-export default async function MistakesPage() {
-  const [entries, summary] = await Promise.all([getMistakes(), getMistakeSummary()]);
+// Backend defaults/caps this against mistakes.DefaultListLimit/MaxListLimit
+// (internal/mistakes/models.go) — kept in sync manually.
+const DEFAULT_LIMIT = 200;
+const LOAD_MORE_STEP = 200;
+const MAX_LIMIT = 500;
+
+interface MistakesPageProps {
+  searchParams: Promise<{ limit?: string }>;
+}
+
+export default async function MistakesPage({ searchParams }: MistakesPageProps) {
+  const { limit: limitParam } = await searchParams;
+  const limit = Number(limitParam) || DEFAULT_LIMIT;
+  const [entries, summary] = await Promise.all([getMistakes({ limit }), getMistakeSummary()]);
 
   const categoryLabel: Record<string, string> = Object.fromEntries(
     MISTAKE_CATEGORY_OPTIONS.map((o) => [o.value, o.label]),
@@ -25,7 +38,7 @@ export default async function MistakesPage() {
           <h1 className="page-title">My Mistakes</h1>
         </div>
         <span className="text-sm text-muted-foreground">
-          {entries.length} logged
+          {entries.length >= limit ? `${entries.length}+ logged` : `${entries.length} logged`}
         </span>
       </div>
 
@@ -53,6 +66,12 @@ export default async function MistakesPage() {
         <section>
           <h2 className="section-title mb-4">History</h2>
           <MistakeTimeline entries={entries} />
+          <LoadMoreButton
+            defaultLimit={DEFAULT_LIMIT}
+            hasMore={entries.length >= limit}
+            max={MAX_LIMIT}
+            step={LOAD_MORE_STEP}
+          />
         </section>
       </div>
     </main>

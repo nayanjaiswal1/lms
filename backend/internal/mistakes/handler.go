@@ -3,6 +3,7 @@ package mistakes
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -51,6 +52,11 @@ func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 	if v := q.Get("to"); v != "" {
 		if t, err := time.Parse(time.RFC3339, v); err == nil {
 			f.To = &t
+		}
+	}
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			f.Limit = n
 		}
 	}
 

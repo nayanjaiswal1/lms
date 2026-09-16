@@ -134,9 +134,15 @@ func (s *Service) ToggleRevision(ctx context.Context, userID, highlightID string
 	return s.repo.ToggleRevision(ctx, highlightID, userID, save, note)
 }
 
+const maxHighlightsListLimit = 200
+const defaultHighlightsListLimit = 100
+
 // ListMine returns the caller's highlights, optionally filtered to revision-saved only.
-func (s *Service) ListMine(ctx context.Context, userID string, savedOnly bool) ([]Highlight, error) {
-	return s.repo.ListByUser(ctx, userID, savedOnly)
+func (s *Service) ListMine(ctx context.Context, userID string, savedOnly bool, limit int) ([]Highlight, error) {
+	if limit <= 0 || limit > maxHighlightsListLimit {
+		limit = defaultHighlightsListLimit
+	}
+	return s.repo.ListByUser(ctx, userID, savedOnly, limit)
 }
 
 // OrphanBySource is a package-level function for other domains to call when

@@ -197,6 +197,24 @@ All URLs submitted to `POST /api/load-tests` are validated server-side:
 
 ---
 
+## Observability
+
+Structured logging is `log/slog` throughout (no separate setup — every package logs directly).
+
+Metrics are Prometheus (`internal/metrics`):
+
+- `GET /metrics` on the backend — request counters/latency histograms (by method + chi route pattern, not raw path, so per-user IDs don't blow up cardinality) and job counters/latency histograms (by handler + final status), fed from `internal/jobs`' worker pool.
+- Not proxied by Caddy (only `/api/*` is — see `Caddyfile`), so it's reachable only inside the docker network.
+- `prometheus.yml` + the `prometheus` service in `docker-compose.dev.yml`/`docker-compose.prod.yml` scrape it on a 15s interval. No published port by default (same pattern as `adminer`) — use `docker compose port prometheus 9090` for a temporary local tunnel.
+
+Dashboards are Grafana (`grafana` service in both compose files), provisioned automatically from `grafana/provisioning/` (Prometheus datasource) and `grafana/dashboards/mindforge-overview.json` (request rate/latency/5xx, job run rate by handler+status, job duration p95) — no manual setup needed after `compose up`. Also no published port; tunnel the same way as Prometheus. Dev login is `admin`/`admin`; prod reads the password from `GRAFANA_ADMIN_PASSWORD` (see `ENV_VARS.md`).
+
+No alerting configured yet — add Grafana alert rules against the same Prometheus datasource when that's actually needed.
+
+No distributed tracing — this is a single Go monolith, not multiple services calling each other, so span-level tracing has little payoff today. Revisit if the architecture actually splits into separate services.
+
+---
+
 ## Payments
 
 ```

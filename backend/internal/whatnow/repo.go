@@ -215,12 +215,17 @@ func (r *Repo) ListPlannedUnscheduled(ctx context.Context, userID string) ([]Tas
 // first — backs the learning journal's day-timeline merge (see
 // journal.Handler.ListEntries), which projects each into a read-only entry
 // on the day it was completed.
+// maxCompletedTasksLimit caps the journal timeline's merged-in completed-task
+// feed — a long-time user accumulates years of done tasks, and the caller
+// (journal.ListEntries) has no independent limit param for this branch.
+const maxCompletedTasksLimit = 1000
+
 func (r *Repo) ListCompletedTasks(ctx context.Context, userID string) ([]Task, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT `+taskColumns+` FROM whatnow_tasks
 		 WHERE user_id = $1 AND status = 'done' AND completed_at IS NOT NULL
-		 ORDER BY completed_at DESC`,
-		userID)
+		 ORDER BY completed_at DESC LIMIT $2`,
+		userID, maxCompletedTasksLimit)
 	if err != nil {
 		return nil, fmt.Errorf("whatnow: list completed tasks: %w", err)
 	}

@@ -3,6 +3,7 @@ package interviewexp
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -53,11 +54,15 @@ func (h *Handler) ListPosts(w http.ResponseWriter, r *http.Request) {
 	if _, ok := auth.RequireClaims(w, r); !ok {
 		return
 	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	f := ListFilter{
 		Company:  optionalQueryParam(r, "company"),
 		Position: optionalQueryParam(r, "position"),
 		Tag:      optionalQueryParam(r, "tag"),
 		Query:    optionalQueryParam(r, "q"),
+		Limit:    limit,
+		Offset:   offset,
 	}
 	posts, err := h.service.ListPosts(r.Context(), f)
 	if err != nil {

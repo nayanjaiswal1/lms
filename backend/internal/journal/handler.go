@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -82,6 +83,11 @@ func (h *Handler) ListEntries(w http.ResponseWriter, r *http.Request) {
 		Category:    q.Get("category"),
 		Subcategory: q.Get("subcategory"),
 		Search:      q.Get("q"),
+	}
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			filter.Limit = n
+		}
 	}
 	entries, err := h.repo.ListEntries(r.Context(), claims.UserID, filter)
 	if err != nil {
@@ -169,7 +175,9 @@ func (h *Handler) GetGraph(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	entries, err := h.repo.ListEntries(r.Context(), claims.UserID, ListEntriesFilter{})
+	// The graph needs every node to lay out correctly, not a recent-first
+	// page, so it asks for the safety-net ceiling rather than the feed default.
+	entries, err := h.repo.ListEntries(r.Context(), claims.UserID, ListEntriesFilter{Limit: MaxListLimit})
 	if err != nil {
 		writeDomainError(w, err)
 		return
