@@ -1094,7 +1094,7 @@ var tools = []mcpTool{
 	},
 	{
 		Name:        "get_sheet_items",
-		Description: "Read every item in a sheet the student has access to (system-seeded, owned, or subscribed), joined with their own solve status/revision schedule/notes/star for each. Fails if the student hasn't subscribed to or forked a non-system sheet yet.",
+		Description: "Read every item in a sheet the student has access to (system-seeded, owned, or subscribed), joined with their own solve status/revision schedule/star for each, plus has_notes (whether a note exists — the note text itself isn't included here since a sheet can run to hundreds of items; call update_problem_notes to write one, or read it in the app). Fails if the student hasn't subscribed to or forked a non-system sheet yet.",
 		Scope:       ScopeSheets,
 		InputSchema: map[string]any{
 			"type":       "object",
@@ -1118,7 +1118,7 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return sheets.SheetItemsResponse{Sheet: sheet, Items: items}, nil
+			return map[string]any{"sheet": sheet, "items": mcpSheetItems(items)}, nil
 		},
 	},
 	{
@@ -1599,15 +1599,15 @@ var tools = []mcpTool{
 	},
 	{
 		Name:        "update_problem_notes",
-		Description: "Write the student's free-form note for a problem by topic_tag, independent of solve status. notes must be a TipTap rich-text document object (e.g. {\"type\": \"doc\", \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"...\"}]}]}), the same shape the in-app note editor saves.",
+		Description: "Write the student's free-form note for a problem by topic_tag, independent of solve status. notes_markdown is plain markdown — it's converted to the in-app note editor's TipTap format server-side, so write prose, not JSON.",
 		Scope:       ScopeSheets,
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"topic_tag": map[string]any{"type": "string"},
-				"notes":     map[string]any{"type": "object", "description": "TipTap document JSON."},
+				"topic_tag":      map[string]any{"type": "string"},
+				"notes_markdown": map[string]any{"type": "string", "description": "The note body as plain markdown."},
 			},
-			"required": []string{"topic_tag", "notes"},
+			"required": []string{"topic_tag", "notes_markdown"},
 		},
 		TargetType: "problem_progress",
 		// ponytail: no Revert — no by-topic_tag read to snapshot the prior
@@ -1617,11 +1617,22 @@ var tools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			notes, err := argRawJSON(args, "notes")
+			notesMD, err := argString(args, "notes_markdown")
 			if err != nil {
 				return nil, err
 			}
-			return rt.sheetsRepo.UpsertNotes(ctx, id.UserID, topicTag, notes)
+			notes, err := wiki.MarkdownToTipTap(notesMD)
+			if err != nil {
+				return nil, fmt.Errorf("notes_markdown: %w", err)
+			}
+			saved, err := rt.sheetsRepo.UpsertNotes(ctx, id.UserID, topicTag, notes)
+			if err != nil {
+				return nil, err
+			}
+			// Echoing saved.Notes back would just re-send the TipTap JSON the
+			// caller supplied as markdown a moment ago — the same wasted
+			// round trip create_wiki_page/update_wiki_page avoid.
+			return map[string]any{"topic_tag": topicTag, "sheet_id": saved.SheetID, "status": saved.Status}, nil
 		},
 	},
 	{
@@ -1650,7 +1661,7 @@ var tools = []mcpTool{
 	},
 	{
 		Name:        "list_journal_entries",
-		Description: "List the student's personal learning journal entries, most recent day first. Optionally filter by category, subcategory, or a free-text search over title/content.",
+		Description: "List the student's personal learning journal entries, most recent day first, each with its full content. Optionally filter by category, subcategory, or a free-text search over title/content. Defaults to the 20 most recent entries — pass limit for more (up to 1000); don't raise it just to browse, since every entry's full text counts against context.",
 		Scope:       ScopeJournal,
 		InputSchema: map[string]any{
 			"type": "object",
@@ -1658,6 +1669,7 @@ var tools = []mcpTool{
 				"category":    map[string]any{"type": "string"},
 				"subcategory": map[string]any{"type": "string", "description": "Only meaningful alongside category."},
 				"search":      map[string]any{"type": "string"},
+				"limit":       map[string]any{"type": "integer", "description": "Max entries to return, newest first. Defaults to 20, capped at 1000."},
 			},
 		},
 		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
@@ -1665,6 +1677,7 @@ var tools = []mcpTool{
 				Category:    optStringOr(args, "category", ""),
 				Subcategory: optStringOr(args, "subcategory", ""),
 				Search:      optStringOr(args, "search", ""),
+				Limit:       optInt(args, "limit", 20),
 			})
 		},
 	},
@@ -2349,14 +2362,40 @@ var tools = []mcpTool{
 	},
 }
 
-// wikiPageResult embeds wiki.Page so its fields (including "id") stay at
-// the JSON top level — extractTargetID's fallback reads result["id"] for
-// create_wiki_page/update_wiki_page, since neither tool's args are among
-// the special-cased id keys (action_log.go) — while adding the duplicate
-// check's own field alongside it.
+// wikiPageResult is the confirmation create_wiki_page/update_wiki_page
+// return over MCP. It deliberately omits wiki.Page's Content field (the
+// full TipTap/ProseMirror JSON tree): the calling AI already has the
+// markdown it just wrote (or read via get_wiki_page), so echoing the
+// converted JSON back on every create/update only multiplies token cost —
+// for a large note it can dwarf the markdown that was actually sent.
+// "id" stays at the JSON top level — extractTargetID's fallback reads
+// result["id"] for create_wiki_page/update_wiki_page, since neither tool's
+// args are among the special-cased id keys (action_log.go).
 type wikiPageResult struct {
-	wiki.Page
+	ID                 string             `json:"id"`
+	SpaceID            string             `json:"space_id"`
+	ParentID           *string            `json:"parent_id,omitempty"`
+	Title              string             `json:"title"`
+	Slug               string             `json:"slug"`
+	OrderIndex         int                `json:"order_index"`
+	Status             string             `json:"status"`
+	Emoji              *string            `json:"emoji,omitempty"`
+	Version            int                `json:"version"`
+	CreatedBy          string             `json:"created_by"`
+	UpdatedBy          *string            `json:"updated_by,omitempty"`
+	CreatedAt          time.Time          `json:"created_at"`
+	UpdatedAt          time.Time          `json:"updated_at"`
+	OKFMetadata        json.RawMessage    `json:"okf_metadata,omitempty"`
 	PossibleDuplicates []wiki.SimilarPage `json:"possible_duplicates,omitempty"`
+}
+
+func newWikiPageResult(p wiki.Page) wikiPageResult {
+	return wikiPageResult{
+		ID: p.ID, SpaceID: p.SpaceID, ParentID: p.ParentID, Title: p.Title, Slug: p.Slug,
+		OrderIndex: p.OrderIndex, Status: p.Status, Emoji: p.Emoji, Version: p.Version,
+		CreatedBy: p.CreatedBy, UpdatedBy: p.UpdatedBy, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+		OKFMetadata: p.OKFMetadata,
+	}
 }
 
 // withDuplicateCheck runs FindSimilarToPage against the just-saved page and
@@ -2365,11 +2404,13 @@ type wikiPageResult struct {
 // to find_similar_wiki_pages. A lookup failure here is logged away, not
 // fatal — the save itself already succeeded.
 func withDuplicateCheck(ctx context.Context, rt *Router, orgID, userID, orgRole string, p wiki.Page) any {
+	result := newWikiPageResult(p)
 	dupes, err := rt.wikiSvc.FindSimilarToPage(ctx, orgID, userID, orgRole, p.ID)
 	if err != nil {
-		return wikiPageResult{Page: p}
+		return result
 	}
-	return wikiPageResult{Page: p, PossibleDuplicates: dupes}
+	result.PossibleDuplicates = dupes
+	return result
 }
 
 // resolveOrgRole looks up the connected user's live org role — mcpIdentity
@@ -2382,6 +2423,29 @@ func resolveOrgRole(ctx context.Context, rt *Router, id mcpIdentity) (string, er
 		return "", fmt.Errorf("mcpconnect: not an active member of this org")
 	}
 	return role, nil
+}
+
+// mcpSheetItem is sheets.SheetItem with the full Notes TipTap JSON blob
+// dropped in favor of a has_notes flag — over MCP, a sheet's item list can
+// run to hundreds of rows, and most carry no note at all; echoing every
+// row's opaque editor JSON (populated or not) the way GET
+// /api/sheets/:slug/items does for the app's own UI would multiply token
+// cost for no benefit to an AI that can't act on raw TipTap JSON anyway.
+// Notes shadows the embedded field's promoted name so it's dropped from
+// JSON (json:"-") instead of appearing twice.
+type mcpSheetItem struct {
+	sheets.SheetItem
+	Notes    json.RawMessage `json:"-"`
+	HasNotes bool            `json:"has_notes"`
+}
+
+func mcpSheetItems(items []sheets.SheetItem) []mcpSheetItem {
+	out := make([]mcpSheetItem, len(items))
+	for i, it := range items {
+		md, _ := wiki.TipTapToMarkdown(it.Notes)
+		out[i] = mcpSheetItem{SheetItem: it, HasNotes: strings.TrimSpace(md) != ""}
+	}
+	return out
 }
 
 func flattenWikiNodes(nodes []wiki.PageTreeNode) []wiki.PageTreeNode {

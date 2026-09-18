@@ -2,9 +2,10 @@
 // (github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf/SPEC.md)
 // and this package's Page/Space types, and builds the bundle-level index.md
 // and log.md files SPEC.md §8/§9 describe. Kept inside internal/wiki rather
-// than a standalone okf package — nothing else in the backend consumes this
-// yet (promote it out if a second caller shows up; YAGNI on the package
-// boundary).
+// than a standalone okf package — the markdown<->TipTap conversion at its
+// core (MarkdownToTipTap/TipTapToMarkdown) now has a second caller
+// (sheets problem notes, over MCP) but stays here rather than moving to its
+// own package until a third caller makes the split worth it.
 package wiki
 
 import (
@@ -284,6 +285,25 @@ func tiptapToMarkdown(content json.RawMessage, resolveLink func(string) string) 
 	var b strings.Builder
 	writeNode(&b, doc, resolveLink, 0)
 	return strings.TrimSpace(b.String()) + "\n", nil
+}
+
+// MarkdownToTipTap converts a markdown body into the same TipTap/ProseMirror
+// JSON document shape the wiki editor (and anything else storing rich text
+// in this shape, e.g. sheet problem notes) produces. Exported so callers
+// can accept plain markdown over a token-metered channel like MCP instead
+// of hand-authoring TipTap JSON node-by-node — the same reason
+// create_wiki_page/update_wiki_page take OKF markdown, not raw content.
+func MarkdownToTipTap(body string) (json.RawMessage, error) {
+	return markdownToTiptap(body)
+}
+
+// TipTapToMarkdown converts a TipTap/ProseMirror JSON document into
+// markdown — the reverse of MarkdownToTipTap, exported for the same reason.
+// Internal wiki links are left unresolved (no resolveLink); a caller
+// outside the wiki package has no page-relative link context to resolve
+// against.
+func TipTapToMarkdown(content json.RawMessage) (string, error) {
+	return tiptapToMarkdown(content, nil)
 }
 
 func writeNode(b *strings.Builder, node any, resolveLink func(string) string, listDepth int) {
