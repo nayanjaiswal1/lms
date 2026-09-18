@@ -12,6 +12,7 @@ import (
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/systemdesign"
+	"github.com/mindforge/backend/internal/wiki"
 )
 
 // Router wires the mcpconnect domain — OAuth 2.1+PKCE for external MCP
@@ -21,6 +22,7 @@ import (
 // or event data of its own beyond connection/token bookkeeping.
 type Router struct {
 	cfg              *config.Config
+	pool             *pgxpool.Pool
 	repo             *Repo
 	coursesRepo      *courses.Repo
 	coursesSvc       *courses.Service
@@ -33,6 +35,7 @@ type Router struct {
 	sheetsRepo       *sheets.Repo
 	journalRepo      *journal.Repo
 	habitSvc         *habit.Service
+	wikiSvc          *wiki.Service
 }
 
 // New builds the mcpconnect Router with its full dependency graph.
@@ -47,12 +50,13 @@ type Router struct {
 // assessment.Handler and secrets vault instances.
 func New(cfg *config.Config, pool *pgxpool.Pool, coursesRepo *courses.Repo, coursesSvc *courses.Service, calendarSvc *calendar.Service, mistakesRepo *mistakes.Repo, mistakesSvc *mistakes.Service, srsRepo *srs.Repo, interviewPrepSvc *interviewprep.Service, systemDesignSvc *systemdesign.Service) *Router {
 	return &Router{
-		cfg: cfg, repo: NewRepo(pool),
+		cfg: cfg, pool: pool, repo: NewRepo(pool),
 		coursesRepo: coursesRepo, coursesSvc: coursesSvc, calendarSvc: calendarSvc,
 		mistakesRepo: mistakesRepo, mistakesSvc: mistakesSvc, srsRepo: srsRepo,
 		interviewPrepSvc: interviewPrepSvc, systemDesignSvc: systemDesignSvc,
 		sheetsRepo:  sheets.NewRepo(pool),
 		journalRepo: journal.NewRepo(pool),
 		habitSvc:    habit.NewService(habit.NewRepo(pool)),
+		wikiSvc:     wiki.NewService(wiki.NewRepo(pool), coursesRepo),
 	}
 }

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
 import { NotificationBell } from "@/components/shared/notification-bell";
+import { WhatsNewDialog } from "@/components/shared/whats-new-dialog";
 import { NavLinkHint } from "@/components/layout/nav-link-hint";
 import { SidebarNavContent } from "@/components/layout/sidebar-nav-content";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
@@ -55,6 +56,7 @@ export function MobileNav({ user }: Props) {
         </Link>
         {user && (
           <div className="ml-auto flex items-center">
+            <WhatsNewDialog />
             <NotificationBell />
           </div>
         )}

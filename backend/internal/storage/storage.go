@@ -10,6 +10,10 @@ import (
 type StorageClient interface {
 	// Upload stores the content of r under key and returns its public URL.
 	Upload(ctx context.Context, key, contentType string, r io.Reader, size int64) (string, error)
+	// Download reads back the full object stored at key — used server-side
+	// (e.g. the captures pipeline reading an uploaded image/PDF for AI
+	// processing) where a redirect-to-browser presigned URL doesn't apply.
+	Download(ctx context.Context, key string) ([]byte, error)
 	// Delete removes key. Returns nil if the key does not exist.
 	Delete(ctx context.Context, key string) error
 	// PresignedPutURL returns a time-limited URL for a client to PUT an object directly.

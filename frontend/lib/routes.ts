@@ -38,6 +38,7 @@ const ROUTES = {
   SHEETS_COMPARE:      "/sheets/compare",
   JOURNAL:             "/journal",
   JOURNAL_NEW:         "/journal/new",
+  CAPTURES:            "/captures",
   DIARY:               "/diary",
   diaryEntry:          (date: string) => `/diary/${date}`,
 
@@ -157,6 +158,7 @@ const ROUTES = {
   PLATFORM_HIGHLIGHTS_BY_MODEL:   "/platform/highlights/by-model",
   PLATFORM_FEATURES:       "/platform/features",
   PLATFORM_PRICING:        "/platform/pricing",
+  PLATFORM_WHATS_NEW:      "/platform/whats-new",
   platformJob:             (id: string) => `/platform/jobs/${id}`,
   platformOrgQuotas:       (orgID: string) => `/platform/orgs/${orgID}/quotas`,
   platformOrgFeatures:     (orgID: string) => `/platform/features/${orgID}`,

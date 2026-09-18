@@ -267,7 +267,7 @@ func (s *Service) UpdatePage(ctx context.Context, orgID, userID, orgRole, id str
 		t := extractText(*req.Content)
 		searchText = &t
 	}
-	return s.repo.UpdatePage(ctx, orgID, id, req.Title, req.Content, searchText, req.Status, req.Emoji, req.ParentID, req.OrderIndex, userID)
+	return s.repo.UpdatePage(ctx, orgID, id, req.Title, req.Content, searchText, req.Status, req.Emoji, req.ParentID, req.OrderIndex, req.OKFMetadata, userID)
 }
 
 func (s *Service) MovePage(ctx context.Context, orgID, userID, orgRole, id string, req MovePageRequest) (Page, error) {
@@ -325,7 +325,7 @@ func (s *Service) RestoreVersion(ctx context.Context, orgID, userID, orgRole, pa
 	}
 	searchText := extractText(v.Content)
 	content := v.Content
-	return s.repo.UpdatePage(ctx, orgID, pageID, &v.Title, &content, &searchText, nil, nil, nil, nil, userID)
+	return s.repo.UpdatePage(ctx, orgID, pageID, &v.Title, &content, &searchText, nil, nil, nil, nil, nil, userID)
 }
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
@@ -406,6 +406,38 @@ func (s *Service) DeleteTemplate(ctx context.Context, orgID, userID, orgRole, id
 	return s.repo.DeleteTemplate(ctx, id)
 }
 
+// ─── Similarity (duplicate detection) ──────────────────────────────────────────
+
+// similarityThreshold/similarityLimit match the defaults captures/journal/
+// messaging already settled on for this same pg_trgm convention.
+const (
+	similarityThreshold = 0.3
+	similarityLimit     = 5
+)
+
+// FindSimilarToPage flags other published pages that look like they cover
+// the same ground as an existing page — call after creating or updating one
+// so the caller (human or agent) sees likely duplicates immediately, no
+// second round trip needed.
+func (s *Service) FindSimilarToPage(ctx context.Context, orgID, userID, orgRole, pageID string) ([]SimilarPage, error) {
+	pd, err := s.GetPage(ctx, orgID, userID, orgRole, pageID)
+	if err != nil {
+		return nil, err
+	}
+	text := pd.Title + " " + extractText(pd.Content)
+	return s.repo.FindSimilarPages(ctx, orgID, &pageID, text, similarityThreshold, similarityLimit)
+}
+
+// FindSimilarByText checks freeform text (e.g. a draft title/summary before
+// a page even exists) against the org's published wiki content.
+func (s *Service) FindSimilarByText(ctx context.Context, orgID, text string) ([]SimilarPage, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return []SimilarPage{}, nil
+	}
+	return s.repo.FindSimilarPages(ctx, orgID, nil, text, similarityThreshold, similarityLimit)
+}
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 func (s *Service) Search(ctx context.Context, orgID, query string, spaceSlug *string) ([]SearchResult, error) {
@@ -414,6 +446,112 @@ func (s *Service) Search(ctx context.Context, orgID, query string, spaceSlug *st
 		return []SearchResult{}, nil
 	}
 	return s.repo.Search(ctx, orgID, q, spaceSlug)
+}
+
+// ─── OKF export/import (SPEC.md) ───────────────────────────────────────────
+
+// GetPageOKF renders one page as an OKF v0.2 concept document. generated.by
+// defaults to the human who last touched the native wiki row; a page last
+// written through UpdatePageOKF (e.g. by the MCP connector) carries its own
+// producer-declared `generated` in okf_metadata, which ToOKFMarkdown
+// honors instead of this default.
+func (s *Service) GetPageOKF(ctx context.Context, orgID, userID, orgRole, id string) (string, error) {
+	pd, err := s.GetPage(ctx, orgID, userID, orgRole, id)
+	if err != nil {
+		return "", err
+	}
+	actor := ActorForUser(pd.CreatedBy)
+	if pd.UpdatedBy != nil {
+		actor = ActorForUser(*pd.UpdatedBy)
+	}
+	return ToOKFMarkdown(pd.Page, pd.Breadcrumb, actor, nil)
+}
+
+// UpdatePageOKF parses an OKF concept document and applies it through the
+// same UpdatePage path (and so the same RBAC/versioning) a native TipTap
+// PATCH would use. The submitted frontmatter's `generated`/`sources`/
+// `verified`/etc. are preserved verbatim in okf_metadata (see
+// FromOKFMarkdown) — callers that want the edit attributed to an agent
+// rather than the calling user set `generated.by` in the markdown they PUT.
+func (s *Service) UpdatePageOKF(ctx context.Context, orgID, userID, orgRole, id, markdown string) (Page, error) {
+	title, status, okfMeta, content, err := FromOKFMarkdown(markdown)
+	if err != nil {
+		return Page{}, fmt.Errorf("%w: %s", ErrValidation, err)
+	}
+	stamped, err := StampGenerated(okfMeta, ActorForUser(userID))
+	if err != nil {
+		return Page{}, fmt.Errorf("%w: %s", ErrValidation, err)
+	}
+	req := UpdatePageRequest{Content: &content, OKFMetadata: &stamped, Status: status}
+	if title != "" {
+		req.Title = &title
+	}
+	return s.UpdatePage(ctx, orgID, userID, orgRole, id, req)
+}
+
+// GetSpaceOKFBundle renders every page a caller can read in a space as an
+// OKF bundle: one .md file per page (path = slug.md, flat — page nesting is
+// carried by index.md's structure per SPEC.md §8, not by subdirectories),
+// plus a bundle index.md and log.md. Returned as a filename->content map so
+// the caller can zip it however it likes.
+func (s *Service) GetSpaceOKFBundle(ctx context.Context, orgID, userID, orgRole, slug string) (map[string]string, error) {
+	swt, err := s.GetSpace(ctx, orgID, userID, orgRole, slug)
+	if err != nil {
+		return nil, err
+	}
+	flat := flattenTree(swt.Tree)
+
+	// ponytail: link resolution is a substring match on page id against the
+	// href, not a parse of the app's internal-link URL scheme — good enough
+	// while that scheme is a single, uninspected convention; tighten if it
+	// ever produces a false match.
+	slugByID := map[string]string{}
+	for _, n := range flat {
+		slugByID[n.ID] = okfFilename(n.Slug)
+	}
+	resolveLink := func(href string) string {
+		for id, path := range slugByID {
+			if strings.Contains(href, id) {
+				return path
+			}
+		}
+		return href
+	}
+
+	files := map[string]string{}
+	pages := make([]Page, 0, len(flat))
+	for _, n := range flat {
+		p, err := s.repo.GetPage(ctx, orgID, n.ID)
+		if err != nil {
+			return nil, err
+		}
+		breadcrumb, err := s.repo.GetBreadcrumb(ctx, n.ID)
+		if err != nil {
+			return nil, err
+		}
+		actor := ActorForUser(p.CreatedBy)
+		if p.UpdatedBy != nil {
+			actor = ActorForUser(*p.UpdatedBy)
+		}
+		md, err := ToOKFMarkdown(p, breadcrumb, actor, resolveLink)
+		if err != nil {
+			return nil, err
+		}
+		files[okfFilename(n.Slug)] = md
+		pages = append(pages, p)
+	}
+	files["index.md"] = BuildOKFIndex(swt.Space.Name, swt.Tree)
+	files["log.md"] = BuildOKFLog(pages)
+	return files, nil
+}
+
+func flattenTree(nodes []PageTreeNode) []PageTreeNode {
+	var out []PageTreeNode
+	for _, n := range nodes {
+		out = append(out, n)
+		out = append(out, flattenTree(n.Children)...)
+	}
+	return out
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

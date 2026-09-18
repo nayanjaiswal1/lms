@@ -18,12 +18,18 @@ interface WikiCommentsPanelProps {
 export function WikiCommentsPanel({ pageId, initialThreads, currentUserId, canModerate }: WikiCommentsPanelProps) {
   const [threads, setThreads] = useState(initialThreads);
   const [activeAction, setActiveAction] = useState<CommentAction>(null);
+  // One shared busy flag rather than per-comment state — simplest way to
+  // block a double-submit (new comment, reply, edit, or delete firing twice
+  // before the first request returns) without a state entry per comment.
+  const [pending, setPending] = useState(false);
 
   async function submitNew(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const content = (new FormData(e.currentTarget).get("content") as string)?.trim();
-    if (!content) return;
+    if (!content || pending) return;
+    setPending(true);
     const result = await createCommentAction(pageId, { content });
+    setPending(false);
     if (!result.ok || !result.data) {
       toast.error(result.error ?? "Couldn't post your comment.");
       return;
@@ -34,7 +40,10 @@ export function WikiCommentsPanel({ pageId, initialThreads, currentUserId, canMo
   }
 
   async function submitReply(parentId: string, content: string) {
+    if (pending) return;
+    setPending(true);
     const result = await createCommentAction(pageId, { content, parent_id: parentId });
+    setPending(false);
     if (!result.ok || !result.data) {
       toast.error(result.error ?? "Couldn't post your reply.");
       return;
@@ -45,7 +54,10 @@ export function WikiCommentsPanel({ pageId, initialThreads, currentUserId, canMo
   }
 
   async function submitEdit(commentId: string, content: string) {
+    if (pending) return;
+    setPending(true);
     const result = await updateCommentAction(commentId, content);
+    setPending(false);
     if (!result.ok || !result.data) {
       toast.error(result.error ?? "Couldn't save your edit.");
       return;
@@ -59,7 +71,10 @@ export function WikiCommentsPanel({ pageId, initialThreads, currentUserId, canMo
   }
 
   async function handleDelete(commentId: string) {
+    if (pending) return;
+    setPending(true);
     const result = await deleteCommentAction(commentId);
+    setPending(false);
     if (!result.ok) {
       toast.error(result.error ?? "Couldn't delete that comment.");
       return;
@@ -77,8 +92,8 @@ export function WikiCommentsPanel({ pageId, initialThreads, currentUserId, canMo
       <h2 className="section-title">Comments{commentCount > 0 && ` (${commentCount})`}</h2>
 
       <form className="form-stack mt-4" onSubmit={(e) => void submitNew(e)}>
-        <Textarea name="content" placeholder="Add a comment…" rows={3} />
-        <Button className="w-fit" type="submit">Comment</Button>
+        <Textarea disabled={pending} name="content" placeholder="Add a comment…" rows={3} />
+        <Button className="w-fit" disabled={pending} type="submit">{pending ? "Posting…" : "Comment"}</Button>
       </form>
 
       <div>
@@ -90,6 +105,7 @@ export function WikiCommentsPanel({ pageId, initialThreads, currentUserId, canMo
               comment={thread}
               currentUserId={currentUserId}
               isReply={false}
+              pending={pending}
               onDelete={handleDelete}
               onSetActiveAction={setActiveAction}
               onSubmitEdit={submitEdit}
@@ -103,6 +119,7 @@ export function WikiCommentsPanel({ pageId, initialThreads, currentUserId, canMo
                 comment={reply}
                 currentUserId={currentUserId}
                 key={reply.id}
+                pending={pending}
                 onDelete={handleDelete}
                 onSetActiveAction={setActiveAction}
                 onSubmitEdit={submitEdit}

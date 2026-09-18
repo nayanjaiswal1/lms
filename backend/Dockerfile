@@ -17,10 +17,13 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # ─── Stage 2: Minimal runtime ────────────────────────────────────────────────
 FROM alpine:3.19
 
-# CA certs for outbound HTTPS (OAuth, SMTP, MaxMind), timezone data, and the
-# docker CLI — the server shells out to `docker` (internal/labs/container.go)
-# to spawn/exec/stop lab sandbox containers via the mounted host socket.
-RUN apk add --no-cache ca-certificates tzdata docker-cli
+# CA certs for outbound HTTPS (OAuth, SMTP, MaxMind), timezone data, the
+# docker CLI (the server shells out to `docker` — internal/labs/container.go —
+# to spawn/exec/stop lab sandbox containers via the mounted host socket), and
+# poppler-utils' pdftotext (internal/captures/extract.go shells out to it to
+# pull text from a captured PDF before AI structuring — a screenshot capture
+# is instead sent to the vision-capable LLM directly, no OCR binary needed).
+RUN apk add --no-cache ca-certificates tzdata docker-cli poppler-utils
 
 WORKDIR /app
 

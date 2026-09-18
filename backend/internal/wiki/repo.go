@@ -170,11 +170,11 @@ func attachChildren(nodes []PageTreeNode, byID map[string]*PageTreeNode) []PageT
 
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
-const pageCols = `id, space_id, parent_id, title, slug, content, order_index, status, emoji, version, created_by, updated_by, created_at, updated_at`
+const pageCols = `id, space_id, parent_id, title, slug, content, order_index, status, emoji, version, created_by, updated_by, created_at, updated_at, okf_metadata`
 
 func scanPage(row pgx.Row) (Page, error) {
 	var p Page
-	err := row.Scan(&p.ID, &p.SpaceID, &p.ParentID, &p.Title, &p.Slug, &p.Content, &p.OrderIndex, &p.Status, &p.Emoji, &p.Version, &p.CreatedBy, &p.UpdatedBy, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.SpaceID, &p.ParentID, &p.Title, &p.Slug, &p.Content, &p.OrderIndex, &p.Status, &p.Emoji, &p.Version, &p.CreatedBy, &p.UpdatedBy, &p.CreatedAt, &p.UpdatedAt, &p.OKFMetadata)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Page{}, ErrNotFound
@@ -196,7 +196,7 @@ func (r *Repo) CreatePage(ctx context.Context, spaceID, title, slug string, pare
 // (IDOR) surfaces as ErrNotFound, matching every other domain's convention.
 func (r *Repo) GetPage(ctx context.Context, orgID, id string) (Page, error) {
 	return scanPage(r.pool.QueryRow(ctx,
-		`SELECT p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at
+		`SELECT p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at, p.okf_metadata
 		 FROM wiki_pages p JOIN wiki_spaces s ON s.id = p.space_id
 		 WHERE p.id = $1 AND s.org_id = $2 AND p.deleted_at IS NULL`, id, orgID))
 }
@@ -231,7 +231,7 @@ func (r *Repo) GetBreadcrumb(ctx context.Context, pageID string) ([]BreadcrumbIt
 // bumps `version` and appends the new state to wiki_page_versions in the same
 // transaction, matching docs/wiki.md ("every PATCH that changes title or
 // content appends a version row").
-func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, content *json.RawMessage, searchText *string, status, emoji, parentID *string, orderIndex *int, updatedBy string) (Page, error) {
+func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, content *json.RawMessage, searchText *string, status, emoji, parentID *string, orderIndex *int, okfMetadata *json.RawMessage, updatedBy string) (Page, error) {
 	var out Page
 	err := r.tx(ctx, func(tx pgx.Tx) error {
 		contentChanged := content != nil || title != nil
@@ -250,12 +250,13 @@ func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, 
 			   order_index = COALESCE($10, order_index),
 			   version = version + $11,
 			   updated_by = $12,
+			   okf_metadata = COALESCE($13, okf_metadata),
 			   updated_at = now()
 			 FROM wiki_spaces s
 			 WHERE p.space_id = s.id AND s.org_id = $1 AND p.id = $2 AND p.deleted_at IS NULL
-			 RETURNING p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at`,
+			 RETURNING p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at, p.okf_metadata`,
 			orgID, id, title, content, searchText, status, emoji,
-			parentID != nil, parentID, orderIndex, bump, updatedBy)
+			parentID != nil, parentID, orderIndex, bump, updatedBy, okfMetadata)
 		p, err := scanPage(row)
 		if err != nil {
 			return err
@@ -281,7 +282,7 @@ func (r *Repo) MovePage(ctx context.Context, orgID, id string, parentID *string,
 		`UPDATE wiki_pages p SET parent_id = $3, order_index = $4, updated_at = now()
 		 FROM wiki_spaces s
 		 WHERE p.space_id = s.id AND s.org_id = $1 AND p.id = $2 AND p.deleted_at IS NULL
-		 RETURNING p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at`,
+		 RETURNING p.id, p.space_id, p.parent_id, p.title, p.slug, p.content, p.order_index, p.status, p.emoji, p.version, p.created_by, p.updated_by, p.created_at, p.updated_at, p.okf_metadata`,
 		orgID, id, parentID, orderIndex))
 }
 
@@ -505,6 +506,38 @@ func (r *Repo) DeleteTemplate(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ─── Similarity (duplicate detection) ──────────────────────────────────────────
+
+// FindSimilarPages ranks other published pages in orgID by pg_trgm
+// similarity of title+search_text against text — the same similarity()
+// convention captures/journal/messaging already use. excludeID, if non-nil,
+// omits that page from its own results (the update-page case).
+func (r *Repo) FindSimilarPages(ctx context.Context, orgID string, excludeID *string, text string, threshold float64, limit int) ([]SimilarPage, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT p.id, p.title, s.slug, s.name, similarity(p.title || ' ' || p.search_text, $2) AS sim
+		 FROM wiki_pages p JOIN wiki_spaces s ON s.id = p.space_id
+		 WHERE s.org_id = $1 AND p.deleted_at IS NULL AND p.status = 'published'
+		   AND ($3::uuid IS NULL OR p.id != $3)
+		   AND similarity(p.title || ' ' || p.search_text, $2) > $4
+		 ORDER BY sim DESC
+		 LIMIT $5`,
+		orgID, text, excludeID, threshold, limit)
+	if err != nil {
+		return nil, fmt.Errorf("wiki: find similar pages: %w", err)
+	}
+	defer rows.Close()
+
+	out := []SimilarPage{}
+	for rows.Next() {
+		var s SimilarPage
+		if err := rows.Scan(&s.PageID, &s.Title, &s.SpaceSlug, &s.SpaceName, &s.Similarity); err != nil {
+			return nil, fmt.Errorf("wiki: scan similar page: %w", err)
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────

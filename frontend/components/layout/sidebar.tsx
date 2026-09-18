@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
 import { NotificationBell } from "@/components/shared/notification-bell";
+import { WhatsNewDialog } from "@/components/shared/whats-new-dialog";
 import { SidebarNavContent } from "@/components/layout/sidebar-nav-content";
 import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import ROUTES, { isCourseLearnRoute } from "@/lib/routes";
@@ -51,6 +52,7 @@ export function Sidebar({ user }: Props) {
           </Link>
           {user && !collapsed && (
             <div className="ml-auto flex items-center">
+              <WhatsNewDialog />
               <NotificationBell />
             </div>
           )}

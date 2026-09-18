@@ -38,9 +38,22 @@ func (p *GeminiProvider) Available() bool {
 	return p.apiKey != ""
 }
 
+// Content is a string for a plain text message, or []openAIContentPart when
+// an image is attached — the OpenAI-compatible vision format Gemini accepts
+// through this endpoint.
 type openAIMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
+}
+
+type openAIContentPart struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
+	ImageURL *openAIImageURL `json:"image_url,omitempty"`
+}
+
+type openAIImageURL struct {
+	URL string `json:"url"`
 }
 
 type openAIRequest struct {
@@ -80,7 +93,14 @@ func (p *GeminiProvider) Complete(ctx context.Context, req CompletionRequest) (C
 	if req.SystemPrompt != "" {
 		messages = append(messages, openAIMessage{Role: "system", Content: req.SystemPrompt})
 	}
-	messages = append(messages, openAIMessage{Role: "user", Content: req.UserPrompt})
+	var userContent any = req.UserPrompt
+	if req.Image != nil {
+		userContent = []openAIContentPart{
+			{Type: "image_url", ImageURL: &openAIImageURL{URL: "data:" + req.Image.MediaType + ";base64," + req.Image.Base64}},
+			{Type: "text", Text: req.UserPrompt},
+		}
+	}
+	messages = append(messages, openAIMessage{Role: "user", Content: userContent})
 
 	body := openAIRequest{
 		Model:       p.model,

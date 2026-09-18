@@ -59,6 +59,10 @@ type Page struct {
 	UpdatedBy  *string         `json:"updated_by,omitempty"`
 	CreatedAt  time.Time       `json:"created_at"`
 	UpdatedAt  time.Time       `json:"updated_at"`
+	// OKFMetadata holds OKF v0.2 frontmatter fields with no native column
+	// (resource, tags, sources, verified, stale_after, type override, any
+	// producer extension key) — see okf.go.
+	OKFMetadata json.RawMessage `json:"okf_metadata,omitempty"`
 }
 
 // BreadcrumbItem is one ancestor in a page's path from the space root.
@@ -124,6 +128,17 @@ type Template struct {
 	CreatedAt   time.Time       `json:"created_at"`
 }
 
+// SimilarPage is one pg_trgm near-duplicate hit against another page's
+// title+search_text — the same similarity() convention captures/journal/
+// messaging already use for "is this basically the same thing again."
+type SimilarPage struct {
+	PageID     string  `json:"page_id"`
+	Title      string  `json:"title"`
+	SpaceSlug  string  `json:"space_slug"`
+	SpaceName  string  `json:"space_name"`
+	Similarity float64 `json:"similarity"`
+}
+
 // SearchResult is one full-text search hit.
 type SearchResult struct {
 	PageID    string    `json:"page_id"`
@@ -159,12 +174,13 @@ type CreatePageRequest struct {
 }
 
 type UpdatePageRequest struct {
-	Title      *string          `json:"title"`
-	Content    *json.RawMessage `json:"content"`
-	Status     *string          `json:"status"`
-	Emoji      *string          `json:"emoji"`
-	OrderIndex *int             `json:"order_index"`
-	ParentID   *string          `json:"parent_id"`
+	Title       *string          `json:"title"`
+	Content     *json.RawMessage `json:"content"`
+	Status      *string          `json:"status"`
+	Emoji       *string          `json:"emoji"`
+	OrderIndex  *int             `json:"order_index"`
+	ParentID    *string          `json:"parent_id"`
+	OKFMetadata *json.RawMessage `json:"okf_metadata"`
 }
 
 type MovePageRequest struct {

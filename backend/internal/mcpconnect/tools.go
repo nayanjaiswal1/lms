@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/mindforge/backend/internal/calendar"
@@ -12,10 +14,12 @@ import (
 	"github.com/mindforge/backend/internal/habit"
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/journal"
+	"github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/mistakes"
 	"github.com/mindforge/backend/internal/sheets"
 	"github.com/mindforge/backend/internal/srs"
 	"github.com/mindforge/backend/internal/systemdesign"
+	"github.com/mindforge/backend/internal/wiki"
 )
 
 var errMissingScope = errors.New("mcpconnect: connection is missing a required scope")
@@ -2045,7 +2049,351 @@ var tools = []mcpTool{
 			return map[string]any{"habit_id": habitID, "period": period, "completed": false}, nil
 		},
 	},
+
+	{
+		Name:        "list_wiki_spaces",
+		Description: "List the org's wiki spaces (topic containers) visible to the connected user.",
+		Scope:       ScopeWikiRead,
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, _ map[string]any) (any, error) {
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			return rt.wikiSvc.ListSpaces(ctx, id.OrgID, id.UserID, orgRole)
+		},
+	},
+	{
+		Name:        "get_wiki_space",
+		Description: "Get a wiki space's metadata plus its full nested page tree (titles/slugs only, no content) by slug.",
+		Scope:       ScopeWikiRead,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"slug": map[string]any{"type": "string"}},
+			"required":   []string{"slug"},
+		},
+		TargetType: "wiki_space",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			slug, err := argString(args, "slug")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			return rt.wikiSvc.GetSpace(ctx, id.OrgID, id.UserID, orgRole, slug)
+		},
+	},
+	{
+		Name:        "search_wiki",
+		Description: "Full-text search published wiki pages, optionally scoped to one space by slug.",
+		Scope:       ScopeWikiRead,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"query": map[string]any{"type": "string"},
+				"space": map[string]any{"type": "string", "description": "Optional space slug to restrict the search to."},
+			},
+			"required": []string{"query"},
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			query, err := argString(args, "query")
+			if err != nil {
+				return nil, err
+			}
+			return rt.wikiSvc.Search(ctx, id.OrgID, query, optString(args, "space"))
+		},
+	},
+	{
+		Name:        "find_similar_wiki_pages",
+		Description: "Check whether existing wiki pages already cover a topic, by title/summary text similarity — call this BEFORE create_wiki_page when starting a new page from scratch, to avoid writing a duplicate of something that already exists. (create_wiki_page and update_wiki_page already run this check on their own result, so you don't need to call this again right after using them.)",
+		Scope:       ScopeWikiRead,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"text": map[string]any{"type": "string", "description": "The draft title and/or summary to check, e.g. \"Onboarding checklist for new backend engineers\"."},
+			},
+			"required": []string{"text"},
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			text, err := argString(args, "text")
+			if err != nil {
+				return nil, err
+			}
+			return rt.wikiSvc.FindSimilarByText(ctx, id.OrgID, text)
+		},
+	},
+	{
+		Name:        "get_wiki_page",
+		Description: "Read a wiki page as an OKF (Open Knowledge Format) markdown document — YAML frontmatter (title, status, and any provenance/trust fields the page carries) followed by the page body in markdown. To edit it, copy this output, change what's needed, and pass the whole document back to update_wiki_page.",
+		Scope:       ScopeWikiRead,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"page_id": map[string]any{"type": "string"}},
+			"required":   []string{"page_id"},
+		},
+		TargetType: "wiki_page",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			pageID, err := argString(args, "page_id")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			md, err := rt.wikiSvc.GetPageOKF(ctx, id.OrgID, id.UserID, orgRole, pageID)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"id": pageID, "markdown": md}, nil
+		},
+	},
+	{
+		Name:        "get_wiki_knowledge_graph",
+		Description: "Build a knowledge graph for one wiki space: every page as a node, and a directed edge for every markdown link from one page to another within the space (OKF SPEC.md §6.1 treats any link between concepts as an untyped relationship edge). Use this to see how a space's pages relate before deciding where new content belongs, or to find orphaned/isolated pages.",
+		Scope:       ScopeWikiRead,
+		InputSchema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"space_slug": map[string]any{"type": "string"}},
+			"required":   []string{"space_slug"},
+		},
+		TargetType: "wiki_space",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			spaceSlug, err := argString(args, "space_slug")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			swt, err := rt.wikiSvc.GetSpace(ctx, id.OrgID, id.UserID, orgRole, spaceSlug)
+			if err != nil {
+				return nil, err
+			}
+			flat := flattenWikiNodes(swt.Tree)
+
+			nodes := make([]map[string]any, 0, len(flat))
+			ids := make([]string, 0, len(flat))
+			for _, n := range flat {
+				nodes = append(nodes, map[string]any{"id": n.ID, "title": n.Title, "slug": n.Slug})
+				ids = append(ids, n.ID)
+			}
+
+			// ponytail: an O(pages x links x pages) substring scan — fine
+			// for a wiki space's realistic page count; revisit if a space
+			// ever grows large enough for this to show up in latency.
+			var edges []map[string]any
+			for _, n := range flat {
+				md, err := rt.wikiSvc.GetPageOKF(ctx, id.OrgID, id.UserID, orgRole, n.ID)
+				if err != nil {
+					continue // a page that became unreadable mid-walk shouldn't fail the whole graph
+				}
+				for _, m := range okfLinkPattern.FindAllStringSubmatch(md, -1) {
+					href := m[1]
+					for _, otherID := range ids {
+						if otherID != n.ID && strings.Contains(href, otherID) {
+							edges = append(edges, map[string]any{"from": n.ID, "to": otherID})
+						}
+					}
+				}
+			}
+			return map[string]any{"space": swt.Space.Name, "nodes": nodes, "edges": edges}, nil
+		},
+	},
+	{
+		Name:        "create_wiki_page",
+		Description: "Create a new wiki page from an OKF markdown document (frontmatter + body — see get_wiki_page's output for the shape). Requires manager permissions on the space (admin/instructor/mentor). The response includes possible_duplicates — other existing pages that look like they already cover this topic; check it before assuming this page is the only one on the subject.",
+		Scope:       ScopeWikiWrite,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"space_id":  map[string]any{"type": "string"},
+				"title":     map[string]any{"type": "string"},
+				"parent_id": map[string]any{"type": "string", "description": "Optional — nests the new page under an existing one."},
+				"markdown":  map[string]any{"type": "string", "description": "A full OKF concept document: a YAML frontmatter block (--- ... ---) followed by the markdown body."},
+			},
+			"required": []string{"space_id", "title", "markdown"},
+		},
+		TargetType: "wiki_page",
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			spaceID, err := argString(args, "space_id")
+			if err != nil {
+				return nil, err
+			}
+			title, err := argString(args, "title")
+			if err != nil {
+				return nil, err
+			}
+			markdown, err := argString(args, "markdown")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			p, err := rt.wikiSvc.CreatePage(ctx, id.OrgID, id.UserID, orgRole, spaceID, wiki.CreatePageRequest{
+				Title: title, ParentID: optString(args, "parent_id"),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			// From here on, any failure must delete the page CreatePage
+			// already committed above — otherwise a rejected/malformed
+			// markdown submission leaves a stray empty page behind in the
+			// space instead of the call cleanly failing as a whole.
+			fail := func(err error) (any, error) {
+				_ = rt.wikiSvc.DeletePage(ctx, id.OrgID, id.UserID, orgRole, p.ID)
+				return nil, err
+			}
+
+			_, status, okfMeta, content, err := wiki.FromOKFMarkdown(markdown)
+			if err != nil {
+				return fail(fmt.Errorf("markdown must be a full OKF document (frontmatter + body), like get_wiki_page returns: %w", err))
+			}
+			stamped, err := wiki.StampGenerated(okfMeta, wiki.ActorMCP)
+			if err != nil {
+				return fail(err)
+			}
+			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, p.ID, wiki.UpdatePageRequest{
+				Content: &content, Status: status, OKFMetadata: &stamped,
+			})
+			if err != nil {
+				return fail(err)
+			}
+			return withDuplicateCheck(ctx, rt, id.OrgID, id.UserID, orgRole, saved), nil
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return err
+			}
+			return rt.wikiSvc.DeletePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID)
+		},
+	},
+	{
+		Name:        "update_wiki_page",
+		Description: "Replace a wiki page's content with a new OKF markdown document (frontmatter + body — start from get_wiki_page's output, edit it, and pass the whole thing back). Requires manager permissions and, for instructor/mentor, page ownership. The response includes possible_duplicates — other existing pages that look like they already cover this topic.",
+		Scope:       ScopeWikiWrite,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"page_id":  map[string]any{"type": "string"},
+				"markdown": map[string]any{"type": "string", "description": "A full OKF concept document: a YAML frontmatter block (--- ... ---) followed by the markdown body."},
+			},
+			"required": []string{"page_id", "markdown"},
+		},
+		TargetType: "wiki_page",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			pageID, err := argString(args, "page_id")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			return rt.wikiSvc.GetPage(ctx, id.OrgID, id.UserID, orgRole, pageID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			pageID, err := argString(args, "page_id")
+			if err != nil {
+				return nil, err
+			}
+			markdown, err := argString(args, "markdown")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			title, status, okfMeta, content, err := wiki.FromOKFMarkdown(markdown)
+			if err != nil {
+				return nil, fmt.Errorf("markdown must be a full OKF document (frontmatter + body), like get_wiki_page returns: %w", err)
+			}
+			stamped, err := wiki.StampGenerated(okfMeta, wiki.ActorMCP)
+			if err != nil {
+				return nil, err
+			}
+			req := wiki.UpdatePageRequest{Content: &content, Status: status, OKFMetadata: &stamped}
+			if title != "" {
+				req.Title = &title
+			}
+			saved, err := rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, pageID, req)
+			if err != nil {
+				return nil, err
+			}
+			return withDuplicateCheck(ctx, rt, id.OrgID, id.UserID, orgRole, saved), nil
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			var before wiki.PageDetail
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return err
+			}
+			content := before.Content
+			meta := before.OKFMetadata
+			_, err = rt.wikiSvc.UpdatePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID, wiki.UpdatePageRequest{
+				Title: &before.Title, Content: &content, Status: &before.Status, OKFMetadata: &meta,
+			})
+			return err
+		},
+	},
 }
+
+// wikiPageResult embeds wiki.Page so its fields (including "id") stay at
+// the JSON top level — extractTargetID's fallback reads result["id"] for
+// create_wiki_page/update_wiki_page, since neither tool's args are among
+// the special-cased id keys (action_log.go) — while adding the duplicate
+// check's own field alongside it.
+type wikiPageResult struct {
+	wiki.Page
+	PossibleDuplicates []wiki.SimilarPage `json:"possible_duplicates,omitempty"`
+}
+
+// withDuplicateCheck runs FindSimilarToPage against the just-saved page and
+// attaches the result, so create_wiki_page/update_wiki_page surface likely
+// duplicates in the same round trip instead of requiring a follow-up call
+// to find_similar_wiki_pages. A lookup failure here is logged away, not
+// fatal — the save itself already succeeded.
+func withDuplicateCheck(ctx context.Context, rt *Router, orgID, userID, orgRole string, p wiki.Page) any {
+	dupes, err := rt.wikiSvc.FindSimilarToPage(ctx, orgID, userID, orgRole, p.ID)
+	if err != nil {
+		return wikiPageResult{Page: p}
+	}
+	return wikiPageResult{Page: p, PossibleDuplicates: dupes}
+}
+
+// resolveOrgRole looks up the connected user's live org role — mcpIdentity
+// carries only OrgID/UserID (see mcp_auth.go), so wiki tools that gate on
+// role (admin/instructor/mentor vs. plain member) resolve it fresh here
+// rather than trusting a cached claim.
+func resolveOrgRole(ctx context.Context, rt *Router, id mcpIdentity) (string, error) {
+	role, ok := middleware.LiveOrgRole(ctx, rt.pool, id.UserID, id.OrgID)
+	if !ok {
+		return "", fmt.Errorf("mcpconnect: not an active member of this org")
+	}
+	return role, nil
+}
+
+func flattenWikiNodes(nodes []wiki.PageTreeNode) []wiki.PageTreeNode {
+	var out []wiki.PageTreeNode
+	for _, n := range nodes {
+		out = append(out, n)
+		out = append(out, flattenWikiNodes(n.Children)...)
+	}
+	return out
+}
+
+var okfLinkPattern = regexp.MustCompile(`\]\(([^)]+)\)`)
 
 // qualityFromBool maps the boolean grading a caller of mark_revision_result
 // has (right/wrong) onto an SM-2 quality grade: 2 ("Good") on a correct

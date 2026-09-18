@@ -33,9 +33,23 @@ func (p *AnthropicProvider) Available() bool {
 	return p.apiKey != ""
 }
 
+// Content is a string for a plain text message, or []anthropicContentBlock
+// when an image is attached — Anthropic's API accepts either shape.
 type anthropicMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
+}
+
+type anthropicContentBlock struct {
+	Type   string                `json:"type"`
+	Text   string                `json:"text,omitempty"`
+	Source *anthropicImageSource `json:"source,omitempty"`
+}
+
+type anthropicImageSource struct {
+	Type      string `json:"type"` // "base64"
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
 }
 
 type anthropicRequest struct {
@@ -72,12 +86,20 @@ func (p *AnthropicProvider) Complete(ctx context.Context, req CompletionRequest)
 		system += "\n\nYou must respond with valid JSON only. Do not include markdown code blocks or any text outside the JSON."
 	}
 
+	var content any = req.UserPrompt
+	if req.Image != nil {
+		content = []anthropicContentBlock{
+			{Type: "image", Source: &anthropicImageSource{Type: "base64", MediaType: req.Image.MediaType, Data: req.Image.Base64}},
+			{Type: "text", Text: req.UserPrompt},
+		}
+	}
+
 	body := anthropicRequest{
 		Model:     p.model,
 		MaxTokens: maxTokens,
 		System:    system,
 		Messages: []anthropicMessage{
-			{Role: "user", Content: req.UserPrompt},
+			{Role: "user", Content: content},
 		},
 	}
 

@@ -24,6 +24,18 @@ type CompletionRequest struct {
 	Temperature  float32
 	// JSONMode instructs the provider to return valid JSON only.
 	JSONMode bool
+	// Image, if set, attaches one image alongside UserPrompt as a vision
+	// input — used by the captures pipeline to have the model read a
+	// screenshot directly instead of running a separate OCR pass.
+	Image *ImageInput
+}
+
+// ImageInput is a single image attached to a CompletionRequest.
+type ImageInput struct {
+	// Base64 is the raw base64-encoded image bytes — no "data:" URL prefix.
+	Base64 string
+	// MediaType is the image's MIME type, e.g. "image/png", "image/jpeg".
+	MediaType string
 }
 
 // CompletionResponse carries the LLM response and token usage.

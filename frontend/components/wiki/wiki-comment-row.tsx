@@ -12,6 +12,7 @@ interface WikiCommentRowProps {
   currentUserId: string;
   canModerate: boolean;
   activeAction: CommentAction;
+  pending: boolean;
   onSetActiveAction: (action: CommentAction) => void;
   onSubmitReply: (parentId: string, content: string) => void;
   onSubmitEdit: (commentId: string, content: string) => void;
@@ -20,9 +21,11 @@ interface WikiCommentRowProps {
 
 /** Pure presentational row — no hooks of its own. Reply/edit "open" state and
  * form submission both live in the parent panel, kept to its 2-useState
- * budget by collapsing reply+edit into one `activeAction` value. */
+ * budget by collapsing reply+edit into one `activeAction` value; `pending`
+ * (a third value, not a third hook) disables every action here while any
+ * comment mutation in the thread is in flight. */
 export function WikiCommentRow({
-  comment, isReply, currentUserId, canModerate, activeAction, onSetActiveAction,
+  comment, isReply, currentUserId, canModerate, activeAction, pending, onSetActiveAction,
   onSubmitReply, onSubmitEdit, onDelete,
 }: WikiCommentRowProps) {
   const isOwn = comment.author_id === currentUserId;
@@ -33,6 +36,7 @@ export function WikiCommentRow({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>, mode: "reply" | "edit") {
     e.preventDefault();
+    if (pending) return;
     const content = (new FormData(e.currentTarget).get("content") as string)?.trim();
     if (!content) return;
     if (mode === "reply") onSubmitReply(comment.id, content);
@@ -45,10 +49,10 @@ export function WikiCommentRow({
       <div className="rounded-lg border border-border bg-card p-3 text-sm">
         {isEditing ? (
           <form className="form-stack" onSubmit={(e) => handleSubmit(e, "edit")}>
-            <Textarea autoFocus defaultValue={comment.content} name="content" rows={2} />
+            <Textarea autoFocus defaultValue={comment.content} disabled={pending} name="content" rows={2} />
             <div className="flex gap-2">
-              <Button size="sm" type="submit">Save</Button>
-              <Button size="sm" type="button" variant="outline" onClick={() => onSetActiveAction(null)}>Cancel</Button>
+              <Button disabled={pending} size="sm" type="submit">{pending ? "Saving…" : "Save"}</Button>
+              <Button disabled={pending} size="sm" type="button" variant="outline" onClick={() => onSetActiveAction(null)}>Cancel</Button>
             </div>
           </form>
         ) : (
@@ -59,17 +63,17 @@ export function WikiCommentRow({
           <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
             <span>{new Date(comment.created_at).toLocaleString()}</span>
             {!isReply && !comment.deleted && (
-              <button className="hover:text-foreground" type="button" onClick={() => onSetActiveAction(isReplying ? null : { type: "reply", id: comment.id })}>
+              <button className="hover:text-foreground disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" onClick={() => onSetActiveAction(isReplying ? null : { type: "reply", id: comment.id })}>
                 Reply
               </button>
             )}
             {canEdit && (
-              <button className="hover:text-foreground" type="button" onClick={() => onSetActiveAction({ type: "edit", id: comment.id })}>
+              <button className="hover:text-foreground disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" onClick={() => onSetActiveAction({ type: "edit", id: comment.id })}>
                 Edit
               </button>
             )}
             {canDelete && (
-              <button className="hover:text-destructive" type="button" onClick={() => onDelete(comment.id)}>
+              <button className="hover:text-destructive disabled:pointer-events-none disabled:opacity-50" disabled={pending} type="button" onClick={() => onDelete(comment.id)}>
                 Delete
               </button>
             )}
@@ -79,10 +83,10 @@ export function WikiCommentRow({
 
       {isReplying && (
         <form className="ml-4 mt-2 form-stack" onSubmit={(e) => handleSubmit(e, "reply")}>
-          <Textarea autoFocus name="content" placeholder="Write a reply…" rows={2} />
+          <Textarea autoFocus disabled={pending} name="content" placeholder="Write a reply…" rows={2} />
           <div className="flex gap-2">
-            <Button size="sm" type="submit">Reply</Button>
-            <Button size="sm" type="button" variant="outline" onClick={() => onSetActiveAction(null)}>Cancel</Button>
+            <Button disabled={pending} size="sm" type="submit">{pending ? "Posting…" : "Reply"}</Button>
+            <Button disabled={pending} size="sm" type="button" variant="outline" onClick={() => onSetActiveAction(null)}>Cancel</Button>
           </div>
         </form>
       )}

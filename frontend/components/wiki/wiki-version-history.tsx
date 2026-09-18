@@ -63,7 +63,7 @@ export function WikiVersionHistory({ pageId, canRestore }: WikiVersionHistoryPro
               {canRestore && (
                 <Button
                   className="shrink-0"
-                  disabled={restoringVersion === v.version}
+                  disabled={restoringVersion !== null}
                   size="sm"
                   variant="ghost"
                   onClick={() => void handleRestore(v.version)}

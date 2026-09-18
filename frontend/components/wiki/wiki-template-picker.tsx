@@ -14,6 +14,7 @@ export function WikiTemplatePicker({ templates, selected, onSelect }: WikiTempla
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       <button
+        aria-pressed={selected === null}
         className={cn(
           "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center text-xs transition-colors duration-fast",
           selected === null ? "border-primary bg-muted" : "border-border hover:bg-muted",
@@ -26,6 +27,7 @@ export function WikiTemplatePicker({ templates, selected, onSelect }: WikiTempla
       </button>
       {templates.map((t) => (
         <button
+          aria-pressed={selected === t.id}
           className={cn(
             "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center text-xs transition-colors duration-fast",
             selected === t.id ? "border-primary bg-muted" : "border-border hover:bg-muted",

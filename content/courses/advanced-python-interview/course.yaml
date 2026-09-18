@@ -1,0 +1,17 @@
+title: "Advanced Python for Senior Interviews"
+description: >-
+  54 deep-dive concepts that separate senior Python engineers from mid-level
+  developers: CPython internals and memory management, the GIL, threading vs
+  multiprocessing vs asyncio, full OOP (encapsulation, ABCs, MRO,
+  polymorphism, the data model), iterators/generators, serialization,
+  metaclasses, context managers, weak references, decorators, dataclasses,
+  functools, descriptors, and advanced typing (protocols & generics). Every
+  lesson ships runnable "Try it Yourself" Python code boxes.
+difficulty: advanced
+tags:
+  - python
+  - interview-prep
+  - concurrency
+  - memory-management
+  - advanced
+is_free: true

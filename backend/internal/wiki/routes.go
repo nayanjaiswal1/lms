@@ -44,6 +44,13 @@ func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
 		r.Delete("/api/wiki/pages/{id}", rt.handler.DeletePage)
 		r.Post("/api/wiki/pages/{id}/move", rt.handler.MovePage)
 
+		// OKF (github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
+		// export/import — same pages, same RBAC, a markdown+frontmatter
+		// representation instead of raw TipTap JSON.
+		r.Get("/api/wiki/pages/{id}/okf", rt.handler.GetPageOKF)
+		r.Put("/api/wiki/pages/{id}/okf", rt.handler.UpdatePageOKF)
+		r.Get("/api/wiki/spaces/{slug}/okf", rt.handler.GetSpaceOKF)
+
 		r.Get("/api/wiki/pages/{id}/versions", rt.handler.ListVersions)
 		r.Get("/api/wiki/pages/{id}/versions/{version}", rt.handler.GetVersion)
 		r.Post("/api/wiki/pages/{id}/versions/{version}/restore", rt.handler.RestoreVersion)

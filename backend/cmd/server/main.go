@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/api"
 	"github.com/mindforge/backend/internal/assessment"
+	"github.com/mindforge/backend/internal/captures"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/courses"
 	idb "github.com/mindforge/backend/internal/db"
@@ -258,6 +259,9 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerProjectmarketCloseExpired, handlers.NewProjectmarketCloseExpiredHandler(projectmarketSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerDigestNightly, handlers.NewDigestNightlyHandler(pool))
 	jobsRegistry.Register(handlers.HandlerDigestUser, handlers.NewDigestUserHandler(pool, aiProvider, cfg, jobsRegistry))
+	// Knowledge Captures — extract + AI-structure a screenshot/PDF/link into
+	// a journal note or SRS flashcard candidate (internal/captures).
+	jobsRegistry.Register(handlers.HandlerCapturesProcess, handlers.NewCapturesProcessHandler(captures.NewProcessor(pool, storageClient, aiProvider, cfg)))
 
 	cronDefs := []jobs.CronJobDef{
 		// srs.review_reminder's standalone "Cards due for review" email was

@@ -1,7 +1,10 @@
 package wiki
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -10,6 +13,10 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
 )
+
+// maxOKFBodyBytes caps an OKF markdown PUT body — a wiki page is prose, not
+// a bulk upload; this is generous headroom over any realistic page size.
+const maxOKFBodyBytes = 5 << 20 // 5 MiB
 
 type Handler struct {
 	service *Service
@@ -371,6 +378,77 @@ func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+}
+
+// ─── OKF export/import ────────────────────────────────────────────────────────
+
+func (h *Handler) GetPageOKF(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	md, err := h.service.GetPageOKF(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(md))
+}
+
+func (h *Handler) UpdatePageOKF(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxOKFBodyBytes))
+	if err != nil {
+		httputil.WriteError(w, http.StatusBadRequest, "Could not read request body.")
+		return
+	}
+	p, err := h.service.UpdatePageOKF(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), string(body))
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, p)
+}
+
+func (h *Handler) GetSpaceOKF(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	slug := chi.URLParam(r, "slug")
+	files, err := h.service.GetSpaceOKFBundle(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, slug)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, content := range files {
+		fw, err := zw.Create(name)
+		if err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Could not build bundle.")
+			return
+		}
+		if _, err := fw.Write([]byte(content)); err != nil {
+			httputil.WriteError(w, http.StatusInternalServerError, "Could not build bundle.")
+			return
+		}
+	}
+	if err := zw.Close(); err != nil {
+		httputil.WriteError(w, http.StatusInternalServerError, "Could not build bundle.")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+slug+`-okf.zip"`)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(buf.Bytes())
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────

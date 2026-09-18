@@ -14,6 +14,7 @@ import (
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/calendar"
+	"github.com/mindforge/backend/internal/captures"
 	"github.com/mindforge/backend/internal/certificates"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/coupons"
@@ -64,6 +65,7 @@ import (
 	"github.com/mindforge/backend/internal/tickets"
 	"github.com/mindforge/backend/internal/useroverview"
 	"github.com/mindforge/backend/internal/whatnow"
+	"github.com/mindforge/backend/internal/whatsnew"
 	"github.com/mindforge/backend/internal/wiki"
 	"github.com/redis/go-redis/v9"
 )
@@ -187,6 +189,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	mistakesRouter := mistakes.NewHandler(mistakesRepo, mistakesSvc)
 	sheetsRouter := sheets.New(pool)
 	journalRouter := journal.New(pool, aiProvider)
+	capturesRouter := captures.New(pool, store, jobsRegistry)
 	// Digital Diary — one free-form prose entry per day; AI analysis writes
 	// detected habit/task mentions into the existing habit/whatnow domains
 	// rather than owning duplicate data (see internal/diary/service.go).
@@ -212,6 +215,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	entitlementsRouter := entitlements.New(pool, cfg.DefaultOrgID)
 	featuresRouter := features.New(pool, entitlementsRouter.Service)
 	pricingRouter := pricing.New(pool)
+	whatsNewRouter := whatsnew.New(pool)
 	roadmapRouter := roadmap.New(pool, jobsRegistry)
 	revisionPlanRouter := revisionplan.New(pool, jobsRegistry)
 
@@ -426,6 +430,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// learned, under a free-typed category.
 		journalRouter.RegisterRoutes(r, authzHandler.Service())
 
+		// Knowledge Captures — screenshot/PDF/link inbox: extract, AI-classify
+		// as a note or drillable question, dedup against the journal/SRS
+		// cards, promote on review. See docs/captures.md.
+		capturesRouter.RegisterRoutes(r, authzHandler.Service())
+
 		// Digital Diary — one free-form "Today" prose entry per day, with
 		// AI-detected habit/task mentions and an on-demand Fix English
 		// grammar review.
@@ -481,6 +490,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Pricing — platform admin (super_admin) edits the marketing pricing
 		// tiers shown on the / and /org landing pages.
 		pricingRouter.RegisterPlatformRoutes(r)
+
+		// What's new — sidebar changelog feed (any authenticated user) plus the
+		// platform admin's (super_admin) entry editor at /platform/whats-new.
+		whatsNewRouter.RegisterRoutes(r)
+		whatsNewRouter.RegisterPlatformRoutes(r)
 
 		// RBAC — permission catalogue, role CRUD, user-role assignment, audit log.
 		authzHandler.RegisterRoutes(r)

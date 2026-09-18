@@ -86,7 +86,9 @@ export function WikiTreeNode({
         </Link>
 
         {canManage && (
-          <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+          // Always rendered, not group-hover-gated — hover has no equivalent
+          // on touch devices, which would make these controls unreachable there.
+          <div className="flex shrink-0 items-center gap-0.5">
             {index > 0 && (
               <button aria-label="Move up" className="touch-target h-5 w-5 p-0 text-muted-foreground hover:text-foreground" type="button" onClick={() => void reorder("up")}>
                 <ChevronUp aria-hidden className="h-3.5 w-3.5" />

@@ -23,6 +23,13 @@ const (
 	ScopeSheets         = "sheets:manage"
 	ScopeJournal        = "journal:manage"
 	ScopeHabits         = "habits:manage"
+	// ScopeWikiRead/ScopeWikiWrite are split rather than one combined scope
+	// (unlike ScopeSheets/ScopeCalendarManage) because a wiki page is
+	// org-shared content, not private to the connected user — granting
+	// write access lets an agent change what the rest of the org sees, a
+	// materially bigger blast radius than the private-data scopes above.
+	ScopeWikiRead  = "wiki:read"
+	ScopeWikiWrite = "wiki:write"
 )
 
 // AllScopes is the full set offered on the consent screen — this MVP grants
@@ -34,7 +41,7 @@ const (
 // same one-combined-scope shape again: every sheets tool only ever reads/writes
 // sheets the connection's own user owns or subscribes to, or that user's own
 // cross-sheet problem progress.
-var AllScopes = []string{ScopeCoursesRead, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits}
+var AllScopes = []string{ScopeCoursesRead, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits, ScopeWikiRead, ScopeWikiWrite}
 
 // ScopeDescriptions is shown on the consent screen, keyed by scope.
 var ScopeDescriptions = map[string]string{
@@ -47,11 +54,13 @@ var ScopeDescriptions = map[string]string{
 	ScopeSheets:         "View and manage your problem-sheet trackers, items, and cross-sheet solve progress",
 	ScopeJournal:        "View, add, edit, and delete entries in your personal learning journal",
 	ScopeHabits:         "View, create, edit, and delete your habits, and check off completions",
+	ScopeWikiRead:       "Read your org's wiki spaces and pages, and the links between them",
+	ScopeWikiWrite:      "Create and edit pages in your org's wiki",
 }
 
 func validScope(s string) bool {
 	switch s {
-	case ScopeCoursesRead, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits:
+	case ScopeCoursesRead, ScopeNotesWrite, ScopeSignals, ScopeCalendarManage, ScopeInterviewPrep, ScopeSystemDesign, ScopeSheets, ScopeJournal, ScopeHabits, ScopeWikiRead, ScopeWikiWrite:
 		return true
 	default:
 		return false

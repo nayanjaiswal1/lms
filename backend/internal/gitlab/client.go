@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,53 +41,9 @@ func NewClient(baseURL, token string) *Client {
 		token:   token,
 		http: &http.Client{
 			Timeout:   15 * time.Second,
-			Transport: guardedTransport(),
+			Transport: netguard.GuardedTransport(15 * time.Second),
 		},
 	}
-}
-
-// guardedTransport returns an http.Transport whose DialContext rejects any
-// address that resolves to a denylisted IP (see internal/netguard) before
-// the connection is made — the dial-time half of this app's SSRF defense.
-func guardedTransport() *http.Transport {
-	dialer := &net.Dialer{Timeout: 15 * time.Second}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, fmt.Errorf("gitlab: parse dial address %q: %w", addr, err)
-		}
-		if ip := net.ParseIP(host); ip != nil {
-			if netguard.IsDenylisted(ip) {
-				return nil, fmt.Errorf("gitlab: refusing to dial denylisted address %s", host)
-			}
-			return dialer.DialContext(ctx, network, addr)
-		}
-		// addr's host is still a hostname (net/http resolves via DialContext
-		// itself rather than pre-resolving) — resolve it here so every IP it
-		// could connect to is checked, then dial that specific IP directly
-		// rather than re-resolving (which could yield a different, unchecked
-		// answer under DNS rebinding).
-		ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
-		if err != nil {
-			return nil, fmt.Errorf("gitlab: resolve %q: %w", host, err)
-		}
-		for _, ip := range ips {
-			if netguard.IsDenylisted(ip) {
-				continue
-			}
-			conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
-			if dialErr == nil {
-				return conn, nil
-			}
-			err = dialErr
-		}
-		if err == nil {
-			err = fmt.Errorf("gitlab: all resolved addresses for %q are denylisted", host)
-		}
-		return nil, fmt.Errorf("gitlab: dial %q: %w", host, err)
-	}
-	return transport
 }
 
 // APIError is returned for any non-2xx GitLab API response. RetryAfter is

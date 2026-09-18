@@ -12,6 +12,10 @@ func (n *NoopClient) Upload(_ context.Context, key, _ string, _ io.Reader, _ int
 	return "https://test-storage/" + key, nil
 }
 
+func (n *NoopClient) Download(_ context.Context, _ string) ([]byte, error) {
+	return nil, ErrStorageUnavailable
+}
+
 func (n *NoopClient) Delete(_ context.Context, _ string) error {
 	return nil
 }

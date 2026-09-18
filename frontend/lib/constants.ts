@@ -258,6 +258,35 @@ export const ASSESSMENT_DIFFICULTY_OPTIONS = [
   { label: "Expert",       value: ASSESSMENT_DIFFICULTY.EXPERT },
 ] as const;
 
+// ─────────────────────────────────────────────
+
+// Mirrors whats_new_entries_icon_check (backend/db/migrations/032_whats_new.sql)
+// and AllowedIcons (backend/internal/whatsnew/models.go) — the fixed icon set
+// WHATS_NEW_ICON_MAP (lib/whats-new.ts) can render, so an admin can't pick an
+// icon the sidebar panel doesn't ship.
+export const WHATS_NEW_ICON = {
+  SPARKLES:        "sparkles",
+  BOOK_OPEN_CHECK: "book-open-check",
+  LIST_CHECKS:     "list-checks",
+  SHIELD_CHECK:    "shield-check",
+  ROCKET:          "rocket",
+  MEGAPHONE:       "megaphone",
+  ZAP:             "zap",
+  STAR:            "star",
+} as const;
+export type WhatsNewIcon = (typeof WHATS_NEW_ICON)[keyof typeof WHATS_NEW_ICON];
+
+export const WHATS_NEW_ICON_OPTIONS = [
+  { label: "Sparkles",  value: WHATS_NEW_ICON.SPARKLES },
+  { label: "Book",      value: WHATS_NEW_ICON.BOOK_OPEN_CHECK },
+  { label: "Checklist", value: WHATS_NEW_ICON.LIST_CHECKS },
+  { label: "Shield",    value: WHATS_NEW_ICON.SHIELD_CHECK },
+  { label: "Rocket",    value: WHATS_NEW_ICON.ROCKET },
+  { label: "Megaphone", value: WHATS_NEW_ICON.MEGAPHONE },
+  { label: "Lightning", value: WHATS_NEW_ICON.ZAP },
+  { label: "Star",      value: WHATS_NEW_ICON.STAR },
+] as const;
+
 export const ASSESSMENT_STATUS = {
   DRAFT:     "draft",
   PUBLISHED: "published",
