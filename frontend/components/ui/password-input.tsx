@@ -19,20 +19,20 @@ function PasswordInput({
   return (
     <div className="relative">
       <Input
+        className={cn("pr-11", className)}
         ref={ref}
         type={visible ? "text" : "password"}
-        className={cn("pr-11", className)}
         {...props}
       />
       <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        tabIndex={-1}
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
-        onClick={() => setVisible((current) => !current)}
         className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        size="icon"
+        tabIndex={-1}
+        type="button"
+        variant="ghost"
+        onClick={() => setVisible((current) => !current)}
       >
         {visible ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
       </Button>

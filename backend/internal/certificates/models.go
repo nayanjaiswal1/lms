@@ -38,14 +38,14 @@ type FinalTest struct {
 
 // Attempt is one learner's graded submission.
 type Attempt struct {
-	ID             string          `json:"id"`
-	UserID         string          `json:"user_id"`
-	AssessmentID   string          `json:"assessment_id"`
-	Answers        json.RawMessage `json:"answers"`
-	Score          int             `json:"score"`
-	Total          int             `json:"total"`
-	Passed         bool            `json:"passed"`
-	CompletedAt    time.Time       `json:"completed_at"`
+	ID           string          `json:"id"`
+	UserID       string          `json:"user_id"`
+	AssessmentID string          `json:"assessment_id"`
+	Answers      json.RawMessage `json:"answers"`
+	Score        int             `json:"score"`
+	Total        int             `json:"total"`
+	Passed       bool            `json:"passed"`
+	CompletedAt  time.Time       `json:"completed_at"`
 }
 
 // Certificate issue-type values — how a given row came to exist.
@@ -59,14 +59,14 @@ const (
 // completion — via a passed final test, a mentor's manual award, or a
 // crossed completion threshold (see IssueType).
 type Certificate struct {
-	ID                 string    `json:"id"`
-	UserID             string    `json:"user_id"`
-	CourseID           string    `json:"course_id"`
+	ID                  string    `json:"id"`
+	UserID              string    `json:"user_id"`
+	CourseID            string    `json:"course_id"`
 	AssessmentAttemptID *string   `json:"assessment_attempt_id,omitempty"`
-	IssuedAt           time.Time `json:"issued_at"`
-	CertUUID           string    `json:"cert_uuid"`
-	IssueType          string    `json:"issue_type"`
-	IssuedBy           *string   `json:"issued_by,omitempty"`
+	IssuedAt            time.Time `json:"issued_at"`
+	CertUUID            string    `json:"cert_uuid"`
+	IssueType           string    `json:"issue_type"`
+	IssuedBy            *string   `json:"issued_by,omitempty"`
 }
 
 // CertificateView is what the "my certificates" list and the public

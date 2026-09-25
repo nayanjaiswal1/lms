@@ -78,9 +78,9 @@ export function GitlabConnectionManager({ connection, installationConnected }: G
           </div>
           <Button
             className="touch-target"
-            onClick={handleDisconnect}
             size="sm"
             variant="outline"
+            onClick={handleDisconnect}
           >
             Disconnect
           </Button>

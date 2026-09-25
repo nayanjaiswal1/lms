@@ -1,5 +1,5 @@
 import { QuadrantCard } from "@/components/gitlab-planning/quadrant-card";
-import type { AeQuadrant } from "@/lib/gitlab-planning/types";
+import type { AeQuadrant } from "@/lib/server/gitlab-planning";
 
 interface EisenhowerMatrixProps {
   quadrants: AeQuadrant[];
@@ -24,10 +24,10 @@ export function EisenhowerMatrix({ quadrants, selectedTaskId }: EisenhowerMatrix
 
       <div className="relative sm:pb-6 sm:pl-8 sm:pr-6 sm:pt-5">
         {/* Axes — sm+ only; the touch layout drops them for room */}
-        <div className="hidden sm:block" aria-hidden>
+        <div aria-hidden className="hidden sm:block">
           <div className={`${AXIS_LABEL} left-1/2 top-0 -translate-x-1/2`}>Important</div>
-          <div className={`${AXIS_LABEL} left-0 top-1/2 -translate-y-1/2 -rotate-90`}>Can Wait</div>
-          <div className={`${AXIS_LABEL} right-0 top-1/2 -translate-y-1/2 rotate-90`}>Urgent</div>
+          <div className={`${AXIS_LABEL} left-3 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90`}>Can Wait</div>
+          <div className={`${AXIS_LABEL} right-3 top-1/2 translate-x-1/2 -translate-y-1/2 rotate-90`}>Urgent</div>
           <div className={`${AXIS_LABEL} bottom-0 left-1/2 -translate-x-1/2`}>Unimportant</div>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="relative flex h-px w-full items-center justify-between bg-(--ae-line-strong)">

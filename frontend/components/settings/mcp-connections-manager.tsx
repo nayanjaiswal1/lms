@@ -124,14 +124,14 @@ Note: this URL only works from an app running on this same machine (Claude Deskt
         <p className="text-xs font-semibold text-ai">Connector URL</p>
         <div className="flex items-center gap-2">
           <code className="flex-1 truncate rounded-md bg-background px-3 py-2 text-xs">{connectorUrl}</code>
-          <Button aria-label="Copy connector URL" className="touch-target" onClick={copyConnectorUrl} size="icon" variant="outline">
+          <Button aria-label="Copy connector URL" className="touch-target" size="icon" variant="outline" onClick={copyConnectorUrl}>
             <Copy aria-hidden className="h-4 w-4" />
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
           Paste this into your client&apos;s connector settings (e.g. Claude.ai → Settings → Connectors → Add custom connector). You&apos;ll be asked to sign in and approve access here before it can connect.
         </p>
-        <Button className="w-full sm:w-auto" onClick={copySetupGuide} size="sm" variant="outline">
+        <Button className="w-full sm:w-auto" size="sm" variant="outline" onClick={copySetupGuide}>
           <ClipboardList aria-hidden className="mr-2 h-3.5 w-3.5" />
           Copy setup guide
         </Button>

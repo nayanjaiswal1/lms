@@ -9,7 +9,6 @@ import type { CalendarEvent } from "@/lib/calendar/types";
 
 interface TimeBlocksDashboardProps {
   events: CalendarEvent[];
-  currentUserId: string;
   onEventClick: (eventId: string) => void;
 }
 
@@ -49,7 +48,7 @@ function formatDateTime(date: Date): string {
   return `${month} ${day}, ${hours}:${minutes}`;
 }
 
-export function TimeBlocksDashboard({ events, currentUserId, onEventClick }: TimeBlocksDashboardProps) {
+export function TimeBlocksDashboard({ events, onEventClick }: TimeBlocksDashboardProps) {
   const [filter, setFilter] = React.useState<FilterType>("all");
 
   const filtered = events.filter((event) => {
@@ -136,11 +135,11 @@ export function TimeBlocksDashboard({ events, currentUserId, onEventClick }: Tim
         <div className="flex flex-wrap gap-2">
           {(["all", "tasks", "events", "today", "overdue"] as const).map((f) => (
             <Button
+              className="text-xs capitalize"
               key={f}
               size="sm"
               variant={filter === f ? "default" : "outline"}
               onClick={() => setFilter(f)}
-              className="text-xs capitalize"
             >
               {f === "tasks" ? "Tasks only" : f === "events" ? "Events only" : f === "today" ? "Today" : f === "overdue" ? "Overdue" : "All"}
             </Button>
@@ -167,9 +166,9 @@ export function TimeBlocksDashboard({ events, currentUserId, onEventClick }: Tim
 
             return (
               <button
+                className="group flex w-full items-start gap-3 rounded-lg border border-border/50 bg-card p-3.5 text-left transition-colors hover:bg-muted/50 hover:border-border"
                 key={event.id}
                 onClick={() => onEventClick(event.id)}
-                className="group flex w-full items-start gap-3 rounded-lg border border-border/50 bg-card p-3.5 text-left transition-colors hover:bg-muted/50 hover:border-border"
               >
                 {/* Status indicator */}
                 <div className="mt-0.5 flex-shrink-0">
@@ -201,17 +200,17 @@ export function TimeBlocksDashboard({ events, currentUserId, onEventClick }: Tim
                         </Badge>
                       )}
                       {isOv && (
-                        <Badge variant="destructive" className="text-xs">
+                        <Badge className="text-xs" variant="destructive">
                           Overdue
                         </Badge>
                       )}
                       {isCompleted && (
-                        <Badge variant="outline" className="text-xs">
+                        <Badge className="text-xs" variant="outline">
                           Done
                         </Badge>
                       )}
                       {!isTask && (
-                        <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                        <Badge className="text-xs whitespace-nowrap" variant="secondary">
                           {duration}
                         </Badge>
                       )}

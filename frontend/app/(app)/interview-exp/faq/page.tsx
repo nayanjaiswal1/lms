@@ -34,7 +34,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   return (
     <div className="flex items-center gap-3">
       <div className="progress-track w-full max-w-xs">
-        {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+        { }
         <div className="progress-fill progress-fill-success" style={{ "--progress": `${pct}%` } as React.CSSProperties} />
       </div>
       <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">

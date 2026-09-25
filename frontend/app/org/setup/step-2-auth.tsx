@@ -51,7 +51,7 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
       </div>
 
       {state.error && (
-        <p role="alert" className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive">
+        <p className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive" role="alert">
           {state.error}
         </p>
       )}
@@ -60,11 +60,11 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="allowed_domains">Allowed email domains</Label>
         <Input
+          disabled={isPending}
           id="allowed_domains"
+          placeholder="example.com, company.org"
           value={domainInput}
           onChange={(e) => setDomainInput(e.target.value)}
-          placeholder="example.com, company.org"
-          disabled={isPending}
         />
         <p className="text-xs text-muted-foreground">
           Comma-separated. Only users with these email domains can join. Leave blank to allow any email.
@@ -77,20 +77,20 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
       {/* SSO toggle */}
       <div className="flex items-start gap-3 rounded-lg border border-border p-4">
         <Checkbox
-          id="sso_enabled"
           checked={ssoEnabled}
-          onCheckedChange={(checked) => setSsoEnabled(checked === true)}
-          disabled={isPending}
           className="mt-0.5"
+          disabled={isPending}
+          id="sso_enabled"
+          onCheckedChange={(checked) => setSsoEnabled(checked === true)}
         />
         <div className="flex flex-col gap-0.5">
-          <Label htmlFor="sso_enabled" className="cursor-pointer font-medium">
+          <Label className="cursor-pointer font-medium" htmlFor="sso_enabled">
             Enable Single Sign-On (SSO)
           </Label>
           <p className="text-xs text-muted-foreground">
             Require members to authenticate via your identity provider. SSO
             provider details can be configured in{" "}
-            <Link href={ROUTES.ORG_SETTINGS_AUTH} className="underline underline-offset-4">
+            <Link className="underline underline-offset-4" href={ROUTES.ORG_SETTINGS_AUTH}>
               authentication settings
             </Link>{" "}
             after setup.
@@ -100,11 +100,11 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
 
       <div className="flex items-center justify-between pt-2">
         <Button
+          asChild
+          className="gap-2"
+          disabled={isPending}
           type="button"
           variant="outline"
-          disabled={isPending}
-          className="gap-2"
-          asChild
         >
           <Link href={`${ROUTES.ORG_SETUP}?step=1`}>
             <ArrowLeft aria-hidden className="h-4 w-4" />
@@ -112,7 +112,7 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
           </Link>
         </Button>
 
-        <Button type="submit" disabled={isPending} className="gap-2">
+        <Button className="gap-2" disabled={isPending} type="submit">
           {isPending ? (
             <>
               <Loader2 aria-hidden className="animate-spin" />

@@ -77,7 +77,7 @@ export function CreateOrgForm() {
     <Form {...form}>
       <form noValidate className="form-stack" onSubmit={onSubmit}>
         {state.error && (
-          <p role="alert" className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive">
+          <p className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive" role="alert">
             {state.error}
           </p>
         )}
@@ -91,9 +91,9 @@ export function CreateOrgForm() {
               <FormLabel>Organization name</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="Acme Corp"
-                  maxLength={100}
                   disabled={isPending}
+                  maxLength={100}
+                  placeholder="Acme Corp"
                   {...field}
                   onChange={(e) => {
                     field.onChange(e);
@@ -111,11 +111,11 @@ export function CreateOrgForm() {
         {/* Slug */}
         <FormInputField
           control={form.control}
-          name="slug"
-          label="Slug"
-          placeholder="acme-corp"
-          maxLength={63}
           disabled={isPending}
+          label="Slug"
+          maxLength={63}
+          name="slug"
+          placeholder="acme-corp"
           serverError={state.fieldErrors?.slug}
         />
         <p className="text-xs text-muted-foreground -mt-2">
@@ -131,10 +131,10 @@ export function CreateOrgForm() {
               <FormLabel>Description <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="What does your organization do?"
-                  maxLength={500}
-                  rows={3}
                   disabled={isPending}
+                  maxLength={500}
+                  placeholder="What does your organization do?"
+                  rows={3}
                   {...field}
                 />
               </FormControl>
@@ -146,14 +146,14 @@ export function CreateOrgForm() {
 
         {/* Hidden idempotency key */}
         <input
-          id={idempotencyId}
-          type="hidden"
-          name="idempotency_key"
-          value={idempotencyKeyRef.current}
           readOnly
+          id={idempotencyId}
+          name="idempotency_key"
+          type="hidden"
+          value={idempotencyKeyRef.current}
         />
 
-        <Button type="submit" disabled={isPending} className="w-full">
+        <Button className="w-full" disabled={isPending} type="submit">
           {isPending ? (
             <>
               <Loader2 aria-hidden className="animate-spin" />

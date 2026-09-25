@@ -23,14 +23,14 @@ const (
 
 // CaseResult is the outcome of running one test case.
 type CaseResult struct {
-	CaseID   string  `json:"case_id"`
-	Passed   bool    `json:"passed"`
-	Hidden   bool    `json:"hidden"`
-	Weight   float64 `json:"weight"`
-	Stdout   string  `json:"stdout,omitempty"`   // omitted for hidden cases by the caller
-	Stderr   string  `json:"stderr,omitempty"`
-	Status   string  `json:"status"`             // accepted | wrong_answer | runtime_error | compile_error | tle
-	RuntimeMs int    `json:"runtime_ms"`
+	CaseID    string  `json:"case_id"`
+	Passed    bool    `json:"passed"`
+	Hidden    bool    `json:"hidden"`
+	Weight    float64 `json:"weight"`
+	Stdout    string  `json:"stdout,omitempty"` // omitted for hidden cases by the caller
+	Stderr    string  `json:"stderr,omitempty"`
+	Status    string  `json:"status"` // accepted | wrong_answer | runtime_error | compile_error | tle
+	RuntimeMs int     `json:"runtime_ms"`
 }
 
 // RunResult aggregates a full execution across all test cases.
@@ -333,9 +333,9 @@ type pistonRunOutput struct {
 }
 
 type pistonResponse struct {
-	Language string          `json:"language"`
-	Version  string          `json:"version"`
-	Run      pistonRunOutput `json:"run"`
+	Language string           `json:"language"`
+	Version  string           `json:"version"`
+	Run      pistonRunOutput  `json:"run"`
 	Compile  *pistonRunOutput `json:"compile,omitempty"`
 }
 

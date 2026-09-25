@@ -49,7 +49,7 @@ export function WikiNewSpaceDialog({ open, onClose }: WikiNewSpaceDialogProps) {
           <DialogTitle>New space</DialogTitle>
         </DialogHeader>
         <form className="form-stack" onSubmit={handleSubmit}>
-          <Input autoFocus required name="name" placeholder="Space name" />
+          <Input required name="name" placeholder="Space name" />
           <Textarea name="description" placeholder="What's this space for? (optional)" rows={3} />
           <DialogFooter>
             <Button disabled={pending} type="button" variant="outline" onClick={onClose}>Cancel</Button>

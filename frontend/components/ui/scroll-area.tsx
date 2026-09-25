@@ -11,8 +11,8 @@ function ScrollArea({
 }: React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>) {
   return (
     <ScrollAreaPrimitive.Root
-      data-slot="scroll-area"
       className={cn("relative overflow-hidden", className)}
+      data-slot="scroll-area"
       {...props}
     >
       <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
@@ -31,8 +31,6 @@ function ScrollBar({
 }: React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>) {
   return (
     <ScrollAreaPrimitive.ScrollAreaScrollbar
-      data-slot="scroll-area-scrollbar"
-      orientation={orientation}
       className={cn(
         "flex touch-none select-none transition-colors",
         orientation === "vertical" &&
@@ -41,11 +39,13 @@ function ScrollBar({
           "h-2.5 flex-col border-t border-t-transparent p-px",
         className,
       )}
+      data-slot="scroll-area-scrollbar"
+      orientation={orientation}
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
-        data-slot="scroll-area-thumb"
         className="relative flex-1 rounded-full bg-border"
+        data-slot="scroll-area-thumb"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   )

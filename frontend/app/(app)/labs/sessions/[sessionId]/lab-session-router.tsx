@@ -13,8 +13,8 @@ export function LabSessionRouter({ sessionId }: LabSessionRouterProps) {
   return (
     <LabReadinessWait
       sessionId={sessionId}
-      onReady={() => router.refresh()}
       onFailed={() => router.refresh()}
+      onReady={() => router.refresh()}
     />
   )
 }

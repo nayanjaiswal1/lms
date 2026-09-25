@@ -45,8 +45,8 @@ export function OrgTypeCard({ orgId, orgType }: OrgTypeCardProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1 space-y-1.5">
           <Label htmlFor="org-type">Type</Label>
-          <Select onValueChange={setValue} value={value || undefined}>
-            <SelectTrigger id="org-type" aria-label="Select organisation type" className="w-full sm:w-64">
+          <Select value={value || undefined} onValueChange={setValue}>
+            <SelectTrigger aria-label="Select organisation type" className="w-full sm:w-64" id="org-type">
               <SelectValue placeholder="Select a type…" />
             </SelectTrigger>
             <SelectContent>
@@ -58,7 +58,7 @@ export function OrgTypeCard({ orgId, orgType }: OrgTypeCardProps) {
             </SelectContent>
           </Select>
         </div>
-        <Button disabled={isPending || !value || value === orgType} onClick={onSave} type="button">
+        <Button disabled={isPending || !value || value === orgType} type="button" onClick={onSave}>
           {isPending ? "Saving…" : "Save"}
         </Button>
       </div>

@@ -126,13 +126,13 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         <div className="flex gap-1 text-xs">
           {(["upload", "url"] as const).map((t) => (
             <button
-              key={t}
-              type="button"
-              onClick={() => setCoverTab(t)}
               className={cn(
                 "flex items-center gap-1 rounded px-2 py-1 transition-colors",
                 coverTab === t ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
               )}
+              key={t}
+              type="button"
+              onClick={() => setCoverTab(t)}
             >
               {t === "upload" ? <Upload className="h-3 w-3" /> : <LinkIcon className="h-3 w-3" />}
               {t === "upload" ? "Upload" : "Paste URL"}
@@ -216,8 +216,8 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         <div className="flex flex-col justify-end gap-1.5 pb-0.5">
           <div className="flex items-center gap-2">
             <Checkbox
-              id="is_free"
               checked={info.is_free}
+              id="is_free"
               onCheckedChange={(v) => onChange({ is_free: Boolean(v) })}
             />
             <Label className="cursor-pointer font-normal" htmlFor="is_free">Free course</Label>
@@ -230,7 +230,7 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         <Label htmlFor="tags">Tags</Label>
         <div className="flex flex-wrap gap-1.5 rounded-md border border-input bg-background px-3 py-2 min-h-[40px]">
           {info.tags.map((tag) => (
-            <span key={tag} className="flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs">
+            <span className="flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs" key={tag}>
               {tag}
               <button aria-label={`Remove tag ${tag}`} type="button" onClick={() => removeTag(tag)}>
                 <X className="h-3 w-3" />

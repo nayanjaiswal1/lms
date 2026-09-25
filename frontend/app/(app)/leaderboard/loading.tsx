@@ -12,7 +12,7 @@ export default function LeaderboardLoading() {
 
       <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 px-4 py-3">
+          <div className="flex items-center gap-3 px-4 py-3" key={i}>
             <Skeleton className="h-7 w-7 rounded-full" />
             <Skeleton className="h-8 w-8 rounded-full" />
             <div className="flex-1">

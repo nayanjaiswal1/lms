@@ -39,13 +39,13 @@ export function QuotaForm({ orgID, current }: Props) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="max_concurrent">Max Concurrent Jobs</Label>
         <Input
+          required
+          defaultValue={current.max_concurrent}
           id="max_concurrent"
+          max={50}
+          min={1}
           name="max_concurrent"
           type="number"
-          min={1}
-          max={50}
-          defaultValue={current.max_concurrent}
-          required
         />
         <p className="text-xs text-muted-foreground">Range: 1–50</p>
       </div>
@@ -53,13 +53,13 @@ export function QuotaForm({ orgID, current }: Props) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="max_queued">Max Queued Jobs</Label>
         <Input
+          required
+          defaultValue={current.max_queued}
           id="max_queued"
+          max={1000}
+          min={10}
           name="max_queued"
           type="number"
-          min={10}
-          max={1000}
-          defaultValue={current.max_queued}
-          required
         />
         <p className="text-xs text-muted-foreground">Range: 10–1000</p>
       </div>
@@ -67,8 +67,8 @@ export function QuotaForm({ orgID, current }: Props) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="priority_floor">Priority Floor</Label>
         <Select
-          name="priority_floor"
           defaultValue={String(current.priority_floor)}
+          name="priority_floor"
         >
           <SelectTrigger id="priority_floor">
             <SelectValue placeholder="Select priority…" />
@@ -97,7 +97,7 @@ export function QuotaForm({ orgID, current }: Props) {
         </p>
       )}
 
-      <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+      <Button className="w-full sm:w-auto" disabled={pending} type="submit">
         {pending ? "Saving…" : "Save Quota"}
       </Button>
     </form>

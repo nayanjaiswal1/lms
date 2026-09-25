@@ -112,12 +112,12 @@ export function ProctorPreflight({
                 {setup.stream ? (
                   <>
                     <CameraVideo
-                      stream={setup.stream}
                       autoPlay
                       muted
                       playsInline
                       aria-label="Your camera preview"
                       className="h-full w-full object-cover"
+                      stream={setup.stream}
                     />
                     <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-ai px-2.5 py-1 text-xs font-semibold text-ai-foreground shadow">
                       <span aria-hidden className="block h-1.5 w-1.5 animate-pulse rounded-full bg-ai-foreground" />
@@ -216,7 +216,7 @@ export function ProctorPreflight({
               >
                 {setup.canProceed ? <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> : "1"}
               </span>
-              <h2 id="step-camera" className="font-semibold">
+              <h2 className="font-semibold" id="step-camera">
                 Camera &amp; Microphone
               </h2>
               <span className="ml-auto rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
@@ -225,16 +225,16 @@ export function ProctorPreflight({
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4">
-              <PermissionRow status={setup.camera} icon={Camera} label="Camera" />
+              <PermissionRow icon={Camera} label="Camera" status={setup.camera} />
               <div className="my-1 border-b border-border" />
-              <PermissionRow status={setup.microphone} icon={Mic} label="Microphone" />
+              <PermissionRow icon={Mic} label="Microphone" status={setup.microphone} />
 
               {setup.camera !== "granted" && (
                 <div className="mt-4 flex flex-col gap-2">
                   <Button
-                    onClick={() => void setup.requestPermissions()}
-                    disabled={setup.camera === "requesting"}
                     className="w-full sm:w-auto"
+                    disabled={setup.camera === "requesting"}
+                    onClick={() => void setup.requestPermissions()}
                   >
                     {setup.camera === "requesting" ? (
                       <>
@@ -277,7 +277,7 @@ export function ProctorPreflight({
                   proctoring.require_camera ? "2" : "1"
                 )}
               </span>
-              <h2 id="step-phone" className="font-semibold">
+              <h2 className="font-semibold" id="step-phone">
                 Secondary Camera via Phone
               </h2>
               <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -328,12 +328,12 @@ export function ProctorPreflight({
 
                   <div className="flex items-center gap-2.5">
                     <Checkbox
-                      id="skip-phone"
                       checked={setup.skipSecondary}
-                      onCheckedChange={(v) => setup.setSkipSecondary(v === true)}
                       disabled={setup.phoneConnected}
+                      id="skip-phone"
+                      onCheckedChange={(v) => setup.setSkipSecondary(v === true)}
                     />
-                    <Label htmlFor="skip-phone" className="cursor-pointer text-sm">
+                    <Label className="cursor-pointer text-sm" htmlFor="skip-phone">
                       Skip secondary camera
                     </Label>
                   </div>
@@ -411,10 +411,10 @@ export function ProctorPreflight({
         {/* ── CTA ───────────────────────────────────────────────────────────── */}
         <div className="mt-auto flex flex-col gap-2 pb-6 lg:pb-0">
           <Button
-            size="lg"
-            disabled={!canBegin}
-            onClick={onBegin}
             className="w-full gap-2 font-semibold"
+            disabled={!canBegin}
+            size="lg"
+            onClick={onBegin}
           >
             {proctoring.require_fullscreen ? (
               <>

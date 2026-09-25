@@ -98,10 +98,10 @@ export default async function OrgInvitesPage({ searchParams }: Props) {
       </div>
 
       <InviteManager
-        orgId={activeOrg.id}
+        currentStatus={status}
         initialInvites={invitePage.invites}
         initialNextCursor={invitePage.next_cursor}
-        currentStatus={status}
+        orgId={activeOrg.id}
       />
     </main>
   );

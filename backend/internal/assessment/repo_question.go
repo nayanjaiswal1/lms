@@ -297,4 +297,3 @@ func (r *Repo) ArchiveQuestion(ctx context.Context, orgID, id string) error {
 	}
 	return nil
 }
-

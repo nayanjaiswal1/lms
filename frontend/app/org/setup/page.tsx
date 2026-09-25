@@ -28,7 +28,7 @@ function SetupProgress({ currentStep }: SetupProgressProps) {
           const isCurrent = step === currentStep;
 
           return (
-            <li key={label} className="flex flex-1 flex-col items-center gap-1.5">
+            <li className="flex flex-1 flex-col items-center gap-1.5" key={label}>
               <div className="flex w-full items-center">
                 {/* Connector before */}
                 {index > 0 && (
@@ -41,6 +41,7 @@ function SetupProgress({ currentStep }: SetupProgressProps) {
 
                 {/* Circle */}
                 <div
+                  aria-current={isCurrent ? "step" : undefined}
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors duration-normal ${
                     isCompleted
                       ? "bg-primary text-primary-foreground"
@@ -48,7 +49,6 @@ function SetupProgress({ currentStep }: SetupProgressProps) {
                         ? "border-2 border-primary bg-background text-primary"
                         : "border-2 border-border bg-background text-muted-foreground"
                   }`}
-                  aria-current={isCurrent ? "step" : undefined}
                 >
                   {isCompleted ? (
                     <CheckCircle2 aria-hidden className="h-4 w-4" />
@@ -105,6 +105,7 @@ export default async function OrgSetupPage({ searchParams }: OrgSetupPageProps) 
   const currentStep = Math.min(Math.max(Number.isNaN(requestedStep) ? 1 : requestedStep, 1), 4);
 
   return (
+    // eslint-disable-next-line no-restricted-syntax -- standalone onboarding flow outside the (app) shell, no .app-content ancestor to supply vertical padding
     <main className="page-container-sm py-12">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 flex flex-col gap-2">
@@ -118,13 +119,13 @@ export default async function OrgSetupPage({ searchParams }: OrgSetupPageProps) 
 
         <div className="card-base mt-8 p-6">
           {currentStep === 1 && (
-            <Step1Identity orgId={orgId} org={state.org} />
+            <Step1Identity org={state.org} orgId={orgId} />
           )}
           {currentStep === 2 && (
-            <Step2Auth orgId={orgId} authConfig={state.auth_config} />
+            <Step2Auth authConfig={state.auth_config} orgId={orgId} />
           )}
           {currentStep === 3 && (
-            <Step3Plan orgId={orgId} org={state.org} />
+            <Step3Plan org={state.org} orgId={orgId} />
           )}
           {currentStep === 4 && (
             <Step4Team orgId={orgId} />

@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { getBatchMessages } from "@/lib/server/messaging";
 import { MessageList } from "@/components/messaging/message-list";
@@ -18,7 +17,7 @@ export default async function BatchChatPage({ params }: Props) {
         <MessageSquare aria-hidden className="h-5 w-5 text-muted-foreground" />
         <h2 className="section-title">Chat</h2>
       </div>
-      <MessageList messages={messages} batchId={id} isStaff />
+      <MessageList isStaff batchId={id} messages={messages} />
     </section>
   );
 }

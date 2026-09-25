@@ -28,6 +28,7 @@ export default async function CertificateVerifyPage({ params }: PageProps) {
   }
 
   return (
+    // eslint-disable-next-line no-restricted-syntax -- standalone public page outside the (app) shell, no .app-content ancestor to supply vertical padding
     <main className="page-container-sm flex min-h-dvh flex-col items-center justify-center gap-8 py-16">
       <div className="card-raised flex w-full flex-col items-center gap-6 p-10 text-center">
         <div className="flex-center h-16 w-16 rounded-full bg-primary/10">

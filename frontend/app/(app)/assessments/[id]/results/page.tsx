@@ -102,7 +102,7 @@ export default async function ResultsPage({ params }: PageProps) {
                     <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
                   )}
                   <div className="progress-track w-40">
-                    {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+                    { }
                     <div
                       className="progress-fill"
                       style={{ '--progress': `${Math.round(q.correct_rate)}%` } as React.CSSProperties}
@@ -193,7 +193,7 @@ function ScoreDistribution({
               <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
               {/* eslint-disable-next-line no-restricted-syntax -- fixed container height for score distribution chart */}
               <div className="flex w-full items-end" style={{ height: "80px" }}>
-                {/* eslint-disable-next-line no-restricted-syntax -- dynamic bar height requires inline style */}
+                { }
                 <div
                   className={`w-full rounded-t-sm ${key === "81-100" ? "bg-primary" : "bg-muted-foreground/40"}`}
                   // eslint-disable-next-line no-restricted-syntax -- dynamic bar height requires inline style

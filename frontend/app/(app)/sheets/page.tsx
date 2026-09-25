@@ -79,7 +79,7 @@ export default async function SheetsPage() {
                   </Link>
 
                   <div className="mt-auto flex items-center justify-end gap-2">
-                    <ProgressRing pct={pct} size={18} className={accent.ring} />
+                    <ProgressRing className={accent.ring} pct={pct} size={18} />
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {sheet.item_count} question{sheet.item_count === 1 ? "" : "s"}
                     </span>

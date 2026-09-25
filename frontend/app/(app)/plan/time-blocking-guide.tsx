@@ -82,12 +82,12 @@ export function TimeBlockingGuide({ onDismiss }: TimeBlockingGuideProps) {
 
         {/* Close button */}
         <button
+          aria-label="Dismiss guide"
+          className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => {
             setDismissed(true);
             onDismiss?.();
           }}
-          className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="Dismiss guide"
         >
           <X className="h-5 w-5" />
         </button>

@@ -104,8 +104,12 @@ func defaultTitle(targetRole, goal string) string {
 	if strings.TrimSpace(targetRole) != "" {
 		return "Roadmap: " + strings.TrimSpace(targetRole)
 	}
-	if len(goal) > 60 {
-		return "Roadmap: " + strings.TrimSpace(goal[:60]) + "…"
+	runes := []rune(goal)
+	if len(runes) > 60 {
+		// Cap the whole title at 60 runes: 59 of goal plus the ellipsis.
+		// (Cutting at 60 and appending "…" yields 61 with zero shortening
+		// for a 61-rune goal.) Rune-wise, so a multibyte tail is never split.
+		return "Roadmap: " + strings.TrimSpace(string(runes[:59])) + "…"
 	}
 	return "Roadmap: " + goal
 }

@@ -36,7 +36,7 @@ export function AuthBrandPanel() {
         <h2 className="text-balance">Forge knowledge that lasts.</h2>
         <ul className="flex list-none flex-col gap-5">
           {HIGHLIGHTS.map(({ icon: Icon, title, description }) => (
-            <li key={title} className="flex items-start gap-3">
+            <li className="flex items-start gap-3" key={title}>
               <span className="flex-center h-9 w-9 shrink-0 rounded-md bg-primary/10 text-primary">
                 <Icon aria-hidden className="h-5 w-5" />
               </span>

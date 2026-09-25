@@ -41,10 +41,10 @@ function BlockPicker({ onPick, onClose }: BlockPickerProps) {
     <div className="rounded-md border border-border bg-card shadow-raised p-2 grid grid-cols-5 gap-1">
       {BLOCK_MENU.map(({ type, icon: Icon, label }) => (
         <button
+          className="flex flex-col items-center gap-1 rounded p-2 text-center hover:bg-muted transition-colors"
           key={type}
           type="button"
           onClick={() => { onPick(type); onClose(); }}
-          className="flex flex-col items-center gap-1 rounded p-2 text-center hover:bg-muted transition-colors"
         >
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">{label}</span>
@@ -73,16 +73,16 @@ function BlockItem({ block, index, total, onChange, onMove, onRemove, onFile }: 
     <div className="group relative flex gap-2">
       {/* Controls */}
       <div className="flex shrink-0 flex-col items-center gap-0.5 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button type="button" aria-label="Move up" disabled={index === 0} onClick={() => onMove("up")}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30">
+        <button aria-label="Move up" className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={index === 0} type="button"
+          onClick={() => onMove("up")}>
           <ChevronUp className="h-3.5 w-3.5" />
         </button>
-        <button type="button" aria-label="Move down" disabled={index === total - 1} onClick={() => onMove("down")}
-          className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30">
+        <button aria-label="Move down" className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={index === total - 1} type="button"
+          onClick={() => onMove("down")}>
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
-        <button type="button" aria-label={`Remove ${label} block`} onClick={onRemove}
-          className="rounded p-0.5 text-muted-foreground hover:text-destructive">
+        <button aria-label={`Remove ${label} block`} className="rounded p-0.5 text-muted-foreground hover:text-destructive" type="button"
+          onClick={onRemove}>
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -150,23 +150,23 @@ export function BlockEditor({ blocks, onChange, onFile }: BlockEditorProps) {
 
       {blocks.map((block, index) => (
         <BlockItem
-          key={block.id}
           block={block}
           index={index}
+          key={block.id}
           total={blocks.length}
           onChange={(b) => updateBlock(index, b)}
+          onFile={onFile}
           onMove={(dir) => moveBlock(index, dir)}
           onRemove={() => removeBlock(index)}
-          onFile={onFile}
         />
       ))}
 
       <div className={cn("relative", blocks.length > 0 && "mt-2")}>
         <Button
+          className="w-full border-dashed text-muted-foreground hover:text-foreground"
+          size="sm"
           type="button"
           variant="outline"
-          size="sm"
-          className="w-full border-dashed text-muted-foreground hover:text-foreground"
           onClick={() => setPickerOpen((v) => !v)}
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -174,7 +174,7 @@ export function BlockEditor({ blocks, onChange, onFile }: BlockEditorProps) {
         </Button>
         {pickerOpen && (
           <div className="absolute bottom-full left-0 right-0 z-dropdown mb-2">
-            <BlockPicker onPick={addBlock} onClose={() => setPickerOpen(false)} />
+            <BlockPicker onClose={() => setPickerOpen(false)} onPick={addBlock} />
           </div>
         )}
       </div>

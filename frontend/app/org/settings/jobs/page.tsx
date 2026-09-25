@@ -80,8 +80,8 @@ function JobRow({ job, orgId }: { job: Job; orgId: string }) {
     <tr className="whitespace-nowrap border-b border-border last:border-0 hover:bg-muted/40 transition-colors duration-[--duration-fast]">
       <td className="py-3 px-4">
         <Link
-          href={`/org/settings/jobs/${job.id}`}
           className="font-mono text-sm text-foreground hover:text-primary transition-colors duration-[--duration-fast] break-all"
+          href={`/org/settings/jobs/${job.id}`}
         >
           {job.handler}
         </Link>
@@ -119,14 +119,14 @@ function JobRow({ job, orgId }: { job: Job; orgId: string }) {
         <div className="flex items-center gap-2">
           {canCancel && (
             <form action={cancelJobAction.bind(null, orgId, job.id)}>
-              <Button size="sm" variant="outline" type="submit" aria-label={`Cancel job ${job.handler}`}>
+              <Button aria-label={`Cancel job ${job.handler}`} size="sm" type="submit" variant="outline">
                 Cancel
               </Button>
             </form>
           )}
           {canRetry && (
             <form action={retryJobAction.bind(null, orgId, job.id)}>
-              <Button size="sm" variant="outline" type="submit" aria-label={`Retry job ${job.handler}`}>
+              <Button aria-label={`Retry job ${job.handler}`} size="sm" type="submit" variant="outline">
                 Retry
               </Button>
             </form>
@@ -214,9 +214,9 @@ export default async function JobsPage({
 
         {/* Status filter tabs */}
         <div
-          role="tablist"
           aria-label="Filter jobs by status"
           className="flex gap-2 overflow-x-auto pb-2 mb-6"
+          role="tablist"
         >
           {STATUS_TABS.map((tab) => {
             const isActive = status === tab.value || (tab.value === undefined && !status);
@@ -225,9 +225,6 @@ export default async function JobsPage({
               : `?${handlerParam.slice(1)}`;
             return (
               <Link
-                key={tab.label}
-                href={href}
-                role="tab"
                 aria-selected={isActive}
                 className={cn(
                   "flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-[--duration-fast]",
@@ -235,6 +232,9 @@ export default async function JobsPage({
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:text-foreground",
                 )}
+                href={href}
+                key={tab.label}
+                role="tab"
               >
                 {tab.label}
               </Link>
@@ -263,7 +263,7 @@ export default async function JobsPage({
                 </thead>
                 <tbody>
                   {jobs.map((job) => (
-                    <JobRow key={job.id} job={job} orgId={orgId} />
+                    <JobRow job={job} key={job.id} orgId={orgId} />
                   ))}
                 </tbody>
               </table>

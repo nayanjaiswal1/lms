@@ -29,21 +29,21 @@ type evalQuestionRow struct {
 
 // llmQuestionResponse mirrors the per-question JSON schema returned by the LLM.
 type llmQuestionResponse struct {
-	TechnicalAccuracy  float64  `json:"score_technical_accuracy"`
-	Completeness       float64  `json:"score_completeness"`
-	Communication      float64  `json:"score_communication"`
-	Clarity            float64  `json:"score_clarity"`
-	Structure          float64  `json:"score_structure"`
-	Confidence         float64  `json:"score_confidence"`
-	SeniorityAlignment float64  `json:"score_seniority_alignment"`
-	CompositeScore     float64  `json:"composite_score"` // ignored — recomputed
-	Strengths          []string `json:"strengths"`
-	Weaknesses         []string `json:"weaknesses"`
-	MissingConcepts    []string `json:"missing_concepts"`
-	IncorrectConcepts  []string `json:"incorrect_concepts"`
-	Improvements       []string `json:"improvements"`
-	BetterAnswer       string   `json:"better_answer"`
-	ReferenceComparison string  `json:"reference_comparison"`
+	TechnicalAccuracy   float64  `json:"score_technical_accuracy"`
+	Completeness        float64  `json:"score_completeness"`
+	Communication       float64  `json:"score_communication"`
+	Clarity             float64  `json:"score_clarity"`
+	Structure           float64  `json:"score_structure"`
+	Confidence          float64  `json:"score_confidence"`
+	SeniorityAlignment  float64  `json:"score_seniority_alignment"`
+	CompositeScore      float64  `json:"composite_score"` // ignored — recomputed
+	Strengths           []string `json:"strengths"`
+	Weaknesses          []string `json:"weaknesses"`
+	MissingConcepts     []string `json:"missing_concepts"`
+	IncorrectConcepts   []string `json:"incorrect_concepts"`
+	Improvements        []string `json:"improvements"`
+	BetterAnswer        string   `json:"better_answer"`
+	ReferenceComparison string   `json:"reference_comparison"`
 }
 
 // llmOverallResponse mirrors the overall JSON schema returned by the LLM.

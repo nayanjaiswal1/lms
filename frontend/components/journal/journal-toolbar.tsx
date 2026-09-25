@@ -204,10 +204,11 @@ export function JournalToolbar({ categories }: JournalToolbarProps) {
         </button>
       ) : (
         <div
-          ref={boxRef}
           aria-label="Add a journal entry"
           className={cn(FLOATING_BOX_CLASS, open && FLOATING_BOX_OPEN_CLASS)}
+          ref={boxRef}
           role="dialog"
+          // eslint-disable-next-line no-restricted-syntax -- floating panel position/size comes from live drag state, impossible as a static token
           style={{
             transform: `translate3d(${offset.x}px, ${offset.y}px, 0)`,
             ...(size ? { width: size.width, height: size.height, maxWidth: "none", maxHeight: "none" } : {}),

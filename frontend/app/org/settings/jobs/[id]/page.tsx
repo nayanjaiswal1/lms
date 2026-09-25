@@ -76,17 +76,17 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           <div className="flex items-center gap-2 flex-wrap">
             {canCancel && (
               <form action={cancelJobAction.bind(null, orgId, job.id)}>
-                <Button type="submit" variant="outline" size="sm">Cancel Job</Button>
+                <Button size="sm" type="submit" variant="outline">Cancel Job</Button>
               </form>
             )}
             {canRetry && (
               <form action={retryJobAction.bind(null, orgId, job.id)}>
-                <Button type="submit" variant="outline" size="sm">Retry Job</Button>
+                <Button size="sm" type="submit" variant="outline">Retry Job</Button>
               </form>
             )}
             {isCron && (
               <form action={pauseJobAction.bind(null, orgId, job.id, job.status !== "cancelled")}>
-                <Button type="submit" variant="outline" size="sm">
+                <Button size="sm" type="submit" variant="outline">
                   {job.status === "cancelled" ? "Resume Schedule" : "Pause Schedule"}
                 </Button>
               </form>
@@ -141,13 +141,13 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               <thead>
                 <tr className="whitespace-nowrap border-b border-border">
                   {["Attempt", "Status", "Duration", "Error", "Started"].map((h) => (
-                    <th key={h} className="pb-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
+                    <th className="pb-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider" key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {runs.map((run) => (
-                  <tr key={run.id} className="whitespace-nowrap border-b border-border last:border-0">
+                  <tr className="whitespace-nowrap border-b border-border last:border-0" key={run.id}>
                     <td className="py-3 px-4 text-sm text-foreground">#{run.attempt}</td>
                     <td className="py-3 px-4">
                       <span className={cn("inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium", statusClass(run.status))}>

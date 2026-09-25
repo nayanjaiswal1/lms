@@ -44,15 +44,15 @@ export default async function PlatformOrgQuotasPage({ params }: PageProps) {
         <div className="grid-stats">
           <StatCard label="Running" value={orgStats.running} />
           <StatCard label="Queued" value={orgStats.queued} />
-          <StatCard label="Failed" value={orgStats.failed} highlight={orgStats.failed > 0} />
-          <StatCard label="Dead" value={orgStats.dead} highlight={orgStats.dead > 0} />
+          <StatCard highlight={orgStats.failed > 0} label="Failed" value={orgStats.failed} />
+          <StatCard highlight={orgStats.dead > 0} label="Dead" value={orgStats.dead} />
         </div>
       </section>
 
       {/* Quota edit form */}
       <section className="mt-8">
         <h2 className="section-title mb-4">Quota Settings</h2>
-        <QuotaForm orgID={orgID} current={orgStats.quota} />
+        <QuotaForm current={orgStats.quota} orgID={orgID} />
       </section>
     </div>
   );

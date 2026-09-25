@@ -42,12 +42,12 @@ interface SelectionCardProps {
 export function SelectionCard({ selected, onClick, title, subtitle, icon: Icon }: SelectionCardProps) {
   return (
     <button
-      type="button"
-      onClick={onClick}
       className={cn(
         "card-interactive flex w-full items-center gap-3 p-3 text-left transition-all duration-normal",
         selected ? "ring-2 ring-primary bg-primary/5 border-primary/30" : "",
       )}
+      type="button"
+      onClick={onClick}
     >
       {Icon && (
         <span className={cn(

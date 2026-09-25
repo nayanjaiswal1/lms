@@ -25,8 +25,8 @@ func TestExpandOccurrences_FarFutureDaily(t *testing.T) {
 		RecurrenceRule: mustRule(t, "FREQ=DAILY;INTERVAL=1"),
 	}
 
-	from := start.AddDate(10, 0, 0)             // 10 years out
-	to := from.AddDate(0, 0, 5)                 // a narrow 5-day window
+	from := start.AddDate(10, 0, 0) // 10 years out
+	to := from.AddDate(0, 0, 5)     // a narrow 5-day window
 
 	occs, err := ExpandOccurrences(base, from, to)
 	if err != nil {

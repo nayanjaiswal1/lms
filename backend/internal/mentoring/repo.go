@@ -66,7 +66,7 @@ func (e *conflictErr) IsConflict() bool { return true }
 // concrete error value.
 type clientErr struct{ msg string }
 
-func (e *clientErr) Error() string      { return e.msg }
+func (e *clientErr) Error() string       { return e.msg }
 func (e *clientErr) IsClientError() bool { return true }
 
 type Repo struct {

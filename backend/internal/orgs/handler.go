@@ -15,9 +15,9 @@ import (
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/jobs"
+	apimiddleware "github.com/mindforge/backend/internal/middleware"
 	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
-	apimiddleware "github.com/mindforge/backend/internal/middleware"
 )
 
 // pgxRows is a local alias for the pgx.Rows interface so audit log query

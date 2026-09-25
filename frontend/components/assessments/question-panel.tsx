@@ -7,7 +7,7 @@ import { CodingQuestion } from "@/components/assessments/coding-question";
 import { TranscriptInput } from "@/components/assessments/transcript-input";
 import { SectionTabs } from "@/components/assessments/section-tabs";
 import { saveAnswerAction } from "@/app/(app)/assessments/[id]/take/actions";
-import { isMCQQuestion, isSubjectiveQuestion, SESSION_SUPERSEDED_MESSAGE } from "@/lib/assessments/types";
+import { isMCQQuestion, isSubjectiveQuestion } from "@/lib/assessments/types";
 import type { useAnswers } from "@/lib/assessments/use-answers";
 import type { AnswerValue, MCQAnswer, CodingAnswer, TranscriptAnswer } from "@/lib/assessments/use-answers";
 import { cn } from "@/lib/utils";

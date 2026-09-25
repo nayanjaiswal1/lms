@@ -6,23 +6,23 @@ import "time"
 // pending -> processing -> ready -> promoted|dismissed lifecycle (or
 // -> failed on any stage error). See docs/captures.md for the full pipeline.
 type Capture struct {
-	ID              string     `json:"id"`
-	UserID          string     `json:"user_id"`
-	Type            string     `json:"type"` // image | pdf | link
-	StorageKey      *string    `json:"storage_key,omitempty"`
-	SourceURL       *string    `json:"source_url,omitempty"`
-	Status          string     `json:"status"` // pending | processing | ready | failed | promoted | dismissed
-	ExtractedText   *string    `json:"extracted_text,omitempty"`
-	Kind            *string    `json:"kind,omitempty"` // note | question, set once ready
-	Category        *string    `json:"category,omitempty"`
-	Subcategory     *string    `json:"subcategory,omitempty"`
-	Title           *string    `json:"title,omitempty"`
-	Content         *string    `json:"content,omitempty"`
-	JournalEntryID  *string    `json:"journal_entry_id,omitempty"`
-	SRSCardID       *string    `json:"srs_card_id,omitempty"`
-	ErrorMessage    *string    `json:"error_message,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	ProcessedAt     *time.Time `json:"processed_at,omitempty"`
+	ID             string     `json:"id"`
+	UserID         string     `json:"user_id"`
+	Type           string     `json:"type"` // image | pdf | link
+	StorageKey     *string    `json:"storage_key,omitempty"`
+	SourceURL      *string    `json:"source_url,omitempty"`
+	Status         string     `json:"status"` // pending | processing | ready | failed | promoted | dismissed
+	ExtractedText  *string    `json:"extracted_text,omitempty"`
+	Kind           *string    `json:"kind,omitempty"` // note | question, set once ready
+	Category       *string    `json:"category,omitempty"`
+	Subcategory    *string    `json:"subcategory,omitempty"`
+	Title          *string    `json:"title,omitempty"`
+	Content        *string    `json:"content,omitempty"`
+	JournalEntryID *string    `json:"journal_entry_id,omitempty"`
+	SRSCardID      *string    `json:"srs_card_id,omitempty"`
+	ErrorMessage   *string    `json:"error_message,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	ProcessedAt    *time.Time `json:"processed_at,omitempty"`
 }
 
 // Status values. "promoted"/"dismissed" are terminal states the review step

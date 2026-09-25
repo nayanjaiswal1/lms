@@ -184,26 +184,26 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 	// Parse the JSONB structure into phases/milestones/modules
 	type structureJSON struct {
 		Phases []struct {
-			ID             string `json:"id"`
-			Title          string `json:"title"`
+			ID             string  `json:"id"`
+			Title          string  `json:"title"`
 			Description    *string `json:"description"`
-			Position       int    `json:"position"`
-			EstimatedWeeks *int   `json:"estimated_weeks"`
+			Position       int     `json:"position"`
+			EstimatedWeeks *int    `json:"estimated_weeks"`
 			Milestones     []struct {
-				ID             string `json:"id"`
-				Title          string `json:"title"`
+				ID             string  `json:"id"`
+				Title          string  `json:"title"`
 				Description    *string `json:"description"`
-				Position       int    `json:"position"`
-				EstimatedHours *int   `json:"estimated_hours"`
+				Position       int     `json:"position"`
+				EstimatedHours *int    `json:"estimated_hours"`
 				Modules        []struct {
-					ID               string `json:"id"`
-					Title            string `json:"title"`
+					ID               string  `json:"id"`
+					Title            string  `json:"title"`
 					Description      *string `json:"description"`
-					Position         int    `json:"position"`
-					Type             string `json:"type"`
+					Position         int     `json:"position"`
+					Type             string  `json:"type"`
 					ResourceType     *string `json:"resource_type"`
 					ResourceID       *string `json:"resource_id"`
-					EstimatedMinutes *int   `json:"estimated_minutes"`
+					EstimatedMinutes *int    `json:"estimated_minutes"`
 				} `json:"modules"`
 			} `json:"milestones"`
 		} `json:"phases"`
@@ -256,7 +256,10 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 	}
 
 	// Resolve resource titles/slugs for all resources in one query
-	resourceMap := make(map[string]struct{ title *string; slug *string })
+	resourceMap := make(map[string]struct {
+		title *string
+		slug  *string
+	})
 	if len(moduleKeys) > 0 {
 		// Extract all (resource_type, resource_id) pairs from the structure
 		type resource struct {
@@ -296,7 +299,10 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 						courseRows.Close()
 						return nil, fmt.Errorf("roadmap: scan course: %w", err)
 					}
-					resourceMap["course:"+id] = struct{ title *string; slug *string }{
+					resourceMap["course:"+id] = struct {
+						title *string
+						slug  *string
+					}{
 						title: &title, slug: &slug,
 					}
 				}
@@ -322,7 +328,10 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 						labRows.Close()
 						return nil, fmt.Errorf("roadmap: scan lab: %w", err)
 					}
-					resourceMap["lab:"+id] = struct{ title *string; slug *string }{
+					resourceMap["lab:"+id] = struct {
+						title *string
+						slug  *string
+					}{
 						title: &title, slug: nil,
 					}
 				}
@@ -348,7 +357,10 @@ func (r *Repo) getTree(ctx context.Context, roadmapID string) ([]Phase, error) {
 						questionRows.Close()
 						return nil, fmt.Errorf("roadmap: scan question: %w", err)
 					}
-					resourceMap["question:"+id] = struct{ title *string; slug *string }{
+					resourceMap["question:"+id] = struct {
+						title *string
+						slug  *string
+					}{
 						title: &title, slug: nil,
 					}
 				}
@@ -538,20 +550,20 @@ func (r *Repo) ReplaceGeneratedTree(ctx context.Context, roadmapID string, phase
 		EstimatedMinutes *int    `json:"estimated_minutes"`
 	}
 	type structureMilestone struct {
-		ID             string             `json:"id"`
-		Title          string             `json:"title"`
-		Description    *string            `json:"description"`
-		Position       int                `json:"position"`
-		EstimatedHours *int               `json:"estimated_hours"`
-		Modules        []structureModule  `json:"modules"`
+		ID             string            `json:"id"`
+		Title          string            `json:"title"`
+		Description    *string           `json:"description"`
+		Position       int               `json:"position"`
+		EstimatedHours *int              `json:"estimated_hours"`
+		Modules        []structureModule `json:"modules"`
 	}
 	type structurePhase struct {
-		ID             string                 `json:"id"`
-		Title          string                 `json:"title"`
-		Description    *string                `json:"description"`
-		Position       int                    `json:"position"`
-		EstimatedWeeks *int                   `json:"estimated_weeks"`
-		Milestones     []structureMilestone   `json:"milestones"`
+		ID             string               `json:"id"`
+		Title          string               `json:"title"`
+		Description    *string              `json:"description"`
+		Position       int                  `json:"position"`
+		EstimatedWeeks *int                 `json:"estimated_weeks"`
+		Milestones     []structureMilestone `json:"milestones"`
 	}
 	type structureJSON struct {
 		Phases []structurePhase `json:"phases"`

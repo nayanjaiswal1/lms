@@ -13,7 +13,7 @@ function SheetRow({ sheet }: { sheet: UserSheetSummary }) {
         </div>
         <div className="mt-1.5 flex items-center gap-2 max-w-xs">
           <div className="progress-track flex-1">
-            {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+            { }
             <div className="progress-fill progress-fill-success" style={{ "--progress": `${pct}%` } as React.CSSProperties} />
           </div>
           <span className="text-xs text-muted-foreground shrink-0">

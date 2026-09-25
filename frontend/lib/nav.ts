@@ -50,6 +50,9 @@ import { type Terminology } from "@/lib/terminology";
 //                       (e.g. hide the learner-facing mentor directory from
 //                       admins, who already have the full Users page for that).
 // `mode`             — how to gate: badge (show with badge), hide (remove entirely).
+// `hideFromBottomNav` — item stays in the sidebar/drawer but never occupies
+//                       one of the 4 mobile bottom-nav slots (e.g. Help &
+//                       Support — reachable via the Menu drawer instead).
 // ─────────────────────────────────────────────
 
 export interface NavItem {
@@ -61,6 +64,7 @@ export interface NavItem {
   hideForPermission?:  string;
   mode?:               "badge" | "hide";
   exact?:              boolean;
+  hideFromBottomNav?:  boolean;
 }
 
 export interface NavGroup {
@@ -149,6 +153,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     label:  "Help & Support",
     href:   ROUTES.SUPPORT,
     icon:   LifeBuoy,
+    hideFromBottomNav: true,
   },
   sessions: {
     label:   "My Sessions",

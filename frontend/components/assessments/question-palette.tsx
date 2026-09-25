@@ -48,10 +48,10 @@ export function QuestionPalette({
     return (
       <aside className="hidden lg:flex w-10 shrink-0 flex-col items-center border-l border-border bg-card/50 py-3">
         <Button
-          variant="ghost"
-          size="icon"
           aria-label="Show question palette"
           className="touch-target h-8 w-8"
+          size="icon"
+          variant="ghost"
           onClick={() => setCollapsed(false)}
         >
           <PanelRightOpen aria-hidden className="h-4 w-4" />
@@ -65,10 +65,10 @@ export function QuestionPalette({
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">Progress</span>
         <Button
-          variant="ghost"
-          size="icon"
           aria-label="Hide question palette"
           className="touch-target h-6 w-6"
+          size="icon"
+          variant="ghost"
           onClick={() => setCollapsed(true)}
         >
           <PanelRightClose aria-hidden className="h-3.5 w-3.5" />
@@ -84,7 +84,7 @@ export function QuestionPalette({
           </span>
         </div>
         <div className="progress-track">
-          {/* eslint-disable-next-line no-restricted-syntax -- dynamic CSS variable for progress bar width */}
+          { }
           <div className="progress-fill" style={{ "--progress": `${progressPct}%` } as React.CSSProperties} />
         </div>
         {markedCount > 0 && (
@@ -102,11 +102,8 @@ export function QuestionPalette({
             const isMarked = markedForReview[q.assessment_question_id] ?? false;
             return (
               <button
-                key={q.assessment_question_id}
-                onClick={() => (allowBacktrack ? onJump(i) : undefined)}
-                disabled={!allowBacktrack && i !== currentIndex}
-                aria-label={`Question ${i + 1}${answered ? ", answered" : ""}${isMarked ? ", marked for review" : ""}`}
                 aria-current={isCurrent ? "step" : undefined}
+                aria-label={`Question ${i + 1}${answered ? ", answered" : ""}${isMarked ? ", marked for review" : ""}`}
                 className={cn(
                   "flex h-9 w-full items-center justify-center rounded-md text-xs font-semibold tabular-nums transition-all duration-fast",
                   isCurrent
@@ -120,6 +117,9 @@ export function QuestionPalette({
                           : "bg-muted text-muted-foreground",
                   allowBacktrack && i !== currentIndex ? "cursor-pointer hover:opacity-75" : "cursor-default",
                 )}
+                disabled={!allowBacktrack && i !== currentIndex}
+                key={q.assessment_question_id}
+                onClick={() => (allowBacktrack ? onJump(i) : undefined)}
               >
                 {i + 1}
               </button>
@@ -132,7 +132,7 @@ export function QuestionPalette({
           question content or the Next/Submit controls below */}
       {(proctoring.require_camera || proctoring.allow_secondary_camera) && (
         <div className="border-t border-border pt-3">
-          <CameraPip stream={cameraStream} phoneConnected={phoneConnected} />
+          <CameraPip phoneConnected={phoneConnected} stream={cameraStream} />
         </div>
       )}
 

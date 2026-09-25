@@ -35,8 +35,8 @@ export function VerifyEmailAutoSubmit({ token, email }: VerifyEmailAutoSubmitPro
 
       <AuthFormError message={state.error} />
 
-      <form ref={formRef} action={formAction} className="hidden" aria-hidden>
-        <input type="hidden" name="token" value={token} />
+      <form aria-hidden action={formAction} className="hidden" ref={formRef}>
+        <input name="token" type="hidden" value={token} />
       </form>
     </div>
   );

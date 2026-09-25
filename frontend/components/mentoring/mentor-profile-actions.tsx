@@ -60,7 +60,7 @@ export function MentorProfileActions({ ticketId, canReport = false, mentorId, ve
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Mentor actions" className="touch-target">
+        <Button aria-label="Mentor actions" className="touch-target" size="icon" variant="ghost">
           <MoreVertical aria-hidden className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

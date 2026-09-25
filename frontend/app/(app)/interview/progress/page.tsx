@@ -78,17 +78,17 @@ function SkillCard({ skill }: { skill: SkillTrend }) {
 
       <div className="progress-track h-2">
         {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width requires inline style */}
-        <div className={`progress-fill h-full ${barColor}`} style={{ width: `${pct}%` }} aria-hidden />
+        <div aria-hidden className={`progress-fill h-full ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           {latest > avg ? (
-            <TrendingUp className="h-3 w-3 text-ai" aria-hidden />
+            <TrendingUp aria-hidden className="h-3 w-3 text-ai" />
           ) : latest < avg ? (
-            <TrendingDown className="h-3 w-3 text-destructive" aria-hidden />
+            <TrendingDown aria-hidden className="h-3 w-3 text-destructive" />
           ) : (
-            <Minus className="h-3 w-3" aria-hidden />
+            <Minus aria-hidden className="h-3 w-3" />
           )}
           Latest: {latest}
         </span>

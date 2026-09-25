@@ -12,6 +12,10 @@ interface AuthPageShellProps {
   alternateLabel: string;
   alternateHref: string;
   children: ReactNode;
+  /** Optional extra line grouped tightly with the alternate prompt below the
+   * form (e.g. login's "Just exploring? Try demo") — kept in one footer
+   * group so related links don't float apart at the shell's section gap. */
+  footerExtra?: ReactNode;
 }
 
 export function AuthPageShell({
@@ -21,6 +25,7 @@ export function AuthPageShell({
   alternateLabel,
   alternateHref,
   children,
+  footerExtra,
 }: AuthPageShellProps) {
   return (
     <main className="grid min-h-dvh lg:h-dvh lg:grid-cols-2 lg:overflow-hidden">
@@ -29,9 +34,9 @@ export function AuthPageShell({
       <section className="flex min-h-dvh flex-col gap-10 px-6 py-8 sm:px-10 lg:min-h-0 lg:overflow-y-auto lg:px-16">
         <header className="flex items-center">
           <Link
-            href={ROUTES.HOME}
             aria-label="Home"
             className="text-foreground hover:no-underline lg:invisible"
+            href={ROUTES.HOME}
           >
             <BrandMark />
           </Link>
@@ -43,12 +48,15 @@ export function AuthPageShell({
             <p className="text-muted-foreground">{description}</p>
           </div>
           {children}
-          <p className="text-center text-sm text-muted-foreground sm:text-left">
-            {alternatePrompt}{" "}
-            <Link href={alternateHref} className="font-medium">
-              {alternateLabel}
-            </Link>
-          </p>
+          <div className="flex flex-col gap-2 text-center text-sm text-muted-foreground sm:text-left">
+            {footerExtra}
+            <p>
+              {alternatePrompt}{" "}
+              <Link className="font-medium" href={alternateHref}>
+                {alternateLabel}
+              </Link>
+            </p>
+          </div>
         </div>
 
         <footer className="text-center text-xs text-muted-foreground sm:text-left">

@@ -46,17 +46,17 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
         <div className="space-y-1.5">
           <Label htmlFor="resume-file">Resume (PDF, max 5 MB)</Label>
           <label
-            htmlFor="resume-file"
             className="flex flex-col items-center justify-center gap-2 w-full min-h-[120px] rounded-lg border-2 border-dashed border-border bg-muted/40 cursor-pointer transition-colors hover:border-primary hover:bg-muted/60"
+            htmlFor="resume-file"
           >
-            <Upload className="h-6 w-6 text-muted-foreground" aria-hidden />
+            <Upload aria-hidden className="h-6 w-6 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Click to choose a PDF file</span>
             <input
+              accept="application/pdf"
+              className="sr-only"
               id="resume-file"
               name="resume"
               type="file"
-              accept="application/pdf"
-              className="sr-only"
             />
           </label>
         </div>
@@ -65,12 +65,12 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
           <p className="text-sm text-destructive">{parseState.error}</p>
         )}
 
-        <Button type="submit" disabled={parsePending} className="px-5 py-2.5">
+        <Button className="px-5 py-2.5" disabled={parsePending} type="submit">
           {parsePending ? (
             "Parsing…"
           ) : (
             <>
-              <Sparkles className="h-4 w-4 mr-2" aria-hidden />
+              <Sparkles aria-hidden className="h-4 w-4 mr-2" />
               Parse Resume
             </>
           )}
@@ -81,7 +81,7 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
       {extracted && (
         <div className="ai-surface rounded-lg p-4 space-y-4">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-ai" aria-hidden />
+            <FileText aria-hidden className="h-4 w-4 text-ai" />
             <p className="text-sm font-medium text-foreground">Extracted from your resume</p>
           </div>
 
@@ -105,8 +105,8 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
               <div className="flex gap-2 flex-wrap pt-1">
                 {extracted.skills.map((s) => (
                   <span
-                    key={s.skill_name}
                     className={`difficulty-${s.skill_level} text-xs px-2 py-0.5 rounded-full`}
+                    key={s.skill_name}
                   >
                     {s.skill_name}
                   </span>
@@ -117,25 +117,25 @@ export function ResumeUpload({ parseAction, applyAction }: Props) {
 
           <form action={applyDispatch}>
             <input
-              type="hidden"
-              name="extract"
-              value={JSON.stringify(extracted)}
               readOnly
+              name="extract"
+              type="hidden"
+              value={JSON.stringify(extracted)}
             />
             {applyState.error && (
               <p className="text-sm text-destructive mb-2">{applyState.error}</p>
             )}
             {applyState.success ? (
               <div className="flex items-center gap-1.5 text-sm text-foreground">
-                <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+                <CheckCircle2 aria-hidden className="h-4 w-4 text-primary" />
                 Applied to your profile.
               </div>
             ) : (
               <Button
-                type="submit"
-                disabled={applyPending}
-                variant="outline"
                 className="px-5 py-2.5"
+                disabled={applyPending}
+                type="submit"
+                variant="outline"
               >
                 {applyPending ? "Applying…" : "Apply to Profile"}
               </Button>

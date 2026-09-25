@@ -34,15 +34,15 @@ export function QuickCreateAdapter({
     return (
       <div className="space-y-3">
         <QuickCreateSlot
-          defaultStart={defaultStart}
           defaultEnd={defaultEnd}
-          onCreate={onCreate}
+          defaultStart={defaultStart}
           onCancel={onCancel}
+          onCreate={onCreate}
         />
         {useEnhanced && (
           <button
-            onClick={() => setMode("full")}
             className="flex w-full items-center justify-center gap-1.5 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted"
+            onClick={() => setMode("full")}
           >
             <Lightbulb className="h-3.5 w-3.5" />
             Show advanced options
@@ -54,10 +54,10 @@ export function QuickCreateAdapter({
 
   return (
     <EnhancedQuickCreate
-      defaultStart={defaultStart}
       defaultEnd={defaultEnd}
-      onCreate={onCreate}
+      defaultStart={defaultStart}
       onCancel={onCancel}
+      onCreate={onCreate}
     />
   );
 }

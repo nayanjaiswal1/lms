@@ -61,15 +61,15 @@ export function LessonReflection({ moduleId, initialResponse }: LessonReflection
 
       <Textarea
         className="min-h-28"
+        placeholder="I learned that..."
+        value={response}
         onChange={(e) => {
           setResponse(e.target.value);
           setSaved(false);
         }}
-        placeholder="I learned that..."
-        value={response}
       />
 
-      <Button className="w-fit" disabled={isPending || !response.trim()} onClick={submit} size="sm">
+      <Button className="w-fit" disabled={isPending || !response.trim()} size="sm" onClick={submit}>
         {isPending ? (
           <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
         ) : saved ? (

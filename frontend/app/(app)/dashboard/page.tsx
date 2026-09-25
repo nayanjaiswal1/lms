@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ArrowRight } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import ROUTES from "@/lib/routes";
 import { getCurrentUser } from "@/lib/server/auth";
+import { DashboardSectionHeader } from "./_components/section-header";
 import {
   AIConnectorNudgeSection,
   CoursesSection,
@@ -30,7 +29,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const [user, params] = await Promise.all([getCurrentUser(), searchParams]);
   if (!user) redirect(ROUTES.LOGIN);
 
-  const firstName = user.name.split(" ")[0];
+  const firstName = user.name.trim().split(" ")[0] || user.email;
 
   return (
     <main className="page-container">
@@ -47,15 +46,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {/* Main column */}
         <div className="lg:col-span-2">
           <section className="mb-8">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="section-title">Your courses</h2>
-              <Link
-                className="flex items-center gap-1 text-sm text-primary hover:underline"
-                href={ROUTES.COURSES}
-              >
-                View all <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+            <DashboardSectionHeader
+              link={{ href: ROUTES.COURSES, label: "View all" }}
+              title="Your courses"
+            />
             <Suspense
               fallback={
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -71,15 +65,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
           {/* Upcoming — assessments due and calendar events, merged into one timeline */}
           <section>
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="section-title">Upcoming</h2>
-              <Link
-                className="flex items-center gap-1 text-sm text-primary hover:underline"
-                href={ROUTES.CALENDAR}
-              >
-                Calendar <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+            <DashboardSectionHeader
+              link={{ href: ROUTES.CALENDAR, label: "Calendar" }}
+              title="Upcoming"
+            />
             <Suspense
               fallback={
                 <div className="flex flex-col gap-3">

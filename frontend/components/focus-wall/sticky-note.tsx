@@ -146,13 +146,13 @@ export function StickyNote({ note, zoom, onMove, onDelete, onSaveDraft }: Sticky
 
       {isDraft ? (
         <Textarea
-          autoFocus
           className={cn(
             "relative h-40 resize-none border-none bg-transparent p-0 font-handwritten text-xl leading-relaxed shadow-none",
             styles.draftInput,
           )}
           defaultValue=""
           placeholder="Write something…"
+          ref={(el) => el?.focus()}
           onBlur={handleDraftBlur}
         />
       ) : (

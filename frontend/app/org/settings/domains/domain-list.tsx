@@ -54,10 +54,11 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Auto-join:</span>
           <form action={toggleAction}>
-            <input type="hidden" name="org_id" value={orgId} />
-            <input type="hidden" name="domain_id" value={domain.id} />
-            <input type="hidden" name="enabled" value={domain.auto_join_enabled ? "false" : "true"} />
+            <input name="org_id" type="hidden" value={orgId} />
+            <input name="domain_id" type="hidden" value={domain.id} />
+            <input name="enabled" type="hidden" value={domain.auto_join_enabled ? "false" : "true"} />
             <button
+              aria-checked={domain.auto_join_enabled}
               aria-label={
                 domain.auto_join_enabled
                   ? `Disable auto-join for ${domain.domain}`
@@ -68,7 +69,6 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
                 domain.auto_join_enabled ? "bg-primary" : "bg-muted",
               ].join(" ")}
               role="switch"
-              aria-checked={domain.auto_join_enabled}
               type="submit"
             >
               <span
@@ -103,8 +103,8 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
       <div className="flex items-center gap-2 flex-wrap">
         {!domain.verified && (
           <form action={verifyAction}>
-            <input type="hidden" name="org_id" value={orgId} />
-            <input type="hidden" name="domain_id" value={domain.id} />
+            <input name="org_id" type="hidden" value={orgId} />
+            <input name="domain_id" type="hidden" value={domain.id} />
             <Button disabled={verifyPending} size="sm" type="submit" variant="secondary">
               {verifyPending ? "Checking…" : "Verify Now"}
             </Button>
@@ -112,8 +112,8 @@ function DomainCard({ domain, orgId }: DomainCardProps) {
         )}
 
         <form action={removeAction}>
-          <input type="hidden" name="org_id" value={orgId} />
-          <input type="hidden" name="domain_id" value={domain.id} />
+          <input name="org_id" type="hidden" value={orgId} />
+          <input name="domain_id" type="hidden" value={domain.id} />
           <Button
             aria-label={`Remove domain ${domain.domain}`}
             disabled={removePending}

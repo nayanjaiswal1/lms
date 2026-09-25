@@ -995,10 +995,10 @@ func joinStrings(ss []string, sep string) string {
 func parseLBKey(key string) (scope, scopeID, featureType string) {
 	const (
 		pfxGlobal  = "leaderboard:global"
-		pfxOrg     = "leaderboard:org:"        // 16 chars
-		pfxBatch   = "leaderboard:batch:"      // 18 chars
-		pfxGroup   = "leaderboard:group:"      // 18 chars
-		pfxCourse  = "leaderboard:course:"     // 19 chars
+		pfxOrg     = "leaderboard:org:"         // 16 chars
+		pfxBatch   = "leaderboard:batch:"       // 18 chars
+		pfxGroup   = "leaderboard:group:"       // 18 chars
+		pfxCourse  = "leaderboard:course:"      // 19 chars
 		pfxFeature = "leaderboard:feature:org:" // 24 chars
 	)
 	switch {

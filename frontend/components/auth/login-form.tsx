@@ -74,39 +74,39 @@ export function LoginForm({ oauthError, next }: LoginFormProps) {
           <AuthFormError message={oauthMessage ?? state.error} />
 
           <FormInputField
+            autoComplete="email webauthn"
             control={form.control}
-            name="email"
-            label="Email"
-            type="email"
+            disabled={locked}
             inputMode="email"
+            label="Email"
             // "webauthn" alongside the normal token turns on conditional UI —
             // the browser lists matching passkeys in this field's own
             // autofill dropdown (see components/auth/passkey-autofill.tsx).
-            autoComplete="email webauthn"
+            name="email"
             placeholder="you@example.com"
-            disabled={locked}
             serverError={state.fieldErrors?.email}
+            type="email"
           />
 
           <FormInputField
-            control={form.control}
-            name="password"
-            label="Password"
-            type="password"
             autoComplete="current-password"
-            placeholder="Enter your password"
+            control={form.control}
             disabled={locked}
+            label="Password"
+            name="password"
+            placeholder="Enter your password"
             serverError={state.fieldErrors?.password}
+            type="password"
           />
 
           <Link
-            href={ROUTES.FORGOT_PASSWORD}
             className="-mt-2 self-end text-xs font-medium"
+            href={ROUTES.FORGOT_PASSWORD}
           >
             Forgot password?
           </Link>
 
-          <Button type="submit" size="lg" disabled={locked} className="mt-1 w-full">
+          <Button className="mt-1 w-full" disabled={locked} size="lg" type="submit">
             {isPending ? (
               <>
                 <Loader2 aria-hidden className="animate-spin" />

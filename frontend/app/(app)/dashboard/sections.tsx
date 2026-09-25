@@ -1,18 +1,18 @@
-import Link from "next/link";
 import {
   BookOpen,
   Calendar,
   ClipboardCheck,
-  ArrowRight,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { LeaderboardTable, MyRewardSummary } from "@/components/rewards/leaderboard-table";
 import { ScopeTabs } from "@/components/rewards/scope-tabs";
 import type { LeaderboardScope } from "@/components/rewards/scope-tabs";
 import { CourseCard } from "@/components/courses/course-card";
 import { AIConnectorNudge } from "@/components/settings/ai-connector-nudge";
 import { DashboardReviewWidget } from "@/components/review/dashboard-review-widget";
+import { DashboardEmptyState } from "./_components/empty-state";
+import { DashboardSectionHeader } from "./_components/section-header";
+import { DashboardUpcomingRow } from "./_components/upcoming-row";
 import ROUTES from "@/lib/routes";
 import { getEnrollments } from "@/lib/server/courses";
 import { getMyAssessments } from "@/lib/assessments/server";
@@ -206,15 +206,11 @@ export async function CoursesSection() {
 
   if (coursesWithProgress.length === 0) {
     return (
-      <div className="empty-state">
-        <BookOpen aria-hidden className="h-10 w-10 text-muted-foreground" />
-        <p className="text-muted-foreground">
-          You haven&apos;t enrolled in any courses yet.
-        </p>
-        <Button asChild size="sm" variant="outline">
-          <Link href={ROUTES.COURSES}>Browse courses</Link>
-        </Button>
-      </div>
+      <DashboardEmptyState
+        action={{ href: ROUTES.COURSES, label: "Browse courses" }}
+        icon={BookOpen}
+        message="You haven't enrolled in any courses yet."
+      />
     );
   }
 
@@ -238,10 +234,10 @@ export async function UpcomingSection() {
 
   if (upcomingItems.length === 0) {
     return (
-      <div className="empty-state">
-        <Calendar aria-hidden className="h-10 w-10 text-muted-foreground" />
-        <p className="text-muted-foreground">Nothing due or on your calendar right now.</p>
-      </div>
+      <DashboardEmptyState
+        icon={Calendar}
+        message="Nothing due or on your calendar right now."
+      />
     );
   }
 
@@ -303,15 +299,11 @@ export async function StandingSection({ userId, scope, scopeId }: StandingSectio
 
   return (
     <section className="card-base flex flex-col gap-4 p-5">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="subsection-title">Your standing</h2>
-        <Link
-          className="flex items-center gap-1 text-sm text-primary hover:underline"
-          href={standingHref}
-        >
-          View all <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-        </Link>
-      </div>
+      <DashboardSectionHeader
+        link={{ href: standingHref, label: "View all" }}
+        size="subsection"
+        title="Your standing"
+      />
 
       {myBatches.length > 0 && (
         <ScopeTabs activeScope={standingScope} activeScopeId={standingScopeId} tabs={standingTabs} />
@@ -351,18 +343,12 @@ interface UpcomingEventRowProps {
 
 function UpcomingEventRow({ event }: UpcomingEventRowProps) {
   return (
-    <Link
-      className="card-interactive flex items-center gap-3 p-3"
+    <DashboardUpcomingRow
       href={`${ROUTES.CALENDAR}?event=${event.id}`}
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <Calendar aria-hidden className="h-4 w-4 text-primary" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{event.title}</p>
-        <p className="text-xs text-muted-foreground">{formatEventTime(event.starts_at, event.all_day)}</p>
-      </div>
-    </Link>
+      icon={Calendar}
+      subtitle={formatEventTime(event.starts_at, event.all_day)}
+      title={event.title}
+    />
   );
 }
 
@@ -381,45 +367,23 @@ function AssessmentRow({ assessment }: AssessmentRowProps) {
   const dueDateLabel = formatDueDate(assessment.ends_at);
   const isOverdue = assessment.ends_at && new Date(assessment.ends_at) < new Date();
   const attemptsLeft = assessment.max_attempts - assessment.attempts_used;
-  const href = assessmentHref(assessment);
 
-  const content = (
-    <>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-        <ClipboardCheck aria-hidden className="h-5 w-5 text-primary" />
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{assessment.title}</p>
-        <p className={`text-xs ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}>
+  return (
+    <DashboardUpcomingRow
+      href={assessmentHref(assessment)}
+      icon={ClipboardCheck}
+      subtitle={
+        <>
           {dueDateLabel}
           {attemptsLeft > 0 && attemptsLeft < assessment.max_attempts && (
             <span className="ml-2 text-muted-foreground">
               · {attemptsLeft} attempt{attemptsLeft !== 1 ? "s" : ""} left
             </span>
           )}
-        </p>
-      </div>
-
-      <Button asChild className="pointer-events-none shrink-0" size="icon" variant="ghost">
-        <span aria-hidden>
-          <ArrowRight className="h-4 w-4" />
-        </span>
-      </Button>
-    </>
-  );
-
-  if (!href) {
-    return (
-      <div className="card-base flex items-center gap-4 p-4 opacity-60">
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <Link className="card-interactive flex items-center gap-4 p-4" href={href}>
-      {content}
-    </Link>
+        </>
+      }
+      subtitleTone={isOverdue ? "destructive" : "muted"}
+      title={assessment.title}
+    />
   );
 }

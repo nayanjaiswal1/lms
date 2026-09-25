@@ -13,11 +13,25 @@ interface LeaderboardTableProps {
   myAchievements?: UserAchievement[];
 }
 
-const RANK_STYLES: Record<number, { ring: string; badge: string; text: string }> = {
-  1: { ring: "ring-yellow-400/60", badge: "bg-yellow-400/10 text-yellow-600 dark:text-yellow-400", text: "🥇" },
-  2: { ring: "ring-slate-300/60",  badge: "bg-slate-200/40 text-slate-500 dark:text-slate-300",   text: "🥈" },
-  3: { ring: "ring-amber-600/50",  badge: "bg-amber-100/30 text-amber-700 dark:text-amber-400",   text: "🥉" },
-};
+function RankCell({ rank }: { rank: number }) {
+  // Top-3 share the primary tint — rank stays a real number (not an emoji)
+  // so it reads consistently across platforms and screen readers.
+  if (rank >= 1 && rank <= 3) {
+    return (
+      <span
+        aria-label={`Rank ${rank}`}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold tabular-nums text-primary"
+      >
+        {rank}
+      </span>
+    );
+  }
+  return (
+    <span className="w-7 text-center text-sm font-semibold tabular-nums text-muted-foreground">
+      {rank}
+    </span>
+  );
+}
 
 function Avatar({ name, avatarUrl, isMe }: { name: string; avatarUrl?: string; isMe: boolean }) {
   const initials = name
@@ -45,22 +59,6 @@ function Avatar({ name, avatarUrl, isMe }: { name: string; avatarUrl?: string; i
   );
 }
 
-function RankCell({ rank }: { rank: number }) {
-  const style = RANK_STYLES[rank];
-  if (style) {
-    return (
-      <span className={cn("inline-flex h-7 w-7 items-center justify-center rounded-full text-sm", style.badge)}>
-        {style.text}
-      </span>
-    );
-  }
-  return (
-    <span className="w-7 text-center text-sm font-semibold tabular-nums text-muted-foreground">
-      {rank}
-    </span>
-  );
-}
-
 export function MyRewardSummary({ progressPct, achievements }: { progressPct?: number; achievements?: UserAchievement[] }) {
   if (progressPct === undefined && !achievements?.length) return null;
 
@@ -68,7 +66,6 @@ export function MyRewardSummary({ progressPct, achievements }: { progressPct?: n
     <div className="flex flex-col gap-2 pt-1">
       {progressPct !== undefined && (
         <div className="progress-track h-1.5">
-          { }
           <div
             aria-label={`${Math.round(progressPct)}% progress to next level`}
             className="progress-fill h-full transition-all duration-700 ease-out"

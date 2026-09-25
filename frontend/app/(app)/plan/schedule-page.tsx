@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Calendar, List, BarChart3 } from "lucide-react";
-import { toast } from "sonner";
 import { TimeBlocksDashboard } from "@/app/(app)/plan/time-blocks-dashboard";
 import { WeekView } from "@/app/(app)/calendar/week-view";
 import { EventPanel } from "@/app/(app)/calendar/event-panel";
@@ -46,7 +45,6 @@ export function SchedulePage({
   const [selectedEventId, setSelectedEventId] = React.useState<string | null>(null);
   const [selectedEventDetail, setSelectedEventDetail] = React.useState<CalendarEventDetail | null>(null);
   const [isCreating, setIsCreating] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
 
   const handleSlotClick = (day: Date, time: Date) => {
     setSelectedSlot(time);
@@ -55,13 +53,8 @@ export function SchedulePage({
 
   const handleEventClick = async (eventId: string) => {
     setSelectedEventId(eventId);
-    setLoading(true);
-    try {
-      const detail = await onGetEventDetail(eventId);
-      setSelectedEventDetail(detail);
-    } finally {
-      setLoading(false);
-    }
+    const detail = await onGetEventDetail(eventId);
+    setSelectedEventDetail(detail);
   };
 
   const handleCreateEvent = async (
@@ -71,11 +64,9 @@ export function SchedulePage({
     isTask: boolean,
     notes?: string
   ) => {
-    try {
-      setLoading(true);
-      await onCreateEvent(title, start, end, isTask, notes);
-      // Optimistically update the local state
-      setEvents([
+    await onCreateEvent(title, start, end, isTask, notes);
+    // Optimistically update the local state
+    setEvents([
         ...events,
         {
           id: Math.random().toString(),
@@ -100,9 +91,6 @@ export function SchedulePage({
       ]);
       setIsCreating(false);
       setSelectedSlot(null);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const defaultStart = selectedSlot || new Date();
@@ -135,10 +123,10 @@ export function SchedulePage({
           </PopoverAnchor>
           <PopoverContent className="w-96 max-w-[calc(100vw-2rem)] p-0">
             <EnhancedQuickCreate
-              defaultStart={defaultStart}
               defaultEnd={defaultEnd}
-              onCreate={handleCreateEvent}
+              defaultStart={defaultStart}
               onCancel={() => setIsCreating(false)}
+              onCreate={handleCreateEvent}
             />
           </PopoverContent>
         </Popover>
@@ -150,11 +138,11 @@ export function SchedulePage({
         <div className="flex gap-2">
           {(["week", "list", "stats"] as const).map((v) => (
             <Button
-              key={v}
-              variant={view === v ? "default" : "outline"}
-              size="sm"
-              onClick={() => setView(v)}
               className="gap-2"
+              key={v}
+              size="sm"
+              variant={view === v ? "default" : "outline"}
+              onClick={() => setView(v)}
             >
               {v === "week" && <Calendar className="h-4 w-4" />}
               {v === "list" && <List className="h-4 w-4" />}
@@ -168,8 +156,8 @@ export function SchedulePage({
         {view === "week" && (
           <WeekView
             anchor={selectedDate}
-            events={events}
             currentUserId={currentUserId}
+            events={events}
             onDateSelect={handleSlotClick}
             onEventClick={handleEventClick}
             onNavigate={(direction) => {
@@ -182,7 +170,6 @@ export function SchedulePage({
         {view === "list" && (
           <TimeBlocksDashboard
             events={events}
-            currentUserId={currentUserId}
             onEventClick={handleEventClick}
           />
         )}
@@ -193,21 +180,21 @@ export function SchedulePage({
       {/* Event detail panel */}
       {selectedEvent && (
         <EventPanel
-          key={selectedEvent.id}
-          event={selectedEvent}
-          attendees={selectedEventDetail?.attendees ?? null}
-          pendingInvites={selectedEventDetail?.pending_invites ?? null}
-          currentUserId={currentUserId}
           open
-          onOpenChange={(open) => {
-            if (!open) closeEventPanel();
-          }}
+          attendees={selectedEventDetail?.attendees ?? null}
+          currentUserId={currentUserId}
+          event={selectedEvent}
+          key={selectedEvent.id}
+          pendingInvites={selectedEventDetail?.pending_invites ?? null}
           onAttendeeChanged={() => {}}
-          onInvited={() => {}}
           onEventChanged={(updated) => {
             setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
             void onUpdateEvent;
             void onDeleteEvent;
+          }}
+          onInvited={() => {}}
+          onOpenChange={(open) => {
+            if (!open) closeEventPanel();
           }}
           onRefetchNeeded={closeEventPanel}
         />
@@ -231,7 +218,7 @@ function StatsView({ events }: { events: CalendarEvent[] }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard label="Total tasks" value={tasks.length} />
-      <StatCard label="Completed" value={completed} highlight="success" />
+      <StatCard highlight="success" label="Completed" value={completed} />
       <StatCard label="Total events" value={totalEvents.length} />
       <StatCard label="Hours scheduled" value={totalHours.toFixed(1)} />
     </div>

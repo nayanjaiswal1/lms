@@ -57,7 +57,7 @@ function ActionItems({ actions }: { actions: MenuAction[] }) {
   return (
     <>
       {actions.map((action) => (
-        <DropdownMenuItem key={action.label} disabled={action.disabled} onClick={action.onClick}>
+        <DropdownMenuItem disabled={action.disabled} key={action.label} onClick={action.onClick}>
           {action.label}
           {action.shortcut && <DropdownMenuShortcut>{action.shortcut}</DropdownMenuShortcut>}
         </DropdownMenuItem>

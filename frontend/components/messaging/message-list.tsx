@@ -21,14 +21,14 @@ export function MessageList({ messages, batchId, isStaff, courseId }: MessageLis
           <p className="mt-3 text-sm text-muted-foreground">No messages yet. Be the first to ask a question.</p>
         </div>
       ) : (
-        <ol className="flex flex-col gap-3" aria-label="Batch messages">
+        <ol aria-label="Batch messages" className="flex flex-col gap-3">
           {messages.map((msg) => (
             <li key={msg.id}>
               <MessageItem
-                message={msg}
                 batchId={batchId}
-                isStaff={isStaff}
                 courseId={courseId}
+                isStaff={isStaff}
+                message={msg}
               />
             </li>
           ))}

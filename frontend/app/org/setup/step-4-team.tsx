@@ -96,7 +96,7 @@ export function Step4Team({ orgId }: Step4TeamProps) {
       </div>
 
       {state.error && (
-        <p role="alert" className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive">
+        <p className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive" role="alert">
           {state.error}
         </p>
       )}
@@ -104,27 +104,27 @@ export function Step4Team({ orgId }: Step4TeamProps) {
       {/* Invite rows */}
       <div className="flex flex-col gap-3">
         {rows.map((row, index) => (
-          <div key={row.id} className="flex items-end gap-2">
+          <div className="flex items-end gap-2" key={row.id}>
             <div className="flex flex-1 flex-col gap-1.5">
               {index === 0 && <Label htmlFor={`invite_email_${row.id}`}>Email</Label>}
               <Input
-                id={`invite_email_${row.id}`}
-                type="email"
-                inputMode="email"
                 autoComplete="off"
+                disabled={isPending}
+                id={`invite_email_${row.id}`}
+                inputMode="email"
                 placeholder="colleague@example.com"
+                type="email"
                 value={row.email}
                 onChange={(e) => updateEmail(row.id, e.target.value)}
-                disabled={isPending}
               />
             </div>
 
             <div className="flex w-36 flex-col gap-1.5">
               {index === 0 && <Label>Role</Label>}
               <Select
+                disabled={isPending}
                 value={row.role}
                 onValueChange={(v) => updateRole(row.id, v as OrgRole)}
-                disabled={isPending}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -140,11 +140,11 @@ export function Step4Team({ orgId }: Step4TeamProps) {
             </div>
 
             <button
-              type="button"
               aria-label={`Remove invite row ${index + 1}`}
-              onClick={() => removeRow(row.id)}
-              disabled={isPending || rows.length === 1}
               className="touch-target mb-px flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
+              disabled={isPending || rows.length === 1}
+              type="button"
+              onClick={() => removeRow(row.id)}
             >
               <Trash2 aria-hidden className="h-4 w-4" />
             </button>
@@ -153,11 +153,11 @@ export function Step4Team({ orgId }: Step4TeamProps) {
       </div>
 
       <Button
+        className="gap-2 self-start"
+        disabled={isPending}
         type="button"
         variant="outline"
         onClick={addRow}
-        disabled={isPending}
-        className="gap-2 self-start"
       >
         <Plus aria-hidden className="h-4 w-4" />
         Add another
@@ -169,11 +169,11 @@ export function Step4Team({ orgId }: Step4TeamProps) {
 
       <div className="flex items-center justify-between pt-2">
         <Button
+          asChild
+          className="gap-2"
+          disabled={isPending}
           type="button"
           variant="outline"
-          disabled={isPending}
-          className="gap-2"
-          asChild
         >
           <Link href={`${ROUTES.ORG_SETUP}?step=3`}>
             <ArrowLeft aria-hidden className="h-4 w-4" />
@@ -181,7 +181,7 @@ export function Step4Team({ orgId }: Step4TeamProps) {
           </Link>
         </Button>
 
-        <Button type="submit" disabled={isPending} className="gap-2">
+        <Button className="gap-2" disabled={isPending} type="submit">
           {isPending ? (
             <>
               <Loader2 aria-hidden className="animate-spin" />

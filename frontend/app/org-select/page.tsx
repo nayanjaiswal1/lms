@@ -20,11 +20,11 @@ export default async function OrgSelectPage() {
 
   return (
     <AuthPageShell
-      title="Choose your organisation"
-      description={`Welcome back, ${user.name}. Select which workspace to continue with.`}
-      alternatePrompt="Wrong account?"
-      alternateLabel="Sign in with a different account"
       alternateHref={ROUTES.LOGIN}
+      alternateLabel="Sign in with a different account"
+      alternatePrompt="Wrong account?"
+      description={`Welcome back, ${user.name}. Select which workspace to continue with.`}
+      title="Choose your organisation"
     >
       {orgs.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-6 text-center text-muted-foreground">

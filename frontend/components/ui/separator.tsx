@@ -12,14 +12,14 @@ function Separator({
 }: React.ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root>) {
   return (
     <SeparatorPrimitive.Root
-      data-slot="separator"
-      decorative={decorative}
-      orientation={orientation}
       className={cn(
         "bg-border shrink-0",
         orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
         className,
       )}
+      data-slot="separator"
+      decorative={decorative}
+      orientation={orientation}
       {...props}
     />
   )

@@ -7,17 +7,17 @@ import (
 
 // AssessmentAnalytics summarises performance across all attempts of an assessment.
 type AssessmentAnalytics struct {
-	AssessmentID    string             `json:"assessment_id"`
-	TotalAttempts   int                `json:"total_attempts"`
-	Evaluated       int                `json:"evaluated"`
-	AvgPercentage   float64            `json:"avg_percentage"`
-	PassRate        float64            `json:"pass_rate"`
-	AvgDurationSec  float64            `json:"avg_duration_sec"`
-	HighScore       float64            `json:"high_score"`
-	LowScore        float64            `json:"low_score"`
-	ScoreBuckets    map[string]int     `json:"score_buckets"`
-	QuestionStats   []QuestionStat     `json:"question_stats"`
-	FlaggedAttempts int                `json:"flagged_attempts"`
+	AssessmentID    string         `json:"assessment_id"`
+	TotalAttempts   int            `json:"total_attempts"`
+	Evaluated       int            `json:"evaluated"`
+	AvgPercentage   float64        `json:"avg_percentage"`
+	PassRate        float64        `json:"pass_rate"`
+	AvgDurationSec  float64        `json:"avg_duration_sec"`
+	HighScore       float64        `json:"high_score"`
+	LowScore        float64        `json:"low_score"`
+	ScoreBuckets    map[string]int `json:"score_buckets"`
+	QuestionStats   []QuestionStat `json:"question_stats"`
+	FlaggedAttempts int            `json:"flagged_attempts"`
 }
 
 // QuestionStat is the correctness rate for one question in an assessment.

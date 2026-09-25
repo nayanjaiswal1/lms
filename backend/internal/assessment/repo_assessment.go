@@ -70,7 +70,7 @@ func (r *Repo) GetAssessment(ctx context.Context, orgID, id string) (Assessment,
 		        (SELECT count(*) FROM assessment_questions aq WHERE aq.assessment_id = a.id),
 		        a.short_code, course.course_id, course.title
 		 FROM assessments a
-		 ` + courseLinkJoin + `
+		 `+courseLinkJoin+`
 		 WHERE a.id = $1 AND a.org_id = $2`, id, orgID)
 	return scanAssessment(row)
 }
@@ -181,17 +181,17 @@ func (r *Repo) SetStatus(ctx context.Context, orgID, id, status string, setPubli
 
 // AssessmentQuestion is the ordered join row plus the pinned version content.
 type AssessmentQuestion struct {
-	ID            string          `json:"id"`
-	AssessmentID  string          `json:"assessment_id"`
-	QuestionID    string          `json:"question_id"`
-	VersionID     string          `json:"version_id"`
-	Position      int             `json:"position"`
-	Points        float64         `json:"points"`
-	Type          string          `json:"type"`
-	Title         string          `json:"title"`
-	Difficulty    string          `json:"difficulty"`
-	Tags          []string        `json:"tags"`
-	Content       json.RawMessage `json:"content,omitempty"`
+	ID           string          `json:"id"`
+	AssessmentID string          `json:"assessment_id"`
+	QuestionID   string          `json:"question_id"`
+	VersionID    string          `json:"version_id"`
+	Position     int             `json:"position"`
+	Points       float64         `json:"points"`
+	Type         string          `json:"type"`
+	Title        string          `json:"title"`
+	Difficulty   string          `json:"difficulty"`
+	Tags         []string        `json:"tags"`
+	Content      json.RawMessage `json:"content,omitempty"`
 }
 
 // AddQuestion pins the current version of a question into the assessment and
@@ -410,13 +410,13 @@ func recomputeTotals(ctx context.Context, tx pgx.Tx, assessmentID string) error 
 
 // Assignment is who must take an assessment.
 type Assignment struct {
-	ID            string     `json:"id"`
-	AssessmentID  string     `json:"assessment_id"`
-	AssigneeType  string     `json:"assignee_type"`
-	AssigneeID    string     `json:"assignee_id"`
-	AssigneeName  string     `json:"assignee_name"`
-	DueAt         *string    `json:"due_at"`
-	AssignedBy    string     `json:"assigned_by"`
+	ID           string  `json:"id"`
+	AssessmentID string  `json:"assessment_id"`
+	AssigneeType string  `json:"assignee_type"`
+	AssigneeID   string  `json:"assignee_id"`
+	AssigneeName string  `json:"assignee_name"`
+	DueAt        *string `json:"due_at"`
+	AssignedBy   string  `json:"assigned_by"`
 }
 
 // CreateAssignments inserts assignments for multiple assignees in one transaction,

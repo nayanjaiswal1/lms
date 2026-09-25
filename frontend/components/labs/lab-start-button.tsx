@@ -125,15 +125,15 @@ export function LabStartButton({ lab, className, label = "Launch Lab" }: LabStar
 
   return (
     <Button
+      aria-label={isBusy ? buttonLabel : `Start ${lab.title}`}
+      className={cn("w-full sm:w-auto", className)}
+      disabled={isBusy}
       size="lg"
       onClick={handleClick}
-      disabled={isBusy}
-      className={cn("w-full sm:w-auto", className)}
-      aria-label={isBusy ? buttonLabel : `Start ${lab.title}`}
     >
       {isStarting || isProvisioningThisLab ? (
         <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+          <Loader2 aria-hidden className="mr-2 h-4 w-4 animate-spin" />
           {buttonLabel}
         </>
       ) : (

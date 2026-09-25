@@ -108,8 +108,8 @@ export async function updateDiaryTaskTagsAction(id: string, tags: string[]): Pro
   return result;
 }
 
-export async function deleteDiaryTaskAction(id: string): Promise<ActionResult<void>> {
-  const result = await apiAction<void>("DELETE", `/api/diary/tasks/${encodeURIComponent(id)}`);
+export async function deleteDiaryTaskAction(id: string): Promise<ActionResult<null>> {
+  const result = await apiAction<null>("DELETE", `/api/diary/tasks/${encodeURIComponent(id)}`);
   if (result.ok) revalidatePath(ROUTES.DIARY);
   return result;
 }

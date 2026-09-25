@@ -92,9 +92,10 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
         <div
           aria-label={`${name} avatar`}
           className={cn(
-            "flex h-full w-full items-center justify-center rounded-full font-semibold text-white select-none",
+            "flex h-full w-full items-center justify-center rounded-full font-semibold text-primary-foreground select-none",
             text,
           )}
+          // eslint-disable-next-line no-restricted-syntax -- deterministic hash-derived hue gives every batch a stable distinct fallback color, impossible as a static token
           style={{ backgroundColor: `hsl(${hue}, 55%, 40%)` }}
         >
           {getInitials(name)}

@@ -79,8 +79,8 @@ export function ActiveLabsBar() {
               : `${session.lab_title} lab is ${statusLabel.toLowerCase()} — show controls`
           }
           className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card"
-          onClick={() => setIsExpanded((expanded) => !expanded)}
           type="button"
+          onClick={() => setIsExpanded((expanded) => !expanded)}
         >
           <Icon aria-hidden className={cn("h-4 w-4", isRunning ? "text-success" : "text-warning")} />
           <span
@@ -108,9 +108,9 @@ export function ActiveLabsBar() {
             aria-label="Stop lab session"
             className="touch-target shrink-0"
             disabled={isEnding}
-            onClick={handleEnd}
             size="icon"
             variant="outline"
+            onClick={handleEnd}
           >
             {isEnding ? (
               <Loader2 aria-hidden className="h-4 w-4 animate-spin" />

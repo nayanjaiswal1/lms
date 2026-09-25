@@ -71,21 +71,21 @@ export function Step3Plan({ orgId, org }: Step3PlanProps) {
         </div>
 
         {state.error && (
-          <p role="alert" className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive">
+          <p className="rounded-md border border-border bg-muted px-3 py-2.5 text-sm text-destructive" role="alert">
             {state.error}
           </p>
         )}
 
         <FormInputField
           control={form.control}
-          name="seat_limit"
-          label="Seat limit"
-          type="number"
-          inputMode="numeric"
-          min="1"
-          placeholder="Leave blank for unlimited"
           disabled={isPending}
+          inputMode="numeric"
+          label="Seat limit"
+          min="1"
+          name="seat_limit"
+          placeholder="Leave blank for unlimited"
           serverError={state.fieldErrors?.seat_limit}
+          type="number"
         />
         <p className="text-xs text-muted-foreground -mt-2">
           Maximum number of active members allowed. Leave blank for unlimited.
@@ -93,11 +93,11 @@ export function Step3Plan({ orgId, org }: Step3PlanProps) {
 
         <div className="flex items-center justify-between pt-2">
           <Button
+            asChild
+            className="gap-2"
+            disabled={isPending}
             type="button"
             variant="outline"
-            disabled={isPending}
-            className="gap-2"
-            asChild
           >
             <Link href={`${ROUTES.ORG_SETUP}?step=2`}>
               <ArrowLeft aria-hidden className="h-4 w-4" />
@@ -105,7 +105,7 @@ export function Step3Plan({ orgId, org }: Step3PlanProps) {
             </Link>
           </Button>
 
-          <Button type="submit" disabled={isPending} className="gap-2">
+          <Button className="gap-2" disabled={isPending} type="submit">
             {isPending ? (
               <>
                 <Loader2 aria-hidden className="animate-spin" />

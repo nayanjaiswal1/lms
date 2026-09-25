@@ -22,7 +22,7 @@ export function EvaluationCard({ evaluation }: EvaluationCardProps) {
         <div className="flex flex-col gap-4">
           <h3 className="text-lg font-semibold">Per-question feedback</h3>
           {per_question.map((row, i) => (
-            <QuestionPanel key={row.id} row={row} index={i} />
+            <QuestionPanel index={i} key={row.id} row={row} />
           ))}
         </div>
       )}
@@ -51,13 +51,13 @@ function OverallPanel({ row }: { row: EvaluationRow }) {
       </div>
 
       {row.strengths.length > 0 && (
-        <FeedbackList icon={<CheckCircle2 className="h-4 w-4 text-ai" aria-hidden />} label="Strengths" items={row.strengths} />
+        <FeedbackList icon={<CheckCircle2 aria-hidden className="h-4 w-4 text-ai" />} items={row.strengths} label="Strengths" />
       )}
       {row.weaknesses.length > 0 && (
-        <FeedbackList icon={<AlertTriangle className="h-4 w-4 text-destructive" aria-hidden />} label="Areas to improve" items={row.weaknesses} />
+        <FeedbackList icon={<AlertTriangle aria-hidden className="h-4 w-4 text-destructive" />} items={row.weaknesses} label="Areas to improve" />
       )}
       {row.improvements.length > 0 && (
-        <FeedbackList icon={<Lightbulb className="h-4 w-4 text-primary" aria-hidden />} label="Suggestions" items={row.improvements} />
+        <FeedbackList icon={<Lightbulb aria-hidden className="h-4 w-4 text-primary" />} items={row.improvements} label="Suggestions" />
       )}
     </div>
   );
@@ -80,7 +80,7 @@ function QuestionPanel({ row, index }: { row: EvaluationRow; index: number }) {
         <h4 className="font-semibold">Question {index + 1}</h4>
         {row.composite_score !== null && (
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <TrendingUp className="h-4 w-4" aria-hidden />
+            <TrendingUp aria-hidden className="h-4 w-4" />
             {Math.round(row.composite_score)} / 100
           </div>
         )}
@@ -95,10 +95,10 @@ function QuestionPanel({ row, index }: { row: EvaluationRow; index: number }) {
       </div>
 
       {row.strengths.length > 0 && (
-        <FeedbackList icon={<CheckCircle2 className="h-3 w-3 text-ai" aria-hidden />} label="Strengths" items={row.strengths} />
+        <FeedbackList icon={<CheckCircle2 aria-hidden className="h-3 w-3 text-ai" />} items={row.strengths} label="Strengths" />
       )}
       {row.missing_concepts.length > 0 && (
-        <FeedbackList icon={<AlertTriangle className="h-3 w-3 text-destructive" aria-hidden />} label="Missing concepts" items={row.missing_concepts} />
+        <FeedbackList icon={<AlertTriangle aria-hidden className="h-3 w-3 text-destructive" />} items={row.missing_concepts} label="Missing concepts" />
       )}
       {row.better_answer && (
         <div className="ai-surface rounded-md p-4">
@@ -121,7 +121,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
       </div>
       <div className="progress-track h-2">
         {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width requires inline style */}
-        <div className={`progress-fill h-full ${color}`} style={{ width: `${pct}%` }} aria-hidden />
+        <div aria-hidden className={`progress-fill h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -141,7 +141,7 @@ function FeedbackList({
       <p className="text-xs font-semibold text-muted-foreground">{label}</p>
       <ul className="flex flex-col gap-1">
         {items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm">
+          <li className="flex items-start gap-2 text-sm" key={i}>
             <span className="mt-0.5 shrink-0">{icon}</span>
             {item}
           </li>

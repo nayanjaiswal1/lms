@@ -72,8 +72,8 @@ export function ProctorBanner({
         {/* Timer + exit */}
         <div className="flex flex-1 items-center justify-end gap-2">
           <span
-            aria-live="polite"
             aria-label={`${formatTime(secondsLeft)} remaining`}
+            aria-live="polite"
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-mono text-sm font-semibold tabular-nums transition-colors duration-normal",
               expired
@@ -91,32 +91,32 @@ export function ProctorBanner({
 
           {onExit && (
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={onExit}
               aria-label="Exit test"
               className="touch-target h-8 w-8 text-muted-foreground hover:text-foreground"
+              size="icon"
+              variant="ghost"
+              onClick={onExit}
             >
               <LogOut aria-hidden className="h-3.5 w-3.5" />
             </Button>
           )}
 
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={onHelp}
             aria-label="Proctoring rules & help"
             className="touch-target h-8 w-8 text-muted-foreground hover:text-foreground"
+            size="icon"
+            variant="ghost"
+            onClick={onHelp}
           >
             <HelpCircle aria-hidden className="h-3.5 w-3.5" />
           </Button>
 
           <Button
-            size="sm"
-            disabled={submitDisabled}
-            onClick={onSubmit}
             aria-label="Submit test"
             className="h-8 gap-1.5 px-3"
+            disabled={submitDisabled}
+            size="sm"
+            onClick={onSubmit}
           >
             <Send aria-hidden className="h-3.5 w-3.5" />
             <span className="hidden text-xs sm:inline">Submit</span>

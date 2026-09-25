@@ -68,12 +68,18 @@ func scanRequirement(row pgx.Row) (*ProjectRequirement, error) {
 
 // CreateRequirement inserts a new draft requirement.
 func (r *Repo) CreateRequirement(ctx context.Context, req ProjectRequirement) (*ProjectRequirement, error) {
+	skills := req.RequiredSkills
+	if skills == nil {
+		// pgx encodes a nil slice as NULL, which violates the column's
+		// NOT NULL constraint — a requirement with no skills stores '{}'.
+		skills = []string{}
+	}
 	row := r.pool.QueryRow(ctx,
 		`INSERT INTO project_requirements
 			(org_id, title, brief, required_skills, team_size_min, team_size_max, application_deadline, status, created_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		 RETURNING `+requirementColumns,
-		req.OrgID, req.Title, req.Brief, req.RequiredSkills, req.TeamSizeMin, req.TeamSizeMax,
+		req.OrgID, req.Title, req.Brief, skills, req.TeamSizeMin, req.TeamSizeMax,
 		req.ApplicationDeadline, req.Status, req.CreatedBy,
 	)
 	return scanRequirement(row)
@@ -112,7 +118,7 @@ func (r *Repo) ListRequirements(ctx context.Context, orgID string) ([]ProjectReq
 	}
 	defer rows.Close()
 
-	var out []ProjectRequirement
+	out := []ProjectRequirement{} // non-nil: an empty list must encode as [], not null
 	for rows.Next() {
 		req, err := scanRequirement(rows)
 		if err != nil {
@@ -144,7 +150,7 @@ func (r *Repo) ListBoard(ctx context.Context, orgID, userID string) ([]Requireme
 	}
 	defer rows.Close()
 
-	var out []RequirementBoardRow
+	out := []RequirementBoardRow{} // non-nil: an empty list must encode as [], not null
 	for rows.Next() {
 		var row RequirementBoardRow
 		if err := rows.Scan(
@@ -295,7 +301,7 @@ func (r *Repo) ListApplicationsForStaff(ctx context.Context, orgID, requirementI
 	}
 	defer rows.Close()
 
-	var out []ProjectApplication
+	out := []ProjectApplication{} // non-nil: an empty list must encode as [], not null
 	for rows.Next() {
 		var app ProjectApplication
 		if err := rows.Scan(
@@ -327,7 +333,7 @@ func (r *Repo) ListUnscoredApplications(ctx context.Context, orgID, requirementI
 	}
 	defer rows.Close()
 
-	var out []ProjectApplication
+	out := []ProjectApplication{} // non-nil: an empty list must encode as [], not null
 	for rows.Next() {
 		app, err := scanApplication(rows)
 		if err != nil {
@@ -365,7 +371,7 @@ func (r *Repo) ListSelectedApplications(ctx context.Context, orgID, requirementI
 	}
 	defer rows.Close()
 
-	var out []ProjectApplication
+	out := []ProjectApplication{} // non-nil: an empty list must encode as [], not null
 	for rows.Next() {
 		app, err := scanApplication(rows)
 		if err != nil {
@@ -389,7 +395,7 @@ func (r *Repo) ListMyApplications(ctx context.Context, orgID, userID string) ([]
 	}
 	defer rows.Close()
 
-	var out []ProjectApplication
+	out := []ProjectApplication{} // non-nil: an empty list must encode as [], not null
 	for rows.Next() {
 		app, err := scanApplication(rows)
 		if err != nil {

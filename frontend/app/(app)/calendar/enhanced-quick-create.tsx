@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TimeBlockPresets } from "@/app/(app)/calendar/time-block-presets";
-import { Badge } from "@/components/ui/badge";
 import { Clock, AlertCircle, CheckCircle2, Zap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CALENDAR_PRIORITY_OPTIONS } from "@/lib/calendar/types";
@@ -54,6 +53,7 @@ function formatDuration(minutes: number): string {
 }
 
 export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCancel }: EnhancedQuickCreateProps) {
+  const uid = React.useId();
   const [title, setTitle] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [isTask, setIsTask] = React.useState(false);
@@ -95,22 +95,22 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         <div aria-label="Event or task" className="flex gap-2" role="radiogroup">
           <Button
             aria-pressed={!isTask}
+            className="flex-1"
             size="sm"
             type="button"
             variant={isTask ? "outline" : "default"}
             onClick={() => setIsTask(false)}
-            className="flex-1"
           >
             <Zap className="mr-1.5 h-3.5 w-3.5" />
             Event
           </Button>
           <Button
             aria-pressed={isTask}
+            className="flex-1"
             size="sm"
             type="button"
             variant={isTask ? "default" : "outline"}
             onClick={() => setIsTask(true)}
-            className="flex-1"
           >
             <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
             Task
@@ -120,11 +120,12 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
 
       {/* Title input */}
       <div className="space-y-2">
-        <label className="block text-xs font-medium text-muted-foreground">
+        <label className="block text-xs font-medium text-muted-foreground" htmlFor={`${uid}-title`}>
           {isTask ? "Task title" : "Event title"}
         </label>
         <Input
-          autoFocus
+          className="text-sm"
+          id={`${uid}-title`}
           placeholder={isTask ? "Study JavaScript…" : "Team meeting…"}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -134,7 +135,6 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
               submit();
             }
           }}
-          className="text-sm"
         />
       </div>
 
@@ -143,21 +143,23 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Start</label>
+              <label className="text-xs font-medium text-muted-foreground" htmlFor={`${uid}-start`}>Start</label>
               <Input
+                className="text-sm"
+                id={`${uid}-start`}
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="text-sm"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">End</label>
+              <label className="text-xs font-medium text-muted-foreground" htmlFor={`${uid}-end`}>End</label>
               <Input
+                className="text-sm"
+                id={`${uid}-end`}
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="text-sm"
               />
             </div>
           </div>
@@ -185,18 +187,19 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
       {isTask && (
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Due time</label>
+            <label className="text-xs font-medium text-muted-foreground" htmlFor={`${uid}-due`}>Due time</label>
             <Input
+              className="text-sm"
+              id={`${uid}-due`}
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="text-sm"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Priority</label>
+            <label className="text-xs font-medium text-muted-foreground" htmlFor={`${uid}-priority`}>Priority</label>
             <Select value={priority} onValueChange={(v) => setPriority(v as CalendarEventPriority)}>
-              <SelectTrigger aria-label="Task priority" className="text-sm">
+              <SelectTrigger aria-label="Task priority" className="text-sm" id={`${uid}-priority`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -213,12 +216,13 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
 
       {/* Notes (optional) */}
       <div className="space-y-2">
-        <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+        <label className="text-xs font-medium text-muted-foreground" htmlFor={`${uid}-notes`}>Notes (optional)</label>
         <Textarea
+          className="min-h-20 resize-none text-sm"
+          id={`${uid}-notes`}
           placeholder="Add context, links, or details…"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="min-h-20 resize-none text-sm"
         />
       </div>
 
@@ -227,7 +231,7 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
         <Button size="sm" type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button size="sm" type="button" onClick={submit} disabled={!title.trim() || !isValidDuration}>
+        <Button disabled={!title.trim() || !isValidDuration} size="sm" type="button" onClick={submit}>
           Create {isTask ? "Task" : "Event"}
         </Button>
       </div>

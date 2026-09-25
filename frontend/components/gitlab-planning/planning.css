@@ -134,3 +134,14 @@
 .ae .m-label-md { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: -0.01em; font-weight: 500; }
 .ae .m-label-sm { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 11px; line-height: 14px; font-weight: 500; }
 .ae .m-shadow { box-shadow: var(--m-shadow); }
+
+/* Issue drawer (native <dialog>) backdrop — literal colour: ::backdrop does
+   not reliably inherit custom properties across browsers. */
+.ae-drawer::backdrop { background: rgb(33 49 69 / 0.4); backdrop-filter: blur(2px); }
+
+/* The app's base layer gives every <p> leading-7 + text-foreground; Stitch
+   relies on Tailwind preflight (inherit). Same layer, higher specificity,
+   so utility classes still win. */
+@layer base {
+  .ae p { --tw-leading: initial; line-height: inherit; color: inherit; }
+}

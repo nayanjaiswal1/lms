@@ -19,19 +19,19 @@ const (
 )
 
 type BatchMessage struct {
-	ID         string         `json:"id"`
-	BatchID    string         `json:"batch_id"`
-	SenderID   string         `json:"sender_id"`
-	SenderName string         `json:"sender_name"`
-	ParentID   *string        `json:"parent_id"`
-	Body       string         `json:"body"`
-	Type       MessageType    `json:"type"`
-	IsPinned   bool           `json:"is_pinned"`
-	IsResolved bool           `json:"is_resolved"`
-	EditedAt   *time.Time     `json:"edited_at"`
-	CreatedAt  time.Time      `json:"created_at"`
+	ID         string          `json:"id"`
+	BatchID    string          `json:"batch_id"`
+	SenderID   string          `json:"sender_id"`
+	SenderName string          `json:"sender_name"`
+	ParentID   *string         `json:"parent_id"`
+	Body       string          `json:"body"`
+	Type       MessageType     `json:"type"`
+	IsPinned   bool            `json:"is_pinned"`
+	IsResolved bool            `json:"is_resolved"`
+	EditedAt   *time.Time      `json:"edited_at"`
+	CreatedAt  time.Time       `json:"created_at"`
 	Reactions  []ReactionCount `json:"reactions"`
-	ReplyCount int            `json:"reply_count"`
+	ReplyCount int             `json:"reply_count"`
 }
 
 type ReactionCount struct {

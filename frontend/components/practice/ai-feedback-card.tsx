@@ -27,7 +27,7 @@ export function AIFeedbackCard({ feedback }: AIFeedbackCardProps) {
           </h4>
           <ul className="flex flex-col gap-1 pl-1">
             {feedback.strengths.map((s, i) => (
-              <li key={i} className="text-sm text-foreground">{s}</li>
+              <li className="text-sm text-foreground" key={i}>{s}</li>
             ))}
           </ul>
         </section>
@@ -41,7 +41,7 @@ export function AIFeedbackCard({ feedback }: AIFeedbackCardProps) {
           </h4>
           <ul className="flex flex-col gap-1 pl-1">
             {feedback.gaps.map((g, i) => (
-              <li key={i} className="text-sm text-muted-foreground">{g}</li>
+              <li className="text-sm text-muted-foreground" key={i}>{g}</li>
             ))}
           </ul>
         </section>
@@ -65,7 +65,7 @@ export function AIFeedbackCard({ feedback }: AIFeedbackCardProps) {
           </h4>
           <ul className="flex flex-col gap-1 pl-1">
             {feedback.follow_up_resources.map((r, i) => (
-              <li key={i} className="text-sm text-muted-foreground">{r}</li>
+              <li className="text-sm text-muted-foreground" key={i}>{r}</li>
             ))}
           </ul>
         </section>

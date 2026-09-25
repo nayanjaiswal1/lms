@@ -46,7 +46,7 @@ export default async function PlatformJobsPage({ searchParams }: PageProps) {
 
       <section className="mt-8">
         <h2 className="section-title mb-4">Organisation Stats</h2>
-        <OrgStatsTable orgs={statsData.per_org} activeOrgId={params.org_id} />
+        <OrgStatsTable activeOrgId={params.org_id} orgs={statsData.per_org} />
       </section>
 
       <section className="mt-8">
@@ -59,16 +59,16 @@ export default async function PlatformJobsPage({ searchParams }: PageProps) {
             <Badge variant="secondary">Handler: {params.handler}</Badge>
           )}
           {(params.org_id ?? params.status ?? params.handler) && (
-            <Button asChild variant="ghost" size="sm">
+            <Button asChild size="sm" variant="ghost">
               <Link href={ROUTES.PLATFORM_JOBS}>Clear filters</Link>
             </Button>
           )}
         </div>
         <JobsTable
           canManage
+          currentParams={params}
           jobs={jobsData.jobs}
           nextCursor={jobsData.next_cursor}
-          currentParams={params}
         />
       </section>
     </div>

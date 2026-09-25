@@ -146,6 +146,7 @@ function TestRunner({
     <div className="flex min-h-dvh flex-col">
       {/* Header */}
       <header className="sticky top-0 z-sticky border-b border-border bg-background/95 backdrop-blur">
+        {/* eslint-disable-next-line no-restricted-syntax -- nested sticky header row, not the page shell: py-3 is the header's own internal spacing */}
         <div className="page-container flex items-center justify-between py-3">
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold">{meta.title}</span>
@@ -159,6 +160,7 @@ function TestRunner({
         </div>
       </header>
 
+      {/* eslint-disable-next-line no-restricted-syntax -- standalone public test shell with its own min-h-dvh wrapper, no .app-content ancestor */}
       <main className="page-container flex flex-1 flex-col gap-6 py-8">
         {/* Question navigation */}
         <div className="flex flex-wrap gap-2">
@@ -211,10 +213,10 @@ function TestRunner({
                   onClick={() => toggle(q.assessment_question_id, opt.id, isMultiple)}
                 >
                   <span
+                    aria-hidden
                     className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                       isSelected ? "border-primary bg-primary" : "border-muted-foreground"
                     }`}
-                    aria-hidden
                   >
                     {isSelected && <span className="h-2 w-2 rounded-full bg-primary-foreground" />}
                   </span>

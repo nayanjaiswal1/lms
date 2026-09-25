@@ -28,11 +28,11 @@ export function TimeBlockPresets({ onSelect }: TimeBlockPresetsProps) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {PRESETS.map((preset) => (
           <Button
+            className="text-xs"
             key={preset.minutes}
             size="sm"
             type="button"
             variant="outline"
-            className="text-xs"
             onClick={() => onSelect(preset.minutes, preset.label)}
           >
             {preset.label}

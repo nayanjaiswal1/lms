@@ -90,35 +90,35 @@ func (r *Repo) GetEvaluationStatus(ctx context.Context, attemptID string) (Evalu
 
 // FullEvaluation is the complete evaluation for one attempt returned to the client.
 type FullEvaluation struct {
-	Status      string             `json:"status"`
-	Overall     *EvaluationRow     `json:"overall,omitempty"`
-	PerQuestion []EvaluationRow    `json:"per_question"`
+	Status      string          `json:"status"`
+	Overall     *EvaluationRow  `json:"overall,omitempty"`
+	PerQuestion []EvaluationRow `json:"per_question"`
 }
 
 // EvaluationRow is a single row from interview_evaluations, client-facing.
 type EvaluationRow struct {
-	ID                   string   `json:"id"`
-	QuestionID           *string  `json:"question_id,omitempty"`
-	Scope                string   `json:"scope"`
-	TechnicalAccuracy    *float64 `json:"score_technical_accuracy,omitempty"`
-	Completeness         *float64 `json:"score_completeness,omitempty"`
-	Communication        *float64 `json:"score_communication,omitempty"`
-	Clarity              *float64 `json:"score_clarity,omitempty"`
-	Structure            *float64 `json:"score_structure,omitempty"`
-	Confidence           *float64 `json:"score_confidence,omitempty"`
-	SeniorityAlignment   *float64 `json:"score_seniority_alignment,omitempty"`
-	CompositeScore       *float64 `json:"composite_score,omitempty"`
-	ReadinessScore       *float64 `json:"readiness_score,omitempty"`
-	Strengths            []string `json:"strengths"`
-	Weaknesses           []string `json:"weaknesses"`
-	MissingConcepts      []string `json:"missing_concepts"`
-	IncorrectConcepts    []string `json:"incorrect_concepts"`
-	Improvements         []string `json:"improvements"`
-	BetterAnswer         *string  `json:"better_answer,omitempty"`
-	ReferenceComparison  *string  `json:"reference_comparison,omitempty"`
-	ReviewRequired       bool     `json:"review_required"`
-	AIModel              *string  `json:"ai_model,omitempty"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                  string    `json:"id"`
+	QuestionID          *string   `json:"question_id,omitempty"`
+	Scope               string    `json:"scope"`
+	TechnicalAccuracy   *float64  `json:"score_technical_accuracy,omitempty"`
+	Completeness        *float64  `json:"score_completeness,omitempty"`
+	Communication       *float64  `json:"score_communication,omitempty"`
+	Clarity             *float64  `json:"score_clarity,omitempty"`
+	Structure           *float64  `json:"score_structure,omitempty"`
+	Confidence          *float64  `json:"score_confidence,omitempty"`
+	SeniorityAlignment  *float64  `json:"score_seniority_alignment,omitempty"`
+	CompositeScore      *float64  `json:"composite_score,omitempty"`
+	ReadinessScore      *float64  `json:"readiness_score,omitempty"`
+	Strengths           []string  `json:"strengths"`
+	Weaknesses          []string  `json:"weaknesses"`
+	MissingConcepts     []string  `json:"missing_concepts"`
+	IncorrectConcepts   []string  `json:"incorrect_concepts"`
+	Improvements        []string  `json:"improvements"`
+	BetterAnswer        *string   `json:"better_answer,omitempty"`
+	ReferenceComparison *string   `json:"reference_comparison,omitempty"`
+	ReviewRequired      bool      `json:"review_required"`
+	AIModel             *string   `json:"ai_model,omitempty"`
+	CreatedAt           time.Time `json:"created_at"`
 }
 
 // GetEvaluation returns the full evaluation for an attempt (all scopes).
@@ -232,13 +232,13 @@ func (r *Repo) SaveSkillScores(ctx context.Context, attemptID, userID, orgID str
 
 // SkillTrend is the per-skill trend returned to the student dashboard.
 type SkillTrend struct {
-	Skill          string    `json:"skill"`
-	LatestScore    float64   `json:"latest_score"`
-	AvgScore       float64   `json:"avg_score"`
-	AttemptCount   int       `json:"attempt_count"`
-	IsWeak         bool      `json:"is_weak"`
-	IsStrong       bool      `json:"is_strong"`
-	LastAttemptAt  time.Time `json:"last_attempt_at"`
+	Skill         string    `json:"skill"`
+	LatestScore   float64   `json:"latest_score"`
+	AvgScore      float64   `json:"avg_score"`
+	AttemptCount  int       `json:"attempt_count"`
+	IsWeak        bool      `json:"is_weak"`
+	IsStrong      bool      `json:"is_strong"`
+	LastAttemptAt time.Time `json:"last_attempt_at"`
 }
 
 // GetSkillTrends returns the rolling avg + latest score for each skill for a user.
@@ -333,14 +333,14 @@ func (r *Repo) FlagIfAnomaly(ctx context.Context, attemptID, questionVersionID, 
 
 // ReviewQueueItem is one row in the instructor's flagged-attempts list.
 type ReviewQueueItem struct {
-	AttemptID      string    `json:"attempt_id"`
-	UserID         string    `json:"user_id"`
-	UserName       string    `json:"user_name"`
-	AssessmentID   string    `json:"assessment_id"`
-	AssessmentTitle string   `json:"assessment_title"`
-	CompositeScore *float64  `json:"composite_score"`
-	InjectionScore int       `json:"injection_score"`
-	CreatedAt      time.Time `json:"created_at"`
+	AttemptID       string    `json:"attempt_id"`
+	UserID          string    `json:"user_id"`
+	UserName        string    `json:"user_name"`
+	AssessmentID    string    `json:"assessment_id"`
+	AssessmentTitle string    `json:"assessment_title"`
+	CompositeScore  *float64  `json:"composite_score"`
+	InjectionScore  int       `json:"injection_score"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // GetReviewQueue returns attempts with at least one review_required=true evaluation.
@@ -382,10 +382,10 @@ func (r *Repo) GetReviewQueue(ctx context.Context, orgID string, limit, offset i
 
 // StudentProgress is the readiness summary for the student's progress dashboard.
 type StudentProgress struct {
-	TotalEvaluated   int          `json:"total_evaluated"`
-	LatestReadiness  *float64     `json:"latest_readiness_score"`
-	AvgReadiness     float64      `json:"avg_readiness_score"`
-	SkillTrends      []SkillTrend `json:"skill_trends"`
+	TotalEvaluated  int          `json:"total_evaluated"`
+	LatestReadiness *float64     `json:"latest_readiness_score"`
+	AvgReadiness    float64      `json:"avg_readiness_score"`
+	SkillTrends     []SkillTrend `json:"skill_trends"`
 }
 
 // GetStudentProgress loads readiness trend data for the student dashboard.

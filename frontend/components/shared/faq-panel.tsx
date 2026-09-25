@@ -20,7 +20,7 @@ export function FAQPanel({ faqs }: FAQPanelProps) {
       <h2 className="section-title mb-4">Frequently Asked Questions</h2>
       <dl className="flex flex-col gap-4">
         {faqs.map((faq) => (
-          <div key={faq.id} className="card-base p-5">
+          <div className="card-base p-5" key={faq.id}>
             <dt className="flex items-start gap-2 font-medium">
               {faq.ai_generated && (
                 <span className="ai-badge mt-0.5 shrink-0">AI</span>

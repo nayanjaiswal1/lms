@@ -65,10 +65,10 @@ export function CourseSidebarRail({ course, currentModuleId, isEnrolled, progres
         aria-label="Resize course sidebar"
         aria-orientation="vertical"
         className="absolute inset-y-0 right-0 z-raised w-1.5 cursor-col-resize touch-none hover:bg-primary/40"
+        role="separator"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        role="separator"
       />
     </aside>
   );

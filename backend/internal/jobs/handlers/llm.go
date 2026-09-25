@@ -597,7 +597,6 @@ func (h *LLMHandler) handleMistakeCardGenerate(ctx context.Context, job jobs.Job
 	return nil
 }
 
-
 // buildRoadmapPrompt turns a roadmap's stored inputs into the user prompt for
 // ai.RoadmapSystemPrompt. All free-text fields are sanitized the same way as
 // every other user-supplied AI input in this file (ai.SanitizeTopic).

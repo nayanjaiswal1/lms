@@ -35,7 +35,7 @@ export function StatCard({ icon: Icon, label, value, unit, highlighted = false, 
 
   if (href) {
     return (
-      <Link href={href} className="card-interactive flex flex-col gap-3 p-5">
+      <Link className="card-interactive flex flex-col gap-3 p-5" href={href}>
         {inner}
       </Link>
     );

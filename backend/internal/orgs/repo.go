@@ -29,10 +29,10 @@ func NewRepo(pool *pgxpool.Pool, vault *secrets.Vault) *Repo {
 // AuthSettings represents org_settings.auth namespace.
 // Unmarshalled from JSONB with sensible zero-value defaults when empty.
 type AuthSettings struct {
-	SSOEnabled       *bool   `json:"sso_enabled,omitempty"`
-	OIDCIssuerURL    *string `json:"oidc_issuer_url,omitempty"`
-	OIDCClientID     *string `json:"oidc_client_id,omitempty"`
-	SAMLMetadataXML  *string `json:"saml_metadata_xml,omitempty"`
+	SSOEnabled      *bool   `json:"sso_enabled,omitempty"`
+	OIDCIssuerURL   *string `json:"oidc_issuer_url,omitempty"`
+	OIDCClientID    *string `json:"oidc_client_id,omitempty"`
+	SAMLMetadataXML *string `json:"saml_metadata_xml,omitempty"`
 }
 
 // AIConnectorSettings represents org_settings.ai_connector namespace.
@@ -42,9 +42,9 @@ type AIConnectorSettings struct {
 
 // JobsSettings represents org_settings.jobs namespace.
 type JobsSettings struct {
-	MaxConcurrentJobs    *int `json:"max_concurrent_jobs,omitempty"`
-	QueuedJobTTLMinutes  *int `json:"queued_job_ttl_minutes,omitempty"`
-	ActiveJobTimeoutHrs  *int `json:"active_job_timeout_hrs,omitempty"`
+	MaxConcurrentJobs   *int `json:"max_concurrent_jobs,omitempty"`
+	QueuedJobTTLMinutes *int `json:"queued_job_ttl_minutes,omitempty"`
+	ActiveJobTimeoutHrs *int `json:"active_job_timeout_hrs,omitempty"`
 }
 
 // GitlabSettings represents org_settings.gitlab namespace.
@@ -54,20 +54,20 @@ type GitlabSettings struct {
 
 // LabsSettings represents org_settings.labs namespace.
 type LabsSettings struct {
-	MaxConcurrentSessions *int      `json:"max_concurrent_sessions,omitempty"`
-	MaxSessionDurationMin *int      `json:"max_session_duration,omitempty"`
-	AllowedImages         []string  `json:"allowed_images,omitempty"`
-	EgressProxyEnabled    *bool     `json:"egress_proxy_enabled,omitempty"`
+	MaxConcurrentSessions *int     `json:"max_concurrent_sessions,omitempty"`
+	MaxSessionDurationMin *int     `json:"max_session_duration,omitempty"`
+	AllowedImages         []string `json:"allowed_images,omitempty"`
+	EgressProxyEnabled    *bool    `json:"egress_proxy_enabled,omitempty"`
 }
 
 // SessionBookingSettings represents org_settings.session_booking namespace.
 type SessionBookingSettings struct {
-	Enabled                 *bool   `json:"enabled,omitempty"`
-	CreditsPerSession       *int    `json:"credits_per_session,omitempty"`
-	CancellationWindow      *int    `json:"cancellation_window,omitempty"`
-	FeedbackRequired        *bool   `json:"feedback_required,omitempty"`
-	MinSessionDurationMins  *int    `json:"min_session_duration_mins,omitempty"`
-	MaxSessionDurationMins  *int    `json:"max_session_duration_mins,omitempty"`
+	Enabled                *bool `json:"enabled,omitempty"`
+	CreditsPerSession      *int  `json:"credits_per_session,omitempty"`
+	CancellationWindow     *int  `json:"cancellation_window,omitempty"`
+	FeedbackRequired       *bool `json:"feedback_required,omitempty"`
+	MinSessionDurationMins *int  `json:"min_session_duration_mins,omitempty"`
+	MaxSessionDurationMins *int  `json:"max_session_duration_mins,omitempty"`
 }
 
 // ─── AuthSettings accessors ───────────────────────────────────────────────

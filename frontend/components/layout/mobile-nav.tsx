@@ -38,6 +38,7 @@ export function MobileNav({ user }: Props) {
 
   const bottomNavItems = visibleGroups
     .flatMap((g) => g.items)
+    .filter((item) => !item.hideFromBottomNav)
     .filter((item) => isReady(item.feature))
     .slice(0, BOTTOM_NAV_MAX_ITEMS);
 
@@ -105,14 +106,14 @@ export function MobileNav({ user }: Props) {
           const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
 
           return (
+            // Eager load: only a handful of always-visible tabs, and touch gives no
+            // hover lead time — prefetch their full data up front.
             <Link
+              prefetch
               aria-current={isActive ? "page" : undefined}
               className="bottom-nav-item"
               href={item.href}
               key={item.href}
-              // Eager load: only a handful of always-visible tabs, and touch gives no
-              // hover lead time — prefetch their full data up front.
-              prefetch
             >
               <span className="relative inline-flex">
                 <item.icon aria-hidden className="h-5 w-5" />

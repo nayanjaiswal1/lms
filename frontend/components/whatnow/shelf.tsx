@@ -96,16 +96,29 @@ export function Shelf({
   const planFull = !!plan && plan.tasks.length >= plan.cap;
 
   return (
-    <div className="wn-shelf-backdrop" onClick={onClose}>
+    <div
+      aria-label="Close shelf"
+      className="wn-shelf-backdrop"
+      role="button"
+      tabIndex={0}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " " || e.key === "Escape") && e.target === e.currentTarget) {
+          e.preventDefault();
+          onClose();
+        }
+      }}
+    >
       <aside
+        aria-label="Task shelf"
         className="wn-shelf"
         role="dialog"
-        aria-label="Task shelf"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="wn-shelf-head">
           <h3 className="wn-shelf-title">The shelf</h3>
-          <button className="wn-shelf-close" onClick={onClose} aria-label="Close shelf">✕</button>
+          <button aria-label="Close shelf" className="wn-shelf-close" onClick={onClose}>✕</button>
         </header>
 
         {recap && <p className="wn-recap">{recap.summary}</p>}
@@ -120,21 +133,21 @@ export function Shelf({
           {plan?.tasks.length ? (
             <ul className="wn-shelf-list">
               {plan.tasks.map((t, i) => (
-                <li key={t.id} className="wn-shelf-item">
+                <li className="wn-shelf-item" key={t.id}>
                   <span className="wn-shelf-item-title">{t.title}</span>
                   <span className="wn-shelf-item-actions">
                     <button
+                      aria-label={`Move ${t.title} up`}
                       className="wn-shelf-action"
                       disabled={busyId === t.id || i === 0}
-                      aria-label={`Move ${t.title} up`}
                       onClick={() => move(t, -1)}
                     >
                       ↑
                     </button>
                     <button
+                      aria-label={`Move ${t.title} down`}
                       className="wn-shelf-action"
                       disabled={busyId === t.id || i === plan.tasks.length - 1}
-                      aria-label={`Move ${t.title} down`}
                       onClick={() => move(t, 1)}
                     >
                       ↓
@@ -167,7 +180,7 @@ export function Shelf({
           {inbox.length ? (
             <ul className="wn-shelf-list">
               {inbox.map((t) => (
-                <li key={t.id} className="wn-shelf-item">
+                <li className="wn-shelf-item" key={t.id}>
                   <span className="wn-shelf-item-title">
                     {t.title}
                     {t.status === "paused" && <span className="wn-shelf-paused"> · paused</span>}
@@ -193,7 +206,7 @@ export function Shelf({
             <h4 className="wn-shelf-label">Amnesty · faded quietly</h4>
             <ul className="wn-shelf-list">
               {decayed.map((t) => (
-                <li key={t.id} className="wn-shelf-item wn-shelf-item-decayed">
+                <li className="wn-shelf-item wn-shelf-item-decayed" key={t.id}>
                   <span className="wn-shelf-item-title">{t.title}</span>
                   <button
                     className="wn-shelf-action"

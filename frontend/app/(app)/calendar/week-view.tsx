@@ -44,31 +44,6 @@ function getEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
   });
 }
 
-function getEventPosition(event: CalendarEvent, dayStart: Date): {
-  top: number;
-  height: number;
-  left: number;
-  width: number;
-} {
-  const start = new Date(event.starts_at);
-  const end = event.ends_at ? new Date(event.ends_at) : new Date(start.getTime() + 60 * 60 * 1000);
-
-  const startMinutes = start.getHours() * 60 + start.getMinutes();
-  const endMinutes = end.getHours() * 60 + end.getMinutes();
-  const durationMinutes = Math.max(endMinutes - startMinutes, 30);
-
-  const pxPerMinute = 48 / 60; // 48px per hour
-  const top = startMinutes * pxPerMinute;
-  const height = durationMinutes * pxPerMinute;
-
-  return {
-    top,
-    height,
-    left: 0,
-    width: 100,
-  };
-}
-
 export function WeekView({
   anchor,
   events,
@@ -101,6 +76,7 @@ export function WeekView({
 
       {/* Week grid */}
       <div className="rounded-lg border border-border bg-card overflow-x-auto">
+        {/* eslint-disable-next-line no-restricted-syntax -- 7-day grid needs a fixed time-gutter column plus 7 equal day columns, not expressible as a static token */}
         <div className="grid" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
           {/* Time column header */}
           <div className="sticky left-0 z-10 bg-muted/50 border-r border-border" />
@@ -111,8 +87,8 @@ export function WeekView({
             const isToday = isSameDay(day, today);
             return (
               <div
-                key={i}
                 className={`border-r border-border p-3 text-center ${isToday ? "bg-primary/10" : "bg-muted/30"}`}
+                key={i}
               >
                 <div className="text-xs font-medium text-muted-foreground">{DAY_LABELS[i]}</div>
                 <div className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}>{day.getDate()}</div>
@@ -138,12 +114,23 @@ export function WeekView({
 
                 return (
                   <div
-                    key={`${dayIdx}-${hour}`}
+                    aria-label={`Create an event on ${day.toDateString()} at ${hour}:00`}
                     className="relative border-r border-b border-border/50 bg-background hover:bg-muted/50 transition-colors h-12 cursor-pointer group"
+                    key={`${dayIdx}-${hour}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       const slotStart = new Date(day);
                       slotStart.setHours(hour, 0, 0, 0);
                       onDateSelect(day, slotStart);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        const slotStart = new Date(day);
+                        slotStart.setHours(hour, 0, 0, 0);
+                        onDateSelect(day, slotStart);
+                      }
                     }}
                   >
                     {/* Add button on hover */}
@@ -156,11 +143,21 @@ export function WeekView({
                       const layer = primaryLayerFor(event, currentUserId);
                       return (
                         <div
-                          key={event.id}
+                          aria-label={`Open event ${event.title}`}
                           className="absolute inset-x-0.5 text-[10px] overflow-hidden"
+                          key={event.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={(e) => {
                             e.stopPropagation();
                             onEventClick(event.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onEventClick(event.id);
+                            }
                           }}
                         >
                           <EventBlock

@@ -201,11 +201,11 @@ func (s *MemberService) Update(ctx context.Context, orgID, actorUserID, actorRol
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "member.updated",
-		TargetType: "member",
-		TargetID:   &memberID,
+		Action:      "member.updated",
+		TargetType:  "member",
+		TargetID:    &memberID,
 		BeforeState: target,
 		AfterState:  result,
 	})
@@ -263,11 +263,11 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 	s.invalidateSession(ctx, target.UserID)
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "member.removed",
-		TargetType: "member",
-		TargetID:   &memberID,
+		Action:      "member.removed",
+		TargetType:  "member",
+		TargetID:    &memberID,
 		BeforeState: target,
 	})
 	return nil
@@ -290,4 +290,3 @@ func (s *MemberService) fetchMember(ctx context.Context, orgID, memberID string)
 	}
 	return &m, nil
 }
-

@@ -87,16 +87,16 @@ export function MessageItem({ message, batchId, isStaff, courseId }: MessageItem
           <span className="text-xs text-muted-foreground">{message.reply_count} replies</span>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="touch-target text-sm" onClick={() => setShowReply((v) => !v)}>
+          <Button className="touch-target text-sm" size="sm" variant="ghost" onClick={() => setShowReply((v) => !v)}>
             Reply
           </Button>
           {isStaff && !message.is_resolved && (
-            <Button variant="ghost" size="sm" className="touch-target text-sm" onClick={handleResolve}>
+            <Button className="touch-target text-sm" size="sm" variant="ghost" onClick={handleResolve}>
               Resolve
             </Button>
           )}
           {isStaff && courseId && (
-            <Button variant="ghost" size="sm" className="touch-target text-sm" onClick={handlePromoteFAQ}>
+            <Button className="touch-target text-sm" size="sm" variant="ghost" onClick={handlePromoteFAQ}>
               → FAQ
             </Button>
           )}

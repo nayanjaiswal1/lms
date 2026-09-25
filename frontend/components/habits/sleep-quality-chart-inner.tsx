@@ -11,11 +11,11 @@ export default function SleepQualityChartInner({ points }: { points: SleepPoint[
         <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="4 4" vertical={false} />
         <XAxis
           dataKey="day"
+          domain={[1, "dataMax"]}
           stroke="hsl(var(--muted-foreground))"
           tick={{ fontSize: 10 }}
           tickLine={false}
           type="number"
-          domain={[1, "dataMax"]}
         />
         <YAxis
           domain={[4, 10]}
@@ -31,8 +31,8 @@ export default function SleepQualityChartInner({ points }: { points: SleepPoint[
             (0-5 wakes) from sleep duration, plotted as light bars behind the
             hours line rather than crowding the same axis. */}
         <YAxis
-          domain={[0, 5]}
           hide
+          domain={[0, 5]}
           orientation="right"
           ticks={[0, 5]}
           yAxisId="wakes"

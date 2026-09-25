@@ -106,13 +106,13 @@ func (r *Repo) GetConfig(ctx context.Context, orgID string) (Config, error) {
 	// json.Unmarshal leaves all fields at their zero values, so we fall back
 	// to DefaultConfig's filled-in values via COALESCE-like logic below.
 	type sessionBookingJSON struct {
-		Enabled               *bool   `json:"enabled"`
-		RequireCredits        *bool   `json:"require_credits"`
-		CancelCutoffHours     *int    `json:"cancel_cutoff_hours"`
-		MinNoticeHours        *int    `json:"min_notice_hours"`
-		BookingHorizonDays    *int    `json:"booking_horizon_days"`
-		MaxUpcomingPerStudent *int    `json:"max_upcoming_per_student"`
-		DefaultDuration       *int    `json:"default_duration_minutes"`
+		Enabled               *bool `json:"enabled"`
+		RequireCredits        *bool `json:"require_credits"`
+		CancelCutoffHours     *int  `json:"cancel_cutoff_hours"`
+		MinNoticeHours        *int  `json:"min_notice_hours"`
+		BookingHorizonDays    *int  `json:"booking_horizon_days"`
+		MaxUpcomingPerStudent *int  `json:"max_upcoming_per_student"`
+		DefaultDuration       *int  `json:"default_duration_minutes"`
 	}
 
 	var parsed sessionBookingJSON
@@ -151,13 +151,13 @@ func (r *Repo) GetConfig(ctx context.Context, orgID string) (Config, error) {
 // UpsertConfig writes the org's booking policy to org_settings.session_booking jsonb.
 func (r *Repo) UpsertConfig(ctx context.Context, c Config) (Config, error) {
 	cfgJSON, err := json.Marshal(map[string]interface{}{
-		"enabled":                    c.Enabled,
-		"require_credits":            c.RequireCredits,
-		"cancel_cutoff_hours":        c.CancelCutoffHours,
-		"min_notice_hours":           c.MinNoticeHours,
-		"booking_horizon_days":       c.BookingHorizonDays,
-		"max_upcoming_per_student":   c.MaxUpcomingPerStudent,
-		"default_duration_minutes":   c.DefaultDuration,
+		"enabled":                  c.Enabled,
+		"require_credits":          c.RequireCredits,
+		"cancel_cutoff_hours":      c.CancelCutoffHours,
+		"min_notice_hours":         c.MinNoticeHours,
+		"booking_horizon_days":     c.BookingHorizonDays,
+		"max_upcoming_per_student": c.MaxUpcomingPerStudent,
+		"default_duration_minutes": c.DefaultDuration,
 	})
 	if err != nil {
 		return Config{}, fmt.Errorf("sessions: marshal config: %w", err)

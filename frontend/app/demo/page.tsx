@@ -21,7 +21,7 @@ export default function DemoPage() {
   return (
     <main className="flex min-h-dvh flex-col">
       <header className="flex items-center px-6 py-5 sm:px-8">
-        <Link href={ROUTES.HOME} aria-label="Home" className="hover:no-underline">
+        <Link aria-label="Home" className="hover:no-underline" href={ROUTES.HOME}>
           <BrandMark />
         </Link>
       </header>
@@ -41,7 +41,7 @@ export default function DemoPage() {
 
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
             {HIGHLIGHTS.map(({ icon: Icon, label }, idx) => (
-              <span key={label} className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2 text-sm text-muted-foreground" key={label}>
                 {idx > 0 && <span aria-hidden className="hidden sm:block text-border">·</span>}
                 <Icon aria-hidden className="h-4 w-4 shrink-0" />
                 {label}
@@ -58,7 +58,7 @@ export default function DemoPage() {
 
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href={ROUTES.LOGIN} className="font-medium">
+            <Link className="font-medium" href={ROUTES.LOGIN}>
               Log in
             </Link>
           </p>

@@ -36,15 +36,15 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
         <tbody>
           {orgs.map((org) => (
             <tr
-              key={org.org_id}
               className={`whitespace-nowrap border-b border-border last:border-0 transition-colors ${
                 activeOrgId === org.org_id ? "bg-accent/40" : "hover:bg-muted/50"
               }`}
+              key={org.org_id}
             >
               <td className="py-3 pr-6">
                 <Link
-                  href={`${ROUTES.PLATFORM_JOBS}?org_id=${org.org_id}`}
                   className="font-medium hover:underline"
+                  href={`${ROUTES.PLATFORM_JOBS}?org_id=${org.org_id}`}
                 >
                   {org.org_name}
                 </Link>
@@ -60,8 +60,8 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
               <td className="py-3 pr-4">
                 {org.failed > 0 ? (
                   <Link
-                    href={`${ROUTES.PLATFORM_JOBS}?org_id=${org.org_id}&status=failed`}
                     className="text-destructive font-medium hover:underline"
+                    href={`${ROUTES.PLATFORM_JOBS}?org_id=${org.org_id}&status=failed`}
                   >
                     {org.failed}
                   </Link>
@@ -72,8 +72,8 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
               <td className="py-3 pr-4">
                 {org.dead > 0 ? (
                   <Link
-                    href={`${ROUTES.PLATFORM_JOBS}?org_id=${org.org_id}&status=dead`}
                     className="text-destructive font-medium hover:underline"
+                    href={`${ROUTES.PLATFORM_JOBS}?org_id=${org.org_id}&status=dead`}
                   >
                     {org.dead}
                   </Link>
@@ -84,8 +84,8 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
               <td className="py-3 pr-4 text-muted-foreground">
                 {org.quota.max_concurrent} / {org.quota.max_queued}
                 <Link
-                  href={ROUTES.platformOrgQuotas(org.org_id)}
                   className="ml-3 text-sm text-primary hover:underline"
+                  href={ROUTES.platformOrgQuotas(org.org_id)}
                 >
                   Edit
                 </Link>
@@ -94,10 +94,10 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
                 {(org.queued > 0 || org.running === 0) && (
                   <form action={pauseOrgJobsAction.bind(null, org.org_id)}>
                     <Button
+                      className="text-destructive hover:text-destructive h-7 px-2"
+                      size="sm"
                       type="submit"
                       variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive h-7 px-2"
                     >
                       Pause All
                     </Button>

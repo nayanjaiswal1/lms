@@ -12,20 +12,25 @@ export default function DashboardLoading() {
         <div className="flex flex-col gap-8 lg:col-span-2">
           <div>
             <Skeleton className="mb-4 h-5 w-32" />
-            <div className="card-grid-2">
-              <Skeleton className="h-40" />
-              <Skeleton className="h-40" />
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <Skeleton className="h-48" />
+              <Skeleton className="h-48" />
+              <Skeleton className="h-48" />
             </div>
           </div>
           <div>
             <Skeleton className="mb-4 h-5 w-40" />
-            <Skeleton className="h-48 w-full rounded-lg" />
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-6">
-          <Skeleton className="h-44 w-full rounded-lg" />
-          <Skeleton className="h-56 w-full rounded-lg" />
+        <div className="flex flex-col gap-8">
+          <Skeleton className="h-32 w-full rounded-lg" />
+          <Skeleton className="h-72 w-full rounded-lg" />
         </div>
       </div>
     </main>

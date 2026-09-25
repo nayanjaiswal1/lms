@@ -56,5 +56,5 @@ export default async function LabSessionPage({ params }: PageProps) {
     )
   }
 
-  return <LabEnvironment session={session} lab={lab} initialCompletions={task_completions} />
+  return <LabEnvironment initialCompletions={task_completions} lab={lab} session={session} />
 }

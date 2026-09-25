@@ -22,8 +22,8 @@ export function PromptRenderer({ text, textClassName }: PromptRendererProps) {
       const code = blockMatch[2].replace(/\n$/, "");
       return (
         <pre
-          key={i}
           className="overflow-x-auto rounded-md border border-border bg-muted p-4 font-mono text-sm leading-relaxed"
+          key={i}
         >
           <code>{code}</code>
         </pre>
@@ -38,7 +38,7 @@ export function PromptRenderer({ text, textClassName }: PromptRendererProps) {
     const inline = parts.map((chunk, j) => {
       if (chunk.startsWith("`") && chunk.endsWith("`")) {
         return (
-          <code key={j} className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm" key={j}>
             {chunk.slice(1, -1)}
           </code>
         );
@@ -50,7 +50,7 @@ export function PromptRenderer({ text, textClassName }: PromptRendererProps) {
     });
 
     return (
-      <p key={i} className={cn("whitespace-pre-wrap", textClassName ?? "text-base leading-relaxed")}>
+      <p className={cn("whitespace-pre-wrap", textClassName ?? "text-base leading-relaxed")} key={i}>
         {inline}
       </p>
     );

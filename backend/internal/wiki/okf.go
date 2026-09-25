@@ -125,10 +125,10 @@ func ToOKFMarkdown(p Page, breadcrumb []BreadcrumbItem, actor string, resolveLin
 	meta := decodeOKFMetadata(p.OKFMetadata)
 
 	fm := okfFrontmatter{
-		Type:        "Wiki Page",
-		Title:       p.Title,
-		Generated:   &okfActor{By: actor, At: p.UpdatedAt},
-		Status:      statusToOKF(p.Status, meta),
+		Type:      "Wiki Page",
+		Title:     p.Title,
+		Generated: &okfActor{By: actor, At: p.UpdatedAt},
+		Status:    statusToOKF(p.Status, meta),
 	}
 	if t, ok := meta["type"].(string); ok && t != "" {
 		fm.Type = t

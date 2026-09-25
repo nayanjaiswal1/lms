@@ -109,8 +109,8 @@ export default async function OrgSettingsPage() {
             </span>
           </div>
           {seatPct !== null && (
-            <div className="progress-track" role="progressbar" aria-valuenow={seatPct} aria-valuemin={0} aria-valuemax={100}>
-              {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width requires inline style */}
+            <div aria-valuemax={100} aria-valuemin={0} aria-valuenow={seatPct} className="progress-track" role="progressbar">
+              { }
               <div className="progress-fill" style={{ "--progress": `${seatPct}%` } as React.CSSProperties} />
             </div>
           )}

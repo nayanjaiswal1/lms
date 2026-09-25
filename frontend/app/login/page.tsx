@@ -36,6 +36,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       alternateLabel="Create an account"
       alternatePrompt="New to MindForge?"
       description="Sign in to continue forging your knowledge."
+      footerExtra={
+        <p>
+          Just exploring?{" "}
+          <Link className="font-medium" href={ROUTES.DEMO}>
+            Try demo →
+          </Link>
+        </p>
+      }
       title="Welcome back"
     >
       {verified && (
@@ -49,12 +57,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </IconMessage>
       )}
       <LoginForm next={params.next} oauthError={params.error} />
-      <p className="text-center text-sm text-muted-foreground sm:text-left">
-        Just exploring?{" "}
-        <Link className="font-medium" href={ROUTES.DEMO}>
-          Try demo →
-        </Link>
-      </p>
     </AuthPageShell>
   );
 }

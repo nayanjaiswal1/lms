@@ -61,10 +61,10 @@ func RequireOrgMember(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 			}
 
 			var (
-				resolvedOrgID  string
-				orgStatus      string
-				memberID       string
-				callerRole     string
+				resolvedOrgID string
+				orgStatus     string
+				memberID      string
+				callerRole    string
 			)
 
 			err := pool.QueryRow(r.Context(),

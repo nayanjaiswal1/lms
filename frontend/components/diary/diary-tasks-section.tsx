@@ -143,8 +143,8 @@ function TaskSection({ title, items, onAdd, onCheck, onSaveDetails }: TaskSectio
             {editingId === task.id ? (
               <div className="flex flex-1 flex-col gap-1.5">
                 <Input
-                  autoFocus
                   className="text-sm"
+                  ref={(el) => el?.focus()}
                   value={draft.title}
                   onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
                 />

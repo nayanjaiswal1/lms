@@ -25,7 +25,6 @@ const noopAsync = async () => false;
 const MAX_SCALE = 3;
 // Matches journal-theme.css's fallback print row height — the baseline
 // scaleGrid measures the table's natural size at before computing a target.
-const DEFAULT_ROW_HEIGHT_PX = 52;
 // Floor scaleGrid won't shrink rows past for a many-habit table — matches
 // the on-screen h-9/min-h-9 size, below which a checkmark stops fitting.
 const MIN_ROW_HEIGHT_PX = 36;
@@ -118,7 +117,7 @@ export function HabitPrintExport({ habits, month, counts, metadata }: HabitPrint
     }
     window.addEventListener("beforeprint", scaleToFit);
     return () => window.removeEventListener("beforeprint", scaleToFit);
-  }, []);
+  }, [habits.length]);
 
   return (
     <div

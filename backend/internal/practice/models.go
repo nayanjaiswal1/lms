@@ -17,28 +17,28 @@ const (
 )
 
 type PracticeSession struct {
-	ID            string        `json:"id"`
-	UserID        string        `json:"user_id"`
-	OrgID         *string       `json:"org_id"`
-	Technology    string        `json:"technology"`
-	Difficulty    string        `json:"difficulty"`
-	Category      string        `json:"category"`
-	QuestionCount int           `json:"question_count"`
-	Status        SessionStatus `json:"status"`
-	AIModel       *string       `json:"ai_model"`
-	CreatedAt     time.Time     `json:"created_at"`
-	CompletedAt   *time.Time    `json:"completed_at"`
+	ID            string         `json:"id"`
+	UserID        string         `json:"user_id"`
+	OrgID         *string        `json:"org_id"`
+	Technology    string         `json:"technology"`
+	Difficulty    string         `json:"difficulty"`
+	Category      string         `json:"category"`
+	QuestionCount int            `json:"question_count"`
+	Status        SessionStatus  `json:"status"`
+	AIModel       *string        `json:"ai_model"`
+	CreatedAt     time.Time      `json:"created_at"`
+	CompletedAt   *time.Time     `json:"completed_at"`
 	Items         []PracticeItem `json:"items,omitempty"`
 }
 
 type AIFeedback struct {
-	Score               int      `json:"score"`
-	MaxScore            int      `json:"max_score"`
-	Strengths           []string `json:"strengths"`
-	Gaps                []string `json:"gaps"`
-	SuggestedAnswer     string   `json:"suggested_answer"`
-	FollowUpResources   []string `json:"follow_up_resources"`
-	Model               string   `json:"model"`
+	Score             int      `json:"score"`
+	MaxScore          int      `json:"max_score"`
+	Strengths         []string `json:"strengths"`
+	Gaps              []string `json:"gaps"`
+	SuggestedAnswer   string   `json:"suggested_answer"`
+	FollowUpResources []string `json:"follow_up_resources"`
+	Model             string   `json:"model"`
 }
 
 type PracticeItem struct {

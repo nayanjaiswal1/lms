@@ -20,8 +20,8 @@ func NewRepo(pool *pgxpool.Pool) *Repo {
 func (r *Repo) Create(ctx context.Context, userID string, req LogRequest) (Entry, error) {
 	var e Entry
 	meta := map[string]interface{}{
-		"category":        req.Category,
-		"corrected_text":  req.CorrectedText,
+		"category":       req.Category,
+		"corrected_text": req.CorrectedText,
 	}
 	metaBytes, _ := json.Marshal(meta)
 

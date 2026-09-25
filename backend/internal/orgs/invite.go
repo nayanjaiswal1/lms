@@ -97,12 +97,12 @@ func (s *InviteService) Create(ctx context.Context, orgID, actorUserID, actorRol
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "invite.created",
-		TargetType: "invite",
-		TargetID:   &inv.ID,
-		AfterState: map[string]string{"email": inv.Email, "role": inv.Role},
+		Action:      "invite.created",
+		TargetType:  "invite",
+		TargetID:    &inv.ID,
+		AfterState:  map[string]string{"email": inv.Email, "role": inv.Role},
 	})
 
 	return &inv, deliverableToken, nil
@@ -156,11 +156,11 @@ func (s *InviteService) Resend(ctx context.Context, orgID, actorUserID, actorRol
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "invite.resent",
-		TargetType: "invite",
-		TargetID:   &inv.ID,
+		Action:      "invite.resent",
+		TargetType:  "invite",
+		TargetID:    &inv.ID,
 	})
 
 	return &inv, deliverableToken, nil
@@ -279,11 +279,11 @@ func (s *InviteService) Revoke(ctx context.Context, orgID, actorUserID, inviteID
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "invite.revoked",
-		TargetType: "invite",
-		TargetID:   &inviteID,
+		Action:      "invite.revoked",
+		TargetType:  "invite",
+		TargetID:    &inviteID,
 	})
 	return nil
 }
@@ -416,12 +416,12 @@ func (s *InviteService) Join(ctx context.Context, req JoinOrgRequest, userID str
 	inv.AcceptedAt = &now
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      inv.OrgID,
+		OrgID:       inv.OrgID,
 		ActorUserID: &userID,
-		Action:     "invite.accepted",
-		TargetType: "invite",
-		TargetID:   &inv.ID,
-		AfterState: map[string]string{"email": inv.Email, "role": inv.Role},
+		Action:      "invite.accepted",
+		TargetType:  "invite",
+		TargetID:    &inv.ID,
+		AfterState:  map[string]string{"email": inv.Email, "role": inv.Role},
 	})
 
 	return &inv, nil

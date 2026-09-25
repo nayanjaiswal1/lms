@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CircleCheck, Clock, Plus, RefreshCw } from "lucide-react";
-import type { AeIssueStep } from "@/lib/gitlab-planning/types";
+import type { AeIssueStep } from "@/lib/server/gitlab-planning";
 import { cn } from "@/lib/utils";
 
 const NOTE_ICON = { done: CircleCheck, progress: RefreshCw, pending: Clock };
@@ -44,20 +44,20 @@ export function IssueSteps({ steps }: IssueStepsProps) {
           const Icon = NOTE_ICON[s.note_icon];
           const isChecked = checked.has(s.id);
           return (
-            <label key={s.id} className="flex cursor-pointer items-start gap-2 rounded-lg p-2 transition-colors hover:bg-(--m-sc-low)">
-              <input type="checkbox" checked={isChecked} onChange={() => toggle(s.id)} className="mt-0.5 size-4 shrink-0 cursor-pointer rounded accent-(--m-primary)" />
+            <label aria-label={s.label} className="flex cursor-pointer items-start gap-2 rounded-lg p-2 transition-colors hover:bg-(--m-sc-low)" key={s.id}>
+              <input aria-label={s.label} checked={isChecked} className="mt-0.5 size-4 shrink-0 cursor-pointer rounded accent-(--m-primary)" type="checkbox" onChange={() => toggle(s.id)} />
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className={cn("m-body-sm", isChecked ? "text-(--m-on-surface-variant) line-through" : "text-(--m-on-surface)")}>{s.label}</span>
-                <span data-mtone={s.note_icon === "done" ? "tertiary" : s.note_icon === "progress" ? "primary" : "muted"} className="m-label-sm flex items-center gap-1 text-[10px] text-(--mc)">
-                  <Icon className="size-3" aria-hidden /> {s.note}
+                <span className="m-label-sm flex items-center gap-1 text-[10px] text-(--mc)" data-mtone={s.note_icon === "done" ? "tertiary" : s.note_icon === "progress" ? "primary" : "muted"}>
+                  <Icon aria-hidden className="size-3" /> {s.note}
                 </span>
               </span>
             </label>
           );
         })}
       </div>
-      <button type="button" className="m-label-sm flex items-center gap-1 self-start rounded-lg px-2 py-1 text-(--m-primary) hover:bg-(--m-sc-low)">
-        <Plus className="size-3.5" aria-hidden />
+      <button className="m-label-sm flex items-center gap-1 self-start rounded-lg px-2 py-1 text-(--m-primary) hover:bg-(--m-sc-low)" type="button">
+        <Plus aria-hidden className="size-3.5" />
         <span>Add new step item</span>
       </button>
     </section>

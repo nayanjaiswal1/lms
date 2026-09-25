@@ -62,9 +62,9 @@ export function PlanBacklog({ tasks, inbox, onReorder, onPlanInboxTask, onUnsche
         <ul className="flex flex-col gap-2">
           {tasks.map((task) => (
             <li
-              key={task.id}
-              className="card-interactive cursor-grab touch-none rounded-md border border-border bg-card p-2.5 text-sm active:cursor-grabbing"
               draggable
+              className="card-interactive cursor-grab touch-none rounded-md border border-border bg-card p-2.5 text-sm active:cursor-grabbing"
+              key={task.id}
               onDragEnd={() => setDragId(null)}
               onDragOver={(e) => e.preventDefault()}
               onDragStart={(e) => {
@@ -93,8 +93,8 @@ export function PlanBacklog({ tasks, inbox, onReorder, onPlanInboxTask, onUnsche
           <ul className="flex flex-col gap-2">
             {inbox.map((task) => (
               <li
-                key={task.id}
                 className="flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm"
+                key={task.id}
               >
                 <span className="truncate text-foreground">{task.title}</span>
                 <Button size="sm" variant="outline" onClick={() => onPlanInboxTask(task)}>

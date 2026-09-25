@@ -32,30 +32,30 @@ export function DashboardHeader({ title, subtitle, initial }: DashboardHeaderPro
       <div className="flex items-center gap-1.5 lg:gap-4">
         <label className="relative hidden w-80 lg:block">
           <span className="sr-only">Search</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--ae-faint)" aria-hidden />
+          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--ae-faint)" />
           <input
-            type="search"
-            placeholder="Search tasks, steps, logs..."
             className="w-full rounded-xl border border-(--ae-line) bg-(--ae-hover)/70 py-1.5 pl-9 pr-4 text-xs text-(--ae-text) transition-all placeholder:text-(--ae-faint) focus:border-(--ae-brand-500) focus:bg-(--ae-card) focus:outline-none focus:ring-2 focus:ring-(--ae-brand-500)/20"
+            placeholder="Search tasks, steps, logs..."
+            type="search"
           />
         </label>
-        <button type="button" aria-label="Search" className="flex size-9 items-center justify-center rounded-xl text-(--ae-muted) transition-colors hover:bg-(--ae-soft) hover:text-(--ae-text) lg:hidden">
-          <Search className="size-5" aria-hidden />
+        <button aria-label="Search" className="flex size-9 items-center justify-center rounded-xl text-(--ae-muted) transition-colors hover:bg-(--ae-soft) hover:text-(--ae-text) lg:hidden" type="button">
+          <Search aria-hidden className="size-5" />
         </button>
         <button
-          type="button"
           aria-label="Notifications"
           className="relative flex size-9 items-center justify-center rounded-xl text-(--ae-muted) transition-colors hover:bg-(--ae-soft) hover:text-(--ae-body) lg:size-auto lg:border lg:border-(--ae-line) lg:p-2 lg:hover:bg-(--ae-hover)"
+          type="button"
         >
-          <Bell className="size-5 lg:size-4" aria-hidden />
+          <Bell aria-hidden className="size-5 lg:size-4" />
           <span className="absolute right-2 top-2 size-2 rounded-full border-2 border-(--ae-card) bg-(--ae-brand-500) lg:right-1.5 lg:top-1.5 lg:size-1.5 lg:border-0" />
         </button>
         <button
-          type="button"
           aria-label="Add task"
           className="flex size-9 items-center justify-center gap-1.5 rounded-xl bg-(--ae-brand) text-xs font-semibold text-(--ae-card) shadow-sm transition-colors hover:bg-(--ae-brand-hover) lg:size-auto lg:px-3.5 lg:py-1.5"
+          type="button"
         >
-          <Plus className="size-4" strokeWidth={2.5} aria-hidden />
+          <Plus aria-hidden className="size-4" strokeWidth={2.5} />
           <span className="hidden lg:inline">Add Task</span>
         </button>
       </div>

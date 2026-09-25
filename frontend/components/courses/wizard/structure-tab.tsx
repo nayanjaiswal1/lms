@@ -30,7 +30,7 @@ function ModuleRow({ module, isActive, onUpdate, onRemove, onSelect }: ModuleRow
         isActive ? "border-primary/40 bg-primary/5" : "hover:bg-muted/50",
       )}
     >
-      <GripVertical className="mt-2.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40" aria-hidden />
+      <GripVertical aria-hidden className="mt-2.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
 
       <div className="flex flex-1 flex-col gap-2 min-w-0">
         <div className="flex min-w-0 items-center gap-2">
@@ -53,10 +53,10 @@ function ModuleRow({ module, isActive, onUpdate, onRemove, onSelect }: ModuleRow
         </div>
 
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <label htmlFor={`free-preview-${module.localId}`} className="flex items-center gap-1.5 cursor-pointer">
+          <label className="flex items-center gap-1.5 cursor-pointer" htmlFor={`free-preview-${module.localId}`}>
             <Checkbox
-              id={`free-preview-${module.localId}`}
               checked={module.is_free_preview}
+              id={`free-preview-${module.localId}`}
               onCheckedChange={(v) => onUpdate({ is_free_preview: Boolean(v) })}
             />
             Free preview
@@ -78,20 +78,20 @@ function ModuleRow({ module, isActive, onUpdate, onRemove, onSelect }: ModuleRow
       <div className="flex shrink-0 items-center gap-1">
         <Button
           aria-label="Edit content"
+          className="h-7 w-7"
           size="icon"
           type="button"
           variant="ghost"
-          className="h-7 w-7"
           onClick={onSelect}
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </Button>
         <Button
           aria-label="Remove module"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive"
           size="icon"
           type="button"
           variant="ghost"
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
           onClick={onRemove}
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -143,9 +143,9 @@ function SectionCard({
           onChange={(e) => onUpdateSection(e.target.value)}
         />
         <div className="flex items-center gap-1">
-          <Button aria-label="Move section up"   disabled={index === 0}         onClick={onMoveUp}   size="icon" type="button" variant="ghost" className="h-7 w-7"><ChevronUp   className="h-3.5 w-3.5" /></Button>
-          <Button aria-label="Move section down" disabled={index === total - 1} onClick={onMoveDown} size="icon" type="button" variant="ghost" className="h-7 w-7"><ChevronDown className="h-3.5 w-3.5" /></Button>
-          <Button aria-label="Remove section" onClick={onRemoveSection} size="icon" type="button" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
+          <Button aria-label="Move section up"   className="h-7 w-7"         disabled={index === 0}   size="icon" type="button" variant="ghost" onClick={onMoveUp}><ChevronUp   className="h-3.5 w-3.5" /></Button>
+          <Button aria-label="Move section down" className="h-7 w-7" disabled={index === total - 1} size="icon" type="button" variant="ghost" onClick={onMoveDown}><ChevronDown className="h-3.5 w-3.5" /></Button>
+          <Button aria-label="Remove section" className="h-7 w-7 text-muted-foreground hover:text-destructive" size="icon" type="button" variant="ghost" onClick={onRemoveSection}><Trash2 className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
 
@@ -157,12 +157,12 @@ function SectionCard({
           )}
           {section.modules.map((mod) => (
             <ModuleRow
+              isActive={activeModuleId === mod.localId}
               key={mod.localId}
               module={mod}
-              isActive={activeModuleId === mod.localId}
-              onUpdate={(patch) => onUpdateModule(mod.localId, patch)}
               onRemove={() => onRemoveModule(mod.localId)}
               onSelect={() => onSelectModule(mod.localId)}
+              onUpdate={(patch) => onUpdateModule(mod.localId, patch)}
             />
           ))}
           <Button
@@ -224,19 +224,19 @@ export function StructureTab({
 
       {sections.map((section, index) => (
         <SectionCard
+          activeModuleId={activeModuleId}
+          index={index}
           key={section.localId}
           section={section}
-          index={index}
           total={sections.length}
-          activeModuleId={activeModuleId}
-          onUpdateSection={(title) => onUpdateSection(section.localId, title)}
-          onRemoveSection={() => onRemoveSection(section.localId)}
-          onMoveUp={() => onMoveSectionUp(index)}
-          onMoveDown={() => onMoveSectionDown(index)}
           onAddModule={(type) => onAddModule(section.localId, type)}
-          onUpdateModule={(modId, patch) => onUpdateModule(section.localId, modId, patch)}
+          onMoveDown={() => onMoveSectionDown(index)}
+          onMoveUp={() => onMoveSectionUp(index)}
           onRemoveModule={(modId) => onRemoveModule(section.localId, modId)}
+          onRemoveSection={() => onRemoveSection(section.localId)}
           onSelectModule={onSelectModule}
+          onUpdateModule={(modId, patch) => onUpdateModule(section.localId, modId, patch)}
+          onUpdateSection={(title) => onUpdateSection(section.localId, title)}
         />
       ))}
 

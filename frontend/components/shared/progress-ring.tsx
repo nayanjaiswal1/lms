@@ -15,24 +15,24 @@ export function ProgressRing({ pct, size = 22, className }: ProgressRingProps) {
 
   return (
     <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      className="-rotate-90 shrink-0"
-      role="img"
       aria-label={`${pct}% complete`}
+      className="-rotate-90 shrink-0"
+      height={size}
+      role="img"
+      viewBox={`0 0 ${size} ${size}`}
+      width={size}
     >
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={STROKE_WIDTH} className="stroke-muted" />
+      <circle className="stroke-muted" cx={size / 2} cy={size / 2} fill="none" r={radius} strokeWidth={STROKE_WIDTH} />
       <circle
+        className={cn("stroke-primary transition-all duration-slow ease-smooth", className)}
         cx={size / 2}
         cy={size / 2}
-        r={radius}
         fill="none"
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
+        r={radius}
         strokeDasharray={circumference}
         strokeDashoffset={offset}
-        className={cn("stroke-primary transition-all duration-slow ease-smooth", className)}
+        strokeLinecap="round"
+        strokeWidth={STROKE_WIDTH}
       />
     </svg>
   );

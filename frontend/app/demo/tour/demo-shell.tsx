@@ -34,32 +34,32 @@ export function DemoShell({ activeView }: DemoShellProps) {
           {/* Left — brand + demo label */}
           <div className="flex items-center gap-2">
             <BrandMark showName={false} />
-            <Badge variant="secondary" className="text-xs">Demo</Badge>
+            <Badge className="text-xs" variant="secondary">Demo</Badge>
           </div>
 
           {/* Center — view switcher */}
           <div className="flex items-center gap-1 rounded-full bg-muted p-1">
             <button
-              type="button"
-              onClick={() => switchView("learner")}
               className={cn(
                 "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                 activeView === "learner"
                   ? "bg-primary text-primary-foreground"
                   : "bg-transparent text-muted-foreground hover:text-foreground",
               )}
+              type="button"
+              onClick={() => switchView("learner")}
             >
               Learner
             </button>
             <button
-              type="button"
-              onClick={() => switchView("admin")}
               className={cn(
                 "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                 activeView === "admin"
                   ? "bg-primary text-primary-foreground"
                   : "bg-transparent text-muted-foreground hover:text-foreground",
               )}
+              type="button"
+              onClick={() => switchView("admin")}
             >
               Admin
             </button>
@@ -67,8 +67,8 @@ export function DemoShell({ activeView }: DemoShellProps) {
 
           {/* Right — exit link */}
           <Link
-            href={ROUTES.DEMO}
             className="text-sm text-muted-foreground no-underline hover:text-foreground hover:no-underline"
+            href={ROUTES.DEMO}
           >
             Exit demo
           </Link>
@@ -88,10 +88,10 @@ export function DemoShell({ activeView }: DemoShellProps) {
             You&apos;re in demo mode · Your progress won&apos;t be saved
           </p>
           <div className="flex w-full gap-2 sm:w-auto">
-            <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none">
+            <Button asChild className="flex-1 sm:flex-none" size="sm" variant="outline">
               <Link href={ROUTES.REGISTER}>Create free account</Link>
             </Button>
-            <Button asChild size="sm" className="flex-1 sm:flex-none">
+            <Button asChild className="flex-1 sm:flex-none" size="sm">
               <Link href={ROUTES.REGISTER}>Set up for my team</Link>
             </Button>
           </div>

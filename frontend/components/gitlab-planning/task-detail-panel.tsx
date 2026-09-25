@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarDays, ChevronDown, MoreVertical } from "lucide-react";
 import { MarkdownFileBox } from "@/components/gitlab-planning/markdown-file-box";
 import { StepCard } from "@/components/gitlab-planning/step-card";
-import type { AeChangeLogEntry, AeTaskDetail } from "@/lib/gitlab-planning/types";
+import type { AeChangeLogEntry, AeTaskDetail } from "@/lib/server/gitlab-planning";
 import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -23,22 +23,22 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
       <div>
         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <span data-tone={task.dot} className="size-3 rounded-full bg-(--t-dot)" />
+            <span className="size-3 rounded-full bg-(--t-dot)" data-tone={task.dot} />
             <h2 className="text-base font-bold text-(--ae-ink)">{task.title}</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span data-tone="purple" className="inline-flex items-center gap-0.5 rounded-full border border-(--t-200) bg-(--t-50) px-2 py-0.5 text-xs font-medium text-(--t-700)">
+            <span className="inline-flex items-center gap-0.5 rounded-full border border-(--t-200) bg-(--t-50) px-2 py-0.5 text-xs font-medium text-(--t-700)" data-tone="purple">
               {task.status}
-              <ChevronDown className="size-3" aria-hidden />
+              <ChevronDown aria-hidden className="size-3" />
             </span>
             <span className="flex items-center gap-1 text-xs text-(--ae-muted)">
-              <CalendarDays className="size-3.5" aria-hidden />
+              <CalendarDays aria-hidden className="size-3.5" />
               {task.due}
             </span>
             <span className="flex size-5 items-center justify-center rounded bg-(--ae-brand) text-[10px] font-bold text-(--ae-card)">{task.assignee.initial}</span>
             <span className="text-xs font-medium text-(--ae-body)">{task.assignee.name}</span>
-            <button type="button" aria-label="More task actions" className="text-(--ae-faint) hover:text-(--ae-dim)">
-              <MoreVertical className="size-4" aria-hidden />
+            <button aria-label="More task actions" className="text-(--ae-faint) hover:text-(--ae-dim)" type="button">
+              <MoreVertical aria-hidden className="size-4" />
             </button>
           </div>
         </div>
@@ -48,14 +48,14 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
       <nav aria-label="Task sections" className="flex gap-6 overflow-x-auto border-b border-(--ae-line) text-xs font-semibold">
         {task.tabs.map((t, i) => (
           <Link
-            key={t.label}
-            href={`${ROUTES.GITLAB_PLANNING}?view=task&tab=${i}`}
-            scroll={false}
             aria-current={i === activeTab ? "page" : undefined}
             className={cn(
               "whitespace-nowrap pb-2",
               i === activeTab ? "border-b-2 border-(--ae-brand) text-(--ae-brand)" : "text-(--ae-muted) hover:text-(--ae-text)",
             )}
+            href={`${ROUTES.GITLAB_PLANNING}?view=task&tab=${i}`}
+            key={t.label}
+            scroll={false}
           >
             {t.label}
             {t.count !== undefined && ` (${t.count})`}
@@ -66,7 +66,7 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
       {tabLabel === "Steps" && (
         <ol className="space-y-5">
           {task.steps.map((step, i) => (
-            <StepCard key={step.id} step={step} index={i} />
+            <StepCard index={i} key={step.id} step={step} />
           ))}
         </ol>
       )}
@@ -79,7 +79,7 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
             ["Assignee", task.assignee.name],
             ["Steps", String(task.steps.length)],
           ].map(([k, v]) => (
-            <div key={k} className="rounded-lg bg-(--ae-hover) p-3">
+            <div className="rounded-lg bg-(--ae-hover) p-3" key={k}>
               <dt className="text-[11px] text-(--ae-faint)">{k}</dt>
               <dd className="font-semibold text-(--ae-text)">{v}</dd>
             </div>
@@ -90,7 +90,7 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
       {(tabLabel === "Files" || tabLabel === "Notes (MD)") && (
         <div className="space-y-3">
           {files.map((f) => (
-            <MarkdownFileBox key={f.name} name={f.name} markdown={f.markdown} />
+            <MarkdownFileBox key={f.name} markdown={f.markdown} name={f.name} />
           ))}
         </div>
       )}
@@ -98,7 +98,7 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
       {tabLabel === "Logs" && (
         <ul className="space-y-2.5 text-[11px]">
           {changeLog.map((e) => (
-            <li key={e.id} className="flex justify-between gap-2">
+            <li className="flex justify-between gap-2" key={e.id}>
               <span className="text-(--ae-body)"><span className="mr-2 text-(--ae-faint)">{e.time}</span>{e.message}</span>
               <span className="font-medium text-(--ae-muted)">{e.actor}</span>
             </li>

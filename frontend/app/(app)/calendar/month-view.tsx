@@ -109,9 +109,9 @@ export function MonthView({
                 <QuickCreateAdapter
                   defaultEnd={new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 30)}
                   defaultStart={new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0)}
+                  useEnhanced={true}
                   onCancel={onCreateCancel}
                   onCreate={onCreateSubmit}
-                  useEnhanced={true}
                 />
               </PopoverContent>
             )}

@@ -57,17 +57,17 @@ export function PracticeQuestion({ sessionId, item, isLast }: PracticeQuestionPr
       ) : (
         <form action={formAction} className="flex flex-col gap-3">
           <Textarea
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
+            aria-label="Your answer"
+            className="resize-none font-mono text-sm"
+            disabled={pending}
             placeholder="Type your answer here…"
             rows={8}
-            aria-label="Your answer"
-            disabled={pending}
-            className="resize-none font-mono text-sm"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
           />
           {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
           <div className="flex justify-end gap-3">
-            <Button type="submit" disabled={pending || !answer.trim()}>
+            <Button disabled={pending || !answer.trim()} type="submit">
               {pending ? "Submitting…" : isLast ? "Submit & finish" : "Submit & next"}
             </Button>
           </div>

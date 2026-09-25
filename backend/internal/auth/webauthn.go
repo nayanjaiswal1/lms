@@ -33,8 +33,8 @@ type webAuthnUser struct {
 	creds  []webauthn.Credential
 }
 
-func (u *webAuthnUser) WebAuthnID() []byte                        { return u.id }
-func (u *webAuthnUser) WebAuthnName() string                      { return u.email }
+func (u *webAuthnUser) WebAuthnID() []byte                         { return u.id }
+func (u *webAuthnUser) WebAuthnName() string                       { return u.email }
 func (u *webAuthnUser) WebAuthnDisplayName() string                { return u.name }
 func (u *webAuthnUser) WebAuthnCredentials() []webauthn.Credential { return u.creds }
 
@@ -192,9 +192,9 @@ func (h *Handler) HandleWebAuthnRegisterBegin(w http.ResponseWriter, r *http.Req
 		webauthn.WithExclusions(exclude),
 		webauthn.WithConveyancePreference(protocol.PreferNoAttestation),
 		webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
-			ResidentKey:         protocol.ResidentKeyRequirementRequired,
-			RequireResidentKey:  &requireResidentKey,
-			UserVerification:    protocol.VerificationPreferred,
+			ResidentKey:        protocol.ResidentKeyRequirementRequired,
+			RequireResidentKey: &requireResidentKey,
+			UserVerification:   protocol.VerificationPreferred,
 		}),
 	)
 	if err != nil {

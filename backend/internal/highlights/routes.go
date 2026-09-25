@@ -26,7 +26,7 @@ func (rt *Router) RegisterRoutes(r chi.Router) {
 	// Student-accessible — any authenticated user.
 	r.Post("/api/highlights", rt.handler.Create)
 	r.Post("/api/highlights/explain", rt.handler.Explain)
-	r.Get("/api/highlights", rt.handler.ListBySource)       // ?source_type=&source_id=
+	r.Get("/api/highlights", rt.handler.ListBySource) // ?source_type=&source_id=
 	r.Get("/api/highlights/me", rt.handler.ListMine)
 	r.Patch("/api/highlights/{highlightID}/revision", rt.handler.ToggleRevision)
 

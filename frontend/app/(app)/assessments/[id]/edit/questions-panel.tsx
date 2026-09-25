@@ -312,8 +312,7 @@ export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPa
           {!isDraft ? (
             <p className="text-sm text-muted-foreground">Publish locks the question set. Move back to draft to edit.</p>
           ) : (
-            <>
-              <div
+            <div
                 className={`flex min-h-24 max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-lg p-1 transition-colors ${dragOver === "bank" ? "ring-2 ring-primary/50" : ""}`}
                 onDragLeave={() => setDragOver(null)}
                 onDragOver={(e) => {
@@ -385,7 +384,6 @@ export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPa
                   })
                 )}
               </div>
-            </>
           )}
         </section>
       </div>

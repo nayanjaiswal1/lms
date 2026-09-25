@@ -5,6 +5,7 @@ export const metadata: Metadata = { title: "Create Organization" };
 
 export default function CreateOrgPage() {
   return (
+    // eslint-disable-next-line no-restricted-syntax -- standalone onboarding page outside the (app) shell, no .app-content ancestor to supply vertical padding
     <main className="page-container-sm py-16">
       <div className="mx-auto max-w-md">
         <h1 className="page-title mb-2">Create Organization</h1>

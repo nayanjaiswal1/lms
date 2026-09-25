@@ -85,11 +85,11 @@ type Profile struct {
 	CurrentRole       *string `json:"current_role"`
 	YearsOfExperience *int16  `json:"years_of_experience"`
 
-	Language            *string                `json:"language"`
-	Timezone            *string                `json:"timezone"`
-	WeeklyGoalHrs       *int16                 `json:"weekly_goal_hrs"`
-	DefaultLandingPage  *string                `json:"default_landing_page"`
-	Notifications       map[string]interface{} `json:"notifications"`
+	Language           *string                `json:"language"`
+	Timezone           *string                `json:"timezone"`
+	WeeklyGoalHrs      *int16                 `json:"weekly_goal_hrs"`
+	DefaultLandingPage *string                `json:"default_landing_page"`
+	Notifications      map[string]interface{} `json:"notifications"`
 
 	CompletionScore int `json:"completion_score"`
 

@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 /** Default route-level loading UI. Streamed in by Next while a page resolves. */
 export default function Loading() {
   return (
+    // eslint-disable-next-line no-restricted-syntax -- root loading fallback rendered outside the (app) shell, no .app-content ancestor
     <div className="page-container form-stack py-8">
       <Skeleton className="h-8 w-48" />
       <Skeleton className="h-4 w-72" />

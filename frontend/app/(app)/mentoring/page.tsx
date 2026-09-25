@@ -17,25 +17,25 @@ async function MentoringOverviewContent() {
   return (
     <>
       <div className="grid-stats mb-8">
-        <StatCard icon={Users} label="Batches" value={String(batches.length)} unit="total" />
-        <StatCard icon={Users} label="Students" value={String(totalStudents)} unit="total" />
+        <StatCard icon={Users} label="Batches" unit="total" value={String(batches.length)} />
+        <StatCard icon={Users} label="Students" unit="total" value={String(totalStudents)} />
         <StatCard
-          icon={MessageSquare}
-          label="Unresolved questions"
-          value={String(totalUnresolved)}
-          unit={totalUnresolved === 1 ? "question" : "questions"}
           highlighted={totalUnresolved > 0}
           href={ROUTES.COHORT_GROUPS}
+          icon={MessageSquare}
+          label="Unresolved questions"
+          unit={totalUnresolved === 1 ? "question" : "questions"}
+          value={String(totalUnresolved)}
         />
       </div>
 
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="section-title">Your batches</h2>
         <Link
-          href={ROUTES.BATCHES}
           className="flex items-center gap-1 text-sm text-primary hover:underline"
+          href={ROUTES.BATCHES}
         >
-          View all <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          View all <ArrowRight aria-hidden className="h-3.5 w-3.5" />
         </Link>
       </div>
 
@@ -45,10 +45,10 @@ async function MentoringOverviewContent() {
           <p className="mt-3 text-sm text-muted-foreground">You are not assigned to any batches yet.</p>
         </div>
       ) : (
-        <ol className="flex flex-col gap-3" aria-label="Batches">
+        <ol aria-label="Batches" className="flex flex-col gap-3">
           {batches.map((batch) => (
             <li key={batch.id}>
-              <Link href={ROUTES.batch(batch.id)} className="card-interactive flex items-center gap-4 p-5">
+              <Link className="card-interactive flex items-center gap-4 p-5" href={ROUTES.batch(batch.id)}>
                 <div className="flex flex-1 flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{batch.name}</span>

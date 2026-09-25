@@ -133,20 +133,20 @@ export function TranscriptInput({ prompt, value, onChange, onSave }: TranscriptI
             {/* Mic button — only mounted after hydration confirms browser support */}
             {ui.hasSpeech && (
               <Button
-                type="button"
-                variant="ghost"
-                size="sm"
                 aria-label={ui.listening ? "Stop recording" : "Start voice input"}
-                onClick={toggleMic}
                 className={cn(
                   "h-auto gap-1.5 px-2 py-1 text-muted-foreground hover:text-foreground",
                   ui.listening && "animate-pulse text-destructive hover:text-destructive",
                 )}
+                size="sm"
+                type="button"
+                variant="ghost"
+                onClick={toggleMic}
               >
                 {ui.listening ? (
-                  <MicOff className="h-3.5 w-3.5" aria-hidden />
+                  <MicOff aria-hidden className="h-3.5 w-3.5" />
                 ) : (
-                  <Mic className="h-3.5 w-3.5" aria-hidden />
+                  <Mic aria-hidden className="h-3.5 w-3.5" />
                 )}
                 {ui.listening ? "Stop recording" : "Speak your answer"}
               </Button>
@@ -162,7 +162,7 @@ export function TranscriptInput({ prompt, value, onChange, onSave }: TranscriptI
             )}
             {ui.saved && !ui.listening && (
               <span className="flex items-center gap-1 text-xs text-ai">
-                <CheckCircle2 className="h-3 w-3" aria-hidden />
+                <CheckCircle2 aria-hidden className="h-3 w-3" />
                 Saved
               </span>
             )}

@@ -26,10 +26,10 @@ func (r *stubRepo) GetAssignmentsForRole(_ context.Context, _ string) ([]UserRol
 // ─── Stub cache ───────────────────────────────────────────────────────────────
 
 type stubCache struct {
-	stored      map[string][]string
-	getErr      error
-	setErr      error
-	invalidated []string
+	stored        map[string][]string
+	getErr        error
+	setErr        error
+	invalidated   []string
 	invalidateErr error
 }
 

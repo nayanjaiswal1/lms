@@ -25,7 +25,7 @@ export function LabReadinessWait({
   return (
     <div className="fixed inset-0 bg-background z-modal flex flex-col safe-inset">
       {/* Blurred skeleton of the lab layout behind the loading indicator */}
-      <div className="absolute inset-0 flex flex-col opacity-20 blur-sm pointer-events-none" aria-hidden>
+      <div aria-hidden className="absolute inset-0 flex flex-col opacity-20 blur-sm pointer-events-none">
         <div className="h-14 shrink-0 border-b border-border bg-card" />
         <div className="flex flex-1 overflow-hidden">
           <div className="w-80 shrink-0 border-r border-border p-4 flex flex-col gap-3">

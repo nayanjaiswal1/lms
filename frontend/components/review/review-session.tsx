@@ -80,7 +80,7 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
   if (sessionState === "complete") {
     const reviewed = ratings.again + ratings.hard + ratings.good + ratings.easy;
     return (
-      <main className="page-container py-10">
+      <main className="page-container">
         <div className="mx-auto max-w-lg">
           <div className="card-base flex flex-col items-center gap-6 p-8 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
@@ -94,10 +94,10 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
             </div>
 
             <div className="w-full grid-responsive-2 gap-3">
-              <RatingSummaryItem label="Again" count={ratings.again} colorClass="text-destructive" />
-              <RatingSummaryItem label="Hard" count={ratings.hard} colorClass="text-warning" />
-              <RatingSummaryItem label="Good" count={ratings.good} colorClass="text-primary" />
-              <RatingSummaryItem label="Easy" count={ratings.easy} colorClass="text-ai" />
+              <RatingSummaryItem colorClass="text-destructive" count={ratings.again} label="Again" />
+              <RatingSummaryItem colorClass="text-warning" count={ratings.hard} label="Hard" />
+              <RatingSummaryItem colorClass="text-primary" count={ratings.good} label="Good" />
+              <RatingSummaryItem colorClass="text-ai" count={ratings.easy} label="Easy" />
             </div>
 
             <Button asChild className="w-full sm:w-auto">
@@ -117,7 +117,7 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
   const progressPct = total > 0 ? (index / total) * 100 : 0;
 
   return (
-    <main className="page-container py-10">
+    <main className="page-container">
       <div className="mx-auto max-w-2xl">
         {/* Header: back link + progress */}
         <div className="mb-6 flex flex-col gap-3">
@@ -133,11 +133,11 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
             </p>
           </div>
           <div className="progress-track h-1.5">
-            {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+            { }
             <div
+              aria-hidden
               className="progress-fill h-full bg-primary"
               style={{ '--progress': `${progressPct}%` } as React.CSSProperties}
-              aria-hidden
             />
           </div>
         </div>

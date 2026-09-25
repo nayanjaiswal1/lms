@@ -258,6 +258,9 @@ export function DailyHabitWheel({
                       cell.startDay === 1 && cell.startDay === cell.endDay,
                     )}
                     role={clickable ? "button" : undefined}
+                    // eslint-disable-next-line no-restricted-syntax -- staggering the draw-on-load reveal needs a per-element delay
+                    style={{ animationDelay: "550ms" }}
+                    tabIndex={clickable ? 0 : -1}
                     onClick={clickable ? () => onToggle(habit.id, cell.period, done) : undefined}
                     onKeyDown={
                       clickable
@@ -269,9 +272,6 @@ export function DailyHabitWheel({
                           }
                         : undefined
                     }
-                    tabIndex={clickable ? 0 : -1}
-                    // eslint-disable-next-line no-restricted-syntax -- staggering the draw-on-load reveal needs a per-element delay
-                    style={{ animationDelay: "550ms" }}
                   />
                   {countPos && (
                     <text
@@ -280,11 +280,11 @@ export function DailyHabitWheel({
                         !skipIntro && styles.fadeIn,
                       )}
                       dominantBaseline="middle"
+                      // eslint-disable-next-line no-restricted-syntax -- matches the wedge's own staggered reveal delay
+                      style={{ animationDelay: "550ms" }}
                       textAnchor="middle"
                       x={countPos.x}
                       y={countPos.y}
-                      // eslint-disable-next-line no-restricted-syntax -- matches the wedge's own staggered reveal delay
-                      style={{ animationDelay: "550ms" }}
                     >
                       {count}/{target}
                     </text>
@@ -303,8 +303,8 @@ export function DailyHabitWheel({
                   className={cn(RING_LINE, !skipIntro && styles.gridLine, "pointer-events-none")}
                   d={ringArcPath(CENTER_X, CENTER_Y, HOLE_RADIUS + i * ringThickness, SWEEP_START, SWEEP_START + SWEEP_ANGLE, dayAngle)}
                   key={`ring-${i}`}
-                  strokeWidth={1}
                   pathLength={1}
+                  strokeWidth={1}
                   // eslint-disable-next-line no-restricted-syntax -- staggered stroke-draw reveal needs a per-element delay
                   style={{ animationDelay: `${delay}ms` }}
                 />
@@ -416,7 +416,7 @@ export function DailyHabitWheel({
                         )}
                       </span>
                       <HabitIcon className="mb-0.5 size-3 shrink-0 self-end text-muted-foreground" fallback={wheelFallbackIcon} icon={habit.icon} />
-                      <span className="max-w-[140px] truncate pb-0.5 pr-5 text-xs leading-none">{habit.name}</span>
+                      <span className="max-w-36 truncate pb-0.5 pr-5 text-xs leading-none">{habit.name}</span>
                       {editable && (
                         <Button
                           aria-label={`Delete ${habit.name}`}

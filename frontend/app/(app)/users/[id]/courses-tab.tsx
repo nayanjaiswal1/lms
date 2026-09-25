@@ -24,7 +24,7 @@ function EnrollmentCard({ enrollment }: { enrollment: Enrollment }) {
 
         <div className="mt-2 flex items-center gap-2">
           <div className="progress-track flex-1">
-            {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+            { }
             <div className="progress-fill" style={{ "--progress": `${progress.pct}%` } as React.CSSProperties} />
           </div>
           <span className="text-xs text-muted-foreground shrink-0">

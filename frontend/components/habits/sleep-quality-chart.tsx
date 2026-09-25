@@ -69,7 +69,7 @@ export function SleepQualityCard({ habits, month, metadata }: SleepQualityCardPr
         </>
       ) : (
         <div className="empty-state py-8">
-          <p className="text-sm text-muted-foreground">Click {habit.name} on the grid to log tonight's sleep.</p>
+          <p className="text-sm text-muted-foreground">Click {habit.name} on the grid to log tonight&apos;s sleep.</p>
         </div>
       )}
     </section>

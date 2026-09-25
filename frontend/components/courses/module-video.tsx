@@ -36,13 +36,13 @@ export function ModuleVideo({ moduleId, presignedUrl, initialPositionSeconds = 0
       <div className="overflow-hidden rounded-lg bg-card">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
-          ref={videoRef}
-          src={presignedUrl}
           controls
           className="w-full"
+          ref={videoRef}
+          src={presignedUrl}
           onPlay={handlePlay}
           onTimeUpdate={handleTimeUpdate}
-          // eslint-disable-next-line no-restricted-syntax -- currentTime init requires inline assignment
+           
           {...(initialPositionSeconds > 0 ? { onLoadedMetadata: () => {
             if (videoRef.current) videoRef.current.currentTime = initialPositionSeconds;
           }} : {})}

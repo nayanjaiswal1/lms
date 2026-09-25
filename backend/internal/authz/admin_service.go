@@ -169,9 +169,9 @@ func (s *AdminService) AssignRole(ctx context.Context, actorID, tenantID, target
 
 	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.role.assign", "user_role",
 		targetUserID+"/"+roleID, &AuditDiff{After: map[string]string{
-			"user_id":   targetUserID,
-			"role_id":   roleID,
-			"org_id": tenantID,
+			"user_id": targetUserID,
+			"role_id": roleID,
+			"org_id":  tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil
@@ -186,9 +186,9 @@ func (s *AdminService) RevokeRole(ctx context.Context, actorID, tenantID, target
 
 	_ = s.auditRepo.Write(ctx, tenantID, actorID, "user.role.revoke", "user_role",
 		targetUserID+"/"+roleID, &AuditDiff{Before: map[string]string{
-			"user_id":   targetUserID,
-			"role_id":   roleID,
-			"org_id": tenantID,
+			"user_id": targetUserID,
+			"role_id": roleID,
+			"org_id":  tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil
@@ -208,7 +208,7 @@ func (s *AdminService) GrantUserPermission(ctx context.Context, actorID, tenantI
 		targetUserID+"/"+permissionID, &AuditDiff{After: map[string]string{
 			"user_id":       targetUserID,
 			"permission_id": permissionID,
-			"org_id":     tenantID,
+			"org_id":        tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil
@@ -225,7 +225,7 @@ func (s *AdminService) RevokeUserPermission(ctx context.Context, actorID, tenant
 		targetUserID+"/"+permissionID, &AuditDiff{Before: map[string]string{
 			"user_id":       targetUserID,
 			"permission_id": permissionID,
-			"org_id":     tenantID,
+			"org_id":        tenantID,
 		}})
 	_ = s.svc.InvalidateUser(ctx, targetUserID, tenantID)
 	return nil

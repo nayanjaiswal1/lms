@@ -66,7 +66,7 @@ export default async function ReviewQueuePage({ params }: PageProps) {
             </thead>
             <tbody className="divide-y divide-border">
               {items.map((item) => (
-                <ReviewRow key={item.attempt_id} item={item} />
+                <ReviewRow item={item} key={item.attempt_id} />
               ))}
             </tbody>
           </table>
@@ -101,7 +101,7 @@ function ReviewRow({ item }: { item: ReviewQueueItem }) {
       <td className="py-3">
         <Button asChild size="sm" variant="outline">
           <Link href={ROUTES.assessmentResult(item.attempt_id)}>
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            <ExternalLink aria-hidden className="h-3.5 w-3.5" />
             Review
           </Link>
         </Button>

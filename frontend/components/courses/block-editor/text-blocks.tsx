@@ -55,7 +55,7 @@ export function HeadingBlockEditor({ block, onChange }: HeadingProps) {
 
 // ─── Divider ─────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 export function DividerBlockEditor(_: { block: DividerBlock }) {
   return <hr className="border-border" />;
 }

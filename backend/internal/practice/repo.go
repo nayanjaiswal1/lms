@@ -122,7 +122,7 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (Practi
 	s.QuestionCount = questionCount
 
 	// Extract technology, difficulty, category from title (stored as "technology practice")
-	s.Difficulty = "intermediate" // Default; would need to be stored separately if needed
+	s.Difficulty = "intermediate"  // Default; would need to be stored separately if needed
 	s.Category = CategoryTechnical // Default
 
 	items, err := r.GetItems(ctx, sessionID)

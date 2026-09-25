@@ -51,71 +51,71 @@ export function RegisterForm() {
         <AuthFormError message={state.error} />
 
         <FormInputField
-          control={form.control}
-          name="name"
-          label="Full name"
           autoComplete="name"
-          placeholder="Alex Morgan"
+          control={form.control}
           disabled={isPending}
+          label="Full name"
+          name="name"
+          placeholder="Alex Morgan"
           serverError={state.fieldErrors?.name}
         />
 
         <FormInputField
-          control={form.control}
-          name="email"
-          label="Email"
-          type="email"
-          inputMode="email"
           autoComplete="email"
+          control={form.control}
+          disabled={isPending}
+          inputMode="email"
+          label="Email"
+          name="email"
           placeholder="you@example.com"
-          disabled={isPending}
           serverError={state.fieldErrors?.email}
+          type="email"
         />
 
         <FormInputField
-          control={form.control}
-          name="password"
-          label="Password"
-          type="password"
           autoComplete="new-password"
-          placeholder="Create a password"
-          disabled={isPending}
+          control={form.control}
           description="8–72 characters"
+          disabled={isPending}
+          label="Password"
+          name="password"
+          placeholder="Create a password"
           serverError={state.fieldErrors?.password}
+          type="password"
         />
 
         <FormInputField
-          control={form.control}
-          name="confirmPassword"
-          label="Confirm password"
-          type="password"
           autoComplete="new-password"
-          placeholder="Enter it again"
+          control={form.control}
           disabled={isPending}
+          label="Confirm password"
+          name="confirmPassword"
+          placeholder="Enter it again"
           serverError={state.fieldErrors?.confirmPassword}
+          type="password"
         />
 
         <FormCheckboxField
           control={form.control}
-          name="acceptTerms"
           disabled={isPending}
-          serverError={state.fieldErrors?.acceptTerms}
           label={
             <>
               I agree to the{" "}
-              <Link href={ROUTES.LEGAL_TERMS} target="_blank" className="font-medium">
+              <Link className="font-medium" href={ROUTES.LEGAL_TERMS} target="_blank">
                 Terms of Service
               </Link>{" "}
               and{" "}
-              <Link href={ROUTES.LEGAL_PRIVACY} target="_blank" className="font-medium">
+              <Link className="font-medium" href={ROUTES.LEGAL_PRIVACY} target="_blank">
                 Privacy Policy
               </Link>
               .
             </>
           }
+          name="acceptTerms"
+          serverError={state.fieldErrors?.acceptTerms}
         />
 
-        <Button type="submit" size="lg" disabled={isPending} className="w-full">
+        <Button className="w-full" disabled={isPending} size="lg" type="submit">
           {isPending ? (
             <>
               <Loader2 aria-hidden className="animate-spin" />

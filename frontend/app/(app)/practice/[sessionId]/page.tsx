@@ -37,15 +37,15 @@ export default async function PracticeSessionPage({ params, searchParams }: Prop
 
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
         <div className="order-2 lg:order-1 lg:w-56">
-          <SessionProgress items={items} currentPosition={position} />
+          <SessionProgress currentPosition={position} items={items} />
         </div>
 
         <div className="order-1 flex-1 lg:order-2">
           {currentItem ? (
             <PracticeQuestion
-              sessionId={session.id}
-              item={currentItem}
               isLast={position === items.length - 1}
+              item={currentItem}
+              sessionId={session.id}
             />
           ) : (
             <div className="card-base p-8 text-center">

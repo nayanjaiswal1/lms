@@ -107,12 +107,9 @@ export function InviteTable({
     <section className="flex flex-col gap-4">
       <h2 className="section-title">{heading}</h2>
 
-      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter invites by status">
+      <div aria-label="Filter invites by status" className="flex flex-wrap items-center gap-2" role="tablist">
         {STATUS_TABS.map((tab) => (
           <Link
-            key={tab.value}
-            href={`${ROUTES.ORG_SETTINGS_INVITES}?status=${tab.value}`}
-            role="tab"
             aria-selected={currentStatus === tab.value}
             className={cn(
               "text-xs px-3 py-1.5 rounded border transition-colors",
@@ -120,6 +117,9 @@ export function InviteTable({
                 ? "bg-primary text-primary-foreground border-primary"
                 : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
             )}
+            href={`${ROUTES.ORG_SETTINGS_INVITES}?status=${tab.value}`}
+            key={tab.value}
+            role="tab"
           >
             {tab.label}
           </Link>
@@ -158,9 +158,9 @@ export function InviteTable({
               <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                 <th className="pb-2 pr-3 w-8">
                   <Checkbox
+                    aria-label="Select all pending invites"
                     checked={allSelected ? true : someSelected ? "indeterminate" : false}
                     onCheckedChange={toggleSelectAll}
-                    aria-label="Select all pending invites"
                   />
                 </th>
                 <th className="pb-2 pr-4 font-medium">Email</th>
@@ -177,25 +177,25 @@ export function InviteTable({
                 const isPending = status === "pending";
                 return (
                   <tr
-                    key={invite.id}
                     className="whitespace-nowrap hover:bg-muted/30 transition-colors duration-fast"
+                    key={invite.id}
                   >
                     <td className="py-3 pr-3">
                       <Checkbox
-                        checked={selected.has(invite.id)}
-                        onCheckedChange={() => toggleOne(invite.id)}
-                        disabled={!isPending}
                         aria-label={`Select ${invite.email}`}
+                        checked={selected.has(invite.id)}
+                        disabled={!isPending}
+                        onCheckedChange={() => toggleOne(invite.id)}
                       />
                     </td>
                     <td className="py-3 pr-4 font-medium">{invite.email}</td>
                     <td className="py-3 pr-4 hidden sm:table-cell">
-                      <Badge variant="outline" className="capitalize">
+                      <Badge className="capitalize" variant="outline">
                         {invite.role}
                       </Badge>
                     </td>
                     <td className="py-3 pr-4">
-                      <Badge variant={resolveStatusVariant(status)} className="capitalize">
+                      <Badge className="capitalize" variant={resolveStatusVariant(status)}>
                         {status}
                       </Badge>
                     </td>
@@ -208,10 +208,10 @@ export function InviteTable({
                     <td className="py-3 text-right">
                       {isPending && (
                         <Button
+                          className="h-7 px-2 text-destructive hover:text-destructive"
                           size="sm"
                           variant="ghost"
                           onClick={() => onRevoke(invite.id)}
-                          className="h-7 px-2 text-destructive hover:text-destructive"
                         >
                           Revoke
                         </Button>

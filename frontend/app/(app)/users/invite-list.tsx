@@ -37,8 +37,8 @@ export function RevokeInviteButton({ invite, orgId, iconOnly }: RevokeInviteButt
 
   return (
     <form action={action}>
-      <input type="hidden" name="org_id" value={orgId} />
-      <input type="hidden" name="invite_id" value={invite.id} />
+      <input name="org_id" type="hidden" value={orgId} />
+      <input name="invite_id" type="hidden" value={invite.id} />
       <Button
         aria-label={`Revoke invite for ${invite.email}`}
         className={iconOnly ? "touch-target" : undefined}
@@ -99,7 +99,7 @@ export function InviteList({ invites, orgId }: InviteListProps) {
   return (
     <div>
       {pending.map((invite) => (
-        <InviteRow key={invite.id} invite={invite} orgId={orgId} />
+        <InviteRow invite={invite} key={invite.id} orgId={orgId} />
       ))}
     </div>
   );

@@ -74,14 +74,14 @@ function StatusFilterPills({ current, orgId, handler }: {
         if (!isActive) p.set("status", s);
         return (
           <Link
-            key={s}
-            href={`${ROUTES.PLATFORM_JOBS}?${p.toString()}`}
             className={cn(
               "text-xs px-2 py-0.5 rounded border transition-colors",
               isActive
                 ? "bg-primary text-primary-foreground border-primary"
                 : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
             )}
+            href={`${ROUTES.PLATFORM_JOBS}?${p.toString()}`}
+            key={s}
           >
             {s}
           </Link>
@@ -102,8 +102,8 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
     <>
       <StatusFilterPills
         current={currentParams.status}
-        orgId={currentParams.org_id}
         handler={currentParams.handler}
+        orgId={currentParams.org_id}
       />
 
       {jobs.length === 0 ? (
@@ -125,12 +125,12 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
             </thead>
             <tbody>
               {jobs.map((job) => (
-                <tr key={job.id} className="whitespace-nowrap border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                <tr className="whitespace-nowrap border-b border-border last:border-0 hover:bg-muted/30 transition-colors" key={job.id}>
                   <td className="py-3 pr-6">
                     {job.org_id ? (
                       <Link
-                        href={ROUTES.platformJob(job.id)}
                         className="font-mono text-xs hover:text-primary hover:underline"
+                        href={ROUTES.platformJob(job.id)}
                       >
                         {job.handler}
                       </Link>
@@ -141,8 +141,8 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
                   <td className="py-3 pr-4 text-muted-foreground">
                     {job.org_id ? (
                       <Link
-                        href={`${ROUTES.PLATFORM_JOBS}?org_id=${job.org_id}`}
                         className="hover:underline"
+                        href={`${ROUTES.PLATFORM_JOBS}?org_id=${job.org_id}`}
                       >
                         {job.org_id.slice(0, 8)}…
                       </Link>
@@ -164,7 +164,7 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
                       <div className="flex items-center gap-1">
                         {(job.status === "failed" || job.status === "dead") && (
                           <form action={forceRetryJobAction.bind(null, job.id)}>
-                            <Button type="submit" variant="ghost" size="sm" className="h-7 px-2">
+                            <Button className="h-7 px-2" size="sm" type="submit" variant="ghost">
                               Retry
                             </Button>
                           </form>
@@ -172,10 +172,10 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
                         {(job.status === "pending" || job.status === "queued") && (
                           <form action={cancelJobAction.bind(null, job.id)}>
                             <Button
+                              className="h-7 px-2 text-destructive hover:text-destructive"
+                              size="sm"
                               type="submit"
                               variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-destructive hover:text-destructive"
                             >
                               Cancel
                             </Button>

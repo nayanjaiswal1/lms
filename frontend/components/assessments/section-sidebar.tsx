@@ -34,10 +34,10 @@ export function SectionSidebar({ sections, currentType, onJump }: SectionSidebar
     return (
       <aside className="hidden lg:flex w-10 shrink-0 flex-col items-center gap-1.5 border-r border-border bg-card/50 py-3">
         <Button
-          variant="ghost"
-          size="icon"
           aria-label="Show section navigator"
           className="touch-target h-8 w-8"
+          size="icon"
+          variant="ghost"
           onClick={() => setCollapsed(false)}
         >
           <PanelLeftOpen aria-hidden className="h-4 w-4" />
@@ -48,14 +48,14 @@ export function SectionSidebar({ sections, currentType, onJump }: SectionSidebar
             const isCurrent = s.type === currentType;
             return (
               <Button
-                key={s.type}
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => onJump(s.startIndex)}
                 aria-current={isCurrent ? "true" : undefined}
                 aria-label={`Jump to ${s.label} section, ${s.answeredCount} of ${s.count} answered`}
                 className={cn("touch-target h-8 w-8", isCurrent && "bg-primary/10 text-primary")}
+                key={s.type}
+                size="icon"
+                type="button"
+                variant="ghost"
+                onClick={() => onJump(s.startIndex)}
               >
                 <Icon aria-hidden className="h-4 w-4" />
               </Button>
@@ -71,10 +71,10 @@ export function SectionSidebar({ sections, currentType, onJump }: SectionSidebar
       <div className="mb-1 flex items-center justify-between px-1">
         <span className="text-xs font-medium text-muted-foreground">Sections</span>
         <Button
-          variant="ghost"
-          size="icon"
           aria-label="Hide section navigator"
           className="touch-target h-6 w-6"
+          size="icon"
+          variant="ghost"
           onClick={() => setCollapsed(true)}
         >
           <PanelLeftClose aria-hidden className="h-3.5 w-3.5" />
@@ -84,13 +84,13 @@ export function SectionSidebar({ sections, currentType, onJump }: SectionSidebar
         const Icon = SECTION_ICONS[s.type];
         return (
           <Button
-            key={s.type}
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onJump(s.startIndex)}
             aria-current={s.type === currentType ? "true" : undefined}
             className={cn("justify-between", s.type === currentType && "bg-primary/10 text-primary")}
+            key={s.type}
+            size="sm"
+            type="button"
+            variant="ghost"
+            onClick={() => onJump(s.startIndex)}
           >
             <span className="flex items-center gap-2">
               <Icon aria-hidden className="h-3.5 w-3.5" />

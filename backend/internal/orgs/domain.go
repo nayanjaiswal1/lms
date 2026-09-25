@@ -53,12 +53,12 @@ func (s *DomainService) Add(ctx context.Context, orgID, actorUserID string, req 
 	}
 
 	writeAuditLog(ctx, s.pool, auditEntry{
-		OrgID:      orgID,
+		OrgID:       orgID,
 		ActorUserID: &actorUserID,
-		Action:     "domain.added",
-		TargetType: "domain",
-		TargetID:   &d.ID,
-		AfterState: map[string]string{"domain": d.Domain, "method": req.VerificationMethod},
+		Action:      "domain.added",
+		TargetType:  "domain",
+		TargetID:    &d.ID,
+		AfterState:  map[string]string{"domain": d.Domain, "method": req.VerificationMethod},
 	})
 
 	return &d, nil

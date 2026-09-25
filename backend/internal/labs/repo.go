@@ -137,10 +137,10 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (LabOrgConfig, er
 	}
 
 	type labsJSON struct {
-		MaxConcurrentSessions *int      `json:"max_concurrent_sessions"`
-		MaxSessionDuration    *int      `json:"max_session_duration"`
-		AllowedImages         []string  `json:"allowed_images"`
-		EgressProxyEnabled    *bool     `json:"egress_proxy_enabled"`
+		MaxConcurrentSessions *int     `json:"max_concurrent_sessions"`
+		MaxSessionDuration    *int     `json:"max_session_duration"`
+		AllowedImages         []string `json:"allowed_images"`
+		EgressProxyEnabled    *bool    `json:"egress_proxy_enabled"`
 	}
 
 	var parsed labsJSON

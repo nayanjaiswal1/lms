@@ -48,24 +48,24 @@ export function CaptureSheet({ onCaptured }: { onCaptured: (task: Task) => void 
   return (
     <form className="wn-capture" onSubmit={submit}>
       <input
+        aria-label="Capture a task"
         className="wn-capture-input"
+        disabled={busy}
+        placeholder="Drop a task — “email Priya by friday 20m #work”"
         value={value}
+        onBlur={onBlur}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKeyDown}
-        onBlur={onBlur}
-        placeholder="Drop a task — “email Priya by friday 20m #work”"
-        aria-label="Capture a task"
-        disabled={busy}
       />
-      <button className="wn-capture-go" type="submit" disabled={busy || !value.trim()}>
+      <button className="wn-capture-go" disabled={busy || !value.trim()} type="submit">
         {busy ? "…" : "Catch"}
       </button>
       {error && (
         <p className="wn-capture-error">
           {error}{" "}
           <button
-            type="button"
             className="wn-capture-retry"
+            type="button"
             onClick={() => void doCapture(value.trim())}
           >
             Retry

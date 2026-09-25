@@ -524,14 +524,14 @@ func (r *Repo) DeleteConnection(ctx context.Context, orgID, userID string) error
 // redirecting the browser to GitLab's /oauth/authorize.
 func (r *Repo) InsertOAuthState(ctx context.Context, st GitlabOAuthState) error {
 	payloadJSON, err := json.Marshal(map[string]interface{}{
-		"code_verifier":          st.CodeVerifier,
-		"base_url":               st.BaseURL,
-		"oauth_client_id":        st.OAuthClientID,
+		"code_verifier":           st.CodeVerifier,
+		"base_url":                st.BaseURL,
+		"oauth_client_id":         st.OAuthClientID,
 		"oauth_client_secret_enc": st.OAuthClientSecretEnc,
-		"redirect_to":            st.RedirectTo,
-		"name":                   st.Name,
-		"installation_id":        st.InstallationID,
-		"purpose":                st.Purpose,
+		"redirect_to":             st.RedirectTo,
+		"name":                    st.Name,
+		"installation_id":         st.InstallationID,
+		"purpose":                 st.Purpose,
 	})
 	if err != nil {
 		return fmt.Errorf("gitlab: marshal oauth state payload: %w", err)
@@ -569,14 +569,14 @@ func (r *Repo) GetOAuthState(ctx context.Context, state string) (*GitlabOAuthSta
 
 	// Unmarshal payload
 	type oauthStatePayload struct {
-		CodeVerifier         string `json:"code_verifier"`
+		CodeVerifier         string  `json:"code_verifier"`
 		BaseURL              *string `json:"base_url"`
 		OAuthClientID        *string `json:"oauth_client_id"`
-		OAuthClientSecretEnc []byte `json:"oauth_client_secret_enc"`
+		OAuthClientSecretEnc []byte  `json:"oauth_client_secret_enc"`
 		RedirectTo           *string `json:"redirect_to"`
 		Name                 *string `json:"name"`
 		InstallationID       *string `json:"installation_id"`
-		Purpose              string `json:"purpose"`
+		Purpose              string  `json:"purpose"`
 	}
 	var payload oauthStatePayload
 	if err := json.Unmarshal(payloadRaw, &payload); err != nil {

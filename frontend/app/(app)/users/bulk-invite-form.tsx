@@ -91,7 +91,7 @@ export function BulkInviteForm({ orgId }: Props) {
       <div className="space-y-1.5">
         <Label htmlFor="bulk-role">Role</Label>
         <Select value={role} onValueChange={(v) => setRole(v as OrgRole)}>
-          <SelectTrigger id="bulk-role" aria-label="Select a role">
+          <SelectTrigger aria-label="Select a role" id="bulk-role">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

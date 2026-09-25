@@ -60,6 +60,7 @@ Each file is self-contained for its domain — features, API endpoints, DB schem
 | [docs/wiki.md](docs/wiki.md) | Wiki spaces, pages, TipTap editor, versioning, comments, templates, search, API, DB schema |
 | [docs/design.md](docs/design.md) | System design canvas, palette, interactions, versioning, embed, API, DB schema |
 | [docs/interview.md](docs/interview.md) | Interview board, load test simulator, Yjs sync, API, DB schema |
+| [docs/project-workspace.md](docs/project-workspace.md) | Corporate-style project lifecycle — share-link interest form, accept/invite, tracks, Epic→Feature→Task work items, feature doc review gate, multi-role assignees, GitLab ticket-key linking, manager dashboard (design draft) |
 | [docs/sheets.md](docs/sheets.md) | Sheet tracker, overlap view, subscribe/fork, API, DB schema |
 | [docs/learning-journal.md](docs/learning-journal.md) | Personal day-by-day learning log, free-typed categories, similar-entry detection, API, DB schema, MCP tools |
 | [docs/captures.md](docs/captures.md) | Knowledge Captures — screenshot/PDF/link inbox, vision-AI + pdftotext extraction, note/question classification, dedup into journal/SRS, API, DB schema |

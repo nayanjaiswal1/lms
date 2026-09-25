@@ -42,11 +42,11 @@ export function XPProgressBar({ totalXP, level, className, compact = false }: XP
           <span className="text-xs text-muted-foreground tabular-nums">{xpLabel}</span>
         </div>
         <div className="progress-track h-1.5">
-          {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+          { }
           <div
+            aria-hidden
             className="progress-fill h-full transition-all duration-500"
             style={{ '--progress': `${pct}%` } as React.CSSProperties}
-            aria-hidden
           />
         </div>
       </div>
@@ -64,11 +64,11 @@ export function XPProgressBar({ totalXP, level, className, compact = false }: XP
 
       <div className="flex flex-col gap-1">
         <div className="progress-track h-2">
-          {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+          { }
           <div
+            aria-label={`${Math.round(pct)}% progress to next level`}
             className="progress-fill h-full transition-all duration-700 ease-out"
             style={{ '--progress': `${pct}%` } as React.CSSProperties}
-            aria-label={`${Math.round(pct)}% progress to next level`}
           />
         </div>
         <div className="flex items-center justify-between">

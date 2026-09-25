@@ -20,11 +20,11 @@ export function SessionProgress({ items, currentPosition }: SessionProgressProps
       </div>
 
       <div className="progress-track">
-        {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width */}
+        { }
         <div className="progress-fill" style={{ "--progress": `${pct}%` } as React.CSSProperties} />
       </div>
 
-      <ol className="flex flex-col gap-1.5" aria-label="Question list">
+      <ol aria-label="Question list" className="flex flex-col gap-1.5">
         {items.map((item) => {
           const isCurrent = item.position === currentPosition;
           const isAnswered = item.answered_at !== null;
@@ -32,12 +32,12 @@ export function SessionProgress({ items, currentPosition }: SessionProgressProps
 
           return (
             <li
-              key={item.id}
+              aria-current={isCurrent ? "step" : undefined}
               className={cn(
                 "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors duration-fast",
                 isCurrent && "bg-muted font-medium",
               )}
-              aria-current={isCurrent ? "step" : undefined}
+              key={item.id}
             >
               {isAnswered ? (
                 <CheckCircle2 aria-label="Answered" className="h-4 w-4 shrink-0 text-primary" />

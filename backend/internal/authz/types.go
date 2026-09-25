@@ -122,13 +122,13 @@ type ListUsersParams struct {
 // actions (suspend/activate/remove) which operate on the membership row,
 // not the user row.
 type UserSummary struct {
-	ID        string    `json:"id"`
-	MemberID  string    `json:"member_id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	AvatarURL *string   `json:"avatar_url"`
-	OrgRole   string    `json:"org_role"`
-	RoleNames []string  `json:"role_names"`
+	ID        string   `json:"id"`
+	MemberID  string   `json:"member_id"`
+	Name      string   `json:"name"`
+	Email     string   `json:"email"`
+	AvatarURL *string  `json:"avatar_url"`
+	OrgRole   string   `json:"org_role"`
+	RoleNames []string `json:"role_names"`
 	// Status is the caller's org-membership status (org_members.status) — scoped
 	// to this organization. AccountStatus is the platform account status
 	// (users.status), which governs whether they can sign in at all. The two are

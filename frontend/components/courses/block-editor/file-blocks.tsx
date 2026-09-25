@@ -27,13 +27,13 @@ function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
       <div className="flex gap-1 text-xs">
         {(["url", "upload"] as const).map((t) => (
           <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
             className={cn(
               "flex items-center gap-1 rounded px-2 py-1 transition-colors",
               tab === t ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground",
             )}
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
           >
             {t === "url" ? <LinkIcon className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
             {t === "url" ? "Paste URL" : "Upload"}
@@ -75,14 +75,14 @@ export function PdfBlockEditor({ block, onChange, onFile }: PdfProps) {
         onChange={(e) => onChange({ ...block, title: e.target.value })}
       />
       <AssetInput
-        url={block.url}
         accept=".pdf,application/pdf"
         label="PDF"
-        onUrl={(url) => onChange({ ...block, url, previewUrl: undefined })}
+        url={block.url}
         onFile={(file) => {
           onFile(block.id, file);
           onChange({ ...block, previewUrl: URL.createObjectURL(file), url: "" });
         }}
+        onUrl={(url) => onChange({ ...block, url, previewUrl: undefined })}
       />
       {displayUrl && (
         <div className="flex flex-col gap-1">
@@ -113,14 +113,14 @@ export function DownloadBlockEditor({ block, onChange, onFile }: DownloadProps) 
         </div>
       </div>
       <AssetInput
-        url={block.url}
         accept="*"
         label="File"
-        onUrl={(url) => onChange({ ...block, url, previewUrl: undefined })}
+        url={block.url}
         onFile={(file) => {
           onFile(block.id, file);
           onChange({ ...block, previewUrl: URL.createObjectURL(file), url: "", filename: block.filename || file.name });
         }}
+        onUrl={(url) => onChange({ ...block, url, previewUrl: undefined })}
       />
       {hasAsset && (
         <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm">

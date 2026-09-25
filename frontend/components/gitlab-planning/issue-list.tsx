@@ -5,7 +5,7 @@ import { parseAsInteger, useQueryState } from "nuqs";
 import { CheckCircle2, LayoutGrid, Tag, UserPlus } from "lucide-react";
 import { IssueDrawer } from "@/components/gitlab-planning/issue-drawer";
 import { IssueRow } from "@/components/gitlab-planning/issue-row";
-import type { AeIssue } from "@/lib/gitlab-planning/types";
+import type { AeIssue } from "@/lib/server/gitlab-planning";
 
 interface IssueListProps {
   issues: AeIssue[];
@@ -44,10 +44,10 @@ export function IssueList({ issues, compact, bulk }: IssueListProps) {
           <div className="flex items-center gap-2">
             <label className="flex cursor-pointer select-none items-center gap-1">
               <input
-                type="checkbox"
                 checked={allSelected}
-                onChange={() => setSelected(allSelected ? new Set() : new Set(issues.map((i) => i.id)))}
                 className="size-4 cursor-pointer rounded accent-(--m-primary)"
+                type="checkbox"
+                onChange={() => setSelected(allSelected ? new Set() : new Set(issues.map((i) => i.id)))}
               />
               <span className="m-headline-sm text-(--m-on-surface)">Select all {issues.length} issues displayed</span>
             </label>
@@ -56,12 +56,12 @@ export function IssueList({ issues, compact, bulk }: IssueListProps) {
           <div className="flex flex-wrap items-center gap-1">
             {BATCH_ACTIONS.map(({ label, icon: Icon, tone }) => (
               <button
+                className="m-label-md flex h-7 items-center gap-1 rounded-lg bg-(--m-sc-lowest) px-1.5 text-(--m-on-surface) shadow-2xs transition-colors hover:bg-(--m-sc) disabled:opacity-50"
+                disabled={selected.size === 0}
                 key={label}
                 type="button"
-                disabled={selected.size === 0}
-                className="m-label-md flex h-7 items-center gap-1 rounded-lg bg-(--m-sc-lowest) px-1.5 text-(--m-on-surface) shadow-2xs transition-colors hover:bg-(--m-sc) disabled:opacity-50"
               >
-                <Icon data-mtone={tone} className="size-3.5 text-(--mc)" aria-hidden />
+                <Icon aria-hidden className="size-3.5 text-(--mc)" data-mtone={tone} />
                 <span>{label}</span>
               </button>
             ))}
@@ -77,18 +77,18 @@ export function IssueList({ issues, compact, bulk }: IssueListProps) {
         <ul className="flex flex-col gap-1.5">
           {issues.map((issue) => (
             <IssueRow
-              key={issue.id}
-              issue={issue}
-              compact={compact}
               checked={selected.has(issue.id)}
-              onToggle={() => toggle(issue.id)}
+              compact={compact}
+              issue={issue}
+              key={issue.id}
               onOpen={() => void setOpenId(issue.id)}
+              onToggle={() => toggle(issue.id)}
             />
           ))}
         </ul>
       )}
 
-      {openIssue && <IssueDrawer key={openIssue.id} issue={openIssue} onClose={() => void setOpenId(null)} />}
+      {openIssue && <IssueDrawer issue={openIssue} key={openIssue.id} onClose={() => void setOpenId(null)} />}
     </>
   );
 }

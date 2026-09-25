@@ -9,6 +9,8 @@ import { TaskDetailPanel } from "@/components/gitlab-planning/task-detail-panel"
 import { getPlanningBoard } from "@/lib/server/gitlab-planning";
 import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { requireAccess } from "@/lib/server/features";
+import { FEATURES } from "@/lib/features";
 
 export const metadata = { title: "Planning Board" };
 
@@ -17,6 +19,7 @@ interface PlanningPageProps {
 }
 
 export default async function PlanningPage({ searchParams }: PlanningPageProps) {
+  await requireAccess(FEATURES.GITLAB_INTEGRATION);
   const [board, params] = await Promise.all([getPlanningBoard(), searchParams]);
   // Mobile shows one pane at a time (Matrix | Active Task); xl shows both.
   const showTask = params.view === "task";
@@ -31,16 +34,16 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
 
   return (
     <>
-      <DashboardHeader title={board.title} subtitle={board.subtitle} initial={board.user.initial} />
+      <DashboardHeader initial={board.user.initial} subtitle={board.subtitle} title={board.title} />
 
       <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-3.5 py-4 sm:max-w-none sm:gap-6 sm:p-6 xl:grid xl:grid-cols-12 xl:items-start">
         <nav aria-label="Board view" className="order-first flex items-center rounded-xl bg-(--ae-soft) p-1 shadow-2xs xl:hidden">
-          <Link href={ROUTES.GITLAB_PLANNING} scroll={false} className={segment(!showTask)} aria-current={!showTask ? "page" : undefined}>
-            <LayoutGrid className="size-3.5" aria-hidden />
+          <Link aria-current={!showTask ? "page" : undefined} className={segment(!showTask)} href={ROUTES.GITLAB_PLANNING} scroll={false}>
+            <LayoutGrid aria-hidden className="size-3.5" />
             <span>Matrix ({taskCount})</span>
           </Link>
-          <Link href={`${ROUTES.GITLAB_PLANNING}?view=task`} scroll={false} className={segment(showTask)} aria-current={showTask ? "page" : undefined}>
-            <span data-tone={board.task.dot} className="size-2 rounded-full bg-(--t-dot)" />
+          <Link aria-current={showTask ? "page" : undefined} className={segment(showTask)} href={`${ROUTES.GITLAB_PLANNING}?view=task`} scroll={false}>
+            <span className="size-2 rounded-full bg-(--t-dot)" data-tone={board.task.dot} />
             <span>Active Task ({board.task.steps.length})</span>
           </Link>
         </nav>
@@ -60,10 +63,10 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
         </div>
 
         <TaskDetailPanel
-          task={board.task}
-          changeLog={board.change_log}
           activeTab={tab}
+          changeLog={board.change_log}
           className="order-2 xl:order-none xl:col-span-5"
+          task={board.task}
         />
       </main>
     </>

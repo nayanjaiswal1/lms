@@ -9,7 +9,7 @@ function Chips({ task }: { task: Task }) {
   return (
     <div className="wn-chips">
       {task.chips.map((c) => (
-        <span key={c.id} className={`wn-chip wn-chip-${c.kind}`}>
+        <span className={`wn-chip wn-chip-${c.kind}`} key={c.id}>
           {c.label}
         </span>
       ))}
@@ -28,7 +28,7 @@ export function NowStage({
 }) {
   if (loading && !now) {
     return (
-      <section className="wn-stage" aria-busy="true">
+      <section aria-busy="true" className="wn-stage">
         <div className="wn-stage-empty">Finding the one thing…</div>
       </section>
     );
@@ -67,7 +67,7 @@ export function NowStage({
       {now.alternatives.length > 0 && (
         <div className="wn-alts">
           {now.alternatives.map((alt) => (
-            <button key={alt.id} className="wn-alt" onClick={() => onStart(alt)}>
+            <button className="wn-alt" key={alt.id} onClick={() => onStart(alt)}>
               <span className="wn-alt-or">or</span>
               <span className="wn-alt-title">{alt.title}</span>
               {alt.durationMin ? <span className="wn-alt-min">{alt.durationMin}m</span> : null}

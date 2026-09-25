@@ -17,16 +17,16 @@ export function PlanningBottomNav() {
         const active = pathname === href;
         return (
           <Link
-            key={label}
-            href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
               "touch-target flex min-w-14 flex-col items-center justify-center py-1 transition-colors",
               active ? "text-(--ae-brand)" : "text-(--ae-muted) hover:text-(--ae-ink)",
             )}
+            href={href}
+            key={label}
           >
             <span className="relative">
-              <Icon className="size-5" aria-hidden />
+              <Icon aria-hidden className="size-5" />
               {active && <span className="absolute -right-1 -top-1 size-2 rounded-full bg-(--ae-brand-500)" />}
             </span>
             <span className={cn("mt-0.5 text-[10px]", active ? "font-bold" : "font-medium")}>{label}</span>

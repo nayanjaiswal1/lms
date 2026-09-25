@@ -30,18 +30,18 @@ export function AppearanceSection() {
             const active = mounted && theme === value
             return (
               <button
-                key={value}
-                type="button"
                 aria-pressed={active}
-                onClick={() => setTheme(value)}
                 className={cn(
                   "flex flex-1 flex-col items-center justify-center gap-1.5 h-16 rounded-lg border text-xs font-medium transition-colors",
                   active
                     ? "border-primary text-primary"
                     : "border-border text-muted-foreground hover:text-foreground hover:border-border"
                 )}
+                key={value}
+                type="button"
+                onClick={() => setTheme(value)}
               >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                <Icon aria-hidden className="h-4 w-4 shrink-0" />
                 {label}
               </button>
             )

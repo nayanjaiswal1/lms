@@ -140,17 +140,17 @@ const MaxListLimit = 100
 // sheets' ProgressStatus (todo/done/revisit) + is_starred, not its SRS
 // revision-date fields — see docs/interview-experiences.md.
 type FaqItem struct {
-	QnaID      string    `json:"qna_id"`
-	PostID     string    `json:"post_id"`
-	Question   string    `json:"question"`
-	Answer     *string   `json:"answer,omitempty"`
-	Company    string    `json:"company"`
-	Position   string    `json:"position"`
-	Tags       []string  `json:"tags"`
-	Score      int       `json:"score"`
-	Status     string    `json:"status"` // "todo" | "done" | "revisit"
-	IsStarred  bool      `json:"is_starred"`
-	CreatedAt  time.Time `json:"created_at"`
+	QnaID     string    `json:"qna_id"`
+	PostID    string    `json:"post_id"`
+	Question  string    `json:"question"`
+	Answer    *string   `json:"answer,omitempty"`
+	Company   string    `json:"company"`
+	Position  string    `json:"position"`
+	Tags      []string  `json:"tags"`
+	Score     int       `json:"score"`
+	Status    string    `json:"status"` // "todo" | "done" | "revisit"
+	IsStarred bool      `json:"is_starred"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // FaqFilter narrows GET /api/interview-exp/faq.

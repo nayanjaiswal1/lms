@@ -27,11 +27,11 @@ function SheetOverlay({
 }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>) {
   return (
     <SheetPrimitive.Overlay
-      data-slot="sheet-overlay"
       className={cn(
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-overlay bg-foreground/50",
         className,
       )}
+      data-slot="sheet-overlay"
       {...props}
     />
   )
@@ -51,7 +51,6 @@ function SheetContent({
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
-        data-slot="sheet-content"
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-modal flex flex-col gap-4 p-6 shadow-lg transition ease-in-out",
           side === "right" &&
@@ -64,11 +63,12 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className,
         )}
+        data-slot="sheet-content"
         {...props}
       >
         <SheetPrimitive.Close
-          className="ring-offset-background focus:ring-primary data-[state=open]:bg-secondary absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none"
           aria-label="Close"
+          className="ring-offset-background focus:ring-primary data-[state=open]:bg-secondary absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none"
         >
           <X className="h-4 w-4" />
         </SheetPrimitive.Close>
@@ -81,8 +81,8 @@ function SheetContent({
 function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      data-slot="sheet-header"
       className={cn("flex flex-col gap-1.5", className)}
+      data-slot="sheet-header"
       {...props}
     />
   )
@@ -91,8 +91,8 @@ function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 function SheetFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      data-slot="sheet-footer"
       className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
+      data-slot="sheet-footer"
       {...props}
     />
   )
@@ -104,8 +104,8 @@ function SheetTitle({
 }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>) {
   return (
     <SheetPrimitive.Title
-      data-slot="sheet-title"
       className={cn("text-foreground text-lg font-semibold", className)}
+      data-slot="sheet-title"
       {...props}
     />
   )
@@ -117,8 +117,8 @@ function SheetDescription({
 }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>) {
   return (
     <SheetPrimitive.Description
-      data-slot="sheet-description"
       className={cn("text-muted-foreground text-sm", className)}
+      data-slot="sheet-description"
       {...props}
     />
   )

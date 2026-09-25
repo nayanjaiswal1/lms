@@ -16,11 +16,11 @@ export function LabLauncher({ lab }: LabLauncherProps) {
     <div className="card-base p-6 flex flex-col gap-6">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
-          <Icon className="h-6 w-6 text-muted-foreground" aria-hidden />
+          <Icon aria-hidden className="h-6 w-6 text-muted-foreground" />
         </div>
         <div className="flex flex-col gap-2 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className="capitalize">
+            <Badge className="capitalize" variant="outline">
               {LAB_TYPE_LABELS[lab.lab_type]}
             </Badge>
             <Badge variant="secondary">{lab.max_duration} min</Badge>

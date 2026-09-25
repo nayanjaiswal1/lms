@@ -92,7 +92,7 @@ export default async function AuditPage({
           </thead>
           <tbody>
             {entries.map((e) => (
-              <tr key={e.id} className="whitespace-nowrap border-b border-border last:border-0">
+              <tr className="whitespace-nowrap border-b border-border last:border-0" key={e.id}>
                 <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
                   {new Date(e.created_at).toLocaleString()}
                 </td>
@@ -116,7 +116,7 @@ export default async function AuditPage({
             ))}
             {entries.length === 0 && (
               <tr className="whitespace-nowrap">
-                <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                <td className="py-12 text-center text-muted-foreground" colSpan={4}>
                   No audit entries found.
                 </td>
               </tr>
@@ -129,16 +129,16 @@ export default async function AuditPage({
         <div className="mt-6 flex gap-3 justify-end">
           {offset > 0 && (
             <a
-              href={`?offset=${Math.max(0, offset - limit)}&limit=${limit}`}
               className="text-sm text-primary underline"
+              href={`?offset=${Math.max(0, offset - limit)}&limit=${limit}`}
             >
               ← Previous
             </a>
           )}
           {offset + limit < total && (
             <a
-              href={`?offset=${offset + limit}&limit=${limit}`}
               className="text-sm text-primary underline"
+              href={`?offset=${offset + limit}&limit=${limit}`}
             >
               Next →
             </a>

@@ -19,10 +19,10 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
   return (
     <div className="flex flex-col gap-2">
       <button
-        onClick={() => setCollapsed((v) => !v)}
         aria-expanded={!collapsed}
         aria-label={collapsed ? "Show cameras" : "Hide cameras"}
         className="flex items-center justify-between text-xs font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
+        onClick={() => setCollapsed((v) => !v)}
       >
         <span>Cameras</span>
         {collapsed ? (
@@ -40,12 +40,12 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
               {stream ? (
                 <>
                   <CameraVideo
-                    stream={stream}
                     autoPlay
                     muted
                     playsInline
                     aria-label="Your primary camera"
                     className="h-full w-full object-cover"
+                    stream={stream}
                   />
                   <span className="absolute bottom-1 left-1 rounded-full bg-ai px-1.5 py-px text-xs font-semibold leading-tight text-ai-foreground">
                     Live

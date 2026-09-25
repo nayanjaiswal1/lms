@@ -100,8 +100,8 @@ export function FocusOverlay({
   };
 
   return (
-    <div className="wn-focus" role="dialog" aria-modal="true" aria-label="Focus mode">
-      <div className="wn-focus-halo" aria-hidden="true" />
+    <div aria-label="Focus mode" aria-modal="true" className="wn-focus" role="dialog">
+      <div aria-hidden="true" className="wn-focus-halo" />
       <div className="wn-focus-inner">
         <p className="wn-focus-timer">{elapsed}</p>
         <h2 className="wn-focus-title">{task.title}</h2>
@@ -109,9 +109,9 @@ export function FocusOverlay({
 
         {mode === "focus" && (
           <div className="wn-focus-actions">
-            <button className="wn-btn wn-btn-done" onClick={done} disabled={busy}>Done</button>
-            <button className="wn-btn" onClick={() => setMode("pause")} disabled={busy}>Pause</button>
-            <button className="wn-btn wn-btn-quiet" onClick={() => setMode("stuck")} disabled={busy}>
+            <button className="wn-btn wn-btn-done" disabled={busy} onClick={done}>Done</button>
+            <button className="wn-btn" disabled={busy} onClick={() => setMode("pause")}>Pause</button>
+            <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("stuck")}>
               I&rsquo;m stuck
             </button>
           </div>
@@ -123,17 +123,17 @@ export function FocusOverlay({
               Leave a note for future you
             </label>
             <textarea
-              id="wn-resume-note"
               className="wn-panel-textarea"
+              id="wn-resume-note"
+              placeholder="Where you stopped, what's next…"
+              ref={(el) => el?.focus()}
+              rows={3}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Where you stopped, what's next…"
-              rows={3}
-              autoFocus
             />
             <div className="wn-focus-actions">
-              <button className="wn-btn wn-btn-done" onClick={pause} disabled={busy}>Park it</button>
-              <button className="wn-btn wn-btn-quiet" onClick={() => setMode("focus")} disabled={busy}>Back</button>
+              <button className="wn-btn wn-btn-done" disabled={busy} onClick={pause}>Park it</button>
+              <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("focus")}>Back</button>
             </div>
           </div>
         )}
@@ -143,12 +143,12 @@ export function FocusOverlay({
             <p className="wn-panel-label">What kind of stuck?</p>
             <div className="wn-stuck-grid">
               {STUCK_OPTIONS.map((o) => (
-                <button key={o.reason} className="wn-btn" onClick={() => stuck(o.reason)} disabled={busy}>
+                <button className="wn-btn" disabled={busy} key={o.reason} onClick={() => stuck(o.reason)}>
                   {o.label}
                 </button>
               ))}
             </div>
-            <button className="wn-btn wn-btn-quiet" onClick={() => setMode("focus")} disabled={busy}>Back</button>
+            <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("focus")}>Back</button>
           </div>
         )}
 
@@ -157,17 +157,17 @@ export function FocusOverlay({
             <p className="wn-panel-label">Smaller pieces</p>
             <ol className="wn-steps">
               {proposal.steps.map((s) => (
-                <li key={s.id} className="wn-step">
+                <li className="wn-step" key={s.id}>
                   <span>{s.title}</span>
                   {s.durationMin && <span className="wn-step-min">{s.durationMin}m</span>}
                 </li>
               ))}
             </ol>
             <div className="wn-focus-actions">
-              <button className="wn-btn wn-btn-done" onClick={confirmBreakdown} disabled={busy}>
+              <button className="wn-btn wn-btn-done" disabled={busy} onClick={confirmBreakdown}>
                 Replace with these
               </button>
-              <button className="wn-btn wn-btn-quiet" onClick={() => setMode("stuck")} disabled={busy}>Back</button>
+              <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("stuck")}>Back</button>
             </div>
           </div>
         )}

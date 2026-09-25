@@ -51,7 +51,7 @@ export function BatchRow({ batch, options, orgMembers, depth = 0 }: BatchRowProp
       </Link>
       <div className="flex items-center gap-1.5">
         <MoveBatchSelect batchId={batch.id} batchName={batch.name} className="w-full sm:w-[200px]" currentGroupId={batch.cohort_group_id} options={options} />
-        <Button aria-label={`Open chat for ${batch.name}`} asChild size="icon" variant="ghost">
+        <Button asChild aria-label={`Open chat for ${batch.name}`} size="icon" variant="ghost">
           <Link href={`${ROUTES.batch(batch.id)}/chat`}>
             <MessageSquare aria-hidden className="h-3.5 w-3.5" />
           </Link>

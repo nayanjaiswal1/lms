@@ -33,7 +33,8 @@ func GradeCoding(ctx context.Context, resolve func(CodingContent) CodeExecutor, 
 //
 // Single-select: full points only if the one correct option is the sole selection.
 // Multi-select:  proportional credit = (correctChosen − incorrectChosen) / totalCorrect,
-//                clamped to [0,1], so guessing every option cannot pass.
+//
+//	clamped to [0,1], so guessing every option cannot pass.
 func gradeMCQ(content, answer json.RawMessage, maxPoints float64) (bool, float64, error) {
 	var c MCQContent
 	if err := json.Unmarshal(content, &c); err != nil {

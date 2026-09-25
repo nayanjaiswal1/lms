@@ -161,8 +161,8 @@ export function TimeGridView({
           <div className="relative border-r border-border">
             {HOURS.map((h) => (
               <div
-                key={h}
                 className="absolute inset-x-0 -translate-y-1/2 pr-2 text-right text-xs text-muted-foreground"
+                key={h}
                 // eslint-disable-next-line no-restricted-syntax -- hour marker offset is computed from PX_PER_HOUR, not expressible as a static token
                 style={{ top: `${h * PX_PER_HOUR}px` }}
               >
@@ -223,15 +223,15 @@ export function TimeGridView({
                       event={ev}
                       key={ev.id}
                       layer={primaryLayerFor(ev, currentUserId)}
+                      resizeHandlers={makeResizeHandlers(ev.id, end, dayStart)}
+                      // eslint-disable-next-line no-restricted-syntax -- computed pixel position/height is inherently dynamic, no token can express it
+                      style={{ top: `${top}px`, height: `${Math.max(20, height)}px` }}
                       variant="time"
                       onClick={() => onEventClick(ev.id)}
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/calendar-event-id", ev.id);
                         e.dataTransfer.effectAllowed = "move";
                       }}
-                      resizeHandlers={makeResizeHandlers(ev.id, end, dayStart)}
-                      // eslint-disable-next-line no-restricted-syntax -- computed pixel position/height is inherently dynamic, no token can express it
-                      style={{ top: `${top}px`, height: `${Math.max(20, height)}px` }}
                     />
                   );
                 })}

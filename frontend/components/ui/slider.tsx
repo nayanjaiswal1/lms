@@ -10,16 +10,16 @@ function Slider({
 }: React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>) {
   return (
     <SliderPrimitive.Root
-      data-slot="slider"
       className={cn("relative flex w-full touch-none select-none items-center", className)}
+      data-slot="slider"
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-muted">
         <SliderPrimitive.Range className="absolute h-full bg-primary" />
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb
-        className="block h-5 w-5 rounded-full border-2 border-primary bg-background outline-none transition-colors disabled:pointer-events-none disabled:opacity-50"
         aria-label="Zoom"
+        className="block h-5 w-5 rounded-full border-2 border-primary bg-background outline-none transition-colors disabled:pointer-events-none disabled:opacity-50"
       />
     </SliderPrimitive.Root>
   )

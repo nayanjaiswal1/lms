@@ -78,12 +78,12 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
         <div className="flex items-center gap-2">
           {canRetry && (
             <form action={forceRetryJobAction.bind(null, job.id)}>
-              <Button type="submit" variant="outline" size="sm">Force Retry</Button>
+              <Button size="sm" type="submit" variant="outline">Force Retry</Button>
             </form>
           )}
           {canCancel && (
             <form action={cancelJobAction.bind(null, job.id)}>
-              <Button type="submit" variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
+              <Button className="text-destructive border-destructive/30 hover:bg-destructive/10" size="sm" type="submit" variant="outline">
                 Cancel
               </Button>
             </form>
@@ -97,10 +97,10 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Identity</h2>
           <InfoRow label="Priority" value={`${PRIORITY_LABEL[job.priority] ?? job.priority} (${job.priority})`} />
           <InfoRow label="Type" value={job.job_type} />
-          <InfoRow label="Org" value={job.org_id ?? "—"} mono />
-          <InfoRow label="Created by" value={job.created_by ?? "—"} mono />
-          <InfoRow label="Worker" value={job.worker_id ?? "—"} mono />
-          <InfoRow label="Idempotency key" value={job.idempotency_key ?? "—"} mono />
+          <InfoRow mono label="Org" value={job.org_id ?? "—"} />
+          <InfoRow mono label="Created by" value={job.created_by ?? "—"} />
+          <InfoRow mono label="Worker" value={job.worker_id ?? "—"} />
+          <InfoRow mono label="Idempotency key" value={job.idempotency_key ?? "—"} />
         </div>
 
         {/* Timing */}
@@ -110,7 +110,7 @@ export default async function PlatformJobDetailPage({ params }: PageProps) {
           <InfoRow label="Last run" value={fmtDate(job.last_run_at)} />
           <InfoRow label="Next run" value={fmtDate(job.next_run_at)} />
           <InfoRow label="Last duration" value={fmtDuration(job.last_duration_ms)} />
-          {job.schedule && <InfoRow label="Schedule" value={job.schedule} mono />}
+          {job.schedule && <InfoRow mono label="Schedule" value={job.schedule} />}
           <InfoRow label="Claimed at" value={fmtDate(job.claimed_at)} />
           <InfoRow label="Created at" value={fmtDate(job.created_at)} />
         </div>
@@ -198,7 +198,7 @@ function RunsTable({ runs }: { runs: JobRun[] }) {
         </thead>
         <tbody>
           {runs.map((run) => (
-            <tr key={run.id} className="whitespace-nowrap border-b border-border last:border-0">
+            <tr className="whitespace-nowrap border-b border-border last:border-0" key={run.id}>
               <td className="py-3 pr-4 text-muted-foreground">{run.attempt}</td>
               <td className="py-3 pr-4">
                 <Badge

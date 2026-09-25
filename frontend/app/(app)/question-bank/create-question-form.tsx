@@ -236,8 +236,8 @@ function CategoryField({ form, categories }: { form: FormType; categories: Categ
       {adding && (
         <div className="flex gap-2">
           <Input
-            autoFocus
             placeholder="e.g. Arrays & Hashing"
+            ref={(el) => el?.focus()}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />

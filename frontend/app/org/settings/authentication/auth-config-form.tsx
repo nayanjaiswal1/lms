@@ -40,10 +40,10 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
 
   return (
     <form action={action} className="space-y-6">
-      <input type="hidden" name="org_id" value={orgId} />
-      <input type="hidden" name="sso_enabled" value={ssoEnabled ? "true" : "false"} />
+      <input name="org_id" type="hidden" value={orgId} />
+      <input name="sso_enabled" type="hidden" value={ssoEnabled ? "true" : "false"} />
       {ssoEnabled && ssoProvider && (
-        <input type="hidden" name="sso_provider" value={ssoProvider} />
+        <input name="sso_provider" type="hidden" value={ssoProvider} />
       )}
 
       {/* SSO toggle */}
@@ -64,9 +64,9 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
             ssoEnabled ? "bg-primary" : "bg-muted",
           ].join(" ")}
           id="sso-toggle"
-          onClick={() => setSsoEnabled((v) => !v)}
           role="switch"
           type="button"
+          onClick={() => setSsoEnabled((v) => !v)}
         >
           <span
             className={[
@@ -82,11 +82,11 @@ export function AuthConfigForm({ orgId, config }: AuthConfigFormProps) {
         <div className="space-y-1.5 pl-0">
           <Label htmlFor="sso-provider">SSO Provider</Label>
           <Select
+            required
             defaultValue={ssoProvider || undefined}
             onValueChange={setSsoProvider}
-            required
           >
-            <SelectTrigger id="sso-provider" aria-label="Select SSO provider" className="w-full sm:w-64">
+            <SelectTrigger aria-label="Select SSO provider" className="w-full sm:w-64" id="sso-provider">
               <SelectValue placeholder="Select provider" />
             </SelectTrigger>
             <SelectContent>

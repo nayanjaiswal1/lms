@@ -25,16 +25,16 @@ export function AddDomainForm({ orgId }: AddDomainFormProps) {
 
   return (
     <form action={action} className="space-y-4">
-      <input type="hidden" name="org_id" value={orgId} />
+      <input name="org_id" type="hidden" value={orgId} />
 
       <div className="stack-md">
         <div className="flex-1 space-y-1.5">
           <Label htmlFor="domain-input">Domain</Label>
           <Input
+            required
             id="domain-input"
             name="domain"
             placeholder="example.com"
-            required
             type="text"
           />
         </div>
@@ -42,7 +42,7 @@ export function AddDomainForm({ orgId }: AddDomainFormProps) {
         <div className="space-y-1.5">
           <Label htmlFor="verification-method">Verification method</Label>
           <Select defaultValue="dns_txt" name="verification_method">
-            <SelectTrigger id="verification-method" aria-label="Select verification method">
+            <SelectTrigger aria-label="Select verification method" id="verification-method">
               <SelectValue placeholder="Select method" />
             </SelectTrigger>
             <SelectContent>

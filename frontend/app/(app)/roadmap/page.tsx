@@ -52,7 +52,7 @@ async function RoadmapList() {
                 {rm.status === "active" || rm.status === "completed" ? (
                   <div className="flex items-center gap-2">
                     <div className="progress-track w-32">
-                      {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+                      { }
                       <div className="progress-fill" style={{ "--progress": `${pct}%` } as React.CSSProperties} />
                     </div>
                     <span className="text-xs text-muted-foreground">

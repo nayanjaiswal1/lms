@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Clock, LoaderCircle, MoreVertical, Timer } from "lucide-react";
 import { MarkdownFileBox } from "@/components/gitlab-planning/markdown-file-box";
-import type { AeStep, AeTone } from "@/lib/gitlab-planning/types";
+import type { AeStep, AeTone } from "@/lib/server/gitlab-planning";
 import { cn } from "@/lib/utils";
 
 interface StepCardProps {
@@ -48,7 +48,7 @@ export function StepCard({ step, index }: StepCardProps) {
   const activeTab = step.sub_tabs[tab]?.label ?? "Content";
 
   return (
-    <li data-tone={tone} className="flex items-start gap-3">
+    <li className="flex items-start gap-3" data-tone={tone}>
       <div
         className={cn(
           "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-(--t-50) text-xs font-bold",
@@ -62,7 +62,7 @@ export function StepCard({ step, index }: StepCardProps) {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-2">
             <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-(--t-500) text-(--ae-card)">
-              <StateIcon className="size-2.5" strokeWidth={3} aria-hidden />
+              <StateIcon aria-hidden className="size-2.5" strokeWidth={3} />
             </div>
             <div>
               <h4 className="text-xs font-bold leading-none text-(--ae-ink)">{step.title}</h4>
@@ -70,29 +70,29 @@ export function StepCard({ step, index }: StepCardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2 pl-6 sm:pl-0">
-            <span className="rounded-full border border-(--t-200) bg-(--t-50) px-2 py-0.5 text-[10px] font-semibold text-(--t-700)">{label}</span>
+            <span className="whitespace-nowrap rounded-full border border-(--t-200) bg-(--t-50) px-2 py-0.5 text-[10px] font-semibold text-(--t-700)">{label}</span>
             <span className="flex items-center gap-0.5 text-[10px] text-(--ae-faint)">
-              <Timer className="size-3" aria-hidden /> {step.estimate}
+              <Timer aria-hidden className="size-3" /> {step.estimate}
             </span>
-            <button type="button" aria-label={`More actions for ${step.title}`} className="text-(--ae-faint) hover:text-(--ae-dim)">
-              <MoreVertical className="size-4" aria-hidden />
+            <button aria-label={`More actions for ${step.title}`} className="text-(--ae-faint) hover:text-(--ae-dim)" type="button">
+              <MoreVertical aria-hidden className="size-4" />
             </button>
           </div>
         </div>
 
         {step.sub_tabs.length > 0 && (
-          <div role="tablist" className="flex gap-4 border-b border-(--ae-soft) pt-1 text-[11px] font-medium">
+          <div className="flex gap-4 border-b border-(--ae-soft) pt-1 text-[11px] font-medium" role="tablist">
             {step.sub_tabs.map((t, i) => (
               <button
-                key={t.label}
-                type="button"
-                role="tab"
                 aria-selected={i === tab}
-                onClick={() => setTab(i)}
                 className={cn(
                   "pb-1",
                   i === tab ? "border-b-2 border-(--ae-brand) font-semibold text-(--ae-brand)" : "text-(--ae-faint) hover:text-(--ae-dim)",
                 )}
+                key={t.label}
+                role="tab"
+                type="button"
+                onClick={() => setTab(i)}
               >
                 {t.label}
                 {t.count !== undefined && <span className="ml-0.5 text-[10px]">{t.count}</span>}
@@ -114,7 +114,7 @@ export function StepCard({ step, index }: StepCardProps) {
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--ae-soft)">
               {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width */}
-              <div data-tone={accent} className="h-full rounded-full bg-(--t-500) transition-all duration-300" style={{ width: `${percent}%` }} />
+              <div className="h-full rounded-full bg-(--t-500) transition-all duration-300" data-tone={accent} style={{ width: `${percent}%` }} />
             </div>
             <ul className="space-y-1.5 pt-1">
               {step.subtasks.map((s) => {
@@ -122,20 +122,20 @@ export function StepCard({ step, index }: StepCardProps) {
                 return (
                   <li key={s.id}>
                     <button
-                      type="button"
-                      role="checkbox"
                       aria-checked={isChecked}
-                      onClick={() => toggle(s.id)}
                       className="flex w-full select-none items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-1.5 text-left transition hover:border-(--ae-line)/60 hover:bg-(--ae-hover)"
+                      role="checkbox"
+                      type="button"
+                      onClick={() => toggle(s.id)}
                     >
                       <span
-                        data-tone={accent}
                         className={cn(
                           "flex size-4 shrink-0 items-center justify-center rounded-md border transition-all",
                           isChecked ? "border-(--t-600) bg-(--t-600) text-(--ae-card) shadow-2xs" : "border-(--ae-line-strong) bg-(--ae-card) text-transparent",
                         )}
+                        data-tone={accent}
                       >
-                        <Check className="size-3" strokeWidth={3} aria-hidden />
+                        <Check aria-hidden className="size-3" strokeWidth={3} />
                       </span>
                       <span className={cn("flex-1 text-xs transition-all", isChecked ? "text-(--ae-faint) line-through" : "font-medium text-(--ae-body)")}>
                         {s.label}
@@ -155,13 +155,13 @@ export function StepCard({ step, index }: StepCardProps) {
         )}
 
         {(activeTab === "Content" || activeTab === "Files") && step.file && (
-          <MarkdownFileBox name={step.file.name} markdown={step.file.markdown} />
+          <MarkdownFileBox markdown={step.file.markdown} name={step.file.name} />
         )}
 
         {activeTab === "Logs" && (
           <ul className="space-y-1 text-[11px] text-(--ae-dim)">
             {step.subtasks.filter((s) => checked.has(s.id)).map((s) => (
-              <li key={s.id} className="flex justify-between gap-2">
+              <li className="flex justify-between gap-2" key={s.id}>
                 <span>Checked “{s.label}”</span>
                 {s.meta && <span className="ae-mono text-(--ae-faint)">{s.meta}</span>}
               </li>

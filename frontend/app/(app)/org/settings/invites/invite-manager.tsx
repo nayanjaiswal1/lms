@@ -114,8 +114,8 @@ export function InviteManager({
         currentStatus={currentStatus}
         invites={invites}
         selected={ui.selected}
-        onBatchRevoke={() => setUi((u) => ({ ...u, confirmBatch: true }))}
         onBatchResend={handleBatchResend}
+        onBatchRevoke={() => setUi((u) => ({ ...u, confirmBatch: true }))}
         onRevoke={(inviteId) => setUi((u) => ({ ...u, confirmId: inviteId }))}
         onSelectionChange={(sel) => setUi((u) => ({ ...u, selected: sel }))}
       />

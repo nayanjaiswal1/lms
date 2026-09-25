@@ -41,21 +41,21 @@ export function ContentTab({
         ) : (
           sections.map((section) =>
             section.modules.length === 0 ? null : (
-              <div key={section.localId} className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-0.5" key={section.localId}>
                 <p className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
                   {section.title || "Untitled section"}
                 </p>
                 {section.modules.map((mod) => (
                   <button
-                    key={mod.localId}
-                    type="button"
-                    onClick={() => onSelectModule(mod.localId)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
                       mod.localId === activeModuleId
                         ? "bg-primary/10 text-primary font-medium"
                         : "text-foreground hover:bg-muted",
                     )}
+                    key={mod.localId}
+                    type="button"
+                    onClick={() => onSelectModule(mod.localId)}
                   >
                     <span className="line-clamp-1">{mod.title || "Untitled lesson"}</span>
                     {mod.blocks.length > 0 && (

@@ -25,7 +25,7 @@ export default async function LabPage({ params }: PageProps) {
     <main className="page-container-sm flex flex-col gap-8">
       <header className="flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="capitalize">
+          <Badge className="capitalize" variant="outline">
             {lab.lab_type}
           </Badge>
           <Badge variant="secondary">{lab.max_duration} min</Badge>
@@ -45,7 +45,7 @@ export default async function LabPage({ params }: PageProps) {
           <h2 className="section-title mb-4">Tasks</h2>
           <ol className="flex flex-col gap-3">
             {lab.tasks.map((task) => (
-              <li key={task.task_id} className="card-base p-4 flex items-start gap-3">
+              <li className="card-base p-4 flex items-start gap-3" key={task.task_id}>
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
                   {task.position}
                 </span>
@@ -53,10 +53,10 @@ export default async function LabPage({ params }: PageProps) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{task.title}</span>
                     {task.is_optional && (
-                      <Badge variant="outline" className="text-xs">optional</Badge>
+                      <Badge className="text-xs" variant="outline">optional</Badge>
                     )}
                     {task.points > 0 && (
-                      <Badge variant="secondary" className="text-xs">{task.points} pts</Badge>
+                      <Badge className="text-xs" variant="secondary">{task.points} pts</Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">{task.description}</p>

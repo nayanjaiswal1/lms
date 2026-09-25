@@ -83,8 +83,8 @@ export function OnboardingWizard() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <StatusPill label="Goal" done={!!watchedGoal} />
-              <StatusPill label="Skill level" done={!!watchedSkill} />
+              <StatusPill done={!!watchedGoal} label="Goal" />
+              <StatusPill done={!!watchedSkill} label="Skill level" />
             </div>
           </div>
 
@@ -94,12 +94,12 @@ export function OnboardingWizard() {
               <div className="flex flex-col gap-2">
                 {LEARNING_GOAL_OPTIONS.map((opt) => (
                   <SelectionCard
+                    icon={opt.icon}
                     key={opt.value}
                     selected={watchedGoal === opt.value}
-                    onClick={() => form.setValue("learning_goal", opt.value, { shouldValidate: true })}
-                    title={opt.title}
                     subtitle={opt.subtitle}
-                    icon={opt.icon}
+                    title={opt.title}
+                    onClick={() => form.setValue("learning_goal", opt.value, { shouldValidate: true })}
                   />
                 ))}
               </div>
@@ -113,12 +113,12 @@ export function OnboardingWizard() {
               <div className="flex flex-col gap-2">
                 {SKILL_OPTIONS.map((opt) => (
                   <SelectionCard
+                    icon={opt.icon}
                     key={opt.value}
                     selected={watchedSkill === opt.value}
-                    onClick={() => form.setValue("skill_level", opt.value, { shouldValidate: true })}
-                    title={opt.title}
                     subtitle={opt.subtitle}
-                    icon={opt.icon}
+                    title={opt.title}
+                    onClick={() => form.setValue("skill_level", opt.value, { shouldValidate: true })}
                   />
                 ))}
               </div>
@@ -134,17 +134,17 @@ export function OnboardingWizard() {
       <div className="safe-bottom sticky bottom-0 border-t border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <button
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
+            disabled={isPending}
             type="button"
             onClick={handleSkip}
-            disabled={isPending}
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
           >
             Skip setup →
           </button>
           <Button
-            onClick={form.handleSubmit(handleFinish)}
-            disabled={!watchedGoal || !watchedSkill || isPending}
             className="gap-2"
+            disabled={!watchedGoal || !watchedSkill || isPending}
+            onClick={form.handleSubmit(handleFinish)}
           >
             Get started <ArrowRight aria-hidden className="h-4 w-4" />
           </Button>

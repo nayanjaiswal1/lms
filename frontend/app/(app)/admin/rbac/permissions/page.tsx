@@ -70,7 +70,7 @@ export default async function PermissionsPage() {
                 </thead>
                 <tbody>
                   {grouped[module].map((p) => (
-                    <tr key={p.id} className="whitespace-nowrap border-b border-border last:border-0">
+                    <tr className="whitespace-nowrap border-b border-border last:border-0" key={p.id}>
                       <td className="py-3 pr-6">
                         <code className="kbd">{p.code}</code>
                       </td>

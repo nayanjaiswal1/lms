@@ -60,7 +60,7 @@ export function InviteSendForm({ onSend }: InviteSendFormProps) {
     <section className="card-base p-6">
       <h2 className="section-title mb-4">Batch Invite</h2>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="form-stack">
+        <form className="form-stack" onSubmit={form.handleSubmit(onSubmit)}>
           <FormField
             control={form.control}
             name="emailsRaw"
@@ -70,11 +70,11 @@ export function InviteSendForm({ onSend }: InviteSendFormProps) {
                 <FormControl>
                   <Textarea
                     {...field}
+                    className="font-mono text-sm resize-y"
                     placeholder={
                       "alice@example.com\nbob@example.com\n\nor paste CSV: alice@x.com, bob@x.com"
                     }
                     rows={5}
-                    className="font-mono text-sm resize-y"
                   />
                 </FormControl>
                 <FormMessage />
@@ -109,9 +109,9 @@ export function InviteSendForm({ onSend }: InviteSendFormProps) {
             />
 
             <Button
-              type="submit"
-              disabled={form.formState.isSubmitting}
               className="w-full sm:w-auto"
+              disabled={form.formState.isSubmitting}
+              type="submit"
             >
               {form.formState.isSubmitting ? "Sending…" : "Send Invites"}
             </Button>

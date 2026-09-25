@@ -30,10 +30,10 @@ export function AddCategoryTab({ onAdd }: AddCategoryTabProps) {
   if (isEditing) {
     return (
       <Input
-        autoFocus
         className={cn("h-auto w-32 rounded-full px-3 py-2 text-xs uppercase", styles.tab)}
         maxLength={MAX_CATEGORY_NAME_LENGTH}
         placeholder="Category name"
+        ref={(el) => el?.focus()}
         value={value}
         onBlur={commit}
         onChange={(e) => setValue(e.target.value)}

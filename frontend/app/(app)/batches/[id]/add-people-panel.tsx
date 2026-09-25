@@ -268,7 +268,7 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
                       </span>
                     ) : (
                       <Select value={role} onValueChange={(v) => setRole(m.user_id, v as Role)}>
-                        <SelectTrigger aria-label={`Role for ${m.name}`} className="h-8 w-[104px] shrink-0">
+                        <SelectTrigger aria-label={`Role for ${m.name}`} className="h-8 w-26 shrink-0">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

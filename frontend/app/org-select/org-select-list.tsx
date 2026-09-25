@@ -31,14 +31,14 @@ export function OrgSelectList({ orgs }: OrgSelectListProps) {
         {orgs.map((org) => (
           <li key={org.id}>
             <form action={formAction}>
-              <input type="hidden" name="org_id" value={org.id} />
+              <input name="org_id" type="hidden" value={org.id} />
               <button
-                type="submit"
-                disabled={isPending}
                 className={cn(
                   "card-interactive flex w-full items-center gap-4 p-4 text-left",
                   "disabled:pointer-events-none disabled:opacity-60",
                 )}
+                disabled={isPending}
+                type="submit"
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted">
                   <Building2 aria-hidden className="h-5 w-5 text-muted-foreground" />

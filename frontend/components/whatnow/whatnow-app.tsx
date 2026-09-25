@@ -73,19 +73,19 @@ export function WhatNowApp() {
             <p className="wn-greeting">{sceneGreeting(scene)}</p>
           </div>
           <div className="wn-head-controls">
-            <div className="wn-energy" role="radiogroup" aria-label="Energy">
+            <div aria-label="Energy" className="wn-energy" role="radiogroup">
               <button
-                role="radio"
                 aria-checked={energy === "sharp"}
                 className={`wn-energy-opt ${energy === "sharp" ? "wn-energy-on" : ""}`}
+                role="radio"
                 onClick={() => switchEnergy("sharp")}
               >
                 Sharp
               </button>
               <button
-                role="radio"
                 aria-checked={energy === "tired"}
                 className={`wn-energy-opt ${energy === "tired" ? "wn-energy-on" : ""}`}
+                role="radio"
                 onClick={() => switchEnergy("tired")}
               >
                 Tired
@@ -97,14 +97,14 @@ export function WhatNowApp() {
           </div>
         </header>
 
-        <NowStage now={now} loading={loading} onStart={setFocusTask} />
+        <NowStage loading={loading} now={now} onStart={setFocusTask} />
 
         <CaptureSheet onCaptured={onCaptured} />
       </div>
 
       {focusTask && <FocusOverlay task={focusTask} onExit={onFocusExit} />}
       {shelfOpen && (
-        <Shelf onClose={() => setShelfOpen(false)} onChanged={() => void loadNow(energy)} />
+        <Shelf onChanged={() => void loadNow(energy)} onClose={() => setShelfOpen(false)} />
       )}
       {toast && (
         <div className="wn-toast" role="status">

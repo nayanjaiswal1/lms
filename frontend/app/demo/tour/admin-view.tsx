@@ -25,6 +25,7 @@ export function AdminView() {
   const { name, totalMembers, activeMembers, avgCompletionPct, overdueCount, assignedPaths } = DEMO_ORG;
 
   return (
+    // eslint-disable-next-line no-restricted-syntax -- nested content column inside demo-shell, no .app-content ancestor to supply vertical padding
     <div className="page-container py-8">
       {/* Section 1 — Header */}
       <header className="mb-6 flex items-center justify-between">
@@ -70,7 +71,7 @@ export function AdminView() {
                     <span className="text-xs text-muted-foreground">Due in {item.dueInDays} days</span>
                   </div>
                   <div className="progress-track mb-1">
-                    {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+                    { }
                     <div className="progress-fill" style={{ '--progress': `${pct}%` } as React.CSSProperties} />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -126,8 +127,8 @@ export function AdminView() {
                   </td>
                   <td>
                     <Badge
-                      variant="outline"
                       className={cn(statusClass(member.status))}
+                      variant="outline"
                     >
                       {statusLabel(member.status)}
                     </Badge>

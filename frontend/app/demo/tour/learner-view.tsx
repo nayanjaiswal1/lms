@@ -9,6 +9,7 @@ export function LearnerView() {
   const firstName = name.split(" ")[0];
 
   return (
+    // eslint-disable-next-line no-restricted-syntax -- nested content column inside demo-shell, no .app-content ancestor to supply vertical padding
     <div className="page-container py-8">
       {/* Section 1 — Header */}
       <header className="mb-6 flex items-center justify-between">
@@ -45,7 +46,7 @@ export function LearnerView() {
           <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Your Learning Path</p>
           <h3 className="mb-3 text-xl font-semibold">{path.title}</h3>
           <div className="progress-track mb-2">
-            {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+            { }
             <div className="progress-fill" style={{ '--progress': `${path.progressPct}%` } as React.CSSProperties} />
           </div>
           <p className="mb-5 text-sm text-muted-foreground">
@@ -62,7 +63,7 @@ export function LearnerView() {
             </p>
             {/* eslint-disable-next-line no-restricted-syntax -- fixed progress-track container height */}
             <div className="progress-track my-2" style={{ height: "6px" }}>
-              {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+              { }
               <div className="progress-fill" style={{ '--progress': `${currentModule.progressPct}%` } as React.CSSProperties} />
             </div>
             <p className="mb-3 text-xs text-muted-foreground">~{currentModule.minutesLeft} min remaining</p>
@@ -90,7 +91,7 @@ export function LearnerView() {
         <p className="mb-3 text-sm font-medium text-muted-foreground">Skills you&apos;ve earned</p>
         <div className="flex flex-wrap gap-2">
           {skillsAcquired.map((skill) => (
-            <Badge key={skill} variant="outline" className="badge-success">
+            <Badge className="badge-success" key={skill} variant="outline">
               {skill}
             </Badge>
           ))}
@@ -102,7 +103,7 @@ export function LearnerView() {
         <p className="mb-3 text-sm font-medium text-muted-foreground">Recent activity</p>
         <div className="flex flex-col gap-2">
           {recentActivity.map((item) => (
-            <div key={item.title} className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3">
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3" key={item.title}>
               <CheckCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success" />
               <span className="flex-1 text-sm text-foreground">{item.title}</span>
               <span className="text-xs text-muted-foreground">Completed {item.completedAt}</span>

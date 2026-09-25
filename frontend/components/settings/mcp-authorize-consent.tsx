@@ -31,7 +31,7 @@ export function McpAuthorizeConsent({ clientName, scopeDescriptions, decision }:
   }
 
   return (
-    <div className="page-container-sm py-10">
+    <div className="page-container-sm">
       <div className="card-base p-6 space-y-6">
         <div className="flex items-center gap-3">
           <Bot aria-hidden className="h-10 w-10 text-ai" />
@@ -58,7 +58,7 @@ export function McpAuthorizeConsent({ clientName, scopeDescriptions, decision }:
         </p>
 
         <div className="flex justify-end gap-3">
-          <Button disabled={isPending} onClick={() => decide(denyMcpAuthorizeAction)} variant="outline">
+          <Button disabled={isPending} variant="outline" onClick={() => decide(denyMcpAuthorizeAction)}>
             Deny
           </Button>
           <Button disabled={isPending} onClick={() => decide(approveMcpAuthorizeAction)}>

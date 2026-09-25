@@ -253,8 +253,8 @@ func (r *Repo) ListBySource(ctx context.Context, userID, sourceType, sourceID st
 		var metaRaw []byte
 		var (
 			eID, eHash, eText, eSrcType, eExpl, eDiagram, eModel *string
-			eServe                                                *int
-			eCreatedAt, eUpdatedAt                                *time.Time
+			eServe                                               *int
+			eCreatedAt, eUpdatedAt                               *time.Time
 		)
 		if err := rows.Scan(
 			&h.ID, &h.UserID, &h.SourceType, &h.SourceID, &h.SelectedText, &h.SavedForRevision, &metaRaw,

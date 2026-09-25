@@ -52,7 +52,6 @@ export function WikiNewPageDialog({ open, parentId, spaceId, templates, onClose 
         </DialogHeader>
         <div className="form-stack">
           <Input
-            autoFocus
             placeholder="Page title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}

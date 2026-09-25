@@ -42,21 +42,21 @@ export function MessageCompose({ batchId, parentMessage, onCancel }: MessageComp
         </div>
       )}
       <Textarea
+        aria-label={placeholder}
+        className="resize-none text-sm"
+        disabled={pending}
         name="body"
         placeholder={placeholder}
         rows={3}
-        disabled={pending}
-        className="resize-none text-sm"
-        aria-label={placeholder}
       />
       {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
       <div className="flex justify-end gap-2">
         {onCancel && (
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
+          <Button disabled={pending} size="sm" type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
         )}
-        <Button type="submit" size="sm" disabled={pending}>
+        <Button disabled={pending} size="sm" type="submit">
           {pending ? "Posting…" : parentMessage ? "Reply" : "Post"}
         </Button>
       </div>

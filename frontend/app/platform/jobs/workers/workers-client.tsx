@@ -21,7 +21,7 @@ function relativeTime(iso: string): string {
 export function WorkersClient({ initialData }: Props) {
   const [data, setData] = useState<WorkerHealthResponse>(initialData);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   // justification: auto-refresh worker health every 15s for live monitoring
   useEffect(() => {
     const id = setInterval(async () => {
@@ -68,7 +68,7 @@ export function WorkersClient({ initialData }: Props) {
               const isLeader = worker.instance_id === data.leader;
 
               return (
-                <tr key={worker.instance_id} className="whitespace-nowrap border-b border-border last:border-0">
+                <tr className="whitespace-nowrap border-b border-border last:border-0" key={worker.instance_id}>
                   <td className="py-3 pl-4 pr-6">
                     <span className="font-mono text-xs">{worker.instance_id}</span>
                   </td>
@@ -76,7 +76,7 @@ export function WorkersClient({ initialData }: Props) {
                     {/* eslint-disable-next-line no-restricted-syntax -- table column minimum width constraint is intentional */}
                     <div className="flex items-center gap-2 min-w-[120px]">
                       <div className="progress-track flex-1">
-                        {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width needs inline style */}
+                        { }
                         <div
                           className="progress-fill"
                           style={{ "--progress": `${pct}%` } as React.CSSProperties}
@@ -92,7 +92,7 @@ export function WorkersClient({ initialData }: Props) {
                   </td>
                   <td className="py-3 pr-4">
                     {isLeader ? (
-                      <Badge variant="default" className="gap-1">
+                      <Badge className="gap-1" variant="default">
                         <span aria-hidden>★</span> Leader
                       </Badge>
                     ) : (

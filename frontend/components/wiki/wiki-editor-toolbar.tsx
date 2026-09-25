@@ -159,7 +159,6 @@ export function WikiEditorToolbar({ editor }: WikiEditorToolbarProps) {
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 p-2">
           <Input
-            autoFocus
             placeholder="Search pages…"
             value={linkQuery}
             onChange={(e) => void runLinkSearch(e.target.value)}

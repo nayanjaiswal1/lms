@@ -51,17 +51,17 @@ export function LabFileTabs({ openFiles, activePath, onSelect, onClose }: LabFil
             tabIndex={0}
             title={file.path}
             onClick={() => onSelect(file.path)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onSelect(file.path)
+              }
+            }}
             // VS Code behavior: middle-click closes the tab.
             onMouseDown={(e) => {
               if (e.button === 1) {
                 e.preventDefault()
                 onClose(file.path)
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault()
-                onSelect(file.path)
               }
             }}
           >

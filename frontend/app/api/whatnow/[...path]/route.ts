@@ -2,7 +2,7 @@
 // Auth/CSRF are enforced by the backend's own middleware; this route only
 // forwards the session cookie and CSRF header.
 
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { baseURL, authHeaders } from "@/lib/server/api";
 
 export const dynamic = "force-dynamic";

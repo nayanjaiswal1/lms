@@ -63,7 +63,7 @@ async function request<T>(
     }
     throw new ApiError(res.status, message);
   }
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204) return undefined as unknown as T;
   const payload = (await res.json()) as { data?: T } | T;
   // backend convention wraps responses in { data } — unwrap when present
   return payload !== null &&
@@ -114,5 +114,5 @@ export const whatnowApi = {
   getWeeklyRecap: () => request<WeeklyRecap>("GET", "/recap/weekly"),
 
   // energy
-  putEnergy: (energy: Energy) => request<void>("PUT", "/me/energy", { energy }),
+  putEnergy: (energy: Energy) => request<null>("PUT", "/me/energy", { energy }),
 };
