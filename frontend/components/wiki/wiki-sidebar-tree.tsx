@@ -19,9 +19,11 @@ interface WikiSidebarTreeProps {
   templates: WikiTemplate[];
   currentPath: string[];
   canManage: boolean;
+  /** Closes the mobile drawer after a page link is clicked. */
+  onNavigate?: () => void;
 }
 
-export function WikiSidebarTree({ spaceSlug, spaceId, tree, templates, currentPath, canManage }: WikiSidebarTreeProps) {
+export function WikiSidebarTree({ spaceSlug, spaceId, tree, templates, currentPath, canManage, onNavigate }: WikiSidebarTreeProps) {
   const router = useRouter();
   const [newPageParent, setNewPageParent] = useQueryState("newPage");
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function WikiSidebarTree({ spaceSlug, spaceId, tree, templates, currentPa
   }
 
   return (
-    <nav aria-label="Wiki pages" className="flex w-full flex-col gap-1 sm:w-64 sm:shrink-0">
+    <nav aria-label="Wiki pages" className="flex w-full flex-col gap-1">
       <div className="flex items-center justify-between px-1">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pages</span>
         {canManage && (
@@ -78,6 +80,7 @@ export function WikiSidebarTree({ spaceSlug, spaceId, tree, templates, currentPa
             siblings={tree}
             spaceSlug={spaceSlug}
             onDrop={handleDrop}
+            onNavigate={onNavigate}
             onRequestNewPage={(parentId) => void setNewPageParent(parentId)}
           />
         ))}

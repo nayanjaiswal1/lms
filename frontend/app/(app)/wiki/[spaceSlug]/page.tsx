@@ -7,6 +7,7 @@ import { FEATURES } from "@/lib/features";
 import { getOrgRole } from "@/lib/server/auth";
 import { getWikiSpace, getWikiTemplates } from "@/lib/server/wiki";
 import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
+import { WikiSidebarDrawer } from "@/components/wiki/wiki-sidebar-drawer";
 import { WikiSearch } from "@/components/wiki/wiki-search";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import ROUTES from "@/lib/routes";

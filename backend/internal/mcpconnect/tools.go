@@ -2360,6 +2360,65 @@ var tools = []mcpTool{
 			return err
 		},
 	},
+	{
+		Name:        "move_wiki_page",
+		Description: "Reparent a wiki page — nest it under a new parent, move it back to the space root, or reorder it among its siblings. Use this to organize already-created pages into a folder-like hierarchy (create_wiki_page only accepts parent_id at creation time; this is how to fix it up afterward, e.g. grouping several flat top-level pages on the same topic under one of them).",
+		Scope:       ScopeWikiWrite,
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"page_id":     map[string]any{"type": "string"},
+				"parent_id":   map[string]any{"type": "string", "description": "The page to nest under. Omit or pass an empty string to move it to the space root."},
+				"order_index": map[string]any{"type": "integer", "description": "Position among its new siblings, 0-based. Defaults to 0."},
+			},
+			"required": []string{"page_id"},
+		},
+		TargetType: "wiki_page",
+		BeforeState: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			pageID, err := argString(args, "page_id")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			return rt.wikiSvc.GetPage(ctx, id.OrgID, id.UserID, orgRole, pageID)
+		},
+		Call: func(ctx context.Context, rt *Router, id mcpIdentity, args map[string]any) (any, error) {
+			pageID, err := argString(args, "page_id")
+			if err != nil {
+				return nil, err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return nil, err
+			}
+			req := wiki.MovePageRequest{OrderIndex: optInt(args, "order_index", 0)}
+			if parentID := optString(args, "parent_id"); parentID != nil && *parentID != "" {
+				req.ParentID = parentID
+			}
+			saved, err := rt.wikiSvc.MovePage(ctx, id.OrgID, id.UserID, orgRole, pageID, req)
+			if err != nil {
+				return nil, err
+			}
+			return newWikiPageResult(saved), nil
+		},
+		Revert: func(ctx context.Context, rt *Router, id mcpIdentity, entry ActionLogEntry) error {
+			var before wiki.PageDetail
+			if err := decodeBeforeState(entry, &before); err != nil {
+				return err
+			}
+			orgRole, err := resolveOrgRole(ctx, rt, id)
+			if err != nil {
+				return err
+			}
+			_, err = rt.wikiSvc.MovePage(ctx, id.OrgID, id.UserID, orgRole, entry.TargetID, wiki.MovePageRequest{
+				ParentID: before.ParentID, OrderIndex: before.OrderIndex,
+			})
+			return err
+		},
+	},
 }
 
 // wikiPageResult is the confirmation create_wiki_page/update_wiki_page

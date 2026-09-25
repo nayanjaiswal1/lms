@@ -510,15 +510,24 @@ func (r *Repo) DeleteTemplate(ctx context.Context, id string) error {
 
 // ─── Similarity (duplicate detection) ──────────────────────────────────────────
 
-// FindSimilarPages ranks other published pages in orgID by pg_trgm
-// similarity of title+search_text against text — the same similarity()
-// convention captures/journal/messaging already use. excludeID, if non-nil,
-// omits that page from its own results (the update-page case).
+// FindSimilarPages ranks other pages in orgID (any status — draft included)
+// by pg_trgm similarity of title+search_text against text — the same
+// similarity() convention captures/journal/messaging already use. excludeID,
+// if non-nil, omits that page from its own results (the update-page case).
+//
+// Deliberately not restricted to status = 'published': a new page starts
+// life as a draft (CreatePage never sets status), so gating on published
+// meant this never fired against the single most common case — an agent or
+// migration bulk-creating draft pages — and duplicates piled up silently.
+// See the "Notes" space import for what that looked like in practice: three
+// separate top-level System Design pages, three separate Universal
+// Financial Parser build-plan versions, all created as drafts and never
+// once flagged against each other.
 func (r *Repo) FindSimilarPages(ctx context.Context, orgID string, excludeID *string, text string, threshold float64, limit int) ([]SimilarPage, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT p.id, p.title, s.slug, s.name, similarity(p.title || ' ' || p.search_text, $2) AS sim
 		 FROM wiki_pages p JOIN wiki_spaces s ON s.id = p.space_id
-		 WHERE s.org_id = $1 AND p.deleted_at IS NULL AND p.status = 'published'
+		 WHERE s.org_id = $1 AND p.deleted_at IS NULL
 		   AND ($3::uuid IS NULL OR p.id != $3)
 		   AND similarity(p.title || ' ' || p.search_text, $2) > $4
 		 ORDER BY sim DESC

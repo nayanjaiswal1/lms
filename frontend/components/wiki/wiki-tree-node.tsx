@@ -23,11 +23,13 @@ interface WikiTreeNodeProps {
   setDragOverId: (id: string | null) => void;
   onDrop: (dragId: string, parentId: string | null, orderIndex: number) => void;
   onRequestNewPage: (parentId: string) => void;
+  /** Closes the mobile drawer after a page link is clicked. */
+  onNavigate?: () => void;
 }
 
 export function WikiTreeNode({
   node, siblings, index, path, depth, spaceSlug, canManage, currentPath,
-  dragOverId, setDragOverId, onDrop, onRequestNewPage,
+  dragOverId, setDragOverId, onDrop, onRequestNewPage, onNavigate,
 }: WikiTreeNodeProps) {
   const [open, setOpen] = useState(true);
   const router = useRouter();
@@ -79,7 +81,11 @@ export function WikiTreeNode({
           <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-fast", open && "rotate-90")} />
         </button>
 
-        <Link className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5" href={ROUTES.wikiPage(spaceSlug, ...fullPath)}>
+        <Link
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5"
+          href={ROUTES.wikiPage(spaceSlug, ...fullPath)}
+          onClick={onNavigate}
+        >
           {node.emoji ? <span aria-hidden>{node.emoji}</span> : <FileText aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
           <span className="truncate">{node.title}</span>
           {node.status === "draft" && <span className="shrink-0 text-xs text-muted-foreground">(draft)</span>}
@@ -122,6 +128,7 @@ export function WikiTreeNode({
               siblings={node.children}
               spaceSlug={spaceSlug}
               onDrop={onDrop}
+              onNavigate={onNavigate}
               onRequestNewPage={onRequestNewPage}
             />
           ))}

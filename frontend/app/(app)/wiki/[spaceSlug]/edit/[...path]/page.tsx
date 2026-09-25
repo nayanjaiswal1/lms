@@ -8,6 +8,7 @@ import { FEATURES } from "@/lib/features";
 import { getOrgRole } from "@/lib/server/auth";
 import { getWikiSpace, getWikiPage, getWikiTemplates, resolvePageIdFromPath } from "@/lib/server/wiki";
 import { WikiSidebarTree } from "@/components/wiki/wiki-sidebar-tree";
+import { WikiSidebarDrawer } from "@/components/wiki/wiki-sidebar-drawer";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiVersionHistory } from "@/components/wiki/wiki-version-history";
 import { Button } from "@/components/ui/button";
@@ -49,16 +50,28 @@ export default async function WikiPageEditPage({ params }: Props) {
       <Breadcrumb items={breadcrumbItems} />
 
       <div className="flex flex-col items-start gap-6 lg:flex-row">
-        <WikiSidebarTree
-          canManage={canManage}
-          currentPath={path}
-          spaceId={space.id}
-          spaceSlug={spaceSlug}
-          templates={templates}
-          tree={space.tree}
-        />
+        <div className="hidden shrink-0 lg:block lg:w-64">
+          <WikiSidebarTree
+            canManage={canManage}
+            currentPath={path}
+            spaceId={space.id}
+            spaceSlug={spaceSlug}
+            templates={templates}
+            tree={space.tree}
+          />
+        </div>
 
         <article className="min-w-0 flex-1">
+          <WikiSidebarDrawer
+            canManage={canManage}
+            currentPath={path}
+            currentTitle={page.title}
+            spaceId={space.id}
+            spaceSlug={spaceSlug}
+            templates={templates}
+            tree={space.tree}
+          />
+
           <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
             <WikiVersionHistory canRestore={canManage} pageId={page.id} />
             <Button asChild size="sm" variant="outline">
