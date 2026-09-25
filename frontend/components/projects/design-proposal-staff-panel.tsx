@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Check, ExternalLink } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,6 @@ interface DesignProposalStaffPanelProps {
 // review checkpoint — grouped by team, ranked by vote count within each
 // (ListAllDesignProposals already orders that way server-side).
 export function DesignProposalStaffPanel({ proposals, assignmentId, teamsById }: DesignProposalStaffPanelProps) {
-  const router = useRouter();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
 
   if (proposals.length === 0) {
@@ -36,7 +34,6 @@ export function DesignProposalStaffPanel({ proposals, assignmentId, teamsById }:
       return;
     }
     toast.success("Proposal accepted.");
-    router.refresh();
   }
 
   const byTeam = new Map<string, DesignProposalView[]>();

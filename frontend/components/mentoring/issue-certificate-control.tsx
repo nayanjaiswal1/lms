@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Award } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ interface IssueCertificateControlProps {
 // cases the automatic paths don't cover (e.g. offline assessment).
 export function IssueCertificateControl({ courseId, studentId }: IssueCertificateControlProps) {
   const [pending, setPending] = useState(false);
-  const router = useRouter();
 
   async function handleIssue() {
     setPending(true);
@@ -28,7 +26,6 @@ export function IssueCertificateControl({ courseId, studentId }: IssueCertificat
       return;
     }
     toast.success("Certificate issued.");
-    router.refresh();
   }
 
   return (

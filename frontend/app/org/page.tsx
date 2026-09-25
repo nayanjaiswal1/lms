@@ -12,7 +12,7 @@ import ROUTES from "@/lib/routes";
 export const metadata: Metadata = {
   title: "Run your training program on your own tenant",
   description:
-    "Role-based access, a shared wiki, batch chat, and proctored assessments for colleges, bootcamps, and companies. Self-hosted, free up to 10 seats.",
+    "Role-based access, a shared wiki, batch chat, and proctored assessments for colleges, bootcamps, and companies. Free up to 10 seats.",
 };
 
 export default async function OrgLandingRoute() {
@@ -23,7 +23,12 @@ export default async function OrgLandingRoute() {
     redirect(ROUTES.DASHBOARD);
   }
 
-  const [{ name }, tiers] = await Promise.all([getCurrentOrgBranding(), getPublicPricingTiers("org")]);
+  // Degrade, don't crash — same as app/page.tsx: an empty tiers array renders
+  // the pricing section with no cards. Branding already swallows its own errors.
+  const [{ name }, tiers] = await Promise.all([
+    getCurrentOrgBranding(),
+    getPublicPricingTiers("org").catch(() => []),
+  ]);
 
   return <OrgLandingPage orgName={name ?? ""} tiers={tiers} />;
 }

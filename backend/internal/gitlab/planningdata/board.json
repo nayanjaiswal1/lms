@@ -1,0 +1,139 @@
+{
+  "user": { "name": "Nayan", "initial": "N", "workspace": "Auto Expand" },
+  "title": "Auto Expand Board",
+  "subtitle": "Organize, delegate and grow",
+  "quadrants": [
+    {
+      "key": "plan",
+      "title": "Plan / Delegate",
+      "subtitle": "Important but can wait",
+      "tone": "blue",
+      "tasks": [
+        { "id": "t-101", "title": "Enhance dashboard UI", "dot": "blue" },
+        { "id": "t-102", "title": "Refactor auth module", "dot": "purple" },
+        { "id": "t-103", "title": "Write documentation", "dot": "emerald" }
+      ]
+    },
+    {
+      "key": "do_now",
+      "title": "Do it Now",
+      "subtitle": "Important and urgent",
+      "tone": "emerald",
+      "tasks": [
+        { "id": "t-104", "title": "Fix login issue", "dot": "rose" },
+        { "id": "t-105", "title": "Deploy new build", "dot": "amber" },
+        { "id": "t-106", "title": "Handle support tickets", "dot": "rose" },
+        { "id": "t-107", "title": "Review PR", "dot": "blue" }
+      ]
+    },
+    {
+      "key": "park",
+      "title": "Park it",
+      "subtitle": "Unimportant and can wait",
+      "tone": "purple",
+      "tasks": [
+        { "id": "t-108", "title": "Explore new tools", "dot": "slate" },
+        { "id": "t-109", "title": "Clean old files", "dot": "slate" }
+      ]
+    },
+    {
+      "key": "eliminate",
+      "title": "Eliminate / Ignore",
+      "subtitle": "Unimportant but urgent",
+      "tone": "rose",
+      "tasks": [
+        { "id": "t-110", "title": "Random notifications", "dot": "slate" }
+      ]
+    }
+  ],
+  "ai_placeholder": "I can update steps, write notes, generate sub-steps, or analyze this task...",
+  "ai_suggestions": ["Break into sub-steps", "Generate step template", "Summarize this task", "Suggest next step"],
+  "change_log": [
+    { "id": "c1", "time": "10:30 AM", "kind": "added", "message": "Task \"Fix login issue\" added", "actor": "Nayan" },
+    { "id": "c2", "time": "10:15 AM", "kind": "moved", "message": "Moved to Do it Now", "actor": "Nayan" },
+    { "id": "c3", "time": "09:45 AM", "kind": "updated", "message": "Changed status to In Progress", "actor": "Nayan" }
+  ],
+  "task": {
+    "id": "t-104",
+    "title": "Fix login issue",
+    "dot": "rose",
+    "status": "In Progress",
+    "due": "Sep 24, 2026",
+    "assignee": { "name": "Nayan", "initial": "N" },
+    "description": "Users are unable to login with valid credentials. Investigate and fix the issue.",
+    "tabs": [
+      { "label": "Steps", "count": 4 },
+      { "label": "Details" },
+      { "label": "Files", "count": 3 },
+      { "label": "Notes (MD)" },
+      { "label": "Logs", "count": 5 }
+    ],
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Analyze the issue",
+        "description": "Check error logs and identify the root cause.",
+        "estimate": "10m",
+        "sub_tabs": [
+          { "label": "Content", "count": 1 },
+          { "label": "Files", "count": 2 },
+          { "label": "Logs", "count": 3 }
+        ],
+        "subtasks": [
+          { "id": "s1a", "label": "Check application logs", "checked": true, "meta": "10:12 AM" },
+          { "id": "s1b", "label": "Identify error message", "checked": true, "meta": "10:18 AM" },
+          { "id": "s1c", "label": "Verify recent changes & expired JWT", "checked": true, "meta": "10:24 AM" }
+        ],
+        "file": {
+          "name": "1_analyze_issue.md",
+          "markdown": "# Analyze Login Issue\n## Steps\n1. Check application logs\n2. Identify error message\n3. Verify recent changes\n## Findings\n- Error: `Invalid token`\n- Caused by: expired JWT secret"
+        }
+      },
+      {
+        "id": "s2",
+        "title": "Implement fix",
+        "description": "Update authentication logic and handle token expiry.",
+        "estimate": "30m",
+        "sub_tabs": [{ "label": "Content" }, { "label": "Files" }, { "label": "Logs" }],
+        "subtasks": [
+          { "id": "s2a", "label": "Update JWT validation logic", "checked": true, "meta": "Done" },
+          { "id": "s2b", "label": "Add error handling middleware", "checked": false, "meta": "Active", "meta_kind": "active" },
+          { "id": "s2c", "label": "Return clear user-facing error message", "checked": false, "meta": "Pending" }
+        ],
+        "file": {
+          "name": "2_implement_fix.md",
+          "markdown": "# Implement Fix\n- Update JWT validation\n- Add proper error handling\n- **Return** clear error message to user"
+        }
+      },
+      {
+        "id": "s3",
+        "title": "Test the fix",
+        "description": "Test with valid and invalid credentials.",
+        "estimate": "20m",
+        "sub_tabs": [{ "label": "Content" }, { "label": "Files" }, { "label": "Logs" }],
+        "subtasks": [
+          { "id": "s3a", "label": "Login with valid user credentials", "checked": false },
+          { "id": "s3b", "label": "Login with invalid password test", "checked": false },
+          { "id": "s3c", "label": "Test expired token refresh flow", "checked": false },
+          { "id": "s3d", "label": "Verify error messages displayed cleanly", "checked": false }
+        ],
+        "file": {
+          "name": "3_test_fix.md",
+          "markdown": "# Test Cases\n- Login with valid user\n- Login with invalid password\n- Test expired token\n- Verify error messages"
+        }
+      },
+      {
+        "id": "s4",
+        "title": "Deploy and monitor",
+        "description": "Deploy the fix and monitor for issues.",
+        "estimate": "10m",
+        "sub_tabs": [],
+        "subtasks": [
+          { "id": "s4a", "label": "Deploy patch to staging and production", "checked": false },
+          { "id": "s4b", "label": "Monitor Datadog & Sentry for 30m", "checked": false }
+        ],
+        "file": null
+      }
+    ]
+  }
+}

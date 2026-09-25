@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Rocket } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,6 @@ interface PublishAssignmentButtonProps {
 
 export function PublishAssignmentButton({ assignmentId }: PublishAssignmentButtonProps) {
   const [pending, setPending] = React.useState(false);
-  const router = useRouter();
 
   async function handlePublish() {
     setPending(true);
@@ -25,7 +23,6 @@ export function PublishAssignmentButton({ assignmentId }: PublishAssignmentButto
       return;
     }
     toast.success("Assignment published — teams are provisioning.");
-    router.refresh();
   }
 
   return (

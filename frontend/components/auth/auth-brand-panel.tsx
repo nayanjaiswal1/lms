@@ -1,4 +1,4 @@
-import { Flame, GitFork, Sparkles, TerminalSquare } from "lucide-react";
+import { Flame, Sparkles, TerminalSquare, ShieldCheck } from "lucide-react";
 import { BrandMark } from "@/components/shared/brand-mark";
 
 // Marketing rail shown beside the form on lg+ screens. Static content, so it
@@ -15,9 +15,9 @@ const HIGHLIGHTS = [
     description: "Personalised curriculum, hints, and spaced-repetition review.",
   },
   {
-    icon: GitFork,
-    title: "Own your stack",
-    description: "Self-hosted and multi-tenant — no vendor lock-in, ever.",
+    icon: ShieldCheck,
+    title: "Your org, your space",
+    description: "Multi-tenant by design — every organization's data stays isolated.",
   },
 ] as const;
 

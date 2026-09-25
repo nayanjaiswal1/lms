@@ -17,6 +17,7 @@ import { getCurrentUser } from "@/lib/server/auth";
 import { TICKET_STATUS_VARIANT, ESCALATION_LABEL, truncateId, formatDate } from "@/lib/tickets/format";
 import { TICKET_KIND } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata = { title: "Mentor Ticket Queue" };
 
@@ -41,7 +42,7 @@ async function TicketQueueContent() {
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -123,7 +124,7 @@ async function TicketQueueContent() {
           })}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }
 
@@ -135,7 +136,7 @@ async function ChangeRequestsContent() {
   return (
     <div className="mb-8 flex flex-col gap-3">
       <h2 className="section-title">Pending mentor change requests</h2>
-      <div className="table-responsive">
+      <ResponsiveTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -164,7 +165,7 @@ async function ChangeRequestsContent() {
             ))}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
     </div>
   );
 }

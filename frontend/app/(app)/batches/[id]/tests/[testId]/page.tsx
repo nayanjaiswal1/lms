@@ -3,6 +3,7 @@ import { ClipboardList } from "lucide-react";
 import { getOfflineTest } from "@/lib/server/batches";
 import { EditableScoreCell } from "@/app/(app)/batches/[id]/tests/[testId]/editable-score-cell";
 import { TestDetailBreadcrumb } from "@/app/(app)/batches/[id]/tests/[testId]/test-detail-breadcrumb";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Props {
   params: Promise<{ id: string; testId: string }>;
@@ -30,7 +31,7 @@ export default async function OfflineTestDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="table-responsive">
+      <ResponsiveTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -59,7 +60,7 @@ export default async function OfflineTestDetailPage({ params }: Props) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
     </section>
   );
 }

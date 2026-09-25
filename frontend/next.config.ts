@@ -61,6 +61,12 @@ const nextConfig: NextConfig = {
   // production runtime stage. No effect on `next dev`.
   output: "standalone",
 
+  // Next dev blocks the HMR websocket (`/_next/webpack-hmr`) for any request
+  // whose origin isn't localhost — silently breaks live-reload (page loads,
+  // edits never appear) when testing from a phone or another LAN device.
+  // ponytail: hardcoded to this dev box's current LAN IP, add yours if it changes.
+  allowedDevOrigins: ["192.168.1.5"],
+
   // Pins the workspace root explicitly. Without this, Turbopack's own root-inference
   // (walking up from this directory looking for a lockfile) can pick the wrong
   // ancestor when more than one lockfile is present (this repo has both
@@ -103,6 +109,14 @@ const nextConfig: NextConfig = {
 
   // Opt into React 19 strict mode
   reactStrictMode: true,
+
+  // Client router cache: Next 15+ defaults dynamic pages to 0s, so every
+  // back/forward or revisit re-renders on the server and refetches. Keep a
+  // visited page for 30s; server actions calling revalidatePath/refresh still
+  // bust it immediately after a mutation.
+  experimental: {
+    staleTimes: { dynamic: 30, static: 180 },
+  },
 };
 
 export default nextConfig;

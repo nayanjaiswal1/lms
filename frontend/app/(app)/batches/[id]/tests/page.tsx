@@ -5,6 +5,7 @@ import { listOfflineTests } from "@/lib/server/batches";
 import { getCurrentOrgType } from "@/lib/orgs/server";
 import { resolveTerminology } from "@/lib/terminology";
 import ROUTES from "@/lib/routes";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -39,7 +40,7 @@ export default async function OfflineTestsPage({ params }: Props) {
           <p className="mt-2 text-sm text-muted-foreground">No test results entered yet.</p>
         </div>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -71,7 +72,7 @@ export default async function OfflineTestsPage({ params }: Props) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </section>
   );

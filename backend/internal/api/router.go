@@ -356,6 +356,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// Protected routes — RequireAuth + RequireCSRF on all mutations
 	requireAuth := apimiddleware.RequireAuth(cfg, cache, pool)
 
+	// App-shell reads merged into one call (see bootstrap.go). Dispatches
+	// through the top-level router r, so it's registered on r, not a group.
+	r.With(requireAuth).Get("/api/me/bootstrap", bootstrapHandler(r))
+
 	r.Group(func(r chi.Router) {
 		r.Use(requireAuth)
 		r.Use(apimiddleware.RequireCSRF(cfg))

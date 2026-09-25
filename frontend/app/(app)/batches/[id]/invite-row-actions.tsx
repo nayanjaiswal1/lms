@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { RotateCw, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ interface InviteRowActionsProps {
 export function InviteRowActions({ batchId, invitationId, email }: InviteRowActionsProps) {
   const [pending, setPending] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const router = useRouter();
 
   async function handleResend() {
     setPending(true);
@@ -29,7 +27,6 @@ export function InviteRowActions({ batchId, invitationId, email }: InviteRowActi
       return;
     }
     toast.success(`Invite resent to ${email}.`);
-    router.refresh();
   }
 
   async function handleRevoke() {
@@ -41,7 +38,6 @@ export function InviteRowActions({ batchId, invitationId, email }: InviteRowActi
       return;
     }
     toast.success(`Invite to ${email} revoked.`);
-    router.refresh();
   }
 
   return (

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRightLeft } from "lucide-react";
 
@@ -31,7 +30,6 @@ interface StatusActionProps {
 }
 
 export function StatusAction({ assessmentId, status }: StatusActionProps) {
-  const router = useRouter();
   const [target, setTarget] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
@@ -51,7 +49,6 @@ export function StatusAction({ assessmentId, status }: StatusActionProps) {
     }
     toast.success(`Moved to ${targetOption?.label ?? target}.`);
     setTarget(null);
-    router.refresh();
   };
 
   return (

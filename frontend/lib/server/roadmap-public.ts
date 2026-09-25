@@ -1,3 +1,4 @@
+import { cache } from "react";
 import "server-only";
 
 import type { Roadmap } from "@/lib/server/roadmap";
@@ -20,7 +21,7 @@ export async function listPublicRoadmapsAnon(): Promise<Roadmap[]> {
 // getRoadmap) — the backend is auth-optional here (middleware.OptionalAuth):
 // no cookie means it falls back to the is_public read-only view instead of
 // the owner's, so no separate "public" path is needed.
-export async function getPublicRoadmapAnon(id: string): Promise<Roadmap> {
+export const getPublicRoadmapAnon = cache(async (id: string): Promise<Roadmap> => {
   const res = await fetch(`${publicBase()}/api/roadmaps/${id}`, { cache: "no-store" });
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string };
@@ -28,4 +29,4 @@ export async function getPublicRoadmapAnon(id: string): Promise<Roadmap> {
   }
   const body = await res.json() as { data: Roadmap };
   return body.data;
-}
+});

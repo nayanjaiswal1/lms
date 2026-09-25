@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import { Plus_Jakarta_Sans, JetBrains_Mono, Gochi_Hand } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { NuqsAdapter } from 'nuqs/adapters/next'
@@ -17,6 +18,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { AppMotionConfig } from '@/components/shared/app-motion-config'
 import { LabProvisioningWatcher } from '@/components/labs/lab-provisioning-watcher'
 import { ActiveLabsBar } from '@/components/labs/active-labs-bar'
+import Loading from './loading'
 import './globals.css'
 
 // ── Fonts ──────────────────────────────────────────────────────────────────
@@ -27,7 +29,9 @@ const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-plus-jakarta',
   display: 'swap',
-  weight: ['300', '400', '500', '600', '700', '800'],
+  // Only the weights actually used (font-normal/medium/semibold/bold) — each
+  // extra weight is another font file on every first load.
+  weight: ['400', '500', '600', '700'],
 })
 
 const jetbrainsMono = JetBrains_Mono({
@@ -44,6 +48,8 @@ const gochiHand = Gochi_Hand({
   variable: '--font-gochi-hand',
   display: 'swap',
   weight: '400',
+  // Only the Focus Wall uses it — don't preload it on every page.
+  preload: false,
 })
 
 // ── Metadata ───────────────────────────────────────────────────────────────
@@ -112,24 +118,18 @@ export const viewport: Viewport = {
 }
 
 // ── Root layout ────────────────────────────────────────────────────────────
-// Async: resolves org features + user entitlements ONCE here and feeds them to
-// FeatureFlagProvider, so the whole tree gates without any per-component fetch.
+// The layout itself stays synchronous so <html>/<body> and a skeleton flush on
+// the first byte. The per-user reads (one /api/me/bootstrap call + currency)
+// live in AppProviders behind Suspense: previously they were awaited here, and
+// app/loading.tsx sits *inside* this layout, so a slow or cold backend left the
+// browser on a blank tab with nothing streamed at all.
 // Reading cookies in getFeatureConfig opts the app into dynamic rendering — by
 // design, since feature access is per-user.
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [{ orgFeatures, entitlements, lockedInfo }, permissions, activeLabSession, orgType, currency, branding] = await Promise.all([
-    getFeatureConfig(),
-    getMyPermissions(),
-    getActiveLabSession(),
-    getCurrentOrgType(),
-    getPaymentsCurrency(),
-    getCurrentOrgBranding(),
-  ])
-
   return (
     <html
       suppressHydrationWarning
@@ -144,31 +144,50 @@ export default async function RootLayout({
           defaultTheme="system"
         >
           <NuqsAdapter>
-            <FeatureFlagProvider
-              entitlements={entitlements}
-              lockedInfo={lockedInfo}
-              orgFeatures={orgFeatures}
-            >
-              <TerminologyProvider orgType={orgType}>
-                <BrandingProvider logoUrl={branding.logo_url} name={branding.name}>
-                  <CurrencyProvider currency={currency}>
-                    <PermissionProvider permissions={permissions}>
-                      <LabProvisioningProvider initialSession={activeLabSession}>
-                        <AppMotionConfig>
-                          {children}
-                          <LabProvisioningWatcher />
-                          <ActiveLabsBar />
-                        </AppMotionConfig>
-                      </LabProvisioningProvider>
-                    </PermissionProvider>
-                  </CurrencyProvider>
-                </BrandingProvider>
-              </TerminologyProvider>
-            </FeatureFlagProvider>
+            <Suspense fallback={<Loading />}>
+              <AppProviders>{children}</AppProviders>
+            </Suspense>
           </NuqsAdapter>
           <Toaster />
         </ThemeProvider>
       </body>
     </html>
+  )
+}
+
+// Resolves org features + user entitlements ONCE and feeds them to the context
+// providers, so the whole tree gates without any per-component fetch.
+async function AppProviders({ children }: { children: React.ReactNode }) {
+  const [{ orgFeatures, entitlements, lockedInfo }, permissions, activeLabSession, orgType, currency, branding] = await Promise.all([
+    getFeatureConfig(),
+    getMyPermissions(),
+    getActiveLabSession(),
+    getCurrentOrgType(),
+    getPaymentsCurrency(),
+    getCurrentOrgBranding(),
+  ])
+
+  return (
+    <FeatureFlagProvider
+      entitlements={entitlements}
+      lockedInfo={lockedInfo}
+      orgFeatures={orgFeatures}
+    >
+      <TerminologyProvider orgType={orgType}>
+        <BrandingProvider logoUrl={branding.logo_url} name={branding.name}>
+          <CurrencyProvider currency={currency}>
+            <PermissionProvider permissions={permissions}>
+              <LabProvisioningProvider initialSession={activeLabSession}>
+                <AppMotionConfig>
+                  {children}
+                  <LabProvisioningWatcher />
+                  <ActiveLabsBar />
+                </AppMotionConfig>
+              </LabProvisioningProvider>
+            </PermissionProvider>
+          </CurrencyProvider>
+        </BrandingProvider>
+      </TerminologyProvider>
+    </FeatureFlagProvider>
   )
 }

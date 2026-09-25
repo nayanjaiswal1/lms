@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,7 +23,6 @@ interface MentorSessionNotesProps {
 }
 
 export function MentorSessionNotes({ sessionId, notes, readOnly }: MentorSessionNotesProps) {
-  const router = useRouter();
   const form = useForm<NotesFormData>({
     resolver: zodResolver(NotesSchema),
     defaultValues: {
@@ -52,7 +50,6 @@ export function MentorSessionNotes({ sessionId, notes, readOnly }: MentorSession
       return;
     }
     toast.success("Notes saved.");
-    router.refresh();
   }
 
   return (

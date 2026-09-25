@@ -4,7 +4,6 @@ import { ArrowRight, Target, Users, RefreshCw } from "lucide-react";
 
 import { BrandMark } from "@/components/shared/brand-mark";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import ROUTES from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -21,11 +20,10 @@ const HIGHLIGHTS = [
 export default function DemoPage() {
   return (
     <main className="flex min-h-dvh flex-col">
-      <header className="flex items-center justify-between px-6 py-5 sm:px-8">
+      <header className="flex items-center px-6 py-5 sm:px-8">
         <Link href={ROUTES.HOME} aria-label="Home" className="hover:no-underline">
           <BrandMark />
         </Link>
-        <ThemeToggle />
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-16 sm:px-6">

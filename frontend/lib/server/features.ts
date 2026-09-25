@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
-import { apiGet } from "@/lib/server/api";
+import { getBootstrap } from "@/lib/server/bootstrap";
 import { type Feature, type LockedFeatureInfo } from "@/lib/features";
 import ROUTES from "@/lib/routes";
 
@@ -40,11 +40,7 @@ const EMPTY_CONFIG: FeatureConfig = { orgFeatures: [], entitlements: [], lockedI
  * The frontend never re-derives this — it trusts the entitlements list.
  */
 export const getFeatureConfig = cache(async (): Promise<FeatureConfig> => {
-  try {
-    return await apiGet<FeatureConfig>("/api/me/features");
-  } catch {
-    return EMPTY_CONFIG;
-  }
+  return (await getBootstrap()).features ?? EMPTY_CONFIG;
 });
 
 // ─────────────────────────────────────────────

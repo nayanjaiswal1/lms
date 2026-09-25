@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Ban, Rocket } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ interface PublishCloseRequirementButtonsProps {
 
 export function PublishCloseRequirementButtons({ requirementId, status }: PublishCloseRequirementButtonsProps) {
   const [pending, setPending] = React.useState(false);
-  const router = useRouter();
 
   async function handlePublish() {
     setPending(true);
@@ -27,7 +25,6 @@ export function PublishCloseRequirementButtons({ requirementId, status }: Publis
       return;
     }
     toast.success("Requirement published — it's now open on the board.");
-    router.refresh();
   }
 
   async function handleClose() {
@@ -39,7 +36,6 @@ export function PublishCloseRequirementButtons({ requirementId, status }: Publis
       return;
     }
     toast.success("Requirement closed to new applications.");
-    router.refresh();
   }
 
   if (status === "draft") {

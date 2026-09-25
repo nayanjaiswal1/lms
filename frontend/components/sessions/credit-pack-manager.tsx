@@ -16,6 +16,7 @@ import { FormSwitchField } from "@/components/ui/form-switch-field";
 import { useCurrency } from "@/lib/currency-context";
 import { formatMoney, toMajorUnits, toMinorUnits } from "@/lib/money";
 import { saveCreditPackAction, type CreditPack } from "@/lib/server/sessions";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const Schema = z.object({
   name: z.string().min(1, "Name is required.").max(120),
@@ -128,7 +129,7 @@ export function CreditPackManager({ packs }: CreditPackManagerProps) {
           <p className="text-sm text-muted-foreground">No credit packs yet.</p>
         </div>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -162,7 +163,7 @@ export function CreditPackManager({ packs }: CreditPackManagerProps) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
       <PackFormDialog
         open={editingId !== null}

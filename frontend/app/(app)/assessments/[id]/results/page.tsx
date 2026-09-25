@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { getAssessment, getAssessmentAnalytics, getAssessmentAttempts, getAssessmentCandidates } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 import type { PublicCandidate } from "@/lib/server/public";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata: Metadata = {
   title: "Assessment Results",
@@ -222,7 +223,7 @@ function CandidatesTable({ candidates }: { candidates: PublicCandidate[] }) {
   };
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -259,6 +260,6 @@ function CandidatesTable({ candidates }: { candidates: PublicCandidate[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

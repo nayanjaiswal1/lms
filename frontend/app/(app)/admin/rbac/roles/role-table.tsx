@@ -14,6 +14,7 @@ import { apiFetch } from "@/lib/client/api";
 import { RoleActionsMenu } from "./role-actions-menu";
 import { RoleBulkActions } from "./role-bulk-actions";
 import { ROLE_TYPE_FILTERS, ROLE_STATUS_FILTERS } from "./role-filters";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 // Fixed system-role name → icon (see docs/rbac.md § System Roles). Custom
 // (org-created) roles have no fixed identity, so they all share UserCog;
@@ -105,7 +106,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
         {filtered.length} of {roles.length} {roles.length === 1 ? "role" : "roles"}
       </p>
       <RoleBulkActions roles={selectedRoles} onDone={selection.clear} />
-      <div className="table-responsive">
+      <ResponsiveTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -118,7 +119,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
                 />
               </th>
               <th className="pb-2 pr-6 font-medium">Name</th>
-              <th className="pb-2 pr-6 font-medium">Description</th>
+              <th className="pb-2 pr-6 font-medium hidden md:table-cell">Description</th>
               <th className="pb-2 pr-6 font-medium">Type</th>
               <th className="pb-2 pr-6 font-medium">Status</th>
               <th className="pb-2 font-medium" />
@@ -154,7 +155,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
                         {role.name}
                       </Link>
                     </td>
-                    <td className="py-3 pr-6 text-muted-foreground">{role.description}</td>
+                    <td className="py-3 pr-6 text-muted-foreground hidden whitespace-normal break-words md:table-cell md:min-w-48 md:max-w-md">{role.description}</td>
                     <td className="py-3 pr-6 text-muted-foreground">{role.is_system ? "System" : "Custom"}</td>
                     <td className="py-3 pr-6">
                       {role.is_active ? (
@@ -178,7 +179,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
                     <td className="p-0" colSpan={6}>
                       <Collapsible open={isOpen} onOpenChange={() => toggleRow(role.id)}>
                         <CollapsibleContent className="border-b border-border bg-muted/30">
-                          <div className="px-8 py-4">
+                          <div className="px-4 py-4 sm:px-8">
                             {perms === "loading" && <Skeleton className="h-16 w-full" />}
                             {perms === "error" && (
                               <p className="text-sm text-destructive">Failed to load permissions.</p>
@@ -194,7 +195,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
             })}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
     </div>
   );
 }

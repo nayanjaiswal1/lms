@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import type { AttemptRow } from "@/lib/assessments/types";
 import ROUTES from "@/lib/routes";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const RESULT_VALUES = ["all", "passed", "failed"] as const;
 type ResultFilter = (typeof RESULT_VALUES)[number];
@@ -142,7 +143,7 @@ export function AttemptsTable({ attempts }: Props) {
       {filtered.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">No attempts match the current filters.</p>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -211,7 +212,7 @@ export function AttemptsTable({ attempts }: Props) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,7 +32,6 @@ interface CancelSessionDialogProps {
 
 export function CancelSessionDialog({ sessionId, cancelCutoffHours, startsAt }: CancelSessionDialogProps) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
   const form = useForm<CancelFormData>({
     resolver: zodResolver(CancelSchema),
     defaultValues: { reason: "" },
@@ -60,7 +58,6 @@ export function CancelSessionDialog({ sessionId, cancelCutoffHours, startsAt }: 
     }
     form.reset();
     setOpen(false);
-    router.refresh();
   }
 
   return (

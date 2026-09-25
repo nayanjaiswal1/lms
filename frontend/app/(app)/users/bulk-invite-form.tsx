@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -47,7 +46,6 @@ export function BulkInviteForm({ orgId }: Props) {
   const [role, setRole] = React.useState<OrgRole>("learner");
   const [submitting, setSubmitting] = React.useState(false);
   const [skipped, setSkipped] = React.useState<{ email: string; reason: string }[] | null>(null);
-  const router = useRouter();
 
   const emails = parseEmails(text);
   const invalidCount = emails.filter((e) => !EMAIL_RE.test(e)).length;
@@ -68,7 +66,6 @@ export function BulkInviteForm({ orgId }: Props) {
     if (queued > 0) {
       toast.success(`${queued} ${queued === 1 ? "invite" : "invites"} queued.`);
       setText("");
-      router.refresh();
     }
     setSkipped(skippedResult.length > 0 ? skippedResult : null);
   }

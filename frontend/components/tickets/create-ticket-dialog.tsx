@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +33,6 @@ type CreateTicketFormData = z.infer<typeof CreateTicketSchema>;
 export function CreateTicketDialog() {
   const [open, setOpen] = useQueryState("new-ticket", parseAsBoolean.withDefault(false));
   const [, setTicket] = useQueryState("ticket");
-  const router = useRouter();
   const form = useForm<CreateTicketFormData>({
     resolver: zodResolver(CreateTicketSchema),
     defaultValues: { subject: "", message: "" },
@@ -50,7 +48,6 @@ export function CreateTicketDialog() {
     void setOpen(null);
     form.reset();
     if (result.data) void setTicket(result.data.id);
-    else router.refresh();
   }
 
   return (

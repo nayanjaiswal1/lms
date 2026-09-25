@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Permission {
   id: string
@@ -58,7 +59,7 @@ export default async function PermissionsPage() {
         {modules.map((module) => (
           <section key={module}>
             <h2 className="section-title capitalize mb-4">{module}</h2>
-            <div className="table-responsive">
+            <ResponsiveTable>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -73,13 +74,13 @@ export default async function PermissionsPage() {
                       <td className="py-3 pr-6">
                         <code className="kbd">{p.code}</code>
                       </td>
-                      <td className="py-3 pr-6 font-medium">{p.name}</td>
-                      <td className="py-3 text-muted-foreground">{p.description}</td>
+                      <td className="py-3 pr-6 font-medium whitespace-normal break-words">{p.name}</td>
+                      <td className="py-3 text-muted-foreground whitespace-normal min-w-40 max-w-md break-words">{p.description}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ResponsiveTable>
           </section>
         ))}
       </div>

@@ -50,7 +50,7 @@ const FAQS: FaqItem[] = [
   {
     question: "Is our data isolated from other organizations?",
     answer:
-      "Yes. MindForge is self-hosted and multi-tenant — each organization is its own tenant with no shared storage, and you can run the whole platform on your own infrastructure if you don't want it hosted for you.",
+      "Yes. MindForge is multi-tenant — each organization is its own tenant with isolated data and no shared storage.",
   },
   {
     question: "What counts as a seat?",
@@ -85,7 +85,7 @@ export function OrgLandingPage({ orgName, tiers }: OrgLandingPageProps) {
       <LandingMotionConfig>
         <main>
           <LandingHero
-            badge="Self-hosted · Your data, your tenant"
+            badge="Your data, your tenant"
             description="Give every cohort its own tenant, role-based access down to mentor and student, a shared wiki, batch chat, and proctored assessments — deployed on your own infrastructure, not rented from someone else's cloud."
             footline={`${Object.keys(FEATURE_META).length}+ built-in tools · ${roleCount} roles per organization · Free up to 10 seats`}
             heading={

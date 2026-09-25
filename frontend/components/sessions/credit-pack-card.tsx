@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/money";
@@ -17,7 +16,6 @@ interface CreditPackCardProps {
  * Intl instead of assuming /100. */
 export function CreditPackCard({ pack }: CreditPackCardProps) {
   const [pending, setPending] = useState(false);
-  const router = useRouter();
 
   async function handleBuy() {
     setPending(true);
@@ -30,7 +28,6 @@ export function CreditPackCard({ pack }: CreditPackCardProps) {
     const checkout = result.data;
     if (checkout.status === "completed") {
       toast.success("Pack added to your balance.");
-      router.refresh();
       return;
     }
     if (checkout.redirect_url) {

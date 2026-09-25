@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
@@ -47,7 +46,6 @@ interface EditRequirementDialogProps {
 
 export function EditRequirementDialog({ requirement }: EditRequirementDialogProps) {
   const [open, setOpen] = useQueryState("edit-requirement", parseAsBoolean.withDefault(false));
-  const router = useRouter();
   const form = useForm<FormData>({
     resolver: zodResolver(Schema),
     defaultValues: {
@@ -78,7 +76,6 @@ export function EditRequirementDialog({ requirement }: EditRequirementDialogProp
     }
     toast.success("Requirement updated.");
     void setOpen(false);
-    router.refresh();
   };
 
   return (

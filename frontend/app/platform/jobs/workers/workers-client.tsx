@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { WorkerHealthResponse } from "@/lib/jobs/admin-server";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Props {
   initialData: WorkerHealthResponse;
@@ -45,7 +46,7 @@ export function WorkersClient({ initialData }: Props) {
           horizontal scroll) — it was wrapping the summary line below too,
           so that text sat flush inside the table's own border with no
           padding of its own instead of living outside it as a caption. */}
-      <div className="table-responsive">
+      <ResponsiveTable>
         {/* table-layout: fixed + explicit column widths — with `auto` layout
             and few rows, the browser spread leftover width arbitrarily
             (huge gap after the instance ID, an oversized progress bar). */}
@@ -103,7 +104,7 @@ export function WorkersClient({ initialData }: Props) {
             })}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
 
       {/* "Auto-refreshes every 15 seconds" was already said in the page
           subtitle above (page.tsx) — repeating it here just for a static

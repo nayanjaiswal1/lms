@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
 import type { Invite } from "./invite-manager";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const STATUS_TABS = [
   { label: "Pending",  value: "pending" },
@@ -151,7 +152,7 @@ export function InviteTable({
           </p>
         </div>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -221,7 +222,7 @@ export function InviteTable({
               })}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </section>
   );

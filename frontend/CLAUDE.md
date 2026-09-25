@@ -58,7 +58,7 @@ Mobile-first: write the unprefixed style first, layer `sm:`/`md:`/`lg:` on top. 
 2. Touch targets ≥44×44px (WCAG 2.5.5) — use `.touch-target` or `size="default"`, not shadcn's default `sm` button
 3. `h-dvh`/`min-h-dvh`, never `h-screen` (ESLint error) — `100vh` hides content behind mobile Safari chrome
 4. `w-full`, never `w-screen` (ESLint error) — overflows on scrollbar devices
-5. Every `<table>` wrapped in `.table-responsive` **and** every `<tr>` has `whitespace-nowrap` — the wrapper alone doesn't stop cell wrap/row-overlap; scope `whitespace-normal` to individual `<td>`s that must wrap
+5. List-style `<table>`s (one row = one record) are wrapped in `<ResponsiveTable>` (`components/ui/responsive-table.tsx`) — below `sm` each row renders as a labelled card, no horizontal scroll. Matrix/grid tables (habit grid, heatmaps, dynamic SQL results) keep plain `.table-responsive` scroll. Either way every `<tr>` has `whitespace-nowrap`; scope `whitespace-normal` to individual `<td>`s that must wrap
 6. Modals: `.modal-responsive` on `<DialogContent>` — full-screen mobile, centered `sm+`
 7. Safe-area insets for notched devices — `.bottom-nav`/`.app-header`/`.sidebar-drawer` handle it already; anything else fixed-bottom needs `padding-bottom: env(safe-area-inset-bottom)`
 8. No bare `w-[Npx]` (ESLint warns) — always pair `w-full sm:w-[Npx]`
@@ -79,7 +79,7 @@ Images: always `next/image` with `sizes`, never raw `<img>`.
 
 ## Theming
 
-All tokens live in `app/globals.css` only (`:root` / `.dark`), wired via `next-themes` in `layout.tsx`. `dark:*` prefix and raw color classes (`bg-white`, `text-gray-500`, etc.) are banned in components — use semantic tokens. Fonts: `--font-plus-jakarta` (headings/UI), `--font-jetbrains-mono` (code/quiz options) — never `font-geist-*`. New color: add to `:root` + `.dark` + `@theme` block in `globals.css`, then reference by semantic class.
+All tokens live in `app/globals.css` only (`:root` / `.dark`), wired via `next-themes` in `layout.tsx`. Theme switching lives only in Settings (`AppearanceSection` on the profile preferences tab) — never add a toggle to page headers or layouts. `dark:*` prefix and raw color classes (`bg-white`, `text-gray-500`, etc.) are banned in components — use semantic tokens. Fonts: `--font-plus-jakarta` (headings/UI), `--font-jetbrains-mono` (code/quiz options) — never `font-geist-*`. New color: add to `:root` + `.dark` + `@theme` block in `globals.css`, then reference by semantic class.
 
 ## Layout & Spacing (`globals.css` `@layer components`)
 
@@ -107,7 +107,6 @@ Base element styles (`h1`–`h4`, `p`, `a`, `code`, `body`) are set globally in 
 | `<CodeEditor>` | `code-editor.tsx` | Lazy Monaco (`next/dynamic`, ssr:false), `var(--font-jetbrains-mono)` |
 | `<AccessGate>` | `access-gate.tsx` | Permission/feature gate |
 | `<BrandMark>` | `brand-mark.tsx` | Logo |
-| `<ThemeToggle>` | `theme-toggle.tsx` | Light/dark toggle |
 | `<WithFeature>` | `with-feature.tsx` | Feature-flag HOC |
 
 ## Design System

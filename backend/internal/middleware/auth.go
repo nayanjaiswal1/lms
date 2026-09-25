@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/auth"
@@ -11,6 +13,9 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/session"
 )
+
+// lastActiveTouchTimeout bounds the background last_active_at write.
+const lastActiveTouchTimeout = 5 * time.Second
 
 // validateSession runs the cookie → JWT → JTI-block → session-version checks
 // shared by RequireAuth and OptionalAuth. Returns the validated claims, or an
@@ -27,12 +32,8 @@ func validateSession(r *http.Request, cfg *config.Config, cache *session.Cache) 
 		return nil, fmt.Errorf("invalid or expired token: %w", err)
 	}
 
-	if cache.IsJTIBlocked(r.Context(), claims.ID) {
-		return nil, fmt.Errorf("session revoked (blocked jti)")
-	}
-
-	if err := cache.CheckVersion(r.Context(), claims.UserID, claims.SessionVersion); err != nil {
-		return nil, fmt.Errorf("session revoked (version mismatch): %w", err)
+	if err := cache.CheckSession(r.Context(), claims.ID, claims.UserID, claims.SessionVersion); err != nil {
+		return nil, fmt.Errorf("session revoked: %w", err)
 	}
 
 	return claims, nil
@@ -56,16 +57,23 @@ func RequireAuth(cfg *config.Config, cache *session.Cache, pool *pgxpool.Pool) f
 				return
 			}
 
-			if _, err := pool.Exec(r.Context(),
-				`UPDATE users SET last_active_at = now()
-				 WHERE id = $1 AND (last_active_at IS NULL OR last_active_at < now() - interval '5 minutes')`,
-				claims.UserID,
-			); err != nil {
-				slog.ErrorContext(r.Context(), "RequireAuth: failed to touch last_active_at",
-					"user_id", claims.UserID,
-					"err", err,
-				)
-			}
+			// Off the request path: presence tracking must not add a DB round
+			// trip to every authenticated call. WithoutCancel keeps the write
+			// alive after the response is sent; the timeout bounds it.
+			go func(ctx context.Context, userID string) {
+				ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), lastActiveTouchTimeout)
+				defer cancel()
+				if _, err := pool.Exec(ctx,
+					`UPDATE users SET last_active_at = now()
+					 WHERE id = $1 AND (last_active_at IS NULL OR last_active_at < now() - interval '5 minutes')`,
+					userID,
+				); err != nil {
+					slog.ErrorContext(ctx, "RequireAuth: failed to touch last_active_at",
+						"user_id", userID,
+						"err", err,
+					)
+				}
+			}(r.Context(), claims.UserID)
 
 			ctx := auth.SetClaims(r.Context(), claims)
 			next.ServeHTTP(w, r.WithContext(ctx))

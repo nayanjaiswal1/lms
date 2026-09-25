@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SUPPORT_STATUS_OPTIONS } from "@/lib/constants";
@@ -19,7 +18,6 @@ interface TicketStatusSelectProps {
 // separate submit button) since a queue is worked one status flip at a
 // time, not as a form.
 export function TicketStatusSelect({ ticketId, status }: TicketStatusSelectProps) {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function handleChange(next: string) {
@@ -30,7 +28,6 @@ export function TicketStatusSelect({ ticketId, status }: TicketStatusSelectProps
       toast.error(result.error);
       return;
     }
-    router.refresh();
   }
 
   return (

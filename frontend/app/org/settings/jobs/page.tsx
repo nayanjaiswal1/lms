@@ -11,6 +11,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { getCurrentOrgId } from "@/lib/server/claims";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata: Metadata = {
   title: "Jobs — Organisation Settings",
@@ -91,7 +92,7 @@ function JobRow({ job, orgId }: { job: Job; orgId: string }) {
       <td className="py-3 px-4">
         <span
           className={cn(
-            "inline-flex items-center px-2 py-0.5 rounded-[--radius-sm] text-xs font-medium",
+            "inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium",
             statusBadgeClass(job.status),
           )}
         >
@@ -101,7 +102,7 @@ function JobRow({ job, orgId }: { job: Job; orgId: string }) {
       <td className="py-3 px-4">
         <span
           className={cn(
-            "inline-flex items-center px-2 py-0.5 rounded-[--radius-sm] text-xs font-medium",
+            "inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium",
             priorityBadgeClass(job.priority),
           )}
         >
@@ -248,7 +249,7 @@ export default async function JobsPage({
           </div>
         ) : (
           <>
-            <div className="table-responsive">
+            <ResponsiveTable>
               <table className="w-full text-left">
                 <thead>
                   <tr className="whitespace-nowrap border-b border-border">
@@ -266,7 +267,7 @@ export default async function JobsPage({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ResponsiveTable>
 
             {next_cursor && (
               <div className="pt-4 flex justify-center">

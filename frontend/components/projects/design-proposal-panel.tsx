@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -39,7 +38,6 @@ interface DesignProposalPanelProps {
 // proposal, vote on teammates' proposals, see which one staff accepted.
 // Accepting itself is staff-only (design-proposal-staff-panel.tsx).
 export function DesignProposalPanel({ proposals, checkpointId, teamId, currentUserId }: DesignProposalPanelProps) {
-  const router = useRouter();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const form = useForm<FormData>({ resolver: zodResolver(Schema), defaultValues: { title: "", description: "", link: "" } });
 
@@ -55,7 +53,6 @@ export function DesignProposalPanel({ proposals, checkpointId, teamId, currentUs
     }
     toast.success("Proposal submitted.");
     form.reset();
-    router.refresh();
   };
 
   async function handleVoteToggle(proposal: DesignProposalView) {
@@ -68,7 +65,6 @@ export function DesignProposalPanel({ proposals, checkpointId, teamId, currentUs
       toast.error(result.error);
       return;
     }
-    router.refresh();
   }
 
   async function handleDelete(proposalId: string) {
@@ -80,7 +76,6 @@ export function DesignProposalPanel({ proposals, checkpointId, teamId, currentUs
       return;
     }
     toast.success("Proposal withdrawn.");
-    router.refresh();
   }
 
   return (

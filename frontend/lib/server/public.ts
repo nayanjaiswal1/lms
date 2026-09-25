@@ -1,3 +1,4 @@
+import { cache } from "react";
 import "server-only";
 
 export interface PublicTestInfo {
@@ -71,7 +72,7 @@ function publicBase(): string {
   return url;
 }
 
-export async function getPublicTest(code: string): Promise<PublicTestInfo> {
+export const getPublicTest = cache(async (code: string): Promise<PublicTestInfo> => {
   const res = await fetch(`${publicBase()}/api/p/${code}`, { cache: "no-store" });
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string };
@@ -79,7 +80,7 @@ export async function getPublicTest(code: string): Promise<PublicTestInfo> {
   }
   const body = await res.json() as { data: PublicTestInfo };
   return body.data;
-}
+});
 
 export async function getPublicResult(code: string, token: string): Promise<PublicResult> {
   const res = await fetch(`${publicBase()}/api/p/${code}/result/${token}`, { cache: "no-store" });

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { moveBatchToGroupAction } from "@/app/(app)/cohort-groups/actions";
@@ -12,7 +11,6 @@ const DROP_HIGHLIGHT = ["ring-2", "ring-primary", "bg-primary/5"];
 // has no "no group" node to drop on.
 export function UngroupedDropZone() {
   const ref = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   async function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -25,7 +23,6 @@ export function UngroupedDropZone() {
       return;
     }
     toast.success("Batch ungrouped.");
-    router.refresh();
   }
 
   return (

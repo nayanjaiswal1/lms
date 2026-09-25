@@ -3,6 +3,7 @@ import { Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserLink } from "@/components/shared/user-link";
 import type { LeaderboardRow } from "@/lib/projects/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface AssignmentLeaderboardProps {
   leaderboard: LeaderboardRow[];
@@ -25,7 +26,7 @@ export function AssignmentLeaderboard({ leaderboard }: AssignmentLeaderboardProp
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -63,6 +64,6 @@ export function AssignmentLeaderboard({ leaderboard }: AssignmentLeaderboardProp
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

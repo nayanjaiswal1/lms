@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { PreviewRow } from "@/lib/sheets/use-sheet-builder";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const DIFFICULTY_CLASS: Record<string, string> = {
   easy: "bg-success/10 text-success border-success/20",
@@ -30,7 +31,7 @@ export function SheetPreviewTable({ rows, excludedTopics, onToggleExclude, onRem
       <p className="mb-3 text-sm text-muted-foreground">
         {includedCount} of {rows.length} questions selected — uncheck any you want left out.
       </p>
-      <div className="table-responsive rounded-md border border-border">
+      <ResponsiveTable className="rounded-md border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -90,7 +91,7 @@ export function SheetPreviewTable({ rows, excludedTopics, onToggleExclude, onRem
             })}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
     </section>
   );
 }

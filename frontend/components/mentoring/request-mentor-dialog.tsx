@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,7 +30,6 @@ interface Props {
 
 export function RequestMentorDialog({ enrollments }: Props) {
   const [open, setOpen] = useQueryState("request-mentor", parseAsBoolean.withDefault(false));
-  const router = useRouter();
   const form = useForm<RequestMentorFormData>({
     resolver: zodResolver(RequestMentorSchema),
     defaultValues: { course_id: enrollments.length === 1 ? enrollments[0].id : "" },
@@ -47,7 +45,6 @@ export function RequestMentorDialog({ enrollments }: Props) {
     }
     toast.success("Mentor request submitted.");
     void setOpen(null);
-    router.refresh();
   }
 
   return (

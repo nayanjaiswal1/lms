@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Star } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +25,6 @@ interface SessionFeedbackFormProps {
 }
 
 export function SessionFeedbackForm({ sessionId, status, endsAt, myFeedback }: SessionFeedbackFormProps) {
-  const router = useRouter();
   const form = useForm<FeedbackFormData>({
     resolver: zodResolver(FeedbackSchema),
     defaultValues: {
@@ -48,7 +46,6 @@ export function SessionFeedbackForm({ sessionId, status, endsAt, myFeedback }: S
       return;
     }
     toast.success(myFeedback ? "Feedback updated." : "Feedback submitted.");
-    router.refresh();
   }
 
   return (

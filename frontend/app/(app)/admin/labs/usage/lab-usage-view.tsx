@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { UserLink } from "@/components/shared/user-link"
 import ROUTES from "@/lib/routes"
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface LabUsageRow {
   lab_id: string
@@ -117,7 +118,7 @@ export function LabUsageView({
 
       <section className="mt-10">
         <h2 className="section-title">By lab</h2>
-        <div className="mt-4 card-base table-responsive">
+        <ResponsiveTable className="mt-4 card-base">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground whitespace-nowrap">
@@ -149,12 +150,12 @@ export function LabUsageView({
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <section className="mt-10">
         <h2 className="section-title">By course</h2>
-        <div className="mt-4 card-base table-responsive">
+        <ResponsiveTable className="mt-4 card-base">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground whitespace-nowrap">
@@ -185,7 +186,7 @@ export function LabUsageView({
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <section className="mt-10">
@@ -193,7 +194,7 @@ export function LabUsageView({
           <h2 className="section-title">By student</h2>
           <Badge className="badge-muted" variant="outline">Top {usage.by_student.length}</Badge>
         </div>
-        <div className="mt-4 card-base table-responsive">
+        <ResponsiveTable className="mt-4 card-base">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground whitespace-nowrap">
@@ -226,7 +227,7 @@ export function LabUsageView({
               )}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
     </div>
   )

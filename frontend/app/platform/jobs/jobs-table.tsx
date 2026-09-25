@@ -8,6 +8,7 @@ import {
 } from "@/app/platform/jobs/actions";
 import ROUTES from "@/lib/routes";
 import type { Job, JobStatus } from "@/lib/jobs/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const STATUS_VARIANT: Record<
   JobStatus,
@@ -110,7 +111,7 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
           <p className="text-muted-foreground">No jobs match the current filters.</p>
         </div>
       ) : (
-        <div className="table-responsive mt-4">
+        <ResponsiveTable className="mt-4">
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -187,7 +188,7 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
 
       {nextCursor && (

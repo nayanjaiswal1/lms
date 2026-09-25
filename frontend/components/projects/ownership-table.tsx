@@ -1,5 +1,6 @@
 import { FileCode2 } from "lucide-react";
 import type { FileOwnershipRow } from "@/lib/projects/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface OwnershipTableProps {
   files: FileOwnershipRow[];
@@ -18,7 +19,7 @@ export function OwnershipTable({ files }: OwnershipTableProps) {
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -37,6 +38,6 @@ export function OwnershipTable({ files }: OwnershipTableProps) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

@@ -1,7 +1,11 @@
 import "server-only";
 
 import { cache } from "react";
-import { apiGet } from "@/lib/server/api";
+import { baseURL } from "@/lib/server/api";
+
+// Identical for every visitor and only changes on a backend redeploy, so it
+// lives in Next's shared Data Cache instead of costing a call per render.
+const CURRENCY_REVALIDATE_SECONDS = 3600;
 
 // The currency every *_cents amount the API returns is denominated in, owned
 // by the backend's PAYMENTS_CURRENCY (see internal/payments/handler.go).
@@ -26,7 +30,11 @@ const FALLBACK_CURRENCY = "INR";
  */
 export const getPaymentsCurrency = cache(async (): Promise<string> => {
   try {
-    const cfg = await apiGet<PaymentsConfig>("/api/public/payments/config");
+    const res = await fetch(`${baseURL()}/api/public/payments/config`, {
+      next: { revalidate: CURRENCY_REVALIDATE_SECONDS },
+    });
+    if (!res.ok) return FALLBACK_CURRENCY;
+    const cfg = (await res.json() as { data: PaymentsConfig }).data;
     return cfg.currency || FALLBACK_CURRENCY;
   } catch {
     return FALLBACK_CURRENCY;

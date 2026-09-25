@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { UserLink } from "@/components/shared/user-link";
 import type { AuditEntry } from "@/app/(app)/users/[id]/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const ACTION_BADGE: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   "role.create": "default",
@@ -21,7 +22,7 @@ export function AuditTab({ entries }: { entries: AuditEntry[] }) {
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border text-left text-muted-foreground whitespace-nowrap">
@@ -60,6 +61,6 @@ export function AuditTab({ entries }: { entries: AuditEntry[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

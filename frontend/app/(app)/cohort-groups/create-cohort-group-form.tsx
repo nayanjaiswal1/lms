@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -49,7 +48,6 @@ interface CreateCohortGroupFormProps {
 }
 
 export function CreateCohortGroupForm({ groups, presetParentId, onCreated, editingGroup }: CreateCohortGroupFormProps) {
-  const router = useRouter();
   const form = useForm<FormData>({
     resolver: zodResolver(Schema),
     defaultValues: {
@@ -84,7 +82,6 @@ export function CreateCohortGroupForm({ groups, presetParentId, onCreated, editi
     toast.success(editingGroup ? "Group updated." : "Group created.");
     form.reset();
     onCreated();
-    router.refresh();
   };
 
   return (

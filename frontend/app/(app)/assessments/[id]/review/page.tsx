@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { getAssessment, getReviewQueue } from "@/lib/assessments/server";
 import ROUTES from "@/lib/routes";
 import type { ReviewQueueItem } from "@/lib/assessments/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata: Metadata = { title: "Flagged Attempts — Review Queue" };
 
@@ -51,7 +52,7 @@ export default async function ReviewQueuePage({ params }: PageProps) {
           <p className="text-muted-foreground">No flagged attempts. All clear.</p>
         </div>
       ) : (
-        <div className="table-responsive mt-6">
+        <ResponsiveTable className="mt-6">
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -69,7 +70,7 @@ export default async function ReviewQueuePage({ params }: PageProps) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </main>
   );

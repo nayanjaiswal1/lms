@@ -1,9 +1,8 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowRight, Flame } from "lucide-react";
+import { Flame } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { LandingCtaButtons } from "@/components/landing/landing-cta-buttons";
 import { Float, Reveal } from "@/components/landing/landing-motion";
 import { LandingIllustration } from "@/components/landing/landing-illustration";
 import styles from "./landing-hero.module.css";
@@ -67,19 +66,7 @@ export function LandingHero({
           </Reveal>
 
           <Reveal delay={0.18}>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-              <Button asChild size="lg">
-                <Link href={primaryCta.href}>
-                  {primaryCta.label}
-                  <ArrowRight aria-hidden className="h-4 w-4" />
-                </Link>
-              </Button>
-              {secondaryCta && (
-                <Button asChild size="lg" variant="outline">
-                  <Link href={secondaryCta.href}>{secondaryCta.label}</Link>
-                </Button>
-              )}
-            </div>
+            <LandingCtaButtons className="mt-8 sm:justify-center lg:justify-start" primaryCta={primaryCta} secondaryCta={secondaryCta} />
           </Reveal>
 
           <Reveal delay={0.24}>

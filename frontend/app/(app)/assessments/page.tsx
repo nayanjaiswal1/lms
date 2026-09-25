@@ -138,7 +138,7 @@ async function StudentAssessmentsView() {
                 </div>
 
                 {a.evaluating_attempt_id && (
-                  <div className="ai-surface flex items-center gap-2 rounded-[--radius-md] px-3 py-2">
+                  <div className="ai-surface flex items-center gap-2 rounded-md px-3 py-2">
                     <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-ai" />
                     <span className="text-sm font-medium text-ai">AI is reviewing your answers…</span>
                   </div>

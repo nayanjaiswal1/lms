@@ -23,7 +23,7 @@ export function PromptRenderer({ text, textClassName }: PromptRendererProps) {
       return (
         <pre
           key={i}
-          className="overflow-x-auto rounded-[--radius-md] border border-border bg-muted p-4 font-mono text-sm leading-relaxed"
+          className="overflow-x-auto rounded-md border border-border bg-muted p-4 font-mono text-sm leading-relaxed"
         >
           <code>{code}</code>
         </pre>

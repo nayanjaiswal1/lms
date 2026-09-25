@@ -4,6 +4,7 @@ import { UserLink } from "@/components/shared/user-link"
 import { apiGet } from "@/lib/server/api"
 import { getMyPermissions } from "@/lib/server/permissions"
 import { PERMISSIONS } from "@/lib/auth/permission-codes"
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface AuditEntry {
   id: number
@@ -79,7 +80,7 @@ export default async function AuditPage({
         <Badge variant="outline">{total} total entries</Badge>
       </div>
 
-      <div className="mt-8 table-responsive">
+      <ResponsiveTable className="mt-8">
         <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -122,7 +123,7 @@ export default async function AuditPage({
             )}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
 
       {total > limit && (
         <div className="mt-6 flex gap-3 justify-end">

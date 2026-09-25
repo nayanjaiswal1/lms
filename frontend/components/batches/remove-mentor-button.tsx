@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ interface RemoveMentorButtonProps {
 export function RemoveMentorButton({ batchId, userId, userName }: RemoveMentorButtonProps) {
   const [pending, setPending] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const router = useRouter();
 
   async function handleRemove() {
     setPending(true);
@@ -29,7 +27,6 @@ export function RemoveMentorButton({ batchId, userId, userName }: RemoveMentorBu
       return;
     }
     toast.success(`${userName} removed as mentor.`);
-    router.refresh();
   }
 
   return (

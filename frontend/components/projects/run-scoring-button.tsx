@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ interface RunScoringButtonProps {
 
 export function RunScoringButton({ requirementId, unscoredCount }: RunScoringButtonProps) {
   const [pending, setPending] = React.useState(false);
-  const router = useRouter();
 
   async function handleRun() {
     setPending(true);
@@ -26,7 +24,6 @@ export function RunScoringButton({ requirementId, unscoredCount }: RunScoringBut
       return;
     }
     toast.success("AI scoring started — refresh in a moment to see rankings.");
-    router.refresh();
   }
 
   if (unscoredCount === 0) return null;

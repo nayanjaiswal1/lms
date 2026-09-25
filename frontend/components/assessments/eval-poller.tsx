@@ -17,7 +17,10 @@ export function EvalPoller({ status, intervalMs = 15_000 }: EvalPollerProps) {
 
   React.useEffect(() => {
     if (status !== "evaluating" && status !== "submitted") return;
-    const id = setInterval(() => router.refresh(), intervalMs);
+    const id = setInterval(() => {
+      // Each tick re-renders the whole RSC tree; skip it while the tab is hidden.
+      if (document.visibilityState === "visible") router.refresh();
+    }, intervalMs);
     return () => clearInterval(id);
   }, [status, intervalMs, router]);
 

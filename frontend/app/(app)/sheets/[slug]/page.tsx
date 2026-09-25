@@ -46,11 +46,15 @@ export default async function SheetDetailPage({ params, searchParams }: SheetDet
     (filter?.split(",") ?? []).filter((f): f is StatusFilter => VALID_STATUS_FILTERS.includes(f as StatusFilter)),
   );
 
-  const userSheets = await getUserSheets();
+  // Parallel: items don't depend on the sheet list. A slug the user doesn't
+  // have makes getSheetItems fail — swallowed here so notFound() still wins.
+  const [userSheets, itemsResponse] = await Promise.all([
+    getUserSheets(),
+    getSheetItems(slug).catch(() => null),
+  ]);
   const activeSheet = userSheets.find((s) => s.slug === slug);
-  if (!activeSheet) notFound();
+  if (!activeSheet || !itemsResponse) notFound();
 
-  const itemsResponse = await getSheetItems(slug);
   const revisionSettings = await getSheetSettings(itemsResponse.sheet.id);
   const visibleItems =
     activeFilters.size === 0

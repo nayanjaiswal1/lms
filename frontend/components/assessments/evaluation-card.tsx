@@ -101,7 +101,7 @@ function QuestionPanel({ row, index }: { row: EvaluationRow; index: number }) {
         <FeedbackList icon={<AlertTriangle className="h-3 w-3 text-destructive" aria-hidden />} label="Missing concepts" items={row.missing_concepts} />
       )}
       {row.better_answer && (
-        <div className="ai-surface rounded-[--radius-md] p-4">
+        <div className="ai-surface rounded-md p-4">
           <p className="mb-1 text-xs font-semibold text-ai">Better answer</p>
           <p className="text-sm">{row.better_answer}</p>
         </div>

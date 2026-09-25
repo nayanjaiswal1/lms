@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { ArrowLeft, History, Plus, Search, UserPlus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { parseAsBoolean, parseAsStringEnum, useQueryState } from "nuqs";
 import { toast } from "sonner";
 
@@ -73,7 +72,6 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
   const [view, setView] = useQueryState("view", parseAsStringEnum<View>([...VIEWS]).withDefault("people"));
   const { query, setQuery, submitting, setSubmitting, roleByUser, setRole, selected, toggleSelected, setSelected } =
     useAddPeopleForm();
-  const router = useRouter();
 
   function openBulkImport() {
     void setOpen(false);
@@ -120,7 +118,6 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
     const total = memberIds.length + mentorIds.length;
     toast.success(`${total} ${total === 1 ? "person" : "people"} added.`);
     setSelected(new Set());
-    router.refresh();
   }
 
   async function inviteNew() {
@@ -157,7 +154,6 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
     }
     toast.success(`${parsedInvite.fullName} invited as student.`);
     setQuery("");
-    router.refresh();
   }
 
   return (

@@ -1,5 +1,6 @@
 import "server-only";
 import { apiGet } from "@/lib/server/api";
+import { getBootstrap } from "@/lib/server/bootstrap";
 import type { ActiveLabSession, GetSessionResponse, Lab } from "@/lib/labs";
 
 /**
@@ -10,12 +11,7 @@ import type { ActiveLabSession, GetSessionResponse, Lab } from "@/lib/labs";
  * backend hiccup here must not break the whole app shell.
  */
 export async function getActiveLabSession(): Promise<ActiveLabSession | null> {
-  try {
-    const sessions = await apiGet<ActiveLabSession[]>("/api/labs/sessions/active");
-    return sessions?.[0] ?? null;
-  } catch {
-    return null;
-  }
+  return (await getBootstrap()).active_lab_sessions?.[0] ?? null;
 }
 
 /**

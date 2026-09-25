@@ -1,5 +1,5 @@
 import "server-only";
-import { apiGet } from "@/lib/server/api";
+import { getBootstrap } from "@/lib/server/bootstrap";
 import { getCurrentOrgRole } from "@/lib/server/claims";
 
 export interface AuthUser {
@@ -18,11 +18,7 @@ export interface AuthMeResponse {
 }
 
 export async function getAuthMe(): Promise<AuthMeResponse | null> {
-  try {
-    return await apiGet<AuthMeResponse>("/api/auth/me");
-  } catch {
-    return null;
-  }
+  return (await getBootstrap()).me ?? null;
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

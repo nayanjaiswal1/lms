@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -200,10 +199,9 @@ type FormType = ReturnType<typeof useForm<FormData>>;
 
 // CategoryField lets an author group this question under a folder-style
 // category, with an inline "New category" affordance so grouping never
-// requires leaving the form. New categories appear via router.refresh(),
-// which re-fetches the server-rendered category list this form is passed.
+// requires leaving the form. New categories appear because createCategoryAction's revalidatePath
+// re-renders the server-rendered category list this form is passed.
 function CategoryField({ form, categories }: { form: FormType; categories: Category[] }) {
-  const router = useRouter();
   const [adding, setAdding] = React.useState(false);
   const [name, setName] = React.useState("");
 
@@ -223,7 +221,6 @@ function CategoryField({ form, categories }: { form: FormType; categories: Categ
     form.setValue("category_id", res.data.id);
     setName("");
     setAdding(false);
-    router.refresh();
   };
 
   return (

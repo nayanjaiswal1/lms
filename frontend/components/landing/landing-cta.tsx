@@ -1,7 +1,5 @@
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { LandingCtaButtons } from "@/components/landing/landing-cta-buttons";
 import { Reveal } from "@/components/landing/landing-motion";
 
 interface Cta {
@@ -24,19 +22,7 @@ export function LandingCta({ heading, description, primaryCta, secondaryCta }: L
           {heading}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{description}</p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <Button asChild size="lg">
-            <Link href={primaryCta.href}>
-              {primaryCta.label}
-              <ArrowRight aria-hidden className="h-4 w-4" />
-            </Link>
-          </Button>
-          {secondaryCta && (
-            <Button asChild size="lg" variant="outline">
-              <Link href={secondaryCta.href}>{secondaryCta.label}</Link>
-            </Button>
-          )}
-        </div>
+        <LandingCtaButtons className="mt-6 sm:justify-center" primaryCta={primaryCta} secondaryCta={secondaryCta} />
       </Reveal>
     </section>
   );

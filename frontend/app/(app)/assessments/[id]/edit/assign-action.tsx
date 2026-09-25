@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSelectedLayoutSegment } from "next/navigation";
+import { useSelectedLayoutSegment } from "next/navigation";
 import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { Users } from "lucide-react";
@@ -19,7 +19,6 @@ interface AssignActionProps {
 // state, since this button and the checkbox grid are separate components
 // with no other way to share selection without portaling into the header.
 export function AssignAction({ assessmentId }: AssignActionProps) {
-  const router = useRouter();
   const segment = useSelectedLayoutSegment();
   const [selected] = useQueryState("selected", selectedBatchesParam);
   const [busy, setBusy] = React.useState(false);
@@ -35,7 +34,6 @@ export function AssignAction({ assessmentId }: AssignActionProps) {
       return;
     }
     toast.success("Assigned to batches.");
-    router.refresh();
   };
 
   return (

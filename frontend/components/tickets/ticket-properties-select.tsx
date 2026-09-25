@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TICKET_CATEGORY_OPTIONS, TICKET_PRIORITY_OPTIONS } from "@/lib/constants";
@@ -18,7 +17,6 @@ interface TicketPropertiesSelectProps {
 // same pattern as TicketStatusSelect. Category and priority always update
 // together since the backend endpoint takes both at once.
 export function TicketPropertiesSelect({ ticketId, category, priority }: TicketPropertiesSelectProps) {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function update(nextCategory: string, nextPriority: string) {
@@ -33,7 +31,6 @@ export function TicketPropertiesSelect({ ticketId, category, priority }: TicketP
       toast.error(result.error);
       return;
     }
-    router.refresh();
   }
 
   return (

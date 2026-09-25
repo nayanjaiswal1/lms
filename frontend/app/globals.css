@@ -845,6 +845,85 @@
 }
 
 /* ─────────────────────────────────────────────
+   TABLE → CARDS below sm (<ResponsiveTable>).
+   Deliberately unlayered: it must beat the per-cell
+   Tailwind utilities (px-*, text-right, whitespace-nowrap,
+   hidden sm:table-cell, w-*) the tables already carry.
+   Cell labels come from data-label, set by the component.
+   ───────────────────────────────────────────── */
+
+@media (width < 40rem) {
+  .table-cards {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+  .table-cards table { display: block; min-width: 0; width: 100%; table-layout: auto; }
+  .table-cards thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .table-cards tbody { display: flex; flex-direction: column; gap: 1rem; }
+  .table-cards tbody > * + * { border-top-width: 0; } /* cancel divide-y; each card has its own border */
+  /* Each record must read as its own card at a glance: the hairline --border alone
+     disappears against the page background, so use the raised card shadow too. */
+  .table-cards tr {
+    display: block;
+    white-space: normal;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-lg);
+    background: hsl(var(--card));
+    box-shadow: var(--shadow-raised);
+    padding: 0 1rem 0.5rem;
+    overflow: hidden;
+  }
+  .table-cards td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: auto;
+    padding: 0.375rem 0;
+    border: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  /* First cell = card title (usually the name/title column): muted header strip,
+     no label, left-aligned, divider underneath. */
+  .table-cards tr > td:first-child {
+    justify-content: flex-start;
+    margin: 0 -1rem 0.375rem;
+    padding: 0.625rem 1rem;
+    background: hsl(var(--muted));
+    border-bottom: 1px solid hsl(var(--border));
+    text-align: left;
+    font-weight: 600;
+  }
+  .table-cards tr > td:first-child::before { content: none; }
+  /* Full-width rows (empty states, detail rows) aren't records — no title strip. */
+  .table-cards tr > td:first-child:only-child { background: transparent; border-bottom: 0; font-weight: inherit; }
+  .table-cards td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground));
+  }
+  .table-cards td[data-label=""]::before,
+  .table-cards td:not([data-label])::before { content: none; }
+  .table-cards td:not([data-label]),
+  .table-cards td[data-label=""] { justify-content: flex-end; }
+  .table-cards td:empty { display: none; }
+  .table-cards td:not([data-label])[colspan] { justify-content: center; text-align: center; }
+}
+
+/* ─────────────────────────────────────────────
    MOTION — honour OS accessibility setting.
    Kills all transitions and animations for users
    who have "Reduce motion" enabled system-wide.

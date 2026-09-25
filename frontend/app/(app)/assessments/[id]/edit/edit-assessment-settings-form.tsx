@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -45,7 +44,6 @@ function toScopeValue(parentType: string): AssessmentParentType {
 }
 
 export function EditAssessmentSettingsForm({ assessment }: EditAssessmentSettingsFormProps) {
-  const router = useRouter();
   const p = assessment.proctoring;
   // Same reasoning as the create form: scope isn't part of the shared config
   // schema, so it stays outside react-hook-form as one plain field.
@@ -104,7 +102,6 @@ export function EditAssessmentSettingsForm({ assessment }: EditAssessmentSetting
       return;
     }
     toast.success("Settings saved.");
-    router.refresh();
   };
 
   return (

@@ -38,7 +38,7 @@ MCP server list and hooks.json template: see the `dev-env-setup` skill. The post
 
 ---
 
-**MindForge** — multi-tenant learning platform. LeetCode + KodeKloud + Udemy + Notion, self-hosted, no vendor lock.
+**MindForge** — multi-tenant learning platform. LeetCode + KodeKloud + Udemy + Notion, delivered as SaaS.
 Stack: Go 1.26.4 + Chi v5 + pgx/v5 · Next.js 16.2.9 + React 19 + Tailwind v4 + shadcn/ui · PostgreSQL · Docker Compose.
 
 ---

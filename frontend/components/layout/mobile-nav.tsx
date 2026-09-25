@@ -110,6 +110,9 @@ export function MobileNav({ user }: Props) {
               className="bottom-nav-item"
               href={item.href}
               key={item.href}
+              // Eager load: only a handful of always-visible tabs, and touch gives no
+              // hover lead time — prefetch their full data up front.
+              prefetch
             >
               <span className="relative inline-flex">
                 <item.icon aria-hidden className="h-5 w-5" />

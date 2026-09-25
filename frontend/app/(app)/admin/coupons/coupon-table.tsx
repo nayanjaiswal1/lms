@@ -9,6 +9,7 @@ import type { Coupon } from "@/lib/server/coupons";
 import { useMoney } from "@/lib/currency-context";
 import { deactivateCouponAction } from "./actions";
 import { EditCouponDialog } from "./edit-coupon-dialog";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 // money is the deployment-currency formatter from useMoney() — a coupon's
 // fixed discount_value and max_discount_cents are minor units of the same
@@ -56,7 +57,7 @@ export function CouponTable({ coupons, courseTitleById, courseOptions }: CouponT
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -102,6 +103,6 @@ export function CouponTable({ coupons, courseTitleById, courseOptions }: CouponT
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

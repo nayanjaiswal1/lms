@@ -11,6 +11,7 @@ import type { ImportMemberRow, ImportRowStatus } from "@/lib/server/batches";
 import { ImportConfigPanel } from "@/app/(app)/batches/[id]/import/import-config-panel";
 import { EditRowDialog } from "@/app/(app)/batches/[id]/import/edit-row-dialog";
 import { toast } from "sonner";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const STATUS_LABEL: Record<ImportRowStatus, string> = {
   new: "New",
@@ -96,7 +97,7 @@ export function ReviewStep({ batchId, rows, setRows, courses, orgMembers, onConf
         )}
       </div>
 
-      <div className="table-responsive">
+      <ResponsiveTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -143,7 +144,7 @@ export function ReviewStep({ batchId, rows, setRows, courses, orgMembers, onConf
             ))}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
 
       {editingIndex !== null && (
         <EditRowDialog

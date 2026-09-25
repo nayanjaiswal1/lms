@@ -11,6 +11,7 @@ import { OriginalityMatchRow } from "@/components/projects/originality-match-row
 import { runOriginalityScanAction } from "@/app/(app)/projects/actions";
 import { ORIGINALITY_STATUS_LABEL, ORIGINALITY_STATUS_VARIANT } from "@/lib/constants";
 import type { OriginalityReportView } from "@/lib/projects/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -26,7 +27,10 @@ function ScanPoller({ status }: { status: string }) {
 
   React.useEffect(() => {
     if (status !== "pending" && status !== "running") return;
-    const id = setInterval(() => router.refresh(), POLL_INTERVAL_MS);
+    const id = setInterval(() => {
+      // Each tick re-renders the whole RSC tree; skip it while the tab is hidden.
+      if (document.visibilityState === "visible") router.refresh();
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [status, router]);
 
@@ -40,7 +44,6 @@ interface OriginalityReportProps {
 }
 
 export function OriginalityReport({ assignmentId, reports, teamsById }: OriginalityReportProps) {
-  const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const latest = reports[0];
 
@@ -53,7 +56,6 @@ export function OriginalityReport({ assignmentId, reports, teamsById }: Original
       return;
     }
     toast.success("Originality scan started — this runs in the background.");
-    router.refresh();
   }
 
   return (
@@ -102,7 +104,7 @@ export function OriginalityReport({ assignmentId, reports, teamsById }: Original
                 report.matches.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No matches at or above the similarity threshold.</p>
                 ) : (
-                  <div className="table-responsive">
+                  <ResponsiveTable>
                     <table className="w-full text-left">
                       <thead>
                         <tr className="whitespace-nowrap border-b border-border text-xs text-muted-foreground">
@@ -118,7 +120,7 @@ export function OriginalityReport({ assignmentId, reports, teamsById }: Original
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </ResponsiveTable>
                 )
               )}
             </article>

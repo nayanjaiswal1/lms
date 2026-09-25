@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RemoveMemberButton } from "@/app/(app)/batches/[id]/remove-member-button";
 import { RemoveMentorButton } from "@/components/batches/remove-mentor-button";
 import { UserLink } from "@/components/shared/user-link";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export interface Person {
   user_id: string;
@@ -57,7 +58,7 @@ export function PeopleList({ batchId, people, actions }: Props) {
       {filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground py-6 text-center">No {ROLE_FILTER_LABEL[role].toLowerCase()} in this batch.</p>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -96,7 +97,7 @@ export function PeopleList({ batchId, people, actions }: Props) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

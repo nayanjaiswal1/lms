@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Camera, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,7 +41,6 @@ interface BatchAvatarProps {
 }
 
 export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", editable = false }: BatchAvatarProps) {
-  const router = useRouter();
 
   const {
     preview,
@@ -62,7 +60,6 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
         return;
       }
       toast.success("Batch image updated.");
-      router.refresh();
     },
   });
 
@@ -73,7 +70,6 @@ export function BatchAvatar({ batchId, name, imageUrl = null, size = "sm", edita
       return;
     }
     toast.success("Batch image removed.");
-    router.refresh();
   }
 
   const { outer, text, icon } = SIZE_MAP[size];

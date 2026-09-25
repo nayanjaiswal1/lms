@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 import { BrandMark } from "@/components/shared/brand-mark";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import ROUTES from "@/lib/routes";
 
 interface AuthPageShellProps {
@@ -28,7 +27,7 @@ export function AuthPageShell({
       <AuthBrandPanel />
 
       <section className="flex min-h-dvh flex-col gap-10 px-6 py-8 sm:px-10 lg:min-h-0 lg:overflow-y-auto lg:px-16">
-        <header className="flex-between">
+        <header className="flex items-center">
           <Link
             href={ROUTES.HOME}
             aria-label="Home"
@@ -36,7 +35,6 @@ export function AuthPageShell({
           >
             <BrandMark />
           </Link>
-          <ThemeToggle />
         </header>
 
         <div className="m-auto flex w-full max-w-sm flex-col gap-8">

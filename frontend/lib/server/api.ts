@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 export interface ActionResult<T = undefined> {
   ok?: boolean;
@@ -54,7 +55,13 @@ export async function authHeaders(): Promise<Record<string, string>> {
 
 // ── Server component reads — throw on error, propagate to error.tsx ──────────
 
-export async function apiGet<T>(path: string): Promise<T> {
+// Deduped per request by path: generateMetadata + layout + page (and the
+// permission/org/auth helpers they share) routinely GET the same resource in
+// one render. cache() is request-scoped, so nothing leaks across users, and it
+// is a no-op inside server actions, so post-mutation reads stay fresh.
+export const apiGet = cache(fetchGet) as <T>(path: string) => Promise<T>;
+
+async function fetchGet<T>(path: string): Promise<T> {
   const res = await fetch(`${baseURL()}${path}`, {
     headers: await authHeaders(),
     cache: "no-store",

@@ -64,6 +64,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/gitlab/status", h.Status)
 	r.Post("/api/gitlab/disconnect", h.Disconnect)
 
+	// Planning & task board — any authenticated member (see handler_planning.go).
+	r.Get("/api/gitlab/planning/board", h.PlanningBoard)
+	r.Get("/api/gitlab/planning/issues", h.PlanningIssues)
+
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor))
 

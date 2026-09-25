@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -34,7 +33,6 @@ type FormData = z.infer<typeof Schema>;
 
 function NewTaskDialog({ teamId }: { teamId: string }) {
   const [open, setOpen] = React.useState(false);
-  const router = useRouter();
   const form = useForm<FormData>({ resolver: zodResolver(Schema), defaultValues: { title: "", description: "", due_at: "" } });
 
   const onSubmit = async (data: FormData) => {
@@ -50,7 +48,6 @@ function NewTaskDialog({ teamId }: { teamId: string }) {
     toast.success("Task added.");
     form.reset();
     setOpen(false);
-    router.refresh();
   };
 
   return (
@@ -111,7 +108,6 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task, teamId, currentUserId }: TaskCardProps) {
-  const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const isMine = task.assignee_user_id === currentUserId;
 
@@ -123,7 +119,6 @@ function TaskCard({ task, teamId, currentUserId }: TaskCardProps) {
       toast.error(result.error);
       return;
     }
-    router.refresh();
   }
 
   async function handleClaimToggle() {
@@ -134,7 +129,6 @@ function TaskCard({ task, teamId, currentUserId }: TaskCardProps) {
       toast.error(result.error);
       return;
     }
-    router.refresh();
   }
 
   async function handleDelete() {
@@ -145,7 +139,6 @@ function TaskCard({ task, teamId, currentUserId }: TaskCardProps) {
       toast.error(result.error);
       return;
     }
-    router.refresh();
   }
 
   return (

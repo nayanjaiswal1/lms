@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { pauseOrgJobsAction } from "@/app/platform/jobs/actions";
 import ROUTES from "@/lib/routes";
 import type { OrgJobStats } from "@/lib/jobs/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Props {
   orgs: OrgJobStats[];
@@ -19,7 +20,7 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -107,6 +108,6 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

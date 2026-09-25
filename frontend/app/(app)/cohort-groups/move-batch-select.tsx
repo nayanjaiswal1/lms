@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,7 +18,6 @@ interface MoveBatchSelectProps {
 }
 
 export function MoveBatchSelect({ batchId, batchName, currentGroupId, options, className }: MoveBatchSelectProps) {
-  const router = useRouter();
 
   async function handleChange(value: string) {
     const groupId = value === UNGROUPED ? null : value;
@@ -29,7 +27,6 @@ export function MoveBatchSelect({ batchId, batchName, currentGroupId, options, c
       return;
     }
     toast.success(`${batchName} moved.`);
-    router.refresh();
   }
 
   return (

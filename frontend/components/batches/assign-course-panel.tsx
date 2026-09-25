@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Plus, X, Search, BookOpen } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,7 +25,6 @@ interface AssignCourseFormProps {
 function AssignCourseForm({ batchId, courses, assignedCourseIds, onClose }: AssignCourseFormProps) {
   const [query, setQuery] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
-  const router = useRouter();
 
   const assignedSet = new Set(assignedCourseIds);
   const eligible = courses.filter((c) => !assignedSet.has(c.id));
@@ -44,7 +42,6 @@ function AssignCourseForm({ batchId, courses, assignedCourseIds, onClose }: Assi
     }
     toast.success(`${title} assigned to batch.`);
     onClose();
-    router.refresh();
   }
 
   return (

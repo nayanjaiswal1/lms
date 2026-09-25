@@ -1,6 +1,10 @@
 services:
   - type: web
     name: mindforge-backend
+    # Same region as the Neon DB (ap-southeast-1) and Vercel functions (sin1):
+    # every request makes several sequential DB/Redis round trips, so a
+    # cross-Pacific hop per query (Render's default is Oregon) costs seconds.
+    region: singapore
     env: docker
     plan: free
     dockerfilePath: ./backend/Dockerfile

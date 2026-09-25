@@ -119,10 +119,10 @@ export function TranscriptInput({ prompt, value, onChange, onSave }: TranscriptI
       </div>
 
       {/* Answer panel — textarea + footer live in one bordered surface */}
-      <div className="flex flex-col rounded-[--radius-lg] border border-border bg-muted/40">
+      <div className="flex flex-col rounded-lg border border-border bg-muted/40">
         <textarea
           aria-label="Your answer"
-          className="min-h-[280px] w-full resize-y rounded-t-[--radius-lg] bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none"
+          className="min-h-[280px] w-full resize-y rounded-t-lg bg-transparent px-4 py-3 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none"
           placeholder="Write your answer here…"
           value={value}
           onChange={(e) => handleChange(e.target.value)}

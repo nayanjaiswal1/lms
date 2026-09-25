@@ -6,6 +6,8 @@ import { useBranding } from "@/lib/branding-context";
 interface BrandMarkProps {
   className?: string;
   showName?: boolean;
+  /** Extra classes for the name text, e.g. `sr-only sm:not-sr-only` to show only the glyph on phones. */
+  nameClassName?: string;
   /** Override the flame glyph's own size — defaults to h-8 w-8. */
   iconClassName?: string;
 }
@@ -26,7 +28,7 @@ function FlameGlyph({ className }: { className?: string }) {
 // mark. Reused across auth pages (and anywhere the brand needs to appear) so
 // the lockup is defined once. Renders the MindForge flame + "MindForge" by
 // default, or an org's own logo/name when that org has set one (white-label).
-export function BrandMark({ className, showName = true, iconClassName }: BrandMarkProps) {
+export function BrandMark({ className, showName = true, iconClassName, nameClassName }: BrandMarkProps) {
   const { name, logoUrl } = useBranding();
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
@@ -41,7 +43,7 @@ export function BrandMark({ className, showName = true, iconClassName }: BrandMa
         <FlameGlyph className={cn("h-8 w-8 shrink-0 text-brand", iconClassName)} />
       )}
       {showName && (
-        <span className="text-lg font-bold tracking-tight text-brand">
+        <span className={cn("text-lg font-bold tracking-tight text-brand", nameClassName)}>
           {name}
         </span>
       )}

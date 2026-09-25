@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ interface UnassignCourseButtonProps {
 
 export function UnassignCourseButton({ batchId, courseId, courseTitle }: UnassignCourseButtonProps) {
   const [pending, setPending] = React.useState(false);
-  const router = useRouter();
 
   async function handleUnassign() {
     setPending(true);
@@ -27,7 +25,6 @@ export function UnassignCourseButton({ batchId, courseId, courseTitle }: Unassig
       return;
     }
     toast.success(`${courseTitle} unassigned from batch.`);
-    router.refresh();
   }
 
   return (

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { UserLink } from "@/components/shared/user-link";
 import type { MemberProgress, MemberStatus } from "@/lib/server/batches";
 import type { Terminology } from "@/lib/terminology";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface BatchProgressTableProps {
   progress: MemberProgress[];
@@ -83,7 +84,7 @@ export function BatchProgressTable({ progress, t }: BatchProgressTableProps) {
       {filtered.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">No {t.studentPlural.toLowerCase()} match the current filters.</p>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -126,7 +127,7 @@ export function BatchProgressTable({ progress, t }: BatchProgressTableProps) {
               })}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

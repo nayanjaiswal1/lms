@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSelectedLayoutSegment } from "next/navigation";
+import { useSelectedLayoutSegment } from "next/navigation";
 import { toast } from "sonner";
 import { Rocket } from "lucide-react";
 
@@ -17,7 +17,6 @@ interface PublishActionProps {
 // Rendered directly by layout.tsx (not portaled) so it stays in the
 // server-rendered header on first paint — no client-only mount guard needed.
 export function PublishAction({ assessmentId, isDraft, attachedCount }: PublishActionProps) {
-  const router = useRouter();
   const segment = useSelectedLayoutSegment();
   const [busy, setBusy] = React.useState(false);
 
@@ -32,7 +31,6 @@ export function PublishAction({ assessmentId, isDraft, attachedCount }: PublishA
       return;
     }
     toast.success("Assessment published.");
-    router.refresh();
   };
 
   return (

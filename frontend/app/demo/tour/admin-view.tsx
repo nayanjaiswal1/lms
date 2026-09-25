@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DEMO_ORG, DEMO_TEAM, DEMO_COMPLIANCE, type MemberStatus } from "@/app/demo/tour/mock-data";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 function statusLabel(status: MemberStatus): string {
   switch (status) {
@@ -85,7 +86,7 @@ export function AdminView() {
       {/* Section 4 — Team roster */}
       <section aria-label="Team roster" className="mb-6">
         <p className="mb-3 text-sm font-medium text-muted-foreground">Team members</p>
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table>
             <thead>
               <tr className="whitespace-nowrap">
@@ -135,7 +136,7 @@ export function AdminView() {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       </section>
 
       <p className="mt-8 text-center text-xs text-muted-foreground">

@@ -1,8 +1,7 @@
 import "server-only";
 
 import { apiGet } from "@/lib/server/api";
-import { getOrgId } from "@/lib/server/batches";
-import { getCurrentOrgId } from "@/lib/server/claims";
+import { getBootstrap } from "@/lib/server/bootstrap";
 import type {
   Org,
   OrgSummary,
@@ -25,10 +24,7 @@ export async function getOrgById(orgId: string): Promise<Org> {
 
 /** The current session's org_type, or null if unset/unauthenticated — feeds TerminologyProvider. */
 export async function getCurrentOrgType(): Promise<string | null> {
-  const orgId = await getOrgId();
-  if (!orgId) return null;
-  const org = await getOrgById(orgId).catch(() => null);
-  return org?.org_type ?? null;
+  return (await getBootstrap()).org?.org_type ?? null;
 }
 
 export interface OrgBranding {
@@ -38,9 +34,7 @@ export interface OrgBranding {
 
 /** The current org's white-label name/logo override, or nulls if unset/unauthenticated — feeds BrandingProvider. */
 export async function getCurrentOrgBranding(): Promise<OrgBranding> {
-  const orgId = await getCurrentOrgId();
-  if (!orgId) return { name: null, logo_url: null };
-  const org = await getOrgById(orgId).catch(() => null);
+  const org = (await getBootstrap()).org;
   return { name: org?.name ?? null, logo_url: org?.logo_url ?? null };
 }
 

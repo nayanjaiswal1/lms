@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { parseAsStringEnum, useQueryState } from "nuqs";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +24,6 @@ const FILTER_VALUES = ["all", "submitted", "shortlisted", "selected", "rejected"
 type Filter = (typeof FILTER_VALUES)[number];
 
 export function ApplicationReviewList({ applications, requirementId }: ApplicationReviewListProps) {
-  const router = useRouter();
   const [filter, setFilter] = useQueryState("status", parseAsStringEnum<Filter>([...FILTER_VALUES]).withDefault("all"));
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = React.useState<ProjectApplication | null>(null);
@@ -40,7 +38,6 @@ export function ApplicationReviewList({ applications, requirementId }: Applicati
       return;
     }
     toast.success(`Application marked ${status}.`);
-    router.refresh();
   }
 
   const counts = React.useMemo(() => {

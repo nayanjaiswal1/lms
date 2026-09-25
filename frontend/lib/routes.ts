@@ -28,6 +28,8 @@ const ROUTES = {
   NOW:                 "/now",
   PLAN:                "/plan",
   BOARD:               "/board",
+  GITLAB_PLANNING:     "/gitlab/planning",
+  GITLAB_ISSUES:       "/gitlab/issues",
   HABITS:              "/habits",
   CALENDAR:            "/calendar",
   LEADERBOARD:         "/leaderboard",

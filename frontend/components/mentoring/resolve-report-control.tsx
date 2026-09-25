@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { resolveReportAction } from "@/lib/mentoring/actions";
@@ -12,7 +11,6 @@ interface ResolveReportControlProps {
 
 export function ResolveReportControl({ reportId }: ResolveReportControlProps) {
   const [pending, setPending] = useState<"resolved" | "dismissed" | null>(null);
-  const router = useRouter();
 
   async function handle(status: "resolved" | "dismissed") {
     setPending(status);
@@ -23,7 +21,6 @@ export function ResolveReportControl({ reportId }: ResolveReportControlProps) {
       return;
     }
     toast.success(status === "resolved" ? "Report resolved." : "Report dismissed.");
-    router.refresh();
   }
 
   return (

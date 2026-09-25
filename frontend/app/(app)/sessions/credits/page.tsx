@@ -5,6 +5,7 @@ import { FEATURES } from "@/lib/features";
 import { getBookingConfig, getCredits, listPacks, type LedgerReason } from "@/lib/server/sessions";
 import { CreditPackCard } from "@/components/sessions/credit-pack-card";
 import { cn } from "@/lib/utils";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata: Metadata = {
   title: "Session Credits",
@@ -78,7 +79,7 @@ export default async function SessionCreditsPage() {
             <p className="text-sm">No credit activity yet.</p>
           </div>
         ) : (
-          <div className="table-responsive">
+          <ResponsiveTable>
             <table className="w-full text-sm">
               <thead>
                 <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -109,7 +110,7 @@ export default async function SessionCreditsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ResponsiveTable>
         )}
       </section>
     </main>

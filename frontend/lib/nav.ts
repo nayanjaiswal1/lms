@@ -30,7 +30,6 @@ import {
   Inbox,
   PenLine,
   Binary,
-  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 import ROUTES from "@/lib/routes";
@@ -214,11 +213,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     icon:                PenLine,
     requiredPermission:  PERMISSIONS.CONTENT.DIARY,
     mode:                "badge",
-  },
-  board: {
-    label: "Board",
-    href:  ROUTES.BOARD,
-    icon:  LayoutGrid,
   },
   wiki: {
     label:               "Wiki",
@@ -467,7 +461,6 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     // the rest.
     items: [
       ALL_NAV_ITEMS.dashboard,
-      ALL_NAV_ITEMS.board,
       ALL_NAV_ITEMS.learn_hub,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.support,

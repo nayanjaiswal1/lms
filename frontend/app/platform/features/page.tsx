@@ -5,6 +5,7 @@ import { apiGet } from "@/lib/server/api";
 import { OrgSearchInput } from "@/app/platform/features/org-search-input";
 import ROUTES from "@/lib/routes";
 import type { AdminOrgSummary } from "@/lib/orgs/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata: Metadata = {
   title: "Features — Platform Console",
@@ -48,7 +49,7 @@ export default async function PlatformFeaturesPage({
             <p className="text-muted-foreground">No organisations found.</p>
           </div>
         ) : (
-          <div className="table-responsive">
+          <ResponsiveTable>
             <table className="w-full text-sm">
               <thead>
                 <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -73,7 +74,7 @@ export default async function PlatformFeaturesPage({
                 ))}
               </tbody>
             </table>
-          </div>
+          </ResponsiveTable>
         )}
       </section>
     </div>

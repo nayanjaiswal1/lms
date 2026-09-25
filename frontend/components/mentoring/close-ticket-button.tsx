@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { closeTicketAction } from "@/lib/mentoring/actions";
@@ -12,7 +11,6 @@ interface CloseTicketButtonProps {
 
 export function CloseTicketButton({ ticketId }: CloseTicketButtonProps) {
   const [pending, setPending] = useState(false);
-  const router = useRouter();
 
   async function handleClose() {
     setPending(true);
@@ -23,7 +21,6 @@ export function CloseTicketButton({ ticketId }: CloseTicketButtonProps) {
       return;
     }
     toast.success("Ticket closed.");
-    router.refresh();
   }
 
   return (

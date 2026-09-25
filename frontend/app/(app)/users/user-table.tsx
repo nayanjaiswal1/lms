@@ -13,6 +13,7 @@ import { RoleBadges } from "@/app/(app)/users/role-badges";
 import { RoleLegend } from "@/app/(app)/users/role-legend";
 import { UserBulkActions } from "@/app/(app)/users/user-bulk-actions";
 import { STATUS_FILTERS } from "@/app/(app)/users/user-filters";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export interface UserSummary {
   id: string;
@@ -100,7 +101,7 @@ export function UserTable({ users, orgId }: Props) {
           <p className="text-muted-foreground">No users match these filters.</p>
         </div>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground whitespace-nowrap">
@@ -229,7 +230,7 @@ export function UserTable({ users, orgId }: Props) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

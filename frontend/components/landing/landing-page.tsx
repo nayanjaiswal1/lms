@@ -91,7 +91,7 @@ export function LandingPage({ total, tiers }: LandingPageProps) {
       <LandingMotionConfig>
         <main>
           <LandingHero
-            badge="Self-hosted · No vendor lock-in"
+            badge="Free to start · Learn at your pace"
             description="Enroll in a course, open a real terminal for the labs, drill weak spots with spaced-repetition flashcards, and book a mentor when you're stuck — one account instead of five subscriptions."
             footline={`${total > 0 ? `${total} published courses` : "New courses shipping weekly"} · Free plan, no time limit`}
             heading={

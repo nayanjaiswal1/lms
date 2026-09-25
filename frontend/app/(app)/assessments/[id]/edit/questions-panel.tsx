@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useQueryState, parseAsStringLiteral } from "nuqs";
 import { toast } from "sonner";
 import {
@@ -75,7 +74,6 @@ function getPrompt(content: unknown, title: string): string | null {
 // client-side. Every control here just updates the URL; the server round
 // trip does the actual work.
 export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPanelProps) {
-  const router = useRouter();
   const [isPending, startTransition] = React.useTransition();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [dragOver, setDragOver] = React.useState<"attached" | "bank" | null>(null);
@@ -118,7 +116,6 @@ export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPa
       return;
     }
     toast.success("Question added.");
-    router.refresh();
   };
 
   const removeQuestion = async (assessmentQuestionId: string, questionId: string) => {
@@ -130,7 +127,6 @@ export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPa
       return;
     }
     toast.success("Question removed.");
-    router.refresh();
   };
 
   const onDropToAttached = (e: React.DragEvent) => {
@@ -230,7 +226,7 @@ export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPa
           </div>
 
           <div
-            className={`flex min-h-24 max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-[--radius-lg] p-1 transition-colors ${dragOver === "attached" ? "ring-2 ring-primary/50" : ""}`}
+            className={`flex min-h-24 max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-lg p-1 transition-colors ${dragOver === "attached" ? "ring-2 ring-primary/50" : ""}`}
             onDragLeave={() => setDragOver(null)}
             onDragOver={(e) => {
               if (!isDraft) return;
@@ -318,7 +314,7 @@ export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPa
           ) : (
             <>
               <div
-                className={`flex min-h-24 max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-[--radius-lg] p-1 transition-colors ${dragOver === "bank" ? "ring-2 ring-primary/50" : ""}`}
+                className={`flex min-h-24 max-h-[36rem] flex-col gap-2 overflow-y-auto rounded-lg p-1 transition-colors ${dragOver === "bank" ? "ring-2 ring-primary/50" : ""}`}
                 onDragLeave={() => setDragOver(null)}
                 onDragOver={(e) => {
                   e.preventDefault();

@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CONTENT_REPORT_STATUS_OPTIONS } from "@/lib/constants";
 import { resolveContentReportAction } from "@/app/(app)/admin/content-reports/actions";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export interface ContentReport {
   id: string;
@@ -69,7 +70,7 @@ export function ContentReportsTable({ reports }: ContentReportsTableProps) {
 
   return (
     <>
-      <div className="table-responsive">
+      <ResponsiveTable>
         <table className="w-full text-sm">
           <thead>
             <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -110,7 +111,7 @@ export function ContentReportsTable({ reports }: ContentReportsTableProps) {
             )}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
 
       <Dialog open={active !== null} onOpenChange={(open) => !open && setActive(null)}>
         <DialogContent className="modal-responsive">

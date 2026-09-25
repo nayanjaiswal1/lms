@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,7 +23,6 @@ interface CreateBatchFormProps {
 }
 
 export function CreateBatchForm({ onCreated }: CreateBatchFormProps) {
-  const router = useRouter();
   const t = useTerminology();
   const form = useForm<FormData>({
     resolver: zodResolver(Schema),
@@ -40,7 +38,6 @@ export function CreateBatchForm({ onCreated }: CreateBatchFormProps) {
     toast.success(`${t.class_} created.`);
     form.reset();
     onCreated();
-    router.refresh();
   };
 
   return (

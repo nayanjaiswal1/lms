@@ -1,0 +1,294 @@
+{
+  "open_count_label": "128 open issues",
+  "sync_label": "Synced with GitLab",
+  "tabs": [
+    { "key": "open", "label": "Open", "count": 42 },
+    { "key": "in_progress", "label": "In Progress", "count": 14 },
+    { "key": "done", "label": "Merged / Done", "count": 72 },
+    { "key": "all", "label": "All", "count": 128 }
+  ],
+  "filters": [
+    { "key": "Assignee", "value": "@nayan", "tone": "primary" },
+    { "key": "Milestone", "value": "%v2.4 Release", "tone": "neutral" },
+    { "key": "Label", "value": "~bug", "tone": "error" }
+  ],
+  "sort_options": [
+    "Updated date (newest first)",
+    "Created date (newest first)",
+    "Weight / Priority (highest)",
+    "Due date (soonest)",
+    "Milestone due date"
+  ],
+  "quick_filters": [
+    { "label": "Author" },
+    { "label": "Assignee" },
+    { "label": "Milestone" },
+    { "label": "Quadrant / Priority", "dot": "error" },
+    { "label": "Label" },
+    { "label": "Weight / Est" }
+  ],
+  "issues": [
+    {
+      "id": 104,
+      "title": "Fix login issue: JWT token expired signature validation",
+      "status": "Open",
+      "status_icon": "critical",
+      "status_title": "Critical Issue / Open",
+      "quadrant": "do_now",
+      "labels": [
+        { "text": "~bug", "tone": "error" },
+        { "text": "~backend", "tone": "primary" },
+        { "text": "~security", "tone": "secondary" }
+      ],
+      "opened": "opened 2 hours ago",
+      "opened_short": "opened 2h ago",
+      "author": "@nayan",
+      "meta": [
+        { "text": "updated 10 mins ago" },
+        { "text": "Sprint 14", "icon": "flag", "tone": "primary" }
+      ],
+      "steps_done": 1,
+      "steps_total": 3,
+      "progress_tone": "primary",
+      "estimate": "30m",
+      "estimate_title": "Estimated 30 minutes",
+      "comments": 5,
+      "files": 3,
+      "assignee": { "name": "Nayan", "handle": "@nayan", "initial": "N", "tone": "primary" },
+      "milestone": "%v2.4 Release",
+      "due": "Sep 24, 2026",
+      "selected": true,
+      "detail": {
+        "markdown": "### Problem Background & Summary\nUsers report being unable to authenticate or retain session when access tokens expire. Signature verification fails repeatedly on the `/auth/refresh` endpoint during rotation grace period, resulting in a sudden `401 Unauthorized - Invalid Token Signature` redirect.\n\n### Steps to Reproduce\n1. Log in via standard OAuth2 password credentials grant.\n2. Fast-forward the local JWT expiry window past 15 minutes:\n\n```bash\nexport JWT_ACCESS_TTL=1m\nmake run-auth\n```\n\n3. Trigger any authenticated request from the dashboard.\n4. Observe the refresh call returning `401` instead of a rotated token.\n\n### Expected Behaviour\nThe refresh endpoint should accept tokens signed with the previous key for the length of the rotation grace window and issue a fresh access token signed with the active key.\n\n### Actual Behaviour\nThe validator only loads the active signing key, so every token signed before rotation is rejected as `invalid signature` and the user is logged out mid-session.\n\n### Root Cause\n- Key rotation job replaced `JWT_SECRET` without keeping the previous key in the keyring.\n- `ValidateToken` never consults the `kid` header, so it cannot pick the matching key.\n\n### Proposed Fix\n- [x] Analyze application logs and verify expired JWT secret\n- [ ] Keep the previous key in the keyring for the grace window\n- [ ] Select verification key by `kid`\n- [ ] Return a clear user-facing error when refresh truly fails\n\n### Acceptance Criteria\n| Scenario | Expected |\n| --- | --- |\n| Token signed by active key | 200, new token |\n| Token signed by previous key within grace | 200, new token |\n| Token signed by unknown key | 401 with clear message |\n\n### Notes\nSentry issue `AUTH-2291` shows 1,284 events in the last 24h, all from the refresh path.",
+        "steps": [
+          { "id": "i104-1", "label": "Analyze application logs and verify expired JWT secret", "checked": true, "note": "Verified in Sentry", "note_icon": "done" },
+          { "id": "i104-2", "label": "Update JWT validation logic and middleware error handler", "checked": false, "note": "In progress by @nayan", "note_icon": "progress" },
+          { "id": "i104-3", "label": "Verify error messages displayed cleanly on client login modal", "checked": false, "note": "Blocked by middleware update", "note_icon": "pending" }
+        ],
+        "branch": "104-fix-jwt-token-expired",
+        "merge_request": "!48 Fix token validation",
+        "discussion": [
+          { "id": "d1", "author": "Sarah T.", "initial": "S", "tone": "secondary", "time": "18 mins ago", "body": "Checked the auth service logs; secret key rotation caused the mismatch. PR is ready for review." },
+          { "id": "d2", "author": "Nayan", "initial": "N", "tone": "primary", "time": "42 mins ago", "body": "Adding the previous key to the keyring should cover the grace window. Will pair with kid-based lookup." },
+          { "id": "d3", "author": "Alex M.", "initial": "A", "tone": "neutral", "time": "1 hour ago", "body": "Reproduced locally with JWT_ACCESS_TTL=1m — refresh fails on the first rotation." },
+          { "id": "d4", "author": "Elena R.", "initial": "E", "tone": "tertiary", "time": "2 hours ago", "body": "Support is seeing a spike of logout complaints from the EU region." },
+          { "id": "d5", "author": "Nayan", "initial": "N", "tone": "primary", "time": "2 hours ago", "body": "Opened this issue from the Sentry alert AUTH-2291." }
+        ],
+        "activity": [
+          { "id": "a1", "time": "10 mins ago", "text": "@nayan checked \"Analyze application logs and verify expired JWT secret\"" },
+          { "id": "a2", "time": "45 mins ago", "text": "@sarah linked merge request !48" },
+          { "id": "a3", "time": "1 hour ago", "text": "@nayan moved this issue to Do it Now" },
+          { "id": "a4", "time": "2 hours ago", "text": "@nayan opened this issue" }
+        ]
+      }
+    },
+    {
+      "id": 103,
+      "title": "Enhance dashboard UI responsive layout and matrix widgets",
+      "status": "In Progress",
+      "status_icon": "in_progress",
+      "status_title": "In Progress",
+      "quadrant": "plan",
+      "labels": [
+        { "text": "~frontend", "tone": "primary" },
+        { "text": "~design", "tone": "secondary-soft" }
+      ],
+      "opened": "opened yesterday",
+      "opened_short": "opened 1d ago",
+      "author": "@sarah",
+      "meta": [{ "text": "Sprint 14", "icon": "flag", "tone": "primary" }],
+      "steps_done": 3,
+      "steps_total": 4,
+      "progress_tone": "secondary",
+      "estimate": "2h",
+      "estimate_title": "Estimated 2 hours",
+      "comments": 12,
+      "files": 8,
+      "assignee": { "name": "Sarah T.", "handle": "@sarah", "initial": "S", "tone": "secondary" },
+      "milestone": "Sprint 14",
+      "due": "Sep 27, 2026",
+      "selected": true,
+      "detail": {
+        "markdown": "### Summary\nThe Eisenhower matrix and detail panel need to collapse cleanly on tablet and phone widths.\n\n### Tasks\n- [x] Stack quadrants in a 2x2 touch grid below 640px\n- [x] Add Matrix / Active Task segmented toggle\n- [x] Bottom navigation for mobile\n- [ ] Verify drawer is full-screen on phones",
+        "steps": [
+          { "id": "i103-1", "label": "Stack quadrants in a 2x2 touch grid", "checked": true, "note": "Merged", "note_icon": "done" },
+          { "id": "i103-2", "label": "Add Matrix / Active Task segmented toggle", "checked": true, "note": "Merged", "note_icon": "done" },
+          { "id": "i103-3", "label": "Bottom navigation for mobile", "checked": true, "note": "Merged", "note_icon": "done" },
+          { "id": "i103-4", "label": "Verify drawer is full-screen on phones", "checked": false, "note": "In review by @sarah", "note_icon": "progress" }
+        ],
+        "branch": "103-responsive-dashboard",
+        "merge_request": "!46 Responsive matrix widgets",
+        "discussion": [
+          { "id": "d1", "author": "Sarah T.", "initial": "S", "tone": "secondary", "time": "3 hours ago", "body": "Only the drawer sizing is left; everything else is merged." }
+        ],
+        "activity": [
+          { "id": "a1", "time": "3 hours ago", "text": "@sarah merged !46" },
+          { "id": "a2", "time": "yesterday", "text": "@sarah opened this issue" }
+        ]
+      }
+    },
+    {
+      "id": 102,
+      "title": "Refactor auth module to use OAuth2 and refresh tokens",
+      "status": "Open",
+      "status_icon": "open",
+      "status_title": "Open issue",
+      "quadrant": "plan",
+      "labels": [
+        { "text": "~backend", "tone": "primary" },
+        { "text": "~tech-debt", "tone": "muted" }
+      ],
+      "opened": "opened 3 days ago",
+      "opened_short": "opened 3d ago",
+      "author": "@alex",
+      "meta": [{ "text": "milestone: Q3 Goals" }],
+      "steps_done": 0,
+      "steps_total": 2,
+      "progress_tone": "outline",
+      "estimate": "4h",
+      "estimate_title": "Estimated 4 hours",
+      "comments": 2,
+      "files": 0,
+      "assignee": { "name": "Alex M.", "handle": "@alex", "initial": "A", "tone": "primary-soft" },
+      "milestone": "Q3 Goals",
+      "due": "Oct 15, 2026",
+      "selected": false,
+      "detail": null
+    },
+    {
+      "id": 101,
+      "title": "Deploy new production build v2.4.1 patch",
+      "status": "Open",
+      "status_icon": "urgent",
+      "status_title": "Urgent Deploy",
+      "quadrant": "do_now",
+      "labels": [
+        { "text": "~release", "tone": "tertiary" },
+        { "text": "~ops", "tone": "primary" }
+      ],
+      "opened": "opened 4 hours ago",
+      "opened_short": "opened 4h ago",
+      "author": "@devops-bot",
+      "meta": [{ "text": "CI/CD Passed", "icon": "check", "tone": "tertiary" }],
+      "steps_done": 2,
+      "steps_total": 3,
+      "progress_tone": "secondary",
+      "estimate": "15m",
+      "estimate_title": "Estimated 15 minutes",
+      "comments": 3,
+      "files": 1,
+      "assignee": { "name": "Nayan", "handle": "@nayan", "initial": "N", "tone": "primary" },
+      "milestone": "%v2.4 Release",
+      "due": "Sep 25, 2026",
+      "selected": false,
+      "detail": null
+    },
+    {
+      "id": 99,
+      "title": "Handle Zendesk urgent customer escalation tickets",
+      "status": "Open",
+      "status_icon": "ready",
+      "status_title": "All steps ready",
+      "quadrant": "do_now",
+      "labels": [
+        { "text": "~support", "tone": "neutral" },
+        { "text": "~high-priority", "tone": "error" }
+      ],
+      "opened": "opened today",
+      "opened_short": "opened today",
+      "author": "@support-lead",
+      "meta": [{ "text": "updated 45m ago" }],
+      "steps_done": 2,
+      "steps_total": 2,
+      "progress_tone": "tertiary",
+      "estimate": "1h",
+      "estimate_title": "Estimated 1 hour",
+      "comments": 7,
+      "files": 0,
+      "assignee": { "name": "Elena R.", "handle": "@elena", "initial": "E", "tone": "tertiary" },
+      "milestone": "Support Q3",
+      "due": "Sep 25, 2026",
+      "selected": false,
+      "detail": null
+    },
+    {
+      "id": 98,
+      "title": "Explore new AI vector embedding models for auto-categorization",
+      "status": "Open",
+      "status_icon": "parked",
+      "status_title": "Parked Issue",
+      "quadrant": "park",
+      "labels": [
+        { "text": "~research", "tone": "secondary" },
+        { "text": "~ai", "tone": "primary" }
+      ],
+      "opened": "opened last week",
+      "opened_short": "opened 1w ago",
+      "author": "@nayan",
+      "meta": [{ "text": "Backlog target: Q4" }],
+      "steps_done": 1,
+      "steps_total": 5,
+      "progress_tone": "secondary",
+      "estimate": "3h",
+      "estimate_title": "Estimated 3 hours",
+      "comments": 9,
+      "files": 0,
+      "assignee": null,
+      "milestone": "Q4 Backlog",
+      "due": "—",
+      "selected": false,
+      "detail": null
+    },
+    {
+      "id": 95,
+      "title": "Clean old build artifacts and stale Docker images",
+      "status": "Open",
+      "status_icon": "scheduled",
+      "status_title": "Parked Issue",
+      "quadrant": "park",
+      "labels": [{ "text": "~chore", "tone": "muted" }],
+      "opened": "opened 2 weeks ago",
+      "opened_short": "opened 2w ago",
+      "author": "@infra",
+      "meta": [],
+      "steps_done": 0,
+      "steps_total": 1,
+      "progress_tone": "outline",
+      "estimate": "45m",
+      "estimate_title": "Estimated 45 minutes",
+      "comments": 1,
+      "files": 0,
+      "assignee": { "name": "Alex M.", "handle": "@alex", "initial": "A", "tone": "primary-soft" },
+      "milestone": "Q4 Backlog",
+      "due": "—",
+      "selected": false,
+      "detail": null
+    },
+    {
+      "id": 91,
+      "title": "Batch unsubscribe random marketing notification webhooks",
+      "status": "Open",
+      "status_icon": "eliminate",
+      "status_title": "Candidate for elimination",
+      "quadrant": "eliminate",
+      "labels": [{ "text": "~low-priority", "tone": "outline" }],
+      "opened": "opened 3 weeks ago",
+      "opened_short": "opened 3w ago",
+      "author": null,
+      "meta": [{ "text": "Candidate for auto-archival" }],
+      "steps_done": 0,
+      "steps_total": 0,
+      "progress_tone": "outline",
+      "estimate": "10m",
+      "estimate_title": "Estimated 10 minutes",
+      "comments": 0,
+      "files": 0,
+      "assignee": { "name": "Nayan", "handle": "@nayan", "initial": "N", "tone": "primary" },
+      "milestone": "—",
+      "due": "—",
+      "selected": false,
+      "detail": null
+    }
+  ],
+  "pagination": { "from": 1, "to": 8, "total": 42, "pages": ["1", "2", "3", "…", "6"], "current": "1" }
+}

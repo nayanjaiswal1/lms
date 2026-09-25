@@ -6,6 +6,7 @@ import { UserLink } from "@/components/shared/user-link";
 import { getMyPermissions } from "@/lib/server/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -73,7 +74,7 @@ export default async function CourseAnalyticsPage({ params }: Props) {
           <p className="text-sm text-muted-foreground">No students have enrolled yet.</p>
         </div>
       ) : (
-        <div className="table-responsive">
+        <ResponsiveTable>
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -111,7 +112,7 @@ export default async function CourseAnalyticsPage({ params }: Props) {
               })}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </main>
   );

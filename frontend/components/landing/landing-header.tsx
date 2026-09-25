@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/shared/brand-mark";
-import { cn } from "@/lib/utils";
+import { LandingAudienceTabs } from "@/components/landing/landing-audience-tabs";
 import ROUTES from "@/lib/routes";
 
 interface NavLink {
@@ -15,35 +15,17 @@ interface LandingHeaderProps {
   navLinks: readonly NavLink[];
 }
 
-const AUDIENCE_TABS = [
-  { id: "individual", label: "For individuals", href: ROUTES.HOME },
-  { id: "org", label: "For organizations", href: ROUTES.ORG_LANDING },
-] as const;
-
 export function LandingHeader({ audience, navLinks }: LandingHeaderProps) {
   return (
     <header className="sticky top-0 z-raised border-b border-border bg-background/80 backdrop-blur">
-      <div className="page-container flex h-14 items-center justify-between gap-4">
-        <div className="flex items-center gap-6">
+      <div className="page-container flex h-14 items-center justify-between gap-2 sm:gap-4">
+        <div className="flex min-w-0 items-center gap-6">
           <Link href={ROUTES.HOME}>
-            <BrandMark />
+            {/* Glyph-only below sm: logo + name + both CTAs overflow a 360px row and
+                scroll the page sideways. Name stays in the a11y tree via sr-only. */}
+            <BrandMark nameClassName="sr-only sm:not-sr-only" />
           </Link>
-          <div className="hidden items-center gap-1 rounded-md border border-border bg-muted/40 p-1 md:flex">
-            {AUDIENCE_TABS.map((tab) => (
-              <Link
-                className={cn(
-                  "rounded-[--radius-sm] px-3 py-1.5 text-sm font-medium transition-colors duration-fast",
-                  audience === tab.id
-                    ? "bg-background text-foreground shadow-card"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-                href={tab.href}
-                key={tab.id}
-              >
-                {tab.label}
-              </Link>
-            ))}
-          </div>
+          <LandingAudienceTabs audience={audience} className="hidden md:grid" />
         </div>
 
         <nav aria-label="Main" className="hidden items-center gap-6 lg:flex">
@@ -58,7 +40,7 @@ export function LandingHeader({ audience, navLinks }: LandingHeaderProps) {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <Button asChild variant="ghost">
             <Link href={ROUTES.LOGIN}>Log in</Link>
           </Button>
@@ -68,19 +50,10 @@ export function LandingHeader({ audience, navLinks }: LandingHeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-1 border-t border-border p-2 md:hidden">
-        {AUDIENCE_TABS.map((tab) => (
-          <Link
-            className={cn(
-              "flex-1 rounded-[--radius-sm] py-1.5 text-center text-sm font-medium transition-colors duration-fast",
-              audience === tab.id ? "bg-muted text-foreground" : "text-muted-foreground",
-            )}
-            href={tab.href}
-            key={tab.id}
-          >
-            {tab.label}
-          </Link>
-        ))}
+      <div className="border-t border-border py-2 md:hidden">
+        <div className="page-container">
+          <LandingAudienceTabs audience={audience} />
+        </div>
       </div>
     </header>
   );

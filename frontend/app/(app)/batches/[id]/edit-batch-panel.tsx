@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -56,7 +55,6 @@ interface EditBatchFormProps {
 }
 
 function EditBatchForm({ batch, orgMembers, onClose }: EditBatchFormProps) {
-  const router = useRouter();
   const form = useForm<FormData>({
     resolver: zodResolver(Schema),
     defaultValues: {
@@ -82,7 +80,6 @@ function EditBatchForm({ batch, orgMembers, onClose }: EditBatchFormProps) {
     }
     toast.success("Batch updated.");
     onClose();
-    router.refresh();
   };
 
   return (

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,6 @@ interface GitlabInstallationCardProps {
 }
 
 export function GitlabInstallationCard({ installation }: GitlabInstallationCardProps) {
-  const router = useRouter();
 
   async function handleVerify() {
     const result = await verifyGitlabInstallationAction(installation.id);
@@ -61,7 +59,6 @@ export function GitlabInstallationCard({ installation }: GitlabInstallationCardP
     } else {
       toast.error("Verification failed — see the error below.");
     }
-    router.refresh();
   }
 
   async function handleSetDefault() {

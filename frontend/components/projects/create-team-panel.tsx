@@ -2,7 +2,6 @@
 
 import { Plus } from "lucide-react";
 import { parseAsBoolean, useQueryState } from "nuqs";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,7 +25,6 @@ interface CreateTeamPanelProps {
 
 export function CreateTeamPanel({ assignmentId }: CreateTeamPanelProps) {
   const [open, setOpen] = useQueryState("create-team", parseAsBoolean.withDefault(false));
-  const router = useRouter();
   const form = useForm<FormData>({
     resolver: zodResolver(Schema),
     defaultValues: { name: "", slug: "" },
@@ -41,7 +39,6 @@ export function CreateTeamPanel({ assignmentId }: CreateTeamPanelProps) {
     toast.success("Team created.");
     form.reset();
     void setOpen(false);
-    router.refresh();
   };
 
   return (

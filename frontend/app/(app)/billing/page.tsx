@@ -39,7 +39,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
 
       {highlighted && (
         <IconMessage
-          className="ai-surface mb-6 rounded-[--radius-md] px-4 py-3 text-ai"
+          className="ai-surface mb-6 rounded-md px-4 py-3 text-ai"
           icon={Sparkles}
           tone="ai"
           variant="plain"

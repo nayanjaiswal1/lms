@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,7 +31,6 @@ interface CohortTreeNodeProps {
 export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSelect, batches = [], options = [], orgMembers = [] }: CohortTreeNodeProps) {
   const [open, setOpen] = useState(true);
   const [archiveState, setArchiveState] = useState<"idle" | "confirm" | "pending">("idle");
-  const router = useRouter();
   const rowRef = useRef<HTMLDivElement>(null);
   const ownBatches = batches.filter((b) => b.cohort_group_id === node.id);
   const hasChildren = node.children.length > 0;
@@ -66,7 +64,6 @@ export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSel
       return;
     }
     toast.success(`Moved into ${node.name}.`);
-    router.refresh();
   }
 
   function requestArchive() {
@@ -87,7 +84,6 @@ export function CohortTreeNode({ node, depth, allGroups, mode, selectedId, onSel
     }
     toast.success("Group archived.");
     setArchiveState("idle");
-    router.refresh();
   }
 
   return (

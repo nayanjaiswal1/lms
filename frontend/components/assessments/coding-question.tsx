@@ -124,7 +124,7 @@ export function CodingQuestion({
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
 
   return (
-    <div className="h-full overflow-hidden rounded-[--radius-lg] border border-border">
+    <div className="h-full overflow-hidden rounded-lg border border-border">
       <ResizablePanelGroup orientation="horizontal">
 
         {/* ── Left panel: problem description ────────────────────────────── */}
@@ -143,11 +143,11 @@ export function CodingQuestion({
                 {content.sample_cases.map((c, i) => (
                   <div className="flex flex-col gap-2" key={i}>
                     <p className="text-xs font-medium text-muted-foreground">Example {i + 1}</p>
-                    <div className="rounded-[--radius-md] bg-muted p-3">
+                    <div className="rounded-md bg-muted p-3">
                       <p className="mb-1 text-xs text-muted-foreground">Input</p>
                       <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.stdin}</pre>
                     </div>
-                    <div className="rounded-[--radius-md] bg-muted p-3">
+                    <div className="rounded-md bg-muted p-3">
                       <p className="mb-1 text-xs text-muted-foreground">Output</p>
                       <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.expected}</pre>
                     </div>

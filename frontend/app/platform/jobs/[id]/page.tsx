@@ -9,6 +9,7 @@ import {
 } from "@/app/platform/jobs/actions";
 import ROUTES from "@/lib/routes";
 import type { JobStatus, JobRun } from "@/lib/jobs/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 const STATUS_VARIANT: Record<
   JobStatus,
@@ -182,7 +183,7 @@ function RunsTable({ runs }: { runs: JobRun[] }) {
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -231,6 +232,6 @@ function RunsTable({ runs }: { runs: JobRun[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

@@ -1,5 +1,6 @@
 import { getHighlightAnalytics } from "@/lib/server/highlights";
 import { HighlightsTabs } from "@/components/platform/highlights-tabs";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata = { title: "Highlights by Source Type — Platform Console" };
 
@@ -53,7 +54,7 @@ export default async function PlatformHighlightsBySourcePage() {
           <p className="text-muted-foreground">No highlight explanations served yet.</p>
         </div>
       ) : (
-        <div className="table-responsive mt-8">
+        <ResponsiveTable className="mt-8">
           <table className="w-full text-sm">
             <thead>
               <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -76,7 +77,7 @@ export default async function PlatformHighlightsBySourcePage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </ResponsiveTable>
       )}
     </div>
   );

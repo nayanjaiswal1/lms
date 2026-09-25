@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { WARM_POOL_MODE } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export interface WarmPoolRowData {
   image: string;
@@ -80,7 +81,7 @@ export function WarmPoolTable({ images }: { images: WarmPoolRowData[] }) {
         </Badge>
       </div>
 
-      <div className="mt-8 card-base table-responsive">
+      <ResponsiveTable className="mt-8 card-base">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-muted-foreground whitespace-nowrap">
@@ -128,7 +129,7 @@ export function WarmPoolTable({ images }: { images: WarmPoolRowData[] }) {
             })}
           </tbody>
         </table>
-      </div>
+      </ResponsiveTable>
     </>
   );
 }

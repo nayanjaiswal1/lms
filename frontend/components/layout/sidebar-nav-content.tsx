@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { HoverPrefetchLink } from "@/components/layout/hover-prefetch-link";
 import { usePathname } from "next/navigation";
 import { AccessGate } from "@/components/shared/access-gate";
 import { NavLinkHint } from "@/components/layout/nav-link-hint";
@@ -46,7 +46,7 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
               : pathname.startsWith(item.href);
 
             const link = (
-              <Link
+              <HoverPrefetchLink
                 aria-current={isActive ? "page" : undefined}
                 aria-label={collapsed ? item.label : undefined}
                 className={cn(
@@ -72,7 +72,7 @@ export function SidebarNavContent({ onNavigate, collapsed = false, user }: Props
                     <NavLinkHint className="ml-auto" />
                   </>
                 )}
-              </Link>
+              </HoverPrefetchLink>
             );
 
             if (!item.feature) return link;

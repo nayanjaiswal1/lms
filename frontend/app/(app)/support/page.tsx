@@ -14,6 +14,7 @@ import { TICKET_STATUS_VARIANT, TICKET_PRIORITY_VARIANT, categoryLabel, formatDa
 import { SUPPORT_STATUS_OPTIONS, TICKET_KIND } from "@/lib/constants";
 import type { TicketStatus } from "@/lib/constants";
 import ROUTES from "@/lib/routes";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata: Metadata = {
   title: "Help & Support",
@@ -112,7 +113,7 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
               <p className="mt-3 text-sm text-muted-foreground">No tickets match this filter.</p>
             </div>
           ) : (
-            <div className="table-responsive">
+            <ResponsiveTable>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -143,7 +144,7 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ResponsiveTable>
           )}
         </>
       ) : tickets.length === 0 ? (

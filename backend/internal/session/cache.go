@@ -38,6 +38,39 @@ func (c *Cache) BlockJTI(ctx context.Context, jti string, tokenExpiry time.Time)
 	_ = c.rdb.Set(ctx, jtiPrefix+jti, "1", ttl).Err()
 }
 
+// CheckSession runs the JTI-blocklist and session-version checks in a single
+// Redis round trip (pipelined) — it runs on every authenticated request, so
+// two sequential round trips to a remote Redis were a fixed per-call tax.
+// Any Redis failure other than a cache miss falls back to the individual
+// checks, which carry their own PostgreSQL fallbacks.
+func (c *Cache) CheckSession(ctx context.Context, jti, userID string, claimVersion int) error {
+	pipe := c.rdb.Pipeline()
+	blocked := pipe.Exists(ctx, jtiPrefix+jti)
+	version := pipe.Get(ctx, svPrefix+userID)
+	_, _ = pipe.Exec(ctx)
+
+	if blocked.Err() != nil {
+		if c.IsJTIBlocked(ctx, jti) {
+			return fmt.Errorf("session revoked (blocked jti)")
+		}
+		return c.CheckVersion(ctx, userID, claimVersion)
+	}
+	if blocked.Val() > 0 {
+		return fmt.Errorf("session revoked (blocked jti)")
+	}
+
+	cached, err := version.Int()
+	if err != nil {
+		// Cache miss (redis.Nil) or Redis error — CheckVersion reads through
+		// to the DB and repopulates the cache.
+		return c.CheckVersion(ctx, userID, claimVersion)
+	}
+	if claimVersion != cached {
+		return fmt.Errorf("session version mismatch")
+	}
+	return nil
+}
+
 // IsJTIBlocked reports whether a JWT ID has been revoked.
 // Falls back to the jti_blocklist table if Redis is unavailable.
 func (c *Cache) IsJTIBlocked(ctx context.Context, jti string) bool {

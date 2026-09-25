@@ -18,7 +18,7 @@ interface CodingConsoleProps {
 
 function OutputBox({ label, text }: { label: string; text: string }) {
   return (
-    <div className="rounded-[--radius-md] bg-muted p-3">
+    <div className="rounded-md bg-muted p-3">
       <p className="mb-1 text-xs text-muted-foreground">{label}</p>
       <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs text-foreground">{text}</pre>
     </div>
@@ -79,7 +79,7 @@ export function CodingConsole({ sampleCases, tab, running, result, error, onTabC
             <p className="text-xs">Running your code against sample tests…</p>
           </div>
         ) : error ? (
-          <div className="flex items-start gap-2 rounded-[--radius-md] bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             <XCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
             {error}
           </div>

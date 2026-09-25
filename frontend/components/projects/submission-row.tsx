@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { ExternalLink, GitMerge, MessageSquare } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,7 +48,6 @@ interface SubmissionRowProps {
 }
 
 export function SubmissionRow({ submission, teamName, checkpoint, assignmentId, requiredApprovals }: SubmissionRowProps) {
-  const router = useRouter();
   const [pending, setPending] = React.useState<null | "merge" | "comment">(null);
   const [commentBody, setCommentBody] = React.useState("");
 
@@ -70,7 +68,6 @@ export function SubmissionRow({ submission, teamName, checkpoint, assignmentId, 
       return;
     }
     toast.success(`${teamName}'s merge request was merged.`);
-    router.refresh();
   }
 
   async function handleGrade(data: GradeFormData) {
@@ -83,7 +80,6 @@ export function SubmissionRow({ submission, teamName, checkpoint, assignmentId, 
       return;
     }
     toast.success(`${teamName} graded.`);
-    router.refresh();
   }
 
   async function handleComment() {

@@ -10,7 +10,6 @@ import { ArrowRight, CheckCircle2, Circle, Flame } from "lucide-react";
 import { saveOnboardingAction } from "@/app/onboarding/actions";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/shared/brand-mark";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { SelectionCard, LEARNING_GOAL_OPTIONS, SKILL_OPTIONS } from "@/app/onboarding/onboarding-parts";
 import { cn } from "@/lib/utils";
 
@@ -72,9 +71,8 @@ export function OnboardingWizard() {
         <Flame aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 text-primary/5 sm:h-72 sm:w-72" />
 
         <div className="relative flex w-full max-w-3xl flex-col gap-8">
-          <header className="relative flex items-center justify-between">
+          <header className="relative flex items-center">
             <BrandMark />
-            <ThemeToggle />
           </header>
 
           <div className="relative flex flex-col gap-3">

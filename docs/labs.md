@@ -1,6 +1,6 @@
 # Labs
 
-Interactive, sandboxed lab environments attached to course modules. Students get a real terminal or code environment, complete verifiable tasks, and receive AI-driven hints and explanations. KodeKloud-style, self-hosted.
+Interactive, sandboxed lab environments attached to course modules. Students get a real terminal or code environment, complete verifiable tasks, and receive AI-driven hints and explanations. KodeKloud-style.
 
 ---
 

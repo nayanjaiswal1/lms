@@ -10,6 +10,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import ROUTES from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { getCurrentOrgId } from "@/lib/server/claims";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 export const metadata: Metadata = { title: "Job Detail — Organisation Settings" };
 
@@ -94,9 +95,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-[--radius-sm] text-xs font-semibold", statusClass(job.status))}>{job.status}</span>
-          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-[--radius-sm] text-xs font-semibold", priorityClass(job.priority))}>{PRIORITY_LABELS[job.priority]}</span>
-          <span className="text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-[--radius-sm] font-medium">{isCron ? "Cron" : "One-time"}</span>
+          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-semibold", statusClass(job.status))}>{job.status}</span>
+          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-semibold", priorityClass(job.priority))}>{PRIORITY_LABELS[job.priority]}</span>
+          <span className="text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-sm font-medium">{isCron ? "Cron" : "One-time"}</span>
         </div>
 
         <dl className="grid-responsive-2 gap-4 text-sm">
@@ -110,7 +111,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payload</p>
-          <pre className="bg-muted rounded-[--radius-md] p-3 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap break-all">
+          <pre className="bg-muted rounded-md p-3 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap break-all">
             {payloadPreview.length > 200 ? `${payloadPreview.slice(0, 200)}…` : payloadPreview}
           </pre>
         </div>
@@ -118,7 +119,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         {job.last_error && (
           <div>
             <p className="text-xs font-semibold text-destructive uppercase tracking-wider mb-2">Last Error</p>
-            <pre className="bg-destructive/5 border border-destructive/20 rounded-[--radius-md] p-3 text-xs font-mono text-destructive overflow-x-auto whitespace-pre-wrap break-all">
+            <pre className="bg-destructive/5 border border-destructive/20 rounded-md p-3 text-xs font-mono text-destructive overflow-x-auto whitespace-pre-wrap break-all">
               {job.last_error}
             </pre>
           </div>
@@ -135,7 +136,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         {runs.length === 0 ? (
           <div className="empty-state py-8"><p className="text-sm text-muted-foreground">No runs recorded yet.</p></div>
         ) : (
-          <div className="table-responsive">
+          <ResponsiveTable>
             <table className="w-full text-left">
               <thead>
                 <tr className="whitespace-nowrap border-b border-border">
@@ -149,7 +150,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                   <tr key={run.id} className="whitespace-nowrap border-b border-border last:border-0">
                     <td className="py-3 px-4 text-sm text-foreground">#{run.attempt}</td>
                     <td className="py-3 px-4">
-                      <span className={cn("inline-flex items-center px-2 py-0.5 rounded-[--radius-sm] text-xs font-medium", statusClass(run.status))}>
+                      <span className={cn("inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium", statusClass(run.status))}>
                         {run.status}
                       </span>
                     </td>
@@ -164,7 +165,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                 ))}
               </tbody>
             </table>
-          </div>
+          </ResponsiveTable>
         )}
       </div>
     </div>

@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,7 +31,6 @@ interface RequestMentorChangeDialogProps {
 
 export function RequestMentorChangeDialog({ ticketId, showTrigger = true }: RequestMentorChangeDialogProps) {
   const [open, setOpen] = useQueryState("request-change", parseAsBoolean.withDefault(false));
-  const router = useRouter();
   const form = useForm<RequestChangeFormData>({
     resolver: zodResolver(RequestChangeSchema),
     defaultValues: { reason: "" },
@@ -47,7 +45,6 @@ export function RequestMentorChangeDialog({ ticketId, showTrigger = true }: Requ
     toast.success("Request submitted. Our team will review it.");
     form.reset();
     void setOpen(null);
-    router.refresh();
   }
 
   return (

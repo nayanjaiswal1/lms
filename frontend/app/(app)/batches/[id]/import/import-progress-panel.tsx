@@ -5,6 +5,7 @@ import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getImportJobStatusAction, type ImportJobStatus } from "@/app/(app)/batches/actions";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface ImportProgressPanelProps {
   batchId: string;
@@ -56,7 +57,7 @@ export function ImportProgressPanel({ batchId, jobId, initialStatus, onRunAnothe
           </div>
 
           {status.report.failed_rows.length > 0 && (
-            <div className="table-responsive max-h-56 overflow-y-auto">
+            <ResponsiveTable className="max-h-56 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -75,7 +76,7 @@ export function ImportProgressPanel({ batchId, jobId, initialStatus, onRunAnothe
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ResponsiveTable>
           )}
         </div>
       )}

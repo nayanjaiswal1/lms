@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { MailCheck, MailX, Clock, RotateCw, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { resendInvitationAction, revokeInvitationAction } from "@/lib/batches/actions";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Invitation {
   id: string;
@@ -33,7 +33,6 @@ function statusLabel(inv: Invitation): { label: string; className: string; Icon:
 export function InvitationList({ batchId, invitations }: InvitationListProps) {
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [confirmInv, setConfirmInv] = React.useState<{ id: string; email: string } | null>(null);
-  const router = useRouter();
 
   if (invitations.length === 0) {
     return <p className="text-sm text-muted-foreground">No invitations sent yet.</p>;
@@ -48,7 +47,6 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
       return;
     }
     toast.success(`Invitation resent to ${email}.`);
-    router.refresh();
   }
 
   async function handleRevoke(invId: string, email: string) {
@@ -61,11 +59,10 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
       return;
     }
     toast.success(`Invitation to ${email} revoked.`);
-    router.refresh();
   }
 
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
@@ -135,6 +132,6 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
         onConfirm={() => confirmInv && handleRevoke(confirmInv.id, confirmInv.email)}
         onOpenChange={(open) => !open && setConfirmInv(null)}
       />
-    </div>
+    </ResponsiveTable>
   );
 }

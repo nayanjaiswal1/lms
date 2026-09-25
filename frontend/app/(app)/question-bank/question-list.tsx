@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { QuestionSearchInput } from "@/app/(app)/question-bank/question-search-input";
 import type { Category, Question, QuestionUsage } from "@/lib/assessments/types";
+import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Props {
   questions: Question[];
@@ -223,7 +224,7 @@ function groupByTest(questions: Question[], usage: QuestionUsage[]): Group[] {
 
 function QuestionTable({ questions }: { questions: Question[] }) {
   return (
-    <div className="table-responsive">
+    <ResponsiveTable>
       <table className="w-full text-sm">
         <thead>
           <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
@@ -248,6 +249,6 @@ function QuestionTable({ questions }: { questions: Question[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ResponsiveTable>
   );
 }

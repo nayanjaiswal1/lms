@@ -113,7 +113,6 @@ export function TeamMembersManager({ team, assignmentId, members, availableStude
       return;
     }
     toast.success(`${name} removed from team.`);
-    router.refresh();
   }
 
   return (

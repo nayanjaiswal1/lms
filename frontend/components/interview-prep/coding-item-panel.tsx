@@ -40,7 +40,7 @@ export function CodingItemPanel({ planId, roundId, item, itemIndex, isLast }: Co
   const visibleCases = item.test_cases.filter((c) => !c.hidden);
 
   return (
-    <div className="flex min-h-[520px] flex-col overflow-hidden rounded-[--radius-lg] border border-border lg:min-h-[640px] lg:flex-row">
+    <div className="flex min-h-[520px] flex-col overflow-hidden rounded-lg border border-border lg:min-h-[640px] lg:flex-row">
       <div className="flex flex-col gap-5 overflow-y-auto border-b border-border p-5 lg:w-[42%] lg:border-b-0 lg:border-r">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Problem {itemIndex + 1} · {item.skill}
@@ -53,11 +53,11 @@ export function CodingItemPanel({ planId, roundId, item, itemIndex, isLast }: Co
             {visibleCases.map((c, i) => (
               <div className="flex flex-col gap-2" key={i}>
                 <p className="text-xs font-medium text-muted-foreground">Example {i + 1}</p>
-                <div className="rounded-[--radius-md] bg-muted p-3">
+                <div className="rounded-md bg-muted p-3">
                   <p className="mb-1 text-xs text-muted-foreground">Input</p>
                   <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.stdin}</pre>
                 </div>
-                <div className="rounded-[--radius-md] bg-muted p-3">
+                <div className="rounded-md bg-muted p-3">
                   <p className="mb-1 text-xs text-muted-foreground">Expected output</p>
                   <pre className="overflow-x-auto font-mono text-xs text-foreground">{c.expected}</pre>
                 </div>

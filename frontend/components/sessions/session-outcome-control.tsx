@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +24,6 @@ interface SessionOutcomeControlProps {
 
 export function SessionOutcomeControl({ sessionId, status, startsAt }: SessionOutcomeControlProps) {
   const [pending, setPending] = useState<"completed" | "no_show" | null>(null);
-  const router = useRouter();
 
   // Defensive guard — mirrors what the parent already checks: only a
   // scheduled session whose start time has passed can be closed out.
@@ -40,7 +38,6 @@ export function SessionOutcomeControl({ sessionId, status, startsAt }: SessionOu
       return;
     }
     toast.success(next === "completed" ? "Session marked completed." : "Session marked as a no-show.");
-    router.refresh();
   }
 
   return (

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { parseAsString, useQueryState } from "nuqs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +25,6 @@ import type { BatchMember } from "@/lib/server/batches";
 
 function useTeamActions(teamId: string, assignmentId: string) {
   const [pendingAction, setPendingAction] = React.useState<null | "reprovision" | "sync" | "delete">(null);
-  const router = useRouter();
 
   async function run(action: "reprovision" | "sync" | "delete") {
     setPendingAction(action);
@@ -44,7 +42,6 @@ function useTeamActions(teamId: string, assignmentId: string) {
     toast.success(
       action === "reprovision" ? "Reprovisioning started." : action === "sync" ? "Roster sync started." : "Team deleted.",
     );
-    router.refresh();
   }
 
   return { pendingAction, run };
@@ -58,7 +55,6 @@ type RenameFormData = z.infer<typeof RenameSchema>;
 
 function RenameTeamDialog({ team, assignmentId }: { team: ProjectTeam; assignmentId: string }) {
   const [open, setOpen] = useQueryState("edit-team", parseAsString);
-  const router = useRouter();
   const isOpen = open === team.id;
   const form = useForm<RenameFormData>({
     resolver: zodResolver(RenameSchema),
@@ -73,7 +69,6 @@ function RenameTeamDialog({ team, assignmentId }: { team: ProjectTeam; assignmen
     }
     toast.success("Team updated.");
     void setOpen(null);
-    router.refresh();
   };
 
   return (

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +20,6 @@ interface AssignTicketControlProps {
 }
 
 export function AssignTicketControl({ ticketId, mentors }: AssignTicketControlProps) {
-  const router = useRouter();
   const form = useForm<AssignFormData>({
     resolver: zodResolver(AssignSchema),
     defaultValues: { mentorId: "" },
@@ -34,7 +32,6 @@ export function AssignTicketControl({ ticketId, mentors }: AssignTicketControlPr
       return;
     }
     toast.success("Ticket assigned.");
-    router.refresh();
   }
 
   return (

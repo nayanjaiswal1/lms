@@ -17,7 +17,10 @@ export function CapturesPoller({ hasInFlight, intervalMs = 5_000 }: CapturesPoll
 
   React.useEffect(() => {
     if (!hasInFlight) return;
-    const id = setInterval(() => router.refresh(), intervalMs);
+    const id = setInterval(() => {
+      // Each tick re-renders the whole RSC tree; skip it while the tab is hidden.
+      if (document.visibilityState === "visible") router.refresh();
+    }, intervalMs);
     return () => clearInterval(id);
   }, [hasInFlight, intervalMs, router]);
 

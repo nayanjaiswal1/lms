@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,7 +17,6 @@ interface DeleteCheckpointButtonProps {
 export function DeleteCheckpointButton({ checkpointId, assignmentId, title }: DeleteCheckpointButtonProps) {
   const [pending, setPending] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const router = useRouter();
 
   async function handleDelete() {
     setPending(true);
@@ -29,7 +27,6 @@ export function DeleteCheckpointButton({ checkpointId, assignmentId, title }: De
       return;
     }
     toast.success("Checkpoint deleted.");
-    router.refresh();
   }
 
   return (

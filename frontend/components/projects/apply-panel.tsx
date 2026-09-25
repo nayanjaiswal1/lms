@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +18,6 @@ interface ApplyPanelProps {
 }
 
 export function ApplyPanel({ requirementId, isOpen, myApplication }: ApplyPanelProps) {
-  const router = useRouter();
   const [motivation, setMotivation] = React.useState("");
   const [resumeText, setResumeText] = React.useState("");
   const [pending, setPending] = React.useState(false);
@@ -33,7 +31,6 @@ export function ApplyPanel({ requirementId, isOpen, myApplication }: ApplyPanelP
       return;
     }
     toast.success("Application submitted.");
-    router.refresh();
   }
 
   async function handleWithdraw() {
@@ -46,7 +43,6 @@ export function ApplyPanel({ requirementId, isOpen, myApplication }: ApplyPanelP
       return;
     }
     toast.success("Application withdrawn.");
-    router.refresh();
   }
 
   if (myApplication) {
