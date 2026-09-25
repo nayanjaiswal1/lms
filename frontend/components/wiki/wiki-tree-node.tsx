@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, FileText, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import ROUTES from "@/lib/routes";
 import type { WikiPageTreeNode } from "@/lib/server/wiki";
@@ -72,14 +73,15 @@ export function WikiTreeNode({
           onDrop(dragId, node.id, node.children.length);
         } : undefined}
       >
-        <button
+        <Button
           aria-label={hasChildren ? (open ? "Collapse" : "Expand") : undefined}
-          className={cn("touch-target h-5 w-5 shrink-0 p-0 text-muted-foreground", !hasChildren && "invisible")}
-          type="button"
+          className={cn("h-5 w-5 shrink-0 p-0", !hasChildren && "invisible")}
+          size="icon"
+          variant="ghost"
           onClick={() => setOpen((o) => !o)}
         >
           <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-fast", open && "rotate-90")} />
-        </button>
+        </Button>
 
         <Link
           className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5"
@@ -96,18 +98,18 @@ export function WikiTreeNode({
           // on touch devices, which would make these controls unreachable there.
           <div className="flex shrink-0 items-center gap-0.5">
             {index > 0 && (
-              <button aria-label="Move up" className="touch-target h-5 w-5 p-0 text-muted-foreground hover:text-foreground" type="button" onClick={() => void reorder("up")}>
+              <Button aria-label="Move up" className="h-5 w-5 p-0" size="icon" variant="ghost" onClick={() => void reorder("up")}>
                 <ChevronUp aria-hidden className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             )}
             {index < siblings.length - 1 && (
-              <button aria-label="Move down" className="touch-target h-5 w-5 p-0 text-muted-foreground hover:text-foreground" type="button" onClick={() => void reorder("down")}>
+              <Button aria-label="Move down" className="h-5 w-5 p-0" size="icon" variant="ghost" onClick={() => void reorder("down")}>
                 <ChevronDown aria-hidden className="h-3.5 w-3.5" />
-              </button>
+              </Button>
             )}
-            <button aria-label="New child page" className="touch-target h-5 w-5 p-0 text-muted-foreground hover:text-foreground" type="button" onClick={() => onRequestNewPage(node.id)}>
+            <Button aria-label="New child page" className="h-5 w-5 p-0" size="icon" variant="ghost" onClick={() => onRequestNewPage(node.id)}>
               <Plus aria-hidden className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </div>
         )}
       </div>

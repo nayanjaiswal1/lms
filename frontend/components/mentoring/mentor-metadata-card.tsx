@@ -17,7 +17,7 @@ export function MentorMetadataCard({ lastActiveAt, totalMentorshipHours, joinedA
   const hoursLabel = formatDuration(totalMentorshipHours);
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
+    <section className="card-raised">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Metadata</h2>
       <div className="flex flex-col gap-3">
         {lastActiveLabel && (

@@ -48,7 +48,7 @@ export function TagInput({ value, onChange, placeholder, disabled, className }: 
     <div
       className={cn(
         "flex min-h-11 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2",
-        "text-sm shadow-sm transition-colors has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring",
+        "text-sm shadow-card transition-colors has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring",
         disabled && "cursor-not-allowed opacity-50",
         className,
       )}

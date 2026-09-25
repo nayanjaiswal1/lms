@@ -2,7 +2,6 @@ package diary
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -43,14 +42,6 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }
 
 const entryDateFormat = "2006-01-02"
@@ -195,7 +186,7 @@ func (h *Handler) UpdateContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateContentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.Content) > maxContentLength {
@@ -235,7 +226,7 @@ func (h *Handler) AnalyzePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req AnalyzePreviewRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Content == "" || len(req.Content) > maxContentLength {
@@ -268,7 +259,7 @@ func (h *Handler) AnalyzeApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req ApplyAnalysisRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -307,7 +298,7 @@ func (h *Handler) FixEnglish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req FixEnglishRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Content == "" || len(req.Content) > maxContentLength {
@@ -359,7 +350,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req TaskCreateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.Title) == 0 || len(req.Title) > 300 {
@@ -395,7 +386,7 @@ func (h *Handler) PatchTask(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	var req TaskPatchRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Description != nil && len(*req.Description) > 2000 {

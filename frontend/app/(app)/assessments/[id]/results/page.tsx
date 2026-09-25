@@ -192,7 +192,7 @@ function ScoreDistribution({
             <div className="flex flex-1 flex-col items-center gap-1" key={key}>
               <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
               {/* eslint-disable-next-line no-restricted-syntax -- fixed container height for score distribution chart */}
-              <div className="flex w-full items-end" style={{ height: "80px" }}>
+              <div className="flex h-20 w-full items-end">
                 { }
                 <div
                   className={`w-full rounded-t-sm ${key === "81-100" ? "bg-primary" : "bg-muted-foreground/40"}`}

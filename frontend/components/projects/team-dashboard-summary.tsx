@@ -25,12 +25,12 @@ export function TeamDashboardSummary({ dashboard }: TeamDashboardSummaryProps) {
         {dashboard.open_mr_count} open · {dashboard.merged_mr_count} merged
       </span>
       {dashboard.latest_pipeline_status && (
-        <Badge className="h-5 px-1.5 text-[10px]" variant={PIPELINE_STATUS_VARIANT[dashboard.latest_pipeline_status] ?? "outline"}>
+        <Badge className="h-5 px-1.5 text-xs" variant={PIPELINE_STATUS_VARIANT[dashboard.latest_pipeline_status] ?? "outline"}>
           {dashboard.latest_pipeline_status}
         </Badge>
       )}
       {dashboard.free_rider_count > 0 && (
-        <span className="badge-muted inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]">
+        <span className="badge-muted inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs">
           <Users aria-hidden className="h-3 w-3" />
           {dashboard.free_rider_count} no commits yet
         </span>

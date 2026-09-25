@@ -188,7 +188,7 @@ func (h *ProxyHandler) proxyPreview(w http.ResponseWriter, r *http.Request, targ
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			slog.Warn("labproxy: preview upstream error", "target", target.Host, "error", err)
-			http.Error(w, "app not reachable — is it still starting?", http.StatusBadGateway)
+			writeJSONError(w, http.StatusBadGateway, "app not reachable — is it still starting?")
 		},
 	}
 	proxy.ServeHTTP(w, r)
@@ -233,14 +233,14 @@ func stripSetCookieDomain(resp *http.Response) {
 // redirect per token, and never proxies anything itself.
 func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 	if h.draining.Load() {
-		http.Error(w, "service draining", http.StatusServiceUnavailable)
+		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
 		return
 	}
 
 	rest := strings.TrimPrefix(r.URL.Path, "/preview/")
 	token, path, _ := strings.Cut(rest, "/")
 	if token == "" {
-		http.Error(w, "missing token", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "missing token")
 		return
 	}
 	reqPort, path := splitEntryPort(path)
@@ -250,7 +250,7 @@ func (h *ProxyHandler) ServePreview(w http.ResponseWriter, r *http.Request) {
 	// once the browser lands on the subdomain this redirect points to.
 	_, resolvedPort, sessionID, status, msg := h.previewTarget(r, token, reqPort, "")
 	if status != 0 {
-		http.Error(w, msg, status)
+		writeJSONError(w, status, msg)
 		return
 	}
 

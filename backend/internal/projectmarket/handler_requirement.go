@@ -29,7 +29,7 @@ func (h *Handler) CreateRequirement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req requirementRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.TeamSizeMin == 0 {
@@ -103,7 +103,7 @@ func (h *Handler) UpdateRequirement(w http.ResponseWriter, r *http.Request) {
 		TeamSizeMax         *int       `json:"team_size_max"`
 		ApplicationDeadline *time.Time `json:"application_deadline"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	updated, err := h.service.UpdateRequirement(r.Context(), claims.OrgID, chi.URLParam(r, "requirementID"), RequirementPatch{
@@ -173,7 +173,7 @@ func (h *Handler) CreateTeamFromSelection(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var req TeamFromSelectionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.AssignmentID) == "" || strings.TrimSpace(req.TeamName) == "" || strings.TrimSpace(req.TeamSlug) == "" {

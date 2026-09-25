@@ -1,7 +1,6 @@
 package interviewexp
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -20,14 +19,6 @@ type Handler struct {
 
 func newHandler(service *Service, pool *pgxpool.Pool) *Handler {
 	return &Handler{service: service, pool: pool}
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
@@ -78,7 +69,7 @@ func (h *Handler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreatePostRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	p, err := h.service.CreatePost(r.Context(), claims.UserID, req)
@@ -110,7 +101,7 @@ func (h *Handler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateEntryRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	e, err := h.service.CreateEntry(r.Context(), claims.UserID, chi.URLParam(r, "id"), req)
@@ -129,7 +120,7 @@ func (h *Handler) CreateStandaloneQna(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateQnaRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	q, err := h.service.CreateStandaloneQna(r.Context(), claims.UserID, chi.URLParam(r, "id"), req)
@@ -146,7 +137,7 @@ func (h *Handler) CreateEntryQna(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateQnaRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	q, err := h.service.CreateEntryQna(r.Context(), claims.UserID, chi.URLParam(r, "id"), req)
@@ -163,7 +154,7 @@ func (h *Handler) UpdateQna(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateQnaRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	// Live-looked-up org role, not claims.OrgRole — see middleware.LiveOrgRole.
@@ -198,7 +189,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateCommentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	c, err := h.service.CreateComment(r.Context(), claims.UserID, chi.URLParam(r, "id"), req)
@@ -215,7 +206,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateCommentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	c, err := h.service.UpdateComment(r.Context(), claims.UserID, chi.URLParam(r, "id"), req.Content)
@@ -248,7 +239,7 @@ func (h *Handler) Vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req VoteRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if err := h.service.Vote(r.Context(), claims.UserID, req); err != nil {
@@ -284,7 +275,7 @@ func (h *Handler) UpdateFaqStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateFaqStatusRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if err := h.service.UpdateFaqStatus(r.Context(), claims.UserID, chi.URLParam(r, "qnaId"), req.Status); err != nil {
@@ -300,7 +291,7 @@ func (h *Handler) UpdateFaqStarred(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateFaqStarredRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if err := h.service.UpdateFaqStarred(r.Context(), claims.UserID, chi.URLParam(r, "qnaId"), req.Starred); err != nil {

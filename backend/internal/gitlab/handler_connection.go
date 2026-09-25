@@ -129,7 +129,7 @@ func (h *Handler) InstallationsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req installationRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if fields := validateInstallationRequest(r.Context(), req, true); len(fields) > 0 {
@@ -165,7 +165,7 @@ func (h *Handler) InstallationUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "installationID")
 	var req installationRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if fields := validateInstallationRequest(r.Context(), req, false); len(fields) > 0 {
@@ -264,7 +264,7 @@ func (h *Handler) OrgConfigPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req orgConfigRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	cfg, err := h.service.SetOrgConfig(r.Context(), claims.OrgID, req.AllowProjectOverride)

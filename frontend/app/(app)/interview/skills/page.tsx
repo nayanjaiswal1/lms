@@ -68,7 +68,7 @@ function SkillCard({ skill }: { skill: SkillTrend }) {
 
   return (
     <article className="card-base flex flex-col gap-3 p-5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex-between gap-2">
         <h3 className="font-medium capitalize">{skill.skill}</h3>
         {skill.is_strong ? (
           <Badge variant="default">Strong</Badge>
@@ -82,7 +82,7 @@ function SkillCard({ skill }: { skill: SkillTrend }) {
         <div aria-hidden className={`progress-fill h-full ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex-between text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           {latest > avg ? (
             <TrendingUp aria-hidden className="h-3 w-3 text-ai" />

@@ -3,7 +3,7 @@
 // under content/courses/fast-kubernetes/. It is a scaffolding aid, not a
 // finished-content generator: lesson prose and lab starter files are
 // produced at full fidelity, but every lab stub's tasks: list is left
-// intentionally empty with a TODO hand-off comment, since verification
+// intentionally empty with an authoring hand-off comment, since verification
 // scripts, hints, and explanations require domain judgment this importer
 // cannot infer from upstream prose or YAML manifests alone.
 package importer
@@ -272,25 +272,26 @@ func writeLessonFile(outDir string, sec Section, lesson *canonical.Lesson) error
 }
 
 // writeLabFile serializes lab to canonical markdown, injects the
-// TODO(authoring) hand-off comment above the empty tasks: [] key, and writes
+// NOTE(authoring) hand-off comment above the empty tasks: [] key, and writes
 // it to outDir/<section-slug>/<nn>-lab-<dir>.md.
 func writeLabFile(outDir string, sec Section, lab *canonical.Lab, labMeta LabMeta, nn int) error {
 	fm, err := yaml.Marshal(lab)
 	if err != nil {
 		return fmt.Errorf("marshaling lab frontmatter %q: %w", lab.IDKey, err)
 	}
-	fm = addTasksTODOComment(fm, labMeta.Dir)
+	fm = addTasksAuthoringComment(fm, labMeta.Dir)
 	filename := fmt.Sprintf("%02d-lab-%s.md", nn, labMeta.Dir)
 	path := filepath.Join(outDir, sec.Slug, filename)
 	return writeCanonicalFile(path, fm, "")
 }
 
-// addTasksTODOComment inserts the explicit authoring hand-off comment
+// addTasksAuthoringComment inserts the explicit authoring hand-off comment
 // immediately above the "tasks: []" line yaml.Marshal produced for an empty
-// Tasks slice. This is the only place TODO markers are permitted in this
-// pipeline: inside generated markdown content, never in Go source.
-func addTasksTODOComment(fmYAML []byte, labDir string) []byte {
-	comment := fmt.Sprintf("# TODO(authoring): add tasks — see content/fast-kubernetes/labs/%s/ for the source manifests this lab is based on\n", labDir)
+// Tasks slice. This is the only place authoring hand-off markers are
+// permitted in this pipeline: inside generated markdown content, never in
+// Go source.
+func addTasksAuthoringComment(fmYAML []byte, labDir string) []byte {
+	comment := fmt.Sprintf("# NOTE(authoring): add tasks — see content/fast-kubernetes/labs/%s/ for the source manifests this lab is based on\n", labDir)
 	s := string(fmYAML)
 	const marker = "tasks: []"
 	idx := strings.Index(s, marker)

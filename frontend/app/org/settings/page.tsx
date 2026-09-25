@@ -101,7 +101,7 @@ export default async function OrgSettingsPage() {
 
         {/* Seat usage */}
         <div className="mt-6 border-t border-border pt-5">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex-between mb-2">
             <span className="text-sm font-medium text-foreground">Members</span>
             <span className="text-sm text-muted-foreground">
               {org.active_member_count}

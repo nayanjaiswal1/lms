@@ -1,7 +1,6 @@
 package gitlab
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/mindforge/backend/internal/httputil"
@@ -20,13 +19,6 @@ func NewHandler(service *Service) *Handler {
 // ─── shared helpers ──────────────────────────────────────────────────────────
 
 // ctxClaims pulls the authenticated claims or writes 401 and returns false.
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
 
 // writeDomainError maps domain/service errors to HTTP responses.
 var domainErrors = map[error]httputil.ErrSpec{

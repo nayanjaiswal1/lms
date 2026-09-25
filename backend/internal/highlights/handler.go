@@ -1,7 +1,6 @@
 package highlights
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -21,14 +20,6 @@ func newHandler(service *Service) *Handler {
 }
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
 
 var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound:      {Status: http.StatusNotFound, Message: "Highlight not found."},
@@ -55,7 +46,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	highlight, err := h.service.Create(r.Context(), claims.UserID, req)
@@ -76,7 +67,7 @@ func (h *Handler) Explain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req ExplainRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	resp, err := h.service.Explain(r.Context(), claims.UserID, req)
@@ -96,7 +87,7 @@ func (h *Handler) ToggleRevision(w http.ResponseWriter, r *http.Request) {
 	}
 	highlightID := chi.URLParam(r, "highlightID")
 	var req ToggleRevisionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	highlight, err := h.service.ToggleRevision(r.Context(), claims.UserID, highlightID, req.SaveForRevision, req.Note)

@@ -10,11 +10,9 @@ import (
 	"github.com/mindforge/backend/internal/jobs"
 )
 
-// handlerLLM matches handlers.HandlerLLM ("llm.task") — a literal here rather
-// than importing internal/jobs/handlers, matching how other domain packages
-// (e.g. assessment) enqueue jobs by handler name without importing the
-// handlers package.
-const handlerLLM = "llm.task"
+// jobs.HandlerLLM is the shared LLM-task handler name (see
+// internal/jobs/types.go); referenced via the jobs package rather than
+// internal/jobs/handlers because handlers depends on this package.
 
 var (
 	ErrInvalidGoal = errors.New("roadmap: goal_description is required")
@@ -37,7 +35,7 @@ func (s *Service) enqueueGeneration(ctx context.Context, roadmapID, userID strin
 		"params":    map[string]any{},
 	}
 	_, err := jobs.Enqueue(ctx, s.pool, s.jobsRegistry, jobs.EnqueueParams{
-		Handler:   handlerLLM,
+		Handler:   jobs.HandlerLLM,
 		Priority:  jobs.PriorityNormal,
 		Payload:   payload,
 		OrgID:     orgID,

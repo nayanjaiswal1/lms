@@ -1,7 +1,6 @@
 package whatnow
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -35,13 +34,6 @@ func writeDomainError(w http.ResponseWriter, err error) {
 }
 
 // decodeJSON decodes r.Body into dst. Writes 400 and returns false on error.
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
 
 // GetNow handles GET /api/whatnow/tasks/now.
 func (h *Handler) GetNow(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +141,7 @@ func (h *Handler) CaptureTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CaptureRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Raw == "" {
@@ -173,7 +165,7 @@ func (h *Handler) PostPlanToday(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req PlanTodayRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	plan, err := h.service.PostPlanToday(r.Context(), claims.UserID, req.TaskIDs)
@@ -207,7 +199,7 @@ func (h *Handler) PauseTask(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	var req PauseRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	task, err := h.service.PauseTask(r.Context(), claims.UserID, id, req.ResumeNote)
@@ -226,7 +218,7 @@ func (h *Handler) StuckTask(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	var req StuckRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	switch req.Reason {
@@ -283,7 +275,7 @@ func (h *Handler) ConfirmBreakdown(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	var proposal BreakdownProposal
-	if !decodeJSON(w, r, &proposal) {
+	if !httputil.DecodeJSON(w, r, &proposal) {
 		return
 	}
 	tasks, err := h.service.ConfirmBreakdown(r.Context(), claims.UserID, id, proposal)
@@ -302,7 +294,7 @@ func (h *Handler) PatchTask(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	var patch TaskPatch
-	if !decodeJSON(w, r, &patch) {
+	if !httputil.DecodeJSON(w, r, &patch) {
 		return
 	}
 	task, err := h.service.PatchTask(r.Context(), claims.UserID, id, patch)
@@ -320,7 +312,7 @@ func (h *Handler) PutEnergy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req EnergyRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Energy != EnergySharp && req.Energy != EnergyTired {
@@ -358,7 +350,7 @@ func (h *Handler) CreateLink(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	var req TaskLinkCreateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	link, err := h.service.CreateLink(r.Context(), claims.UserID, id, req)
@@ -404,7 +396,7 @@ func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req TemplateCreateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	tpl, err := h.service.CreateTemplate(r.Context(), claims.UserID, req)
@@ -423,7 +415,7 @@ func (h *Handler) InstantiateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	var req TemplateInstantiateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	task, err := h.service.InstantiateTemplate(r.Context(), claims.UserID, id, req)

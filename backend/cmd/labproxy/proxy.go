@@ -80,24 +80,24 @@ func NewProxyHandler(pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer
 // JWT validation → session load → optional unpause → WS upgrade → relay.
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.draining.Load() {
-		http.Error(w, "service draining", http.StatusServiceUnavailable)
+		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
 		return
 	}
 
 	tokenStr := r.URL.Query().Get("session_token")
 	if tokenStr == "" {
-		http.Error(w, "missing session_token", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "missing session_token")
 		return
 	}
 
 	claims, err := validateWSToken(tokenStr, h.jwtSecret, h.jwtIssuer)
 	if err != nil {
 		slog.Warn("labproxy: invalid token", "error", err)
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 	if !h.tokenIsLive(r.Context(), tokenStr) {
-		http.Error(w, "token revoked or expired", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "token revoked or expired")
 		return
 	}
 
@@ -108,13 +108,13 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		claims.SessionID,
 	).Scan(&sess.ID, &sess.UserID, &sess.Status, &sess.ContainerID, &sess.ContainerHost)
 	if err != nil {
-		http.Error(w, "session not found", http.StatusNotFound)
+		writeJSONError(w, http.StatusNotFound, "session not found")
 		return
 	}
 
 	// IDOR guard: token's user_id must match the session's owner.
 	if sess.UserID != claims.UserID {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		writeJSONError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 
@@ -127,12 +127,12 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// idle-paused again after minting) rather than something this process
 	// can fix — reject and let the client re-mint, which resumes it.
 	if sess.Status != "running" {
-		http.Error(w, "session not running — mint a fresh session_token and reconnect", http.StatusConflict)
+		writeJSONError(w, http.StatusConflict, "session not running — mint a fresh session_token and reconnect")
 		return
 	}
 
 	if sess.ContainerHost == nil || *sess.ContainerHost == "" {
-		http.Error(w, "container not ready", http.StatusServiceUnavailable)
+		writeJSONError(w, http.StatusServiceUnavailable, "container not ready")
 		return
 	}
 

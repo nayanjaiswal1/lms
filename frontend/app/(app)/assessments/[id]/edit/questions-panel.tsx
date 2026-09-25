@@ -220,7 +220,7 @@ export function QuestionsPanel({ assessment, attached, bank, tags }: QuestionsPa
 
       <div className="grid gap-8 lg:grid-cols-2">
         <section className="flex min-w-0 flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex-between gap-3">
             <h2 className="section-title">In this test</h2>
             <span className="text-sm text-muted-foreground">{attached.length}</span>
           </div>

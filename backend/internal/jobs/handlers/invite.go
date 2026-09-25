@@ -160,9 +160,10 @@ func (h *InviteHandler) fetchMemberRole(ctx context.Context, orgID, userID strin
 // so org-invite emails can be tested against a real inbox in dev the same way.
 func (h *InviteHandler) sendInviteEmail(ctx context.Context, inv *orgs.Invite, token string) error {
 	if !h.cfg.ShouldSendRealEmail(inv.Email) {
-		slog.Info("DEV EMAIL: Org invite",
-			"to", inv.Email, "org_id", inv.OrgID,
-			"role", inv.Role, "token", token)
+		// The token value is never logged: logs are routinely copied into
+		// tickets and chat, and an invite token is a credential.
+		slog.Info("DEV EMAIL: org invite suppressed (dev)",
+			"to", inv.Email, "org_id", inv.OrgID, "role", inv.Role)
 		return nil
 	}
 

@@ -11,21 +11,21 @@
  */
 
 .wall {
-  --brass: #c9a24e;
-  --brass-bright: #e8cc86;
-  --kraft: #ede1c7;
-  --ink: #2b2118;
-  --paper-blue: #ccd9e2;
-  --paper-blush: #e9cac4;
-  --paper-mint: #cee0cd;
-  --alert: #a6362b;
-  --alert-bright: #d1594c;
+  --brass: hsl(var(--primary));
+  --brass-bright: hsl(var(--primary));
+  --kraft: hsl(var(--note-yellow));
+  --ink: hsl(var(--foreground));
+  --paper-blue: hsl(var(--note-blue));
+  --paper-blush: hsl(var(--note-pink));
+  --paper-mint: hsl(var(--note-green));
+  --alert: hsl(var(--destructive));
+  --alert-bright: hsl(var(--destructive));
 
   background: hsl(var(--background));
 }
 
 .wall:fullscreen {
-  background: radial-gradient(ellipse 70% 55% at 50% 38%, #241a10 0%, #15110d 65%);
+  background: linear-gradient(180deg, hsl(var(--terminal-chrome)), hsl(var(--terminal-bg)));
 }
 
 /* ── Header (wordmark + note count) ──────────────────────────────────────── */
@@ -34,7 +34,7 @@
   background: linear-gradient(to bottom, hsl(var(--background)) 0%, hsl(var(--background) / 0.85) 60%, transparent 100%);
 }
 .wall:fullscreen .headerBacking {
-  background: linear-gradient(to bottom, #15110d 0%, rgba(21, 17, 13, 0.85) 60%, transparent 100%);
+  background: linear-gradient(to bottom, hsl(var(--terminal-bg)) 0%, hsl(var(--terminal-bg) / 0.85) 60%, transparent 100%);
 }
 
 .wordmarkIcon {
@@ -53,7 +53,7 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--kraft);
-  text-shadow: 1px 0 0 var(--alert), 0 0 24px rgba(201, 162, 78, 0.25);
+  text-shadow: 1px 0 0 var(--alert), 0 0 24px hsl(var(--primary) / 0.25);
 }
 
 .caseLabel {
@@ -88,7 +88,7 @@
 .tab {
   color: hsl(var(--foreground));
   border-radius: 9999px;
-  transition: transform 200ms ease-smooth, background-color 200ms ease-smooth;
+  transition: transform var(--duration-normal) var(--ease-smooth), background-color var(--duration-normal) var(--ease-smooth);
 }
 .tab[data-active="true"] {
   background: hsl(var(--primary));
@@ -108,7 +108,7 @@
 }
 .wall:fullscreen .tab[data-active="true"] {
   transform: translateY(-3px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-raised);
 }
 .wall:fullscreen .tabPersonal { background: var(--paper-blush); }
 .wall:fullscreen .tabStudy { background: var(--paper-mint); }
@@ -125,7 +125,7 @@
      wood tone still shows through the board's own 0.5rem inset (see
      .board below), so the frame reads without needing a void gutter. */
   inset: 0;
-  background: linear-gradient(155deg, #8a6238, #2e1c0e 70%);
+  background: linear-gradient(155deg, hsl(var(--terminal-chrome)), hsl(var(--terminal-bg)) 70%);
 }
 
 .screw {
@@ -138,8 +138,8 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 55%, #5c4520 100%);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 55%, hsl(var(--primary) / 0.6) 100%);
+  box-shadow: var(--shadow-card);
 }
 
 .board {
@@ -149,17 +149,17 @@
 }
 .wall:fullscreen .board {
   inset: 0.5rem;
-  background-color: #4a3323;
+  background-color: hsl(var(--terminal-chrome));
   background-image:
-    radial-gradient(circle at 12% 18%, rgba(0, 0, 0, 0.16) 0, transparent 3px),
-    radial-gradient(circle at 42% 62%, rgba(255, 255, 255, 0.05) 0, transparent 2px),
-    radial-gradient(circle at 78% 24%, rgba(0, 0, 0, 0.16) 0, transparent 3px),
-    radial-gradient(circle at 88% 82%, rgba(255, 255, 255, 0.05) 0, transparent 2px),
-    radial-gradient(circle at 24% 88%, rgba(0, 0, 0, 0.16) 0, transparent 3px),
-    radial-gradient(circle at 60% 8%, rgba(255, 255, 255, 0.05) 0, transparent 2px);
+    radial-gradient(circle at 12% 18%, hsl(var(--foreground) / 0.16) 0, transparent 3px),
+    radial-gradient(circle at 42% 62%, hsl(var(--foreground) / 0.05) 0, transparent 2px),
+    radial-gradient(circle at 78% 24%, hsl(var(--foreground) / 0.16) 0, transparent 3px),
+    radial-gradient(circle at 88% 82%, hsl(var(--foreground) / 0.05) 0, transparent 2px),
+    radial-gradient(circle at 24% 88%, hsl(var(--foreground) / 0.16) 0, transparent 3px),
+    radial-gradient(circle at 60% 8%, hsl(var(--foreground) / 0.05) 0, transparent 2px);
   background-size: 130px 130px, 90px 90px, 150px 150px, 110px 110px, 140px 140px, 100px 100px;
-  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.55);
-  border-radius: calc(var(--radius-md) - 4px);
+  box-shadow: var(--shadow-modal);
+  border-radius: var(--radius-md);
 }
 
 .emptyLabel {
@@ -190,8 +190,8 @@
 }
 .wall:fullscreen .card {
   color: var(--ink);
-  box-shadow: 0 10px 20px -6px rgba(0, 0, 0, 0.55);
-  background-image: linear-gradient(165deg, rgba(255, 255, 255, 0.35), transparent 40%);
+  box-shadow: var(--shadow-raised);
+  background-image: linear-gradient(165deg, hsl(var(--foreground) / 0.12), transparent 40%);
 }
 
 .cardYellow { background-color: hsl(var(--note-yellow)); }
@@ -236,11 +236,11 @@
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 55%, #5c4520 100%);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 55%, hsl(var(--primary) / 0.6) 100%);
+  box-shadow: var(--shadow-card);
 }
 .wall:fullscreen .pinUrgent {
-  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 55%, #4a1712 100%);
+  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 55%, hsl(var(--destructive) / 0.6) 100%);
 }
 
 .categoryLabel {
@@ -285,9 +285,9 @@
   box-shadow: var(--shadow-card);
 }
 .wall:fullscreen .controlPlate {
-  background: linear-gradient(155deg, #8a6238, #2e1c0e 80%);
+  background: linear-gradient(155deg, hsl(var(--terminal-chrome)), hsl(var(--terminal-bg)) 80%);
   border: none;
-  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-raised);
 }
 
 .wall:fullscreen .controlBtn {
@@ -295,14 +295,14 @@
 }
 .wall:fullscreen .controlBtn:hover {
   color: var(--brass-bright);
-  background: rgba(0, 0, 0, 0.25);
+  background: hsl(var(--foreground) / 0.08);
 }
 
 .divider {
   background: hsl(var(--border));
 }
 .wall:fullscreen .divider {
-  background: rgba(0, 0, 0, 0.3);
+  background: hsl(var(--foreground) / 0.15);
 }
 
 .addPin {
@@ -313,12 +313,12 @@
   background: hsl(var(--primary) / 0.9);
 }
 .wall:fullscreen .addPin {
-  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 60%, #4a1712 100%);
-  box-shadow: 0 10px 24px -6px rgba(166, 54, 43, 0.6);
+  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 60%, hsl(var(--destructive) / 0.7) 100%);
+  box-shadow: var(--shadow-raised);
   color: var(--kraft);
 }
 .wall:fullscreen .addPin:hover {
-  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 45%, #4a1712 100%);
+  background: radial-gradient(circle at 35% 30%, var(--alert-bright), var(--alert) 45%, hsl(var(--destructive) / 0.7) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

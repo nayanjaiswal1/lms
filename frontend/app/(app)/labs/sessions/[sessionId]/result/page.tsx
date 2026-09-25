@@ -150,7 +150,7 @@ export default async function LabResultPage({ params }: PageProps) {
             const status: TaskStatus = completion?.status ?? "pending"
             return (
               <div
-                className="flex items-center justify-between gap-3 px-4 py-3"
+                className="flex-between gap-3 px-4 py-3"
                 key={task.task_id}
               >
                 <div className="flex items-center gap-2 min-w-0">

@@ -15,7 +15,7 @@ export function CourseProgressBar({ completed, total, className }: CourseProgres
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Course progress</p>
+      <p className="section-label">Course progress</p>
       <div className="flex items-center gap-3">
         <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
           {/* -rotate-90 only on the circles (no text inside) so the arc starts

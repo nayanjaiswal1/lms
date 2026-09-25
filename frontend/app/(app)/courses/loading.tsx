@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function CoursesLoading() {
   return (
     <main className="page-container">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6 flex-between gap-4">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-9 w-32" />
       </div>

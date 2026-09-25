@@ -75,7 +75,7 @@ export function DashboardReviewWidget({ cards }: DashboardReviewWidgetProps) {
 
   return (
     <section className="card-base flex flex-col gap-4 p-5">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex-between gap-4">
         <h2 className="subsection-title">Review cards</h2>
         <p className="text-xs tabular-nums text-muted-foreground">
           {state.index + 1} of {cards.length}

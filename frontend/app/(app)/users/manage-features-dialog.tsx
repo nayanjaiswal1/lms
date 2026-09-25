@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { FEATURE_META, type Feature } from "@/lib/features";
-import { apiFetch, csrfToken } from "@/lib/client/api";
+import { apiFetch } from "@/lib/client/api";
 
 interface MemberFeatureFlag {
   key: Feature;
@@ -46,30 +46,25 @@ export function ManageFeaturesDialog({ orgId, userId, userName }: Props) {
 
   function toggleFlag(key: Feature, next: boolean) {
     startTransition(async () => {
-      const res = await fetch(`/api/orgs/${orgId}/user-features/${userId}/${key}`, {
+      const updated = await apiFetch<unknown>(`/orgs/${orgId}/user-features/${userId}/${key}`, {
         method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
         body: JSON.stringify({ enabled: next }),
       });
-      if (res.ok) {
+      if (updated !== null) {
         toast.success(`${FEATURE_META[key].label} ${next ? "enabled" : "disabled"} for ${userName}.`);
         await load();
       } else {
-        const body = await res.json().catch(() => null) as { error?: string } | null;
-        toast.error(body?.error ?? "Failed to update feature.");
+        toast.error("Failed to update feature.");
       }
     });
   }
 
   function resetFlag(key: Feature) {
     startTransition(async () => {
-      const res = await fetch(`/api/orgs/${orgId}/user-features/${userId}/${key}`, {
+      const reset = await apiFetch<unknown>(`/orgs/${orgId}/user-features/${userId}/${key}`, {
         method: "DELETE",
-        credentials: "include",
-        headers: { "X-CSRF-Token": csrfToken() },
       });
-      if (res.ok) {
+      if (reset !== null) {
         toast.success(`${FEATURE_META[key].label} reset to default.`);
         await load();
       } else {

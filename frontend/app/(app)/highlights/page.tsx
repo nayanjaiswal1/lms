@@ -97,7 +97,7 @@ function HighlightCard({ highlight }: { highlight: Highlight }) {
       )}
 
       {/* Footer: source badge + date + navigation */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Badge className="text-xs" variant="secondary">
             {sourceLabel}

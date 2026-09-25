@@ -75,7 +75,7 @@ export function ProfileHeader({ profile, uploadAction }: Props) {
         )}
 
         <div className="w-full mt-3 space-y-1">
-          <div className="flex items-center justify-between">
+          <div className="flex-between">
             <span className="text-xs text-muted-foreground">Profile {pct}% complete</span>
           </div>
           <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">

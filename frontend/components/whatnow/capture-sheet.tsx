@@ -5,6 +5,8 @@
 // rather than discards; a failed capture keeps the text and offers a retry.
 
 import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { whatnowApi } from "@/lib/whatnow/client";
 import type { Task } from "@/lib/whatnow/types";
 
@@ -47,7 +49,7 @@ export function CaptureSheet({ onCaptured }: { onCaptured: (task: Task) => void 
 
   return (
     <form className="wn-capture" onSubmit={submit}>
-      <input
+      <Input
         aria-label="Capture a task"
         className="wn-capture-input"
         disabled={busy}
@@ -57,19 +59,20 @@ export function CaptureSheet({ onCaptured }: { onCaptured: (task: Task) => void 
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKeyDown}
       />
-      <button className="wn-capture-go" disabled={busy || !value.trim()} type="submit">
+      <Button disabled={busy || !value.trim()} type="submit">
         {busy ? "…" : "Catch"}
-      </button>
+      </Button>
       {error && (
         <p className="wn-capture-error">
           {error}{" "}
-          <button
-            className="wn-capture-retry"
+          <Button
+            className="h-auto p-0"
+            variant="link"
             type="button"
             onClick={() => void doCapture(value.trim())}
           >
             Retry
-          </button>
+          </Button>
         </p>
       )}
     </form>

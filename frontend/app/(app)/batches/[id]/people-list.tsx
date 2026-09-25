@@ -36,7 +36,7 @@ export function PeopleList({ batchId, people, actions }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <p className="text-sm text-muted-foreground">
             {filtered.length} {filtered.length === 1 ? "person" : "people"}

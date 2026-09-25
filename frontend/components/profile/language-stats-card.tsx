@@ -12,7 +12,7 @@ export function LanguageStatsCard({ languages }: Props) {
       <h2 className="text-sm font-semibold text-foreground">Languages</h2>
       <ul className="space-y-2">
         {languages.map((lang) => (
-          <li className="flex items-center justify-between gap-3 text-sm" key={lang.language}>
+          <li className="flex-between gap-3 text-sm" key={lang.language}>
             <span className="text-foreground">{lang.language}</span>
             <span className="text-muted-foreground tabular-nums">
               {lang.solved} {lang.solved === 1 ? 'problem' : 'problems'} solved

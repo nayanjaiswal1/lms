@@ -319,7 +319,7 @@ function CodingEditor({ form, cases }: { form: FormType; cases: ReturnType<typeo
             <Textarea className="min-h-16 font-mono text-xs" placeholder="stdin" {...form.register(`test_cases.${i}.stdin`)} />
             <Textarea className="min-h-16 font-mono text-xs" placeholder="expected output" {...form.register(`test_cases.${i}.expected`)} />
           </div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex-between gap-2">
             <Label className="flex items-center gap-2 font-normal">
               <Controller
                 control={form.control}

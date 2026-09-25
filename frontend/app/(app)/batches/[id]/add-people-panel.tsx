@@ -226,7 +226,7 @@ export function AddPeoplePanel({ batchId, orgMembers, currentMemberIds, currentM
           </div>
 
           {noMatches ? (
-            <div className="rounded-md border border-dashed border-border p-3 flex items-center justify-between gap-3">
+            <div className="rounded-md border border-dashed border-border p-3 flex-between gap-3">
               <p className="text-sm text-muted-foreground">
                 {parsedInvite ? (
                   <>

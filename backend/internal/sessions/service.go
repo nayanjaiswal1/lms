@@ -10,6 +10,7 @@ import (
 	"github.com/mindforge/backend/internal/calendar"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/payments"
+	"github.com/mindforge/backend/internal/validate"
 )
 
 // CalendarProjector is the slice of calendar.Service this package needs to
@@ -193,7 +194,7 @@ func (s *Service) Book(ctx context.Context, req BookRequest) (Session, error) {
 	if (req.StudentID == "") == (req.BatchID == "") {
 		return Session{}, fmt.Errorf("%w: a session is booked for either one student or one batch", ErrInvalid)
 	}
-	if !req.EndsAt.After(req.StartsAt) {
+	if !validate.ValidRange(req.StartsAt, req.EndsAt) {
 		return Session{}, fmt.Errorf("%w: the session must end after it starts", ErrInvalid)
 	}
 	if req.Title == "" {
@@ -615,7 +616,7 @@ func (s *Service) MenteeProgress(ctx context.Context, orgID, mentorID, studentID
 // Either party may move a session they are part of; the same exclusion
 // constraint that guards booking rejects a move onto a busy window.
 func (s *Service) Reschedule(ctx context.Context, orgID, sessionID, callerID string, startsAt, endsAt time.Time) (Session, error) {
-	if !endsAt.After(startsAt) {
+	if !validate.ValidRange(startsAt, endsAt) {
 		return Session{}, fmt.Errorf("%w: the session must end after it starts", ErrInvalid)
 	}
 	cfg, err := s.repo.GetConfig(ctx, orgID)

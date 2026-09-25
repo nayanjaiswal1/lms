@@ -1,10 +1,7 @@
 package mentoring
 
 import (
-	"encoding/json"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
 
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/httputil"
@@ -42,24 +39,4 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
-func urlParam(r *http.Request, key string) string {
-	return chi.URLParam(r, key)
-}
-
-func queryStrPtr(r *http.Request, key string) *string {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return nil
-	}
-	return &v
 }

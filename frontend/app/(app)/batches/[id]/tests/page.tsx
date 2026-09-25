@@ -21,7 +21,7 @@ export default async function OfflineTestsPage({ params }: Props) {
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <div className="flex items-center gap-2">
           <ClipboardList aria-hidden className="h-5 w-5 text-muted-foreground" />
           <h2 className="section-title">{t.class_} Test Results</h2>

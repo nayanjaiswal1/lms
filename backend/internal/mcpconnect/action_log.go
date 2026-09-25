@@ -2,20 +2,19 @@ package mcpconnect
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/pagination"
 )
 
 // ActionLogEntry is one row of mcp_action_log — a single MCP tool call and,
@@ -146,33 +145,16 @@ func decodeBeforeState(entry ActionLogEntry, dst any) error {
 }
 
 // ─── cursor pagination ─────────────────────────────────────────────────────
-// Small, deliberate duplicate of internal/orgs's (created_at, id) cursor —
-// that helper is unexported to its own package, and 25 lines of base64
-// encode/decode doesn't justify exporting it across an otherwise-unrelated
-// package boundary.
+// Cursor encode/decode lives in internal/pagination (shared with orgs and
+// jobs); the "mcpconnect" prefix below keeps malformed-cursor errors
+// attributed to this domain.
 
 func encodeActionLogCursor(createdAt time.Time, id string) string {
-	raw := fmt.Sprintf("%d:%s", createdAt.UnixMicro(), id)
-	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+	return pagination.EncodeCursor(createdAt, id)
 }
 
 func decodeActionLogCursor(cursor string) (time.Time, string, error) {
-	if cursor == "" {
-		return time.Time{}, "", nil
-	}
-	b, err := base64.RawURLEncoding.DecodeString(cursor)
-	if err != nil {
-		return time.Time{}, "", fmt.Errorf("mcpconnect: decode cursor: base64: %w", err)
-	}
-	parts := strings.SplitN(string(b), ":", 2)
-	if len(parts) != 2 {
-		return time.Time{}, "", fmt.Errorf("mcpconnect: decode cursor: invalid format")
-	}
-	var micro int64
-	if _, err := fmt.Sscanf(parts[0], "%d", &micro); err != nil {
-		return time.Time{}, "", fmt.Errorf("mcpconnect: decode cursor: parse timestamp: %w", err)
-	}
-	return time.UnixMicro(micro), parts[1], nil
+	return pagination.DecodeCursor(cursor, "mcpconnect")
 }
 
 // ─── HTTP handlers ──────────────────────────────────────────────────────────

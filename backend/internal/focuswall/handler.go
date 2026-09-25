@@ -1,7 +1,6 @@
 package focuswall
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,14 +15,6 @@ type Handler struct {
 
 func newHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
@@ -50,7 +41,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	note, err := h.service.Create(r.Context(), claims.UserID, req)
@@ -69,7 +60,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	noteID := chi.URLParam(r, "noteID")
 	var req UpdateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	note, err := h.service.Update(r.Context(), claims.UserID, noteID, req)

@@ -144,7 +144,7 @@ export default async function ProctoringLogPage({ params, searchParams }: PagePr
       </section>
 
       <section>
-        <div className="mb-3 flex items-center justify-between gap-4">
+        <div className="mb-3 flex-between gap-4">
           <h2 className="section-title">Event timeline</h2>
           {heartbeatCount > 0 && (
             <Link

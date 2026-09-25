@@ -104,7 +104,7 @@ export function CodeEditor({
           options={{
             readOnly,
             fontSize,
-            fontFamily: "var(--font-jetbrains-mono), 'JetBrains Mono', monospace",
+            fontFamily: "var(--font-mono), 'JetBrains Mono', monospace",
             minimap: { enabled: minimap },
             scrollBeyondLastLine: false,
             // Monaco captures the wheel event even once its own content is

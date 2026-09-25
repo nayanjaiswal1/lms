@@ -124,7 +124,7 @@ export default async function AuditLogPage({
   return (
     <div className="space-y-6">
       <div className="card-base p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex-between mb-6">
           <div>
             <h2 className="subsection-title text-foreground">Audit Log</h2>
             <p className="text-sm text-muted-foreground">

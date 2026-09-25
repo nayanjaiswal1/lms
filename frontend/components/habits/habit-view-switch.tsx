@@ -29,7 +29,7 @@ export function HabitViewSwitch() {
       />
       <Button
         aria-label="Wheel view"
-        className={cn("touch-target relative z-10 rounded-full", view !== "wheel" && "text-muted-foreground")}
+        className={cn("touch-target relative z-raised rounded-full", view !== "wheel" && "text-muted-foreground")}
         size="icon"
         title="Wheel view"
         variant="ghost"
@@ -39,7 +39,7 @@ export function HabitViewSwitch() {
       </Button>
       <Button
         aria-label="Grid view"
-        className={cn("touch-target relative z-10 rounded-full", view !== "grid" && "text-muted-foreground")}
+        className={cn("touch-target relative z-raised rounded-full", view !== "grid" && "text-muted-foreground")}
         size="icon"
         title="Grid view"
         variant="ghost"

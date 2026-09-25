@@ -16,7 +16,9 @@ import (
 // config.Config.DevEmailAllowlist (see Config.ShouldSendRealEmail).
 func SendVerification(cfg *config.Config, to, token string) error {
 	if !cfg.ShouldSendRealEmail(to) {
-		slog.Info("DEV EMAIL: Verification token", "to", to, "token", token)
+		// The token value is never logged: logs are routinely copied into
+		// tickets and chat, and a verification token is a credential.
+		slog.Info("DEV EMAIL: verification email suppressed (dev)", "to", to)
 		return nil
 	}
 	subject := "Verify your MindForge account"
@@ -31,7 +33,9 @@ func SendVerification(cfg *config.Config, to, token string) error {
 // config.Config.DevEmailAllowlist (see Config.ShouldSendRealEmail).
 func SendPasswordReset(cfg *config.Config, to, token string) error {
 	if !cfg.ShouldSendRealEmail(to) {
-		slog.Info("DEV EMAIL: Password reset token", "to", to, "token", token)
+		// The token value is never logged: logs are routinely copied into
+		// tickets and chat, and a reset token is a credential.
+		slog.Info("DEV EMAIL: password-reset email suppressed (dev)", "to", to)
 		return nil
 	}
 	subject := "Reset your MindForge password"

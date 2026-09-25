@@ -144,14 +144,14 @@ export function NotificationBell() {
         >
           <Bell aria-hidden className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 z-raised flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+            <span className="absolute -right-1 -top-1 z-raised flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold leading-none text-primary-foreground">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80" sideOffset={8}>
-        <div className="flex items-center justify-between px-2 py-1.5">
+        <div className="flex-between px-2 py-1.5">
           <DropdownMenuLabel className="p-0 text-sm font-normal">Notifications</DropdownMenuLabel>
           {unreadCount > 0 && (
             <button

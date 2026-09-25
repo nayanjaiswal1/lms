@@ -17,9 +17,10 @@ import type {
   TaskPatch,
   WeeklyRecap,
 } from "@/lib/whatnow/types";
+import { apiFetch } from "@/lib/client/api";
 
-/** Single config value for the API base. */
-export const WHATNOW_API_BASE = "/api/whatnow";
+/** Single config value for the API base (suffix appended to /api by apiFetch). */
+export const WHATNOW_API_BASE = "/whatnow";
 
 export class ApiError extends Error {
   constructor(
@@ -30,47 +31,22 @@ export class ApiError extends Error {
   }
 }
 
-function csrfToken(): string {
-  return (
-    document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("csrf_token="))
-      ?.slice("csrf_token=".length) ?? ""
-  );
-}
-
 async function request<T>(
   method: "GET" | "POST" | "PATCH" | "PUT",
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const res = await fetch(`${WHATNOW_API_BASE}${path}`, {
+  // Same-origin through the /api/whatnow proxy route (which forwards cookies
+  // to the backend) via the shared apiFetch helper — credentials:include and
+  // the X-CSRF-Token double-submit header are handled there, not here.
+  const data = await apiFetch<T>(`${WHATNOW_API_BASE}${path}`, {
     method,
-    credentials: "same-origin",
-    headers: {
-      "X-CSRF-Token": csrfToken(),
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const data = (await res.json()) as { error?: string; message?: string };
-      message = data.error ?? data.message ?? message;
-    } catch {
-      /* non-JSON error body — keep the default message */
-    }
-    throw new ApiError(res.status, message);
+  if (data === null || data === undefined) {
+    throw new ApiError(0, "Request failed. Check your connection and try again.");
   }
-  if (res.status === 204) return undefined as unknown as T;
-  const payload = (await res.json()) as { data?: T } | T;
-  // backend convention wraps responses in { data } — unwrap when present
-  return payload !== null &&
-    typeof payload === "object" &&
-    "data" in (payload as Record<string, unknown>)
-    ? (payload as { data: T }).data
-    : (payload as T);
+  return data;
 }
 
 export const whatnowApi = {

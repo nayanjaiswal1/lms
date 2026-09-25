@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -71,8 +70,8 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 	scopeID := q.Get("scope_id")
 	featureType := q.Get("feature_type")
-	limit := queryInt(r, "limit", 20)
-	offset := queryInt(r, "offset", 0)
+	limit := httputil.QueryIntNonNegative(r, "limit", 20)
+	offset := httputil.QueryIntNonNegative(r, "offset", 0)
 	if limit > 100 {
 		limit = 100
 	}
@@ -167,15 +166,6 @@ func buildLBKey(scope, scopeID, featureType, defaultOrgID string) (string, bool)
 		return "leaderboard:feature:org:" + id + ":" + featureType, true
 	}
 	return "", false
-}
-
-func queryInt(r *http.Request, key string, def int) int {
-	if v := r.URL.Query().Get(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			return n
-		}
-	}
-	return def
 }
 
 // ─── unused imports guard ─────────────────────────────────────────────────────

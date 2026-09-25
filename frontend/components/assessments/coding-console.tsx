@@ -36,7 +36,7 @@ export function CodingConsole({ sampleCases, tab, running, result, error, onTabC
         <button
           className={cn(
             "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-            tab === "testcase" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            tab === "testcase" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
           )}
           type="button"
           onClick={() => onTabChange("testcase")}
@@ -46,7 +46,7 @@ export function CodingConsole({ sampleCases, tab, running, result, error, onTabC
         <button
           className={cn(
             "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
-            tab === "result" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            tab === "result" ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground",
           )}
           type="button"
           onClick={() => onTabChange("result")}

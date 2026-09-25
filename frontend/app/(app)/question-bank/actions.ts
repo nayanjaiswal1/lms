@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { actionErrorMessage, authHeaders, apiAction, baseURL } from "@/lib/server/api";
+import { apiAction } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
 import type { Category } from "@/lib/assessments/types";
 import ROUTES from "@/lib/routes";
@@ -39,7 +39,6 @@ export interface CreateQuestionInput {
 
 // createQuestionAction builds the typed content payload and posts a new question.
 export async function createQuestionAction(input: CreateQuestionInput): Promise<FormState> {
-  const api = baseURL();
   const content =
     input.type === "mcq"
       ? { prompt: input.prompt, multiple: input.multiple ?? false, options: input.options ?? [], explanation: input.explanation ?? "" }
@@ -52,28 +51,17 @@ export async function createQuestionAction(input: CreateQuestionInput): Promise<
           test_cases: input.test_cases ?? [],
         };
 
-  const headers = await authHeaders();
-  try {
-    const res = await fetch(`${api}/api/questions`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        type: input.type,
-        title: input.title,
-        difficulty: input.difficulty,
-        default_points: input.default_points,
-        tags: input.tags,
-        category_id: input.category_id ?? null,
-        content,
-      }),
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      const body: { error?: string; fields?: Record<string, string> } = await res.json().catch(() => ({}));
-      return { error: actionErrorMessage(body, "Could not create the question."), fieldErrors: body.fields };
-    }
-  } catch {
-    return { error: "Network error. Please try again." };
+  const result = await apiAction("POST", "/api/questions", {
+    type: input.type,
+    title: input.title,
+    difficulty: input.difficulty,
+    default_points: input.default_points,
+    tags: input.tags,
+    category_id: input.category_id ?? null,
+    content,
+  });
+  if (!result.ok) {
+    return { error: result.error ?? "Could not create the question.", fieldErrors: result.fieldErrors };
   }
 
   revalidatePath(ROUTES.QUESTION_BANK);
@@ -87,14 +75,8 @@ export async function createCategoryAction(name: string): Promise<ActionResult<C
 }
 
 export async function archiveQuestionAction(questionId: string): Promise<FormState> {
-  const api = baseURL();
-  const headers = await authHeaders();
-  try {
-    const res = await fetch(`${api}/api/questions/${questionId}`, { method: "DELETE", headers, cache: "no-store" });
-    if (!res.ok) return { error: "Could not archive the question." };
-  } catch {
-    return { error: "Network error. Please try again." };
-  }
+  const result = await apiAction("DELETE", `/api/questions/${questionId}`);
+  if (!result.ok) return { error: result.error ?? "Could not archive the question." };
   revalidatePath(ROUTES.QUESTION_BANK);
   return { ok: true };
 }

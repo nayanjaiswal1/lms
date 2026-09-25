@@ -3,7 +3,6 @@ package wiki
 import (
 	"archive/zip"
 	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
@@ -27,14 +26,6 @@ func newHandler(service *Service) *Handler {
 }
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
 
 var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound:        {Status: http.StatusNotFound, Message: "Not found."},
@@ -77,7 +68,7 @@ func (h *Handler) CreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateSpaceRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	sp, err := h.service.CreateSpace(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, req)
@@ -108,7 +99,7 @@ func (h *Handler) UpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateSpaceRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	sp, err := h.service.UpdateSpace(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
@@ -154,7 +145,7 @@ func (h *Handler) CreatePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreatePageRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	p, err := h.service.CreatePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "spaceId"), req)
@@ -184,7 +175,7 @@ func (h *Handler) UpdatePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdatePageRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	p, err := h.service.UpdatePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
@@ -213,7 +204,7 @@ func (h *Handler) MovePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req MovePageRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	p, err := h.service.MovePage(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
@@ -296,7 +287,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateCommentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	c, err := h.service.CreateComment(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req)
@@ -313,7 +304,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateCommentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	c, err := h.service.UpdateComment(r.Context(), claims.UserID, claims.OrgRole, chi.URLParam(r, "id"), req.Content)
@@ -357,7 +348,7 @@ func (h *Handler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateTemplateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	t, err := h.service.CreateTemplate(r.Context(), claims.OrgID, claims.UserID, claims.OrgRole, req)

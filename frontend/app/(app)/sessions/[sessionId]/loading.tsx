@@ -6,7 +6,7 @@ export default function SessionDetailLoading() {
       <Skeleton className="mb-4 h-5 w-32" />
 
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6">
+        <div className="flex flex-col gap-3 card-raised">
           <div className="flex items-start justify-between gap-3">
             <Skeleton className="h-8 w-56" />
             <Skeleton className="h-5 w-20 rounded-md" />

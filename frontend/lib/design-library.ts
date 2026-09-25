@@ -7,6 +7,12 @@ import type { LibraryItem } from "@excalidraw/excalidraw/types";
 // Message Queue / CDN" shelf works. Built via Excalidraw's own
 // convertToExcalidrawElements skeleton helper rather than hand-authoring
 // every element field (ids, seeds, versions, bound-text linkage, ...).
+// DATA-ONLY palette: these hex values are canvas stroke/fill data passed to
+// Excalidraw element payloads, never Tailwind classes or CSS — they do not
+// participate in the app theme (light/dark) by design, same as Excalidraw's
+// own default stroke palette. Mapped 1:1 to --habit-* categorical tokens
+// (validated CVD-safe order in globals.css) so canvas hues stay consistent
+// with the habit tracker when rendered side-by-side.
 const SHAPES: { name: string; color: string }[] = [
   { name: "Client", color: "#1971c2" },
   { name: "Server", color: "#2f9e44" },

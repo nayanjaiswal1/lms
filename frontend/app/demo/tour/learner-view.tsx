@@ -10,9 +10,9 @@ export function LearnerView() {
 
   return (
     // eslint-disable-next-line no-restricted-syntax -- nested content column inside demo-shell, no .app-content ancestor to supply vertical padding
-    <div className="page-container py-8">
+    <div className="page-container">
       {/* Section 1 — Header */}
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex-between">
         <h2>Welcome back, <strong>{firstName}</strong> 👋</h2>
         <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
           <Flame aria-hidden className="h-4 w-4" />
@@ -62,7 +62,7 @@ export function LearnerView() {
               {currentModule.course} · Module {currentModule.moduleNumber}: {currentModule.title}
             </p>
             {/* eslint-disable-next-line no-restricted-syntax -- fixed progress-track container height */}
-            <div className="progress-track my-2" style={{ height: "6px" }}>
+            <div className="progress-track my-2 h-1.5">
               { }
               <div className="progress-fill" style={{ '--progress': `${currentModule.progressPct}%` } as React.CSSProperties} />
             </div>

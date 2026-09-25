@@ -23,7 +23,7 @@ func (h *Handler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	}
 	assignmentID := chi.URLParam(r, "assignmentID")
 	var req createTeamRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
@@ -66,7 +66,7 @@ func (h *Handler) UpdateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var patch TeamPatch
-	if !decodeJSON(w, r, &patch) {
+	if !httputil.DecodeJSON(w, r, &patch) {
 		return
 	}
 	team, err := h.service.UpdateTeam(r.Context(), claims.OrgID, chi.URLParam(r, "teamID"), patch)
@@ -118,7 +118,7 @@ func (h *Handler) AddTeamMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req addMemberRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Role == "" {

@@ -18,7 +18,7 @@ func (h *Handler) RequestMentor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		CourseID string `json:"course_id"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.CourseID == "" {
@@ -49,7 +49,7 @@ func (h *Handler) GetTicketDetail(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteError(w, http.StatusInternalServerError, "Permission check failed.")
 		return
 	}
-	detail, err := h.service.GetTicketDetail(r.Context(), claims.OrgID, urlParam(r, "ticketID"), canViewReports)
+	detail, err := h.service.GetTicketDetail(r.Context(), claims.OrgID, httputil.URLParam(r, "ticketID"), canViewReports)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -63,7 +63,7 @@ func (h *Handler) ClaimTicket(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ticket, err := h.service.ClaimTicket(r.Context(), claims.OrgID, urlParam(r, "ticketID"), claims.UserID)
+	ticket, err := h.service.ClaimTicket(r.Context(), claims.OrgID, httputil.URLParam(r, "ticketID"), claims.UserID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -81,14 +81,14 @@ func (h *Handler) AssignTicket(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		MentorID string `json:"mentor_id"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.MentorID == "" {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"mentor_id": "mentor_id is required."})
 		return
 	}
-	ticket, err := h.service.AssignTicket(r.Context(), claims.OrgID, urlParam(r, "ticketID"), req.MentorID, claims.UserID)
+	ticket, err := h.service.AssignTicket(r.Context(), claims.OrgID, httputil.URLParam(r, "ticketID"), req.MentorID, claims.UserID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -105,7 +105,7 @@ func (h *Handler) CloseTicket(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ticketID := urlParam(r, "ticketID")
+	ticketID := httputil.URLParam(r, "ticketID")
 	ticket, err := h.service.GetTicket(r.Context(), claims.OrgID, ticketID)
 	if err != nil {
 		writeDomainError(w, err)

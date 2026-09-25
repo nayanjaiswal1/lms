@@ -66,7 +66,7 @@ export function LabTaskPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 shrink-0">
+      <div className="flex-between border-b border-border px-4 py-3 shrink-0">
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-foreground">Tasks</span>
           <span className="text-xs text-muted-foreground">
@@ -95,7 +95,7 @@ export function LabTaskPanel({
       {selectedTask && (
         <ScrollArea className="flex-1">
           <div className="flex flex-col gap-2 px-4 py-4">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Task {selectedTask.position} of {tasks.length}
               </span>

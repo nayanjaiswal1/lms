@@ -74,7 +74,7 @@ func (h *Handler) HandleWriteFile(w http.ResponseWriter, r *http.Request) {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *Handler) HandleCreateDirectory(w http.ResponseWriter, r *http.Request) 
 	var body struct {
 		Path string `json:"path"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *Handler) HandleRenameFile(w http.ResponseWriter, r *http.Request) {
 		From string `json:"from"`
 		To   string `json:"to"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 
@@ -177,7 +177,7 @@ func (h *Handler) HandleValidateFile(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path string `json:"path"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 

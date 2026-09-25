@@ -62,7 +62,7 @@ export function OriginalityReport({ assignmentId, reports, teamsById }: Original
     <div className="flex flex-col gap-4">
       {latest && <ScanPoller status={latest.status} />}
 
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex-between gap-4">
         <p className="text-sm text-muted-foreground">
           Compares every team&apos;s files against each other and the template project, flagging pairs at or above 60% similarity.
         </p>

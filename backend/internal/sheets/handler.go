@@ -30,14 +30,6 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
 // ListPublicSheets handles GET /api/sheets/public.
 func (h *Handler) ListPublicSheets(w http.ResponseWriter, r *http.Request) {
 	sheets, err := h.repo.ListPublicSheets(r.Context())
@@ -100,7 +92,7 @@ func (h *Handler) CreateSheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateSheetRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Name == "" {
@@ -154,7 +146,7 @@ func (h *Handler) UpdateSheet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateSheetRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Name != nil && *req.Name == "" {
@@ -204,7 +196,7 @@ func (h *Handler) CombineSheets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CombineSheetsRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Name == "" {
@@ -259,7 +251,7 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req AddItemRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Title == "" {
@@ -297,7 +289,7 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateItemRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -404,7 +396,7 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 	topicTag := chi.URLParam(r, "topic_tag")
 
 	var req UpdateProgressRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Status != "todo" && req.Status != "done" && req.Status != "revisit" {
@@ -450,7 +442,7 @@ func (h *Handler) UpdateProgressReview(w http.ResponseWriter, r *http.Request) {
 	topicTag := chi.URLParam(r, "topic_tag")
 
 	var req MarkReviewedRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.SheetID == "" {
@@ -479,7 +471,7 @@ func (h *Handler) UpdateProgressRevision(w http.ResponseWriter, r *http.Request)
 	topicTag := chi.URLParam(r, "topic_tag")
 
 	var req UpdateRevisionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.RevisionAt.IsZero() {
@@ -531,7 +523,7 @@ func (h *Handler) UpdateSheetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpdateSheetSettingsRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -567,7 +559,7 @@ func (h *Handler) UpdateProgressNotes(w http.ResponseWriter, r *http.Request) {
 	topicTag := chi.URLParam(r, "topic_tag")
 
 	var req UpdateProgressNotesRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.Notes) == 0 || !json.Valid(req.Notes) {
@@ -594,7 +586,7 @@ func (h *Handler) UpdateProgressStarred(w http.ResponseWriter, r *http.Request) 
 	topicTag := chi.URLParam(r, "topic_tag")
 
 	var req UpdateProgressStarredRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

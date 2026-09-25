@@ -42,7 +42,7 @@ export function LessonFloatingPanel({
           solid bg-background). Border-only keeps the cyan AI accent without
           a see-through fill bleeding whatever's behind it into the panel. */}
       <div className="bg-background border border-ai/20 rounded-xl shadow-raised overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)]">
-        <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="shrink-0 flex-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             {icon}
             <span className="text-sm font-medium">{title}</span>
@@ -62,7 +62,7 @@ export function LessonFloatingPanel({
         {children}
 
         {footer && (
-          <div className="shrink-0 flex items-center justify-between px-4 py-3 border-t border-border">
+          <div className="shrink-0 flex-between px-4 py-3 border-t border-border">
             {footer}
           </div>
         )}

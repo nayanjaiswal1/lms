@@ -97,7 +97,7 @@ function HighlightRow({
       )}
 
       {/* Footer row */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
             {SOURCE_LABEL[highlight.source_type] ?? highlight.source_type} ·{" "}
@@ -157,7 +157,7 @@ export function HighlightsSheet({
     <Sheet open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <SheetContent className="w-full sm:w-[400px] flex flex-col p-0" side="right">
         <SheetHeader className="px-5 py-4 border-b border-border shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex-between">
             <SheetTitle className="text-base">
               Highlights
               <Badge className="ml-2 text-xs" variant="secondary">

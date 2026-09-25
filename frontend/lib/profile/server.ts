@@ -1,6 +1,6 @@
 import "server-only";
 
-import { apiGet, baseURL } from "@/lib/server/api";
+import { apiGet, apiGetPublic } from "@/lib/server/api";
 import type { Profile, ProfileOverview, PublicProfile } from "@/lib/profile/types";
 
 export async function fetchMyProfile(): Promise<Profile | null> {
@@ -20,10 +20,9 @@ export async function fetchMyOverview(): Promise<ProfileOverview | null> {
 }
 
 export async function fetchPublicProfile(slug: string): Promise<PublicProfile | null> {
-  const res = await fetch(`${baseURL()}/api/profile/public/${slug}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  const json = await res.json() as { data: PublicProfile };
-  return json.data;
+  try {
+    return await apiGetPublic<PublicProfile>(`/api/profile/public/${slug}`, { revalidate: 60 });
+  } catch {
+    return null;
+  }
 }

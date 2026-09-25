@@ -190,7 +190,7 @@ export function LabUsageView({
       </section>
 
       <section className="mt-10">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex-between gap-4 flex-wrap">
           <h2 className="section-title">By student</h2>
           <Badge className="badge-muted" variant="outline">Top {usage.by_student.length}</Badge>
         </div>

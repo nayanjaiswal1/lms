@@ -46,14 +46,6 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
 const entryDateFormat = "2006-01-02"
 
 // normalizeEntryDate turns an empty pointer into nil (so the repo's SQL
@@ -214,7 +206,7 @@ func (h *Handler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateEntryRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -266,7 +258,7 @@ func (h *Handler) UpdateEntry(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	var req UpdateEntryRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -325,7 +317,7 @@ func (h *Handler) MergeEntries(w http.ResponseWriter, r *http.Request) {
 	keepID := chi.URLParam(r, "id")
 
 	var req MergeEntriesRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	req.OtherID = strings.TrimSpace(req.OtherID)
@@ -390,7 +382,7 @@ func (h *Handler) StructureEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req StructureRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

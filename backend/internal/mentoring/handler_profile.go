@@ -14,7 +14,7 @@ func (h *Handler) GetMentorProfile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	profile, err := h.service.GetMentorProfile(r.Context(), claims.OrgID, urlParam(r, "mentorID"))
+	profile, err := h.service.GetMentorProfile(r.Context(), claims.OrgID, httputil.URLParam(r, "mentorID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -33,10 +33,10 @@ func (h *Handler) VerifyMentor(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Verified bool `json:"verified"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	mentorID := urlParam(r, "mentorID")
+	mentorID := httputil.URLParam(r, "mentorID")
 	if err := h.service.SetMentorVerified(r.Context(), claims.OrgID, mentorID, req.Verified, claims.UserID); err != nil {
 		writeDomainError(w, err)
 		return

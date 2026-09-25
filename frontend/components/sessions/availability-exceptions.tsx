@@ -227,7 +227,7 @@ export function AvailabilityExceptions({ exceptions }: AvailabilityExceptionsPro
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex-between gap-4">
         <h2 className="section-title">One-off overrides</h2>
         <AddOverrideDialog />
       </div>

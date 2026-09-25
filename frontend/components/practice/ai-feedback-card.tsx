@@ -10,7 +10,7 @@ export function AIFeedbackCard({ feedback }: AIFeedbackCardProps) {
 
   return (
     <div className="ai-surface flex flex-col gap-5 rounded-lg p-5">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex-between gap-2">
         <div className="ai-badge">AI Feedback</div>
         <div className="flex items-baseline gap-1">
           <span className="text-2xl font-bold text-primary">{feedback.score}</span>

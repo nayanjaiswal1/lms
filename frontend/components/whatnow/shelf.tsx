@@ -5,6 +5,7 @@
 // stage stays the main character.
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { whatnowApi } from "@/lib/whatnow/client";
 import type { PlanToday, Task, WeeklyRecap } from "@/lib/whatnow/types";
 
@@ -118,7 +119,7 @@ export function Shelf({
       >
         <header className="wn-shelf-head">
           <h3 className="wn-shelf-title">The shelf</h3>
-          <button aria-label="Close shelf" className="wn-shelf-close" onClick={onClose}>✕</button>
+          <Button aria-label="Close shelf" size="icon" variant="ghost" onClick={onClose}>✕</Button>
         </header>
 
         {recap && <p className="wn-recap">{recap.summary}</p>}
@@ -136,36 +137,40 @@ export function Shelf({
                 <li className="wn-shelf-item" key={t.id}>
                   <span className="wn-shelf-item-title">{t.title}</span>
                   <span className="wn-shelf-item-actions">
-                    <button
+                    <Button
                       aria-label={`Move ${t.title} up`}
-                      className="wn-shelf-action"
+                      className="h-auto p-0"
+                      variant="link"
                       disabled={busyId === t.id || i === 0}
                       onClick={() => move(t, -1)}
                     >
                       ↑
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       aria-label={`Move ${t.title} down`}
-                      className="wn-shelf-action"
+                      className="h-auto p-0"
+                      variant="link"
                       disabled={busyId === t.id || i === plan.tasks.length - 1}
                       onClick={() => move(t, 1)}
                     >
                       ↓
-                    </button>
-                    <button
-                      className="wn-shelf-action"
+                    </Button>
+                    <Button
+                      className="h-auto p-0"
+                      variant="link"
                       disabled={busyId === t.id}
                       onClick={() => promote(t)}
                     >
                       do this now
-                    </button>
-                    <button
-                      className="wn-shelf-action"
+                    </Button>
+                    <Button
+                      className="h-auto p-0"
+                      variant="link"
                       disabled={busyId === t.id}
                       onClick={() => toggleToday(t, false)}
                     >
                       drop
-                    </button>
+                    </Button>
                   </span>
                 </li>
               ))}
@@ -185,14 +190,15 @@ export function Shelf({
                     {t.title}
                     {t.status === "paused" && <span className="wn-shelf-paused"> · paused</span>}
                   </span>
-                  <button
-                    className="wn-shelf-action"
+                  <Button
+                    className="h-auto p-0"
+                    variant="link"
                     disabled={busyId === t.id || planFull}
                     title={planFull ? "Today is full — drop something first" : undefined}
                     onClick={() => toggleToday(t, true)}
                   >
                     today
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -208,13 +214,14 @@ export function Shelf({
               {decayed.map((t) => (
                 <li className="wn-shelf-item wn-shelf-item-decayed" key={t.id}>
                   <span className="wn-shelf-item-title">{t.title}</span>
-                  <button
-                    className="wn-shelf-action"
+                  <Button
+                    className="h-auto p-0"
+                    variant="link"
                     disabled={busyId === t.id}
                     onClick={() => revive(t)}
                   >
                     revive
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

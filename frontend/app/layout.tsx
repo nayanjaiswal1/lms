@@ -68,7 +68,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description: 'AI-powered learning platform. Curriculum, spaced repetition, quizzes, and projects — end to end.',
     applicationName: name,
-    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3002'),
 
     // Apple PWA — standalone mode with translucent status bar so our
     // app-header colour shows through (pairs with viewport-fit: cover)

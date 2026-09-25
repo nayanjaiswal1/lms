@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
+import { baseURL } from "@/lib/server/api";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 import ROUTES from "@/lib/routes";
 
 export interface CreateOrgState {
@@ -60,38 +62,40 @@ export async function createOrgAction(
     return { fieldErrors };
   }
 
-  const apiBase = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+  try {
+    void baseURL();
+  } catch {
+    return { error: "Server configuration error. Please try again later." };
+  }
   const store = await cookies();
   const accessToken = store.get("access_token")?.value ?? "";
   const csrfToken = store.get("csrf_token")?.value ?? "";
 
-  // Raw fetch instead of apiAction: needs the raw Response for the 409
-  // slug-taken status check below AND for forwardSetCookies() (org creation
-  // switches the caller's active org, which re-issues access_token) — apiAction
-  // only returns {ok, data, error} and never captures Set-Cookie.
+  // authFetchWithCookies instead of apiAction: needs the raw Response for
+  // the 409 slug-taken status check below AND for forwardSetCookies() (org
+  // creation switches the caller's active org, which re-issues
+  // access_token) — apiAction only returns {ok, data, error} and never
+  // captures Set-Cookie.
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetch(`${apiBase}/api/orgs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // eslint-disable-next-line no-restricted-syntax -- see comment above; raw Response required for status-code branching + forwardSetCookies.
-        Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
-        "X-CSRF-Token": csrfToken,
-        "Idempotency-Key": idempotencyKey,
+    const result = await authFetchWithCookies(
+      "/api/orgs",
+      { name, slug, description: description || null },
+      {
+        headers: {
+          // eslint-disable-next-line no-restricted-syntax -- see comment above; raw Response required for status-code branching + forwardSetCookies.
+          Cookie: `access_token=${accessToken}; csrf_token=${csrfToken}`,
+          "X-CSRF-Token": csrfToken,
+          "Idempotency-Key": idempotencyKey,
+        },
       },
-      body: JSON.stringify({
-        name,
-        slug,
-        description: description || null,
-      }),
-      cache: "no-store",
-    });
+    );
+    response = result.response;
+    body = result.body;
   } catch {
     return { error: "Network error. Please check your connection and try again." };
   }
-
-  const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
     const msg = asString(getField(body, "error"));

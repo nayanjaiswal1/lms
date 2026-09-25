@@ -87,7 +87,7 @@ export function RecentSubmissionsList({ items }: Props) {
           {filtered.map((item, index) => (
             <li
               className={cn(
-                'flex items-center justify-between gap-3 px-3 py-3 rounded-md',
+                'flex-between gap-3 px-3 py-3 rounded-md',
                 index % 2 === 1 && 'bg-muted/40',
               )}
               key={item.attempt_id}

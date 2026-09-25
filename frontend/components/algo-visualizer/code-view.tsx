@@ -39,7 +39,7 @@ export function CodeView({ code, currentLine, visitedLines, language }: CodeView
         <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-warning" />
         <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-success" />
         <span className="ml-2 truncate text-xs text-muted-foreground">{FILE_NAME[language]}</span>
-        <span className="ml-auto rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+        <span className="ml-auto rounded-sm bg-primary/10 px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide text-primary">
           {LANGUAGE_BADGE[language]}
         </span>
       </div>

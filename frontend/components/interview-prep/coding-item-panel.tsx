@@ -81,7 +81,7 @@ export function CodingItemPanel({ planId, roundId, item, itemIndex, isLast }: Co
       </div>
 
       <div className="flex min-h-[300px] flex-1 flex-col lg:min-h-0">
-        <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
+        <div className="flex-between border-b border-border bg-muted/50 px-3 py-1.5">
           <span className="text-xs font-medium text-muted-foreground">{item.language}</span>
         </div>
         <CodeEditor
@@ -91,7 +91,7 @@ export function CodingItemPanel({ planId, roundId, item, itemIndex, isLast }: Co
           value={code}
           onChange={(v) => setCode(v ?? "")}
         />
-        <div className="flex items-center justify-between gap-3 border-t border-border p-3">
+        <div className="flex-between gap-3 border-t border-border p-3">
           {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
           <Button
             className="ml-auto"

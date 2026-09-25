@@ -201,7 +201,7 @@ interface TaskBoardProps {
 export function TaskBoard({ tasks, teamId, currentUserId }: TaskBoardProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex-between gap-4">
         <h2 className="section-title">Tasks</h2>
         <NewTaskDialog teamId={teamId} />
       </div>

@@ -9,11 +9,9 @@ import (
 	"github.com/mindforge/backend/internal/srs"
 )
 
-// handlerLLM matches handlers.HandlerLLM ("llm.task") — a literal here rather
-// than importing internal/jobs/handlers, matching how internal/revisionplan
-// enqueues jobs by handler name without importing the handlers package (see
-// revisionplan/service.go).
-const handlerLLM = "llm.task"
+// jobs.HandlerLLM is the shared LLM-task handler name (see
+// internal/jobs/types.go); referenced via the jobs package rather than
+// internal/jobs/handlers because handlers depends on other domains.
 
 // Service is the one place mistake-logging spans two packages: writing the
 // event, and auto-creating the SRS revision card for it. Every other
@@ -59,7 +57,7 @@ func (s *Service) LogMistake(ctx context.Context, userID string, req LogRequest)
 	}
 
 	if _, err := jobs.Enqueue(ctx, s.pool, s.jobsRegistry, jobs.EnqueueParams{
-		Handler:   handlerLLM,
+		Handler:   jobs.HandlerLLM,
 		Priority:  jobs.PriorityNormal,
 		CreatedBy: &userID,
 		Payload: map[string]any{

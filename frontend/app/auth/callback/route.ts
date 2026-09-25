@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
 import { resolveLegalGateRedirect } from "@/lib/server/legal";
+import { baseURL } from "@/lib/server/api";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 import ROUTES from "@/lib/routes";
 
 // Receives the one-time exchange token from the Go OAuth callback redirect,
@@ -20,25 +22,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) {
+  let apiUrl: string;
+  try {
+    apiUrl = baseURL();
+  } catch {
     loginUrl.searchParams.set("error", "config");
     return NextResponse.redirect(loginUrl);
   }
 
   let res: Response;
+  let body: unknown;
   try {
-    res = await fetch(`${apiUrl}/api/auth/social/exchange`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(req.headers.get("x-forwarded-for")
-          ? { "X-Forwarded-For": req.headers.get("x-forwarded-for") as string }
-          : {}),
-      },
-      body: JSON.stringify({ token }),
-      cache: "no-store",
-    });
+    const forwarded = req.headers.get("x-forwarded-for");
+    const result = await authFetchWithCookies(
+      "/api/auth/social/exchange",
+      { token },
+      forwarded ? { headers: { "X-Forwarded-For": forwarded } } : undefined,
+    );
+    res = result.response;
+    body = result.body;
   } catch {
     loginUrl.searchParams.set("error", "network");
     return NextResponse.redirect(loginUrl);
@@ -48,8 +50,6 @@ export async function GET(req: NextRequest) {
     loginUrl.searchParams.set("error", "exchange_failed");
     return NextResponse.redirect(loginUrl);
   }
-
-  const body: unknown = await res.json().catch(() => null);
 
   // Forward auth cookies (access_token, refresh_token, csrf_token) from Go to
   // the browser's Next.js origin via the server-side cookie store.

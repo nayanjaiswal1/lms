@@ -2,7 +2,6 @@ package mcpconnect
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -136,7 +135,7 @@ func (rt *Router) HandleAuthorizeApprove(w http.ResponseWriter, r *http.Request)
 	}
 
 	var req authorizeDecisionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	_, scopes, err := rt.resolveAuthRequest(r.Context(), req.ClientID, req.RedirectURI, req.Scope)
@@ -208,7 +207,7 @@ func (rt *Router) HandleAuthorizeDeny(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req authorizeDecisionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if _, _, err := rt.resolveAuthRequest(r.Context(), req.ClientID, req.RedirectURI, req.Scope); err != nil {
@@ -227,12 +226,4 @@ func (rt *Router) HandleAuthorizeDeny(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.WriteJSON(w, http.StatusOK, map[string]any{"redirect_url": redirectURL})
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }

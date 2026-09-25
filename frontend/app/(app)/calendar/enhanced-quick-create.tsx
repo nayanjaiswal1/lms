@@ -165,7 +165,7 @@ export function EnhancedQuickCreate({ defaultStart, defaultEnd, onCreate, onCanc
           </div>
 
           {/* Duration display */}
-          <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
+          <div className="flex-between rounded-md bg-muted/50 px-3 py-2">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{durationText}</span>

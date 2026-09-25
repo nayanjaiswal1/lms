@@ -17,7 +17,7 @@ export function GymPerformanceCard({ habits, month, metadata }: GymPerformanceCa
 
   return (
     <section className="rounded-lg border border-border p-6">
-      <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 section-label">
         Gym Performance
       </h2>
       {!habit ? (
@@ -32,11 +32,11 @@ export function GymPerformanceCard({ habits, month, metadata }: GymPerformanceCa
         <div className="flex h-full flex-col gap-6 rounded-md bg-primary/5 p-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-widest text-primary">Workout Type</span>
+              <span className="text-xs uppercase tracking-widest text-primary">Workout Type</span>
               <span className="text-sm">{stringField(entry.workout_type) ?? "—"}</span>
             </div>
             <div className="flex flex-col text-right">
-              <span className="text-[10px] uppercase tracking-widest text-primary">Duration</span>
+              <span className="text-xs uppercase tracking-widest text-primary">Duration</span>
               <span className="text-sm">
                 {stringField(entry.duration_minutes) ? `${entry.duration_minutes} Minutes` : "—"}
               </span>
@@ -44,7 +44,7 @@ export function GymPerformanceCard({ habits, month, metadata }: GymPerformanceCa
           </div>
           {typeof entry.intensity === "number" && (
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-widest text-primary">Intensity</span>
+              <span className="text-xs uppercase tracking-widest text-primary">Intensity</span>
               <div className="mt-1 flex gap-1">
                 {Array.from({ length: 5 }, (_, i) => (
                   <Zap

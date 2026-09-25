@@ -29,7 +29,7 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
   const segment = (active: boolean) =>
     cn(
       "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs transition-all",
-      active ? "bg-(--ae-card) font-bold text-(--ae-brand) shadow-2xs" : "font-semibold text-(--ae-dim) hover:text-(--ae-ink)",
+      active ? "bg-card font-bold text-primary shadow-card" : "font-semibold text-muted-foreground hover:text-foreground",
     );
 
   return (
@@ -37,7 +37,7 @@ export default async function PlanningPage({ searchParams }: PlanningPageProps) 
       <DashboardHeader initial={board.user.initial} subtitle={board.subtitle} title={board.title} />
 
       <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-3.5 py-4 sm:max-w-none sm:gap-6 sm:p-6 xl:grid xl:grid-cols-12 xl:items-start">
-        <nav aria-label="Board view" className="order-first flex items-center rounded-xl bg-(--ae-soft) p-1 shadow-2xs xl:hidden">
+        <nav aria-label="Board view" className="order-first flex items-center rounded-xl bg-muted p-1 shadow-card xl:hidden">
           <Link aria-current={!showTask ? "page" : undefined} className={segment(!showTask)} href={ROUTES.GITLAB_PLANNING} scroll={false}>
             <LayoutGrid aria-hidden className="size-3.5" />
             <span>Matrix ({taskCount})</span>

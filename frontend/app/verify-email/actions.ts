@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import ROUTES from "@/lib/routes";
-import { clientIpHeaders } from "@/lib/server/api";
+import { baseURL } from "@/lib/server/api";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 
 export interface VerifyEmailState {
   error?: string;
@@ -15,23 +16,23 @@ export async function verifyEmailAction(
   const token = (formData.get("token") ?? "").toString().trim();
   if (!token) return { error: "Enter the verification code from your email." };
 
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return { error: "Verification is temporarily unavailable. Please try again later." };
+  try {
+    void baseURL();
+  } catch {
+    return { error: "Verification is temporarily unavailable. Please try again later." };
+  }
 
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetch(`${apiUrl}/api/auth/verify-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
-      body: JSON.stringify({ token }),
-      cache: "no-store",
-    });
+    const result = await authFetchWithCookies("/api/auth/verify-email", { token });
+    response = result.response;
+    body = result.body;
   } catch {
     return { error: "We couldn't reach the server. Check your connection and try again." };
   }
 
   if (!response.ok) {
-    const body: unknown = await response.json().catch(() => null);
     const apiError =
       body && typeof body === "object"
         ? (body as Record<string, unknown>).error

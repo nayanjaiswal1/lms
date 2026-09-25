@@ -249,7 +249,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
           dismissible: this window can no longer write to the attempt. */}
       {confirming === "superseded" && (
         <div className="fixed inset-0 z-toast flex items-center justify-center bg-background p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-raised">
+          <div className="w-full max-w-sm card-raised text-center shadow-raised">
             <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
               <ShieldAlert aria-hidden className="h-6 w-6 text-destructive" />
             </span>
@@ -300,7 +300,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
             {/* Exit confirmation overlay — covers question area + palette */}
             {confirming === "exit" && (
               <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
-                <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-raised">
+                <div className="w-full max-w-sm card-raised shadow-raised">
                   <div className="mb-4 flex flex-col items-center gap-3 text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
                       <TriangleAlert aria-hidden className="h-6 w-6 text-destructive" />
@@ -341,7 +341,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
             {/* Proctoring rules overlay — opened from the help icon in the banner */}
             {confirming === "rules" && (
               <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
-                <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-raised">
+                <div className="w-full max-w-sm card-raised shadow-raised">
                   <div className="mb-4 flex flex-col items-center gap-3 text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                       <HelpCircle aria-hidden className="h-6 w-6 text-primary" />
@@ -383,7 +383,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
             {/* Submit confirmation overlay — covers question area + palette */}
             {confirming === "submit" && (
               <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
-                <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-raised">
+                <div className="w-full max-w-sm card-raised shadow-raised">
                   <div className="mb-4 flex flex-col items-center gap-3 text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                       <Send aria-hidden className="h-6 w-6 text-primary" />
@@ -598,7 +598,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
           {/* Zone 3: Previous/Next navigation — Submit lives in the top banner now,
               so this line is just prev/next (no position count, per design). */}
           <div className="shrink-0 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex-between gap-3">
               <Button
                 aria-label="Previous question"
                 disabled={state.index === 0 || !meta.allow_backtrack}
@@ -626,7 +626,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
               vary by the assessment's configured fullscreen_exit_action. */}
           {proctoring.require_fullscreen && proctor.isFullscreenViolation && (
             <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background p-4">
-              <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-raised">
+              <div className="w-full max-w-sm card-raised text-center shadow-raised">
                 <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                   <Pause aria-hidden className="h-6 w-6 text-primary" />
                 </span>
@@ -671,7 +671,7 @@ export function TestRunner({ payload }: TestRunnerProps) {
               (later in DOM) so both violations are handled simultaneously. */}
           {proctoring.block_devtools && proctor.devToolsOpen && (
             <div className="absolute inset-0 z-overlay flex items-center justify-center bg-background p-4">
-              <div className="w-full max-w-sm rounded-2xl border border-destructive/30 bg-card p-6 text-center shadow-raised">
+              <div className="w-full max-w-sm card-raised border-destructive/30 text-center shadow-raised">
                 <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
                   <ShieldAlert aria-hidden className="h-6 w-6 text-destructive" />
                 </span>

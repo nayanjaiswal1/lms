@@ -32,7 +32,7 @@ export function PlanLimitRow({ tierId, limit }: PlanLimitRowProps) {
 
   if (limit.kind === "gate") {
     return (
-      <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-0">
+      <div className="flex-between gap-4 border-b border-border py-3 last:border-0">
         <p className="text-sm font-medium text-foreground">{labelFor(limit.feature_key)}</p>
         <Switch
           aria-label={`Toggle ${labelFor(limit.feature_key)}`}
@@ -57,7 +57,7 @@ export function PlanLimitRow({ tierId, limit }: PlanLimitRowProps) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-0">
+    <div className="flex-between gap-4 border-b border-border py-3 last:border-0">
       <p className="text-sm font-medium text-foreground">{labelFor(limit.feature_key)}</p>
       <div className="flex items-center gap-2">
         <Input

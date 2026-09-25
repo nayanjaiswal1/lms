@@ -13,28 +13,28 @@ interface ChangeLogCardProps {
 
 export function ChangeLogCard({ entries }: ChangeLogCardProps) {
   return (
-    <section aria-label="Change log" className="rounded-2xl border border-(--ae-line)/80 bg-(--ae-card) p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
+    <section aria-label="Change log" className="card-base p-4 shadow-card">
+      <div className="mb-3 flex-between">
         <div className="flex items-center gap-2">
-          <History aria-hidden className="size-4 text-(--ae-muted)" />
-          <h3 className="text-xs font-bold text-(--ae-ink)">Change Log</h3>
+          <History aria-hidden className="size-4 text-muted-foreground" />
+          <h3 className="text-xs font-bold text-foreground">Change Log</h3>
         </div>
-        <a className="text-[11px] font-semibold text-(--ae-brand) hover:underline" href="#change-log">View all</a>
+        <a className="text-xs font-semibold text-primary hover:underline" href="#change-log">View all</a>
       </div>
-      <ul className="space-y-2.5 text-[11px]" id="change-log">
+      <ul className="space-y-2.5 text-xs" id="change-log">
         {entries.map((e) => {
           const kind = KIND[e.kind];
           const Icon = kind.icon;
           return (
-            <li className="flex items-center justify-between gap-2" key={e.id}>
+            <li className="flex-between gap-2" key={e.id}>
               <div className="flex min-w-0 items-center gap-2">
-                <span className="whitespace-nowrap text-(--ae-faint)">{e.time}</span>
-                <span className="inline-flex shrink-0 items-center gap-0.5 rounded border border-(--t-200) bg-(--t-50) px-1.5 py-0.5 text-[10px] font-semibold text-(--t-700)" data-tone={kind.tone}>
+                <span className="whitespace-nowrap text-muted-foreground">{e.time}</span>
+                <span className="inline-flex shrink-0 items-center gap-0.5 rounded border border-border bg-(--t-50) px-1.5 py-0.5 text-xs font-semibold text-(--t-700)" data-tone={kind.tone}>
                   <Icon aria-hidden className="size-2.5" /> {kind.label}
                 </span>
-                <span className="min-w-0 truncate font-medium text-(--ae-body)">{e.message}</span>
+                <span className="min-w-0 truncate font-medium text-foreground">{e.message}</span>
               </div>
-              <span className="shrink-0 font-medium text-(--ae-muted)">{e.actor}</span>
+              <span className="shrink-0 font-medium text-muted-foreground">{e.actor}</span>
             </li>
           );
         })}

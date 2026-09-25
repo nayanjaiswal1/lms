@@ -21,7 +21,7 @@ export function CameraPip({ stream, phoneConnected }: CameraPipProps) {
       <button
         aria-expanded={!collapsed}
         aria-label={collapsed ? "Show cameras" : "Hide cameras"}
-        className="flex items-center justify-between text-xs font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
+        className="flex-between text-xs font-medium text-muted-foreground transition-colors duration-fast hover:text-foreground"
         onClick={() => setCollapsed((v) => !v)}
       >
         <span>Cameras</span>

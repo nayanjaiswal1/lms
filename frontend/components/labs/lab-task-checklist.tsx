@@ -112,7 +112,7 @@ export function LabTaskChecklist({
 
   return (
     <div className={cn("flex flex-col", scrollable && "flex-1 min-h-0")}>
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 shrink-0">
+      <div className="flex-between border-b border-border px-4 py-3 shrink-0">
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-foreground">Progress checker</span>
           <span className="text-xs text-muted-foreground">

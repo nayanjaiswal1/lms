@@ -54,7 +54,7 @@ export function JournalTopicsTree({ entries, onNavigate }: JournalTopicsTreeProp
           <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="Search topics"
-            className="pl-9 pr-9 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="pl-9 pr-9 focus-visible:ring-offset-0"
             placeholder="Search topics…"
             type="text"
             value={query}

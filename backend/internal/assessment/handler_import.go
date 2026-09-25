@@ -60,7 +60,7 @@ func (h *Handler) HandleImportValidate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Rows []MemberDetailRow `json:"rows"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *Handler) HandleImportConfirm(w http.ResponseWriter, r *http.Request) {
 	batchID := chi.URLParam(r, "batchID")
 
 	var body batchImportConfirmRequest
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if len(body.Rows) == 0 {

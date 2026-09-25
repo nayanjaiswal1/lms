@@ -137,7 +137,7 @@ function SectionCard({
           <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-90")} />
         </button>
         <Input
-          className="h-8 flex-1 text-sm font-medium border-0 shadow-none focus-visible:ring-0 bg-transparent px-0"
+          className="h-8 flex-1 text-sm font-medium border-0 shadow-none bg-transparent px-0"
           placeholder="Section title"
           value={section.title}
           onChange={(e) => onUpdateSection(e.target.value)}
@@ -204,7 +204,7 @@ export function StructureTab({
 }: StructureTabProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <div>
           <p className="text-sm text-muted-foreground">
             Organize your course into sections and lessons. Click <ChevronRight className="inline h-3.5 w-3.5" /> on any lesson to edit its content.

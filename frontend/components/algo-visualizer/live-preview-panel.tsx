@@ -58,18 +58,18 @@ export function LivePreviewPanel({
 
   return (
     <div className="live-preview-card flex flex-col gap-6 overflow-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-destructive">
           <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
           Live Preview
         </div>
-        <span className="rounded-pill bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+        <span className="rounded-pill bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
           Step {stepIndex + 1} / {steps.length}
         </span>
       </div>
 
       <div className="inline-flex w-fit items-center gap-2 self-start rounded-md bg-primary/10 px-3 py-1.5">
-        <span className="rounded-sm bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">
+        <span className="rounded-sm bg-primary px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide text-primary-foreground">
           {phase}
         </span>
         <span className="font-mono text-xs text-foreground">{caption}</span>

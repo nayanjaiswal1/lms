@@ -1,17 +1,16 @@
-/* Dark editor panel — VS Code theme colours. Lives in a CSS module because
-   Tailwind cannot express hardcoded hex values in component classNames (ESLint
-   bans raw colour classes in JSX; CSS modules are the endorsed escape hatch). */
+/* Dark editor panel — terminal tokens from globals.css (always-dark IDE surface).
+   Lives in a CSS module because raw hex is banned in JSX classNames. */
 
 .editorWrap {
-  background: #1e1e1e;
+  background: hsl(var(--terminal-bg));
   flex: 1;
   overflow: hidden;
   display: flex;
 }
 
 .lineNums {
-  background: #1e1e1e;
-  color: #6e7681;
+  background: hsl(var(--terminal-bg));
+  color: hsl(var(--terminal-muted-foreground));
   font-family: var(--font-jetbrains-mono, "Courier New", monospace);
   font-size: 13px;
   line-height: 1.6;
@@ -21,15 +20,15 @@
   text-align: right;
   user-select: none;
   white-space: pre;
-  border-right: 1px solid #2d2d2d;
+  border-right: 1px solid hsl(var(--terminal-border));
   flex-shrink: 0;
 }
 
 .editor {
-  background: #1e1e1e;
+  background: hsl(var(--terminal-bg));
   border: none;
-  caret-color: #d4d4d4;
-  color: #d4d4d4;
+  caret-color: hsl(var(--terminal-foreground));
+  color: hsl(var(--terminal-foreground));
   flex: 1;
   font-family: var(--font-jetbrains-mono, "Courier New", monospace);
   font-size: 13px;
@@ -43,11 +42,11 @@
 }
 
 .editor::placeholder {
-  color: #555;
+  color: hsl(var(--terminal-muted-foreground) / 0.6);
 }
 
 .editor::selection {
-  background: #264f78;
+  background: hsl(var(--primary) / 0.35);
 }
 
 .editor::-webkit-scrollbar {
@@ -56,18 +55,18 @@
 }
 
 .editor::-webkit-scrollbar-corner {
-  background: #1e1e1e;
+  background: hsl(var(--terminal-bg));
 }
 
 .editor::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: hsl(var(--terminal-bg));
 }
 
 .editor::-webkit-scrollbar-thumb {
-  background: #424242;
+  background: hsl(var(--terminal-border));
   border-radius: 4px;
 }
 
 .editor::-webkit-scrollbar-thumb:hover {
-  background: #5a5a5a;
+  background: hsl(var(--terminal-muted-foreground) / 0.6);
 }

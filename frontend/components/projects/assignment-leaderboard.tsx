@@ -47,7 +47,7 @@ export function AssignmentLeaderboard({ leaderboard }: AssignmentLeaderboardProp
                     {row.name}
                   </UserLink>
                   {row.commit_count === 0 && (
-                    <Badge className="badge-muted h-5 px-1.5 text-[10px]" variant="outline">
+                    <Badge className="badge-muted h-5 px-1.5 text-xs" variant="outline">
                       No commits
                     </Badge>
                   )}

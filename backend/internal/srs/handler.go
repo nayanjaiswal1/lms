@@ -1,7 +1,6 @@
 package srs
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -53,7 +52,7 @@ func (h *Handler) ReviewCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req ReviewRequest
-	if err := decodeJSON(w, r, &req); !err {
+	if err := httputil.DecodeJSON(w, r, &req); !err {
 		return
 	}
 	if req.CardID == "" {
@@ -85,7 +84,7 @@ func (h *Handler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreateCardRequest
-	if err := decodeJSON(w, r, &req); !err {
+	if err := httputil.DecodeJSON(w, r, &req); !err {
 		return
 	}
 	if req.Front == "" || req.Back == "" {
@@ -112,10 +111,3 @@ func (h *Handler) CreateCard(w http.ResponseWriter, r *http.Request) {
 }
 
 // decodeJSON decodes r.Body into dst. Writes 400 and returns false on error.
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}

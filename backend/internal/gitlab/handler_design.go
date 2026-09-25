@@ -50,7 +50,7 @@ func (h *Handler) SubmitDesignProposal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req designProposalRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if fields := validateDesignProposalRequest(req); len(fields) > 0 {

@@ -68,7 +68,7 @@ export function SectionSidebar({ sections, currentType, onJump }: SectionSidebar
 
   return (
     <aside className="hidden lg:flex w-44 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border bg-card/50 p-3">
-      <div className="mb-1 flex items-center justify-between px-1">
+      <div className="mb-1 flex-between px-1">
         <span className="text-xs font-medium text-muted-foreground">Sections</span>
         <Button
           aria-label="Hide section navigator"

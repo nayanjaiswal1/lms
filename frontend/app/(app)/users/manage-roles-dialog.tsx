@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MultiSelectDropdown } from "@/components/shared/multi-select-dropdown";
 import { useHasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
-import { apiFetch, csrfToken } from "@/lib/client/api";
+import { apiFetch } from "@/lib/client/api";
 import type { OrgRole } from "@/lib/orgs/types";
 
 const ORG_ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
@@ -82,13 +82,11 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function updateOrgRole(role: OrgRole) {
     startTransition(async () => {
-      const res = await fetch(`/api/orgs/${orgId}/members/${memberId}`, {
+      const updated = await apiFetch<unknown>(`/orgs/${orgId}/members/${memberId}`, {
         method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
         body: JSON.stringify({ role }),
       });
-      if (res.ok) {
+      if (updated !== null) {
         setCurrentOrgRole(role);
         toast.success("Org role updated.");
         router.refresh();
@@ -126,13 +124,11 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function assignRole(roleId: string) {
     startTransition(async () => {
-      const res = await fetch(`/api/admin/rbac/users/${userId}/roles`, {
+      const assigned = await apiFetch<unknown>(`/admin/rbac/users/${userId}/roles`, {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
         body: JSON.stringify({ role_id: roleId }),
       });
-      if (res.ok) {
+      if (assigned !== null) {
         toast.success("Role assigned.");
         await load();
       } else {
@@ -143,12 +139,10 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function revokeRole(roleId: string) {
     startTransition(async () => {
-      const res = await fetch(`/api/admin/rbac/users/${userId}/roles/${roleId}`, {
+      const revoked = await apiFetch<unknown>(`/admin/rbac/users/${userId}/roles/${roleId}`, {
         method: "DELETE",
-        credentials: "include",
-        headers: { "X-CSRF-Token": csrfToken() },
       });
-      if (res.ok) {
+      if (revoked !== null) {
         toast.success("Role revoked.");
         await load();
       } else {
@@ -165,13 +159,11 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function grantPermission(permissionId: string) {
     startTransition(async () => {
-      const res = await fetch(`/api/admin/rbac/users/${userId}/permission-overrides`, {
+      const granted = await apiFetch<unknown>(`/admin/rbac/users/${userId}/permission-overrides`, {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
         body: JSON.stringify({ permission_id: permissionId }),
       });
-      if (res.ok) {
+      if (granted !== null) {
         toast.success("Permission granted.");
         await load();
       } else {
@@ -182,12 +174,11 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
 
   function revokePermission(permissionId: string) {
     startTransition(async () => {
-      const res = await fetch(`/api/admin/rbac/users/${userId}/permission-overrides/${permissionId}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: { "X-CSRF-Token": csrfToken() },
-      });
-      if (res.ok) {
+      const revoked = await apiFetch<unknown>(
+        `/admin/rbac/users/${userId}/permission-overrides/${permissionId}`,
+        { method: "DELETE" },
+      );
+      if (revoked !== null) {
         toast.success("Permission revoked.");
         await load();
       } else {

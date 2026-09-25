@@ -29,7 +29,7 @@ func (h *Handler) Apply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req ApplyRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if fields := validateApplyRequest(req); len(fields) > 0 {
@@ -67,7 +67,7 @@ func (h *Handler) ReviewApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req ApplicationReview
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	app, err := h.service.ReviewApplication(r.Context(), claims.OrgID, chi.URLParam(r, "applicationID"), req.Status, claims.UserID)

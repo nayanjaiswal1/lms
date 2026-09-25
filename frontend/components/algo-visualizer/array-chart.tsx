@@ -83,7 +83,7 @@ export function ArraySection({ name, values, prevValues, pointers }: ArraySectio
                   top: `${stackPos * 15}px`,
                 }}
               >
-                <span className="text-[10px] font-semibold leading-none text-foreground">{p.name}</span>
+                <span className="text-xs font-semibold leading-none text-foreground">{p.name}</span>
                 <span className={cn("text-xs leading-none", POINTER_ARROW_CLASS[p.color])}>▼</span>
               </div>
             );
@@ -125,7 +125,7 @@ export function ArraySection({ name, values, prevValues, pointers }: ArraySectio
         </div>
         <div className="flex">
           {values.map((v, i) => (
-            <span className="flex-1 truncate px-0.5 text-center font-mono text-[10px] text-muted-foreground" key={i}>
+            <span className="flex-1 truncate px-0.5 text-center font-mono text-xs text-muted-foreground" key={i}>
               {String(v)}
             </span>
           ))}

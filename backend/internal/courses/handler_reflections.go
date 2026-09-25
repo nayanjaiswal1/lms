@@ -29,7 +29,7 @@ func (h *Handler) SubmitReflection(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Response string `json:"response"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	response := strings.TrimSpace(req.Response)
@@ -44,7 +44,7 @@ func (h *Handler) SubmitReflection(w http.ResponseWriter, r *http.Request) {
 	ref, err := h.repo.UpsertReflection(r.Context(), LessonReflection{
 		OrgID:    claims.OrgID,
 		UserID:   claims.UserID,
-		ModuleID: urlParam(r, "moduleID"),
+		ModuleID: httputil.URLParam(r, "moduleID"),
 		Response: response,
 	})
 	if err != nil {
@@ -62,7 +62,7 @@ func (h *Handler) GetMyReflection(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ref, err := h.repo.GetMyReflection(r.Context(), claims.UserID, urlParam(r, "moduleID"))
+	ref, err := h.repo.GetMyReflection(r.Context(), claims.UserID, httputil.URLParam(r, "moduleID"))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			httputil.WriteJSON(w, http.StatusOK, map[string]any{"response": nil})

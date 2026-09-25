@@ -31,7 +31,7 @@ func (h *Handler) GenerateOutline(w http.ResponseWriter, r *http.Request) {
 		Level       string `json:"level"`
 		ModuleCount int    `json:"module_count"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 

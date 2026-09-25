@@ -23,7 +23,7 @@ type publicTestInfo struct {
 // GetPublicTest returns metadata for a published hiring assessment.
 // GET /api/p/{code}
 func (h *Handler) GetPublicTest(w http.ResponseWriter, r *http.Request) {
-	code := chiURLParam(r, "code")
+	code := httputil.URLParam(r, "code")
 	a, err := h.repo.GetAssessmentByShortCode(r.Context(), code)
 	if err != nil {
 		writeDomainError(w, err)
@@ -48,9 +48,9 @@ type startPublicAttemptRequest struct {
 // StartPublicAttempt creates a candidate session and returns questions.
 // POST /api/p/{code}/start
 func (h *Handler) StartPublicAttempt(w http.ResponseWriter, r *http.Request) {
-	code := chiURLParam(r, "code")
+	code := httputil.URLParam(r, "code")
 	var req startPublicAttemptRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
@@ -111,11 +111,11 @@ type submitPublicAttemptRequest struct {
 // SubmitPublicAttempt grades MCQ answers and marks the session complete.
 // POST /api/p/{code}/submit/{token}
 func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
-	code := chiURLParam(r, "code")
-	token := chiURLParam(r, "token")
+	code := httputil.URLParam(r, "code")
+	token := httputil.URLParam(r, "token")
 
 	var req submitPublicAttemptRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *Handler) SubmitPublicAttempt(w http.ResponseWriter, r *http.Request) {
 // GetPublicResult returns the scored result for a candidate session.
 // GET /api/p/{code}/result/{token}
 func (h *Handler) GetPublicResult(w http.ResponseWriter, r *http.Request) {
-	token := chiURLParam(r, "token")
+	token := httputil.URLParam(r, "token")
 	att, err := h.repo.GetPublicAttemptByToken(r.Context(), token)
 	if err != nil {
 		writeDomainError(w, err)
@@ -182,7 +182,7 @@ func (h *Handler) OverridePublicCandidateScore(w http.ResponseWriter, r *http.Re
 		return
 	}
 	var req overridePublicAttemptRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Score < 0 {
@@ -190,7 +190,7 @@ func (h *Handler) OverridePublicCandidateScore(w http.ResponseWriter, r *http.Re
 		return
 	}
 	att, err := h.repo.OverridePublicAttemptScore(r.Context(), claims.OrgID,
-		chiURLParam(r, "candidateID"), claims.UserID, req.Score, req.Note)
+		httputil.URLParam(r, "candidateID"), claims.UserID, req.Score, req.Note)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -205,7 +205,7 @@ func (h *Handler) GetPublicCandidates(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	id := chiURLParam(r, "assessmentID")
+	id := httputil.URLParam(r, "assessmentID")
 	// Verify org ownership.
 	if _, err := h.repo.GetAssessment(r.Context(), claims.OrgID, id); err != nil {
 		writeDomainError(w, err)

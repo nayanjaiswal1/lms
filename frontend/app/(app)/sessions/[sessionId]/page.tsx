@@ -43,7 +43,7 @@ export default async function SessionDetailPage({ params }: Props) {
       <Breadcrumb items={[{ label: "Sessions", href: ROUTES.SESSIONS }, { label: session.title }]} />
 
       <div className="flex flex-col gap-6">
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6">
+        <section className="flex flex-col gap-3 card-raised">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <h1 className="page-title">{session.title}</h1>
             <SessionStatusBadge status={session.status} />
@@ -97,7 +97,7 @@ export default async function SessionDetailPage({ params }: Props) {
           </div>
         </section>
 
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className="card-raised">
           <SessionFeedbackForm
             endsAt={session.ends_at}
             myFeedback={my_feedback}

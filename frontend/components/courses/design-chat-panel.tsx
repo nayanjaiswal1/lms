@@ -50,7 +50,7 @@ export function DesignChatPanel({ moduleId, initialMessages }: DesignChatPanelPr
         {messages.map((m) => (
           <div
             className={cn(
-              "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+              "chat-bubble rounded-lg px-3 py-2 text-sm",
               m.role === "assistant" ? "ai-surface self-start" : "self-end bg-primary text-primary-foreground",
             )}
             key={m.id}
@@ -64,7 +64,7 @@ export function DesignChatPanel({ moduleId, initialMessages }: DesignChatPanelPr
           </div>
         ))}
         {isSending && (
-          <div className="ai-surface flex max-w-[85%] items-center gap-2 self-start rounded-lg px-3 py-2 text-sm text-muted-foreground">
+          <div className="ai-surface flex chat-bubble items-center gap-2 self-start rounded-lg px-3 py-2 text-sm text-muted-foreground">
             <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />Thinking…
           </div>
         )}

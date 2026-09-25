@@ -15,7 +15,7 @@ func (h *Handler) HandleGetEvaluationStatus(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	attemptID := chiURLParam(r, "attemptID")
+	attemptID := httputil.URLParam(r, "attemptID")
 	att, err := h.repo.GetAttempt(r.Context(), attemptID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -40,7 +40,7 @@ func (h *Handler) HandleGetEvaluation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	attemptID := chiURLParam(r, "attemptID")
+	attemptID := httputil.URLParam(r, "attemptID")
 	att, err := h.repo.GetAttempt(r.Context(), attemptID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -65,8 +65,8 @@ func (h *Handler) HandleCompareEvaluations(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	attemptID := chiURLParam(r, "attemptID")
-	otherID := chiURLParam(r, "otherID")
+	attemptID := httputil.URLParam(r, "attemptID")
+	otherID := httputil.URLParam(r, "otherID")
 
 	att, err := h.repo.GetAttempt(r.Context(), attemptID)
 	if err != nil {
@@ -140,8 +140,8 @@ func (h *Handler) HandleReviewQueue(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limit := queryInt(r, "limit", 50)
-	offset := queryInt(r, "offset", 0)
+	limit := httputil.QueryInt(r, "limit", 50)
+	offset := httputil.QueryInt(r, "offset", 0)
 	if limit > 200 {
 		limit = 200
 	}

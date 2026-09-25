@@ -29,7 +29,7 @@ func (h *Handler) CreateOfflineTestScores(w http.ResponseWriter, r *http.Request
 			Score  float64 `json:"score"`
 		} `json:"scores"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.TestName == "" {
@@ -72,7 +72,7 @@ func (h *Handler) CreateTestTemplate(w http.ResponseWriter, r *http.Request) {
 		Name     string  `json:"name"`
 		MaxScore float64 `json:"max_score"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.Name == "" {
@@ -149,7 +149,7 @@ func (h *Handler) UpdateOfflineTestScore(w http.ResponseWriter, r *http.Request)
 	var body struct {
 		Score float64 `json:"score"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 

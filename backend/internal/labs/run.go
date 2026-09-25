@@ -79,7 +79,7 @@ func (h *Handler) HandleRunSnippet(w http.ResponseWriter, r *http.Request) {
 		Language string `json:"language"`
 		Code     string `json:"code"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if strings.TrimSpace(body.Code) == "" {

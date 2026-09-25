@@ -136,7 +136,7 @@ export function FinalTestTab({ courseId, initial, certificateRule }: FinalTestTa
       <div className="flex flex-col gap-4">
         {questions.fields.map((field, qi) => (
           <div className="card-base flex flex-col gap-3 p-4" key={field.id}>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex-between gap-2">
               <div className="flex items-center gap-2">
                 <Controller
                   control={form.control}
@@ -170,7 +170,7 @@ export function FinalTestTab({ courseId, initial, certificateRule }: FinalTestTa
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <Button size="sm" type="button" variant="outline" onClick={() => questions.append(makeQuestion())}>
           <Plus /> Add question
         </Button>
@@ -240,7 +240,7 @@ function CodingEditor({ form, qi }: { form: FormType; qi: number }) {
             <Textarea className="min-h-16 font-mono text-xs" placeholder="stdin" {...form.register(`questions.${qi}.test_cases.${ci}.stdin`)} />
             <Textarea className="min-h-16 font-mono text-xs" placeholder="expected output" {...form.register(`questions.${qi}.test_cases.${ci}.expected`)} />
           </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="mt-2 flex-between gap-2">
             <Label className="flex items-center gap-2 font-normal">
               <Controller
                 control={form.control}

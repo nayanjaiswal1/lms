@@ -7,8 +7,9 @@
 import ROUTES from "@/lib/routes";
 
 // "What Now?" is a personal, single-user room — not org/plan gated, so it
-// doesn't go through FEATURES/<AccessGate>. Restricted to one email instead.
-export const NOW_FEATURE_ALLOWED_EMAIL = "jaiswal2062@gmail.com";
+// doesn't go through FEATURES/<AccessGate>. Restricted to one email instead,
+// configured via NEXT_PUBLIC_NOW_ALLOWED_EMAIL (see frontend/.env.example).
+export const NOW_FEATURE_ALLOWED_EMAIL = process.env.NEXT_PUBLIC_NOW_ALLOWED_EMAIL ?? "";
 
 // Sidebar/mobile-nav logo click destination, user-configurable in Settings >
 // Profile > Preferences. Mirrors backend/internal/profile/models.go's

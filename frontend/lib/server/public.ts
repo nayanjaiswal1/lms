@@ -1,6 +1,8 @@
 import { cache } from "react";
 import "server-only";
 
+import { apiGet, apiGetPublic } from "@/lib/server/api";
+
 export interface PublicTestInfo {
   id: string;
   title: string;
@@ -66,38 +68,19 @@ export interface PublicCandidate {
   duration_sec?: number;
 }
 
-function publicBase(): string {
-  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!url) throw new Error("BACKEND_URL is not configured");
-  return url;
-}
-
 export const getPublicTest = cache(async (code: string): Promise<PublicTestInfo> => {
-  const res = await fetch(`${publicBase()}/api/p/${code}`, { cache: "no-store" });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? "Test not found.");
-  }
-  const body = await res.json() as { data: PublicTestInfo };
-  return body.data;
+  return apiGetPublic<PublicTestInfo>(`/api/p/${code}`, { revalidate: 60 });
 });
 
 export async function getPublicResult(code: string, token: string): Promise<PublicResult> {
-  const res = await fetch(`${publicBase()}/api/p/${code}/result/${token}`, { cache: "no-store" });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? "Result not found.");
-  }
-  const body = await res.json() as { data: PublicResult };
-  return body.data;
+  return apiGetPublic<PublicResult>(`/api/p/${code}/result/${token}`, { revalidate: 60 });
 }
 
-export async function getPublicCandidates(assessmentId: string, authHeaders: Record<string, string>): Promise<PublicCandidate[]> {
-  const res = await fetch(`${publicBase()}/api/assessments/${assessmentId}/candidates`, {
-    headers: authHeaders,
-    cache: "no-store",
-  });
-  if (!res.ok) return [];
-  const body = await res.json() as { data: { candidates: PublicCandidate[] } };
-  return body.data?.candidates ?? [];
+export async function getPublicCandidates(assessmentId: string): Promise<PublicCandidate[]> {
+  try {
+    const data = await apiGet<{ candidates: PublicCandidate[] }>(`/api/assessments/${assessmentId}/candidates`);
+    return data?.candidates ?? [];
+  } catch {
+    return [];
+  }
 }

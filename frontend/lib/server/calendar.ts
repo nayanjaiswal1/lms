@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { apiGet, apiAction } from "@/lib/server/api";
 import type { ActionResult } from "@/lib/server/api";
-import { forwardSetCookies } from "@/lib/server/set-cookie";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 import ROUTES from "@/lib/routes";
 
 // ─────────────────────────────────────────────
@@ -215,27 +215,21 @@ export async function inviteAction(
 export async function acceptCalendarInviteAction(
   token: string,
 ): Promise<ActionResult<CalendarEvent>> {
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return { error: "Service unavailable." };
-
   let response: Response;
+  let json: { data?: CalendarEvent; error?: string };
   try {
-    response = await fetch(`${apiUrl}/api/calendar/invites/${token}/accept`, {
+    const result = await authFetchWithCookies(`/api/calendar/invites/${token}/accept`, undefined, {
       method: "GET",
-      cache: "no-store",
     });
+    response = result.response;
+    json = (result.body ?? {}) as { data?: CalendarEvent; error?: string };
   } catch {
     return { error: "Network error. Please try again." };
   }
 
   // AcceptInvite returns the full joined Event (title, starts_at, …), not a
   // {event_id, event_title} summary.
-  const json = await response.json().catch(() => ({})) as {
-    data?: CalendarEvent;
-    error?: string;
-  };
   if (!response.ok) return { error: json.error ?? "This invite link is invalid or has expired." };
 
-  await forwardSetCookies(response.headers);
   return { ok: true, data: json.data };
 }

@@ -28,7 +28,7 @@ export function QuestionBankPanel({ categories }: QuestionBankPanelProps) {
 
   return (
     <div className="card-raised flex flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <h2 className="subsection-title">New question</h2>
         <Button aria-label="Close" size="icon" variant="ghost" onClick={() => setOpen(false)}>
           <X />

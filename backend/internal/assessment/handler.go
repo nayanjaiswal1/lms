@@ -2,13 +2,10 @@ package assessment
 
 import (
 	"encoding/json"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/courses"
@@ -63,14 +60,6 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong. Please try again.")
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
 var slugInvalid = regexp.MustCompile(`[^a-z0-9]+`)
 
 // slugify produces a URL-safe slug and appends a short random suffix to avoid
@@ -88,18 +77,6 @@ func slugify(s string) string {
 }
 
 // chiURLParam reads a path parameter; thin wrapper kept for call-site brevity.
-func chiURLParam(r *http.Request, key string) string {
-	return chi.URLParam(r, key)
-}
-
-func queryInt(r *http.Request, key string, def int) int {
-	if v := r.URL.Query().Get(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
-	}
-	return def
-}
 
 func contains(list []string, v string) bool {
 	for _, x := range list {
@@ -123,7 +100,7 @@ func (h *Handler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req categoryRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
@@ -292,7 +269,7 @@ func (h *Handler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req questionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	content, fields := req.validate()
@@ -324,9 +301,9 @@ func (h *Handler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	id := chiURLParam(r, "questionID")
+	id := httputil.URLParam(r, "questionID")
 	var req questionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	// Type cannot change after creation; load existing to fix it for validation.
@@ -368,7 +345,7 @@ func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	q, err := h.repo.GetQuestion(r.Context(), claims.OrgID, chiURLParam(r, "questionID"))
+	q, err := h.repo.GetQuestion(r.Context(), claims.OrgID, httputil.URLParam(r, "questionID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -393,8 +370,8 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
 		Tags:                tags,
 		Search:              q.Get("search"),
 		Status:              q.Get("status"),
-		Limit:               queryInt(r, "limit", 50),
-		Offset:              queryInt(r, "offset", 0),
+		Limit:               httputil.QueryInt(r, "limit", 50),
+		Offset:              httputil.QueryInt(r, "offset", 0),
 		ExcludeAssessmentID: q.Get("exclude_assessment_id"),
 	}
 	items, total, err := h.repo.ListQuestions(r.Context(), claims.OrgID, filter)
@@ -423,7 +400,7 @@ func (h *Handler) ArchiveQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.repo.ArchiveQuestion(r.Context(), claims.OrgID, chiURLParam(r, "questionID")); err != nil {
+	if err := h.repo.ArchiveQuestion(r.Context(), claims.OrgID, httputil.URLParam(r, "questionID")); err != nil {
 		writeDomainError(w, err)
 		return
 	}

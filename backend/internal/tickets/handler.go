@@ -1,10 +1,7 @@
 package tickets
 
 import (
-	"encoding/json"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/authz"
@@ -24,26 +21,6 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
-func urlParam(r *http.Request, key string) string {
-	return chi.URLParam(r, key)
-}
-
-func queryStrPtr(r *http.Request, key string) *string {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return nil
-	}
-	return &v
 }
 
 // canManage reports whether callerID holds kind's manage permission in orgID.
@@ -68,7 +45,7 @@ func (h *Handler) CreateSupportTicket(w http.ResponseWriter, r *http.Request) {
 		Subject string `json:"subject"`
 		Message string `json:"message"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	ticket, err := h.service.CreateSupportTicket(r.Context(), claims.OrgID, claims.UserID, req.Subject, req.Message)
@@ -86,7 +63,7 @@ func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tickets, err := h.service.ListMine(r.Context(), claims.OrgID, claims.UserID, queryStrPtr(r, "kind"))
+	tickets, err := h.service.ListMine(r.Context(), claims.OrgID, claims.UserID, httputil.QueryStrPtr(r, "kind"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -120,7 +97,7 @@ func (h *Handler) ListQueue(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("mine") == "true" {
 		assignedTo = &claims.UserID
 	}
-	tickets, err := h.service.ListQueue(r.Context(), claims.OrgID, kind, queryStrPtr(r, "status"), assignedTo)
+	tickets, err := h.service.ListQueue(r.Context(), claims.OrgID, kind, httputil.QueryStrPtr(r, "status"), assignedTo)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -136,7 +113,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ticketID := urlParam(r, "ticketID")
+	ticketID := httputil.URLParam(r, "ticketID")
 	kind, err := h.service.Kind(r.Context(), claims.OrgID, ticketID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -163,7 +140,7 @@ func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ticketID := urlParam(r, "ticketID")
+	ticketID := httputil.URLParam(r, "ticketID")
 	kind, err := h.service.Kind(r.Context(), claims.OrgID, ticketID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -193,10 +170,10 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Body string `json:"body"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	ticketID := urlParam(r, "ticketID")
+	ticketID := httputil.URLParam(r, "ticketID")
 	kind, err := h.service.Kind(r.Context(), claims.OrgID, ticketID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -225,10 +202,10 @@ func (h *Handler) SetStatus(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Status string `json:"status"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	ticketID := urlParam(r, "ticketID")
+	ticketID := httputil.URLParam(r, "ticketID")
 	kind, err := h.service.Kind(r.Context(), claims.OrgID, ticketID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -262,10 +239,10 @@ func (h *Handler) SetProperties(w http.ResponseWriter, r *http.Request) {
 		Category string `json:"category"`
 		Priority string `json:"priority"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	ticketID := urlParam(r, "ticketID")
+	ticketID := httputil.URLParam(r, "ticketID")
 	kind, err := h.service.Kind(r.Context(), claims.OrgID, ticketID)
 	if err != nil {
 		writeDomainError(w, err)

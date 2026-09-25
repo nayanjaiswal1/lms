@@ -3,9 +3,10 @@
    Scenes: dawn / day / evening follow the clock; focus is its own overlay. */
 
 .wn-root {
-  --wn-serif: var(--font-wn-serif), Georgia, serif;
-  --wn-sans: var(--font-wn-sans), system-ui, sans-serif;
-  --wn-mono: var(--font-wn-mono), ui-monospace, monospace;
+  /* Serif titles fall back to the app sans (Plus Jakarta) — no custom stacks. */
+  --wn-serif: var(--font-sans), system-ui, sans-serif;
+  --wn-sans: var(--font-sans), system-ui, sans-serif;
+  --wn-mono: var(--font-mono), ui-monospace, monospace;
 }
 
 /* ── Scenes ─────────────────────────────────────────────────────────── */
@@ -23,7 +24,7 @@
   font-family: var(--wn-sans);
   color: var(--wn-ink);
   background: var(--wn-bg);
-  transition: background 1.2s ease, color 1.2s ease;
+  transition: background var(--duration-slow) var(--ease-smooth), color var(--duration-slow) var(--ease-smooth);
   overflow: hidden;
 
   --wn-bg: hsl(var(--background));
@@ -46,7 +47,7 @@
   --wn-hairline: hsl(var(--terminal-border));
   --wn-accent: hsl(var(--primary));
   --wn-accent-ink: hsl(var(--primary-foreground));
-  --wn-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.7);
+  --wn-shadow: var(--shadow-modal);
 }
 
 /* ── Layout ─────────────────────────────────────────────────────────── */
@@ -88,7 +89,7 @@
   flex-shrink: 0;
 }
 
-/* ── Energy dial + shelf button ─────────────────────────────────────── */
+/* ── Energy dial (shadcn Button radios) + shelf button ────────────────── */
 
 .wn-energy {
   display: inline-flex;
@@ -96,38 +97,6 @@
   border-radius: 999px;
   padding: 3px;
   background: color-mix(in oklab, var(--wn-card) 60%, transparent);
-}
-
-.wn-energy-opt {
-  border: 0;
-  background: transparent;
-  color: var(--wn-dim);
-  font: 500 12px var(--wn-sans);
-  padding: 5px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.wn-energy-on {
-  background: var(--wn-accent);
-  color: var(--wn-accent-ink);
-}
-
-.wn-shelf-btn {
-  border: 1px solid var(--wn-hairline);
-  background: transparent;
-  color: var(--wn-dim);
-  font: 500 12px var(--wn-sans);
-  padding: 7px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-
-.wn-shelf-btn:hover {
-  color: var(--wn-ink);
-  border-color: var(--wn-dim);
 }
 
 /* ── The stage ──────────────────────────────────────────────────────── */
@@ -218,20 +187,6 @@
   margin: -8px 0 18px;
 }
 
-.wn-start {
-  width: 100%;
-  border: 0;
-  border-radius: 12px;
-  background: var(--wn-accent);
-  color: var(--wn-accent-ink);
-  font: 600 16px var(--wn-sans);
-  padding: 14px;
-  cursor: pointer;
-  transition: transform 0.15s ease, filter 0.2s ease;
-}
-
-.wn-start:hover { filter: brightness(1.06); }
-.wn-start:active { transform: scale(0.985); }
 .wn-start-min { font-weight: 400; opacity: 0.8; }
 
 .wn-alts {
@@ -253,7 +208,7 @@
   color: var(--wn-dim);
   font: 400 14px var(--wn-sans);
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color var(--duration-normal) var(--ease-smooth);
 }
 
 .wn-alt:hover { color: var(--wn-ink); }
@@ -279,30 +234,11 @@
   font: 400 14px var(--wn-sans);
   color: var(--wn-ink);
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color var(--duration-normal) var(--ease-smooth);
 }
 
 .wn-capture-input::placeholder { color: var(--wn-dim); opacity: 0.7; }
 .wn-capture-input:focus { border-color: var(--wn-accent); }
-
-.wn-capture-go {
-  border: 1px solid var(--wn-hairline);
-  background: transparent;
-  color: var(--wn-ink);
-  font: 500 14px var(--wn-sans);
-  padding: 0 20px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.wn-capture-go:not(:disabled):hover {
-  background: var(--wn-accent);
-  border-color: var(--wn-accent);
-  color: var(--wn-accent-ink);
-}
-
-.wn-capture-go:disabled { opacity: 0.4; cursor: default; }
 
 .wn-capture-error {
   width: 100%;
@@ -311,22 +247,12 @@
   color: hsl(var(--destructive));
 }
 
-.wn-capture-retry {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 0;
-}
-
 /* ── Focus overlay — the world extinguishes ─────────────────────────── */
 
 .wn-focus {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: var(--z-index-modal);
   background: hsl(var(--terminal-bg));
   color: hsl(var(--terminal-foreground));
   display: flex;
@@ -388,29 +314,6 @@
   justify-content: center;
   flex-wrap: wrap;
 }
-
-.wn-btn {
-  border: 1px solid var(--wn-hairline);
-  background: transparent;
-  color: var(--wn-ink);
-  font: 500 14px var(--wn-sans, system-ui, sans-serif);
-  padding: 11px 22px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.wn-btn:not(:disabled):hover { border-color: var(--wn-accent); color: var(--wn-accent); }
-.wn-btn:disabled { opacity: 0.4; cursor: default; }
-
-.wn-btn-done {
-  background: var(--wn-accent);
-  border-color: var(--wn-accent);
-  color: var(--wn-accent-ink);
-}
-
-.wn-btn-done:not(:disabled):hover { color: var(--wn-accent-ink); filter: brightness(1.08); }
-.wn-btn-quiet { border-color: transparent; color: var(--wn-dim); }
 
 .wn-focus-panel {
   width: 100%;
@@ -484,9 +387,9 @@
 .wn-shelf-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 85;
+  z-index: var(--z-index-overlay);
   background: rgba(10, 9, 7, 0.45);
-  animation: wn-fade-in 0.25s ease;
+  animation: wn-fade-in var(--duration-normal) var(--ease-smooth);
 }
 
 .wn-shelf {
@@ -500,7 +403,7 @@
   padding: 24px;
   overflow-y: auto;
   box-shadow: -20px 0 60px -30px rgba(0, 0, 0, 0.5);
-  animation: wn-slide-in 0.3s ease;
+  animation: wn-slide-in var(--duration-slow) var(--ease-smooth);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -522,14 +425,6 @@
   font-size: 20px;
   font-weight: 600;
   margin: 0;
-}
-
-.wn-shelf-close {
-  border: 0;
-  background: transparent;
-  color: var(--wn-dim);
-  font-size: 14px;
-  cursor: pointer;
 }
 
 .wn-recap {
@@ -591,16 +486,6 @@
   flex-shrink: 0;
 }
 
-.wn-shelf-action {
-  border: 0;
-  background: transparent;
-  color: var(--wn-accent);
-  font: 500 12px var(--wn-sans);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.wn-shelf-action:disabled { opacity: 0.35; cursor: default; }
 .wn-shelf-empty { font-size: 13px; color: var(--wn-dim); font-style: italic; margin: 0; }
 
 /* ── Toast ──────────────────────────────────────────────────────────── */
@@ -610,7 +495,7 @@
   bottom: 28px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 95;
+  z-index: var(--z-index-toast);
   background: hsl(var(--terminal-chrome));
   color: hsl(var(--terminal-foreground));
   border: 1px solid hsl(var(--terminal-border));
@@ -618,7 +503,7 @@
   padding: 10px 20px;
   font: 400 13px var(--wn-sans, system-ui, sans-serif);
   box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.55);
-  animation: wn-toast-in 0.3s ease;
+  animation: wn-toast-in var(--duration-slow) var(--ease-smooth);
   max-width: min(90vw, 480px);
 }
 
@@ -630,8 +515,7 @@
 /* ── Motion preferences ─────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .wn-scope, .wn-focus, .wn-shelf, .wn-toast,
-  .wn-energy-opt, .wn-start, .wn-btn {
+  .wn-scope, .wn-focus, .wn-shelf, .wn-toast {
     transition: none;
     animation: none;
   }

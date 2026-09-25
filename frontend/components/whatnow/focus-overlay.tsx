@@ -4,6 +4,8 @@
 // one task, a soft timer, and three honest exits (Done / Pause / Stuck).
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { whatnowApi } from "@/lib/whatnow/client";
 import type { BreakdownProposal, StuckReason, Task } from "@/lib/whatnow/types";
 
@@ -109,11 +111,11 @@ export function FocusOverlay({
 
         {mode === "focus" && (
           <div className="wn-focus-actions">
-            <button className="wn-btn wn-btn-done" disabled={busy} onClick={done}>Done</button>
-            <button className="wn-btn" disabled={busy} onClick={() => setMode("pause")}>Pause</button>
-            <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("stuck")}>
+            <Button disabled={busy} onClick={done}>Done</Button>
+            <Button disabled={busy} variant="outline" onClick={() => setMode("pause")}>Pause</Button>
+            <Button disabled={busy} variant="ghost" onClick={() => setMode("stuck")}>
               I&rsquo;m stuck
-            </button>
+            </Button>
           </div>
         )}
 
@@ -122,7 +124,7 @@ export function FocusOverlay({
             <label className="wn-panel-label" htmlFor="wn-resume-note">
               Leave a note for future you
             </label>
-            <textarea
+            <Textarea
               className="wn-panel-textarea"
               id="wn-resume-note"
               placeholder="Where you stopped, what's next…"
@@ -132,8 +134,8 @@ export function FocusOverlay({
               onChange={(e) => setNote(e.target.value)}
             />
             <div className="wn-focus-actions">
-              <button className="wn-btn wn-btn-done" disabled={busy} onClick={pause}>Park it</button>
-              <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("focus")}>Back</button>
+              <Button disabled={busy} onClick={pause}>Park it</Button>
+              <Button disabled={busy} variant="ghost" onClick={() => setMode("focus")}>Back</Button>
             </div>
           </div>
         )}
@@ -143,12 +145,12 @@ export function FocusOverlay({
             <p className="wn-panel-label">What kind of stuck?</p>
             <div className="wn-stuck-grid">
               {STUCK_OPTIONS.map((o) => (
-                <button className="wn-btn" disabled={busy} key={o.reason} onClick={() => stuck(o.reason)}>
+                <Button disabled={busy} key={o.reason} variant="outline" onClick={() => stuck(o.reason)}>
                   {o.label}
-                </button>
+                </Button>
               ))}
             </div>
-            <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("focus")}>Back</button>
+            <Button disabled={busy} variant="ghost" onClick={() => setMode("focus")}>Back</Button>
           </div>
         )}
 
@@ -164,10 +166,10 @@ export function FocusOverlay({
               ))}
             </ol>
             <div className="wn-focus-actions">
-              <button className="wn-btn wn-btn-done" disabled={busy} onClick={confirmBreakdown}>
+              <Button disabled={busy} onClick={confirmBreakdown}>
                 Replace with these
-              </button>
-              <button className="wn-btn wn-btn-quiet" disabled={busy} onClick={() => setMode("stuck")}>Back</button>
+              </Button>
+              <Button disabled={busy} variant="ghost" onClick={() => setMode("stuck")}>Back</Button>
             </div>
           </div>
         )}
@@ -175,7 +177,7 @@ export function FocusOverlay({
         {mode === "resolution" && (
           <div className="wn-focus-panel">
             <p className="wn-resolution">{resolution}</p>
-            <button className="wn-btn wn-btn-done" onClick={() => onExit(null)}>Okay</button>
+            <Button onClick={() => onExit(null)}>Okay</Button>
           </div>
         )}
       </div>

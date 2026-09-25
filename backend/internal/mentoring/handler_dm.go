@@ -17,7 +17,7 @@ func (h *Handler) CreateOrGetConversation(w http.ResponseWriter, r *http.Request
 	var req struct {
 		MentorID string `json:"mentor_id"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	conv, err := h.service.GetOrCreateConversation(r.Context(), claims.OrgID, claims.UserID, req.MentorID)
@@ -49,7 +49,7 @@ func (h *Handler) ListConversationMessages(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	messages, err := h.service.ListConversationMessages(r.Context(), claims.OrgID, urlParam(r, "conversationID"), claims.UserID)
+	messages, err := h.service.ListConversationMessages(r.Context(), claims.OrgID, httputil.URLParam(r, "conversationID"), claims.UserID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -66,10 +66,10 @@ func (h *Handler) SendConversationMessage(w http.ResponseWriter, r *http.Request
 	var req struct {
 		Body string `json:"body"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	msg, err := h.service.SendConversationMessage(r.Context(), claims.OrgID, urlParam(r, "conversationID"), claims.UserID, req.Body)
+	msg, err := h.service.SendConversationMessage(r.Context(), claims.OrgID, httputil.URLParam(r, "conversationID"), claims.UserID, req.Body)
 	if err != nil {
 		writeDomainError(w, err)
 		return

@@ -172,7 +172,9 @@ func (h *BatchImportHandler) processInvitees(ctx context.Context, orgID, batchID
 // resent manually from the batch invitations list.
 func (h *BatchImportHandler) sendImportInviteEmail(to, name, token, batchName string) {
 	if !h.cfg.IsProd() {
-		slog.Info("DEV EMAIL: Batch import invite", "to", to, "batch", batchName, "token", token)
+		// The token value is never logged: logs are routinely copied into
+		// tickets and chat, and an invite token is a credential.
+		slog.Info("DEV EMAIL: batch import invite suppressed (dev)", "to", to, "batch", batchName)
 		return
 	}
 

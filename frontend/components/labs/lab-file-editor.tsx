@@ -63,7 +63,7 @@ export function LabFileEditor({
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-border shrink-0">
+          <div className="flex-between gap-2 px-3 py-1.5 border-b border-border shrink-0">
             {/* VS Code-style breadcrumb: path segments with chevron separators. */}
             <span className="flex min-w-0 items-center gap-0.5 text-xs font-mono text-muted-foreground">
               {active.path.split("/").map((segment, i, all) => (

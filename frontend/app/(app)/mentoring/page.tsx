@@ -29,7 +29,7 @@ async function MentoringOverviewContent() {
         />
       </div>
 
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex-between gap-4">
         <h2 className="section-title">Your batches</h2>
         <Link
           className="flex items-center gap-1 text-sm text-primary hover:underline"

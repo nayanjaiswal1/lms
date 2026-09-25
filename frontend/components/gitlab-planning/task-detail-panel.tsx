@@ -19,39 +19,39 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
   const tabLabel = task.tabs[activeTab]?.label ?? "Steps";
 
   return (
-    <section aria-label={`Task: ${task.title}`} className={cn("space-y-5 rounded-2xl border border-(--ae-line)/80 bg-(--ae-card) p-4 shadow-sm sm:p-5", className)}>
+    <section aria-label={`Task: ${task.title}`} className={cn("space-y-5 card-base shadow-card sm:p-5", className)}>
       <div>
         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <span className="size-3 rounded-full bg-(--t-dot)" data-tone={task.dot} />
-            <h2 className="text-base font-bold text-(--ae-ink)">{task.title}</h2>
+            <h2 className="text-base font-bold text-foreground">{task.title}</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-0.5 rounded-full border border-(--t-200) bg-(--t-50) px-2 py-0.5 text-xs font-medium text-(--t-700)" data-tone="purple">
+            <span className="inline-flex items-center gap-0.5 rounded-full border border-border bg-(--t-50) px-2 py-0.5 text-xs font-medium text-(--t-700)" data-tone="purple">
               {task.status}
               <ChevronDown aria-hidden className="size-3" />
             </span>
-            <span className="flex items-center gap-1 text-xs text-(--ae-muted)">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <CalendarDays aria-hidden className="size-3.5" />
               {task.due}
             </span>
-            <span className="flex size-5 items-center justify-center rounded bg-(--ae-brand) text-[10px] font-bold text-(--ae-card)">{task.assignee.initial}</span>
-            <span className="text-xs font-medium text-(--ae-body)">{task.assignee.name}</span>
-            <button aria-label="More task actions" className="text-(--ae-faint) hover:text-(--ae-dim)" type="button">
+            <span className="flex size-5 items-center justify-center rounded bg-primary text-xs font-bold text-(--ae-card)">{task.assignee.initial}</span>
+            <span className="text-xs font-medium text-foreground">{task.assignee.name}</span>
+            <button aria-label="More task actions" className="text-muted-foreground hover:text-muted-foreground" type="button">
               <MoreVertical aria-hidden className="size-4" />
             </button>
           </div>
         </div>
-        <p className="text-xs text-(--ae-muted)">{task.description}</p>
+        <p className="text-xs text-muted-foreground">{task.description}</p>
       </div>
 
-      <nav aria-label="Task sections" className="flex gap-6 overflow-x-auto border-b border-(--ae-line) text-xs font-semibold">
+      <nav aria-label="Task sections" className="flex gap-6 overflow-x-auto border-b border-border text-xs font-semibold">
         {task.tabs.map((t, i) => (
           <Link
             aria-current={i === activeTab ? "page" : undefined}
             className={cn(
               "whitespace-nowrap pb-2",
-              i === activeTab ? "border-b-2 border-(--ae-brand) text-(--ae-brand)" : "text-(--ae-muted) hover:text-(--ae-text)",
+              i === activeTab ? "border-b-2 border-(--ae-brand) text-primary" : "text-muted-foreground hover:text-foreground",
             )}
             href={`${ROUTES.GITLAB_PLANNING}?view=task&tab=${i}`}
             key={t.label}
@@ -79,9 +79,9 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
             ["Assignee", task.assignee.name],
             ["Steps", String(task.steps.length)],
           ].map(([k, v]) => (
-            <div className="rounded-lg bg-(--ae-hover) p-3" key={k}>
-              <dt className="text-[11px] text-(--ae-faint)">{k}</dt>
-              <dd className="font-semibold text-(--ae-text)">{v}</dd>
+            <div className="rounded-lg bg-accent p-3" key={k}>
+              <dt className="text-xs text-muted-foreground">{k}</dt>
+              <dd className="font-semibold text-foreground">{v}</dd>
             </div>
           ))}
         </dl>
@@ -96,11 +96,11 @@ export function TaskDetailPanel({ task, changeLog, activeTab, className }: TaskD
       )}
 
       {tabLabel === "Logs" && (
-        <ul className="space-y-2.5 text-[11px]">
+        <ul className="space-y-2.5 text-xs">
           {changeLog.map((e) => (
             <li className="flex justify-between gap-2" key={e.id}>
-              <span className="text-(--ae-body)"><span className="mr-2 text-(--ae-faint)">{e.time}</span>{e.message}</span>
-              <span className="font-medium text-(--ae-muted)">{e.actor}</span>
+              <span className="text-foreground"><span className="mr-2 text-muted-foreground">{e.time}</span>{e.message}</span>
+              <span className="font-medium text-muted-foreground">{e.actor}</span>
             </li>
           ))}
         </ul>

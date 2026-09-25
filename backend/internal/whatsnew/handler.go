@@ -1,7 +1,6 @@
 package whatsnew
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -26,14 +25,6 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }
 
 type entryResponse struct {
@@ -101,7 +92,7 @@ func (h *Handler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req entryRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	createdBy := claims.UserID
@@ -118,7 +109,7 @@ func (h *Handler) AdminCreate(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) AdminUpdate(w http.ResponseWriter, r *http.Request) {
 	var req entryRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	e, err := h.service.Update(r.Context(), chi.URLParam(r, "id"), Entry{

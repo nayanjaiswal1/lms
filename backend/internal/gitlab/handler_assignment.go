@@ -40,7 +40,7 @@ func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req createAssignmentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -149,7 +149,7 @@ func (h *Handler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
 	}
 	assignmentID := chi.URLParam(r, "assignmentID")
 	var patch AssignmentPatch
-	if !decodeJSON(w, r, &patch) {
+	if !httputil.DecodeJSON(w, r, &patch) {
 		return
 	}
 	if patch.Visibility != nil && *patch.Visibility != VisibilityPrivate && *patch.Visibility != VisibilityInternal {
@@ -180,7 +180,7 @@ func (h *Handler) SetAssignmentInstallation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var req setAssignmentInstallationRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	assignment, err := h.service.SetAssignmentInstallation(r.Context(), claims.OrgID, chi.URLParam(r, "assignmentID"), req.InstallationID)

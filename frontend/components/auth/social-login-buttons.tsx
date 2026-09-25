@@ -60,14 +60,16 @@ function GoogleIcon() {
 }
 
 export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginButtonsProps) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-  // NEXT_PUBLIC_API_URL is intentionally empty in the Caddy same-origin setup
-  // (see frontend/.env.local) — that is not "unconfigured," so it must not
-  // gate these buttons. Whether a provider is actually usable depends on
-  // whether the backend has that provider's OAuth app credentials, which
-  // these two flags mirror (the client ID itself isn't secret — it rides in
-  // the redirect URL — but a plain enabled/disabled flag avoids keeping a
-  // duplicate copy of the ID in sync between backend/.env and here).
+  // Same-origin /api/... hrefs ride next.config.ts's rewrites() proxy to the
+  // backend — a cross-site NEXT_PUBLIC_API_URL link would drop the auth
+  // cookie (SameSite=Lax). NEXT_PUBLIC_API_URL is intentionally empty in the
+  // Caddy same-origin setup (see frontend/.env.local) — that is not
+  // "unconfigured," so it must not gate these buttons. Whether a provider is
+  // actually usable depends on whether the backend has that provider's OAuth
+  // app credentials, which these two flags mirror (the client ID itself isn't
+  // secret — it rides in the redirect URL — but a plain enabled/disabled flag
+  // avoids keeping a duplicate copy of the ID in sync between backend/.env
+  // and here).
   const googleDisabled = disabled || process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED !== "true";
   const githubDisabled = disabled || process.env.NEXT_PUBLIC_GITHUB_OAUTH_ENABLED !== "true";
 
@@ -93,7 +95,7 @@ export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginBu
       >
         <a
           aria-disabled={googleDisabled}
-          href={`${apiUrl}/api/auth/google`}
+          href="/api/auth/google"
           tabIndex={googleDisabled ? -1 : undefined}
           onClick={handleClick(googleDisabled)}
         >
@@ -109,7 +111,7 @@ export function SocialLoginButtons({ disabled, onProviderSelect }: SocialLoginBu
       >
         <a
           aria-disabled={githubDisabled}
-          href={`${apiUrl}/api/auth/github`}
+          href="/api/auth/github"
           tabIndex={githubDisabled ? -1 : undefined}
           onClick={handleClick(githubDisabled)}
         >

@@ -121,7 +121,7 @@ export function ReviewSession({ cards }: ReviewSessionProps) {
       <div className="mx-auto max-w-2xl">
         {/* Header: back link + progress */}
         <div className="mb-6 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex-between gap-4">
             <Button asChild size="sm" variant="ghost">
               <Link href={ROUTES.DASHBOARD}>
                 <ArrowLeft aria-hidden className="mr-1 h-4 w-4" />

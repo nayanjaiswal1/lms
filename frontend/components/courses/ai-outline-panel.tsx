@@ -95,7 +95,7 @@ export function AIOutlinePanel({ onApply }: AIOutlinePanelProps) {
 
       {state?.outline && state.outline.length > 0 && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+          <div className="flex-between">
             <h4 className="text-sm font-semibold">Generated outline</h4>
             {onApply && state.outline && (
               <Button size="sm" onClick={() => onApply(state.outline as OutlineSection[])}>

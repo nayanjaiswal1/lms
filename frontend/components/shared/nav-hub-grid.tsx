@@ -41,7 +41,7 @@ export function NavHubGrid({ catalogue, stats = {} }: NavHubGridProps) {
       {groups.map((group) => (
         <section key={group.label}>
           <div className="mb-4 inline-flex flex-col gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{group.label}</span>
+            <span className="section-label">{group.label}</span>
             <span aria-hidden className="h-0.5 w-6 rounded-full bg-primary" />
           </div>
           <div className="grid grid-cols-3 gap-x-2 gap-y-6 sm:grid-cols-4 lg:grid-cols-6">
@@ -57,7 +57,7 @@ export function NavHubGrid({ catalogue, stats = {} }: NavHubGridProps) {
                   </span>
                   <div className="min-w-0">
                     <p className="line-clamp-2 max-w-24 text-xs font-medium leading-tight text-foreground">{item.label}</p>
-                    {stat && <p className="mt-0.5 max-w-24 truncate text-[11px] leading-tight text-muted-foreground">{stat}</p>}
+                    {stat && <p className="mt-0.5 max-w-24 truncate text-xs leading-tight text-muted-foreground">{stat}</p>}
                   </div>
                 </Link>
               );

@@ -134,7 +134,7 @@ export function PasskeyManager({ credentials }: PasskeyManagerProps) {
 
   return (
     <section aria-labelledby="passkeys-heading" className="card-base p-6 space-y-5">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex-between gap-4">
         <div>
           <h2 className="text-lg font-semibold text-foreground" id="passkeys-heading">
             Passkeys
@@ -156,7 +156,7 @@ export function PasskeyManager({ credentials }: PasskeyManagerProps) {
       ) : (
         <ul className="divide-y divide-border">
           {credentials.map((cred) => (
-            <li className="flex items-center justify-between gap-4 py-3" key={cred.id}>
+            <li className="flex-between gap-4 py-3" key={cred.id}>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{cred.nickname}</p>
                 <p className="text-xs text-muted-foreground">

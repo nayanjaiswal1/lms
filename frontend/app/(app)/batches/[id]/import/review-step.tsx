@@ -71,7 +71,7 @@ export function ReviewStep({ batchId, rows, setRows, courses, orgMembers, onConf
 
   return (
     <section aria-labelledby="import-review-heading" className="card-base p-6 space-y-5">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex-between gap-4 flex-wrap">
         <div>
           <h2 className="subsection-title text-foreground" id="import-review-heading">
             Review &amp; edit

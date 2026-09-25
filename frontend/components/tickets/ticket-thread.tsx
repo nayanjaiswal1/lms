@@ -28,12 +28,12 @@ export function TicketThread({ messages, currentUserId }: TicketThreadProps) {
           <li className={cn("flex", isMine ? "justify-end" : "justify-start")} key={msg.id}>
             <div
               className={cn(
-                "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+                "chat-bubble rounded-lg px-3 py-2 text-sm",
                 isMine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
               )}
             >
               <p className="whitespace-pre-wrap">{msg.body}</p>
-              <p className={cn("mt-1 text-[10px]", isMine ? "text-primary-foreground/70" : "text-muted-foreground")}>
+              <p className={cn("mt-1 text-xs", isMine ? "text-primary-foreground/70" : "text-muted-foreground")}>
                 {new Date(msg.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
               </p>
             </div>

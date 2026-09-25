@@ -91,7 +91,7 @@ export function Step3Plan({ orgId, org }: Step3PlanProps) {
           Maximum number of active members allowed. Leave blank for unlimited.
         </p>
 
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex-between pt-2">
           <Button
             asChild
             className="gap-2"

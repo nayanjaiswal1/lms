@@ -147,7 +147,7 @@ function TestRunner({
       {/* Header */}
       <header className="sticky top-0 z-sticky border-b border-border bg-background/95 backdrop-blur">
         {/* eslint-disable-next-line no-restricted-syntax -- nested sticky header row, not the page shell: py-3 is the header's own internal spacing */}
-        <div className="page-container flex items-center justify-between py-3">
+        <div className="page-container flex-between py-3">
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold">{meta.title}</span>
             <span className="text-xs text-muted-foreground">
@@ -187,7 +187,7 @@ function TestRunner({
 
         {/* Current question */}
         <div className="card-base p-6">
-          <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="mb-1 flex-between gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Question {index + 1} of {questions.length}
             </span>

@@ -29,7 +29,7 @@ export default async function IssuesPage({ searchParams }: IssuesPageProps) {
   const issues = page.issues.filter(STATE_FILTER[state]);
 
   return (
-    <div className="min-h-dvh bg-(--m-surface) text-(--m-on-surface)">
+    <div className="min-h-dvh bg-(--m-surface) text-foreground">
       <IssuesTopbar />
       <main className="mx-auto flex w-full max-w-400 flex-col gap-3 p-3 sm:p-4">
         <IssuesToolbar bulk={bulk} density={density} page={page} state={state} />

@@ -52,7 +52,7 @@ function SheetContent({
       <SheetOverlay />
       <SheetPrimitive.Content
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-modal flex flex-col gap-4 p-6 shadow-lg transition ease-in-out",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-modal flex flex-col gap-4 p-6 shadow-modal transition ease-in-out",
           side === "right" &&
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
           side === "left" &&

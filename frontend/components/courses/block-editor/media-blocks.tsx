@@ -48,7 +48,7 @@ function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
           onChange={(e) => onUrl(e.target.value)}
         />
       ) : (
-        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-2 border-dashed border-border px-4 py-6 text-center transition-colors hover:border-primary hover:bg-muted/40">
+        <label className="upload-dropzone cursor-pointer hover:border-primary">
           <Upload className="h-5 w-5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">Click to choose a file</span>
           <input

@@ -41,7 +41,7 @@ export function WikiSidebarTree({ spaceSlug, spaceId, tree, templates, currentPa
 
   return (
     <nav aria-label="Wiki pages" className="flex w-full flex-col gap-1">
-      <div className="flex items-center justify-between px-1">
+      <div className="flex-between px-1">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pages</span>
         {canManage && (
           <Button

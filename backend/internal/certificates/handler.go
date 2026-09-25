@@ -1,7 +1,6 @@
 package certificates
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -19,14 +18,6 @@ type Handler struct {
 
 func newHandler(service *Service, pool *pgxpool.Pool) *Handler {
 	return &Handler{service: service, pool: pool}
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }
 
 var domainErrors = map[error]httputil.ErrSpec{
@@ -55,7 +46,7 @@ func (h *Handler) UpsertFinalTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req UpsertFinalTestRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
@@ -104,7 +95,7 @@ func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req SubmitAttemptRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")
@@ -167,7 +158,7 @@ func (h *Handler) IssueCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req IssueCertificateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.StudentID == "" {
@@ -213,7 +204,7 @@ func (h *Handler) UpsertCertificateThreshold(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var req UpsertCertificateRuleRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	courseID := chi.URLParam(r, "courseID")

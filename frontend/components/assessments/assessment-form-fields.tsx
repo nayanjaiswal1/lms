@@ -41,7 +41,7 @@ export function ToggleRow({
             />
             <span
               aria-hidden="true"
-              className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background shadow-sm transition-transform duration-fast peer-checked:translate-x-4"
+              className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background shadow-card transition-transform duration-fast peer-checked:translate-x-4"
             />
           </span>
         </label>

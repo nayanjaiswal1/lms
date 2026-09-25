@@ -9,6 +9,14 @@ import (
 
 type Priority = int
 
+// HandlerLLM is the single source of truth for the generic LLM-task job
+// handler name. handlers.HandlerLLM aliases this value; domain services
+// (mistakes, roadmap, revisionplan) reference this constant via the jobs
+// package instead of a string literal because importing jobs/handlers from
+// those packages would be an import cycle (handlers/llm.go depends on
+// roadmap and revisionplan).
+const HandlerLLM = "llm.task"
+
 const (
 	PriorityCritical   Priority = 1
 	PriorityHigh       Priority = 2

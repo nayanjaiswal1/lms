@@ -43,7 +43,7 @@ function AssetInput({ url, accept, label, onUrl, onFile }: AssetInputProps) {
       {tab === "url" ? (
         <Input placeholder={`${label} URL…`} type="url" value={url} onChange={(e) => onUrl(e.target.value)} />
       ) : (
-        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-2 border-dashed border-border px-4 py-5 text-center hover:border-primary hover:bg-muted/40 transition-colors">
+        <label className="upload-dropzone cursor-pointer hover:border-primary">
           <Upload className="h-5 w-5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">Click to choose a file</span>
           <input

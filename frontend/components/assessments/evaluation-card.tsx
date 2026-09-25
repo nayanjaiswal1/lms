@@ -76,7 +76,7 @@ function QuestionPanel({ row, index }: { row: EvaluationRow; index: number }) {
 
   return (
     <article className="card-base flex flex-col gap-4 p-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex-between gap-3">
         <h4 className="font-semibold">Question {index + 1}</h4>
         {row.composite_score !== null && (
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -115,7 +115,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   const color = pct >= 75 ? "bg-ai" : pct >= 50 ? "bg-primary" : "bg-destructive";
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex-between text-xs">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-medium tabular-nums">{pct}</span>
       </div>

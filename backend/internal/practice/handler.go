@@ -1,7 +1,6 @@
 package practice
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -22,14 +21,6 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }
 
 var suggestedTechnologies = []string{
@@ -62,7 +53,7 @@ func (h *Handler) UpdateSessionStatus(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Status SessionStatus `json:"status"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.Status != StatusCompleted && body.Status != StatusAbandoned {
@@ -91,7 +82,7 @@ func (h *Handler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		AnswerText string `json:"answer_text"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.AnswerText == "" {

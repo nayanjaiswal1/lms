@@ -1,7 +1,6 @@
 package projectmarket
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,14 +16,6 @@ type Handler struct {
 // NewHandler builds the projectmarket HTTP handler.
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
 }
 
 // writeDomainError maps domain/service errors to HTTP responses.

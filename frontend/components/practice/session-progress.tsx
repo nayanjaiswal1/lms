@@ -14,7 +14,7 @@ export function SessionProgress({ items, currentPosition }: SessionProgressProps
 
   return (
     <div className="card-base flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex-between text-sm">
         <span className="font-medium">Progress</span>
         <span className="text-muted-foreground">{answered}/{total}</span>
       </div>

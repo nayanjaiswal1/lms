@@ -28,7 +28,7 @@ func (h *Handler) MigrateAnonProgress(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	courseID := urlParam(r, "courseID")
+	courseID := httputil.URLParam(r, "courseID")
 	course, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -48,7 +48,7 @@ func (h *Handler) MigrateAnonProgress(w http.ResponseWriter, r *http.Request) {
 		Notes              map[string]string `json:"notes"`
 		Reflections        map[string]string `json:"reflections"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.CompletedModuleIDs) > maxAnonMigrateItems || len(req.Notes) > maxAnonMigrateItems || len(req.Reflections) > maxAnonMigrateItems {

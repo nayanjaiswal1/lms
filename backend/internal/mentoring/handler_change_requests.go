@@ -17,10 +17,10 @@ func (h *Handler) RequestMentorChange(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Reason string `json:"reason"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	cr, err := h.service.RequestMentorChange(r.Context(), claims.OrgID, urlParam(r, "ticketID"), claims.UserID, req.Reason)
+	cr, err := h.service.RequestMentorChange(r.Context(), claims.OrgID, httputil.URLParam(r, "ticketID"), claims.UserID, req.Reason)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -35,7 +35,7 @@ func (h *Handler) ListChangeRequests(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	requests, err := h.service.ListChangeRequests(r.Context(), claims.OrgID, queryStrPtr(r, "status"))
+	requests, err := h.service.ListChangeRequests(r.Context(), claims.OrgID, httputil.QueryStrPtr(r, "status"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -53,10 +53,10 @@ func (h *Handler) ApproveChangeRequest(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Note string `json:"note"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	cr, ticket, err := h.service.ApproveChangeRequest(r.Context(), claims.OrgID, urlParam(r, "requestID"), claims.UserID, req.Note)
+	cr, ticket, err := h.service.ApproveChangeRequest(r.Context(), claims.OrgID, httputil.URLParam(r, "requestID"), claims.UserID, req.Note)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -73,10 +73,10 @@ func (h *Handler) DenyChangeRequest(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Note string `json:"note"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	cr, err := h.service.DenyChangeRequest(r.Context(), claims.OrgID, urlParam(r, "requestID"), claims.UserID, req.Note)
+	cr, err := h.service.DenyChangeRequest(r.Context(), claims.OrgID, httputil.URLParam(r, "requestID"), claims.UserID, req.Note)
 	if err != nil {
 		writeDomainError(w, err)
 		return

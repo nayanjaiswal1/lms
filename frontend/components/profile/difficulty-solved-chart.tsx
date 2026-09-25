@@ -69,14 +69,14 @@ export function DifficultySolvedChart({ difficulty, solvedTotal, attempting }: P
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-lg font-bold text-foreground tabular-nums">{solvedTotal}</span>
-            <span className="text-[10px] text-muted-foreground">/{totalAvailable}</span>
+            <span className="text-xs text-muted-foreground">/{totalAvailable}</span>
           </div>
         </div>
 
         {/* eslint-disable-next-line no-restricted-syntax -- max-w constraint is responsive on sm+ via sm:max-w-[260px] */}
         <div className="w-full max-w-none sm:max-w-[260px] divide-y divide-border">
           {difficulty.map((d) => (
-            <div className="flex items-center justify-between gap-3 py-1.5" key={d.difficulty}>
+            <div className="flex-between gap-3 py-1.5" key={d.difficulty}>
               <span className="flex items-center gap-2 text-xs font-medium text-foreground">
                 <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full shrink-0 ${RING_COLOR[d.difficulty]} bg-current`} />
                 {LABEL[d.difficulty]}

@@ -13,7 +13,7 @@ func (h *Handler) AssessmentAnalytics(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	stats, err := h.repo.AssessmentAnalytics(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"))
+	stats, err := h.repo.AssessmentAnalytics(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -27,7 +27,7 @@ func (h *Handler) ListAssessmentAttempts(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	rows, err := h.repo.ListAssessmentAttempts(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"))
+	rows, err := h.repo.ListAssessmentAttempts(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -42,7 +42,7 @@ func (h *Handler) AttemptProctoringLog(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	attemptID := chiURLParam(r, "attemptID")
+	attemptID := httputil.URLParam(r, "attemptID")
 	att, err := h.repo.GetAttempt(r.Context(), attemptID)
 	if err != nil {
 		writeDomainError(w, err)

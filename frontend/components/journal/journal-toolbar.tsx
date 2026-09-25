@@ -257,7 +257,7 @@ export function JournalToolbar({ categories }: JournalToolbarProps) {
             ) : (
               <div className="relative flex-1">
                 <Textarea
-                  className="touch-target h-full min-h-48 resize-none rounded-none border-0 text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="touch-target h-full min-h-48 resize-none rounded-none border-0 text-base focus-visible:ring-offset-0"
                   placeholder="What did you learn today?"
                   rows={1}
                   value={draftText}

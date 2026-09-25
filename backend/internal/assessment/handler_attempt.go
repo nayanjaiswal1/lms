@@ -75,7 +75,7 @@ func (h *Handler) StartAttempt(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	att, questions, a, err := h.service.StartAttempt(r.Context(), claims.OrgID, claims.UserID, chiURLParam(r, "assessmentID"))
+	att, questions, a, err := h.service.StartAttempt(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "assessmentID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -106,7 +106,7 @@ func (h *Handler) ResumeAttempt(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	att, questions, a, err := h.service.ResumeAttempt(r.Context(), claims.OrgID, claims.UserID, chiURLParam(r, "attemptID"))
+	att, questions, a, err := h.service.ResumeAttempt(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "attemptID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -147,14 +147,14 @@ func (h *Handler) SaveAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req saveAnswerRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.AssessmentQuestionID == "" {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"assessment_question_id": "Question is required."})
 		return
 	}
-	err := h.service.SaveAnswer(r.Context(), claims.UserID, chiURLParam(r, "attemptID"), req.SessionToken,
+	err := h.service.SaveAnswer(r.Context(), claims.UserID, httputil.URLParam(r, "attemptID"), req.SessionToken,
 		req.AssessmentQuestionID, req.Answer, req.Transcript, req.TimeSpentSeconds)
 	if err != nil {
 		writeDomainError(w, err)
@@ -175,10 +175,10 @@ func (h *Handler) SubmitAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req submitAttemptRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	att, needsEval, err := h.service.Submit(r.Context(), claims.OrgID, claims.UserID, chiURLParam(r, "attemptID"), req.SessionToken)
+	att, needsEval, err := h.service.Submit(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "attemptID"), req.SessionToken)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -214,7 +214,7 @@ func (h *Handler) OverrideAnswerScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req overrideAnswerScoreRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Score < 0 {
@@ -222,7 +222,7 @@ func (h *Handler) OverrideAnswerScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	att, err := h.repo.OverrideAnswerScore(r.Context(), claims.OrgID,
-		chiURLParam(r, "attemptID"), chiURLParam(r, "answerID"), claims.UserID, req.Score, req.Note)
+		httputil.URLParam(r, "attemptID"), httputil.URLParam(r, "answerID"), claims.UserID, req.Score, req.Note)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -333,7 +333,7 @@ func (h *Handler) RunCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req runCodeRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Language == "" || req.Code == "" {
@@ -343,7 +343,7 @@ func (h *Handler) RunCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := h.service.RunSample(r.Context(), claims.UserID,
-		chiURLParam(r, "attemptID"), req.SessionToken, chiURLParam(r, "assessmentQuestionID"), req.Language, req.Code)
+		httputil.URLParam(r, "attemptID"), req.SessionToken, httputil.URLParam(r, "assessmentQuestionID"), req.Language, req.Code)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -374,7 +374,7 @@ func (h *Handler) RecordEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req eventRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if !validEventTypes[req.EventType] {
@@ -385,7 +385,7 @@ func (h *Handler) RecordEvent(w http.ResponseWriter, r *http.Request) {
 		req.Severity = "info"
 	}
 	forced, err := h.service.RecordEvent(r.Context(), claims.OrgID, claims.UserID,
-		chiURLParam(r, "attemptID"), req.SessionToken, req.EventType, req.Severity, req.Metadata, req.ClientTS)
+		httputil.URLParam(r, "attemptID"), req.SessionToken, req.EventType, req.Severity, req.Metadata, req.ClientTS)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -401,7 +401,7 @@ func (h *Handler) GetAttemptResult(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	attemptID := chiURLParam(r, "attemptID")
+	attemptID := httputil.URLParam(r, "attemptID")
 	att, err := h.repo.GetAttempt(r.Context(), attemptID)
 	if err != nil {
 		writeDomainError(w, err)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/validate"
 )
 
 // ─── Assessment CRUD ─────────────────────────────────────────────────────────
@@ -55,9 +56,7 @@ func (req *assessmentRequest) normalise() map[string]string {
 	if req.MaxAttempts <= 0 {
 		req.MaxAttempts = 1
 	}
-	if req.EndsAt != nil && req.StartsAt != nil && !req.EndsAt.After(*req.StartsAt) {
-		fields["ends_at"] = "End time must be after the start time."
-	}
+	validate.CheckRange(req.StartsAt, req.EndsAt, fields)
 	return fields
 }
 
@@ -97,7 +96,7 @@ func (h *Handler) CreateAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req assessmentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if fields := req.normalise(); len(fields) > 0 {
@@ -148,7 +147,7 @@ func (h *Handler) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req assessmentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if fields := req.normalise(); len(fields) > 0 {
@@ -156,7 +155,7 @@ func (h *Handler) UpdateAssessment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a := Assessment{
-		ID:               chiURLParam(r, "assessmentID"),
+		ID:               httputil.URLParam(r, "assessmentID"),
 		Title:            req.Title,
 		Description:      req.Description,
 		MockMode:         req.MockMode,
@@ -205,8 +204,8 @@ func (h *Handler) ListAssessments(w http.ResponseWriter, r *http.Request) {
 		ParentType: q.Get("parent_type"),
 		ParentID:   q.Get("parent_id"),
 		Search:     q.Get("search"),
-		Limit:      queryInt(r, "limit", 50),
-		Offset:     queryInt(r, "offset", 0),
+		Limit:      httputil.QueryInt(r, "limit", 50),
+		Offset:     httputil.QueryInt(r, "offset", 0),
 	}
 	items, err := h.repo.ListAssessments(r.Context(), claims.OrgID, filter)
 	if err != nil {
@@ -222,7 +221,7 @@ func (h *Handler) GetAssessment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	id := chiURLParam(r, "assessmentID")
+	id := httputil.URLParam(r, "assessmentID")
 	a, err := h.repo.GetAssessment(r.Context(), claims.OrgID, id)
 	if err != nil {
 		writeDomainError(w, err)
@@ -258,14 +257,14 @@ func (h *Handler) AddAssessmentQuestion(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req addQuestionRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.QuestionID == "" {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"question_id": "Question is required."})
 		return
 	}
-	aq, err := h.repo.AddQuestion(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"), req.QuestionID, req.Points)
+	aq, err := h.repo.AddQuestion(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"), req.QuestionID, req.Points)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -291,7 +290,7 @@ func (h *Handler) AutoSelectAssessmentQuestions(w http.ResponseWriter, r *http.R
 		return
 	}
 	var req autoSelectQuestionsRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Count <= 0 {
@@ -304,7 +303,7 @@ func (h *Handler) AutoSelectAssessmentQuestions(w http.ResponseWriter, r *http.R
 		Tags:       req.Tags,
 		Type:       req.Type,
 	}
-	added, err := h.repo.AutoSelectQuestions(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"), filter, req.Count)
+	added, err := h.repo.AutoSelectQuestions(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"), filter, req.Count)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -318,7 +317,7 @@ func (h *Handler) RemoveAssessmentQuestion(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	err := h.repo.RemoveQuestion(r.Context(), claims.OrgID,
-		chiURLParam(r, "assessmentID"), chiURLParam(r, "aqID"))
+		httputil.URLParam(r, "assessmentID"), httputil.URLParam(r, "aqID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -331,7 +330,7 @@ func (h *Handler) PublishAssessment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	a, err := h.service.Publish(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"))
+	a, err := h.service.Publish(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -351,7 +350,7 @@ func (h *Handler) SetAssessmentStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req statusRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	allowed := map[string]bool{StatusActive: true, StatusCompleted: true, StatusArchived: true, StatusDraft: true}
@@ -359,7 +358,7 @@ func (h *Handler) SetAssessmentStatus(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"status": "Invalid status transition."})
 		return
 	}
-	if err := h.repo.SetStatus(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"), req.Status, false); err != nil {
+	if err := h.repo.SetStatus(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"), req.Status, false); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -380,7 +379,7 @@ func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req assignmentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.AssigneeType != AssigneeStudent && req.AssigneeType != AssigneeBatch {
@@ -391,7 +390,7 @@ func (h *Handler) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"assignee_ids": "Select at least one assignee."})
 		return
 	}
-	assessmentID := chiURLParam(r, "assessmentID")
+	assessmentID := httputil.URLParam(r, "assessmentID")
 	created, err := h.repo.CreateAssignments(r.Context(), claims.OrgID, assessmentID, req.AssigneeType, req.AssigneeIDs, claims.UserID, req.DueAt)
 	if err != nil {
 		writeDomainError(w, err)
@@ -405,7 +404,7 @@ func (h *Handler) ListAssignments(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.repo.ListAssignments(r.Context(), claims.OrgID, chiURLParam(r, "assessmentID"))
+	items, err := h.repo.ListAssignments(r.Context(), claims.OrgID, httputil.URLParam(r, "assessmentID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -419,7 +418,7 @@ func (h *Handler) DeleteAssignment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := h.repo.DeleteAssignment(r.Context(), claims.OrgID,
-		chiURLParam(r, "assessmentID"), chiURLParam(r, "assignmentID"))
+		httputil.URLParam(r, "assessmentID"), httputil.URLParam(r, "assignmentID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -437,28 +436,20 @@ type batchRequest struct {
 	EndsAt      *time.Time `json:"ends_at"`
 }
 
-// validateBatchSchedule checks the shared starts_at/ends_at ordering rule used
-// by both create and update.
-func validateBatchSchedule(req batchRequest, fields map[string]string) {
-	if req.EndsAt != nil && req.StartsAt != nil && !req.EndsAt.After(*req.StartsAt) {
-		fields["ends_at"] = "End date must be after the start date."
-	}
-}
-
 func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	var req batchRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
 	if strings.TrimSpace(req.Name) == "" {
 		fields["name"] = "Name is required."
 	}
-	validateBatchSchedule(req, fields)
+	validate.CheckRange(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
@@ -487,20 +478,20 @@ func (h *Handler) UpdateBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req batchRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
 	if strings.TrimSpace(req.Name) == "" {
 		fields["name"] = "Name is required."
 	}
-	validateBatchSchedule(req, fields)
+	validate.CheckRange(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	b := Batch{
-		ID:          chiURLParam(r, "batchID"),
+		ID:          httputil.URLParam(r, "batchID"),
 		Name:        req.Name,
 		Description: req.Description,
 		MentorID:    req.MentorID,
@@ -533,7 +524,7 @@ func (h *Handler) GetBatch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	id := chiURLParam(r, "batchID")
+	id := httputil.URLParam(r, "batchID")
 	b, err := h.repo.GetBatch(r.Context(), claims.OrgID, id)
 	if err != nil {
 		writeDomainError(w, err)
@@ -565,14 +556,14 @@ func (h *Handler) AddBatchMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req batchMembersRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.UserIDs) == 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"user_ids": "Select at least one user."})
 		return
 	}
-	if err := h.repo.AddBatchMembers(r.Context(), claims.OrgID, chiURLParam(r, "batchID"), req.UserIDs); err != nil {
+	if err := h.repo.AddBatchMembers(r.Context(), claims.OrgID, httputil.URLParam(r, "batchID"), req.UserIDs); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -585,7 +576,7 @@ func (h *Handler) RemoveBatchMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := h.repo.RemoveBatchMember(r.Context(), claims.OrgID,
-		chiURLParam(r, "batchID"), chiURLParam(r, "userID"))
+		httputil.URLParam(r, "batchID"), httputil.URLParam(r, "userID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

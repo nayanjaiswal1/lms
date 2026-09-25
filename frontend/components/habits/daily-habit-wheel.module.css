@@ -1,16 +1,19 @@
 /* Native SVG stroke-draw reveal: pathLength=1 on every line/arc normalizes
    its length to 1 regardless of actual pixel length, so a single
    dasharray/dashoffset pair animates every element identically without
-   measuring anything in JS. */
+   measuring anything in JS.
+   Per-element stagger comes from inline animationDelay in the component —
+   inert under prefers-reduced-motion (see below: animations are killed, so
+   delays never run). */
 .gridLine {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: draw 0.5s ease-out forwards;
+  animation: draw var(--duration-slow) var(--ease-smooth) forwards;
 }
 
 .fadeIn {
   opacity: 0;
-  animation: fade 0.4s ease-out forwards;
+  animation: fade var(--duration-slow) var(--ease-smooth) forwards;
 }
 
 @keyframes draw {

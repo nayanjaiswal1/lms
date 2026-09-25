@@ -68,7 +68,7 @@ export function MyRewardSummary({ progressPct, achievements }: { progressPct?: n
         <div className="progress-track h-1.5">
           <div
             aria-label={`${Math.round(progressPct)}% progress to next level`}
-            className="progress-fill h-full transition-all duration-700 ease-out"
+            className="progress-fill h-full transition-all duration-slow ease-smooth"
             style={{ "--progress": `${Math.min(100, Math.max(0, progressPct))}%` } as React.CSSProperties}
           />
         </div>

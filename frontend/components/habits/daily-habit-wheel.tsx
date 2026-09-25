@@ -276,7 +276,7 @@ export function DailyHabitWheel({
                   {countPos && (
                     <text
                       className={cn(
-                        "pointer-events-none select-none fill-foreground/70 text-[8px]",
+                        "pointer-events-none select-none fill-foreground/70 text-xs",
                         !skipIntro && styles.fadeIn,
                       )}
                       dominantBaseline="middle"
@@ -447,7 +447,7 @@ export function DailyHabitWheel({
               const angle = SWEEP_START + i * dayAngle + dayAngle / 2;
               const { x, y } = polarToCartesian(CENTER_X, CENTER_Y, gridOuterRadius + 16, angle);
               return (
-                <text className="fill-foreground/70 text-[10px]" dominantBaseline="middle" key={`label-${day}`} textAnchor="middle" x={x} y={y}>
+                <text className="fill-foreground/70 text-xs" dominantBaseline="middle" key={`label-${day}`} textAnchor="middle" x={x} y={y}>
                   {day}
                 </text>
               );
@@ -455,7 +455,7 @@ export function DailyHabitWheel({
           </g>
 
           {orderedHabits.length === 0 && (
-            <text className="fill-muted-foreground text-[11px]" textAnchor="middle" x={CENTER_X + 20} y={CENTER_Y}>
+            <text className="fill-muted-foreground text-xs" textAnchor="middle" x={CENTER_X + 20} y={CENTER_Y}>
               <tspan dy="-0.3em" x={CENTER_X + 20}>Add a habit</tspan>
               <tspan dy="1.2em" x={CENTER_X + 20}>to start</tspan>
             </text>

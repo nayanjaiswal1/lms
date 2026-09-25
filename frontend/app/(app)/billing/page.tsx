@@ -106,7 +106,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
               const pct = u.limit > 0 ? Math.min(100, Math.round((u.used / u.limit) * 100)) : 0;
               return (
                 <div className="card-base flex flex-col gap-3 p-5" key={u.feature_key}>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex-between text-sm">
                     <span className="font-medium">
                       {u.feature_key === "lab_hours" ? "Lab hours" : u.feature_key}
                     </span>

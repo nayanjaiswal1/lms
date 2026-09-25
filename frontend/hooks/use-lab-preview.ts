@@ -30,7 +30,7 @@ export function useLabPreview(sessionId: string, port?: number): UseLabPreviewRe
         setHasError(true)
         return
       }
-      const wsUrl = process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:8081"
+      const wsUrl = process.env.NEXT_PUBLIC_LAB_PROXY_URL ?? "ws://localhost:18081/ws"
       const httpUrl = wsUrl.replace(/^ws/, "http")
       const portSegment = port && port > 0 ? `${port}/` : ""
       setPreviewUrl(`${httpUrl}/preview/${res.data.session_token}/${portSegment}`)

@@ -90,14 +90,14 @@ export default async function MentorProfilePage({ params }: Props) {
           />
 
           {mentor.bio && (
-            <section className="rounded-xl border border-border bg-card p-6">
+            <section className="card-raised">
               <h2 className="section-title mb-3">Professional biography</h2>
               <p className="prose-content whitespace-pre-line">{mentor.bio}</p>
             </section>
           )}
 
           {mentor.skills.length > 0 && (
-            <section className="rounded-xl border border-border bg-card p-6">
+            <section className="card-raised">
               <h2 className="section-title mb-4">Core competencies</h2>
               <div className="flex flex-wrap gap-2">
                 {mentor.skills.map((skill) => (

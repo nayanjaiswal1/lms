@@ -35,7 +35,7 @@ export function XPProgressBar({ totalXP, level, className, compact = false }: XP
   if (compact) {
     return (
       <div className={cn("flex flex-col gap-1", className)}>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex-between gap-2">
           <span className={cn("rounded px-1.5 py-0.5 text-xs font-semibold", tierColor)}>
             Lv.{level.level}
           </span>
@@ -45,7 +45,7 @@ export function XPProgressBar({ totalXP, level, className, compact = false }: XP
           { }
           <div
             aria-hidden
-            className="progress-fill h-full transition-all duration-500"
+            className="progress-fill h-full transition-all duration-slow"
             style={{ '--progress': `${pct}%` } as React.CSSProperties}
           />
         </div>
@@ -67,11 +67,11 @@ export function XPProgressBar({ totalXP, level, className, compact = false }: XP
           { }
           <div
             aria-label={`${Math.round(pct)}% progress to next level`}
-            className="progress-fill h-full transition-all duration-700 ease-out"
+            className="progress-fill h-full transition-all duration-slow ease-smooth"
             style={{ '--progress': `${pct}%` } as React.CSSProperties}
           />
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex-between">
           <span className="text-xs text-muted-foreground tabular-nums">{xpLabel}</span>
           {!isMaxLevel && (
             <span className="text-xs text-muted-foreground tabular-nums">

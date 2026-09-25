@@ -2,14 +2,10 @@ package courses
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"strconv"
-	"time"
-
-	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
+	"net/http"
+	"time"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/authz"
@@ -17,6 +13,7 @@ import (
 	"github.com/mindforge/backend/internal/coupons"
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/ratelimit"
+	"github.com/mindforge/backend/internal/validate"
 )
 
 // PermissionManageRefunds gates POST .../refund — mirrors
@@ -150,31 +147,6 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
-func urlParam(r *http.Request, key string) string {
-	return chi.URLParam(r, key)
-}
-
-func queryStr(r *http.Request, key string) string {
-	return r.URL.Query().Get(key)
-}
-
-func queryInt(r *http.Request, key string, def int) int {
-	if v := r.URL.Query().Get(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
-	}
-	return def
-}
-
 // ─── Course CRUD ──────────────────────────────────────────────────────────────
 
 type courseCreateReq struct {
@@ -192,21 +164,13 @@ type courseCreateReq struct {
 	DisableReflection bool       `json:"disable_reflection"`
 }
 
-// validateSchedule checks the shared starts_at/ends_at ordering rule used by
-// courses and modules (mirrors assessment.validateBatchSchedule).
-func validateSchedule(startsAt, endsAt *time.Time, fields map[string]string) {
-	if endsAt != nil && startsAt != nil && !endsAt.After(*startsAt) {
-		fields["ends_at"] = "End date must be after the start date."
-	}
-}
-
 func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
 		return
 	}
 	var req courseCreateReq
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
@@ -220,7 +184,7 @@ func (h *Handler) CreateCourse(w http.ResponseWriter, r *http.Request) {
 	if !IsValidDifficulty(diff) {
 		fields["difficulty"] = "Invalid difficulty."
 	}
-	validateSchedule(req.StartsAt, req.EndsAt, fields)
+	validate.CheckRange(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
@@ -263,7 +227,7 @@ func (h *Handler) GetCourse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tree, err := h.repo.GetCourseTree(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "courseID"))
+	tree, err := h.repo.GetCourseTree(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "courseID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -280,7 +244,7 @@ func (h *Handler) GetCourseBySlug(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	detail, err := h.service.GetCourseDetailForViewer(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "slug"))
+	detail, err := h.service.GetCourseDetailForViewer(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "slug"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -294,18 +258,18 @@ func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter := CourseFilter{
-		Status:     queryStr(r, "status"),
-		Difficulty: queryStr(r, "difficulty"),
-		Search:     queryStr(r, "q"),
-		Limit:      queryInt(r, "limit", 20),
-		Offset:     queryInt(r, "offset", 0),
+		Status:     httputil.QueryStr(r, "status"),
+		Difficulty: httputil.QueryStr(r, "difficulty"),
+		Search:     httputil.QueryStr(r, "q"),
+		Limit:      httputil.QueryInt(r, "limit", 20),
+		Offset:     httputil.QueryInt(r, "offset", 0),
 	}
 	// role=instructor means "courses I author" (the instructor-editor pages
 	// rely on this to scope drafts to their own owner — see
 	// getInstructorCourseBySlug in frontend/lib/server/courses.ts). Any other
 	// value, including no role param, is the general browse listing, which
 	// ListCourses restricts to published courses regardless of filter.Status.
-	if queryStr(r, "role") == "instructor" {
+	if httputil.QueryStr(r, "role") == "instructor" {
 		filter.CreatorID = &claims.UserID
 	}
 	courses, total, err := h.repo.ListCourses(r.Context(), claims.OrgID, filter)
@@ -319,7 +283,7 @@ func (h *Handler) ListCourses(w http.ResponseWriter, r *http.Request) {
 // ListPublicCourses serves the anonymous landing-page catalog. No auth and no
 // org scope — the repo only ever returns published courses with is_public set.
 func (h *Handler) ListPublicCourses(w http.ResponseWriter, r *http.Request) {
-	courses, total, err := h.repo.ListPublicCourses(r.Context(), queryInt(r, "limit", 12), queryInt(r, "offset", 0))
+	courses, total, err := h.repo.ListPublicCourses(r.Context(), httputil.QueryInt(r, "limit", 12), httputil.QueryInt(r, "offset", 0))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -335,7 +299,7 @@ func (h *Handler) ListPublicCourses(w http.ResponseWriter, r *http.Request) {
 // a signed URL or a session tied to a real user that an anonymous visitor
 // doesn't have.
 func (h *Handler) GetPublicCourseTree(w http.ResponseWriter, r *http.Request) {
-	tree, err := h.repo.GetPublicCourseTreeBySlug(r.Context(), urlParam(r, "slug"))
+	tree, err := h.repo.GetPublicCourseTreeBySlug(r.Context(), httputil.URLParam(r, "slug"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -365,17 +329,17 @@ func (h *Handler) UpdateCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req courseUpdateReq
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
-	validateSchedule(req.StartsAt, req.EndsAt, fields)
+	validate.CheckRange(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	c := Course{
-		ID:                urlParam(r, "courseID"),
+		ID:                httputil.URLParam(r, "courseID"),
 		Title:             req.Title,
 		Description:       req.Description,
 		CoverURL:          req.CoverURL,
@@ -406,7 +370,7 @@ func (h *Handler) PublishCourse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.repo.PublishCourse(r.Context(), claims.OrgID, urlParam(r, "courseID")); err != nil {
+	if err := h.repo.PublishCourse(r.Context(), claims.OrgID, httputil.URLParam(r, "courseID")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -418,7 +382,7 @@ func (h *Handler) DeleteCourse(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.repo.ArchiveCourse(r.Context(), claims.OrgID, urlParam(r, "courseID")); err != nil {
+	if err := h.repo.ArchiveCourse(r.Context(), claims.OrgID, httputil.URLParam(r, "courseID")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -433,13 +397,13 @@ func (h *Handler) ForkCourse(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title string `json:"title"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Title == "" {
 		req.Title = "Forked Course"
 	}
-	fork, err := h.repo.ForkCourse(r.Context(), claims.OrgID, urlParam(r, "courseID"), claims.UserID, req.Title, Slugify(req.Title))
+	fork, err := h.repo.ForkCourse(r.Context(), claims.OrgID, httputil.URLParam(r, "courseID"), claims.UserID, req.Title, Slugify(req.Title))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -457,14 +421,14 @@ func (h *Handler) CreateSection(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title string `json:"title"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Title == "" {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"title": "Title is required."})
 		return
 	}
-	courseID := urlParam(r, "courseID")
+	courseID := httputil.URLParam(r, "courseID")
 	if _, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID); err != nil {
 		writeDomainError(w, err)
 		return
@@ -486,10 +450,10 @@ func (h *Handler) UpdateSection(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title string `json:"title"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	s := CourseSection{ID: urlParam(r, "sectionID"), Title: req.Title}
+	s := CourseSection{ID: httputil.URLParam(r, "sectionID"), Title: req.Title}
 	updated, err := h.repo.UpdateSection(r.Context(), claims.OrgID, s)
 	if err != nil {
 		writeDomainError(w, err)
@@ -503,7 +467,7 @@ func (h *Handler) DeleteSection(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.repo.DeleteSection(r.Context(), claims.OrgID, urlParam(r, "sectionID")); err != nil {
+	if err := h.repo.DeleteSection(r.Context(), claims.OrgID, httputil.URLParam(r, "sectionID")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -518,10 +482,10 @@ func (h *Handler) ReorderSections(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		SectionIDs []string `json:"section_ids"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.repo.ReorderSections(r.Context(), claims.OrgID, urlParam(r, "courseID"), req.SectionIDs); err != nil {
+	if err := h.repo.ReorderSections(r.Context(), claims.OrgID, httputil.URLParam(r, "courseID"), req.SectionIDs); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -550,7 +514,7 @@ func (h *Handler) CreateModule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req moduleCreateReq
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
@@ -561,12 +525,12 @@ func (h *Handler) CreateModule(w http.ResponseWriter, r *http.Request) {
 	if !validTypes[req.Type] {
 		fields["type"] = "Type must be video, pdf, notes, or assessment."
 	}
-	validateSchedule(req.StartsAt, req.EndsAt, fields)
+	validate.CheckRange(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
-	sectionID := urlParam(r, "sectionID")
+	sectionID := httputil.URLParam(r, "sectionID")
 	section, err := h.repo.GetSectionForOrg(r.Context(), claims.OrgID, sectionID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -600,7 +564,7 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req moduleCreateReq
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}
@@ -616,13 +580,13 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 	if !validTypes[req.Type] {
 		fields["type"] = "Type must be video, pdf, notes, assessment, or lab."
 	}
-	validateSchedule(req.StartsAt, req.EndsAt, fields)
+	validate.CheckRange(req.StartsAt, req.EndsAt, fields)
 	if len(fields) > 0 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, fields)
 		return
 	}
 	m := CourseModule{
-		ID:               urlParam(r, "moduleID"),
+		ID:               httputil.URLParam(r, "moduleID"),
 		Title:            req.Title,
 		Type:             req.Type,
 		IsFreePreview:    req.IsFreePreview,
@@ -647,7 +611,7 @@ func (h *Handler) DeleteModule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.repo.SoftDeleteModule(r.Context(), claims.OrgID, urlParam(r, "moduleID")); err != nil {
+	if err := h.repo.SoftDeleteModule(r.Context(), claims.OrgID, httputil.URLParam(r, "moduleID")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -662,10 +626,10 @@ func (h *Handler) ReorderModules(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ModuleIDs []string `json:"module_ids"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.repo.ReorderModules(r.Context(), claims.OrgID, urlParam(r, "sectionID"), req.ModuleIDs); err != nil {
+	if err := h.repo.ReorderModules(r.Context(), claims.OrgID, httputil.URLParam(r, "sectionID"), req.ModuleIDs); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -684,7 +648,7 @@ func (h *Handler) GetUploadURL(w http.ResponseWriter, r *http.Request) {
 		ModuleID string `json:"module_id"`
 		MimeType string `json:"mime_type"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.MimeType == "" {

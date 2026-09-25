@@ -58,7 +58,7 @@ export function WeekView({
   return (
     <div className="space-y-4">
       {/* Header with navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <div>
           <h2 className="text-lg font-semibold">
             {formatDateRange(weekStart, addDays(weekStart, 6))}
@@ -79,7 +79,7 @@ export function WeekView({
         {/* eslint-disable-next-line no-restricted-syntax -- 7-day grid needs a fixed time-gutter column plus 7 equal day columns, not expressible as a static token */}
         <div className="grid" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
           {/* Time column header */}
-          <div className="sticky left-0 z-10 bg-muted/50 border-r border-border" />
+          <div className="sticky left-0 z-raised bg-muted/50 border-r border-border" />
 
           {/* Day headers */}
           {days.map((day, i) => {
@@ -100,7 +100,7 @@ export function WeekView({
           {HOURS.map((hour) => (
             <React.Fragment key={hour}>
               {/* Time label */}
-              <div className="sticky left-0 z-10 border-r border-b border-border bg-muted/50 px-2 py-2 text-right text-xs text-muted-foreground">
+              <div className="sticky left-0 z-raised border-r border-b border-border bg-muted/50 px-2 py-2 text-right text-xs text-muted-foreground">
                 {String(hour).padStart(2, "0")}:00
               </div>
 
@@ -144,7 +144,7 @@ export function WeekView({
                       return (
                         <div
                           aria-label={`Open event ${event.title}`}
-                          className="absolute inset-x-0.5 text-[10px] overflow-hidden"
+                          className="absolute inset-x-0.5 text-xs overflow-hidden"
                           key={event.id}
                           role="button"
                           tabIndex={0}

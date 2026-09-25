@@ -1,8 +1,9 @@
 package api
 
 import (
-	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 	"slices"
 
 	"github.com/go-chi/chi/v5"
@@ -174,7 +175,8 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// separate instance for background jobs the same way.
 	secretsVault, err := secrets.New(cfg)
 	if err != nil {
-		panic(fmt.Errorf("api: secrets vault init failed: %w", err))
+		slog.Error("api: secrets vault init failed", "error", err)
+		os.Exit(1)
 	}
 
 	orgsHandler := orgs.NewHandler(cfg, pool, cache, secretsVault, jobsRegistry)

@@ -159,7 +159,7 @@ export function EnterScoresForm({ batchId, roster, templates, t }: EnterScoresFo
           <h3 className="text-sm font-medium text-foreground mb-3">Scores</h3>
           <div className="flex flex-col divide-y divide-border">
             {roster.map((s, i) => (
-              <div className="flex items-center justify-between gap-4 py-2" key={s.user_id}>
+              <div className="flex-between gap-4 py-2" key={s.user_id}>
                 <div className="flex flex-col min-w-0">
                   <span className="truncate font-medium">{s.name}</span>
                   <span className="truncate text-xs text-muted-foreground">{s.email}</span>

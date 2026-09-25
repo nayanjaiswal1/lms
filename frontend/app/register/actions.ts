@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 
 import { AUTH_COPY, registerSchema } from "@/lib/validation/auth";
 import ROUTES from "@/lib/routes";
-import { clientIpHeaders } from "@/lib/server/api";
+import { baseURL } from "@/lib/server/api";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 
 export interface RegisterState {
   error?: string;
@@ -57,28 +58,28 @@ export async function registerAction(
     };
   }
 
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return { error: AUTH_COPY.registerConfigMissing };
+  try {
+    void baseURL();
+  } catch {
+    return { error: AUTH_COPY.registerConfigMissing };
+  }
 
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetch(`${apiUrl}/api/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
-      body: JSON.stringify({
-        name: parsed.data.name,
-        email: parsed.data.email,
-        password: parsed.data.password,
-        accept_terms: parsed.data.acceptTerms,
-      }),
-      cache: "no-store",
+    const result = await authFetchWithCookies("/api/auth/register", {
+      name: parsed.data.name,
+      email: parsed.data.email,
+      password: parsed.data.password,
+      accept_terms: parsed.data.acceptTerms,
     });
+    response = result.response;
+    body = result.body;
   } catch {
     return { error: AUTH_COPY.network };
   }
 
   if (!response.ok) {
-    const body: unknown = await response.json().catch(() => null);
     if (response.status === 409) return { error: AUTH_COPY.emailInUse };
     if (response.status === 429) return { error: AUTH_COPY.rateLimited };
     const fields = getFields(body);
@@ -95,7 +96,6 @@ export async function registerAction(
     return { error: getError(body) ?? AUTH_COPY.unexpected };
   }
 
-  const body: unknown = await response.json().catch(() => null);
   const data = body && typeof body === "object" ? (body as Record<string, unknown>).data : undefined;
   const devToken = data && typeof data === "object" ? (data as Record<string, unknown>).dev_token : undefined;
   const encodedEmail = encodeURIComponent(parsed.data.email);

@@ -1,11 +1,8 @@
 package calendar
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
-
-	"github.com/go-chi/chi/v5"
 
 	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/config"
@@ -26,18 +23,6 @@ var domainErrors = map[error]httputil.ErrSpec{
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
-}
-
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
-func urlParam(r *http.Request, key string) string {
-	return chi.URLParam(r, key)
 }
 
 func queryTime(r *http.Request, key string) (time.Time, bool) {
@@ -192,7 +177,7 @@ func (h *Handler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req eventRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	e, err := req.applyTo(Event{Visibility: VisibilityPrivate})
@@ -224,7 +209,7 @@ func (h *Handler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	event, attendees, pendingInvites, err := h.service.GetEvent(r.Context(), claims.OrgID, urlParam(r, "eventID"), claims.UserID)
+	event, attendees, pendingInvites, err := h.service.GetEvent(r.Context(), claims.OrgID, httputil.URLParam(r, "eventID"), claims.UserID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -239,7 +224,7 @@ func (h *Handler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	eventID := urlParam(r, "eventID")
+	eventID := httputil.URLParam(r, "eventID")
 
 	scope := r.URL.Query().Get("scope")
 	if scope == "" {
@@ -267,7 +252,7 @@ func (h *Handler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req eventRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	patch, err := req.applyTo(current)
@@ -291,7 +276,7 @@ func (h *Handler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	eventID := urlParam(r, "eventID")
+	eventID := httputil.URLParam(r, "eventID")
 
 	scope := r.URL.Query().Get("scope")
 	if scope == "" {
@@ -329,10 +314,10 @@ func (h *Handler) UpdateNotes(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Notes *string `json:"notes"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	updated, err := h.service.UpdateNotes(r.Context(), claims.OrgID, urlParam(r, "eventID"), claims.UserID, req.Notes)
+	updated, err := h.service.UpdateNotes(r.Context(), claims.OrgID, httputil.URLParam(r, "eventID"), claims.UserID, req.Notes)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -350,10 +335,10 @@ func (h *Handler) SetCompleted(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Completed bool `json:"completed"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	updated, err := h.service.SetCompleted(r.Context(), claims.OrgID, urlParam(r, "eventID"), claims.UserID, req.Completed)
+	updated, err := h.service.SetCompleted(r.Context(), claims.OrgID, httputil.URLParam(r, "eventID"), claims.UserID, req.Completed)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -371,10 +356,10 @@ func (h *Handler) RSVP(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RSVPStatus string `json:"rsvp_status"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	attendee, err := h.service.RSVP(r.Context(), urlParam(r, "eventID"), claims.UserID, req.RSVPStatus)
+	attendee, err := h.service.RSVP(r.Context(), httputil.URLParam(r, "eventID"), claims.UserID, req.RSVPStatus)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -393,13 +378,13 @@ func (h *Handler) InviteExternal(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 		Role  string `json:"role"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Role == "" {
 		req.Role = AttendeeRoleViewer
 	}
-	invite, token, err := h.service.InviteExternal(r.Context(), claims.OrgID, urlParam(r, "eventID"), claims.UserID, req.Email, req.Role)
+	invite, token, err := h.service.InviteExternal(r.Context(), claims.OrgID, httputil.URLParam(r, "eventID"), claims.UserID, req.Email, req.Role)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -415,7 +400,7 @@ func (h *Handler) InviteExternal(w http.ResponseWriter, r *http.Request) {
 // RegisterPublicRoutes.
 
 func (h *Handler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
-	event, err := h.service.AcceptInvite(r.Context(), urlParam(r, "token"))
+	event, err := h.service.AcceptInvite(r.Context(), httputil.URLParam(r, "token"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

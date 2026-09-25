@@ -87,7 +87,7 @@ export function ModuleBoxNode({ box, roadmapId }: { box: ModuleBox; roadmapId: s
             {mod.title}
           </span>
           {mod.resource_title && href && (
-            <Link className="flex w-fit items-center gap-1 truncate text-[10px] text-ai" href={href}>
+            <Link className="flex w-fit items-center gap-1 truncate text-xs text-ai" href={href}>
               <ExternalLink aria-hidden className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate">{mod.resource_title}</span>
             </Link>

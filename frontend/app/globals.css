@@ -613,7 +613,7 @@
   .kbd {
     @apply inline-flex items-center justify-center font-mono text-xs
            bg-muted border border-border rounded-md px-1.5 py-0.5
-           text-muted-foreground shadow-sm leading-none;
+           text-muted-foreground shadow-card leading-none;
     box-shadow: 0 1px 0 1px hsl(var(--border));
   }
 
@@ -712,6 +712,26 @@
     /* Home indicator at bottom */
     padding-bottom: env(safe-area-inset-bottom);
   }
+  /* Right-hand drawer variant — wiki/course/journal sidebars (sidebar-drawer-right tokenized). */
+  .sidebar-drawer-right {
+    @apply fixed inset-y-0 right-0 flex flex-col w-full max-w-md
+           bg-sidebar border-l border-sidebar-border;
+    max-width: min(24rem, 85vw);
+    z-index: var(--z-index-modal);
+    transition: transform var(--duration-normal) var(--ease-smooth);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Chat bubble width cap — design-chat-panel + ticket-thread (chat-bubble tokenized). */
+  .chat-bubble { @apply chat-bubble break-words; }
+  /* Small-caps section eyebrow — replaces section-label. */
+  .section-label { @apply section-label; }
+  /* File upload dropzone — replaces bg-muted/40 dashed upload tiles. */
+  .upload-dropzone {
+    @apply flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground;
+    transition: border-color var(--duration-fast) var(--ease-smooth), background-color var(--duration-fast) var(--ease-smooth);
+  }
+  .upload-dropzone:hover { @apply bg-muted border-primary/40; }
 
   /* ── Bottom navigation — mobile only (hidden lg+) ──────────────── */
   /* Primary navigation on mobile. Always 5 items max.
@@ -733,7 +753,7 @@
     flex: 1;
   }
   .bottom-nav-item[aria-current="page"] { @apply text-primary; }
-  .bottom-nav-item-label { @apply text-[10px] font-medium leading-none; }
+  .bottom-nav-item-label { @apply text-xs font-medium leading-none; }
 
   /* ── Fixed floating elements above the bottom-nav — mobile only ─── */
   /* Any fixed-position element (FAB, floating status bar) that must clear

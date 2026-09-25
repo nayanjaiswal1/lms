@@ -1,7 +1,6 @@
 package labs
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -100,10 +99,3 @@ func writeDomainError(w http.ResponseWriter, err error) {
 }
 
 // decodeJSON deserialises the request body into dst, writing 400 on failure.
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}

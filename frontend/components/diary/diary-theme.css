@@ -87,7 +87,7 @@
    a chip/badge, to keep the handwritten-page feel. */
 .diary-highlight {
   background-color: hsl(45 93% 82%);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   padding: 0 2px;
 }
 

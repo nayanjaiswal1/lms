@@ -46,7 +46,7 @@ function AssignCourseForm({ batchId, courses, assignedCourseIds, onClose }: Assi
 
   return (
     <div className="card-raised flex w-full flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <h2 className="subsection-title">Assign course</h2>
         <Button aria-label="Close assign course panel" size="icon" variant="ghost" onClick={onClose}>
           <X aria-hidden className="h-4 w-4" />

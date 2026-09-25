@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { WorkerHealthResponse } from "@/lib/jobs/admin-server";
+import { apiFetch } from "@/lib/client/api";
 import { ResponsiveTable } from "@/components/ui/responsive-table";
 
 interface Props {
@@ -25,17 +26,9 @@ export function WorkersClient({ initialData }: Props) {
   // justification: auto-refresh worker health every 15s for live monitoring
   useEffect(() => {
     const id = setInterval(async () => {
-      try {
-        const res = await fetch("/api/admin/jobs/workers", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const json = (await res.json()) as { data: WorkerHealthResponse };
-        setData(json.data);
-      } catch {
-        // network error — keep showing stale data
-      }
+      const data = await apiFetch<WorkerHealthResponse>("/admin/jobs/workers");
+      if (data) setData(data);
+      // null (network error or non-OK) — keep showing stale data
     }, 15_000);
     return () => clearInterval(id);
   }, []);

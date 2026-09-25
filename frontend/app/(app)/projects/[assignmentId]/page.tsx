@@ -170,7 +170,7 @@ export default async function ProjectAssignmentPage({ params }: PageProps) {
         teamCount={teams.length}
         teamsTab={
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex-between gap-4">
               <p className="text-sm text-muted-foreground">
                 {teams.length} team{teams.length === 1 ? "" : "s"} · {availableStudents.length} unassigned student
                 {availableStudents.length === 1 ? "" : "s"}

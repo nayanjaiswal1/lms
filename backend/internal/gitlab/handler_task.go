@@ -39,7 +39,7 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req createTaskRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if fields := validateCreateTaskRequest(req); len(fields) > 0 {
@@ -75,7 +75,7 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var patch TaskPatch
-	if !decodeJSON(w, r, &patch) {
+	if !httputil.DecodeJSON(w, r, &patch) {
 		return
 	}
 	fields := map[string]string{}
@@ -115,7 +115,7 @@ func (h *Handler) SetTaskAssignee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req setTaskAssigneeRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	task, err := h.service.SetTaskAssignee(r.Context(), claims.OrgID, claims.UserID, chi.URLParam(r, "taskID"), req.AssigneeUserID)

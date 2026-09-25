@@ -40,23 +40,23 @@ export function IssueList({ issues, compact, bulk }: IssueListProps) {
   return (
     <>
       {bulk && (
-        <div className="flex flex-col justify-between gap-1.5 rounded-xl bg-(--m-sc-low) px-2 py-1.5 shadow-2xs sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-1.5 rounded-xl bg-muted px-2 py-1.5 shadow-card sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
             <label className="flex cursor-pointer select-none items-center gap-1">
               <input
                 checked={allSelected}
-                className="size-4 cursor-pointer rounded accent-(--m-primary)"
+                className="size-4 cursor-pointer rounded accent-primary"
                 type="checkbox"
                 onChange={() => setSelected(allSelected ? new Set() : new Set(issues.map((i) => i.id)))}
               />
-              <span className="m-headline-sm text-(--m-on-surface)">Select all {issues.length} issues displayed</span>
+              <span className="m-headline-sm text-foreground">Select all {issues.length} issues displayed</span>
             </label>
-            <span className="m-label-sm hidden text-(--m-on-surface-variant) md:inline">• {selected.size} selected</span>
+            <span className="m-label-sm hidden text-muted-foreground md:inline">• {selected.size} selected</span>
           </div>
           <div className="flex flex-wrap items-center gap-1">
             {BATCH_ACTIONS.map(({ label, icon: Icon, tone }) => (
               <button
-                className="m-label-md flex h-7 items-center gap-1 rounded-lg bg-(--m-sc-lowest) px-1.5 text-(--m-on-surface) shadow-2xs transition-colors hover:bg-(--m-sc) disabled:opacity-50"
+                className="m-label-md flex h-7 items-center gap-1 rounded-lg bg-card px-1.5 text-foreground shadow-card transition-colors hover:bg-muted disabled:opacity-50"
                 disabled={selected.size === 0}
                 key={label}
                 type="button"
@@ -70,7 +70,7 @@ export function IssueList({ issues, compact, bulk }: IssueListProps) {
       )}
 
       {issues.length === 0 ? (
-        <div className="m-body-sm rounded-xl bg-(--m-sc-lowest) p-8 text-center text-(--m-on-surface-variant) shadow-sm">
+        <div className="m-body-sm rounded-xl bg-card p-8 text-center text-muted-foreground shadow-card">
           No issues match this view.
         </div>
       ) : (

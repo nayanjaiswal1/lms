@@ -2,7 +2,6 @@ package interviewprep
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -54,14 +53,6 @@ func writeError(w http.ResponseWriter, err error) {
 	}
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
 func (h *Handler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -77,7 +68,7 @@ func (h *Handler) CreatePlan(w http.ResponseWriter, r *http.Request) {
 		Category      string `json:"category"`
 		QuestionCount int    `json:"question_count"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 
@@ -142,7 +133,7 @@ func (h *Handler) SubmitCodingItem(w http.ResponseWriter, r *http.Request) {
 		Code     string `json:"code"`
 		Language string `json:"language"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if strings.TrimSpace(body.Code) == "" || strings.TrimSpace(body.Language) == "" {

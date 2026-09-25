@@ -51,7 +51,7 @@ export function WikiSidebarDrawer({ currentTitle, ...treeProps }: WikiSidebarDra
         aria-hidden={!open}
         aria-label="Wiki pages"
         className={cn(
-          "fixed inset-y-0 right-0 z-modal flex w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-sidebar-border bg-sidebar p-3 transition-transform duration-normal ease-smooth lg:hidden",
+          "fixed inset-y-0 right-0 z-modal flex w-72 sidebar-drawer-right flex-col overflow-y-auto border-l border-sidebar-border bg-sidebar p-3 transition-transform duration-normal ease-smooth lg:hidden",
           "safe-top safe-bottom safe-right",
           open ? "translate-x-0" : "translate-x-full",
         )}

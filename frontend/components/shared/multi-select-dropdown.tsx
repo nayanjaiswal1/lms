@@ -60,7 +60,7 @@ export function MultiSelectDropdown({
               <CommandPrimitive.Input
                 className={cn(
                   "flex h-11 w-full rounded-md border border-input bg-background py-2.5 pl-9 pr-3",
-                  "text-sm text-foreground shadow-sm outline-none",
+                  "text-sm text-foreground shadow-card outline-none",
                   "placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
                 )}
                 disabled={disabled}
@@ -71,7 +71,7 @@ export function MultiSelectDropdown({
           </PopoverAnchor>
           <PopoverContent
             align="start"
-            className="w-(--radix-popper-anchor-width) rounded-md border-input bg-background p-0 shadow-sm"
+            className="w-(--radix-popper-anchor-width) rounded-md border-input bg-background p-0 shadow-card"
             sideOffset={4}
             onInteractOutside={(e) => {
               // The trigger *is* the search input (no separate button), so the

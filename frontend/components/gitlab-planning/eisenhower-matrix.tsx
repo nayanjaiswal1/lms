@@ -6,18 +6,18 @@ interface EisenhowerMatrixProps {
   selectedTaskId: string;
 }
 
-const AXIS_LABEL = "absolute text-xs font-bold uppercase tracking-wide text-(--ae-text) whitespace-nowrap";
+const AXIS_LABEL = "absolute text-xs font-bold uppercase tracking-wide text-foreground whitespace-nowrap";
 
 export function EisenhowerMatrix({ quadrants, selectedTaskId }: EisenhowerMatrixProps) {
   return (
     <section aria-label="Eisenhower matrix" className="order-1 space-y-3 sm:space-y-0 xl:order-none">
       {/* Mobile section heading */}
-      <div className="flex items-center justify-between px-0.5 sm:hidden">
+      <div className="flex-between px-0.5 sm:hidden">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-(--ae-body)">Eisenhower Matrix</h2>
-          <p className="text-[11px] text-(--ae-faint)">Tap any quadrant or task to view details</p>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">Eisenhower Matrix</h2>
+          <p className="text-xs text-muted-foreground">Tap any quadrant or task to view details</p>
         </div>
-        <span className="rounded-full border border-(--ae-brand-200) bg-(--ae-brand-soft) px-2 py-0.5 text-[10px] font-semibold text-(--ae-brand)">
+        <span className="rounded-full border border-(--ae-brand-200) bg-(--ae-brand-soft) px-2 py-0.5 text-xs font-semibold text-primary">
           {quadrants.length} Quadrants
         </span>
       </div>

@@ -108,7 +108,7 @@ export function SchedulePage({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage your time blocks, tasks, and events</p>

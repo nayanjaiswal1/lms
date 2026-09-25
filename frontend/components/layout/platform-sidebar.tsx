@@ -23,7 +23,7 @@ export function PlatformSidebar({ user }: Props) {
         <Link aria-label="Go to your home page" href={user.default_landing_page || ROUTES.DASHBOARD}>
           <BrandMark />
         </Link>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <p className="mt-1 section-label">
           Platform Console
         </p>
       </div>

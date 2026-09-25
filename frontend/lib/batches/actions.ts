@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, authHeaders, baseURL, type ActionResult } from "@/lib/server/api";
+import { apiAction, apiUpload, type ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 export interface InvitationToken {
@@ -77,28 +77,14 @@ export async function uploadBatchImageAction(
   const file = formData.get("avatar") as File | null;
   if (!file) return { error: "No image selected." };
 
-  const headers = await authHeaders();
-  const { "Content-Type": _ct, ...headersWithoutContentType } = headers;
-
   const body = new FormData();
   body.append("image", file);
 
-  try {
-    const res = await fetch(`${baseURL()}/api/batches/${batchId}/image`, {
-      method: "POST",
-      headers: headersWithoutContentType,
-      body,
-      cache: "no-store",
-    });
-    const json = await res.json().catch(() => ({})) as { data?: { image_url: string }; error?: string };
-    if (!res.ok) return { error: json.error ?? "Failed to upload image." };
-    revalidatePath(ROUTES.BATCHES);
-    revalidatePath(ROUTES.batch(batchId));
-    revalidatePath(ROUTES.BATCHES);
-    return { ok: true, data: json.data };
-  } catch {
-    return { error: "Network error. Please try again." };
-  }
+  const result = await apiUpload<{ image_url: string }>(`/api/batches/${batchId}/image`, body);
+  if (!result.ok) return { error: result.error ?? "Failed to upload image." };
+  revalidatePath(ROUTES.BATCHES);
+  revalidatePath(ROUTES.batch(batchId));
+  return { ok: true, data: result.data };
 }
 
 export async function deleteBatchImageAction(batchId: string): Promise<ActionResult> {

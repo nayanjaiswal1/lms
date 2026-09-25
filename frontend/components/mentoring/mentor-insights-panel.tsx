@@ -11,7 +11,7 @@ interface MentorInsightsPanelProps {
 
 function StatRow({ label, value, highlighted = false }: { label: string; value: string; highlighted?: boolean }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex-between">
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className={`text-2xl font-semibold ${highlighted ? "text-primary" : "text-foreground"}`}>{value}</span>
     </div>
@@ -35,8 +35,8 @@ export function MentorInsightsPanel({
   const topPercent = percentileRank !== null ? Math.max(1, Math.round(percentileRank * 100)) : null;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6 shadow-raised">
-      <div className="mb-6 flex items-center justify-between">
+    <section className="card-raised">
+      <div className="mb-6 flex-between">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">Professional insights</h2>
         <TrendingUp aria-hidden className="h-5 w-5 text-muted-foreground" />
       </div>

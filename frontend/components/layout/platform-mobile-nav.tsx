@@ -50,7 +50,7 @@ export function PlatformMobileNav({ user }: Props) {
         className={cn("sidebar-drawer transition-transform", open ? "translate-x-0" : "-translate-x-full")}
         inert={!open}
       >
-        <div className="flex items-center justify-between px-5 py-5 border-b border-sidebar-border">
+        <div className="flex-between px-5 py-5 border-b border-sidebar-border">
           <Link
             aria-label="Go to your home page"
             href={user.default_landing_page || ROUTES.DASHBOARD}

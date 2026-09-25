@@ -43,7 +43,7 @@ export function UploadStep({ batchId, onParsed }: UploadStepProps) {
         <div className="space-y-1.5">
           <Label htmlFor="import-file">Excel file (.xlsx)</Label>
           <label
-            className="flex flex-col items-center justify-center gap-2 w-full min-h-[140px] rounded-lg border-2 border-dashed border-border bg-muted/40 cursor-pointer transition-colors hover:border-primary hover:bg-muted/60"
+            className="upload-dropzone w-full min-h-[140px] cursor-pointer hover:border-primary"
             htmlFor="import-file"
           >
             <Upload aria-hidden className="h-6 w-6 text-muted-foreground" />

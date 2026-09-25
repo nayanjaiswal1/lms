@@ -18,7 +18,7 @@ interface DashboardSectionHeaderProps {
 // optional trailing link, so the markup can't drift between sections.
 export function DashboardSectionHeader({ title, size = "section", link }: DashboardSectionHeaderProps) {
   return (
-    <div className={cn("flex items-center justify-between gap-4", size === "section" && "mb-4")}>
+    <div className={cn("flex-between gap-4", size === "section" && "mb-4")}>
       <h2 className={size === "section" ? "section-title" : "subsection-title"}>{title}</h2>
       {link && (
         <Link className="flex items-center gap-1 text-sm text-primary hover:underline" href={link.href}>

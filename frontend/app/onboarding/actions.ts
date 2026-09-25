@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { actionErrorMessage, authHeaders } from "@/lib/server/api";
+import { cookies } from "next/headers";
+import { apiAction } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 type LearningGoal = "get_promotion" | "switch_careers" | "build_project" | "stay_current" | "compliance";
@@ -22,32 +23,12 @@ export interface OnboardingState {
 }
 
 export async function saveOnboardingAction(data: OnboardingData): Promise<OnboardingState> {
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return { error: "Onboarding is temporarily unavailable. Please try again later." };
-
-  const headers = await authHeaders();
-
-  // authHeaders includes access_token; redirect to login if it's absent
-  if (!headers.Cookie.includes("access_token=") || headers.Cookie.includes("access_token=;")) {
+  const store = await cookies();
+  if (!store.get("access_token")?.value) {
     redirect(ROUTES.LOGIN);
   }
-
-  try {
-    const response = await fetch(`${apiUrl}/api/user/onboarding`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(data),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      const body: unknown = await response.json().catch(() => null);
-      const json = body && typeof body === "object" ? (body as { error?: string; fields?: Record<string, string> }) : {};
-      return { error: actionErrorMessage(json, "Something went wrong saving your preferences. Please try again.") };
-    }
-  } catch {
-    return { error: "We couldn't reach the server. Check your connection and try again." };
-  }
+  const result = await apiAction("POST", "/api/user/onboarding", data);
+  if (!result.ok) return { error: result.error ?? "Something went wrong saving your preferences. Please try again." };
 
   if (data.completed) {
     redirect(ROUTES.DASHBOARD);

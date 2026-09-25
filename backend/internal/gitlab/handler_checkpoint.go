@@ -32,7 +32,7 @@ func (h *Handler) CreateCheckpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	assignmentID := chi.URLParam(r, "assignmentID")
 	var req createCheckpointRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.Title) == "" {
@@ -93,7 +93,7 @@ func (h *Handler) UpdateCheckpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var patch CheckpointPatch
-	if !decodeJSON(w, r, &patch) {
+	if !httputil.DecodeJSON(w, r, &patch) {
 		return
 	}
 	if patch.Kind != nil && !ValidCheckpointKinds[*patch.Kind] {
@@ -142,7 +142,7 @@ func (h *Handler) GradeSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var patch GradePatch
-	if !decodeJSON(w, r, &patch) {
+	if !httputil.DecodeJSON(w, r, &patch) {
 		return
 	}
 	if patch.Score < 0 || patch.Score > 100 {
@@ -185,7 +185,7 @@ func (h *Handler) CommentOnSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req commentRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.Body) == "" {

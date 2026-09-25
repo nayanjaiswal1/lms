@@ -48,7 +48,7 @@ func (h *Handler) RequestHandoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req HandoffRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	fields := map[string]string{}

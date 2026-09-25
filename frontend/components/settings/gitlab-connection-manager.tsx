@@ -26,10 +26,11 @@ interface GitlabConnectionManagerProps {
 }
 
 export function GitlabConnectionManager({ connection, installationConnected }: GitlabConnectionManagerProps) {
-  // Full page navigation to the backend's own OAuth-redirect route (like
+  // Full page navigation to the OAuth-redirect route (like
   // social-login-buttons.tsx's Google/GitHub buttons) — a raw <a>, not
-  // next/link, since this crosses to a different origin in most deploys.
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+  // next/link. Same-origin /api/... so it rides next.config.ts's rewrites()
+  // proxy to the backend instead of a cross-site NEXT_PUBLIC_API_URL fetch
+  // (SameSite=Lax would drop the auth cookie cross-site).
 
   async function handleDisconnect() {
     const result = await disconnectGitlabAction();
@@ -86,8 +87,8 @@ export function GitlabConnectionManager({ connection, installationConnected }: G
           </Button>
         </div>
       ) : (
-        <Button asChild disabled={!apiUrl}>
-          <a href={`${apiUrl}/api/gitlab/connect`}>
+        <Button asChild>
+          <a href="/api/gitlab/connect">
             <GitBranch aria-hidden className="mr-2 h-4 w-4" />
             Connect GitLab
           </a>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { apiGet, authHeaders, baseURL } from "@/lib/server/api";
+import { apiGet } from "@/lib/server/api";
 import { getCurrentOrgId } from "@/lib/server/claims";
 
 export interface Batch {
@@ -300,9 +300,10 @@ export async function getOrgId(): Promise<string | null> {
 }
 
 export async function getOrgMembersAll(orgId: string): Promise<OrgMemberSummary[]> {
-  const headers = await authHeaders();
-  const res = await fetch(`${baseURL()}/api/orgs/${orgId}/members`, { headers, cache: "no-store" });
-  if (!res.ok) return [];
-  const body: { data: { members: Array<{ user_id: string; name: string; email: string; role: string }> } } = await res.json();
-  return body.data?.members ?? [];
+  try {
+    const data = await apiGet<{ members: OrgMemberSummary[] }>(`/api/orgs/${orgId}/members`);
+    return data?.members ?? [];
+  } catch {
+    return [];
+  }
 }

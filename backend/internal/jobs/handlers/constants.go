@@ -1,10 +1,12 @@
 package handlers
 
+import "github.com/mindforge/backend/internal/jobs"
+
 const (
 	HandlerEvalSubjective      = "eval.subjective"
 	HandlerEmailSend           = "email.send"
 	HandlerBulkInvite          = "invite.bulk"
-	HandlerLLM                 = "llm.task"
+	HandlerLLM                 = jobs.HandlerLLM
 	HandlerAnalytics           = "analytics.task"
 	HandlerMentorEscalate      = "mentoring.escalate_tickets"
 	HandlerCalendarReminder    = "calendar.reminder"

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { apiAction, authHeaders, baseURL, type ActionResult } from "@/lib/server/api";
+import { apiAction, type ActionResult } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 import type { BatchInviteResult } from "@/lib/orgs/types";
 
@@ -98,16 +98,9 @@ export async function updateMemberAction(
   if (role) body.role = role;
   if (status) body.status = status;
 
-  const headers = await authHeaders();
-  const res = await fetch(`${baseURL()}/api/orgs/${orgId}/members/${memberId}`, {
-    method: "PATCH",
-    headers,
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const parsed = await res.json().catch(() => null) as { error?: string } | null;
-    return { error: parsed?.error ?? "Failed to update member." };
+  const result = await apiAction("PATCH", `/api/orgs/${orgId}/members/${memberId}`, body);
+  if (!result.ok) {
+    return { error: result.error ?? "Failed to update member." };
   }
 
   revalidatePath(ROUTES.USERS);
@@ -123,15 +116,9 @@ export async function revokeInviteAction(
 
   if (!orgId || !inviteId) return { error: "Missing required fields." };
 
-  const headers = await authHeaders();
-  const res = await fetch(`${baseURL()}/api/orgs/${orgId}/invites/${inviteId}`, {
-    method: "DELETE",
-    headers,
-  });
-
-  if (!res.ok) {
-    const parsed = await res.json().catch(() => null) as { error?: string } | null;
-    return { error: parsed?.error ?? "Failed to revoke invite." };
+  const result = await apiAction("DELETE", `/api/orgs/${orgId}/invites/${inviteId}`);
+  if (!result.ok) {
+    return { error: result.error ?? "Failed to revoke invite." };
   }
 
   revalidatePath(ROUTES.USERS);

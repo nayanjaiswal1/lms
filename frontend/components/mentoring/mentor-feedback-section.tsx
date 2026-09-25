@@ -33,7 +33,7 @@ export function MentorFeedbackSection({
   if (avgRating === null && !canReview) return null;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
+    <section className="card-raised">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Mentee feedback</h2>
         {canReview && (

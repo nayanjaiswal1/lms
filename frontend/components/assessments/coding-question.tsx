@@ -192,14 +192,14 @@ export function CodingQuestion({
               <div className="flex h-full flex-col">
 
                 {/* Editor toolbar: language tabs + Run button + line count */}
-                <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
+                <div className="flex-between border-b border-border bg-muted/50 px-3 py-1.5">
                   <div className="flex gap-0.5">
                     {content.languages.map((lang) => (
                       <button
                         className={cn(
                           "rounded px-3 py-1 text-xs font-medium transition-colors",
                           language === lang
-                            ? "bg-background text-foreground shadow-sm"
+                            ? "bg-background text-foreground shadow-card"
                             : "text-muted-foreground hover:text-foreground",
                         )}
                         key={lang}

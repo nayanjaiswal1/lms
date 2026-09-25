@@ -112,7 +112,7 @@ export function ImportConfigPanel({ batchId, rows, courses, orgMembers, blocking
         </Label>
       </div>
 
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex-between gap-4 flex-wrap">
         {blockingCount > 0 && (
           <p className="text-sm text-destructive">
             Resolve {blockingCount} invalid/duplicate row{blockingCount === 1 ? "" : "s"} before confirming.

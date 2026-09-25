@@ -2,6 +2,7 @@
 
 // The answer to the only question: one primary task, two quiet alternatives.
 
+import { Button } from "@/components/ui/button";
 import type { NowResponse, Task } from "@/lib/whatnow/types";
 
 function Chips({ task }: { task: Task }) {
@@ -58,20 +59,20 @@ export function NowStage({
         <Chips task={t} />
         <p className="wn-rationale">{now.rationale}</p>
         {t.trigger && <p className="wn-trigger">{t.trigger}</p>}
-        <button className="wn-start" onClick={() => onStart(t)}>
+        <Button className="w-full" size="lg" onClick={() => onStart(t)}>
           Start
           {t.durationMin ? <span className="wn-start-min"> · {t.durationMin}m</span> : null}
-        </button>
+        </Button>
       </article>
 
       {now.alternatives.length > 0 && (
         <div className="wn-alts">
           {now.alternatives.map((alt) => (
-            <button className="wn-alt" key={alt.id} onClick={() => onStart(alt)}>
+            <Button className="wn-alt w-full" key={alt.id} variant="ghost" onClick={() => onStart(alt)}>
               <span className="wn-alt-or">or</span>
               <span className="wn-alt-title">{alt.title}</span>
               {alt.durationMin ? <span className="wn-alt-min">{alt.durationMin}m</span> : null}
-            </button>
+            </Button>
           ))}
         </div>
       )}

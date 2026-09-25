@@ -62,13 +62,13 @@ export function CourseSidebarDrawer({
         aria-hidden={!open}
         aria-label="Course contents"
         className={cn(
-          "fixed inset-y-0 right-0 z-modal flex w-72 max-w-[85vw] flex-col border-l border-sidebar-border bg-sidebar transition-transform duration-normal ease-smooth lg:hidden",
+          "fixed inset-y-0 right-0 z-modal flex w-72 sidebar-drawer-right flex-col border-l border-sidebar-border bg-sidebar transition-transform duration-normal ease-smooth lg:hidden",
           "safe-top safe-bottom safe-right",
           open ? "translate-x-0" : "translate-x-full",
         )}
         inert={!open}
       >
-        <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-4">
+        <div className="flex-between border-b border-sidebar-border px-4 py-4">
           <span className="text-sm font-semibold">Course contents</span>
           <button
             aria-label="Close course contents"

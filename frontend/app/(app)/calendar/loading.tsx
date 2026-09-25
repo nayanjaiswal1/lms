@@ -8,7 +8,7 @@ export default function CalendarLoading() {
         <Skeleton className="h-4 w-80" />
       </div>
 
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex-between gap-4">
         <Skeleton className="h-9 w-40" />
         <Skeleton className="h-9 w-56" />
       </div>

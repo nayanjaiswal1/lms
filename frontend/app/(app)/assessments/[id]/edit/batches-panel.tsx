@@ -52,7 +52,7 @@ export function BatchesPanel({ assessment, batches }: BatchesPanelProps) {
                 <p className="line-clamp-2 text-sm text-muted-foreground">
                   {b.description || "No description."}
                 </p>
-                <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+                <div className="mt-auto flex-between border-t border-border pt-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <Users aria-hidden className="h-3.5 w-3.5" />
                     {b.member_count} member{b.member_count !== 1 ? "s" : ""}

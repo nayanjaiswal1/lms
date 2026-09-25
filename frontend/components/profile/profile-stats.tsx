@@ -108,7 +108,7 @@ function StatCard({
         soon && "opacity-50"
       )}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <Icon
           aria-hidden="true"
           className={cn(isStreak ? "text-primary" : "text-muted-foreground")}

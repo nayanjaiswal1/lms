@@ -2,28 +2,17 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
-import { authHeaders, baseURL } from '@/lib/server/api'
+import { apiAction, apiUpload } from '@/lib/server/api'
 import type { ResumeExtract } from '@/lib/profile/types'
 
 async function patchProfile(
   body: Record<string, unknown>
 ): Promise<{ error?: string; success?: boolean }> {
-  const headers = await authHeaders()
-  try {
-    const res = await fetch(`${baseURL()}/api/profile/me`, {
-      method: 'PATCH',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      return { error: (json as { error?: string }).error ?? 'Failed to save.' }
-    }
-    return { success: true }
-  } catch {
-    return { error: 'Network error. Please try again.' }
+  const result = await apiAction('PATCH', '/api/profile/me', body)
+  if (!result.ok) {
+    return { error: result.error ?? 'Failed to save.' }
   }
+  return { success: true }
 }
 
 export async function updateBasicInfoAction(
@@ -108,47 +97,26 @@ export async function addSkillAction(
   _prev: unknown,
   formData: FormData
 ): Promise<{ error?: string; success?: boolean }> {
-  const headers = await authHeaders()
-  try {
-    const res = await fetch(`${baseURL()}/api/profile/me/skills`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        skill_name: formData.get('skill_name'),
-        skill_level: formData.get('skill_level'),
-      }),
-      cache: 'no-store',
-    })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      return { error: (json as { error?: string }).error ?? 'Failed to add skill.' }
-    }
-    revalidatePath('/settings/profile')
-    return { success: true }
-  } catch {
-    return { error: 'Network error. Please try again.' }
+  const result = await apiAction('POST', '/api/profile/me/skills', {
+    skill_name: formData.get('skill_name'),
+    skill_level: formData.get('skill_level'),
+  })
+  if (!result.ok) {
+    return { error: result.error ?? 'Failed to add skill.' }
   }
+  revalidatePath('/settings/profile')
+  return { success: true }
 }
 
 export async function removeSkillAction(
   skillId: string
 ): Promise<{ error?: string }> {
-  const headers = await authHeaders()
-  try {
-    const res = await fetch(`${baseURL()}/api/profile/me/skills/${skillId}`, {
-      method: 'DELETE',
-      headers,
-      cache: 'no-store',
-    })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      return { error: (json as { error?: string }).error ?? 'Failed to remove skill.' }
-    }
-    revalidatePath('/settings/profile')
-    return {}
-  } catch {
-    return { error: 'Network error. Please try again.' }
+  const result = await apiAction('DELETE', `/api/profile/me/skills/${skillId}`)
+  if (!result.ok) {
+    return { error: result.error ?? 'Failed to remove skill.' }
   }
+  revalidatePath('/settings/profile')
+  return {}
 }
 
 export async function parseResumeAction(
@@ -232,18 +200,9 @@ export async function applyResumeAction(
   }
 
   if (extract.skills?.length) {
-    const headers = await authHeaders()
     for (const skill of extract.skills) {
-      try {
-        await fetch(`${baseURL()}/api/profile/me/skills`, {
-          method: 'POST',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify(skill),
-          cache: 'no-store',
-        })
-      } catch {
-        // best-effort — partial skill failures don't abort the apply
-      }
+      // best-effort — partial skill failures don't abort the apply
+      await apiAction('POST', '/api/profile/me/skills', skill)
     }
   }
 
@@ -257,26 +216,13 @@ export async function uploadAvatarAction(
   const file = formData.get('avatar') as File | null
   if (!file) return
 
-  const headers = await authHeaders()
-  // Remove Content-Type so the browser/fetch sets the multipart boundary
-  const { 'Content-Type': _ct, ...headersWithoutContentType } = headers
-
   const body = new FormData()
   body.append('avatar', file)
 
-  try {
-    const res = await fetch(`${baseURL()}/api/profile/me/avatar`, {
-      method: 'POST',
-      headers: headersWithoutContentType,
-      body,
-      cache: 'no-store',
-    })
-    if (!res.ok) {
-      console.error('Failed to upload avatar:', res.status)
-      return
-    }
-    revalidatePath('/settings/profile')
-  } catch (err) {
-    console.error('Avatar upload network error:', err)
+  const result = await apiUpload('/api/profile/me/avatar', body)
+  if (!result.ok) {
+    console.error('Failed to upload avatar:', result.error)
+    return
   }
+  revalidatePath('/settings/profile')
 }

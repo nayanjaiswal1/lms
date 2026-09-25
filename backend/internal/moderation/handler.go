@@ -63,8 +63,8 @@ func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	status := queryStrPtr(r, "status")
-	contentType := queryStrPtr(r, "content_type")
+	status := httputil.QueryStrPtr(r, "status")
+	contentType := httputil.QueryStrPtr(r, "content_type")
 	reports, err := h.service.ListReports(r.Context(), claims.OrgID, status, contentType)
 	if err != nil {
 		writeDomainError(w, err)
@@ -95,12 +95,4 @@ func (h *Handler) Resolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, report)
-}
-
-func queryStrPtr(r *http.Request, key string) *string {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return nil
-	}
-	return &v
 }

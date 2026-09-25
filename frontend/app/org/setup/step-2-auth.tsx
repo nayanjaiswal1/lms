@@ -98,7 +98,7 @@ export function Step2Auth({ orgId, authConfig }: Step2AuthProps) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex-between pt-2">
         <Button
           asChild
           className="gap-2"

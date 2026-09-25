@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/mindforge/backend/internal/authz"
+	"github.com/mindforge/backend/internal/validate"
 )
 
 // ErrInvalid signals a request that failed validation before reaching the database.
@@ -56,7 +57,7 @@ func normalizeAndValidateEvent(e Event) (Event, error) {
 	if e.StartsAt.IsZero() {
 		return Event{}, fmt.Errorf("%w: starts_at is required", ErrInvalid)
 	}
-	if e.EndsAt != nil && !e.EndsAt.After(e.StartsAt) {
+	if !validate.ValidOptionalRange(e.StartsAt, e.EndsAt) {
 		return Event{}, fmt.Errorf("%w: ends_at must be after starts_at", ErrInvalid)
 	}
 	if e.RecurrenceRule != nil && *e.RecurrenceRule != "" {

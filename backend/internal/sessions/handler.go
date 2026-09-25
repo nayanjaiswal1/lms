@@ -16,14 +16,6 @@ type Handler struct {
 	service *Service
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
 var domainErrors = map[error]httputil.ErrSpec{
 	ErrNotFound:            {Status: http.StatusNotFound, Message: "Not found."},
 	ErrForbidden:           {Status: http.StatusForbidden, Message: "You do not have permission to do that."},
@@ -94,7 +86,7 @@ func (h *Handler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req Config
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	req.OrgID = claims.OrgID
@@ -131,7 +123,7 @@ func (h *Handler) ReplaceMyAvailability(w http.ResponseWriter, r *http.Request) 
 	var req struct {
 		Rules []AvailabilityRule `json:"rules"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	rules, err := h.service.ReplaceAvailability(r.Context(), claims.OrgID, claims.UserID, req.Rules)
@@ -149,7 +141,7 @@ func (h *Handler) AddException(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req AvailabilityException
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	req.OrgID = claims.OrgID
@@ -212,7 +204,7 @@ func (h *Handler) Book(w http.ResponseWriter, r *http.Request) {
 		StartsAt   time.Time `json:"starts_at"`
 		EndsAt     time.Time `json:"ends_at"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.StudentID == "" && req.MentorID != claims.UserID {
@@ -248,7 +240,7 @@ func (h *Handler) BookForBatch(w http.ResponseWriter, r *http.Request) {
 		StartsAt   time.Time `json:"starts_at"`
 		EndsAt     time.Time `json:"ends_at"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	session, err := h.service.Book(r.Context(), BookRequest{
@@ -322,7 +314,7 @@ func (h *Handler) Reschedule(w http.ResponseWriter, r *http.Request) {
 		StartsAt time.Time `json:"starts_at"`
 		EndsAt   time.Time `json:"ends_at"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	session, err := h.service.Reschedule(r.Context(), claims.OrgID, chi.URLParam(r, "sessionID"), claims.UserID, req.StartsAt, req.EndsAt)
@@ -342,7 +334,7 @@ func (h *Handler) SetOutcome(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Status string `json:"status"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	session, err := h.service.SetOutcome(r.Context(), claims.OrgID, chi.URLParam(r, "sessionID"), claims.UserID, req.Status)
@@ -363,7 +355,7 @@ func (h *Handler) SubmitFeedback(w http.ResponseWriter, r *http.Request) {
 		Rating  int    `json:"rating"`
 		Comment string `json:"comment"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	feedback, err := h.service.SubmitFeedback(r.Context(), claims.OrgID, chi.URLParam(r, "sessionID"), claims.UserID, req.Rating, req.Comment)
@@ -384,7 +376,7 @@ func (h *Handler) SaveNotes(w http.ResponseWriter, r *http.Request) {
 		Body             string `json:"body"`
 		VisibleToStudent bool   `json:"visible_to_student"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	notes, err := h.service.SaveNotes(r.Context(), claims.OrgID, chi.URLParam(r, "sessionID"), claims.UserID, req.Body, req.VisibleToStudent)
@@ -448,7 +440,7 @@ func (h *Handler) SavePack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req CreditPack
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	req.OrgID = claims.OrgID
@@ -492,7 +484,7 @@ func (h *Handler) GrantCredits(w http.ResponseWriter, r *http.Request) {
 		Delta  int    `json:"delta"`
 		Note   string `json:"note"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	balance, err := h.service.GrantCredits(r.Context(), claims.OrgID, req.UserID, req.Delta, req.Note, claims.UserID)

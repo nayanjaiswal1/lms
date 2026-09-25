@@ -327,7 +327,7 @@ export function CourseWizard({ course, finalTest, certificateRule }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-border pt-4">
+      <div className="flex-between border-t border-border pt-4">
         <p className="text-xs text-muted-foreground">
           {wiz.draft.sections.length} section{wiz.draft.sections.length !== 1 ? "s" : ""} · {totalModules} lesson{totalModules !== 1 ? "s" : ""}
         </p>

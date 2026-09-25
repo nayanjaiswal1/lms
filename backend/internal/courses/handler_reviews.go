@@ -19,14 +19,14 @@ func (h *Handler) SubmitReview(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Rating int `json:"rating"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if req.Rating < 1 || req.Rating > 5 {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"rating": "Rating must be between 1 and 5."})
 		return
 	}
-	courseID := urlParam(r, "courseID")
+	courseID := httputil.URLParam(r, "courseID")
 	enrolled, err := h.repo.IsEnrolled(r.Context(), claims.UserID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -55,7 +55,7 @@ func (h *Handler) GetMyReview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rev, err := h.repo.GetMyReview(r.Context(), claims.UserID, urlParam(r, "courseID"))
+	rev, err := h.repo.GetMyReview(r.Context(), claims.UserID, httputil.URLParam(r, "courseID"))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			httputil.WriteJSON(w, http.StatusOK, map[string]any{"rating": nil})

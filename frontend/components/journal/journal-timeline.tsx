@@ -81,11 +81,11 @@ export function JournalTimeline({ entries }: JournalTimelineProps) {
               key={group.date}
               variants={groupVariants}
             >
-              <span className="z-10 col-start-1 flex size-9 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-sm">
+              <span className="z-raised col-start-1 flex size-9 items-center justify-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-card">
                 <NotebookPen aria-hidden className="h-4 w-4" />
               </span>
               <div className="col-start-2 flex min-w-0 flex-col gap-2">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex-between gap-2">
                   <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                     {formatShortDate(group.date)}
                   </span>

@@ -38,7 +38,7 @@ export function ModuleToc({ entries }: ModuleTocProps) {
 
   return (
     <nav aria-label="On this page" className="flex flex-col gap-2" ref={observeHeadings}>
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">On this page</p>
+      <p className="section-label">On this page</p>
       <ul className="flex list-none flex-col gap-0.5 border-l border-border">
         {entries.map((entry) => (
           <li key={entry.id}>

@@ -608,10 +608,11 @@ func (r *Repo) GetOAuthState(ctx context.Context, state string) (*GitlabOAuthSta
 // AllowProjectOverride: true when the gitlab jsonb is empty or the key is missing.
 func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (*GitlabOrgConfig, error) {
 	var raw []byte
+	var updatedAt time.Time
 	err := r.pool.QueryRow(ctx,
-		`SELECT COALESCE(gitlab, '{}'::jsonb) FROM org_settings WHERE org_id = $1`,
+		`SELECT COALESCE(gitlab, '{}'::jsonb), updated_at FROM org_settings WHERE org_id = $1`,
 		orgID,
-	).Scan(&raw)
+	).Scan(&raw, &updatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -621,6 +622,7 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (*GitlabOrgConfig
 
 	var cfg GitlabOrgConfig
 	cfg.OrgID = orgID
+	cfg.UpdatedAt = updatedAt
 	cfg.AllowProjectOverride = true // Default when key is missing
 
 	type gitlabJSON struct {
@@ -636,7 +638,6 @@ func (r *Repo) GetOrgConfig(ctx context.Context, orgID string) (*GitlabOrgConfig
 		}
 	}
 
-	// TODO: populate UpdatedAt from org_settings.updated_at if needed
 	return &cfg, nil
 }
 

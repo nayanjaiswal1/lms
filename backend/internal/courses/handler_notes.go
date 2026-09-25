@@ -26,7 +26,7 @@ func (h *Handler) SaveLessonNote(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Content string `json:"content"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	content := strings.TrimSpace(req.Content)
@@ -38,7 +38,7 @@ func (h *Handler) SaveLessonNote(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"content": "Keep it under 20,000 characters."})
 		return
 	}
-	note, err := h.service.SaveLessonNote(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "moduleID"), content, "manual")
+	note, err := h.service.SaveLessonNote(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "moduleID"), content, "manual")
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -55,7 +55,7 @@ func (h *Handler) GetMyLessonNote(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	note, err := h.service.GetMyLessonNote(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "moduleID"))
+	note, err := h.service.GetMyLessonNote(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "moduleID"))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			httputil.WriteJSON(w, http.StatusOK, map[string]any{"content": nil})

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { apiGet, apiPost } from "@/lib/server/api";
+import { apiGet, apiGetPublic, apiPost } from "@/lib/server/api";
 
 export interface Course {
   id: string;
@@ -96,17 +96,12 @@ export interface CourseProgressSummary {
 export async function getPublicCourses(
   limit = 12,
 ): Promise<{ courses: Course[]; total: number }> {
-  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!url) return { courses: [], total: 0 };
   try {
-    const res = await fetch(`${url}/api/public/courses?limit=${limit}`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return { courses: [], total: 0 };
-    const body = (await res.json()) as {
-      data?: { courses?: Course[] | null; total?: number };
-    };
-    return { courses: body.data?.courses ?? [], total: body.data?.total ?? 0 };
+    const data = await apiGetPublic<{ courses?: Course[] | null; total?: number }>(
+      `/api/public/courses?limit=${limit}`,
+      { revalidate: 60 },
+    );
+    return { courses: data?.courses ?? [], total: data?.total ?? 0 };
   } catch {
     return { courses: [], total: 0 };
   }
@@ -117,15 +112,8 @@ export async function getPublicCourses(
 // since a missing backend and "not a public course" both just mean the page
 // below renders notFound().
 export async function getPublicCourseTree(slug: string): Promise<CourseTree | null> {
-  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!url) return null;
   try {
-    const res = await fetch(`${url}/api/public/courses/${slug}/tree`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { data?: CourseTree };
-    return body.data ?? null;
+    return await apiGetPublic<CourseTree>(`/api/public/courses/${slug}/tree`, { revalidate: 60 });
   } catch {
     return null;
   }

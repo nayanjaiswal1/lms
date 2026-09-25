@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { CircleCheck, Clock, Plus, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { AeIssueStep } from "@/lib/server/gitlab-planning";
 import { cn } from "@/lib/utils";
 
@@ -26,29 +28,29 @@ export function IssueSteps({ steps }: IssueStepsProps) {
 
   return (
     <section aria-label="Steps and sub-tasks" className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-tight text-(--m-on-surface)">Steps &amp; Sub-tasks</span>
-          <span className="m-label-sm rounded-full bg-(--m-primary-fixed) px-1.5 text-[10px] text-(--m-on-primary-fixed)">
+          <span className="text-xs font-semibold uppercase tracking-tight text-foreground">Steps &amp; Sub-tasks</span>
+          <span className="m-label-sm rounded-full bg-(--m-primary-fixed) px-1.5 text-xs text-(--m-on-primary-fixed)">
             {checked.size} / {steps.length} done
           </span>
         </div>
-        <span className="m-label-sm text-(--m-primary)">{pct}% complete</span>
+        <span className="m-label-sm text-primary">{pct}% complete</span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-(--m-sc-high)">
+      <div className="progress-track">
         {/* eslint-disable-next-line no-restricted-syntax -- dynamic progress width */}
-        <div className="h-1.5 rounded-full bg-(--m-primary) transition-all duration-300" style={{ width: `${pct}%` }} />
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
       </div>
       <div className="flex flex-col gap-1">
         {steps.map((s) => {
           const Icon = NOTE_ICON[s.note_icon];
           const isChecked = checked.has(s.id);
           return (
-            <label aria-label={s.label} className="flex cursor-pointer items-start gap-2 rounded-lg p-2 transition-colors hover:bg-(--m-sc-low)" key={s.id}>
-              <input aria-label={s.label} checked={isChecked} className="mt-0.5 size-4 shrink-0 cursor-pointer rounded accent-(--m-primary)" type="checkbox" onChange={() => toggle(s.id)} />
+            <label aria-label={s.label} className="flex cursor-pointer items-start gap-2 rounded-lg p-2 transition-colors hover:bg-muted" key={s.id}>
+              <Checkbox aria-label={s.label} checked={isChecked} className="mt-0.5 shrink-0" onCheckedChange={() => toggle(s.id)} />
               <span className="flex min-w-0 flex-col gap-0.5">
-                <span className={cn("m-body-sm", isChecked ? "text-(--m-on-surface-variant) line-through" : "text-(--m-on-surface)")}>{s.label}</span>
-                <span className="m-label-sm flex items-center gap-1 text-[10px] text-(--mc)" data-mtone={s.note_icon === "done" ? "tertiary" : s.note_icon === "progress" ? "primary" : "muted"}>
+                <span className={cn("m-body-sm", isChecked ? "text-muted-foreground line-through" : "text-foreground")}>{s.label}</span>
+                <span className="m-label-sm flex items-center gap-1 text-xs text-(--mc)" data-mtone={s.note_icon === "done" ? "tertiary" : s.note_icon === "progress" ? "primary" : "muted"}>
                   <Icon aria-hidden className="size-3" /> {s.note}
                 </span>
               </span>
@@ -56,9 +58,10 @@ export function IssueSteps({ steps }: IssueStepsProps) {
           );
         })}
       </div>
-      <button className="m-label-sm flex items-center gap-1 self-start rounded-lg px-2 py-1 text-(--m-primary) hover:bg-(--m-sc-low)" type="button">
+      <Button className="m-label-sm h-auto self-start px-2 py-1" variant="link" type="button">
         <Plus aria-hidden className="size-3.5" />
         <span>Add new step item</span>
+      </Button>
       </button>
     </section>
   );

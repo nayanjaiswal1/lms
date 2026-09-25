@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { authHeaders, baseURL } from "@/lib/server/api";
+import { apiAction } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 export interface SaveStepState {
@@ -9,40 +9,14 @@ export interface SaveStepState {
   fieldErrors?: Record<string, string>;
 }
 
-function getField(body: unknown, key: string): unknown {
-  if (body && typeof body === "object") {
-    return (body as Record<string, unknown>)[key];
-  }
-  return undefined;
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 async function patchOnboarding(
   orgId: string,
   data: Record<string, unknown>,
 ): Promise<{ ok: boolean; error?: string }> {
-  const headers = await authHeaders();
-  let response: Response;
-  try {
-    response = await fetch(`${baseURL()}/api/orgs/${orgId}/onboarding`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify(data),
-      cache: "no-store",
-    });
-  } catch {
-    return { ok: false, error: "Network error. Please check your connection and try again." };
+  const result = await apiAction("PATCH", `/api/orgs/${orgId}/onboarding`, data);
+  if (!result.ok) {
+    return { ok: false, error: result.error ?? "Something went wrong. Please try again." };
   }
-
-  if (!response.ok) {
-    const body: unknown = await response.json().catch(() => null);
-    const msg = asString(getField(body, "error"));
-    return { ok: false, error: msg ?? "Something went wrong. Please try again." };
-  }
-
   return { ok: true };
 }
 
@@ -133,8 +107,6 @@ export async function saveStep4Action(
   const orgId = (formData.get("org_id") ?? "").toString().trim();
   if (!orgId) return { error: "Organization ID is missing." };
 
-  const headers = await authHeaders();
-
   // Collect invite rows: invite_email_0, invite_role_0, invite_email_1, …
   const invites: { email: string; role: string }[] = [];
   let i = 0;
@@ -148,20 +120,9 @@ export async function saveStep4Action(
   // Send each invite; collect errors
   const errors: string[] = [];
   for (const invite of invites) {
-    try {
-      const response = await fetch(`${baseURL()}/api/orgs/${orgId}/invites`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(invite),
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        const body: unknown = await response.json().catch(() => null);
-        const msg = asString(getField(body, "error"));
-        errors.push(`${invite.email}: ${msg ?? "failed"}`);
-      }
-    } catch {
-      errors.push(`${invite.email}: network error`);
+    const result = await apiAction("POST", `/api/orgs/${orgId}/invites`, invite);
+    if (!result.ok) {
+      errors.push(`${invite.email}: ${result.error ?? "failed"}`);
     }
   }
 
@@ -185,23 +146,9 @@ export async function activateOrgAction(
   const orgId = (formData.get("org_id") ?? "").toString().trim();
   if (!orgId) return { error: "Organization ID is missing." };
 
-  const headers = await authHeaders();
-  let response: Response;
-  try {
-    response = await fetch(`${baseURL()}/api/orgs/${orgId}/activate`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({}),
-      cache: "no-store",
-    });
-  } catch {
-    return { error: "Network error. Please check your connection and try again." };
-  }
-
-  if (!response.ok) {
-    const body: unknown = await response.json().catch(() => null);
-    const msg = asString(getField(body, "error"));
-    return { error: msg ?? "Could not activate the organization. Please try again." };
+  const result = await apiAction("POST", `/api/orgs/${orgId}/activate`, {});
+  if (!result.ok) {
+    return { error: result.error ?? "Could not activate the organization. Please try again." };
   }
 
   redirect(ROUTES.ORG_SETTINGS);

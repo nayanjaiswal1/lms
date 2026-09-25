@@ -19,10 +19,10 @@ func (h *Handler) ReportMentor(w http.ResponseWriter, r *http.Request) {
 		Description string  `json:"description"`
 		TicketID    *string `json:"ticket_id"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	report, err := h.service.ReportMentor(r.Context(), claims.OrgID, urlParam(r, "mentorID"), claims.UserID, req.Reason, req.Description, req.TicketID)
+	report, err := h.service.ReportMentor(r.Context(), claims.OrgID, httputil.URLParam(r, "mentorID"), claims.UserID, req.Reason, req.Description, req.TicketID)
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -37,7 +37,7 @@ func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	reports, err := h.service.ListReports(r.Context(), claims.OrgID, queryStrPtr(r, "status"))
+	reports, err := h.service.ListReports(r.Context(), claims.OrgID, httputil.QueryStrPtr(r, "status"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -56,10 +56,10 @@ func (h *Handler) ResolveReport(w http.ResponseWriter, r *http.Request) {
 		Status         string `json:"status"`
 		ResolutionNote string `json:"resolution_note"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	report, err := h.service.ResolveReport(r.Context(), claims.OrgID, urlParam(r, "reportID"), claims.UserID, req.Status, req.ResolutionNote)
+	report, err := h.service.ResolveReport(r.Context(), claims.OrgID, httputil.URLParam(r, "reportID"), claims.UserID, req.Status, req.ResolutionNote)
 	if err != nil {
 		writeDomainError(w, err)
 		return

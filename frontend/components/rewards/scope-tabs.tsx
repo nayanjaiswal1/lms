@@ -51,7 +51,7 @@ export function ScopeTabs({ tabs, activeScope, activeScopeId, activeFeatureType 
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-card"
                 : "text-muted-foreground hover:text-foreground",
             )}
             key={`${tab.scope}-${tab.scopeId ?? ""}-${tab.featureType ?? ""}`}

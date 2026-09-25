@@ -36,7 +36,7 @@ export function ImportProgressPanel({ batchId, jobId, initialStatus, onRunAnothe
       </div>
 
       {!status.isTerminal && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-dashed border-border p-3">
+        <div className="flex-between gap-3 rounded-md border border-dashed border-border p-3">
           <p className="text-sm text-muted-foreground">This import is still running in the background.</p>
           <Button disabled={checking} size="sm" variant="outline" onClick={() => void checkStatus()}>
             <RefreshCw aria-hidden className={`mr-1.5 h-4 w-4 ${checking ? "animate-spin" : ""}`} />

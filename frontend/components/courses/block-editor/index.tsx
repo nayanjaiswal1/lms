@@ -73,18 +73,18 @@ function BlockItem({ block, index, total, onChange, onMove, onRemove, onFile }: 
     <div className="group relative flex gap-2">
       {/* Controls */}
       <div className="flex shrink-0 flex-col items-center gap-0.5 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button aria-label="Move up" className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={index === 0} type="button"
+        <Button aria-label="Move up" className="h-6 w-6 p-0" disabled={index === 0} size="icon" variant="ghost"
           onClick={() => onMove("up")}>
           <ChevronUp className="h-3.5 w-3.5" />
-        </button>
-        <button aria-label="Move down" className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={index === total - 1} type="button"
+        </Button>
+        <Button aria-label="Move down" className="h-6 w-6 p-0" disabled={index === total - 1} size="icon" variant="ghost"
           onClick={() => onMove("down")}>
           <ChevronDown className="h-3.5 w-3.5" />
-        </button>
-        <button aria-label={`Remove ${label} block`} className="rounded p-0.5 text-muted-foreground hover:text-destructive" type="button"
+        </Button>
+        <Button aria-label={`Remove ${label} block`} className="h-6 w-6 p-0" size="icon" variant="ghost"
           onClick={onRemove}>
           <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
 
       {/* Block content */}

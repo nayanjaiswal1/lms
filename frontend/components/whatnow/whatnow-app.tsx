@@ -5,6 +5,7 @@
 // the mindforge app shell; only Focus escapes it (fixed overlay).
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { whatnowApi } from "@/lib/whatnow/client";
 import type { Energy, NowResponse, Task } from "@/lib/whatnow/types";
 import { useScene, sceneGreeting } from "@/components/whatnow/use-scene";
@@ -74,26 +75,28 @@ export function WhatNowApp() {
           </div>
           <div className="wn-head-controls">
             <div aria-label="Energy" className="wn-energy" role="radiogroup">
-              <button
+              <Button
                 aria-checked={energy === "sharp"}
-                className={`wn-energy-opt ${energy === "sharp" ? "wn-energy-on" : ""}`}
                 role="radio"
+                size="sm"
+                variant={energy === "sharp" ? "default" : "ghost"}
                 onClick={() => switchEnergy("sharp")}
               >
                 Sharp
-              </button>
-              <button
+              </Button>
+              <Button
                 aria-checked={energy === "tired"}
-                className={`wn-energy-opt ${energy === "tired" ? "wn-energy-on" : ""}`}
                 role="radio"
+                size="sm"
+                variant={energy === "tired" ? "default" : "ghost"}
                 onClick={() => switchEnergy("tired")}
               >
                 Tired
-              </button>
+              </Button>
             </div>
-            <button className="wn-shelf-btn" onClick={() => setShelfOpen(true)}>
+            <Button size="sm" variant="outline" onClick={() => setShelfOpen(true)}>
               Shelf
-            </button>
+            </Button>
           </div>
         </header>
 

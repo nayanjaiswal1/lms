@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { authHeaders, baseURL } from "@/lib/server/api";
+import { apiAction } from "@/lib/server/api";
 import ROUTES from "@/lib/routes";
 
 export interface DomainActionState {
@@ -18,16 +18,12 @@ export async function addDomainAction(
 
   if (!orgId || !domain) return { error: "Domain is required." };
 
-  const headers = await authHeaders();
-  const res = await fetch(`${baseURL()}/api/orgs/${orgId}/domains`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ domain, verification_method: verificationMethod ?? "dns_txt" }),
+  const addResult = await apiAction("POST", `/api/orgs/${orgId}/domains`, {
+    domain,
+    verification_method: verificationMethod ?? "dns_txt",
   });
-
-  if (!res.ok) {
-    const parsed = await res.json().catch(() => null) as { error?: string } | null;
-    return { error: parsed?.error ?? "Failed to add domain." };
+  if (!addResult.ok) {
+    return { error: addResult.error ?? "Failed to add domain." };
   }
 
   revalidatePath(ROUTES.ORG_SETTINGS_DOMAINS);
@@ -43,16 +39,11 @@ export async function verifyDomainAction(
 
   if (!orgId || !domainId) return { error: "Missing required fields." };
 
-  const headers = await authHeaders();
-  const res = await fetch(`${baseURL()}/api/orgs/${orgId}/domains/verify`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ domain_id: domainId }),
+  const verifyResult = await apiAction("POST", `/api/orgs/${orgId}/domains/verify`, {
+    domain_id: domainId,
   });
-
-  if (!res.ok) {
-    const parsed = await res.json().catch(() => null) as { error?: string } | null;
-    return { error: parsed?.error ?? "Verification failed. Ensure the DNS record is set." };
+  if (!verifyResult.ok) {
+    return { error: verifyResult.error ?? "Verification failed. Ensure the DNS record is set." };
   }
 
   revalidatePath(ROUTES.ORG_SETTINGS_DOMAINS);
@@ -69,19 +60,11 @@ export async function toggleAutoJoinAction(
 
   if (!orgId || !domainId) return { error: "Missing required fields." };
 
-  const headers = await authHeaders();
-  const res = await fetch(
-    `${baseURL()}/api/orgs/${orgId}/domains/${domainId}/auto-join`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ enabled }),
-    },
-  );
-
-  if (!res.ok) {
-    const parsed = await res.json().catch(() => null) as { error?: string } | null;
-    return { error: parsed?.error ?? "Failed to update auto-join setting." };
+  const toggleResult = await apiAction("POST", `/api/orgs/${orgId}/domains/${domainId}/auto-join`, {
+    enabled,
+  });
+  if (!toggleResult.ok) {
+    return { error: toggleResult.error ?? "Failed to update auto-join setting." };
   }
 
   revalidatePath(ROUTES.ORG_SETTINGS_DOMAINS);
@@ -97,15 +80,9 @@ export async function removeDomainAction(
 
   if (!orgId || !domainId) return { error: "Missing required fields." };
 
-  const headers = await authHeaders();
-  const res = await fetch(`${baseURL()}/api/orgs/${orgId}/domains/${domainId}`, {
-    method: "DELETE",
-    headers,
-  });
-
-  if (!res.ok) {
-    const parsed = await res.json().catch(() => null) as { error?: string } | null;
-    return { error: parsed?.error ?? "Failed to remove domain." };
+  const removeResult = await apiAction("DELETE", `/api/orgs/${orgId}/domains/${domainId}`);
+  if (!removeResult.ok) {
+    return { error: removeResult.error ?? "Failed to remove domain." };
   }
 
   revalidatePath(ROUTES.ORG_SETTINGS_DOMAINS);

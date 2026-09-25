@@ -1,64 +1,66 @@
 /* Auto Expand Board — Stitch design tokens, scoped under .ae so nothing
    leaks into the app shell. The board ships its own light identity (slate +
    blue dashboard, Material-3 blue issues view), like What Now? / Habits do.
-   Components reference these as Tailwind var classes: bg-(--ae-card),
-   text-(--t-700), bg-(--mc-bg) … */
+   Components reference these as Tailwind var classes: bg-card,
+   text-foreground, bg-(--mc-bg) … */
 
 .ae {
-  font-family: var(--font-ae-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
 
-  /* Dashboard — slate/blue */
-  --ae-bg: #f8fafd;
-  --ae-card: #ffffff;
-  --ae-ink: #0f172a;
-  --ae-text: #1e293b;
-  --ae-body: #334155;
-  --ae-dim: #475569;
-  --ae-muted: #64748b;
-  --ae-faint: #94a3b8;
-  --ae-line-strong: #cbd5e1;
-  --ae-line: #e2e8f0;
-  --ae-soft: #f1f5f9;
-  --ae-hover: #f8fafc;
-  --ae-brand: #2563eb;
-  --ae-brand-hover: #1d4ed8;
-  --ae-brand-500: #3b82f6;
-  --ae-brand-300: #93c5fd;
-  --ae-brand-200: #bfdbfe;
-  --ae-brand-100: #dbeafe;
-  --ae-brand-soft: #eff6ff;
-  --ae-danger: #e11d48;
-  --ae-danger-soft: #fb7185;
-  --ae-success: #059669;
+  /* Dashboard — aliased to design tokens (globals.css). No parallel palette:
+     structural surfaces/ink/lines follow the app theme automatically. */
+  --ae-bg: hsl(var(--background));
+  --ae-card: hsl(var(--card));
+  --ae-ink: hsl(var(--foreground));
+  --ae-text: hsl(var(--foreground));
+  --ae-body: hsl(var(--foreground) / 0.85);
+  --ae-dim: hsl(var(--muted-foreground));
+  --ae-muted: hsl(var(--muted-foreground));
+  --ae-faint: hsl(var(--muted-foreground) / 0.7);
+  --ae-line-strong: hsl(var(--border));
+  --ae-line: hsl(var(--border));
+  --ae-soft: hsl(var(--muted));
+  --ae-hover: hsl(var(--accent));
+  --ae-brand: hsl(var(--primary));
+  --ae-brand-hover: hsl(var(--primary));
+  --ae-brand-500: hsl(var(--primary));
+  --ae-brand-300: hsl(var(--primary) / 0.5);
+  --ae-brand-200: hsl(var(--primary) / 0.3);
+  --ae-brand-100: hsl(var(--primary) / 0.15);
+  --ae-brand-soft: hsl(var(--primary) / 0.1);
+  --ae-danger: hsl(var(--destructive));
+  --ae-danger-soft: hsl(var(--destructive) / 0.7);
+  --ae-success: hsl(var(--success));
 
-  /* Issues — Material 3 */
-  --m-primary: #004ac6;
-  --m-primary-container: #2563eb;
-  --m-on-primary-container: #eeefff;
-  --m-primary-fixed: #dbe1ff;
-  --m-on-primary-fixed: #00174b;
-  --m-secondary: #4648d4;
-  --m-secondary-fixed: #e1e0ff;
-  --m-on-secondary-fixed: #07006c;
-  --m-tertiary: #006242;
-  --m-tertiary-fixed: #6ffbbe;
-  --m-on-tertiary-fixed: #002113;
-  --m-error: #ba1a1a;
-  --m-error-container: #ffdad6;
-  --m-on-error-container: #93000a;
-  --m-surface: #f8f9ff;
-  --m-sc-lowest: #ffffff;
-  --m-sc-low: #eff4ff;
-  --m-sc: #e5eeff;
-  --m-sc-high: #dce9ff;
-  --m-sc-highest: #d3e4fe;
-  --m-on-surface: #0b1c30;
-  --m-on-surface-variant: #434655;
-  --m-outline: #737686;
-  --m-outline-variant: #c3c6d7;
-  --m-inverse-surface: #213145;
-  --m-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+  /* Issues — aliased to design tokens. Tones below (data-tone/data-mtone)
+     are categorical status tints, same role as --habit-* / --note-* in globals. */
+  --m-primary: hsl(var(--primary));
+  --m-primary-container: hsl(var(--primary));
+  --m-on-primary-container: hsl(var(--primary-foreground));
+  --m-primary-fixed: hsl(var(--primary) / 0.15);
+  --m-on-primary-fixed: hsl(var(--primary));
+  --m-secondary: hsl(var(--ai));
+  --m-secondary-fixed: hsl(var(--ai) / 0.15);
+  --m-on-secondary-fixed: hsl(var(--ai));
+  --m-tertiary: hsl(var(--success));
+  --m-tertiary-fixed: hsl(var(--success) / 0.15);
+  --m-on-tertiary-fixed: hsl(var(--success));
+  --m-error: hsl(var(--destructive));
+  --m-error-container: hsl(var(--destructive) / 0.12);
+  --m-on-error-container: hsl(var(--destructive));
+  --m-surface: hsl(var(--background));
+  --m-sc-lowest: hsl(var(--card));
+  --m-sc-low: hsl(var(--muted));
+  --m-sc: hsl(var(--muted));
+  --m-sc-high: hsl(var(--muted));
+  --m-sc-highest: hsl(var(--accent));
+  --m-on-surface: hsl(var(--foreground));
+  --m-on-surface-variant: hsl(var(--muted-foreground));
+  --m-outline: hsl(var(--border));
+  --m-outline-variant: hsl(var(--border));
+  --m-inverse-surface: hsl(var(--terminal-chrome));
+  --m-shadow: var(--shadow-card);
 
   background: var(--ae-bg);
   color: var(--ae-text);
@@ -66,25 +68,24 @@
 }
 
 .ae ::selection {
-  background: var(--ae-brand-100);
-  color: var(--ae-brand-hover);
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
 }
 
-.ae ::-webkit-scrollbar { width: 6px; height: 6px; }
-.ae ::-webkit-scrollbar-track { background: transparent; }
-.ae ::-webkit-scrollbar-thumb { background: var(--ae-line); border-radius: 9999px; }
-.ae ::-webkit-scrollbar-thumb:hover { background: var(--ae-line-strong); }
+/* Scrollbar: single definition lives in globals.css:407-417 — no scoped duplicate. */
 
-.ae-mono { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
+.ae-mono { font-family: var(--font-mono), ui-monospace, monospace; }
 
-/* ── Dashboard tones (quadrants, dots, badges) ─────────────────────────── */
+/* ── Dashboard tones — categorical status tints (same role as --habit-* /
+   --note-* in globals.css). Expressed as color-mix over design tokens so
+   they follow light/dark automatically. ─────────────────────────── */
 
-.ae [data-tone="blue"]    { --t-50:#eff6ff; --t-100:#dbeafe; --t-200:#bfdbfe; --t-300:#93c5fd; --t-dot:#3b82f6; --t-500:#3b82f6; --t-600:#2563eb; --t-sub:#2563eb; --t-700:#1d4ed8; --t-900:#1e3a8a; }
-.ae [data-tone="emerald"] { --t-50:#ecfdf5; --t-100:#d1fae5; --t-200:#a7f3d0; --t-300:#6ee7b7; --t-dot:#10b981; --t-500:#10b981; --t-600:#059669; --t-sub:#047857; --t-700:#047857; --t-900:#022c22; }
-.ae [data-tone="purple"]  { --t-50:#faf5ff; --t-100:#f3e8ff; --t-200:#e9d5ff; --t-300:#d8b4fe; --t-dot:#a855f7; --t-500:#a855f7; --t-600:#9333ea; --t-sub:#9333ea; --t-700:#7e22ce; --t-900:#3b0764; }
-.ae [data-tone="rose"]    { --t-50:#fff1f2; --t-100:#ffe4e6; --t-200:#fecdd3; --t-300:#fda4af; --t-dot:#f43f5e; --t-500:#f43f5e; --t-600:#e11d48; --t-sub:#e11d48; --t-700:#be123c; --t-900:#4c0519; }
-.ae [data-tone="amber"]   { --t-50:#fffbeb; --t-100:#fef3c7; --t-200:#fde68a; --t-300:#fcd34d; --t-dot:#fbbf24; --t-500:#f59e0b; --t-600:#d97706; --t-sub:#d97706; --t-700:#b45309; --t-900:#451a03; }
-.ae [data-tone="slate"]   { --t-50:#f8fafc; --t-100:#f1f5f9; --t-200:#e2e8f0; --t-300:#cbd5e1; --t-dot:#94a3b8; --t-500:#94a3b8; --t-600:#475569; --t-sub:#475569; --t-700:#334155; --t-900:#0f172a; }
+.ae [data-tone="blue"]    { --t-50:hsl(var(--primary) / 0.08); --t-100:hsl(var(--primary) / 0.12); --t-200:hsl(var(--primary) / 0.25); --t-300:hsl(var(--primary) / 0.4); --t-dot:hsl(var(--primary)); --t-500:hsl(var(--primary)); --t-600:hsl(var(--primary)); --t-sub:hsl(var(--primary)); --t-700:hsl(var(--primary)); --t-900:hsl(var(--foreground)); }
+.ae [data-tone="emerald"] { --t-50:hsl(var(--success) / 0.08); --t-100:hsl(var(--success) / 0.12); --t-200:hsl(var(--success) / 0.25); --t-300:hsl(var(--success) / 0.4); --t-dot:hsl(var(--success)); --t-500:hsl(var(--success)); --t-600:hsl(var(--success)); --t-sub:hsl(var(--success)); --t-700:hsl(var(--success)); --t-900:hsl(var(--foreground)); }
+.ae [data-tone="purple"]  { --t-50:hsl(var(--ai) / 0.08); --t-100:hsl(var(--ai) / 0.12); --t-200:hsl(var(--ai) / 0.25); --t-300:hsl(var(--ai) / 0.4); --t-dot:hsl(var(--ai)); --t-500:hsl(var(--ai)); --t-600:hsl(var(--ai)); --t-700:hsl(var(--ai)); --t-900:hsl(var(--foreground)); --t-sub:hsl(var(--ai)); }
+.ae [data-tone="rose"]    { --t-50:hsl(var(--destructive) / 0.08); --t-100:hsl(var(--destructive) / 0.12); --t-200:hsl(var(--destructive) / 0.25); --t-300:hsl(var(--destructive) / 0.4); --t-dot:hsl(var(--destructive)); --t-500:hsl(var(--destructive)); --t-600:hsl(var(--destructive)); --t-sub:hsl(var(--destructive)); --t-700:hsl(var(--destructive)); --t-900:hsl(var(--foreground)); }
+.ae [data-tone="amber"]   { --t-50:hsl(var(--warning) / 0.08); --t-100:hsl(var(--warning) / 0.12); --t-200:hsl(var(--warning) / 0.25); --t-300:hsl(var(--warning) / 0.4); --t-dot:hsl(var(--warning)); --t-500:hsl(var(--warning)); --t-600:hsl(var(--warning)); --t-sub:hsl(var(--warning)); --t-700:hsl(var(--warning)); --t-900:hsl(var(--foreground)); }
+.ae [data-tone="slate"]   { --t-50:hsl(var(--muted)); --t-100:hsl(var(--muted)); --t-200:hsl(var(--border)); --t-300:hsl(var(--border)); --t-dot:hsl(var(--muted-foreground)); --t-500:hsl(var(--muted-foreground)); --t-600:hsl(var(--muted-foreground)); --t-sub:hsl(var(--muted-foreground)); --t-700:hsl(var(--foreground)); --t-900:hsl(var(--foreground)); }
 
 /* ── Issues tones (labels, avatars, progress) ──────────────────────────── */
 
@@ -99,45 +100,29 @@
 .ae [data-mtone="muted"]          { --mc:var(--m-on-surface-variant); --mc-bg:var(--m-sc-highest);      --mc-fg:var(--m-on-surface-variant); --av-bg:var(--m-sc);        --av-fg:var(--m-on-surface-variant); }
 .ae [data-mtone="outline"]        { --mc:var(--m-outline);           --mc-bg:var(--m-sc-highest);       --mc-fg:var(--m-outline);            --av-bg:var(--m-sc);        --av-fg:var(--m-outline); }
 
-/* ── Markdown preview (issue drawer) ───────────────────────────────────── */
+/* ── Markdown preview (issue drawer) — reuses the global prose system. ── */
 
-.ae-md { font-size: 12.5px; line-height: 1.6; color: var(--m-on-surface); }
-.ae-md h1, .ae-md h2, .ae-md h3 { font-weight: 600; letter-spacing: -0.01em; margin: 14px 0 6px; }
-.ae-md h1 { font-size: 16px; }
-.ae-md h2 { font-size: 14.5px; }
-.ae-md h3 { font-size: 13.5px; }
-.ae-md > :first-child { margin-top: 0; }
-.ae-md p { margin: 0 0 8px; }
-.ae-md ul, .ae-md ol { margin: 0 0 8px; padding-left: 20px; }
-.ae-md ul { list-style: disc; }
-.ae-md ol { list-style: decimal; }
-.ae-md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -18px; }
-.ae-md li > input[type="checkbox"] { margin-right: 6px; accent-color: var(--m-primary); }
-.ae-md code { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 11px; background: var(--m-sc-low); color: var(--m-primary); padding: 1px 4px; border-radius: 4px; }
-.ae-md pre { background: var(--m-inverse-surface); color: var(--m-sc-low); padding: 10px 12px; border-radius: 8px; overflow-x: auto; margin: 0 0 10px; }
-.ae-md pre code { background: transparent; color: inherit; padding: 0; }
-.ae-md table { width: 100%; border-collapse: collapse; margin: 0 0 10px; font-size: 11.5px; }
-.ae-md th, .ae-md td { border: 1px solid var(--m-outline-variant); padding: 4px 8px; text-align: left; }
-.ae-md th { background: var(--m-sc-low); font-weight: 600; }
+.ae-md { @apply prose-content text-xs; }
+.ae-md code { font-family: var(--font-mono), ui-monospace, monospace; }
+.ae-md pre { background: hsl(var(--terminal-chrome)); color: hsl(var(--terminal-foreground)); }
 
 @media (prefers-reduced-motion: reduce) {
   .ae *, .ae *::before, .ae *::after { transition: none !important; animation: none !important; }
 }
 
-/* ── Material type scale (issues view) ─────────────────────────────────── */
+/* ── Type scale — maps to Tailwind text tokens (no px duplicates). ── */
 
-.ae .m-headline-xl { font-size: 24px; line-height: 32px; letter-spacing: -0.02em; font-weight: 600; }
-.ae .m-headline-lg { font-size: 20px; line-height: 28px; letter-spacing: -0.015em; font-weight: 600; }
-.ae .m-headline-md { font-size: 16px; line-height: 24px; letter-spacing: -0.01em; font-weight: 600; }
-.ae .m-headline-sm { font-size: 14px; line-height: 20px; letter-spacing: -0.005em; font-weight: 600; }
-.ae .m-body-sm { font-size: 13px; line-height: 18px; }
-.ae .m-label-md { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 12px; line-height: 16px; letter-spacing: -0.01em; font-weight: 500; }
-.ae .m-label-sm { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; font-size: 11px; line-height: 14px; font-weight: 500; }
+.ae .m-headline-xl { @apply text-xl font-semibold tracking-tight leading-8; }
+.ae .m-headline-lg { @apply text-lg font-semibold tracking-tight leading-7; }
+.ae .m-headline-md { @apply text-base font-semibold tracking-tight leading-6; }
+.ae .m-headline-sm { @apply text-sm font-semibold leading-5; }
+.ae .m-body-sm { @apply text-[13px] leading-[18px]; }
+.ae .m-label-md { @apply font-mono text-xs leading-4 font-medium tracking-tight; }
+.ae .m-label-sm { @apply font-mono text-xs leading-[14px] font-medium; }
 .ae .m-shadow { box-shadow: var(--m-shadow); }
 
-/* Issue drawer (native <dialog>) backdrop — literal colour: ::backdrop does
-   not reliably inherit custom properties across browsers. */
-.ae-drawer::backdrop { background: rgb(33 49 69 / 0.4); backdrop-filter: blur(2px); }
+/* Issue drawer (native <dialog>) backdrop — token-based scrim. */
+.ae-drawer::backdrop { background: color-mix(in oklab, hsl(var(--foreground)) 40%, transparent); backdrop-filter: blur(2px); }
 
 /* The app's base layer gives every <p> leading-7 + text-foreground; Stitch
    relies on Tailwind preflight (inherit). Same layer, higher specificity,

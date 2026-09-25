@@ -85,7 +85,7 @@ export function WikiEditorInner({ pageId, initialTitle, initialContent, editable
   return (
     <div className="flex flex-col gap-3">
       {editable ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex-between gap-3">
           <input
             aria-label="Page title"
             className="w-full border-none bg-transparent text-3xl font-bold tracking-tight text-foreground outline-none placeholder:text-muted-foreground"

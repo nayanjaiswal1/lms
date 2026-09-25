@@ -62,7 +62,7 @@ export function QuestionPalette({
 
   return (
     <aside className="hidden lg:flex w-52 shrink-0 flex-col gap-4 overflow-y-auto border-l border-border bg-card/50 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex-between">
         <span className="text-xs font-medium text-muted-foreground">Progress</span>
         <Button
           aria-label="Hide question palette"
@@ -77,7 +77,7 @@ export function QuestionPalette({
 
       {/* Progress summary */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex-between">
           <span className="text-xs font-medium text-muted-foreground">Answered</span>
           <span className="text-xs font-semibold tabular-nums">
             {answeredCount}/{questions.length}

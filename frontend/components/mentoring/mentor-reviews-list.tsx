@@ -18,7 +18,7 @@ export function MentorReviewsList({ reviews }: Props) {
   if (reviews.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6">
+    <section className="card-raised">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Recent mentees feedback</h2>
         <button

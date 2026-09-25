@@ -144,7 +144,7 @@ export function LabMenuBar({ fileActions, viewActions, runActions, terminalActio
       >
         <Search aria-hidden className="h-3 w-3 shrink-0" />
         <span className="flex-1 truncate text-left">Go to File</span>
-        <kbd className="hidden text-[10px] text-muted-foreground/70 sm:inline">Ctrl+P</kbd>
+        <kbd className="hidden text-xs text-muted-foreground/70 sm:inline">Ctrl+P</kbd>
       </button>
     </div>
   )

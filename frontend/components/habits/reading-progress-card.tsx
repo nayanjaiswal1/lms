@@ -17,7 +17,7 @@ export function ReadingProgressCard({ habits, month, metadata }: ReadingProgress
 
   return (
     <section className="rounded-lg border border-border p-6">
-      <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 section-label">
         Reading Progress
       </h2>
       {!habit ? (
@@ -32,11 +32,11 @@ export function ReadingProgressCard({ habits, month, metadata }: ReadingProgress
         <div className="flex h-full flex-col gap-6 rounded-md bg-primary/5 p-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-widest text-primary">Book / Topic</span>
+              <span className="text-xs uppercase tracking-widest text-primary">Book / Topic</span>
               <span className="text-sm">{stringField(entry.book) ?? "—"}</span>
             </div>
             <div className="flex flex-col text-right">
-              <span className="text-[10px] uppercase tracking-widest text-primary">Pages This Month</span>
+              <span className="text-xs uppercase tracking-widest text-primary">Pages This Month</span>
               <span className="flex items-center justify-end gap-1.5 text-sm">
                 <BookOpen aria-hidden className="size-3.5 text-primary" />
                 {totalPages}

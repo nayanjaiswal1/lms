@@ -28,24 +28,24 @@ const previewTokenCookieName = "__Host-mf_preview_token"
 // cookie and redirects to next.
 func (h *ProxyHandler) ServePreviewAuth(w http.ResponseWriter, r *http.Request, port int, sessionID string) {
 	if h.draining.Load() {
-		http.Error(w, "service draining", http.StatusServiceUnavailable)
+		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
 		return
 	}
 
 	token := r.URL.Query().Get("t")
 	if token == "" {
-		http.Error(w, "missing token", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "missing token")
 		return
 	}
 	next := r.URL.Query().Get("next")
 	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
-		http.Error(w, "invalid redirect target", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "invalid redirect target")
 		return
 	}
 
 	_, _, _, status, msg := h.previewTarget(r, token, port, sessionID)
 	if status != 0 {
-		http.Error(w, msg, status)
+		writeJSONError(w, status, msg)
 		return
 	}
 
@@ -85,19 +85,19 @@ func (h *ProxyHandler) ServePreviewAuth(w http.ResponseWriter, r *http.Request, 
 // or subresource — just resolve correctly on their own.
 func (h *ProxyHandler) ServePreviewPassthrough(w http.ResponseWriter, r *http.Request, port int, sessionID string) {
 	if h.draining.Load() {
-		http.Error(w, "service draining", http.StatusServiceUnavailable)
+		writeJSONError(w, http.StatusServiceUnavailable, "service draining")
 		return
 	}
 
 	cookie, err := r.Cookie(previewTokenCookieName)
 	if err != nil || cookie.Value == "" {
-		http.Error(w, "missing preview session — reload the preview", http.StatusUnauthorized)
+		writeJSONError(w, http.StatusUnauthorized, "missing preview session — reload the preview")
 		return
 	}
 
 	target, _, _, status, msg := h.previewTarget(r, cookie.Value, port, sessionID)
 	if status != 0 {
-		http.Error(w, msg, status)
+		writeJSONError(w, status, msg)
 		return
 	}
 

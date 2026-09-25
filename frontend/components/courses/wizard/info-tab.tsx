@@ -141,7 +141,7 @@ export function InfoTab({ info, coverFile, onChange, onCoverFile }: InfoTabProps
         </div>
 
         {coverTab === "upload" ? (
-          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-2 border-dashed border-border px-4 py-8 text-center hover:border-primary hover:bg-muted/40 transition-colors">
+          <label className="upload-dropzone cursor-pointer hover:border-primary">
             <Upload className="h-6 w-6 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Click to upload cover image</p>

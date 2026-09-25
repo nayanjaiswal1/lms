@@ -10,6 +10,7 @@ import { toast } from "sonner";
 // course" — see the matching boundaries/dependencies allow-list entry in
 // eslint.config.mjs.
 import { createSpaceAction } from "@/lib/wiki/actions";
+import { Button } from "@/components/ui/button";
 import ROUTES from "@/lib/routes";
 
 interface CourseDocsToggleProps {
@@ -43,8 +44,8 @@ export function CourseDocsToggle({ courseId, courseTitle, existingSpaceSlug }: C
   }
 
   return (
-    <button className="text-sm text-primary hover:underline disabled:opacity-60" disabled={pending} type="button" onClick={handleEnable}>
+    <Button className="h-auto p-0 text-sm" disabled={pending} variant="link" onClick={handleEnable}>
       {pending ? "Enabling…" : "Enable Course Docs"}
-    </button>
+    </Button>
   );
 }

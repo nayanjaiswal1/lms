@@ -22,7 +22,7 @@ func (h *Handler) CreateCohortGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req cohortGroupRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
@@ -63,7 +63,7 @@ func (h *Handler) GetCohortGroup(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	g, err := h.repo.GetCohortGroup(r.Context(), claims.OrgID, chiURLParam(r, "groupID"))
+	g, err := h.repo.GetCohortGroup(r.Context(), claims.OrgID, httputil.URLParam(r, "groupID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -77,7 +77,7 @@ func (h *Handler) UpdateCohortGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req cohortGroupRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
@@ -85,7 +85,7 @@ func (h *Handler) UpdateCohortGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g := CohortGroup{
-		ID:         chiURLParam(r, "groupID"),
+		ID:         httputil.URLParam(r, "groupID"),
 		ParentID:   req.ParentID,
 		Name:       req.Name,
 		LevelLabel: req.LevelLabel,
@@ -103,7 +103,7 @@ func (h *Handler) ArchiveCohortGroup(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.repo.ArchiveCohortGroup(r.Context(), claims.OrgID, chiURLParam(r, "groupID")); err != nil {
+	if err := h.repo.ArchiveCohortGroup(r.Context(), claims.OrgID, httputil.URLParam(r, "groupID")); err != nil {
 		writeDomainError(w, err)
 		return
 	}
@@ -120,10 +120,10 @@ func (h *Handler) MoveBatchToGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req moveBatchToGroupRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	if err := h.repo.MoveBatchToGroup(r.Context(), claims.OrgID, chiURLParam(r, "batchID"), req.CohortGroupID); err != nil {
+	if err := h.repo.MoveBatchToGroup(r.Context(), claims.OrgID, httputil.URLParam(r, "batchID"), req.CohortGroupID); err != nil {
 		writeDomainError(w, err)
 		return
 	}

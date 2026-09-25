@@ -3,6 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
+import { baseURL } from "@/lib/server/api";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 import ROUTES from "@/lib/routes";
 
 export interface SelectOrgState {
@@ -24,34 +26,35 @@ export async function selectOrgAction(
     redirect(ROUTES.LOGIN);
   }
 
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) {
+  try {
+    void baseURL();
+  } catch {
     return { error: "Server configuration error." };
   }
 
-  // Raw fetch instead of apiAction: this call needs the raw Response so
-  // forwardSetCookies() below can capture the new Set-Cookie headers the
-  // switch endpoint issues — apiAction only reads existing cookies, it never
-  // captures Set-Cookie from the response (same pattern as
+  // authFetchWithCookies instead of apiAction: this call needs the raw
+  // Response so forwardSetCookies() can capture the new Set-Cookie headers
+  // the switch endpoint issues — apiAction only reads existing cookies, it
+  // never captures Set-Cookie from the response (same pattern as
   // acceptCalendarInviteAction in lib/server/calendar.ts).
   let response: Response;
+  let body: { error?: string } | null;
   try {
-    response = await fetch(`${apiUrl}/api/orgs/switch`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const result = await authFetchWithCookies(
+      "/api/orgs/switch",
+      { org_id: orgId },
+      {
         // eslint-disable-next-line no-restricted-syntax -- see comment above; raw Response required for forwardSetCookies.
-        Cookie: `access_token=${accessToken}`,
+        headers: { Cookie: `access_token=${accessToken}` },
       },
-      body: JSON.stringify({ org_id: orgId }),
-      cache: "no-store",
-    });
+    );
+    response = result.response;
+    body = (result.body ?? null) as { error?: string } | null;
   } catch {
     return { error: "Network error. Please try again." };
   }
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null) as { error?: string } | null;
     return { error: body?.error ?? "Failed to switch organisation." };
   }
 

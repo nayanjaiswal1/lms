@@ -40,7 +40,7 @@ func (h *Handler) AddBatchMentor(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		UserID string `json:"user_id"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.UserID == "" {
@@ -91,7 +91,7 @@ func (h *Handler) AssignBatchCourse(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		CourseID string `json:"course_id"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.CourseID == "" {
@@ -142,7 +142,7 @@ func (h *Handler) BulkInvite(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Emails []string `json:"emails"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if len(body.Emails) == 0 {
@@ -224,7 +224,7 @@ func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Token string `json:"token"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.Token == "" {
@@ -250,7 +250,7 @@ func (h *Handler) DeclineInvitation(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Token string `json:"token"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.Token == "" {

@@ -70,7 +70,7 @@ function LabEnvironmentTopBar({
   const canReset = resetsLeft > 0
 
   return (
-    <header className="h-14 shrink-0 flex items-center justify-between gap-3 px-4 border-b border-border bg-card">
+    <header className="h-14 shrink-0 flex-between gap-3 px-4 border-b border-border bg-card">
       <div className="flex items-center gap-2 min-w-0">
         <span className="font-semibold text-sm truncate text-foreground">{labTitle}</span>
         <Badge className="capitalize shrink-0 hidden sm:inline-flex text-xs" variant="outline">

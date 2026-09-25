@@ -460,7 +460,7 @@ export function EventPanel({
         </SheetHeader>
 
         {!isEditing && !readOnly && event.event_type === "task" && (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex-between gap-2">
             <label className="flex w-fit items-center gap-2 text-sm">
               <input
                 checked={Boolean(event.completed_at)}
@@ -487,7 +487,7 @@ export function EventPanel({
         )}
 
         {!isEditing && !readOnly && myAttendance && myAttendance.role !== "owner" && (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex-between gap-2">
             <span className="text-sm text-muted-foreground">Your RSVP</span>
             <div className="flex items-center gap-2">
               <Badge variant={RSVP_BADGE[myAttendance.rsvp_status]}>{myAttendance.rsvp_status}</Badge>
@@ -513,7 +513,7 @@ export function EventPanel({
 
         {!isEditing && (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
+          <div className="flex-between">
             <span className="text-sm font-medium">Notes</span>
             {!readOnly && (
               <Button
@@ -548,7 +548,7 @@ export function EventPanel({
             ) : (
               <ul className="flex flex-col gap-1.5">
                 {attendees.map((a) => (
-                  <li className="flex items-center justify-between gap-2 text-sm" key={a.user_id}>
+                  <li className="flex-between gap-2 text-sm" key={a.user_id}>
                     <span className="truncate">{a.name ?? a.email ?? a.user_id}</span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       {a.role === "owner" ? (
@@ -567,7 +567,7 @@ export function EventPanel({
             {pendingInvites && pendingInvites.length > 0 && (
               <ul className="flex flex-col gap-1.5">
                 {pendingInvites.map((inv) => (
-                  <li className="flex items-center justify-between gap-2 text-sm" key={inv.id}>
+                  <li className="flex-between gap-2 text-sm" key={inv.id}>
                     <span className="truncate text-muted-foreground">{inv.email}</span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <Badge variant="outline">{inv.role}</Badge>

@@ -33,7 +33,7 @@ export function PricingTierCard({ tier, limits }: PricingTierCardProps) {
         ))}
       </ul>
 
-      <div className="mt-2 flex items-center justify-between gap-2 border-t border-border pt-3">
+      <div className="mt-2 flex-between gap-2 border-t border-border pt-3">
         <Badge variant={tier.cta_disabled ? "outline" : "default"}>
           {tier.cta_disabled ? "CTA disabled" : `Links to ${tier.cta_href}`}
         </Badge>

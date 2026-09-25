@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { AUTH_COPY, loginSchema } from "@/lib/validation/auth";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
 import { resolveLegalGateRedirect } from "@/lib/server/legal";
-import { apiAction, type ActionResult, clientIpHeaders } from "@/lib/server/api";
+import { apiAction, type ActionResult, baseURL } from "@/lib/server/api";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 import type { WebAuthnRequestOptions } from "@/lib/webauthn";
 import ROUTES from "@/lib/routes";
 import { safeNextPath } from "@/lib/utils";
@@ -68,26 +69,24 @@ export async function loginAction(
 
   // BACKEND_URL is the private server-to-server URL (never sent to the browser).
   // Falls back to NEXT_PUBLIC_API_URL for simple single-host setups.
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) {
+  let apiUrl: string;
+  try {
+    apiUrl = baseURL();
+  } catch {
     console.error("[login] BACKEND_URL is not set");
     return { error: AUTH_COPY.configMissing };
   }
 
   // 2. Exchange credentials with the Go API.
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetch(`${apiUrl}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
-      body: JSON.stringify(parsed.data),
-      cache: "no-store",
-    });
+    const result = await authFetchWithCookies("/api/auth/login", parsed.data);
+    response = result.response;
+    body = result.body;
   } catch {
     return { error: AUTH_COPY.network };
   }
-
-  const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
     return { error: resolveError(response.status, body) };
@@ -138,25 +137,26 @@ export async function loginPasskeyFinishAction(
   credentialResponse: unknown,
   next?: string,
 ): Promise<PasskeyLoginResult> {
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) {
+  let apiUrl: string;
+  try {
+    apiUrl = baseURL();
+  } catch {
     console.error("[login] BACKEND_URL is not set");
     return { error: AUTH_COPY.configMissing };
   }
 
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetch(`${apiUrl}/api/auth/webauthn/login/finish`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
-      body: JSON.stringify({ handle, response: credentialResponse }),
-      cache: "no-store",
+    const result = await authFetchWithCookies("/api/auth/webauthn/login/finish", {
+      handle,
+      response: credentialResponse,
     });
+    response = result.response;
+    body = result.body;
   } catch {
     return { error: AUTH_COPY.network };
   }
-
-  const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
     return { error: resolveError(response.status, body) };
@@ -197,20 +197,21 @@ async function resolveLoginDestination(
     const orgs = getField(getField(body, "data"), "orgs");
     const orgId = asString(getField(Array.isArray(orgs) ? orgs[0] : undefined, "id"));
     if (orgId) {
-      const switchRes = await fetch(`${apiUrl}/api/orgs/switch`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Forward the new access token the login response just set.
-          // eslint-disable-next-line no-restricted-syntax -- can't use authHeaders()/apiAction here, the token being forwarded isn't in the cookie store yet (this response set it, next/headers cookies() hasn't seen it).
-          Cookie: response.headers.getSetCookie?.()
-            .filter((c) => c.startsWith("access_token="))
-            .join("; ") ?? "",
-        },
-        body: JSON.stringify({ org_id: orgId }),
-        cache: "no-store",
-      }).catch(() => null);
-      if (switchRes?.ok) await forwardSetCookies(switchRes.headers);
+      // Forward the new access token the login response just set.
+      // Can't use authHeaders()/apiAction here — the token being forwarded
+      // isn't in the cookie store yet (this response set it, next/headers
+      // cookies() hasn't seen it).
+      const accessCookie =
+        response.headers.getSetCookie?.()
+          .filter((c) => c.startsWith("access_token="))
+          .join("; ") ?? "";
+      const switchRes = await authFetchWithCookies(
+        "/api/orgs/switch",
+        { org_id: orgId },
+        // eslint-disable-next-line no-restricted-syntax -- see comment above; raw token forward required for forwardSetCookies.
+        { headers: accessCookie ? { Cookie: accessCookie } : {} },
+      ).catch(() => null);
+      void switchRes;
     }
   }
 

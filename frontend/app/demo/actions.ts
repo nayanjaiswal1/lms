@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { forwardSetCookies } from "@/lib/server/set-cookie";
 import { resolveLegalGateRedirect } from "@/lib/server/legal";
 import ROUTES from "@/lib/routes";
-import { clientIpHeaders } from "@/lib/server/api";
+import { baseURL } from "@/lib/server/api";
+import { authFetchWithCookies } from "@/lib/server/auth-fetch";
 
 function getField(source: unknown, key: string): unknown {
   return source && typeof source === "object"
@@ -25,19 +26,19 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
     redirect(`${ROUTES.DEMO}?error=1`);
   }
 
-  const apiUrl = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) {
+  let apiUrl: string;
+  try {
+    apiUrl = baseURL();
+  } catch {
     redirect(`${ROUTES.DEMO}?error=1`);
   }
 
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetch(`${apiUrl}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
-      body: JSON.stringify({ email, password }),
-      cache: "no-store",
-    });
+    const result = await authFetchWithCookies("/api/auth/login", { email, password });
+    response = result.response;
+    body = result.body;
   } catch {
     redirect(`${ROUTES.DEMO}?error=1`);
   }
@@ -45,8 +46,6 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
   if (!response.ok) {
     redirect(`${ROUTES.DEMO}?error=1`);
   }
-
-  const body: unknown = await response.json().catch(() => null);
 
   await forwardSetCookies(response.headers);
 

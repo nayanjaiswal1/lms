@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,34 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/pagination"
 	"github.com/redis/go-redis/v9"
 )
-
-// ─── cursor helpers ───────────────────────────────────────────────────────────
-
-func encodeCursor(createdAt time.Time, id string) string {
-	raw := fmt.Sprintf("%d:%s", createdAt.UnixMicro(), id)
-	return base64.RawURLEncoding.EncodeToString([]byte(raw))
-}
-
-func decodeCursor(cursor string) (time.Time, string, error) {
-	if cursor == "" {
-		return time.Time{}, "", nil
-	}
-	b, err := base64.RawURLEncoding.DecodeString(cursor)
-	if err != nil {
-		return time.Time{}, "", fmt.Errorf("jobs: decode cursor: base64: %w", err)
-	}
-	parts := strings.SplitN(string(b), ":", 2)
-	if len(parts) != 2 {
-		return time.Time{}, "", fmt.Errorf("jobs: decode cursor: invalid format")
-	}
-	var micro int64
-	if _, err := fmt.Sscanf(parts[0], "%d", &micro); err != nil {
-		return time.Time{}, "", fmt.Errorf("jobs: decode cursor: parse timestamp: %w", err)
-	}
-	return time.UnixMicro(micro), parts[1], nil
-}
 
 // ─── scan helper ─────────────────────────────────────────────────────────────
 
@@ -451,7 +425,7 @@ func List(ctx context.Context, pool *pgxpool.Pool, filter ListFilter) ([]Job, st
 		limit = 50
 	}
 
-	cursorCreatedAt, cursorID, err := decodeCursor(filter.After)
+	cursorCreatedAt, cursorID, err := pagination.DecodeCursor(filter.After, "jobs")
 	if err != nil {
 		// Treat a malformed cursor as no cursor rather than hard-failing.
 		cursorCreatedAt = time.Time{}
@@ -517,7 +491,7 @@ func List(ctx context.Context, pool *pgxpool.Pool, filter ListFilter) ([]Job, st
 	if len(jobs) > limit {
 		jobs = jobs[:limit]
 		last := jobs[limit-1]
-		nextCursor = encodeCursor(last.CreatedAt, last.ID)
+		nextCursor = pagination.EncodeCursor(last.CreatedAt, last.ID)
 	}
 
 	return jobs, nextCursor, nil

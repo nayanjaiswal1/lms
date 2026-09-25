@@ -32,7 +32,7 @@ func (h *Handler) GetModuleContent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	mc, err := h.service.GetModuleContent(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "moduleID"))
+	mc, err := h.service.GetModuleContent(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "moduleID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -46,7 +46,7 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	courseID := urlParam(r, "courseID")
+	courseID := httputil.URLParam(r, "courseID")
 	course, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -80,7 +80,7 @@ func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	courseID := urlParam(r, "courseID")
+	courseID := httputil.URLParam(r, "courseID")
 	course, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -94,7 +94,7 @@ func (h *Handler) StartCheckout(w http.ResponseWriter, r *http.Request) {
 		Provider   string `json:"provider"`
 		CouponCode string `json:"coupon_code"`
 	}
-	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+	if r.ContentLength != 0 && !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	// Checkout is a coupon oracle too — it answers "is this code real?" just
@@ -175,7 +175,7 @@ func (h *Handler) PurchaseStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	status, err := h.purchaser.PurchaseStatus(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "courseID"))
+	status, err := h.purchaser.PurchaseStatus(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "courseID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -190,7 +190,7 @@ func (h *Handler) GetReceipt(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	receipt, err := h.purchaser.GetReceipt(r.Context(), claims.OrgID, claims.UserID, urlParam(r, "purchaseID"))
+	receipt, err := h.purchaser.GetReceipt(r.Context(), claims.OrgID, claims.UserID, httputil.URLParam(r, "purchaseID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -207,7 +207,7 @@ func (h *Handler) RefundPurchase(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.purchaser.Refund(r.Context(), claims.OrgID, urlParam(r, "purchaseID")); err != nil {
+	if err := h.purchaser.Refund(r.Context(), claims.OrgID, httputil.URLParam(r, "purchaseID")); err != nil {
 		var ce refundClientError
 		if errors.As(err, &ce) && ce.IsClientError() {
 			httputil.WriteError(w, http.StatusUnprocessableEntity, err.Error())
@@ -228,7 +228,7 @@ func (h *Handler) PreviewCoupon(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	courseID := urlParam(r, "courseID")
+	courseID := httputil.URLParam(r, "courseID")
 	course, err := h.repo.GetCourse(r.Context(), claims.OrgID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -241,7 +241,7 @@ func (h *Handler) PreviewCoupon(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Code string `json:"code"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	if h.limitCouponAttempts(w, r, claims.UserID) {
@@ -286,7 +286,7 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 		Status              string `json:"status"`
 		LastPositionSeconds int    `json:"last_position_seconds"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 	validStatuses := map[string]bool{ProgressNotStarted: true, ProgressInProgress: true, ProgressCompleted: true}
@@ -294,7 +294,7 @@ func (h *Handler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
 		httputil.WriteFieldErrors(w, http.StatusUnprocessableEntity, map[string]string{"status": "Invalid status."})
 		return
 	}
-	moduleID := urlParam(r, "moduleID")
+	moduleID := httputil.URLParam(r, "moduleID")
 	m, err := h.repo.GetModule(r.Context(), claims.OrgID, moduleID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -363,7 +363,7 @@ func (h *Handler) GetMyProgress(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	courseID := urlParam(r, "courseID")
+	courseID := httputil.URLParam(r, "courseID")
 	cp, err := h.repo.GetCourseProgress(r.Context(), claims.UserID, courseID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -400,10 +400,10 @@ func (h *Handler) RecordCheckAttempt(w http.ResponseWriter, r *http.Request) {
 		Answer        json.RawMessage `json:"answer"`
 		ClientCorrect bool            `json:"client_correct"`
 	}
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
-	moduleID := urlParam(r, "moduleID")
+	moduleID := httputil.URLParam(r, "moduleID")
 	m, err := h.repo.GetModule(r.Context(), claims.OrgID, moduleID)
 	if err != nil {
 		writeDomainError(w, err)
@@ -465,7 +465,7 @@ func (h *Handler) GetMyCheckProgress(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ids, err := h.repo.GetPassedQuestionIDs(r.Context(), claims.UserID, urlParam(r, "moduleID"))
+	ids, err := h.repo.GetPassedQuestionIDs(r.Context(), claims.UserID, httputil.URLParam(r, "moduleID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return
@@ -495,7 +495,7 @@ func (h *Handler) GetAllProgress(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rows, err := h.repo.GetAllStudentProgress(r.Context(), claims.OrgID, urlParam(r, "courseID"))
+	rows, err := h.repo.GetAllStudentProgress(r.Context(), claims.OrgID, httputil.URLParam(r, "courseID"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

@@ -24,7 +24,7 @@ export function SleepQualityCard({ habits, month, metadata }: SleepQualityCardPr
   if (!habit) {
     return (
       <section className="rounded-lg border border-border p-6">
-        <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 section-label">
           Sleep Quality
         </h2>
         <div className="empty-state py-8">
@@ -42,20 +42,20 @@ export function SleepQualityCard({ habits, month, metadata }: SleepQualityCardPr
 
   return (
     <section className="rounded-lg border border-border p-6">
-      <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      <h2 className="habits-journal-headline mb-4 border-b border-border pb-2 section-label">
         Sleep Quality
       </h2>
       {hasData ? (
         <>
           <SleepQualityChartInner points={points} />
           {times && (
-            <div className="mt-4 flex items-center justify-between border-t border-border px-2 pt-4">
+            <div className="mt-4 flex-between border-t border-border px-2 pt-4">
               <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-widest text-primary">Sleep Start</span>
+                <span className="text-xs uppercase tracking-widest text-primary">Sleep Start</span>
                 <span className="text-sm">{times.sleptAt}</span>
               </div>
               <div className="flex flex-col text-right">
-                <span className="text-[10px] uppercase tracking-widest text-primary">Wake Up</span>
+                <span className="text-xs uppercase tracking-widest text-primary">Wake Up</span>
                 <span className="text-sm">{times.wokeUp}</span>
               </div>
             </div>

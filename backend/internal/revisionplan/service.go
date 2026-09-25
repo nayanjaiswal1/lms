@@ -9,11 +9,9 @@ import (
 	"github.com/mindforge/backend/internal/jobs"
 )
 
-// handlerLLM matches handlers.HandlerLLM ("llm.task") — a literal here rather
-// than importing internal/jobs/handlers, matching how internal/roadmap
-// enqueues jobs by handler name without importing the handlers package (see
-// roadmap/service.go).
-const handlerLLM = "llm.task"
+// jobs.HandlerLLM is the shared LLM-task handler name (see
+// internal/jobs/types.go); referenced via the jobs package rather than
+// internal/jobs/handlers because handlers depends on this package.
 
 var ErrCourseNotComplete = errors.New("revisionplan: course not yet completed")
 
@@ -53,7 +51,7 @@ func (s *Service) Generate(ctx context.Context, userID, courseID, orgID string) 
 		"params":    map[string]any{},
 	}
 	if _, err := jobs.Enqueue(ctx, s.pool, s.jobsRegistry, jobs.EnqueueParams{
-		Handler:   handlerLLM,
+		Handler:   jobs.HandlerLLM,
 		Priority:  jobs.PriorityNormal,
 		Payload:   payload,
 		OrgID:     &orgID,

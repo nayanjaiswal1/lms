@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mindforge/backend/internal/courses"
 	ent "github.com/mindforge/backend/internal/entitlements"
+	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/pricing"
 	"github.com/redis/go-redis/v9"
@@ -1257,7 +1258,7 @@ const waitForReadinessDeadline = time.Duration(ProvisionTimeoutSeconds+Provision
 func (s *Service) WaitForReadiness(ctx context.Context, w http.ResponseWriter, sessionID string) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		httputil.WriteError(w, http.StatusInternalServerError, "Streaming unsupported.")
 		return
 	}
 

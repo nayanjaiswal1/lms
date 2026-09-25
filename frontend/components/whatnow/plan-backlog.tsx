@@ -93,7 +93,7 @@ export function PlanBacklog({ tasks, inbox, onReorder, onPlanInboxTask, onUnsche
           <ul className="flex flex-col gap-2">
             {inbox.map((task) => (
               <li
-                className="flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm"
+                className="flex-between gap-2 rounded-md border border-border p-2 text-sm"
                 key={task.id}
               >
                 <span className="truncate text-foreground">{task.title}</span>

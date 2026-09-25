@@ -30,7 +30,7 @@ function formatDate(iso: string): string {
 function MistakeCard({ entry }: { entry: MistakeEntry }) {
   return (
     <article className="card-base flex flex-col gap-3 p-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline">{CATEGORY_LABEL[entry.category] ?? entry.category}</Badge>
           <Badge className={STATUS_BADGE_CLASS[entry.status]} variant="outline">
@@ -77,7 +77,7 @@ export function MistakeTimeline({ entries }: MistakeTimelineProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex-between gap-4 flex-wrap">
         <p className="text-sm text-muted-foreground">
           {filtered.length} mistake{filtered.length !== 1 ? "s" : ""}
         </p>

@@ -1,7 +1,6 @@
 package roadmap
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -38,14 +37,6 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, domainErrors, "Something went wrong.")
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
-		return false
-	}
-	return true
-}
-
 func (h *Handler) CreateRoadmap(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {
@@ -63,7 +54,7 @@ func (h *Handler) CreateRoadmap(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateRequest
-	if !decodeJSON(w, r, &req) {
+	if !httputil.DecodeJSON(w, r, &req) {
 		return
 	}
 
@@ -175,7 +166,7 @@ func (h *Handler) UpdateRoadmap(w http.ResponseWriter, r *http.Request) {
 		Status   *string `json:"status"`
 		IsPublic *bool   `json:"is_public"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 
@@ -216,7 +207,7 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 		Title       *string `json:"title"`
 		Description *string `json:"description"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 	if body.Title != nil && strings.TrimSpace(*body.Title) == "" {
@@ -261,7 +252,7 @@ func (h *Handler) UpdateModuleProgress(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Completed bool `json:"completed"`
 	}
-	if !decodeJSON(w, r, &body) {
+	if !httputil.DecodeJSON(w, r, &body) {
 		return
 	}
 

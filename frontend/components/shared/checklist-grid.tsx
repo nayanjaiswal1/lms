@@ -147,7 +147,7 @@ export function ChecklistGrid({ options, selected, onChange, disabled }: Checkli
               {group}
             </h2>
             <div className="card-base p-0 rounded-sm">
-              <div className="flex items-center justify-between gap-4 p-6 pb-4">
+              <div className="flex-between gap-4 p-6 pb-4">
                 <span className="text-sm text-muted-foreground">
                   {selectedCount}/{ids.length} selected
                 </span>

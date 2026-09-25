@@ -26,9 +26,9 @@ export function AdminView() {
 
   return (
     // eslint-disable-next-line no-restricted-syntax -- nested content column inside demo-shell, no .app-content ancestor to supply vertical padding
-    <div className="page-container py-8">
+    <div className="page-container">
       {/* Section 1 — Header */}
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-6 flex-between">
         <h2>{name} · Team Overview</h2>
         <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
           {totalMembers} members

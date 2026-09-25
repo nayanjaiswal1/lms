@@ -58,7 +58,7 @@ export function HabitGrid({ habits, month, counts, metadata, onDelete, onToggle,
                       key={`day-${day}`}
                     >
                       {isToday && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] font-bold tracking-wide">TODAY</span>
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold tracking-wide">TODAY</span>
                       )}
                       {day}
                     </th>

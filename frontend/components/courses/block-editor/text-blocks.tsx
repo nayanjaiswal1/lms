@@ -13,7 +13,7 @@ interface ParagraphProps { block: ParagraphBlock; onChange: (b: ParagraphBlock) 
 export function ParagraphBlockEditor({ block, onChange }: ParagraphProps) {
   return (
     <Textarea
-      className="min-h-[80px] resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
+      className="min-h-[80px] resize-none border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-muted-foreground/50"
       placeholder="Write something…"
       value={block.text}
       onChange={(e) => onChange({ ...block, text: e.target.value })}
@@ -42,7 +42,7 @@ export function HeadingBlockEditor({ block, onChange }: HeadingProps) {
       </Select>
       <Input
         className={cn(
-          "border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 font-semibold",
+          "border-0 bg-transparent p-0 shadow-none font-semibold",
           block.level === "h2" ? "text-xl" : "text-lg",
         )}
         placeholder="Heading text…"
@@ -63,10 +63,10 @@ export function DividerBlockEditor(_: { block: DividerBlock }) {
 // ─── Callout ─────────────────────────────────────────────────────────────────
 
 const CALLOUT_STYLES: Record<CalloutVariant, string> = {
-  info:    "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  warning: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  tip:     "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300",
-  danger:  "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
+  info: "callout callout-info",
+  warning: "callout callout-warning",
+  tip: "callout callout-tip",
+  danger: "callout callout-danger",
 };
 
 const CALLOUT_LABELS: Record<CalloutVariant, string> = {
@@ -77,12 +77,13 @@ interface CalloutProps { block: CalloutBlock; onChange: (b: CalloutBlock) => voi
 
 export function CalloutBlockEditor({ block, onChange }: CalloutProps) {
   return (
-    <div className={cn("rounded-md border p-3 flex flex-col gap-2", CALLOUT_STYLES[block.variant])}>
+    <div className={cn("prose-content", CALLOUT_STYLES[block.variant])}>
+      <div className="flex flex-col gap-2">
       <Select
         value={block.variant}
         onValueChange={(v) => onChange({ ...block, variant: v as CalloutVariant })}
       >
-        <SelectTrigger aria-label="Callout type" className="h-7 w-36 border-0 bg-transparent p-0 text-xs font-semibold shadow-none focus-visible:ring-0">
+        <SelectTrigger aria-label="Callout type" className="h-7 w-36 border-0 bg-transparent p-0 text-xs font-semibold shadow-none">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -92,11 +93,12 @@ export function CalloutBlockEditor({ block, onChange }: CalloutProps) {
         </SelectContent>
       </Select>
       <Textarea
-        className="min-h-[60px] resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 placeholder:opacity-60"
+        className="min-h-[60px] resize-none border-0 bg-transparent p-0 text-sm shadow-none placeholder:opacity-60"
         placeholder="Callout message…"
         value={block.text}
         onChange={(e) => onChange({ ...block, text: e.target.value })}
       />
+      </div>
     </div>
   );
 }

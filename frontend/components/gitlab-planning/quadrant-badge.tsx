@@ -15,7 +15,7 @@ interface QuadrantBadgeProps {
 export function QuadrantBadge({ quadrant }: QuadrantBadgeProps) {
   const { label, icon: Icon, tone } = QUADRANT[quadrant];
   return (
-    <span className="m-label-sm inline-flex items-center gap-1 rounded-full bg-(--mc-bg) px-2 py-0.5 text-[11px] font-semibold text-(--mc-fg)" data-mtone={tone}>
+    <span className="m-label-sm inline-flex items-center gap-1 rounded-full bg-(--mc-bg) px-2 py-0.5 text-xs font-semibold text-(--mc-fg)" data-mtone={tone}>
       <Icon aria-hidden className="size-3" />
       <span>{label}</span>
     </span>

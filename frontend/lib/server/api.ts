@@ -110,6 +110,28 @@ export function actionErrorMessage(json: { error?: string; fields?: Record<strin
   return firstFieldMessage ?? json.error ?? fallback;
 }
 
+// ── Unauthenticated reads — no cookies forwarded ───────────────────────────
+// For anonymous surfaces (marketplace catalog, public certificates, pricing,
+// payments config, public profiles). Same throw-on-error contract as apiGet so
+// callers that must never crash can wrap in try/catch and fall back to []/null.
+// Responses ride the Data Cache via `next.revalidate` instead of no-store.
+export async function apiGetPublic<T>(path: string, opts?: { revalidate?: number }): Promise<T> {
+  const revalidate = opts?.revalidate ?? 60;
+  const res = await fetch(`${baseURL()}${path}`, {
+    next: { revalidate },
+  });
+  if (res.status === 429) {
+    const wait = retryAfterSeconds(res);
+    throw new Error(`Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} and refresh.`);
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `GET ${path} failed: ${res.status}`);
+  }
+  const body = await res.json() as { data: T };
+  return body.data;
+}
+
 // ── Server actions — return ActionResult, never throw ────────────────────────
 
 // For multipart file uploads. Omits Content-Type so the browser sets the
@@ -118,8 +140,12 @@ export async function apiUpload<T = undefined>(
   path: string,
   formData: FormData,
 ): Promise<ActionResult<T>> {
-  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!url) return { error: "Service unavailable." };
+  let url: string;
+  try {
+    url = baseURL();
+  } catch {
+    return { error: "Service unavailable." };
+  }
   try {
     // Omit Content-Type from authHeaders() so the browser sets the correct
     // multipart boundary automatically.
@@ -148,8 +174,12 @@ export async function apiAction<T = undefined>(
   payload?: unknown,
   extraHeaders?: Record<string, string>,
 ): Promise<ActionResult<T>> {
-  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!url) return { error: "Service unavailable." };
+  let url: string;
+  try {
+    url = baseURL();
+  } catch {
+    return { error: "Service unavailable." };
+  }
   try {
     const res = await fetch(`${url}${path}`, {
       method,

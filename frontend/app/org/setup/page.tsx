@@ -21,7 +21,7 @@ interface SetupProgressProps {
 function SetupProgress({ currentStep }: SetupProgressProps) {
   return (
     <nav aria-label="Setup progress" className="w-full">
-      <ol className="flex items-center justify-between gap-1 sm:gap-2">
+      <ol className="flex-between gap-1 sm:gap-2">
         {STEPS.map((label, index) => {
           const step = index + 1;
           const isCompleted = step < currentStep;

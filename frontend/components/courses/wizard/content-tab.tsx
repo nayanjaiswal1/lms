@@ -35,14 +35,14 @@ export function ContentTab({
     <div className="flex gap-6 min-h-[500px]">
       {/* Left: module list */}
       <aside className="w-56 shrink-0 flex flex-col gap-3">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Lessons</p>
+        <p className="section-label">Lessons</p>
         {totalModules === 0 ? (
           <p className="text-xs text-muted-foreground">Add lessons in the Structure tab first.</p>
         ) : (
           sections.map((section) =>
             section.modules.length === 0 ? null : (
               <div className="flex flex-col gap-0.5" key={section.localId}>
-                <p className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
+                <p className="px-2 section-label truncate">
                   {section.title || "Untitled section"}
                 </p>
                 {section.modules.map((mod) => (
@@ -86,7 +86,7 @@ export function ContentTab({
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex-between border-b border-border pb-3">
               <div>
                 <p className="font-medium">{activeModule.title || "Untitled lesson"}</p>
                 <p className="text-xs text-muted-foreground capitalize">

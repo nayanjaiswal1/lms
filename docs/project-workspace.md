@@ -1,5 +1,7 @@
 # Project Workspace (Design Draft — not yet built)
 
+> **Implementation plans:** [project-workspace-plan/](project-workspace-plan/00-decisions.md). Where this doc and `00-decisions.md` differ, `00-decisions.md` wins (table name, routes, key prefix, schema additions, visibility, invite linking).
+
 A corporate-style project lifecycle for learners: someone posts a **vague requirement** (rough idea, like a real client) →
 shares a link → people express interest → owner accepts → team onboards, clarifies the requirement with the owner, splits into tracks
 (AI / backend / UI …) → plans work as Epic → Feature → Task/Bug → every feature goes
@@ -15,10 +17,10 @@ Builds on [project-marketplace.md](project-marketplace.md) (Phase A shipped:
 
 | Need | Existing piece |
 |---|---|
-| Project listing + applications + AI shortlist | `project_requirements`, `project_applications`, `projectmarket/service_score.go` |
+| Scoring pattern for AI ranking (interests) | `projectmarket/service_score.go` (pattern only — workspaces use their own `workspace_projects` table and `project_interests` intake, marketplace untouched) |
 | Invite a person who has no account | `orgs/invite.go` (token invite → `Join`) |
 | GitLab repo/team provisioning, MR/CI webhooks, commit mirroring, AI MR review | `gitlab/service_provision.go`, `service_webhook.go`, `service_ai_review.go` |
-| Flat tasks on a team | `project_tasks` (`gitlab/repo_task.go`) — migrates into `work_items` as `type='task'` |
+| Classroom team tasks | `project_tasks` stays as-is for batches — **not** migrated; workspace `work_items` start empty |
 | Design proposals + voting | `gitlab/handler_design.go` |
 | Feature docs with versions + comments | Wiki pages (`wiki_page_versions`, comments) — one wiki space per project |
 | Duplicate detection | `pg_trgm similarity()` convention from `wiki/repo.go` |
@@ -36,11 +38,11 @@ Builds on [project-marketplace.md](project-marketplace.md) (Phase A shipped:
 
 | Question | Proposal |
 |---|---|
-| Who can create a project | Org members with RBAC permission `project.create` (granted to owners/mentors by default; org admin can grant to students) |
+| Who can create a project | Org members with RBAC permission `projects.create` (granted to owners/mentors by default; org admin can grant to students) |
 | Vague requirement | Owner posts a rough idea in plain words. It is **not** cleaned up before publishing — clarifying it is part of the team's work (Flow B2). The owner plays the client |
 | Interest form | Anonymous, never creates a user. Rate-limited, honeypot. One row per `(project, email)` |
 | Acceptance | Human decides; AI only ranks |
-| Ticket source of truth | MindForge. GitLab holds code / MRs / CI only — **no two-way issue sync**. Linking by ticket key (`MF-123`) |
+| Ticket source of truth | MindForge. GitLab holds code / MRs / CI only — **no two-way issue sync**. Linking by ticket key (`{PREFIX}-123` (per-project prefix, e.g. `PAY-123`)) |
 | Multi-role on one ticket | One ticket, many assignees, each with role `owner` / `developer` / `reviewer` / `tester` |
 | Coding gate | A feature's tasks can't enter `in_progress` until the feature doc is `approved` |
 | Separation of duties | You can't approve your own doc, review your own MR, or test your own code |
@@ -102,7 +104,7 @@ Restrictions:
 ## 5. Flow A — Recruiting (share link → interest → accept)
 
 ```
-Owner publishes ─► /p/{share_token}  (public page: raw requirement, skills, deadline, seats left)
+Owner publishes ─► /join/{share_token}  (public page: raw requirement, skills, deadline, seats left)
                          │
                          ▼
               Interest form: name, email, skills, portfolio, message
@@ -119,7 +121,7 @@ Owner publishes ─► /p/{share_token}  (public page: raw requirement, skills, 
                                     │
                      email matches existing user?
                         ├─ yes, already org member ─► add to project_members directly
-                        ├─ yes, not in org ─► org invite (role=student) scoped to project
+                        ├─ yes, not in org ─► org invite (role=learner) scoped to project
                         └─ no ─► org invite email; on Join, auto-added to project
 ```
 
@@ -216,7 +218,7 @@ Rules (enforced in service, one place):
 - Parent type must be valid: epic→feature→task|bug→subtask. No deeper nesting.
 - Parent must be in the same project. Moving an item re-validates type rules and cycle-free.
 - Feature must have a `track` set before its tasks can be assigned.
-- Key `MF-{n}` from a per-project counter row updated under lock — never `MAX(n)+1`.
+- Key `{PREFIX}-{n}` from a per-project counter row updated under lock — never `MAX(n)+1`.
 - Edits use optimistic locking (`version` column). Stale edit → 409 with the current row.
 - Epic/feature status is a roll-up of children; never set by hand.
 
@@ -337,7 +339,7 @@ design review, retro, demo.
 
 ## 12. Flow H — GitLab integration
 
-- Branch / MR title / commit message contains `MF-123` → existing webhook handler links it into
+- Branch / MR title / commit message contains `{PREFIX}-123` (per-project prefix, e.g. `PAY-123`) → existing webhook handler links it into
   `work_item_gitlab`, updates status per §9.
 - Webhook events deduped by GitLab event id (replays are safe).
 - Key from another project, or author not a project member → ignored + logged, not linked.
@@ -500,8 +502,8 @@ changed colour.
 
 ### 16.10 Exports & API
 
-- `GET /api/projects/{id}/dashboard?from=&to=&track=&user=&release=` — all tiles in one call.
-- `GET /api/projects/{id}/metrics/{metric}` — drill-down series.
+- `GET /api/workspaces/{id}/dashboard?from=&to=&track=&user=&release=` — all tiles in one call.
+- `GET /api/workspaces/{id}/metrics/{metric}` — drill-down series.
 - CSV export of items, time logs, and member report (owner/manager only).
 
 ---
@@ -509,7 +511,8 @@ changed colour.
 ## 17. DB schema (new / changed)
 
 ```
-project_requirements (existing) + share_token text unique, share_token_rotated_at,
+workspace_projects    id, org_id, title, requirement text, skills text[], team_size_min (≥2), team_size_max (≤50),
+                      deadline, key_prefix, created_by, share_token text unique, share_token_rotated_at,
                       accepting_interests bool, raw_requirement text, brief_wiki_page_id,
                       brief_status (raw|clarifying|agreed), project_status (draft|recruiting|active|paused|
                       completed|cancelled|archived), wiki_space_id, team_id, gitlab_enabled bool default true, sprints_enabled bool default false,
@@ -555,7 +558,7 @@ work_item_reviews     item_id, reviewer_id, target (doc|code), verdict, comment,
 work_item_time_logs   id, item_id, user_id, minutes (1–720), note, logged_on, created_at
                       -- sum per user per day ≤ 1440, editable 7 days
 work_item_gitlab      item_id, kind (branch|mr|commit), gitlab_ref, state, pipeline_status,
-                      gitlab_event_id UNIQUE
+                      UNIQUE (item_id, kind, gitlab_ref)
 
 project_meetings      calendar_event_id, project_id, kind, notes_wiki_page_id?
 meeting_attendance    calendar_event_id, user_id, status (attended|missed)
@@ -565,8 +568,6 @@ peer_feedback         project_id, from_user, to_user, rating 1–5, comment
                       UNIQUE (project_id, from_user, to_user), from ≠ to
 ```
 
-`project_tasks` rows migrate into `work_items` (`type='task'`, keys assigned in created order),
-then the table is dropped in the same migration batch.
 
 All list endpoints are cursor-paginated (unpaginated-list rule in `ai-pattern-learnings.md`).
 
@@ -575,33 +576,33 @@ All list endpoints are cursor-paginated (unpaginated-list rule in `ai-pattern-le
 ## 18. API (sketch)
 
 ```
-POST   /api/projects                         create (requirement + wiki space)
-PATCH  /api/projects/{id}/status             lifecycle transitions (§4)
-POST   /api/projects/{id}/share-token        rotate link
-POST   /api/projects/{id}/transfer-owner
-GET    /api/p/{share_token}                  public listing (no auth, rate-limited)
-POST   /api/p/{share_token}/interest         public form (rate-limited + honeypot)
-GET    /api/projects/{id}/interests          owner/manager, paginated
-PATCH  /api/projects/{id}/interests/{iid}    accept → add member or invite / reject
-CRUD   /api/projects/{id}/members            add existing user, change role, remove
-CRUD   /api/projects/{id}/tracks | onboarding | releases | sprints
-CRUD   /api/projects/{id}/items              ?parent=&type=&track=&assignee=&status=&sprint=
-GET    /api/projects/{id}/items/similar?q=   duplicate check
-POST   /api/items/{id}/transition            status change (validated per §9)
-PUT    /api/items/{id}/assignees
-POST   /api/items/{id}/links
-POST   /api/items/{id}/doc/submit | reviews
-POST   /api/items/{id}/time-logs
-GET    /api/items/{id}/events                audit trail
-POST   /api/items/{id}/ai/breakdown          suggest child tasks (cached per doc version)
-GET    /api/projects/{id}/requirement        raw + versions + brief status
-PUT    /api/projects/{id}/requirement        new requirement version (owner)
-CRUD   /api/projects/{id}/questions          ask / answer / mark assumption
-POST   /api/projects/{id}/brief/submit | approve
-POST   /api/projects/{id}/standups
-POST   /api/projects/{id}/feedback
-GET    /api/projects/{id}/dashboard
-GET    /api/projects/{id}/members/{uid}/report
+POST   /api/workspaces                         create (requirement + wiki space)
+PATCH  /api/workspaces/{id}/status             lifecycle transitions (§4)
+POST   /api/workspaces/{id}/share-token        rotate link
+POST   /api/workspaces/{id}/transfer-owner
+GET    /api/public/workspaces/{share_token}                  public listing (no auth, rate-limited)
+POST   /api/public/workspaces/{share_token}/interest         public form (rate-limited + honeypot)
+GET    /api/workspaces/{id}/interests          owner/manager, paginated
+PATCH  /api/workspaces/{id}/interests/{iid}    accept → add member or invite / reject
+CRUD   /api/workspaces/{id}/members            add existing user, change role, remove
+CRUD   /api/workspaces/{id}/tracks | onboarding | releases | sprints
+CRUD   /api/workspaces/{id}/items              ?parent=&type=&track=&assignee=&status=&sprint=
+GET    /api/workspaces/{id}/items/similar?q=   duplicate check
+POST   /api/workspaces/{id}/items/{itemID}/transition            status change (validated per §9)
+PUT    /api/workspaces/{id}/items/{itemID}/assignees
+POST   /api/workspaces/{id}/items/{itemID}/links
+POST   /api/workspaces/{id}/items/{itemID}/doc/submit | reviews
+POST   /api/workspaces/{id}/items/{itemID}/time-logs
+GET    /api/workspaces/{id}/items/{itemID}/events                audit trail
+POST   /api/workspaces/{id}/items/{itemID}/ai/breakdown          suggest child tasks (cached per doc version)
+GET    /api/workspaces/{id}/requirement        raw + versions + brief status
+PUT    /api/workspaces/{id}/requirement        new requirement version (owner)
+CRUD   /api/workspaces/{id}/questions          ask / answer / mark assumption
+POST   /api/workspaces/{id}/brief/submit | approve
+POST   /api/workspaces/{id}/standups
+POST   /api/workspaces/{id}/feedback
+GET    /api/workspaces/{id}/dashboard
+GET    /api/workspaces/{id}/members/{uid}/report
 ```
 
 ---
@@ -611,7 +612,7 @@ GET    /api/projects/{id}/members/{uid}/report
 | Phase | Scope |
 |---|---|
 | 1 | Project lifecycle + raw requirement, roles & `RequireProjectRole`, share link, interest form, accept → add/invite, members, tracks, onboarding checklist |
-| 2 | `work_items` hierarchy + keys + optimistic lock, assignees + role rules, links + cycle check, events audit, dedup, board/list UI (replaces planning fixtures), `project_tasks` migration |
+| 2 | `work_items` hierarchy + keys + optimistic lock, assignees + role rules, links + cycle check, events audit, dedup, board/list UI (replaces planning fixtures) |
 | 3 | Requirement clarification (Flow B2), feature doc gate (wiki template, submit/review/approve), change requests, bug triage, meetings + notes + standups |
 | 4 | GitLab key linking + status automation + MR reviewer sync, time logs, member leave flow, manager dashboard (delivery + quality + team + track metrics, health badge, alerts) |
 | 5 | Releases/sprints + release metrics + forecast, completion (peer feedback, member report, certificate), AI breakdown / assignee suggestion / weekly summary, CSV exports |
@@ -624,7 +625,7 @@ Phase 2 migration and the permission matrix get an Opus review before build (dat
 
 | # | Question | Decision | Reason |
 |---|---|---|---|
-| 1 | Who creates projects | **Owners/mentors by default** via `project.create`; org admin can grant it to any student | Keeps spam and junk listings out; students still get it when trusted |
+| 1 | Who creates projects | **Owners/mentors by default** via `projects.create`; org admin can grant it to any student | Keeps spam and junk listings out; students still get it when trusted |
 | 2 | GitLab repo | **Owner toggle, default on.** Off = no auto-status from MRs; items move by hand | Some projects (design, research, AI prompt work) have no repo; default on because code is the main use case |
 | 3 | Sprints | **Optional per project, default off.** Kanban board works without them | Small teams don't need ceremony; turning on sprints enables sprint metrics (§16.2) |
 | 4 | Peer feedback visibility | **Owner sees individual ratings; the rated member sees only their average + comments once ≥3 ratings exist, never who gave what** | Honest feedback needs anonymity; ≥3 prevents guessing the rater |

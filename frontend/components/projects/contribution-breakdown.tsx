@@ -45,7 +45,7 @@ export function ContributionBreakdown({ contributions }: ContributionBreakdownPr
                 {c.commit_count} commit{c.commit_count === 1 ? "" : "s"}
               </span>
               {c.is_free_rider && (
-                <Badge className="badge-muted h-5 px-1.5 text-[10px]" variant="outline">
+                <Badge className="badge-muted h-5 px-1.5 text-xs" variant="outline">
                   No commits
                 </Badge>
               )}

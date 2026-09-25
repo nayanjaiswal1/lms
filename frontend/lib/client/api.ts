@@ -27,8 +27,11 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
       },
     })
     if (!res.ok) return null
-    const body = (await res.json()) as { data: T }
-    return body.data
+    if (res.status === 204) return undefined as unknown as T
+    const text = await res.text()
+    if (!text) return undefined as unknown as T
+    const body = JSON.parse(text) as { data: T }
+    return body.data ?? (undefined as unknown as T)
   } catch {
     return null
   }

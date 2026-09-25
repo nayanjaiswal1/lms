@@ -85,7 +85,7 @@ export default async function FaqPage({ searchParams }: FaqPageProps) {
             const groupDone = groupItems.filter((i) => i.status === "done").length;
             return (
               <section key={groupTag}>
-                <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="mb-2 flex-between gap-3">
                   <h2 className="section-title text-lg capitalize">{groupTag}</h2>
                 </div>
                 <ProgressBar done={groupDone} total={groupItems.length} />

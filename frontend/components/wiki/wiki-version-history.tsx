@@ -55,7 +55,7 @@ export function WikiVersionHistory({ pageId, canRestore }: WikiVersionHistoryPro
           {versions === null && <p className="text-sm text-muted-foreground">Loading…</p>}
           {versions?.length === 0 && <p className="text-sm text-muted-foreground">No earlier versions yet.</p>}
           {versions?.map((v) => (
-            <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm" key={v.version}>
+            <div className="flex-between gap-2 rounded-md border border-border px-3 py-2 text-sm" key={v.version}>
               <div className="min-w-0">
                 <p className="truncate font-medium">Version {v.version} — {v.title}</p>
                 <p className="text-xs text-muted-foreground">{new Date(v.saved_at).toLocaleString()}</p>

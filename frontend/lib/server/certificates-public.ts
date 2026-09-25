@@ -1,6 +1,8 @@
 import { cache } from "react";
 import "server-only";
 
+import { apiGetPublic } from "@/lib/server/api";
+
 export interface PublicCertificate {
   id: string;
   user_id: string;
@@ -12,18 +14,6 @@ export interface PublicCertificate {
   learner_name: string;
 }
 
-function publicBase(): string {
-  const url = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
-  if (!url) throw new Error("BACKEND_URL is not configured");
-  return url;
-}
-
 export const getPublicCertificate = cache(async (certUuid: string): Promise<PublicCertificate> => {
-  const res = await fetch(`${publicBase()}/api/certificates/${certUuid}`, { cache: "no-store" });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? "Certificate not found.");
-  }
-  const body = await res.json() as { data: PublicCertificate };
-  return body.data;
+  return apiGetPublic<PublicCertificate>(`/api/certificates/${certUuid}`, { revalidate: 60 });
 });
