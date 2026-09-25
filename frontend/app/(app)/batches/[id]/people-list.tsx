@@ -60,7 +60,7 @@ export function PeopleList({ batchId, people, actions }: Props) {
         <div className="table-responsive">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                 <th className="pb-2 font-medium">Name</th>
                 <th className="pb-2 font-medium">Email</th>
                 <th className="pb-2 font-medium">Role</th>
@@ -70,7 +70,7 @@ export function PeopleList({ batchId, people, actions }: Props) {
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.map((p) => (
-                <tr key={`${p.role}-${p.user_id}`}>
+                <tr className="whitespace-nowrap" key={`${p.role}-${p.user_id}`}>
                   <td className="py-2.5 pr-4 font-medium">
                     <UserLink className="hover:underline" userId={p.user_id}>
                       {p.name}

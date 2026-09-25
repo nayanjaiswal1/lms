@@ -86,7 +86,7 @@ export function BatchProgressTable({ progress, t }: BatchProgressTableProps) {
         <div className="table-responsive">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                 <th className="pb-2 font-medium">{t.student}</th>
                 <th className="pb-2 pr-4 font-medium">Status</th>
                 <th className="pb-2 pr-4 font-medium">Courses</th>
@@ -100,7 +100,7 @@ export function BatchProgressTable({ progress, t }: BatchProgressTableProps) {
               {filtered.map((s) => {
                 const badge = STATUS_BADGE[s.status];
                 return (
-                  <tr key={s.user_id}>
+                  <tr className="whitespace-nowrap" key={s.user_id}>
                     <td className="py-2.5 pr-4">
                       <div className="flex flex-col">
                         <UserLink className="font-medium hover:underline" userId={s.user_id}>

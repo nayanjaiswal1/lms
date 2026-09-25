@@ -90,7 +90,7 @@ function TemplateFormDialog({ template, onOpenChange }: TemplateFormDialogProps)
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>{template.name}</DialogTitle>
         </DialogHeader>
@@ -165,7 +165,7 @@ function TemplateSaveDialog({ open, onOpenChange }: TemplateSaveDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>Save template</DialogTitle>
         </DialogHeader>

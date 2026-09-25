@@ -59,7 +59,7 @@ export function ImportProgressPanel({ batchId, jobId, initialStatus, onRunAnothe
             <div className="table-responsive max-h-56 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                     <th className="pb-2 pr-3 font-medium">Name</th>
                     <th className="pb-2 pr-3 font-medium">Email</th>
                     <th className="pb-2 font-medium">Error</th>
@@ -67,7 +67,7 @@ export function ImportProgressPanel({ batchId, jobId, initialStatus, onRunAnothe
                 </thead>
                 <tbody className="divide-y divide-border">
                   {status.report.failed_rows.map((row) => (
-                    <tr key={row.email}>
+                    <tr className="whitespace-nowrap" key={row.email}>
                       <td className="py-2 pr-3">{row.full_name}</td>
                       <td className="py-2 pr-3 text-muted-foreground">{row.email}</td>
                       <td className="py-2 text-destructive">{row.error_message}</td>

@@ -134,7 +134,7 @@ function EditBatchForm({ batch, orgMembers, onClose }: EditBatchFormProps) {
           )}
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <FormField
             control={form.control}
             name="starts_at"
@@ -189,7 +189,7 @@ export function EditBatchPanel({ batch, orgMembers, triggerSize = "sm", triggerV
           {triggerSize !== "icon" && "Edit batch"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="modal-responsive max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit batch</DialogTitle>
         </DialogHeader>

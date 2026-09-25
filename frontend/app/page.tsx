@@ -30,7 +30,16 @@ export default async function RootPage() {
     redirect(ROUTES.DASHBOARD);
   }
 
-  const [{ total }, tiers] = await Promise.all([getPublicCourses(1), getPublicPricingTiers("individual")]);
+  // Degrade, don't crash: the public landing must stay up when the API is
+  // down, slow, or miswired — LandingPage already handles total=0 ("New
+  // courses shipping weekly") and an empty tiers array (pricing section
+  // renders with no cards).
+  const [total, tiers] = await Promise.all([
+    getPublicCourses(1)
+      .then(({ total }) => total)
+      .catch(() => 0),
+    getPublicPricingTiers("individual").catch(() => []),
+  ]);
 
   return <LandingPage tiers={tiers} total={total} />;
 }

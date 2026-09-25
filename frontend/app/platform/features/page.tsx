@@ -51,7 +51,7 @@ export default async function PlatformFeaturesPage({
           <div className="table-responsive">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
+                <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
                   <th className="pb-2 pr-6 font-medium">Organisation</th>
                   <th className="pb-2 pr-4 font-medium">Slug</th>
                   <th className="pb-2 font-medium">Status</th>

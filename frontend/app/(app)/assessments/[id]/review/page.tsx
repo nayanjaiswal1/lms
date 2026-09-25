@@ -54,7 +54,7 @@ export default async function ReviewQueuePage({ params }: PageProps) {
         <div className="table-responsive mt-6">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                 <th className="pb-3 pr-4 font-medium">Student</th>
                 <th className="pb-3 pr-4 font-medium">Assessment</th>
                 <th className="pb-3 pr-4 font-medium">Composite</th>
@@ -83,7 +83,7 @@ function ReviewRow({ item }: { item: ReviewQueueItem }) {
   });
 
   return (
-    <tr>
+    <tr className="whitespace-nowrap">
       <td className="py-3 pr-4">
         <span className="font-medium">{item.user_name}</span>
       </td>

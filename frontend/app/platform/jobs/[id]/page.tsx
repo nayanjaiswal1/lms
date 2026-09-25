@@ -185,7 +185,7 @@ function RunsTable({ runs }: { runs: JobRun[] }) {
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
             <th className="pb-2 pr-4 font-medium">#</th>
             <th className="pb-2 pr-4 font-medium">Status</th>
             <th className="pb-2 pr-4 font-medium">Worker</th>
@@ -197,7 +197,7 @@ function RunsTable({ runs }: { runs: JobRun[] }) {
         </thead>
         <tbody>
           {runs.map((run) => (
-            <tr key={run.id} className="border-b border-border last:border-0">
+            <tr key={run.id} className="whitespace-nowrap border-b border-border last:border-0">
               <td className="py-3 pr-4 text-muted-foreground">{run.attempt}</td>
               <td className="py-3 pr-4">
                 <Badge

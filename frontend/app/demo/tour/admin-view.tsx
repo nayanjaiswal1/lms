@@ -88,7 +88,7 @@ export function AdminView() {
         <div className="table-responsive">
           <table>
             <thead>
-              <tr>
+              <tr className="whitespace-nowrap">
                 <th>Name</th>
                 <th>Role</th>
                 <th>Course</th>
@@ -98,7 +98,7 @@ export function AdminView() {
             </thead>
             <tbody>
               {DEMO_TEAM.map((member) => (
-                <tr key={member.name}>
+                <tr className="whitespace-nowrap" key={member.name}>
                   <td>
                     <span className="font-medium text-foreground">{member.name}</span>
                     {member.isYou && (

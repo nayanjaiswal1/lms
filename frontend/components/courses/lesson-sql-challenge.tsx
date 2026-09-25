@@ -144,7 +144,7 @@ export function LessonSqlChallenge({ moduleId, prompt, starter, solution }: Less
           <div className="table-responsive max-h-64 border-t border-border px-3 py-2">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
+                <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
                   {outcome.columns.map((col) => (
                     <th className="px-2 py-1 font-medium" key={col}>
                       {col}
@@ -154,7 +154,7 @@ export function LessonSqlChallenge({ moduleId, prompt, starter, solution }: Less
               </thead>
               <tbody>
                 {outcome.values.map((row, rowIndex) => (
-                  <tr className="border-b border-border/50" key={rowIndex}>
+                  <tr className="whitespace-nowrap border-b border-border/50" key={rowIndex}>
                     {row.map((cell, cellIndex) => (
                       <td className="px-2 py-1 font-mono text-foreground" key={cellIndex}>
                         {formatCell(cell)}

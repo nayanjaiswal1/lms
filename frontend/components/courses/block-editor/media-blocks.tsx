@@ -88,7 +88,7 @@ export function ImageBlockEditor({ block, onChange, onFile }: ImageProps) {
         // eslint-disable-next-line @next/next/no-img-element
         <img alt={block.alt || "preview"} className="max-h-60 w-full rounded-md object-contain bg-muted" src={displayUrl} />
       )}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label>Alt text</Label>
           <Input placeholder="Describe the image" value={block.alt} onChange={(e) => onChange({ ...block, alt: e.target.value })} />

@@ -76,7 +76,7 @@ export default async function CourseAnalyticsPage({ params }: Props) {
         <div className="table-responsive">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                 <th className="pb-2 font-medium">Student</th>
                 <th className="pb-2 font-medium">Progress</th>
                 <th className="pb-2 font-medium">Last active</th>
@@ -86,7 +86,7 @@ export default async function CourseAnalyticsPage({ params }: Props) {
               {rows.map((row) => {
                 const pct = row.total_modules > 0 ? Math.round((row.completed_modules / row.total_modules) * 100) : 0;
                 return (
-                  <tr key={row.user_id}>
+                  <tr className="whitespace-nowrap" key={row.user_id}>
                     <td className="py-3 pr-4">
                       <div className="flex flex-col">
                         <UserLink className="font-medium hover:underline" userId={row.user_id}>

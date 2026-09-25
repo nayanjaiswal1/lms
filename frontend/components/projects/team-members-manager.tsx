@@ -72,7 +72,7 @@ function AddMemberForm({ teamId, assignmentId, availableStudents, onAdded }: Add
     <Form {...form}>
       <form className="flex flex-col gap-3 border-t border-border pt-4" onSubmit={form.handleSubmit(onSubmit)}>
         <FormSelectField control={form.control} label="Add student" name="user_id" options={studentOptions} placeholder="Choose a student" />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <FormSelectField control={form.control} label="Role" name="role" options={PROJECT_TEAM_MEMBER_ROLE_OPTIONS} />
           <FormSelectField control={form.control} label="Access level" name="gitlab_access_level" options={GITLAB_ACCESS_LEVEL_OPTIONS} />
         </div>

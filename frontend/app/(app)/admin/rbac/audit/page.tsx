@@ -82,7 +82,7 @@ export default async function AuditPage({
       <div className="mt-8 table-responsive">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">When</th>
               <th className="pb-2 pr-4 font-medium">Action</th>
               <th className="pb-2 pr-4 font-medium">Entity</th>
@@ -91,7 +91,7 @@ export default async function AuditPage({
           </thead>
           <tbody>
             {entries.map((e) => (
-              <tr key={e.id} className="border-b border-border last:border-0">
+              <tr key={e.id} className="whitespace-nowrap border-b border-border last:border-0">
                 <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
                   {new Date(e.created_at).toLocaleString()}
                 </td>
@@ -114,7 +114,7 @@ export default async function AuditPage({
               </tr>
             ))}
             {entries.length === 0 && (
-              <tr>
+              <tr className="whitespace-nowrap">
                 <td colSpan={4} className="py-12 text-center text-muted-foreground">
                   No audit entries found.
                 </td>

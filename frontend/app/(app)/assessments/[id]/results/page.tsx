@@ -225,7 +225,7 @@ function CandidatesTable({ candidates }: { candidates: PublicCandidate[] }) {
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
             <th className="py-3 pr-4 font-medium">Candidate</th>
             <th className="py-3 pr-4 font-medium">Email</th>
             <th className="py-3 pr-4 font-medium">Status</th>
@@ -236,7 +236,7 @@ function CandidatesTable({ candidates }: { candidates: PublicCandidate[] }) {
         </thead>
         <tbody>
           {candidates.map((c) => (
-            <tr className="border-b border-border/60" key={c.id}>
+            <tr className="whitespace-nowrap border-b border-border/60" key={c.id}>
               <td className="py-3 pr-4 font-medium">{c.name}</td>
               <td className="py-3 pr-4 text-muted-foreground">{c.email}</td>
               <td className="py-3 pr-4 capitalize text-muted-foreground">{c.status}</td>

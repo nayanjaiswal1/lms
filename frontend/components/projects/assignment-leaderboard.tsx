@@ -28,7 +28,7 @@ export function AssignmentLeaderboard({ leaderboard }: AssignmentLeaderboardProp
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
             <th className="py-2 pr-2 font-medium">#</th>
             <th className="py-2 pr-2 font-medium">Student</th>
             <th className="py-2 pr-2 font-medium">Team</th>
@@ -38,7 +38,7 @@ export function AssignmentLeaderboard({ leaderboard }: AssignmentLeaderboardProp
         </thead>
         <tbody className="divide-y divide-border">
           {leaderboard.map((row) => (
-            <tr key={row.user_id}>
+            <tr className="whitespace-nowrap" key={row.user_id}>
               <td className="py-2 pr-2 tabular-nums text-muted-foreground">{row.rank}</td>
               <td className="py-2 pr-2">
                 <div className="flex items-center gap-2">

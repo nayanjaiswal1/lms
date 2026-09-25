@@ -33,14 +33,14 @@ export default async function OfflineTestDetailPage({ params }: Props) {
       <div className="table-responsive">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">Student</th>
               <th className="pb-2 font-medium">Score</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {test.scores.map((s) => (
-              <tr key={s.user_id}>
+              <tr className="whitespace-nowrap" key={s.user_id}>
                 <td className="py-2.5 pr-4">
                   <div className="flex flex-col">
                     <span className="font-medium">{s.user_name}</span>

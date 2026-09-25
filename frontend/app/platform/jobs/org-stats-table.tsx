@@ -22,7 +22,7 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
             <th className="pb-2 pr-6 font-medium">Organisation</th>
             <th className="pb-2 pr-4 font-medium">Running</th>
             <th className="pb-2 pr-4 font-medium">Queued</th>
@@ -36,7 +36,7 @@ export function OrgStatsTable({ orgs, activeOrgId }: Props) {
           {orgs.map((org) => (
             <tr
               key={org.org_id}
-              className={`border-b border-border last:border-0 transition-colors ${
+              className={`whitespace-nowrap border-b border-border last:border-0 transition-colors ${
                 activeOrgId === org.org_id ? "bg-accent/40" : "hover:bg-muted/50"
               }`}
             >

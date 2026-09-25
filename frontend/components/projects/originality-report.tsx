@@ -105,7 +105,7 @@ export function OriginalityReport({ assignmentId, reports, teamsById }: Original
                   <div className="table-responsive">
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="border-b border-border text-xs text-muted-foreground">
+                        <tr className="whitespace-nowrap border-b border-border text-xs text-muted-foreground">
                           <th className="pb-2 pr-4 font-medium">Teams</th>
                           <th className="pb-2 pr-4 font-medium">Files</th>
                           <th className="pb-2 pr-4 font-medium">Similarity</th>

@@ -61,7 +61,7 @@ export default async function PermissionsPage() {
             <div className="table-responsive">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
+                  <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
                     <th className="pb-2 pr-6 font-medium">Code</th>
                     <th className="pb-2 pr-6 font-medium">Name</th>
                     <th className="pb-2 font-medium">Description</th>
@@ -69,7 +69,7 @@ export default async function PermissionsPage() {
                 </thead>
                 <tbody>
                   {grouped[module].map((p) => (
-                    <tr key={p.id} className="border-b border-border last:border-0">
+                    <tr key={p.id} className="whitespace-nowrap border-b border-border last:border-0">
                       <td className="py-3 pr-6">
                         <code className="kbd">{p.code}</code>
                       </td>

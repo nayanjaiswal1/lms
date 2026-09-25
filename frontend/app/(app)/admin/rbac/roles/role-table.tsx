@@ -108,7 +108,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
       <div className="table-responsive">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
               <th className="w-8 pb-2 pr-3">
                 <Checkbox
                   aria-label="Select all roles"
@@ -133,7 +133,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
               return (
                 <Fragment key={role.id}>
                   <tr
-                    className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/50"
+                    className="whitespace-nowrap cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/50"
                     onClick={() => void toggleRow(role.id)}
                   >
                     <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
@@ -174,7 +174,7 @@ export function RoleTable({ roles }: { roles: Role[] }) {
                       )}
                     </td>
                   </tr>
-                  <tr className="last:border-0">
+                  <tr className="whitespace-nowrap last:border-0">
                     <td className="p-0" colSpan={6}>
                       <Collapsible open={isOpen} onOpenChange={() => toggleRow(role.id)}>
                         <CollapsibleContent className="border-b border-border bg-muted/30">

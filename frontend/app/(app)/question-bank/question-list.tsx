@@ -226,7 +226,7 @@ function QuestionTable({ questions }: { questions: Question[] }) {
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
             <th className="py-3 pr-4 font-medium">Title</th>
             <th className="py-3 pr-4 font-medium">Type</th>
             <th className="py-3 pr-4 font-medium">Difficulty</th>
@@ -236,7 +236,7 @@ function QuestionTable({ questions }: { questions: Question[] }) {
         </thead>
         <tbody>
           {questions.map((q) => (
-            <tr className="border-b border-border/60" key={q.id}>
+            <tr className="whitespace-nowrap border-b border-border/60" key={q.id}>
               <td className="py-3 pr-4 font-medium">{q.title}</td>
               <td className="py-3 pr-4">
                 <Badge variant="secondary">{q.type}</Badge>

@@ -158,7 +158,7 @@ export function CategoryTabs({
       </div>
 
       <Dialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
-        <DialogContent>
+        <DialogContent className="modal-responsive">
           <DialogHeader>
             <DialogTitle>Delete &ldquo;{pending?.category.name}&rdquo;?</DialogTitle>
             <DialogDescription>

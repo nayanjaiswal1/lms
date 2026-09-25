@@ -68,7 +68,7 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
             <th className="pb-2 font-medium">Email</th>
             <th className="pb-2 font-medium">Status</th>
             <th className="pb-2 font-medium">Sent</th>
@@ -82,7 +82,7 @@ export function InvitationList({ batchId, invitations }: InvitationListProps) {
             const isPending = pendingId === inv.id;
             const canRevoke = !inv.accepted_at && !inv.declined_at;
             return (
-              <tr className="text-sm" key={inv.id}>
+              <tr className="whitespace-nowrap text-sm" key={inv.id}>
                 <td className="py-2.5 pr-4 font-mono text-sm">{inv.email}</td>
                 <td className="py-2.5 pr-4">
                   <span className={cn("flex items-center gap-1", className)}>

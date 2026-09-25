@@ -23,7 +23,7 @@ export function EditCohortGroupPanel({ group, groups }: EditCohortGroupPanelProp
           <Pencil aria-hidden className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>Edit group</DialogTitle>
         </DialogHeader>

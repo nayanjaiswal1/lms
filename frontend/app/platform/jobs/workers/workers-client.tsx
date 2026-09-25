@@ -51,7 +51,7 @@ export function WorkersClient({ initialData }: Props) {
             (huge gap after the instance ID, an oversized progress bar). */}
         <table className="w-full table-fixed text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
               <th className="w-56 pt-3 pb-2 pl-4 pr-6 font-medium">Instance ID</th>
               <th className="w-48 pt-3 pb-2 pr-6 font-medium">Slots</th>
               <th className="w-28 pt-3 pb-2 pr-6 font-medium">Last Seen</th>
@@ -67,7 +67,7 @@ export function WorkersClient({ initialData }: Props) {
               const isLeader = worker.instance_id === data.leader;
 
               return (
-                <tr key={worker.instance_id} className="border-b border-border last:border-0">
+                <tr key={worker.instance_id} className="whitespace-nowrap border-b border-border last:border-0">
                   <td className="py-3 pl-4 pr-6">
                     <span className="font-mono text-xs">{worker.instance_id}</span>
                   </td>

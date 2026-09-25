@@ -48,6 +48,10 @@ const components: Components = {
     </a>
   ),
   hr: () => <hr className="my-3 border-border" />,
+  // Intentionally overflow-x-auto, not .table-responsive: journal markdown tables
+  // are often narrow (2-3 cols) and .table-responsive forces a 600px minimum
+  // width, which would make them scroll needlessly on mobile. This scrolls
+  // only when a table actually overflows.
   table: ({ children }) => (
     <div className="mt-2 overflow-x-auto first:mt-0">
       <table className="w-full border-collapse text-xs">{children}</table>

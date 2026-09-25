@@ -141,7 +141,7 @@ export function LabUsageView({
                 </tr>
               ))}
               {usage.org.by_lab.length === 0 && (
-                <tr>
+                <tr className="whitespace-nowrap">
                   <td className="p-8 text-center text-muted-foreground" colSpan={4}>
                     No lab sessions in this window.
                   </td>
@@ -176,7 +176,7 @@ export function LabUsageView({
                 </tr>
               ))}
               {usage.by_course.length === 0 && (
-                <tr>
+                <tr className="whitespace-nowrap">
                   <td className="p-8 text-center text-muted-foreground" colSpan={4}>
                     No course-linked lab sessions in this window — standalone labs aren&apos;t
                     attributed to a course.
@@ -218,7 +218,7 @@ export function LabUsageView({
                 </tr>
               ))}
               {usage.by_student.length === 0 && (
-                <tr>
+                <tr className="whitespace-nowrap">
                   <td className="p-8 text-center text-muted-foreground" colSpan={3}>
                     No student lab activity in this window.
                   </td>

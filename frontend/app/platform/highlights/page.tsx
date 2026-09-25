@@ -36,7 +36,7 @@ export default async function PlatformHighlightsPage() {
         <div className="table-responsive mt-8">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
                 <th className="pb-2 pr-6 font-medium">Selected text</th>
                 <th className="pb-2 pr-4 font-medium">Source</th>
                 <th className="pb-2 pr-4 font-medium">Served</th>
@@ -46,7 +46,7 @@ export default async function PlatformHighlightsPage() {
             </thead>
             <tbody>
               {entries.map((entry) => (
-                <tr className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors" key={entry.text_hash}>
+                <tr className="whitespace-nowrap border-b border-border last:border-0 hover:bg-muted/30 transition-colors" key={entry.text_hash}>
                   <td className="py-3 pr-6 max-w-md">
                     <span className="line-clamp-2">{entry.selected_text}</span>
                   </td>

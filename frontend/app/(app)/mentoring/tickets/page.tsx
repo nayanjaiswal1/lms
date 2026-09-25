@@ -44,7 +44,7 @@ async function TicketQueueContent() {
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
             <th className="pb-2 font-medium">Student</th>
             <th className="pb-2 font-medium">Course</th>
             <th className="pb-2 font-medium">Status</th>
@@ -58,7 +58,7 @@ async function TicketQueueContent() {
             const isOwnTicket = ticket.assigned_to === currentUser?.id;
 
             return (
-              <tr key={ticket.id}>
+              <tr className="whitespace-nowrap" key={ticket.id}>
                 <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
                   <UserLink className="hover:text-foreground hover:underline" userId={ticket.requester_id}>
                     {truncateId(ticket.requester_id)}
@@ -138,7 +138,7 @@ async function ChangeRequestsContent() {
       <div className="table-responsive">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 font-medium">Student</th>
               <th className="pb-2 font-medium">Reason</th>
               <th className="pb-2 font-medium">Requested</th>
@@ -147,7 +147,7 @@ async function ChangeRequestsContent() {
           </thead>
           <tbody className="divide-y divide-border">
             {requests.map((req) => (
-              <tr key={req.id}>
+              <tr className="whitespace-nowrap" key={req.id}>
                 <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
                   <UserLink className="hover:text-foreground hover:underline" userId={req.student_id}>
                     {truncateId(req.student_id)}

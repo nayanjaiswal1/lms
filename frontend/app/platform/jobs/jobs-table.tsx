@@ -113,7 +113,7 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
         <div className="table-responsive mt-4">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
                 <th className="pb-2 pr-6 font-medium">Handler</th>
                 <th className="pb-2 pr-4 font-medium">Org</th>
                 <th className="pb-2 pr-4 font-medium">Status</th>
@@ -124,7 +124,7 @@ export function JobsTable({ jobs, canManage, nextCursor, currentParams }: Props)
             </thead>
             <tbody>
               {jobs.map((job) => (
-                <tr key={job.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                <tr key={job.id} className="whitespace-nowrap border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="py-3 pr-6">
                     {job.org_id ? (
                       <Link

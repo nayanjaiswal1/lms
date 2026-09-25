@@ -105,7 +105,7 @@ function LinkPicker({ task, allTasks, diaryEntries, projects, open, onOpenChange
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0">
+      <DialogContent className="modal-responsive p-0">
         <DialogHeader className="p-4 pb-0">
           <DialogTitle>Link to…</DialogTitle>
         </DialogHeader>

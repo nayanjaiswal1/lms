@@ -56,7 +56,7 @@ export default async function PlatformHighlightsBySourcePage() {
         <div className="table-responsive mt-8">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
                 <th className="pb-2 pr-6 font-medium">Source type</th>
                 <th className="pb-2 pr-4 font-medium">Cached entries</th>
                 <th className="pb-2 pr-4 font-medium">Total served</th>
@@ -65,7 +65,7 @@ export default async function PlatformHighlightsBySourcePage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors" key={row.source_type}>
+                <tr className="whitespace-nowrap border-b border-border last:border-0 hover:bg-muted/30 transition-colors" key={row.source_type}>
                   <td className="py-3 pr-6 font-medium">{row.source_type}</td>
                   <td className="py-3 pr-4 text-muted-foreground">{row.entry_count}</td>
                   <td className="py-3 pr-4 text-foreground font-medium">{row.total_served}</td>

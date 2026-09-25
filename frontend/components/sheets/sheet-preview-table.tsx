@@ -33,7 +33,7 @@ export function SheetPreviewTable({ rows, excludedTopics, onToggleExclude, onRem
       <div className="table-responsive rounded-md border border-border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
               <th className="px-3 pb-2 pt-2.5 font-medium">Include</th>
               <th className="px-3 pb-2 pt-2.5 font-medium">Title</th>
               <th className="px-3 pb-2 pt-2.5 font-medium">Topic</th>
@@ -47,7 +47,7 @@ export function SheetPreviewTable({ rows, excludedTopics, onToggleExclude, onRem
               const excluded = !row.isCustom && excludedTopics.includes(row.topicTag ?? "");
               const customId = row.customId;
               return (
-                <tr className={cn(excluded && "opacity-50")} key={row.key}>
+                <tr className={cn("whitespace-nowrap", excluded && "opacity-50")} key={row.key}>
                   <td className="px-3 py-2">
                     {row.isCustom ? (
                       <Checkbox checked disabled aria-label={`${row.title} is always included`} />

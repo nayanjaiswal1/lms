@@ -28,7 +28,7 @@ export function OriginalityMatchRow({ match, teamsById }: OriginalityMatchRowPro
   const band = similarityBand(match.similarity);
 
   return (
-    <tr className="border-b border-border last:border-0">
+    <tr className="whitespace-nowrap border-b border-border last:border-0">
       <td className="whitespace-nowrap py-2 pr-4 align-top text-sm">
         <span className="font-medium">{teamAName}</span>
         <span className="mx-1.5 text-muted-foreground">vs</span>

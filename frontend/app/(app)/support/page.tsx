@@ -115,7 +115,7 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
             <div className="table-responsive">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                     <th className="pb-2 font-medium">Subject</th>
                     <th className="pb-2 font-medium">Category</th>
                     <th className="pb-2 font-medium">Priority</th>

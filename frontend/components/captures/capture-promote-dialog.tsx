@@ -91,7 +91,7 @@ export function CapturePromoteDialog({ capture, open, onOpenChange }: CapturePro
 
         <div className="form-stack">
           {!isQuestion && (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               <Input
                 placeholder="Category"
                 value={form.category}

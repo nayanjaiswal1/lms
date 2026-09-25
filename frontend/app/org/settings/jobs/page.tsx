@@ -76,7 +76,7 @@ function JobRow({ job, orgId }: { job: Job; orgId: string }) {
   const canRetry = job.status === "failed" || job.status === "dead";
 
   return (
-    <tr className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors duration-[--duration-fast]">
+    <tr className="whitespace-nowrap border-b border-border last:border-0 hover:bg-muted/40 transition-colors duration-[--duration-fast]">
       <td className="py-3 px-4">
         <Link
           href={`/org/settings/jobs/${job.id}`}
@@ -251,7 +251,7 @@ export default async function JobsPage({
             <div className="table-responsive">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-border">
+                  <tr className="whitespace-nowrap border-b border-border">
                     <th className="pb-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Handler</th>
                     <th className="pb-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                     <th className="pb-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</th>

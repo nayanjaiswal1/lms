@@ -36,7 +36,7 @@ export function CohortGroupsPanel({
           {triggerSize !== "icon" && triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>New group</DialogTitle>
         </DialogHeader>

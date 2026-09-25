@@ -99,7 +99,7 @@ export function ReviewStep({ batchId, rows, setRows, courses, orgMembers, onConf
       <div className="table-responsive">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-3 font-medium">Full Name</th>
               <th className="pb-2 pr-3 font-medium">Email</th>
               <th className="pb-2 pr-3 font-medium">Roll Number</th>
@@ -109,7 +109,7 @@ export function ReviewStep({ batchId, rows, setRows, courses, orgMembers, onConf
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((row, i) => (
-              <tr key={`${row.email}-${i}`}>
+              <tr className="whitespace-nowrap" key={`${row.email}-${i}`}>
                 <td className="py-2.5 pr-3 font-medium">{row.full_name}</td>
                 <td className="py-2.5 pr-3 text-muted-foreground">{row.email}</td>
                 <td className="py-2.5 pr-3 text-muted-foreground">{row.roll_number || "—"}</td>

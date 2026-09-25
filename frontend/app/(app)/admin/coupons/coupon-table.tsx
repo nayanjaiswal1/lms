@@ -59,7 +59,7 @@ export function CouponTable({ coupons, courseTitleById, courseOptions }: CouponT
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
             <th className="pb-2 pr-6 font-medium">Code</th>
             <th className="pb-2 pr-6 font-medium">Discount</th>
             <th className="pb-2 pr-6 font-medium">Courses</th>

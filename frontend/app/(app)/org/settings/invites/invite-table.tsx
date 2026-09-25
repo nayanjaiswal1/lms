@@ -154,7 +154,7 @@ export function InviteTable({
         <div className="table-responsive">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                 <th className="pb-2 pr-3 w-8">
                   <Checkbox
                     checked={allSelected ? true : someSelected ? "indeterminate" : false}
@@ -177,7 +177,7 @@ export function InviteTable({
                 return (
                   <tr
                     key={invite.id}
-                    className="hover:bg-muted/30 transition-colors duration-fast"
+                    className="whitespace-nowrap hover:bg-muted/30 transition-colors duration-fast"
                   >
                     <td className="py-3 pr-3">
                       <Checkbox

@@ -32,7 +32,7 @@ export function AuditTab({ entries }: { entries: AuditEntry[] }) {
         </thead>
         <tbody>
           {entries.map((e) => (
-            <tr className="border-b border-border last:border-0 align-top" key={e.id}>
+            <tr className="whitespace-nowrap border-b border-border last:border-0 align-top" key={e.id}>
               <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
                 {new Date(e.created_at).toLocaleString()}
               </td>

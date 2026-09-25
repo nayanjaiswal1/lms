@@ -72,7 +72,7 @@ export function ContentReportsTable({ reports }: ContentReportsTableProps) {
       <div className="table-responsive">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
+            <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">When</th>
               <th className="pb-2 pr-4 font-medium">Content</th>
               <th className="pb-2 pr-4 font-medium">Reason</th>
@@ -102,7 +102,7 @@ export function ContentReportsTable({ reports }: ContentReportsTableProps) {
               </tr>
             ))}
             {reports.length === 0 && (
-              <tr>
+              <tr className="whitespace-nowrap">
                 <td className="py-12 text-center text-muted-foreground" colSpan={5}>
                   No content reports.
                 </td>
@@ -113,7 +113,7 @@ export function ContentReportsTable({ reports }: ContentReportsTableProps) {
       </div>
 
       <Dialog open={active !== null} onOpenChange={(open) => !open && setActive(null)}>
-        <DialogContent>
+        <DialogContent className="modal-responsive">
           <DialogHeader>
             <DialogTitle>Resolve report</DialogTitle>
           </DialogHeader>

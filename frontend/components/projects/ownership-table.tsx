@@ -21,7 +21,7 @@ export function OwnershipTable({ files }: OwnershipTableProps) {
     <div className="table-responsive">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs text-muted-foreground">
+          <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
             <th className="py-2 pr-4 font-medium">File</th>
             <th className="py-2 pr-4 font-medium">Owner</th>
             <th className="py-2 font-medium">Changes</th>

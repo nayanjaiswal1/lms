@@ -138,7 +138,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           <div className="table-responsive">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-border">
+                <tr className="whitespace-nowrap border-b border-border">
                   {["Attempt", "Status", "Duration", "Error", "Started"].map((h) => (
                     <th key={h} className="pb-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
                   ))}
@@ -146,7 +146,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               </thead>
               <tbody>
                 {runs.map((run) => (
-                  <tr key={run.id} className="border-b border-border last:border-0">
+                  <tr key={run.id} className="whitespace-nowrap border-b border-border last:border-0">
                     <td className="py-3 px-4 text-sm text-foreground">#{run.attempt}</td>
                     <td className="py-3 px-4">
                       <span className={cn("inline-flex items-center px-2 py-0.5 rounded-[--radius-sm] text-xs font-medium", statusClass(run.status))}>

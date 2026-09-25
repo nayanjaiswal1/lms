@@ -41,7 +41,7 @@ export function ChapterMasteryHeatmap({ cells, t }: ChapterMasteryHeatmapProps) 
       <div className="table-responsive">
         <table className="text-sm">
           <thead>
-            <tr>
+            <tr className="whitespace-nowrap">
               <th className="sticky-rail left-0 bg-background pb-2 pr-4 text-left text-xs font-medium text-muted-foreground">
                 {t.student}
               </th>
@@ -54,7 +54,7 @@ export function ChapterMasteryHeatmap({ cells, t }: ChapterMasteryHeatmapProps) 
           </thead>
           <tbody className="divide-y divide-border">
             {studentList.map((s) => (
-              <tr key={s.user_id}>
+              <tr className="whitespace-nowrap" key={s.user_id}>
                 <td className="sticky-rail left-0 bg-background py-1.5 pr-4 font-medium whitespace-nowrap">
                   {s.user_name}
                 </td>

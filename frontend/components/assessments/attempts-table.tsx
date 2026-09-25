@@ -145,7 +145,7 @@ export function AttemptsTable({ attempts }: Props) {
         <div className="table-responsive">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-muted-foreground">
                 <th className="py-3 pr-4 font-medium">Student</th>
                 <th className="py-3 pr-4 font-medium">#</th>
                 <th className="py-3 pr-4 font-medium">Status</th>
@@ -160,7 +160,7 @@ export function AttemptsTable({ attempts }: Props) {
             </thead>
             <tbody>
               {filtered.map((a) => (
-                <tr className="border-b border-border/60" key={a.id}>
+                <tr className="whitespace-nowrap border-b border-border/60" key={a.id}>
                   <td className="py-3 pr-4">
                     <p className="font-medium">{a.user_name}</p>
                     <p className="text-xs text-muted-foreground">{a.user_email}</p>

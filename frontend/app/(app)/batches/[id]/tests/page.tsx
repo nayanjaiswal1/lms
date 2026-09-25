@@ -42,7 +42,7 @@ export default async function OfflineTestsPage({ params }: Props) {
         <div className="table-responsive">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="whitespace-nowrap border-b border-border text-left text-xs text-muted-foreground">
                 <th className="pb-2 pr-4 font-medium">Test</th>
                 <th className="pb-2 pr-4 font-medium">Date</th>
                 <th className="pb-2 pr-4 font-medium">Max score</th>
@@ -52,7 +52,7 @@ export default async function OfflineTestsPage({ params }: Props) {
             </thead>
             <tbody className="divide-y divide-border">
               {tests.map((test) => (
-                <tr key={test.test_id}>
+                <tr className="whitespace-nowrap" key={test.test_id}>
                   <td className="py-2.5 pr-4">
                     <Link
                       className="font-medium text-primary hover:underline"

@@ -20,7 +20,7 @@ export function BatchesPanel() {
           <Plus /> New {t.class_.toLowerCase()}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="modal-responsive">
         <DialogHeader>
           <DialogTitle>New {t.class_.toLowerCase()}</DialogTitle>
         </DialogHeader>

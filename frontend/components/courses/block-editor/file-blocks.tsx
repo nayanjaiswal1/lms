@@ -102,7 +102,7 @@ export function DownloadBlockEditor({ block, onChange, onFile }: DownloadProps) 
   const hasAsset = !!(block.previewUrl ?? block.url);
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label>File name / label</Label>
           <Input placeholder="e.g. starter-code.zip" value={block.filename} onChange={(e) => onChange({ ...block, filename: e.target.value })} />

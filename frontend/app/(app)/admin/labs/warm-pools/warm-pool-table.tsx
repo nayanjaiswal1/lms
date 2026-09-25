@@ -100,7 +100,7 @@ export function WarmPoolTable({ images }: { images: WarmPoolRowData[] }) {
               const isIdle = img.target === 0 && img.ready === 0 && img.warming === 0 && img.claimed === 0;
               return (
                 <tr
-                  className={`border-b border-border last:border-0 whitespace-nowrap ${isIdle ? "opacity-60" : ""}`}
+                  className={`whitespace-nowrap border-b border-border last:border-0 ${isIdle ? "opacity-60" : ""}`}
                   key={img.image}
                 >
                   <td className="p-4 max-w-64">
