@@ -64,8 +64,14 @@ export const PERMISSIONS = {
     MANAGE: "content.moderate",
   },
   PROJECTS: {
-    VIEW:   "projects.view",
-    MANAGE: "projects.manage",
+    VIEW:    "projects.view",
+    MANAGE:  "projects.manage",
+    // Project Workspace (corporate-style project lifecycle) — distinct from
+    // the GitLab-assignment VIEW/MANAGE pair above. CREATE grants workspace
+    // creation (becomes owner); OVERSEE lets tenant_admin act as owner on
+    // every workspace in the org without being a member (see 02-auth-security.md §1).
+    CREATE:  "projects.create",
+    OVERSEE: "projects.oversee",
   },
   CALENDAR: {
     MANAGE_EVENTS: "calendar.events.manage",

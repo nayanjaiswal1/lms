@@ -39,11 +39,11 @@ func (r *Repo) tx(ctx context.Context, fn func(pgx.Tx) error) error {
 
 // ─── Spaces ───────────────────────────────────────────────────────────────────
 
-const spaceCols = `id, org_id, course_id, name, slug, description, icon, visibility, created_by, created_at, updated_at`
+const spaceCols = `id, org_id, course_id, project_id, name, slug, description, icon, visibility, created_by, created_at, updated_at`
 
 func scanSpace(row pgx.Row) (Space, error) {
 	var s Space
-	err := row.Scan(&s.ID, &s.OrgID, &s.CourseID, &s.Name, &s.Slug, &s.Description, &s.Icon, &s.Visibility, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt)
+	err := row.Scan(&s.ID, &s.OrgID, &s.CourseID, &s.ProjectID, &s.Name, &s.Slug, &s.Description, &s.Icon, &s.Visibility, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Space{}, ErrNotFound
@@ -51,6 +51,86 @@ func scanSpace(row pgx.Row) (Space, error) {
 		return Space{}, fmt.Errorf("wiki: scan space: %w", err)
 	}
 	return s, nil
+}
+
+// CreateProjectSpaceTx creates a project-scoped wiki space inside the
+// caller's transaction — workspace.Service.CreateProject calls this to
+// provision a project's space in the same tx as the project row itself
+// (docs/project-workspace-plan/00-decisions.md D10). A package-level
+// function rather than a Service method: workspace can't hold a wiki.Service
+// (it would need the courses.Repo dependency org-wide space creation carries,
+// which a project-scoped space never touches), and this keeps workspace's
+// only dependency on this package to one function, not the whole Service.
+func CreateProjectSpaceTx(ctx context.Context, tx pgx.Tx, orgID, projectID, name, slug, createdBy string) (Space, error) {
+	return scanSpace(tx.QueryRow(ctx,
+		`INSERT INTO wiki_spaces (org_id, project_id, name, slug, visibility, created_by)
+		 VALUES ($1,$2,$3,$4,'members',$5)
+		 RETURNING `+spaceCols,
+		orgID, projectID, name, slug, createdBy))
+}
+
+// CreatePageTx is CreatePage run inside the caller's own transaction —
+// workspace.Service.CreateWorkItem (feature spec pages) and CreateBriefPage
+// (docs/project-workspace-plan/contract-phase3.md) both need the page insert
+// to commit or roll back atomically with their own row writes, which
+// CreatePage's own r.tx() wrapper can't join. A package-level function for
+// the same reason CreateProjectSpaceTx above is one (see its doc comment).
+func CreatePageTx(ctx context.Context, tx pgx.Tx, spaceID, title, slug string, parentID, emoji *string, content json.RawMessage, searchText, createdBy string) (Page, error) {
+	row := tx.QueryRow(ctx,
+		`INSERT INTO wiki_pages (space_id, parent_id, title, slug, content, search_text, emoji, created_by)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		 RETURNING `+pageCols,
+		spaceID, parentID, title, slug, content, searchText, emoji, createdBy)
+	p, err := scanPage(row)
+	if err != nil {
+		return Page{}, err
+	}
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO content_versions (content_type, content_id, version, title, content, created_by)
+		 VALUES ('wiki_page', $1, $2, $3, $4, $5)`,
+		p.ID, p.Version, p.Title, p.Content, createdBy,
+	); err != nil {
+		return Page{}, fmt.Errorf("wiki: insert v1 page version (tx): %w", err)
+	}
+	return p, nil
+}
+
+// pageUpdateHook is late-bound by SetPageUpdateHook — see that function's doc
+// comment.
+var pageUpdateHook func(ctx context.Context, tx pgx.Tx, pageID, userID string, newVersion int) error
+
+// SetPageUpdateHook registers a callback run inside UpdatePage's own
+// transaction, after the version bump, whenever content or title actually
+// changed. workspace can't be imported here (this package is imported BY
+// workspace, for CreateProjectSpaceTx/CreatePageTx above), so
+// internal/api/router.go wires this once at startup to
+// workspaceSvc.RequestDocChange (contract-phase3.md "Change request"): a
+// feature spec page edited after its doc was approved reopens the doc gate.
+// Not test-injected — reset between tests isn't needed since no wiki test
+// exercises UpdatePage against a workspace feature page today.
+func SetPageUpdateHook(fn func(ctx context.Context, tx pgx.Tx, pageID, userID string, newVersion int) error) {
+	pageUpdateHook = fn
+}
+
+// getProjectMemberRole returns the caller's active project_members role for
+// a project-scoped wiki space's project ("" if not an active member). Raw
+// SQL against the workspace package's own table rather than an import of
+// that package — wiki can't import workspace (workspace imports wiki for
+// CreateProjectSpaceTx above), and this is the only workspace state the
+// wiki ACL needs.
+func (r *Repo) getProjectMemberRole(ctx context.Context, projectID, userID string) (string, error) {
+	var role string
+	err := r.pool.QueryRow(ctx,
+		`SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2 AND status = 'active'`,
+		projectID, userID,
+	).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("wiki: get project member role: %w", err)
+	}
+	return role, nil
 }
 
 func (r *Repo) ListSpaces(ctx context.Context, orgID string) ([]Space, error) {
@@ -184,12 +264,33 @@ func scanPage(row pgx.Row) (Page, error) {
 	return p, nil
 }
 
+// CreatePage inserts the page and its v1 content_versions row in one
+// transaction (00-decisions D10: CreatePage previously wrote no v1 row at
+// all, which left "diff against the approved v1" with nothing to diff
+// against the first time a page was ever edited).
 func (r *Repo) CreatePage(ctx context.Context, spaceID, title, slug string, parentID, emoji *string, content json.RawMessage, searchText, createdBy string) (Page, error) {
-	return scanPage(r.pool.QueryRow(ctx,
-		`INSERT INTO wiki_pages (space_id, parent_id, title, slug, content, search_text, emoji, created_by)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-		 RETURNING `+pageCols,
-		spaceID, parentID, title, slug, content, searchText, emoji, createdBy))
+	var out Page
+	err := r.tx(ctx, func(tx pgx.Tx) error {
+		row := tx.QueryRow(ctx,
+			`INSERT INTO wiki_pages (space_id, parent_id, title, slug, content, search_text, emoji, created_by)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			 RETURNING `+pageCols,
+			spaceID, parentID, title, slug, content, searchText, emoji, createdBy)
+		p, err := scanPage(row)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO content_versions (content_type, content_id, version, title, content, created_by)
+			 VALUES ('wiki_page', $1, $2, $3, $4, $5)`,
+			p.ID, p.Version, p.Title, p.Content, createdBy,
+		); err != nil {
+			return fmt.Errorf("wiki: insert v1 page version: %w", err)
+		}
+		out = p
+		return nil
+	})
+	return out, err
 }
 
 // GetPage is scoped through wiki_spaces.org_id so a page ID from another org
@@ -269,6 +370,11 @@ func (r *Repo) UpdatePage(ctx context.Context, orgID, id string, title *string, 
 				p.ID, p.Version, p.Title, p.Content, updatedBy)
 			if err != nil {
 				return fmt.Errorf("wiki: insert page version: %w", err)
+			}
+			if pageUpdateHook != nil {
+				if err := pageUpdateHook(ctx, tx, p.ID, updatedBy, p.Version); err != nil {
+					return fmt.Errorf("wiki: page update hook: %w", err)
+				}
 			}
 		}
 		return nil

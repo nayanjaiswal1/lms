@@ -53,6 +53,7 @@ import (
 	"github.com/mindforge/backend/internal/profile"
 	"github.com/mindforge/backend/internal/project"
 	"github.com/mindforge/backend/internal/projectmarket"
+	"github.com/mindforge/backend/internal/ratelimit"
 	"github.com/mindforge/backend/internal/revisionplan"
 	"github.com/mindforge/backend/internal/rewards"
 	"github.com/mindforge/backend/internal/roadmap"
@@ -68,6 +69,7 @@ import (
 	"github.com/mindforge/backend/internal/whatnow"
 	"github.com/mindforge/backend/internal/whatsnew"
 	"github.com/mindforge/backend/internal/wiki"
+	"github.com/mindforge/backend/internal/workspace"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -265,6 +267,43 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// accessor rather than a bigger dependency.
 	projectmarketRouter := projectmarket.New(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabRouter.Service(), notificationsRouter.Service)
 
+	// Project Workspaces (docs/project-workspace.md) — vague requirement →
+	// share link → interests → team → work items. Its own orgs.InviteService
+	// instance (stateless over pool+cfg) backs accept → project invite; the
+	// authz.Service is the projects.oversee checker behind RequireProjectRole.
+	workspaceRouter := workspace.New(workspace.Deps{
+		Pool:     pool,
+		Cfg:      cfg,
+		Perms:    authzHandler.Service(),
+		Invites:  orgs.NewInviteService(pool, cfg),
+		Notif:    notificationsRouter.Service,
+		AI:       aiProvider,
+		Jobs:     jobsRegistry,
+		Limiter:  ratelimit.New(rdb),
+		Calendar: calendarRouter.Service,
+		// Gitlab (Phase 4) — GitLab provisioning (POST .../gitlab/provision)
+		// and MR-reviewer sync call back into gitlabRouter.Service() directly.
+		Gitlab: gitlabRouter.Service(),
+		// Certificates (Phase 5) — project-completion certificate issuance
+		// (POST .../certificates) reuses certificates.Service's additive
+		// project-completion path rather than duplicating cert issuance here.
+		Certificates: certificatesRouter.Service(),
+	})
+	// contract-phase3.md "Change request": a feature spec page edited after
+	// its doc was approved reopens the doc gate. wiki can't import workspace
+	// (workspace already imports wiki for CreatePageTx/CreateProjectSpaceTx),
+	// so this late-bound hook is wired here, the one place that imports both.
+	wiki.SetPageUpdateHook(workspaceRouter.Service().RequestDocChange)
+	// Phase 4 (contract-phase4.md 4a) — the reverse direction: gitlab calling
+	// into workspace to link a ticket key found in a commit/branch/MR. Wired
+	// here (not only in cmd/server/main.go's job-only gitlabSvcForJobs) so a
+	// request-path call that itself dispatches a webhook synchronously (there
+	// isn't one today, but SetWorkItemLinker costs nothing to keep consistent
+	// between both gitlab.Service instances) never sees a nil linker either.
+	// The one that matters in production is main.go's — see that wiring's own
+	// doc comment for why webhook ingest always runs as a background job.
+	gitlabRouter.Service().SetWorkItemLinker(workspaceRouter.Service())
+
 	// Public auth routes — no auth, no CSRF. Rate-limited per client IP to blunt
 	// credential stuffing, token brute force, and email-trigger abuse.
 	r.Route("/api/auth", func(r chi.Router) {
@@ -345,6 +384,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 	// Payments config — the currency every *_cents amount is denominated in.
 	// Public: the anonymous catalog renders prices before any session exists.
 	payments.RegisterPublicRoutes(r, cfg)
+
+	// Project Workspace share page + anonymous interest form — no auth, no
+	// CSRF; rate-limited per IP/email/project inside the handler.
+	workspaceRouter.RegisterPublicRoutes(r)
 
 	// Public roadmap Discover gallery — anonymous browse of roadmaps their
 	// owners marked is_public, same pattern as the public course catalog.
@@ -581,6 +624,10 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// Project marketplace — requirement CRUD/board/applications (staff +
 		// any org member, row-scoped — see internal/projectmarket/routes.go).
 		projectmarketRouter.RegisterRoutes(r)
+
+		// Project Workspaces — every route resolves the caller's project role
+		// live (workspace.RequireProjectRole); creation needs projects.create.
+		workspaceRouter.RegisterRoutes(r, authzHandler.Service())
 
 		// Notifications — generic in-app notifications: list, unread count,
 		// mark read/read-all. Any authenticated member, row-scoped to their

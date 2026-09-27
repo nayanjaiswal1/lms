@@ -151,6 +151,43 @@ func (r *Repo) IssueCertificate(ctx context.Context, userID, courseID string, at
 	return c, nil
 }
 
+// GetCertificateForProject returns the member's existing project-completion
+// certificate for projectID, if one was already issued — the idempotency
+// check IssueProjectCompletion runs before inserting a second one. Additive
+// sibling of GetCertificateForCourse; never touches course_id.
+func (r *Repo) GetCertificateForProject(ctx context.Context, userID, projectID string) (Certificate, error) {
+	var c Certificate
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, project_id, issued_at, cert_uuid, issue_type, issued_by, note
+		 FROM certificates WHERE user_id = $1 AND project_id = $2`,
+		userID, projectID,
+	).Scan(&c.ID, &c.UserID, &c.ProjectID, &c.IssuedAt, &c.CertUUID, &c.IssueType, &c.IssuedBy, &c.Note)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Certificate{}, ErrNotFound
+		}
+		return Certificate{}, fmt.Errorf("certificates: get project certificate: %w", err)
+	}
+	return c, nil
+}
+
+// IssueProjectCertificate inserts a project-completion certificate row —
+// additive sibling of IssueCertificate for Project Workspace
+// (contract-phase5.md 5b); never writes course_id.
+func (r *Repo) IssueProjectCertificate(ctx context.Context, userID, projectID string, issuedBy, note *string) (Certificate, error) {
+	var c Certificate
+	err := r.pool.QueryRow(ctx,
+		`INSERT INTO certificates (user_id, project_id, issue_type, issued_by, note)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id, user_id, project_id, issued_at, cert_uuid, issue_type, issued_by, note`,
+		userID, projectID, IssueTypeProjectCompletion, issuedBy, note,
+	).Scan(&c.ID, &c.UserID, &c.ProjectID, &c.IssuedAt, &c.CertUUID, &c.IssueType, &c.IssuedBy, &c.Note)
+	if err != nil {
+		return Certificate{}, fmt.Errorf("certificates: issue project certificate: %w", err)
+	}
+	return c, nil
+}
+
 func (r *Repo) ListMyCertificates(ctx context.Context, userID string) ([]CertificateView, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT cert.id, cert.user_id, cert.course_id, cert.assessment_attempt_id, cert.issued_at, cert.cert_uuid,

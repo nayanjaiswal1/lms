@@ -62,7 +62,6 @@ export function IssueSteps({ steps }: IssueStepsProps) {
         <Plus aria-hidden className="size-3.5" />
         <span>Add new step item</span>
       </Button>
-      </button>
     </section>
   );
 }

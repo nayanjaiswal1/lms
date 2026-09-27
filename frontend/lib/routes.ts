@@ -83,6 +83,12 @@ const ROUTES = {
   PROJECTS_REQUIREMENTS_NEW: "/projects/requirements/new",
   PROJECTS_BOARD:            "/projects/board",
 
+  // Project Workspace — corporate-style project lifecycle (distinct from the
+  // GitLab-assignment PROJECTS_* routes above and the marketplace PROJECTS_*
+  // routes below them).
+  WORKSPACES:     "/workspaces",
+  WORKSPACES_NEW: "/workspaces/new",
+
   // Assessments — student
   ASSESSMENTS:         "/assessments",
 
@@ -243,6 +249,28 @@ const ROUTES = {
 
   // Calendar invite acceptance (no login required)
   calendarInviteAccept:     (token: string)                     => `/calendar/invite/${token}`,
+
+  // Project Workspace
+  workspace:              (id: string) => `/workspaces/${id}`,
+  workspaceInterests:     (id: string) => `/workspaces/${id}/interests`,
+  workspaceMembers:       (id: string) => `/workspaces/${id}/members`,
+  workspaceTracks:        (id: string) => `/workspaces/${id}/tracks`,
+  workspaceOnboarding:    (id: string) => `/workspaces/${id}/onboarding`,
+  workspaceRequirement:   (id: string) => `/workspaces/${id}/requirement`,
+  workspaceSettings:      (id: string) => `/workspaces/${id}/settings`,
+  workspaceBoard:         (id: string) => `/workspaces/${id}/board`,
+  workspaceList:          (id: string) => `/workspaces/${id}/list`,
+  workspaceItem:          (id: string, key: string) => `/workspaces/${id}/items/${key}`,
+  workspaceBrief:         (id: string) => `/workspaces/${id}/brief`,
+  workspaceBugs:          (id: string) => `/workspaces/${id}/bugs`,
+  workspaceMeetings:      (id: string) => `/workspaces/${id}/meetings`,
+  workspaceDashboard:     (id: string) => `/workspaces/${id}/dashboard`,
+  workspaceSprints:       (id: string) => `/workspaces/${id}/sprints`,
+  workspaceReleases:      (id: string) => `/workspaces/${id}/releases`,
+  workspaceFeedback:      (id: string) => `/workspaces/${id}/feedback`,
+  workspaceMemberReport:  (id: string, userId: string) => `/workspaces/${id}/members/${userId}/report`,
+  // Public workspace share link (no login required)
+  joinWorkspace:          (token: string) => `/join/${token}`,
 } as const;
 
 const COURSE_LEARN_ROUTE = /^\/courses\/[^/]+\/learn\/[^/]+/;

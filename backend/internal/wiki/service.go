@@ -40,8 +40,42 @@ func canCreateSpace(orgRole string) bool {
 	return orgRole == middleware.RoleAdmin || orgRole == middleware.RoleInstructor
 }
 
-// canEditPage mirrors docs/wiki.md's permission table: admin edits any page,
-// instructor/mentor only pages they created, students never.
+// isOrgAdmin is the "org owner/admin" half of the project-scoped space ACL
+// (02 §7.0) — an org owner/admin always reads/writes a project's space
+// regardless of whether they hold a project_members row.
+func isOrgAdmin(orgRole string) bool {
+	return orgRole == middleware.RoleOwner || orgRole == middleware.RoleAdmin
+}
+
+// projectRoleRank mirrors workspace.RoleAtLeast's own ranking without
+// importing that package (workspace imports wiki for CreateProjectSpaceTx,
+// so the reverse import would cycle). Keep in sync with workspace/models.go.
+var projectRoleRank = map[string]int{"viewer": 1, "member": 2, "manager": 3, "owner": 4}
+
+func projectRoleAtLeast(role, min string) bool {
+	return projectRoleRank[role] >= projectRoleRank[min] && projectRoleRank[role] > 0
+}
+
+// canAccessProjectSpace reports whether the caller may act on a project-
+// scoped wiki space's project at least at project role min ("viewer" for
+// read, "member" for edit, "manager" for delete) — an org owner/admin always
+// may (02 §7.0).
+func (s *Service) canAccessProjectSpace(ctx context.Context, orgRole, userID, projectID, min string) (bool, error) {
+	if isOrgAdmin(orgRole) {
+		return true, nil
+	}
+	role, err := s.repo.getProjectMemberRole(ctx, projectID, userID)
+	if err != nil {
+		return false, err
+	}
+	return projectRoleAtLeast(role, min), nil
+}
+
+// canEditPage mirrors docs/wiki.md's permission table for an org-wide/
+// course-linked page: admin edits any page, instructor/mentor only pages
+// they created, students never. Project-scoped pages go through
+// canAccessProjectSpace instead (role >= member to edit, >= manager to
+// delete) — see UpdatePage/MovePage/DeletePage below.
 func canEditPage(orgRole, userID string, p Page) bool {
 	if orgRole == middleware.RoleAdmin {
 		return true
@@ -55,14 +89,15 @@ func canEditPage(orgRole, userID string, p Page) bool {
 // ─── Spaces ───────────────────────────────────────────────────────────────────
 
 // ListSpaces hides course-linked spaces from students not enrolled in that
-// course — org-wide spaces (CourseID nil) are visible to every org member.
+// course, and project-scoped spaces from anyone not an active member of that
+// project (02 §7.0) — org-wide spaces (CourseID and ProjectID nil) are
+// visible to every org member. Every space goes through canReadSpace rather
+// than a manager-wide shortcut, since a project space's visibility depends on
+// project membership, not the org-level manager roles that shortcut checked.
 func (s *Service) ListSpaces(ctx context.Context, orgID, userID, orgRole string) ([]Space, error) {
 	all, err := s.repo.ListSpaces(ctx, orgID)
 	if err != nil {
 		return nil, err
-	}
-	if isManager(orgRole) {
-		return all, nil
 	}
 	out := make([]Space, 0, len(all))
 	for _, sp := range all {
@@ -78,6 +113,9 @@ func (s *Service) ListSpaces(ctx context.Context, orgID, userID, orgRole string)
 }
 
 func (s *Service) canReadSpace(ctx context.Context, orgRole, userID string, sp Space) (bool, error) {
+	if sp.ProjectID != nil {
+		return s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, "viewer")
+	}
 	if sp.CourseID == nil || isManager(orgRole) {
 		return true, nil
 	}
@@ -195,15 +233,24 @@ func (s *Service) DeleteSpace(ctx context.Context, orgID, orgRole, id string) er
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
 func (s *Service) CreatePage(ctx context.Context, orgID, userID, orgRole, spaceID string, req CreatePageRequest) (Page, error) {
-	if !isManager(orgRole) {
+	sp, err := s.repo.GetSpaceByID(ctx, orgID, spaceID)
+	if err != nil {
+		return Page{}, err
+	}
+	if sp.ProjectID != nil {
+		allowed, err := s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, "member")
+		if err != nil {
+			return Page{}, err
+		}
+		if !allowed {
+			return Page{}, ErrForbidden
+		}
+	} else if !isManager(orgRole) {
 		return Page{}, ErrForbidden
 	}
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		return Page{}, ErrValidation
-	}
-	if _, err := s.repo.GetSpaceByID(ctx, orgID, spaceID); err != nil {
-		return Page{}, err
 	}
 
 	content := emptyDoc
@@ -236,8 +283,20 @@ func (s *Service) GetPage(ctx context.Context, orgID, userID, orgRole, id string
 	if err != nil {
 		return PageDetail{}, err
 	}
-	if !visible || (p.Status != "published" && !isManager(orgRole)) {
+	if !visible {
 		return PageDetail{}, ErrForbidden
+	}
+	if p.Status != "published" {
+		canSeeDraft := isManager(orgRole)
+		if !canSeeDraft && sp.ProjectID != nil {
+			canSeeDraft, err = s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, "member")
+			if err != nil {
+				return PageDetail{}, err
+			}
+		}
+		if !canSeeDraft {
+			return PageDetail{}, ErrForbidden
+		}
 	}
 	breadcrumb, err := s.repo.GetBreadcrumb(ctx, id)
 	if err != nil {
@@ -250,12 +309,31 @@ func (s *Service) GetPage(ctx context.Context, orgID, userID, orgRole, id string
 	return PageDetail{Page: p, SpaceSlug: sp.Slug, SpaceName: sp.Name, Breadcrumb: breadcrumb, Comments: comments}, nil
 }
 
+// canEditOrDeletePage resolves the page's space and checks the right ACL for
+// it: project-scoped spaces use canAccessProjectSpace at min ("member" to
+// edit, "manager" to delete); everything else keeps canEditPage's existing
+// admin/creator rule.
+func (s *Service) canEditOrDeletePage(ctx context.Context, orgID, userID, orgRole string, p Page, min string) (bool, error) {
+	sp, err := s.repo.GetSpaceByID(ctx, orgID, p.SpaceID)
+	if err != nil {
+		return false, err
+	}
+	if sp.ProjectID != nil {
+		return s.canAccessProjectSpace(ctx, orgRole, userID, *sp.ProjectID, min)
+	}
+	return canEditPage(orgRole, userID, p), nil
+}
+
 func (s *Service) UpdatePage(ctx context.Context, orgID, userID, orgRole, id string, req UpdatePageRequest) (Page, error) {
 	existing, err := s.repo.GetPage(ctx, orgID, id)
 	if err != nil {
 		return Page{}, err
 	}
-	if !canEditPage(orgRole, userID, existing) {
+	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, orgRole, existing, "member")
+	if err != nil {
+		return Page{}, err
+	}
+	if !allowed {
 		return Page{}, ErrForbidden
 	}
 	if req.Title != nil && strings.TrimSpace(*req.Title) == "" {
@@ -275,7 +353,11 @@ func (s *Service) MovePage(ctx context.Context, orgID, userID, orgRole, id strin
 	if err != nil {
 		return Page{}, err
 	}
-	if !canEditPage(orgRole, userID, existing) {
+	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, orgRole, existing, "member")
+	if err != nil {
+		return Page{}, err
+	}
+	if !allowed {
 		return Page{}, ErrForbidden
 	}
 	return s.repo.MovePage(ctx, orgID, id, req.ParentID, req.OrderIndex)
@@ -286,7 +368,11 @@ func (s *Service) DeletePage(ctx context.Context, orgID, userID, orgRole, id str
 	if err != nil {
 		return err
 	}
-	if !canEditPage(orgRole, userID, existing) {
+	allowed, err := s.canEditOrDeletePage(ctx, orgID, userID, orgRole, existing, "manager")
+	if err != nil {
+		return err
+	}
+	if !allowed {
 		return ErrForbidden
 	}
 	return s.repo.DeletePage(ctx, orgID, id)

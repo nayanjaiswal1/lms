@@ -385,28 +385,68 @@ func (s *InviteService) Join(ctx context.Context, req JoinOrgRequest, userID str
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	if _, err := tx.Exec(ctx,
+	// Claim the invite inside the tx: the pre-checks above ran without a lock,
+	// so two concurrent Joins on one token could both pass them. Only the
+	// UPDATE that flips accepted_at from NULL wins.
+	var now time.Time
+	err = tx.QueryRow(ctx,
+		`UPDATE org_invites
+		 SET accepted_at = now(), accepted_by_user_id = $2, updated_at = now()
+		 WHERE id = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > now()
+		 RETURNING accepted_at`,
+		inv.ID, userID,
+	).Scan(&now)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("invite_already_accepted")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("orgs: join: mark accepted: %w", err)
+	}
+
+	// Project-linked invites were issued from a specific person's interest
+	// form, so they bind to that email: a forwarded link must not take the
+	// seat (docs/project-workspace-plan/00-decisions.md D16).
+	projectLinked, err := inviteHasProjectInterests(ctx, tx, inv.ID)
+	if err != nil {
+		return nil, err
+	}
+	if projectLinked {
+		var matches bool
+		if err := tx.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM users WHERE id = $1 AND lower(email) = lower($2))`,
+			userID, inv.Email,
+		).Scan(&matches); err != nil {
+			return nil, fmt.Errorf("orgs: join: check invite email: %w", err)
+		}
+		if !matches {
+			return nil, fmt.Errorf("invite_email_mismatch")
+		}
+	}
+
+	// Never demote: an already-active member keeps their current role (an
+	// admin clicking a learner invite stays admin). Only a new or inactive
+	// membership takes the invite's role.
+	var effectiveRole string
+	if err := tx.QueryRow(ctx,
 		`INSERT INTO org_members (org_id, user_id, role, status)
 		 VALUES ($1, $2, $3, 'active')
 		 ON CONFLICT (org_id, user_id)
-		 DO UPDATE SET status = 'active', role = EXCLUDED.role, updated_at = now()`,
+		 DO UPDATE SET role = CASE WHEN org_members.status = 'active' THEN org_members.role ELSE EXCLUDED.role END,
+		               status = 'active', updated_at = now()
+		 RETURNING role`,
 		inv.OrgID, userID, inv.Role,
-	); err != nil {
+	).Scan(&effectiveRole); err != nil {
 		return nil, fmt.Errorf("orgs: join: upsert member: %w", err)
 	}
 
-	if err := syncTenantAdminRole(ctx, tx, inv.OrgID, userID, inv.Role); err != nil {
+	if err := syncTenantAdminRole(ctx, tx, inv.OrgID, userID, effectiveRole); err != nil {
 		return nil, fmt.Errorf("orgs: join: sync tenant_admin role: %w", err)
 	}
 
-	now := time.Now()
-	if _, err := tx.Exec(ctx,
-		`UPDATE org_invites
-		 SET accepted_at = $1, accepted_by_user_id = $2, updated_at = now()
-		 WHERE id = $3`,
-		now, userID, inv.ID,
-	); err != nil {
-		return nil, fmt.Errorf("orgs: join: mark accepted: %w", err)
+	if projectLinked {
+		if inv.InactiveProjects, err = joinLinkedProjects(ctx, tx, inv.ID, userID); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {

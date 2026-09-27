@@ -53,20 +53,32 @@ const (
 	IssueTypeFinalTest = "final_test" // learner passed the course's final test
 	IssueTypeManual    = "manual"     // a mentor/instructor/admin awarded it directly
 	IssueTypeThreshold = "threshold"  // learner crossed the course's configured completion threshold
+	// IssueTypeProjectCompletion is Project Workspace's additive sibling
+	// (contract-phase5.md 5b): a project owner awarding a member a
+	// certificate for their work on a completed Project Workspace project,
+	// never tied to a course_id (see project_id below).
+	IssueTypeProjectCompletion = "project_completion"
 )
 
-// Certificate is the issued, publicly-verifiable record of course
-// completion — via a passed final test, a mentor's manual award, or a
-// crossed completion threshold (see IssueType).
+// Certificate is the issued, publicly-verifiable record of completion — via
+// a passed final test, a mentor's manual award, a crossed completion
+// threshold (see IssueType), or (additively) a completed Project Workspace
+// project. Exactly one of CourseID/ProjectID is set, never both — enforced
+// by the certificates_course_xor_project CHECK (migration 041).
 type Certificate struct {
 	ID                  string    `json:"id"`
 	UserID              string    `json:"user_id"`
-	CourseID            string    `json:"course_id"`
+	CourseID            string    `json:"course_id,omitempty"`
+	ProjectID           *string   `json:"project_id,omitempty"`
 	AssessmentAttemptID *string   `json:"assessment_attempt_id,omitempty"`
 	IssuedAt            time.Time `json:"issued_at"`
 	CertUUID            string    `json:"cert_uuid"`
 	IssueType           string    `json:"issue_type"`
 	IssuedBy            *string   `json:"issued_by,omitempty"`
+	// Note is only set for IssueTypeProjectCompletion — the issuing owner's
+	// short write-up of the member's contribution (contract-phase5.md's
+	// IssueCertificateRequest.ExperienceNote).
+	Note *string `json:"note,omitempty"`
 }
 
 // CertificateView is what the "my certificates" list and the public

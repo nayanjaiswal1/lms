@@ -300,6 +300,8 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request) {
 			httputil.WriteError(w, http.StatusGone, "This invite has been revoked.")
 		case "invite_already_accepted":
 			httputil.WriteError(w, http.StatusConflict, "This invite has already been accepted.")
+		case "invite_email_mismatch":
+			httputil.WriteError(w, http.StatusForbidden, "This invite was sent to a different email address. Sign in with that email to accept it.")
 		default:
 			httputil.WriteError(w, http.StatusInternalServerError, "Failed to join organization.")
 		}

@@ -85,6 +85,16 @@ func (s *Service) ScoreRequirement(ctx context.Context, orgID, requirementID str
 	return nil
 }
 
+// scoreDelimiter wraps every applicant-supplied field before it reaches the
+// prompt (02 §6, applied here per D20's "same delimiting fix to
+// service_score.go"). The delimiter itself is stripped out of the raw field
+// first, so nothing an applicant typed can forge a closing tag.
+const scoreDelimiter = "@@@APPLICANT_DATA@@@"
+
+func scoreDelimited(s string) string {
+	return scoreDelimiter + strings.ReplaceAll(s, scoreDelimiter, "") + scoreDelimiter
+}
+
 func (s *Service) scoreOneApplication(ctx context.Context, req *ProjectRequirement, app ProjectApplication) (float64, string, error) {
 	var githubSignal string
 	if links, err := s.profileRepo.GetSocialLinks(ctx, app.UserID); err == nil && links.GitHub != nil {
@@ -94,17 +104,17 @@ func (s *Service) scoreOneApplication(ctx context.Context, req *ProjectRequireme
 	var b strings.Builder
 	fmt.Fprintf(&b, "Project: %s\nRequired skills: %s\nBrief: %s\n\n", req.Title, strings.Join(req.RequiredSkills, ", "), req.Brief)
 	if app.Motivation != nil && *app.Motivation != "" {
-		fmt.Fprintf(&b, "Applicant's motivation: %s\n\n", *app.Motivation)
+		fmt.Fprintf(&b, "Applicant's motivation: %s\n\n", scoreDelimited(*app.Motivation))
 	} else {
 		b.WriteString("Applicant's motivation: (none provided)\n\n")
 	}
 	if app.ResumeText != nil && *app.ResumeText != "" {
-		fmt.Fprintf(&b, "Applicant's resume:\n%s\n\n", *app.ResumeText)
+		fmt.Fprintf(&b, "Applicant's resume:\n%s\n\n", scoreDelimited(*app.ResumeText))
 	} else {
 		b.WriteString("Applicant's resume: (none provided)\n\n")
 	}
 	if githubSignal != "" {
-		fmt.Fprintf(&b, "Applicant's %s\n", githubSignal)
+		fmt.Fprintf(&b, "Applicant's %s\n", scoreDelimited(githubSignal))
 	} else {
 		b.WriteString("Applicant's GitHub: (not linked)\n")
 	}

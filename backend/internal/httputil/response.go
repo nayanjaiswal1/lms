@@ -75,3 +75,10 @@ func WriteDomainError(w http.ResponseWriter, err error, specs map[error]ErrSpec,
 	slog.Error("httputil: unhandled domain error", "error", err)
 	WriteError(w, http.StatusInternalServerError, fallbackMessage)
 }
+
+// WriteErrorWithData writes an error envelope that also carries a payload:
+// {"error": message, "data": data}. Used for 409 optimistic-lock conflicts so
+// the client can show the current row next to its stale edit.
+func WriteErrorWithData(w http.ResponseWriter, status int, message string, data any) {
+	writeEnvelope(w, status, map[string]any{"error": message, "data": data})
+}

@@ -27,6 +27,11 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, executor assessment.Code
 	return &Router{handler: newHandler(service, pool), pool: pool}
 }
 
+// Service exposes the underlying Service — internal/workspace's Phase 5
+// project-completion certificate issuance (service_feedback.go) needs it
+// directly, the same accessor pattern gitlab.Router/workspace.Handler use.
+func (rt *Router) Service() *Service { return rt.handler.service }
+
 // RegisterRoutes mounts the authenticated routes under the caller's group.
 // Authoring is role-gated the same way courses' own module CRUD is (courses
 // doesn't use permission codes for authoring); student-facing reads/writes

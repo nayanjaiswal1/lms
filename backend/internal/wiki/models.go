@@ -5,12 +5,14 @@ import (
 	"time"
 )
 
-// Space is a topic container for a tree of pages — either org-wide
-// (CourseID nil) or scoped to one course ("Course Docs").
+// Space is a topic container for a tree of pages — org-wide (CourseID and
+// ProjectID nil), scoped to one course ("Course Docs"), or scoped to one
+// Project Workspace (docs/project-workspace-plan/02-auth-security.md §7.0).
 type Space struct {
 	ID          string    `json:"id"`
 	OrgID       string    `json:"org_id"`
 	CourseID    *string   `json:"course_id,omitempty"`
+	ProjectID   *string   `json:"project_id,omitempty"`
 	Name        string    `json:"name"`
 	Slug        string    `json:"slug"`
 	Description *string   `json:"description,omitempty"`

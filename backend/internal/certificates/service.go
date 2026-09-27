@@ -330,6 +330,37 @@ func (s *Service) IssueByMentor(ctx context.Context, orgID, callerID, callerRole
 	}
 }
 
+// ─── Project Workspace manual issuance (additive) ──────────────────────────────
+
+// IssueProjectCompletion awards a Project Workspace completion certificate —
+// the additive project-workspace sibling of IssueByMentor (contract-
+// phase5.md 5b). The caller (workspace.Service.IssueCertificate) has already
+// verified the project is completed and that the caller is its owner; this
+// only handles idempotency (a member who already has one gets it back
+// rather than a duplicate row) and the insert.
+func (s *Service) IssueProjectCompletion(ctx context.Context, userID, projectID, issuedByUserID, note string) (Certificate, error) {
+	existing, err := s.repo.GetCertificateForProject(ctx, userID, projectID)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		var notePtr *string
+		if note != "" {
+			notePtr = &note
+		}
+		return s.repo.IssueProjectCertificate(ctx, userID, projectID, &issuedByUserID, notePtr)
+	case err != nil:
+		return Certificate{}, err
+	default:
+		return existing, nil
+	}
+}
+
+// GetCertificateForProject exposes the project-completion lookup to callers
+// outside this package (internal/workspace's BuildMemberReport) that only
+// need to know whether — and under what cert_uuid — one was already issued.
+func (s *Service) GetCertificateForProject(ctx context.Context, userID, projectID string) (Certificate, error) {
+	return s.repo.GetCertificateForProject(ctx, userID, projectID)
+}
+
 // ─── Threshold-based auto-issue ────────────────────────────────────────────────
 
 // UpsertCertificateThreshold sets the certificate threshold percentage for a course.

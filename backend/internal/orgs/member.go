@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -230,7 +231,13 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 		return ErrForbidden
 	}
 
-	if _, err := s.pool.Exec(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("orgs: remove member: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err := tx.Exec(ctx,
 		`UPDATE org_members SET status = 'removed', updated_at = now() WHERE id = $1 AND org_id = $2`,
 		memberID, orgID,
 	); err != nil {
@@ -239,6 +246,17 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 			return ErrLastOwner
 		}
 		return fmt.Errorf("orgs: remove member: %w", err)
+	}
+
+	// Same transaction: leave every Project Workspace this user belongs to
+	// in the org (docs/project-workspace-plan/02-auth-security.md §2 "org
+	// removal runs the same routine for every workspace in that org").
+	if err := removeFromOrgWorkspaces(ctx, tx, orgID, target.UserID); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("orgs: remove member: commit: %w", err)
 	}
 
 	// Revoke tenant_admin so a future re-add (e.g. as a plain learner) doesn't
@@ -270,6 +288,113 @@ func (s *MemberService) Remove(ctx context.Context, orgID, actorUserID, actorRol
 		TargetID:    &memberID,
 		BeforeState: target,
 	})
+	return nil
+}
+
+// removeFromOrgWorkspaces marks userID `removed` (left_at = now()) on every
+// project_members row they hold across orgID's Project Workspaces, and drops
+// their project_track_members rows, inside the caller's transaction (same
+// tx as the org-level removal). Raw SQL against the workspace package's own
+// tables rather than an import of that package: workspace already imports
+// orgs (for InviteService), so the reverse import would cycle, and this is
+// the only workspace state an org removal needs to touch.
+//
+// Rows where the user is 'owner' are left untouched — an org-level action
+// has no policy for who becomes the new owner of a project, so leaving the
+// project ownerless would silently orphan it. This is a deliberate gap: an
+// admin must transfer ownership by hand (or the project stays owned by a
+// user who is no longer an org member, which RequireProjectRole's own live
+// org-membership check already turns into effective read-only access for
+// them). Surfaced as a warning log so it isn't invisible.
+func removeFromOrgWorkspaces(ctx context.Context, tx pgx.Tx, orgID, userID string) error {
+	rows, err := tx.Query(ctx,
+		`SELECT p.id FROM workspace_projects p
+		   JOIN project_members pm ON pm.project_id = p.id
+		  WHERE p.org_id = $1 AND pm.user_id = $2 AND pm.role = 'owner' AND pm.status = 'active'`,
+		orgID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("orgs: remove member: find owned workspaces: %w", err)
+	}
+	var ownedProjectIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return fmt.Errorf("orgs: remove member: scan owned workspace: %w", err)
+		}
+		ownedProjectIDs = append(ownedProjectIDs, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("orgs: remove member: iterate owned workspaces: %w", err)
+	}
+	for _, id := range ownedProjectIDs {
+		slog.WarnContext(ctx, "orgs: org member removed while still owning a project workspace; ownership left in place",
+			"org_id", orgID, "user_id", userID, "project_id", id)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE project_members SET status = 'removed', left_at = now(), updated_at = now()
+		  WHERE user_id = $2 AND role <> 'owner' AND status IN ('invited', 'active')
+		    AND project_id IN (SELECT id FROM workspace_projects WHERE org_id = $1)`,
+		orgID, userID,
+	); err != nil {
+		return fmt.Errorf("orgs: remove member: leave workspaces: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM project_track_members
+		  WHERE user_id = $2 AND project_id IN (SELECT id FROM workspace_projects WHERE org_id = $1)`,
+		orgID, userID,
+	); err != nil {
+		return fmt.Errorf("orgs: remove member: delete track memberships: %w", err)
+	}
+
+	// Project Workspace Phase 4 (docs/project-workspace-plan/contract-phase4.md
+	// 4c): the same open-item unassign + leaderless-track cascade
+	// workspace.Service.RemoveMember runs for a single project-level removal,
+	// applied here across every workspace this org member touches at once.
+	// Raw SQL for the same reason as the block above (no workspace import,
+	// see this function's own doc comment) — an unassign is still logged as a
+	// real event (source='system', actor NULL: there is no per-project actor
+	// for an org-wide action), just without workspace's own notify-managers
+	// step: this path has no notifications.Service in hand (MemberService
+	// isn't constructed with one), so the resulting unassigned-owner/
+	// leaderless-track state is surfaced to managers passively, the next time
+	// they open the affected project's dashboard (NeedsAttention already
+	// lists leaderless tracks and — once an owner-less item stops making
+	// progress — it will show up there too), rather than actively pushed.
+	// Documented as this decision's own follow-up rather than wiring a new
+	// dependency into MemberService for one cross-cutting admin action.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO work_item_events (project_id, item_id, source, kind, field, from_value, reason)
+		 SELECT w.project_id, w.id, 'system', 'unassign', 'owner', $2, 'member removed from organization'
+		   FROM work_item_assignees wia
+		   JOIN work_items w ON w.id = wia.item_id
+		  WHERE wia.user_id = $2 AND wia.role = 'owner'
+		    AND w.project_id IN (SELECT id FROM workspace_projects WHERE org_id = $1)
+		    AND w.archived_at IS NULL AND w.status NOT IN ('done','wont_do')`,
+		orgID, userID,
+	); err != nil {
+		return fmt.Errorf("orgs: remove member: log owner unassign events: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM work_item_assignees wia USING work_items w
+		  WHERE wia.item_id = w.id AND wia.user_id = $2
+		    AND w.project_id IN (SELECT id FROM workspace_projects WHERE org_id = $1)
+		    AND w.archived_at IS NULL AND w.status NOT IN ('done','wont_do')`,
+		orgID, userID,
+	); err != nil {
+		return fmt.Errorf("orgs: remove member: drop open item assignments: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE project_tracks SET lead_user_id = NULL, updated_at = now()
+		  WHERE lead_user_id = $2 AND project_id IN (SELECT id FROM workspace_projects WHERE org_id = $1)`,
+		orgID, userID,
+	); err != nil {
+		return fmt.Errorf("orgs: remove member: clear led tracks: %w", err)
+	}
 	return nil
 }
 

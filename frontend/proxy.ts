@@ -33,6 +33,7 @@ const PUBLIC_PREFIXES = [
   "/calendar/invite/", // (public) route group — public calendar-invite acceptance link
   "/certificates/", // (public) route group — public certificate verification link
   "/hire/", // (public) route group — public hiring-code landing link
+  "/join/", // (public) route group — public project-workspace share-link landing page
   "/roadmaps/", // (public) route group — anonymous roadmap detail view
   "/api/", // Route handlers do their own auth + return JSON 401s; a redirect here would break fetch() callers expecting JSON
 ]

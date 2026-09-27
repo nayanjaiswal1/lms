@@ -63,6 +63,30 @@ func (c *Client) ForkProject(ctx context.Context, templateProjectID, namespaceID
 	return &p, nil
 }
 
+type createProjectRequest struct {
+	Name                 string `json:"name"`
+	Path                 string `json:"path"`
+	NamespaceID          int64  `json:"namespace_id"`
+	Visibility           string `json:"visibility"`
+	InitializeWithReadme bool   `json:"initialize_with_readme"`
+}
+
+// CreateProject calls POST /projects — creates a brand-new, empty repository
+// in namespaceID, initialized with a README so the default branch exists
+// immediately (workspace's Phase 4 GitLab provisioning needs a real project
+// to protect/hook right away, unlike a course assignment's fork which always
+// has commits already). Distinct from ForkProject: a Project Workspace has no
+// template repo to fork from (00-decisions D8) — this is a plain new project.
+func (c *Client) CreateProject(ctx context.Context, namespaceID int64, name, path, visibility string) (*Project, error) {
+	var p Project
+	if err := c.doJSON(ctx, http.MethodPost, "/projects", createProjectRequest{
+		Name: name, Path: path, NamespaceID: namespaceID, Visibility: visibility, InitializeWithReadme: true,
+	}, &p); err != nil {
+		return nil, fmt.Errorf("gitlab: create project %q in namespace %d: %w", path, namespaceID, err)
+	}
+	return &p, nil
+}
+
 type updateProjectRequest struct {
 	Visibility string `json:"visibility"`
 }

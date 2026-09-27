@@ -33,6 +33,67 @@ type Service struct {
 	// (service_ai_review.go) — the same ai.LLMProvider interface every other
 	// AI-calling domain shares.
 	aiProvider ai.LLMProvider
+	// workItemLinker is Phase 4's ticket-key linking hook (service_webhook.go's
+	// push/MR ingest calls it after each commit/MR upsert). Late-bound via
+	// SetWorkItemLinker rather than a NewService parameter, the same reason
+	// wiki.SetPageUpdateHook is late-bound (see that function's own doc
+	// comment): workspace imports gitlab (for GitlabRefInfo/ClientForOrg), so
+	// gitlab importing workspace back to type this field concretely would
+	// cycle. Unlike wiki's pageUpdateHook (a package-level var, since wiki has
+	// no natural single instance to hang it off), gitlab.Service already is
+	// one instance the router holds — a struct field + setter avoids adding
+	// global mutable state for the same late-bound purpose. Nil-safe: every
+	// call site checks for nil before invoking it (no-op until Phase 4 wires
+	// it in internal/api/router.go).
+	workItemLinker WorkItemLinker
+}
+
+// GitlabRefInfo.Kind values — string-identical to workspace's own
+// GitlabRefBranch/GitlabRefMR/GitlabRefCommit constants (models_phase4.go),
+// duplicated as plain string literals for the same import-cycle reason as
+// ticketKeyPattern (service_webhook.go).
+const (
+	GitlabRefKindBranch = "branch"
+	GitlabRefKindMR     = "mr"
+	GitlabRefKindCommit = "commit"
+)
+
+// GitlabRefInfo is one commit/branch/MR reference discovered in a webhook
+// event, carrying just what WorkItemLinker.LinkGitlabRef needs to resolve and
+// link it — never the full mirrored row, so this package's own models don't
+// leak into workspace's public surface.
+type GitlabRefInfo struct {
+	Kind           string // GitlabRefBranch | GitlabRefMR | GitlabRefCommit (workspace's own constants; passed as plain strings to avoid an import back)
+	Ref            string // branch name | MR iid (string) | commit sha
+	MergeRequestID *string
+	MRState        string
+	AuthorUserID   *string
+	SourceBranch   string
+}
+
+// WorkItemLinker is implemented by workspace.Service — see that package's
+// service_gitlab.go LinkGitlabRef for the resolve/ignore/status-automation
+// rules. Defined here (not in workspace) so this package can call it without
+// importing workspace, which would cycle (workspace imports gitlab).
+type WorkItemLinker interface {
+	LinkGitlabRef(ctx context.Context, orgID, teamID, ticketKey string, info GitlabRefInfo) error
+}
+
+// SetWorkItemLinker registers the Phase 4 ticket-linking hook — wired once in
+// internal/api/router.go to workspaceRouter.Service() (the first late-bound
+// dependency between the two packages; see workItemLinker's own doc comment
+// for why it's a field setter rather than wiki's package-level var pattern).
+func (s *Service) SetWorkItemLinker(l WorkItemLinker) {
+	s.workItemLinker = l
+}
+
+// ClientForOrg resolves an org's default installation into a ready-to-use API
+// client — the same resolution clientFor(ctx, orgID, nil) already does,
+// exposed publicly for workspace's own GitLab provisioning/MR-reviewer-sync
+// call sites, which have no ProjectTeam/ProjectAssignment row to resolve an
+// override through.
+func (s *Service) ClientForOrg(ctx context.Context, orgID string) (*Client, error) {
+	return s.clientFor(ctx, orgID, nil)
 }
 
 // NewService builds the gitlab Service. vault must be the same *secrets.Vault

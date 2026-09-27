@@ -20,6 +20,7 @@ import {
   Map,
   FolderTree,
   FolderGit2,
+  Briefcase,
   Bot,
   Presentation,
   TicketPercent,
@@ -271,6 +272,15 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  PERMISSIONS.PROJECTS.VIEW,
     mode:                "hide",
   },
+  // Not gated on projects.create: creating a workspace needs that permission,
+  // but any org member can be *invited into* someone else's workspace as a
+  // member/viewer, so the nav entry itself has to stay visible to everyone —
+  // the create button on /workspaces is what's gated instead.
+  workspaces: {
+    label: "Workspaces",
+    href:  ROUTES.WORKSPACES,
+    icon:  Briefcase,
+  },
   mentor_dashboard: {
     label:               "Overview",
     href:                ROUTES.MENTORING,
@@ -467,6 +477,7 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.dashboard,
       ALL_NAV_ITEMS.learn_hub,
+      ALL_NAV_ITEMS.workspaces,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.support,
       ALL_NAV_ITEMS.sessions,

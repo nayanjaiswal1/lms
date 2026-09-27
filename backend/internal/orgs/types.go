@@ -150,6 +150,10 @@ type Invite struct {
 	AcceptedAt  *time.Time `json:"accepted_at"`
 	RevokedAt   *time.Time `json:"revoked_at"`
 	CreatedAt   time.Time  `json:"created_at"`
+	// InactiveProjects lists project workspaces this invite was issued for
+	// that were no longer recruiting/active at Join time: the user joined the
+	// org but not those projects. Set only by Join.
+	InactiveProjects []string `json:"inactive_projects,omitempty"`
 }
 
 type InvitePage struct {

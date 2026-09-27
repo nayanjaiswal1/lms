@@ -175,6 +175,28 @@ func (r *Repo) GetMergeRequestByTeamAndIID(ctx context.Context, teamID string, m
 	return scanMergeRequest(row)
 }
 
+// UpdateMRPipelineStats writes migration 039's head_pipeline_status/
+// additions/deletions columns from an MR or pipeline webhook payload —
+// Phase 4's MR-size flag (workspace's MRSizeFlagLines) and pipeline badge
+// read these directly off this table rather than through a Go-side mirror,
+// so this is a standalone UPDATE (not folded into UpsertMergeRequest's own
+// COALESCE chain) that a caller invokes only when the payload actually
+// carried one of these fields. Any nil argument leaves its column untouched.
+func (r *Repo) UpdateMRPipelineStats(ctx context.Context, id string, pipelineStatus *string, additions, deletions *int) error {
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE gitlab_merge_requests SET
+			head_pipeline_status = COALESCE($2, head_pipeline_status),
+			additions = COALESCE($3, additions),
+			deletions = COALESCE($4, deletions),
+			updated_at = now()
+		 WHERE id = $1`,
+		id, pipelineStatus, additions, deletions,
+	); err != nil {
+		return fmt.Errorf("gitlab: update mr pipeline stats: %w", err)
+	}
+	return nil
+}
+
 // MarkMergeRequestAIReviewed records that Service.ReviewMergeRequest has run
 // for this MR — the "AI called once" cache guard other callers check before
 // enqueueing gitlab.ai_review_mr again.

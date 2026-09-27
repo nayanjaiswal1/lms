@@ -169,6 +169,25 @@ func (c *Client) CreateMRNote(ctx context.Context, projectID, mrIID int64, body 
 	return &note, nil
 }
 
+type updateMergeRequestReviewersRequest struct {
+	ReviewerIDs []int64 `json:"reviewer_ids"`
+}
+
+// SetMergeRequestReviewers calls PUT /projects/:id/merge_requests/:iid with
+// reviewer_ids — replaces the MR's full reviewer set (GitLab has no
+// add-one-reviewer endpoint; this is the documented way to set it). Used by
+// workspace's Phase 4 GitLab linking (service_gitlab.go) to keep an item's
+// reviewer assignees mirrored onto the MR once it's opened. Via the same
+// guarded client every other write in this file uses, so callers get the
+// same auth/rate-limit/error handling as MergeMergeRequest/CreateMRNote.
+func (c *Client) SetMergeRequestReviewers(ctx context.Context, projectID, mrIID int64, reviewerGitlabIDs []int64) error {
+	if err := c.doJSON(ctx, http.MethodPut, fmt.Sprintf("/projects/%d/merge_requests/%d", projectID, mrIID),
+		updateMergeRequestReviewersRequest{ReviewerIDs: reviewerGitlabIDs}, nil); err != nil {
+		return fmt.Errorf("gitlab: set reviewers on merge request %d on project %d: %w", mrIID, projectID, err)
+	}
+	return nil
+}
+
 // ApprovalRule is the subset of a GitLab merge-request approval rule this
 // package needs — the EE-only server-side mirror of MindForge's own
 // approvals_count gate (kind-herding-cookie.md §0.4's layer 2).

@@ -103,6 +103,10 @@ type Config struct {
 	DevEmailAllowlist []string
 
 	// Rate limiting
+	// Workspace holds the Project Workspace rate limits
+	// (docs/project-workspace-plan/02-auth-security.md §4.3); each field's
+	// window is in its name.
+	Workspace           WorkspaceLimits
 	AuthRateLimitMax    int
 	AuthRateLimitWindow time.Duration
 	// Coupon-code attempts per user per window. A coupon code is a
@@ -349,6 +353,20 @@ func Load() *Config {
 
 	// Parse rate limit config
 	cfg.AuthRateLimitMax = getEnvInt("AUTH_RATE_LIMIT_MAX", 10)
+	cfg.Workspace = WorkspaceLimits{
+		CreatePerUserDay:         getEnvInt("WORKSPACE_CREATE_PER_USER_DAY", 10),
+		PublicViewPerIPMinute:    getEnvInt("WORKSPACE_PUBLIC_VIEW_PER_IP_MINUTE", 60),
+		InterestPerIPHour:        getEnvInt("WORKSPACE_INTEREST_PER_IP_HOUR", 5),
+		InterestPerEmailDay:      getEnvInt("WORKSPACE_INTEREST_PER_EMAIL_DAY", 20),
+		InterestPerProjectDay:    getEnvInt("WORKSPACE_INTEREST_PER_PROJECT_DAY", 200),
+		RotateTokenPerHour:       getEnvInt("WORKSPACE_ROTATE_TOKEN_PER_HOUR", 10),
+		AcceptPerProjectDay:      getEnvInt("WORKSPACE_ACCEPT_PER_PROJECT_DAY", 50),
+		SimilarPerUserMinute:     getEnvInt("WORKSPACE_SIMILAR_PER_USER_MINUTE", 30),
+		AIPerProjectDay:          getEnvInt("WORKSPACE_AI_PER_PROJECT_DAY", 50),
+		AssigneeSuggestPerMinute: getEnvInt("WORKSPACE_ASSIGNEE_SUGGEST_PER_MINUTE", 1),
+		SummaryRegenPerDay:       getEnvInt("WORKSPACE_SUMMARY_REGEN_PER_DAY", 3),
+		ExportPerUserHour:        getEnvInt("WORKSPACE_EXPORT_PER_USER_HOUR", 10),
+	}
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
 	cfg.CouponRateLimitMax = getEnvInt("COUPON_RATE_LIMIT_MAX", 10)
 	cfg.CouponRateLimitWindow = parseDuration("COUPON_RATE_LIMIT_WINDOW", "1m")
@@ -661,4 +679,21 @@ func getEnvImageProfiles(key string) map[string]string {
 		out[part[:i]] = part[i+1:]
 	}
 	return out
+}
+
+// WorkspaceLimits are the Project Workspace rate limits, all overridable via
+// WORKSPACE_* env vars.
+type WorkspaceLimits struct {
+	CreatePerUserDay         int
+	PublicViewPerIPMinute    int
+	InterestPerIPHour        int
+	InterestPerEmailDay      int
+	InterestPerProjectDay    int
+	RotateTokenPerHour       int
+	AcceptPerProjectDay      int
+	SimilarPerUserMinute     int
+	AIPerProjectDay          int
+	AssigneeSuggestPerMinute int
+	SummaryRegenPerDay       int
+	ExportPerUserHour        int
 }

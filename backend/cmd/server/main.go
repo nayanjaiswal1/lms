@@ -30,6 +30,7 @@ import (
 	"github.com/mindforge/backend/internal/secrets"
 	"github.com/mindforge/backend/internal/session"
 	"github.com/mindforge/backend/internal/storage"
+	"github.com/mindforge/backend/internal/workspace"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -217,6 +218,24 @@ func main() {
 	// "holds no state beyond shared pointers" reasoning as the others above.
 	projectmarketSvcForJobs := projectmarket.NewService(pool, profile.NewRepo(pool), aiProvider, jobsRegistry, gitlabSvcForJobs, notificationsSvcForJobs)
 
+	// A standalone workspace.Service for the daily purge job, the two Phase 3
+	// reminder jobs, and Phase 4's inactivity_sweep/manager_digest/gitlab_sync
+	// jobs below — Notif and (Phase 4) Gitlab/Jobs are wired in, but
+	// Perms/Invites/AI/Limiter/Calendar stay nil since none of these jobs'
+	// code paths touch them (those live on the request-path Service built in
+	// internal/api/router.go instead). gitlabSvcForJobs is the same instance
+	// HandlerGitlabIngestEvent runs webhook dispatch through, so wiring the
+	// WorkItemLinker here — not only on the request-path gitlabRouter.Service()
+	// in router.go — is what actually makes ticket-key linking fire in
+	// production (webhook ingest always runs as a background job).
+	// AI is wired here too (Phase 5's workspace.ai_weekly_summary_project job
+	// is the one workspace job that spends an AI call) — Limiter/Perms/
+	// Certificates stay unset since no job path uses them (the manager-
+	// triggered rate limit and certificate issuance are both request-path
+	// only, contract-phase5.md's own split between the HTTP and cron paths).
+	workspaceSvcForJobs := workspace.NewService(workspace.Deps{Pool: pool, Cfg: cfg, Notif: notificationsSvcForJobs, AI: aiProvider, Gitlab: gitlabSvcForJobs, Jobs: jobsRegistry})
+	gitlabSvcForJobs.SetWorkItemLinker(workspaceSvcForJobs)
+
 	jobsRegistry.Register(handlers.HandlerEvalSubjective, handlers.NewEvalHandler(assessmentRepo, aiProvider, cfg, pool, rewardsSvc, coursesSvcForJobs))
 	// Fires once, exactly when an eval.subjective job permanently dies, instead
 	// of a separate cron job polling for the same condition after the fact —
@@ -262,6 +281,19 @@ func main() {
 	// Knowledge Captures — extract + AI-structure a screenshot/PDF/link into
 	// a journal note or SRS flashcard candidate (internal/captures).
 	jobsRegistry.Register(handlers.HandlerCapturesProcess, handlers.NewCapturesProcessHandler(captures.NewProcessor(pool, storageClient, aiProvider, cfg)))
+	// Project Workspace (internal/workspace) Phase 1.
+	jobsRegistry.Register(handlers.HandlerWorkspaceProjectInviteEmail, handlers.NewWorkspaceInviteEmailHandler(pool, cfg))
+	jobsRegistry.Register(handlers.HandlerWorkspacePurge, handlers.NewWorkspacePurgeHandler(workspaceSvcForJobs))
+	// Project Workspace Phase 3 (contract-phase3.md's Jobs section).
+	jobsRegistry.Register(handlers.HandlerWorkspaceBriefReminder, handlers.NewWorkspaceBriefReminderHandler(workspaceSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerWorkspaceDocReviewReminder, handlers.NewWorkspaceDocReviewReminderHandler(workspaceSvcForJobs))
+	// Project Workspace Phase 4 (contract-phase4.md's Jobs sections).
+	jobsRegistry.Register(handlers.HandlerWorkspaceGitlabSync, handlers.NewWorkspaceGitlabSyncHandler(workspaceSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerWorkspaceInactivitySweep, handlers.NewWorkspaceInactivitySweepHandler(workspaceSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerWorkspaceManagerDigest, handlers.NewWorkspaceManagerDigestHandler(workspaceSvcForJobs))
+	// Project Workspace Phase 5 (contract-phase5.md's Jobs section).
+	jobsRegistry.Register(handlers.HandlerWorkspaceAIWeeklySummary, handlers.NewWorkspaceAIWeeklySummaryHandler(workspaceSvcForJobs))
+	jobsRegistry.Register(handlers.HandlerWorkspaceAIWeeklySummaryProject, handlers.NewWorkspaceAIWeeklySummaryProjectHandler(workspaceSvcForJobs))
 
 	cronDefs := []jobs.CronJobDef{
 		// srs.review_reminder's standalone "Cards due for review" email was
@@ -311,6 +343,26 @@ func main() {
 		// passes — Apply already rejects late applications regardless, this
 		// only fixes what staff see on the requirements list.
 		{Handler: handlers.HandlerProjectmarketCloseExpired, Schedule: "*/15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		// Project Workspace daily purge (contract-phase1.md Jobs section):
+		// expire invited-but-unresolved interests, then delete/scrub stale
+		// ones (02 §4.7). project_invite_email has no cron entry — it's
+		// enqueued per accept, not scheduled.
+		{Handler: handlers.HandlerWorkspacePurge, Schedule: "0 4 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// Project Workspace Phase 3 reminders (contract-phase3.md's Jobs
+		// section): both hourly, offset from the top of the hour so they don't
+		// stack with the digest/analytics jobs also on "0 * * * *".
+		{Handler: handlers.HandlerWorkspaceBriefReminder, Schedule: "15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		{Handler: handlers.HandlerWorkspaceDocReviewReminder, Schedule: "30 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// Project Workspace Phase 4 (contract-phase4.md's Jobs sections).
+		// gitlab_sync has no cron entry — it's enqueued per pending reviewer
+		// sync failure (service_gitlab.go), not scheduled.
+		{Handler: handlers.HandlerWorkspaceInactivitySweep, Schedule: "0 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		{Handler: handlers.HandlerWorkspaceManagerDigest, Schedule: "0 8 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 300000},
+		// Project Workspace Phase 5 (contract-phase5.md's Jobs section):
+		// Monday 06:00 fan-out, one per-project job per active project.
+		// ai_weekly_summary_project has no cron entry of its own — it's
+		// enqueued per project by the fan-out above, not scheduled directly.
+		{Handler: handlers.HandlerWorkspaceAIWeeklySummary, Schedule: "0 6 * * 1", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
 	}
 
 	workerCtx, workerCancel := context.WithCancel(ctx)

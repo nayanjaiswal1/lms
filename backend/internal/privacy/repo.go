@@ -56,6 +56,11 @@ var exportQueries = []exportQuery{
 	                          FROM assessment_attempts WHERE user_id = $1`},
 	{"support_tickets", `SELECT id, subject, category, status, created_at FROM conversations WHERE requester_id = $1 AND kind = 'support'`},
 	{"legal_acceptances", `SELECT doc_type, version, accepted_at FROM legal_acceptances WHERE user_id = $1`},
+	// Project Workspace (internal/workspace), Phase 1 — additive per
+	// docs/project-workspace-plan/02-auth-security.md §4.7.
+	{"workspace_interests", `SELECT project_id, name, email, skills, portfolio_url, message, status, created_at
+	                          FROM project_interests WHERE user_id = $1`},
+	{"workspace_memberships", `SELECT project_id, role, status, joined_at FROM project_members WHERE user_id = $1`},
 }
 
 // ExportData gathers every section of userID's exportable data into a single
@@ -89,6 +94,21 @@ func (r *Repo) AnonymizeAndDeletePII(ctx context.Context, userID string) error {
 		return fmt.Errorf("privacy: anonymize: begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// Read the pre-anonymize email first: project_interests are keyed by the
+	// applicant's own submitted email (citext), not by user_id, for
+	// anonymous public-form submissions later linked to an account (02 §4.7
+	// "read old email first, delete interests by user_id or email").
+	var oldEmail string
+	if err := tx.QueryRow(ctx, `SELECT email FROM users WHERE id = $1`, userID).Scan(&oldEmail); err != nil {
+		return fmt.Errorf("privacy: anonymize: read email: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM project_interests WHERE user_id = $1 OR lower(email) = lower($2)`,
+		userID, oldEmail,
+	); err != nil {
+		return fmt.Errorf("privacy: delete project interests: %w", err)
+	}
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE users

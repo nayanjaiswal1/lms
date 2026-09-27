@@ -64,9 +64,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/api/gitlab/status", h.Status)
 	r.Post("/api/gitlab/disconnect", h.Disconnect)
 
-	// Planning & task board — any authenticated member (see handler_planning.go).
-	r.Get("/api/gitlab/planning/board", h.PlanningBoard)
-	r.Get("/api/gitlab/planning/issues", h.PlanningIssues)
+	// Planning & task board moved to the workspace package — it now serves
+	// real assigned work items instead of embedded fixtures (see
+	// workspace/handler_planning.go, workspace/routes.go).
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireOrgRole(h.service.pool, middleware.RoleOwner, middleware.RoleAdmin, middleware.RoleInstructor))

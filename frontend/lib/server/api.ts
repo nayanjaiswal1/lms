@@ -8,6 +8,9 @@ export interface ActionResult<T = undefined> {
   data?: T;
   error?: string;
   fieldErrors?: Record<string, string>;
+  // Set on 409 when the backend returns the current row alongside the error
+  // (optimistic-lock conflicts), so the UI can show "yours vs current".
+  conflict?: T;
 }
 
 /**
@@ -161,10 +164,57 @@ export async function apiUpload<T = undefined>(
       return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
     }
     const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
-    if (!res.ok) return { error: actionErrorMessage(json, "Upload failed."), fieldErrors: json.fields };
+    if (!res.ok) {
+      return {
+        error: actionErrorMessage(json, "Upload failed."),
+        fieldErrors: json.fields,
+        conflict: res.status === 409 ? json.data : undefined,
+      };
+    }
     return { ok: true, data: json.data };
   } catch {
     return { error: "Upload failed. Please try again." };
+  }
+}
+
+// For anonymous mutation surfaces (Project Workspace public interest form).
+// No cookies/CSRF — there is no session — but the browser's IP is still
+// forwarded so the backend's per-IP interest rate limit keys on the real
+// client, not this server's own egress address. Same ActionResult contract
+// and 429 handling as apiAction so callers don't need a second error shape.
+export async function apiActionPublic<T = undefined>(
+  method: string,
+  path: string,
+  payload?: unknown,
+): Promise<ActionResult<T>> {
+  let url: string;
+  try {
+    url = baseURL();
+  } catch {
+    return { error: "Service unavailable." };
+  }
+  try {
+    const res = await fetch(`${url}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json", ...(await clientIpHeaders()) },
+      body: payload !== undefined ? JSON.stringify(payload) : undefined,
+      cache: "no-store",
+    });
+    if (res.status === 429) {
+      const wait = retryAfterSeconds(res);
+      return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
+    }
+    const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
+    if (!res.ok) {
+      return {
+        error: actionErrorMessage(json, "Request failed."),
+        fieldErrors: json.fields,
+        conflict: res.status === 409 ? json.data : undefined,
+      };
+    }
+    return { ok: true, data: json.data };
+  } catch {
+    return { error: "Network error. Please try again." };
   }
 }
 
@@ -192,7 +242,13 @@ export async function apiAction<T = undefined>(
       return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
     }
     const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
-    if (!res.ok) return { error: actionErrorMessage(json, "Request failed."), fieldErrors: json.fields };
+    if (!res.ok) {
+      return {
+        error: actionErrorMessage(json, "Request failed."),
+        fieldErrors: json.fields,
+        conflict: res.status === 409 ? json.data : undefined,
+      };
+    }
     return { ok: true, data: json.data };
   } catch {
     return { error: "Network error. Please try again." };

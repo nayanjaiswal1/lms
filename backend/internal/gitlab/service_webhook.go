@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -231,6 +233,16 @@ func (s *Service) ingestPushEvent(ctx context.Context, team *ProjectTeam, raw []
 				slog.ErrorContext(ctx, "gitlab: flag late commits failed", "team_id", team.ID, "sha", c.ID, "error", err)
 			}
 		}
+
+		// Phase 4 (D7/D9): ticket keys found in the commit message or the
+		// branch name link this commit AND the branch itself to the item —
+		// contract-phase4.md "keys from message + branch → linker (kind
+		// commit / branch)". Author is the whole push's pusher (userID,
+		// resolved once above) — see this function's own doc comment for why
+		// a per-commit author isn't available off this payload.
+		keys := extractTicketKeys(msg, branch)
+		s.linkTicketKeys(ctx, team, keys, GitlabRefInfo{Kind: GitlabRefKindCommit, Ref: c.ID, AuthorUserID: userID, SourceBranch: branch})
+		s.linkTicketKeys(ctx, team, keys, GitlabRefInfo{Kind: GitlabRefKindBranch, Ref: branch, AuthorUserID: userID, SourceBranch: branch})
 	}
 
 	if len(p.Commits) > 0 {
@@ -320,6 +332,14 @@ type mrEventPayload struct {
 		TargetBranch string `json:"target_branch"`
 		URL          string `json:"url"`
 		CreatedAt    string `json:"created_at"`
+		// HeadPipeline is present on some GitLab versions' MR webhook payload
+		// once a pipeline has run against the MR — Phase 4's pipeline badge
+		// (contract-phase4.md "store head_pipeline_status ... from MR/pipeline
+		// events where the payload has them"). Absent payloads leave this nil
+		// and the column untouched (UpdateMRPipelineStats' own COALESCE).
+		HeadPipeline *struct {
+			Status string `json:"status"`
+		} `json:"head_pipeline"`
 	} `json:"object_attributes"`
 	User struct {
 		ID int64 `json:"id"`
@@ -376,9 +396,26 @@ func (s *Service) ingestMergeRequestEvent(ctx context.Context, team *ProjectTeam
 		return fmt.Errorf("upsert merge request: %w", err)
 	}
 
+	if oa.HeadPipeline != nil {
+		status := oa.HeadPipeline.Status
+		if err := s.repo.UpdateMRPipelineStats(ctx, upserted.ID, &status, nil, nil); err != nil {
+			slog.ErrorContext(ctx, "gitlab: update mr pipeline stats failed", "mr_id", upserted.ID, "error", err)
+		}
+	}
+
 	if err := s.bindMRToCheckpoint(ctx, team, upserted, oa.State); err != nil {
 		return fmt.Errorf("bind mr to checkpoint: %w", err)
 	}
+
+	// Phase 4 (D7/D9): ticket keys in the title/description/source branch
+	// link this MR to the item and (LinkGitlabRef) may drive forward-only
+	// status automation and reviewer sync.
+	mrIID := strconv.FormatInt(oa.IID, 10)
+	keys := extractTicketKeys(oa.Title, desc, source)
+	s.linkTicketKeys(ctx, team, keys, GitlabRefInfo{
+		Kind: GitlabRefKindMR, Ref: mrIID, MergeRequestID: &upserted.ID, MRState: oa.State,
+		AuthorUserID: authorUserID, SourceBranch: source,
+	})
 
 	// Phase C: one AI code-quality comment per MR, triggered off the first
 	// "opened" webhook — AIReviewedAt is the cache guard (see
@@ -504,6 +541,12 @@ type pipelineEventPayload struct {
 		Stage  string `json:"stage"`
 		Status string `json:"status"`
 	} `json:"builds"`
+	// MergeRequest is present on a Pipeline Hook payload when the pipeline
+	// ran for a merge request — Phase 4's pipeline-badge mirror
+	// (UpdateMRPipelineStats) keys off its iid to find the MR row.
+	MergeRequest *struct {
+		IID int64 `json:"iid"`
+	} `json:"merge_request"`
 }
 
 // ingestPipelineEvent upserts the pipeline's activity-mirror row, then
@@ -535,6 +578,20 @@ func (s *Service) ingestPipelineEvent(ctx context.Context, team *ProjectTeam, ra
 
 	if err := s.mirrorPipelineToCheckpoint(ctx, team, oa.ID, oa.Status, webURL); err != nil {
 		return fmt.Errorf("mirror pipeline to checkpoint: %w", err)
+	}
+
+	// Phase 4: a pipeline run for a merge request updates that MR's mirrored
+	// pipeline badge (contract-phase4.md "... or pipeline events where the
+	// payload has them"). Best-effort — the MR row may not be mirrored yet.
+	if p.MergeRequest != nil {
+		if mr, err := s.repo.GetMergeRequestByTeamAndIID(ctx, team.ID, p.MergeRequest.IID); err == nil {
+			status := oa.Status
+			if err := s.repo.UpdateMRPipelineStats(ctx, mr.ID, &status, nil, nil); err != nil {
+				slog.ErrorContext(ctx, "gitlab: update mr pipeline stats from pipeline event failed", "mr_id", mr.ID, "error", err)
+			}
+		} else if !errors.Is(err, ErrNotFound) {
+			slog.ErrorContext(ctx, "gitlab: resolve mr for pipeline event failed", "team_id", team.ID, "mr_iid", p.MergeRequest.IID, "error", err)
+		}
 	}
 
 	s.maybeRefreshPagesURL(ctx, team, oa.Status, p.Builds)
@@ -677,6 +734,48 @@ func (s *Service) ingestIssueEvent(ctx context.Context, team *ProjectTeam, raw [
 		return fmt.Errorf("upsert issue: %w", err)
 	}
 	return nil
+}
+
+// ─── Phase 4: ticket-key linking ────────────────────────────────────────────
+
+// ticketKeyPattern duplicates workspace.TicketKeyPattern's exact semantics
+// ({PREFIX}-{n}, prefix 2-6 uppercase letters). Duplicated rather than
+// imported for the same reason jobIngestEvent's job-handler-key constants
+// are plain literals (this file's own doc comment): workspace imports gitlab
+// (for GitlabRefInfo/ClientForOrg), so gitlab importing workspace back for
+// one regex would cycle. MUST stay in sync with workspace.TicketKeyPattern.
+var ticketKeyPattern = regexp.MustCompile(`\b([A-Z]{2,6})-(\d{1,9})\b`)
+
+// extractTicketKeys finds every ticket key across texts, deduped and in
+// first-seen order — the shared scan behind push (message+branch) and MR
+// (title+description+source branch) ingest.
+func extractTicketKeys(texts ...string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, t := range texts {
+		for _, m := range ticketKeyPattern.FindAllString(t, -1) {
+			if !seen[m] {
+				seen[m] = true
+				out = append(out, m)
+			}
+		}
+	}
+	return out
+}
+
+// linkTicketKeys calls the registered WorkItemLinker once per key found —
+// nil linker (Phase 4 not wired, or a standalone job-only Service) is a
+// silent no-op; a linker error is logged, never fails webhook ingest (this
+// file's own package doc comment: "GitLab disables hooks that time out").
+func (s *Service) linkTicketKeys(ctx context.Context, team *ProjectTeam, keys []string, info GitlabRefInfo) {
+	if s.workItemLinker == nil || len(keys) == 0 {
+		return
+	}
+	for _, key := range keys {
+		if err := s.workItemLinker.LinkGitlabRef(ctx, team.OrgID, team.ID, key, info); err != nil {
+			slog.ErrorContext(ctx, "gitlab: link ticket key failed", "team_id", team.ID, "key", key, "kind", info.Kind, "error", err)
+		}
+	}
 }
 
 // ─── shared helpers ──────────────────────────────────────────────────────────

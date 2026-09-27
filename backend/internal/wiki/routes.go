@@ -1,10 +1,14 @@
 package wiki
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/auth"
 	"github.com/mindforge/backend/internal/authz"
 	"github.com/mindforge/backend/internal/courses"
+	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/middleware"
 )
 
@@ -23,13 +27,49 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo) *Router {
 	return &Router{handler: newHandler(service), pool: pool}
 }
 
+// requireWikiOrProjectAccess admits a caller who either holds content.wiki
+// (the normal RBAC gate the frontend's nav entry and <AccessGate> already
+// check) or is an active member of at least one Project Workspace in the
+// org — a project-scoped wiki space (02 §7.0) is reached by project role,
+// not by content.wiki, and many project members (e.g. an org "learner") are
+// never granted that permission. This only gets the request past the front
+// gate; the service's own per-space ACL (canReadSpace/canEditOrDeletePage)
+// still decides what the caller may actually see or change on any given
+// space, project-scoped or not.
+func requireWikiOrProjectAccess(authzSvc *authz.Service, pool *pgxpool.Pool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := auth.GetClaims(r.Context())
+			if !ok {
+				httputil.WriteError(w, http.StatusUnauthorized, "Authentication required.")
+				return
+			}
+			if has, err := authzSvc.HasPermission(r.Context(), claims.UserID, claims.OrgID, "content.wiki"); err == nil && has {
+				next.ServeHTTP(w, r)
+				return
+			}
+			var member bool
+			err := pool.QueryRow(r.Context(),
+				`SELECT EXISTS(SELECT 1 FROM project_members pm JOIN workspace_projects p ON p.id = pm.project_id
+				  WHERE pm.user_id = $1 AND pm.status IN ('active','invited') AND p.org_id = $2)`,
+				claims.UserID, claims.OrgID,
+			).Scan(&member)
+			if err == nil && member {
+				next.ServeHTTP(w, r)
+				return
+			}
+			httputil.WriteError(w, http.StatusForbidden, "You do not have permission to perform this action.")
+		})
+	}
+}
+
 // RegisterRoutes mounts wiki endpoints under the caller's authenticated
-// group, gated on content.wiki — the same permission code the frontend's nav
-// entry and <AccessGate> already check, enforced again here since UI gates
-// are UX, not security. Space deletion is additionally restricted to org
-// admins at the route layer (defense in depth on top of the service check).
+// group, gated on content.wiki or active project-workspace membership (see
+// requireWikiOrProjectAccess) — enforced again here since UI gates are UX,
+// not security. Space deletion is additionally restricted to org admins at
+// the route layer (defense in depth on top of the service check).
 func (rt *Router) RegisterRoutes(r chi.Router, authzSvc *authz.Service) {
-	r.With(authz.RequirePermission(authzSvc, "content.wiki")).Group(func(r chi.Router) {
+	r.With(requireWikiOrProjectAccess(authzSvc, rt.pool)).Group(func(r chi.Router) {
 		r.Get("/api/wiki/spaces", rt.handler.ListSpaces)
 		r.Post("/api/wiki/spaces", rt.handler.CreateSpace)
 		r.Get("/api/wiki/spaces/{slug}", rt.handler.GetSpace)
