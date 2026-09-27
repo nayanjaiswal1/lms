@@ -49,7 +49,7 @@ func seedRank(name string) int {
 
 // SeedDev applies every embedded dev fixture file on every startup, ordered by
 // seedRank. All statements are idempotent (ON CONFLICT DO NOTHING / UPDATE).
-// Only called when ENV != "production".
+// Only called in development against a local database (cfg.IsLocalDB).
 func SeedDev(ctx context.Context, pool *pgxpool.Pool) error {
 	entries, err := fs.ReadDir(devSeedFS, "fixtures")
 	if err != nil {

@@ -56,7 +56,7 @@ func main() {
 	}
 	slog.Info("migrations up to date")
 
-	if !cfg.IsProd() {
+	if !cfg.IsProd() && cfg.IsLocalDB() {
 		if err := db.SeedDev(ctx, pool); err != nil {
 			slog.Warn("dev seed failed (non-fatal)", "error", err)
 		} else {

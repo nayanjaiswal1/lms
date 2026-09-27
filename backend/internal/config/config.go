@@ -488,6 +488,18 @@ func (c *Config) IsLocalDev() bool {
 	return c.Env == "development"
 }
 
+// localDBHosts are the only DATABASE_URL hosts dev fixtures may be seeded into:
+// loopback, or the compose Postgres service. Local dev can point at the shared
+// Neon database, and ENV=development alone must not seed fixtures into it.
+var localDBHosts = map[string]bool{"localhost": true, "127.0.0.1": true, "::1": true, "postgres": true}
+
+// IsLocalDB reports whether DATABASE_URL points at a local Postgres. Fails
+// closed: an unparseable URL counts as remote.
+func (c *Config) IsLocalDB() bool {
+	u, err := url.Parse(c.DatabaseURL)
+	return err == nil && localDBHosts[u.Hostname()]
+}
+
 // ShouldSendRealEmail reports whether an email to `to` should actually be
 // delivered rather than logged to stdout ("DEV EMAIL: ..."). Always true
 // outside local dev. Inside local dev, true only when `to` is in
