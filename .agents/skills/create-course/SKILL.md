@@ -136,6 +136,22 @@ markdown file, never a new image. Pattern (working examples:
 - React workdir gets node_modules as a SYMLINK to the scaffold (real copy floods the file
   explorer's `find` listing); Vite's `cacheDir` must point somewhere writable (`/tmp`).
 
+### Kubernetes labs — `environment: mindforge/lab-k8s:1.31`
+
+Real control plane + kwok-simulated nodes: objects, scheduling, controllers
+(Deployments, DaemonSets, StatefulSets, Jobs, CronJobs, PV binding, PDB-aware
+drains, NoExecute eviction, HPA objects) all behave for real, but no container
+process exists — no `exec`/`logs`/`port-forward`, probes never run, images are
+never pulled. `helm` is installed (local charts only, no internet). Extra
+nodes: apply a Node manifest annotated `kwok.x-k8s.io/node: fake`. Full list of
+enabled controllers and gaps: `docs/content-pipeline.md` "Known Constraints
+When Authoring Lab Tasks". Working example of every pattern:
+`content/courses/fast-kubernetes/**`.
+
+Before seeding, run `python scripts/test-k8s-labs.py <file.md> ...` — it proves
+each `verification_script` fails before and passes after its
+`solution_script` against the real image. Treat any unrun lab as unverified.
+
 ## Path 2 — API path (video/pdf/notes/assessment, normal authoring flow)
 
 ```

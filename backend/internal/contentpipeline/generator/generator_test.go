@@ -239,3 +239,23 @@ func TestLoad_InvalidDocumentAggregatesErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "course is required")
 }
+
+// Tasks/questions removed from a document must be pruned on reseed, and
+// surviving tasks parked off their positions before the upsert, or a new task
+// landing on an old task's position violates UNIQUE(lab_id, position).
+func TestRender_PrunesRemovedTasksAndQuestions(t *testing.T) {
+	out, err := Render(sampleDocs(), canonical.CourseMeta{})
+	require.NoError(t, err)
+
+	labID := canonical.ID("test/section/lab", "lab")
+	taskID := canonical.ID("test/section/lab", "task:t1")
+	require.Contains(t, out, fmt.Sprintf("DELETE FROM lab_tasks WHERE lab_id = '%s' AND id NOT IN ('%s');", labID, taskID))
+	park := strings.Index(out, fmt.Sprintf("UPDATE lab_tasks SET position = position + 100000 WHERE lab_id = '%s';", labID))
+	insert := strings.Index(out, "INSERT INTO lab_tasks")
+	require.True(t, park >= 0 && park < insert, "tasks must be parked before the lab_tasks upsert")
+	require.Contains(t, out, "ON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title")
+
+	assessmentID := canonical.ID("test/section/quiz", "assessment")
+	require.Contains(t, out, fmt.Sprintf("DELETE FROM assessment_questions WHERE assessment_id = '%s' AND question_id NOT IN (", assessmentID))
+	require.Contains(t, out, "ON CONFLICT (id) DO UPDATE SET type=EXCLUDED.type")
+}

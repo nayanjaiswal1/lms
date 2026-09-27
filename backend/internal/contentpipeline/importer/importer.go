@@ -10,6 +10,7 @@ package importer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -327,8 +328,21 @@ func writeCanonicalFile(path string, frontmatter []byte, body string) error {
 		}
 	}
 
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+	// O_EXCL: import only scaffolds a new course. Canonical files are
+	// hand-authored after import, so overwriting one silently destroys work.
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("%q already exists — import only scaffolds a new course and never overwrites authored content: %w", path, err)
+		}
+		return fmt.Errorf("creating %q: %w", path, err)
+	}
+	if _, err := f.Write(buf.Bytes()); err != nil {
+		f.Close()
 		return fmt.Errorf("writing %q: %w", path, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("closing %q: %w", path, err)
 	}
 	return nil
 }

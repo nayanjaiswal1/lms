@@ -3,513 +3,463 @@ kind: lesson
 id_key: k8s/helm/lesson
 course: fast-kubernetes
 section: helm
-section_title: Helm & Packaging
+section_title: 'Helm: Packaging Applications'
 section_position: 8
-title: Helm & Packaging
+title: Helm Charts, Releases and Values
 position: 0
-estimated_minutes: 45
+estimated_minutes: 50
 source:
-    - Helm.md
-    - HelmCheatsheet.md
-    - K8s-Helm-Jenkins.md
+  - Helm.md
+  - HelmCheatsheet.md
+  - K8s-Helm-Jenkins.md
+lab:
+  lab_type: terminal
+  environment: mindforge/lab-k8s:1.31
+  max_duration: 45
+  max_resets: 3
+  hint_penalty_pct: 10
+  is_required: false
+  setup_script: |
+    #!/bin/bash
+    set -euo pipefail
+    kubectl cluster-info >/dev/null 2>&1 || { echo "cluster not ready"; exit 1; }
+  tasks:
+    - id_key: create-chart
+      title: Create a chart
+      points: 10
+      is_stateful: true
+      description: In your work folder, create a new chart called `webapp` with `helm create`. Look around with `ls -R webapp` and open `webapp/values.yaml` and `webapp/templates/deployment.yaml`.
+      verification_script: |
+        #!/bin/bash
+        test -f /home/labuser/work/webapp/Chart.yaml && test -f /home/labuser/work/webapp/values.yaml && test -f /home/labuser/work/webapp/templates/deployment.yaml
+      hint_context: "`helm create <name>`"
+      explanation_context: helm create writes a complete working chart (a Deployment, Service, optional Ingress and HPA) that you can adapt. Most real charts start like this.
+      solution_script: cd /home/labuser/work && helm create webapp
+    - id_key: render-template
+      title: Render the templates without installing
+      points: 10
+      is_stateful: false
+      description: Render the chart with the release name `web` and `replicaCount=2`, and save the output to `~/work/rendered.yaml`. Open it and find the Deployment's `replicas:` line.
+      verification_script: |
+        #!/bin/bash
+        f=/home/labuser/work/rendered.yaml
+        grep -q 'kind: Deployment' "$f" && grep -q 'replicas: 2' "$f" && grep -q 'name: web-webapp' "$f"
+      hint_context: "`helm template <release> <chart-dir> --set key=value > file`"
+      explanation_context: helm template shows exactly the YAML Helm would send to the cluster. It is the first thing to run when a chart does not do what you expect.
+      solution_script: cd /home/labuser/work && helm template web ./webapp --set replicaCount=2 > rendered.yaml
+    - id_key: install-release
+      title: Install a release
+      points: 15
+      is_stateful: true
+      description: Install the chart as a release named `web` with 2 replicas. Then run `helm list`, `helm status web` and `kubectl get deploy,svc`.
+      verification_script: |
+        #!/bin/bash
+        helm status web -o json 2>/dev/null | grep -q '"status":"deployed"' || exit 1
+        test "$(kubectl get deployment web-webapp -o jsonpath='{.spec.replicas}')" = "2"
+      hint_context: "`helm install <release> <chart-dir> --set replicaCount=2`"
+      explanation_context: Helm rendered the templates, applied them, and stored the release (revision 1) as a Secret in the namespace. Every object is named after the release, here web-webapp.
+      solution_script: cd /home/labuser/work && helm install web ./webapp --set replicaCount=2
+    - id_key: upgrade-values-file
+      title: Upgrade with a values file
+      points: 20
+      is_stateful: true
+      description: |
+        Create `~/work/prod-values.yaml` that sets `replicaCount` to `3` and `image.tag` to `"1.27"`. Upgrade the `web` release with it (keep the chart the same). Check `helm history web`.
+      verification_script: |
+        #!/bin/bash
+        test "$(kubectl get deployment web-webapp -o jsonpath='{.spec.replicas} {.spec.template.spec.containers[0].image}')" = "3 nginx:1.27" || exit 1
+        helm history web | awk 'NR>1{print $1}' | grep -qx 2
+      hint_context: "`image.tag` means a nested key: `image:` then `  tag: \"1.27\"` on the next line. Then `helm upgrade web ./webapp -f prod-values.yaml`."
+      explanation_context: Values from -f override the chart's values.yaml. The upgrade created revision 2 and rolled the Deployment to the new image.
+      solution_script: |
+        cd /home/labuser/work
+        printf 'replicaCount: 3\nimage:\n  tag: "1.27"\n' > prod-values.yaml
+        helm upgrade web ./webapp -f prod-values.yaml
+    - id_key: rollback-release
+      title: Roll back the release
+      points: 15
+      is_stateful: false
+      description: Roll the `web` release back to revision 1. Check `helm history web` again and the Deployment's replicas and image.
+      verification_script: |
+        #!/bin/bash
+        test "$(kubectl get deployment web-webapp -o jsonpath='{.spec.replicas}')" = "2" || exit 1
+        helm history web | awk 'NR>1{print $1}' | grep -qx 3
+      hint_context: "`helm rollback <release> <revision>`"
+      explanation_context: A rollback re-applies revision 1's rendered manifests and records them as a new revision (3). History is never rewritten.
+      solution_script: helm rollback web 1
 ---
 
-## Helm
+Look at a typical app: a Deployment, a Service, a ConfigMap, a Secret, an Ingress, maybe a HorizontalPodAutoscaler. That is six YAML files, and you need slightly different versions for dev, staging and production. Copying and editing them by hand quickly goes wrong. **Helm** is the package manager for Kubernetes that solves this.
 
-## Helm
+## What Helm does
 
-### Helm Install
-- Installed on Ubuntu 20.04 (for other platforms: https://helm.sh/docs/intro/install/)
+A Helm chart is like a thali menu at a restaurant: the fixed items (rice, dal, sabzi) are the manifests, and the spice-level or portion-size choice at the counter is what you override in `values.yaml`. You get a full, working meal without writing the recipe yourself. Helm bundles all of an app's Kubernetes manifests into one **chart**, with **variables** for everything that differs between installs. It gives you:
 
-```
-curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
-sudo apt-get install apt-transport-https --yes
-echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-sudo apt-get update
-sudo apt-get install helm
-```
-- Check version (helm version):
+- **Templating**: write the YAML once, fill in values (replica count, image tag, host name) per environment.
+- **Packaging and sharing**: install someone else's app (PostgreSQL, Prometheus, Jenkins) with one command instead of writing dozens of manifests.
+- **Release management**: every install is tracked. You can upgrade, see the history, and roll back.
 
-![image](https://user-images.githubusercontent.com/10358317/153708424-d875f4bc-1af5-4169-85af-c87044e64f17.png)
+Three words to know:
 
-- **ArtifactHUB:** https://artifacthub.io/
-- ArtifactHub is like DockerHub, but it includes Helm Charts. (e.g. search wordpress on artifactHub on browser)
+| Term | Meaning |
+|---|---|
+| **Chart** | The package: templates + default values + metadata. |
+| **Release** | One installed instance of a chart in a cluster, with a name. You can install the same chart twice as two releases (`blog-dev`, `blog-prod`). |
+| **Repository** | A place where charts are published (an HTTP server or an OCI registry). **Artifact Hub** (artifacthub.io) is where you search for public charts. |
 
-![image](https://user-images.githubusercontent.com/10358317/153708626-6715df00-81c0-4314-b2fa-6c6b563a1af1.png)
+Helm 3 is just a client. It talks to the API server with your kubeconfig, like kubectl, and stores release history as Secrets in the release's namespace. (The old server-side component "Tiller" from Helm 2 no longer exists.)
 
-- With Helm Search on Hub:
-```
-helm search hub wordpress        # searches package on the Hub
-helm search repo wordpress       # searches package on the local machine repository list
-helm search repo bitnami         # searches bitnami in the repo list   
-
-```
-![image](https://user-images.githubusercontent.com/10358317/153708687-c2542aa5-e763-4967-b8a9-0f4b82ab7af0.png)
-
-
-
-
-- **Repo:** the list on the local machine, repo item includes the package's download page (e.g. https://charts.bitnami.com/bitnami) 
-
-```
-helm repo add bitnami https://charts.bitnami.com/bitnami            # adds link into my repo list
-helm search repo wordpress                                          # searches package on the local machine repository list
-helm repo list                                                      # list all repo
-helm pull [chart]
-helm pull jenkins/jenkins
-helm pull bitnami/jenkins                                           # pull and download chart to the current directory
-tar zxvf jenkins-3.11.4.tgz                                         # extract downloaded chart
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-what-q1", "type": "mcq",
+    "prompt": "You install the same chart twice, once as `shop-dev` and once as `shop-prod`. How many releases exist?",
+    "options": [
+      {"id": "a", "text": "One; charts can only be installed once"},
+      {"id": "b", "text": "Two separate releases, each with its own history and values"},
+      {"id": "c", "text": "Zero until you run helm package"},
+      {"id": "d", "text": "One release with two revisions"}
+    ],
+    "correct": "b",
+    "explanation": "A chart is the package; each install creates an independent release." }
+] }
 ```
 
-![image](https://user-images.githubusercontent.com/10358317/153730338-0f00f81b-b2e8-4fd9-be3c-3a8acd9e2d2a.png)
+## Installing Helm and using public charts
 
-![image](https://user-images.githubusercontent.com/10358317/153730367-6ef92437-49bd-47df-8ca2-009301872614.png)
-
-- Downloaded chart file structure and files:
- - **values.yaml**: includes values, variables, configs, replicaCount, imageName, etc. These values are injected into the template yaml files (e.g. replicas: {{ .Values.replicaCount }} in the deployment yaml file)
- - **charts.yaml**: includes chart information (annotations, maintainers, appVersion, apiVersion, description, sources, etc.)
- - **template**: directory that includes all K8s yaml template files (deployment,secret,configmap, etc.)
- - **values-summary**: includes the configurable parameters about application, K8s (parameter, description and value) 
-
-```
-tree jenkins
-```
-
-![image](https://user-images.githubusercontent.com/10358317/153730633-6e4b4d24-e4c0-4b4b-bab8-a8f06eb2c074.png)
-
-
-- Install chart on K8s with application/release name
- 
-```
-helm install helm-release-wordpress bitnami/wordpress               # install bitnami/wordpress chart with helm-release-wordpress name on default namespace
-helm install release bitnami/wordpress --namespace production       # install release on production namespace
-helm install my-release \                                           # possible to set username/password while creating pods
-  --set wordpressUsername=admin \
-  --set wordpressPassword=password \
-  --set mariadb.auth.rootPassword=secretpassword \
-    bitnami/wordpress
-helm install wordpress-release bitnami/wordpress -f ./values.yaml   # values.yaml includes import values (e.g. username,pass,..), if it is updated and using this file, it is possible to install with these values. 
-echo '{mariadb.auth.database: user0db, mariadb.auth.username: user0}' > values.yaml
-helm install -f values.yaml bitnami/wordpress --generate-name       # with using "-f values.yaml", updated values are used 
-helm install j1 jenkins                                             # jenkins is downloaded and extracted directory. After values.yaml updated, also possible to install with this updated app config
-```
-
-![image](https://user-images.githubusercontent.com/10358317/153709179-d36c5c8a-39d9-4ba4-ab30-243706caa6ae.png)
-
-- To see the status of the release:
-
-```
-helm status helm-release-wordpress
-```
-![image](https://user-images.githubusercontent.com/10358317/153711226-1d058594-9ba9-402d-a422-4f2c95e19070.png)
-
-- We can change/show the values that are the variables (e.g.username,password): 
-```
-helm show values bitnami/wordpress
-```
-![image](https://user-images.githubusercontent.com/10358317/153711295-2a25ea75-6ce1-434f-9138-54b262c100f1.png)
-
-
-- You can see the all K8s objects that are automatically created by Helm
-
-```
-kubectl get pods
-kubectl get svc
-kubectl get deployment
-kubectl get pv
-kubectl get pvc
-kubectl get configmap
-kubectl get secrets
-kubectl get pods --all-namespace
-helm list
-```
-![image](https://user-images.githubusercontent.com/10358317/153709719-c26478a4-cad5-4d9b-80ab-9302c89629e2.png)
-
-- Get password of wordpress:
-
-![image](https://user-images.githubusercontent.com/10358317/153709965-d702a32a-0041-4c5d-b0de-12b229476dfe.png)
-
-- Open tunnel from minikube:
-
-```
-minikube service helm-release-wordpress --url
-```
-
-![image](https://user-images.githubusercontent.com/10358317/153709988-8252a1f1-dd56-46a3-a2d5-8ea8e7423a61.png)
-
-![image](https://user-images.githubusercontent.com/10358317/153710041-47838752-ff54-4321-9fc1-e4d37211840d.png)
-
-- Using username and pass (http://127.0.0.1:46007/admin):
-
-![image](https://user-images.githubusercontent.com/10358317/153710100-cc29ac32-4f7d-4c69-a466-31dac86c1f06.png)
-![image](https://user-images.githubusercontent.com/10358317/153710112-697852b5-e3c9-4166-9038-f9494b99488f.png)
-
-- Uninstall helm release:
-
-![image](https://user-images.githubusercontent.com/10358317/153711396-c6b4e973-22a3-4246-99a0-026ff4c7c14c.png)
-
-- Upgrade, rollback, history:
-```
-helm install j1 jenkins                                    # create j1 release with jenkins chart
-helm upgrade -f [filename.yaml] [RELEASE] [CHART]
-helm upgrade -f values.yaml j1 jenkins/jenkins
-helm rollback [RELEASE] [REVISION]
-helm rollback j1 1
-helm history [RELEASE]
-helm rollback j1
-```
-![image](https://user-images.githubusercontent.com/10358317/153731806-95b20cd9-f3fd-4ea8-9fed-d8b37993d3d6.png)
-
-- To learn more Helm commands:
-
-**Goto:** [Helm Commands Cheatsheet](https://github.com/omerbsezer/Fast-Kubernetes/blob/main/HelmCheatsheet.md)
-
-
-
-## HelmCheatsheet
-
-## Helm Commands Cheatsheet
-
-### 1. Help, Version
-
-#### See the general help for Helm
-```
-helm --help
-```
-#### See help for a particular command
-```
-helm [command] --help
-```
-#### See the installed version of Helm
-```
+```bash
+# Linux/macOS (official script); or use your package manager: brew install helm, choco install kubernetes-helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 helm version
 ```
 
-### 2. Repo Add, Remove, Update
+Working with repositories:
 
-#### Add a repository from the internet
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami   # add a repo to your local list
+helm repo update                                          # refresh the chart index
+helm repo list
+helm search repo wordpress                                # search your added repos
+helm search hub wordpress                                 # search Artifact Hub
+helm show values bitnami/wordpress > wp-values.yaml       # see every setting the chart offers
+helm pull bitnami/jenkins --untar                         # download a chart to read or modify it
 ```
-helm repo add [name] [url]
+
+Many charts are now published to **OCI registries** and installed without `repo add`:
+
+```bash
+helm install my-redis oci://registry-1.docker.io/bitnamicharts/redis
 ```
-#### Remove a repository from your system
+
+Always read the chart's values (`helm show values`) before installing. That is the chart's "settings page". Also check that a chart is actively maintained (recent releases, who publishes it). For example, Bitnami cut back its free chart and image catalog in 2025, so many older tutorials point to charts that are no longer updated. Prefer charts published by the software's own project when they exist.
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-repo-q1", "type": "mcq",
+    "prompt": "Before installing a public chart, how do you see all the settings you can change?",
+    "options": [
+      {"id": "a", "text": "helm show values <chart>"},
+      {"id": "b", "text": "helm list"},
+      {"id": "c", "text": "helm history <chart>"},
+      {"id": "d", "text": "kubectl describe chart <chart>"}
+    ],
+    "correct": "a",
+    "explanation": "helm show values prints the chart's default values.yaml, which documents every configurable option." }
+] }
 ```
-helm repo remove [name]
+
+## Inside a chart
+
+`helm create webapp` generates this layout:
+
 ```
-#### Update repositories
+webapp/
+├── Chart.yaml          # name, version (of the chart), appVersion (of the app), dependencies
+├── values.yaml         # default values
+├── charts/             # dependency charts (subcharts)
+└── templates/          # Kubernetes manifests with template placeholders
+    ├── deployment.yaml
+    ├── service.yaml
+    ├── ingress.yaml
+    ├── hpa.yaml
+    ├── _helpers.tpl    # reusable named snippets (names, labels)
+    └── NOTES.txt       # message printed after install
 ```
+
+A template uses Go template syntax. Values from `values.yaml` appear under `.Values`:
+
+```yaml
+# templates/deployment.yaml (simplified)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+```
+
+```yaml
+# values.yaml
+replicaCount: 1
+image:
+  repository: nginx
+  tag: ""
+```
+
+- `.Values` = your values, `.Release.Name` = the release name, `.Chart` = data from Chart.yaml.
+- `| default ...` is a template function. There are many (`quote`, `upper`, `toYaml`, `indent`...).
+- `{{- if .Values.ingress.enabled }} ... {{- end }}` turns whole objects on or off.
+- `Chart.yaml` has two versions: `version` (the chart's own version, bump it on every chart change) and `appVersion` (the version of the app it deploys).
+
+[[lab-task:1]]
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-chart-q1", "type": "mcq",
+    "prompt": "In a template, what does `{{ .Values.replicaCount }}` become?",
+    "options": [
+      {"id": "a", "text": "The number of existing pods"},
+      {"id": "b", "text": "The replicaCount value from values.yaml, or from an override given at install/upgrade time"},
+      {"id": "c", "text": "The chart version"},
+      {"id": "d", "text": "Always 1"}
+    ],
+    "correct": "b",
+    "explanation": ".Values holds the merged values: chart defaults overridden by -f files and --set flags." }
+] }
+```
+
+## Checking a chart before installing it
+
+Never install blind. These commands render or validate without changing the cluster:
+
+```bash
+helm lint ./webapp                                   # find mistakes in the chart
+helm template web ./webapp --set replicaCount=2      # print the rendered YAML
+helm install web ./webapp --dry-run --debug          # simulate an install against the cluster
+helm get manifest web                                # the YAML of an already-installed release
+```
+
+`helm template` is the most useful debugging tool: when a release does not look right, render it and read the YAML.
+
+[[lab-task:2]]
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-check-q1", "type": "mcq",
+    "prompt": "Which command shows the exact Kubernetes YAML a chart will produce, without touching the cluster?",
+    "options": [
+      {"id": "a", "text": "helm template <release> <chart>"},
+      {"id": "b", "text": "helm install <release> <chart>"},
+      {"id": "c", "text": "helm rollback <release>"},
+      {"id": "d", "text": "helm repo update"}
+    ],
+    "correct": "a",
+    "explanation": "helm template renders locally and prints the YAML." }
+] }
+```
+
+## Install, upgrade, rollback, uninstall
+
+```bash
+helm install web ./webapp                                  # from a local folder
+helm install wp bitnami/wordpress -n blog --create-namespace
+helm list -A                                               # releases in all namespaces
+helm status web
+helm upgrade web ./webapp -f prod-values.yaml              # apply new values or a new chart version
+helm upgrade --install web ./webapp -f prod-values.yaml    # install if missing, else upgrade (great for CI)
+helm history web                                           # revisions
+helm rollback web 1                                        # back to revision 1
+helm uninstall web                                         # delete all objects of the release
+```
+
+Useful flags for real deployments:
+
+- `--atomic`: if the upgrade fails, roll back automatically.
+- `--wait --timeout 5m`: wait until pods are ready before calling it a success.
+- `--version 1.2.3`: pin the chart version (do this in production).
+
+Note: `helm uninstall` usually does **not** delete PVCs created by StatefulSets, so database data survives. Delete them yourself when you mean it.
+
+[[lab-task:3]]
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-lifecycle-q1", "type": "mcq",
+    "prompt": "A CI pipeline should create the release the first time and upgrade it on every later run. Which command fits?",
+    "options": [
+      {"id": "a", "text": "helm install"},
+      {"id": "b", "text": "helm upgrade --install"},
+      {"id": "c", "text": "helm template | kubectl apply"},
+      {"id": "d", "text": "helm rollback"}
+    ],
+    "correct": "b",
+    "explanation": "upgrade --install is idempotent: it installs if the release does not exist and upgrades otherwise." }
+] }
+```
+
+## Overriding values
+
+Values are merged in this order (later wins):
+
+1. The chart's `values.yaml`
+2. Files passed with `-f` / `--values` (in the order given)
+3. `--set key=value` flags
+
+```bash
+helm install web ./webapp -f values-common.yaml -f values-prod.yaml --set image.tag=1.27
+helm get values web            # the values you supplied for this release
+helm get values web --all      # every value, including defaults
+```
+
+Keep one values file per environment in Git (`values-dev.yaml`, `values-prod.yaml`). Use `--set` only for small things like an image tag from CI. **Never put real passwords in values files in Git**; reference an existing Secret or use a secrets tool.
+
+[[lab-task:4]]
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-values-q1", "type": "mcq",
+    "prompt": "values.yaml says replicaCount: 1, prod.yaml says replicaCount: 3, and you run `helm install app ./chart -f prod.yaml --set replicaCount=5`. How many replicas?",
+    "options": [
+      {"id": "a", "text": "1"},
+      {"id": "b", "text": "3"},
+      {"id": "c", "text": "5"},
+      {"id": "d", "text": "9"}
+    ],
+    "correct": "c",
+    "explanation": "--set has the highest priority, then -f files, then the chart defaults." }
+] }
+```
+
+## Real example: Jenkins with Helm
+
+Installing a CI server shows why Helm is popular. Without Helm you would write a StatefulSet, Service, PVC, ServiceAccount, RBAC rules and a ConfigMap. With Helm:
+
+```bash
+helm repo add jenkins https://charts.jenkins.io
 helm repo update
+helm show values jenkins/jenkins > jenkins-values.yaml    # e.g. set controller.serviceType: NodePort
+helm install jenkins jenkins/jenkins -n jenkins --create-namespace -f jenkins-values.yaml
+
+# the admin password is stored in a Secret created by the chart
+kubectl get secret -n jenkins jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 -d
+kubectl port-forward -n jenkins svc/jenkins 8080:8080     # then open http://localhost:8080
+```
+
+The same pattern (repo add → show values → install with your values file) works for Prometheus, Grafana, PostgreSQL, Redis and most other software.
+
+**Helm vs Kustomize**: Kustomize (built into `kubectl apply -k`) customizes plain YAML with overlays instead of templates. Teams often use Helm for third-party software and either Helm or Kustomize for their own apps. GitOps tools such as Argo CD and Flux can deploy both.
+
+[[lab-task:5]]
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-real-q1", "type": "mcq",
+    "prompt": "A Helm upgrade made the app crash. What is the fastest way back to the last working version?",
+    "options": [
+      {"id": "a", "text": "helm uninstall and reinstall"},
+      {"id": "b", "text": "helm rollback <release> <last-good-revision>"},
+      {"id": "c", "text": "kubectl delete pods"},
+      {"id": "d", "text": "helm repo update"}
+    ],
+    "correct": "b",
+    "explanation": "helm history shows the revisions; helm rollback re-applies the chosen one. --atomic on upgrades does this automatically on failure." }
+] }
+```
+
+## Extending Kubernetes: CRDs and operators
+
+Kubernetes ships with built-in kinds: Pod, Deployment, Service, and so on. A **CustomResourceDefinition (CRD)** lets you add a brand new kind of your own, so the API server can store and serve objects that Kubernetes itself never shipped with. Once a CRD is installed, `kubectl get <your-new-kind>` works exactly like it does for a Pod.
+
+A new kind by itself does nothing, it is just a place to store desired state. An **operator** is a controller (the same reconcile-loop idea from the basics lesson) written to watch objects of that custom kind and do the real work: create the underlying Deployments, Secrets, backups, or whatever the custom object describes.
+
+Examples you will run into in real clusters:
+
+- **cert-manager** adds a `Certificate` kind. You create a `Certificate` object saying "I want a TLS cert for shop.example.com", and its operator requests, renews and stores the certificate for you.
+- **Prometheus Operator** adds a `ServiceMonitor` kind. You create one pointing at your Service, and the operator wires Prometheus to scrape it, no manual Prometheus config editing.
+- **CloudNativePG** adds a `Cluster` kind for PostgreSQL. You describe the Postgres cluster you want (replicas, storage size), and the operator creates the pods, handles failover and backups.
+
+This is exactly why so many Helm charts install more than your app: a chart for cert-manager or a database often installs the CRDs **and** the operator together, so that after `helm install` you can just write a small custom-kind YAML file and the operator handles the rest. If `helm install` finishes but `kubectl get <customkind>` says `the server doesn't have a resource type`, the CRD did not get installed, usually because CRDs must be applied before the objects that use them, and some charts require a separate step for this (check the chart's README).
+
+```knowledge-check
+{ "questions": [
+  { "id": "k8s-helm-crd-q1", "type": "mcq",
+    "prompt": "What does a CustomResourceDefinition (CRD) add to a cluster?",
+    "options": [
+      {"id": "a", "text": "A new namespace"},
+      {"id": "b", "text": "A brand new kind of object that the API server can store and serve, beyond the built-in kinds"},
+      {"id": "c", "text": "A faster scheduler"},
+      {"id": "d", "text": "A new node"}
+    ],
+    "correct": "b",
+    "explanation": "A CRD registers a new kind with the API server. By itself it only defines the shape of the data; an operator does the actual work." },
+  { "id": "k8s-helm-crd-q2", "type": "mcq",
+    "prompt": "You create a CloudNativePG `Cluster` object describing a 3-node Postgres cluster. What actually creates the pods and manages failover?",
+    "options": [
+      {"id": "a", "text": "The kube-scheduler, automatically"},
+      {"id": "b", "text": "The CloudNativePG operator, a controller watching Cluster objects and reconciling them"},
+      {"id": "c", "text": "Helm, at install time only, with no further involvement"},
+      {"id": "d", "text": "etcd, by reading the CRD schema"}
+    ],
+    "correct": "b",
+    "explanation": "The CRD only defines the shape of the Cluster object. An operator is the controller that watches these objects and creates the real Deployments, Services, and backup jobs to match." }
+] }
+```
+
+## Interview questions and real-world scenarios
+
+**Q: What problems does Helm solve?**
+Templating (one chart, many environments), packaging and sharing apps, and release management with history and rollback.
+
+**Q: Chart vs release vs repository?**
+Package, installed instance, and distribution location (HTTP repo or OCI registry).
+
+**Q: How do you manage different values per environment?**
+Base `values.yaml` in the chart, plus `values-dev.yaml` / `values-prod.yaml` in Git passed with `-f`; secrets from a secret manager, not values files.
+
+**Q: Helm vs Kustomize?**
+Helm uses templates and has release tracking; Kustomize patches plain YAML with overlays and is built into kubectl. Helm is dominant for third-party software; both are common for in-house apps, often driven by Argo CD or Flux.
+
+**Q: How do you debug a chart that renders wrong YAML?**
+`helm template` or `helm install --dry-run --debug`, `helm lint`, and `helm get manifest` / `helm get values` for installed releases.
+
+**Real-world scenario: `helm upgrade` fails with "another operation (install/upgrade/rollback) is in progress".**
+A previous upgrade was interrupted and the release is stuck in pending-upgrade. Check `helm history`, then `helm rollback` to the last deployed revision. Using `--atomic --timeout` in CI prevents half-finished releases.
+
+**Real-world scenario: an upgrade removed a PVC and data was lost.**
+The chart's PVC template was renamed or removed. Review `helm diff upgrade` (helm-diff plugin) before upgrading, use `helm.sh/resource-policy: keep` on critical resources, and back up first.
+
+```knowledge-check
+{
+  "questions": [
+    {
+      "id": "k8s-helm-int-q1",
+      "type": "mcq",
+      "prompt": "A Helm release is stuck in 'pending-upgrade' after a CI job was cancelled. What is the usual fix?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Delete the cluster"
+        },
+        {
+          "id": "b",
+          "text": "Check helm history and helm rollback to the last deployed revision"
+        },
+        {
+          "id": "c",
+          "text": "Run helm repo update"
+        },
+        {
+          "id": "d",
+          "text": "Delete all Secrets in the namespace"
+        }
+      ],
+      "correct": "b",
+      "explanation": "Rolling back clears the pending state; --atomic on future upgrades prevents it."
+    }
+  ]
+}
 ```
-
-### 3. Repo List, Search
-
-#### List chart repositories
-```
-helm repo list
-```
-#### Search charts for a keyword
-```
-helm search [keyword]
-```
-#### Search repositories for a keyword
-```
-helm search repo [keyword]
-```
-#### Search Helm Hub
-```
-helm search hub [keyword]
-```
-
-### 4. Install/Uninstall
-
-#### Install an app
-```
-helm install [name] [chart]
-```
-
-#### Install an app in a specific namespace
-```
-helm install [name] [chart] --namespace [namespace]
-```
-
-#### Override the default values with those specified in a file of your choice
-```
-helm install [name] [chart] --values [yaml-file/url]
-```
-
-#### Run a test install to validate and verify the chart
-```
-helm install [name] --dry-run --debug
-```
-
-#### Uninstall a release
-```
-helm uninstall [release name]
-```
-
-### 5. Chart Management
-
-#### Create a directory containing the common chart files and directories
-```
-helm create [name]
-```
-
-#### Package a chart into a chart archive
-```
-helm package [chart-path]
-```
-
-#### Run tests to examine a chart and identify possible issues
-```
-helm lint [chart]
-```
-
-#### Inspect a chart and list its contents
-```
-helm show all [chart]
-```
-#### Display the chart’s definition
-```
-helm show chart [chart]
-```
-
-#### Download a chart
-```
-helm pull [chart]
-```
-
-#### Download a chart and extract the archive’s contents into a directory
-```
-helm pull [chart] --untar --untardir [directory]
-```
-
-#### Display a list of a chart’s dependencies
-```
-helm dependency list [chart]
-```
-
-### 6. Release Monitoring
-
-#### List all the available releases in the current namespace
-```
-helm list
-```
-#### List all the available releases across all namespaces
-```
-helm list --all-namespaces
-```
-#### List all the releases in a specific namespace
-```
-helm list --namespace [namespace]
-```
-#### List all the releases in a specific output format
-```
-helm list --output [format]
-```
-#### See the status of a release
-```
-helm status [release]
-```
-#### See the release history
-```
-helm history [release]
-```
-#### See information about the Helm client environment
-```
-helm env
-```
-
-### 7. Upgrade/Rollback
-
-#### Upgrade an app
-```
-helm upgrade [release] [chart]
-```
-
-#### Tell Helm to roll back changes if the upgrade fails
-```
-helm upgrade [release] [chart] --atomic
-```
-
-#### Upgrade a release. If it does not exist on the system, install it
-```
-helm upgrade [release] [chart] --install
-```
-
-#### Upgrade to a version other than the latest one Upgrade an app
-```
-helm upgrade [release] [chart] --version [version-number]
-```
-
-#### Roll back a release
-```
-helm rollback [release] [revision]
-```
-
-### 8. GET Information
-
-#### Download all the release information
-```
-helm get all [release]
-```
-#### Download all hooks
-```
-helm get hooks [release]
-```
-#### Download the manifest
-```
-helm get manifest [release]
-```
-#### Download the notes
-```
-helm get notes [release]
-```
-#### Download the values file
-```
-helm get all [release]
-```
-#### Release history
-```
-helm history [release]
-```
-
-### 9. Plugin
-
-#### Install plugins
-```
-helm plugin install [path/url1] [path/url2]
-```
-#### View a list of all the installed plugins
-```
-helm plugin list
-```
-#### Update plugins
-```
-helm plugin update [plugin1] [plugin2]
-```
-#### Uninstall a plugin
-```
-helm plugin uninstall [plugin]
-```
-
-
-
-
-
-## K8s Helm Jenkins
-
-## LAB: Helm-Jenkins on running K8s Cluster (2 Node Multipass VM)
-
-- "Whenever you trigger a Jenkins job, the Jenkins Kubernetes plugin will make an API call to create a Kubernetes agent pod. Then, the Jenkins agent pod gets deployed in the kubernetes with few environment variables containing the Jenkins server details and secrets."
-- "When the agent pod comes up, it used the details in its environment variables and talks back to Jenkins using the JNLP method" (Ref: DevopsCube)
-
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/10358317/156229862-7046f57b-29eb-4c47-b8cd-fbe4376eac89.png">
-</p>
-
-### K8s Cluster (2 Node Multipass VM)
-- K8s cluster was created before:
-   - **Goto:** [K8s Kubeadm Cluster Setup](https://github.com/omerbsezer/Fast-Kubernetes/blob/main/K8s-Kubeadm-Cluster-Setup.md)
-
-- On that cluster, helm was installed on the master node.
-
-### Helm Install
-
-- Install on Ubuntu 20.04 (for other platforms: https://helm.sh/docs/intro/install/)
-
-```
-curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
-sudo apt-get install apt-transport-https --yes
-echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-sudo apt-get update
-sudo apt-get install helm
-helm version
-```
-
-### Jenkins Install
-
-```
-helm repo add jenkins https://charts.jenkins.io        
-helm repo list
-mkdir helm
-cd helm
-helm pull jenkins/jenkins                                           
-tar zxvf jenkins-3.11.4.tgz                                       
-```
-
-- After unzipping, entered into the jenkins directory, you'll find values.yaml file. Disable the persistence with false. 
-- If your cluster on-premise does not support storage class (like our multipass VM cluster), PVC and PV, disable persistence. But if you are working on minikube, minikube supports PVC and PV automatically. 
-- If you don't disable persistence, you'll encounter that your PODs will not run (wait pending). You can inspect PVC, PV and Pod with kubectl describe command. 
-
-![image](https://user-images.githubusercontent.com/10358317/156223521-0982d3d4-61aa-4a33-a068-a634e7382eed.png)
-
-- Install Helm Jenkins Release:
-```
-helm install j1 jenkins
-kubectl get pods
-kubectl get svc
-kubectl get pods -o wide
-```
-
-![image](https://user-images.githubusercontent.com/10358317/156224502-024f42ad-62e6-4887-9058-ae09f3beb91d.png)
-
-- To get Jenkins password (username:admin), run:
-```
-kubectl exec --namespace default -it svc/j1-jenkins -c jenkins -- /bin/cat /run/secrets/chart-admin-password && echo  
-```
-![image](https://user-images.githubusercontent.com/10358317/156224860-c40406a7-7fbf-45bc-ada5-d4bb54cf1b25.png)
-
-- Port Forwarding:
-```
-kubectl --namespace default port-forward svc/j1-jenkins 8080:8080
-```
-![image](https://user-images.githubusercontent.com/10358317/156225021-759b0507-37be-484c-87f3-777c0472e4ba.png)
-
-
-### Install Graphical Desktop to Reach Browser using Multipass VM
-
-- Install ubuntu-desktop, so you can reach multipass VM's browser using Windows RDP (Xrdp) (https://discourse.ubuntu.com/t/graphical-desktop-in-multipass/16229)
-
-```
-sudo apt update
-sudo apt install ubuntu-desktop xrdp
-sudo passwd ubuntu    # set password
-```
-
-### Jenkins Configuration
-
-- Helm also downloads automatically some of the plugins  (kubernetes:1.31.3, workflow-aggregator:2.6, git:4.10.2, configuration-as-code:1.55.1) (Jenkins Version: 2.319.3)
-- Manage Jenkins > Configure  System > Cloud
-![image](https://user-images.githubusercontent.com/10358317/156225898-1487b783-d112-4fcb-8ffa-66195e2d5f35.png)
-
-![image](https://user-images.githubusercontent.com/10358317/156226068-0afcd9c2-9537-4431-8cdd-954625a73434.png)
-
-![image](https://user-images.githubusercontent.com/10358317/156226209-b05eb0fd-d467-42e0-9fc9-ad1b37cb6efa.png)
-
-![image](https://user-images.githubusercontent.com/10358317/156226315-0dd0f343-d02d-45a3-b2ef-5289ad6dcd03.png)
-
-![image](https://user-images.githubusercontent.com/10358317/156226468-2c09dd57-9d94-426d-ba9d-0c88f865afec.png)
-
-![image](https://user-images.githubusercontent.com/10358317/156226617-caf80b7c-d20b-4cc2-84c3-d42742531cd5.png)
-
-- New Item on main page: 
-
-![image](https://user-images.githubusercontent.com/10358317/156226810-bfafc539-0ab5-4c18-b2ce-68191d5b0e4d.png)
-
-![image](https://user-images.githubusercontent.com/10358317/156226947-78293336-a4ca-468c-b1e7-37247829d261.png)
-
-- Add script > Build > Execute Shell:
-
-![image](https://user-images.githubusercontent.com/10358317/156227131-c9f2a519-2749-405e-ab4a-7ae27c6b2787.png)
-
-- After triggering jobs, Jenkins (on Master) creates agents on Worker1 automatically. After jobs are completed, they are terminated.
-
-![image](https://user-images.githubusercontent.com/10358317/156227423-0dc264b5-9060-46c5-a353-4d15ea64e9fa.png)
-
-
-
-### Reference
-
-- https://www.jenkins.io/doc/book/scaling/scaling-jenkins-on-kubernetes/
-- https://devopscube.com/jenkins-build-agents-kubernetes/
-
-

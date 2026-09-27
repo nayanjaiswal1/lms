@@ -108,7 +108,7 @@ JWT — only the scoped `session_token`.
   `cleanup_dead_containers` sweep (`mindforge-lab-*`).
 - Base images pre-built per lab type (stored in private registry):
   - `mindforge/lab-linux:24.04` — Ubuntu, common CLI tools
-  - `mindforge/lab-k8s:1.31` — kubectl, minikube
+  - `mindforge/lab-k8s:1.31` — kubectl + helm against a real control plane (etcd, apiserver, controller-manager, scheduler) with kwok simulating the nodes; no real container processes, so no exec/logs. Enabled controllers and known gaps: `docs/content-pipeline.md` "Known Constraints When Authoring Lab Tasks"
   - `mindforge/lab-docker:27` — Docker-in-Docker, rootless (see "Nested Docker labs" below — NOT privileged; requires operator + org opt-in, off by default)
   - `mindforge/lab-terraform:1.9` — Terraform, cloud CLIs
   - `mindforge/lab-python:3.12` — Python with common packages

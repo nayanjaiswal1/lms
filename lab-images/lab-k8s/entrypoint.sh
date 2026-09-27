@@ -99,11 +99,14 @@ fi
 log "kube-apiserver ready"
 
 log "starting kube-controller-manager"
+# Every controller the fast-kubernetes labs teach must be listed here — a
+# workload kind whose controller is missing is accepted by the API server but
+# never produces Pods, so its lab can only check YAML, not behaviour.
 kube-controller-manager \
   --kubeconfig=/etc/kubernetes/admin.kubeconfig \
   --leader-elect=false \
   --use-service-account-credentials=false \
-  --controllers=deployment,replicaset,namespace,endpoint,endpointslice,endpointslicemirroring,resourcequota,garbagecollector \
+  --controllers=deployment,replicaset,daemonset,statefulset,job,cronjob,ttl-after-finished,persistentvolume-binder,pvc-protection,pv-protection,namespace,endpoint,endpointslice,endpointslicemirroring,resourcequota,garbagecollector,node-lifecycle-controller,taint-eviction-controller,podgc,disruption,horizontalpodautoscaling \
   >$LOG_DIR/kube-controller-manager.log 2>&1 &
 
 log "starting kube-scheduler"

@@ -1,0 +1,22 @@
+title: "Kubernetes from Zero to Production"
+description: >-
+  Learn Kubernetes from the very first idea to running real workloads in
+  production. Starts with what a cluster is and how it works, then builds up
+  step by step: pods, Deployments and rolling updates, DaemonSets,
+  StatefulSets, Jobs and CronJobs, Services, DNS, Ingress and Gateway API,
+  ConfigMaps and Secrets, persistent storage, health probes, resources and
+  scheduling, Helm, monitoring and autoscaling, building a real cluster with
+  kubeadm, RBAC and node maintenance. Every lesson has quick knowledge checks,
+  interview questions with answers, and real-world troubleshooting scenarios,
+  and every section has hands-on labs in a live Kubernetes terminal.
+difficulty: beginner
+tags:
+  - kubernetes
+  - k8s
+  - devops
+  - containers
+  - helm
+  - cloud-native
+  - interview-prep
+is_free: true
+cover_url: "/course-covers/fast-kubernetes.svg"

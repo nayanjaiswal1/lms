@@ -268,3 +268,25 @@ build a real cross-domain transaction (bigger lift, only worth it if the
 mutations aren't independently idempotent) or make the loop resilient:
 continue past failures, persist partial results, and rely on per-mutation
 dedup to make retries safe.
+
+## A test that writes to the real content tree instead of a temp dir
+
+**Where found:** `backend/internal/contentpipeline/importer/importer_test.go`
+(fixed 2026-09-27). `TestImport_RealSnapshot` ran `os.RemoveAll` on the real
+`content/courses/fast-kubernetes/` directory and re-scaffolded it, "because
+the output is the actual deliverable content". Every `go test ./...` after
+the course was hand-authored silently deleted its lab tasks, quizzes and
+`course.yaml`, replacing them with empty stubs. The importer itself also used
+`os.WriteFile`, so even a deliberate `coursegen import` overwrote finished
+files without a warning. The loss went unnoticed because the
+stubbed labs still parsed; only `generate` (which rejects `tasks: []`) would
+have caught it, and nobody re-ran it.
+
+**Fix:** the test now imports into `t.TempDir()` and asserts a second import
+is refused; the importer opens files with `O_EXCL` and errors on any existing
+file.
+
+**Rule:** a test may read real repo content but must never write, delete or
+regenerate it. Tests write to `t.TempDir()`. Scaffolding commands that feed a
+hand-authoring step must refuse to overwrite existing files, not "regenerate"
+them.

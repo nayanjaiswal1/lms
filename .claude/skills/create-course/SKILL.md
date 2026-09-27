@@ -280,6 +280,22 @@ lab with no marker is unreachable). Lab tasks do **not** gate "Mark as Complete"
 only a `knowledge-check` block does — so a hands-on lesson should generally carry
 both: knowledge-check for comprehension, lab tasks for doing.
 
+### Kubernetes labs — `environment: mindforge/lab-k8s:1.31`
+
+Real control plane + kwok-simulated nodes: objects, scheduling, controllers
+(Deployments, DaemonSets, StatefulSets, Jobs, CronJobs, PV binding, PDB-aware
+drains, NoExecute eviction, HPA objects) all behave for real, but no container
+process exists — no `exec`/`logs`/`port-forward`, probes never run, images are
+never pulled. `helm` is installed (local charts only, no internet). Extra
+nodes: apply a Node manifest annotated `kwok.x-k8s.io/node: fake`. Full list of
+enabled controllers and gaps: `docs/content-pipeline.md` "Known Constraints
+When Authoring Lab Tasks". Working example of every pattern:
+`content/courses/fast-kubernetes/**`.
+
+Before seeding, run `python scripts/test-k8s-labs.py <file.md> ...` — it proves
+each `verification_script` fails before and passes after its
+`solution_script` against the real image. Treat any unrun lab as unverified.
+
 ### Nested Docker labs — `environment: mindforge/lab-docker:27`
 
 This is the one lab image that runs a real Docker daemon *inside* the student's own

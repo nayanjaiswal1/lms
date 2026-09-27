@@ -31,16 +31,17 @@ func findRepoRoot(t *testing.T) string {
 }
 
 // TestImport_RealSnapshot runs Import against the real vendored
-// content/fast-kubernetes/ snapshot and writes the real scaffolded output to
-// content/courses/fast-kubernetes/ — this is the actual deliverable content,
-// not a synthetic fixture, per the importer workstream brief.
+// content/fast-kubernetes/ snapshot into a temp dir. It must never write to
+// content/courses/fast-kubernetes/: that directory holds hand-authored
+// lessons, labs, and quizzes, and an earlier version of this test that
+// RemoveAll'd it wiped every authored lab task and quiz on each `go test`.
 func TestImport_RealSnapshot(t *testing.T) {
 	root := findRepoRoot(t)
 	vendorDir := filepath.Join(root, "content", "fast-kubernetes")
-	outDir := filepath.Join(root, "content", "courses", "fast-kubernetes")
+	outDir := t.TempDir()
 
-	require.NoError(t, os.RemoveAll(outDir))
 	require.NoError(t, Import(vendorDir, outDir))
+	require.Error(t, Import(vendorDir, outDir), "re-import over existing files must refuse instead of overwriting")
 
 	var lessonCount, labCount int
 	for _, sec := range Sections {

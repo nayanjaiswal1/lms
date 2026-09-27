@@ -78,6 +78,24 @@ func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string
 		sqlString(workspaceLayout), sqlString(seededInstructorID),
 	)
 
+	// 1b. Prune and park existing task rows before the upserts below. A task
+	//     removed from the markdown would otherwise stay in the lab forever
+	//     (upserts never delete), and because both tables are UNIQUE on
+	//     position, a new task id landing on an old task's position would
+	//     fail the whole script. Parking survivors at position+100000 lets
+	//     the upserts reorder freely without transient unique violations.
+	taskIDs := make([]string, 0, len(spec.Tasks))
+	itemIDs := make([]string, 0, len(spec.Tasks))
+	for _, task := range spec.Tasks {
+		taskIDs = append(taskIDs, sqlString(canonical.ID(idKey, "task:"+task.IDKey)))
+		itemIDs = append(itemIDs, sqlString(canonical.ID(idKey, "version-item:"+task.IDKey)))
+	}
+	fmt.Fprintf(out,
+		"DELETE FROM lab_task_version_items WHERE task_version_id = %s%s;\nUPDATE lab_task_version_items SET position = position + 100000 WHERE task_version_id = %s;\nDELETE FROM lab_tasks WHERE lab_id = %s%s;\nUPDATE lab_tasks SET position = position + 100000 WHERE lab_id = %s;\n\n",
+		sqlString(versionID), notInClause("id", itemIDs), sqlString(versionID),
+		sqlString(labID), notInClause("id", taskIDs), sqlString(labID),
+	)
+
 	// 2. lab_tasks (live editable copy).
 	snapshots := make([]taskSnapshotJSON, 0, len(spec.Tasks))
 	if len(spec.Tasks) > 0 {
@@ -109,7 +127,7 @@ func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string
 			// any other emitted row.
 		}
 		out.WriteString(strings.Join(rows, ",\n"))
-		out.WriteString("\nON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;\n\n")
+		out.WriteString("\nON CONFLICT (id) DO UPDATE SET position=EXCLUDED.position, title=EXCLUDED.title, description=EXCLUDED.description, verification_script=EXCLUDED.verification_script, hint_context=EXCLUDED.hint_context, explanation_context=EXCLUDED.explanation_context, points=EXCLUDED.points, is_optional=EXCLUDED.is_optional, is_stateful=EXCLUDED.is_stateful;\n\n")
 	}
 
 	// 3. lab_task_versions — dev/seed-time convenience: this UPSERTs version 1
@@ -208,4 +226,14 @@ func parentDirs(filePath string) []string {
 		dirs = append(dirs, strings.Join(segments[:i], "/"))
 	}
 	return dirs
+}
+
+// notInClause renders " AND <col> NOT IN (...)" for a prune DELETE, or ""
+// when ids is empty (the DELETE then removes every row, which is correct:
+// the document now declares none).
+func notInClause(col string, ids []string) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	return " AND " + col + " NOT IN (" + strings.Join(ids, ", ") + ")"
 }
