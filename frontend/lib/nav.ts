@@ -16,13 +16,11 @@ import {
   LifeBuoy,
   BookmarkCheck,
   Calendar,
-  CalendarClock,
   Map,
   FolderTree,
   FolderGit2,
   Briefcase,
   Bot,
-  Presentation,
   TicketPercent,
   Lock,
   Flag,
@@ -155,16 +153,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     href:   ROUTES.SUPPORT,
     icon:   LifeBuoy,
     hideFromBottomNav: true,
-  },
-  sessions: {
-    label:   "My Sessions",
-    href:    ROUTES.SESSIONS,
-    icon:    CalendarClock,
-    feature: FEATURES.SESSION_BOOKING,
-    // "hide", not "badge": org-off means the org does not run 1:1 booking at
-    // all, and there is no plan or add-on to upsell them onto — a badge would
-    // advertise an unlock path that does not exist.
-    mode:    "hide",
   },
   learn_hub: {
     label: "Learn",
@@ -326,17 +314,6 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     requiredPermission:  PERMISSIONS.ADMIN.MANAGE_ORG,
   },
 
-  teach_hub: {
-    label:               "Instructor",
-    href:                ROUTES.TEACH,
-    icon:                Presentation,
-    requiredPermission:  [
-      PERMISSIONS.COURSES.CREATE,
-      PERMISSIONS.ASSESSMENTS.CREATE,
-      PERMISSIONS.ASSESSMENTS.MANAGE_QUESTIONS,
-      PERMISSIONS.MENTORING.MANAGE_BATCHES,
-    ],
-  },
   manage_courses: {
     label:               "Courses",
     href:                ROUTES.COURSE_NEW,
@@ -425,11 +402,24 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
     items: [
       ALL_NAV_ITEMS.highlights,
       ALL_NAV_ITEMS.sheet_tracker,
-      ALL_NAV_ITEMS.learning_journal,
       ALL_NAV_ITEMS.captures,
       ALL_NAV_ITEMS.wiki,
       ALL_NAV_ITEMS.interview_exp,
       ALL_NAV_ITEMS.algo_visualizer,
+    ],
+  },
+  // Instructor tools merged in from the old separate "Instructor" sidebar
+  // entry. Each item keeps its own requiredPermission, so learners never see
+  // this group (useVisibleNavGroups drops it when empty). Labels are
+  // overridden where they'd collide with the learner-side cards above.
+  {
+    label: "Teaching",
+    items: [
+      { ...ALL_NAV_ITEMS.manage_courses,         label: "Create Course" },
+      { ...ALL_NAV_ITEMS.instructor_assessments, label: "Manage Assessments" },
+      ALL_NAV_ITEMS.question_bank,
+      { ...ALL_NAV_ITEMS.mentor_dashboard,       label: "Mentoring" },
+      ALL_NAV_ITEMS.mentor_tickets,
     ],
   },
   // "Tools" group (System Design, Interview Board, Load Test) removed: those
@@ -438,8 +428,9 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
 
 // ─────────────────────────────────────────────
 // TEACH HUB — course authoring, assessment authoring, question bank, and
-// mentoring live behind one sidebar entry (ALL_NAV_ITEMS.teach_hub → /teach)
-// instead of a permanent slot each. Batches (cohort_groups) stays a direct
+// mentoring for the /teach page (reached via breadcrumbs). The same items also
+// appear in the Learn hub's "Teaching" group; there's no separate sidebar
+// entry. Batches (cohort_groups) stays a direct
 // sidebar link — it's a delivery/roster tool used constantly, not a
 // destination someone browses to occasionally like the hub cards. Rendered
 // as cards on /teach via useVisibleNavGroups (frontend/app/(app)/teach/page.tsx).
@@ -480,15 +471,13 @@ export const MAIN_NAV_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.workspaces,
       ALL_NAV_ITEMS.mentors,
       ALL_NAV_ITEMS.support,
-      ALL_NAV_ITEMS.sessions,
       ALL_NAV_ITEMS.calendar,
     ],
   },
   {
-    // No label: a single-line "Teaching" header over just Teach + Batches
-    // read as noise once the hub collapsed the 6-item group to this.
+    // No label: instructor tools now live in the Learn hub's "Teaching"
+    // group; Batches stays a direct link since it's used constantly.
     items: [
-      ALL_NAV_ITEMS.teach_hub,
       ALL_NAV_ITEMS.cohort_groups,
     ],
   },

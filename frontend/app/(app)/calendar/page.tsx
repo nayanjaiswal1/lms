@@ -4,6 +4,9 @@ import { getCurrentUser } from "@/lib/server/auth";
 import { CalendarGrid } from "@/app/(app)/calendar/calendar-grid";
 import { isoDateParam, rangeForView } from "@/app/(app)/calendar/calendar-math";
 import { CALENDAR_VIEW } from "@/lib/calendar/types";
+import { getFeatureConfig } from "@/lib/server/features";
+import { FEATURES } from "@/lib/features";
+import { SessionsSection } from "@/components/sessions/sessions-section";
 import type { CalendarView } from "@/lib/calendar/types";
 
 export const metadata: Metadata = {
@@ -23,10 +26,14 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const anchor = params.date && !Number.isNaN(Date.parse(params.date)) ? new Date(params.date) : new Date();
 
   const { from, to } = rangeForView(view, anchor);
-  const [eventsResult, currentUser] = await Promise.all([
+  const [eventsResult, currentUser, features] = await Promise.all([
     listEventsAction(isoDateParam(from), isoDateParam(to)),
     getCurrentUser(),
+    getFeatureConfig(),
   ]);
+  const showSessions =
+    features.orgFeatures.includes(FEATURES.SESSION_BOOKING) &&
+    features.entitlements.includes(FEATURES.SESSION_BOOKING);
 
   return (
     <main className="page-container">
@@ -41,6 +48,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
         initialEvents={eventsResult.data ?? []}
         initialView={view}
       />
+      {showSessions && <SessionsSection currentUserId={currentUser?.id ?? ""} />}
     </main>
   );
 }

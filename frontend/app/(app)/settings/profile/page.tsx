@@ -6,7 +6,6 @@ import { getMyRank, getMyRewardProfile } from '@/lib/server/rewards'
 import { getMyBatches } from '@/lib/server/batches'
 import { getActivity } from '@/lib/server/activity'
 import { ActivityTimeline } from '@/components/activity/activity-timeline'
-import type { Profile } from '@/lib/profile/types'
 import ROUTES from '@/lib/routes'
 import { ProfileHeader } from '@/components/profile/profile-header'
 import { ProfileOverview } from '@/components/profile/profile-overview'
@@ -23,7 +22,6 @@ import { BasicInfoForm } from './_components/basic-info-form'
 import {
   updateBasicInfoAction,
   updateLearningAction,
-  updatePrivacyAction,
   updateSocialLinksAction,
   updatePreferencesAction,
   addSkillAction,
@@ -36,17 +34,21 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const EDIT_TABS = [
-  { key: 'profile',      label: 'Profile' },
-  { key: 'skills',       label: 'Skills' },
-  { key: 'learning',     label: 'Learning' },
-  { key: 'achievements', label: 'Achievements' },
-  { key: 'activity',     label: 'Activity' },
-  { key: 'preferences',  label: 'Preferences' },
+  { key: 'profile',     label: 'Profile' },
+  { key: 'preferences', label: 'Preferences' },
+  { key: 'activity',    label: 'Activity' },
 ] as const
 
 const TABS = [{ key: 'overview', label: 'Overview' }, ...EDIT_TABS] as const
 
 type TabKey = typeof TABS[number]['key']
+
+// Tabs that were folded into the three above — keeps old links working.
+const LEGACY_TABS: Record<string, TabKey> = {
+  skills:       'profile',
+  learning:     'preferences',
+  achievements: 'activity',
+}
 
 export default async function SettingsProfilePage({
   searchParams,
@@ -58,7 +60,7 @@ export default async function SettingsProfilePage({
 
   const { tab: rawTab, cursor } = await searchParams
   const activeTab: TabKey =
-    TABS.find((t) => t.key === rawTab)?.key ?? 'overview'
+    TABS.find((t) => t.key === rawTab)?.key ?? LEGACY_TABS[rawTab ?? ''] ?? 'overview'
 
   const rewardProfile = await getMyRewardProfile()
 
@@ -146,6 +148,11 @@ export default async function SettingsProfilePage({
                 socialLinks={profile.social_links}
                 updateAction={updateSocialLinksAction}
               />
+              <SkillsManager
+                addAction={addSkillAction}
+                removeAction={removeSkillAction}
+                skills={profile.skills}
+              />
               <ResumeUpload
                 applyAction={applyResumeAction}
                 parseAction={parseResumeAction}
@@ -153,25 +160,10 @@ export default async function SettingsProfilePage({
             </>
           )}
 
-          {activeTab === 'skills' && (
-            <SkillsManager
-              addAction={addSkillAction}
-              removeAction={removeSkillAction}
-              skills={profile.skills}
-            />
-          )}
 
-          {activeTab === 'learning' && (
-            <>
-              <LearningPreferences
-                profile={profile}
-                updateAction={updateLearningAction}
-              />
-              <PrivacySection profile={profile} />
-            </>
-          )}
 
-          {activeTab === 'achievements' && (
+
+          {activeTab === 'activity' && (
             <>
               <AchievementsCard achievements={rewardProfile?.achievements ?? null} stats={profile.stats} />
               <ProfileStats stats={profile.stats} />
@@ -201,6 +193,10 @@ export default async function SettingsProfilePage({
 
           {activeTab === 'preferences' && (
             <>
+              <LearningPreferences
+                profile={profile}
+                updateAction={updateLearningAction}
+              />
               <PreferencesForm
                 profile={profile}
                 updateAction={updatePreferencesAction}
@@ -222,79 +218,3 @@ export default async function SettingsProfilePage({
   )
 }
 
-function PrivacySection({ profile }: { profile: Profile }) {
-  const TOGGLES: { name: string; label: string; description: string; checked: boolean }[] = [
-    {
-      name: 'public_enabled',
-      label: 'Public profile',
-      description: 'Allow anyone to view your profile at your public URL.',
-      checked: profile.public_enabled,
-    },
-    {
-      name: 'show_skills',
-      label: 'Show skills',
-      description: 'Display your skills on your public profile.',
-      checked: profile.show_skills,
-    },
-    {
-      name: 'show_achievements',
-      label: 'Show achievements',
-      description: 'Display your badges and achievements publicly.',
-      checked: profile.show_achievements,
-    },
-    {
-      name: 'show_certificates',
-      label: 'Show certificates',
-      description: 'Display your earned certificates publicly.',
-      checked: profile.show_certificates,
-    },
-    {
-      name: 'show_activity',
-      label: 'Show activity',
-      description: 'Display your learning activity publicly.',
-      checked: profile.show_activity,
-    },
-  ]
-
-  return (
-    <section aria-labelledby="privacy-heading" className="card-base p-6 space-y-5">
-      <h2 className="text-lg font-semibold text-foreground" id="privacy-heading">
-        Privacy
-      </h2>
-
-      <form action={updatePrivacyAction} className="space-y-4">
-        {TOGGLES.map(({ name, label, description, checked }) => (
-          <label
-            className="flex items-start justify-between gap-4 cursor-pointer"
-            htmlFor={name}
-            key={name}
-          >
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">{label}</p>
-              <p className="text-xs text-muted-foreground">{description}</p>
-            </div>
-            {/* Native checkbox styled as a toggle track */}
-            <input
-              className="sr-only peer"
-              defaultChecked={checked}
-              id={name}
-              name={name}
-              type="checkbox"
-              value="on"
-            />
-            <span
-              aria-hidden="true"
-              className="flex-shrink-0 mt-0.5 h-5 w-9 rounded-full border border-border bg-muted transition-colors duration-[--duration-fast] peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary"
-            />
-          </label>
-        ))}
-
-        <div className="flex justify-end pt-2">
-          <Button className="px-5 py-2.5" type="submit">
-            Save privacy
-          </Button>
-        </div>
-      </form>
-    </section>
-  )
-}

@@ -94,7 +94,7 @@ function OptionList({
               <Check className="h-3 w-3" strokeWidth={3} />
             </span>
             <p className="font-medium text-sm truncate">{opt.label}</p>
-            {opt.sublabel && <code className="text-xs text-muted-foreground break-all">{opt.sublabel}</code>}
+            {opt.sublabel && <span className="text-xs text-muted-foreground">{opt.sublabel}</span>}
           </label>
         );
       })}

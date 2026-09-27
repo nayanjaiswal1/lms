@@ -1,14 +1,16 @@
 import { ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PermissionNameList } from "@/components/shared/permission-name-list";
 import type { PermissionMeta, RoleFull } from "@/app/(app)/users/[id]/types";
 
 interface Props {
   roles: RoleFull[];
   overrides: PermissionMeta[];
   effectivePermissions: string[];
+  permissionCatalog: PermissionMeta[];
 }
 
-export function AccessTab({ roles, overrides, effectivePermissions }: Props) {
+export function AccessTab({ roles, overrides, effectivePermissions, permissionCatalog }: Props) {
   return (
     <div className="space-y-6">
       <div className="card-base p-6">
@@ -43,7 +45,7 @@ export function AccessTab({ roles, overrides, effectivePermissions }: Props) {
           </p>
           <div className="flex flex-wrap gap-2">
             {overrides.map((p) => (
-              <Badge key={p.id} title={p.code} variant="outline">
+              <Badge key={p.id} title={p.description || undefined} variant="outline">
                 {p.name}
               </Badge>
             ))}
@@ -58,13 +60,7 @@ export function AccessTab({ roles, overrides, effectivePermissions }: Props) {
         {effectivePermissions.length === 0 ? (
           <p className="text-sm text-muted-foreground">No effective permissions.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {[...effectivePermissions].sort().map((code) => (
-              <code className="kbd text-xs" key={code}>
-                {code}
-              </code>
-            ))}
-          </div>
+          <PermissionNameList catalog={permissionCatalog} codes={effectivePermissions} />
         )}
       </div>
     </div>

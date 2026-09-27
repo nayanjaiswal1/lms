@@ -57,13 +57,14 @@ export default async function UserDetailPage({ params }: PageProps) {
   const orgId = await getCurrentOrgId()
   if (!orgId) redirect(ROUTES.ORG_SELECT)
 
-  const [user, overview, rolesData, permsData, overridesData, auditData] = await Promise.all([
+  const [user, overview, rolesData, permsData, overridesData, auditData, catalogData] = await Promise.all([
     apiGet<UserDetail>(`/api/admin/rbac/users/${id}`),
     apiGet<UserOverview>(`/api/admin/rbac/users/${id}/overview`),
     apiGet<{ roles: RoleFull[] }>(`/api/admin/rbac/users/${id}/roles`),
     apiGet<{ permissions: string[] }>(`/api/admin/rbac/users/${id}/permissions`),
     apiGet<{ permissions: PermissionMeta[] }>(`/api/admin/rbac/users/${id}/permission-overrides`),
     apiGet<{ entries: AuditEntry[] }>(`/api/admin/rbac/audit?entity_id=${id}&limit=25`),
+    apiGet<{ permissions: PermissionMeta[] }>(`/api/admin/rbac/permissions?limit=100`),
   ])
 
   const roles = rolesData.roles ?? []
@@ -82,6 +83,7 @@ export default async function UserDetailPage({ params }: PageProps) {
         <AccessTab
           effectivePermissions={permsData.permissions ?? []}
           overrides={overridesData.permissions ?? []}
+          permissionCatalog={catalogData.permissions ?? []}
           roles={roles}
         />
       ),

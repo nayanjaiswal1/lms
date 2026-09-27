@@ -124,6 +124,7 @@ export interface PermissionMeta {
   id: string;
   code: string;
   name: string;
+  description?: string;
   module: string;
 }
 

@@ -54,7 +54,10 @@ export async function updatePrivacyAction(
     show_certificates: toBool(formData.get('show_certificates')),
     show_activity: toBool(formData.get('show_activity')),
   })
-  if (result.success) revalidatePath('/settings/profile')
+  if (result.success) {
+    revalidatePath('/settings/profile')
+    revalidatePath('/settings/privacy')
+  }
 }
 
 export async function updateSocialLinksAction(

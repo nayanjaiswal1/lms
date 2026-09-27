@@ -271,7 +271,7 @@ export async function bookSessionAction(
 ): Promise<ActionResult<MentorSession>> {
   const result = await apiAction<MentorSession>("POST", "/api/mentor-sessions", payload);
   if (result.ok) {
-    revalidatePath(ROUTES.SESSIONS);
+    revalidatePath(ROUTES.CALENDAR);
     revalidatePath(ROUTES.CALENDAR);
   }
   return result;
@@ -283,7 +283,7 @@ export async function bookBatchSessionAction(
 ): Promise<ActionResult<MentorSession>> {
   const result = await apiAction<MentorSession>("POST", `/api/batches/${batchId}/sessions`, payload);
   if (result.ok) {
-    revalidatePath(ROUTES.SESSIONS);
+    revalidatePath(ROUTES.CALENDAR);
     revalidatePath(ROUTES.CALENDAR);
   }
   return result;
@@ -297,7 +297,7 @@ export async function cancelSessionAction(
     reason,
   });
   if (result.ok) {
-    revalidatePath(ROUTES.SESSIONS);
+    revalidatePath(ROUTES.CALENDAR);
     revalidatePath(ROUTES.CALENDAR);
   }
   return result;
@@ -313,7 +313,7 @@ export async function rescheduleSessionAction(
     ends_at: endsAt,
   });
   if (result.ok) {
-    revalidatePath(ROUTES.SESSIONS);
+    revalidatePath(ROUTES.CALENDAR);
     revalidatePath(ROUTES.CALENDAR);
   }
   return result;
@@ -327,7 +327,7 @@ export async function setSessionOutcomeAction(
   const result = await apiAction<MentorSession>("POST", `/api/mentor-sessions/${id}/outcome`, {
     status,
   });
-  if (result.ok) revalidatePath(ROUTES.SESSIONS);
+  if (result.ok) revalidatePath(ROUTES.CALENDAR);
   return result;
 }
 
@@ -340,7 +340,7 @@ export async function submitSessionFeedbackAction(
     rating,
     comment,
   });
-  if (result.ok) revalidatePath(ROUTES.SESSIONS);
+  if (result.ok) revalidatePath(ROUTES.CALENDAR);
   return result;
 }
 
@@ -354,7 +354,7 @@ export async function saveSessionNotesAction(
     body,
     visible_to_student: visibleToStudent,
   });
-  if (result.ok) revalidatePath(ROUTES.SESSIONS);
+  if (result.ok) revalidatePath(ROUTES.CALENDAR);
   return result;
 }
 
@@ -420,7 +420,7 @@ export async function updateBookingConfigAction(
   const result = await apiAction<BookingConfig>("PATCH", "/api/session-booking/config", payload);
   if (result.ok) {
     revalidatePath(ROUTES.SESSION_BOOKING_SETTINGS);
-    revalidatePath(ROUTES.SESSIONS);
+    revalidatePath(ROUTES.CALENDAR);
   }
   return result;
 }

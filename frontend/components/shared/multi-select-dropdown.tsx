@@ -116,7 +116,7 @@ export function MultiSelectDropdown({
                           <div className="min-w-0 flex-1">
                             <p className="truncate">{opt.label}</p>
                             {opt.sublabel && (
-                              <code className="text-xs text-muted-foreground break-all">{opt.sublabel}</code>
+                              <span className="text-xs text-muted-foreground">{opt.sublabel}</span>
                             )}
                           </div>
                         </CommandItem>

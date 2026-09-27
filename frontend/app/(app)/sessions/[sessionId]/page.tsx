@@ -40,7 +40,7 @@ export default async function SessionDetailPage({ params }: Props) {
 
   return (
     <main className="page-container">
-      <Breadcrumb items={[{ label: "Sessions", href: ROUTES.SESSIONS }, { label: session.title }]} />
+      <Breadcrumb items={[{ label: "Calendar", href: ROUTES.CALENDAR }, { label: session.title }]} />
 
       <div className="flex flex-col gap-6">
         <section className="flex flex-col gap-3 card-raised">

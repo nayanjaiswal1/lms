@@ -18,6 +18,7 @@ import { MultiSelectDropdown } from "@/components/shared/multi-select-dropdown";
 import { useHasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-codes";
 import { apiFetch } from "@/lib/client/api";
+import { PermissionNameList } from "@/components/shared/permission-name-list";
 import type { OrgRole } from "@/lib/orgs/types";
 
 const ORG_ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
@@ -40,6 +41,7 @@ interface Permission {
   id: string;
   code: string;
   name: string;
+  description: string;
   module: string;
 }
 
@@ -255,7 +257,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
                   options={data.allPermissions.map((p) => ({
                     id: p.id,
                     label: p.name,
-                    sublabel: p.code,
+                    sublabel: p.description || undefined,
                     group: p.module,
                   }))}
                   placeholder="Search permissions…"
@@ -275,13 +277,7 @@ export function ManageRolesDialog({ userId, userName, orgId, memberId, orgRole }
               {data.effectivePerms.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No effective permissions.</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {data.effectivePerms.sort().map((code) => (
-                    <code className="kbd text-xs" key={code}>
-                      {code}
-                    </code>
-                  ))}
-                </div>
+                <PermissionNameList catalog={data.allPermissions} codes={data.effectivePerms} />
               )}
             </section>
           </>

@@ -18,6 +18,7 @@ interface Permission {
   id: string
   code: string
   name: string
+  description: string
   module: string
 }
 
@@ -127,14 +128,14 @@ export default function RoleDetailPage() {
         <p className="mt-4 text-sm text-muted-foreground">
           {role.is_system
             ? "System roles are read-only. Create a custom role to override permissions."
-            : "You need manage_permissions access to edit this role."}
+            : "You don't have permission to edit this role."}
         </p>
       )}
 
       <div className="mt-8">
         <ChecklistGrid
           disabled={isReadOnly}
-          options={allPerms.map((p) => ({ id: p.id, label: p.name, sublabel: p.code, group: p.module }))}
+          options={allPerms.map((p) => ({ id: p.id, label: p.name, sublabel: p.description || undefined, group: p.module }))}
           selected={assigned}
           onChange={setAssignedIfEditable}
         />

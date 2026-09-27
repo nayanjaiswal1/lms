@@ -56,7 +56,7 @@ export default async function LearnHubPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Learn</h1>
-          <p className="text-sm text-muted-foreground">Courses, assessments, practice, and every learning tool in one place.</p>
+          <p className="text-sm text-muted-foreground">Courses, assessments, practice, teaching tools, and every learning tool in one place.</p>
         </div>
       </div>
 
