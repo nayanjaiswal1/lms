@@ -125,6 +125,9 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 		return CourseDetailForViewer{}, err
 	}
 	detail := CourseDetailForViewer{CourseTree: tree}
+	if detail.Bundles, err = s.repo.GetBundlesForCourse(ctx, orgID, tree.ID); err != nil {
+		return CourseDetailForViewer{}, err
+	}
 
 	enrolled, err := s.repo.IsEnrolled(ctx, userID, tree.ID)
 	if err != nil {

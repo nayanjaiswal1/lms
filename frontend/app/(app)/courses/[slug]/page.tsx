@@ -10,6 +10,7 @@ import {
   FileText,
   GraduationCap,
   Layers,
+  Library,
   Lock,
   NotebookText,
   Star,
@@ -148,6 +149,18 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
           <p className="mt-3 max-w-2xl text-muted-foreground">
             {course.description ?? "No description yet — see the curriculum below for what this course covers."}
           </p>
+
+          {(course.bundles ?? []).length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <Library aria-hidden className="h-4 w-4 shrink-0" />
+              <span>Part of</span>
+              {course.bundles.map((b) => (
+                <Link className="touch-target inline-flex items-center" href={ROUTES.bundle(b.slug)} key={b.id}>
+                  <Badge variant="outline">{b.title}</Badge>
+                </Link>
+              ))}
+            </div>
+          )}
 
           {(!isEnrolled || course.tags.length > 0) && (
             <div className="mt-4 flex flex-wrap items-center gap-2">

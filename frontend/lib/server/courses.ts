@@ -1,6 +1,7 @@
 import "server-only";
 
 import { apiGet, apiGetPublic, apiPost } from "@/lib/server/api";
+import type { BundleRef } from "@/lib/server/bundles";
 
 export interface Course {
   id: string;
@@ -133,6 +134,7 @@ export interface CourseDetailForViewer extends CourseTree {
   is_enrolled: boolean;
   progress: CourseProgressSummary | null;
   my_rating: number | null;
+  bundles: BundleRef[]; // published bundles this course is part of
 }
 
 // Resolves a course by its URL slug for the current viewer in a single call

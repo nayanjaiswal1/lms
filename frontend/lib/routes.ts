@@ -61,6 +61,7 @@ const ROUTES = {
   // Courses — "/courses" already serves both students and staff, branching
   // by permission (see app/(app)/courses/page.tsx)
   COURSE_NEW:              "/courses/new",
+  BUNDLE_NEW:              "/bundles/new",
 
   // Assessments — "/assessments" now serves both students and staff,
   // branching by permission (see app/(app)/assessments/page.tsx)
@@ -194,6 +195,8 @@ const ROUTES = {
   courseEdit:               (slug: string)                      => `/courses/${slug}/edit`,
   courseEditSettings:       (slug: string)                      => `/courses/${slug}/edit/settings`,
   courseEditAnalytics:      (slug: string)                      => `/courses/${slug}/edit/analytics`,
+  bundle:                   (slug: string)                      => `/bundles/${slug}`,
+  bundleEdit:               (slug: string)                      => `/bundles/${slug}/edit`,
   batch:                    (id: string)                        => `/batches/${id}`,
   batchImport:              (id: string)                        => `/batches/${id}/import`,
   batchTests:               (id: string)                        => `/batches/${id}/tests`,

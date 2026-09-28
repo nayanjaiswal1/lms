@@ -204,6 +204,45 @@ Coupon management (`POST/GET/PATCH/DELETE /api/coupons`) is gated by the `paymen
 
 ---
 
+## Bundles
+
+A **bundle** clubs several existing courses together in an order (e.g. "Backend Engineer Path" = Python → Django → FastAPI). It only *references* courses — nothing is copied — so editing a course shows up in every bundle it belongs to. Enrollment, progress and certificates all stay per course; a bundle adds a curated path, an aggregate progress ring, and one **Enroll in all** action. Added in `043_course_bundles.sql`.
+
+```sql
+CREATE TABLE course_bundles (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id      UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  creator_id  UUID        NOT NULL REFERENCES users(id)         ON DELETE RESTRICT,
+  title       TEXT        NOT NULL CHECK (char_length(title) BETWEEN 3 AND 200),
+  slug        TEXT        NOT NULL,
+  description TEXT        CHECK (description IS NULL OR char_length(description) <= 2000),
+  cover_url   TEXT,
+  status      TEXT        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (org_id, slug)
+);
+
+CREATE TABLE course_bundle_items (
+  bundle_id UUID NOT NULL REFERENCES course_bundles(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id)        ON DELETE CASCADE,
+  position  INT  NOT NULL CHECK (position >= 0),
+  PRIMARY KEY (bundle_id, course_id),
+  UNIQUE (bundle_id, position) DEFERRABLE INITIALLY DEFERRED
+);
+```
+
+Rules:
+- **Visibility** — students only see `published` bundles, and only the `published` courses inside them. Instructors see drafts through the `/manage` endpoints.
+- **Enroll in all** (`POST /api/bundles/{bundleID}/enroll`) enrolls the student in every published **free** course in one statement (`ON CONFLICT DO NOTHING`, so existing enrollments are untouched). Paid courses are never granted here — they come back in `requires_purchase_course_ids` and the student buys each through its own checkout. There is no bundle price yet; a single bundle checkout would need its own purchase/coupon/refund path.
+- **Course list** is replaced wholesale by `PUT /api/bundles/{bundleID}/courses` (`{course_ids: [...]}`, max 50, distinct, all in the caller's org) — one call covers add, remove and reorder.
+- **Deleting** a bundle removes only the grouping; courses and student data are unaffected. Deleting a course drops it from every bundle (FK cascade).
+- The course detail response (`GET /api/courses/by-slug/{slug}`) includes `bundles` — the published bundles the course is part of — for the "Part of" chip.
+
+Frontend: bundles strip + "New bundle" button on `/courses`, student page `/bundles/[slug]`, editor `/bundles/new` and `/bundles/[slug]/edit` (`components/bundles/`, `lib/server/bundles.ts`, `lib/bundles/actions.ts`).
+
+---
+
 ## Lifecycle
 
 ```
@@ -242,6 +281,12 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 | `POST` | `/api/upload` | Upload a course asset (video/PDF) |
 | `POST` | `/api/upload/course-asset` | Get a signed upload URL |
 | `POST` | `/api/courses/generate-outline` | AI-generated course outline draft |
+| `POST` | `/api/bundles` | Create a bundle (`draft` by default) |
+| `GET` | `/api/bundles/manage` | Every bundle in the org, drafts included |
+| `GET` | `/api/bundles/{bundleID}/manage` | Bundle detail for the editor (drafts + unpublished courses included) |
+| `PATCH` | `/api/bundles/{bundleID}` | Update title/description/cover/status |
+| `DELETE` | `/api/bundles/{bundleID}` | Delete a bundle (courses untouched) |
+| `PUT` | `/api/bundles/{bundleID}/courses` | Replace the ordered course list |
 
 ### Staff + Mentor
 
@@ -266,6 +311,9 @@ An instructor authors a course as `draft`, builds out sections/modules, then `PO
 | `GET` | `/api/modules/{moduleID}` | Module content (for `lab` modules, use `GET /api/modules/{moduleID}/lab` instead — see `docs/labs.md`) |
 | `PATCH` | `/api/modules/{moduleID}/progress` | Update my progress on a module (video position, mark complete) |
 | `GET` | `/api/courses/{courseID}/progress/me` | My aggregate + per-module progress |
+| `GET` | `/api/bundles` | Published bundles |
+| `GET` | `/api/bundles/by-slug/{slug}` | Published bundle with its courses + my enrollment/progress in each |
+| `POST` | `/api/bundles/{bundleID}/enroll` | Enroll in all free courses; lists paid ones still to buy |
 
 ---
 

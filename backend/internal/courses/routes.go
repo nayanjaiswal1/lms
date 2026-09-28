@@ -35,6 +35,13 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/upload", h.UploadAsset)
 		r.Post("/api/upload/course-asset", h.GetUploadURL)
 		r.Post("/api/courses/generate-outline", h.GenerateOutline)
+
+		r.Post("/api/bundles", h.CreateBundle)
+		r.Get("/api/bundles/manage", h.ListManagedBundles)
+		r.Get("/api/bundles/{bundleID}/manage", h.GetManagedBundle)
+		r.Patch("/api/bundles/{bundleID}", h.UpdateBundle)
+		r.Delete("/api/bundles/{bundleID}", h.DeleteBundle)
+		r.Put("/api/bundles/{bundleID}/courses", h.SetBundleCourses)
 	})
 
 	// ─── Staff + Mentor: progress overview ────────────────────────────────────
@@ -73,6 +80,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Put("/api/modules/{moduleID}/notes", h.SaveLessonNote)
 	r.Get("/api/modules/{moduleID}/notes/me", h.GetMyLessonNote)
 	r.Get("/api/courses/{courseID}/progress/me", h.GetMyProgress)
+	r.Get("/api/bundles", h.ListBundles)
+	r.Get("/api/bundles/by-slug/{slug}", h.GetBundleBySlug)
+	r.Post("/api/bundles/{bundleID}/enroll", h.EnrollInBundle)
 	r.Post("/api/courses/{courseID}/anon-progress/migrate", h.MigrateAnonProgress)
 }
 
