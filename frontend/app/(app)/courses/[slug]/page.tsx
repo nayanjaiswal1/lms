@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -34,6 +35,7 @@ import { enrollAction } from "@/lib/courses/actions";
 import { PurchaseCourseButton } from "./purchase-course-button";
 import { MODULE_TYPE_ICON, MODULE_TYPE_LABEL } from "@/lib/courses/module-types";
 import { moduleStatus, computeCompletion } from "@/lib/courses/progress";
+import { groupSections } from "@/lib/courses/section-groups";
 import ROUTES from "@/lib/routes";
 
 interface Props {
@@ -187,76 +189,83 @@ export default async function CourseDetailPage({ params, searchParams }: Props) 
             </div>
           ) : (
             <div className="card-base flex flex-col divide-y divide-border p-0">
-              {sections.map((section) => {
+              {groupSections(sections).map(({ section, isGroupStart, isGrouped }) => {
                 const sectionCompletion = computeCompletion(section.modules.map((m) => m.id), progress);
 
                 return (
-                  <details className="group" key={section.id}>
-                    <summary className="flex cursor-pointer list-none items-center gap-3 px-6 py-4 transition-colors duration-fast hover:bg-muted">
-                      <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-fast group-open:rotate-180" />
-                      <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {isEnrolled
-                          ? `${sectionCompletion.completed}/${section.modules.length}`
-                          : `${section.modules.length} module${section.modules.length === 1 ? "" : "s"}`}
-                      </span>
-                    </summary>
-
-                    {section.modules.length === 0 ? (
-                      <p className="border-t border-border px-6 py-3 pl-10 text-sm text-muted-foreground">
-                        No modules yet.
+                  <Fragment key={section.id}>
+                    {isGroupStart && (
+                      <p className="px-6 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {section.group_title}
                       </p>
-                    ) : (
-                      <ul className="flex list-none flex-col">
-                        {section.modules.map((mod) => {
-                          const Icon = MODULE_TYPE_ICON[mod.type] ?? FileText;
-                          const status = moduleStatus(mod.id, progress);
-                          const isLocked = !isEnrolled && !mod.is_free_preview;
-
-                          const rowContent = (
-                            <>
-                              {isEnrolled && status === "completed" ? (
-                                <CheckCircle2 aria-label="Completed" className="h-4 w-4 shrink-0 text-primary" />
-                              ) : (
-                                <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              )}
-                              <span className="min-w-0 flex-1 truncate">{mod.title}</span>
-                              <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-                                {MODULE_TYPE_LABEL[mod.type] ?? mod.type}
-                              </span>
-                              {!isEnrolled && mod.is_free_preview && (
-                                <Badge className="shrink-0 text-xs" variant="secondary">Preview</Badge>
-                              )}
-                              {isLocked ? (
-                                <Lock aria-label="Requires enrollment" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              ) : (
-                                mod.estimated_minutes && (
-                                  <span className="shrink-0 text-xs text-muted-foreground">{mod.estimated_minutes}m</span>
-                                )
-                              )}
-                            </>
-                          );
-
-                          return (
-                            <li className="border-t border-border first:border-t-0" key={mod.id}>
-                              {isLocked ? (
-                                <div className="flex items-center gap-3 px-6 py-3 pl-10 text-sm text-muted-foreground">
-                                  {rowContent}
-                                </div>
-                              ) : (
-                                <Link
-                                  className="flex items-center gap-3 px-6 py-3 pl-10 text-sm text-foreground transition-colors duration-fast hover:bg-muted"
-                                  href={ROUTES.courseLearnModule(course.slug, mod.id)}
-                                >
-                                  {rowContent}
-                                </Link>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
                     )}
-                  </details>
+                    <details className={cn("group", isGrouped && "ml-6 border-l-2 border-border")}>
+                      <summary className="flex cursor-pointer list-none items-center gap-3 px-6 py-4 transition-colors duration-fast hover:bg-muted">
+                        <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-fast group-open:rotate-180" />
+                        <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {isEnrolled
+                            ? `${sectionCompletion.completed}/${section.modules.length}`
+                            : `${section.modules.length} module${section.modules.length === 1 ? "" : "s"}`}
+                        </span>
+                      </summary>
+
+                      {section.modules.length === 0 ? (
+                        <p className="border-t border-border px-6 py-3 pl-10 text-sm text-muted-foreground">
+                          No modules yet.
+                        </p>
+                      ) : (
+                        <ul className="flex list-none flex-col">
+                          {section.modules.map((mod) => {
+                            const Icon = MODULE_TYPE_ICON[mod.type] ?? FileText;
+                            const status = moduleStatus(mod.id, progress);
+                            const isLocked = !isEnrolled && !mod.is_free_preview;
+
+                            const rowContent = (
+                              <>
+                                {isEnrolled && status === "completed" ? (
+                                  <CheckCircle2 aria-label="Completed" className="h-4 w-4 shrink-0 text-primary" />
+                                ) : (
+                                  <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                )}
+                                <span className="min-w-0 flex-1 truncate">{mod.title}</span>
+                                <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+                                  {MODULE_TYPE_LABEL[mod.type] ?? mod.type}
+                                </span>
+                                {!isEnrolled && mod.is_free_preview && (
+                                  <Badge className="shrink-0 text-xs" variant="secondary">Preview</Badge>
+                                )}
+                                {isLocked ? (
+                                  <Lock aria-label="Requires enrollment" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                ) : (
+                                  mod.estimated_minutes && (
+                                    <span className="shrink-0 text-xs text-muted-foreground">{mod.estimated_minutes}m</span>
+                                  )
+                                )}
+                              </>
+                            );
+
+                            return (
+                              <li className="border-t border-border first:border-t-0" key={mod.id}>
+                                {isLocked ? (
+                                  <div className="flex items-center gap-3 px-6 py-3 pl-10 text-sm text-muted-foreground">
+                                    {rowContent}
+                                  </div>
+                                ) : (
+                                  <Link
+                                    className="flex items-center gap-3 px-6 py-3 pl-10 text-sm text-foreground transition-colors duration-fast hover:bg-muted"
+                                    href={ROUTES.courseLearnModule(course.slug, mod.id)}
+                                  >
+                                    {rowContent}
+                                  </Link>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </details>
+                  </Fragment>
                 );
               })}
             </div>

@@ -33,13 +33,19 @@ cd backend && go run ./cmd/coursegen generate --in ../content/courses/<slug> --o
   doesn't matter** (`01-lesson.md` is just convention), only the `kind:` frontmatter field
   routes it (`backend/internal/contentpipeline/generator/generator.go:60`, `parse.go`).
 - Output SQL is **idempotent** (`ON CONFLICT ... DO UPDATE`), safe to regenerate repeatedly.
-- **The module upsert does NOT update `section_id`** — moving a module to a different
-  `section:` in canonical markdown will not re-home the existing DB row on reseed. To
-  restructure sections: delete the course's `course_modules` (except `type='lab'` —
-  `lab_definitions.module_id` FK is NO ACTION and the `scope_module_consistency` CHECK
-  forbids nulling it) + old `course_sections`, load the fixture, then `UPDATE` the lab
-  modules' `section_id` manually and delete the now-empty old sections, all in one
-  transaction (done 2026-07-15 for interview-prep-45's week→subject restructure).
+- **Moving a module between sections works on reseed** — every module upsert
+  (`render_lesson.go` / `render_lab.go` / `render_quiz.go`) sets `section_id=EXCLUDED.section_id`,
+  so changing a doc's `section:` re-homes the existing DB row. **Reseeding also prunes rows now**
+  (migration 042): after emitting every section/module for a course, `render.go` deletes that
+  course's `course_modules`/`course_sections` whose id isn't in this run's generated set, so a
+  merged/removed lesson/lab/quiz or an emptied-out section actually disappears instead of
+  lingering forever — no manual cleanup transaction needed anymore (done 2026-07-15 for
+  interview-prep-45's week→subject restructure; pruning added 2026-09-28). Existing rows are
+  first parked at `position + 100000` before the upserts, same trick `render_lab.go` uses for
+  `lab_tasks`.
+- **Nested section groups**: `section_group` (optional, in `Common` frontmatter) nests a section
+  under a group heading with any sibling sections sharing the same value. Every document in the
+  same `(course, section)` must agree on `section_group` — `Load` rejects a mismatch.
 - IDs are deterministic UUIDv5s derived from each doc's `id_key` (`canonical/ids.go`) —
   never invent random UUIDs for canonical content, or regeneration will duplicate rows.
 - Rendering logic lives in `backend/internal/contentpipeline/generator/render*.go` — read the
@@ -65,7 +71,8 @@ The canonical validator does NOT catch this — `easy`/`medium`/`hard` loads onl
 ### Frontmatter shape per kind (`backend/internal/contentpipeline/canonical/types.go`)
 
 Common fields on every doc: `kind`, `id_key` (stable, never change once authored — reseeds the
-UUID), `course` (slug), `section` (slug), `section_title`, `section_position`, `title`,
+UUID), `course` (slug), `section` (slug), `section_title`, `section_position`, `section_group`
+(optional — nests this section under a group heading, see below), `title`,
 `position` (order within section), `estimated_minutes`, `source` (list of upstream files this
 was derived from — required, feeds `coursegen audit`).
 

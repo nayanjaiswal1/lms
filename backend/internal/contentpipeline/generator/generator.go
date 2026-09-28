@@ -92,6 +92,9 @@ func Load(canonicalDir string) ([]*canonical.Document, error) {
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("generator.Load: %d document(s) failed validation:\n%w", len(errs), errors.Join(errs...))
 	}
+	if err := validateSectionGroups(docs); err != nil {
+		return nil, fmt.Errorf("generator.Load: %w", err)
+	}
 
 	sort.Slice(docs, func(i, j int) bool {
 		ci, cj := commonOf(docs[i]), commonOf(docs[j])
@@ -105,6 +108,39 @@ func Load(canonicalDir string) ([]*canonical.Document, error) {
 	})
 
 	return docs, nil
+}
+
+// validateSectionGroups checks that every document sharing a (course, section)
+// pair — the same grouping Render uses to build one course_sections row per
+// section (see sectionsBySlug in render.go) — declares the same
+// section_group. Render itself just takes the first value it sees per
+// section and ignores the rest (same as it already does for section_title),
+// so a typo'd or half-updated section_group on one document would silently
+// detach it from its siblings' group heading instead of erroring — this
+// catches that at Load time instead.
+func validateSectionGroups(docs []*canonical.Document) error {
+	type key struct{ course, section string }
+	seen := map[key]struct {
+		group string
+		path  string
+	}{}
+	var errs []error
+	for _, doc := range docs {
+		c := commonOf(doc)
+		k := key{c.Course, c.Section}
+		if first, ok := seen[k]; !ok {
+			seen[k] = struct {
+				group string
+				path  string
+			}{c.SectionGroup, doc.Path}
+		} else if first.group != c.SectionGroup {
+			errs = append(errs, fmt.Errorf(
+				"%s: section_group %q disagrees with %q already set for section %q of course %q by %s",
+				doc.Path, c.SectionGroup, first.group, c.Section, c.Course, first.path,
+			))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // commonOf extracts the shared Common frontmatter fields regardless of the

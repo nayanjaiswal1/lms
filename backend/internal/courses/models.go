@@ -96,12 +96,13 @@ type CourseReview struct {
 }
 
 type CourseSection struct {
-	ID        string         `json:"id"`
-	CourseID  string         `json:"course_id"`
-	Title     string         `json:"title"`
-	Position  int            `json:"position"`
-	CreatedAt time.Time      `json:"created_at"`
-	Modules   []CourseModule `json:"modules,omitempty"`
+	ID         string         `json:"id"`
+	CourseID   string         `json:"course_id"`
+	Title      string         `json:"title"`
+	Position   int            `json:"position"`
+	GroupTitle *string        `json:"group_title"` // optional group heading (canonical section_group); nil = ungrouped
+	CreatedAt  time.Time      `json:"created_at"`
+	Modules    []CourseModule `json:"modules,omitempty"`
 }
 
 type CourseModule struct {
@@ -278,8 +279,9 @@ type CourseOutline struct {
 }
 
 type OutlineSection struct {
-	Title   string          `json:"title"`
-	Modules []OutlineModule `json:"modules"`
+	Title      string          `json:"title"`
+	GroupTitle *string         `json:"group_title"` // mirrors CourseSection.GroupTitle so the outline can nest sections too
+	Modules    []OutlineModule `json:"modules"`
 }
 
 type OutlineModule struct {

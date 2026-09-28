@@ -17,6 +17,7 @@ type Common struct {
 	Section          string   `yaml:"section"` // section slug
 	SectionTitle     string   `yaml:"section_title"`
 	SectionPosition  int      `yaml:"section_position"`
+	SectionGroup     string   `yaml:"section_group"` // optional; nests this section under a group heading with siblings sharing the same value
 	Title            string   `yaml:"title"`
 	Position         int      `yaml:"position"` // position within the section
 	EstimatedMinutes int      `yaml:"estimated_minutes"`

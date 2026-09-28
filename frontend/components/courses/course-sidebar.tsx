@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { CourseTree, ModuleProgress } from "@/lib/server/courses";
 import { MODULE_TYPE_ICON } from "@/lib/courses/module-types";
 import { moduleStatus, computeCompletion } from "@/lib/courses/progress";
+import { groupSections } from "@/lib/courses/section-groups";
 import { CourseProgressBar } from "@/components/courses/course-progress-bar";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
@@ -74,7 +75,7 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
       </div>
 
       <div className="mt-3 flex flex-col gap-1 overflow-y-auto pb-4">
-        {course.sections.map((section) => {
+        {groupSections(course.sections).map(({ section, isGroupStart, isGrouped }) => {
           const sectionModules = isSearching
             ? section.modules.filter((m) => m.title.toLowerCase().includes(trimmed))
             : section.modules;
@@ -85,52 +86,59 @@ export function CourseSidebar({ course, currentModuleId, progress, isEnrolled, o
           const containsCurrent = section.modules.some((m) => m.id === currentModuleId);
 
           return (
-            <details className="group" key={section.id} open={isSearching || containsCurrent}>
-              <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm font-semibold text-foreground transition-colors duration-fast hover:bg-muted">
-                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-fast group-open:rotate-180" />
-                <span className="min-w-0 flex-1 truncate">{section.title}</span>
-                <span className="shrink-0 text-xs font-normal text-muted-foreground">{sectionCompleted}/{section.modules.length}</span>
-              </summary>
+            <div key={section.id}>
+              {isGroupStart && (
+                <p className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  {section.group_title}
+                </p>
+              )}
+              <details className={cn("group", isGrouped && "border-l-2 border-sidebar-border ml-4")} open={isSearching || containsCurrent}>
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm font-semibold text-foreground transition-colors duration-fast hover:bg-muted">
+                  <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-fast group-open:rotate-180" />
+                  <span className="min-w-0 flex-1 truncate">{section.title}</span>
+                  <span className="shrink-0 text-xs font-normal text-muted-foreground">{sectionCompleted}/{section.modules.length}</span>
+                </summary>
 
-              <ul className="flex list-none flex-col">
-                {sectionModules.map((mod) => {
-                  const status = moduleStatus(mod.id, progress);
-                  const Icon = MODULE_TYPE_ICON[mod.type] ?? FileText;
-                  const isCurrent = mod.id === currentModuleId;
-                  const isLocked = !isEnrolled && !mod.is_free_preview;
+                <ul className="flex list-none flex-col">
+                  {sectionModules.map((mod) => {
+                    const status = moduleStatus(mod.id, progress);
+                    const Icon = MODULE_TYPE_ICON[mod.type] ?? FileText;
+                    const isCurrent = mod.id === currentModuleId;
+                    const isLocked = !isEnrolled && !mod.is_free_preview;
 
-                  return (
-                    <li key={mod.id}>
-                      <Link
-                        aria-current={isCurrent ? "page" : undefined}
-                        className={cn(
-                          "flex items-center gap-3 border-l-2 border-transparent py-2.5 pl-6 pr-4 text-sm text-foreground transition-colors duration-fast hover:bg-muted",
-                          isCurrent && "border-primary bg-primary/8 font-medium text-primary",
-                        )}
-                        href={ROUTES.courseLearnModule(course.slug, mod.id)}
-                        onClick={onNavigate}
-                      >
-                        {status === "completed" ? (
-                          <CheckCircle2 aria-label="Completed" className="h-4 w-4 shrink-0 text-primary" />
-                        ) : status === "in_progress" ? (
-                          <Circle aria-label="In progress" className="h-4 w-4 shrink-0 text-primary opacity-60" />
-                        ) : (
-                          <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="line-clamp-2 min-w-0 flex-1 leading-snug">{mod.title}</span>
-                        {isLocked ? (
-                          <Lock aria-label="Requires enrollment" className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
-                        ) : (
-                          mod.estimated_minutes && (
-                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{mod.estimated_minutes}m</span>
-                          )
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </details>
+                    return (
+                      <li key={mod.id}>
+                        <Link
+                          aria-current={isCurrent ? "page" : undefined}
+                          className={cn(
+                            "flex items-center gap-3 border-l-2 border-transparent py-2.5 pl-6 pr-4 text-sm text-foreground transition-colors duration-fast hover:bg-muted",
+                            isCurrent && "border-primary bg-primary/8 font-medium text-primary",
+                          )}
+                          href={ROUTES.courseLearnModule(course.slug, mod.id)}
+                          onClick={onNavigate}
+                        >
+                          {status === "completed" ? (
+                            <CheckCircle2 aria-label="Completed" className="h-4 w-4 shrink-0 text-primary" />
+                          ) : status === "in_progress" ? (
+                            <Circle aria-label="In progress" className="h-4 w-4 shrink-0 text-primary opacity-60" />
+                          ) : (
+                            <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="line-clamp-2 min-w-0 flex-1 leading-snug">{mod.title}</span>
+                          {isLocked ? (
+                            <Lock aria-label="Requires enrollment" className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
+                          ) : (
+                            mod.estimated_minutes && (
+                              <span className="ml-auto shrink-0 text-xs text-muted-foreground">{mod.estimated_minutes}m</span>
+                            )
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            </div>
           );
         })}
 

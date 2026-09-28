@@ -3,8 +3,8 @@ kind: lab
 id_key: interview-prep-45/lab-react-counter
 course: interview-prep-45
 section: frontend
-section_title: "Frontend Engineering"
-section_position: 6
+section_title: "Frontend"
+section_position: 12
 title: "Lab: React — Stateful Counter Component"
 position: 16
 estimated_minutes: 45
@@ -149,7 +149,7 @@ tasks:
         is why its 'Count: 0' output proves the wiring.
 ---
 
-A hands-on checkpoint for the React fundamentals you just covered: a Vite +
-React dev server is already running on port 5173 with hot reload. Implement a
+Put React's rendering model to work with your own hands. A Vite + React dev
+server is already running on port 5173 with hot reload. Implement a
 `useState` counter component and compose it into the app. The checker compiles
 and server-renders your actual components.

@@ -47,6 +47,7 @@ export interface CourseSection {
   course_id: string;
   title: string;
   position: number;
+  group_title: string | null;
   modules: CourseModule[];
 }
 

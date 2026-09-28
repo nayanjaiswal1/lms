@@ -49,6 +49,7 @@ CREATE TABLE course_sections (
   course_id  UUID        NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
   title      TEXT        NOT NULL CHECK (length(title) BETWEEN 1 AND 200),
   position   INT         NOT NULL DEFAULT 0,
+  group_title TEXT       CHECK (group_title IS NULL OR length(group_title) BETWEEN 1 AND 200), -- 042: optional; consecutive sections sharing a group_title render nested under one heading
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE (course_id, position) DEFERRABLE INITIALLY DEFERRED -- lets a full reorder batch-insert without a temporary collision
 );

@@ -400,7 +400,7 @@ func (r *Repo) GetCourseTreeBySlug(ctx context.Context, orgID, userID, slug stri
 // was resolved (by id vs. by slug).
 func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error) {
 	sectionRows, err := r.pool.Query(ctx,
-		`SELECT id, course_id, title, position, created_at FROM course_sections
+		`SELECT id, course_id, title, position, group_title, created_at FROM course_sections
 		 WHERE course_id = $1 ORDER BY position`, c.ID)
 	if err != nil {
 		return CourseTree{}, fmt.Errorf("courses: get sections: %w", err)
@@ -410,7 +410,7 @@ func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error
 	var sections []CourseSection
 	for sectionRows.Next() {
 		var s CourseSection
-		if err := sectionRows.Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.CreatedAt); err != nil {
+		if err := sectionRows.Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt); err != nil {
 			return CourseTree{}, fmt.Errorf("courses: scan section: %w", err)
 		}
 		sections = append(sections, s)
@@ -475,11 +475,11 @@ func (r *Repo) CreateSection(ctx context.Context, s CourseSection) (CourseSectio
 func (r *Repo) GetSectionForOrg(ctx context.Context, orgID, sectionID string) (CourseSection, error) {
 	var s CourseSection
 	err := r.pool.QueryRow(ctx,
-		`SELECT cs.id, cs.course_id, cs.title, cs.position, cs.created_at
+		`SELECT cs.id, cs.course_id, cs.title, cs.position, cs.group_title, cs.created_at
 		 FROM course_sections cs
 		 JOIN courses c ON c.id = cs.course_id
 		 WHERE cs.id = $1 AND c.org_id = $2`, sectionID, orgID,
-	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.CreatedAt)
+	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseSection{}, ErrNotFound
@@ -494,9 +494,9 @@ func (r *Repo) UpdateSection(ctx context.Context, orgID string, s CourseSection)
 	err := r.pool.QueryRow(ctx,
 		`UPDATE course_sections cs SET title=$2
 		 FROM courses c WHERE cs.id=$1 AND cs.course_id=c.id AND c.org_id=$3
-		 RETURNING cs.id, cs.course_id, cs.title, cs.position, cs.created_at`,
+		 RETURNING cs.id, cs.course_id, cs.title, cs.position, cs.group_title, cs.created_at`,
 		s.ID, s.Title, orgID,
-	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.CreatedAt)
+	).Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CourseSection{}, ErrNotFound
@@ -1206,9 +1206,10 @@ func copySectionsAndModules(ctx context.Context, tx pgx.Tx, fromCourseID, toCour
 		return fmt.Errorf("courses: copy sections: orig rows: %w", err)
 	}
 
+	// group_title is copied too so a fork keeps the source course's nested section headings.
 	secRows, err := tx.Query(ctx,
-		`INSERT INTO course_sections (course_id, title, position)
-		 SELECT $1, title, position FROM course_sections WHERE course_id=$2 ORDER BY position
+		`INSERT INTO course_sections (course_id, title, position, group_title)
+		 SELECT $1, title, position, group_title FROM course_sections WHERE course_id=$2 ORDER BY position
 		 RETURNING id`,
 		toCourseID, fromCourseID)
 	if err != nil {

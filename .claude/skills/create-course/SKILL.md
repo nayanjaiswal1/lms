@@ -37,11 +37,20 @@ cd backend && go run ./cmd/coursegen generate --in ../content/courses/<slug> --o
   (`render_lesson.go` / `render_lab.go` / `render_quiz.go`) sets
   `section_id=EXCLUDED.section_id`, and the `course_sections` upsert updates `position`, so
   changing a doc's `section:`/`section_position:` re-homes and reorders the existing DB rows.
-  What reseeding does *not* do is delete rows: a section that no longer has any documents
-  keeps its old `course_sections` row (and any modules still pointing at it), so an
-  emptied-out section must be `DELETE`d manually after loading the fixture. Done
-  2026-07-15 (interview-prep-45 week→subject restructure) and 2026-09-07 (splitting
-  `hld-foundations` + `lld` out of `system-design`).
+  **Reseeding also prunes rows now** (migration 042): after emitting every section/module for a
+  course, `render.go` deletes that course's `course_modules`/`course_sections` whose id isn't in
+  this run's generated set, so a merged or removed lesson/lab/quiz — or a section with no
+  documents left at all — actually disappears instead of lingering forever. Existing rows are
+  first parked at `position + 100000` (same trick `render_lab.go` uses for `lab_tasks`) so the
+  upserts never collide with a stale row still occupying the target position before it's pruned.
+  Done 2026-07-15 (interview-prep-45 week→subject restructure) and 2026-09-07 (splitting
+  `hld-foundations` + `lld` out of `system-design`); pruning added 2026-09-28.
+- **Nested section groups**: `section_group` (optional, in `Common` frontmatter) nests a section
+  under a group heading with any sibling sections sharing the same value (e.g. `section_group:
+  Backend` on the `python`, `django`, and `fastapi` sections' documents groups them under a
+  "Backend" heading). Every document in the same `(course, section)` must agree on
+  `section_group` — `Load` rejects a mismatch instead of silently taking the first value like it
+  does for `section_title`.
 - IDs are deterministic UUIDv5s derived from each doc's `id_key` (`canonical/ids.go`) —
   never invent random UUIDs for canonical content, or regeneration will duplicate rows.
 - Rendering logic lives in `backend/internal/contentpipeline/generator/render*.go` — read the
@@ -67,7 +76,8 @@ The canonical validator does NOT catch this — `easy`/`medium`/`hard` loads onl
 ### Frontmatter shape per kind (`backend/internal/contentpipeline/canonical/types.go`)
 
 Common fields on every doc: `kind`, `id_key` (stable, never change once authored — reseeds the
-UUID), `course` (slug), `section` (slug), `section_title`, `section_position`, `title`,
+UUID), `course` (slug), `section` (slug), `section_title`, `section_position`, `section_group`
+(optional — nests this section under a group heading, see below), `title`,
 `position` (order within section), `estimated_minutes`, `source` (list of upstream files this
 was derived from — required, feeds `coursegen audit`).
 
