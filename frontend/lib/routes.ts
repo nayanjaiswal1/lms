@@ -25,6 +25,7 @@ const ROUTES = {
   DASHBOARD:           "/dashboard",
   LEARN:               "/learn",
   TEACH:               "/teach",
+  LIBRARY:             "/library",
   NOW:                 "/now",
   PLAN:                "/plan",
   BOARD:               "/board",

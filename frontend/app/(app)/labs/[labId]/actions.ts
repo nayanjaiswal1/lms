@@ -13,11 +13,12 @@ import type {
 export async function startLabSessionAction(
   labId: string,
   idempotencyKey: string,
+  moduleId?: string,
 ): Promise<ActionResult<LabSession>> {
   return apiAction<LabSession>(
     "POST",
     `/api/labs/${labId}/sessions`,
-    undefined,
+    moduleId ? { module_id: moduleId } : undefined,
     { "Idempotency-Key": idempotencyKey },
   )
 }

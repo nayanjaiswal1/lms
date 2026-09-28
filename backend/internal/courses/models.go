@@ -119,10 +119,24 @@ type CourseModule struct {
 	AssessmentID     *string                  `json:"assessment_id,omitempty"`
 	EstimatedMinutes *int                     `json:"estimated_minutes,omitempty"`
 	KnowledgeCheck   []KnowledgeCheckQuestion `json:"knowledge_check,omitempty"`
-	StartsAt         *time.Time               `json:"starts_at"`
-	EndsAt           *time.Time               `json:"ends_at"`
-	CreatedAt        time.Time                `json:"created_at"`
-	UpdatedAt        time.Time                `json:"updated_at"`
+	// LabID links a type='lab' module to its lab_definitions row (see
+	// migration 044_course_library.sql). Resolution/completion go through
+	// this, never lab_definitions.module_id, so one published lab can be
+	// placed (referenced) in more than one module/course — see
+	// labs.Repo.GetLabByModuleID.
+	LabID *string `json:"lab_id,omitempty"`
+	// LabIsRequired gates "required to complete this section" per placement
+	// — the same lab can be required in one course and optional in another.
+	LabIsRequired bool `json:"lab_is_required,omitempty"`
+	// CopiedFromModuleID is set on a notes module inserted by
+	// library.Service.Attach as a copy of another module's content_body
+	// (docs/debug-labs.md L1 "Notes lesson: Copy"). nil for every other kind
+	// of module, including referenced labs/quizzes.
+	CopiedFromModuleID *string    `json:"copied_from_module_id,omitempty"`
+	StartsAt           *time.Time `json:"starts_at"`
+	EndsAt             *time.Time `json:"ends_at"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 // KnowledgeCheckQuestion is one entry of a notes module's knowledge_check

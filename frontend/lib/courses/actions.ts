@@ -216,6 +216,12 @@ export async function updateModuleAction(
   });
 }
 
+// Toggles a lab module's per-placement Required flag (course_modules.lab_is_required,
+// migration 044) — same lab can be required in one course and optional in another.
+export async function updateModuleLabRequiredAction(moduleId: string, isRequired: boolean): Promise<ActionResult> {
+  return apiAction("PATCH", `/api/modules/${moduleId}/lab-required`, { is_required: isRequired });
+}
+
 export async function deleteModuleAction(moduleId: string): Promise<ActionResult> {
   return apiAction("DELETE", `/api/modules/${moduleId}`);
 }

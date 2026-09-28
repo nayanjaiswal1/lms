@@ -1,6 +1,6 @@
 # Debug Labs — "Real Debugging" on broken systems (design draft)
 
-> **Status: design draft, not built.** Planned 2026-09-29. Open questions at the bottom need answers before Phase 1 starts.
+> **Status: design draft, not built**, except **Part 3 "Add from library" (Phase A) — implemented 2026-09-29**: migration `044_course_library.sql`, `backend/internal/library`, the fork-lab-link fix, and the picker/library-page frontend described in L0-L6 below are in the working tree. Parts 1, 2, and B (the debug-lab builder) remain design draft. Open questions at the bottom need answers before Phase 1 starts.
 
 A student gets a small, realistic, **broken** Django / FastAPI / React app inside a browser VS Code (openvscode-server) and debugs it like at work: read the ticket → reproduce → logs/tracebacks → breakpoints → root cause → fix → prove the fix → write a short incident note. Built as a new `lab_type = 'debug'` on top of the existing lab system (`docs/labs.md`), which already provides ~70% of what's needed: per-student Django/FastAPI/React sandboxes (`mindforge/lab-python-web:3.12`, `mindforge/lab-node-web:22`), a supervised dev server (`lab-images/shared/app-runner.sh`), an authenticated WebSocket-capable per-port preview proxy (`backend/cmd/labproxy/preview*.go`), batch Run/Submit grading (`service_sandbox.go` → `finalizeTaskPass`), pinned version snapshots, warm pools, idle-pause, metering, and canonical-markdown authoring (`kind: lab`). `content/courses/interview-prep-45/backend-fastapi/04-lab-async-aggregation.md` is already close to a debugging lab.
 
@@ -765,6 +765,16 @@ Part 1's tier 1 (random grader data on every Check) stays always on; tiers 2 and
 # Part 3 — "Add from library" into a course
 
 Every item (existing lab, published debug lab, quiz, notes lesson) is pickable from a library and droppable into any course section at a chosen position.
+
+## Part 3 implementation notes (2026-09-29)
+
+L0-L5 below are implemented essentially as written, with these deviations:
+
+- **Filters:** `GET /api/library` implements `type`/`q`/`cursor`/`limit` only. `stack`/`category`/`difficulty` aren't backed by any column on `lab_definitions`/`assessments`/`course_modules` today (no migration in L2 adds one), so they're not query params yet rather than being silently accepted and ignored — add them alongside whatever adds those columns (the Part 2 scenario-catalog work).
+- **Quiz cross-org visibility:** L3 step 3 says a quiz may be "same org, or platform-public and published"; `assessments` has no platform-visibility column, so Phase A implements same-org-only (matching `library_visibility` exists on `lab_definitions` alone). Extend `assessments` the same way if cross-org quiz sharing is wanted.
+- **Lab image-allowlist re-check:** Attach does not duplicate `StartSession`'s `lab_org_config`/`allowed_images` check at placement time (`ponytail:` comment in `service.go`) — an instructor can place a lab whose image isn't allowed for their org, and a student gets `ErrImageNotAllowed` at launch, same as any other image-restricted lab today. Add the earlier check only if instructors need that feedback at placement time instead.
+- **Position:** the course-builder integration always appends ("Add from library" reuses the existing "Add module" menu next to the section's module list, not a new per-slot "+"); `Attach`'s `position` param still accepts an explicit index for a future per-slot UI or the builder's publish-then-attach path with no backend change needed.
+- **Notes preview `content_body`:** returned as the raw stored string (may be markdown or the JSON `ContentBlock[]` shape course-wizard.tsx writes) — the picker renders it as-is; a nicer preview can reuse `frontend/lib/courses/markdown.ts`/the block renderer later.
 
 ## L0. Existing bugs this fixes first
 

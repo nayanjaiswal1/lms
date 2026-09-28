@@ -18,5 +18,12 @@ export async function ModuleLab({ moduleId, title }: ModuleLabProps) {
     );
   }
 
-  return <ModuleLabClient initialSession={moduleLab.initialSession} lab={moduleLab.lab} title={title} />;
+  return (
+    <ModuleLabClient
+      initialSession={moduleLab.initialSession}
+      lab={moduleLab.lab}
+      moduleId={moduleId}
+      title={title}
+    />
+  );
 }

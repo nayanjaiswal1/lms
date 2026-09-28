@@ -606,6 +606,28 @@ func (h *Handler) UpdateModule(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, updated)
 }
 
+// UpdateModuleLabRequired toggles a lab module's per-placement Required flag.
+//
+//	PATCH /api/modules/{moduleID}/lab-required
+func (h *Handler) UpdateModuleLabRequired(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		IsRequired bool `json:"is_required"`
+	}
+	if !httputil.DecodeJSON(w, r, &req) {
+		return
+	}
+	updated, err := h.repo.SetModuleLabRequired(r.Context(), claims.OrgID, httputil.URLParam(r, "moduleID"), req.IsRequired)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, updated)
+}
+
 func (h *Handler) DeleteModule(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.RequireClaims(w, r)
 	if !ok {

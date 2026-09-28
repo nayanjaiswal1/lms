@@ -20,20 +20,24 @@ func NewRepo(pool *pgxpool.Pool) *Repo { return &Repo{pool: pool} }
 
 // ─── Lab definitions ─────────────────────────────────────────────────────────
 
-// GetLab loads a lab definition visible to the given org.
+// GetLab loads a lab definition visible to the given org. Used for direct
+// by-id access (standalone labs, library preview/try) — IsRequired here is
+// lab_definitions.is_required, the legacy org-wide default; a lab reached
+// through a course placement instead gets its per-placement value from
+// GetLabByModuleID.
 func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition, error) {
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
 		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
-		       published_version_id, workspace_layout, created_by, created_at, updated_at
+		       published_version_id, workspace_layout, created_by, created_at, updated_at, library_visibility
 		FROM lab_definitions WHERE id=$1 AND org_id=$2`,
 		labID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
 		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
-		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
+		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt, &l.LibraryVisibility,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -44,21 +48,64 @@ func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition,
 	return &l, nil
 }
 
-// GetLabByModuleID returns the published lab definition linked to a course module.
-func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*LabDefinition, error) {
+// GetLabForPlacement loads a lab definition visible to orgID for placement
+// purposes: owned by orgID, OR shipped library_visibility='platform' (any
+// org may place a platform lab — see docs/debug-labs.md Library open
+// question 1). Used by library.Service for the Attach eligibility check and
+// the library preview/try endpoints, where the lab being looked at may not
+// belong to the caller's own org. GetLab (org_id=$2 only) stays as-is for
+// every path that must stay strictly own-org (instructor lab management,
+// admin usage reporting).
+func (r *Repo) GetLabForPlacement(ctx context.Context, labID, orgID string) (*LabDefinition, error) {
 	var l LabDefinition
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
 		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
-		       published_version_id, workspace_layout, created_by, created_at, updated_at
-		FROM lab_definitions WHERE module_id=$1 AND org_id=$2 AND is_published=true
+		       published_version_id, workspace_layout, created_by, created_at, updated_at, library_visibility
+		FROM lab_definitions WHERE id=$1 AND (org_id=$2 OR library_visibility='platform')`,
+		labID, orgID,
+	).Scan(
+		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
+		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
+		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
+		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt, &l.LibraryVisibility,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("labs.Repo.GetLabForPlacement: %w", err)
+	}
+	return &l, nil
+}
+
+// GetLabByModuleID returns the published lab linked to a course module
+// through course_modules.lab_id (never lab_definitions.module_id — see
+// migration 044_course_library.sql and docs/debug-labs.md L2). Visible when
+// the module's course belongs to orgID AND the lab itself is either owned by
+// orgID or shipped library_visibility='platform'. IsRequired is overridden
+// with the PLACEMENT's course_modules.lab_is_required, not the lab's own
+// legacy default, so the same lab can be required in one course and optional
+// in another.
+func (r *Repo) GetLabByModuleID(ctx context.Context, moduleID, orgID string) (*LabDefinition, error) {
+	var l LabDefinition
+	err := r.pool.QueryRow(ctx, `
+		SELECT l.id, l.org_id, l.course_id, l.module_id, l.scope, l.title, l.description, l.lab_type, l.environment,
+		       l.preview_port, l.language, l.setup_script, l.run_script, l.max_duration, l.max_resets, l.hint_penalty_pct,
+		       cm.lab_is_required, l.is_published, l.published_version_id, l.workspace_layout, l.created_by,
+		       l.created_at, l.updated_at, l.library_visibility
+		FROM course_modules cm
+		JOIN courses c ON c.id = cm.course_id
+		JOIN lab_definitions l ON l.id = cm.lab_id
+		WHERE cm.id=$1 AND cm.deleted_at IS NULL AND c.org_id=$2
+		  AND (l.org_id=$2 OR l.library_visibility='platform') AND l.is_published=true
 		LIMIT 1`,
 		moduleID, orgID,
 	).Scan(
 		&l.ID, &l.OrgID, &l.CourseID, &l.ModuleID, &l.Scope, &l.Title, &l.Description,
 		&l.LabType, &l.Environment, &l.PreviewPort, &l.Language, &l.SetupScript, &l.RunScript, &l.MaxDuration, &l.MaxResets,
 		&l.HintPenaltyPct, &l.IsRequired, &l.IsPublished, &l.PublishedVersionID, &l.WorkspaceLayout,
-		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt,
+		&l.CreatedBy, &l.CreatedAt, &l.UpdatedAt, &l.LibraryVisibility,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -173,6 +220,9 @@ type CreateSessionParams struct {
 	OrgID         string
 	ExpiresAt     time.Time
 	IsTest        bool
+	// ModuleID is the course_modules placement that launched this session —
+	// nil for a standalone/library "try" start. See LabSession.ModuleID.
+	ModuleID *string
 }
 
 // CreateSession inserts a new lab_sessions row inside the given transaction.
@@ -180,18 +230,18 @@ type CreateSessionParams struct {
 func (r *Repo) CreateSession(ctx context.Context, tx pgx.Tx, params CreateSessionParams) (*LabSession, error) {
 	var s LabSession
 	err := tx.QueryRow(ctx, `
-		INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, expires_at, is_test)
-		VALUES ($1,$2,$3,$4,$5,$6)
+		INSERT INTO lab_sessions (lab_id, task_version_id, user_id, org_id, expires_at, is_test, module_id)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
 		RETURNING id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		          status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		          completed_at, last_active_at, end_reason`,
+		          completed_at, last_active_at, end_reason, module_id`,
 		params.LabID, params.TaskVersionID, params.UserID, params.OrgID,
-		params.ExpiresAt, params.IsTest,
+		params.ExpiresAt, params.IsTest, params.ModuleID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -209,14 +259,14 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (*LabSe
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error
+		       completed_at, last_active_at, end_reason, provision_error, module_id
 		FROM lab_sessions WHERE id=$1 AND user_id=$2`,
 		sessionID, userID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -234,13 +284,13 @@ func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSessio
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error
+		       completed_at, last_active_at, end_reason, provision_error, module_id
 		FROM lab_sessions WHERE id=$1`, sessionID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -294,7 +344,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason
+		       completed_at, last_active_at, end_reason, module_id
 		FROM lab_sessions
 		WHERE user_id=$1 AND lab_id=$2 AND status IN ('provisioning','running','paused')
 		LIMIT 1`,
@@ -303,7 +353,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -659,4 +709,17 @@ func (r *Repo) CountPassedNonOptionalTasks(ctx context.Context, q rowQuerier, se
 		return 0, fmt.Errorf("labs.Repo.CountPassedNonOptionalTasks: %w", err)
 	}
 	return count, nil
+}
+
+// GetModuleCourseID returns the course a course_modules placement belongs to
+// — used to complete a library-placed lab against the placing course.
+func (r *Repo) GetModuleCourseID(ctx context.Context, moduleID string) (string, error) {
+	var courseID string
+	if err := r.pool.QueryRow(ctx, `SELECT course_id FROM course_modules WHERE id = $1`, moduleID).Scan(&courseID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", fmt.Errorf("labs.Repo.GetModuleCourseID: %w", err)
+	}
+	return courseID, nil
 }

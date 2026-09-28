@@ -30,6 +30,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		r.Post("/api/sections/{sectionID}/modules", h.CreateModule)
 		r.Put("/api/sections/{sectionID}/modules/order", h.ReorderModules)
 		r.Patch("/api/modules/{moduleID}", h.UpdateModule)
+		r.Patch("/api/modules/{moduleID}/lab-required", h.UpdateModuleLabRequired)
 		r.Delete("/api/modules/{moduleID}", h.DeleteModule)
 
 		r.Post("/api/upload", h.UploadAsset)

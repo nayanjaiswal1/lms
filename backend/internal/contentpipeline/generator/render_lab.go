@@ -21,16 +21,22 @@ const (
 // UUIDs in place of the old ad-hoc hex ones.
 func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.Lab) error {
 	moduleID := canonical.ID(lab.IDKey, "module")
+	labID := canonical.ID(lab.IDKey, "lab") // must match renderLabRows' own derivation below
 	estMinutes := lab.EstimatedMinutes
 	if estMinutes <= 0 {
 		estMinutes = 30
 	}
 
-	// 0. Linking course_modules row — must exist before lab_definitions
-	//    references it via module_id.
+	// 0. Linking course_modules row, already carrying lab_id/lab_is_required
+	//    so lab_module_has_lab (migration 044_course_library.sql) holds for
+	//    generated fixtures too. course_modules.lab_id is DEFERRABLE
+	//    INITIALLY DEFERRED specifically for this: the lab_definitions row it
+	//    points at doesn't exist until renderLabRows runs below, in the same
+	//    generated script/transaction (see that migration's header comment).
 	fmt.Fprintf(out,
-		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes)\nVALUES (%s, %s, %s, %s, 'lab', %s, %s)\nON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, updated_at=now();\n\n",
+		"INSERT INTO course_modules (id, course_id, section_id, title, type, position, estimated_minutes, lab_id, lab_is_required)\nVALUES (%s, %s, %s, %s, 'lab', %s, %s, %s, %s)\nON CONFLICT (id) DO UPDATE SET section_id=EXCLUDED.section_id, title=EXCLUDED.title, position=EXCLUDED.position, estimated_minutes=EXCLUDED.estimated_minutes, lab_id=EXCLUDED.lab_id, lab_is_required=EXCLUDED.lab_is_required, updated_at=now();\n\n",
 		sqlString(moduleID), sqlString(courseID), sqlString(sectionID), sqlString(lab.Title), sqlInt(lab.Position), sqlInt(estMinutes),
+		sqlString(labID), sqlBool(lab.IsRequired),
 	)
 
 	return renderLabRows(out, courseID, moduleID, lab.IDKey, lab.Title, &lab.LabSpec)

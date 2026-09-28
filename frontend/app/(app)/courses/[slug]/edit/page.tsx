@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { getAllStudentProgress, getCourseTree, getInstructorCourseBySlug, type StudentProgressRow } from "@/lib/server/courses";
 import { getWikiSpaces } from "@/lib/server/wiki";
 import { ModuleEditor } from "@/components/courses/module-editor";
+import { ModuleLabRequiredToggle } from "@/components/courses/module-lab-required-toggle";
+import { SectionLibraryMenu } from "@/components/courses/section-library-menu";
 import { CourseDocsToggle } from "@/components/courses/course-docs-toggle";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { getMyPermissions } from "@/lib/server/permissions";
@@ -98,11 +100,20 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
                   {section.modules.length > 0 && (
                     <ul className="flex flex-col divide-y divide-border">
                       {section.modules.map((mod, mi) => (
-                        <li className="flex items-center gap-3 px-6 py-3 text-sm" key={mod.id}>
+                        <li className="flex flex-wrap items-center gap-3 px-6 py-3 text-sm" key={mod.id}>
                           <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">
                             {String(mi + 1).padStart(2, "0")}
                           </span>
-                          <span className="flex-1 truncate">{mod.title}</span>
+                          <span className="min-w-0 flex-1 truncate">{mod.title}</span>
+                          {mod.type === "lab" && mod.lab_id && (
+                            <Badge className="shrink-0" variant="secondary">Linked</Badge>
+                          )}
+                          {mod.type === "notes" && mod.copied_from_module_id && (
+                            <Badge className="shrink-0" variant="secondary">Copied from library</Badge>
+                          )}
+                          {mod.type === "lab" && (
+                            <ModuleLabRequiredToggle initialRequired={mod.lab_is_required ?? false} moduleId={mod.id} />
+                          )}
                           <span className="rounded-full border border-border px-2.5 py-0.5 text-xs capitalize text-muted-foreground">
                             {mod.type}
                           </span>
@@ -113,15 +124,18 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
                       ))}
                     </ul>
                   )}
-                  <details className="px-6 py-3">
-                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-primary hover:underline [&::-webkit-details-marker]:hidden">
-                      <Plus aria-hidden className="h-3.5 w-3.5" />
-                      Add module
-                    </summary>
-                    <div className="mt-3 rounded-lg border border-border p-4">
-                      <ModuleEditor courseId={id} sectionId={section.id} />
-                    </div>
-                  </details>
+                  <div className="flex flex-wrap items-center gap-4 px-6 py-3">
+                    <details className="flex-1">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-primary hover:underline [&::-webkit-details-marker]:hidden">
+                        <Plus aria-hidden className="h-3.5 w-3.5" />
+                        Add module
+                      </summary>
+                      <div className="mt-3 rounded-lg border border-border p-4">
+                        <ModuleEditor courseId={id} sectionId={section.id} />
+                      </div>
+                    </details>
+                    <SectionLibraryMenu sectionId={section.id} />
+                  </div>
                 </div>
               </li>
             ))}

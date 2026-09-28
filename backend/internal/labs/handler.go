@@ -21,6 +21,17 @@ type Handler struct {
 	piston    *labPiston
 }
 
+// Service exposes the wired *Service so other domains can reuse it instead
+// of building a second one — library.Service's "try" endpoint reuses this to
+// call StartSession with is_test=true, the same path an instructor's own
+// "test my lab" button already goes through.
+func (h *Handler) Service() *Service { return h.service }
+
+// Repo exposes the wired *Repo so other domains needing read access to labs
+// (library.Service's Attach eligibility check, list/preview) reuse the same
+// stateless query surface instead of duplicating SQL.
+func (h *Handler) Repo() *Repo { return h.repo }
+
 // NewHandler builds the labs HTTP handler from wired dependencies.
 func NewHandler(repo *Repo, service *Service, pool *pgxpool.Pool, rdb *redis.Client, jwtSecret, jwtIssuer string, piston *labPiston) *Handler {
 	return &Handler{

@@ -36,6 +36,7 @@ import (
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/learnhub"
 	"github.com/mindforge/backend/internal/legal"
+	"github.com/mindforge/backend/internal/library"
 	"github.com/mindforge/backend/internal/mcpconnect"
 	"github.com/mindforge/backend/internal/mentoring"
 	"github.com/mindforge/backend/internal/messaging"
@@ -593,6 +594,15 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service)
 		labsHandler.RegisterRoutes(r)
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
+
+		// Library — "Add from library" course-builder search + one shared
+		// insert path over labs/quizzes/notes (docs/debug-labs.md Part 3).
+		// Reuses coursesRepo/labsHandler.Repo()/labsHandler.Service() rather
+		// than standing up second copies; assessmentRepo is a fresh stateless
+		// wrapper over the same pool (assessment.Repo carries no state of its
+		// own beyond the pool, same as coursesRepo/labsRepo).
+		libraryRouter := library.New(pool, coursesRepo, labsHandler.Repo(), labsHandler.Service(), assessment.NewRepo(pool))
+		libraryRouter.RegisterRoutes(r, pool)
 
 		// Calendar — events, RSVPs, recurring series, external invites, personal ICS feed.
 		calendarRouter.RegisterRoutes(r)

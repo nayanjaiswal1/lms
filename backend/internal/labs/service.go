@@ -97,9 +97,22 @@ type wsTokenClaims struct {
 // fresh start instead of being returned. When an active session already
 // exists for the same user+lab, the existing session is returned rather than
 // an error.
-func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string, isTest bool, idempotencyKey string) (*LabSession, error) {
-	// 1. Load lab and verify it exists in this org.
-	lab, err := s.repo.GetLab(ctx, labID, orgID)
+// moduleID, when non-nil, is the course_modules placement the student
+// launched this session from — recorded on the session so completion
+// resolves back to THIS placement (see finalizeTaskPass). Library "try"
+// starts and the standalone /api/labs/{labId}/sessions caller pass nil.
+func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string, isTest bool, idempotencyKey string, moduleID *string) (*LabSession, error) {
+	// 1. Load lab. A course placement (moduleID, already validated by the
+	// handler to link to this lab in the caller's org) or an instructor
+	// library "try" (isTest) may use a platform-visible lab owned by another
+	// org; the standalone path stays same-org only.
+	var lab *LabDefinition
+	var err error
+	if moduleID != nil || isTest {
+		lab, err = s.repo.GetLabForPlacement(ctx, labID, orgID)
+	} else {
+		lab, err = s.repo.GetLab(ctx, labID, orgID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +295,7 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		OrgID:         orgID,
 		ExpiresAt:     expiresAt,
 		IsTest:        isTest,
+		ModuleID:      moduleID,
 	})
 	if err != nil {
 		if errors.Is(err, ErrSessionActive) {
@@ -1213,12 +1227,33 @@ func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab
 		}
 	}
 
-	// Complete the embedding course module (non-fatal: the lab session itself
-	// is already committed above). Standalone/course-scoped labs with no
-	// module_id are skipped — there is no module to mark complete.
-	if sessionCompleted && s.coursesSvc != nil && lab.ModuleID != nil && lab.CourseID != nil {
-		if _, _, err := s.coursesSvc.CompleteModule(ctx, session.UserID, session.OrgID, *lab.ModuleID, *lab.CourseID); err != nil {
-			slog.Error("labs.Service.finalizeTaskPass: complete embedding module", "session", session.ID, "module", *lab.ModuleID, "err", err)
+	// Complete the placement module this session was actually launched from
+	// (non-fatal: the lab session itself is already committed above).
+	// session.ModuleID — set at StartSession from the course_modules row the
+	// student clicked "Launch Lab" on — is authoritative: it's what makes one
+	// published lab placed in two different courses complete the right
+	// module in each, instead of always completing lab.ModuleID (the single
+	// legacy module_id column on lab_definitions itself). A session with no
+	// ModuleID (library "try", or a pre-migration session still in flight)
+	// falls back to the lab's own legacy module_id/course_id when present;
+	// standalone labs with neither are skipped — there is no module to
+	// complete.
+	if sessionCompleted && s.coursesSvc != nil {
+		// A placement's course is the module's own course, not the lab's
+		// authoring course — a library-placed lab lives in a different one.
+		moduleID, courseID := session.ModuleID, lab.CourseID
+		if moduleID == nil {
+			moduleID = lab.ModuleID
+		} else if placedCourseID, err := s.repo.GetModuleCourseID(ctx, *moduleID); err != nil {
+			slog.Error("labs.Service.finalizeTaskPass: resolve placement course", "session", session.ID, "module", *moduleID, "err", err)
+			courseID = nil
+		} else {
+			courseID = &placedCourseID
+		}
+		if moduleID != nil && courseID != nil {
+			if _, _, err := s.coursesSvc.CompleteModule(ctx, session.UserID, session.OrgID, *moduleID, *courseID); err != nil {
+				slog.Error("labs.Service.finalizeTaskPass: complete embedding module", "session", session.ID, "module", *moduleID, "err", err)
+			}
 		}
 	}
 

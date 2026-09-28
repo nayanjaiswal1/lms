@@ -1,6 +1,9 @@
 package labs
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -76,6 +79,25 @@ func newLabStudentResponse(lab *LabDefinition) labStudentResponse {
 		HasCluster:     hasKubectl(lab.Environment),
 		Tasks:          []studentTaskView{},
 	}
+}
+
+// BuildStudentPreview returns the same student-safe lab projection
+// (labStudentResponse + studentTaskView) that HandleGetLab/HandleGetLabByModule
+// serve, for library.Service's GET /api/library/lab/{id}/preview — a lab
+// looks identical whether reached through a course placement or the library
+// picker. tasks may be nil/empty (unpublished lab, or a playground lab with
+// no tasks by design).
+func BuildStudentPreview(lab *LabDefinition, tasks []TaskSnapshot) any {
+	resp := newLabStudentResponse(lab)
+	views := make([]studentTaskView, len(tasks))
+	for i, t := range tasks {
+		views[i] = studentTaskView{
+			TaskID: t.ID, Position: t.Position, Title: t.Title,
+			Description: t.Description, Points: t.Points, IsOptional: t.IsOptional,
+		}
+	}
+	resp.Tasks = views
+	return resp
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -184,7 +206,31 @@ func (h *Handler) HandleStartSession(w http.ResponseWriter, r *http.Request) {
 
 	idempotencyKey := r.Header.Get("Idempotency-Key")
 
-	session, err := h.service.StartSession(r.Context(), labID, claims.UserID, claims.OrgID, false, idempotencyKey)
+	// Body is optional — ModuleLabClient sends {"module_id"} when launching
+	// from a course placement; the standalone /labs/[labId] page and library
+	// "try" sends no body at all.
+	var body struct {
+		ModuleID string `json:"module_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	var moduleID *string
+	if body.ModuleID != "" {
+		// Confirm this module placement actually links to the lab the caller
+		// is starting — rejects a mismatched/stale module_id instead of
+		// silently recording a session against the wrong placement.
+		placed, err := h.repo.GetLabByModuleID(r.Context(), body.ModuleID, claims.OrgID)
+		if err != nil || placed.ID != labID {
+			httputil.WriteError(w, http.StatusUnprocessableEntity, "module_id does not link to this lab.")
+			return
+		}
+		moduleID = &body.ModuleID
+	}
+
+	session, err := h.service.StartSession(r.Context(), labID, claims.UserID, claims.OrgID, false, idempotencyKey, moduleID)
 	if err != nil {
 		writeDomainError(w, err)
 		return

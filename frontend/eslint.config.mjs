@@ -457,6 +457,11 @@ export default tseslint.config(
                 // highlights onto lesson HTML server-side — see
                 // lib/highlights/mark-html.ts.
                 ['feature-lib', { family: 'highlights' }],
+                // "Add from library" opens the library picker dialog from
+                // the course-builder section menu — see
+                // components/courses/section-library-menu.tsx.
+                ['feature-components', { family: 'library' }],
+                ['feature-lib', { family: 'library' }],
               ],
             },
             {

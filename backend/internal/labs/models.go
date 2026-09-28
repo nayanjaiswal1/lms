@@ -172,6 +172,11 @@ const (
 	LabLayoutSplit   = "split"
 	LabLayoutConsole = "console"
 
+	// Library visibility (course_modules.lab_id placement eligibility)
+	LibraryVisibilityPrivate  = "private"
+	LibraryVisibilityOrg      = "org"
+	LibraryVisibilityPlatform = "platform"
+
 	// Session statuses
 	SessionStatusProvisioning    = "provisioning"
 	SessionStatusRunning         = "running"
@@ -312,6 +317,14 @@ type LabDefinition struct {
 	CreatedBy       string    `json:"created_by"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	// LibraryVisibility gates cross-org placement via "Add from library":
+	// "private" (this org's instructors only, not listed for placement even
+	// within the org — reserved for future use), "org" (default — any
+	// instructor in the owning org may place it), or "platform" (any org may
+	// place it; sessions count against the placing org's caps/usage — see
+	// docs/debug-labs.md Library open question 1). Never affects a session
+	// already running.
+	LibraryVisibility string `json:"library_visibility"`
 }
 
 type LabTask struct {
@@ -366,6 +379,12 @@ type LabSession struct {
 	// ProvisionError holds the underlying failure detail when EndReason is
 	// provision_timeout/provision_failed — nil otherwise.
 	ProvisionError *string `json:"provision_error,omitempty"`
+	// ModuleID is the course_modules placement that launched this session,
+	// when started from a course (nil for a standalone/library "try"
+	// session). finalizeTaskPass completes THIS module on full completion —
+	// not lab_definitions.module_id — so a lab placed in two courses
+	// completes the right one in each. See migration 044_course_library.sql.
+	ModuleID *string `json:"module_id,omitempty"`
 }
 
 // ActiveLabSession is a lab_sessions row enriched with the lab's title and

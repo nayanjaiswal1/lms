@@ -41,6 +41,10 @@ export interface CourseModule {
   content_body: string | null;
   assessment_id: string | null;
   estimated_minutes: number | null;
+  // Course library (migration 044) — see docs/courses.md "Course library".
+  lab_id?: string | null;
+  lab_is_required?: boolean;
+  copied_from_module_id?: string | null;
 }
 
 export interface CourseSection {

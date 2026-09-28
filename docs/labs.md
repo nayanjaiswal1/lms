@@ -12,7 +12,9 @@ Labs slot after the module quiz and before the next section:
 Read lesson → Solve coding problem → Take quiz → Complete lab → Next section
 ```
 
-Labs are optional per module — instructor decides whether a module has one. When `is_required = true`, the next section unlocks only once the student has a **completed** session for the lab — meaning *every non-optional task passed*, not just one. Passing some-but-not-all tasks records partial score but does not unlock. (See Progress & Scoring for the exact rule.)
+Labs are optional per module — instructor decides whether a module has one. When required, the next section unlocks only once the student has a **completed** session for the lab — meaning *every non-optional task passed*, not just one. Passing some-but-not-all tasks records partial score but does not unlock. (See Progress & Scoring for the exact rule.)
+
+**Required is per placement, not per lab** (migration 044): "required" lives on `course_modules.lab_is_required`, not `lab_definitions.is_required` — the same published lab can be required in one course and optional in another once it's placed via the [course library](courses.md#course-library-add-from-library). `lab_definitions.is_required` still exists (the `required_lab_has_module` CHECK still applies to it) but is only the org-wide default a lab is created with; every resolution/completion/unlock path reads the placement's value instead. `PATCH /api/modules/{moduleID}/lab-required` toggles it per placement.
 
 ---
 
@@ -183,7 +185,7 @@ CREATE TABLE lab_definitions (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id           UUID        NOT NULL REFERENCES orgs(id),
   course_id        UUID        REFERENCES courses(id),       -- NULL for standalone labs
-  module_id        UUID        REFERENCES course_modules(id),-- NULL for standalone / course-level labs
+  module_id        UUID        REFERENCES course_modules(id),-- legacy; a placement resolves through course_modules.lab_id instead (044), never this column — see the note after this block
   scope            TEXT        NOT NULL DEFAULT 'module'
                      CHECK (scope IN ('module','course','standalone')),  -- standalone = practice lab, not gated to progress
   title            TEXT        NOT NULL,
@@ -194,9 +196,11 @@ CREATE TABLE lab_definitions (
   max_duration     INT         NOT NULL DEFAULT 60,   -- minutes
   max_resets       INT         NOT NULL DEFAULT 3,
   hint_penalty_pct INT         NOT NULL DEFAULT 0 CHECK (hint_penalty_pct BETWEEN 0 AND 100), -- % of a task's points docked per hint used
-  is_required      BOOLEAN     NOT NULL DEFAULT false,
+  is_required      BOOLEAN     NOT NULL DEFAULT false, -- legacy org-wide default; a placement's course_modules.lab_is_required is authoritative (044)
   is_published     BOOLEAN     NOT NULL DEFAULT false,
   published_version_id UUID,   -- the version new sessions pin; NULL until first publish (FK added after lab_task_versions exists)
+  library_visibility TEXT      NOT NULL DEFAULT 'org'
+                     CHECK (library_visibility IN ('private','org','platform')), -- 044: placement eligibility for "Add from library" — see courses.md
   created_by       UUID        NOT NULL REFERENCES users(id),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -208,7 +212,11 @@ CREATE TABLE lab_definitions (
     (scope = 'module'     AND module_id IS NOT NULL)
   )
 );
+```
 
+**Lab resolution goes through `course_modules.lab_id`, not `lab_definitions.module_id`** (migration 044 — see `courses.md#course-library-add-from-library`). `GetLabByModuleID` joins `course_modules → courses → lab_definitions` on `cm.lab_id`, scoped to `courses.org_id = caller's org` and `(lab_definitions.org_id = caller's org OR library_visibility = 'platform')`. This is what lets one published lab be placed (referenced, never copied) into more than one module/course — the old `module_id`-keyed lookup couldn't, and silently broke a forked course's lab modules entirely (`docs/debug-labs.md` L0). `lab_definitions.module_id`/`is_required` are kept for the CHECK constraints above and for standalone/course-scoped labs with no placement, but no student-facing read path uses them anymore.
+
+```sql
 -- Ordered tasks within a lab. These rows are the *live editable* copy used by
 -- the instructor builder. Running sessions never read this table directly — they
 -- read an immutable snapshot in lab_task_versions (see below).
@@ -264,7 +272,8 @@ CREATE TABLE lab_sessions (
   expires_at       TIMESTAMPTZ NOT NULL,          -- HARD wall-clock deadline: started_at + min(lab.max_duration, org.max_session_duration)
   paused_seconds   INT         NOT NULL DEFAULT 0,    -- cumulative idle-paused time (cost metric only; does NOT extend expires_at)
   completed_at     TIMESTAMPTZ,
-  last_active_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  last_active_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  module_id        UUID        REFERENCES course_modules(id) -- 044: the placement this session was launched from; nil for a standalone/library "try" start. finalizeTaskPass completes THIS module, not lab_definitions.module_id, so one lab placed in two courses completes the right one in each
 );
 -- Status semantics: reset is an *action* (reset_count++, re-provision), not a status —
 -- a reset session stays 'running'. Terminal states: completed | expired | failed | terminated_abuse.
@@ -607,7 +616,7 @@ Terminal uses `xterm.js` + `@xterm/addon-fit` + `@xterm/addon-web-links`. Loaded
 | Case | Handling |
 |---|---|
 | **Student ends session without completing all tasks** | Partial score (sum of passed tasks' points, after any hint penalty) is always recorded to progress. But a *required* lab only counts toward **section unlock** when the session is `completed` (all non-optional tasks passed) — partial passes never unlock. Optional labs never gate unlock regardless. |
-| **Required lab blocks section unlock** | "Required tasks" = tasks with `is_optional=false`. A session reaches `status='completed'` (set by the verify handler's completion check, not a job) when every non-optional task in its pinned version is passed. Section unlock requires: for **every** lab in the module with `is_required=true`, the user has at least one `completed` session. Multiple required labs in one module → all must be completed. |
+| **Required lab blocks section unlock** | "Required tasks" = tasks with `is_optional=false`. A session reaches `status='completed'` (set by the verify handler's completion check, not a job) when every non-optional task in its pinned version is passed. Section unlock requires: for **every** module with `course_modules.lab_is_required=true` (per placement — 044), the user has at least one `completed` session recorded against *that module* (`lab_sessions.module_id`, not just any session for the underlying lab). Multiple required lab placements in one module → all must be completed. |
 | **Who transitions a session to `completed`** | The verify handler. After marking a task passed, inside the same transaction it checks (under `SELECT ... FOR UPDATE`) whether all non-optional tasks in the pinned version are now passed; if so it sets `status='completed'`, `completed_at`, and writes course progress. `POST /sessions/:id/end` also lands a terminal status (`completed` if all non-optional passed, else `expired`) so no path leaves a session stuck in `running`. No background job ever sets `completed` — only verify and end do. |
 | **Session expired before all tasks done** | Expired sessions still count earned score. Course progress updated with partial score. Required lab remains unblocked (student must start new session and pass remaining required tasks). |
 | **Instructor test sessions** | `is_test=true` sessions never update course progress, never count toward analytics, container removed within 2 hours. |
