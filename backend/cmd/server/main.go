@@ -21,6 +21,8 @@ import (
 	"github.com/mindforge/backend/internal/gitlab"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/jobs/handlers"
+	"github.com/mindforge/backend/internal/labauthor"
+	"github.com/mindforge/backend/internal/labbuild"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/mailer"
 	"github.com/mindforge/backend/internal/notifications"
@@ -282,6 +284,20 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime, notificationsSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
 	jobsRegistry.Register(handlers.HandlerLabBundleGC, handlers.NewLabBundleGCHandler(pool, privateStore))
+	// Lab-authoring build pipeline (internal/labbuild): render + verify a recipe's
+	// variants in validation sandboxes, sync platform recipes, GC old builds. The
+	// labs.Service here is only used for clean-room grading; library is unused
+	// (worker-side publishing never places a lab).
+	labBuildSvc := labbuild.New(pool, rdb, labsRuntime, privateStore,
+		labs.NewService(labs.NewRepo(pool), labsRuntime, rdb, pool, nil, nil, nil, nil, nil, "", nil, privateStore),
+		nil, labauthor.NewService(labauthor.NewRepo(pool), nil), jobsRegistry,
+		labbuild.Config{BuildsPerUserDay: cfg.LabBuildsPerUserDay, VerifyParallelPerOrg: cfg.LabVerifyParallelPerOrg})
+	jobsRegistry.Register(handlers.HandlerLabRecipeBuild, labBuildSvc.BuildJob())
+	jobsRegistry.Register(handlers.HandlerLabRecipeVerify, labBuildSvc.VerifyJob())
+	jobsRegistry.Register(handlers.HandlerLabPlatformRecipes, labBuildSvc.PlatformRecipesJob())
+	jobsRegistry.Register(handlers.HandlerLabBuildGC, labBuildSvc.BuildGCJob())
+	jobsRegistry.OnDead(handlers.HandlerLabRecipeBuild, labBuildSvc.DeadHook())
+	jobsRegistry.OnDead(handlers.HandlerLabRecipeVerify, labBuildSvc.DeadHook())
 	jobsRegistry.Register(handlers.HandlerLabWarmPool, handlers.NewLabWarmPoolHandler(pool, labsRuntime, cfg.LabsWarmPoolGlobalMax, labsWarmPoolOverrides))
 	jobsRegistry.Register(handlers.HandlerAssessmentExpire, handlers.NewAssessmentExpireHandler(assessmentHandlerForJobs))
 	jobsRegistry.Register(handlers.HandlerMentorEscalate, handlers.NewMentorEscalationHandler(pool, cfg))
@@ -329,6 +345,10 @@ func main() {
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
 		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabBundleGC, Schedule: "30 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		// Build platform recipes (from seeded lab recipe.yaml content) and auto-publish
+		// the verified ones; delete failed/superseded unpublished builds after 30 days.
+		{Handler: handlers.HandlerLabPlatformRecipes, Schedule: "*/15 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
+		{Handler: handlers.HandlerLabBuildGC, Schedule: "45 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
 		// TimeoutMS must clear labs.ProvisionTimeoutSeconds (180s): converge's
 		// scale-up goroutines give each warm start that same budget a cold-
 		// started session gets (a slow image pull or setup_script — e.g. a

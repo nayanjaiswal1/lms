@@ -22,6 +22,9 @@ func New(pool *pgxpool.Pool, coursesRepo *courses.Repo, labsRepo *labs.Repo, lab
 	return NewHandler(service)
 }
 
+// Service exposes the library service (the single placement path) to build publish.
+func (h *Handler) Service() *Service { return h.service }
+
 // RegisterRoutes mounts the library API. Every route uses the same
 // RequireOrgRole(owner, admin, instructor) guard courses' module routes use
 // (docs/debug-labs.md L4) — placing library content is an authoring action,

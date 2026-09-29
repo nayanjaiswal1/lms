@@ -229,13 +229,11 @@ func versionLess(a, b string) bool {
 
 // PlatformBlockID is the deterministic lab_blocks.id of a platform block
 // (UUIDv5 over the block key, same namespace as the content pipeline).
-func PlatformBlockID(key string) string { return canonical.ID(key, "lab_block") }
+func PlatformBlockID(key string) string { return canonical.LabBlockID(key) }
 
 // PlatformVersionID is the deterministic lab_block_versions.id of a platform
 // block version.
-func PlatformVersionID(key, version string) string {
-	return canonical.ID(key+"@"+version, "lab_block_version")
-}
+func PlatformVersionID(key, version string) string { return canonical.LabBlockVersionID(key, version) }
 
 // UploadPayloads stores every block payload in the private bundle store
 // (content-addressed, idempotent), before the SQL that references the keys is

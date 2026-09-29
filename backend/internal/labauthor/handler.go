@@ -64,6 +64,11 @@ func writeErr(w http.ResponseWriter, err error) {
 	httputil.WriteDomainError(w, err, errSpecs, "Something went wrong.")
 }
 
+// WriteError maps a lab-authoring domain error (including a rejected recipe)
+// to the API error envelope. Exported so the build pipeline's handlers report
+// authoring errors identically.
+func WriteError(w http.ResponseWriter, err error) { writeErr(w, err) }
+
 func allCode(issues []labblock.Issue, code string) bool {
 	if len(issues) == 0 {
 		return false

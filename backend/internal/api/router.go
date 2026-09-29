@@ -34,6 +34,7 @@ import (
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/journal"
 	"github.com/mindforge/backend/internal/labauthor"
+	"github.com/mindforge/backend/internal/labbuild"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/learnhub"
 	"github.com/mindforge/backend/internal/legal"
@@ -609,6 +610,13 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// own beyond the pool, same as coursesRepo/labsRepo).
 		libraryRouter := library.New(pool, coursesRepo, labsHandler.Repo(), labsHandler.Service(), assessment.NewRepo(pool))
 		libraryRouter.RegisterRoutes(r, pool)
+
+		// Build/verify/preview/publish endpoints of the same API; the render and
+		// verify jobs themselves run in the worker (cmd/server/main.go).
+		labBuildSvc := labbuild.New(pool, rdb, labsRuntime, labsPrivateStore, labsHandler.Service(), libraryRouter.Service(),
+			labAuthorHandler.Service(), jobsRegistry,
+			labbuild.Config{BuildsPerUserDay: cfg.LabBuildsPerUserDay, VerifyParallelPerOrg: cfg.LabVerifyParallelPerOrg})
+		labbuild.NewHandler(labBuildSvc).RegisterRoutes(r, authzHandler.Service())
 
 		// Calendar — events, RSVPs, recurring series, external invites, personal ICS feed.
 		calendarRouter.RegisterRoutes(r)

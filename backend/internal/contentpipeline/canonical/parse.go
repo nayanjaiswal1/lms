@@ -1,6 +1,7 @@
 package canonical
 
 import (
+	"path/filepath"
 	"fmt"
 	"os"
 	"strings"
@@ -100,6 +101,13 @@ func ParseFile(path string) (*Document, error) {
 		}
 		// Same reasoning as Quiz above: Lab has no Body field, content
 		// lives in Description/SetupScript/Files.
+		if lab.Recipe != "" {
+			rs, err := LoadRecipe(filepath.Join(filepath.Dir(path), lab.Recipe))
+			if err != nil {
+				return nil, fmt.Errorf("canonical.ParseFile: %s: %w", path, err)
+			}
+			lab.RecipeSpec = rs
+		}
 		doc.Lab = &lab
 
 	default:

@@ -86,14 +86,18 @@ func (c *SandboxCloser) Snapshot(ctx context.Context, session *LabSession) {
 	defer cancel()
 
 	lab, err := c.repo.GetLabForPlacement(ctx, session.LabID, session.OrgID)
-	if err != nil || lab.BuildID == nil {
+	if err != nil {
+		return
+	}
+	buildID := sessionBuildID(ctx, c.repo, lab, session)
+	if buildID == "" {
 		return
 	}
 	kind, ok := kindFor(lab)
 	if !ok {
 		return
 	}
-	rec, err := c.repo.GetVariantRecord(ctx, *lab.BuildID, *session.VariantKey)
+	rec, err := c.repo.GetVariantRecord(ctx, buildID, *session.VariantKey)
 	if err != nil {
 		return
 	}

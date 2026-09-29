@@ -79,7 +79,13 @@ RUN pip3 install --break-system-packages \
       "debugpy==1.8.11" \
       "pytest==8.3.4" \
       "pytest-django==4.9.0" \
-      "pytest-asyncio==0.25.0"
+      "pytest-asyncio==0.25.0" \
+      "ruff==0.8.4"
+
+# Scenario-build formatters: ruff (above) formats rendered Python, prettier
+# formats rendered JS/TS (mf-build skips a language whose formatter is absent).
+RUN npm install -g --no-audit --no-fund prettier@3.4.2 \
+    && prettier --version | grep -q "^3\.4\.2"
 
 # Offline wheelhouse for version-bump scenarios (e.g. pydantic 1.10, older
 # Django) — students `pip install --no-index --find-links /opt/wheels <pkg>`.
@@ -134,13 +140,16 @@ COPY lab-debug/bin/ /opt/mindforge/bin/
 COPY lab-debug/services.d/ /opt/mindforge/services.d/
 COPY lab-debug/grade.sh /opt/mindforge/grade.sh
 COPY lab-debug/grader/ /opt/mindforge/grader/
+COPY lab-debug/mf-build/ /opt/mindforge/mf-build/
 COPY lab-debug/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chown -R root:root /opt/mindforge /usr/local/bin/entrypoint.sh \
     && chmod -R go-w /opt/mindforge \
     && chmod 755 /opt/mindforge/grade.sh /opt/mindforge/bin/* /opt/mindforge/services.d/*.sh /usr/local/bin/entrypoint.sh \
     && ln -s /opt/mindforge/bin/mf-svc /usr/local/bin/mf-svc \
     && ln -s /opt/mindforge/bin/lab-ready /usr/local/bin/lab-ready \
-    && python3 -m compileall -q /opt/mindforge/grader
+    && find /opt/mindforge/mf-build -type d -exec chmod 755 {} + \
+    && find /opt/mindforge/mf-build -type f -exec chmod 644 {} + \
+    && python3 -m compileall -q /opt/mindforge/grader /opt/mindforge/mf-build
 
 # ttyd :7681 (authenticated), IDE :3000 (connection-token authenticated).
 EXPOSE 7681 3000

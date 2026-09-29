@@ -1,6 +1,9 @@
 package labkinds
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Grader/mode literals duplicated here rather than imported from labs (which
 // imports labkinds — importing back would be a cycle) — same
@@ -68,32 +71,114 @@ func (DebugKind) CompletionPolicy() CompletionPolicy { return CompleteOnFinish }
 // GradeModes implements Kind.
 func (DebugKind) GradeModes() []string { return []string{modeSymptom, modeRegression, modeStudentTest} }
 
-// VerifyMatrix implements Kind (docs/debug-labs.md §4's build-verification
-// table, restated per-run for the later-phase builder pipeline to execute).
-func (DebugKind) VerifyMatrix() []VerifyRun {
-	return []VerifyRun{
-		{
-			Name:            "broken",
-			Description:     "every symptom task fails; regression passes; setup <= 30s",
-			ExpectTasksFail: []string{"symptom"},
-			ExpectTasksPass: []string{"regression"},
-		},
-		{
-			Name:            "full-fix",
-			Description:     "all tasks pass across 3 grader seeds (catches flaky probes)",
-			ExpectTasksPass: []string{"symptom", "regression"},
-		},
-		{
-			Name:            "student-test-on-fix",
-			Description:     "the fault's reference test fails on baseline, passes on the fix",
-			ExpectTasksPass: []string{"student-test"},
-		},
-		{
-			Name:            "each-cheat",
-			Description:     "every cheats/*.patch fails at least one required task",
-			ExpectTasksFail: []string{"symptom"},
-		},
+const (
+	// debugImage is the sandbox image debug builds render and verify in.
+	debugImage = "mindforge/lab-debug:1"
+	// debugFullFixSeeds is how many distinct grader seeds the full-fix run
+	// must pass under (catches flaky probes).
+	debugFullFixSeeds = 3
+	// debugMaxSetupSeconds bounds the measured sandbox setup time of the broken run.
+	debugMaxSetupSeconds = 30
+)
+
+// VerifyInput implements Kind: the renderer records per-issue info in the
+// variant payload (payload.issue_info).
+func (DebugKind) VerifyInput(payload json.RawMessage) VerifyInput {
+	var p struct {
+		IssueInfo []struct {
+			Label  string   `json:"label"`
+			Masked bool     `json:"masked"`
+			Cheats []string `json:"cheats"`
+		} `json:"issue_info"`
 	}
+	_ = json.Unmarshal(payload, &p)
+	in := VerifyInput{Seeds: debugFullFixSeeds}
+	for _, i := range p.IssueInfo {
+		in.Issues = append(in.Issues, VerifyIssue{Label: i.Label, Masked: i.Masked, Cheats: i.Cheats})
+	}
+	return in
+}
+
+// debugSetupScript runs the workspace's generated .mf/setup.sh as the lab user
+// (dropping root when the runtime gave us root), so nothing student-writable
+// ever executes privileged.
+const debugSetupScript = `cd /home/labuser/work && if [ "$(id -u)" = "0" ]; then exec runuser -u labuser -- bash .mf/setup.sh; else exec bash .mf/setup.sh; fi`
+
+// SetupScript implements Kind.
+func (DebugKind) SetupScript() string { return debugSetupScript }
+
+// Image implements Kind.
+func (DebugKind) Image() string { return debugImage }
+
+// VerifyMatrix implements Kind (docs/debug-labs.md §B3's verification table):
+// broken, each chain step, full fix across seeds, the student-test proof on the
+// fix, and each cheat. Every run goes through the clean-room grader.
+func (DebugKind) VerifyMatrix(in VerifyInput) []VerifyRun {
+	n := len(in.Issues)
+	both := []string{modeSymptom, modeRegression}
+	seeds := in.Seeds
+	if seeds <= 0 {
+		seeds = debugFullFixSeeds
+	}
+
+	var brokenFail []int
+	for i, is := range in.Issues {
+		if !is.Masked {
+			brokenFail = append(brokenFail, i)
+		}
+	}
+	runs := []VerifyRun{{
+		Name:            "broken",
+		Description:     "every unmasked symptom fails; regression passes; setup <= 30s; real trace captured",
+		Modes:           both,
+		ExpectTasksFail: []string{modeSymptom}, ExpectTasksPass: []string{modeRegression},
+		ExpectIssuesFail: brokenFail,
+		MaxSetupSeconds:  debugMaxSetupSeconds,
+		Capture:          true,
+	}}
+	for k := 1; k < n; k++ {
+		pass := make([]int, k)
+		for i := range pass {
+			pass[i] = i
+		}
+		runs = append(runs, VerifyRun{
+			Name:            fmt.Sprintf("chain-step-%d", k),
+			Description:     fmt.Sprintf("with issue(s) 1-%d fixed, issue %d still fails and the earlier ones pass", k, k+1),
+			Overlay:         OverlayFix(k),
+			Modes:           both,
+			ExpectTasksPass: []string{modeRegression},
+			ExpectIssuesPass: pass, ExpectIssuesFail: []int{k},
+		})
+	}
+	runs = append(runs,
+		VerifyRun{
+			Name:            "full-fix",
+			Description:     fmt.Sprintf("all tasks pass across %d grader seeds (catches flaky probes)", seeds),
+			Overlay:         OverlayFix(n),
+			Modes:           both,
+			Seeds:           seeds,
+			ExpectTasksPass: both,
+		},
+		VerifyRun{
+			Name:            "student-test-on-fix",
+			Description:     "the fault's reference test fails on the baseline and passes on the fix",
+			Overlay:         OverlayFix(n),
+			Modes:           []string{modeStudentTest},
+			ExpectTasksPass: []string{modeStudentTest},
+		},
+	)
+	for i, is := range in.Issues {
+		for j, name := range is.Cheats {
+			runs = append(runs, VerifyRun{
+				Name:                  fmt.Sprintf("cheat-%d-%d", i+1, j+1),
+				Description:           fmt.Sprintf("cheat %q of issue %d must fail at least one required task", name, i+1),
+				Overlay:               OverlayCheat(i, j),
+				Modes:                 both,
+				ExpectAnyRequiredFail: true,
+			})
+		}
+	}
+	return runs
 }
 
 // debugPayload is lab_build_variants.payload's shape for lab_kind="debug".

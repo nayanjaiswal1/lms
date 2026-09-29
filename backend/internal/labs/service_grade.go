@@ -55,6 +55,11 @@ type GradeResult struct {
 	Passed bool         `json:"passed"`
 	Checks []GradeCheck `json:"checks"`
 	Error  string       `json:"error,omitempty"`
+
+	// Build-verification diagnostics, never serialized to students: how long
+	// the sandbox took to start and be seeded, and the grader's stderr tail.
+	SetupSeconds float64 `json:"-"`
+	StderrTail   string  `json:"-"`
 }
 
 // parseGradeResult decodes grade.sh's JSON output. Anything that is not the
@@ -164,8 +169,15 @@ func (s *Service) captureEditableWorkspace(ctx context.Context, containerID stri
 type GradeTarget struct {
 	Image     string // sandbox image (the lab's environment)
 	OrgID     string // org the validation seconds are metered against
-	SessionID string // triggering session ("" skips metering)
+	SessionID string // triggering session ("" = build verification, metered without a session)
+	// AfterGrade, when set, runs once after every mode has been graded and
+	// before the sandbox is destroyed. Build verification uses it to capture the
+	// broken app's real log/traceback. Its error is logged, never fatal.
+	AfterGrade func(ctx context.Context, containerID string) error
 }
+
+// stderrTailBytes bounds the grader stderr kept per result for reports.
+const stderrTailBytes = 1500
 
 // GradeInCleanRoom grades one mode in a throwaway sandbox. Reusable by the
 // build-verification jobs, which pass their own editableTar (e.g. the
@@ -207,7 +219,7 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 	}
 	defer func() {
 		_ = s.container.Kill(context.Background(), containerID)
-		if target.OrgID != "" && target.SessionID != "" {
+		if target.OrgID != "" {
 			seconds := int64(time.Since(started).Seconds()) + 1
 			if mErr := s.repo.RecordValidationUsage(context.Background(), target.OrgID, target.SessionID, target.Image, seconds); mErr != nil {
 				slog.Error("labs.Service.GradeModesInCleanRoom: meter validation usage", "error", mErr)
@@ -236,6 +248,7 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 		}
 	}
 
+	setupSeconds := time.Since(started).Seconds()
 	results := make(map[string]*GradeResult, len(modes))
 	for _, mode := range modes {
 		script := "/opt/mindforge/grade.sh " + shellQuote(mode) + " --seed " + shellQuote(seed)
@@ -250,9 +263,23 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 			res = &GradeResult{Error: "The grader could not complete this check. Try again; if it persists, contact your instructor."}
 		}
 		res.Mode = mode
+		res.SetupSeconds = setupSeconds
+		res.StderrTail = tailString(strings.TrimSpace(stderr), stderrTailBytes)
 		results[mode] = res
 	}
+	if target.AfterGrade != nil {
+		if err := target.AfterGrade(ctx, containerID); err != nil {
+			slog.Warn("labs.Service.GradeModesInCleanRoom: after-grade hook", "error", err)
+		}
+	}
 	return results, nil
+}
+
+func tailString(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[len(s)-n:]
 }
 
 // newGradeSeed returns a crypto-random per-Check seed.

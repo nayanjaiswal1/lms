@@ -52,6 +52,9 @@ func renderLab(out *strings.Builder, courseID, sectionID string, lab *canonical.
 // doc attach a lab directly to its own notes module (see renderLesson) rather
 // than requiring a separate `kind: lab` module in the section.
 func renderLabRows(out *strings.Builder, courseID, moduleID, idKey, title string, spec *canonical.LabSpec) error {
+	if spec.Recipe != "" {
+		return renderRecipeLabRows(out, courseID, moduleID, idKey, title, spec)
+	}
 	labID := canonical.ID(idKey, "lab")
 	versionID := canonical.ID(idKey, "version")
 

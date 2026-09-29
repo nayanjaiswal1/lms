@@ -26,6 +26,7 @@ package labkinds
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/mindforge/backend/internal/labblock"
 )
@@ -50,15 +51,106 @@ type TaskTemplate struct {
 	IsOptional bool
 }
 
-// VerifyRun is one entry in a lab kind's build-verification matrix — the
-// runs the (later-phase) builder pipeline executes before a build may be
-// marked verified. Kept descriptive rather than executable here: the
-// builder interprets these against its own render/verify pipeline.
+// VerifyIssue describes one authored problem ("issue": for debug, one fault)
+// of a built recipe, in chain order, so a kind can plan its verification.
+type VerifyIssue struct {
+	// Label is a short human name for reports (never shown to students).
+	Label string
+	// Masked is true when this issue only surfaces once an earlier one is fixed.
+	Masked bool
+	// Cheats are the names of this issue's cheat overlays.
+	Cheats []string
+}
+
+// VerifyInput is what a kind needs to plan a build's verification runs.
+type VerifyInput struct {
+	Issues []VerifyIssue
+	// Seeds is how many distinct grader seeds the full-fix run must pass.
+	Seeds int
+}
+
+// Overlay selectors: which editable overlay a verification run applies on top
+// of the pristine (broken) workspace. The renderer emits one overlay tarball
+// per selector. OverlayNone grades the broken workspace as-is.
+const OverlayNone = ""
+
+// OverlayFix selects the reference fix of the first n issues, in chain order
+// (n == len(issues) is the full fix).
+func OverlayFix(n int) string { return fmt.Sprintf("fix:%d", n) }
+
+// OverlayCheat selects cheat cheat of issue issue (0-based).
+func OverlayCheat(issue, cheat int) string { return fmt.Sprintf("cheat:%d:%d", issue, cheat) }
+
+// IssueCheckPrefix is the check-name prefix the renderer gives every check of
+// issue i when a recipe has several issues, so verification can attribute
+// grader results to issues without seeing which fault they belong to.
+func IssueCheckPrefix(i, total int) string {
+	if total <= 1 {
+		return ""
+	}
+	return fmt.Sprintf("Issue %d: ", i+1)
+}
+
+// IssueOfCheck returns the 0-based issue a check name belongs to ("Issue 2: x"
+// -> 1). Unprefixed names belong to issue 0 (single-issue recipes).
+func IssueOfCheck(name string) int {
+	var n int
+	if _, err := fmt.Sscanf(name, "Issue %d: ", &n); err == nil && n >= 1 {
+		return n - 1
+	}
+	return 0
+}
+
+// VerifyRun is one entry in a lab kind's build-verification matrix — a
+// grading run the build pipeline executes (through the same clean-room grader
+// students use) before a build may be marked verified.
 type VerifyRun struct {
-	Name            string
-	Description     string
+	Name        string
+	Description string
+	// Overlay is the editable overlay applied for the run (see OverlayNone,
+	// OverlayFix, OverlayCheat).
+	Overlay string
+	// Modes are the grade modes executed, in order.
+	Modes []string
+	// Seeds is how many distinct grader seeds the run repeats under (0 = 1).
+	Seeds int
+	// ExpectTasksPass/Fail are task keys (Kind.Tasks()): pass = every check of
+	// the task passes; fail = at least one check fails.
 	ExpectTasksPass []string
 	ExpectTasksFail []string
+	// ExpectAnyRequiredFail is satisfied when at least one non-optional task
+	// fails (cheats: a cheat must not earn completion).
+	ExpectAnyRequiredFail bool
+	// ExpectIssuesPass/Fail are 0-based issue indices: every check of a passing
+	// issue passes; a failing issue has at least one failing check.
+	ExpectIssuesPass []int
+	ExpectIssuesFail []int
+	// MaxSetupSeconds bounds the measured sandbox setup time (0 = unchecked).
+	MaxSetupSeconds int
+	// Capture marks the run whose app output feeds {{captured.*}} placeholders.
+	Capture bool
+}
+
+// RenderInput is everything a kind needs to turn one variant of a recipe into
+// the JSON its in-sandbox renderer consumes.
+type RenderInput struct {
+	Recipe *labblock.Recipe
+	// VariantKey/Seed identify the variant; ActiveIDs are the block_version_ids
+	// active in it (pool members not picked are absent).
+	VariantKey string
+	Seed       int64
+	ActiveIDs  map[string]bool
+	// AxisParams overlays, per block key, the variant's randomized param values.
+	AxisParams map[string]map[string]any
+	// BlockDirs maps block_version_id to the directory the block payload is
+	// unpacked under in the renderer's input tar.
+	BlockDirs map[string]string
+	// ReadFile returns a file from a block's (already downloaded and verified)
+	// payload, by block_version_id and payload-relative path.
+	ReadFile func(versionID, path string) ([]byte, error)
+	// Literal renders a parameter as a source literal of the given literal
+	// type (labauthor.RenderLiteral) - the only sanctioned way a param enters code.
+	Literal func(lit string, v any) (string, error)
 }
 
 // VariantView is the generic projection of one lab_build_variants row a Kind
@@ -130,9 +222,22 @@ type Kind interface {
 	// GradeModes lists the modes grade.sh accepts for this kind, in the
 	// order grade.sh's own usage output should list them.
 	GradeModes() []string
-	// VerifyMatrix returns the build-verification runs the (later-phase)
-	// builder pipeline must execute before a build can be marked verified.
-	VerifyMatrix() []VerifyRun
+	// VerifyMatrix plans the build-verification runs the pipeline must
+	// execute before a build can be marked verified.
+	VerifyMatrix(in VerifyInput) []VerifyRun
+	// VerifyInput describes a built variant (from its stored payload) to the
+	// verification planner: how many issues, which are masked, which cheats.
+	VerifyInput(payload json.RawMessage) VerifyInput
+	// SetupScript is the lab_definitions.setup_script published labs of this
+	// kind run (as root, via ExecSetup) right after the pristine workspace is
+	// seeded: it must prepare the dev environment the way the grader does.
+	SetupScript() string
+	// Image is the sandbox image builds render and verify in (the same image
+	// students' labs of this kind run).
+	Image() string
+	// RenderSpec builds the renderer's per-variant input document. It is
+	// opaque to the pipeline, which streams it to the in-sandbox renderer.
+	RenderSpec(in RenderInput) (json.RawMessage, error)
 	// ValidateRecipe runs this kind's composition rules over one concrete
 	// recipe (pools already collapsed to a single member each, params
 	// resolved). The engine (internal/labauthor) has already applied the

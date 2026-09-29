@@ -29,3 +29,18 @@ var Namespace = uuid.MustParse("d103a75d-059a-4aa1-ad6e-faffdc931000")
 func ID(idKey, suffix string) string {
 	return uuid.NewSHA1(Namespace, []byte(idKey+":"+suffix)).String()
 }
+
+// Platform lab-block ids: a block shipped in the repo (content/lab-blocks,
+// synced by `coursegen blocks sync`) has a UUIDv5 identity derived from its key
+// (and version), so recipes authored in canonical markdown can reference block
+// versions by id before the blocks are ever loaded into a database. labauthor
+// uses the same functions when it emits the sync SQL.
+
+// LabBlockID is the lab_blocks.id of a platform block key.
+func LabBlockID(key string) string { return ID(key, "lab_block") }
+
+// LabBlockVersionID is the lab_block_versions.id of a platform block version.
+func LabBlockVersionID(key, version string) string { return ID(key+"@"+version, "lab_block_version") }
+
+// LabRecipeID is the lab_recipes.id of a canonical lab document's platform recipe.
+func LabRecipeID(labIDKey string) string { return ID(labIDKey, "recipe") }

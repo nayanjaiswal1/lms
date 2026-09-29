@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mindforge/backend/internal/labkinds"
@@ -54,7 +55,23 @@ func (s *Service) choosePinnedVariant(ctx context.Context, lab *LabDefinition, u
 	if len(keys) == 0 {
 		return "", ErrKindLabNotBuilt
 	}
+	if forced, ok := ctx.Value(variantOverrideKey{}).(string); ok && forced != "" {
+		if !slices.Contains(keys, forced) {
+			return "", ErrKindLabNotBuilt
+		}
+		return forced, nil
+	}
 	return pickVariantKey(userID, lab.ID, keys), nil
+}
+
+type variantOverrideKey struct{}
+
+// WithVariantOverride makes StartSession pin the given variant instead of the
+// hash(user, lab) pick. Used only by the instructor preview ("Preview as
+// student on variant X"); a key that is not one of the build's variants fails
+// the start with ErrKindLabNotBuilt.
+func WithVariantOverride(ctx context.Context, variantKey string) context.Context {
+	return context.WithValue(ctx, variantOverrideKey{}, variantKey)
 }
 
 // BundleKeyPrefix is the private-store prefix every lab bundle lives under.
@@ -126,10 +143,25 @@ func variantViewOf(rec *VariantRecord) *labkinds.VariantView {
 
 // sessionVariant loads the variant a kind-lab session is pinned to.
 func (s *Service) sessionVariant(ctx context.Context, lab *LabDefinition, session *LabSession, withWorkspace, withGrader bool) (*labkinds.VariantView, error) {
-	if lab.BuildID == nil || session.VariantKey == nil || *session.VariantKey == "" {
+	buildID := sessionBuildID(ctx, s.repo, lab, session)
+	if buildID == "" || session.VariantKey == nil || *session.VariantKey == "" {
 		return nil, ErrKindLabNotBuilt
 	}
-	return s.loadVariant(ctx, *lab.BuildID, *session.VariantKey, withWorkspace, withGrader)
+	return s.loadVariant(ctx, buildID, *session.VariantKey, withWorkspace, withGrader)
+}
+
+// sessionBuildID is the build a session's variant belongs to: the build its
+// pinned task version was published from (so republishing the lab from a newer
+// build never re-points an in-flight session), falling back to the lab's
+// current build for versions cut before that link existed. "" = none.
+func sessionBuildID(ctx context.Context, repo *Repo, lab *LabDefinition, session *LabSession) string {
+	if id, err := repo.TaskVersionBuildID(ctx, session.TaskVersionID); err == nil && id != nil {
+		return *id
+	}
+	if lab.BuildID != nil {
+		return *lab.BuildID
+	}
+	return ""
 }
 
 // extractBundleScript untars stdin into the workspace as labuser.

@@ -57,8 +57,19 @@ func (r *Repo) GetLab(ctx context.Context, labID, orgID string) (*LabDefinition,
 // every path that must stay strictly own-org (instructor lab management,
 // admin usage reporting).
 func (r *Repo) GetLabForPlacement(ctx context.Context, labID, orgID string) (*LabDefinition, error) {
+	return r.getLabForPlacement(ctx, r.pool, labID, orgID)
+}
+
+// GetLabForPlacementTx is GetLabForPlacement inside a caller's transaction, so
+// a lab created or published earlier in that same transaction is visible
+// (build publish places the lab it just published, atomically).
+func (r *Repo) GetLabForPlacementTx(ctx context.Context, tx pgx.Tx, labID, orgID string) (*LabDefinition, error) {
+	return r.getLabForPlacement(ctx, tx, labID, orgID)
+}
+
+func (r *Repo) getLabForPlacement(ctx context.Context, q rowQuerier, labID, orgID string) (*LabDefinition, error) {
 	var l LabDefinition
-	err := r.pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		SELECT id, org_id, course_id, module_id, scope, title, description, lab_type, environment, preview_port,
 		       language, setup_script, run_script, max_duration, max_resets, hint_penalty_pct, is_required, is_published,
 		       published_version_id, workspace_layout, created_by, created_at, updated_at, library_visibility, build_id
@@ -870,6 +881,20 @@ func (r *Repo) GetVariantRecord(ctx context.Context, buildID, variantKey string)
 		return nil, fmt.Errorf("labs.Repo.GetVariantRecord: %w", err)
 	}
 	return &v, nil
+}
+
+// TaskVersionBuildID returns the lab_builds row a task version was published
+// from (nil for every hand-authored lab's versions).
+func (r *Repo) TaskVersionBuildID(ctx context.Context, taskVersionID string) (*string, error) {
+	var id *string
+	err := r.pool.QueryRow(ctx, `SELECT build_id FROM lab_task_versions WHERE id=$1`, taskVersionID).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("labs.Repo.TaskVersionBuildID: %w", err)
+	}
+	return id, nil
 }
 
 // UpdateSessionVariantKey pins a session's variant inside the StartSession tx.

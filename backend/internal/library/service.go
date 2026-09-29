@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mindforge/backend/internal/assessment"
@@ -117,15 +118,29 @@ func (s *Service) Try(ctx context.Context, orgID, userID, kind, itemID string) (
 // check the item is eligible for its kind, shift positions, insert, audit
 // log, commit.
 func (s *Service) Attach(ctx context.Context, orgID, actorUserID string, req AttachReq) (courses.CourseModule, error) {
-	if !validKinds[req.Kind] {
-		return courses.CourseModule{}, ErrInvalidKind
-	}
-
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return courses.CourseModule{}, fmt.Errorf("library.Service.Attach: begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	inserted, err := s.AttachTx(ctx, tx, orgID, actorUserID, req)
+	if err != nil {
+		return courses.CourseModule{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return courses.CourseModule{}, fmt.Errorf("library.Service.Attach: commit: %w", err)
+	}
+	return inserted, nil
+}
+
+// AttachTx is the single insert path, run inside the caller's transaction (and
+// not committed here). Attach wraps it in its own transaction; build publish
+// calls it inside the transaction that creates the lab, so a lab is published
+// and placed atomically.
+func (s *Service) AttachTx(ctx context.Context, tx pgx.Tx, orgID, actorUserID string, req AttachReq) (courses.CourseModule, error) {
+	if !validKinds[req.Kind] {
+		return courses.CourseModule{}, ErrInvalidKind
+	}
 
 	// 1+2. Lock the section; its own org-scoped query IS the "actor can edit
 	// this course" check (the same rule CreateModule's route already applies
@@ -136,7 +151,7 @@ func (s *Service) Attach(ctx context.Context, orgID, actorUserID string, req Att
 	}
 
 	// 3. Per-kind eligibility + build the module to insert.
-	mod, err := s.resolveAttachModule(ctx, orgID, section, req)
+	mod, err := s.resolveAttachModule(ctx, tx, orgID, section, req)
 	if err != nil {
 		return courses.CourseModule{}, err
 	}
@@ -181,9 +196,6 @@ func (s *Service) Attach(ctx context.Context, orgID, actorUserID string, req Att
 		return courses.CourseModule{}, fmt.Errorf("library.Service.Attach: write audit log: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return courses.CourseModule{}, fmt.Errorf("library.Service.Attach: commit: %w", err)
-	}
 	return inserted, nil
 }
 
@@ -191,12 +203,12 @@ func (s *Service) Attach(ctx context.Context, orgID, actorUserID string, req Att
 // L3 step 3) and returns the course_modules row to insert, with
 // CourseID/SectionID/Type set and Position left zero (Attach fills it in
 // after computing/shifting).
-func (s *Service) resolveAttachModule(ctx context.Context, orgID string, section courses.CourseSection, req AttachReq) (courses.CourseModule, error) {
+func (s *Service) resolveAttachModule(ctx context.Context, tx pgx.Tx, orgID string, section courses.CourseSection, req AttachReq) (courses.CourseModule, error) {
 	base := courses.CourseModule{CourseID: section.CourseID, SectionID: section.ID}
 
 	switch req.Kind {
 	case KindLab, KindDebug:
-		lab, err := s.labsRepo.GetLabForPlacement(ctx, req.ItemID, orgID)
+		lab, err := s.labsRepo.GetLabForPlacementTx(ctx, tx, req.ItemID, orgID)
 		if err != nil {
 			return courses.CourseModule{}, mapNotFound(err)
 		}

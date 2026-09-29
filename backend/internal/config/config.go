@@ -120,6 +120,10 @@ type Config struct {
 	// (real LLM calls) count; a repeated (recipe, persona) draft is free.
 	LabAuthorDraftRateMax    int
 	LabAuthorDraftRateWindow time.Duration
+	// Lab-authoring builds: instructor builds per rolling day, and how many
+	// verification sandboxes one org may run at once per worker process.
+	LabBuildsPerUserDay     int
+	LabVerifyParallelPerOrg int
 
 	// Code execution (coding-question auto-grading).
 	// Piston takes priority when both are set; Judge0 is the fallback.
@@ -385,6 +389,8 @@ func Load() *Config {
 	cfg.CouponRateLimitWindow = parseDuration("COUPON_RATE_LIMIT_WINDOW", "1m")
 	cfg.LabAuthorDraftRateMax = getEnvInt("LABAUTHOR_DRAFT_RATE_MAX", 10)
 	cfg.LabAuthorDraftRateWindow = parseDuration("LABAUTHOR_DRAFT_RATE_WINDOW", "1h")
+	cfg.LabBuildsPerUserDay = getEnvInt("LAB_BUILDS_PER_USER_DAY", 10)
+	cfg.LabVerifyParallelPerOrg = getEnvInt("LAB_VERIFY_PARALLEL_PER_ORG", 4)
 
 	// Defaults to the RFC 1918 / loopback ranges, which covers the normal
 	// deployment where the Next.js server and an ingress proxy share a private

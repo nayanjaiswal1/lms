@@ -586,3 +586,31 @@ func (r *Repo) PutDraft(ctx context.Context, cacheKey, orgID, kind, prompt, resp
 	}
 	return resp, nil
 }
+
+// PayloadRef locates a block version's payload in the private store.
+type PayloadRef struct{ Key, SHA string }
+
+// PayloadRefs returns the payload key and sha256 of each given block version
+// (text-only versions are absent from the result).
+func (r *Repo) PayloadRefs(ctx context.Context, versionIDs []string) (map[string]PayloadRef, error) {
+	out := map[string]PayloadRef{}
+	if len(versionIDs) == 0 {
+		return out, nil
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, payload_key, payload_sha256 FROM public.lab_block_versions
+		WHERE id = ANY($1::uuid[]) AND payload_key IS NOT NULL`, versionIDs)
+	if err != nil {
+		return nil, fmt.Errorf("labauthor.Repo.PayloadRefs: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var ref PayloadRef
+		if err := rows.Scan(&id, &ref.Key, &ref.SHA); err != nil {
+			return nil, fmt.Errorf("labauthor.Repo.PayloadRefs: scan: %w", err)
+		}
+		out[id] = ref
+	}
+	return out, rows.Err()
+}

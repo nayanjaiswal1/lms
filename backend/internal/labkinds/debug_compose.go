@@ -17,6 +17,7 @@ import (
 // Issue codes local to the debug kind.
 const (
 	codeSlotUnknown    = "slot_unknown"
+	codeReferenceTest  = "reference_test_missing"
 	codeCardinality    = labblock.CodeRoleCardinality
 	maxFaultsPerRecipe = 3
 	minRedHerringsBump = 2
@@ -154,7 +155,12 @@ func debugSlots(faults []*labblock.ResolvedBlock, slots map[string]labblock.Slot
 					fmt.Sprintf("overrides slot %q, which the app does not declare", so.Slot)))
 				continue
 			}
-			if decl.Type != labblock.SlotMigration {
+			if decl.Type == labblock.SlotMigration {
+				if so.File == "" {
+					issues = append(issues, labblock.Errf(labblock.CodeManifestInvalid, f.Key,
+						fmt.Sprintf("migration slot %q takes a file (the migration to insert), not an inline value", so.Slot)))
+				}
+			} else {
 				owners[so.Slot] = append(owners[so.Slot], f)
 			}
 		}
@@ -212,6 +218,12 @@ func debugFaultRules(r *labblock.Recipe, f, app *labblock.ResolvedBlock, slots m
 	case !features[fs.Carrier.Feature]:
 		issues = append(issues, labblock.Errf(labblock.CodeCarrierCoverage, f.Key,
 			fmt.Sprintf("carrier feature %q is not covered by the app's regression suite (%s)", fs.Carrier.Feature, app.Key)))
+	}
+
+	// Every fault ships a reference test in its fix (student-test verification).
+	if !hasReferenceTest(fs.Fix.Files, app.Manifest.App.TestGlobs) {
+		issues = append(issues, labblock.Errf(codeReferenceTest, f.Key,
+			"fault.fix.files must add a reference test matching the app's test globs (it proves student-test on the fix)"))
 	}
 
 	// Value-slot trust boundary: params only enter source through `value`
@@ -326,4 +338,52 @@ func contains(xs []string, x string) bool {
 		}
 	}
 	return false
+}
+
+// DefaultTestGlobs are the fnmatch patterns that identify a student's own test
+// files when the app does not declare test_globs (mirrors the grader engine).
+var DefaultTestGlobs = []string{"tests/*", "*/test_*.py", "test_*.py"}
+
+// hasReferenceTest reports whether any fix file path matches the test globs.
+func hasReferenceTest(files []labblock.FileOp, globs []string) bool {
+	if len(globs) == 0 {
+		globs = DefaultTestGlobs
+	}
+	for _, f := range files {
+		for _, g := range globs {
+			if FnMatch(g, f.Path) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// FnMatch is Python's fnmatch.fnmatchcase: '*' matches any run of characters
+// including '/', '?' one character, '[seq]' a class.
+func FnMatch(pattern, name string) bool {
+	re := regexp.MustCompile("^" + fnmatchRegexp(pattern) + "$")
+	return re.MatchString(name)
+}
+
+func fnmatchRegexp(p string) string {
+	var b strings.Builder
+	for i := 0; i < len(p); i++ {
+		switch c := p[i]; c {
+		case '*':
+			b.WriteString(".*")
+		case '?':
+			b.WriteString(".")
+		case '[':
+			if j := strings.IndexByte(p[i+1:], ']'); j > 0 {
+				b.WriteString("[" + strings.ReplaceAll(p[i+1:i+1+j], "\\", "\\\\") + "]")
+				i += j + 1
+				continue
+			}
+			b.WriteString(`\[`)
+		default:
+			b.WriteString(regexp.QuoteMeta(string(c)))
+		}
+	}
+	return b.String()
 }

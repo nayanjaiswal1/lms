@@ -46,6 +46,7 @@ func (h *LabBundleGCHandler) Handle(ctx context.Context, _ jobs.Job) error {
 	rows, err := h.pool.Query(ctx, `
 		SELECT workspace_bundle_key FROM lab_build_variants
 		UNION SELECT grader_bundle_key FROM lab_build_variants
+		UNION SELECT payload->>'verify_bundle_key' FROM lab_build_variants WHERE payload ? 'verify_bundle_key'
 		UNION SELECT payload_key FROM lab_block_versions WHERE payload_key IS NOT NULL`)
 	if err != nil {
 		return fmt.Errorf("lab.bundle_gc: load references: %w", err)

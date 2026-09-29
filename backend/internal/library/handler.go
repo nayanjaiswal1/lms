@@ -22,6 +22,11 @@ type Handler struct {
 // NewHandler builds the library HTTP handler.
 func NewHandler(service *Service) *Handler { return &Handler{service: service} }
 
+// WriteError maps library/labs/courses placement and lab-start errors to the
+// API envelope. Exported so build publish/preview (which place and start labs
+// through this package) report them identically.
+func WriteError(w http.ResponseWriter, err error) { writeDomainError(w, err) }
+
 func writeDomainError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):

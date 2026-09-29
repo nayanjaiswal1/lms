@@ -139,15 +139,17 @@ func validateSection(m *labblock.Manifest) []string {
 				add("app.slots.%s: type %q is not region|value|file|migration", s.Name, s.Type)
 			case s.Type == labblock.SlotValue && !validLiterals[s.Literal]:
 				add("app.slots.%s: value slots must declare a known literal type", s.Name)
+			case s.Type == labblock.SlotMigration && (s.Dir == "" || (s.Scheme != "django" && s.Scheme != "alembic")):
+				add("app.slots.%s: migration slots need dir and scheme (django|alembic)", s.Name)
 			}
 			seen[s.Name] = true
 		}
 	case "fault":
 		f := m.Fault
-		if len(f.Inject.Slots)+len(f.Inject.Files)+len(f.Inject.Migrations) == 0 {
+		if len(f.Inject.Slots)+len(f.Inject.Files) == 0 {
 			add("fault.inject is empty")
 		}
-		if len(f.Fix.Slots)+len(f.Fix.Files)+len(f.Fix.Migrations) == 0 {
+		if len(f.Fix.Slots)+len(f.Fix.Files) == 0 {
 			add("fault.fix is empty")
 		}
 		if f.Commit.Message == "" {
@@ -156,10 +158,16 @@ func validateSection(m *labblock.Manifest) []string {
 		if len(f.Rubric.KeyPoints) == 0 {
 			add("fault.rubric.key_points is required")
 		}
+		if strings.TrimSpace(f.RootCause) == "" {
+			add("fault.root_cause is required")
+		}
 		for _, sets := range []labblock.Overrides{f.Inject, f.Fix, f.Carrier.Overrides} {
 			for _, s := range sets.Slots {
 				if (s.Value == "") == (s.File == "") {
 					add("fault slot override %q needs exactly one of value or file", s.Slot)
+				}
+				if s.Value != "" && strings.Contains(s.Value, "mf:") {
+					add("fault slot override %q must not contain a mf: marker", s.Slot)
 				}
 			}
 		}
@@ -173,8 +181,8 @@ func validateSection(m *labblock.Manifest) []string {
 		}
 	case "check":
 		c := m.Check
-		if !contains(labblock.ProbeKinds, c.Probe) || c.Entry == "" || c.FailureMessage == "" {
-			add("check needs probe (%s), entry and failure_message", strings.Join(labblock.ProbeKinds, "|"))
+		if !contains(labblock.ProbeKinds, c.Probe) || c.FailureMessage == "" {
+			add("check needs probe (%s) and failure_message", strings.Join(labblock.ProbeKinds, "|"))
 		}
 	case "ticket":
 		t := m.Ticket
