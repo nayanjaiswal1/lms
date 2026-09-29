@@ -189,23 +189,37 @@ export interface ActiveLabSession {
   last_active_at: string
 }
 
-// The backend returns this when a session already reached a terminal state
-// (e.g. an auto-expiry job won the race against the client's end request, or
-// the user ended it from a different surface). The session is already ended
-// either way, so callers should treat this as success, not an error.
-export function isLabSessionAlreadyEnded(message: string): boolean {
-  return message.toLowerCase().includes('already ended')
+// Machine-readable error codes from the API error envelope ({"error","code"}).
+// Mirrors the Go constants in backend/internal/labs/codes.go — keep in sync.
+export const LAB_ERROR_CODES = {
+  sessionExpired: 'lab_session_expired',
+  sessionCompletedAtDeadline: 'lab_session_completed_at_deadline',
+  sessionAlreadyEnded: 'lab_session_already_ended',
+  rateLimited: 'rate_limited',
+  graderBusy: 'grader_busy',
+  hintNotSupported: 'hint_not_supported',
+  maxHintsReached: 'max_hints_reached',
+  writeupReviewLimit: 'writeup_review_limit',
+  aiUnavailable: 'ai_unavailable',
+} as const
+
+// The session already reached a terminal state (e.g. an auto-expiry job won
+// the race against the client's end request, or the user ended it from a
+// different surface). It is ended either way, so callers treat this as
+// success, not an error.
+export function isLabSessionAlreadyEnded(code: string | undefined): boolean {
+  return code === LAB_ERROR_CODES.sessionAlreadyEnded
 }
 
-// A request that notices the hard deadline gets 410 when the lab closed as
-// completed (required tasks had passed): the lab succeeded, time ran out.
-export function isLabCompletedAtDeadline(status: number | undefined): boolean {
-  return status === 410
+// A request noticed the hard deadline and the lab closed as completed
+// (required tasks had passed): the lab succeeded, time just ran out.
+export function isLabCompletedAtDeadline(code: string | undefined): boolean {
+  return code === LAB_ERROR_CODES.sessionCompletedAtDeadline
 }
 
-// 409 "This lab session has expired." — the session closed without completing.
-export function isLabSessionExpired(message: string): boolean {
-  return message.toLowerCase().includes('session has expired')
+// The session hit its deadline and closed without completing.
+export function isLabSessionExpired(code: string | undefined): boolean {
+  return code === LAB_ERROR_CODES.sessionExpired
 }
 
 // A session is "live" (occupying a workspace) while running or paused —

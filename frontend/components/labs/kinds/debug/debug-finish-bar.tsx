@@ -40,7 +40,7 @@ export function DebugFinishBar({ sessionId, enabled, onAuthExpired }: DebugFinis
   function finish() {
     startFinish(async () => {
       const res = await endLabSessionAction(sessionId)
-      if (!res.ok && !isLabSessionAlreadyEnded(res.error ?? "")) {
+      if (!res.ok && !isLabSessionAlreadyEnded(res.code)) {
         const message = res.error ?? "Could not finish the lab. Please try again."
         if (isLabAuthError(message)) onAuthExpired()
         else toast.error(message)

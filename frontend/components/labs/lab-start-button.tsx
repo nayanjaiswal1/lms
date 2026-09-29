@@ -79,7 +79,7 @@ export function LabStartButton({ lab, className, label = "Launch Lab" }: LabStar
     if (!session) return
     setIsStarting(true)
     const result = await endLabSessionAction(session.session_id)
-    if (result.error && !isLabSessionAlreadyEnded(result.error)) {
+    if (result.error && !isLabSessionAlreadyEnded(result.code)) {
       toast.error(result.error)
       setIsStarting(false)
       return

@@ -25,6 +25,14 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 	writeEnvelope(w, status, map[string]any{"error": message})
 }
 
+// WriteErrorCode writes an error envelope with a stable machine-readable code:
+// {"error": message, "code": code}. Clients switch on code, never on the
+// message text or on a status that several conditions share. Codes are
+// snake_case and owned by the domain package that emits them.
+func WriteErrorCode(w http.ResponseWriter, status int, code, message string) {
+	writeEnvelope(w, status, map[string]any{"error": message, "code": code})
+}
+
 // DecodeJSON decodes the request body as JSON into dst. On failure it writes
 // a 400 {"error": "Invalid request body."} envelope and returns false, so
 // handlers can `if !DecodeJSON(w, r, &req) { return }`.
@@ -47,10 +55,13 @@ func WriteFieldErrors(w http.ResponseWriter, status int, fields map[string]strin
 
 // ErrSpec maps a domain sentinel error to an HTTP response. When Fields is
 // set, the response is a field-validation error; otherwise a plain message.
-// An empty Message falls back to err.Error() at write time.
+// An empty Message falls back to err.Error() at write time. A non-empty Code
+// is added to the envelope as "code" (see WriteErrorCode); empty keeps the
+// envelope exactly as before.
 type ErrSpec struct {
 	Status  int
 	Message string
+	Code    string
 	Fields  map[string]string
 }
 
@@ -68,6 +79,10 @@ func WriteDomainError(w http.ResponseWriter, err error, specs map[error]ErrSpec,
 		msg := spec.Message
 		if msg == "" {
 			msg = err.Error()
+		}
+		if spec.Code != "" {
+			WriteErrorCode(w, spec.Status, spec.Code, msg)
+			return
 		}
 		WriteError(w, spec.Status, msg)
 		return

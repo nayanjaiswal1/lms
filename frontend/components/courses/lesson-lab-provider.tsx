@@ -96,7 +96,7 @@ export function LessonLabProvider({ lab, initialSession, children }: LessonLabPr
     const sessionId = initialSession.session.id
     startEnding(async () => {
       const res = await endLabSessionAction(sessionId)
-      if (!res.ok && !isLabSessionAlreadyEnded(res.error ?? "")) {
+      if (!res.ok && !isLabSessionAlreadyEnded(res.code)) {
         const msg = res.error ?? "Failed to end lab. Please try again."
         if (isLabAuthError(msg)) {
           router.push(ROUTES.LOGIN)

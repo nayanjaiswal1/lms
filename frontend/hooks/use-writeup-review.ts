@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { reviewLabWriteupAction } from "@/app/(app)/labs/[labId]/actions"
-import { isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
+import { LAB_ERROR_CODES, isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
 import { DEBUG_WRITEUP_MAX_REVIEWS, type WriteupReviewResult } from "@/lib/labs/kinds/debug"
 
 interface WriteupState {
@@ -23,15 +23,15 @@ export function useWriteupReview(
   function submit(sessionId: string) {
     startReview(async () => {
       const res = await reviewLabWriteupAction(sessionId)
-      if (isLabCompletedAtDeadline(res.status)) {
+      if (isLabCompletedAtDeadline(res.code)) {
         onDeadline("completed")
         return
       }
-      if (res.error && isLabSessionExpired(res.error)) {
+      if (isLabSessionExpired(res.code)) {
         onDeadline("expired")
         return
       }
-      if (res.status === 429) {
+      if (res.code === LAB_ERROR_CODES.writeupReviewLimit) {
         setState((prev) => ({ ...prev, error: null, exhausted: true }))
         return
       }
@@ -39,7 +39,7 @@ export function useWriteupReview(
         setState((prev) => ({
           ...prev,
           error:
-            res.status === 503
+            res.code === LAB_ERROR_CODES.aiUnavailable
               ? "The AI reviewer is unavailable right now. Try again in a minute."
               : (res.error ?? "Could not review your write-up."),
         }))

@@ -95,7 +95,7 @@ export function LabProvisioningWatcher() {
       es.close()
       toast.dismiss(toastId)
       void endLabSessionAction(sessionId).then((result) => {
-        if (result.error && !isLabSessionAlreadyEnded(result.error)) {
+        if (result.error && !isLabSessionAlreadyEnded(result.code)) {
           toast.error(result.error)
           return
         }

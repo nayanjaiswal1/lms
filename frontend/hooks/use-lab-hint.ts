@@ -2,7 +2,12 @@
 
 import { useState, useTransition, useCallback } from "react"
 import { requestLabHintAction } from "@/app/(app)/labs/[labId]/actions"
-import { MAX_HINTS_PER_TASK, type TaskCompletion } from "@/lib/labs"
+import {
+  MAX_HINTS_PER_TASK,
+  isLabCompletedAtDeadline,
+  isLabSessionExpired,
+  type TaskCompletion,
+} from "@/lib/labs"
 
 export interface RevealedHint {
   level: number
@@ -14,7 +19,12 @@ export interface RevealedHint {
 // "re-fetch a previous level" endpoint — POST .../hint always advances to
 // the next level — so once revealed, a hint's text is kept here for the
 // rest of the session), and the in-flight request.
-export function useLabHint(sessionId: string, initialCompletions: TaskCompletion[]) {
+export function useLabHint(
+  sessionId: string,
+  initialCompletions: TaskCompletion[],
+  /** The deadline passed while the hint was requested (kind workspaces route to the result). */
+  onDeadline?: (outcome: "completed" | "expired") => void,
+) {
   const [hintsByTask, setHintsByTask] = useState<Record<string, RevealedHint[]>>({})
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -41,6 +51,14 @@ export function useLabHint(sessionId: string, initialCompletions: TaskCompletion
     const idempotencyKey = `hint-${sessionId}-${taskId}-${hintsUsedFor(taskId) + 1}`
     startRequest(async () => {
       const res = await requestLabHintAction(sessionId, taskId, idempotencyKey)
+      if (isLabCompletedAtDeadline(res.code)) {
+        onDeadline?.("completed")
+        return
+      }
+      if (isLabSessionExpired(res.code)) {
+        onDeadline?.("expired")
+        return
+      }
       if (!res.ok || !res.data) {
         setError(res.error ?? "Could not get a hint. Please try again.")
         return

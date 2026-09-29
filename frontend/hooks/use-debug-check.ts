@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { submitLabAction } from "@/app/(app)/labs/[labId]/actions"
 import { isLabAuthError } from "@/lib/labs/auth-error"
-import { isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
+import { LAB_ERROR_CODES, isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
 import { parseCheckFailures, type CheckFailure } from "@/lib/labs/kinds/debug-results"
 import type { LabSubmitTaskResult, LabTask, TaskCompletion } from "@/lib/labs"
 
@@ -102,7 +102,7 @@ export function useDebugCheck({
   function check() {
     startCheck(async () => {
       const res = await submitLabAction(sessionId)
-      if (res.status === 429) {
+      if (res.code === LAB_ERROR_CODES.rateLimited) {
         setState((prev) => ({
           ...prev,
           problem: null,
@@ -111,15 +111,15 @@ export function useDebugCheck({
         }))
         return
       }
-      if (isLabCompletedAtDeadline(res.status)) {
+      if (isLabCompletedAtDeadline(res.code)) {
         onDeadline("completed")
         return
       }
-      if (res.error && isLabSessionExpired(res.error)) {
+      if (isLabSessionExpired(res.code)) {
         onDeadline("expired")
         return
       }
-      if (res.status === 503) {
+      if (res.code === LAB_ERROR_CODES.graderBusy) {
         setState((prev) => ({ ...prev, problem: "busy", message: res.error ?? null }))
         return
       }

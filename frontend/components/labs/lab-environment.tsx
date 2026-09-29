@@ -195,7 +195,7 @@ export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: 
   // auto-expiry, stale resume), so it's the single place that needs to know.
   const endAndGoToResult = async () => {
     const res = await endLabSessionAction(session.id)
-    if (!res.ok && !isLabSessionAlreadyEnded(res.error ?? "")) {
+    if (!res.ok && !isLabSessionAlreadyEnded(res.code)) {
       const msg = res.error ?? "Failed to end lab. Please try again."
       if (isLabAuthError(msg)) {
         router.push(ROUTES.LOGIN)

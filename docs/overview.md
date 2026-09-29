@@ -55,7 +55,12 @@ Platform role (`users.platform_role`): `super_admin` · `user`
 
 // error
 { "error": "human readable message" }
+
+// error with a machine-readable code (optional)
+{ "error": "human readable message", "code": "snake_case_code" }
 ```
+
+`code` is optional and additive: handlers that set it (`httputil.WriteErrorCode`, or `ErrSpec.Code` in `WriteDomainError`) give clients a stable value to branch on, so they never parse `error` text or overload an HTTP status that several conditions share. Codes are snake_case and owned by the emitting domain package (labs: `backend/internal/labs/codes.go`, mirrored in `frontend/lib/labs.ts` `LAB_ERROR_CODES`). Server actions expose it as `ActionResult.code`. Envelopes without a code are unchanged.
 
 ---
 

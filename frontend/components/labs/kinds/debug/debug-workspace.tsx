@@ -70,7 +70,7 @@ function DebugWorkspaceBody({
     if (result.passed) check.applyWriteupPass(result.score_added)
     if (result.session_completed) goToResult()
   }, onDeadline)
-  const hint = useLabHint(session.id, check.completions)
+  const hint = useLabHint(session.id, check.completions, onDeadline)
 
   const maxScore = lab.tasks.reduce((sum, t) => sum + t.points, 0)
   const hintsUsedByTask = Object.fromEntries(
