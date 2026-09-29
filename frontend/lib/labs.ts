@@ -29,6 +29,8 @@ export type TaskStatus = 'pending' | 'passed' | 'skipped'
 // (which leaves the session's end_reason null).
 export type SessionEndReason = 'time_limit' | 'idle_timeout'
 
+export type LabTaskGrader = 'script' | 'writeup_review'
+
 export interface LabTask {
   task_id: string
   position: number
@@ -36,6 +38,9 @@ export interface LabTask {
   description: string
   points: number
   is_optional: boolean
+  // 'script' tasks are graded by Check; 'writeup_review' tasks by submitting
+  // a write-up (no hints, no Check).
+  grader: LabTaskGrader
 }
 
 export interface Lab {
@@ -132,6 +137,9 @@ export interface LabSession {
   end_reason: SessionEndReason | null
   // Set only for composed lab kinds (e.g. debug) once a scenario variant is picked.
   variant_key?: string | null
+  // Set once every required task passed but the session awaits Finish
+  // (kinds with the 'finish' completion policy).
+  required_passed_at?: string | null
 }
 
 // Student-safe workspace block of a "debug" lab (GET /sessions/:id) — never

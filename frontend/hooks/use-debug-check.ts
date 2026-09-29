@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { getLabSessionAction, submitLabAction } from "@/app/(app)/labs/[labId]/actions"
+import { submitLabAction } from "@/app/(app)/labs/[labId]/actions"
 import { isLabAuthError } from "@/lib/labs/auth-error"
-import { DEBUG_CHECK_COOLDOWN_SECONDS } from "@/lib/labs/kinds/debug"
 import { parseCheckFailures, type CheckFailure } from "@/lib/labs/kinds/debug-results"
-import type { TaskCompletion } from "@/lib/labs"
+import type { LabSubmitTaskResult, LabTask, TaskCompletion } from "@/lib/labs"
 
 export type CheckProblem = "busy" | "auth" | "error"
 
@@ -22,6 +21,7 @@ interface CheckState {
 
 interface UseDebugCheckOptions {
   sessionId: string
+  tasks: LabTask[]
   initialCompletions: TaskCompletion[]
   initialScore: number
   onScoreChange?: (score: number) => void
@@ -29,13 +29,40 @@ interface UseDebugCheckOptions {
   onSessionCompleted: () => void
 }
 
+// Folds one batch's per-task outcomes into the completions list.
+function mergeResults(prev: TaskCompletion[], results: LabSubmitTaskResult[]): TaskCompletion[] {
+  const byId = new Map(prev.map((c) => [c.task_id, c]))
+  for (const r of results) {
+    const cur = byId.get(r.task_id)
+    byId.set(r.task_id, {
+      task_id: r.task_id,
+      hints_used: cur?.hints_used ?? 0,
+      attempts: (cur?.attempts ?? 0) + 1,
+      status: r.passed ? "passed" : (cur?.status ?? "pending"),
+    })
+  }
+  return [...byId.values()]
+}
+
+function markPassed(prev: TaskCompletion[], taskId: string): TaskCompletion[] {
+  const cur = prev.find((c) => c.task_id === taskId)
+  const passed: TaskCompletion = {
+    task_id: taskId,
+    attempts: cur?.attempts ?? 1,
+    hints_used: cur?.hints_used ?? 0,
+    status: "passed",
+  }
+  return cur ? prev.map((c) => (c.task_id === taskId ? passed : c)) : [...prev, passed]
+}
+
 /**
  * The debug lab's Check button: batch-grades every pending task in a clean
- * room (POST /submit), then re-reads the session for authoritative
- * completions/score. 429 = the 30 s cooldown, 503 = grader at capacity.
+ * room (POST /submit). 429 carries the cooldown's Retry-After, 503 means the
+ * grader is at capacity. State is folded from the response, no re-fetch.
  */
 export function useDebugCheck({
   sessionId,
+  tasks,
   initialCompletions,
   initialScore,
   onScoreChange,
@@ -52,14 +79,20 @@ export function useDebugCheck({
   })
   const [isChecking, startCheck] = useTransition()
 
-  // Re-reads completions + score (also after a write-up review, whose
-  // response doesn't say which task it passed).
-  async function sync(): Promise<void> {
-    const res = await getLabSessionAction(sessionId)
-    if (!res.ok || !res.data) return
-    const { session, task_completions } = res.data
-    setState((prev) => ({ ...prev, completions: task_completions, score: session.score }))
-    onScoreChange?.(session.score)
+  const requiredPassed = tasks
+    .filter((t) => !t.is_optional)
+    .every((t) => state.completions.some((c) => c.task_id === t.task_id && c.status === "passed"))
+
+  // Applies a passed write-up review (the task is identified by its grader).
+  function applyWriteupPass(scoreAdded: number) {
+    const task = tasks.find((t) => t.grader === "writeup_review")
+    if (!task || scoreAdded < 0) return
+    setState((prev) => ({
+      ...prev,
+      score: prev.score + scoreAdded,
+      completions: markPassed(prev.completions, task.task_id),
+    }))
+    onScoreChange?.(state.score + scoreAdded)
   }
 
   function check() {
@@ -70,7 +103,7 @@ export function useDebugCheck({
           ...prev,
           problem: null,
           message: null,
-          cooldownUntil: Date.now() + DEBUG_CHECK_COOLDOWN_SECONDS * 1000,
+          cooldownUntil: Date.now() + (res.retryAfter ?? 1) * 1000,
         }))
         return
       }
@@ -88,22 +121,23 @@ export function useDebugCheck({
         }))
         return
       }
-      const { results, session_completed } = res.data
+      const { results, score, session_completed } = res.data
       const failures: Record<string, CheckFailure[]> = {}
       for (const r of results) {
         if (!r.passed) failures[r.task_id] = parseCheckFailures(r.stdout)
       }
       setState((prev) => ({
         ...prev,
+        completions: mergeResults(prev.completions, results),
+        score,
         failures,
         problem: null,
         message: null,
-        cooldownUntil: Date.now() + DEBUG_CHECK_COOLDOWN_SECONDS * 1000,
       }))
-      await sync()
+      onScoreChange?.(score)
       if (session_completed) onSessionCompleted()
     })
   }
 
-  return { ...state, isChecking, check, sync }
+  return { ...state, isChecking, check, requiredPassed, applyWriteupPass }
 }

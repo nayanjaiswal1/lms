@@ -12,7 +12,7 @@ interface WriteupState {
 }
 
 /** "Submit write-up": AI review of INCIDENT.md (≤ 3 reviews per session). */
-export function useWriteupReview(onReviewed: (result: WriteupReviewResult) => Promise<void> | void) {
+export function useWriteupReview(onReviewed: (result: WriteupReviewResult) => void) {
   const [state, setState] = useState<WriteupState>({ result: null, error: null, exhausted: false })
   const [isReviewing, startReview] = useTransition()
 
@@ -34,7 +34,7 @@ export function useWriteupReview(onReviewed: (result: WriteupReviewResult) => Pr
         return
       }
       setState({ result: res.data, error: null, exhausted: res.data.reviews_remaining <= 0 })
-      await onReviewed(res.data)
+      onReviewed(res.data)
     })
   }
 

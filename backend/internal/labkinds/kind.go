@@ -97,6 +97,20 @@ type HintContext struct {
 	BaselineRef string
 }
 
+// CompletionPolicy says when a session of a lab kind becomes 'completed'.
+type CompletionPolicy string
+
+const (
+	// CompleteOnRequiredPass completes the session the moment the last
+	// required task passes (every hand-authored lab type; the default).
+	CompleteOnRequiredPass CompletionPolicy = "required_pass"
+	// CompleteOnFinish credits the course module when the required tasks
+	// pass but keeps the session active — so optional tasks (e.g. a write-up)
+	// can still be done — until the student finishes (POST /end) or the
+	// deadline closes it, both as 'completed' once required tasks passed.
+	CompleteOnFinish CompletionPolicy = "finish"
+)
+
 // Kind is one pluggable lab authoring/runtime behavior. See this package's
 // doc comment for the lab_type/lab_kind distinction.
 type Kind interface {
@@ -107,6 +121,8 @@ type Kind interface {
 	BlockKinds() []string
 	// Tasks returns the standard task set a build of this kind publishes.
 	Tasks() []TaskTemplate
+	// CompletionPolicy says when a session of this kind completes.
+	CompletionPolicy() CompletionPolicy
 	// GradeModes lists the modes grade.sh accepts for this kind, in the
 	// order grade.sh's own usage output should list them.
 	GradeModes() []string

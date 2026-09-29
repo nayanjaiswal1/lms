@@ -5,6 +5,8 @@ export interface DebugDebriefResponse {
   debrief: { root_cause: string; fix_diff: string }
   score: number
   student_diff?: string
+  // Latest persisted write-up review, when the student submitted one.
+  writeup_review?: WriteupReviewResult
 }
 
 // Response of POST /sessions/:id/writeup-review.
@@ -16,10 +18,6 @@ export interface WriteupReviewResult {
   reviews_remaining: number
   session_completed: boolean
 }
-
-// Server-side cooldown between Checks (backend DebugGradeCooldownSeconds).
-// The 429 carries no Retry-After, so the UI mirrors the window.
-export const DEBUG_CHECK_COOLDOWN_SECONDS = 30
 
 // Backend caps fresh write-up reviews per session at 3.
 export const DEBUG_WRITEUP_MAX_REVIEWS = 3

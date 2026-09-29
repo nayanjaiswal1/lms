@@ -24,6 +24,21 @@ type studentTaskView struct {
 	Description string `json:"description"`
 	Points      int    `json:"points"`
 	IsOptional  bool   `json:"is_optional"`
+	// Grader is "script" (Check button) or "writeup_review" (submitted for
+	// review, no hints) — lets the UI treat a write-up task differently.
+	Grader string `json:"grader"`
+}
+
+// newStudentTaskView projects a TaskSnapshot to its student-safe view.
+func newStudentTaskView(t TaskSnapshot) studentTaskView {
+	grader := t.Grader
+	if grader == "" {
+		grader = GraderScript
+	}
+	return studentTaskView{
+		TaskID: t.ID, Position: t.Position, Title: t.Title, Description: t.Description,
+		Points: t.Points, IsOptional: t.IsOptional, Grader: grader,
+	}
 }
 
 // labStudentResponse is the shape returned by HandleGetLab.
@@ -91,10 +106,7 @@ func BuildStudentPreview(lab *LabDefinition, tasks []TaskSnapshot) any {
 	resp := newLabStudentResponse(lab)
 	views := make([]studentTaskView, len(tasks))
 	for i, t := range tasks {
-		views[i] = studentTaskView{
-			TaskID: t.ID, Position: t.Position, Title: t.Title,
-			Description: t.Description, Points: t.Points, IsOptional: t.IsOptional,
-		}
+		views[i] = newStudentTaskView(t)
 	}
 	resp.Tasks = views
 	return resp
@@ -128,14 +140,7 @@ func (h *Handler) HandleGetLab(w http.ResponseWriter, r *http.Request) {
 		}
 		views := make([]studentTaskView, len(tasks))
 		for i, t := range tasks {
-			views[i] = studentTaskView{
-				TaskID:      t.ID,
-				Position:    t.Position,
-				Title:       t.Title,
-				Description: t.Description,
-				Points:      t.Points,
-				IsOptional:  t.IsOptional,
-			}
+			views[i] = newStudentTaskView(t)
 		}
 		resp.Tasks = views
 	}
@@ -169,14 +174,7 @@ func (h *Handler) HandleGetLabByModule(w http.ResponseWriter, r *http.Request) {
 		}
 		views := make([]studentTaskView, len(tasks))
 		for i, t := range tasks {
-			views[i] = studentTaskView{
-				TaskID:      t.ID,
-				Position:    t.Position,
-				Title:       t.Title,
-				Description: t.Description,
-				Points:      t.Points,
-				IsOptional:  t.IsOptional,
-			}
+			views[i] = newStudentTaskView(t)
 		}
 		resp.Tasks = views
 	}

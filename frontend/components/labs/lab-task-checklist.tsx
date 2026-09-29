@@ -110,7 +110,7 @@ export function LabTaskChecklist({
                 </div>
               ) : (
                 <>
-                  {onHint && (
+                  {onHint && task.grader !== "writeup_review" && (
                     <Button
                       aria-label={`Get a hint for ${task.title}`}
                       className="gap-1.5 text-ai hover:text-ai"

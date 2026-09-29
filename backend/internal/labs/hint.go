@@ -185,11 +185,8 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID, id
 	}
 
 	rateLimitKey := fmt.Sprintf("lab:hint:rate:%s:%s", sessionID, taskID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, time.Duration(HintRateLimitSeconds)*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.RequestHint: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, time.Duration(HintRateLimitSeconds)*time.Second, "labs.Service.RequestHint"); err != nil {
+		return nil, err
 	}
 
 	tasks, err := s.repo.GetPublishedVersion(ctx, session.TaskVersionID)
@@ -205,6 +202,9 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID, id
 	}
 	if task == nil {
 		return nil, ErrNotFound
+	}
+	if task.Grader == GraderWriteupReview {
+		return nil, ErrHintNotSupported
 	}
 
 	if err := s.repo.EnsureTaskCompletion(ctx, sessionID, taskID); err != nil {

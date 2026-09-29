@@ -61,6 +61,10 @@ func (DebugKind) Tasks() []TaskTemplate {
 	}
 }
 
+// CompletionPolicy implements Kind: the write-up (optional) can only happen
+// while the session is live, so the session waits for the student's Finish.
+func (DebugKind) CompletionPolicy() CompletionPolicy { return CompleteOnFinish }
+
 // GradeModes implements Kind.
 func (DebugKind) GradeModes() []string { return []string{modeSymptom, modeRegression, modeStudentTest} }
 

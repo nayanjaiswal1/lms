@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { DebugFinishBar } from "@/components/labs/kinds/debug/debug-finish-bar"
 import { DebugCheckBar } from "@/components/labs/kinds/debug/debug-check-bar"
 import { DebugFailureList } from "@/components/labs/kinds/debug/debug-failure-list"
 import { DebugMain } from "@/components/labs/kinds/debug/debug-main"
@@ -39,20 +40,22 @@ function DebugWorkspaceBody({
   const [isAuthExpired, setIsAuthExpired] = useState(false)
   const isFresh = resetNonce > 0
 
+  const expireAuth = () => {
+    setIsAuthExpired(true)
+    onAuthExpiredChange?.(true)
+  }
   const goToResult = () => router.push(ROUTES.labSessionResult(session.id))
   const check = useDebugCheck({
     sessionId: session.id,
+    tasks: lab.tasks,
     initialCompletions: isFresh ? [] : initialCompletions,
     initialScore: isFresh ? 0 : session.score,
     onScoreChange,
-    onAuthExpired: () => {
-      setIsAuthExpired(true)
-      onAuthExpiredChange?.(true)
-    },
+    onAuthExpired: expireAuth,
     onSessionCompleted: goToResult,
   })
-  const writeup = useWriteupReview(async (result) => {
-    await check.sync()
+  const writeup = useWriteupReview((result) => {
+    if (result.passed) check.applyWriteupPass(result.score_added)
     if (result.session_completed) goToResult()
   })
   const hint = useLabHint(session.id, check.completions)
@@ -93,6 +96,11 @@ function DebugWorkspaceBody({
             message={check.message}
             problem={check.problem}
             onCheck={check.check}
+          />
+          <DebugFinishBar
+            enabled={check.requiredPassed}
+            sessionId={session.id}
+            onAuthExpired={expireAuth}
           />
         </div>
         <DebugWriteupPanel

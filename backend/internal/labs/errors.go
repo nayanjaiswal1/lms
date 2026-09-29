@@ -1,6 +1,9 @@
 package labs
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var (
 	// ErrNotFound is returned when a lab, session, or task does not exist or is
@@ -152,3 +155,17 @@ var (
 	// ErrNoDebrief is returned when a debrief is requested before completion.
 	ErrNoDebrief = errors.New("labs: debrief is only available once the session is completed")
 )
+
+// RateLimitedError is ErrRateLimited plus how long until the caller may
+// retry, read from the limiter key's remaining TTL. writeDomainError turns it
+// into a Retry-After header. errors.Is(err, ErrRateLimited) still holds.
+type RateLimitedError struct {
+	RetryAfter time.Duration
+}
+
+func (e *RateLimitedError) Error() string { return ErrRateLimited.Error() }
+func (e *RateLimitedError) Unwrap() error { return ErrRateLimited }
+
+// ErrHintNotSupported is returned when a hint is requested for a task graded
+// by a written review (grader=writeup_review): there is nothing to hint at.
+var ErrHintNotSupported = errors.New("labs: hints are not available for this task")

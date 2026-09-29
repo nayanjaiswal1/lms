@@ -101,11 +101,3 @@ export async function reviewLabWriteupAction(
     `/api/labs/sessions/${sessionId}/writeup-review`,
   )
 }
-
-// Authoritative task completions + score, used by kind workspaces after
-// operations (Check, write-up review) whose response doesn't carry them all.
-export async function getLabSessionAction(
-  sessionId: string,
-): Promise<ActionResult<GetSessionResponse>> {
-  return apiAction<GetSessionResponse>("GET", `/api/labs/sessions/${sessionId}`)
-}

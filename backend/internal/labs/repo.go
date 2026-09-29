@@ -237,14 +237,14 @@ func (r *Repo) CreateSession(ctx context.Context, tx pgx.Tx, params CreateSessio
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		RETURNING id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		          status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		          completed_at, last_active_at, end_reason, module_id, variant_key`,
+		          completed_at, last_active_at, end_reason, module_id, variant_key, required_passed_at`,
 		params.LabID, params.TaskVersionID, params.UserID, params.OrgID,
 		params.ExpiresAt, params.IsTest, params.ModuleID, params.VariantKey,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -262,14 +262,14 @@ func (r *Repo) GetSession(ctx context.Context, sessionID, userID string) (*LabSe
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key
+		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key, required_passed_at
 		FROM lab_sessions WHERE id=$1 AND user_id=$2`,
 		sessionID, userID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -287,13 +287,13 @@ func (r *Repo) GetSessionByID(ctx context.Context, sessionID string) (*LabSessio
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key
+		       completed_at, last_active_at, end_reason, provision_error, module_id, variant_key, required_passed_at
 		FROM lab_sessions WHERE id=$1`, sessionID,
 	).Scan(
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ProvisionError, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -347,7 +347,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, lab_id, task_version_id, user_id, org_id, container_id, container_host,
 		       status, reset_count, score, is_test, started_at, expires_at, paused_seconds, paused_at,
-		       completed_at, last_active_at, end_reason, module_id, variant_key
+		       completed_at, last_active_at, end_reason, module_id, variant_key, required_passed_at
 		FROM lab_sessions
 		WHERE user_id=$1 AND lab_id=$2 AND status IN ('provisioning','running','paused')
 		LIMIT 1`,
@@ -356,7 +356,7 @@ func (r *Repo) GetActiveSessionForLab(ctx context.Context, userID, labID string)
 		&s.ID, &s.LabID, &s.TaskVersionID, &s.UserID, &s.OrgID,
 		&s.ContainerID, &s.ContainerHost, &s.Status, &s.ResetCount, &s.Score,
 		&s.IsTest, &s.StartedAt, &s.ExpiresAt, &s.PausedSeconds, &s.PausedAt,
-		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey,
+		&s.CompletedAt, &s.LastActiveAt, &s.EndReason, &s.ModuleID, &s.VariantKey, &s.RequiredPassedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -479,20 +479,79 @@ func (r *Repo) UpdateSessionCompleted(ctx context.Context, tx pgx.Tx, sessionID 
 	return score, nil
 }
 
-// UpdateSessionExpired marks a session as expired with the given end_reason
-// — used by requireSessionLive's request-time deadline check. Guarded by
-// "AND status <> 'expired'" purely to keep repeated calls (a session hit by
-// several requests after its deadline before the reaper's next tick) from
-// generating redundant writes; it is not a correctness requirement, since
-// the update is idempotent either way.
-func (r *Repo) UpdateSessionExpired(ctx context.Context, sessionID, endReason string) error {
-	if _, err := r.pool.Exec(ctx,
-		"UPDATE lab_sessions SET status='expired', end_reason=$2 WHERE id=$1 AND status <> 'expired'",
+// CloseSessionAtDeadline closes a session whose deadline passed (called by
+// requireSessionLive's request-time check). A session whose required tasks
+// already passed (required_passed_at set — completion policy
+// CompleteOnFinish, awaiting Finish) is closed as 'completed' with the score
+// it earned; every other session is 'expired'. Guarded to non-terminal
+// statuses so repeated calls after the deadline are no-ops. Returns the
+// status the session ended in ("" when it was already terminal).
+func (r *Repo) CloseSessionAtDeadline(ctx context.Context, sessionID, endReason string) (string, error) {
+	var status string
+	err := r.pool.QueryRow(ctx, `
+		UPDATE lab_sessions
+		SET status = CASE WHEN required_passed_at IS NOT NULL THEN 'completed' ELSE 'expired' END,
+		    completed_at = CASE WHEN required_passed_at IS NOT NULL THEN now() ELSE completed_at END,
+		    end_reason = $2,
+		    paused_at = NULL
+		WHERE id=$1 AND status IN ('provisioning','running','paused')
+		RETURNING status`,
 		sessionID, endReason,
-	); err != nil {
-		return fmt.Errorf("labs.Repo.UpdateSessionExpired: %w", err)
+	).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("labs.Repo.CloseSessionAtDeadline: %w", err)
+	}
+	return status, nil
+}
+
+// MarkRequiredPassed records, inside tx, that every required task passed
+// (CompleteOnFinish sessions). Returns true only the first time, so the
+// caller credits the course module exactly once.
+func (r *Repo) MarkRequiredPassed(ctx context.Context, tx pgx.Tx, sessionID string) (first bool, err error) {
+	tag, err := tx.Exec(ctx,
+		"UPDATE lab_sessions SET required_passed_at=now() WHERE id=$1 AND required_passed_at IS NULL", sessionID)
+	if err != nil {
+		return false, fmt.Errorf("labs.Repo.MarkRequiredPassed: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// SetWriteupReview persists the latest write-up review result for the debrief.
+func (r *Repo) SetWriteupReview(ctx context.Context, sessionID string, review any) error {
+	raw, err := json.Marshal(review)
+	if err != nil {
+		return fmt.Errorf("labs.Repo.SetWriteupReview: marshal: %w", err)
+	}
+	if _, err := r.pool.Exec(ctx, "UPDATE lab_sessions SET writeup_review=$2 WHERE id=$1", sessionID, raw); err != nil {
+		return fmt.Errorf("labs.Repo.SetWriteupReview: %w", err)
 	}
 	return nil
+}
+
+// SetStudentDiff stores the student's diff captured at Finish.
+func (r *Repo) SetStudentDiff(ctx context.Context, sessionID, diff string) error {
+	if _, err := r.pool.Exec(ctx, "UPDATE lab_sessions SET student_diff=$2 WHERE id=$1", sessionID, diff); err != nil {
+		return fmt.Errorf("labs.Repo.SetStudentDiff: %w", err)
+	}
+	return nil
+}
+
+// GetSessionDebriefExtras returns the persisted write-up review (nil when
+// none) and student diff ("" when none) for a session.
+func (r *Repo) GetSessionDebriefExtras(ctx context.Context, sessionID string) (review json.RawMessage, diff string, err error) {
+	var d *string
+	if err := r.pool.QueryRow(ctx,
+		"SELECT writeup_review, student_diff FROM lab_sessions WHERE id=$1", sessionID,
+	).Scan(&review, &d); err != nil {
+		return nil, "", fmt.Errorf("labs.Repo.GetSessionDebriefExtras: %w", err)
+	}
+	if d != nil {
+		diff = *d
+	}
+	return review, diff, nil
 }
 
 // UpdateSessionFailed marks a session 'failed' with the reason it ended and,
@@ -574,10 +633,11 @@ func (r *Repo) ResetTaskCompletions(ctx context.Context, tx pgx.Tx, sessionID st
 	return nil
 }
 
-// ZeroSessionScore resets score to 0 within a tx (used on lab reset).
+// ZeroSessionScore resets score to 0 within a tx (used on lab reset), along
+// with the state derived from the cleared completions.
 func (r *Repo) ZeroSessionScore(ctx context.Context, tx pgx.Tx, sessionID string) error {
 	if _, err := tx.Exec(ctx,
-		"UPDATE lab_sessions SET score=0 WHERE id=$1", sessionID,
+		"UPDATE lab_sessions SET score=0, required_passed_at=NULL, writeup_review=NULL WHERE id=$1", sessionID,
 	); err != nil {
 		return fmt.Errorf("labs.Repo.ZeroSessionScore: %w", err)
 	}

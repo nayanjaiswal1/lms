@@ -14,6 +14,9 @@ export interface ActionResult<T = undefined> {
   // HTTP status of a failed backend response, so callers can branch on
   // 429/503 without parsing the message (absent on success/network errors).
   status?: number;
+  // Seconds from a failed response's Retry-After header (429 windows), when
+  // the backend sent one — lets callers show an exact countdown.
+  retryAfter?: number;
 }
 
 /**
@@ -242,7 +245,11 @@ export async function apiAction<T = undefined>(
     });
     if (res.status === 429) {
       const wait = retryAfterSeconds(res);
-      return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.`, status: 429 };
+      return {
+        error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.`,
+        status: 429,
+        retryAfter: parseRetryAfter(res),
+      };
     }
     const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
     if (!res.ok) {
@@ -251,6 +258,7 @@ export async function apiAction<T = undefined>(
         fieldErrors: json.fields,
         conflict: res.status === 409 ? json.data : undefined,
         status: res.status,
+        retryAfter: parseRetryAfter(res),
       };
     }
     return { ok: true, data: json.data };
@@ -259,8 +267,12 @@ export async function apiAction<T = undefined>(
   }
 }
 
-function retryAfterSeconds(res: Response): number {
+function parseRetryAfter(res: Response): number | undefined {
   const raw = res.headers.get("Retry-After");
   const parsed = raw ? parseInt(raw, 10) : NaN;
-  return isNaN(parsed) ? 60 : parsed;
+  return isNaN(parsed) ? undefined : parsed;
+}
+
+function retryAfterSeconds(res: Response): number {
+  return parseRetryAfter(res) ?? 60;
 }

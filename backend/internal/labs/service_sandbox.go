@@ -62,11 +62,8 @@ func (s *Service) RunScript(ctx context.Context, sessionID, userID string) (*Run
 	// Rate limit before touching the container. Fail open on Redis errors
 	// (same policy as VerifyTask / RunSnippet).
 	rateLimitKey := fmt.Sprintf("lab:run:rate:%s", sessionID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, runRateLimitSeconds*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.RunScript: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, runRateLimitSeconds*time.Second, "labs.Service.RunScript"); err != nil {
+		return nil, err
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)
@@ -107,11 +104,8 @@ func (s *Service) RunScript(ctx context.Context, sessionID, userID string) (*Run
 // inside finalizeTaskPass exactly as it does for per-task Check.
 func (s *Service) SubmitAll(ctx context.Context, sessionID, userID string) (*SubmitResult, error) {
 	rateLimitKey := fmt.Sprintf("lab:submit:rate:%s", sessionID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, submitRateLimitSeconds*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.SubmitAll: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, submitRateLimitSeconds*time.Second, "labs.Service.SubmitAll"); err != nil {
+		return nil, err
 	}
 
 	session, err := s.loadRunnableSession(ctx, sessionID, userID)

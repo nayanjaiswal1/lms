@@ -80,9 +80,40 @@ func (s *Service) studentDiff(ctx context.Context, containerID, baselineRef stri
 	return stdout
 }
 
+// captureStudentDiff stores the student's diff vs the scenario baseline for
+// the debrief. Best-effort: a failure only means the debrief has no diff.
+func (s *Service) captureStudentDiff(ctx context.Context, session *LabSession) {
+	if session.VariantKey == nil || session.ContainerID == nil {
+		return
+	}
+	lab, err := s.repo.GetLabForPlacement(ctx, session.LabID, session.OrgID)
+	if err != nil {
+		return
+	}
+	kind, ok := kindFor(lab)
+	if !ok {
+		return
+	}
+	v, err := s.sessionVariant(ctx, lab, session, false, false)
+	if err != nil {
+		return
+	}
+	if session.Status == SessionStatusPaused {
+		if err := s.ensureContainerResumed(ctx, session); err != nil {
+			return
+		}
+	}
+	if diff := s.studentDiff(ctx, *session.ContainerID, kind.HintContext(v).BaselineRef); diff != "" {
+		if err := s.repo.SetStudentDiff(ctx, session.ID, diff); err != nil {
+			slog.Error("labs.Service.captureStudentDiff", "session_id", session.ID, "error", err)
+		}
+	}
+}
+
 // GetDebrief returns the post-completion debrief: the kind's payload (root
-// cause, reference fix…) plus the student's own diff vs baseline. Only for a
-// completed session.
+// cause, reference fix…), the student's own diff vs baseline (captured at
+// Finish) and the latest persisted write-up review. Only for a completed
+// session.
 func (s *Service) GetDebrief(ctx context.Context, sessionID, userID string) (map[string]any, error) {
 	session, lab, kind, err := s.kindContext(ctx, sessionID, userID)
 	if err != nil {
@@ -96,10 +127,15 @@ func (s *Service) GetDebrief(ctx context.Context, sessionID, userID string) (map
 		return nil, err
 	}
 	out := map[string]any{"debrief": kind.Debrief(v), "score": session.Score}
-	if session.ContainerID != nil {
-		if diff := s.studentDiff(ctx, *session.ContainerID, kind.HintContext(v).BaselineRef); diff != "" {
-			out["student_diff"] = diff
-		}
+	review, diff, err := s.repo.GetSessionDebriefExtras(ctx, session.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(review) > 0 {
+		out["writeup_review"] = review
+	}
+	if diff != "" {
+		out["student_diff"] = diff
 	}
 	return out, nil
 }
@@ -256,7 +292,25 @@ func (s *Service) ReviewWriteup(ctx context.Context, sessionID, userID string) (
 		}
 		res.ScoreAdded, res.SessionCompleted = vr.ScoreAdded, vr.SessionCompleted
 	}
+	s.persistWriteupReview(ctx, session.ID, res)
 	return res, nil
+}
+
+// persistWriteupReview stores the latest review for the debrief. A repeat
+// review of an already-passed write-up earns 0 new points, so the points the
+// first pass earned are carried over rather than overwritten with 0.
+// Best-effort: the review itself already succeeded.
+func (s *Service) persistWriteupReview(ctx context.Context, sessionID string, res *WriteupReviewResult) {
+	stored := *res
+	if prevRaw, _, err := s.repo.GetSessionDebriefExtras(ctx, sessionID); err == nil && len(prevRaw) > 0 {
+		var prev WriteupReviewResult
+		if json.Unmarshal(prevRaw, &prev) == nil && stored.Passed && stored.ScoreAdded == 0 {
+			stored.ScoreAdded = prev.ScoreAdded
+		}
+	}
+	if err := s.repo.SetWriteupReview(ctx, sessionID, stored); err != nil {
+		slog.Error("labs.Service.persistWriteupReview", "session_id", sessionID, "error", err)
+	}
 }
 
 func (s *Service) generateWriteupReview(ctx context.Context, sessionID, taskID, cacheKey string, keyPoints, misconceptions []string, content string) (*writeupModelOutput, error) {

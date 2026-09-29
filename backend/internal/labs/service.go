@@ -17,6 +17,7 @@ import (
 	"github.com/mindforge/backend/internal/courses"
 	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/labkinds"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/pricing"
 	"github.com/mindforge/backend/internal/storage"
@@ -783,7 +784,8 @@ func (s *Service) MintWSToken(ctx context.Context, sessionID, userID, jwtSecret,
 
 // ─── EndSession ───────────────────────────────────────────────────────────────
 
-// EndSession terminates an active session. It computes whether all required
+// EndSession terminates an active session — the student's "Finish" (or an
+// abandon). It computes whether all required
 // (non-optional) tasks were passed and marks the session completed or expired
 // accordingly.
 func (s *Service) EndSession(ctx context.Context, sessionID, userID string) error {
@@ -818,6 +820,12 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 	terminalStatus := SessionStatusExpired
 	if len(nonOptionalIDs) == 0 || passedCount >= len(nonOptionalIDs) {
 		terminalStatus = SessionStatusCompleted
+	}
+
+	// Lab kinds capture the student's diff for the debrief while the sandbox
+	// is still alive — it is killed right after this.
+	if terminalStatus == SessionStatusCompleted {
+		s.captureStudentDiff(ctx, session)
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -1045,11 +1053,8 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 
 	// 2. Rate-limit per (session, task): one attempt every VerifyRateLimitSeconds.
 	rateLimitKey := fmt.Sprintf("lab:verify:rate:%s:%s", sessionID, taskID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, time.Duration(VerifyRateLimitSeconds)*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.VerifyTask: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, time.Duration(VerifyRateLimitSeconds)*time.Second, "labs.Service.VerifyTask"); err != nil {
+		return nil, err
 	}
 
 	// 3. Load the pinned task snapshot for this session.
@@ -1156,6 +1161,25 @@ func (s *Service) verifyContainerTask(ctx context.Context, session *LabSession, 
 	return s.finalizeTaskPass(ctx, session, lab, tasks, task.ID, task.Points, attempts, stdout, stderr)
 }
 
+// acquireCooldown is the single SetNX rate limit every labs endpoint uses: it
+// claims key for window, or returns a *RateLimitedError carrying the key's
+// remaining TTL. Fails open on Redis errors (same policy everywhere).
+func (s *Service) acquireCooldown(ctx context.Context, key string, window time.Duration, op string) error {
+	set, err := s.rdb.SetNX(ctx, key, 1, window).Result()
+	if err != nil {
+		slog.Error(op+": rate limit check", "error", err)
+		return nil
+	}
+	if set {
+		return nil
+	}
+	ttl, err := s.rdb.PTTL(ctx, key).Result()
+	if err != nil || ttl <= 0 {
+		ttl = window
+	}
+	return &RateLimitedError{RetryAfter: ttl}
+}
+
 // requireSessionLive is the shared precondition for every session-touching
 // endpoint: the session must be non-terminal AND still within its hard
 // expires_at deadline. Checking status alone (the previous behavior) left a
@@ -1184,8 +1208,9 @@ func (s *Service) requireSessionLive(ctx context.Context, session *LabSession) e
 		}
 		return nil
 	}
-	if err := s.repo.UpdateSessionExpired(ctx, session.ID, EndReasonTimeLimit); err != nil {
-		slog.Error("labs.Service.requireSessionLive: mark expired", "session_id", session.ID, "error", err)
+	closedAs, err := s.repo.CloseSessionAtDeadline(ctx, session.ID, EndReasonTimeLimit)
+	if err != nil {
+		slog.Error("labs.Service.requireSessionLive: close at deadline", "session_id", session.ID, "error", err)
 	}
 	if err := s.repo.RecordSessionContainerUsage(ctx, session.ID); err != nil {
 		slog.Error("labs.Service.requireSessionLive: record usage", "session_id", session.ID, "error", err)
@@ -1193,7 +1218,12 @@ func (s *Service) requireSessionLive(ctx context.Context, session *LabSession) e
 	if session.ContainerID != nil {
 		go s.container.Kill(context.Background(), *session.ContainerID)
 	}
+	// A CompleteOnFinish session whose required tasks passed closes as
+	// 'completed' (repo decides); everything else is 'expired'.
 	session.Status = SessionStatusExpired
+	if closedAs == SessionStatusCompleted {
+		session.Status = SessionStatusCompleted
+	}
 	return ErrSessionExpired
 }
 
@@ -1280,7 +1310,20 @@ func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab
 		return nil, fmt.Errorf("labs.Service.finalizeTaskPass: count passed: %w", err)
 	}
 
-	sessionCompleted := len(nonOptionalIDs) > 0 && passedCount >= len(nonOptionalIDs)
+	requiredPassed := len(nonOptionalIDs) > 0 && passedCount >= len(nonOptionalIDs)
+	// Completion policy: most labs complete the instant the last required
+	// task passes; CompleteOnFinish kinds only record it (the session stays
+	// active for the optional write-up until Finish/deadline) but the course
+	// module is still credited now so progress and unlocks aren't delayed.
+	sessionCompleted := requiredPassed && s.completionPolicy(lab) == labkinds.CompleteOnRequiredPass
+	creditModule := sessionCompleted
+	if requiredPassed && !sessionCompleted {
+		first, err := s.repo.MarkRequiredPassed(ctx, tx, session.ID)
+		if err != nil {
+			return nil, fmt.Errorf("labs.Service.finalizeTaskPass: %w", err)
+		}
+		creditModule = first
+	}
 	if sessionCompleted {
 		// UpdateSessionCompleted no longer takes a score to write — it
 		// RETURNs the row's current value instead. MarkTaskPassed above
@@ -1316,7 +1359,7 @@ func (s *Service) finalizeTaskPass(ctx context.Context, session *LabSession, lab
 	// falls back to the lab's own legacy module_id/course_id when present;
 	// standalone labs with neither are skipped — there is no module to
 	// complete.
-	if sessionCompleted && s.coursesSvc != nil {
+	if creditModule && s.coursesSvc != nil {
 		// A placement's course is the module's own course, not the lab's
 		// authoring course — a library-placed lab lives in a different one.
 		moduleID, courseID := session.ModuleID, lab.CourseID

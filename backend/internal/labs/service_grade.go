@@ -268,17 +268,9 @@ func gradeCooldownKey(sessionID string) string { return "lab:kindgrade:cooldown:
 func lastGradeKey(sessionID string) string     { return "lab:kindgrade:last:" + sessionID }
 
 // acquireGradeCooldown enforces the per-session grade cooldown; returns
-// ErrRateLimited while cooling down. Fails open on Redis errors.
+// a *RateLimitedError (Is ErrRateLimited) while cooling down. Fails open on Redis errors.
 func (s *Service) acquireGradeCooldown(ctx context.Context, sessionID string) error {
-	set, err := s.rdb.SetNX(ctx, gradeCooldownKey(sessionID), 1, DebugGradeCooldownSeconds*time.Second).Result()
-	if err != nil {
-		slog.Error("labs.Service.acquireGradeCooldown", "error", err)
-		return nil
-	}
-	if !set {
-		return ErrRateLimited
-	}
-	return nil
+	return s.acquireCooldown(ctx, gradeCooldownKey(sessionID), DebugGradeCooldownSeconds*time.Second, "labs.Service.acquireGradeCooldown")
 }
 
 // releaseGradeCooldown clears the cooldown after an infrastructure failure,

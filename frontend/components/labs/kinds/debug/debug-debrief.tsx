@@ -1,5 +1,6 @@
 import { Lightbulb } from "lucide-react"
 import { DebugDiffView } from "@/components/labs/kinds/debug/debug-diff-view"
+import { DebugWriteupReviewCard } from "@/components/labs/kinds/debug/debug-writeup-review-card"
 import { LabMarkdown } from "@/components/labs/kinds/debug/lab-markdown"
 import { apiGet } from "@/lib/server/api"
 import type { LabDebriefProps } from "@/components/labs/kinds/debrief-registry"
@@ -13,7 +14,7 @@ export async function DebugDebrief({ sessionId }: LabDebriefProps) {
   ).catch(() => null)
   if (!data) return null
 
-  const { debrief, student_diff } = data
+  const { debrief, student_diff, writeup_review } = data
 
   return (
     <>
@@ -24,6 +25,15 @@ export async function DebugDebrief({ sessionId }: LabDebriefProps) {
         </h2>
         <LabMarkdown>{debrief.root_cause}</LabMarkdown>
       </section>
+
+      {writeup_review && (
+        <section aria-labelledby="debrief-writeup" className="card-base flex flex-col gap-3 p-6">
+          <h2 className="text-sm font-semibold" id="debrief-writeup">
+            Your write-up review
+          </h2>
+          <DebugWriteupReviewCard result={writeup_review} />
+        </section>
+      )}
 
       <section aria-labelledby="debrief-diff" className="card-base flex flex-col gap-4 p-6">
         <h2 className="text-sm font-semibold" id="debrief-diff">

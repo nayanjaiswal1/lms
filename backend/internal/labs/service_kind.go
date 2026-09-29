@@ -23,6 +23,15 @@ func kindFor(lab *LabDefinition) (labkinds.Kind, bool) {
 	return labkinds.Get(lab.LabType)
 }
 
+// completionPolicy is the lab kind's completion policy; labs with no kind
+// (every hand-authored type) complete when the last required task passes.
+func (s *Service) completionPolicy(lab *LabDefinition) labkinds.CompletionPolicy {
+	if kind, ok := kindFor(lab); ok {
+		return kind.CompletionPolicy()
+	}
+	return labkinds.CompleteOnRequiredPass
+}
+
 // pickVariantKey deterministically maps (user, lab) onto one of keys —
 // docs/debug-labs.md §B6: stable per student so retries, hints and the
 // debrief stay consistent, different across classmates. keys must be

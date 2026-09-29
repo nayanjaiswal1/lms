@@ -78,9 +78,11 @@ type sessionRow struct {
 	containerID *string
 }
 
+// A session whose required tasks already passed (labkinds.CompleteOnFinish,
+// awaiting Finish) closes as completed, everything else as expired.
 // closeSessions kills each session's container (best-effort, per-session —
 // Kill is a runtime call and can't be batched), then in one round trip marks
-// every row expired with endReason and records its billed container_seconds.
+// every row closed with endReason and records its billed container_seconds.
 // Shared by hardExpireOverdue and reapLongPaused, which differ only in which
 // rows they select and which end_reason applies.
 func (h *LabExpireHandler) closeSessions(ctx context.Context, sessions []sessionRow, endReason string) error {
@@ -98,8 +100,12 @@ func (h *LabExpireHandler) closeSessions(ctx context.Context, sessions []session
 		}
 	}
 	if _, err := h.pool.Exec(ctx,
-		`UPDATE lab_sessions SET status=$2, end_reason=$3, paused_at=NULL WHERE id = ANY($1)`,
-		ids, labs.SessionStatusExpired, endReason,
+		`UPDATE lab_sessions
+		 SET status = CASE WHEN required_passed_at IS NOT NULL THEN $4 ELSE $2 END,
+		     completed_at = CASE WHEN required_passed_at IS NOT NULL THEN now() ELSE completed_at END,
+		     end_reason=$3, paused_at=NULL
+		 WHERE id = ANY($1)`,
+		ids, labs.SessionStatusExpired, endReason, labs.SessionStatusCompleted,
 	); err != nil {
 		// The job retries next tick — the same rows still match their
 		// originating SELECT (status hasn't changed), so this is not lost.

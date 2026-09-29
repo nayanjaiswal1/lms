@@ -493,6 +493,9 @@ type LabSession struct {
 	// hash(user_id, lab_id) and never changed for the life of the session, so
 	// retries, hints, and the debrief all stay consistent with each other.
 	VariantKey *string `json:"variant_key,omitempty"`
+	// RequiredPassedAt is set once every required task passed under a
+	// CompleteOnFinish kind: the session stays active until Finish/deadline.
+	RequiredPassedAt *time.Time `json:"required_passed_at,omitempty"`
 }
 
 // ─── Pluggable lab kinds (docs/debug-labs.md; backend/internal/labkinds) ────

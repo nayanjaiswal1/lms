@@ -3,11 +3,13 @@ package labs
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/mindforge/backend/internal/httputil"
+	"github.com/mindforge/backend/internal/ratelimit"
 )
 
 // Handler exposes the labs domain over HTTP.
@@ -87,7 +89,11 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrTaskNotOptional):
 		httputil.WriteError(w, http.StatusConflict, "Task cannot be skipped.")
 	case errors.Is(err, ErrRateLimited):
-		httputil.WriteError(w, http.StatusTooManyRequests, "Verify too soon — wait a moment.")
+		var limited *RateLimitedError
+		if errors.As(err, &limited) {
+			w.Header().Set("Retry-After", strconv.Itoa(ratelimit.RetryAfterSeconds(limited.RetryAfter)))
+		}
+		httputil.WriteError(w, http.StatusTooManyRequests, "Too many requests — wait a moment.")
 	case errors.Is(err, ErrExecutorUnavailable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "Code executor is not configured on this server.")
 	case errors.Is(err, ErrInvalidPath):
@@ -116,6 +122,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusServiceUnavailable, "The grader is busy — try again in a few seconds.")
 	case errors.Is(err, ErrMaxWriteupReviewsReached):
 		httputil.WriteError(w, http.StatusTooManyRequests, "Maximum write-up reviews reached for this session.")
+	case errors.Is(err, ErrHintNotSupported):
+		httputil.WriteError(w, http.StatusUnprocessableEntity, "Hints are not available for this task.")
 	case errors.Is(err, ErrNoDebrief):
 		httputil.WriteError(w, http.StatusConflict, "The debrief is available once the lab is completed.")
 	default:

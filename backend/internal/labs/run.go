@@ -43,11 +43,8 @@ func (s *Service) RunSnippet(ctx context.Context, userID, language, code string)
 	// which lesson they come from. Fail open on Redis errors (same policy
 	// as VerifyTask).
 	rateLimitKey := fmt.Sprintf("lab:snippet:rate:%s", userID)
-	set, rErr := s.rdb.SetNX(ctx, rateLimitKey, 1, snippetRateLimitSeconds*time.Second).Result()
-	if rErr != nil {
-		slog.Error("labs.Service.RunSnippet: rate limit check", "error", rErr)
-	} else if !set {
-		return nil, ErrRateLimited
+	if err := s.acquireCooldown(ctx, rateLimitKey, snippetRateLimitSeconds*time.Second, "labs.Service.RunSnippet"); err != nil {
+		return nil, err
 	}
 
 	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

@@ -6,78 +6,22 @@ import { MonitorOff, AlertCircle, X } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SessionExpiredOverlay } from "@/components/labs/session-expired-overlay"
 import { IconMessage } from "@/components/shared/icon-message"
-import { cn } from "@/lib/utils"
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable"
 import { LabTaskPanel } from "@/components/labs/lab-task-panel"
-import { LabTaskChecklist } from "@/components/labs/lab-task-checklist"
 import { LabContainerWorkspace } from "@/components/labs/lab-container-workspace"
 import { SandboxWorkspace } from "@/components/labs/sandbox-workspace"
-import { LabConsoleWorkspace } from "@/components/labs/lab-console-workspace"
-import { LabFixedConsole } from "@/components/labs/lab-fixed-console"
+import { StandardLabDesktopLayout } from "@/components/labs/standard-lab-desktop-layout"
 import { HintDrawer } from "@/components/labs/hint-drawer"
 import { useLabVerify } from "@/hooks/use-lab-verify"
 import { useLabHint } from "@/hooks/use-lab-hint"
-import type { Lab, LabKindBlock, LabSession, TaskCompletion } from "@/lib/labs"
+import type {
+  LabVerifyBridge,
+  LabWorkspaceContentProps,
+} from "@/components/labs/standard-lab-workspace-types"
 
 const LabCodePanel = dynamic(
   () => import("@/components/labs/lab-code-panel").then((m) => m.LabCodePanel),
   { ssr: false, loading: () => <Skeleton className="h-full w-full rounded-none" /> },
 )
-
-/**
- * Live verify state reported upward for hosts that need it outside this
- * component's own checklist/workspace rendering — e.g. the course notes
- * embed, where "Check my progress" cards are scattered through the lesson
- * body instead of living in a single checklist. Sourced from this
- * component's own `useLabVerify` instance so there's exactly one source of
- * truth: the terminal's built-in Check button and the external cards drive
- * (and reflect) the same state.
- */
-export interface LabVerifyBridge {
-  completions: TaskCompletion[]
-  isVerifying: boolean
-  selectedTaskId: string | null
-  /** Selects the task (so the workspace panel targets it too) and verifies it. */
-  checkTask: (taskId: string) => void
-}
-
-export interface LabWorkspaceContentProps {
-  session: LabSession
-  lab: Lab
-  initialCompletions: TaskCompletion[]
-  /** Split direction of the desktop task/workspace panels. */
-  orientation?: "horizontal" | "vertical"
-  /**
-   * Increment to clear all verify state (completions, score, editor code)
-   * after a successful server-side lab reset.
-   */
-  resetNonce?: number
-  /**
-   * How a "console" layout lab renders on desktop: "boxed" keeps the
-   * checklist + terminal drawer confined to this component's own bounded
-   * parent (the full-screen /labs/[labId] environment). "fixed" flows the
-   * checklist inline with the rest of the page and pins the terminal to the
-   * bottom of the browser viewport instead (the course notes embed).
-   */
-  consoleMode?: "boxed" | "fixed"
-  /**
-   * Skip rendering the built-in `<LabTaskChecklist>` in the fixed console
-   * branch. Used by the course notes embed, which renders its own scattered
-   * per-task cards instead — driven by `onVerifyStateChange` below rather
-   * than a second checklist.
-   */
-  hideTaskChecklist?: boolean
-  onVerifyStateChange?: (bridge: LabVerifyBridge) => void
-  onScoreChange?: (score: number) => void
-  onAuthExpiredChange?: (expired: boolean) => void
-  onLogin: () => void
-  /** Kind-specific block from GET /sessions/:id; only lab kinds read it. */
-  kindBlock?: LabKindBlock
-}
 
 /**
  * The session-agnostic core of a running lab: task panel + code/container
@@ -86,6 +30,8 @@ export interface LabWorkspaceContentProps {
  * chrome (top bar, dialogs, navigation guards) around it. Must be rendered
  * inside a `flex flex-col` container.
  */
+export type { LabVerifyBridge, LabWorkspaceContentProps }
+
 export function StandardLabWorkspace({
   session,
   lab,
@@ -262,85 +208,26 @@ export function StandardLabWorkspace({
         />
       </div>
 
-      {/* Desktop layout */}
-      <div
-        className={cn(
-          "relative hidden md:flex flex-1",
-          !(lab.layout === "console" && consoleMode === "fixed") && "overflow-hidden",
-        )}
-      >
-        {isAuthExpired && <SessionExpiredOverlay onLogin={onLogin} />}
-        {lab.layout === "console" ? (
-          consoleMode === "fixed" ? (
-            <div className="flex w-full flex-col gap-4">
-              {!hideTaskChecklist && (
-                <LabTaskChecklist
-                  completions={completions}
-                  hintsUsedByTask={hintsUsedByTask}
-                  isVerifying={isVerifying}
-                  maxHints={maxHints}
-                  maxScore={maxScore}
-                  score={score}
-                  scrollable={false}
-                  selectedTaskId={selectedTaskId}
-                  tasks={lab.tasks}
-                  onCheck={verify}
-                  onHint={openHintDrawer}
-                  onTaskSelect={handleTaskSelect}
-                />
-              )}
-              <LabFixedConsole title={isCodeLab ? "Editor" : "Console"}>
-                {workspacePanel}
-              </LabFixedConsole>
-            </div>
-          ) : (
-            <LabConsoleWorkspace
-              completions={completions}
-              hintsUsedByTask={hintsUsedByTask}
-              isVerifying={isVerifying}
-              maxHints={maxHints}
-              maxScore={maxScore}
-              score={score}
-              selectedTaskId={selectedTaskId}
-              tasks={lab.tasks}
-              workspacePanel={workspacePanel}
-              onCheck={verify}
-              onHint={openHintDrawer}
-              onTaskSelect={handleTaskSelect}
-            />
-          )
-        ) : (
-          <ResizablePanelGroup orientation={orientation}>
-            <ResizablePanel
-              className={
-                orientation === "horizontal"
-                  ? "border-r border-border"
-                  : "border-b border-border"
-              }
-              defaultSize="24%"
-              id="lab-tasks"
-              maxSize="45%"
-              minSize="18%"
-            >
-              <LabTaskPanel
-                completions={completions}
-                hintsUsedByTask={hintsUsedByTask}
-                maxHints={maxHints}
-                maxScore={maxScore}
-                score={score}
-                selectedTaskId={selectedTaskId}
-                tasks={lab.tasks}
-                onHint={openHintDrawer}
-                onTaskSelect={handleTaskSelect}
-              />
-            </ResizablePanel>
-            <ResizableHandle withHandle orientation={orientation} />
-            <ResizablePanel defaultSize="76%" id="lab-workspace" minSize="40%">
-              {workspacePanel}
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        )}
-      </div>
+      <StandardLabDesktopLayout
+        completions={completions}
+        consoleMode={consoleMode}
+        hideTaskChecklist={hideTaskChecklist}
+        hintsUsedByTask={hintsUsedByTask}
+        isAuthExpired={isAuthExpired}
+        isCodeLab={isCodeLab}
+        isVerifying={isVerifying}
+        lab={lab}
+        maxHints={maxHints}
+        maxScore={maxScore}
+        orientation={orientation}
+        score={score}
+        selectedTaskId={selectedTaskId}
+        workspacePanel={workspacePanel}
+        onCheck={verify}
+        onHint={openHintDrawer}
+        onLogin={onLogin}
+        onTaskSelect={handleTaskSelect}
+      />
 
       <HintDrawer
         error={hintError}
