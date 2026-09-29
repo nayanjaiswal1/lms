@@ -28,7 +28,10 @@ import (
 
 const (
 	// CleanRoomMaxConcurrent bounds simultaneous clean-room grader sandboxes
-	// per API replica (each is a full 2 CPU / 2 GB sandbox).
+	// per API replica (each is a full 2 CPU / 2 GB sandbox). It is per-PROCESS
+	// on purpose: it protects this node's CPU/memory, which only this process
+	// can account for. It is NOT the org-wide verification cap: that one is
+	// global, a Redis semaphore in labbuild (LAB_VERIFY_PARALLEL_PER_ORG).
 	CleanRoomMaxConcurrent = 4
 	// MaxCapturedWorkspaceBytes caps the student-workspace tar pulled out via
 	// ExecCapture (16 MB — the same cap builder jobs use).

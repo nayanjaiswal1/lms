@@ -64,6 +64,17 @@ func newCaptureBox(names []string) *captureBox {
 	return &captureBox{want: names, got: map[string]string{}}
 }
 
+// snapshot copies the captured text collected so far.
+func (c *captureBox) snapshot() map[string]string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make(map[string]string, len(c.got))
+	for k, v := range c.got {
+		out[k] = v
+	}
+	return out
+}
+
 // hook is a labs.GradeTarget.AfterGrade that runs the requested capture scripts.
 func (c *captureBox) hook(rt labs.ContainerRuntime) func(ctx context.Context, containerID string) error {
 	return func(ctx context.Context, containerID string) error {

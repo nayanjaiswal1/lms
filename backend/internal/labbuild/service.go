@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -55,7 +56,7 @@ type Service struct {
 	cfg       Config
 	repo      *Repo
 	labsRepo  *labs.Repo
-	sems      orgSemaphores
+	sem       *ratelimit.Semaphore
 }
 
 // New wires the pipeline. labsSvc supplies clean-room grading (and, on the API
@@ -66,7 +67,7 @@ func New(pool *pgxpool.Pool, rdb *redis.Client, runtime labs.ContainerRuntime, s
 	return &Service{
 		pool: pool, rdb: rdb, runtime: runtime, store: store, labs: labsSvc, library: lib, authoring: authoring,
 		jobs: reg, limiter: ratelimit.New(rdb), cfg: cfg, repo: NewRepo(pool), labsRepo: labs.NewRepo(pool),
-		sems: orgSemaphores{limit: max(cfg.VerifyParallelPerOrg, 1)},
+		sem: ratelimit.NewSemaphore(rdb),
 	}
 }
 
@@ -125,12 +126,18 @@ func ptr[T any](v T) *T { return &v }
 // enqueue puts a pipeline job on the queue. A duplicate idempotency key means
 // it is already queued, which is fine.
 func (s *Service) enqueue(ctx context.Context, handler, buildID, createdBy string, timeoutMS int) (string, error) {
+	return s.enqueueAt(ctx, handler, buildID, createdBy, timeoutMS, nil, "")
+}
+
+// enqueueAt is enqueue with an optional run time (a delayed re-enqueue) and an
+// idempotency-key suffix, so a deferred job does not collide with its predecessor.
+func (s *Service) enqueueAt(ctx context.Context, handler, buildID, createdBy string, timeoutMS int, runAt *time.Time, keySuffix string) (string, error) {
 	job, err := jobs.Enqueue(ctx, s.pool, s.jobs, jobs.EnqueueParams{
 		Handler: handler, Priority: jobs.PriorityNormal, Payload: map[string]string{"build_id": buildID},
-		MaxRetries: ptr(jobMaxRetries), TimeoutMS: ptr(timeoutMS),
-		IdempotencyKey: ptr(handler + ":" + buildID), CreatedBy: ptr(createdBy),
+		MaxRetries: ptr(jobMaxRetries), TimeoutMS: ptr(timeoutMS), RunAt: runAt,
+		IdempotencyKey: ptr(handler + ":" + buildID + keySuffix), CreatedBy: ptr(createdBy),
 	})
-	if err != nil && err != jobs.ErrDuplicateKey {
+	if err != nil && !errors.Is(err, jobs.ErrDuplicateKey) {
 		return "", fmt.Errorf("labbuild.Service.enqueue %s: %w", handler, err)
 	}
 	return job.ID, nil

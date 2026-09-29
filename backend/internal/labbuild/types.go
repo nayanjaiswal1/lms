@@ -81,6 +81,12 @@ type VariantReport struct {
 	Runs        []RunReport `json:"runs"`
 	BriefFilled bool        `json:"brief_filled"`
 	CaptureNote string      `json:"capture_note,omitempty"`
+	// Pending lists matrix runs not yet executed because no verification slot
+	// was free; the verify job re-enqueues itself to finish them.
+	Pending []string `json:"pending_runs,omitempty"`
+	// Captured is the real app output captured from the broken run, kept so a
+	// re-enqueued verify job can still fill the ticket.
+	Captured map[string]string `json:"captured,omitempty"`
 }
 
 // RunReport is one verification run: what was expected, what happened.

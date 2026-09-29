@@ -121,7 +121,7 @@ type Config struct {
 	LabAuthorDraftRateMax    int
 	LabAuthorDraftRateWindow time.Duration
 	// Lab-authoring builds: instructor builds per rolling day, and how many
-	// verification sandboxes one org may run at once per worker process.
+	// verification sandboxes one org may run at once across ALL workers (Redis semaphore).
 	LabBuildsPerUserDay     int
 	LabVerifyParallelPerOrg int
 

@@ -17,42 +17,35 @@ import (
 	"github.com/mindforge/backend/internal/storage"
 )
 
-const (
-	graderBusyRetries = 20
-	graderBusyBackoff = 3 * time.Second
-)
+const ()
 
 // infraChecks are grader checks that mean "the app never got far enough to be
 // graded"; an expected failure must come from a real probe/test, not from these.
 var infraChecks = map[string]bool{"setup": true, "application starts": true, "integrity": true}
 
-// orgSemaphores bounds concurrent verification sandboxes per organization
-// (docs/debug-labs.md B3: "up to the org validation cap of 5"). In-process:
-// each worker replica enforces the cap for its own runs.
-type orgSemaphores struct {
-	limit int
-	mu    sync.Mutex
-	m     map[string]chan struct{}
-}
+// Verification sandboxes are capped per organization GLOBALLY (all worker
+// replicas together, docs/debug-labs.md B3: "the org validation cap") by a
+// Redis-backed counting semaphore (ratelimit.Semaphore). This is deliberately
+// different from labs.CleanRoomMaxConcurrent, which is a per-process cap
+// protecting the local node's CPU/memory and stays in-process on purpose.
+//
+// A full semaphore never blocks: runs that cannot get a lease stay pending, the
+// completed runs are saved in the report, and the verify job re-enqueues itself
+// (delayed) through the jobs system.
+const (
+	verifySemKeyPrefix = "labbuild:verify:org:"
+	// verifyLeaseTTL bounds how long a crashed worker can hold a slot; live
+	// holders renew every ttl/3.
+	verifyLeaseTTL = 2 * time.Minute
+	// verifyBusyBackoff is the delay before a deferred verify job runs again.
+	verifyBusyBackoff = 30 * time.Second
+)
 
-func (o *orgSemaphores) acquire(ctx context.Context, org string) (release func(), err error) {
-	o.mu.Lock()
-	if o.m == nil {
-		o.m = map[string]chan struct{}{}
-	}
-	ch, ok := o.m[org]
-	if !ok {
-		ch = make(chan struct{}, o.limit)
-		o.m[org] = ch
-	}
-	o.mu.Unlock()
-	select {
-	case ch <- struct{}{}:
-		return func() { <-ch }, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
+// errRunBusy means this replica's clean-room slots are full (labs.ErrGradeBusy):
+// the run is deferred like a full semaphore.
+var errRunBusy = errors.New("labbuild: clean-room capacity busy")
+
+func verifySemKey(org string) string { return verifySemKeyPrefix + org }
 
 // RunVerify is the lab.recipe_verify job body: run the kind's verification
 // matrix for every variant through the clean-room grader, fill the ticket's
@@ -87,16 +80,18 @@ func (s *Service) RunVerify(ctx context.Context, buildID string) error {
 		rep.Difficulty = *b.DerivedDifficulty
 	}
 	rep.VariantCount = len(variants)
-	allPassed := true
+	prior := priorVariantReports(b.Report)
+	allPassed, deferred := true, false
 	var infraErr error
 	for _, v := range variants {
-		vr, err := s.verifyVariant(ctx, b, kind, v)
+		vr, err := s.verifyVariant(ctx, b, kind, v, prior[v.Key])
 		if err != nil {
 			infraErr = err
 			vr = &VariantReport{Key: v.Key}
 			vr.Runs = append(vr.Runs, RunReport{Name: "infrastructure", Error: err.Error()})
 		}
 		allPassed = allPassed && vr.Passed
+		deferred = deferred || len(vr.Pending) > 0
 		rep.Variants = append(rep.Variants, *vr)
 		if serr := s.repo.SaveReport(ctx, b.ID, rep); serr != nil {
 			slog.Warn("labbuild: save live report", "build_id", b.ID, "error", serr)
@@ -104,6 +99,12 @@ func (s *Service) RunVerify(ctx context.Context, buildID string) error {
 	}
 	if infraErr != nil {
 		return fmt.Errorf("labbuild.Service.RunVerify: %w", infraErr)
+	}
+	if deferred {
+		// Some runs could not get a slot: come back later with the finished runs kept.
+		at := time.Now().Add(verifyBusyBackoff)
+		_, err := s.enqueueAt(ctx, HandlerRecipeVerify, b.ID, b.CreatedBy, verifyJobTimeoutMS, &at, fmt.Sprintf(":%d", at.Unix()))
+		return err
 	}
 
 	status := StatusFailed
@@ -179,46 +180,102 @@ func overlayFile(sel string) string {
 }
 
 // verifyVariant runs the kind's matrix for one variant.
-func (s *Service) verifyVariant(ctx context.Context, b *Build, kind labkinds.Kind, v VariantRow) (*VariantReport, error) {
+func (s *Service) verifyVariant(ctx context.Context, b *Build, kind labkinds.Kind, v VariantRow, prior *VariantReport) (*VariantReport, error) {
 	bundles, err := s.loadVariantBundles(ctx, v)
 	if err != nil {
 		return nil, err
 	}
-	input := kind.VerifyInput(v.Payload)
-	matrix := kind.VerifyMatrix(input)
+	matrix := kind.VerifyMatrix(kind.VerifyInput(v.Payload))
 
-	var captureNames []string
 	var p struct {
 		Captures []string `json:"captures"`
 	}
 	_ = json.Unmarshal(v.Payload, &p)
-	captureNames = p.Captures
+	captureNames := p.Captures
 	box := newCaptureBox(captureNames)
 
-	reports := make([]RunReport, len(matrix))
-	errs := make([]error, len(matrix))
-	var wg sync.WaitGroup
-	for i, run := range matrix {
-		wg.Add(1)
-		go func(i int, run labkinds.VerifyRun) {
-			defer wg.Done()
-			var runBox *captureBox
-			if run.Capture && len(captureNames) > 0 {
-				runBox = box
+	// Runs finished in an earlier attempt of this job are kept, not redone.
+	done := map[string]RunReport{}
+	if prior != nil {
+		for _, r := range prior.Runs {
+			if r.Error == "" && len(r.Seeds) > 0 {
+				done[r.Name] = r
 			}
-			reports[i], errs[i] = s.executeRun(ctx, b, kind, bundles, run, runBox)
-		}(i, run)
+		}
+		for k, val := range prior.Captured {
+			box.got[k] = val
+		}
 	}
-	wg.Wait()
-	for _, e := range errs {
-		if e != nil {
-			return nil, e
+	var pending []int
+	for i, run := range matrix {
+		if _, ok := done[run.Name]; !ok {
+			pending = append(pending, i)
 		}
 	}
 
-	vr := &VariantReport{Key: v.Key, Runs: reports, Passed: true}
-	for _, r := range reports {
-		vr.Passed = vr.Passed && r.Passed
+	limit := max(s.cfg.VerifyParallelPerOrg, 1)
+	key := verifySemKey(b.Snapshot.OrgID)
+	var mu sync.Mutex
+	var runErr error
+	for len(pending) > 0 && runErr == nil {
+		var wg sync.WaitGroup
+		var next []int
+		progressed := 0
+		for _, i := range pending {
+			lease, err := s.sem.TryAcquire(ctx, key, limit, verifyLeaseTTL)
+			if err != nil {
+				runErr = err
+				break
+			}
+			if lease == nil {
+				next = append(next, i)
+				continue
+			}
+			wg.Add(1)
+			go func(i int, run labkinds.VerifyRun) {
+				defer wg.Done()
+				defer lease.Release()
+				var runBox *captureBox
+				if run.Capture && len(captureNames) > 0 {
+					runBox = box
+				}
+				rr, err := s.executeRun(lease.Ctx, b, kind, bundles, run, runBox)
+				mu.Lock()
+				defer mu.Unlock()
+				switch {
+				case errors.Is(err, errRunBusy):
+					next = append(next, i)
+				case err != nil:
+					runErr = err
+				default:
+					done[run.Name] = rr
+					progressed++
+				}
+			}(i, matrix[i])
+		}
+		wg.Wait()
+		if progressed == 0 {
+			pending = next
+			break
+		}
+		pending = next
+	}
+	if runErr != nil {
+		return nil, runErr
+	}
+
+	vr := &VariantReport{Key: v.Key, Passed: true, Captured: box.snapshot()}
+	for _, run := range matrix {
+		if r, ok := done[run.Name]; ok {
+			vr.Runs = append(vr.Runs, r)
+			vr.Passed = vr.Passed && r.Passed
+		} else {
+			vr.Pending = append(vr.Pending, run.Name)
+		}
+	}
+	if len(vr.Pending) > 0 {
+		vr.Passed = false
+		return vr, nil
 	}
 	if vr.Passed && len(captureNames) > 0 {
 		if err := s.fillCaptures(ctx, b, v, bundles, box); err != nil {
@@ -233,6 +290,19 @@ func (s *Service) verifyVariant(ctx context.Context, b *Build, kind labkinds.Kin
 		}
 	}
 	return vr, nil
+}
+
+// priorVariantReports reads the per-variant results saved by an earlier attempt.
+func priorVariantReports(raw json.RawMessage) map[string]*VariantReport {
+	out := map[string]*VariantReport{}
+	var rep Report
+	if len(raw) == 0 || json.Unmarshal(raw, &rep) != nil {
+		return out
+	}
+	for i := range rep.Variants {
+		out[rep.Variants[i].Key] = &rep.Variants[i]
+	}
+	return out
 }
 
 // fillCaptures substitutes the captured text into the brief and the workspace's
@@ -275,8 +345,11 @@ func (s *Service) executeRun(ctx context.Context, b *Build, kind labkinds.Kind, 
 		if box != nil && i == 0 {
 			hook = box.hook(s.runtime)
 		}
-		results, err := s.gradeWithRetry(ctx, b.Snapshot.OrgID, labs.GradeTarget{Image: image, OrgID: b.Snapshot.OrgID, AfterGrade: hook},
+		results, err := s.labs.GradeModesInCleanRoom(ctx, labs.GradeTarget{Image: image, OrgID: b.Snapshot.OrgID, AfterGrade: hook},
 			bundles.view, overlay, run.Modes, seed)
+		if errors.Is(err, labs.ErrGradeBusy) {
+			return rr, errRunBusy
+		}
 		if err != nil {
 			return rr, fmt.Errorf("run %s: %w", run.Name, err)
 		}
@@ -305,27 +378,6 @@ func (s *Service) executeRun(ctx context.Context, b *Build, kind labkinds.Kind, 
 	}
 	evaluate(&rr, kind, run)
 	return rr, nil
-}
-
-// gradeWithRetry runs the clean-room grade under the per-org concurrency cap,
-// backing off while this replica's clean-room slots are busy.
-func (s *Service) gradeWithRetry(ctx context.Context, org string, target labs.GradeTarget, v *labkinds.VariantView, overlay []byte, modes []string, seed string) (map[string]*labs.GradeResult, error) {
-	release, err := s.sems.acquire(ctx, org)
-	if err != nil {
-		return nil, err
-	}
-	defer release()
-	for attempt := 0; ; attempt++ {
-		res, err := s.labs.GradeModesInCleanRoom(ctx, target, v, overlay, modes, seed)
-		if !errors.Is(err, labs.ErrGradeBusy) || attempt >= graderBusyRetries {
-			return res, err
-		}
-		select {
-		case <-time.After(graderBusyBackoff):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-	}
 }
 
 // evaluate checks a run's expectations against its results and fills
