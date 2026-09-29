@@ -66,50 +66,6 @@ func (s *Service) SessionKindPayload(ctx context.Context, session *LabSession) (
 	return kind.Name(), kind.SessionPayload(v), true, nil
 }
 
-// studentDiff returns the student's git diff against baselineRef (≤ 8 KB),
-// via a bounded, fixed-shape exec. "" when unavailable.
-func (s *Service) studentDiff(ctx context.Context, containerID, baselineRef string) string {
-	if containerID == "" || !commitRefRe.MatchString(baselineRef) || !s.container.IsRunning(ctx, containerID) {
-		return ""
-	}
-	script := fmt.Sprintf(`cd %s && git diff %s -- . ':!.lab' ':!logs' 2>/dev/null | head -c %d`, shellQuote(labWorkdir), baselineRef, MaxStudentDiffBytes)
-	stdout, _, exitCode, err := s.container.Exec(ctx, containerID, script, diffExecTimeoutSec)
-	if err != nil || exitCode != 0 {
-		return ""
-	}
-	return stdout
-}
-
-// captureStudentDiff stores the student's diff vs the scenario baseline for
-// the debrief. Best-effort: a failure only means the debrief has no diff.
-func (s *Service) captureStudentDiff(ctx context.Context, session *LabSession) {
-	if session.VariantKey == nil || session.ContainerID == nil {
-		return
-	}
-	lab, err := s.repo.GetLabForPlacement(ctx, session.LabID, session.OrgID)
-	if err != nil {
-		return
-	}
-	kind, ok := kindFor(lab)
-	if !ok {
-		return
-	}
-	v, err := s.sessionVariant(ctx, lab, session, false, false)
-	if err != nil {
-		return
-	}
-	if session.Status == SessionStatusPaused {
-		if err := s.ensureContainerResumed(ctx, session); err != nil {
-			return
-		}
-	}
-	if diff := s.studentDiff(ctx, *session.ContainerID, kind.HintContext(v).BaselineRef); diff != "" {
-		if err := s.repo.SetStudentDiff(ctx, session.ID, diff); err != nil {
-			slog.Error("labs.Service.captureStudentDiff", "session_id", session.ID, "error", err)
-		}
-	}
-}
-
 // GetDebrief returns the post-completion debrief: the kind's payload (root
 // cause, reference fix…), the student's own diff vs baseline (captured at
 // Finish) and the latest persisted write-up review. Only for a completed

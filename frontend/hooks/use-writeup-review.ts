@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { reviewLabWriteupAction } from "@/app/(app)/labs/[labId]/actions"
+import { isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
 import { DEBUG_WRITEUP_MAX_REVIEWS, type WriteupReviewResult } from "@/lib/labs/kinds/debug"
 
 interface WriteupState {
@@ -12,13 +13,24 @@ interface WriteupState {
 }
 
 /** "Submit write-up": AI review of INCIDENT.md (≤ 3 reviews per session). */
-export function useWriteupReview(onReviewed: (result: WriteupReviewResult) => void) {
+export function useWriteupReview(
+  onReviewed: (result: WriteupReviewResult) => void,
+  onDeadline: (outcome: "completed" | "expired") => void,
+) {
   const [state, setState] = useState<WriteupState>({ result: null, error: null, exhausted: false })
   const [isReviewing, startReview] = useTransition()
 
   function submit(sessionId: string) {
     startReview(async () => {
       const res = await reviewLabWriteupAction(sessionId)
+      if (isLabCompletedAtDeadline(res.status)) {
+        onDeadline("completed")
+        return
+      }
+      if (res.error && isLabSessionExpired(res.error)) {
+        onDeadline("expired")
+        return
+      }
       if (res.status === 429) {
         setState((prev) => ({ ...prev, error: null, exhausted: true }))
         return

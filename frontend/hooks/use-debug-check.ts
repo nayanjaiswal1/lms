@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { submitLabAction } from "@/app/(app)/labs/[labId]/actions"
 import { isLabAuthError } from "@/lib/labs/auth-error"
+import { isLabCompletedAtDeadline, isLabSessionExpired } from "@/lib/labs"
 import { parseCheckFailures, type CheckFailure } from "@/lib/labs/kinds/debug-results"
 import type { LabSubmitTaskResult, LabTask, TaskCompletion } from "@/lib/labs"
 
@@ -27,6 +28,8 @@ interface UseDebugCheckOptions {
   onScoreChange?: (score: number) => void
   onAuthExpired?: () => void
   onSessionCompleted: () => void
+  /** The deadline passed while the request was in flight (410 completed / expired). */
+  onDeadline: (outcome: "completed" | "expired") => void
 }
 
 // Folds one batch's per-task outcomes into the completions list.
@@ -68,6 +71,7 @@ export function useDebugCheck({
   onScoreChange,
   onAuthExpired,
   onSessionCompleted,
+  onDeadline,
 }: UseDebugCheckOptions) {
   const [state, setState] = useState<CheckState>({
     completions: initialCompletions,
@@ -105,6 +109,14 @@ export function useDebugCheck({
           message: null,
           cooldownUntil: Date.now() + (res.retryAfter ?? 1) * 1000,
         }))
+        return
+      }
+      if (isLabCompletedAtDeadline(res.status)) {
+        onDeadline("completed")
+        return
+      }
+      if (res.error && isLabSessionExpired(res.error)) {
+        onDeadline("expired")
         return
       }
       if (res.status === 503) {

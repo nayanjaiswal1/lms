@@ -52,6 +52,8 @@ type RepoPreparer interface {
 type Service struct {
 	repo          *Repo
 	container     ContainerRuntime
+	// closer snapshots (student diff) then kills a sandbox on every close path.
+	closer        *SandboxCloser
 	rdb           *redis.Client
 	pool          *pgxpool.Pool
 	piston        *labPiston
@@ -88,7 +90,7 @@ type Service struct {
 // jwtSecret is LABPROXY_JWT_SECRET — see Service.labJWTSecret's doc comment.
 // aiProvider backs RequestHint — see Service.aiProvider's doc comment.
 func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, jwtSecret string, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, aiProvider: aiProvider, bundleStore: bundleStore}
+	return &Service{repo: repo, container: container, closer: NewSandboxCloser(repo, container), rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, aiProvider: aiProvider, bundleStore: bundleStore}
 }
 
 // WSTokenType is the wsTokenClaims.Type value labproxy requires. labproxy
@@ -825,7 +827,7 @@ func (s *Service) EndSession(ctx context.Context, sessionID, userID string) erro
 	// Lab kinds capture the student's diff for the debrief while the sandbox
 	// is still alive — it is killed right after this.
 	if terminalStatus == SessionStatusCompleted {
-		s.captureStudentDiff(ctx, session)
+		s.closer.Snapshot(ctx, session)
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -1208,6 +1210,8 @@ func (s *Service) requireSessionLive(ctx context.Context, session *LabSession) e
 		}
 		return nil
 	}
+	// Snapshot + kill first (bounded, never blocks the close), then close.
+	s.closer.SnapshotAndKill(ctx, session)
 	closedAs, err := s.repo.CloseSessionAtDeadline(ctx, session.ID, EndReasonTimeLimit)
 	if err != nil {
 		slog.Error("labs.Service.requireSessionLive: close at deadline", "session_id", session.ID, "error", err)
@@ -1215,15 +1219,14 @@ func (s *Service) requireSessionLive(ctx context.Context, session *LabSession) e
 	if err := s.repo.RecordSessionContainerUsage(ctx, session.ID); err != nil {
 		slog.Error("labs.Service.requireSessionLive: record usage", "session_id", session.ID, "error", err)
 	}
-	if session.ContainerID != nil {
-		go s.container.Kill(context.Background(), *session.ContainerID)
-	}
 	// A CompleteOnFinish session whose required tasks passed closes as
-	// 'completed' (repo decides); everything else is 'expired'.
-	session.Status = SessionStatusExpired
+	// 'completed' (repo decides); everything else is 'expired'. The caller
+	// gets a distinct error for each so the client can tell them apart.
 	if closedAs == SessionStatusCompleted {
 		session.Status = SessionStatusCompleted
+		return ErrSessionCompletedAtDeadline
 	}
+	session.Status = SessionStatusExpired
 	return ErrSessionExpired
 }
 

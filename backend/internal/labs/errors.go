@@ -169,3 +169,9 @@ func (e *RateLimitedError) Unwrap() error { return ErrRateLimited }
 // ErrHintNotSupported is returned when a hint is requested for a task graded
 // by a written review (grader=writeup_review): there is nothing to hint at.
 var ErrHintNotSupported = errors.New("labs: hints are not available for this task")
+
+// ErrSessionCompletedAtDeadline is returned instead of ErrSessionExpired when a
+// request notices the hard deadline and the session closed as 'completed'
+// (its required tasks had passed under CompleteOnFinish). The lab succeeded;
+// only the time is up, so clients route to the result/debrief page.
+var ErrSessionCompletedAtDeadline = errors.New("labs: session completed at its deadline")

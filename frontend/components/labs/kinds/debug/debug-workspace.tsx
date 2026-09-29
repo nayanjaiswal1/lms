@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { DebugFinishBar } from "@/components/labs/kinds/debug/debug-finish-bar"
 import { DebugCheckBar } from "@/components/labs/kinds/debug/debug-check-bar"
 import { DebugFailureList } from "@/components/labs/kinds/debug/debug-failure-list"
@@ -45,6 +46,16 @@ function DebugWorkspaceBody({
     onAuthExpiredChange?.(true)
   }
   const goToResult = () => router.push(ROUTES.labSessionResult(session.id))
+  // The deadline hit while a request was in flight: a completed lab is a
+  // success (debrief), an expired one still lands on its result page.
+  const onDeadline = (outcome: "completed" | "expired") => {
+    toast(
+      outcome === "completed"
+        ? "Time's up — your lab was completed."
+        : "Time's up — this lab session expired.",
+    )
+    goToResult()
+  }
   const check = useDebugCheck({
     sessionId: session.id,
     tasks: lab.tasks,
@@ -53,11 +64,12 @@ function DebugWorkspaceBody({
     onScoreChange,
     onAuthExpired: expireAuth,
     onSessionCompleted: goToResult,
+    onDeadline,
   })
   const writeup = useWriteupReview((result) => {
     if (result.passed) check.applyWriteupPass(result.score_added)
     if (result.session_completed) goToResult()
-  })
+  }, onDeadline)
   const hint = useLabHint(session.id, check.completions)
 
   const maxScore = lab.tasks.reduce((sum, t) => sum + t.points, 0)

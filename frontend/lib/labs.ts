@@ -197,6 +197,17 @@ export function isLabSessionAlreadyEnded(message: string): boolean {
   return message.toLowerCase().includes('already ended')
 }
 
+// A request that notices the hard deadline gets 410 when the lab closed as
+// completed (required tasks had passed): the lab succeeded, time ran out.
+export function isLabCompletedAtDeadline(status: number | undefined): boolean {
+  return status === 410
+}
+
+// 409 "This lab session has expired." — the session closed without completing.
+export function isLabSessionExpired(message: string): boolean {
+  return message.toLowerCase().includes('session has expired')
+}
+
 // A session is "live" (occupying a workspace) while running or paused —
 // provisioning/completed/expired/failed/terminated all mean no active UI.
 export function isLabSessionActive(status: SessionStatus): boolean {

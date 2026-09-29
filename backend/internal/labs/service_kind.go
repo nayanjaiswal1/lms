@@ -104,10 +104,7 @@ func (s *Service) loadVariant(ctx context.Context, buildID, variantKey string, w
 	if err != nil {
 		return nil, err
 	}
-	v := &labkinds.VariantView{
-		BuildID: rec.BuildID, VariantKey: rec.VariantKey, BriefMD: rec.BriefMD,
-		ProtectedManifest: rec.ProtectedManifest, AppPorts: rec.AppPorts, IDEPort: rec.IDEPort, Payload: rec.Payload,
-	}
+	v := variantViewOf(rec)
 	if withWorkspace {
 		if v.WorkspaceBundle, err = s.downloadBundle(ctx, rec.WorkspaceKey, rec.WorkspaceSHA); err != nil {
 			return nil, err
@@ -119,6 +116,14 @@ func (s *Service) loadVariant(ctx context.Context, buildID, variantKey string, w
 		}
 	}
 	return v, nil
+}
+
+// variantViewOf projects a stored variant row (no bundle bytes) to the view kinds consume.
+func variantViewOf(rec *VariantRecord) *labkinds.VariantView {
+	return &labkinds.VariantView{
+		BuildID: rec.BuildID, VariantKey: rec.VariantKey, BriefMD: rec.BriefMD,
+		ProtectedManifest: rec.ProtectedManifest, AppPorts: rec.AppPorts, IDEPort: rec.IDEPort, Payload: rec.Payload,
+	}
 }
 
 // sessionVariant loads the variant a kind-lab session is pinned to.

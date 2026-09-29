@@ -24,6 +24,8 @@ const (
 type LabExpireHandler struct {
 	pool          *pgxpool.Pool
 	runtime       labs.ContainerRuntime
+	repo          *labs.Repo
+	closer        *labs.SandboxCloser
 	notifications *notifications.Service
 }
 
@@ -31,7 +33,8 @@ type LabExpireHandler struct {
 // repeated-provisioning-failure admin alert reapStuckProvisioning fires —
 // see that method's own doc comment.
 func NewLabExpireHandler(pool *pgxpool.Pool, runtime labs.ContainerRuntime, notifSvc *notifications.Service) *LabExpireHandler {
-	return &LabExpireHandler{pool: pool, runtime: runtime, notifications: notifSvc}
+	repo := labs.NewRepo(pool)
+	return &LabExpireHandler{pool: pool, runtime: runtime, repo: repo, closer: labs.NewSandboxCloser(repo, runtime), notifications: notifSvc}
 }
 
 // Handle runs three passes every tick, in order:
@@ -90,15 +93,23 @@ func (h *LabExpireHandler) closeSessions(ctx context.Context, sessions []session
 		return nil
 	}
 	ids := make([]string, len(sessions))
+	toClose := make([]*labs.LabSession, 0, len(sessions))
 	for i, s := range sessions {
 		ids[i] = s.id
-		if s.containerID != nil && *s.containerID != "" {
-			if rmErr := h.runtime.Kill(ctx, *s.containerID); rmErr != nil {
-				slog.Error("lab.expire_sessions: kill sandbox failed",
-					"container", *s.containerID, "error", rmErr)
-			}
+		if s.containerID == nil || *s.containerID == "" {
+			continue
 		}
+		// Full row (variant, status) so the closer can snapshot the student's
+		// diff before the kill; a load failure still kills the sandbox.
+		full, err := h.repo.GetSessionByID(ctx, s.id)
+		if err != nil {
+			slog.Error("lab.expire_sessions: load session for close", "session_id", s.id, "error", err)
+			full = &labs.LabSession{ID: s.id, ContainerID: s.containerID}
+		}
+		toClose = append(toClose, full)
 	}
+	// Capture-then-kill with bounded concurrency; never blocks or fails the close.
+	h.closer.SnapshotAndKillAll(ctx, toClose)
 	if _, err := h.pool.Exec(ctx,
 		`UPDATE lab_sessions
 		 SET status = CASE WHEN required_passed_at IS NOT NULL THEN $4 ELSE $2 END,

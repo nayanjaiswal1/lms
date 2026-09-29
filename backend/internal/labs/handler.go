@@ -102,6 +102,9 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusForbidden, "This lab is not available for your organization.")
 	case errors.Is(err, ErrLabProvisioningUnstable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "This lab is temporarily unavailable — it has failed to start repeatedly. Our team has been notified.")
+	case errors.Is(err, ErrSessionCompletedAtDeadline):
+		// 410, distinct from the 409 expired case: the lab was completed, time ran out.
+		httputil.WriteError(w, http.StatusGone, "Time's up — your lab was completed.")
 	case errors.Is(err, ErrSessionExpired):
 		httputil.WriteError(w, http.StatusConflict, "This lab session has expired.")
 	case errors.Is(err, ErrResetFailed):

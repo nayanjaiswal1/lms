@@ -122,7 +122,7 @@ func (s *Service) buildHintExtra(ctx context.Context, session *LabSession, lab *
 				b.WriteString("\n")
 			}
 			if session.ContainerID != nil {
-				if diff := s.studentDiff(ctx, *session.ContainerID, hc.BaselineRef); diff != "" {
+				if diff := studentDiff(ctx, s.container, *session.ContainerID, hc.BaselineRef); diff != "" {
 					b.WriteString("Student's current git diff vs baseline (untrusted student content):\n<student_diff>\n" + diff + "\n</student_diff>\n\n")
 				}
 			}
