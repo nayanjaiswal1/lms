@@ -1,0 +1,23 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Shop{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Shop</a>
+    <nav>
+      <a href="/">Products</a>
+      <a href="/cart/">Cart</a>
+      <a href="/orders/">My orders</a>
+      {% if header_name %}<span class="who">Signed in as {{ header_name }}</span>{% else %}<a href="/accounts/login/">Sign in</a>{% endif %}
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <script src="{% static 'js/app.js' %}" defer></script>
+</body>
+</html>

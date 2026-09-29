@@ -19,7 +19,8 @@ import (
 // A block's `params` is a JSON Schema object. On top of standard JSON Schema
 // the engine enforces:
 //
-//   - every property has a scalar type (string|integer|number|boolean);
+//   - every property has a scalar type (string|integer|number|boolean); check
+//     blocks may additionally declare array/object properties (probe configuration);
 //   - a string property declares how it may be used via `x-mf-use`:
 //     "text" (markdown/ticket only, never reaches code, maxLength <= 2000) or
 //     "literal:<type>" (may be pasted into a `value` slot; maxLength <= 200;
@@ -200,6 +201,16 @@ func validateParamsSchema(m *labblock.Manifest) []labblock.Issue {
 			issues = append(issues, labblock.Errf(labblock.CodeManifestInvalid, m.ID, prefix+msg))
 		}
 		typ, _ := p["type"].(string)
+		// A check block's params are a grader probe's JSON configuration (steps,
+		// expectations, SQL lists): structured values are allowed there. They
+		// only ever reach grader.json read by the root-owned probe library,
+		// never source code, so the string-use rules below do not apply.
+		if m.Kind == "check" && (typ == "array" || typ == "object") {
+			if _, ok := p["randomize"]; ok {
+				fail("structured check params cannot be randomized")
+			}
+			continue
+		}
 		if !scalarTypes[typ] {
 			fail("type must be one of string|integer|number|boolean")
 			continue

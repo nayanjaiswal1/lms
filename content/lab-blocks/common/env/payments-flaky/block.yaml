@@ -1,0 +1,17 @@
+kind: env
+id: env.payments-flaky
+version: 1.0.0
+stack: any
+title: Payments provider is flaky
+summary: Starts the payments stub answering 500 to about half of the requests after it has already recorded the charge (a lost response).
+category: env
+skills:
+  - resilience
+requires:
+  - svc:payments-stub
+provides:
+  - env:payments-flaky
+env:
+  supervisor:
+    - PAYMENTS_STUB_ERROR_RATE=0.5
+    - PAYMENTS_STUB_ERROR_MODE=after

@@ -1,0 +1,39 @@
+kind: data
+id: seed.dirty
+version: 1.0.0
+stack: django
+title: Dirty production-like dataset
+summary: The small dataset plus NULLs, duplicate names, legacy enum values, duplicate active subscriptions (when the schema allows them) and paid orders without invoices.
+category: data
+skills:
+  - data
+  - migrations
+params:
+  type: object
+  properties:
+    dirty_percent:
+      type: integer
+      minimum: 5
+      maximum: 45
+      default: 20
+      description: How much of each dirtied column is affected.
+    customers:
+      type: integer
+      minimum: 20
+      maximum: 500
+      default: 60
+    products:
+      type: integer
+      minimum: 20
+      maximum: 1000
+      default: 120
+    orders:
+      type: integer
+      minimum: 50
+      maximum: 5000
+      default: 400
+budget:
+  setup_seconds: 3
+data:
+  generator: generate.py
+  rows: 1500

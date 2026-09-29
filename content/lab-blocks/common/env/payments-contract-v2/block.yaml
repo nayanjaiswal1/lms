@@ -1,0 +1,16 @@
+kind: env
+id: env.payments-contract-v2
+version: 1.0.0
+stack: any
+title: Payments provider ships contract v2
+summary: Starts the payments stub with its v2 response shape (status renamed to state, amount_cents renamed to amount).
+category: env
+skills:
+  - integrations
+requires:
+  - svc:payments-stub
+provides:
+  - env:payments-contract-v2
+env:
+  supervisor:
+    - PAYMENTS_STUB_CONTRACT_VERSION=2

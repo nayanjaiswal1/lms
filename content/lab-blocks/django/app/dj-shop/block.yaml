@@ -1,0 +1,392 @@
+kind: app
+id: dj.shop
+version: 1.0.0
+stack: django
+title: Shop (Django e-commerce)
+summary: Catalog, carts, orders with invoices, a payments client, subscriptions, reviews, revenue reports, webhooks and a Celery worker on Django 5.1 + DRF + PostgreSQL.
+category: app
+skills:
+- django
+- postgres
+- celery
+- drf
+requires:
+- svc:payments-stub
+provides:
+- cap:celery
+- cap:postgres
+- cap:redis
+- cap:tz-reports
+- cap:prod-mode
+budget:
+  setup_seconds: 6
+  workspace_bytes: 260000
+  grader_bytes: 120000
+app:
+  language: python
+  slots:
+  - name: catalog.api.queryset
+    type: region
+    description: Product list API queryset (select_related category).
+  - name: catalog.cache.top_products
+    type: region
+    description: 'Cached best-seller lookup: cache read, single-flight lock, recompute, write-back.'
+  - name: catalog.importer.row
+    type: region
+    description: 'Per-row import guard: atomic row import, bad rows are logged and reported.'
+  - name: catalog.model.managers
+    type: region
+    description: Product managers; the first one is the default and also drives reverse relations like category.products.
+  - name: catalog.model.price
+    type: region
+    description: Product.price field definition (money).
+  - name: catalog.product.name_max_length
+    type: value
+    default: '120'
+    literal: python_int
+    description: Product.name max_length (migration 0001 has 120).
+  - name: catalog.search.query
+    type: region
+    description: Product search SQL (raw query with bound parameters).
+  - name: core.clock.now
+    type: region
+    description: The single source of current time used by model defaults.
+  - name: core.context.storage
+    type: region
+    description: Per-request context storage for the current customer (ContextVar).
+  - name: core.money.quantize
+    type: region
+    description: Rounding of money to whole cents.
+  - name: core.timeutils.localize
+    type: region
+    description: Attach the business timezone to a naive datetime.
+  - name: customers.cache.invalidate
+    type: region
+    description: Invalidation of the cached customer profile.
+  - name: customers.services.register
+    type: region
+    description: 'Signup: create the customer, the unique email constraint is the arbiter.'
+  - name: customers.views.session_login
+    type: region
+    description: Session login call for the cookie-session login endpoint.
+  - name: customers.views.summary_cache
+    type: region
+    description: Decorators of the per-user account summary view (Vary handling).
+  - name: gunicorn.threads
+    type: value
+    default: '4'
+    literal: python_int
+    description: gunicorn threads per worker (production mode).
+  - name: gunicorn.workers
+    type: value
+    default: '2'
+    literal: python_int
+    description: gunicorn worker processes (production mode).
+  - name: inventory.services.reserve
+    type: region
+    description: 'Stock reservation: atomic conditional decrement.'
+  - name: inventory.services.transfer_locks
+    type: region
+    description: Row locking for warehouse transfers (ordered locks).
+  - name: inventory.views.availability
+    type: region
+    description: ORM access inside the async availability view.
+  - name: notifications.tasks.send_once
+    type: region
+    description: At-most-once guard around sending an email (EmailLog unique row).
+  - name: orders.admin.changelist
+    type: region
+    description: Order admin changelist tuning (list_display, list_select_related, counts).
+  - name: orders.api.queryset
+    type: region
+    description: My-orders API queryset (owner filter, select/prefetch).
+  - name: orders.api.staff_queryset
+    type: region
+    description: Staff order list queryset (select/prefetch); status filter is applied after it.
+  - name: orders.invoices.queryset
+    type: region
+    description: Invoice API queryset scoped to the signed-in customer.
+  - name: orders.migration.constraints
+    type: region
+    description: Order status CHECK constraint operation in orders 0001 (pairs with orders.model.constraints).
+  - name: orders.migration.indexes
+    type: region
+    description: Composite status/created index operation in orders 0001 (pairs with orders.model.indexes).
+  - name: orders.model.constraints
+    type: region
+    description: Order Meta.constraints (status CHECK).
+  - name: orders.model.customer_fk
+    type: region
+    description: Order.customer foreign key (on_delete, related_name).
+  - name: orders.model.handler_fk
+    type: region
+    description: Order.handled_by foreign key (support agent).
+  - name: orders.model.indexes
+    type: region
+    description: Order Meta.indexes (composite status + created_at).
+  - name: orders.model.item_prices
+    type: region
+    description: OrderItem unit_price and line_total fields.
+  - name: orders.model.status_choices
+    type: region
+    description: Order.Status enumeration.
+  - name: orders.model.totals
+    type: region
+    description: Order subtotal, tax and total fields.
+  - name: orders.pricing.line_total
+    type: region
+    description: Line total calculation.
+  - name: orders.pricing.tax
+    type: region
+    description: Sales tax calculation.
+  - name: orders.serializers.items_count
+    type: region
+    description: Order serializer items_count method body.
+  - name: orders.services.notify_enqueue
+    type: region
+    description: Enqueueing the confirmation email task after placing an order.
+  - name: orders.services.place_order.atomic
+    type: region
+    description: Transaction decorator of place_order.
+  - name: orders.services.shipped_callbacks
+    type: region
+    description: Per-order callback registered while shipping orders in a loop.
+  - name: orders.signals.order_saved
+    type: region
+    description: 'post_save handler for orders: audit trail and shipped email.'
+  - name: orders.views.invoice_lookup
+    type: region
+    description: Invoice page lookup scoped to the signed-in customer.
+  - name: orders.views.list_queryset
+    type: region
+    description: Order list page queryset (select/prefetch for the template).
+  - name: payments.client.parse
+    type: region
+    description: Parsing of the provider charge response.
+  - name: payments.client.request
+    type: region
+    description: The HTTP call to the provider (headers, timeout).
+  - name: payments.client.retry
+    type: region
+    description: Retry policy for transient provider failures.
+  - name: reports.daily.bucket
+    type: region
+    description: Expression that buckets an order into a business day.
+  - name: reports.dashboard.recent
+    type: region
+    description: Recent-orders section of the staff dashboard (evaluation of the queryset).
+  - name: reports.revenue.product_stats
+    type: region
+    description: Per-product units, revenue and review counts annotations.
+  - name: reviews.api.permissions
+    type: region
+    description: Permission classes of the review detail endpoint.
+  - name: reviews.model.lifecycle
+    type: region
+    description: Review model methods (counter maintenance alternative lives here).
+  - name: reviews.permissions.object_check
+    type: region
+    description: Object-level permission rule for changing a review.
+  - name: reviews.signals.counters
+    type: region
+    description: Signal handlers keeping Product.review_count and rating_total in sync.
+  - name: settings.cache
+    type: region
+    description: CACHES configuration.
+  - name: settings.database
+    type: region
+    description: DATABASES from DATABASE_URL (fail fast when missing).
+  - name: settings.database.connection
+    type: region
+    description: Connection lifetime and health-check settings.
+  - name: settings.middleware.auth
+    type: region
+    description: Authentication middleware and the middleware that reads request.user.
+  - name: settings.middleware.static
+    type: region
+    description: Static file serving middleware (whitenoise).
+  - name: settings.prod.proxy
+    type: region
+    description: Reverse-proxy and CSRF origin settings of the production settings module.
+  - name: settings.rest_framework
+    type: region
+    description: Django REST framework defaults (auth, permissions, pagination).
+  - name: settings.static
+    type: region
+    description: Static files configuration (URL, root, storage backend).
+  - name: settings.time_zone
+    type: value
+    default: '"America/New_York"'
+    literal: python_str
+    description: Business timezone (TIME_ZONE).
+  - name: settings.use_tz
+    type: value
+    default: 'True'
+    literal: python_bool
+    description: USE_TZ flag.
+  - name: subscriptions.migration.constraints
+    type: region
+    description: Unique active-subscription constraint operation in subscriptions 0001 (pairs with the model slot).
+  - name: subscriptions.model.constraints
+    type: region
+    description: Subscription Meta.constraints (one active subscription per customer and plan).
+  - name: subscriptions.service.subscribe
+    type: region
+    description: 'Subscribe: create or return the existing active subscription.'
+  - name: templates.product.assets
+    type: region
+    description: Extra stylesheet links in the product detail template head.
+  - name: webhooks.signature.verify
+    type: region
+    description: Signature verification of incoming webhook requests.
+  - name: migrations.core
+    type: migration
+    dir: core/migrations
+    scheme: django
+    description: Insert the next migration of the core app (numbered and chained to the current head).
+  - name: migrations.customers
+    type: migration
+    dir: customers/migrations
+    scheme: django
+    description: Insert the next migration of the customers app (numbered and chained to the current head).
+  - name: migrations.catalog
+    type: migration
+    dir: catalog/migrations
+    scheme: django
+    description: Insert the next migration of the catalog app (numbered and chained to the current head).
+  - name: migrations.inventory
+    type: migration
+    dir: inventory/migrations
+    scheme: django
+    description: Insert the next migration of the inventory app (numbered and chained to the current head).
+  - name: migrations.cart
+    type: migration
+    dir: cart/migrations
+    scheme: django
+    description: Insert the next migration of the cart app (numbered and chained to the current head).
+  - name: migrations.notifications
+    type: migration
+    dir: notifications/migrations
+    scheme: django
+    description: Insert the next migration of the notifications app (numbered and chained to the current head).
+  - name: migrations.orders
+    type: migration
+    dir: orders/migrations
+    scheme: django
+    description: Insert the next migration of the orders app (numbered and chained to the current head).
+  - name: migrations.payments
+    type: migration
+    dir: payments/migrations
+    scheme: django
+    description: Insert the next migration of the payments app (numbered and chained to the current head).
+  - name: migrations.subscriptions
+    type: migration
+    dir: subscriptions/migrations
+    scheme: django
+    description: Insert the next migration of the subscriptions app (numbered and chained to the current head).
+  - name: migrations.reviews
+    type: migration
+    dir: reviews/migrations
+    scheme: django
+    description: Insert the next migration of the reviews app (numbered and chained to the current head).
+  history:
+  - message: 'inventory: track stock per warehouse with atomic reserve and transfer'
+    persona: Marcus Webb <marcus@shop.example.com>
+    feature: inventory
+    paths:
+    - inventory
+  - message: 'cart: persistent per-customer cart with stock checks'
+    persona: Priya Nair <priya@shop.example.com>
+    feature: cart
+    paths:
+    - cart
+  - message: 'notifications: Celery tasks for order emails and the low-stock digest'
+    persona: Sam Okafor <sam@shop.example.com>
+    feature: notifications
+    paths:
+    - notifications
+  - message: 'checkout: place orders, charge through the payments API and issue invoices'
+    persona: Priya Nair <priya@shop.example.com>
+    feature: checkout
+    paths:
+    - checkout
+  - message: 'subscriptions: plans and one active subscription per plan'
+    persona: Elena Petrov <elena@shop.example.com>
+    feature: subscriptions
+    paths:
+    - subscriptions
+  - message: 'reviews: product reviews with denormalised rating counters'
+    persona: Marcus Webb <marcus@shop.example.com>
+    feature: reviews
+    paths:
+    - reviews
+  - message: 'reports: daily revenue, product stats and the staff dashboard'
+    persona: Elena Petrov <elena@shop.example.com>
+    feature: reports
+    paths:
+    - reports
+  - message: 'webhooks: signed payment events for confirmations and refunds'
+    persona: Sam Okafor <sam@shop.example.com>
+    feature: webhooks
+    paths:
+    - webhooks
+  - message: 'catalog: CSV product import with a per-row error report'
+    persona: Priya Nair <priya@shop.example.com>
+    feature: catalog-import
+    paths:
+    - catalog-import
+  - message: 'customers: cached account summary endpoint'
+    persona: Marcus Webb <marcus@shop.example.com>
+    feature: account
+    paths:
+    - account
+  noise:
+  - message: 'docs: describe the project layout in the README'
+    persona: Elena Petrov <elena@shop.example.com>
+    paths:
+    - docs-readme
+  - message: 'static: give product cards more breathing room'
+    persona: Sam Okafor <sam@shop.example.com>
+    paths:
+    - css-tweaks
+  - message: 'deps: group requirements by purpose'
+    persona: Marcus Webb <marcus@shop.example.com>
+    paths:
+    - deps-grouping
+  - message: 'chore: ignore log files and virtualenvs'
+    persona: Priya Nair <priya@shop.example.com>
+    paths:
+    - gitignore-logs
+  services:
+  - postgres
+  - redis
+  ports:
+  - 8000
+  protected:
+  - pytest.ini
+  - core/testing.py
+  - tests/conftest.py
+  - tests/test_smoke.py
+  features:
+  - inventory
+  - cart
+  - notifications
+  - checkout
+  - subscriptions
+  - reviews
+  - reports
+  - webhooks
+  - catalog-import
+  - account
+  - order-export
+  - product-feed
+  - stock-alerts
+  - order-timeline
+  - account-overview
+  setup:
+  - bash scripts/bootstrap.sh
+  readiness_path: /healthz/
+  test_globs:
+  - tests/*
+  - '*/test_*.py'
+  - test_*.py

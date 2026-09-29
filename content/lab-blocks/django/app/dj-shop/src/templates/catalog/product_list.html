@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Products{% endblock %}
+{% block content %}
+<h1>Products</h1>
+<ul class="chips">
+  {% for c in categories %}<li><a href="/categories/{{ c.slug }}/">{{ c.name }}</a></li>{% endfor %}
+</ul>
+<ul class="grid">
+  {% for p in page %}
+  <li class="card"><a href="/products/{{ p.slug }}/">{{ p.name }}</a><span class="price">${{ p.price }}</span><small>{{ p.category.name }}</small></li>
+  {% empty %}<li>No products yet.</li>{% endfor %}
+</ul>
+{% if page.has_other_pages %}
+<p class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
+  Page {{ page.number }} of {{ page.paginator.num_pages }}
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
+</p>
+{% endif %}
+{% endblock %}

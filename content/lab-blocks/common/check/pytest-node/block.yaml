@@ -1,0 +1,33 @@
+kind: check
+id: check.pytest-node
+version: 1.0.0
+stack: any
+title: Hidden behavior tests
+summary: 'Hidden-test probe: runs pytest nodes shipped in the grader bundle with the hardened runner (isolated interpreter, no conftest).'
+category: check
+skills:
+- debugging
+- verification
+params:
+  type: object
+  properties:
+    paths:
+      type: array
+      description: Files or nodes relative to the grader bundle, e.g. tests/symptom/test_money.py::test_totals.
+      items:
+        type: string
+    args:
+      type: array
+      description: Extra pytest args, e.g. [-k, money].
+      items:
+        type: string
+    timeout:
+      type: integer
+      description: Seconds (default 60).
+      minimum: 5
+      maximum: 85
+  required:
+  - paths
+check:
+  probe: T
+  failure_message: A hidden test for this behavior fails.

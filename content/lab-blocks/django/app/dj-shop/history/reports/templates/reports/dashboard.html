@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Store dashboard</h1>
+<p>Revenue to date: <strong>${{ revenue_total }}</strong> across {{ paid_orders }} orders.</p>
+<h2>Orders by status</h2>
+<ul>{% for status, n in by_status.items %}<li>{{ status }}: {{ n }}</li>{% endfor %}</ul>
+<h2>Last 30 days ({{ recent_count }} orders)</h2>
+{% if has_recent %}
+<table>
+  <thead><tr><th>#</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for order in recent_orders %}
+    <tr><td>{{ order.pk }}</td><td>{{ order.customer.email }}</td><td>${{ order.total }}</td><td>{{ order.status_label }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p>No orders in the last 30 days.</p>{% endif %}
+{% endblock %}

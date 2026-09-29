@@ -1,0 +1,16 @@
+kind: stub
+id: stub.payments
+version: 1.0.0
+stack: any
+title: Payments provider stub
+summary: HTTP stand-in for the card payments provider with latency, error-rate and contract-version faults, idempotency keys and a charge counter mirrored into the database.
+category: stub
+skills:
+  - resilience
+  - integrations
+budget:
+  setup_seconds: 0
+stub:
+  process: payments-stub
+  port: 9101
+  fault_api: true

@@ -1,0 +1,12 @@
+:root { --ink: #1f2933; --accent: #0b6e4f; --line: #d9e2ec; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: var(--ink); }
+.site-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--line); }
+.site-header nav a, .site-header .who { margin-left: 1rem; }
+.brand { font-weight: 700; color: var(--accent); text-decoration: none; }
+main { max-width: 60rem; margin: 1.5rem auto; padding: 0 1rem; }
+.grid, .chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 0.75rem; min-width: 12rem; display: flex; flex-direction: column; }
+.price { font-weight: 600; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border-bottom: 1px solid var(--line); padding: 0.4rem 0.6rem; text-align: left; }

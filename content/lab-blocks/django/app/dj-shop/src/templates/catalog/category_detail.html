@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ category.name }}{% endblock %}
+{% block content %}
+<h1>{{ category.name }}</h1>
+<ul class="grid">
+  {% for p in products %}
+  <li class="card"><a href="/products/{{ p.slug }}/">{{ p.name }}</a><span class="price">${{ p.price }}</span></li>
+  {% empty %}<li>Nothing in this category.</li>{% endfor %}
+</ul>
+{% endblock %}
