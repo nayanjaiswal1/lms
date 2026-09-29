@@ -10,6 +10,7 @@ import type {
   LabSubmitResult,
   HintResult,
 } from "@/lib/labs"
+import type { WriteupReviewResult } from "@/lib/labs/kinds/debug"
 
 export async function startLabSessionAction(
   labId: string,
@@ -88,4 +89,23 @@ export async function submitLabAction(
   sessionId: string,
 ): Promise<ActionResult<LabSubmitResult>> {
   return apiAction<LabSubmitResult>("POST", `/api/labs/sessions/${sessionId}/submit`)
+}
+
+// Reads INCIDENT.md from the student's workspace server-side and scores it
+// against the lab's rubric (429 after 3 reviews, 503 when the AI is down).
+export async function reviewLabWriteupAction(
+  sessionId: string,
+): Promise<ActionResult<WriteupReviewResult>> {
+  return apiAction<WriteupReviewResult>(
+    "POST",
+    `/api/labs/sessions/${sessionId}/writeup-review`,
+  )
+}
+
+// Authoritative task completions + score, used by kind workspaces after
+// operations (Check, write-up review) whose response doesn't carry them all.
+export async function getLabSessionAction(
+  sessionId: string,
+): Promise<ActionResult<GetSessionResponse>> {
+  return apiAction<GetSessionResponse>("GET", `/api/labs/sessions/${sessionId}`)
 }

@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle, Clock, Trophy } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Breadcrumb } from "@/components/shared/breadcrumb"
+import { LAB_KIND_DEBRIEFS } from "@/components/labs/kinds/debrief-registry"
 import { ClearActiveLabSession } from "@/components/labs/clear-active-lab-session"
 import { FeedbackPrompt } from "@/components/feedback/feedback-prompt"
 import { apiGet } from "@/lib/server/api"
@@ -78,6 +79,9 @@ export default async function LabResultPage({ params }: PageProps) {
   }).length
   const requiredTotal = lab.tasks.filter((t) => !t.is_optional).length
   const didPass = requiredPassed === requiredTotal && requiredTotal > 0
+
+  // Kind labs (debug, ...) add a debrief once the session is completed.
+  const Debrief = session.status === "completed" ? LAB_KIND_DEBRIEFS[lab.lab_type] : undefined
 
   const myFeedback = await getMyFeedback("lab", session.lab_id).catch(() => null)
 
@@ -189,6 +193,8 @@ export default async function LabResultPage({ params }: PageProps) {
           })}
         </section>
       )}
+
+      {Debrief && <Debrief sessionId={sessionId} />}
     </main>
   )
 }

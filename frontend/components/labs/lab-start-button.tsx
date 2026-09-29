@@ -12,7 +12,8 @@ import ROUTES from "@/lib/routes"
 import { isLabSessionAlreadyEnded, type Lab } from "@/lib/labs"
 
 interface LabStartButtonProps {
-  lab: Lab
+  /** Only what starting needs — catalog rows have no tasks/description. */
+  lab: Pick<Lab, "id" | "title" | "lab_type">
   className?: string
   label?: string
 }

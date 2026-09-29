@@ -10,6 +10,7 @@ import {
   Users,
   User,
   GraduationCap,
+  Bug,
   Shield,
   UserCheck,
   Ticket,
@@ -127,6 +128,11 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     feature:             FEATURES.PRACTICE_AI,
     requiredPermission:  PERMISSIONS.PRACTICE.USE,
     mode:                "badge",
+  },
+  labs: {
+    label: "Debug Labs",
+    href:  ROUTES.LABS_CATALOG,
+    icon:  Bug,
   },
   roadmap: {
     label: "Roadmap",
@@ -393,6 +399,7 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
       ALL_NAV_ITEMS.courses,
       ALL_NAV_ITEMS.roadmap,
       ALL_NAV_ITEMS.interview_prep,
+      ALL_NAV_ITEMS.labs,
       ALL_NAV_ITEMS.assessments,
       ALL_NAV_ITEMS.projects,
     ],

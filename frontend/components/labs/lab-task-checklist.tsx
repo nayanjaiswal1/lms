@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { CheckCircle2, Lightbulb, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,11 @@ interface LabTaskChecklistProps {
    *  provided. */
   hintsUsedByTask?: Record<string, number>
   maxHints?: number
+  /** false = no per-task "Check my progress" button (kinds that grade every
+   *  task in one batch Check, like debug labs). Default true. */
+  showTaskCheck?: boolean
+  /** Extra content under a task's description (e.g. last Check's failures). */
+  renderTaskDetail?: (task: LabTask) => ReactNode
 }
 
 // Google Cloud Skills Boost style checklist: every task is visible at once
@@ -49,6 +55,8 @@ export function LabTaskChecklist({
   onHint,
   hintsUsedByTask,
   maxHints = 3,
+  showTaskCheck = true,
+  renderTaskDetail,
 }: LabTaskChecklistProps) {
   const completionMap = new Map(completions.map((c) => [c.task_id, c]))
   const passedCount = completions.filter((c) => c.status === "passed").length
@@ -92,6 +100,7 @@ export function LabTaskChecklist({
                 )}
               </div>
               <p className="text-xs text-muted-foreground">{task.description}</p>
+              {!isPassed && renderTaskDetail?.(task)}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {isPassed ? (
@@ -114,23 +123,25 @@ export function LabTaskChecklist({
                       Hint ({hintsUsedByTask?.[task.task_id] ?? 0}/{maxHints})
                     </Button>
                   )}
-                  <Button
-                    aria-label={isChecking ? "Checking progress…" : "Check my progress"}
-                    className="gap-1.5"
-                    disabled={isVerifying}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCheck(task.task_id)}
-                  >
-                    {isChecking ? (
-                      <>
-                        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-                        Checking…
-                      </>
-                    ) : (
-                      "Check my progress"
-                    )}
-                  </Button>
+                  {showTaskCheck && (
+                    <Button
+                      aria-label={isChecking ? "Checking progress…" : "Check my progress"}
+                      className="gap-1.5"
+                      disabled={isVerifying}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCheck(task.task_id)}
+                    >
+                      {isChecking ? (
+                        <>
+                          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                          Checking…
+                        </>
+                      ) : (
+                        "Check my progress"
+                      )}
+                    </Button>
+                  )}
                 </>
               )}
             </div>

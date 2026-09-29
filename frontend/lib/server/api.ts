@@ -11,6 +11,9 @@ export interface ActionResult<T = undefined> {
   // Set on 409 when the backend returns the current row alongside the error
   // (optimistic-lock conflicts), so the UI can show "yours vs current".
   conflict?: T;
+  // HTTP status of a failed backend response, so callers can branch on
+  // 429/503 without parsing the message (absent on success/network errors).
+  status?: number;
 }
 
 /**
@@ -239,7 +242,7 @@ export async function apiAction<T = undefined>(
     });
     if (res.status === 429) {
       const wait = retryAfterSeconds(res);
-      return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.` };
+      return { error: `Too many requests. Please wait ${wait} second${wait === 1 ? "" : "s"} before trying again.`, status: 429 };
     }
     const json = await res.json().catch(() => ({})) as { data?: T; error?: string; fields?: Record<string, string> };
     if (!res.ok) {
@@ -247,6 +250,7 @@ export async function apiAction<T = undefined>(
         error: actionErrorMessage(json, "Request failed."),
         fieldErrors: json.fields,
         conflict: res.status === 409 ? json.data : undefined,
+        status: res.status,
       };
     }
     return { ok: true, data: json.data };

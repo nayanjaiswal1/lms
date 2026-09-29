@@ -25,12 +25,19 @@ import {
 import { endLabSessionAction, resetLabSessionAction } from "@/app/(app)/labs/[labId]/actions"
 import { useLabNavigationGuard } from "@/hooks/use-lab-navigation-guard"
 import ROUTES from "@/lib/routes"
-import { isLabSessionAlreadyEnded, type Lab, type LabSession, type TaskCompletion } from "@/lib/labs"
+import {
+  isLabSessionAlreadyEnded,
+  type Lab,
+  type LabKindBlock,
+  type LabSession,
+  type TaskCompletion,
+} from "@/lib/labs"
 
 interface LabEnvironmentProps {
   session: LabSession
   lab: Lab
   initialCompletions: TaskCompletion[]
+  kindBlock?: LabKindBlock
 }
 
 interface TopBarProps {
@@ -168,7 +175,7 @@ function LabEnvironmentTopBar({
   )
 }
 
-export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironmentProps) {
+export function LabEnvironment({ session, lab, initialCompletions, kindBlock }: LabEnvironmentProps) {
   const [score, setScore] = useState(session.score)
   const [isAuthExpired, setIsAuthExpired] = useState(false)
   const [resetCount, setResetCount] = useState(session.reset_count)
@@ -220,6 +227,7 @@ export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironm
         return
       }
       setResetCount(res.data.session.reset_count)
+      setScore(0)
       setResetNonce((n) => n + 1)
     })
   }
@@ -277,6 +285,7 @@ export function LabEnvironment({ session, lab, initialCompletions }: LabEnvironm
 
       <LabWorkspaceContent
         initialCompletions={initialCompletions}
+        kindBlock={kindBlock}
         lab={lab}
         orientation={layoutOrientation}
         resetNonce={resetNonce}

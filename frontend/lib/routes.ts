@@ -240,6 +240,7 @@ const ROUTES = {
 
   // Labs
   LABS:                     "/labs",
+  LABS_CATALOG:             "/labs/catalog",
   lab:                      (labId: string)                     => `/labs/${labId}`,
   labSession:               (sessionId: string)                 => `/labs/sessions/${sessionId}`,
   labSessionResult:         (sessionId: string)                 => `/labs/sessions/${sessionId}/result`,

@@ -1,4 +1,4 @@
-export type LabType = 'terminal' | 'code' | 'playground' | 'guided' | 'sandbox'
+export type LabType = 'terminal' | 'code' | 'playground' | 'guided' | 'sandbox' | 'debug'
 
 export type LabWorkspaceLayout = 'split' | 'console'
 
@@ -130,11 +130,44 @@ export interface LabSession {
   completed_at: string | null
   last_active_at: string
   end_reason: SessionEndReason | null
+  // Set only for composed lab kinds (e.g. debug) once a scenario variant is picked.
+  variant_key?: string | null
 }
 
-export interface GetSessionResponse {
+// Student-safe workspace block of a "debug" lab (GET /sessions/:id) — never
+// the root cause, fix or rubric.
+export interface DebugSessionBlock {
+  brief: string
+  ide_port: number
+  app_ports: number[]
+}
+
+// Kind-specific blocks GET /sessions/:id returns, keyed by lab_type. A new
+// lab kind adds one optional entry here.
+export interface LabKindBlocks {
+  debug?: DebugSessionBlock
+}
+
+export type LabKindBlock = NonNullable<LabKindBlocks[keyof LabKindBlocks]>
+
+export type GetSessionResponse = {
   session: LabSession
   task_completions: TaskCompletion[]
+} & LabKindBlocks
+
+// One catalog row (GET /api/labs/catalog) — the caller's best status included.
+export type LabCatalogStatus = 'not_started' | 'in_progress' | 'completed'
+
+export interface LabCatalogEntry {
+  lab_id: string
+  title: string
+  lab_type: LabType
+  stack: string
+  category: string
+  difficulty: string
+  skills: string[]
+  max_duration: number
+  status: LabCatalogStatus
 }
 
 export interface ActiveLabSession {
