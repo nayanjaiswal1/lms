@@ -1,7 +1,6 @@
 package labs
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mindforge/backend/internal/labkinds"
+	"github.com/mindforge/backend/internal/storage"
 )
 
 // ─── Lab-kind runtime (backend/internal/labkinds) ────────────────────────────
@@ -58,10 +58,10 @@ func (s *Service) choosePinnedVariant(ctx context.Context, lab *LabDefinition, u
 }
 
 // BundleKeyPrefix is the private-store prefix every lab bundle lives under.
-const BundleKeyPrefix = "lab-bundles/"
+const BundleKeyPrefix = storage.BundleKeyPrefix
 
 // BundleKey is the content-addressed private-store key for a bundle.
-func BundleKey(sha string) string { return BundleKeyPrefix + sha + ".tar.gz" }
+func BundleKey(sha string) string { return storage.BundleKey(sha) }
 
 // StoreBundle uploads data to the private store under its content-addressed
 // key and returns (key, sha256). Immutable and idempotent: identical bytes
@@ -71,10 +71,8 @@ func (s *Service) StoreBundle(ctx context.Context, data []byte) (key, sha string
 	if s.bundleStore == nil {
 		return "", "", ErrBundleStoreUnavailable
 	}
-	sum := sha256.Sum256(data)
-	sha = hex.EncodeToString(sum[:])
-	key = BundleKey(sha)
-	if err := s.bundleStore.Upload(ctx, key, "application/gzip", bytes.NewReader(data), int64(len(data))); err != nil {
+	key, sha, err = storage.PutBundle(ctx, s.bundleStore, data)
+	if err != nil {
 		return "", "", fmt.Errorf("labs.Service.StoreBundle: %w", err)
 	}
 	return key, sha, nil

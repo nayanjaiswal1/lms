@@ -97,3 +97,11 @@ func WriteDomainError(w http.ResponseWriter, err error, specs map[error]ErrSpec,
 func WriteErrorWithData(w http.ResponseWriter, status int, message string, data any) {
 	writeEnvelope(w, status, map[string]any{"error": message, "data": data})
 }
+
+// WriteErrorCodeWithData writes an error envelope carrying both a stable
+// machine-readable code and a payload: {"error": message, "code": code,
+// "data": data}. Used where the client needs structured detail with the
+// failure (e.g. a recipe's validation issues).
+func WriteErrorCodeWithData(w http.ResponseWriter, status int, code, message string, data any) {
+	writeEnvelope(w, status, map[string]any{"error": message, "code": code, "data": data})
+}

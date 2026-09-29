@@ -201,6 +201,8 @@ The count below drifts every time a permission is added — treat it as a snapsh
 | payments | `payments.manage_coupons` | Manage Coupons |
 | payments | `payments.manage_refunds` | Issue Refunds |
 | calendar | `calendar.events.manage` | Manage Calendar Events |
+| labs | `labauthor.compose` | Compose Lab Recipes (block library, recipes, validation, AI ticket drafts; instructor + tenant_admin, migration 047) |
+| labs | `labauthor.manage_blocks` | Manage Lab Text Blocks (org-owned ticket/hints/rubric/preset blocks; instructor + tenant_admin, migration 047) |
 | projects | `projects.view` | View Projects |
 | projects | `projects.manage` | Manage Projects |
 | support | `support.manage` | Manage Support Tickets |

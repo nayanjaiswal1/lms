@@ -24,7 +24,11 @@
 // itself changes.
 package labkinds
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/mindforge/backend/internal/labblock"
+)
 
 // TaskTemplate is one task a lab kind's build publishes into lab_tasks/
 // lab_task_version_items.
@@ -129,6 +133,18 @@ type Kind interface {
 	// VerifyMatrix returns the build-verification runs the (later-phase)
 	// builder pipeline must execute before a build can be marked verified.
 	VerifyMatrix() []VerifyRun
+	// ValidateRecipe runs this kind's composition rules over one concrete
+	// recipe (pools already collapsed to a single member each, params
+	// resolved). The engine (internal/labauthor) has already applied the
+	// generic rules - stack, capability satisfaction, conflicts, budgets,
+	// org scoping, parameter schemas - so implementations add only what is
+	// specific to the kind (for debug: fault slot exclusivity, chains,
+	// check/carrier coverage, value-slot literal safety). pv validates
+	// parameter maps against a block's JSON Schema.
+	ValidateRecipe(r *labblock.Recipe, pv labblock.ParamValidator) []labblock.Issue
+	// DeriveDifficulty returns the difficulty (one of labblock.Difficulties)
+	// this kind derives for the recipe, or "" if it cannot derive one.
+	DeriveDifficulty(r *labblock.Recipe) string
 	// SessionPayload builds the student-safe workspace block for GET
 	// /api/labs/sessions/{id} (e.g. debug's "debug": {brief, ide_port,
 	// app_ports}) from a variant. Never includes root cause/fix/rubric/

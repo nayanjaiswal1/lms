@@ -116,6 +116,10 @@ type Config struct {
 	// request speed.
 	CouponRateLimitMax    int
 	CouponRateLimitWindow time.Duration
+	// Lab-authoring AI ticket drafts per user per window. Only cache misses
+	// (real LLM calls) count; a repeated (recipe, persona) draft is free.
+	LabAuthorDraftRateMax    int
+	LabAuthorDraftRateWindow time.Duration
 
 	// Code execution (coding-question auto-grading).
 	// Piston takes priority when both are set; Judge0 is the fallback.
@@ -379,6 +383,8 @@ func Load() *Config {
 	cfg.AuthRateLimitWindow = parseDuration("AUTH_RATE_LIMIT_WINDOW", "1m")
 	cfg.CouponRateLimitMax = getEnvInt("COUPON_RATE_LIMIT_MAX", 10)
 	cfg.CouponRateLimitWindow = parseDuration("COUPON_RATE_LIMIT_WINDOW", "1m")
+	cfg.LabAuthorDraftRateMax = getEnvInt("LABAUTHOR_DRAFT_RATE_MAX", 10)
+	cfg.LabAuthorDraftRateWindow = parseDuration("LABAUTHOR_DRAFT_RATE_WINDOW", "1h")
 
 	// Defaults to the RFC 1918 / loopback ranges, which covers the normal
 	// deployment where the Next.js server and an ingress proxy share a private
@@ -402,18 +408,7 @@ func Load() *Config {
 	cfg.LabsNestedDockerRuntimeClass = os.Getenv("LABS_NESTED_DOCKER_RUNTIME_CLASS")
 	cfg.LabsImageRegistry = os.Getenv("LABS_IMAGE_REGISTRY")
 
-	cfg.MinioEndpoint = getEnvDefault("MINIO_ENDPOINT", "localhost:9000")
-	cfg.MinioAccessKey = os.Getenv("MINIO_ACCESS_KEY")
-	cfg.MinioSecretKey = os.Getenv("MINIO_SECRET_KEY")
-	cfg.MinioBucket = getEnvDefault("MINIO_BUCKET", "mindforge")
-	cfg.MinioUseSSL = os.Getenv("MINIO_USE_SSL") == "true"
-	cfg.MinioPublicEndpoint = getEnvDefault("MINIO_PUBLIC_ENDPOINT", cfg.MinioEndpoint)
-	if v := os.Getenv("MINIO_PUBLIC_USE_SSL"); v != "" {
-		cfg.MinioPublicUseSSL = v == "true"
-	} else {
-		cfg.MinioPublicUseSSL = cfg.MinioUseSSL
-	}
-	cfg.MinioPrivateBucket = getEnvDefault("MINIO_PRIVATE_BUCKET", cfg.MinioBucket+"-private")
+	applyMinioEnv(cfg)
 
 	cfg.LLMProvider = getEnvDefault("LLM_PROVIDER", "disabled")
 	cfg.LLMAPIKey = os.Getenv("LLM_API_KEY")
@@ -537,6 +532,32 @@ func (c *Config) EmailFromHeader() string {
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+// applyMinioEnv fills the object-store fields from the MINIO_* environment.
+func applyMinioEnv(cfg *Config) {
+	cfg.MinioEndpoint = getEnvDefault("MINIO_ENDPOINT", "localhost:9000")
+	cfg.MinioAccessKey = os.Getenv("MINIO_ACCESS_KEY")
+	cfg.MinioSecretKey = os.Getenv("MINIO_SECRET_KEY")
+	cfg.MinioBucket = getEnvDefault("MINIO_BUCKET", "mindforge")
+	cfg.MinioUseSSL = os.Getenv("MINIO_USE_SSL") == "true"
+	cfg.MinioPublicEndpoint = getEnvDefault("MINIO_PUBLIC_ENDPOINT", cfg.MinioEndpoint)
+	if v := os.Getenv("MINIO_PUBLIC_USE_SSL"); v != "" {
+		cfg.MinioPublicUseSSL = v == "true"
+	} else {
+		cfg.MinioPublicUseSSL = cfg.MinioUseSSL
+	}
+	cfg.MinioPrivateBucket = getEnvDefault("MINIO_PRIVATE_BUCKET", cfg.MinioBucket+"-private")
+}
+
+// LoadMinioOnly returns a Config with only the object-store fields populated,
+// for CLI tools (coursegen blocks sync) that need the private bundle store but
+// none of the server's other required configuration (Load exits the process
+// when a server-only variable is missing).
+func LoadMinioOnly() *Config {
+	cfg := &Config{}
+	applyMinioEnv(cfg)
+	return cfg
+}
 
 func getEnvDefault(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {

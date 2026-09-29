@@ -33,6 +33,7 @@ import (
 	"github.com/mindforge/backend/internal/interviewprep"
 	"github.com/mindforge/backend/internal/jobs"
 	"github.com/mindforge/backend/internal/journal"
+	"github.com/mindforge/backend/internal/labauthor"
 	"github.com/mindforge/backend/internal/labs"
 	"github.com/mindforge/backend/internal/learnhub"
 	"github.com/mindforge/backend/internal/legal"
@@ -594,6 +595,11 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service, aiProvider, labsPrivateStore)
 		labsHandler.RegisterRoutes(r)
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
+
+		// Lab authoring — block library, recipe CRUD, composition validator and
+		// AI ticket drafts (kind-agnostic engine; docs/debug-labs.md Part 2).
+		labAuthorHandler := labauthor.New(pool, rdb, aiProvider, cfg)
+		labAuthorHandler.RegisterRoutes(r, authzHandler.Service(), pool)
 
 		// Library — "Add from library" course-builder search + one shared
 		// insert path over labs/quizzes/notes (docs/debug-labs.md Part 3).

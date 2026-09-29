@@ -1,6 +1,9 @@
 package labkinds
 
-import "sync"
+import (
+	"sort"
+	"sync"
+)
 
 // Registry maps a lab_type string to the Kind implementation handling it.
 // Safe for concurrent use — Register only ever runs from package init()s at
@@ -30,6 +33,18 @@ func (r *Registry) Get(name string) (Kind, bool) {
 	defer r.mu.RUnlock()
 	k, ok := r.kinds[name]
 	return k, ok
+}
+
+// All returns every registered Kind, ordered by name.
+func (r *Registry) All() []Kind {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]Kind, 0, len(r.kinds))
+	for _, k := range r.kinds {
+		out = append(out, k)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name() < out[j].Name() })
+	return out
 }
 
 // Default is the process-wide registry every Kind implementation

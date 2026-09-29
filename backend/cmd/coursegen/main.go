@@ -25,6 +25,8 @@ func main() {
 		err = runAudit(os.Args[2:])
 	case "import":
 		err = runImport(os.Args[2:])
+	case "blocks":
+		err = runBlocks(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -57,6 +59,13 @@ Usage:
   coursegen import [--vendor DIR] [--out DIR]
       Scaffold Canonical Markdown from the vendored Fast-Kubernetes snapshot.
       Defaults: --vendor content/fast-kubernetes --out content/courses/fast-kubernetes
+
+  coursegen blocks sync [--in DIR] [--out FILE] [--dry-run] [--no-upload]
+      Validate every lab-authoring block (block.yaml) under --in, upload block
+      payloads to the private bundle store (MINIO_* env), and write an
+      idempotent SQL fixture at --out. Apply it with scripts/db-seed-courses.sh.
+      Same version + different content is a hard error at apply time: bump the version.
+      Defaults: --in content/lab-blocks --out backend/db/fixtures/lab-blocks.generated.sql
 `)
 }
 
