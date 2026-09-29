@@ -112,6 +112,7 @@ func main() {
 	labsImageProfileCatalog := map[string]labs.ImageProfile{
 		labs.ImageProfileNestedDocker: {
 			Name:                 labs.ImageProfileNestedDocker,
+			Elevated:             true,
 			CPU:                  labs.NestedContainerCPU,
 			MemoryMB:             labs.NestedContainerMemoryMB,
 			Network:              labs.NestedLabNetwork,

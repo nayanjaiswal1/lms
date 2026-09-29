@@ -13,6 +13,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/courses"
 	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/httputil"
@@ -56,6 +57,15 @@ type Service struct {
 	repoPreparer  RepoPreparer
 	notifications *notifications.Service
 	entitlements  *ent.Service
+	// labJWTSecret is LABPROXY_JWT_SECRET (= JWT_SECRET, see WSTokenType's
+	// doc comment) — the same shared secret MintWSToken signs WS tokens
+	// with, reused as the HMAC key for DeriveContainerCredential so
+	// acquireSandbox can write each session's ttyd credential without a
+	// second secret to provision and rotate.
+	labJWTSecret string
+	// aiProvider backs RequestHint (hint.go) — the generic lab hint endpoint
+	// (docs/labs.md "AI Integration" § Hint System).
+	aiProvider ai.LLMProvider
 }
 
 // NewService wires up the labs service. coursesSvc completes the course module
@@ -66,8 +76,10 @@ type Service struct {
 // lab's provisioning circuit breaker tripping). entitlementsSvc backs the
 // individual-tier lab_sessions_concurrent/lab_hours quota checks in
 // StartSession and the usage accrual in RecordSessionContainerUsage(Batch).
-func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc}
+// jwtSecret is LABPROXY_JWT_SECRET — see Service.labJWTSecret's doc comment.
+// aiProvider backs RequestHint — see Service.aiProvider's doc comment.
+func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, jwtSecret string, aiProvider ai.LLMProvider) *Service {
+	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, aiProvider: aiProvider}
 }
 
 // WSTokenType is the wsTokenClaims.Type value labproxy requires. labproxy
@@ -413,23 +425,50 @@ func (s *Service) acquireSandbox(ctx context.Context, session *LabSession, lab *
 			slog.Error("labs.Service.acquireSandbox: claim warm", "session_id", session.ID, "error", claimErr)
 		} else if warm != nil {
 			if s.container.IsRunning(ctx, warm.ContainerID) && ProbeContainerReady(ctx, s.container, warm.ContainerID) {
-				return warm.ContainerID, warm.ContainerHost, nil
+				// A warm container is created long before any session (and
+				// so any session_id to derive a credential from) exists —
+				// see writeTTYDCredential's doc comment — so this claim is
+				// the earliest point it can be set. Failing the credential
+				// write is treated the same as a spoiled container: a
+				// session must never run against a sandbox whose ttyd
+				// might still be reachable unauthenticated.
+				if credErr := writeTTYDCredential(ctx, s.container, warm.ContainerID, session.ID, s.labJWTSecret); credErr != nil {
+					slog.Error("labs.Service.acquireSandbox: write ttyd credential on claimed warm container, cold-starting",
+						"session_id", session.ID, "warm_id", warm.ID, "error", credErr)
+					if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
+						slog.Error("labs.Service.acquireSandbox: delete dead warm row", "warm_id", warm.ID, "error", delErr)
+					}
+					_ = s.container.Kill(ctx, warm.ContainerID)
+				} else {
+					return warm.ContainerID, warm.ContainerHost, nil
+				}
+			} else {
+				// Alive-but-not-ready counts as spoiled too: something inside
+				// died while the container idled in the pool, and waiting on
+				// it would cost the student more than the cold start they
+				// were spared.
+				slog.Warn("labs.Service.acquireSandbox: warm container unusable at claim, cold-starting",
+					"session_id", session.ID, "warm_id", warm.ID)
+				if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
+					slog.Error("labs.Service.acquireSandbox: delete dead warm row", "warm_id", warm.ID, "error", delErr)
+				}
+				_ = s.container.Kill(ctx, warm.ContainerID)
 			}
-			// Alive-but-not-ready counts as spoiled too: something inside died
-			// while the container idled in the pool, and waiting on it would
-			// cost the student more than the cold start they were spared.
-			slog.Warn("labs.Service.acquireSandbox: warm container unusable at claim, cold-starting",
-				"session_id", session.ID, "warm_id", warm.ID)
-			if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
-				slog.Error("labs.Service.acquireSandbox: delete dead warm row", "warm_id", warm.ID, "error", delErr)
-			}
-			_ = s.container.Kill(ctx, warm.ContainerID)
 		}
 	}
 
 	containerID, containerHost, err = s.container.Start(ctx, session.ID, session.ResetCount, lab.Environment)
 	if err != nil {
 		return "", "", fmt.Errorf("labs.Service.acquireSandbox: start container: %w", err)
+	}
+	// Written before WaitContainerReady: readiness (ReadinessProbePath) never
+	// depends on ttyd, but entrypoint.sh refuses to start ttyd at all until
+	// this file exists (see writeTTYDCredential), so setting it as early as
+	// possible minimizes how long the container sits with no terminal
+	// listener yet.
+	if credErr := writeTTYDCredential(ctx, s.container, containerID, session.ID, s.labJWTSecret); credErr != nil {
+		_ = s.container.Kill(context.Background(), containerID)
+		return "", "", fmt.Errorf("labs.Service.acquireSandbox: write ttyd credential: %w", credErr)
 	}
 	if _, err := WaitContainerReady(ctx, s.container, containerID); err != nil {
 		_ = s.container.Kill(context.Background(), containerID)
@@ -878,6 +917,14 @@ func (s *Service) resetContainerSession(ctx context.Context, session *LabSession
 	// Same two-step every other provisioning path uses: wait for the image,
 	// then apply the lab. A reset that skipped either would hand the student a
 	// sandbox subtly unlike the one they started with.
+	// Same credential-before-anything-waits ordering as acquireSandbox's
+	// cold-start path — a reset's replacement container is a cold start in
+	// every respect that matters here (see writeTTYDCredential).
+	if credErr := writeTTYDCredential(ctx, s.container, newContainerID, session.ID, s.labJWTSecret); credErr != nil {
+		slog.Error("labs.Service.resetContainerSession: write ttyd credential", "session_id", session.ID, "error", credErr)
+		_ = s.container.Kill(context.Background(), newContainerID)
+		return nil, nil, ErrResetFailed
+	}
 	if _, err := WaitContainerReady(ctx, s.container, newContainerID); err != nil {
 		slog.Error("labs.Service.resetContainerSession: replacement never became ready", "session_id", session.ID, "error", err)
 		_ = s.container.Kill(context.Background(), newContainerID)

@@ -116,6 +116,14 @@ func (h *ProxyHandler) previewTarget(r *http.Request, tokenStr string, reqPort i
 	if !found || host == "" {
 		return nil, 0, "", http.StatusServiceUnavailable, "container host malformed"
 	}
+
+	// Every live, authenticated preview request — HTTP passthrough and the
+	// initial WebSocket upgrade alike, since both resolve through here
+	// (ServePreviewPassthrough / ServePreviewAuth in preview_host.go) —
+	// counts as activity, debounced the same as the terminal relay's own
+	// heartbeat. See heartbeatPreview's doc comment (proxy.go).
+	h.heartbeatPreview(r.Context(), sess.ID)
+
 	return &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, port)}, port, claims.SessionID, 0, ""
 }
 

@@ -25,6 +25,9 @@ interface LabConsoleWorkspaceProps {
   onTaskSelect: (taskId: string) => void
   onCheck: (taskId: string) => void
   workspacePanel: ReactNode
+  onHint?: (taskId: string) => void
+  hintsUsedByTask?: Record<string, number>
+  maxHints?: number
 }
 
 // Google Cloud Skills Boost style layout: every task is visible at once in a
@@ -41,6 +44,9 @@ export function LabConsoleWorkspace({
   onTaskSelect,
   onCheck,
   workspacePanel,
+  onHint,
+  hintsUsedByTask,
+  maxHints,
 }: LabConsoleWorkspaceProps) {
   const [drawerState, setDrawerState] = useState<DrawerState>("open")
 
@@ -56,12 +62,15 @@ export function LabConsoleWorkspace({
     <div className="flex h-full flex-col">
       <LabTaskChecklist
         completions={completions}
+        hintsUsedByTask={hintsUsedByTask}
         isVerifying={isVerifying}
+        maxHints={maxHints}
         maxScore={maxScore}
         score={score}
         selectedTaskId={selectedTaskId}
         tasks={tasks}
         onCheck={onCheck}
+        onHint={onHint}
         onTaskSelect={onTaskSelect}
       />
 

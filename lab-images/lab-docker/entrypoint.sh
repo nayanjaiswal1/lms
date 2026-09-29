@@ -79,10 +79,21 @@ docker run -d --name registry --restart=no --network host registry:2 >/dev/null 
 # ready before the preload finished, which is exactly the race this avoids.
 touch /tmp/lab-ready
 
+# ttyd credential (docs/labs.md "Proxy ↔ Container Channel Security";
+# docs/debug-labs.md Phase 0) — see lab-images/shared/entrypoint.sh's
+# identical block for the full rationale. Every lab image blocks ttyd on
+# this file so an unauthenticated shell is never reachable on the shared
+# mindforge-labs bridge, even briefly.
+cred_file=/home/labuser/.mf-ttyd-cred
+while [ ! -s "$cred_file" ]; do
+  sleep 0.5
+done
+cred="$(cat "$cred_file")"
+
 log "starting ttyd"
 # ttyd's shell inherits this cwd, and lessons refer to starter files as if the
 # student is already in the workdir. The Dockerfile's WORKDIR would cover it,
 # but every lab image sets it here explicitly so the terminal's landing
 # directory has exactly one source across all of them.
 cd /home/labuser/work
-exec ttyd -W -p 7681 bash
+exec ttyd -W -p 7681 -c "$cred" bash

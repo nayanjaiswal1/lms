@@ -141,9 +141,18 @@ kwok \
 # knows the whole control plane came up, rather than re-probed from outside.
 touch /tmp/lab-ready
 
+# ttyd credential (docs/labs.md "Proxy ↔ Container Channel Security";
+# docs/debug-labs.md Phase 0) — see lab-images/shared/entrypoint.sh's
+# identical block for the full rationale.
+cred_file=/home/labuser/.mf-ttyd-cred
+while [ ! -s "$cred_file" ]; do
+  sleep 0.5
+done
+cred="$(cat "$cred_file")"
+
 log "starting ttyd"
 # ttyd's shell inherits this cwd, and lessons refer to starter files as if the
 # student is already in the workdir ("apply pod1.yaml") — without this the
 # terminal opens at /.
 cd /home/labuser/work
-exec ttyd -W -p 7681 bash
+exec ttyd -W -p 7681 -c "$cred" bash

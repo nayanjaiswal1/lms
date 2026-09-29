@@ -17,6 +17,7 @@ import (
 func nestedDockerTestProfile(mechanism string) ImageProfile {
 	return ImageProfile{
 		Name:                 ImageProfileNestedDocker,
+		Elevated:             true,
 		CPU:                  NestedContainerCPU,
 		MemoryMB:             NestedContainerMemoryMB,
 		Network:              NestedLabNetwork,

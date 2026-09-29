@@ -12,6 +12,19 @@ const (
 	MaxSessionDurationDefault    = 120 // minutes
 	MaxHintsPerTask              = 3
 	VerifyRateLimitSeconds       = 3
+	// HintRateLimitSeconds bounds how often a single (session, task) can
+	// request a hint — same SetNX-based collapse VerifyRateLimitSeconds
+	// uses, so a double-click can't burn two hint levels (or two AI calls)
+	// for one intended request.
+	HintRateLimitSeconds = 3
+	// AICircuitFailureThreshold/Window/OpenDuration implement the shared
+	// Redis-backed AI circuit breaker (docs/labs.md "Runaway AI retry
+	// storms"): after this many consecutive AI failures within Window, the
+	// breaker opens for OpenDuration and every AI endpoint across every API
+	// replica returns ErrAICircuitOpen instead of calling the provider.
+	AICircuitFailureThreshold = 3
+	AICircuitFailureWindow    = 60 * time.Second
+	AICircuitOpenDuration     = 2 * time.Minute
 	// ProvisionTimeoutSeconds must cover docker run + the setup_script's
 	// readiness probe across DockerContainerService.Start's retry loop.
 	// Web-app lab images (lab-python-web, lab-node-web) boot a dev server

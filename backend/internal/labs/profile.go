@@ -15,10 +15,21 @@ package labs
 type ImageProfile struct {
 	// Name identifies the profile ("" = standard/zero-value default,
 	// otherwise a name from the in-code catalog built in main.go, e.g.
-	// "nested-docker"). A non-empty Name is what both runtimes treat as
-	// "this image is elevated" — see KubernetesContainerService.startPod's
-	// RuntimeClass requirement below.
+	// "nested-docker" or the future "debug-ide"). Purely a label now — see
+	// Elevated for what used to be inferred from a non-empty Name.
 	Name string
+
+	// Elevated marks a profile as requiring real container-escape-relevant
+	// privilege (extra Linux capabilities, a Kubernetes RuntimeClass, an
+	// org allowlist gate) — as opposed to a profile that only resizes
+	// CPU/MemoryMB/disk for a bigger-but-still-sandboxed container (e.g.
+	// the future "debug-ide" profile: 2 CPU / 2 GB / 5 GB, no elevation).
+	// Previously any non-empty Name was treated as elevated, which would
+	// have wrongly forced debug-ide through KubernetesContainerService.
+	// startPod's RuntimeClass requirement below for a profile that needs
+	// no such thing. Zero value (false) = not elevated, matching the
+	// standard profile.
+	Elevated bool
 
 	// CPU/MemoryMB size the container/Pod. Empty/zero falls back to
 	// ContainerCPU/ContainerMemoryMB (the standard profile's implicit
@@ -57,10 +68,11 @@ type ImageProfile struct {
 
 	// K8sRuntimeClass sets Pod.Spec.RuntimeClassName for images using this
 	// profile. Kubernetes has no equivalent of Docker's --cap-add flags, so
-	// any profile with a non-empty Name (i.e. anything but the standard
-	// profile) REQUIRES this to be set — KubernetesContainerService.startPod
-	// fails the session loudly rather than approximate elevated capabilities
-	// on a shared node pool with no RuntimeClass isolation.
+	// any Elevated profile REQUIRES this to be set —
+	// KubernetesContainerService.startPod fails the session loudly rather
+	// than approximate elevated capabilities on a shared node pool with no
+	// RuntimeClass isolation. A non-Elevated named profile (resource-only,
+	// e.g. debug-ide) needs no RuntimeClass.
 	K8sRuntimeClass string
 	// K8sExtraVolume, when true, mounts an emptyDir at /var/lib/docker —
 	// today's nested-Docker-only requirement (dockerd's own storage), kept

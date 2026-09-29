@@ -104,6 +104,10 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusConflict, "This action is not available for this lab type.")
 	case errors.Is(err, ErrContentTooLarge):
 		httputil.WriteError(w, http.StatusRequestEntityTooLarge, "File is too large.")
+	case errors.Is(err, ErrAICircuitOpen):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "AI hints are temporarily unavailable — try again in a couple of minutes.")
+	case errors.Is(err, ErrAIUnavailable):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "AI hints are not available right now.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

@@ -136,12 +136,13 @@ func (k *KubernetesContainerService) qualifyImage(image string) string {
 
 func (k *KubernetesContainerService) startPod(ctx context.Context, name string, labels map[string]string, image string) (containerID, containerHost string, err error) {
 	profile := k.Classify(image)
-	// Any non-standard profile (Name != "") is, by definition, elevated —
-	// the standard (zero-value) profile is the only one that ever runs
-	// without a RuntimeClass. Kubernetes has no --cap-add escape hatch, so
-	// an elevated profile with no configured RuntimeClass must hard-fail
-	// rather than silently run unisolated on a shared node pool.
-	if profile.Name != "" && profile.K8sRuntimeClass == "" {
+	// ImageProfile.Elevated (not a non-empty Name — a resource-only profile
+	// like the future debug-ide can be named without needing any of this)
+	// is, by definition, the only thing requiring a RuntimeClass. Kubernetes
+	// has no --cap-add escape hatch, so an elevated profile with no
+	// configured RuntimeClass must hard-fail rather than silently run
+	// unisolated on a shared node pool.
+	if requiresRuntimeClass(profile) {
 		return "", "", fmt.Errorf("labs.KubernetesContainerService.Start: image %q uses profile %q which requires a Kubernetes RuntimeClassName but none is configured (LABS_NESTED_DOCKER_RUNTIME_CLASS unset?)", image, profile.Name)
 	}
 
@@ -397,3 +398,10 @@ func (k *KubernetesContainerService) List(ctx context.Context, namePrefix string
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+// requiresRuntimeClass is the pure decision startPod hard-fails on — pulled
+// out so it is unit-testable without a real Kubernetes clientset (see
+// profile_test.go).
+func requiresRuntimeClass(profile ImageProfile) bool {
+	return profile.Elevated && profile.K8sRuntimeClass == ""
+}

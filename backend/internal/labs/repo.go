@@ -683,6 +683,46 @@ func (r *Repo) IncrementHintsUsed(ctx context.Context, sessionID, taskID string)
 	return hintsUsed, nil
 }
 
+// GetAIInteractionByCacheKey returns the cached AI interaction for cacheKey,
+// or (nil, nil) when none exists yet. The "AI called once" rule (docs/labs.md
+// "AI Integration") is enforced by this lookup plus InsertAIInteraction's
+// ON CONFLICT DO NOTHING — never by an app-level lock.
+func (r *Repo) GetAIInteractionByCacheKey(ctx context.Context, cacheKey string) (*LabAIInteraction, error) {
+	var ai LabAIInteraction
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, session_id, task_id, interaction_type, hint_level, cache_key, prompt, response, tokens_used, created_at
+		FROM lab_ai_interactions WHERE cache_key=$1`,
+		cacheKey,
+	).Scan(&ai.ID, &ai.SessionID, &ai.TaskID, &ai.InteractionType, &ai.HintLevel, &ai.CacheKey, &ai.Prompt, &ai.Response, &ai.TokensUsed, &ai.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("labs.Repo.GetAIInteractionByCacheKey: %w", err)
+	}
+	return &ai, nil
+}
+
+// InsertAIInteraction records a generated AI response, keyed by cacheKey.
+// ON CONFLICT DO NOTHING targets lab_ai_interactions' partial unique index
+// on cache_key (migration baseline: `... WHERE cache_key IS NOT NULL`) — the
+// DB-enforced half of "AI called once": if a concurrent request already won
+// the insert for this exact (session, task, level), this one is silently
+// dropped and the caller re-reads the winning row via
+// GetAIInteractionByCacheKey, never generating (or storing) a second
+// response for the same cache key.
+func (r *Repo) InsertAIInteraction(ctx context.Context, in *LabAIInteraction) error {
+	if _, err := r.pool.Exec(ctx, `
+		INSERT INTO lab_ai_interactions (session_id, task_id, interaction_type, hint_level, cache_key, prompt, response, tokens_used)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		ON CONFLICT (cache_key) WHERE cache_key IS NOT NULL DO NOTHING`,
+		in.SessionID, in.TaskID, in.InteractionType, in.HintLevel, in.CacheKey, in.Prompt, in.Response, in.TokensUsed,
+	); err != nil {
+		return fmt.Errorf("labs.Repo.InsertAIInteraction: %w", err)
+	}
+	return nil
+}
+
 // rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx, so
 // CountPassedNonOptionalTasks can run either as a standalone read (EndSession)
 // or against an in-flight transaction (finalizeTaskPass's completion check,

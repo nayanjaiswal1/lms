@@ -89,6 +89,15 @@ Separate Go binary (`cmd/labproxy`). Responsibilities:
 - If the session is `paused`, calls the API to `docker unpause` and flip to `running` before upgrading
 - Proxies bytes between browser WS and the container's ttyd WS
 - Reports `last_active_at` heartbeat to DB on each WS message (debounced to ≤1 write/5s per session)
+- **Implemented (Phase 0, 2026-09-29):** preview traffic (HTTP passthrough and the WebSocket
+  upgrade alike — both resolve through `previewTarget` in `preview.go`) heartbeats the same way.
+  Previously only the terminal relay's own ticker wrote `last_active_at`, so a student working only
+  in the preview pane between WS-token mints (each token is a 5-minute JWT reused for many requests)
+  could read as idle and get paused mid-work. `ProxyHandler.heartbeatPreview` (`proxy.go`) debounces
+  via the same Redis `SetNX` pattern `VerifyTask`'s rate limit uses (`lab:preview-heartbeat:
+  <sessionID>`, `previewHeartbeatDebounce` = 5s, matching the terminal ticker's own cadence) before
+  calling the now-shared `writeHeartbeat` helper — at most one DB write per session per window no
+  matter how many preview requests land inside it.
 - Kills connection and marks session `expired` when TTL is hit
 
 The proxy never runs user code directly. It relays to the container only.
@@ -452,6 +461,10 @@ All AI responses are cached forever. First call stores in `lab_ai_interactions`.
 
 ### Hint System (3 levels)
 
+**Implemented (Phase 0, 2026-09-29).** `POST /api/labs/sessions/:sessionId/tasks/:taskId/hint`
+(`backend/internal/labs/hint.go`, `Service.RequestHint`) — the generic endpoint documented here
+since labs Phase 3 but never built until now.
+
 ```
 cache_key = sha256(session_id + task_id + hint_level)
 
@@ -459,27 +472,47 @@ Level 1 (first hint): Conceptual nudge — what approach to take
 Level 2 (second hint): More specific — what command category or file to look at
 Level 3 (third hint): Near-answer — the exact syntax with one gap for student to fill
 
-Max 3 hints per task per session. Level 4+ returns level 3 cached response.
+Max 3 hints per task per session. A 4th request returns ErrMaxHintsReached (429) — the level-3
+hint text was already delivered to the client on the 3rd call and stays visible in the drawer;
+this endpoint only refuses generating a nonexistent 4th level.
 ```
 
-The cache key is scoped to `session_id`, not `user_id`. Hints are generated from the session's
-live terminal history, so a hint produced in one attempt must not be replayed in a later attempt
-of the same lab (the container state is different). Caching is still "called once" — once per
-(session, task, level) — satisfying the AI-cached-forever rule without leaking stale context across
-attempts.
+Each call auto-advances the level: `level = hints_used + 1`, computed after the existing
+`IncrementHintsUsed` (already used by the pre-existing scoring path) atomically bumps the
+counter — so there is no client-supplied level and no way to skip ahead. The cache key is scoped
+to `session_id`, not `user_id`, per this section's original reasoning. A per-`(session, task)`
+Redis `SetNX` (`HintRateLimitSeconds`, same pattern as `VerifyTask`'s own rate limit) collapses an
+accidental double-click before either the level advances or any AI call happens.
 
-Prompt context includes:
-- Task title + description
-- Last 50 lines of terminal history (see **Terminal history source** below — NOT `docker logs`)
-- Current attempt count
+The shared Redis-backed circuit breaker described under **Runaway AI retry storms** below gates
+every hint generation: a request that would need a fresh AI call while the breaker is open, or
+that gets `ErrAICircuitOpen`/`ErrAIUnavailable` from a real provider failure, returns that error
+**without incrementing `hints_used`** — a flaky provider never burns a student's hint budget for
+nothing. `hints_used` only advances once real content exists (a cache hit, or a freshly generated
+and successfully stored response) — the same "count completed requests, not attempts" precedent
+`VerifyTask`'s `attempts` counter already sets.
+
+Prompt context actually includes (`backend/internal/labs/hint.go`'s `buildHintUserPrompt`):
+- Task title + description + the task's authored `hint_context` (if any)
+- Current attempt count (`lab_task_completions.attempts`)
 - Hint level
 
-> **Terminal history source.** ttyd serves an interactive **PTY**; its I/O does not appear in
-> `docker logs` (which only captures the container's PID-1 stdout/stderr). The lab proxy is the
-> only component that sees PTY traffic, so it maintains a bounded per-session **ring buffer**
-> (last ~200 lines, capped in bytes) of terminal output, kept in Redis keyed by `session_id`.
-> AI features read the buffer via an internal proxy/Redis call. For `code`-type labs (no PTY),
-> the "history" is instead the student's last submitted source + Piston run output.
+**Deviation from this section's original design:** terminal/grader output is NOT yet included.
+That requires the PTY ring buffer described below (**Terminal history source**), which does not
+exist yet — nothing in `cmd/labproxy` currently captures ttyd's PTY traffic anywhere. Wiring the
+hint prompt to real terminal history is follow-up work once that buffer is built; today's prompt
+uses only the task's own authored content plus the attempt count, which is honest but weaker than
+the original design. `lab_tasks` has no per-level authored-hint field (only the single
+`hint_context` extra-context column), so every level is AI-generated — there is no
+authored/static-hint branch to implement.
+
+> **Terminal history source (not yet implemented).** ttyd serves an interactive **PTY**; its I/O
+> does not appear in `docker logs` (which only captures the container's PID-1 stdout/stderr). The
+> lab proxy would need to be the component that captures PTY traffic — maintaining a bounded
+> per-session **ring buffer** (last ~200 lines, capped in bytes) in Redis keyed by `session_id` —
+> for AI features to read via an internal proxy/Redis call. For `code`-type labs (no PTY), the
+> "history" would instead be the student's last submitted source + Piston run output. None of this
+> exists yet; see the deviation note above.
 
 ### Post-Completion Explanation (auto-triggered on task pass)
 
@@ -668,7 +701,7 @@ Terminal uses `xterm.js` + `@xterm/addon-fit` + `@xterm/addon-web-links`. Loaded
 |---|---|
 | **Container farming** (spinning up containers without doing lab work) | Rate limit `POST /sessions`: max 5 session starts per user per hour. Max 2 concurrent active sessions per user across all labs. Org-level cap enforced separately via `lab_org_config.max_concurrent_sessions`. |
 | **Cryptocurrency mining inside containers** | CPU throttling enforced at Docker level (`--cpus 1.0`). Background job monitors per-container CPU usage every 60s via `docker stats`. Any container sustaining >90% CPU for >5 minutes without any WS activity is flagged and killed. Session marked `terminated_abuse`. |
-| **Runaway AI retry storms** (exponential backoff misimplemented) | All AI calls use a circuit breaker whose state lives in **Redis**, not process memory — at 2+ API replicas an in-process breaker would be inconsistent (one replica open, another still hammering Claude). After 3 consecutive Claude failures within 60s the shared circuit opens for 2 minutes; all AI endpoints across all replicas return 503 during the open state. Prevents cascading spend when the API is degraded. |
+| **Runaway AI retry storms** (exponential backoff misimplemented) | All AI calls use a circuit breaker whose state lives in **Redis**, not process memory — at 2+ API replicas an in-process breaker would be inconsistent (one replica open, another still hammering Claude). After 3 consecutive Claude failures within 60s the shared circuit opens for 2 minutes; all AI endpoints across all replicas return 503 during the open state. Prevents cascading spend when the API is degraded. **Implemented (Phase 0, 2026-09-29)** for the hint endpoint — `aiCircuitOpen`/`recordAIFailure`/`recordAISuccess` in `backend/internal/labs/hint.go`, `AICircuitFailureThreshold`/`Window`/`OpenDuration` constants in `models.go`; the next AI endpoint built reuses the same three functions. |
 | **Instructor runs validation in a loop** (repeated validate clicks) | Validate endpoint is idempotent per draft version: if `current_draft` hasn't changed since last validation, return cached `validation_results` immediately. No new containers spun up. |
 | **Student leaves container idle for entire TTL** | Idle detection: if `last_active_at < now() - 15min` and no open WS connection, `docker pause`. This stops CPU billing without destroying state. Container is unpaused on next WS connect. At `expires_at`, container is killed regardless. |
 | **Playground / no-task labs escape verify-triggered monitoring** | Disk and abuse checks are described as "triggered by verify calls," but `playground` labs have no tasks and never call verify. So those checks must not hang off the verify path alone. The `docker stats` CPU job (every 60s) and a dedicated `monitor_container_resources` job (disk via `docker exec df`, every 5 min, over ALL non-terminal sessions regardless of type) cover playgrounds. Verify-time checks are an optimization, not the only path. |
@@ -697,7 +730,7 @@ One lab image class needs to run a real `docker build`/`docker run` inside the s
 - `mindforge/lab-docker:27` (`lab-images/lab-docker/Dockerfile`, `docker:27-dind-rootless` base) — the default, for the scoped `--cap-add` mechanism (no `sysbox-runc` on the host).
 - `mindforge/lab-docker-sysbox:27` (`lab-images/lab-docker/Dockerfile.sysbox`, plain `docker:27-dind` base, root dockerd, `su-exec` drops to `labuser` only for ttyd) — for hosts with `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc`. Sysbox already gives the container's root user a real (safely virtualized) root, so nesting the rootless image's rootlesskit on top of that fails at startup — confirmed interactively: `[rootlesskit:parent] error: failed to setup UID/GID map: newuidmap ... Operation not permitted`. Both variants share the same `preload/*.tar` directory and `labuser` (uid 1000) convention the backend's `docker exec --user labuser` depends on.
 
-- **Off by default, two independent switches must both be set.** Operator config: `LABS_IMAGE_PROFILES` — a comma-separated `image:profileName` list mapping lab environment images to a named `labs.ImageProfile` from the small in-code catalog built in `cmd/server/main.go` (today just `nested-docker`, `labs.ImageProfileNestedDocker`); empty = no image is classified, the feature does not exist on this deploy. Example: `LABS_IMAGE_PROFILES=mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:nested-docker` (the image itself may contain its own `:` tag — only the *last* colon in each entry separates the profile name). Optionally `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc` / `LABS_NESTED_DOCKER_RUNTIME_CLASS` (Kubernetes) still control which elevation mechanism the `nested-docker` profile uses on this host — unchanged from before. Org config: the same image must also be in that org's `lab_org_config.allowed_images` — an operator enabling the image platform-wide does not itself grant any org access to it. See `internal/labs/profile.go` (`ImageProfile`) for the generic mechanism a second profile type would plug into — CPU/mem/network, pre-warm eligibility, org-allowlist requirement, and each runtime's elevation knobs are all per-profile fields, not a one-off boolean.
+- **Off by default, two independent switches must both be set.** Operator config: `LABS_IMAGE_PROFILES` — a comma-separated `image:profileName` list mapping lab environment images to a named `labs.ImageProfile` from the small in-code catalog built in `cmd/server/main.go` (today just `nested-docker`, `labs.ImageProfileNestedDocker`); empty = no image is classified, the feature does not exist on this deploy. Example: `LABS_IMAGE_PROFILES=mindforge/lab-docker:27:nested-docker,mindforge/lab-k8s:1.31:nested-docker` (the image itself may contain its own `:` tag — only the *last* colon in each entry separates the profile name). Optionally `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc` / `LABS_NESTED_DOCKER_RUNTIME_CLASS` (Kubernetes) still control which elevation mechanism the `nested-docker` profile uses on this host — unchanged from before. Org config: the same image must also be in that org's `lab_org_config.allowed_images` — an operator enabling the image platform-wide does not itself grant any org access to it. See `internal/labs/profile.go` (`ImageProfile`) for the generic mechanism a second profile type would plug into — CPU/mem/network, pre-warm eligibility, org-allowlist requirement, and each runtime's elevation knobs are all per-profile fields, not a one-off boolean. **`Elevated bool` split from `Name` (Phase 0, 2026-09-29):** elevation (the Kubernetes `RuntimeClassName` requirement in `KubernetesContainerService.startPod`, via the pure `requiresRuntimeClass` helper) now keys off `ImageProfile.Elevated`, not "any non-empty `Name`" — a resource-only profile like the future `debug-ide` (2 CPU / 2 GB / 5 GB, `docs/debug-labs.md`) can have a `Name` without being forced through RuntimeClass provisioning it doesn't need. `nested-docker`'s catalog entry (`cmd/server/main.go`) sets `Elevated: true`; existing behavior for it is unchanged.
 - **What a nested-image container actually gets** (`internal/labs/container.go` `buildRunArgs`/`startNamed`, verified interactively against `mindforge/lab-docker` — `docker:27-dind-rootless`): on a host with `sysbox-runc` installed, `--cap-drop ALL --runtime sysbox-runc` with no added capabilities at all (strictly better; set `LABS_NESTED_DOCKER_RUNTIME=sysbox-runc` to use it). Otherwise, every attempt starts with the scoped grant: `--cap-drop ALL --cap-add SYS_ADMIN --cap-add SETUID --cap-add SETGID --cap-add NET_ADMIN --device /dev/fuse --device /dev/net/tun --security-opt seccomp=unconfined --security-opt apparmor=unconfined`. `SETUID`/`SETGID` are both required, not just `SYS_ADMIN` — rootless dockerd's startup calls the setuid-root `newuidmap`/`newgidmap` helpers to build its user-namespace UID/GID map, and those fail with "operation not permitted" without them; `/dev/net/tun` is needed because rootlesskit's default `vpnkit` network driver creates a tap interface at startup and dockerd never reaches a running state without it. `NET_ADMIN` is separate from all three — it's not needed to start the nested dockerd itself, only for the containers *that dockerd* then creates: libnetwork needs it to configure a new container's veth pair and interface sysctls (e.g. disabling IPv6 on `eth0`), and without it every `docker run` a student issues inside the lab fails at that step with `failed to configure ipv6: failed to disable IPv6 on container's interface eth0: unknown`, even though the nested dockerd itself started fine. Resource limits step up to 2 CPU / 1.5 GB (`NestedContainerCPU`/`NestedContainerMemoryMB`) — a nested dockerd plus a student `docker build` does not fit in the default 1 CPU / 512 MB.
 - **Rootless-dind's unresolved bridge-networking bug — this is why the sysbox image variant above exists**: on nested/virtualized Docker hosts (confirmed on Docker Desktop's WSL2 backend, kernel `*-microsoft-standard-WSL2`), every ordinary bridge-networked `docker run` a student issues inside the rootless-dind image fails with `failed to add interface veth... to sandbox: ... failed to disable IPv6 on container's interface eth0: unknown` — i.e. the exact thing the core Docker curriculum exercise does (`docker run -it alpine sh` with default networking). This is not a missing capability (`NET_ADMIN` above is required for other operations but does not fix this) and not fixable by any combination of `--sysctl` tried at the outer container, the nested dockerd's own netns, or a `--ipv6=false` user-defined network — all confirmed to fail identically. It's rootlesskit's own private netns (`--net=vpnkit`, created inside its own nested user namespace) that the sysctl-disable operation can't complete in; only `--network host` avoids hitting it at all (why the in-sandbox `registry:2` container uses `--network host` instead of a published port — see `entrypoint.sh`). That workaround isn't usable for arbitrary student commands, so on a host with this bug, the rootless-dind image's core exercise is broken; the `mindforge/lab-docker-sysbox:27` image does not hit it (confirmed interactively — plain bridge-networked `docker run` inside it gets a real `eth0` with no IPv6-disable error) because sysbox-runc's real (non-rootlesskit) networking is what fixes it, not just a nicer capability model.
 - **Docker Desktop cannot host `sysbox-runc` at all** — its embedded WSL2 VM is a minimal Alpine image with no `/etc/docker/daemon.json` and no supported way to register a custom OCI runtime; that's managed internally, not through a config file an operator can extend. Testing the `sysbox-runc` mechanism locally on Windows requires a real Docker Engine host instead of Docker Desktop — e.g. `docker-ce` installed directly (`apt`) inside a WSL2 distro you control (not the hidden `docker-desktop` one), with the `sysbox-ce` `.deb` from `github.com/nestybox/sysbox/releases` (auto-registers the runtime in `daemon.json` on install). Note WSL2 tears down a distro's VM (and everything running in it) when no `wsl.exe` process is attached to it — a throwaway verification session needs a long-lived background one (e.g. `wsl -d <distro> -- sleep <n>`) to keep dockerd up between separate commands.
@@ -1481,14 +1514,36 @@ This closes the data-exfiltration / SSRF path that "just give the container inte
 
 ### Proxy ↔ Container Channel Security
 
-The lab proxy connects to `ttyd` inside the container. ttyd must not be reachable by anything
-else on the host:
+**Implemented (Phase 0, 2026-09-29).** The lab proxy connects to `ttyd` inside the container.
+ttyd must not be reachable by anything else on the host — every lab container shares the
+`mindforge-labs` Docker bridge, so without a credential any other student's container could open
+a WebSocket straight to `:7681` and get a shell (the pre-existing hole this closes):
 
 - ttyd binds to the container's network namespace only; its port is published **only** to the
   proxy's internal network, never to `0.0.0.0` on the host.
-- The proxy presents a **per-session container token** (generated at provision, stored in
-  `lab_sessions`, injected into the container env) on the ttyd connection. A co-located process
-  that somehow reaches the port still can't attach without the token.
+- The credential is `HMAC-SHA256(LABPROXY_JWT_SECRET, session_id)` — `labs.DeriveContainerCredential`
+  (`backend/internal/labs/credential.go`). **Nothing new is stored in the database and the browser
+  never sees it**: both sides independently recompute it from the session ID and the secret they
+  already share (the same `LABPROXY_JWT_SECRET` = `JWT_SECRET` MintWSToken signs WS tokens with).
+- `labs.writeTTYDCredential` delivers `"mindforge:<hex>"` into the container via the runtime's
+  ordinary `ExecStdin` (piped over stdin, never embedded in a command string), writing
+  `/home/labuser/.mf-ttyd-cred`. Called from `Service.acquireSandbox` at the one point both
+  provisioning paths converge — a cold `Start()` and a warm-pool claim — so a warm container
+  (created long before any session/session_id exists) gets its credential the moment it is
+  actually claimed, before anything waits on its readiness probe.
+- Every lab image's entrypoint (`lab-images/shared/entrypoint.sh`, `lab-images/lab-docker/
+  entrypoint.sh`, `entrypoint-sysbox.sh`, `lab-images/lab-k8s/entrypoint.sh`) blocks on that file
+  appearing — polling, no timeout — before ever starting ttyd, and then starts it with
+  `ttyd -W -p 7681 -c "$cred" bash`. There is no window where ttyd is up without a credential; an
+  unclaimed warm container simply has no listener on the port yet.
+- `cmd/labproxy/proxy.go`'s `deriveContainerCredential` (a deliberate literal duplicate of the same
+  HMAC, kept separate because labproxy is a standalone deploy unit — see `wsTokenType`'s doc
+  comment for why) recomputes the credential from `session_id` on every upstream connect and
+  presents it as ttyd's HTTP Basic Auth (`Authorization: Basic base64(mindforge:<hex>)`) on the
+  WebSocket dial. A co-located container that somehow reaches the port still can't attach without
+  the session's own secret-derived credential.
+- The same `DeriveContainerCredential` helper is reused as-is for the Phase 1 IDE port — one
+  derivation, applied to whichever credentialed port a session opens.
 - Control frames between browser↔proxy↔ttyd are length-prefixed and validated; a malformed or
   oversized control frame closes the connection rather than being forwarded.
 

@@ -112,6 +112,18 @@ var (
 	// refuses new sessions for the lab until the window rolls off.
 	ErrLabProvisioningUnstable = errors.New("labs: lab has failed to provision repeatedly and is temporarily unavailable")
 
+	// ErrAICircuitOpen is returned by any AI endpoint (currently: hints)
+	// while the shared Redis-backed circuit breaker is open — see
+	// AICircuitFailureThreshold's doc comment and docs/labs.md "Runaway AI
+	// retry storms".
+	ErrAICircuitOpen = errors.New("labs: AI circuit breaker is open")
+
+	// ErrAIUnavailable is returned when the configured ai.LLMProvider is not
+	// available (LLM_PROVIDER=disabled or missing API key) or a single
+	// completion call failed. Hints degrade to a clear error rather than a
+	// silently empty response.
+	ErrAIUnavailable = errors.New("labs: AI hint generation is unavailable")
+
 	// ErrPlanQuotaExceeded is returned when an individual account (see
 	// entitlements.Service.ResolveAccount) is at its pricing tier's
 	// lab_sessions_concurrent or lab_hours limit. Org accounts are unaffected

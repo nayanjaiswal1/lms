@@ -369,6 +369,27 @@ func (h *Handler) HandleVerifyTask(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteJSON(w, http.StatusOK, result)
 }
 
+// HandleHint serves the generic lab hint endpoint (docs/labs.md "AI
+// Integration" § Hint System). IDOR is enforced inside Service.RequestHint
+// via GetSession(sessionID, userID) — same as every other session-scoped
+// handler in this file.
+func (h *Handler) HandleHint(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	sessionID := chi.URLParam(r, "sessionId")
+	taskID := chi.URLParam(r, "taskId")
+
+	result, err := h.service.RequestHint(r.Context(), sessionID, taskID, claims.UserID)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, result)
+}
+
 // HandleResetSession clears all task completions and zeroes the score,
 // consuming one of the session's allowed resets.
 //

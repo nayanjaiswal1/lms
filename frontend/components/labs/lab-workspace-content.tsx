@@ -18,7 +18,9 @@ import { LabContainerWorkspace } from "@/components/labs/lab-container-workspace
 import { SandboxWorkspace } from "@/components/labs/sandbox-workspace"
 import { LabConsoleWorkspace } from "@/components/labs/lab-console-workspace"
 import { LabFixedConsole } from "@/components/labs/lab-fixed-console"
+import { HintDrawer } from "@/components/labs/hint-drawer"
 import { useLabVerify } from "@/hooks/use-lab-verify"
+import { useLabHint } from "@/hooks/use-lab-hint"
 import type { Lab, LabSession, TaskCompletion } from "@/lib/labs"
 
 const LabCodePanel = dynamic(
@@ -158,6 +160,22 @@ export function LabWorkspaceContent({
     resetState,
   } = useLabVerify(session.id, initialCompletions, session.score, lab.language, defaultTaskId)
 
+  const {
+    openTaskId: hintTaskId,
+    openDrawer: openHintDrawer,
+    closeDrawer: closeHintDrawer,
+    hintsByTask,
+    hintsUsedFor,
+    requestHint,
+    isRequesting: isRequestingHint,
+    error: hintError,
+    maxHints,
+  } = useLabHint(session.id, completions)
+
+  const hintsUsedByTask = Object.fromEntries(
+    lab.tasks.map((t) => [t.task_id, hintsUsedFor(t.task_id)]),
+  )
+
   useEffect(() => {
     onScoreChange?.(score)
   }, [score, onScoreChange])
@@ -290,13 +308,16 @@ export function LabWorkspaceContent({
               {!hideTaskChecklist && (
                 <LabTaskChecklist
                   completions={completions}
+                  hintsUsedByTask={hintsUsedByTask}
                   isVerifying={isVerifying}
+                  maxHints={maxHints}
                   maxScore={maxScore}
                   score={score}
                   scrollable={false}
                   selectedTaskId={selectedTaskId}
                   tasks={lab.tasks}
                   onCheck={verify}
+                  onHint={openHintDrawer}
                   onTaskSelect={handleTaskSelect}
                 />
               )}
@@ -307,13 +328,16 @@ export function LabWorkspaceContent({
           ) : (
             <LabConsoleWorkspace
               completions={completions}
+              hintsUsedByTask={hintsUsedByTask}
               isVerifying={isVerifying}
+              maxHints={maxHints}
               maxScore={maxScore}
               score={score}
               selectedTaskId={selectedTaskId}
               tasks={lab.tasks}
               workspacePanel={workspacePanel}
               onCheck={verify}
+              onHint={openHintDrawer}
               onTaskSelect={handleTaskSelect}
             />
           )
@@ -346,6 +370,21 @@ export function LabWorkspaceContent({
           </ResizablePanelGroup>
         )}
       </div>
+
+      <HintDrawer
+        error={hintError}
+        hintPenaltyPct={lab.hint_penalty_pct}
+        hintsUsed={hintTaskId ? hintsUsedFor(hintTaskId) : 0}
+        isRequesting={isRequestingHint}
+        maxHints={maxHints}
+        open={hintTaskId !== null}
+        revealedHints={hintTaskId ? hintsByTask[hintTaskId] ?? [] : []}
+        task={lab.tasks.find((t) => t.task_id === hintTaskId)}
+        onOpenChange={(open) => {
+          if (!open) closeHintDrawer()
+        }}
+        onRequestHint={() => hintTaskId && requestHint(hintTaskId)}
+      />
     </>
   )
 }

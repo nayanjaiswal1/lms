@@ -8,6 +8,7 @@ import type {
   LabPortsData,
   LabRunResult,
   LabSubmitResult,
+  HintResult,
 } from "@/lib/labs"
 
 export async function startLabSessionAction(
@@ -53,6 +54,16 @@ export async function verifyLabTaskAction(
     "POST",
     `/api/labs/sessions/${sessionId}/tasks/${taskId}/verify`,
     { code },
+  )
+}
+
+export async function requestLabHintAction(
+  sessionId: string,
+  taskId: string,
+): Promise<ActionResult<HintResult>> {
+  return apiAction<HintResult>(
+    "POST",
+    `/api/labs/sessions/${sessionId}/tasks/${taskId}/hint`,
   )
 }
 

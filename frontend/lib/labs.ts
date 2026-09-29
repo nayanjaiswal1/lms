@@ -105,6 +105,20 @@ export interface TaskCompletion {
   hints_used: number
 }
 
+// Response of POST /sessions/:id/tasks/:taskId/hint. hint_penalty_pct
+// mirrors the lab's own (Lab.hint_penalty_pct) — included per-response so
+// the hint drawer's warning never needs a second prop plumbed down just for
+// this.
+export interface HintResult {
+  level: number
+  content: string
+  hints_used: number
+  hints_remaining: number
+  hint_penalty_pct: number
+}
+
+export const MAX_HINTS_PER_TASK = 3
+
 export interface LabSession {
   id: string
   lab_id: string
