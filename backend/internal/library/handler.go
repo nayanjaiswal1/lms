@@ -27,7 +27,7 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrNotFound):
 		httputil.WriteError(w, http.StatusNotFound, "Not found.")
 	case errors.Is(err, ErrInvalidKind):
-		httputil.WriteError(w, http.StatusBadRequest, "Invalid kind — must be lab, quiz, or notes.")
+		httputil.WriteError(w, http.StatusBadRequest, "Invalid kind — must be lab, debug, quiz, or notes.")
 	case errors.Is(err, ErrItemNotEligible):
 		httputil.WriteError(w, http.StatusUnprocessableEntity, "This item isn't published/eligible to place yet.")
 	case errors.Is(err, courses.ErrNotFound):
@@ -63,10 +63,13 @@ func (h *Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(q.Get("limit"))
 
 	page, err := h.service.List(r.Context(), claims.OrgID, ListFilter{
-		Kinds:  kinds,
-		Search: strings.TrimSpace(q.Get("q")),
-		Cursor: q.Get("cursor"),
-		Limit:  limit,
+		Kinds:      kinds,
+		Search:     strings.TrimSpace(q.Get("q")),
+		Cursor:     q.Get("cursor"),
+		Limit:      limit,
+		Stack:      strings.TrimSpace(q.Get("stack")),
+		Category:   strings.TrimSpace(q.Get("category")),
+		Difficulty: strings.TrimSpace(q.Get("difficulty")),
 	})
 	if err != nil {
 		writeDomainError(w, err)

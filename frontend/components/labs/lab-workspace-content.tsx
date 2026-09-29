@@ -286,10 +286,13 @@ export function LabWorkspaceContent({
         </IconMessage>
         <LabTaskPanel
           completions={completions}
+          hintsUsedByTask={hintsUsedByTask}
+          maxHints={maxHints}
           maxScore={maxScore}
           score={score}
           selectedTaskId={selectedTaskId}
           tasks={lab.tasks}
+          onHint={openHintDrawer}
           onTaskSelect={handleTaskSelect}
         />
       </div>
@@ -356,10 +359,13 @@ export function LabWorkspaceContent({
             >
               <LabTaskPanel
                 completions={completions}
+                hintsUsedByTask={hintsUsedByTask}
+                maxHints={maxHints}
                 maxScore={maxScore}
                 score={score}
                 selectedTaskId={selectedTaskId}
                 tasks={lab.tasks}
+                onHint={openHintDrawer}
                 onTaskSelect={handleTaskSelect}
               />
             </ResizablePanel>

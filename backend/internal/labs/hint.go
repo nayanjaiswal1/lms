@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -156,7 +157,7 @@ func recordAISuccess(ctx context.Context, rdb redisClient) {
 //  6. Only once content exists (cache hit or a fresh, successfully stored
 //     generation) does hints_used advance — matching the "attempts" counter
 //     precedent (VerifyTask) of counting real, completed requests only.
-func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID string) (*HintResult, error) {
+func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID, idemKey string) (*HintResult, error) {
 	session, err := s.repo.GetSession(ctx, sessionID, userID)
 	if err != nil {
 		return nil, err
@@ -166,6 +167,21 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID str
 	}
 	if session.Status != SessionStatusRunning && session.Status != SessionStatusPaused {
 		return nil, ErrSessionNotRunning
+	}
+
+	// Client idempotency key: a replayed request (double-click, retry) returns
+	// the original result instead of consuming another level. Checked before
+	// the rate limit so a legitimate replay is never a 429.
+	idemRedisKey := ""
+	if idemKey != "" {
+		sum := sha256.Sum256([]byte(idemKey))
+		idemRedisKey = fmt.Sprintf("lab:hint:idem:%s:%s:%s", sessionID, taskID, hex.EncodeToString(sum[:]))
+		if raw, gErr := s.rdb.Get(ctx, idemRedisKey).Result(); gErr == nil {
+			var prior HintResult
+			if json.Unmarshal([]byte(raw), &prior) == nil {
+				return &prior, nil
+			}
+		}
 	}
 
 	rateLimitKey := fmt.Sprintf("lab:hint:rate:%s:%s", sessionID, taskID)
@@ -210,7 +226,7 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID str
 		return nil, ErrMaxHintsReached
 	}
 
-	lab, err := s.repo.GetLab(ctx, session.LabID, session.OrgID)
+	lab, err := s.repo.GetLabForPlacement(ctx, session.LabID, session.OrgID)
 	if err != nil {
 		return nil, fmt.Errorf("labs.Service.RequestHint: get lab: %w", err)
 	}
@@ -227,9 +243,15 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID str
 	if cached != nil {
 		content = cached.Response
 	} else {
-		content, err = s.generateHint(ctx, task, level, attempts, sessionID, taskID, cacheKey)
-		if err != nil {
-			return nil, err
+		extra, staticHint := s.buildHintExtra(ctx, session, lab, level)
+		if staticHint != "" {
+			// Authored level-1 hint: free, cannot leak, no AI call.
+			content = staticHint
+		} else {
+			content, err = s.generateHint(ctx, task, level, attempts, sessionID, taskID, cacheKey, extra)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -238,20 +260,28 @@ func (s *Service) RequestHint(ctx context.Context, sessionID, taskID, userID str
 		return nil, fmt.Errorf("labs.Service.RequestHint: increment hints_used: %w", err)
 	}
 
-	return &HintResult{
+	result := &HintResult{
 		Level:          level,
 		Content:        content,
 		HintsUsed:      newHintsUsed,
 		HintsRemaining: max(0, MaxHintsPerTask-newHintsUsed),
 		HintPenaltyPct: lab.HintPenaltyPct,
-	}, nil
+	}
+	if idemRedisKey != "" {
+		if raw, mErr := json.Marshal(result); mErr == nil {
+			if sErr := s.rdb.Set(ctx, idemRedisKey, raw, HintIdempotencyTTL).Err(); sErr != nil {
+				slog.Warn("labs.Service.RequestHint: store idempotent result", "error", sErr)
+			}
+		}
+	}
+	return result, nil
 }
 
 // generateHint calls the AI provider (gated by the circuit breaker),
 // persists the result via INSERT ... ON CONFLICT DO NOTHING, and re-reads
 // the cache to return whichever row actually won — its own generation, or a
 // concurrent request's that landed first on the same cache key.
-func (s *Service) generateHint(ctx context.Context, task *TaskSnapshot, level, attempts int, sessionID, taskID, cacheKey string) (string, error) {
+func (s *Service) generateHint(ctx context.Context, task *TaskSnapshot, level, attempts int, sessionID, taskID, cacheKey string, extra hintExtra) (string, error) {
 	if aiCircuitOpen(ctx, s.rdb) {
 		return "", ErrAICircuitOpen
 	}
@@ -260,18 +290,38 @@ func (s *Service) generateHint(ctx context.Context, task *TaskSnapshot, level, a
 	}
 
 	userPrompt := buildHintUserPrompt(task, level, attempts)
-	resp, err := s.aiProvider.Complete(ctx, ai.CompletionRequest{
-		SystemPrompt: hintSystemPrompt,
-		UserPrompt:   userPrompt,
-		MaxTokens:    300,
-		Temperature:  0.4,
-	})
+	if extra.Context != "" {
+		userPrompt += "\n" + extra.Context
+	}
+	complete := func() (ai.CompletionResponse, error) {
+		return s.aiProvider.Complete(ctx, ai.CompletionRequest{
+			SystemPrompt: hintSystemPrompt,
+			UserPrompt:   userPrompt,
+			MaxTokens:    300,
+			Temperature:  0.4,
+		})
+	}
+	resp, err := complete()
 	if err != nil {
 		recordAIFailure(ctx, s.rdb)
 		slog.Error("labs.Service.generateHint: AI completion failed", "session_id", sessionID, "task_id", taskID, "level", level, "error", err)
 		return "", ErrAIUnavailable
 	}
 	recordAISuccess(ctx, s.rdb)
+
+	// Leak filter: output reproducing a reference-fix line is regenerated
+	// once, then replaced by the authored fallback.
+	if leaksFix(resp.Content, extra.LeakLines) {
+		if retry, rErr := complete(); rErr == nil && !leaksFix(retry.Content, extra.LeakLines) {
+			resp = retry
+		} else {
+			fallback := extra.Fallback
+			if fallback == "" {
+				fallback = "Re-read the failing check's output and trace the code path it exercises, one step at a time."
+			}
+			resp.Content = fallback
+		}
+	}
 
 	content := strings.TrimSpace(resp.Content)
 	hintLevel := level

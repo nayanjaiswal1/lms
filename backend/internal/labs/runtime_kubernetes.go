@@ -117,6 +117,11 @@ func (k *KubernetesContainerService) StartWarm(ctx context.Context, warmID strin
 	return k.startPod(ctx, WarmContainerNamePrefix+warmID, map[string]string{"app": "mindforge-lab-warm", "warm-id": warmID}, image)
 }
 
+// StartValidation creates a validation/clean-room Pod. See ContainerRuntime.
+func (k *KubernetesContainerService) StartValidation(ctx context.Context, id string, image string) (containerID, containerHost string, err error) {
+	return k.startPod(ctx, ValidationContainerNamePrefix+id, map[string]string{"app": "mindforge-lab-validate", "validate-id": id}, image)
+}
+
 // ExecSetup runs a lab's setup_script. Kubernetes Pod exec cannot override the
 // container's user, so unlike Docker this is NOT privileged — see
 // ContainerRuntime.ExecSetup and this type's own doc comment.
@@ -318,6 +323,12 @@ func (k *KubernetesContainerService) ExecStdin(ctx context.Context, containerID,
 	return k.execWithStdin(ctx, containerID, script, stdin, timeoutSec)
 }
 
+// ExecCapture is the trusted-only, caller-capped exec (see
+// ContainerRuntime.ExecCapture). The caller's ctx bounds it.
+func (k *KubernetesContainerService) ExecCapture(ctx context.Context, containerID, script string, maxBytes int) (stdout, stderr string, exitCode int, err error) {
+	return k.execPodN(ctx, containerID, []string{"bash", "-c", script}, nil, maxBytes)
+}
+
 func (k *KubernetesContainerService) execWithStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error) {
 	escaped := strings.ReplaceAll(script, "'", "'\\''")
 	cmd := fmt.Sprintf("timeout %d bash -c '%s'", timeoutSec, escaped)
@@ -331,6 +342,10 @@ func (k *KubernetesContainerService) execWithStdin(ctx context.Context, containe
 // execPod runs command inside the named Pod's sole container via the
 // Kubernetes exec subresource. stdin may be nil.
 func (k *KubernetesContainerService) execPod(ctx context.Context, podName string, command []string, stdin io.Reader) (stdout, stderr string, exitCode int, err error) {
+	return k.execPodN(ctx, podName, command, stdin, MaxExecOutputBytes)
+}
+
+func (k *KubernetesContainerService) execPodN(ctx context.Context, podName string, command []string, stdin io.Reader, maxBytes int) (stdout, stderr string, exitCode int, err error) {
 	req := k.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -349,7 +364,7 @@ func (k *KubernetesContainerService) execPod(ctx context.Context, podName string
 		return "", "", -1, fmt.Errorf("labs.KubernetesContainerService.execPod: build executor: %w", err)
 	}
 
-	outBuf, errBuf := newBoundedBuffer(), newBoundedBuffer()
+	outBuf, errBuf := newBoundedBufferN(maxBytes), newBoundedBuffer()
 	streamErr := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  stdin,
 		Stdout: outBuf,

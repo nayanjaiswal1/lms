@@ -95,6 +95,22 @@ func main() {
 	}
 	slog.Info("minio storage ready")
 
+	// Private bundle store (docs/debug-labs.md §B5): lab-kind workspace/
+	// grader bundles never go through storageClient above — that bucket is
+	// deliberately public-read for browser-served assets, and a grader
+	// bundle contains hidden tests + reference fixes that must never be
+	// reachable by URL. See storage.PrivateStore / PrivateMinioClient.
+	privateStore, err := storage.NewPrivateMinioClient(cfg)
+	if err != nil {
+		slog.Error("minio: private client init failed", "error", err)
+		os.Exit(1)
+	}
+	if err := privateStore.EnsureBucket(context.Background()); err != nil {
+		slog.Error("minio: ensure private bucket failed", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("minio private bundle storage ready")
+
 	// ─── AI Provider ─────────────────────────────────────────────────────────
 	aiProvider := ai.NewProvider(cfg.LLMProvider, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMBaseURL)
 	slog.Info("ai provider configured", "provider", cfg.LLMProvider, "available", aiProvider.Available())
@@ -106,10 +122,16 @@ func main() {
 	//
 	// labsImageProfileCatalog is the small in-code catalog of named
 	// ImageProfiles LABS_IMAGE_PROFILES entries resolve against — today just
-	// "nested-docker" (see labs.ImageProfileNestedDocker / docs/labs.md
+	// "nested-docker" and "debug-ide" (see labs.ImageProfileNestedDocker / docs/labs.md
 	// "Nested Docker labs"). Adding a second real profile means adding one
 	// more entry here.
 	labsImageProfileCatalog := map[string]labs.ImageProfile{
+		labs.ImageProfileDebugIDE: {
+			Name:     labs.ImageProfileDebugIDE,
+			Elevated: false,
+			CPU:      labs.DebugIDEContainerCPU,
+			MemoryMB: labs.DebugIDEContainerMemoryMB,
+		},
 		labs.ImageProfileNestedDocker: {
 			Name:                 labs.ImageProfileNestedDocker,
 			Elevated:             true,
@@ -259,6 +281,7 @@ func main() {
 	jobsRegistry.Register(handlers.HandlerAnalytics, handlers.NewAnalyticsHandler(pool))
 	jobsRegistry.Register(handlers.HandlerLabExpire, handlers.NewLabExpireHandler(pool, labsRuntime, notificationsSvcForJobs))
 	jobsRegistry.Register(handlers.HandlerLabCleanup, handlers.NewLabCleanupHandler(pool, labsRuntime))
+	jobsRegistry.Register(handlers.HandlerLabBundleGC, handlers.NewLabBundleGCHandler(pool, privateStore))
 	jobsRegistry.Register(handlers.HandlerLabWarmPool, handlers.NewLabWarmPoolHandler(pool, labsRuntime, cfg.LabsWarmPoolGlobalMax, labsWarmPoolOverrides))
 	jobsRegistry.Register(handlers.HandlerAssessmentExpire, handlers.NewAssessmentExpireHandler(assessmentHandlerForJobs))
 	jobsRegistry.Register(handlers.HandlerMentorEscalate, handlers.NewMentorEscalationHandler(pool, cfg))
@@ -305,6 +328,7 @@ func main() {
 		{Handler: handlers.HandlerAnalytics, Schedule: "0 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
 		{Handler: handlers.HandlerLabExpire, Schedule: "* * * * *", Priority: jobs.PriorityHigh, TimeoutMS: 30000},
 		{Handler: handlers.HandlerLabCleanup, Schedule: "*/10 * * * *", Priority: jobs.PriorityBackground, TimeoutMS: 60000},
+		{Handler: handlers.HandlerLabBundleGC, Schedule: "30 3 * * *", Priority: jobs.PriorityBackground, TimeoutMS: 120000},
 		// TimeoutMS must clear labs.ProvisionTimeoutSeconds (180s): converge's
 		// scale-up goroutines give each warm start that same budget a cold-
 		// started session gets (a slow image pull or setup_script — e.g. a
@@ -376,7 +400,7 @@ func main() {
 	go scheduler.Start(workerCtx)
 
 	// ─── Router ──────────────────────────────────────────────────────────────
-	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc, labsRuntime)
+	router := api.NewRouter(cfg, pool, cache, rdb, storageClient, aiProvider, jobsRegistry, rewardsSvc, labsRuntime, privateStore)
 
 	srv := &http.Server{
 		Addr:        ":" + cfg.Port,

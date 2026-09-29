@@ -274,10 +274,24 @@ func (h *Handler) HandleGetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputil.WriteJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"session":          session,
 		"task_completions": completions,
-	})
+	}
+	// Pluggable lab kinds contribute their own student-safe workspace block
+	// (e.g. "debug": {brief, ide_port, app_ports}) keyed by kind name — only
+	// once the container is up, and never root cause/fix/rubric/bundles.
+	if session.VariantKey != nil {
+		key, payload, ok, err := h.service.SessionKindPayload(r.Context(), session)
+		if err != nil {
+			writeDomainError(w, err)
+			return
+		}
+		if ok {
+			resp[key] = payload
+		}
+	}
+	httputil.WriteJSON(w, http.StatusOK, resp)
 }
 
 // HandleSessionEvents streams Server-Sent Events for container readiness.
@@ -381,7 +395,7 @@ func (h *Handler) HandleHint(w http.ResponseWriter, r *http.Request) {
 	sessionID := chi.URLParam(r, "sessionId")
 	taskID := chi.URLParam(r, "taskId")
 
-	result, err := h.service.RequestHint(r.Context(), sessionID, taskID, claims.UserID)
+	result, err := h.service.RequestHint(r.Context(), sessionID, taskID, claims.UserID, r.Header.Get("Idempotency-Key"))
 	if err != nil {
 		writeDomainError(w, err)
 		return

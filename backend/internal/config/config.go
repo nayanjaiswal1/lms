@@ -219,6 +219,15 @@ type Config struct {
 	// that isn't resolvable outside the compose network.
 	MinioPublicEndpoint string
 	MinioPublicUseSSL   bool
+	// MinioPrivateBucket holds objects that must NEVER be reachable by a
+	// public-read bucket policy or a presigned URL (docs/debug-labs.md §B5's
+	// storage note): lab-kind grader bundles, which contain hidden tests and
+	// reference fixes, and workspace bundles, which the student's own
+	// container reads via server-side stream-in, never a browser fetch. See
+	// storage.PrivateStore / storage.NewPrivateMinioClient — a distinct
+	// bucket from MinioBucket (whose EnsureBucket deliberately grants
+	// anonymous s3:GetObject for browser-served assets like avatars).
+	MinioPrivateBucket string
 
 	// LLM provider (AI course generation and interview prep).
 	// LLMProvider: "anthropic" | "gemini" | "disabled"
@@ -404,6 +413,7 @@ func Load() *Config {
 	} else {
 		cfg.MinioPublicUseSSL = cfg.MinioUseSSL
 	}
+	cfg.MinioPrivateBucket = getEnvDefault("MINIO_PRIVATE_BUCKET", cfg.MinioBucket+"-private")
 
 	cfg.LLMProvider = getEnvDefault("LLM_PROVIDER", "disabled")
 	cfg.LLMAPIKey = os.Getenv("LLM_API_KEY")

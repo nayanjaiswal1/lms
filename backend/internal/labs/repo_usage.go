@@ -256,3 +256,14 @@ func (r *Repo) GetStudentLabUsage(ctx context.Context, orgID string, window time
 	}
 	return out, rows.Err()
 }
+
+// RecordValidationUsage meters clean-room grading time (validation_seconds)
+// against the org, keyed to the session that triggered it.
+func (r *Repo) RecordValidationUsage(ctx context.Context, orgID, sessionID, image string, seconds int64) error {
+	if _, err := r.pool.Exec(ctx,
+		`INSERT INTO lab_usage_events (org_id, session_id, event_type, quantity, image)
+		 VALUES ($1,$2,'validation_seconds',$3,$4)`, orgID, sessionID, seconds, image); err != nil {
+		return fmt.Errorf("labs.Repo.RecordValidationUsage: %w", err)
+	}
+	return nil
+}

@@ -14,6 +14,9 @@ import (
 // independent cookies — this is the fix for the old design's single shared
 // port cookie, which could only resolve one port's absolute-path assets at a
 // time (ponytail: "upgrade: subdomain-per-port routing").
+// previewRefreshOKPath is the silent cookie-refresh landing path.
+const previewRefreshOKPath = "/__mf/ok"
+
 const previewTokenCookieName = "__Host-mf_preview_token"
 
 // ServePreviewAuth is the preview subdomain's one-time handshake:
@@ -43,7 +46,7 @@ func (h *ProxyHandler) ServePreviewAuth(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	_, _, _, status, msg := h.previewTarget(r, token, port, sessionID)
+	_, _, _, _, status, msg := h.previewTarget(r, token, port, sessionID)
 	if status != 0 {
 		writeJSONError(w, status, msg)
 		return
@@ -89,17 +92,28 @@ func (h *ProxyHandler) ServePreviewPassthrough(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Silent-refresh landing page: the frontend hits
+	// /__mf/preview-auth?t=<fresh>&next=/__mf/ok in a hidden iframe every few
+	// minutes so the 5-minute preview cookie is renewed without reloading the
+	// IDE. ServePreviewAuth has already re-set the cookie by the time the
+	// browser lands here; this just answers without touching the upstream app.
+	if r.URL.Path == previewRefreshOKPath {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	cookie, err := r.Cookie(previewTokenCookieName)
 	if err != nil || cookie.Value == "" {
 		writeJSONError(w, http.StatusUnauthorized, "missing preview session — reload the preview")
 		return
 	}
 
-	target, _, _, status, msg := h.previewTarget(r, cookie.Value, port, sessionID)
+	target, _, _, ideToken, status, msg := h.previewTarget(r, cookie.Value, port, sessionID)
 	if status != 0 {
 		writeJSONError(w, status, msg)
 		return
 	}
 
-	h.proxyPreview(w, r, target, r.URL.Path, r.URL.Path == "/")
+	h.proxyPreview(w, r, target, r.URL.Path, r.URL.Path == "/", ideToken)
 }

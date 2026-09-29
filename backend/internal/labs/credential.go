@@ -84,3 +84,47 @@ func writeTTYDCredential(ctx context.Context, rt ContainerRuntime, containerID, 
 	}
 	return nil
 }
+
+// ─── IDE (openvscode-server) connection token ───────────────────────────────
+//
+// The debug lab's IDE port gets its own credential, derived with a DISTINCT
+// HMAC domain from the ttyd one so that leaking one (the student can read
+// both files inside their own container) never yields the other, and neither
+// can be replayed as the other. Written raw (no "user:") because
+// openvscode-server's --connection-token-file takes the bare token.
+const ideCredentialFile = "/home/labuser/.mf-ide-cred"
+
+// ideCredentialDomain must match cmd/labproxy/proxy.go's copy.
+const ideCredentialDomain = "mindforge/container-credential/ide/v1:"
+
+// DeriveIDECredential is HMAC-SHA256(secret, ideCredentialDomain+sessionID),
+// hex. labproxy recomputes it and injects it on requests to the session's
+// ide_port only; the browser never sees it.
+func DeriveIDECredential(secret, sessionID string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(ideCredentialDomain + sessionID))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func writeIDECredential(ctx context.Context, rt ContainerRuntime, containerID, sessionID, jwtSecret string) error {
+	script := fmt.Sprintf(`umask 077 && cat > %s`, ideCredentialFile)
+	_, stderr, exitCode, err := rt.ExecStdin(ctx, containerID, script, []byte(DeriveIDECredential(jwtSecret, sessionID)), CredentialWriteTimeoutSeconds)
+	if err != nil {
+		return fmt.Errorf("labs.writeIDECredential: exec: %w", err)
+	}
+	if exitCode != 0 {
+		return fmt.Errorf("labs.writeIDECredential: write exited %d: %s", exitCode, stderr)
+	}
+	return nil
+}
+
+// writeContainerCredentials writes every per-session credential (ttyd + IDE)
+// at the single points where a container becomes bound to a session (warm
+// claim, cold start, reset replacement). Images that don't read the IDE file
+// simply ignore it.
+func writeContainerCredentials(ctx context.Context, rt ContainerRuntime, containerID, sessionID, jwtSecret string) error {
+	if err := writeTTYDCredential(ctx, rt, containerID, sessionID, jwtSecret); err != nil {
+		return err
+	}
+	return writeIDECredential(ctx, rt, containerID, sessionID, jwtSecret)
+}

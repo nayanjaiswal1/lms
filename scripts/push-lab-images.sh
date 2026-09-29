@@ -84,6 +84,7 @@ declare -A IMAGES=(
   ["lab-images/lab-k8s/Dockerfile"]="mindforge/lab-k8s:1.31"
   ["lab-images/lab-node-web/Dockerfile"]="mindforge/lab-node-web:22"
   ["lab-images/lab-python-web/Dockerfile"]="mindforge/lab-python-web:3.12"
+  ["lab-images/lab-debug/Dockerfile"]="mindforge/lab-debug:1"
 )
 
 for dockerfile in "${!IMAGES[@]}"; do
@@ -93,7 +94,7 @@ for dockerfile in "${!IMAGES[@]}"; do
   # so those two need the wider lab-images/ context; every other image's
   # Dockerfile still only COPYs from its own directory.
   case "$dockerfile" in
-    lab-images/lab-node-web/Dockerfile|lab-images/lab-python-web/Dockerfile)
+    lab-images/lab-node-web/Dockerfile|lab-images/lab-python-web/Dockerfile|lab-images/lab-debug/Dockerfile)
       context="lab-images" ;;
     *)
       context="$(dirname "$dockerfile")" ;;

@@ -1,0 +1,9 @@
+#!/bin/bash
+# Readiness probe (labs.ReadinessProbePath): the image is ready when its
+# database and cache are serving. The IDE is deliberately excluded — it waits
+# for the per-session token, which only exists after a session claims the box.
+set -e
+export PGHOST=127.0.0.1 PGPORT=5432 PGUSER=labuser
+pg_isready -q
+psql -tAq -d app -c 'SELECT 1' >/dev/null
+[ "$(redis-cli -p 6379 ping 2>/dev/null)" = "PONG" ]

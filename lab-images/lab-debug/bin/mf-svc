@@ -1,0 +1,83 @@
+#!/bin/bash
+# mf-svc — control the mf-supervisor's services.
+#
+#   mf-svc restart <name>            restart one service
+#   mf-svc restart-workspace         restart every scenario-owned service
+#                                    (app, worker, stubs) — never postgres/redis/IDE
+#   mf-svc status                    list services and whether they are alive
+#   mf-svc wait-ready <url> [secs]   poll a URL until it answers < 500 (default 30s)
+#   mf-svc set-env KEY=VALUE...      write $RUN/env.override (used by grade.sh)
+#   mf-svc clear-env                 remove the override
+set -u
+
+RUN=/tmp/mf-run
+
+kill_group() {
+  local pidfile="$RUN/$1.pid" pid
+  [ -f "$pidfile" ] || return 1
+  pid="$(cat "$pidfile")"
+  [ -n "$pid" ] || return 1
+  # The child leads its own session/process group (setsid), so the negative
+  # pid reaches the whole service tree.
+  kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+  sleep 0.5
+  kill -KILL -- "-$pid" 2>/dev/null || true
+  return 0
+}
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  restart)
+    [ $# -eq 1 ] || { echo "usage: mf-svc restart <name>" >&2; exit 2; }
+    kill_group "$1" || { echo "mf-svc: unknown service '$1'" >&2; exit 1; }
+    ;;
+  restart-workspace)
+    for kindfile in "$RUN"/*.kind; do
+      [ -f "$kindfile" ] || continue
+      [ "$(cat "$kindfile")" = "workspace" ] || continue
+      name="$(basename "$kindfile" .kind)"
+      kill_group "$name" || true
+    done
+    ;;
+  status)
+    for pidfile in "$RUN"/*.pid; do
+      [ -f "$pidfile" ] || continue
+      name="$(basename "$pidfile" .pid)"
+      pid="$(cat "$pidfile")"
+      if kill -0 "$pid" 2>/dev/null; then echo "$name up ($pid)"; else echo "$name down"; fi
+    done
+    ;;
+  wait-ready)
+    url="${1:?usage: mf-svc wait-ready <url> [secs]}"
+    secs="${2:-30}"
+    deadline=$((SECONDS + secs))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+      code="$(curl -s -o /dev/null -m 2 -w '%{http_code}' "$url" || true)"
+      if [ -n "$code" ] && [ "$code" != "000" ] && [ "$code" -lt 500 ]; then exit 0; fi
+      sleep 0.5
+    done
+    echo "mf-svc: $url not ready after ${secs}s" >&2
+    exit 1
+    ;;
+  set-env)
+    mkdir -p "$RUN"
+    : >"$RUN/env.override"
+    for kv in "$@"; do
+      key="${kv%%=*}"
+      value="${kv#*=}"
+      case "$key" in
+        ''|*[!A-Za-z0-9_]*) echo "mf-svc: invalid env name '$key'" >&2; exit 2 ;;
+      esac
+      printf 'export %s=%q\n' "$key" "$value" >>"$RUN/env.override"
+    done
+    ;;
+  clear-env)
+    rm -f "$RUN/env.override"
+    ;;
+  *)
+    echo "usage: mf-svc {restart <name>|restart-workspace|status|wait-ready <url> [secs]|set-env K=V...|clear-env}" >&2
+    exit 2
+    ;;
+esac

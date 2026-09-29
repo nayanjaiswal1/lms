@@ -92,3 +92,7 @@ type ImageProfile struct {
 // the in-code catalog entry LABS_IMAGE_PROFILES entries resolve against is
 // built in main.go.
 const ImageProfileNestedDocker = "nested-docker"
+
+// ImageProfileDebugIDE names the resource-only (NOT elevated) profile for the
+// debug lab image (mindforge/lab-debug): 2 CPU / 2048 MB / 5 GB target.
+const ImageProfileDebugIDE = "debug-ide"

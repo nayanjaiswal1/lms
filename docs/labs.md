@@ -27,6 +27,7 @@ Labs are optional per module — instructor decides whether a module has one. Wh
 | `playground` | No tasks, free exploration, TTL only | Docker + ttyd |
 | `guided` | Step-by-step tasks with inline AI hints | Docker + ttyd |
 | `sandbox` | CodeSandbox-style IDE: multi-terminal, auto-detected ports, Run/Submit | Docker + ttyd |
+| `debug` | Real-debugging lab: broken Django/FastAPI/React app in a browser IDE, graded by a clean-room grader (see "Debug labs / pluggable lab kinds" below) | Docker/k8s, `mindforge/lab-debug:1`, `debug-ide` profile |
 
 `terminal` and `guided` use the same container infrastructure. `code` reuses the existing Piston executor. `playground` is a `terminal` with no `lab_tasks` rows.
 
@@ -513,6 +514,22 @@ authored/static-hint branch to implement.
 > for AI features to read via an internal proxy/Redis call. For `code`-type labs (no PTY), the
 > "history" would instead be the student's last submitted source + Piston run output. None of this
 > exists yet; see the deviation note above.
+
+### Debug labs / pluggable lab kinds
+
+**Implemented (Phase 1a, 2026-09-30):** the runtime half. Design: `docs/debug-labs.md` ("Generic lab-kind architecture").
+
+- **`lab_type` vs `lab_kind`.** `lab_definitions.lab_type` (DB CHECK, now including `debug`) is the closed **runtime/workspace shape** (image/profile, which frontend workspace). `lab_recipes.lab_kind` is the open **authoring plugin** identity. They are 1:1 for `debug` today but independent by design.
+- **Plugin seam:** `backend/internal/labkinds` (`Kind` interface + registry, `debug.go` the only implementation, self-registering via `init()`). Core `labs` code only ever does `labkinds.Get(lab.LabType)`: variant pick and workspace seeding at session start, grading dispatch (`VerifyTask`/`SubmitAll`), the session's workspace block, debrief, write-up rubric, hint ground truth.
+- **Variants:** a lab with a `build_id` picks `variant_key = variants[sha256(user_id|lab_id) % N]` at `StartSession`, pinned on `lab_sessions.variant_key`.
+- **Bundles are private and content-addressed.** `lab_build_variants` stores `workspace_bundle_key/_sha256` and `grader_bundle_key/_sha256` (`lab-bundles/<sha256>.tar.gz`) in the **private** MinIO bucket (`MINIO_PRIVATE_BUCKET`, default `<MINIO_BUCKET>-private`; `storage.PrivateStore`, no public-read policy, no presigned URLs). Server-side `Download` only, sha256 re-verified on every download; `lab.bundle_gc` deletes unreferenced keys after 24 h. The public bucket policy (`MinioClient.EnsureBucket`) grants anonymous `s3:GetObject` for the whole bucket, which is why bundles must never use it.
+- **Seeding:** `prepareLabEnvironment` streams the pristine workspace bundle via `ExecStdin` (`tar -xzf - -C /home/labuser/work`, as labuser), then runs `setup_script`.
+- **Clean-room grading (`labs.GradeInCleanRoom`).** A Check starts a separate `mindforge-validate-grade-*` sandbox (`ContainerRuntime.StartValidation`, swept by `lab.cleanup_containers`), seeds it with the pristine workspace, overlays only the student's editable regular files (captured from their container with the trusted `ExecCapture`, 16 MB cap; `.git`, dependency dirs and `protected` manifest paths excluded, no symlinks), streams the grader bundle to `/opt/mindforge/grade.sh <mode> --seed <crypto-random>`, then kills the sandbox. Hidden tests never exist in the student's container. Bounded by `CleanRoomMaxConcurrent` (4/replica), `DebugGradeTimeoutSeconds` (90 per mode), a 30 s per-session Redis cooldown (`DebugGradeCooldownSeconds`, released on infrastructure errors), and metered as `validation_seconds`. `SubmitAll` (the Check button) grades all pending script tasks in ONE sandbox.
+- **`grade.sh` contract.** stdin = grader bundle (tar.gz, <=1 MB cap, path-safe, no symlinks). Modes are defined by the bundle's `grader.json` (engine: `/opt/mindforge/grader/run_grade.py`; probe kinds P/Q/C/M/L/H/T in `lib/probes/`, parameterised by JSON). stdout = one JSON object `{mode, passed, checks:[{name, passed, message?}], error?}` with author messages only. The debug kind's modes are `symptom`, `regression`, `student-test` (`labkinds.DebugKind.GradeModes`); a task's `verification_script` holds the mode, `grader='script'`. `grader='writeup_review'` tasks are never run by Check.
+- **IDE credential.** `labs.DeriveIDECredential` = HMAC-SHA256(secret, `"mindforge/container-credential/ide/v1:"+session_id)`, a different domain from ttyd's, written raw to `/home/labuser/.mf-ide-cred` by `writeContainerCredentials` at the same three points as the ttyd credential (warm claim, cold start, reset replacement). `services.d/ide.sh` waits for it and passes `--connection-token-file`. labproxy recomputes it and injects it (`tkn` query + `vscode-tkn` cookie) **only** on requests to the variant's `ide_port`, overwriting any client value, and scrubs `vscode-tkn` Set-Cookie / `tkn` in redirects from responses. Silent cookie refresh: `/__mf/preview-auth?t=<fresh>&next=/__mf/ok` (the `/__mf/ok` path answers 204 on the preview origin).
+- **Image** `lab-images/lab-debug/` (`mindforge/lab-debug:1`, profile `debug-ide`: 2 CPU / 2048 MB / 5 GB target, **not** elevated — map with `LABS_IMAGE_PROFILES=mindforge/lab-debug:1:debug-ide`). Postgres 16 (as labuser, `pg_stat_statements`), Redis, openvscode-server, ttyd, `/opt/wheels`, `/opt/scaffold`. Image-local supervisor `mf-supervisor`/`mf-svc` runs `/opt/mindforge/services.d/*.sh` and the workspace's `.lab/services/*.sh`, logging to `/var/log/mindforge-lab/<svc>.log`.
+- **Endpoints (student router):** `GET /api/labs/sessions/{id}` gains a block keyed by kind name (`debug`: `{brief, ide_port, app_ports}`); `GET /api/labs/sessions/{id}/debrief` (completed only); `POST /api/labs/sessions/{id}/writeup-review` (rubric scoring via the AI provider, cached `sha256(session+"writeup"+sha256(content))`, <=3 fresh reviews/session, student text delimited as untrusted); `GET /api/labs/catalog?kind=&stack=&category=&difficulty=` (any lab with a `lab_catalog_meta` row; `kind` filters `lab_type`).
+- **Hints (all labs):** `Idempotency-Key` header replays the original result for 10 min (a double-submit cannot burn two levels); the terminal history ring buffer (labproxy `termhistory.go` writes output frames to Redis list `lab:term:<session_id>`, newest first, <=100 chunks x 2 KB, 2 h TTL) feeds the last ~4 KB (ANSI-stripped, delimited as untrusted) into hint prompts. For lab kinds, level 1 is the authored ladder (no AI), levels 2-3 add ground truth, the ladder, the student's git diff vs baseline (<=8 KB), the last grader output, and a leak filter (regenerate once, then authored fallback) against lines the reference fix adds. There is still no failure-diagnosis path (`InteractionTypeDiagnose` is unused), so nothing feeds terminal history there yet.
 
 ### Post-Completion Explanation (auto-triggered on task pass)
 
@@ -1542,8 +1559,8 @@ a WebSocket straight to `:7681` and get a shell (the pre-existing hole this clos
   presents it as ttyd's HTTP Basic Auth (`Authorization: Basic base64(mindforge:<hex>)`) on the
   WebSocket dial. A co-located container that somehow reaches the port still can't attach without
   the session's own secret-derived credential.
-- The same `DeriveContainerCredential` helper is reused as-is for the Phase 1 IDE port — one
-  derivation, applied to whichever credentialed port a session opens.
+- The IDE port (debug labs) gets its own credential, `DeriveIDECredential`, with a distinct HMAC
+  domain so ttyd's and the IDE's never coincide — see "Debug labs / pluggable lab kinds".
 - Control frames between browser↔proxy↔ttyd are length-prefixed and validated; a malformed or
   oversized control frame closes the connection rather than being forwarded.
 

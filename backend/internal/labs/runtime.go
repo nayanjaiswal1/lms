@@ -39,6 +39,13 @@ type ContainerRuntime interface {
 	// warm name; the session row carries the coordinates.
 	StartWarm(ctx context.Context, warmID string, image string) (containerID, containerHost string, err error)
 
+	// StartValidation provisions a short-lived sandbox named
+	// ValidationContainerNamePrefix+id ("mindforge-validate-<id>") — the
+	// clean-room grader and build/verify jobs. Named so LabCleanupHandler's
+	// existing mindforge-validate- sweep reaps it if its owner dies. Same
+	// hardening/profile as Start; callers Kill it when done.
+	StartValidation(ctx context.Context, id string, image string) (containerID, containerHost string, err error)
+
 	// Kill force-removes a sandbox by ID.
 	Kill(ctx context.Context, containerID string) error
 
@@ -61,6 +68,15 @@ type ContainerRuntime interface {
 	// string at MAX_ARG_STRLEN, ~128KB — comfortably smaller than a single
 	// source file) since stdin is a stream, not part of argv.
 	ExecStdin(ctx context.Context, containerID, script string, stdin []byte, timeoutSec int) (stdout, stderr string, exitCode int, err error)
+
+	// ExecCapture runs script as the sandbox's non-root user and returns up
+	// to maxBytes of stdout (stderr stays at MaxExecOutputBytes). Used to
+	// pull a bundle/tar out of a sandbox (workspace copy for clean-room
+	// grading, build rendering), where MaxExecOutputBytes is far too small.
+	// Trusted-only: never reachable from a student-supplied script — callers
+	// pass fixed scripts they authored. No per-call timeout param; the
+	// caller's ctx bounds it.
+	ExecCapture(ctx context.Context, containerID, script string, maxBytes int) (stdout, stderr string, exitCode int, err error)
 
 	// ExecSetup runs a lab's setup_script — the one exec that is privileged
 	// (Docker: --user root) rather than running as the sandbox's ordinary

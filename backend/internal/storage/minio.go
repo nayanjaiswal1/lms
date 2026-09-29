@@ -126,3 +126,91 @@ func (m *MinioClient) PresignedGetURL(ctx context.Context, key string, ttl time.
 	}
 	return u.String(), nil
 }
+
+// PrivateMinioClient implements storage.PrivateStore against its own bucket
+// (cfg.MinioPrivateBucket) that EnsureBucket below never grants a public-read
+// policy to — unlike MinioClient.EnsureBucket above, whose whole point is to
+// make its bucket world-readable for browser-served assets (avatars, etc.).
+// It shares the same internal (non-public) minio client host/credentials as
+// MinioClient — nothing reachable through this type is ever signed for or
+// served to a browser, so there is no "public client" half to duplicate.
+type PrivateMinioClient struct {
+	client *minio.Client
+	bucket string
+}
+
+// NewPrivateMinioClient builds a PrivateMinioClient against cfg.MinioPrivateBucket.
+func NewPrivateMinioClient(cfg *config.Config) (*PrivateMinioClient, error) {
+	creds := credentials.NewStaticV4(cfg.MinioAccessKey, cfg.MinioSecretKey, "")
+	client, err := minio.New(cfg.MinioEndpoint, &minio.Options{
+		Creds:  creds,
+		Secure: cfg.MinioUseSSL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("storage: private minio init: %w", err)
+	}
+	return &PrivateMinioClient{client: client, bucket: cfg.MinioPrivateBucket}, nil
+}
+
+// EnsureBucket creates the private bucket if missing. Critically, unlike
+// MinioClient.EnsureBucket, this NEVER calls SetBucketPolicy — a MinIO/S3
+// bucket defaults to fully private (no anonymous access of any kind) until a
+// policy explicitly grants it, and granting one here would defeat the entire
+// point of this type existing.
+func (m *PrivateMinioClient) EnsureBucket(ctx context.Context) error {
+	exists, err := m.client.BucketExists(ctx, m.bucket)
+	if err != nil {
+		return fmt.Errorf("storage: check private bucket %q: %w", m.bucket, err)
+	}
+	if exists {
+		return nil
+	}
+	if err := m.client.MakeBucket(ctx, m.bucket, minio.MakeBucketOptions{}); err != nil {
+		return fmt.Errorf("storage: create private bucket %q: %w", m.bucket, err)
+	}
+	return nil
+}
+
+// Upload implements storage.PrivateStore.
+func (m *PrivateMinioClient) Upload(ctx context.Context, key, contentType string, r io.Reader, size int64) error {
+	if _, err := m.client.PutObject(ctx, m.bucket, key, r, size, minio.PutObjectOptions{
+		ContentType: contentType,
+	}); err != nil {
+		return fmt.Errorf("storage: private upload %q: %w", key, err)
+	}
+	return nil
+}
+
+// Download implements storage.PrivateStore.
+func (m *PrivateMinioClient) Download(ctx context.Context, key string) ([]byte, error) {
+	obj, err := m.client.GetObject(ctx, m.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("storage: private download %q: %w", key, err)
+	}
+	defer obj.Close()
+	data, err := io.ReadAll(obj)
+	if err != nil {
+		return nil, fmt.Errorf("storage: private read %q: %w", key, err)
+	}
+	return data, nil
+}
+
+// Delete implements storage.PrivateStore.
+func (m *PrivateMinioClient) Delete(ctx context.Context, key string) error {
+	if err := m.client.RemoveObject(ctx, m.bucket, key, minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("storage: private delete %q: %w", key, err)
+	}
+	return nil
+}
+
+// List implements storage.PrivateStore.
+func (m *PrivateMinioClient) List(ctx context.Context, prefix string) ([]PrivateObject, error) {
+	var out []PrivateObject
+	for obj := range m.client.ListObjects(ctx, m.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+		if obj.Err != nil {
+			return nil, fmt.Errorf("storage: private list %q: %w", prefix, obj.Err)
+		}
+		out = append(out, PrivateObject{Key: obj.Key, LastModified: obj.LastModified})
+	}
+	return out, nil
+}

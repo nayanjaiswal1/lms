@@ -53,7 +53,7 @@ func (s *Service) List(ctx context.Context, orgID string, f ListFilter) (ItemPag
 // its normal "view" endpoint would return (docs/debug-labs.md L4).
 func (s *Service) Preview(ctx context.Context, orgID, kind, itemID string) (any, error) {
 	switch kind {
-	case KindLab:
+	case KindLab, KindDebug:
 		lab, err := s.labsRepo.GetLabForPlacement(ctx, itemID, orgID)
 		if err != nil {
 			return nil, mapNotFound(err)
@@ -98,7 +98,7 @@ func (s *Service) Preview(ctx context.Context, orgID, kind, itemID string) (any,
 // through — no separate try-session code (docs/debug-labs.md L4). Quiz/notes
 // have no "session" concept, so Try only applies to kind=lab.
 func (s *Service) Try(ctx context.Context, orgID, userID, kind, itemID string) (*labs.LabSession, error) {
-	if kind != KindLab {
+	if !isLabKind(kind) {
 		return nil, ErrInvalidKind
 	}
 	if _, err := s.labsRepo.GetLabForPlacement(ctx, itemID, orgID); err != nil {
@@ -195,7 +195,7 @@ func (s *Service) resolveAttachModule(ctx context.Context, orgID string, section
 	base := courses.CourseModule{CourseID: section.CourseID, SectionID: section.ID}
 
 	switch req.Kind {
-	case KindLab:
+	case KindLab, KindDebug:
 		lab, err := s.labsRepo.GetLabForPlacement(ctx, req.ItemID, orgID)
 		if err != nil {
 			return courses.CourseModule{}, mapNotFound(err)

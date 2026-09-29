@@ -1,0 +1,71 @@
+#!/bin/bash
+# mf-supervisor — image-local service supervisor for the debug lab sandbox
+# (docs/debug-labs.md §2). Runs as labuser; no init system, no compose.
+#
+# Supervises every service script it finds in two directories:
+#   /opt/mindforge/services.d/         image-owned, root-owned (postgres, redis, IDE)
+#   /home/labuser/work/.lab/services/  scenario-owned, arrives with the workspace
+#                                       bundle (app, worker, stub services)
+# Each <name>.sh runs in its own process group, restarted 1s after it exits,
+# logging to /var/log/mindforge-lab/<name>.log. Workspace services are picked
+# up whenever their script appears (the bundle lands after the container starts).
+#
+# Control (see mf-svc): $RUN/<name>.pid holds the live child's pid; killing
+# that process group makes the loop start a fresh one. If $RUN/env.override
+# exists it is sourced into every (re)started service's environment — this is
+# how grade.sh points the app at its throwaway database.
+set -u
+
+RUN=/tmp/mf-run
+LOGDIR=/var/log/mindforge-lab
+IMAGE_SVC_DIR=/opt/mindforge/services.d
+WORKSPACE_SVC_DIR=/home/labuser/work/.lab/services
+RESTART_DELAY=1
+
+mkdir -p "$RUN" "$LOGDIR"
+
+declare -A supervised=()
+
+supervise() {
+  local name="$1" script="$2" log="$LOGDIR/$1.log" child
+  while true; do
+    (
+      if [ -f "$RUN/env.override" ]; then
+        set -a
+        # shellcheck disable=SC1091
+        . "$RUN/env.override"
+        set +a
+      fi
+      cd /home/labuser/work 2>/dev/null || cd /home/labuser
+      exec setsid bash "$script"
+    ) >>"$log" 2>&1 &
+    child=$!
+    echo "$child" >"$RUN/$name.pid"
+    wait "$child"
+    echo "[mf-supervisor] $name exited (status $?), restarting in ${RESTART_DELAY}s" >>"$log"
+    sleep "$RESTART_DELAY"
+  done
+}
+
+start_new_services() {
+  local dir script name
+  for dir in "$IMAGE_SVC_DIR" "$WORKSPACE_SVC_DIR"; do
+    [ -d "$dir" ] || continue
+    for script in "$dir"/*.sh; do
+      [ -f "$script" ] || continue
+      name="$(basename "$script" .sh)"
+      [ -z "${supervised[$name]:-}" ] || continue
+      # Image services take precedence over a same-named workspace script.
+      [ "$dir" = "$IMAGE_SVC_DIR" ] && echo image >"$RUN/$name.kind" || echo workspace >"$RUN/$name.kind"
+      supervised[$name]=1
+      supervise "$name" "$script" &
+    done
+  done
+}
+
+trap 'kill 0' TERM INT
+
+while true; do
+  start_new_services
+  sleep 1
+done

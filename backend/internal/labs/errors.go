@@ -130,4 +130,25 @@ var (
 	// — see docs/entitlements.md §1.1, lab quotas are an individual-plan
 	// concept only, orgs keep their existing org_lab_config caps.
 	ErrPlanQuotaExceeded = errors.New("labs: individual plan lab quota exceeded")
+
+	// ErrBundleStoreUnavailable is returned when a lab-kind session needs a
+	// bundle but no private object store is configured (MinIO unset).
+	ErrBundleStoreUnavailable = errors.New("labs: bundle store is not configured")
+
+	// ErrBundleCorrupt is returned when a downloaded bundle's sha256 does not
+	// match the value recorded in lab_build_variants.
+	ErrBundleCorrupt = errors.New("labs: bundle failed sha256 verification")
+
+	// ErrKindLabNotBuilt is returned when a lab whose lab_type has a
+	// registered kind has no build/variants to run.
+	ErrKindLabNotBuilt = errors.New("labs: lab has no verified build variants")
+
+	// ErrGradeBusy is returned when the clean-room grader is at capacity.
+	ErrGradeBusy = errors.New("labs: grader is busy, try again shortly")
+
+	// ErrMaxWriteupReviewsReached is returned past MaxWriteupReviewsPerSession.
+	ErrMaxWriteupReviewsReached = errors.New("labs: maximum write-up reviews for this session reached")
+
+	// ErrNoDebrief is returned when a debrief is requested before completion.
+	ErrNoDebrief = errors.New("labs: debrief is only available once the session is completed")
 )

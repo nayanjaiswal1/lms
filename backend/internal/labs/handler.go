@@ -108,6 +108,16 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		httputil.WriteError(w, http.StatusServiceUnavailable, "AI hints are temporarily unavailable — try again in a couple of minutes.")
 	case errors.Is(err, ErrAIUnavailable):
 		httputil.WriteError(w, http.StatusServiceUnavailable, "AI hints are not available right now.")
+	case errors.Is(err, ErrKindLabNotBuilt):
+		httputil.WriteError(w, http.StatusConflict, "This lab has no runnable build yet.")
+	case errors.Is(err, ErrBundleStoreUnavailable):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "Lab content storage is not available right now.")
+	case errors.Is(err, ErrGradeBusy):
+		httputil.WriteError(w, http.StatusServiceUnavailable, "The grader is busy — try again in a few seconds.")
+	case errors.Is(err, ErrMaxWriteupReviewsReached):
+		httputil.WriteError(w, http.StatusTooManyRequests, "Maximum write-up reviews reached for this session.")
+	case errors.Is(err, ErrNoDebrief):
+		httputil.WriteError(w, http.StatusConflict, "The debrief is available once the lab is completed.")
 	default:
 		httputil.WriteError(w, http.StatusInternalServerError, "Something went wrong. Please try again.")
 	}

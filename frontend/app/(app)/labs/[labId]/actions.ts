@@ -57,13 +57,18 @@ export async function verifyLabTaskAction(
   )
 }
 
+// idempotencyKey is derived per (session, task, next level) by the caller so a
+// double-click / retry replays the same result instead of burning two levels.
 export async function requestLabHintAction(
   sessionId: string,
   taskId: string,
+  idempotencyKey?: string,
 ): Promise<ActionResult<HintResult>> {
   return apiAction<HintResult>(
     "POST",
     `/api/labs/sessions/${sessionId}/tasks/${taskId}/hint`,
+    undefined,
+    idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
   )
 }
 

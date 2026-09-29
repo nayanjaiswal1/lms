@@ -229,12 +229,13 @@ declare -A LAB_IMAGES=(
   ["lab-images/lab-k8s/Dockerfile"]="mindforge/lab-k8s:1.31"
   ["lab-images/lab-node-web/Dockerfile"]="mindforge/lab-node-web:22"
   ["lab-images/lab-python-web/Dockerfile"]="mindforge/lab-python-web:3.12"
+  ["lab-images/lab-debug/Dockerfile"]="mindforge/lab-debug:1"
 )
 info "Building + importing lab sandbox images..."
 for dockerfile in "${!LAB_IMAGES[@]}"; do
   name="${LAB_IMAGES[$dockerfile]}"
   case "$dockerfile" in
-    lab-images/lab-node-web/Dockerfile|lab-images/lab-python-web/Dockerfile)
+    lab-images/lab-node-web/Dockerfile|lab-images/lab-python-web/Dockerfile|lab-images/lab-debug/Dockerfile)
       context="lab-images" ;;
     *)
       context="$(dirname "$dockerfile")" ;;

@@ -1,6 +1,7 @@
 "use client"
 
-import { CheckCircle2, SkipForward } from "lucide-react"
+import { CheckCircle2, Lightbulb, SkipForward } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -13,6 +14,12 @@ interface LabTaskPanelProps {
   maxScore: number
   selectedTaskId: string | null
   onTaskSelect: (taskId: string) => void
+  /** AI hint button for the selected pending task — same contract as
+   *  LabTaskChecklist's onHint; omit for no hint affordance. */
+  onHint?: (taskId: string) => void
+  /** hints_used per task_id, drives the "Hint (n/max)" label. */
+  hintsUsedByTask?: Record<string, number>
+  maxHints?: number
 }
 
 interface TaskPillProps {
@@ -59,6 +66,9 @@ export function LabTaskPanel({
   maxScore,
   selectedTaskId,
   onTaskSelect,
+  onHint,
+  hintsUsedByTask,
+  maxHints = 3,
 }: LabTaskPanelProps) {
   const completionMap = new Map(completions.map((c) => [c.task_id, c]))
   const passedCount = completions.filter((c) => c.status === "passed").length
@@ -116,6 +126,19 @@ export function LabTaskPanel({
             <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
               {selectedTask.description}
             </p>
+            {onHint && completionMap.get(selectedTask.task_id)?.status !== "passed" && (
+              <Button
+                aria-label={`Get a hint for ${selectedTask.title}`}
+                className="w-fit gap-1.5 text-ai hover:text-ai"
+                disabled={(hintsUsedByTask?.[selectedTask.task_id] ?? 0) >= maxHints}
+                size="sm"
+                variant="ghost"
+                onClick={() => onHint(selectedTask.task_id)}
+              >
+                <Lightbulb aria-hidden className="h-3.5 w-3.5" />
+                Hint ({hintsUsedByTask?.[selectedTask.task_id] ?? 0}/{maxHints})
+              </Button>
+            )}
           </div>
         </ScrollArea>
       )}

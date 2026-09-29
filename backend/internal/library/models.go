@@ -11,15 +11,21 @@ package library
 
 import "time"
 
-// Kinds of item Phase A can list/attach. "debug" (a published debug-lab
-// build) ships with the Phase 1 builder — see docs/debug-labs.md L6.
+// Kinds of item the library can list/attach. KindDebug is a lab whose
+// lab_type belongs to a pluggable lab kind (backend/internal/labkinds) — it is
+// still a lab_definitions row, placed/previewed/tried exactly like KindLab,
+// but listed separately so it can carry stack/category/difficulty filters.
 const (
 	KindLab   = "lab"
+	KindDebug = "debug"
 	KindQuiz  = "quiz"
 	KindNotes = "notes"
 )
 
-var validKinds = map[string]bool{KindLab: true, KindQuiz: true, KindNotes: true}
+var validKinds = map[string]bool{KindLab: true, KindDebug: true, KindQuiz: true, KindNotes: true}
+
+// isLabKind reports whether kind resolves to a lab_definitions row.
+func isLabKind(kind string) bool { return kind == KindLab || kind == KindDebug }
 
 // Item is one row of the unified library listing — a lab, a quiz, or a notes
 // lesson, projected to a common shape. Mode tells the picker UI whether
@@ -53,6 +59,8 @@ type ListFilter struct {
 	Search string
 	Cursor string
 	Limit  int
+	// Stack/Category/Difficulty filter labs by lab_catalog_meta (empty = any).
+	Stack, Category, Difficulty string
 }
 
 // AttachReq is library.Service.Attach's input — docs/debug-labs.md L3.

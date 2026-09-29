@@ -36,8 +36,11 @@ export function useLabHint(sessionId: string, initialCompletions: TaskCompletion
 
   function requestHint(taskId: string) {
     setError(null)
+    // Same key for every click made while the task is at the same level, so
+    // a double-submit can never consume two levels.
+    const idempotencyKey = `hint-${sessionId}-${taskId}-${hintsUsedFor(taskId) + 1}`
     startRequest(async () => {
-      const res = await requestLabHintAction(sessionId, taskId)
+      const res = await requestLabHintAction(sessionId, taskId, idempotencyKey)
       if (!res.ok || !res.data) {
         setError(res.error ?? "Could not get a hint. Please try again.")
         return

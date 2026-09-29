@@ -75,7 +75,7 @@ import (
 )
 
 // NewRouter builds and returns the chi Router with all middleware and routes wired.
-func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, rewardsSvc *rewards.Service, labsRuntime labs.ContainerRuntime) http.Handler {
+func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb *redis.Client, store storage.StorageClient, aiProvider ai.LLMProvider, jobsRegistry *jobs.Registry, rewardsSvc *rewards.Service, labsRuntime labs.ContainerRuntime, labsPrivateStore storage.PrivateStore) http.Handler {
 	r := chi.NewRouter()
 
 	// ─── Global middleware ────────────────────────────────────────────────────
@@ -591,7 +591,7 @@ func NewRouter(cfg *config.Config, pool *pgxpool.Pool, cache *session.Cache, rdb
 		// never nil here since gitlab.Service always exists once an org has an
 		// installation; it's still a nil-safe optional dependency to labs
 		// itself (empty script -> skip) when no installation/connection exists.
-		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service, aiProvider)
+		labsHandler := labs.New(pool, rdb, cfg.JWTSecret, "mindforge-labproxy", cfg.PistonURL, cfg.PistonTimeout, coursesSvc, labsRuntime, gitlabRouter.Service(), notificationsRouter.Service, entitlementsRouter.Service, aiProvider, labsPrivateStore)
 		labsHandler.RegisterRoutes(r)
 		labsHandler.RegisterAdminRoutes(r, authzHandler.Service())
 

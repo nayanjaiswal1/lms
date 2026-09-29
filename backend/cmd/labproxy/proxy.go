@@ -48,6 +48,19 @@ const ttydCredentialUser = "mindforge"
 // the other process (internal/labs/credential.go ↔ cmd/labproxy/proxy.go).
 const containerCredentialDomain = "mindforge/container-credential/v1:"
 
+// ideCredentialDomain must match labs.ideCredentialDomain
+// (internal/labs/credential.go) — a distinct domain from the ttyd one so the
+// two credentials never coincide.
+const ideCredentialDomain = "mindforge/container-credential/ide/v1:"
+
+// deriveIDECredential must stay byte-for-byte identical to
+// labs.DeriveIDECredential.
+func deriveIDECredential(secret, sessionID string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(ideCredentialDomain + sessionID))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 func deriveContainerCredential(secret, sessionID string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	// Domain-separation prefix: the secret also signs auth JWTs and the
@@ -224,10 +237,13 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		relay(browserConn, containerConn)
+		relay(browserConn, containerConn, nil)
 	}()
 	go func() {
-		relay(containerConn, browserConn)
+		// container -> browser: also feeds the terminal history ring buffer.
+		rec := newTermRecorder(h.rdb, sess.ID)
+		defer rec.flush()
+		relay(containerConn, browserConn, rec.record)
 	}()
 
 	<-done
@@ -239,7 +255,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // relay copies WebSocket messages from src to dst until either connection
 // closes or encounters an error. Control frames with a null byte prefix are
 // filtered to avoid confusing ttyd.
-func relay(src, dst *websocket.Conn) {
+func relay(src, dst *websocket.Conn, onMsg func([]byte)) {
 	for {
 		msgType, msg, err := src.ReadMessage()
 		if err != nil {
@@ -247,6 +263,9 @@ func relay(src, dst *websocket.Conn) {
 		}
 		if len(msg) > 0 && msg[0] == 0x00 {
 			continue
+		}
+		if onMsg != nil {
+			onMsg(msg)
 		}
 		if err := dst.WriteMessage(msgType, msg); err != nil {
 			return

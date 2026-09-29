@@ -19,6 +19,7 @@ import (
 	"github.com/mindforge/backend/internal/httputil"
 	"github.com/mindforge/backend/internal/notifications"
 	"github.com/mindforge/backend/internal/pricing"
+	"github.com/mindforge/backend/internal/storage"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -66,6 +67,13 @@ type Service struct {
 	// aiProvider backs RequestHint (hint.go) — the generic lab hint endpoint
 	// (docs/labs.md "AI Integration" § Hint System).
 	aiProvider ai.LLMProvider
+	// bundleStore is the private object store lab-kind (docs/debug-labs.md)
+	// workspace/grader bundles are uploaded to and downloaded from — never
+	// the public storageClient every other feature uses (see
+	// storage.PrivateStore's doc comment). nil when MinIO isn't configured;
+	// every lab-kind path checks for that and fails clearly rather than
+	// nil-panicking.
+	bundleStore storage.PrivateStore
 }
 
 // NewService wires up the labs service. coursesSvc completes the course module
@@ -78,8 +86,8 @@ type Service struct {
 // StartSession and the usage accrual in RecordSessionContainerUsage(Batch).
 // jwtSecret is LABPROXY_JWT_SECRET — see Service.labJWTSecret's doc comment.
 // aiProvider backs RequestHint — see Service.aiProvider's doc comment.
-func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, jwtSecret string, aiProvider ai.LLMProvider) *Service {
-	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, aiProvider: aiProvider}
+func NewService(repo *Repo, container ContainerRuntime, rdb *redis.Client, pool *pgxpool.Pool, piston *labPiston, coursesSvc *courses.Service, repoPreparer RepoPreparer, notifSvc *notifications.Service, entitlementsSvc *ent.Service, jwtSecret string, aiProvider ai.LLMProvider, bundleStore storage.PrivateStore) *Service {
+	return &Service{repo: repo, container: container, rdb: rdb, pool: pool, piston: piston, coursesSvc: coursesSvc, repoPreparer: repoPreparer, notifications: notifSvc, entitlements: entitlementsSvc, labJWTSecret: jwtSecret, aiProvider: aiProvider, bundleStore: bundleStore}
 }
 
 // WSTokenType is the wsTokenClaims.Type value labproxy requires. labproxy
@@ -198,6 +206,18 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		}
 	}
 
+	// 4d. Pluggable lab kinds (backend/internal/labkinds): pin one of the
+	// build's verified variants, deterministically per (user, lab), so the
+	// insert below records it atomically with the session row.
+	var variantKey *string
+	if _, isKind := kindFor(lab); isKind {
+		vk, err := s.choosePinnedVariant(ctx, lab, userID)
+		if err != nil {
+			return nil, err
+		}
+		variantKey = &vk
+	}
+
 	// 5. Advisory lock + concurrency checks + insert — all in one transaction.
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -308,6 +328,7 @@ func (s *Service) StartSession(ctx context.Context, labID, userID, orgID string,
 		ExpiresAt:     expiresAt,
 		IsTest:        isTest,
 		ModuleID:      moduleID,
+		VariantKey:    variantKey,
 	})
 	if err != nil {
 		if errors.Is(err, ErrSessionActive) {
@@ -389,7 +410,7 @@ func (s *Service) provisionContainer(ctx context.Context, session *LabSession, l
 		return
 	}
 
-	if err := s.prepareLabEnvironment(provisionCtx, containerID, lab); err != nil {
+	if err := s.prepareLabEnvironment(provisionCtx, containerID, lab, session); err != nil {
 		// The sandbox is unusable and unclaimable by anyone else — it is
 		// already bound to this session's row — so remove it rather than leave
 		// it for the orphan sweep.
@@ -432,7 +453,7 @@ func (s *Service) acquireSandbox(ctx context.Context, session *LabSession, lab *
 				// write is treated the same as a spoiled container: a
 				// session must never run against a sandbox whose ttyd
 				// might still be reachable unauthenticated.
-				if credErr := writeTTYDCredential(ctx, s.container, warm.ContainerID, session.ID, s.labJWTSecret); credErr != nil {
+				if credErr := writeContainerCredentials(ctx, s.container, warm.ContainerID, session.ID, s.labJWTSecret); credErr != nil {
 					slog.Error("labs.Service.acquireSandbox: write ttyd credential on claimed warm container, cold-starting",
 						"session_id", session.ID, "warm_id", warm.ID, "error", credErr)
 					if delErr := s.repo.DeleteWarmContainer(ctx, warm.ID); delErr != nil {
@@ -466,7 +487,7 @@ func (s *Service) acquireSandbox(ctx context.Context, session *LabSession, lab *
 	// this file exists (see writeTTYDCredential), so setting it as early as
 	// possible minimizes how long the container sits with no terminal
 	// listener yet.
-	if credErr := writeTTYDCredential(ctx, s.container, containerID, session.ID, s.labJWTSecret); credErr != nil {
+	if credErr := writeContainerCredentials(ctx, s.container, containerID, session.ID, s.labJWTSecret); credErr != nil {
 		_ = s.container.Kill(context.Background(), containerID)
 		return "", "", fmt.Errorf("labs.Service.acquireSandbox: write ttyd credential: %w", credErr)
 	}
@@ -491,7 +512,14 @@ func (s *Service) acquireSandbox(ctx context.Context, session *LabSession, lab *
 // A setup failure is fatal to the session by design — a lab whose starter files
 // did not land is a broken lab, and handing the student a terminal into a
 // half-prepared sandbox wastes their attempt on a problem that is not theirs.
-func (s *Service) prepareLabEnvironment(ctx context.Context, containerID string, lab *LabDefinition) error {
+func (s *Service) prepareLabEnvironment(ctx context.Context, containerID string, lab *LabDefinition, session *LabSession) error {
+	// A lab kind's pristine workspace bundle lands first, so its setup_script
+	// (readiness probe etc.) runs against the seeded workspace.
+	if _, isKind := kindFor(lab); isKind {
+		if err := s.seedKindWorkspace(ctx, containerID, lab, session); err != nil {
+			return fmt.Errorf("labs.Service.prepareLabEnvironment: %w", err)
+		}
+	}
 	if lab.SetupScript == nil || strings.TrimSpace(*lab.SetupScript) == "" {
 		return nil
 	}
@@ -920,7 +948,7 @@ func (s *Service) resetContainerSession(ctx context.Context, session *LabSession
 	// Same credential-before-anything-waits ordering as acquireSandbox's
 	// cold-start path — a reset's replacement container is a cold start in
 	// every respect that matters here (see writeTTYDCredential).
-	if credErr := writeTTYDCredential(ctx, s.container, newContainerID, session.ID, s.labJWTSecret); credErr != nil {
+	if credErr := writeContainerCredentials(ctx, s.container, newContainerID, session.ID, s.labJWTSecret); credErr != nil {
 		slog.Error("labs.Service.resetContainerSession: write ttyd credential", "session_id", session.ID, "error", credErr)
 		_ = s.container.Kill(context.Background(), newContainerID)
 		return nil, nil, ErrResetFailed
@@ -930,7 +958,7 @@ func (s *Service) resetContainerSession(ctx context.Context, session *LabSession
 		_ = s.container.Kill(context.Background(), newContainerID)
 		return nil, nil, ErrResetFailed
 	}
-	if err := s.prepareLabEnvironment(ctx, newContainerID, lab); err != nil {
+	if err := s.prepareLabEnvironment(ctx, newContainerID, lab, session); err != nil {
 		slog.Error("labs.Service.resetContainerSession: prepare replacement", "session_id", session.ID, "error", err)
 		_ = s.container.Kill(context.Background(), newContainerID)
 		return nil, nil, ErrResetFailed
@@ -1055,6 +1083,9 @@ func (s *Service) VerifyTask(ctx context.Context, sessionID, taskID, userID, cod
 		return nil, fmt.Errorf("labs.Service.VerifyTask: get lab: %w", err)
 	}
 
+	if kind, isKind := kindFor(lab); isKind {
+		return s.verifyKindTask(ctx, session, lab, kind, tasks, task, attempts)
+	}
 	if lab.LabType == LabTypeCode {
 		if lab.Language == nil {
 			return nil, fmt.Errorf("labs.Service.VerifyTask: code lab %s has no language configured", lab.ID)
