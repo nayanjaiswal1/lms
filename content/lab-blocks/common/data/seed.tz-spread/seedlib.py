@@ -23,6 +23,8 @@ TABLES = [
 NAMED = ["alice", "bob", "carol", "dan", "erin", "frank"]
 PASSWORD = "shop-pass-1"
 PBKDF2_ITERATIONS = 870000
+# Must match scripts/dev-env.sh: sessions are signed with the app's SECRET_KEY.
+DEFAULT_SECRET_KEY = "dev-only-secret-key-not-for-production"
 CATEGORIES = ["Kitchen", "Office", "Lighting", "Furniture", "Outdoor", "Storage", "Textiles", "Electronics"]
 
 
@@ -48,17 +50,53 @@ def connect():
 
 
 def schema_ready(conn):
-    have = conn.execute("SELECT to_regclass('public.catalog_product'), to_regclass('public.orders_order')").fetchone()
-    if not all(have):
-        log("the shop schema is not migrated, skipping the data load (run migrations first)")
+    missing = [t for t in TABLES if not conn.execute("SELECT to_regclass(%s)", (f"public.{t}",)).fetchone()[0]]
+    if missing:
+        log(f"the shop schema is not fully migrated (missing {', '.join(missing[:3])}), skipping the data load")
         return False
     return True
+
+
+def has_column(conn, table, column):
+    """Faults may add columns to the shop tables; the seed fills the ones it can default."""
+    row = conn.execute(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = %s AND column_name = %s",
+        (table, column),
+    ).fetchone()
+    return bool(row)
 
 
 def password_hash():
     salt = hashlib.sha256(b"shop-demo-salt").hexdigest()[:22]
     digest = hashlib.pbkdf2_hmac("sha256", PASSWORD.encode(), salt.encode(), PBKDF2_ITERATIONS)
     return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt}${base64.b64encode(digest).decode()}"
+
+
+def seed_sessions(conn, count):
+    """Ready-made login sessions (cookie ``sessionid=mf_sess_<name>``) for the first `count` customers, so probes
+    can request login-protected pages. Signed exactly like Django does, with the SECRET_KEY the app runs with."""
+    import django.conf
+
+    if not django.conf.settings.configured:
+        django.conf.settings.configure(SECRET_KEY=os.environ.get("DJANGO_SECRET_KEY") or DEFAULT_SECRET_KEY, USE_TZ=True)
+    from django.contrib.sessions.backends.db import SessionStore
+    from django.utils.crypto import salted_hmac
+
+    key_salt = "django.contrib.auth.models.AbstractBaseUser.get_session_auth_hash"
+    store = SessionStore()
+    rows = conn.execute("SELECT id, email, password FROM customers_customer WHERE id <= %s ORDER BY id", (count,)).fetchall()
+    for pk, email, password in rows:
+        data = store.encode(
+            {
+                "_auth_user_id": str(pk),
+                "_auth_user_backend": "django.contrib.auth.backends.ModelBackend",
+                "_auth_user_hash": salted_hmac(key_salt, password, algorithm="sha256").hexdigest(),
+            }
+        )
+        conn.execute(
+            "INSERT INTO django_session (session_key, session_data, expire_date) VALUES (%s, %s, now() + interval '30 days')",
+            ("mf_sess_" + email.split("@")[0], data),
+        )
 
 
 def reset(conn):
@@ -93,6 +131,7 @@ def load_base(conn, customers=30, products=60, orders=150, reviews=80, days=60, 
         "INSERT INTO authtoken_token (key, created, user_id) SELECT 'mf_tok_' || split_part(email, '@', 1), now(), id "
         f"FROM customers_customer WHERE id <= {len(named)}"
     )
+    seed_sessions(conn, len(named))
     for name in CATEGORIES:
         conn.execute("INSERT INTO catalog_category (name, slug) VALUES (%s, %s)", (name, name.lower()))
     conn.execute(
@@ -157,10 +196,12 @@ def load_base(conn, customers=30, products=60, orders=150, reviews=80, days=60, 
         f"now() - (g * 3) * interval '1 day', CASE WHEN g % 5 = 0 THEN now() - g * interval '1 day' ELSE NULL END "
         f"FROM generate_series(1, {subscriptions}) g"
     )
+    slug_col = ", slug" if has_column(conn, "reviews_review", "slug") else ""
+    slug_val = ", 'review-' || g" if slug_col else ""
     conn.execute(
-        "INSERT INTO reviews_review (product_id, customer_id, rating, title, body, is_approved, created_at) "
+        f"INSERT INTO reviews_review (product_id, customer_id, rating, title, body, is_approved, created_at{slug_col}) "
         f"SELECT 1 + ((g - 1) / {nc} + ((g - 1) % {nc}) * 13) % {products}, 2 + (g - 1) % {nc}, 1 + {h('g', 'rate', seed)} % 5, "
-        f"CASE WHEN g % 4 = 0 THEN NULL ELSE 'Review ' || g END, 'Review text ' || g, true, now() - (g % 200) * interval '1 day' "
+        f"CASE WHEN g % 4 = 0 THEN NULL ELSE 'Review ' || g END, 'Review text ' || g, true, now() - (g % 200) * interval '1 day'{slug_val} "
         f"FROM generate_series(1, {reviews}) g"
     )
     conn.execute(

@@ -19,12 +19,21 @@ const (
 	uploadTimeout    = 5 * time.Minute
 )
 
-// runBlocks dispatches `coursegen blocks <action>`; only `sync` exists.
+const blocksUsage = "usage: coursegen blocks sync [--in DIR] [--out FILE] [--dry-run] [--no-upload]\n" +
+	"       coursegen blocks verify [--in DIR] [--parallel N] [--report FILE] RECIPE.yaml..."
+
+// runBlocks dispatches `coursegen blocks <action>`.
 func runBlocks(args []string) error {
-	if len(args) == 0 || args[0] != "sync" {
-		return fmt.Errorf("usage: coursegen blocks sync [--in DIR] [--out FILE] [--dry-run] [--no-upload]")
+	if len(args) == 0 {
+		return fmt.Errorf("%s", blocksUsage)
 	}
-	return runBlocksSync(args[1:])
+	switch args[0] {
+	case "sync":
+		return runBlocksSync(args[1:])
+	case "verify":
+		return runBlocksVerify(args[1:])
+	}
+	return fmt.Errorf("%s", blocksUsage)
 }
 
 // runBlocksSync validates every content/lab-blocks/**/block.yaml, uploads the

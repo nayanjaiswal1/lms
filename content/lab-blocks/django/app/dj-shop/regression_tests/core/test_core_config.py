@@ -53,8 +53,3 @@ def test_middleware_order(settings):
     assert mw.index("django.contrib.auth.middleware.AuthenticationMiddleware") < mw.index(
         "core.middleware.RequestContextMiddleware"
     )
-
-
-def test_static_pipeline_configured(settings):
-    assert "whitenoise.middleware.WhiteNoiseMiddleware" in settings.MIDDLEWARE
-    assert settings.STATIC_ROOT

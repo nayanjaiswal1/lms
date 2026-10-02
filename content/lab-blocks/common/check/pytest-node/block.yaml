@@ -26,8 +26,6 @@ params:
       description: Seconds (default 60).
       minimum: 5
       maximum: 85
-  required:
-  - paths
 check:
   probe: T
   failure_message: A hidden test for this behavior fails.

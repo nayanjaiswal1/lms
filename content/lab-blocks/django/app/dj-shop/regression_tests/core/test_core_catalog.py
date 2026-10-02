@@ -21,14 +21,6 @@ def test_product_list_api_is_paginated(api_client):
     assert body["next"]
 
 
-def test_product_list_api_query_count_is_constant(api_client, django_assert_max_num_queries):
-    category = make_category()
-    for _ in range(12):
-        make_product(category=category)
-    with django_assert_max_num_queries(4):
-        assert api_client.get("/api/products/?page_size=12").status_code == 200
-
-
 def test_category_filter(api_client):
     a, b = make_category("A"), make_category("B")
     make_product(category=a)

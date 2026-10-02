@@ -51,9 +51,10 @@ def run(ctx: Context, name: str, params: dict[str, Any]) -> None:
                 proc = run_command(ctx, step["cmd"], extra_env={"DATABASE_URL": url},
                                    timeout=int(step.get("timeout", 60)))
             except subprocess.TimeoutExpired:
-                raise ProbeFailure("") from None
+                raise ProbeFailure("", f"step {i + 1}: timed out") from None
             if proc.returncode != int(step.get("expect_rc", 0)):
-                raise ProbeFailure("")
+                out = (proc.stdout + proc.stderr)[-1500:]
+                raise ProbeFailure("", f"step {i + 1}: exit {proc.returncode}, expected {step.get('expect_rc', 0)}\n{out}")
             for chk in step.get("post_sql", []):
                 raw = psql(ctx, chk["sql"], db=scratch)
                 try:

@@ -127,7 +127,7 @@ def student_test_checks(ctx: Context, cfg: dict, conf: dict) -> list[dict]:
     """The student's added/changed tests must FAIL on the pristine baseline
     (a content-addressed git worktree) and PASS on their workspace."""
     st = conf["student_test"]
-    baseline = conf.get("baseline_commit", "")
+    baseline = cfg.get("baseline_commit") or conf.get("baseline_commit", "")
     name = st.get("name", "student regression test")
     if not baseline or git(ctx, "cat-file", "-e", baseline + "^{commit}").returncode != 0:
         return [{"name": name, "passed": False, "message": INFRA_MESSAGE}]
@@ -156,7 +156,7 @@ def student_test_checks(ctx: Context, cfg: dict, conf: dict) -> list[dict]:
         if not psql_admin(f'CREATE DATABASE "{base_db}"'):
             return [{"name": name, "passed": False, "message": INFRA_MESSAGE}]
         base_url = ctx.db_url.rsplit("/", 1)[0] + "/" + base_db
-        base_env = {cfg["database"].get("env", "DATABASE_URL"): base_url}
+        base_env = {cfg.get("database", {}).get("env", "DATABASE_URL"): base_url}
         for cmd in st.get("setup", []):
             run_shell(ctx, cmd, cwd=base, extra_env=base_env)
         base_ctx = Context(**{**ctx.__dict__, "workdir": base, "env": {**ctx.env, **base_env}})

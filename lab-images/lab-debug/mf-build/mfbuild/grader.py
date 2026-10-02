@@ -1,6 +1,9 @@
 """Grader bundle: grader.json (the schema is documented in
 /opt/mindforge/grader/run_grade.py) plus the hidden regression tests.
 
+A fault block may ship hidden files under its own grader/ directory (hidden tests for kind T, SQL snapshots for
+kind M); they land at the bundle root, e.g. grader/tests/x/test_a.py -> tests/x/test_a.py.
+
 Modes:
   symptom      fresh DB, setup, app restarted, the faults' symptom probes
   regression   fresh DB, setup, the app's regression tests for every feature in
@@ -19,6 +22,7 @@ from .inputs import Blocks
 from .tree import Tree, block_subtree
 
 REGRESSION_DIR = "regression_tests"
+FAULT_GRADER_DIR = "grader"  # a fault block's grader/** is copied to the bundle root (hidden tests, snapshot SQL)
 CORE_TESTS = "core"
 READINESS_TIMEOUT = 40
 MANDATORY_PROTECTED = [".mf/*", ".lab/services/*"]
@@ -88,4 +92,9 @@ def build_grader(v: dict, blocks: Blocks, setup: list[str], protected: dict[str,
     for path in reg_paths:
         for rel, data in block_subtree(blocks, v["app"]["dir"], path).items():
             files[f"{path}/{rel}"] = data
+    for fault in v["faults"]:
+        for rel, data in block_subtree(blocks, fault["dir"], FAULT_GRADER_DIR).items():
+            if rel == "grader.json" or rel.startswith(f"{REGRESSION_DIR}/") or rel in files:
+                raise BuildError(f"fault {fault['key']}: grader/{rel} collides with a platform grader file")
+            files[rel] = data
     return files

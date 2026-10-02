@@ -1,0 +1,142 @@
+kind: fault
+id: dj.perf.n-plus-one-order-list
+version: 1.0.0
+stack: django
+title: The order list page is slow for repeat customers
+summary: The server-rendered order list runs several queries per order (customer, items, products) because the queryset no longer loads related rows up front.
+category: performance
+difficulty: beginner
+skills:
+  - django-orm
+  - query-optimization
+  - debugging
+requires:
+  - slot:orders.views.list_queryset
+  - cap:postgres
+fault:
+  inject:
+    slots:
+      - slot: orders.views.list_queryset
+        value: |
+          orders = Order.objects.filter(customer=request.user)
+  fix:
+    slots:
+      - slot: orders.views.list_queryset
+        value: |
+          orders = Order.objects.filter(customer=request.user).select_related("customer").prefetch_related("items__product")
+    files:
+      - path: tests/test_order_list_queries.py
+        from: fix/tests/test_order_list_queries.py
+  cheats:
+    - name: select-related-only
+      slots:
+        - slot: orders.views.list_queryset
+          value: |
+            orders = Order.objects.filter(customer=request.user).select_related("customer")
+    - name: special-case-the-reporter
+      slots:
+        - slot: orders.views.list_queryset
+          value: |
+            orders = Order.objects.filter(customer=request.user)
+            if request.user.email == "alice@shop.test":
+                orders = orders.select_related("customer").prefetch_related("items__product")
+    - name: show-fewer-orders
+      slots:
+        - slot: orders.views.list_queryset
+          value: |
+            orders = Order.objects.filter(customer=request.user)[:3]
+    - name: revert-the-commit
+      slots:
+        - slot: orders.views.list_queryset
+          value: |
+            orders = Order.objects.filter(customer=request.user).select_related("customer").prefetch_related("items__product")
+      files:
+        - path: ext/order_export/urls.py
+          from: cheats/empty_urls.py
+  carrier:
+    feature: order-export
+    files:
+      - path: ext/order_export/__init__.py
+        from: carrier/ext/order_export/__init__.py
+      - path: ext/order_export/apps.py
+        from: carrier/ext/order_export/apps.py
+      - path: ext/order_export/urls.py
+        from: carrier/ext/order_export/urls.py
+      - path: ext/order_export/views.py
+        from: carrier/ext/order_export/views.py
+  commit:
+    message: "orders: add a CSV export of a customer's orders for finance"
+    persona: Sam Okafor <sam@shop.example.com>
+  checks:
+    - ref: check.query-count
+      role: symptom
+      params:
+        request:
+          method: GET
+          path: /orders/
+          headers:
+            Cookie: sessionid=mf_sess_alice
+        scales: [5, 40]
+        pre_sql:
+          - "INSERT INTO orders_order (public_id, customer_id, status, subtotal, tax, total, currency, shipping_name, created_at, updated_at) SELECT md5(random()::text || g::text)::uuid, 2, 'paid', 10, 0.83, 10.83, 'USD', 'Probe', now() - g * interval '1 minute', now() FROM generate_series(1, {{scale}}) g"
+          - "INSERT INTO orders_orderitem (order_id, product_id, quantity, unit_price, line_total) SELECT o.id, 1 + o.id % 5, 1, 10, 10 FROM orders_order o WHERE o.shipping_name = 'Probe' AND NOT EXISTS (SELECT 1 FROM orders_orderitem i WHERE i.order_id = o.id)"
+          - "INSERT INTO orders_orderitem (order_id, product_id, quantity, unit_price, line_total) SELECT o.id, 6 + o.id % 5, 2, 10, 20 FROM orders_order o WHERE o.shipping_name = 'Probe' AND (SELECT count(*) FROM orders_orderitem i WHERE i.order_id = o.id) = 1"
+        max_growth: 2
+        max_queries: 30
+    - ref: check.query-count
+      role: symptom
+      params:
+        request:
+          method: GET
+          path: /orders/
+          headers:
+            Cookie: sessionid=mf_sess_bob
+        scales: [5, 40]
+        pre_sql:
+          - "INSERT INTO orders_order (public_id, customer_id, status, subtotal, tax, total, currency, shipping_name, created_at, updated_at) SELECT md5(random()::text || g::text)::uuid, 3, 'paid', 10, 0.83, 10.83, 'USD', 'Probe-bob', now() - g * interval '1 minute', now() FROM generate_series(1, {{scale}}) g"
+          - "INSERT INTO orders_orderitem (order_id, product_id, quantity, unit_price, line_total) SELECT o.id, 1 + o.id % 5, 1, 10, 10 FROM orders_order o WHERE o.shipping_name = 'Probe-bob' AND NOT EXISTS (SELECT 1 FROM orders_orderitem i WHERE i.order_id = o.id)"
+          - "INSERT INTO orders_orderitem (order_id, product_id, quantity, unit_price, line_total) SELECT o.id, 6 + o.id % 5, 2, 10, 20 FROM orders_order o WHERE o.shipping_name = 'Probe-bob' AND (SELECT count(*) FROM orders_orderitem i WHERE i.order_id = o.id) = 1"
+        max_growth: 2
+        max_queries: 30
+  symptom:
+    vars:
+      title: '"My orders" takes forever to open for repeat customers'
+      report: |-
+        Several loyal customers wrote in this week: the **My orders** page used to open instantly and now takes many
+        seconds, and it gets worse the more orders the customer has. Customers with two or three orders do not notice.
+        One customer with a long history said the page "just spins" and then finally shows up.
+      where: |-
+        The server-rendered page at `/orders/` when signed in. The orders API used by the mobile app is not affected.
+      expected: |-
+        The page should open in well under a second no matter how many orders the customer has placed.
+      support_tried: |-
+        Asked customers to clear their cache and use another browser (no change). Ops restarted the web workers: the page was
+        fast for a few minutes and then slow again.
+      observations: |-
+        ### Other observations from the reporter
+
+        - It started around the time the finance CSV export shipped.
+        - Database CPU looks normal and the database did not grow noticeably.
+        - The Django admin order list is still quick.
+    signature: many near-identical SELECTs per rendered order
+  hints:
+    - Compare how many SQL statements the page runs for a customer with three orders and for one with twenty. Django's debug tooling, the query log, or connection.queries will show you. Then read the template and note every attribute it touches on each order.
+    - The template reads the customer, every order item and every item's product for each order on the page. Each of those attribute accesses is a separate query unless the queryset was told to load the related rows up front, with select_related for foreign keys and prefetch_related for reverse or many relations.
+    - Fix the queryset in the order_list view (orders/views.py) with select_related for the customer and prefetch_related for the items and their products, and add a test asserting the number of queries does not grow with the number of orders.
+  rubric:
+    key_points:
+      - Identifies an N+1 pattern - one extra query per order for the customer, the items and the products.
+      - Explains select_related (SQL join for foreign keys) versus prefetch_related (one extra query per relation joined in Python).
+      - Fixes the queryset, not the symptom, and verifies that the query count no longer depends on the number of rows.
+      - Adds a regression test that fails on the original code because the query count grows with the data.
+    misconceptions:
+      - Caching the page or adding pagination fixes the cause (it only hides it for some customers).
+      - Adding an index or a bigger database removes the problem.
+      - Using only() or defer() removes the N+1 queries (it only narrows the columns).
+  root_cause: |-
+    The order list view built its queryset without `select_related("customer")` and `prefetch_related("items__product")`.
+    The template then loaded the customer, each order's items and each item's product lazily, one query per order and
+    relation, so the number of queries grew linearly with the number of orders on the page.
+
+    The fix loads the related rows up front (a join for the foreign key, one extra query per reverse relation) so the page
+    runs a constant number of queries.

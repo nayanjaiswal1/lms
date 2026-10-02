@@ -56,16 +56,6 @@ def test_my_orders_lists_only_orders_placed_by_me(fake_payments):
     assert [o.pk for o in me.orders.all()] == [mine["id"]]
 
 
-def test_order_list_query_count_does_not_grow(fake_payments, django_assert_max_num_queries):
-    user = make_customer()
-    product = _stocked(qty=100)
-    client = authed(user)
-    for _ in range(6):
-        client.post("/api/orders/", _body(product), format="json")
-    with django_assert_max_num_queries(5):
-        assert client.get("/api/orders/").status_code == 200
-
-
 def test_order_list_is_paginated(fake_payments):
     user = make_customer()
     product = _stocked(qty=100)

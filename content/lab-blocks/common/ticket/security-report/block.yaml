@@ -1,0 +1,14 @@
+kind: ticket
+id: ticket.security-report
+version: 1.0.0
+stack: any
+title: Security review finding
+summary: A penetration-test style finding with reproduction steps and impact.
+category: ticket
+skills:
+  - debugging
+  - security
+ticket:
+  template_file: template.md
+  severity: High
+  persona: Security reviewer

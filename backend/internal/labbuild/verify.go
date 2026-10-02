@@ -159,6 +159,19 @@ func (s *Service) loadVariantBundles(ctx context.Context, v VariantRow) (*varian
 	if err != nil {
 		return nil, err
 	}
+	overlays, err := overlaysFromVerifyTar(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &variantBundles{
+		view: &labkinds.VariantView{BuildID: v.BuildID, VariantKey: v.Key, WorkspaceBundle: ws, GraderBundle: gr,
+			BriefMD: v.BriefMD, ProtectedManifest: v.ProtectedManifest, AppPorts: v.AppPorts, Payload: v.Payload},
+		overlays: overlays,
+	}, nil
+}
+
+// overlaysFromVerifyTar unpacks a verify.tar.gz into overlay file -> tar.
+func overlaysFromVerifyTar(raw []byte) (map[string][]byte, error) {
 	files, err := readTar(raw)
 	if err != nil {
 		return nil, err
@@ -167,11 +180,7 @@ func (s *Service) loadVariantBundles(ctx context.Context, v VariantRow) (*varian
 	for name, data := range files {
 		overlays[strings.TrimPrefix(name, "overlays/")] = data
 	}
-	return &variantBundles{
-		view: &labkinds.VariantView{BuildID: v.BuildID, VariantKey: v.Key, WorkspaceBundle: ws, GraderBundle: gr,
-			BriefMD: v.BriefMD, ProtectedManifest: v.ProtectedManifest, AppPorts: v.AppPorts, Payload: v.Payload},
-		overlays: overlays,
-	}, nil
+	return overlays, nil
 }
 
 // overlayFile maps a labkinds overlay selector to its file in the verify bundle.
@@ -239,7 +248,7 @@ func (s *Service) verifyVariant(ctx context.Context, b *Build, kind labkinds.Kin
 				if run.Capture && len(captureNames) > 0 {
 					runBox = box
 				}
-				rr, err := s.executeRun(lease.Ctx, b, kind, bundles, run, runBox)
+				rr, err := executeRun(lease.Ctx, s.runtime, s.labs.GradeModesInCleanRoom, b.ID, b.Snapshot.OrgID, kind, bundles, run, runBox)
 				mu.Lock()
 				defer mu.Unlock()
 				switch {
@@ -326,8 +335,12 @@ func (s *Service) fillCaptures(ctx context.Context, b *Build, v VariantRow, bund
 	return s.repo.UpdateVariantBrief(ctx, b.ID, v.Key, key, sha, brief)
 }
 
+// gradeFunc grades modes in a clean room: labs.Service.GradeModesInCleanRoom
+// in the jobs, an uncapped labs.GradeModesInSandbox offline.
+type gradeFunc func(ctx context.Context, target labs.GradeTarget, v *labkinds.VariantView, editableTar []byte, modes []string, seed string) (map[string]*labs.GradeResult, error)
+
 // executeRun grades one matrix run (all its seeds) and evaluates its expectations.
-func (s *Service) executeRun(ctx context.Context, b *Build, kind labkinds.Kind, bundles *variantBundles, run labkinds.VerifyRun, box *captureBox) (RunReport, error) {
+func executeRun(ctx context.Context, rt labs.ContainerRuntime, grade gradeFunc, buildID, orgID string, kind labkinds.Kind, bundles *variantBundles, run labkinds.VerifyRun, box *captureBox) (RunReport, error) {
 	rr := RunReport{Name: run.Name, Description: run.Description, Overlay: run.Overlay, Passed: true}
 	var overlay []byte
 	if run.Overlay != labkinds.OverlayNone {
@@ -340,12 +353,12 @@ func (s *Service) executeRun(ctx context.Context, b *Build, kind labkinds.Kind, 
 	seeds := max(run.Seeds, 1)
 	image := kind.Image()
 	for i := 0; i < seeds; i++ {
-		seed := runSeed(b.ID, bundles.view.VariantKey, run.Name, i)
+		seed := runSeed(buildID, bundles.view.VariantKey, run.Name, i)
 		var hook func(context.Context, string) error
 		if box != nil && i == 0 {
-			hook = box.hook(s.runtime)
+			hook = box.hook(rt)
 		}
-		results, err := s.labs.GradeModesInCleanRoom(ctx, labs.GradeTarget{Image: image, OrgID: b.Snapshot.OrgID, AfterGrade: hook},
+		results, err := grade(ctx, labs.GradeTarget{Image: image, OrgID: orgID, AfterGrade: hook},
 			bundles.view, overlay, run.Modes, seed)
 		if errors.Is(err, labs.ErrGradeBusy) {
 			return rr, errRunBusy

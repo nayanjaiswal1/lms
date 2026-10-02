@@ -1,0 +1,10 @@
+lab_kind: debug
+app_range: "^1"
+seed: 1104
+blocks:
+  - block: dj.shop@1.0.0
+  - block: dj.perf.dashboard-repeated-queries@1.0.0
+  - block: seed.small@1.0.0
+  - block: stub.payments@1.0.0
+  - block: check.query-count@1.0.0
+  - block: ticket.support-escalation@1.0.0

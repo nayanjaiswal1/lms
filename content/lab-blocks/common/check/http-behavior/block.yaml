@@ -76,11 +76,6 @@ params:
       description: Per-request timeout seconds (default 10).
       minimum: 0.1
       maximum: 60
-  anyOf:
-  - required:
-    - steps
-  - required:
-    - path
 check:
   probe: P
   failure_message: The application did not respond as expected for this request. Reproduce it yourself and compare the actual behavior with what the ticket describes.

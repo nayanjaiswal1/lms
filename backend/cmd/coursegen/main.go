@@ -66,6 +66,13 @@ Usage:
       idempotent SQL fixture at --out. Apply it with scripts/db-seed-courses.sh.
       Same version + different content is a hard error at apply time: bump the version.
       Defaults: --in content/lab-blocks --out backend/db/fixtures/lab-blocks.generated.sql
+
+  coursegen blocks verify [--in DIR] [--parallel N] [--report FILE] RECIPE.yaml...
+      Build and verify platform recipes against the block tree in local Docker,
+      exactly like the lab.recipe_build/lab.recipe_verify jobs (renderer, full
+      verification matrix, clean-room grader). Needs the lab image built locally
+      (scripts/push-lab-images.sh) and the mindforge-labs network. Exits non-zero
+      if any recipe fails. --report writes the JSON reports.
 `)
 }
 

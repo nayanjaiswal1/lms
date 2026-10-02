@@ -30,9 +30,6 @@ params:
       description: Wait before sampling (default 200).
       minimum: 0
       maximum: 5000
-  required:
-  - background
-  - probe
 check:
   probe: L
   failure_message: The application became slow or unresponsive while another operation was running.

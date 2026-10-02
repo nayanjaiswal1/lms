@@ -1,0 +1,12 @@
+lab_kind: debug
+app_range: "^1"
+seed: 2009
+blocks:
+  - block: dj.shop@1.0.0
+  - block: dj.svc.payments-no-timeout@1.0.0
+  - block: seed.small@1.0.0
+  - block: stub.payments@1.0.0
+  - block: env.payments-down@1.0.0
+  - block: check.http-behavior@1.0.0
+  - block: check.pytest-node@1.0.0
+  - block: ticket.support-escalation@1.0.0

@@ -1,0 +1,10 @@
+lab_kind: debug
+app_range: "^1"
+seed: 2003
+blocks:
+  - block: dj.shop@1.0.0
+  - block: dj.data.report-utc-days@1.0.0
+  - block: seed.tz-spread@1.0.0
+  - block: stub.payments@1.0.0
+  - block: check.http-behavior@1.0.0
+  - block: ticket.support-escalation@1.0.0

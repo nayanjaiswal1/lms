@@ -7,14 +7,6 @@ from django.utils import timezone
 from core.testing import *  # noqa: F401,F403
 
 
-def test_quantize_rounds_half_up():
-    from core.money import quantize
-
-    assert quantize("2.675") == Decimal("2.68")
-    assert quantize(Decimal("0.005")) == Decimal("0.01")
-    assert quantize(1) == Decimal("1.00")
-
-
 def test_cents_roundtrip():
     from core.money import from_cents, to_cents
 

@@ -42,8 +42,6 @@ params:
     json_schema:
       type: object
       description: Minimal JSON schema {type, required, properties, items} for the body.
-  required:
-  - path
 check:
   probe: H
   failure_message: The response headers, cookies or body shape do not match the contract.

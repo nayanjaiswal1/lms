@@ -42,11 +42,10 @@ def _charge(client):
     return client.charge(amount_cents=500, currency="USD", reference="order-1", idempotency_key=KEY)
 
 
-def test_charge_sends_idempotency_key_and_timeout(monkeypatch):
+def test_charge_sends_the_idempotency_key(monkeypatch):
     client, calls = _client(monkeypatch, [_Resp(200, GOOD)])
     assert _charge(client).status == "succeeded"
     assert calls[0]["headers"]["Idempotency-Key"] == KEY
-    assert calls[0]["timeout"] is not None
 
 
 def test_retry_reuses_the_same_idempotency_key(monkeypatch):

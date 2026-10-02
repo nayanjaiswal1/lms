@@ -196,9 +196,6 @@ func (s *Service) GradeInCleanRoom(ctx context.Context, target GradeTarget, v *l
 // GradeModesInCleanRoom runs several modes against ONE clean-room sandbox
 // (a Check covers symptom+regression+student-test with a single start).
 func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget, v *labkinds.VariantView, editableTar []byte, modes []string, seed string) (map[string]*GradeResult, error) {
-	if len(v.WorkspaceBundle) == 0 || len(v.GraderBundle) == 0 {
-		return nil, fmt.Errorf("labs.Service.GradeModesInCleanRoom: variant bundles not loaded")
-	}
 	select {
 	case cleanRoomSem <- struct{}{}:
 		defer func() { <-cleanRoomSem }()
@@ -208,20 +205,8 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 		return nil, ctx.Err()
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, cleanRoomReadyBudget+time.Duration(len(modes))*DebugGradeTimeoutSeconds*time.Second)
-	defer cancel()
-
-	idBytes := make([]byte, 8)
-	if _, err := crand.Read(idBytes); err != nil {
-		return nil, fmt.Errorf("labs.Service.GradeModesInCleanRoom: id: %w", err)
-	}
 	started := time.Now()
-	containerID, _, err := s.container.StartValidation(ctx, "grade-"+hex.EncodeToString(idBytes), target.Image)
-	if err != nil {
-		return nil, fmt.Errorf("labs.Service.GradeModesInCleanRoom: start: %w", err)
-	}
 	defer func() {
-		_ = s.container.Kill(context.Background(), containerID)
 		if target.OrgID != "" {
 			seconds := int64(time.Since(started).Seconds()) + 1
 			if mErr := s.repo.RecordValidationUsage(context.Background(), target.OrgID, target.SessionID, target.Image, seconds); mErr != nil {
@@ -229,8 +214,32 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 			}
 		}
 	}()
-	if _, err := WaitContainerReady(ctx, s.container, containerID); err != nil {
-		return nil, fmt.Errorf("labs.Service.GradeModesInCleanRoom: %w", err)
+	return GradeModesInSandbox(ctx, s.container, target, v, editableTar, modes, seed)
+}
+
+// GradeModesInSandbox is the clean-room grade itself: a throwaway sandbox
+// seeded with the pristine workspace then the overlay, every mode graded, the
+// sandbox killed. No concurrency cap and no metering (Service.GradeModesInCleanRoom
+// adds both); used directly by offline tooling (`coursegen blocks verify`).
+func GradeModesInSandbox(ctx context.Context, rt ContainerRuntime, target GradeTarget, v *labkinds.VariantView, editableTar []byte, modes []string, seed string) (map[string]*GradeResult, error) {
+	if len(v.WorkspaceBundle) == 0 || len(v.GraderBundle) == 0 {
+		return nil, fmt.Errorf("labs.GradeModesInSandbox: variant bundles not loaded")
+	}
+	ctx, cancel := context.WithTimeout(ctx, cleanRoomReadyBudget+time.Duration(len(modes))*DebugGradeTimeoutSeconds*time.Second)
+	defer cancel()
+
+	idBytes := make([]byte, 8)
+	if _, err := crand.Read(idBytes); err != nil {
+		return nil, fmt.Errorf("labs.GradeModesInSandbox: id: %w", err)
+	}
+	started := time.Now()
+	containerID, _, err := rt.StartValidation(ctx, "grade-"+hex.EncodeToString(idBytes), target.Image)
+	if err != nil {
+		return nil, fmt.Errorf("labs.GradeModesInSandbox: start: %w", err)
+	}
+	defer func() { _ = rt.Kill(context.Background(), containerID) }()
+	if _, err := WaitContainerReady(ctx, rt, containerID); err != nil {
+		return nil, fmt.Errorf("labs.GradeModesInSandbox: %w", err)
 	}
 
 	// Pristine first, then the student's overlay — order is load-bearing.
@@ -242,12 +251,12 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 		if len(sd.payload) == 0 {
 			continue
 		}
-		_, stderr, exitCode, err := s.container.ExecStdin(ctx, containerID, extractBundleScript, sd.payload, SetupScriptTimeoutSeconds)
+		_, stderr, exitCode, err := rt.ExecStdin(ctx, containerID, extractBundleScript, sd.payload, SetupScriptTimeoutSeconds)
 		if err != nil {
-			return nil, fmt.Errorf("labs.Service.GradeModesInCleanRoom: seed %s: %w", sd.label, err)
+			return nil, fmt.Errorf("labs.GradeModesInSandbox: seed %s: %w", sd.label, err)
 		}
 		if exitCode != 0 {
-			return nil, fmt.Errorf("labs.Service.GradeModesInCleanRoom: seed %s exited %d: %s", sd.label, exitCode, strings.TrimSpace(stderr))
+			return nil, fmt.Errorf("labs.GradeModesInSandbox: seed %s exited %d: %s", sd.label, exitCode, strings.TrimSpace(stderr))
 		}
 	}
 
@@ -255,13 +264,13 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 	results := make(map[string]*GradeResult, len(modes))
 	for _, mode := range modes {
 		script := "/opt/mindforge/grade.sh " + shellQuote(mode) + " --seed " + shellQuote(seed)
-		stdout, stderr, exitCode, err := s.container.ExecStdin(ctx, containerID, script, v.GraderBundle, DebugGradeTimeoutSeconds)
+		stdout, stderr, exitCode, err := rt.ExecStdin(ctx, containerID, script, v.GraderBundle, DebugGradeTimeoutSeconds)
 		if err != nil {
-			return nil, fmt.Errorf("labs.Service.GradeModesInCleanRoom: run %s: %w", mode, err)
+			return nil, fmt.Errorf("labs.GradeModesInSandbox: run %s: %w", mode, err)
 		}
 		res, perr := parseGradeResult(stdout)
 		if perr != nil {
-			slog.Error("labs.Service.GradeModesInCleanRoom: unusable grader output",
+			slog.Error("labs.GradeModesInSandbox: unusable grader output",
 				"mode", mode, "exit", exitCode, "stderr", strings.TrimSpace(stderr), "error", perr)
 			res = &GradeResult{Error: "The grader could not complete this check. Try again; if it persists, contact your instructor."}
 		}
@@ -272,7 +281,7 @@ func (s *Service) GradeModesInCleanRoom(ctx context.Context, target GradeTarget,
 	}
 	if target.AfterGrade != nil {
 		if err := target.AfterGrade(ctx, containerID); err != nil {
-			slog.Warn("labs.Service.GradeModesInCleanRoom: after-grade hook", "error", err)
+			slog.Warn("labs.GradeModesInSandbox: after-grade hook", "error", err)
 		}
 	}
 	return results, nil

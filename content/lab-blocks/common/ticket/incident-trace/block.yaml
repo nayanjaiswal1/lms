@@ -1,0 +1,13 @@
+kind: ticket
+id: ticket.incident-trace
+version: 1.0.0
+stack: any
+title: Incident with a captured traceback
+summary: An on-call incident with a real traceback captured from the broken app's log.
+category: ticket
+skills:
+  - debugging
+ticket:
+  template_file: template.md
+  severity: High
+  persona: On-call engineer

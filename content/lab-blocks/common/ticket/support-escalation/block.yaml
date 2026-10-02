@@ -1,0 +1,13 @@
+kind: ticket
+id: ticket.support-escalation
+version: 1.0.0
+stack: any
+title: Support escalation
+summary: A customer-support escalation written in a support agent's voice, with what was already tried and other observations.
+category: ticket
+skills:
+  - debugging
+ticket:
+  template_file: template.md
+  severity: Medium
+  persona: Priya Shah, Customer Support

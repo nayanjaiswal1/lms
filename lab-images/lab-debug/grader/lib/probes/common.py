@@ -20,7 +20,13 @@ from typing import Any
 
 class ProbeFailure(Exception):
     """An assertion failed. str(exc) is the author-facing reason (may be empty,
-    in which case the probe's configured message is used)."""
+    in which case the probe's configured message is used). `detail` is a
+    diagnostic for the platform/author report only (written to stderr, never
+    into the JSON result the student sees)."""
+
+    def __init__(self, message: str = "", detail: str = ""):
+        super().__init__(message)
+        self.detail = detail
 
 
 @dataclass

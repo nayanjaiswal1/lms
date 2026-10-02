@@ -31,8 +31,6 @@ params:
             type: integer
           timeout:
             type: integer
-  required:
-  - steps
 check:
   probe: M
   failure_message: Migrations do not apply cleanly from every starting point (an empty database and an existing database), or the model state and the migrations disagree.

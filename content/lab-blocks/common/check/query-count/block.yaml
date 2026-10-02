@@ -50,11 +50,6 @@ params:
       description: Request timeout seconds (default 30).
       minimum: 1
       maximum: 120
-  anyOf:
-  - required:
-    - endpoint
-  - required:
-    - request
 check:
   probe: Q
   failure_message: The endpoint runs more database queries than it should, or its queries do not use an index. Check how the number of queries changes as the data grows.

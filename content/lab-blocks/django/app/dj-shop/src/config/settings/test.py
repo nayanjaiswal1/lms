@@ -19,3 +19,16 @@ STORAGES = {  # noqa: F405
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
+
+
+class _NoMigrations(dict):
+    """Build the test database straight from the models (fast, and independent of the migration graph)."""
+
+    def __contains__(self, item):
+        return True
+
+    def __getitem__(self, item):
+        return None
+
+
+MIGRATION_MODULES = _NoMigrations()

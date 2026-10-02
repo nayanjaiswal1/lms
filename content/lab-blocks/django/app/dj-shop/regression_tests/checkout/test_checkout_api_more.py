@@ -63,25 +63,15 @@ def test_order_pages_render_and_are_owner_scoped(client, fake_payments):
     assert client.get(f"/orders/invoices/{invoice.pk}/").status_code == 404
 
 
-def test_order_list_page_query_count_does_not_grow(client, fake_payments, django_assert_max_num_queries):
+def test_order_list_page_lists_every_order_page_by_page(client):
+    from orders.models import Order
+
     user = make_customer()
-    product = _stocked(qty=100)
-    api = authed(user)
-    for _ in range(6):
-        api.post("/api/orders/", _body(product), format="json")
+    orders = [Order.objects.create(customer=user, status="paid", subtotal=5, total=5) for _ in range(25)]
     client.force_login(user)
-    with django_assert_max_num_queries(8):
-        assert client.get("/orders/").status_code == 200
-
-
-def test_customers_with_orders_cannot_be_deleted():
-    from django.db.models import ProtectedError
-
-    from orders.models import Invoice, Order
-
-    user = make_customer()
-    order = Order.objects.create(customer=user, total=5, subtotal=5)
-    Invoice.objects.create(order=order, number="INV-T-1", total=5)
-    with pytest.raises(ProtectedError):
-        user.delete()
-    assert Invoice.objects.count() == 1
+    first = client.get("/orders/").content.decode()
+    second = client.get("/orders/?page=2").content.decode()
+    listed = [o for o in orders if f'href="/orders/{o.pk}/"' in first]
+    rest = [o for o in orders if f'href="/orders/{o.pk}/"' in second]
+    assert len(listed) == 20 and len(rest) == 5
+    assert {o.pk for o in listed} | {o.pk for o in rest} == {o.pk for o in orders}

@@ -1,0 +1,112 @@
+kind: fault
+id: dj.cfg.static-files-missing-in-prod
+version: 1.0.0
+stack: django
+title: The site has no styles or scripts in production
+summary: 'The production settings no longer serve the collected static files: with DEBUG off nothing answers /static/ requests.'
+category: config
+difficulty: beginner
+skills:
+- django-settings
+- static-files
+- dev-prod-parity
+requires:
+- slot:settings.middleware.static
+- env:prod-mode
+fault:
+  inject:
+    slots:
+    - slot: settings.middleware.static
+      value: |
+        # static files are served by the CDN in production
+  fix:
+    slots:
+    - slot: settings.middleware.static
+      value: |
+        "whitenoise.middleware.WhiteNoiseMiddleware",
+    files:
+    - path: tests/test_static_files_in_production.py
+      from: fix/tests/test_static_files_in_production.py
+  cheats:
+  - name: django-static-urls
+    files:
+    - path: config/urls.py
+      from: cheats/urls_with_staticfiles.py
+  - name: turn-debug-on-in-production
+    files:
+    - path: config/settings/prod.py
+      from: cheats/prod_debug_on.py
+  - name: revert-the-commit
+    slots:
+    - slot: settings.middleware.static
+      value: |
+        "whitenoise.middleware.WhiteNoiseMiddleware",
+    files:
+    - path: ext/product_feed/urls.py
+      from: cheats/empty_urls.py
+  carrier:
+    feature: product-feed
+    files:
+    - path: ext/product_feed/__init__.py
+      from: carrier/ext/product_feed/__init__.py
+    - path: ext/product_feed/apps.py
+      from: carrier/ext/product_feed/apps.py
+    - path: ext/product_feed/urls.py
+      from: carrier/ext/product_feed/urls.py
+    - path: ext/product_feed/views.py
+      from: carrier/ext/product_feed/views.py
+  commit:
+    message: 'catalog: publish a partner product feed'
+    persona: Sam Okafor <sam@shop.example.com>
+  checks:
+  - ref: check.http-behavior
+    role: symptom
+    params:
+      steps:
+      - method: GET
+        path: /static/css/app.css
+        expect_status: 200
+  - ref: check.pytest-node
+    role: symptom
+    params:
+      paths:
+      - tests/dj_cfg_1/test_static_files_in_production.py
+  symptom:
+    vars:
+      title: 'Production looks broken: no styles, no scripts'
+      report: 'After the latest release the public site renders as unstyled text on production: no layout, no colors, and the small script behind
+        the confirm dialogs is gone. Staging and everyone''s local environment look fine. The HTML itself is served correctly.'
+      where: Production only (the service that runs with DEBUG turned off and the collected static files). The browser console shows 404 responses
+        for /static/ URLs.
+      expected: Production must serve the CSS and JavaScript exactly like the development server does.
+      support_tried: 'Cleared the CDN cache and hard-refreshed. Re-ran collectstatic on the server: the files are there, but the site still returns
+        404 for them.'
+      observations: |-
+        ### Other observations from the reporter
+
+        - It works locally because the development server serves static files by itself.
+        - The partner product feed shipped in the same release.
+        - collectstatic finishes without errors and the files are on disk.
+    signature: 404 for /static/ files when DEBUG is off
+  hints:
+  - Compare how the page gets its static files in development and in production. What serves a request for /static/css/app.css when DEBUG is off,
+    and what does the runtime configuration for production say about it?
+  - 'Django only serves static files by itself while DEBUG is on and only through the development server. In production something else has to
+    serve the collected files: a web server, a CDN, or middleware such as WhiteNoise. The settings and the middleware list decide which one is
+    active.'
+  - The static-file middleware was removed from MIDDLEWARE in config/settings/base.py (a comment claims a CDN does it). Restore WhiteNoiseMiddleware
+    right after SecurityMiddleware, keep DEBUG off, and add a test on the production settings module.
+  rubric:
+    key_points:
+    - Explains why static files work with DEBUG on and disappear with DEBUG off (collectstatic plus something that serves STATIC_ROOT).
+    - Identifies the removed static-file middleware as the cause and restores it in the right position.
+    - Rejects turning DEBUG on or adding development-only URL patterns as fixes.
+    - Adds a test on the production settings (middleware present, DEBUG off).
+    misconceptions:
+    - Setting DEBUG = True in production fixes it (it exposes internals and is not a fix).
+    - Running collectstatic again is enough (the files exist; nothing serves them).
+    - staticfiles_urlpatterns() serves files in production (it only works when DEBUG is on).
+  root_cause: |
+    A recent settings change removed `WhiteNoiseMiddleware` from `MIDDLEWARE` on the assumption that a CDN serves `/static/`. In the production process nothing else does: Django itself only serves static files when `DEBUG` is on. `collectstatic` still produced the files, but every `/static/` request returned 404.
+
+    The fix restores WhiteNoise directly after `SecurityMiddleware`, so the collected, hashed files are served without DEBUG.

@@ -8,6 +8,7 @@ server output, test source or expected values.
 from __future__ import annotations
 
 import subprocess
+import sys
 import traceback
 from typing import Any
 
@@ -28,6 +29,8 @@ def run_probe(ctx: Context, spec: dict[str, Any]) -> dict[str, Any]:
     try:
         mod.run(ctx, name, spec.get("params", {}))
     except ProbeFailure as exc:
+        if exc.detail:
+            sys.stderr.write(f"[probe {name}] {exc.detail}\n")
         return {"name": name, "passed": False, "message": str(exc) or message}
     except (subprocess.TimeoutExpired, OSError, KeyError, ValueError, TypeError):
         traceback.print_exc()  # stderr only; never in the JSON result
