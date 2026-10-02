@@ -20,8 +20,14 @@ Design: [debug-labs.md](debug-labs.md)
 | 1c fix | Global per-org verify cap via Redis lease semaphore | `39b468a` |
 | 1d-i | `dj-shop` base app (78 slots, 10 features, 5 carriers, 108 regression tests) + check/seed/stub/env blocks | `27d0346` |
 | cleanup | Stop tracking Python bytecode caches | `1acf1ab` |
-| 1d-ii | 11 Django fault blocks, ticket blocks, production-debugging course; `coursegen blocks verify`; probe stderr diagnostics. All 11 recipes verified in Docker | see `git log` |
-| 1e | Builder wizard UI, block library, candidates endpoint, "Create debug lab here" | see `git log` |
+| 1d-ii | 11 Django fault blocks, ticket blocks, production-debugging course; `coursegen blocks verify`; probe stderr diagnostics. All 11 recipes verified in Docker | `069e1bb` |
+| 1e | Builder wizard UI, block library, candidates endpoint, "Create debug lab here" | `160a13c` |
+
+## Where things stand
+
+Phase 1 (Django end to end: runtime, authoring engine, build/verify pipeline, 11 labs, builder UI) is done and committed. Nothing has run against a database yet: migrations 044–048 are unapplied, and the student flow and builder UI have never run in a browser.
+
+**Next up:** the end-to-end check on a throwaway database (item 5 below) before starting Phase 2, so Phase 2 builds on a stack that has actually run.
 
 ## Remaining after Phase 1
 
