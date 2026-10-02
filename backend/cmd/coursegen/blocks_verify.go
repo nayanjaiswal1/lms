@@ -50,7 +50,7 @@ func runBlocksVerify(args []string) error {
 		}
 	}
 	rt := labs.NewDockerContainerService(map[string]labs.ImageProfile{
-		"mindforge/lab-debug:1": {Name: labs.ImageProfileDebugIDE, CPU: labs.DebugIDEContainerCPU, MemoryMB: labs.DebugIDEContainerMemoryMB},
+		"mindforge/lab-debug:1": labs.DebugIDEProfile(),
 	})
 
 	reports := map[string]*labbuild.Report{}

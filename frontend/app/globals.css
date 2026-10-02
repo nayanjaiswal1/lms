@@ -723,9 +723,9 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   /* Chat bubble width cap — design-chat-panel + ticket-thread (chat-bubble tokenized). */
-  .chat-bubble { @apply chat-bubble break-words; }
+  .chat-bubble { @apply max-w-[85%] break-words; }
   /* Small-caps section eyebrow — replaces section-label. */
-  .section-label { @apply section-label; }
+  .section-label { @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground; }
   /* File upload dropzone — replaces bg-muted/40 dashed upload tiles. */
   .upload-dropzone {
     @apply flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground;

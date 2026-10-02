@@ -99,10 +99,10 @@ func (DebugKind) VerifyInput(payload json.RawMessage) VerifyInput {
 	return in
 }
 
-// debugSetupScript runs the workspace's generated .mf/setup.sh as the lab user
-// (dropping root when the runtime gave us root), so nothing student-writable
-// ever executes privileged.
-const debugSetupScript = `cd /home/labuser/work && if [ "$(id -u)" = "0" ]; then exec runuser -u labuser -- bash .mf/setup.sh; else exec bash .mf/setup.sh; fi`
+// debugSetupScript runs the workspace's generated .mf/setup.sh. Both runtimes
+// run it as the lab user (the debug-ide profile sets SetupAsImageUser), so
+// nothing student-writable ever executes privileged.
+const debugSetupScript = `cd /home/labuser/work && exec bash .mf/setup.sh`
 
 // SetupScript implements Kind.
 func (DebugKind) SetupScript() string { return debugSetupScript }

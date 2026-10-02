@@ -128,12 +128,7 @@ func main() {
 	// "Nested Docker labs"). Adding a second real profile means adding one
 	// more entry here.
 	labsImageProfileCatalog := map[string]labs.ImageProfile{
-		labs.ImageProfileDebugIDE: {
-			Name:     labs.ImageProfileDebugIDE,
-			Elevated: false,
-			CPU:      labs.DebugIDEContainerCPU,
-			MemoryMB: labs.DebugIDEContainerMemoryMB,
-		},
+		labs.ImageProfileDebugIDE: labs.DebugIDEProfile(),
 		labs.ImageProfileNestedDocker: {
 			Name:                 labs.ImageProfileNestedDocker,
 			Elevated:             true,

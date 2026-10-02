@@ -526,7 +526,13 @@ func (s *Service) prepareLabEnvironment(ctx context.Context, containerID string,
 	if lab.SetupScript == nil || strings.TrimSpace(*lab.SetupScript) == "" {
 		return nil
 	}
-	stdout, stderr, exitCode, err := s.container.ExecSetup(ctx, containerID, *lab.SetupScript, SetupScriptTimeoutSeconds)
+	exec := s.container.ExecSetup
+	if s.container.Classify(lab.Environment).SetupAsImageUser {
+		exec = func(ctx context.Context, id, script string, timeoutSec int) (string, string, int, error) {
+			return s.container.Exec(ctx, id, script, timeoutSec)
+		}
+	}
+	stdout, stderr, exitCode, err := exec(ctx, containerID, *lab.SetupScript, SetupScriptTimeoutSeconds)
 	if err != nil {
 		return fmt.Errorf("labs.Service.prepareLabEnvironment: exec setup_script: %w", err)
 	}

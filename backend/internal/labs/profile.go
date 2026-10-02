@@ -56,6 +56,14 @@ type ImageProfile struct {
 	// rules apply (empty list = unrestricted).
 	RequiresOrgAllowlist bool
 
+	// SetupAsImageUser, when true, makes the Docker runtime run the lab's
+	// setup_script as the image's unprivileged user instead of root, matching
+	// the Kubernetes runtime (which cannot override the Pod user). Required
+	// for images whose setup must not run privileged: a --cap-drop ALL root
+	// has no CAP_SETUID/SETGID, so it cannot drop privileges itself, and no
+	// CAP_DAC_OVERRIDE, so it cannot write the labuser-owned workspace either.
+	SetupAsImageUser bool
+
 	// DockerMechanism selects the Docker-specific elevation applied by
 	// DockerContainerService.buildRunArgs. Ignored by the Kubernetes
 	// runtime.
@@ -96,3 +104,14 @@ const ImageProfileNestedDocker = "nested-docker"
 // ImageProfileDebugIDE names the resource-only (NOT elevated) profile for the
 // debug lab image (mindforge/lab-debug): 2 CPU / 2048 MB / 5 GB target.
 const ImageProfileDebugIDE = "debug-ide"
+
+// DebugIDEProfile is the catalog entry for ImageProfileDebugIDE, shared by the
+// server and `coursegen blocks verify` so both size and run the image alike.
+func DebugIDEProfile() ImageProfile {
+	return ImageProfile{
+		Name:             ImageProfileDebugIDE,
+		CPU:              DebugIDEContainerCPU,
+		MemoryMB:         DebugIDEContainerMemoryMB,
+		SetupAsImageUser: true,
+	}
+}

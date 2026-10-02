@@ -390,7 +390,7 @@ func Load() *Config {
 	cfg.LabAuthorDraftRateMax = getEnvInt("LABAUTHOR_DRAFT_RATE_MAX", 10)
 	cfg.LabAuthorDraftRateWindow = parseDuration("LABAUTHOR_DRAFT_RATE_WINDOW", "1h")
 	cfg.LabBuildsPerUserDay = getEnvInt("LAB_BUILDS_PER_USER_DAY", 10)
-	cfg.LabVerifyParallelPerOrg = getEnvInt("LAB_VERIFY_PARALLEL_PER_ORG", 4)
+	cfg.LabVerifyParallelPerOrg = getEnvInt("LAB_VERIFY_PARALLEL_PER_ORG", 2) // must stay below labs.CleanRoomMaxConcurrent or builds starve student Checks
 
 	// Defaults to the RFC 1918 / loopback ranges, which covers the normal
 	// deployment where the Next.js server and an ingress proxy share a private
