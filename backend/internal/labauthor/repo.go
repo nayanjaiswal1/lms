@@ -444,6 +444,18 @@ type Recipe struct {
 	TargetPlacement json.RawMessage `json:"target_placement"`
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
+	// LatestBuild is the recipe's newest build (any hash); set by the list and
+	// detail reads only.
+	LatestBuild *BuildRef `json:"latest_build,omitempty"`
+}
+
+// BuildRef is a build's identity and status, for recipe lists and the wizard.
+type BuildRef struct {
+	ID         string     `json:"id"`
+	Status     string     `json:"status"`
+	RecipeHash string     `json:"recipe_hash"`
+	CreatedAt  time.Time  `json:"created_at"`
+	FinishedAt *time.Time `json:"finished_at"`
 }
 
 const recipeCols = `id, org_id, owner_id, lab_kind, title, spec, revision, lab_id, target_placement, created_at, updated_at`
@@ -497,6 +509,35 @@ func (r *Repo) GetRecipe(ctx context.Context, orgID, id string) (*Recipe, error)
 		return nil, fmt.Errorf("labauthor.Repo.GetRecipe: %w", err)
 	}
 	return rc, nil
+}
+
+// AttachLatestBuilds sets LatestBuild on each recipe (one query).
+func (r *Repo) AttachLatestBuilds(ctx context.Context, recipes []*Recipe) error {
+	if len(recipes) == 0 {
+		return nil
+	}
+	ids := make([]string, len(recipes))
+	byID := make(map[string]*Recipe, len(recipes))
+	for i, rc := range recipes {
+		ids[i], byID[rc.ID] = rc.ID, rc
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT ON (recipe_id) recipe_id, id, status, recipe_hash, created_at, finished_at
+		FROM public.lab_builds WHERE recipe_id = ANY($1::uuid[])
+		ORDER BY recipe_id, created_at DESC`, ids)
+	if err != nil {
+		return fmt.Errorf("labauthor.Repo.AttachLatestBuilds: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var recipeID string
+		var b BuildRef
+		if err := rows.Scan(&recipeID, &b.ID, &b.Status, &b.RecipeHash, &b.CreatedAt, &b.FinishedAt); err != nil {
+			return fmt.Errorf("labauthor.Repo.AttachLatestBuilds: scan: %w", err)
+		}
+		byID[recipeID].LatestBuild = &b
+	}
+	return rows.Err()
 }
 
 // ListRecipes lists the org's recipes, newest first.

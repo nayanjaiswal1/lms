@@ -11,6 +11,7 @@ import {
   User,
   GraduationCap,
   Bug,
+  Wrench,
   Shield,
   UserCheck,
   Ticket,
@@ -329,6 +330,13 @@ export const ALL_NAV_ITEMS: Record<string, NavItem> = {
     mode:                "badge",
   },
 
+  lab_builder: {
+    label:               "Debug Lab Builder",
+    href:                ROUTES.LAB_BUILDER,
+    icon:                Wrench,
+    requiredPermission:  PERMISSIONS.LABAUTHOR.COMPOSE,
+  },
+
 };
 
 // ─────────────────────────────────────────────
@@ -423,6 +431,7 @@ export const LEARN_HUB_GROUPS: NavGroup[] = [
     label: "Teaching",
     items: [
       { ...ALL_NAV_ITEMS.manage_courses,         label: "Create Course" },
+      ALL_NAV_ITEMS.lab_builder,
       { ...ALL_NAV_ITEMS.instructor_assessments, label: "Manage Assessments" },
       ALL_NAV_ITEMS.question_bank,
       { ...ALL_NAV_ITEMS.mentor_dashboard,       label: "Mentoring" },
@@ -448,6 +457,7 @@ export const TEACHING_HUB_GROUPS: NavGroup[] = [
     label: "Courses",
     items: [
       ALL_NAV_ITEMS.manage_courses,
+      ALL_NAV_ITEMS.lab_builder,
     ],
   },
   {

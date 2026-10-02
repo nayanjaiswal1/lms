@@ -47,6 +47,7 @@ func (h *Handler) RegisterRoutes(r chi.Router, authzSvc *authz.Service, pool *pg
 			r.Put("/recipes/{id}", h.HandleUpdateRecipe)
 			r.Delete("/recipes/{id}", h.HandleDeleteRecipe)
 			r.Post("/recipes/{id}/validate", h.HandleValidateRecipe)
+			r.Get("/recipes/{id}/candidates", h.HandleRecipeCandidates)
 			r.Post("/recipes/{id}/ticket-draft", h.HandleTicketDraft)
 		})
 		r.Group(func(r chi.Router) {

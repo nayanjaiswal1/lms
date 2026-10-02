@@ -219,6 +219,9 @@ func (s *Service) GetRecipeView(ctx context.Context, orgID, id string) (*RecipeV
 	if err != nil {
 		return nil, err
 	}
+	if err := s.repo.AttachLatestBuilds(ctx, []*Recipe{rc}); err != nil {
+		return nil, err
+	}
 	vers, err := s.repo.ResolveVersions(ctx, orgID, versionIDs(rc.Spec))
 	if err != nil {
 		return nil, err

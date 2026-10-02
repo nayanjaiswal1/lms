@@ -3,7 +3,7 @@
 import { useTransition } from "react"
 import { Loader2 } from "lucide-react"
 import { useQueryStates } from "nuqs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FilterSelect } from "@/components/labs/filter-select"
 import { CATALOG_ALL, humanizeSlug, labCatalogParsers } from "@/lib/labs/catalog-params"
 import { CATALOG_DIFFICULTIES, LAB_KIND_CATALOG, type CatalogOption } from "@/lib/labs/kinds/catalog"
 
@@ -24,32 +24,6 @@ const categoryOptions: CatalogOption[] = [
   ...new Set(Object.values(LAB_KIND_CATALOG).flatMap((c) => c.groups.flatMap((g) => g.categories))),
 ].map((value) => ({ value, label: humanizeSlug(value) }))
 
-interface FilterSelectProps {
-  label: string
-  allLabel: string
-  value: string
-  options: CatalogOption[]
-  onChange: (value: string) => void
-}
-
-function FilterSelect({ label, allLabel, value, options, onChange }: FilterSelectProps) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger aria-label={label} className="w-full sm:w-44">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={CATALOG_ALL}>{allLabel}</SelectItem>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
-
 /** Kind / stack / category / difficulty filters, stored in the URL (server re-fetches on change). */
 export function CatalogFilters() {
   const [isPending, startTransition] = useTransition()
@@ -62,6 +36,7 @@ export function CatalogFilters() {
     <div aria-label="Catalog filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap" role="group">
       <FilterSelect
         allLabel="All kinds"
+        allValue={CATALOG_ALL}
         label="Filter by kind"
         options={kindOptions}
         value={filters.kind}
@@ -69,6 +44,7 @@ export function CatalogFilters() {
       />
       <FilterSelect
         allLabel="All stacks"
+        allValue={CATALOG_ALL}
         label="Filter by stack"
         options={stackOptions}
         value={filters.stack}
@@ -76,6 +52,7 @@ export function CatalogFilters() {
       />
       <FilterSelect
         allLabel="All categories"
+        allValue={CATALOG_ALL}
         label="Filter by category"
         options={categoryOptions}
         value={filters.category}
@@ -83,6 +60,7 @@ export function CatalogFilters() {
       />
       <FilterSelect
         allLabel="All difficulties"
+        allValue={CATALOG_ALL}
         label="Filter by difficulty"
         options={CATALOG_DIFFICULTIES}
         value={filters.difficulty}

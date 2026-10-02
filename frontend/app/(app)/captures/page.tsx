@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getCaptures } from "@/lib/server/captures";
 import { CaptureUploadForm } from "@/components/captures/capture-upload-form";
 import { CaptureList } from "@/components/captures/capture-list";
-import { CapturesPoller } from "@/components/captures/captures-poller";
+import { RefreshPoller } from "@/components/shared/refresh-poller";
 
 export const metadata: Metadata = { title: "Captures" };
 
@@ -28,7 +28,7 @@ export default async function CapturesPage() {
         <CaptureList captures={captures} />
       </div>
 
-      <CapturesPoller hasInFlight={hasInFlight} />
+      <RefreshPoller active={hasInFlight} />
     </main>
   );
 }

@@ -83,10 +83,17 @@ func (s *Service) GetBuild(ctx context.Context, orgID, buildID string) (*Build, 
 	return s.repo.GetBuildForOrg(ctx, orgID, buildID)
 }
 
-// BuildView is the GET /builds/{id} payload: the build plus its variants' keys.
+// BuildView is the GET /builds/{id} payload: the build plus its variants.
 type BuildView struct {
 	*Build
-	Variants []string `json:"variants"`
+	Variants []VariantInfo `json:"variants"`
+}
+
+// VariantInfo is a built variant as the author sees it: its key and the
+// student brief (with captured output filled in once verified).
+type VariantInfo struct {
+	Key     string `json:"key"`
+	BriefMD string `json:"brief_md"`
 }
 
 // View loads a build with its variant keys.
@@ -99,9 +106,9 @@ func (s *Service) View(ctx context.Context, orgID, buildID string) (*BuildView, 
 	if err != nil {
 		return nil, err
 	}
-	keys := make([]string, 0, len(vs))
+	out := make([]VariantInfo, 0, len(vs))
 	for _, v := range vs {
-		keys = append(keys, v.Key)
+		out = append(out, VariantInfo{Key: v.Key, BriefMD: v.BriefMD})
 	}
-	return &BuildView{Build: b, Variants: keys}, nil
+	return &BuildView{Build: b, Variants: out}, nil
 }

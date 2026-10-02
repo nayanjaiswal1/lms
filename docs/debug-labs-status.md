@@ -1,11 +1,7 @@
 # Debug Labs — Build Status
 
-Last updated: 2026-09-30 · Branch: `debug-labs` (not merged to `master`, not pushed)
+Last updated: 2026-10-02 · Branch: `debug-labs` (not merged to `master`, not pushed)
 Design: [debug-labs.md](debug-labs.md)
-
-## Blocker right now
-
-The implementation subagents hit the **weekly API limit** (resets **Oct 5, 4:30am IST**). Phase 1d-ii stopped mid-way. Resume it after the reset.
 
 ## Done (committed on `debug-labs`)
 
@@ -24,62 +20,34 @@ The implementation subagents hit the **weekly API limit** (resets **Oct 5, 4:30a
 | 1c fix | Global per-org verify cap via Redis lease semaphore | `39b468a` |
 | 1d-i | `dj-shop` base app (78 slots, 10 features, 5 carriers, 108 regression tests) + check/seed/stub/env blocks | `27d0346` |
 | cleanup | Stop tracking Python bytecode caches | `1acf1ab` |
+| 1d-ii | 11 Django fault blocks, ticket blocks, production-debugging course; `coursegen blocks verify`; probe stderr diagnostics. All 11 recipes verified in Docker | see `git log` |
+| 1e | Builder wizard UI, block library, candidates endpoint, "Create debug lab here" | see `git log` |
 
-## In progress — Phase 1d-ii (uncommitted, in working tree)
+## Remaining after Phase 1
 
-- **Fault blocks:** 11 written under `content/lab-blocks/django/fault/`:
-  - `perf`: n-plus-one-order-list, dashboard-repeated-queries
-  - `data`: customer-delete-cascades, float-money-rounding, report-utc-days
-  - `conc`: stock-lost-update, signup-race
-  - `mig`: conflicting-leaf-nodes, backfill-duplicate-slugs
-  - `svc`: payments-no-timeout
-  - `cfg`: static-files-missing-in-prod
-- **Other files already written:**
-  - common ticket blocks: `content/lab-blocks/common/ticket/`
-  - the production-debugging course: `content/courses/production-debugging/` (6 sections + recipes) and its generated fixture
-  - an interview-prep pointer lesson: `backend-django/06-debugging-in-production.md`
-- **Also modified:**
-  - `dj-shop` regression tests and test settings
-  - seed blocks
-  - `run_grade.py` and `mfbuild/grader.py` (fixes found while verifying faults)
-- **Still to do in 1d-ii:**
-  - Finish and confirm the per-fault verification matrix: broken fails, fix passes, every cheat fails, student-test.
-  - Delete the throwaway tool `backend/cmd/zzlgspec/`.
-  - Re-run `coursegen generate` + `blocks sync --dry-run`.
-  - Update docs, review, commit.
-
-## Remaining after 1d-ii
-
-1. **1e — Builder wizard UI:**
-   - the 12-step recipe wizard with live validation
-   - build/verify progress view, preview, publish
-   - block library browser
-   - "Create debug lab here" in the course editor
-2. **Phase 2 — Builder depth.** The backend is mostly built; this is UI plus the remaining pieces:
+1. **Phase 2 — Builder depth.** The backend is mostly built; this is UI plus the remaining pieces:
    - multi-fault chains and fault pools
    - AI ticket drafting in the UI
    - org text blocks editor
    - update-available and yank flows
-3. **Phase 3 — FastAPI:** `fa-orders` app block, ~10 faults, Alembic migration slots, latency harness.
-4. **Phase 4 — React:** `re-dashboard` app block, JSX/TS slots, vitest/Profiler/listener harnesses, ~10 faults.
-5. **Phase 5 — Fullstack:** `fs-shop` + cross-stack (XS) faults; `custom` block support in the build.
-6. **Deferred verification.** Tests were deliberately not written until all phases are done:
+2. **Phase 3 — FastAPI:** `fa-orders` app block, ~10 faults, Alembic migration slots, latency harness.
+3. **Phase 4 — React:** `re-dashboard` app block, JSX/TS slots, vitest/Profiler/listener harnesses, ~10 faults.
+4. **Phase 5 — Fullstack:** `fs-shop` + cross-stack (XS) faults; `custom` block support in the build.
+5. **Deferred verification.** Tests were deliberately not written until all phases are done:
    - Write the test suite: Go unit tests + DB tests for library, labs, labauthor, labbuild, credential, hints, semaphore.
    - Start Docker Desktop and run all DB tests (they use testcontainers).
-   - Build the `lab-debug` image (`scripts/push-lab-images.sh`).
+   - ~~Build the `lab-debug` image~~ done 2026-10-02 (builds locally; all 11 recipes verified with `coursegen blocks verify`). Push it with `scripts/push-lab-images.sh`.
    - Apply migrations 044–048 on a **throwaway** database. Never on the shared Neon DB first — dev and prod share it.
-   - End-to-end: sync blocks → build a recipe → verify → publish → run as a student.
-7. **Small known gaps to clean up:**
+   - End-to-end: sync blocks → build a recipe → verify → publish → run as a student, and click through the builder UI (never run in a browser yet).
+6. **Small known gaps to clean up:**
    - `isLabAuthError` still matches on message text.
    - Some rarer labs errors have no `code`.
    - The `debug-ide` 5 GB disk limit isn't enforced by either runtime.
    - Chained faults don't get separate "1a/1b" tasks.
-8. **Ship:** review the whole branch, merge `debug-labs` → `master`, push, deploy image + migrations.
+7. **Ship:** review the whole branch, merge `debug-labs` → `master`, push, deploy image + migrations.
 
 ## Rough size of what's left
 
-- 1d-ii: small (finish + verify + commit)
-- 1e: medium (frontend wizard)
 - Phase 2: medium
 - Phases 3–5: large (each is a new app block + ~10 faults, content-heavy)
 - Deferred tests + Docker/E2E verification: medium–large

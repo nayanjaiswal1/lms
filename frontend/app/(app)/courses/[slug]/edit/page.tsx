@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAllStudentProgress, getCourseTree, getInstructorCourseBySlug, type StudentProgressRow } from "@/lib/server/courses";
@@ -42,6 +42,7 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
   ]);
   if (!tree) notFound();
   const docsSpace = wikiSpaces.find((s) => s.course_id === id) ?? null;
+  const canComposeLabs = myPerms.includes(PERMISSIONS.LABAUTHOR.COMPOSE);
 
   const totalStudents = progress.length;
   const completed = progress.filter((r) => r.total_modules > 0 && r.completed_modules === r.total_modules).length;
@@ -135,6 +136,15 @@ export default async function InstructorCourseDetailPage({ params }: Props) {
                       </div>
                     </details>
                     <SectionLibraryMenu sectionId={section.id} />
+                    {canComposeLabs && (
+                      <Link
+                        className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                        href={ROUTES.labBuilderNew(id, section.id)}
+                      >
+                        <Wrench aria-hidden className="h-3.5 w-3.5" />
+                        Create debug lab here
+                      </Link>
+                    )}
                   </div>
                 </div>
               </li>

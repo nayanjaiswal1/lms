@@ -16,7 +16,7 @@ import { ResponsiveTable } from "@/components/ui/responsive-table";
 const POLL_INTERVAL_MS = 10_000;
 
 // Auto-refreshes the page while the latest scan is still pending/running —
-// same setInterval(() => router.refresh()) shape as EvalPoller
+// same setInterval(() => router.refresh()) shape as RefreshPoller
 // (components/assessments/eval-poller.tsx), this codebase's established
 // convention for "async job in progress, poll for completion" on a
 // server-rendered page. Kept as a private helper here (not its own file)

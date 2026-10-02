@@ -245,6 +245,14 @@ const ROUTES = {
   labSession:               (sessionId: string)                 => `/labs/sessions/${sessionId}`,
   labSessionResult:         (sessionId: string)                 => `/labs/sessions/${sessionId}/result`,
 
+  // Debug lab builder (instructor)
+  LAB_BUILDER:              "/teach/debug-labs",
+  LAB_BUILDER_BLOCKS:       "/teach/debug-labs/blocks",
+  labBuilderNew:            (courseId?: string, sectionId?: string) =>
+    courseId && sectionId ? `/teach/debug-labs/new?course=${courseId}&section=${sectionId}` : "/teach/debug-labs/new",
+  labBuilderRecipe:         (recipeId: string, step?: string)   => step ? `/teach/debug-labs/${recipeId}?step=${step}` : `/teach/debug-labs/${recipeId}`,
+  labBuilderBlock:          (blockId: string)                   => `/teach/debug-labs/blocks/${blockId}`,
+
   // Hiring / public assessment (no login required)
   hireLanding:              (code: string)                      => `/hire/${code}`,
 

@@ -290,3 +290,24 @@ file.
 regenerate it. Tests write to `t.TempDir()`. Scaffolding commands that feed a
 hand-authoring step must refuse to overwrite existing files, not "regenerate"
 them.
+
+## A negative check that accepts any failure
+
+**Found in:** the debug-lab fault `dj.mig.backfill-duplicate-slugs` (Phase 1d-ii, 2026-10-02).
+
+The verification matrix requires the broken version to fail its symptom
+check. It did fail, so the build "passed". But the migration probe failed for
+an unrelated reason: the authored migration added a `SlugField` (indexed by
+default) and then made it unique, and Django on Postgres tried to create the
+`_like` index twice. The reference fix hit the same crash, which is the only
+reason it was noticed at all. The probe raised a bare failure with no
+diagnostic, so nothing showed *why* it failed.
+
+**Fix:** probes can attach an author-only `detail` (stderr, never the student
+JSON); the migration probe reports the failing step, exit code and output tail.
+The migration now adds the column with `db_index=False`, and the broken run
+fails with the duplicate-slug `IntegrityError` the ticket describes.
+
+**Rule:** an "expected to fail" check proves nothing unless the failure is the
+intended one. Make failing checks say why (to a channel the end user can't
+see), and read that reason when authoring, not just the pass/fail bit.

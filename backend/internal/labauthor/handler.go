@@ -217,6 +217,9 @@ func (h *Handler) HandleListRecipes(w http.ResponseWriter, r *http.Request) {
 	}
 	rs, err := h.svc.repo.ListRecipes(r.Context(), claims.OrgID,
 		min(httputil.QueryIntPositive(r, "limit", defaultPageSize), maxPageSize), httputil.QueryIntNonNegative(r, "offset", 0))
+	if err == nil {
+		err = h.svc.repo.AttachLatestBuilds(r.Context(), rs)
+	}
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -318,6 +321,25 @@ func (h *Handler) HandleValidateRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httputil.WriteJSON(w, http.StatusOK, a)
+}
+
+// HandleRecipeCandidates: GET /api/instructor/lab-authoring/recipes/{id}/candidates?kind=fault
+// — the blocks of one kind the builder wizard can add, with compatibility.
+func (h *Handler) HandleRecipeCandidates(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.RequireClaims(w, r)
+	if !ok {
+		return
+	}
+	id, ok := pathID(w, r, "id")
+	if !ok {
+		return
+	}
+	cs, err := h.svc.Candidates(r.Context(), claims.OrgID, id, httputil.QueryStr(r, "kind"))
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	httputil.WriteJSON(w, http.StatusOK, cs)
 }
 
 // HandleTicketDraft: POST /api/instructor/lab-authoring/recipes/{id}/ticket-draft
