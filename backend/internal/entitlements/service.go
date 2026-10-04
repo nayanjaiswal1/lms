@@ -41,44 +41,61 @@ func (s *Service) ResolveAccount(ctx context.Context, userID, orgID string) (acc
 	return orgID, tierID, pricing.AudienceOrg, nil
 }
 
-// GateEnabled reports whether tierID's plan_limits row for featureKey is on.
-// No row (feature_key not in the seeded allowlist, or tier never
-// configured) defaults to true, same "absent means unrestricted" convention
-// as every other override table in this codebase — a key only ever
-// restricts once an admin has actually seeded a row for it.
-func (s *Service) GateEnabled(ctx context.Context, tierID, featureKey string) (bool, error) {
-	enabled, found, err := s.repo.GateEnabled(ctx, tierID, featureKey)
-	if err != nil {
-		return false, err
-	}
-	if !found {
-		return true, nil
-	}
-	return enabled, nil
+// GateMap holds tierID's plan_limits gate rows. No row (feature_key not in
+// the seeded allowlist, or tier never configured) defaults to enabled, same
+// "absent means unrestricted" convention as every other override table in
+// this codebase — a key only ever restricts once an admin has seeded a row.
+type GateMap map[string]bool
+
+// Enabled reports whether featureKey is on for the tier this map was loaded for.
+func (g GateMap) Enabled(featureKey string) bool {
+	enabled, found := g[featureKey]
+	return !found || enabled
 }
 
-// UnlockInfo builds the "how do I get this" contract for a gated-off
-// feature — the lowest tier in audience that grants it.
-func (s *Service) UnlockInfo(ctx context.Context, audience, featureKey string) (UnlockInfo, error) {
-	tierName, found, err := s.repo.FirstUnlockingTier(ctx, audience, featureKey)
+// GateMap loads every gate row for tierID in one query.
+func (s *Service) GateMap(ctx context.Context, tierID string) (GateMap, error) {
+	gates, err := s.repo.GateMap(ctx, tierID)
 	if err != nil {
-		return UnlockInfo{}, err
+		return nil, err
 	}
+	return GateMap(gates), nil
+}
+
+// UnlockInfos builds the "how do I get this" contract for every gated-off
+// feature in audience — keyed by feature_key, from the lowest tier granting it.
+type UnlockInfos struct {
+	audience string
+	tiers    map[string]string
+}
+
+// UnlockInfos loads the lowest unlocking tier per feature for audience in one query.
+func (s *Service) UnlockInfos(ctx context.Context, audience string) (UnlockInfos, error) {
+	tiers, err := s.repo.FirstUnlockingTiers(ctx, audience)
+	if err != nil {
+		return UnlockInfos{}, err
+	}
+	return UnlockInfos{audience: audience, tiers: tiers}, nil
+}
+
+// For returns the unlock contract for featureKey.
+func (u UnlockInfos) For(featureKey string) UnlockInfo {
+	tierName, found := u.tiers[featureKey]
 	if !found {
-		return UnlockInfo{UnlockVia: "plan", CTALabel: "Contact us", Reason: "Not available on any current plan."}, nil
+		return UnlockInfo{UnlockVia: "plan", CTALabel: "Contact us", Reason: "Not available on any current plan."}
 	}
-	if audience == pricing.AudienceOrg {
+	if u.audience == pricing.AudienceOrg {
 		return UnlockInfo{
 			UnlockVia: "plan",
 			CTALabel:  "Ask your admin to upgrade",
 			Reason:    fmt.Sprintf("Available on the %s plan.", tierName),
-		}, nil
+		}
 	}
 	return UnlockInfo{
 		UnlockVia: "plan",
 		CTALabel:  fmt.Sprintf("Upgrade to %s", tierName),
 		Reason:    fmt.Sprintf("Available on the %s plan.", tierName),
-	}, nil
+	}
 }
 
 // TierName exposes the display name for tierID — see Repo.TierName.

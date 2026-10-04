@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 var ErrNotFound = errors.New("courses: not found")
@@ -399,50 +400,15 @@ func (r *Repo) GetCourseTreeBySlug(ctx context.Context, orgID, userID, slug stri
 // GetCourseTree and GetCourseTreeBySlug, which differ only in how c itself
 // was resolved (by id vs. by slug).
 func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error) {
-	sectionRows, err := r.pool.Query(ctx,
-		`SELECT id, course_id, title, position, group_title, created_at FROM course_sections
-		 WHERE course_id = $1 ORDER BY position`, c.ID)
-	if err != nil {
-		return CourseTree{}, fmt.Errorf("courses: get sections: %w", err)
-	}
-	defer sectionRows.Close()
-
-	var sections []CourseSection
-	for sectionRows.Next() {
-		var s CourseSection
-		if err := sectionRows.Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt); err != nil {
-			return CourseTree{}, fmt.Errorf("courses: scan section: %w", err)
-		}
-		sections = append(sections, s)
-	}
-	if err := sectionRows.Err(); err != nil {
-		return CourseTree{}, fmt.Errorf("courses: section rows: %w", err)
-	}
-
-	modRows, err := r.pool.Query(ctx,
-		`SELECT id, course_id, section_id, title, type, position, is_free_preview,
-		        storage_key, duration_seconds, content_body, assessment_id, estimated_minutes,
-		        lab_id, lab_is_required, copied_from_module_id,
-		        starts_at, ends_at, created_at, updated_at
-		 FROM course_modules WHERE course_id = $1 AND deleted_at IS NULL ORDER BY section_id, position`, c.ID)
-	if err != nil {
-		return CourseTree{}, fmt.Errorf("courses: get modules: %w", err)
-	}
-	defer modRows.Close()
-
-	modsBySectionID := map[string][]CourseModule{}
-	for modRows.Next() {
-		var m CourseModule
-		if err := modRows.Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
-			&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
-			&m.AssessmentID, &m.EstimatedMinutes, &m.LabID, &m.LabIsRequired, &m.CopiedFromModuleID,
-			&m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt); err != nil {
-			return CourseTree{}, fmt.Errorf("courses: scan module: %w", err)
-		}
-		modsBySectionID[m.SectionID] = append(modsBySectionID[m.SectionID], m)
-	}
-	if err := modRows.Err(); err != nil {
-		return CourseTree{}, fmt.Errorf("courses: module rows: %w", err)
+	var (
+		sections        []CourseSection
+		modsBySectionID map[string][]CourseModule
+	)
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) { sections, err = r.listCourseSections(gctx, c.ID); return })
+	g.Go(func() (err error) { modsBySectionID, err = r.listCourseModulesBySection(gctx, c.ID); return })
+	if err := g.Wait(); err != nil {
+		return CourseTree{}, err
 	}
 
 	tree := CourseTree{Course: c}
@@ -457,6 +423,58 @@ func (r *Repo) buildCourseTree(ctx context.Context, c Course) (CourseTree, error
 		tree.Sections = []SectionWithModules{}
 	}
 	return tree, nil
+}
+
+func (r *Repo) listCourseSections(ctx context.Context, courseID string) ([]CourseSection, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, course_id, title, position, group_title, created_at FROM course_sections
+		 WHERE course_id = $1 ORDER BY position`, courseID)
+	if err != nil {
+		return nil, fmt.Errorf("courses: get sections: %w", err)
+	}
+	defer rows.Close()
+
+	var sections []CourseSection
+	for rows.Next() {
+		var s CourseSection
+		if err := rows.Scan(&s.ID, &s.CourseID, &s.Title, &s.Position, &s.GroupTitle, &s.CreatedAt); err != nil {
+			return nil, fmt.Errorf("courses: scan section: %w", err)
+		}
+		sections = append(sections, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("courses: section rows: %w", err)
+	}
+	return sections, nil
+}
+
+func (r *Repo) listCourseModulesBySection(ctx context.Context, courseID string) (map[string][]CourseModule, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, course_id, section_id, title, type, position, is_free_preview,
+		        storage_key, duration_seconds, content_body, assessment_id, estimated_minutes,
+		        lab_id, lab_is_required, copied_from_module_id,
+		        starts_at, ends_at, created_at, updated_at
+		 FROM course_modules WHERE course_id = $1 AND deleted_at IS NULL ORDER BY section_id, position`, courseID)
+	if err != nil {
+		return nil, fmt.Errorf("courses: get modules: %w", err)
+	}
+	defer rows.Close()
+
+	modsBySectionID := map[string][]CourseModule{}
+	for rows.Next() {
+		var m CourseModule
+		if err := rows.Scan(&m.ID, &m.CourseID, &m.SectionID, &m.Title, &m.Type, &m.Position,
+			&m.IsFreePreview, &m.StorageKey, &m.DurationSeconds, &m.ContentBody,
+			&m.AssessmentID, &m.EstimatedMinutes, &m.LabID, &m.LabIsRequired, &m.CopiedFromModuleID,
+			&m.StartsAt, &m.EndsAt, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("courses: scan module: %w", err)
+		}
+		modsBySectionID[m.SectionID] = append(modsBySectionID[m.SectionID], m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("courses: module rows: %w", err)
+	}
+	return modsBySectionID, nil
 }
 
 // CreateSection inserts a course section.

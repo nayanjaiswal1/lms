@@ -71,21 +71,30 @@ func (r *Repo) SetOrgTier(ctx context.Context, orgID, tierID, updatedBy string) 
 	return nil
 }
 
-// GateEnabled reads one gate-kind plan_limits row. found=false means no row
-// exists for (tierID, featureKey) — callers default-enable in that case, the
-// same "absent means default" convention as features.Repo.OrgFeatureOverrides.
-func (r *Repo) GateEnabled(ctx context.Context, tierID, featureKey string) (enabled bool, found bool, err error) {
-	err = r.pool.QueryRow(ctx,
-		`SELECT bool_value FROM plan_limits WHERE tier_id = $1 AND feature_key = $2 AND kind = 'gate'`,
-		tierID, featureKey,
-	).Scan(&enabled)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, false, nil
-	}
+// GateMap returns tierID's gate-kind plan_limits rows keyed by feature_key.
+// A key with no row is absent from the map (callers treat that as enabled).
+func (r *Repo) GateMap(ctx context.Context, tierID string) (map[string]bool, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT feature_key, bool_value FROM plan_limits WHERE tier_id = $1 AND kind = 'gate'`,
+		tierID,
+	)
 	if err != nil {
-		return false, false, fmt.Errorf("entitlements: gate enabled: %w", err)
+		return nil, fmt.Errorf("entitlements: gate map: %w", err)
 	}
-	return enabled, true, nil
+	defer rows.Close()
+	gates := map[string]bool{}
+	for rows.Next() {
+		var key string
+		var enabled bool
+		if err := rows.Scan(&key, &enabled); err != nil {
+			return nil, fmt.Errorf("entitlements: scan gate: %w", err)
+		}
+		gates[key] = enabled
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("entitlements: gate rows: %w", err)
+	}
+	return gates, nil
 }
 
 // QuotaLimit reads one quota-kind plan_limits row. found=false means
@@ -104,26 +113,32 @@ func (r *Repo) QuotaLimit(ctx context.Context, tierID, featureKey string) (limit
 	return limit, period, true, nil
 }
 
-// FirstUnlockingTier returns the name of the lowest-position tier (within
-// audience) whose plan_limits row for featureKey is enabled — the "upgrade
-// to ___" the frontend shows in a lock overlay. found=false means no tier in
-// this audience grants it (a data bug: every gated key should be unlockable
-// by its top tier at minimum).
-func (r *Repo) FirstUnlockingTier(ctx context.Context, audience, featureKey string) (tierName string, found bool, err error) {
-	err = r.pool.QueryRow(ctx,
-		`SELECT t.name FROM plan_limits pl
+// FirstUnlockingTiers maps each gated feature_key in audience to the name of
+// the lowest tier that grants it. Keys no tier grants are absent.
+func (r *Repo) FirstUnlockingTiers(ctx context.Context, audience string) (map[string]string, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT ON (pl.feature_key) pl.feature_key, t.name FROM plan_limits pl
 		 JOIN pricing_tiers t ON t.id = pl.tier_id
-		 WHERE t.audience = $1 AND pl.feature_key = $2 AND pl.kind = 'gate' AND pl.bool_value = true
-		 ORDER BY t.position ASC LIMIT 1`,
-		audience, featureKey,
-	).Scan(&tierName)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", false, nil
-	}
+		 WHERE t.audience = $1 AND pl.kind = 'gate' AND pl.bool_value = true
+		 ORDER BY pl.feature_key, t.position ASC`,
+		audience,
+	)
 	if err != nil {
-		return "", false, fmt.Errorf("entitlements: first unlocking tier: %w", err)
+		return nil, fmt.Errorf("entitlements: first unlocking tiers: %w", err)
 	}
-	return tierName, true, nil
+	defer rows.Close()
+	tiers := map[string]string{}
+	for rows.Next() {
+		var key, name string
+		if err := rows.Scan(&key, &name); err != nil {
+			return nil, fmt.Errorf("entitlements: scan unlocking tier: %w", err)
+		}
+		tiers[key] = name
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("entitlements: unlocking tier rows: %w", err)
+	}
+	return tiers, nil
 }
 
 // ListPlanLimits returns every plan_limits row for tierID, for the admin

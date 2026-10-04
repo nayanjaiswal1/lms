@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"slices"
 
+	"golang.org/x/sync/errgroup"
+
 	ent "github.com/mindforge/backend/internal/entitlements"
 	"github.com/mindforge/backend/internal/pricing"
 )
@@ -121,17 +123,31 @@ func NewService(repo *Repo, entitlementsSvc *ent.Service) *Service {
 // (GrantedFeatureKeys) for entitlement, gated additionally by the org-level
 // toggle so a platform admin can still kill either org-wide.
 func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureConfig, error) {
-	granted, err := s.repo.GrantedFeatureKeys(ctx, userID)
-	if err != nil {
+	// The six reads are independent, so they run concurrently — sequentially
+	// they dominated /api/me/features (hit by every page render via bootstrap).
+	var (
+		granted          []string
+		orgOverrides     map[string]bool
+		userOverrides    map[string]bool
+		tierID, audience string
+		aiConnectorOn    bool
+		sessionBookingOn bool
+	)
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) { granted, err = s.repo.GrantedFeatureKeys(gctx, userID); return })
+	g.Go(func() (err error) { orgOverrides, err = s.repo.OrgFeatureOverrides(gctx, orgID); return })
+	g.Go(func() (err error) { userOverrides, err = s.repo.UserFeatureOverrides(gctx, orgID, userID); return })
+	g.Go(func() (err error) { aiConnectorOn, err = s.repo.OrgAIConnectorEnabled(gctx, orgID); return })
+	g.Go(func() (err error) { sessionBookingOn, err = s.repo.OrgSessionBookingEnabled(gctx, orgID); return })
+	g.Go(func() (err error) {
+		_, tierID, audience, err = s.entitlements.ResolveAccount(gctx, userID, orgID)
+		return
+	})
+	if err := g.Wait(); err != nil {
 		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
 	}
 
-	orgOverrides, err := s.repo.OrgFeatureOverrides(ctx, orgID)
-	if err != nil {
-		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
-	}
-
-	_, tierID, audience, err := s.entitlements.ResolveAccount(ctx, userID, orgID)
+	gates, err := s.entitlements.GateMap(ctx, tierID)
 	if err != nil {
 		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
 	}
@@ -141,10 +157,7 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 	for _, key := range alwaysOrgEnabled {
 		enabled := true
 		if audience == pricing.AudienceOrg && slices.Contains(ent.OrgGateKeys, key) {
-			enabled, err = s.entitlements.GateEnabled(ctx, tierID, key)
-			if err != nil {
-				return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
-			}
+			enabled = gates.Enabled(key)
 		}
 		if v, ok := orgOverrides[key]; ok {
 			enabled = v
@@ -154,31 +167,17 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 			orgFeatureSet[key] = true
 		}
 	}
-
-	aiConnectorOn, err := s.repo.OrgAIConnectorEnabled(ctx, orgID)
-	if err != nil {
-		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
-	}
 	if aiConnectorOn {
 		orgFeatures = append(orgFeatures, "ai_connector")
 		orgFeatureSet["ai_connector"] = true
-	}
-	sessionBookingOn, err := s.repo.OrgSessionBookingEnabled(ctx, orgID)
-	if err != nil {
-		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
 	}
 	if sessionBookingOn {
 		orgFeatures = append(orgFeatures, "session_booking")
 		orgFeatureSet["session_booking"] = true
 	}
 
-	userOverrides, err := s.repo.UserFeatureOverrides(ctx, orgID, userID)
-	if err != nil {
-		return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
-	}
-
 	entitlementList := []string{}
-	lockedInfo := map[string]LockedFeatureInfo{}
+	locked := map[string]bool{}
 	for _, key := range alwaysEntitled {
 		if !orgFeatureSet[key] {
 			continue
@@ -190,10 +189,7 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 		enabled := true
 		tierGated := audience == pricing.AudienceIndividual && slices.Contains(ent.IndividualGateKeys, key)
 		if tierGated {
-			enabled, err = s.entitlements.GateEnabled(ctx, tierID, key)
-			if err != nil {
-				return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
-			}
+			enabled = gates.Enabled(key)
 		}
 		if v, ok := userOverrides[key]; ok {
 			enabled = v
@@ -201,17 +197,25 @@ func (s *Service) Resolve(ctx context.Context, userID, orgID string) (FeatureCon
 		if enabled {
 			entitlementList = append(entitlementList, key)
 		} else if tierGated {
-			info, err := s.entitlements.UnlockInfo(ctx, pricing.AudienceIndividual, key)
-			if err != nil {
-				return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
-			}
-			lockedInfo[key] = LockedFeatureInfo{UnlockVia: info.UnlockVia, CTALabel: info.CTALabel, Reason: info.Reason}
+			locked[key] = true
 		}
 	}
 	for _, key := range granted {
 		if orgFeatureSet[key] && !slices.Contains(entitlementList, key) {
 			entitlementList = append(entitlementList, key)
-			delete(lockedInfo, key)
+			delete(locked, key)
+		}
+	}
+
+	lockedInfo := map[string]LockedFeatureInfo{}
+	if len(locked) > 0 {
+		unlock, err := s.entitlements.UnlockInfos(ctx, pricing.AudienceIndividual)
+		if err != nil {
+			return FeatureConfig{}, fmt.Errorf("features: resolve: %w", err)
+		}
+		for key := range locked {
+			info := unlock.For(key)
+			lockedInfo[key] = LockedFeatureInfo{UnlockVia: info.UnlockVia, CTALabel: info.CTALabel, Reason: info.Reason}
 		}
 	}
 

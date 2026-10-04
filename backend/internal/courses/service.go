@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/mindforge/backend/internal/ai"
 	"github.com/mindforge/backend/internal/config"
 	"github.com/mindforge/backend/internal/rewards"
@@ -125,37 +127,49 @@ func (s *Service) GetCourseDetailForViewer(ctx context.Context, orgID, userID, s
 		return CourseDetailForViewer{}, err
 	}
 	detail := CourseDetailForViewer{CourseTree: tree}
-	if detail.Bundles, err = s.repo.GetBundlesForCourse(ctx, orgID, tree.ID); err != nil {
+
+	// Every read below is keyed by (user, course) only, so each stage runs
+	// concurrently — serially these six round trips made this endpoint the
+	// slowest call on every lesson navigation.
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) { detail.Bundles, err = s.repo.GetBundlesForCourse(gctx, orgID, tree.ID); return })
+	g.Go(func() error {
+		enrolled, err := s.repo.IsEnrolled(gctx, userID, tree.ID)
+		if err != nil {
+			return fmt.Errorf("courses: check enrollment: %w", err)
+		}
+		detail.IsEnrolled = enrolled
+		return nil
+	})
+	if err := g.Wait(); err != nil {
 		return CourseDetailForViewer{}, err
 	}
-
-	enrolled, err := s.repo.IsEnrolled(ctx, userID, tree.ID)
-	if err != nil {
-		return CourseDetailForViewer{}, fmt.Errorf("courses: check enrollment: %w", err)
-	}
-	detail.IsEnrolled = enrolled
-	if !enrolled {
+	if !detail.IsEnrolled {
 		return detail, nil
 	}
 
-	cp, err := s.repo.GetCourseProgress(ctx, userID, tree.ID)
-	if err != nil {
-		return CourseDetailForViewer{}, err
-	}
-	modules, err := s.repo.GetModuleProgressForCourse(ctx, userID, tree.ID)
-	if err != nil {
+	var (
+		cp      CourseProgress
+		modules []ModuleProgress
+	)
+	g, gctx = errgroup.WithContext(ctx)
+	g.Go(func() (err error) { cp, err = s.repo.GetCourseProgress(gctx, userID, tree.ID); return })
+	g.Go(func() (err error) { modules, err = s.repo.GetModuleProgressForCourse(gctx, userID, tree.ID); return })
+	g.Go(func() error {
+		rev, err := s.repo.GetMyReview(gctx, userID, tree.ID)
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		detail.MyRating = &rev.Rating
+		return nil
+	})
+	if err := g.Wait(); err != nil {
 		return CourseDetailForViewer{}, err
 	}
 	detail.Progress = &CourseProgressSummary{Completed: cp.Completed, Total: cp.Total, Pct: cp.Pct, Modules: modules}
-
-	rev, err := s.repo.GetMyReview(ctx, userID, tree.ID)
-	if err != nil {
-		if !errors.Is(err, ErrNotFound) {
-			return CourseDetailForViewer{}, err
-		}
-	} else {
-		detail.MyRating = &rev.Rating
-	}
 	return detail, nil
 }
 
